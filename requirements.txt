@@ -1,0 +1,13 @@
+requests
+ipykernel
+python-dotenv
+openai
+pydantic
+docling
+lancedb
+streamlit
+tiktoken
+snakemake
+ocrmypdf
+tesseract
+pycld3
