@@ -41,14 +41,19 @@ And more, to be explored later.
 ## Installation
 
 ```
+brew install ghostscript
+brew install tesseract
+brew install pngquant
+brew install jbig2enc
 conda create --name corpus python=3.13
+conda activate corpus
 pip install -r requirements.txt
 ```
 
 ## Usage
 
 ```
-snakemake --cores 1
+snakemake --cores 1 --scheduler greedy
 
 ```
 
