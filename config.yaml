@@ -1,0 +1,35 @@
+# Configuration for corpus processing workflow
+
+# Input/Output directories
+input_dir: "demo"
+output_dir: "output"
+
+# OCR settings
+ocr:
+  language_detection: true
+  redo_ocr: true
+  deskew: true
+  rotate_pages: true
+  optimize_level: 2
+
+# Chunking settings
+chunking:
+  max_tokens: 8191
+  model_name: "text-embedding-3-small"
+  merge_peers: true
+
+# Embedding settings
+embedding:
+  model: "text-embedding-3-small"
+  dimensions: 1536
+  batch_size: 100
+
+# Vector database settings
+vector_db:
+  path: "output/lancedb"
+  table_name: "document_chunks"
+
+# Quality control
+qc:
+  enable_validation: true
+  sample_size: 5

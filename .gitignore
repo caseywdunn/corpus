@@ -1,5 +1,8 @@
 .env
 .DS_Store
+output/
+.claude/
+.snakemake/
 
 
 # Byte-compiled / optimized / DLL files
