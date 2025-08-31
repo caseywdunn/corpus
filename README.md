@@ -28,6 +28,13 @@ Tools to spot check the preprocessing steps:
 
 This relies on a set of demo documents that have been manually assessed.
 
+To view docling parsing bounding boxes on a pdf:
+
+```
+python scripts/qc/visualize_docling_parse.py <path_to_pdf> --level <char|word|line>
+```
+
+
 ### Aanalysis
 
 Includes:

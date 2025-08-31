@@ -15,3 +15,5 @@ pathlib2
 pulp
 coincbc
 pymupdf
+pyqt5
+matplotlib
