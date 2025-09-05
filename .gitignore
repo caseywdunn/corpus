@@ -3,6 +3,8 @@
 output/
 .claude/
 .snakemake/
+scratch/
+
 
 
 # Byte-compiled / optimized / DLL files

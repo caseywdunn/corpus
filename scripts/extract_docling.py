@@ -3,9 +3,9 @@
 import os
 import json
 from pathlib import Path
-from docling.document_converter import DocumentConverter
+from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions, EasyOcrOptions
+from docling.datamodel.pipeline_options import PdfPipelineOptions
 
 def main():
     input_pdf = snakemake.input[0]
@@ -21,8 +21,42 @@ def main():
     figures_dir = Path(figures_output).parent / f"{pdf_name}_figures"
     figures_dir.mkdir(exist_ok=True)
     
-    # Initialize docling converter 
-    converter = DocumentConverter()
+    # Check if this is a scanned document based on detection results  
+    pdf_detection_file = str(input_pdf).replace('processed/', 'scan_detection/').replace('_processed.pdf', '_detection.json')
+    is_scanned = False
+    
+    try:
+        if Path(pdf_detection_file).exists():
+            with open(pdf_detection_file, 'r') as f:
+                detection = json.load(f)
+                is_scanned = detection.get('needs_ocr', False)
+    except Exception as e:
+        print(f"Could not read detection file: {e}")
+    
+    print(f"Document detected as: {'scanned' if is_scanned else 'born-digital'}")
+    
+    # Configure pipeline based on document type
+    if is_scanned:
+        # For scanned documents: enable OCR and proper figure segmentation
+        pipeline_options = PdfPipelineOptions(
+            do_ocr=True,  # Enable OCR for scanned content
+            do_table_structure=True,
+            generate_picture_images=True,  # Extract figure images instead of full pages
+            generate_page_images=False,   # Don't extract full page as images
+            do_picture_classification=True,  # Classify image content
+        )
+        pipeline_options.table_structure_options.do_cell_matching = True
+        
+        # Use PdfFormatOption to properly configure the format options
+        pdf_format_option = PdfFormatOption(pipeline_options=pipeline_options)
+        converter = DocumentConverter(
+            format_options={InputFormat.PDF: pdf_format_option}
+        )
+        print("Configured docling for scanned document with OCR and figure segmentation")
+    else:
+        # For born-digital documents: standard processing
+        converter = DocumentConverter()
+        print("Using standard docling processing for born-digital document")
     
     # Convert the PDF
     result = converter.convert(input_pdf)
@@ -51,17 +85,52 @@ def main():
     # Extract and save figures
     figures_data = []
     try:
+        # Method 0: Check if document has pictures directly
+        if hasattr(document, 'pictures') and len(document.pictures) > 0:
+            print(f"Found {len(document.pictures)} pictures in document.pictures")
+            for pic_idx, picture in enumerate(document.pictures):
+                print(f"Picture {pic_idx}: {type(picture).__name__}")
+                
+                figure_filename = f"{pdf_name}_docling_{len(figures_data)+1}.png"
+                figure_path = figures_dir / figure_filename
+                
+                figure_info = {
+                    "figure_id": f"docling_{len(figures_data)+1}",
+                    "filename": figure_filename,
+                    "file_path": str(figure_path),
+                    "type": type(picture).__name__,
+                    "caption": getattr(picture, 'text', ''),
+                    "bbox": str(getattr(picture, 'bbox', None)),
+                    "extraction_method": "docling_pictures"
+                }
+                figures_data.append(figure_info)
+                
+                # Try to save the picture
+                try:
+                    if hasattr(picture, 'get_image'):
+                        image = picture.get_image(document) if callable(picture.get_image) else picture.get_image
+                        if image:
+                            image.save(str(figure_path))
+                            print(f"Saved docling picture: {figure_filename}")
+                    elif hasattr(picture, 'image'):
+                        if picture.image:
+                            picture.image.save(str(figure_path))
+                            print(f"Saved docling picture: {figure_filename}")
+                except Exception as e:
+                    print(f"Could not save docling picture {pic_idx}: {e}")
+        
         # Method 1: Look through document elements for images/figures
-        if hasattr(document, 'body') and hasattr(document.body, 'elements'):
-            print(f"Checking {len(document.body.elements)} document elements for figures")
+        elif hasattr(document, 'body') and hasattr(document.body, 'children'):
+            print(f"Checking {len(document.body.children)} document body children for figures")
             
-            for elem_idx, element in enumerate(document.body.elements):
+            for elem_idx, element in enumerate(document.body.children):
                 element_type = str(type(element).__name__)
                 if elem_idx < 10:  # Only show first 10 to avoid spam
-                    print(f"Element {elem_idx}: {element_type}")
+                    print(f"Element {elem_idx}: {element_type} - {str(element)[:100]}")
                 
-                # Check for picture/image elements
-                if 'picture' in element_type.lower() or 'image' in element_type.lower():
+                # Check for picture/image elements (broader check)
+                if ('picture' in element_type.lower() or 'image' in element_type.lower() or
+                    'Picture' in element_type or 'Figure' in element_type):
                     figure_filename = f"{pdf_name}_docling_{len(figures_data)+1}.png"
                     figure_path = figures_dir / figure_filename
                     
@@ -85,6 +154,8 @@ def main():
                                 print(f"Saved docling image: {figure_filename}")
                     except Exception as e:
                         print(f"Could not save docling image {elem_idx}: {e}")
+        else:
+            print("No document.pictures or document.body.children found")
         
         # Method 2: Use PyMuPDF as fallback to extract images directly from PDF
         print("Trying PyMuPDF extraction as fallback...")
