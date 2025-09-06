@@ -33,7 +33,8 @@ rule extract_docling:
         f"{OUTPUT_DIR}/processed/{{pdf}}_processed.pdf"
     output:
         text=f"{OUTPUT_DIR}/docling/{{pdf}}_text.json",
-        figures=f"{OUTPUT_DIR}/docling/{{pdf}}_figures.json"
+        figures=f"{OUTPUT_DIR}/docling/{{pdf}}_figures.json",
+        visualizations=directory(f"{OUTPUT_DIR}/docling/{{pdf}}_visualizations")
     script:
         "scripts/extract_docling.py"
 

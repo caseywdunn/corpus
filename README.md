@@ -35,7 +35,7 @@ python scripts/qc/visualize_docling_parse.py <path_to_pdf> --level <char|word|li
 ```
 
 
-### Aanalysis
+### Analysis
 
 Includes:
 
