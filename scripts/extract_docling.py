@@ -7,8 +7,8 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 
-def create_cell_visualizations(input_pdf, output_dir, pdf_name):
-    """Create cell visualization PNGs using docling-parse"""
+def create_cell_visualizations(input_pdf, output_dir, pdf_name, document):
+    """Create cell visualization PNGs using docling-parse with figure regions highlighted"""
     try:
         from docling_core.types.doc.page import TextCellUnit
         from docling_parse.pdf_parser import DoclingPdfParser, PdfDocument
@@ -19,6 +19,20 @@ def create_cell_visualizations(input_pdf, output_dir, pdf_name):
         pdf_parser = DoclingPdfParser()
         pdf_doc: PdfDocument = pdf_parser.load(path_or_stream=input_pdf)
         
+        # Get figure bounding boxes from the docling document
+        figure_bboxes_by_page = {}
+        if hasattr(document, 'pictures') and document.pictures:
+            for picture in document.pictures:
+                if hasattr(picture, 'prov') and picture.prov:
+                    for prov_item in picture.prov:
+                        if hasattr(prov_item, 'page_no') and hasattr(prov_item, 'bbox'):
+                            page_no = prov_item.page_no
+                            if page_no not in figure_bboxes_by_page:
+                                figure_bboxes_by_page[page_no] = []
+                            figure_bboxes_by_page[page_no].append(prov_item.bbox)
+        
+        print(f"Found figure regions on pages: {list(figure_bboxes_by_page.keys())}")
+        
         # Create visualization for word-level cells
         cell_unit = TextCellUnit.WORD
         
@@ -28,7 +42,27 @@ def create_cell_visualizations(input_pdf, output_dir, pdf_name):
             draw = ImageDraw.Draw(img)
             img_height = img.height
             
-            # Draw rectangles around each cell
+            # First, highlight figure regions in yellow
+            if page_no in figure_bboxes_by_page:
+                for bbox in figure_bboxes_by_page[page_no]:
+                    # Convert bbox coordinates (assumes bottom-left origin) to PIL coordinates (top-left origin)
+                    x0 = bbox.l
+                    x1 = bbox.r
+                    y0_raw = bbox.t  # top in document coordinates
+                    y1_raw = bbox.b  # bottom in document coordinates
+                    # Flip Y coordinates for PIL (top-left origin)
+                    y0 = img_height - y0_raw
+                    y1 = img_height - y1_raw
+                    
+                    # Ensure coordinates are in correct order
+                    x0, x1 = min(x0, x1), max(x0, x1)
+                    y0, y1 = min(y0, y1), max(y0, y1)
+                    
+                    rect = (x0, y0, x1, y1)
+                    draw.rectangle(rect, fill="yellow", outline="orange", width=3)
+                    print(f"  Highlighted figure region: {rect}")
+            
+            # Then, draw red rectangles around text cells (these will show over non-figure areas)
             for cell in pred_page.iterate_cells(unit_type=cell_unit):
                 # Convert cell.rect to (x0, y0, x1, y1) and flip y for PIL
                 x0 = min(getattr(cell.rect, "r_x0", 0), getattr(cell.rect, "r_x2", 0))
@@ -38,7 +72,26 @@ def create_cell_visualizations(input_pdf, output_dir, pdf_name):
                 y0 = img_height - y1_raw
                 y1 = img_height - y0_raw
                 rect = (x0, y0, x1, y1)
-                draw.rectangle(rect, outline="red", width=2)
+                
+                # Check if this cell overlaps with any figure region
+                is_in_figure = False
+                if page_no in figure_bboxes_by_page:
+                    for bbox in figure_bboxes_by_page[page_no]:
+                        fig_x0, fig_x1 = bbox.l, bbox.r
+                        fig_y0_raw, fig_y1_raw = bbox.t, bbox.b
+                        fig_y0 = img_height - fig_y0_raw
+                        fig_y1 = img_height - fig_y1_raw
+                        fig_x0, fig_x1 = min(fig_x0, fig_x1), max(fig_x0, fig_x1)
+                        fig_y0, fig_y1 = min(fig_y0, fig_y1), max(fig_y0, fig_y1)
+                        
+                        # Check for overlap
+                        if (x0 < fig_x1 and x1 > fig_x0 and y0 < fig_y1 and y1 > fig_y0):
+                            is_in_figure = True
+                            break
+                
+                # Only draw cell boundaries for text regions (not in figures)
+                if not is_in_figure:
+                    draw.rectangle(rect, outline="red", width=2)
             
             # Save the visualization
             viz_filename = f"{pdf_name}_page{page_no}_cells.png"
@@ -114,14 +167,7 @@ def main():
     result = converter.convert(input_pdf)
     document = result.document
     
-    # Debug: Print document structure
-    print(f"Document attributes: {dir(document)}")
-    if hasattr(document, 'body'):
-        print(f"Body attributes: {dir(document.body)}")
-        if hasattr(document.body, 'elements'):
-            print(f"Found {len(document.body.elements)} elements")
-            for i, elem in enumerate(document.body.elements[:5]):  # Show first 5
-                print(f"Element {i}: type={getattr(elem, 'type', 'unknown')}, text preview={str(elem)[:50]}...")
+    # Document processing completed
     
     # Extract text content
     text_content = {
@@ -325,7 +371,7 @@ def main():
     
     # Create cell visualizations if directory specified
     if visualization_dir:
-        create_cell_visualizations(input_pdf, viz_dir, pdf_name)
+        create_cell_visualizations(input_pdf, viz_dir, pdf_name, document)
 
 if __name__ == "__main__":
     main()
