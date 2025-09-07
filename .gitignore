@@ -1,6 +1,6 @@
 .env
 .DS_Store
-output/
+output*/
 .claude/
 .snakemake/
 scratch/
