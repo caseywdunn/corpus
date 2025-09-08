@@ -262,12 +262,13 @@ def detect_scan_type(pdf_path: Path) -> Dict:
         }
         
     except ImportError:
-        print(f"    Warning: PyMuPDF not available, assuming PDF needs OCR")
+        # If PyMuPDF isn't available, avoid expensive OCR; proceed as born-digital.
+        print(f"    Warning: PyMuPDF not available; treating as born-digital (no OCR)")
         return {
             "filename": pdf_path.name,
-            "has_text": False,
-            "needs_ocr": True,
-            "file_type": "scanned"
+            "has_text": True,
+            "needs_ocr": False,
+            "file_type": "born_digital"
         }
     except Exception as e:
         print(f"    Warning: Error checking text content: {e}")
@@ -315,136 +316,161 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
 
 
 def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: Path, figures_dir: Path, visualizations_dir: Path):
-    """Extract text and figures using docling."""
+    """Extract text and figures using docling, with PyMuPDF fallback for figures.
+
+    Guarantees that only successfully saved figures are listed in figures.json.
+    """
+    document = None
+    text_content = None
+
+    # Ensure figure directory exists
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
     try:
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.pipeline_options import PdfPipelineOptions
-        
-        # Configure converter (simplified version of original logic)
-        converter = DocumentConverter()
-        
-        # Convert the PDF
+        # Configure converter to generate picture images explicitly
+        pipeline_options = PdfPipelineOptions(
+            do_ocr=False,
+            do_table_structure=True,
+            generate_picture_images=True,
+            generate_page_images=False,
+            do_picture_classification=True,
+        )
+        pdf_format_option = PdfFormatOption(pipeline_options=pipeline_options)
+        converter = DocumentConverter(format_options={InputFormat.PDF: pdf_format_option})
         result = converter.convert(str(pdf_path))
         document = result.document
-        
+
+        # Extract text from docling if available
+        text_content = {
+            "title": document.name,
+            "text": document.export_to_markdown(),
+            "pages": len(document.pages) if hasattr(document, "pages") else None,
+        }
     except ImportError as e:
-        print(f"    Warning: Docling not available ({e}), creating placeholder files")
-        
-        # Create placeholder text content
-        text_content = {
-            "title": pdf_path.stem,
-            "text": f"# {pdf_path.stem}\n\n[Text extraction requires docling installation]",
-            "pages": None
-        }
-        
-        with open(text_output, 'w', encoding='utf-8') as f:
-            json.dump(text_content, f, indent=2, ensure_ascii=False)
-        
-        # Create placeholder figures content
-        figures_info = {
-            "figures": [],
-            "figures_directory": str(figures_dir),
-            "total_figures": 0
-        }
-        
-        with open(figures_output, 'w', encoding='utf-8') as f:
-            json.dump(figures_info, f, indent=2)
-        
-        print(f"    Skipping visualizations (docling not available)")
-        return
-    
+        print(f"    Warning: Docling not available ({e}), will fallback for figures")
     except Exception as e:
-        print(f"    Warning: Docling extraction failed ({e}), creating placeholder files")
-        
-        # Create placeholder files as above
+        print(f"    Warning: Docling extraction failed ({e}), will fallback for figures")
+
+    # If we couldn't get text via docling, write a placeholder text file
+    if text_content is None:
         text_content = {
             "title": pdf_path.stem,
-            "text": f"# {pdf_path.stem}\n\n[Text extraction failed: {e}]",
-            "pages": None
+            "text": f"# {pdf_path.stem}\n\n[Text extraction unavailable — see logs]",
+            "pages": None,
         }
-        
-        with open(text_output, 'w', encoding='utf-8') as f:
-            json.dump(text_content, f, indent=2, ensure_ascii=False)
-        
-        figures_info = {
-            "figures": [],
-            "figures_directory": str(figures_dir),
-            "total_figures": 0
-        }
-        
-        with open(figures_output, 'w', encoding='utf-8') as f:
-            json.dump(figures_info, f, indent=2)
-        
-        print(f"    Skipping visualizations (docling extraction failed)")
-        return
-    
-    # Extract text content
-    text_content = {
-        "title": document.name,
-        "text": document.export_to_markdown(),
-        "pages": len(document.pages) if hasattr(document, 'pages') else None
-    }
-    
-    # Save text content
-    with open(text_output, 'w', encoding='utf-8') as f:
+
+    # Save text content (from docling or placeholder)
+    with open(text_output, "w", encoding="utf-8") as f:
         json.dump(text_content, f, indent=2, ensure_ascii=False)
-    
-    # Extract figures
+
+    # Accumulate figure metadata only when file is saved
     figures_data = []
-    pdf_name = pdf_path.stem
-    
-    try:
-        if hasattr(document, 'pictures') and len(document.pictures) > 0:
-            for pic_idx, picture in enumerate(document.pictures):
-                figure_filename = f"figure_{pic_idx + 1}.png"
-                figure_path = figures_dir / figure_filename
-                
-                # Try to extract caption
-                caption = ""
-                try:
-                    if hasattr(picture, 'caption_text'):
-                        if callable(picture.caption_text):
-                            caption = picture.caption_text(document)
-                        else:
-                            caption = str(picture.caption_text) if picture.caption_text else ""
-                except:
-                    pass
-                
-                figure_info = {
-                    "figure_id": f"figure_{pic_idx + 1}",
-                    "filename": figure_filename,
-                    "file_path": str(figure_path),
-                    "caption": caption,
-                    "extraction_method": "docling"
-                }
-                figures_data.append(figure_info)
-                
-                # Save the image
-                try:
-                    if hasattr(picture, 'get_image'):
-                        image = picture.get_image(document) if callable(picture.get_image) else picture.get_image
-                        if image:
-                            image.save(str(figure_path))
-                except Exception as e:
-                    print(f"    Warning: Could not save figure {pic_idx}: {e}")
-    
-    except Exception as e:
-        print(f"    Warning: Could not extract figures: {e}")
-    
-    # Save figures data
+
+    # Helper to append a figure entry only if file exists
+    def append_figure(figure_id: str, figure_path: Path, caption: str, meta: dict):
+        if figure_path.exists() and figure_path.stat().st_size > 0:
+            entry = {
+                "figure_id": figure_id,
+                "filename": figure_path.name,
+                "file_path": str(figure_path),
+                "caption": caption or "",
+            }
+            entry.update(meta or {})
+            figures_data.append(entry)
+        else:
+            print(f"    Warning: Skipping missing/empty figure file: {figure_path}")
+
+    # First try: use docling pictures if document is available
+    if document is not None and hasattr(document, "pictures"):
+        saved_count = 0
+        for idx, picture in enumerate(document.pictures or []):
+            figure_path = figures_dir / f"figure_{idx + 1}.png"
+
+            # Caption (best-effort)
+            caption = ""
+            try:
+                if hasattr(picture, "caption_text"):
+                    caption = picture.caption_text(document) if callable(picture.caption_text) else (
+                        str(picture.caption_text) if picture.caption_text else ""
+                    )
+            except Exception as e:
+                print(f"    Note: caption extraction failed for figure {idx+1}: {e}")
+
+            # Save image if available
+            try:
+                image = None
+                if hasattr(picture, "get_image"):
+                    image = picture.get_image(document) if callable(picture.get_image) else picture.get_image
+                if image is not None and hasattr(image, "save"):
+                    image.save(str(figure_path))
+                    saved_count += 1
+                    append_figure(
+                        figure_id=f"docling_{idx + 1}",
+                        figure_path=figure_path,
+                        caption=caption,
+                        meta={"extraction_method": "docling"},
+                    )
+                else:
+                    print(f"    Warning: Docling did not return a savable image for figure {idx+1}")
+            except Exception as e:
+                print(f"    Warning: Could not save docling figure {idx+1}: {e}")
+
+        if saved_count == 0:
+            print("    No figures saved via docling; will try PyMuPDF fallback")
+
+    # Fallback: use PyMuPDF to extract embedded images from the PDF
+    if len(figures_data) == 0:
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(str(pdf_path))
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                for img_index, img in enumerate(page.get_images()):
+                    try:
+                        xref = img[0]
+                        pix = fitz.Pixmap(doc, xref)
+                        if pix.n - pix.alpha < 4:  # RGB or GRAY
+                            figure_path = figures_dir / f"page{page_num + 1}_img{img_index + 1}.png"
+                            pix.save(str(figure_path))
+                            append_figure(
+                                figure_id=f"pymupdf_p{page_num + 1}_i{img_index + 1}",
+                                figure_path=figure_path,
+                                caption="",
+                                meta={
+                                    "extraction_method": "pymupdf",
+                                    "page": page_num + 1,
+                                    "width": pix.width,
+                                    "height": pix.height,
+                                },
+                            )
+                        pix = None
+                    except Exception as e:
+                        print(f"    Warning: Failed to save PyMuPDF image p{page_num+1} i{img_index+1}: {e}")
+            doc.close()
+        except ImportError:
+            print("    Warning: PyMuPDF not available; cannot run fallback image extraction")
+        except Exception as e:
+            print(f"    Warning: PyMuPDF fallback failed: {e}")
+
+    # Write figures.json
     figures_info = {
         "figures": figures_data,
         "figures_directory": str(figures_dir),
-        "total_figures": len(figures_data)
+        "total_figures": len(figures_data),
     }
-    
-    with open(figures_output, 'w', encoding='utf-8') as f:
+    with open(figures_output, "w", encoding="utf-8") as f:
         json.dump(figures_info, f, indent=2)
-    
-    # Create cell visualizations
-    pdf_name = pdf_path.stem
-    create_cell_visualizations(pdf_path, visualizations_dir, pdf_name, document)
+
+    # Create cell visualizations only if we have a document from docling
+    if document is not None:
+        pdf_name = pdf_path.stem
+        try:
+            create_cell_visualizations(pdf_path, visualizations_dir, pdf_name, document)
+        except Exception as e:
+            print(f"    Warning: creating visualizations failed: {e}")
 
 
 def extract_metadata(pdf_path: Path, metadata_output: Path):

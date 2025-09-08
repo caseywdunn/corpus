@@ -4,6 +4,7 @@ output*/
 .claude/
 .snakemake/
 scratch/
+demo_*/
 
 
 
