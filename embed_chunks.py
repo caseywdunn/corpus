@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import List, Dict
 import lancedb
 from lancedb.pydantic import LanceModel, Vector
-import numpy as np
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -33,34 +32,63 @@ class DocumentChunk(LanceModel):
     vector: Vector(1536)  # text-embedding-3-small has 1536 dimensions
     metadata: ChunkMetadata
 
+class EmbeddingError(RuntimeError):
+    """Raised when the embedding backend fails.
+
+    We deliberately do not silently substitute zero vectors — a zero-vector
+    would poison the index with content that appears maximally dissimilar
+    from every query, and the failure would go undetected until a human
+    noticed bad search results.
+    """
+
+
 def get_embeddings(texts: List[str]) -> List[List[float]]:
-    """Get embeddings for a list of texts using OpenAI API"""
+    """Get embeddings for a list of texts using the OpenAI API.
+
+    Raises :class:`EmbeddingError` on any failure. The caller is responsible
+    for skipping the affected document (and marking it failed) rather than
+    writing corrupt vectors.
+    """
     try:
         from openai import OpenAI
-        client = OpenAI()
-        
-        # Process in batches to avoid API limits
-        batch_size = 100
-        all_embeddings = []
-        
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            print(f"  Getting embeddings for batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
-            
+    except ImportError as e:
+        raise EmbeddingError(
+            "openai package not installed; embed_chunks requires it "
+            "(pip install openai). This backend will be replaced in Phase E."
+        ) from e
+
+    client = OpenAI()
+
+    # Process in batches to avoid API limits
+    batch_size = 100
+    all_embeddings: List[List[float]] = []
+
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        print(
+            f"  Getting embeddings for batch {i // batch_size + 1}/"
+            f"{(len(texts) + batch_size - 1) // batch_size}"
+        )
+        try:
             response = client.embeddings.create(
                 model="text-embedding-3-small",
-                input=batch
+                input=batch,
             )
-            
-            batch_embeddings = [embedding.embedding for embedding in response.data]
-            all_embeddings.extend(batch_embeddings)
-        
-        return all_embeddings
-        
-    except Exception as e:
-        print(f"Error getting embeddings: {e}")
-        # Return zero vectors as fallback
-        return [np.zeros(1536).tolist() for _ in texts]
+        except Exception as e:
+            raise EmbeddingError(
+                f"OpenAI embeddings call failed on batch "
+                f"{i // batch_size + 1}: {e}"
+            ) from e
+
+        batch_embeddings = [embedding.embedding for embedding in response.data]
+        if len(batch_embeddings) != len(batch):
+            raise EmbeddingError(
+                f"OpenAI returned {len(batch_embeddings)} embeddings for a "
+                f"batch of {len(batch)} inputs"
+            )
+        all_embeddings.extend(batch_embeddings)
+
+    return all_embeddings
 
 def load_document_data(hash_dir: Path) -> Dict:
     """Load all data for a document from its hash directory."""

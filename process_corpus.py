@@ -7,13 +7,132 @@ Recursively finds PDFs in input_dir, processes them with hash-based organization
 import argparse
 import hashlib
 import json
+import logging
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 import tempfile
 import os
+
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Config + logging helpers (Phase A)
+# ---------------------------------------------------------------------------
+
+# Defaults used if config.yaml is missing or a key is absent.
+_DEFAULT_CONFIG = {
+    "ocr": {
+        "language_detection": True,
+        "redo_ocr": True,
+        "deskew": True,
+        "rotate_pages": True,
+        "optimize_level": 2,
+    },
+    "chunking": {
+        "max_tokens": 8191,
+        "model_name": "text-embedding-3-small",
+        "merge_peers": True,
+    },
+    "embedding": {
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "batch_size": 100,
+    },
+    "vector_db": {
+        "path": "output/lancedb",
+        "table_name": "document_chunks",
+    },
+    "qc": {
+        "enable_validation": True,
+        "sample_size": 5,
+    },
+}
+
+
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    """Recursively merge overlay into a copy of base. Overlay values win."""
+    out = dict(base)
+    for k, v in (overlay or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def load_config(config_path: Optional[Path] = None) -> dict:
+    """Load config.yaml (if present) and merge it over the built-in defaults.
+
+    Missing file is not an error — defaults are returned. Missing keys fall
+    back to defaults. A malformed YAML is an error (loud failure).
+    """
+    if config_path is None:
+        config_path = Path(__file__).parent / "config.yaml"
+    if not config_path.exists():
+        logger.info("No config.yaml at %s; using built-in defaults.", config_path)
+        return dict(_DEFAULT_CONFIG)
+    try:
+        import yaml
+    except ImportError as e:
+        raise RuntimeError(
+            "pyyaml is required to read config.yaml; pip install pyyaml"
+        ) from e
+    with open(config_path, "r", encoding="utf-8") as f:
+        overlay = yaml.safe_load(f) or {}
+    merged = _deep_merge(_DEFAULT_CONFIG, overlay)
+    logger.info("Loaded config from %s", config_path)
+    return merged
+
+
+# Module-level config; populated by main(), also safe-loaded on import with
+# defaults so helper functions can run outside main() (e.g., in tests).
+CONFIG: dict = dict(_DEFAULT_CONFIG)
+
+
+def setup_root_logging(level: int = logging.INFO) -> None:
+    """Configure the root logger with a single stderr stream handler.
+
+    Per-PDF file handlers are added/removed around each document by
+    ``per_pdf_file_log``; they coexist with this stream handler so output
+    appears both on the terminal and in the per-paper pipeline.log.
+    """
+    root = logging.getLogger()
+    root.setLevel(level)
+    # Avoid duplicate stream handlers if called twice.
+    for h in root.handlers:
+        if isinstance(h, logging.StreamHandler) and getattr(h, "_corpus_stream", False):
+            return
+    sh = logging.StreamHandler()
+    sh.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    sh._corpus_stream = True  # marker so we don't re-add on repeated calls
+    root.addHandler(sh)
+
+
+@contextmanager
+def per_pdf_file_log(hash_dir: Path):
+    """Attach a FileHandler writing to ``<hash_dir>/pipeline.log`` for the
+    duration of the context. All ``logging`` calls made inside the block are
+    captured to that file in addition to the root stream handler.
+    """
+    hash_dir.mkdir(parents=True, exist_ok=True)
+    log_path = hash_dir / "pipeline.log"
+    fh = logging.FileHandler(log_path, mode="w", encoding="utf-8")
+    fh.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    root = logging.getLogger()
+    root.addHandler(fh)
+    try:
+        yield log_path
+    finally:
+        root.removeHandler(fh)
+        fh.close()
 
 
 def create_cell_visualizations(input_pdf: Path, output_dir: Path, pdf_name: str, document):
@@ -23,7 +142,7 @@ def create_cell_visualizations(input_pdf: Path, output_dir: Path, pdf_name: str,
         from docling_parse.pdf_parser import DoclingPdfParser, PdfDocument
         from PIL import ImageDraw
         
-        print(f"    Creating cell visualizations...")
+        logger.info("Creating cell visualizations...")
         
         pdf_parser = DoclingPdfParser()
         pdf_doc: PdfDocument = pdf_parser.load(path_or_stream=str(input_pdf))
@@ -103,40 +222,53 @@ def create_cell_visualizations(input_pdf: Path, output_dir: Path, pdf_name: str,
             viz_path = output_dir / viz_filename
             img.save(str(viz_path))
             
-        print(f"    Saved {len(list(pdf_doc.iterate_pages()))} visualization PNGs")
-            
+        logger.info("Saved %d visualization PNGs", len(list(pdf_doc.iterate_pages())))
+
     except ImportError as e:
-        print(f"    Warning: Could not create visualizations - missing dependencies: {e}")
+        logger.warning("Could not create visualizations — missing dependencies: %s", e)
     except Exception as e:
-        print(f"    Warning: Could not create visualizations: {e}")
+        logger.warning("Could not create visualizations: %s", e)
+
+
+HASH_PREFIX_LEN = 12  # 48 bits; collision-safe up to ~1e7 documents
 
 
 def calculate_pdf_hash(pdf_path: Path) -> str:
-    """Calculate SHA-256 hash of PDF file for unique identification."""
+    """Calculate the full SHA-256 hex digest of a PDF file.
+
+    The per-document directory uses a 12-char lowercase prefix of this digest
+    (see :data:`HASH_PREFIX_LEN`); the full digest is recorded in each
+    ``summary.json`` so we can verify on resume that a re-encountered prefix
+    really identifies the same PDF (rather than a hash-prefix collision).
+    """
     hasher = hashlib.sha256()
-    with open(pdf_path, 'rb') as f:
+    with open(pdf_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hasher.update(chunk)
-    return hasher.hexdigest()[:8].upper()  # Use first 8 chars like git
+    return hasher.hexdigest()
+
+
+def short_hash(full_hash: str) -> str:
+    """Return the 12-char lowercase prefix used as the per-document dir name."""
+    return full_hash[:HASH_PREFIX_LEN].lower()
 
 
 def find_all_pdfs(input_dir: Path) -> Dict[str, List[Path]]:
+    """Recursively find all PDFs under ``input_dir`` and group by full SHA-256.
+
+    Returns a dict mapping full hex digest → list of paths that share it
+    (duplicates). The caller derives the short directory name via
+    :func:`short_hash`.
     """
-    Recursively find all PDFs in input directory.
-    Returns dict mapping PDF hash to list of paths (for duplicate detection).
-    """
-    pdf_map = {}
-    
+    pdf_map: Dict[str, List[Path]] = {}
     for pdf_path in input_dir.rglob("*.pdf"):
-        if pdf_path.is_file():
-            try:
-                pdf_hash = calculate_pdf_hash(pdf_path)
-                if pdf_hash not in pdf_map:
-                    pdf_map[pdf_hash] = []
-                pdf_map[pdf_hash].append(pdf_path)
-            except Exception as e:
-                print(f"Warning: Could not hash {pdf_path}: {e}")
-    
+        if not pdf_path.is_file():
+            continue
+        try:
+            full_hash = calculate_pdf_hash(pdf_path)
+            pdf_map.setdefault(full_hash, []).append(pdf_path)
+        except Exception as e:
+            logger.warning("Could not hash %s: %s", pdf_path, e)
     return pdf_map
 
 
@@ -157,75 +289,73 @@ def get_relative_paths(pdf_paths: List[Path], input_dir: Path) -> List[str]:
 
 
 def run_pdf_processing_pipeline(pdf_path: Path, hash_dir: Path, temp_dir: Path) -> Dict:
-    """
-    Run the PDF processing pipeline for a single PDF.
-    Returns summary information about the processing.
+    """Run the per-PDF processing pipeline and return a summary dict.
+
+    Called inside a :func:`per_pdf_file_log` block by the main loop, so all
+    ``logging`` calls here are captured to ``<hash_dir>/pipeline.log``.
     """
     pdf_name = pdf_path.stem
     temp_pdf = temp_dir / f"{pdf_name}.pdf"
-    
+
     # Copy PDF to temp directory for processing
     shutil.copy2(pdf_path, temp_pdf)
-    
+
     # Create subdirectories in hash directory
     figures_dir = hash_dir / "figures"
     figures_dir.mkdir(exist_ok=True)
     visualizations_dir = hash_dir / "visualizations"
     visualizations_dir.mkdir(exist_ok=True)
-    
+
     processing_summary = {
         "original_pdf": str(pdf_path),
         "processing_steps": [],
         "files_created": [],
-        "errors": []
+        "errors": [],
     }
-    
+
     try:
-        # Step 1: Detect scan
-        print(f"  Detecting scan type...")
+        logger.info("Detecting scan type...")
         detection_result = detect_scan_type(temp_pdf)
         detection_file = hash_dir / "scan_detection.json"
-        with open(detection_file, 'w') as f:
+        with open(detection_file, "w") as f:
             json.dump(detection_result, f, indent=2)
         processing_summary["files_created"].append(str(detection_file))
         processing_summary["processing_steps"].append("scan_detection")
-        
-        # Step 2: Prepare PDF (OCR if needed)
-        print(f"  Preparing PDF...")
-        processed_pdf = hash_dir / f"processed.pdf"
-        prepare_pdf_result = prepare_pdf(temp_pdf, detection_result, processed_pdf)
+
+        logger.info("Preparing PDF...")
+        processed_pdf = hash_dir / "processed.pdf"
+        prepare_pdf(temp_pdf, detection_result, processed_pdf)
         processing_summary["files_created"].append(str(processed_pdf))
         processing_summary["processing_steps"].append("pdf_preparation")
-        
-        # Step 3: Extract text and figures with docling
-        print(f"  Extracting text and figures...")
+
+        logger.info("Extracting text and figures...")
         text_file = hash_dir / "text.json"
         figures_file = hash_dir / "figures.json"
-        extract_docling_content(processed_pdf, text_file, figures_file, figures_dir, visualizations_dir)
+        extract_docling_content(
+            processed_pdf, text_file, figures_file, figures_dir, visualizations_dir
+        )
         processing_summary["files_created"].extend([str(text_file), str(figures_file)])
         processing_summary["processing_steps"].append("docling_extraction")
-        
-        # Step 4: Extract metadata
-        print(f"  Extracting metadata...")
+
+        logger.info("Extracting metadata...")
         metadata_file = hash_dir / "metadata.json"
         extract_metadata(processed_pdf, metadata_file)
         processing_summary["files_created"].append(str(metadata_file))
         processing_summary["processing_steps"].append("metadata_extraction")
-        
-        # Step 5: Chunk text
-        print(f"  Chunking text...")
+
+        logger.info("Chunking text...")
         chunks_file = hash_dir / "chunks.json"
         chunk_text(text_file, metadata_file, chunks_file)
         processing_summary["files_created"].append(str(chunks_file))
         processing_summary["processing_steps"].append("text_chunking")
-        
+
         processing_summary["status"] = "success"
-        
+
     except Exception as e:
         processing_summary["status"] = "error"
         processing_summary["errors"].append(str(e))
-        print(f"  Error processing PDF: {e}")
-    
+        logger.exception("Error processing PDF: %s", e)
+
     return processing_summary
 
 
@@ -263,15 +393,15 @@ def detect_scan_type(pdf_path: Path) -> Dict:
         
     except ImportError:
         # If PyMuPDF isn't available, avoid expensive OCR; proceed as born-digital.
-        print(f"    Warning: PyMuPDF not available; treating as born-digital (no OCR)")
+        logger.warning("PyMuPDF not available; treating as born-digital (no OCR)")
         return {
             "filename": pdf_path.name,
             "has_text": True,
             "needs_ocr": False,
-            "file_type": "born_digital"
+            "file_type": "born_digital",
         }
     except Exception as e:
-        print(f"    Warning: Error checking text content: {e}")
+        logger.warning("Error checking text content: %s", e)
         return {
             "filename": pdf_path.name,
             "has_text": False,
@@ -286,32 +416,33 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
     
     if needs_ocr:
         # Check if ocrmypdf is available
-        if shutil.which('ocrmypdf') is None:
-            print(f"    Warning: ocrmypdf not found, copying original PDF")
+        if shutil.which("ocrmypdf") is None:
+            logger.warning("ocrmypdf not found, copying original PDF")
             shutil.copy2(input_pdf, output_pdf)
             return
-            
-        print(f"    Running OCR on {input_pdf.name} (detected as scanned)")
+
+        optimize_level = str(CONFIG.get("ocr", {}).get("optimize_level", 2))
+        logger.info("Running OCR on %s (detected as scanned)", input_pdf.name)
         cmd = [
-            'ocrmypdf', 
-            '--force-ocr',
-            '--optimize', '2',
-            '--color-conversion-strategy', 'RGB',
-            '--output-type', 'pdf',
-            str(input_pdf), 
-            str(output_pdf)
+            "ocrmypdf",
+            "--force-ocr",
+            "--optimize", optimize_level,
+            "--color-conversion-strategy", "RGB",
+            "--output-type", "pdf",
+            str(input_pdf),
+            str(output_pdf),
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         if result.returncode != 0:
-            print(f"    Warning: OCR failed, copying original PDF")
-            print(f"    OCR Error: {result.stderr}")
+            logger.warning("OCR failed, copying original PDF")
+            logger.warning("OCR Error: %s", result.stderr)
             shutil.copy2(input_pdf, output_pdf)
         else:
-            print(f"    OCR completed successfully")
+            logger.info("OCR completed successfully")
     else:
-        print(f"    Copying {input_pdf.name} (detected as born-digital)")
+        logger.info("Copying %s (detected as born-digital)", input_pdf.name)
         shutil.copy2(input_pdf, output_pdf)
 
 
@@ -350,9 +481,9 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
             "pages": len(document.pages) if hasattr(document, "pages") else None,
         }
     except ImportError as e:
-        print(f"    Warning: Docling not available ({e}), will fallback for figures")
+        logger.warning("Docling not available (%s), will fall back for figures", e)
     except Exception as e:
-        print(f"    Warning: Docling extraction failed ({e}), will fallback for figures")
+        logger.warning("Docling extraction failed (%s), will fall back for figures", e)
 
     # If we couldn't get text via docling, write a placeholder text file
     if text_content is None:
@@ -381,7 +512,31 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
             entry.update(meta or {})
             figures_data.append(entry)
         else:
-            print(f"    Warning: Skipping missing/empty figure file: {figure_path}")
+            logger.warning("Skipping missing/empty figure file: %s", figure_path)
+
+    def _docling_prov_to_bbox_page(picture) -> dict:
+        """Extract (page, bbox) from a docling picture's provenance, if any.
+
+        Docling stores bboxes in bottom-left origin PDF points; we record the
+        coordinate system alongside so downstream consumers don't have to
+        guess.
+        """
+        meta: dict = {}
+        prov = getattr(picture, "prov", None)
+        if not prov:
+            return meta
+        first = prov[0]
+        page_no = getattr(first, "page_no", None)
+        bbox = getattr(first, "bbox", None)
+        if page_no is not None:
+            meta["page"] = page_no
+        if bbox is not None:
+            try:
+                meta["bbox"] = [float(bbox.l), float(bbox.b), float(bbox.r), float(bbox.t)]
+                meta["bbox_coord_system"] = "pdf_pts_bottom_left"
+            except Exception as e:  # bbox shape varies between docling versions
+                logger.warning("Could not serialize docling bbox: %s", e)
+        return meta
 
     # First try: use docling pictures if document is available
     if document is not None and hasattr(document, "pictures"):
@@ -397,7 +552,7 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
                         str(picture.caption_text) if picture.caption_text else ""
                     )
             except Exception as e:
-                print(f"    Note: caption extraction failed for figure {idx+1}: {e}")
+                logger.info("Caption extraction failed for figure %d: %s", idx + 1, e)
 
             # Save image if available
             try:
@@ -407,19 +562,21 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
                 if image is not None and hasattr(image, "save"):
                     image.save(str(figure_path))
                     saved_count += 1
+                    meta = {"extraction_method": "docling"}
+                    meta.update(_docling_prov_to_bbox_page(picture))
                     append_figure(
                         figure_id=f"docling_{idx + 1}",
                         figure_path=figure_path,
                         caption=caption,
-                        meta={"extraction_method": "docling"},
+                        meta=meta,
                     )
                 else:
-                    print(f"    Warning: Docling did not return a savable image for figure {idx+1}")
+                    logger.warning("Docling did not return a savable image for figure %d", idx + 1)
             except Exception as e:
-                print(f"    Warning: Could not save docling figure {idx+1}: {e}")
+                logger.warning("Could not save docling figure %d: %s", idx + 1, e)
 
         if saved_count == 0:
-            print("    No figures saved via docling; will try PyMuPDF fallback")
+            logger.info("No figures saved via docling; will try PyMuPDF fallback")
 
     # Fallback: use PyMuPDF to extract embedded images from the PDF
     if len(figures_data) == 0:
@@ -431,29 +588,57 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
                 for img_index, img in enumerate(page.get_images()):
                     try:
                         xref = img[0]
+                        # Attempt to recover the bbox of the image on the page.
+                        # get_image_bbox accepts the image tuple directly; if
+                        # that fails (PyMuPDF version differences), fall back
+                        # to get_image_rects by xref.
+                        bbox_list = None
+                        try:
+                            rect = page.get_image_bbox(img)
+                            if rect and not rect.is_empty:
+                                bbox_list = [float(rect.x0), float(rect.y0), float(rect.x1), float(rect.y1)]
+                        except Exception:
+                            try:
+                                rects = page.get_image_rects(xref)
+                                if rects:
+                                    r = rects[0]
+                                    bbox_list = [float(r.x0), float(r.y0), float(r.x1), float(r.y1)]
+                            except Exception:
+                                bbox_list = None
+
                         pix = fitz.Pixmap(doc, xref)
                         if pix.n - pix.alpha < 4:  # RGB or GRAY
                             figure_path = figures_dir / f"page{page_num + 1}_img{img_index + 1}.png"
                             pix.save(str(figure_path))
+                            meta = {
+                                "extraction_method": "pymupdf",
+                                "page": page_num + 1,
+                                "width": pix.width,
+                                "height": pix.height,
+                            }
+                            if bbox_list is not None:
+                                # PyMuPDF uses PDF-like coords but top-left origin
+                                # (y grows downward). Record that so consumers
+                                # don't confuse it with docling's bottom-left.
+                                meta["bbox"] = bbox_list
+                                meta["bbox_coord_system"] = "pdf_pts_top_left"
                             append_figure(
                                 figure_id=f"pymupdf_p{page_num + 1}_i{img_index + 1}",
                                 figure_path=figure_path,
                                 caption="",
-                                meta={
-                                    "extraction_method": "pymupdf",
-                                    "page": page_num + 1,
-                                    "width": pix.width,
-                                    "height": pix.height,
-                                },
+                                meta=meta,
                             )
                         pix = None
                     except Exception as e:
-                        print(f"    Warning: Failed to save PyMuPDF image p{page_num+1} i{img_index+1}: {e}")
+                        logger.warning(
+                            "Failed to save PyMuPDF image p%d i%d: %s",
+                            page_num + 1, img_index + 1, e,
+                        )
             doc.close()
         except ImportError:
-            print("    Warning: PyMuPDF not available; cannot run fallback image extraction")
+            logger.warning("PyMuPDF not available; cannot run fallback image extraction")
         except Exception as e:
-            print(f"    Warning: PyMuPDF fallback failed: {e}")
+            logger.warning("PyMuPDF fallback failed: %s", e)
 
     # Write figures.json
     figures_info = {
@@ -470,7 +655,7 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
         try:
             create_cell_visualizations(pdf_path, visualizations_dir, pdf_name, document)
         except Exception as e:
-            print(f"    Warning: creating visualizations failed: {e}")
+            logger.warning("Creating visualizations failed: %s", e)
 
 
 def extract_metadata(pdf_path: Path, metadata_output: Path):
@@ -492,37 +677,43 @@ def extract_metadata(pdf_path: Path, metadata_output: Path):
 
 
 def chunk_text(text_file: Path, metadata_file: Path, chunks_output: Path):
-    """Chunk the extracted text."""
-    # Load text and metadata
-    with open(text_file, 'r', encoding='utf-8') as f:
+    """Chunk the extracted text (naive char-window; Phase B will replace with
+    docling's HybridChunker).
+    """
+    with open(text_file, "r", encoding="utf-8") as f:
         text_data = json.load(f)
-    
-    with open(metadata_file, 'r') as f:
+
+    with open(metadata_file, "r") as f:
         metadata = json.load(f)
-    
-    # Simple chunking (placeholder - could integrate more sophisticated chunking)
-    text = text_data.get('text', '')
-    
-    # Split into chunks of roughly 1000 characters
-    chunk_size = 1000
+
+    text = text_data.get("text", "")
+
+    # Temporary approximation: treat max_tokens as a character window. This is
+    # wrong (tokens ≠ chars) but matches the previous behavior well enough
+    # until Phase B swaps in a real tokenizer-aware chunker.
+    chunk_size = int(CONFIG.get("chunking", {}).get("max_tokens", 1000))
+    if chunk_size <= 0:
+        chunk_size = 1000
+
     chunks = []
-    
     for i in range(0, len(text), chunk_size):
-        chunk_text = text[i:i + chunk_size]
-        chunks.append({
-            "chunk_id": f"chunk_{len(chunks)}",
-            "text": chunk_text,
-            "start_char": i,
-            "end_char": min(i + chunk_size, len(text))
-        })
-    
+        piece = text[i : i + chunk_size]
+        chunks.append(
+            {
+                "chunk_id": f"chunk_{len(chunks)}",
+                "text": piece,
+                "start_char": i,
+                "end_char": min(i + chunk_size, len(text)),
+            }
+        )
+
     chunks_data = {
         "metadata": metadata,
         "total_chunks": len(chunks),
-        "chunks": chunks
+        "chunks": chunks,
     }
-    
-    with open(chunks_output, 'w', encoding='utf-8') as f:
+
+    with open(chunks_output, "w", encoding="utf-8") as f:
         json.dump(chunks_data, f, indent=2, ensure_ascii=False)
 
 
@@ -543,98 +734,163 @@ def ingest_to_vector_db(chunks_file: Path, vector_db_dir: Path, pdf_hash: str):
         }, f, indent=2)
 
 
-def create_summary_json(pdf_hash: str, pdf_paths: List[Path], input_dir: Path, 
-                       hash_dir: Path, processing_summary: Dict):
-    """Create summary JSON with all metadata."""
+def create_summary_json(
+    pdf_hash_full: str,
+    pdf_paths: List[Path],
+    input_dir: Path,
+    hash_dir: Path,
+    processing_summary: Dict,
+):
+    """Write ``summary.json`` for one document.
+
+    Records both the short directory prefix and the full SHA-256 so that
+    ``--resume`` can verify that a re-encountered prefix refers to the same
+    PDF (not a hash-prefix collision).
+    """
     relative_paths = get_relative_paths(pdf_paths, input_dir)
-    
+
     summary = {
-        "pdf_hash": pdf_hash,
+        "pdf_hash": short_hash(pdf_hash_full),
+        "pdf_hash_full": pdf_hash_full,
+        "hash_algorithm": "sha256",
         "input_dir": str(input_dir),
         "relative_paths": relative_paths,
         "total_copies_found": len(pdf_paths),
         "processing_summary": processing_summary,
-        "output_directory": str(hash_dir)
+        "output_directory": str(hash_dir),
     }
-    
+
     summary_file = hash_dir / "summary.json"
-    with open(summary_file, 'w') as f:
+    with open(summary_file, "w") as f:
         json.dump(summary, f, indent=2)
-    
+
     return summary_file
 
 
+def _verify_or_raise_collision(hash_dir: Path, pdf_hash_full: str) -> Optional[bool]:
+    """If ``hash_dir/summary.json`` exists, verify its recorded full hash
+    matches ``pdf_hash_full``. Returns True if it matches (resume-safe), False
+    if no summary is present (fresh dir), and raises ``RuntimeError`` on a
+    real hash-prefix collision.
+    """
+    summary_file = hash_dir / "summary.json"
+    if not summary_file.exists():
+        return False
+    try:
+        with open(summary_file, "r") as f:
+            existing = json.load(f)
+    except Exception as e:
+        logger.warning("Could not read %s (%s); treating as incomplete", summary_file, e)
+        return False
+    existing_full = existing.get("pdf_hash_full")
+    if existing_full is None:
+        # Legacy summary from before we recorded full hashes. Trust it but warn.
+        logger.warning(
+            "Existing summary at %s has no pdf_hash_full; cannot verify "
+            "against prefix collision. Treating as a match.",
+            summary_file,
+        )
+        return True
+    if existing_full != pdf_hash_full:
+        raise RuntimeError(
+            f"Hash-prefix collision detected at {hash_dir}: "
+            f"existing summary records full hash {existing_full!r} but this "
+            f"PDF hashes to {pdf_hash_full!r}. Increase HASH_PREFIX_LEN or "
+            f"investigate duplicate inputs."
+        )
+    return True
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Process a corpus of PDFs with hash-based organization")
+    parser = argparse.ArgumentParser(
+        description="Process a corpus of PDFs with hash-based organization"
+    )
     parser.add_argument("input_dir", type=Path, help="Input directory containing PDFs")
     parser.add_argument("output_dir", type=Path, help="Output directory for processed files")
-    parser.add_argument("--resume", action="store_true", help="Resume processing, skip already processed PDFs")
-    
+    parser.add_argument("--resume", action="store_true", help="Skip documents whose summary.json already exists")
+    parser.add_argument("--config", type=Path, default=None, help="Path to config.yaml (defaults to ./config.yaml)")
+
     args = parser.parse_args()
-    
+
+    setup_root_logging()
+
+    global CONFIG
+    CONFIG = load_config(args.config)
+
     input_dir = args.input_dir.resolve()
     output_dir = args.output_dir.resolve()
-    
+
     if not input_dir.exists():
-        print(f"Error: Input directory {input_dir} does not exist")
+        logger.error("Input directory %s does not exist", input_dir)
         sys.exit(1)
-    
-    print(f"Processing PDFs from: {input_dir}")
-    print(f"Output directory: {output_dir}")
-    
+
+    logger.info("Processing PDFs from: %s", input_dir)
+    logger.info("Output directory: %s", output_dir)
+
     # Create output directory structure
     documents_dir, vector_db_dir = create_output_structure(output_dir)
-    
+
     # Find all PDFs and group by hash
-    print("Discovering PDFs...")
+    logger.info("Discovering PDFs...")
     pdf_map = find_all_pdfs(input_dir)
-    
-    print(f"Found {sum(len(paths) for paths in pdf_map.values())} PDF files")
-    print(f"Unique PDFs (by hash): {len(pdf_map)}")
-    
-    # Process each unique PDF
+
+    logger.info("Found %d PDF file(s)", sum(len(paths) for paths in pdf_map.values()))
+    logger.info("Unique PDFs (by hash): %d", len(pdf_map))
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
-        
-        for pdf_hash, pdf_paths in pdf_map.items():
-            print(f"\nProcessing PDF hash {pdf_hash} ({len(pdf_paths)} copies)")
-            
-            # Create hash-based directory
+
+        for pdf_hash_full, pdf_paths in pdf_map.items():
+            pdf_hash = short_hash(pdf_hash_full)
             hash_dir = documents_dir / pdf_hash
-            
-            # Skip if already processed and resume flag is set
-            if args.resume and (hash_dir / "summary.json").exists():
-                print(f"  Skipping {pdf_hash} (already processed)")
+
+            # Detect prefix collision against any prior run in this dir.
+            try:
+                prior_matches = _verify_or_raise_collision(hash_dir, pdf_hash_full)
+            except RuntimeError as e:
+                logger.error(str(e))
+                sys.exit(2)
+
+            if args.resume and prior_matches:
+                logger.info("Skipping %s (already processed)", pdf_hash)
                 continue
-            
+
             hash_dir.mkdir(exist_ok=True)
-            
+
             # Use the first copy for processing (they're all identical by hash)
             primary_pdf = pdf_paths[0]
-            
-            print(f"  Primary file: {primary_pdf.relative_to(input_dir)}")
+
+            logger.info(
+                "Processing PDF hash %s (%d copies); primary file: %s",
+                pdf_hash, len(pdf_paths), primary_pdf.relative_to(input_dir),
+            )
             if len(pdf_paths) > 1:
-                print(f"  Additional copies:")
                 for path in pdf_paths[1:]:
-                    print(f"    {path.relative_to(input_dir)}")
-            
-            # Run the processing pipeline
-            processing_summary = run_pdf_processing_pipeline(primary_pdf, hash_dir, temp_dir)
-            
-            # Create summary JSON
-            summary_file = create_summary_json(pdf_hash, pdf_paths, input_dir, hash_dir, processing_summary)
-            print(f"  Created summary: {summary_file}")
-            
-            # Ingest into vector database if processing was successful
-            if processing_summary.get("status") == "success":
-                chunks_file = hash_dir / "chunks.json"
-                if chunks_file.exists():
-                    print(f"  Ingesting into vector database...")
-                    ingest_to_vector_db(chunks_file, vector_db_dir, pdf_hash)
-            
-    print(f"\nProcessing complete! Results saved to: {output_dir}")
-    print(f"  Documents: {documents_dir}")
-    print(f"  Vector DB: {vector_db_dir}")
+                    logger.info("  additional copy: %s", path.relative_to(input_dir))
+
+            # Everything below is captured to the per-PDF pipeline.log.
+            with per_pdf_file_log(hash_dir) as log_path:
+                logger.info("pipeline.log: %s", log_path)
+                logger.info("pdf_hash_full: %s", pdf_hash_full)
+
+                processing_summary = run_pdf_processing_pipeline(
+                    primary_pdf, hash_dir, temp_dir
+                )
+
+                summary_file = create_summary_json(
+                    pdf_hash_full, pdf_paths, input_dir, hash_dir, processing_summary
+                )
+                logger.info("Created summary: %s", summary_file)
+
+                if processing_summary.get("status") == "success":
+                    chunks_file = hash_dir / "chunks.json"
+                    if chunks_file.exists():
+                        logger.info("Writing vector-db ingestion marker...")
+                        ingest_to_vector_db(chunks_file, vector_db_dir, pdf_hash)
+
+    logger.info("Processing complete. Results saved to: %s", output_dir)
+    logger.info("  Documents: %s", documents_dir)
+    logger.info("  Vector DB: %s", vector_db_dir)
 
 
 if __name__ == "__main__":

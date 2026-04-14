@@ -16,5 +16,6 @@ pulp
 coincbc
 pymupdf
 pyqt5
+pyyaml
 matplotlib
 pillow
