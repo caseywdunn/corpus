@@ -32,13 +32,77 @@ The corpus processing system uses **hash-based organization** similar to Git, wh
 
 ## Installation
 
-```
-brew install ghostscript
-brew install tesseract
-brew install pngquant
-brew install jbig2enc
-conda create --name corpus python=3.13
+Create the conda environment — this installs Python, tesseract, ghostscript, pymupdf, docling, lancedb, and the rest of the Python dependencies:
+
+```bash
+conda env create -f environment.yaml
 conda activate corpus
+```
+
+Updating an existing environment after `environment.yaml` changes:
+
+```bash
+conda env update -f environment.yaml --prune
+```
+
+If a previous attempt left a partial `corpus` environment behind, remove it first with `conda env remove -n corpus`.
+
+### Optional: pngquant + jbig2enc for higher OCR optimization
+
+`ocrmypdf` is installed via pip from the environment above. It works without any extra native tools, but enabling its highest optimization level requires `pngquant` and `jbig2enc`, which aren't on conda-forge for all platforms (notably `osx-arm64`). Install them at the system level if you want smaller output PDFs:
+
+```bash
+# macOS
+brew install pngquant jbig2enc
+
+# Debian/Ubuntu
+sudo apt-get install pngquant jbig2enc
+```
+
+On Bouchet, `module avail pngquant` will tell you whether a module is available; if not, it's safe to skip — `ocrmypdf` falls back gracefully.
+
+### Additional OCR language packs
+
+The base `tesseract` install includes only English. For the multilingual / historical portion of the corpus, add the language data you need:
+
+```bash
+# Modern European languages + Latin
+conda install -c conda-forge tesseract-data-deu tesseract-data-fra tesseract-data-rus tesseract-data-lat
+```
+
+**19th-century German Fraktur** (e.g., Haeckel, Schneider) is not on conda-forge. Download `deu_latf.traineddata` from the Tesseract project and drop it into the env's `tessdata` directory:
+
+```bash
+TESSDATA="$CONDA_PREFIX/share/tessdata"
+curl -L -o "$TESSDATA/deu_latf.traineddata" \
+  https://github.com/tesseract-ocr/tessdata_best/raw/main/deu_latf.traineddata
+```
+
+### OpenAI API key (transitional)
+
+The current `embed_chunks.py` uses OpenAI; a local open-weights backend run on a GPU is in progress (see [PLAN.md §7](PLAN.md)). Until that lands, put your key in a `.env` file at the repo root:
+
+```
+OPENAI_API_KEY=sk-...
+```
+
+### On Bouchet (YCRC HPC)
+
+Same file, same commands, after loading the module system:
+
+```bash
+module load miniconda
+conda env create -f environment.yaml
+conda activate corpus
+```
+
+See [PLAN.md §7](PLAN.md) for GPU partition guidance when running the embedding stage on Bouchet.
+
+### Pip-only fallback
+
+If you can't use conda, `requirements.txt` still works but you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc` on macOS):
+
+```bash
 pip install -r requirements.txt
 ```
 
