@@ -11,6 +11,20 @@ ocr:
   deskew: true
   rotate_pages: true
   optimize_level: 2
+  # Tesseract traineddata codes used when language detection fails or when
+  # a document has a broken text layer (where detection is unreliable).
+  # Tesseract combines languages gracefully but slowly — narrow this list
+  # if you're running against a known-monolingual subset.
+  ocr_languages_default:
+    - eng
+    - deu
+    - deu_latf    # 19th-c. German Fraktur (requires manual install; see README)
+    - fra
+    - rus
+    - lat
+  # Gibberish-score threshold above which a dense text layer is treated as
+  # corrupt (needing --force-ocr). See _gibberish_score in process_corpus.py.
+  gibberish_threshold: 0.5
 
 # Chunking settings
 chunking:

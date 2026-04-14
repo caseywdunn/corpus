@@ -50,5 +50,6 @@ dependencies:
       - ocrmypdf  # pulls its own Python deps; finds tesseract/ghostscript on PATH from conda
       - docling
       - lancedb
+      - langdetect  # language detection for scan_detection / OCR language selection (Phase C)
       - openai>=1.0.0  # transitional; swapped for a local open-weights backend in Phase E (see PLAN.md §7)
       - snakemake  # legacy Snakefile workflow; targeted for deprecation (see PLAN.md §4)

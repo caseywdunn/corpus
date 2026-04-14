@@ -83,6 +83,14 @@ _DEFAULT_CONFIG = {
         "deskew": True,
         "rotate_pages": True,
         "optimize_level": 2,
+        # Phase C: used when language detection fails or the doc has a
+        # broken text layer. Tesseract combines languages gracefully
+        # though slowly; override in config.yaml to narrow for speed.
+        "ocr_languages_default": ["eng", "deu", "deu_latf", "fra", "rus", "lat"],
+        # Gibberish-score threshold for flagging a broken text layer.
+        # See _gibberish_score; 0.5 reliably catches the Cyrillic-as-
+        # Latin-1 case without false-positiving on reference-heavy papers.
+        "gibberish_threshold": 0.5,
     },
     "chunking": {
         "max_tokens": 8191,
@@ -162,6 +170,319 @@ def setup_root_logging(level: int = logging.INFO) -> None:
     sh.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
     sh._corpus_stream = True  # marker so we don't re-add on repeated calls
     root.addHandler(sh)
+
+
+# ---------------------------------------------------------------------------
+# Language detection & OCR language selection (Phase C)
+# ---------------------------------------------------------------------------
+
+# ISO 639-1 → Tesseract traineddata code. Extended as we encounter languages
+# in the corpus; anything missing here falls back to the CONFIG default union.
+_ISO_TO_TESSERACT = {
+    "en": "eng",
+    "de": "deu",
+    "fr": "fra",
+    "ru": "rus",
+    "la": "lat",
+    "it": "ita",
+    "es": "spa",
+    "pt": "por",
+    "nl": "nld",
+    "pl": "pol",
+    "sv": "swe",
+    "no": "nor",
+    "da": "dan",
+    "fi": "fin",
+    "ca": "cat",
+    "cs": "ces",
+    "hu": "hun",
+}
+
+
+def _detect_language(text: str):
+    """Return (iso_code, confidence) for the dominant language of ``text``.
+
+    Returns (None, 0.0) on very short input or any detection failure. A seed
+    is set on ``DetectorFactory`` for reproducibility (langdetect uses a
+    randomized algorithm by default).
+    """
+    if not text or len(text.strip()) < 100:
+        return None, 0.0
+    try:
+        from langdetect import detect_langs, DetectorFactory
+    except ImportError:
+        logger.warning("langdetect not installed; skipping language detection")
+        return None, 0.0
+    DetectorFactory.seed = 0
+    try:
+        # First ~10k chars is plenty; avoids slow detection on huge docs.
+        results = detect_langs(text[:10000])
+        if results:
+            top = results[0]
+            return top.lang, float(top.prob)
+    except Exception as e:
+        logger.debug("langdetect failed: %s", e)
+    return None, 0.0
+
+
+# Compiled once. Words of length <=2, or letters interleaved with digits, or
+# all-digit tokens — all characteristic of text-layer corruption (Cyrillic
+# mapped to Latin-1, hidden-layer OCR, etc.).
+_DIGIT_IN_WORD_RE = re.compile(r"\d")
+
+
+def _gibberish_score(text: str) -> float:
+    """Fraction of tokens in ``text`` that look like text-layer garbage.
+
+    A small score (<0.25) is normal even for clean English. Thresholds around
+    0.5 reliably separate real prose from PDFs whose text layer maps Cyrillic
+    glyphs to Latin-1 byte-by-byte (producing strings like "AKAllEMH5I HAYK").
+    langdetect confidence alone does not catch this case because the mangled
+    text is made of Latin bytes.
+    """
+    words = [w.strip(".,;:!?()[]{}\"'") for w in text.split()]
+    words = [w for w in words if w]
+    if not words:
+        return 0.0
+    sus = 0
+    for w in words:
+        if len(w) <= 2:
+            sus += 1
+            continue
+        if w.isdigit():
+            sus += 1
+            continue
+        if _DIGIT_IN_WORD_RE.search(w) and any(c.isalpha() for c in w):
+            sus += 1
+    return sus / len(words)
+
+
+def _text_layer_scripts(text: str) -> Dict[str, float]:
+    """Return the fraction of each major writing system present in ``text``.
+
+    Letters outside the covered ranges are bucketed under ``"Other"``. Non-
+    letter characters (digits, punctuation, whitespace) are ignored.
+
+    Used as a cheap script fingerprint for cross-checking against Tesseract
+    OSD. When a PDF's text layer is 95%+ Latin-family but the visual page
+    image is Cyrillic (or Greek, etc.), the text layer is almost certainly
+    a broken byte-for-byte mapping — the Stepanjants 1970 case.
+    """
+    if not text:
+        return {}
+    counts = {"Latin": 0, "Cyrillic": 0, "Greek": 0, "Arabic": 0, "Other": 0}
+    for c in text:
+        if not c.isalpha():
+            continue
+        cp = ord(c)
+        if (0x0000 <= cp <= 0x024F) or (0x1E00 <= cp <= 0x1EFF) or (0x2C60 <= cp <= 0x2C7F):
+            counts["Latin"] += 1
+        elif 0x0400 <= cp <= 0x052F:
+            counts["Cyrillic"] += 1
+        elif 0x0370 <= cp <= 0x03FF:
+            counts["Greek"] += 1
+        elif 0x0600 <= cp <= 0x06FF:
+            counts["Arabic"] += 1
+        else:
+            counts["Other"] += 1
+    total = sum(counts.values())
+    if total == 0:
+        return {}
+    return {k: v / total for k, v in counts.items() if v > 0}
+
+
+def _visual_page_script(pdf_path: Path) -> Optional[str]:
+    """Run Tesseract's script-detection OSD on sampled page images.
+
+    Samples three pages spread through the document (≈25%, 50%, 75%) and
+    runs Tesseract ``--psm 0`` OSD on each. Returns the first non-Latin
+    script encountered, or ``"Latin"`` if every sampled page comes back
+    Latin-family. ``None`` means OSD failed on every attempt.
+
+    Why three pages spread through the document: historical papers often
+    have a Latin-script cover/title page (journal metadata, publisher
+    boilerplate) with content in a different script starting several pages
+    in. The Stepanjants 1970 monograph is the canonical example — pages
+    0–4 are Russian journal frontmatter in Latin-transliterated titles,
+    pages 5+ are Cyrillic body text. Sampling a single early page misses
+    the signal.
+
+    Rendering at 200 DPI balances OSD accuracy against cost (~0.5–1.5 s
+    per call per page). Called only for documents whose text layer is
+    suspicious (dense + mostly Latin), not every PDF.
+    """
+    try:
+        import fitz
+    except ImportError:
+        return None
+
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception as e:
+        logger.debug("Could not open %s for OSD: %s", pdf_path, e)
+        return None
+
+    try:
+        n = len(doc)
+        if n == 0:
+            return None
+        if n >= 4:
+            page_indices = sorted({n // 4, n // 2, (3 * n) // 4})
+        else:
+            page_indices = list(range(n))
+
+        scripts_seen: List[str] = []
+        for idx in page_indices:
+            try:
+                pix = doc[idx].get_pixmap(dpi=200)
+                img_bytes = pix.tobytes("png")
+            except Exception as e:
+                logger.debug("Render failed on page %d: %s", idx, e)
+                continue
+            try:
+                result = subprocess.run(
+                    ["tesseract", "-", "-", "--psm", "0"],
+                    input=img_bytes, capture_output=True, timeout=30,
+                )
+            except Exception as e:
+                logger.debug("OSD subprocess failed on page %d: %s", idx, e)
+                continue
+            combined = (
+                result.stdout.decode("utf-8", errors="replace")
+                + result.stderr.decode("utf-8", errors="replace")
+            )
+            m = re.search(r"Script:\s*(\S+)", combined)
+            if m:
+                scripts_seen.append(m.group(1))
+
+        if not scripts_seen:
+            return None
+        # Prefer any non-Latin-family script — these are the signal for
+        # broken text layers. A single Cyrillic-page hit beats two Latin
+        # hits, because Cyrillic body content is impossible for a text
+        # layer that's 100% Latin-family to honestly represent.
+        for s in scripts_seen:
+            if s not in ("Latin", "Fraktur"):
+                return s
+        return scripts_seen[0]
+    finally:
+        doc.close()
+
+
+# ISO 639-1 code → expected script (for cross-check). Latin-family languages
+# also render as "Fraktur" for historical German — Tesseract reports that
+# as a distinct script, so we treat Latin and Fraktur as compatible here.
+_LANG_EXPECTED_SCRIPT = {
+    "en": "Latin", "de": "Latin", "fr": "Latin", "it": "Latin", "es": "Latin",
+    "pt": "Latin", "nl": "Latin", "pl": "Latin", "sv": "Latin", "no": "Latin",
+    "da": "Latin", "fi": "Latin", "la": "Latin", "ca": "Latin", "cs": "Latin",
+    "hu": "Latin",
+    "ru": "Cyrillic", "uk": "Cyrillic", "bg": "Cyrillic", "sr": "Cyrillic",
+    "mk": "Cyrillic", "be": "Cyrillic",
+    "el": "Greek",
+    "ar": "Arabic", "fa": "Arabic",
+}
+
+
+_AVAILABLE_TESSERACT_LANGS_CACHE: Optional[frozenset] = None
+
+
+def _available_tesseract_langs() -> frozenset:
+    """Return the set of Tesseract language codes installed on this system.
+
+    Shells out to ``tesseract --list-langs`` once and caches the result. If
+    Tesseract isn't on PATH, returns an empty set (OCR will simply be a no-op
+    with a warning).
+    """
+    global _AVAILABLE_TESSERACT_LANGS_CACHE
+    if _AVAILABLE_TESSERACT_LANGS_CACHE is not None:
+        return _AVAILABLE_TESSERACT_LANGS_CACHE
+    if shutil.which("tesseract") is None:
+        logger.warning("tesseract not found on PATH; OCR will be skipped")
+        _AVAILABLE_TESSERACT_LANGS_CACHE = frozenset()
+        return _AVAILABLE_TESSERACT_LANGS_CACHE
+    try:
+        out = subprocess.run(
+            ["tesseract", "--list-langs"],
+            capture_output=True, text=True, check=True,
+        )
+        # Output format: first line is a header, subsequent lines are codes.
+        langs = {line.strip() for line in out.stdout.splitlines() if line.strip()}
+        # Drop the header line (contains "List of available languages")
+        langs = {l for l in langs if not l.lower().startswith("list of")}
+        _AVAILABLE_TESSERACT_LANGS_CACHE = frozenset(langs)
+    except Exception as e:
+        logger.warning("Could not enumerate Tesseract languages: %s", e)
+        _AVAILABLE_TESSERACT_LANGS_CACHE = frozenset()
+    return _AVAILABLE_TESSERACT_LANGS_CACHE
+
+
+_SCRIPT_TO_TESSERACT = {
+    "Cyrillic": ["rus"],
+    "Greek": ["ell"],
+    "Fraktur": ["deu_latf", "deu"],
+    "Arabic": ["ara"],
+}
+
+
+def _compose_ocr_langs(
+    detected_iso: Optional[str],
+    visual_script: Optional[str] = None,
+) -> List[str]:
+    """Pick Tesseract language codes to pass to ocrmypdf ``-l``.
+
+    Policy, in precedence order:
+
+    1. **``visual_script`` wins over ``detected_iso``** when the text layer
+       was classified as corrupt. In that case langdetect's ISO code came
+       from the garbled text and is unreliable (Stepanjants 1970 is the
+       canonical example: OSD says Cyrillic, langdetect says "en"). The
+       OSD-derived script is what we trust.
+    2. If a specific language was detected with a clean text layer, prefer
+       its Tesseract pack plus English (for mixed pages / Latin binomials).
+    3. Otherwise, fall back to ``CONFIG["ocr"]["ocr_languages_default"]``
+       intersected with what's installed. Slower but safe.
+    4. ``eng`` is always included at the tail.
+
+    Packs in the configured default that aren't installed (e.g., a missing
+    manual ``deu_latf``) are silently dropped so ocrmypdf doesn't fail.
+    """
+    available = _available_tesseract_langs()
+    if not available:
+        return []
+
+    cfg_default = CONFIG.get("ocr", {}).get(
+        "ocr_languages_default",
+        ["eng", "deu", "deu_latf", "fra", "rus", "lat"],
+    )
+
+    chosen: List[str] = []
+
+    if visual_script and visual_script in _SCRIPT_TO_TESSERACT:
+        for tess in _SCRIPT_TO_TESSERACT[visual_script]:
+            if tess in available and tess not in chosen:
+                chosen.append(tess)
+    elif detected_iso:
+        tess = _ISO_TO_TESSERACT.get(detected_iso)
+        if tess and tess in available:
+            chosen.append(tess)
+            # For German, also try Fraktur if installed (historical papers).
+            if tess == "deu" and "deu_latf" in available:
+                chosen.append("deu_latf")
+
+    # If we got a targeted choice via visual or detected language, that's
+    # enough — add eng and return. Otherwise fall back to the full union.
+    if chosen:
+        if "eng" in available and "eng" not in chosen:
+            chosen.append("eng")
+        return chosen
+
+    for lang in cfg_default:
+        if lang in available and lang not in chosen:
+            chosen.append(lang)
+    if "eng" in available and "eng" not in chosen:
+        chosen.append("eng")
+    return chosen
 
 
 @contextmanager
@@ -435,90 +756,259 @@ def run_pdf_processing_pipeline(
 
 
 def detect_scan_type(pdf_path: Path) -> Dict:
-    """Detect if PDF is scanned or born-digital."""
+    """Classify the text-layer state of a PDF into one of three buckets:
+
+    - ``born_digital`` — dense, intelligible text layer in a detectable
+      language. No OCR needed.
+    - ``scanned`` — little or no text layer. Needs OCR (``--skip-text``
+      default; pages with partial text are left alone).
+    - ``broken_text_layer`` — dense text present but nonsense (e.g.,
+      Cyrillic characters mapped 1:1 to Latin-1 bytes, as seen in the
+      Stepanjants 1970 scan). Needs OCR with ``--force-ocr`` to replace
+      the garbage.
+
+    The returned dict is written to ``scan_detection.json`` and consumed
+    by :func:`prepare_pdf`. Downstream stages can also read the
+    ``detected_language`` field as a useful signal.
+    """
     try:
         import fitz  # PyMuPDF
-        doc = fitz.open(pdf_path)
-        total_text = ""
-        total_chars = 0
-        
-        pages_to_check = min(3, len(doc))
-        
-        for page_num in range(pages_to_check):
-            page = doc[page_num]
-            page_text = page.get_text()
-            total_text += page_text
-            total_chars += len(page_text.strip())
-        
-        doc.close()
-        
-        meaningful_text = ''.join(total_text.split())
-        avg_chars_per_page = total_chars / pages_to_check if pages_to_check > 0 else 0
-        
-        has_substantial_text = len(meaningful_text) > 500
-        has_good_density = avg_chars_per_page > 100
-        has_text = has_substantial_text and has_good_density
-        
-        return {
-            "filename": pdf_path.name,
-            "has_text": has_text,
-            "needs_ocr": not has_text,
-            "file_type": "born_digital" if has_text else "scanned"
-        }
-        
     except ImportError:
-        # If PyMuPDF isn't available, avoid expensive OCR; proceed as born-digital.
         logger.warning("PyMuPDF not available; treating as born-digital (no OCR)")
         return {
             "filename": pdf_path.name,
+            "file_type": "born_digital",
             "has_text": True,
             "needs_ocr": False,
-            "file_type": "born_digital",
+            "detected_language": None,
+            "language_confidence": 0.0,
+            "gibberish_score": 0.0,
+            "ocr_mode": None,
         }
+
+    # Read up to the first 5 pages (or all pages if the doc is shorter) —
+    # enough text for language detection and gibberish scoring without
+    # paying full-doc parsing cost just to triage.
+    try:
+        doc = fitz.open(pdf_path)
+        pages_to_check = min(5, len(doc))
+        total_text = ""
+        for page_num in range(pages_to_check):
+            total_text += doc[page_num].get_text()
+        doc.close()
     except Exception as e:
-        logger.warning("Error checking text content: %s", e)
+        logger.warning("Error reading %s: %s; assuming scanned", pdf_path.name, e)
         return {
             "filename": pdf_path.name,
+            "file_type": "scanned",
             "has_text": False,
             "needs_ocr": True,
-            "file_type": "scanned"
+            "detected_language": None,
+            "language_confidence": 0.0,
+            "gibberish_score": 0.0,
+            "ocr_mode": "skip_text",
         }
+
+    stripped = total_text.strip()
+    total_chars = len(stripped)
+    avg_chars_per_page = total_chars / max(pages_to_check, 1)
+    has_substantial_text = total_chars > 500
+    has_good_density = avg_chars_per_page > 100
+
+    # Low-text path: treat as scanned and OCR it.
+    if not (has_substantial_text and has_good_density):
+        return {
+            "filename": pdf_path.name,
+            "file_type": "scanned",
+            "has_text": False,
+            "needs_ocr": True,
+            "detected_language": None,
+            "language_confidence": 0.0,
+            "gibberish_score": 0.0,
+            "total_chars_sampled": total_chars,
+            "pages_checked": pages_to_check,
+            "ocr_mode": "skip_text",
+        }
+
+    # Has enough text — now triage born_digital vs broken_text_layer.
+    lang, conf = _detect_language(total_text)
+    gib = _gibberish_score(total_text)
+    scripts = _text_layer_scripts(total_text)
+    latin_frac = scripts.get("Latin", 0.0)
+
+    threshold = float(CONFIG.get("ocr", {}).get("gibberish_threshold", 0.5))
+
+    # --- Cheap gibberish path ---
+    # High gibberish score is a direct signal the text layer is corrupt,
+    # regardless of script. Catches the obvious cases.
+    if gib > threshold:
+        return {
+            "filename": pdf_path.name,
+            "file_type": "broken_text_layer",
+            "detection_reason": "gibberish_score_above_threshold",
+            "has_text": True,
+            "needs_ocr": True,
+            "detected_language": lang,
+            "language_confidence": conf,
+            "gibberish_score": gib,
+            "text_layer_scripts": scripts,
+            "visual_script": None,
+            "total_chars_sampled": total_chars,
+            "pages_checked": pages_to_check,
+            "ocr_mode": "force_ocr",
+        }
+
+    # --- Visual-vs-text cross-check ---
+    # If the text layer is almost entirely Latin-family characters *and*
+    # gibberish is non-trivial, the Stepanjants case is possible: Cyrillic
+    # glyphs mapped 1:1 to Latin-1 bytes. Confirm by running Tesseract
+    # OSD on a rendered page and comparing the visual script to what the
+    # text layer claims. Only invoked in the suspect zone so OSD cost is
+    # bounded at corpus scale.
+    visual = None
+    if latin_frac > 0.90 and gib > 0.25:
+        visual = _visual_page_script(pdf_path)
+        # The expected script from langdetect — if it disagrees with what
+        # OSD sees on the actual page image, the text layer is corrupt.
+        expected = _LANG_EXPECTED_SCRIPT.get(lang or "", "Latin")
+        # Latin/Fraktur are compatible (Fraktur is a Latin-family display
+        # script for German). Any other mismatch is a red flag.
+        compatible = {"Latin", "Fraktur", None}
+        if (
+            visual is not None
+            and visual not in compatible
+            and expected in compatible  # text layer "claims" Latin
+        ):
+            logger.info(
+                "Text-layer/visual script mismatch: layer=Latin visual=%s — "
+                "flagging as broken_text_layer",
+                visual,
+            )
+            return {
+                "filename": pdf_path.name,
+                "file_type": "broken_text_layer",
+                "detection_reason": "visual_script_mismatch",
+                "has_text": True,
+                "needs_ocr": True,
+                "detected_language": lang,
+                "language_confidence": conf,
+                "gibberish_score": gib,
+                "text_layer_scripts": scripts,
+                "visual_script": visual,
+                "total_chars_sampled": total_chars,
+                "pages_checked": pages_to_check,
+                "ocr_mode": "force_ocr",
+            }
+
+    return {
+        "filename": pdf_path.name,
+        "file_type": "born_digital",
+        "detection_reason": "clean_text_layer",
+        "has_text": True,
+        "needs_ocr": False,
+        "detected_language": lang,
+        "language_confidence": conf,
+        "gibberish_score": gib,
+        "text_layer_scripts": scripts,
+        "visual_script": visual,
+        "total_chars_sampled": total_chars,
+        "pages_checked": pages_to_check,
+        "ocr_mode": None,
+    }
 
 
 def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
-    """Prepare PDF by running OCR if needed."""
-    needs_ocr = detection_result.get('needs_ocr', False)
-    
-    if needs_ocr:
-        # Check if ocrmypdf is available
-        if shutil.which("ocrmypdf") is None:
-            logger.warning("ocrmypdf not found, copying original PDF")
-            shutil.copy2(input_pdf, output_pdf)
-            return
+    """Run OCR if the detection result calls for it, else copy straight through.
 
-        optimize_level = str(CONFIG.get("ocr", {}).get("optimize_level", 2))
-        logger.info("Running OCR on %s (detected as scanned)", input_pdf.name)
-        cmd = [
-            "ocrmypdf",
-            "--force-ocr",
-            "--optimize", optimize_level,
-            "--color-conversion-strategy", "RGB",
-            "--output-type", "pdf",
-            str(input_pdf),
-            str(output_pdf),
-        ]
+    OCR behavior is driven by ``detection_result["ocr_mode"]``:
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+    - ``"skip_text"`` (default for scanned docs) — ``ocrmypdf --skip-text``
+      so pages that already have a text layer are left untouched and only
+      the blank pages get OCR'd. This is correct for mixed documents.
+    - ``"force_ocr"`` (for broken text layers) — ``ocrmypdf --force-ocr`` to
+      discard the garbage text layer and re-OCR everything. Used when
+      :func:`detect_scan_type` flags a document as ``broken_text_layer``.
 
-        if result.returncode != 0:
-            logger.warning("OCR failed, copying original PDF")
-            logger.warning("OCR Error: %s", result.stderr)
-            shutil.copy2(input_pdf, output_pdf)
-        else:
-            logger.info("OCR completed successfully")
-    else:
-        logger.info("Copying %s (detected as born-digital)", input_pdf.name)
+    Language selection uses ``detection_result["detected_language"]`` plus
+    the config default union, filtered to what Tesseract actually has
+    installed. See :func:`_compose_ocr_langs`.
+
+    On any OCR failure we copy the original PDF through and log the error
+    — downstream stages should still run on the untouched PDF rather than
+    the pipeline aborting.
+    """
+    if not detection_result.get("needs_ocr"):
+        logger.info("Copying %s (detected as %s)",
+                    input_pdf.name, detection_result.get("file_type"))
         shutil.copy2(input_pdf, output_pdf)
+        return
+
+    if shutil.which("ocrmypdf") is None:
+        logger.warning("ocrmypdf not found on PATH, copying original PDF")
+        shutil.copy2(input_pdf, output_pdf)
+        return
+
+    ocr_mode = detection_result.get("ocr_mode", "skip_text")
+    mode_flag = "--force-ocr" if ocr_mode == "force_ocr" else "--skip-text"
+
+    langs = _compose_ocr_langs(
+        detection_result.get("detected_language"),
+        visual_script=detection_result.get("visual_script"),
+    )
+    if not langs:
+        logger.warning(
+            "No Tesseract languages available; copying original PDF (OCR skipped)"
+        )
+        shutil.copy2(input_pdf, output_pdf)
+        return
+    lang_arg = "+".join(langs)
+
+    # Auto-degrade --optimize when pngquant isn't installed. ocrmypdf
+    # requires pngquant for levels 2 and 3 and will exit 3 without it. We
+    # still want OCR to proceed, just with smaller gains — drop to 1
+    # (safe, internal-only optimizations) and log a nudge to install it.
+    optimize_level = int(CONFIG.get("ocr", {}).get("optimize_level", 2))
+    if optimize_level >= 2 and shutil.which("pngquant") is None:
+        logger.warning(
+            "pngquant not on PATH; reducing ocrmypdf --optimize from %d to 1. "
+            "For tighter PDF output install pngquant (macOS: `brew install pngquant`).",
+            optimize_level,
+        )
+        optimize_level = 1
+    optimize_level = str(optimize_level)
+
+    logger.info(
+        "Running OCR on %s | file_type=%s mode=%s langs=%s",
+        input_pdf.name,
+        detection_result.get("file_type"),
+        mode_flag,
+        lang_arg,
+    )
+    cmd = [
+        "ocrmypdf",
+        mode_flag,
+        "-l", lang_arg,
+        "--optimize", optimize_level,
+        "--color-conversion-strategy", "RGB",
+        "--output-type", "pdf",
+        str(input_pdf),
+        str(output_pdf),
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        logger.warning(
+            "OCR failed (exit %d) on %s, copying original PDF",
+            result.returncode, input_pdf.name,
+        )
+        # ocrmypdf writes human-readable errors to stderr; log a truncated
+        # version so one bad doc doesn't flood the pipeline log.
+        if result.stderr:
+            logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
+        shutil.copy2(input_pdf, output_pdf)
+    else:
+        logger.info("OCR completed successfully (langs=%s)", lang_arg)
 
 
 def extract_docling_content(
