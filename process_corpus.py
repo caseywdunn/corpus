@@ -731,6 +731,7 @@ def run_pdf_processing_pipeline(
             references_output=references_file,
             tei_output=tei_file,
             grobid_client=grobid_client,
+            original_filename=pdf_path.name,
         )
         processing_summary["files_created"].extend(
             [str(metadata_file), str(references_file)]
@@ -1246,18 +1247,53 @@ def extract_docling_content(
             logger.warning("Creating visualizations failed: %s", e)
 
 
-def _write_placeholder_metadata(pdf_path: Path, metadata_output: Path, references_output: Path):
+# Years plausible for a siphonophore paper: 17xx (earliest Linnaean works) to
+# the current decade. Tighter than a generic `\d{4}` so e.g. a trailing
+# "20" in a specimen ID isn't picked up. Lookarounds exclude matches that
+# are part of a longer digit run (e.g., "12005" shouldn't match 2005).
+_FILENAME_YEAR_RE = re.compile(r"(?<!\d)(17\d{2}|18\d{2}|19\d{2}|20[0-4]\d)(?!\d)")
+
+
+def _year_from_filename(name: str) -> Optional[int]:
+    """Best-effort pub-year extraction from a PDF filename.
+
+    Matches the first 4-digit year in the range 1700–2049, which covers the
+    historical siphonophore literature without false-positiving on generic
+    numbers (ISSNs, specimen counts, etc.). Returns None if no match. The
+    Pugh-curated library uses an "Author(s)YYYY" convention almost
+    universally, so this recovers years for the majority of the corpus where
+    Grobid's header parser emits an empty ``<date/>``.
+    """
+    if not name:
+        return None
+    m = _FILENAME_YEAR_RE.search(name)
+    if not m:
+        return None
+    return int(m.group(1))
+
+
+def _write_placeholder_metadata(
+    pdf_path: Path,
+    metadata_output: Path,
+    references_output: Path,
+    original_filename: Optional[str] = None,
+):
     """Write empty-but-valid metadata.json and references.json.
 
-    Used when Grobid is unavailable or its TEI can't be parsed; keeps
+    Used when Grobid is unavailable or its TEI can't be parsed. Keeps
     downstream stages (chunking, embedding) functional and lets the
     summary show this document as metadata-less so we can triage later.
+    Even in the placeholder path we attempt to recover a year from the
+    filename — it's all the signal we have without Grobid.
     """
+    effective_filename = original_filename or pdf_path.name
+    fname_year = _year_from_filename(effective_filename)
     placeholder = {
-        "filename": pdf_path.name,
+        "filename": effective_filename,
         "title": "",
         "authors": [],
-        "year": None,
+        "year": fname_year,
+        "year_source": "filename" if fname_year is not None else None,
         "journal": "",
         "doi": "",
         "abstract": "",
@@ -1275,6 +1311,7 @@ def extract_metadata(
     references_output: Optional[Path] = None,
     tei_output: Optional[Path] = None,
     grobid_client: Optional[GrobidClient] = None,
+    original_filename: Optional[str] = None,
 ):
     """Extract bibliographic metadata + references via Grobid.
 
@@ -1308,6 +1345,10 @@ def extract_metadata(
         references_output = hash_dir / "references.json"
     if tei_output is None:
         tei_output = hash_dir / "grobid.tei.xml"
+    # Prefer the original PDF filename for both provenance and year-fallback
+    # — by the time this runs, pdf_path is usually "processed.pdf" (post-OCR
+    # or copied), whose name carries no year information.
+    effective_filename = original_filename or pdf_path.name
 
     tei_xml: Optional[str] = None
 
@@ -1336,7 +1377,29 @@ def extract_metadata(
     if tei_xml is not None:
         try:
             header = parse_tei_header(tei_xml)
-            header["filename"] = pdf_path.name  # keep original filename for provenance
+            header["filename"] = effective_filename
+
+            # Year fallback: Grobid emits <date/> (empty) on many papers
+            # whose title page doesn't match its header template — especially
+            # historical and non-English. The Pugh library's "AuthorYYYY"
+            # filename convention lets us recover the year cheaply. Record
+            # which source won in ``year_source`` so downstream consumers can
+            # treat Grobid-extracted years (stronger) differently from
+            # filename-derived years (weaker, depends on filename convention).
+            if header.get("year") is None:
+                fname_year = _year_from_filename(effective_filename)
+                if fname_year is not None:
+                    header["year"] = fname_year
+                    header["year_source"] = "filename"
+                    logger.info(
+                        "Grobid returned year=None; recovered %d from filename %r",
+                        fname_year, effective_filename,
+                    )
+                else:
+                    header["year_source"] = None
+            else:
+                header["year_source"] = "grobid"
+
             with open(metadata_output, "w", encoding="utf-8") as f:
                 json.dump(header, f, indent=2, ensure_ascii=False)
 
@@ -1349,10 +1412,11 @@ def extract_metadata(
                     ensure_ascii=False,
                 )
             logger.info(
-                "Parsed Grobid TEI: %d authors, %d references, year=%s",
+                "Parsed Grobid TEI: %d authors, %d references, year=%s (source=%s)",
                 len(header.get("authors", [])),
                 len(refs),
                 header.get("year"),
+                header.get("year_source"),
             )
             return
         except Exception as e:
@@ -1361,7 +1425,10 @@ def extract_metadata(
             )
 
     # 4. Placeholder path.
-    _write_placeholder_metadata(pdf_path, metadata_output, references_output)
+    _write_placeholder_metadata(
+        pdf_path, metadata_output, references_output,
+        original_filename=effective_filename,
+    )
 
 
 def chunk_text(
