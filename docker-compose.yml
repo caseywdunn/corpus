@@ -1,0 +1,39 @@
+# Grobid service for bibliographic and structural extraction from scientific PDFs.
+#
+# Usage:
+#     docker compose up -d grobid       # start in background
+#     docker compose ps                  # check status
+#     docker compose logs -f grobid      # follow logs
+#     docker compose down                # stop
+#
+# The corpus pipeline will auto-detect a running Grobid on GROBID_URL
+# (default http://localhost:8070). When Grobid is not reachable the
+# pipeline falls back to a placeholder metadata step with a warning — so
+# dev iteration without Docker still works.
+#
+# On Bouchet / YCRC, Singularity converts the same image:
+#     singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
+#     singularity run --bind $HOME grobid.sif  (with port forwarding)
+# See PLAN.md for HPC deployment notes.
+
+services:
+  grobid:
+    # lfoppiano/grobid is the lightweight CRF-only image (~500 MB). Supports
+    # both linux/amd64 (Bouchet) and linux/arm64 (macOS dev). If bibliographic
+    # extraction quality turns out to be insufficient, swap for
+    # grobid/grobid:0.8.1 (~4 GB, with deep-learning models).
+    image: lfoppiano/grobid:0.8.1
+    container_name: corpus-grobid
+    ports:
+      - "8070:8070"
+    restart: unless-stopped
+    # Grobid is memory-hungry under heavy load. These defaults are safe for
+    # a single-user dev machine; raise before batch-processing 2000 PDFs.
+    environment:
+      - JAVA_OPTS=-Xmx4g -Xms1g
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8070/api/isalive"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s

@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -17,8 +18,57 @@ from typing import Dict, List, Optional, Set
 import tempfile
 import os
 
+from grobid_client import (
+    GrobidClient,
+    GrobidUnavailableError,
+    parse_tei_header,
+    parse_tei_references,
+)
+
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Section-class normalizer (Phase B)
+# ---------------------------------------------------------------------------
+
+# Ordered list — first match wins. Patterns are case-insensitive and cover
+# English, German, French, Russian, plus the taxonomy-paper conventions
+# common in our siphonophore corpus (Description / Systematics).
+_SECTION_PATTERNS = [
+    ("abstract", r"\babstract\b|\bsummary\b|\bzusammenfassung\b|\br[ée]sum[ée]\b|резюме|сводка"),
+    ("introduction", r"\bintroduction\b|\bвведение\b|\beinleitung\b"),
+    ("methods", r"materials?\s+and\s+methods|\bmethods?\b|\bmethodology\b|study\s+area|материалы\s+и\s+методы|m[ée]thodes"),
+    ("results", r"\bresults?\b|\bр[еé]зультаты\b|\bergebnisse\b|\br[ée]sultats\b"),
+    ("description", r"\bdescription\b|\bsystematics?\b|\btaxonomy\b|\bsystematic\s+account\b|\bdiagnosis\b|описание"),
+    ("discussion", r"\bdiscussion\b|обсуждение|\bdiskussion\b"),
+    ("conclusion", r"\bconclusions?\b|выводы|\bschlussfolgerung"),
+    ("acknowledgements", r"acknowledg(?:e?ment)s?|благодарности|danksagung|remerciements"),
+    ("references", r"\breferences?\b|\bbibliograph|\bliterature\s+cited\b|литература"),
+    ("appendix", r"\bappendix\b|приложение|anhang"),
+]
+
+
+def classify_section(headings: Optional[List[str]]) -> Optional[str]:
+    """Map a chunk's heading trail to a canonical section class.
+
+    ``headings`` is the list of headings provided by docling's
+    HybridChunker — outermost first, nearest (most specific) last. We
+    inspect the most specific heading first, then walk outward, and
+    return the first canonical class that any heading matches. Returns
+    None if no heading matches a known pattern.
+    """
+    if not headings:
+        return None
+    for h in reversed(headings):
+        if not h:
+            continue
+        hlow = h.lower()
+        for cls, pat in _SECTION_PATTERNS:
+            if re.search(pat, hlow):
+                return cls
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +338,12 @@ def get_relative_paths(pdf_paths: List[Path], input_dir: Path) -> List[str]:
     return [str(path.relative_to(input_dir)) for path in pdf_paths]
 
 
-def run_pdf_processing_pipeline(pdf_path: Path, hash_dir: Path, temp_dir: Path) -> Dict:
+def run_pdf_processing_pipeline(
+    pdf_path: Path,
+    hash_dir: Path,
+    temp_dir: Path,
+    grobid_client: Optional[GrobidClient] = None,
+) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
     Called inside a :func:`per_pdf_file_log` block by the main loop, so all
@@ -331,16 +386,36 @@ def run_pdf_processing_pipeline(pdf_path: Path, hash_dir: Path, temp_dir: Path) 
         logger.info("Extracting text and figures...")
         text_file = hash_dir / "text.json"
         figures_file = hash_dir / "figures.json"
+        docling_doc_file = hash_dir / "docling_doc.json"
         extract_docling_content(
-            processed_pdf, text_file, figures_file, figures_dir, visualizations_dir
+            processed_pdf,
+            text_file,
+            figures_file,
+            figures_dir,
+            visualizations_dir,
+            docling_doc_output=docling_doc_file,
         )
         processing_summary["files_created"].extend([str(text_file), str(figures_file)])
+        if docling_doc_file.exists():
+            processing_summary["files_created"].append(str(docling_doc_file))
         processing_summary["processing_steps"].append("docling_extraction")
 
-        logger.info("Extracting metadata...")
+        logger.info("Extracting metadata (Grobid)...")
         metadata_file = hash_dir / "metadata.json"
-        extract_metadata(processed_pdf, metadata_file)
-        processing_summary["files_created"].append(str(metadata_file))
+        references_file = hash_dir / "references.json"
+        tei_file = hash_dir / "grobid.tei.xml"
+        extract_metadata(
+            processed_pdf,
+            metadata_file,
+            references_output=references_file,
+            tei_output=tei_file,
+            grobid_client=grobid_client,
+        )
+        processing_summary["files_created"].extend(
+            [str(metadata_file), str(references_file)]
+        )
+        if tei_file.exists():
+            processing_summary["files_created"].append(str(tei_file))
         processing_summary["processing_steps"].append("metadata_extraction")
 
         logger.info("Chunking text...")
@@ -446,10 +521,21 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         shutil.copy2(input_pdf, output_pdf)
 
 
-def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: Path, figures_dir: Path, visualizations_dir: Path):
+def extract_docling_content(
+    pdf_path: Path,
+    text_output: Path,
+    figures_output: Path,
+    figures_dir: Path,
+    visualizations_dir: Path,
+    docling_doc_output: Optional[Path] = None,
+):
     """Extract text and figures using docling, with PyMuPDF fallback for figures.
 
     Guarantees that only successfully saved figures are listed in figures.json.
+    Also persists the parsed :class:`DoclingDocument` to
+    ``docling_doc_output`` (defaults to ``<text_output.parent>/docling_doc.json``)
+    so the chunking step can re-load the structured document and run
+    HybridChunker without re-parsing the PDF.
     """
     document = None
     text_content = None
@@ -496,6 +582,18 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
     # Save text content (from docling or placeholder)
     with open(text_output, "w", encoding="utf-8") as f:
         json.dump(text_content, f, indent=2, ensure_ascii=False)
+
+    # Persist the structured DoclingDocument so chunking can reload it
+    # without re-parsing the PDF. This separation keeps each pipeline step
+    # a pure function of the on-disk artifacts of the previous step.
+    if document is not None:
+        if docling_doc_output is None:
+            docling_doc_output = text_output.parent / "docling_doc.json"
+        try:
+            document.save_as_json(docling_doc_output)
+            logger.info("Saved DoclingDocument to %s", docling_doc_output)
+        except Exception as e:
+            logger.warning("Could not save DoclingDocument: %s", e)
 
     # Accumulate figure metadata only when file is saved
     figures_data = []
@@ -658,57 +756,208 @@ def extract_docling_content(pdf_path: Path, text_output: Path, figures_output: P
             logger.warning("Creating visualizations failed: %s", e)
 
 
-def extract_metadata(pdf_path: Path, metadata_output: Path):
-    """Extract metadata using Grobid."""
-    # Placeholder - would need to integrate actual Grobid extraction
-    # For now, create a basic metadata structure
-    metadata = {
+def _write_placeholder_metadata(pdf_path: Path, metadata_output: Path, references_output: Path):
+    """Write empty-but-valid metadata.json and references.json.
+
+    Used when Grobid is unavailable or its TEI can't be parsed; keeps
+    downstream stages (chunking, embedding) functional and lets the
+    summary show this document as metadata-less so we can triage later.
+    """
+    placeholder = {
         "filename": pdf_path.name,
         "title": "",
         "authors": [],
-        "year": "",
+        "year": None,
         "journal": "",
         "doi": "",
-        "extraction_method": "placeholder"
+        "abstract": "",
+        "extraction_method": "placeholder",
     }
-    
-    with open(metadata_output, 'w') as f:
-        json.dump(metadata, f, indent=2)
+    with open(metadata_output, "w", encoding="utf-8") as f:
+        json.dump(placeholder, f, indent=2, ensure_ascii=False)
+    with open(references_output, "w", encoding="utf-8") as f:
+        json.dump({"references": [], "total_references": 0}, f, indent=2)
 
 
-def chunk_text(text_file: Path, metadata_file: Path, chunks_output: Path):
-    """Chunk the extracted text (naive char-window; Phase B will replace with
-    docling's HybridChunker).
+def extract_metadata(
+    pdf_path: Path,
+    metadata_output: Path,
+    references_output: Optional[Path] = None,
+    tei_output: Optional[Path] = None,
+    grobid_client: Optional[GrobidClient] = None,
+):
+    """Extract bibliographic metadata + references via Grobid.
+
+    Runs ``/api/processFulltextDocument`` once, caches the raw TEI-XML at
+    ``tei_output`` (if given), and parses it into ``metadata.json`` plus
+    ``references.json``. If Grobid is unreachable or any step fails, falls
+    back to placeholder files so downstream stages still run — the caller
+    can inspect ``metadata["extraction_method"]`` to tell which path was
+    taken.
+
+    Parameters
+    ----------
+    pdf_path:
+        The (possibly OCR'd) ``processed.pdf`` to send to Grobid.
+    metadata_output:
+        Output path for ``metadata.json`` (title, authors, year, …).
+    references_output:
+        Output path for ``references.json``. If None, defaults to
+        ``<metadata_output.parent>/references.json``.
+    tei_output:
+        Cache path for the raw Grobid TEI. Existing non-empty TEI at this
+        path is reused (skipping the Grobid call) — convenient for
+        re-parsing without re-processing. If None, defaults to
+        ``<metadata_output.parent>/grobid.tei.xml``.
+    grobid_client:
+        A live :class:`GrobidClient`, or None to skip Grobid entirely
+        (placeholder-only mode).
     """
-    with open(text_file, "r", encoding="utf-8") as f:
-        text_data = json.load(f)
+    hash_dir = metadata_output.parent
+    if references_output is None:
+        references_output = hash_dir / "references.json"
+    if tei_output is None:
+        tei_output = hash_dir / "grobid.tei.xml"
 
+    tei_xml: Optional[str] = None
+
+    # 1. Reuse cached TEI if present.
+    if tei_output.exists() and tei_output.stat().st_size > 0:
+        try:
+            tei_xml = tei_output.read_text(encoding="utf-8")
+            logger.info("Reusing cached Grobid TEI at %s", tei_output)
+        except OSError as e:
+            logger.warning("Could not read cached TEI %s: %s", tei_output, e)
+            tei_xml = None
+
+    # 2. Otherwise, call Grobid if a client is available.
+    if tei_xml is None and grobid_client is not None:
+        try:
+            logger.info("Calling Grobid on %s ...", pdf_path.name)
+            tei_xml = grobid_client.process_fulltext(pdf_path)
+            tei_output.write_text(tei_xml, encoding="utf-8")
+            logger.info("Wrote Grobid TEI to %s", tei_output)
+        except GrobidUnavailableError as e:
+            logger.warning("Grobid unavailable, using placeholder: %s", e)
+        except Exception as e:
+            logger.warning("Grobid call failed on %s: %s", pdf_path.name, e)
+
+    # 3. Parse TEI if we have one; fall back on any parsing error.
+    if tei_xml is not None:
+        try:
+            header = parse_tei_header(tei_xml)
+            header["filename"] = pdf_path.name  # keep original filename for provenance
+            with open(metadata_output, "w", encoding="utf-8") as f:
+                json.dump(header, f, indent=2, ensure_ascii=False)
+
+            refs = parse_tei_references(tei_xml)
+            with open(references_output, "w", encoding="utf-8") as f:
+                json.dump(
+                    {"references": refs, "total_references": len(refs)},
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            logger.info(
+                "Parsed Grobid TEI: %d authors, %d references, year=%s",
+                len(header.get("authors", [])),
+                len(refs),
+                header.get("year"),
+            )
+            return
+        except Exception as e:
+            logger.warning(
+                "Failed to parse Grobid TEI (%s); writing placeholder", e
+            )
+
+    # 4. Placeholder path.
+    _write_placeholder_metadata(pdf_path, metadata_output, references_output)
+
+
+def chunk_text(
+    text_file: Path,
+    metadata_file: Path,
+    chunks_output: Path,
+    docling_doc_file: Optional[Path] = None,
+):
+    """Chunk the document into structurally-aware pieces.
+
+    When a serialized :class:`DoclingDocument` is available (``docling_doc.json``
+    produced by :func:`extract_docling_content`), we drive docling's
+    :class:`HybridChunker` — tokenizer-aware, respects headings, table and
+    figure captions. Each chunk carries its heading trail and a derived
+    ``section_class`` (see :func:`classify_section`).
+
+    When no DoclingDocument is available (e.g., docling import failed
+    upstream), we fall back to the prior naive character-window behavior so
+    downstream stages still run.
+    """
     with open(metadata_file, "r") as f:
         metadata = json.load(f)
 
-    text = text_data.get("text", "")
+    # Resolve default docling_doc_file relative to text_file's directory.
+    if docling_doc_file is None:
+        docling_doc_file = text_file.parent / "docling_doc.json"
 
-    # Temporary approximation: treat max_tokens as a character window. This is
-    # wrong (tokens ≠ chars) but matches the previous behavior well enough
-    # until Phase B swaps in a real tokenizer-aware chunker.
-    chunk_size = int(CONFIG.get("chunking", {}).get("max_tokens", 1000))
-    if chunk_size <= 0:
-        chunk_size = 1000
+    chunks: List[dict] = []
+    chunker_name = "hybrid_chunker"
 
-    chunks = []
-    for i in range(0, len(text), chunk_size):
-        piece = text[i : i + chunk_size]
-        chunks.append(
-            {
-                "chunk_id": f"chunk_{len(chunks)}",
-                "text": piece,
-                "start_char": i,
-                "end_char": min(i + chunk_size, len(text)),
-            }
-        )
+    if docling_doc_file.exists() and docling_doc_file.stat().st_size > 0:
+        try:
+            from docling.chunking import HybridChunker
+            from docling_core.types.doc import DoclingDocument
+
+            dl_doc = DoclingDocument.load_from_json(docling_doc_file)
+            chunker = HybridChunker()
+            for i, c in enumerate(chunker.chunk(dl_doc=dl_doc)):
+                headings = list(getattr(c.meta, "headings", []) or [])
+                captions = list(getattr(c.meta, "captions", []) or [])
+                chunks.append(
+                    {
+                        "chunk_id": f"chunk_{i}",
+                        "text": c.text,
+                        "headings": headings,
+                        "section_class": classify_section(headings),
+                        "captions": captions,
+                    }
+                )
+            logger.info("HybridChunker produced %d chunks", len(chunks))
+        except Exception as e:
+            logger.warning(
+                "HybridChunker failed (%s); falling back to naive char chunker", e
+            )
+            chunks = []
+            chunker_name = "naive_char_window"
+
+    if not chunks:
+        # Naive fallback.
+        chunker_name = "naive_char_window"
+        with open(text_file, "r", encoding="utf-8") as f:
+            text_data = json.load(f)
+        text = text_data.get("text", "")
+
+        chunk_size = int(CONFIG.get("chunking", {}).get("max_tokens", 1000))
+        if chunk_size <= 0:
+            chunk_size = 1000
+
+        for i in range(0, len(text), chunk_size):
+            piece = text[i : i + chunk_size]
+            chunks.append(
+                {
+                    "chunk_id": f"chunk_{len(chunks)}",
+                    "text": piece,
+                    "headings": [],
+                    "section_class": None,
+                    "captions": [],
+                    "start_char": i,
+                    "end_char": min(i + chunk_size, len(text)),
+                }
+            )
+        logger.info("Naive chunker produced %d chunks", len(chunks))
 
     chunks_data = {
         "metadata": metadata,
+        "chunker": chunker_name,
         "total_chunks": len(chunks),
         "chunks": chunks,
     }
@@ -809,6 +1058,17 @@ def main():
     parser.add_argument("output_dir", type=Path, help="Output directory for processed files")
     parser.add_argument("--resume", action="store_true", help="Skip documents whose summary.json already exists")
     parser.add_argument("--config", type=Path, default=None, help="Path to config.yaml (defaults to ./config.yaml)")
+    parser.add_argument(
+        "--grobid-url",
+        default=os.environ.get("GROBID_URL", "http://localhost:8070"),
+        help="Grobid service URL (default: $GROBID_URL or http://localhost:8070); "
+        "pass --grobid-url='' or --no-grobid to skip metadata extraction",
+    )
+    parser.add_argument(
+        "--no-grobid",
+        action="store_true",
+        help="Skip Grobid even if reachable (useful for dev iteration on non-metadata stages)",
+    )
 
     args = parser.parse_args()
 
@@ -826,6 +1086,24 @@ def main():
 
     logger.info("Processing PDFs from: %s", input_dir)
     logger.info("Output directory: %s", output_dir)
+
+    # One-time Grobid health check. If the service is unreachable at
+    # startup we log and carry on with placeholder metadata for every
+    # document rather than retrying (and logging) per PDF.
+    grobid_client: Optional[GrobidClient] = None
+    if args.no_grobid or not args.grobid_url:
+        logger.info("Grobid skipped (--no-grobid or empty --grobid-url)")
+    else:
+        probe = GrobidClient(base_url=args.grobid_url)
+        if probe.is_alive():
+            logger.info("Grobid reachable at %s", args.grobid_url)
+            grobid_client = probe
+        else:
+            logger.warning(
+                "Grobid not reachable at %s — metadata will be placeholder. "
+                "Start it with: docker compose up -d grobid",
+                args.grobid_url,
+            )
 
     # Create output directory structure
     documents_dir, vector_db_dir = create_output_structure(output_dir)
@@ -874,7 +1152,7 @@ def main():
                 logger.info("pdf_hash_full: %s", pdf_hash_full)
 
                 processing_summary = run_pdf_processing_pipeline(
-                    primary_pdf, hash_dir, temp_dir
+                    primary_pdf, hash_dir, temp_dir, grobid_client=grobid_client
                 )
 
                 summary_file = create_summary_json(

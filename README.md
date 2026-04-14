@@ -98,6 +98,34 @@ conda activate corpus
 
 See [PLAN.md §7](PLAN.md) for GPU partition guidance when running the embedding stage on Bouchet.
 
+### Running Grobid
+
+The pipeline uses [Grobid](https://grobid.readthedocs.io/) to extract bibliographic metadata and references from each PDF. Start it with Docker Compose:
+
+```bash
+docker compose up -d grobid
+# Wait ~60 s for first-run startup; check status with:
+docker compose ps
+curl http://localhost:8070/api/isalive   # should print "true"
+```
+
+Stop it with `docker compose down` when you're done.
+
+If Grobid isn't reachable when `process_corpus.py` runs, the pipeline logs a warning and falls back to placeholder metadata — the rest of the steps (text, figures, chunks) still produce useful output. To explicitly skip Grobid (for rapid iteration on non-metadata stages):
+
+```bash
+python process_corpus.py <input> <output> --no-grobid
+```
+
+On Bouchet, [Singularity](https://docs.sylabs.io/) can pull the same image:
+
+```bash
+singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
+singularity run --bind $HOME grobid.sif &
+# then point the pipeline at the service's URL
+python process_corpus.py <input> <output> --grobid-url http://localhost:8070
+```
+
 ### Pip-only fallback
 
 If you can't use conda, `requirements.txt` still works but you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc` on macOS):

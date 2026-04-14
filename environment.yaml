@@ -40,6 +40,7 @@ dependencies:
   - python-dotenv
   - requests
   - tiktoken
+  - lxml  # TEI-XML parsing (Grobid output)
 
   # Notebook / interactive dev
   - ipykernel
