@@ -31,6 +31,12 @@ from typing import Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
+_PLATE_CAPTION_RE = re.compile(
+    r"^\s*(?:plate|pl\.?|tafel|planche)\s*\d+",
+    re.IGNORECASE,
+)
+
+
 # Multilingual "figure" prefix. Plate/Abbildung/Рисунок etc. all map to the
 # same reference namespace — figure_refs_in_chunks just tracks the number.
 _FIGURE_REF_RE = re.compile(
@@ -76,6 +82,197 @@ def _prov_to_bbox_and_page(prov_item) -> Tuple[Optional[List[float]], Optional[i
         except Exception as e:
             logger.debug("Could not serialize docling bbox: %s", e)
     return bbox_list, page_no
+
+
+# ---------------------------------------------------------------------------
+# Figure classification and deduplication
+# ---------------------------------------------------------------------------
+
+# PDF point heuristics. A full US Letter page is ~612×792 pts ≈ 485k pts²;
+# A4 is ~595×842 pts ≈ 501k pts². We default to ~500k so these thresholds
+# describe reasonable fractions of a page even without knowing the exact
+# size — override ``page_area_pts`` when you do.
+_DEFAULT_PAGE_AREA_PTS = 500_000
+_MIN_FIGURE_AREA_FRAC = 0.03   # below 3% of page area + no caption → graphical
+_MIN_FIGURE_DIM_PTS = 50       # below 50pt in either dim → graphical regardless
+
+
+def _bbox_area(bbox: Optional[List[float]]) -> float:
+    if not bbox or len(bbox) != 4:
+        return 0.0
+    return max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
+
+
+def _bbox_overlap_fraction(a: List[float], b: List[float]) -> float:
+    """Intersection area / smaller bbox area. Returns 0 when either bbox is
+    missing or has zero area. Used to decide whether two same-numbered
+    figures are redundant crops of the same panel or genuinely distinct
+    subpanels."""
+    if not (a and b and len(a) == 4 and len(b) == 4):
+        return 0.0
+    ix0 = max(a[0], b[0])
+    iy0 = max(a[1], b[1])
+    ix1 = min(a[2], b[2])
+    iy1 = min(a[3], b[3])
+    if ix1 <= ix0 or iy1 <= iy0:
+        return 0.0
+    inter = (ix1 - ix0) * (iy1 - iy0)
+    area_a = _bbox_area(a)
+    area_b = _bbox_area(b)
+    smaller = min(area_a, area_b) if area_a and area_b else 0.0
+    if smaller == 0:
+        return 0.0
+    return inter / smaller
+
+
+# Figure-type strings emitted in figures.json. Consumers (MCP tools, the
+# HTML report, downstream analytic queries) filter on these.
+FIGURE_TYPE_FIGURE = "figure"
+FIGURE_TYPE_PLATE = "plate"
+FIGURE_TYPE_SUBPANEL = "subpanel"
+FIGURE_TYPE_GRAPHICAL = "graphical_element"
+FIGURE_TYPE_UNCLASSIFIED = "unclassified"
+
+
+def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -> str:
+    """Classify one raw figure item into a ``figure_type``.
+
+    ``item`` is the in-memory dict the two-pass extractor builds per picture:
+    it carries ``bbox``, ``caption_text``, and ``figure_number``. The
+    classifier never touches the saved image — it can be re-run on
+    ``figures.json`` after the fact.
+
+    Rules (first match wins):
+
+    * **graphical_element** — bbox smaller than 50×50 pts OR below 3% of
+      page area with no caption. Matches the journal-header/footer/logo
+      furniture docling loves to extract from modern PDFs.
+    * **plate** — caption starts with "Plate N" / "Pl. N" / "Tafel N" /
+      "Planche N". Historical papers' non-figure non-furniture content
+      lives here.
+    * **figure** — has a caption AND a parseable figure number AND
+      reasonable size.
+    * **unclassified** — reasonable size but no caption or no number.
+      Kept but flagged for the HTML report's manual-review section.
+    """
+    bbox = item.get("bbox")
+    w = (bbox[2] - bbox[0]) if bbox and len(bbox) == 4 else 0
+    h = (bbox[3] - bbox[1]) if bbox and len(bbox) == 4 else 0
+    area = _bbox_area(bbox)
+    caption = item.get("caption_text") or ""
+    fig_num = item.get("figure_number")
+
+    if w and h and (w < _MIN_FIGURE_DIM_PTS or h < _MIN_FIGURE_DIM_PTS):
+        return FIGURE_TYPE_GRAPHICAL
+    if area and area < _MIN_FIGURE_AREA_FRAC * page_area_pts and not caption:
+        return FIGURE_TYPE_GRAPHICAL
+
+    if _PLATE_CAPTION_RE.match(caption):
+        return FIGURE_TYPE_PLATE
+
+    if caption and fig_num:
+        return FIGURE_TYPE_FIGURE
+
+    return FIGURE_TYPE_UNCLASSIFIED
+
+
+def dedupe_figures(items: List[Dict]) -> List[Dict]:
+    """Merge redundant crops of the same figure_number.
+
+    docling sometimes emits the same figure multiple times (the whole-figure
+    box, plus an internal crop per panel). When the bboxes overlap
+    substantially we keep only the largest; when they don't overlap
+    (genuine subpanels on the same page, or continuations across pages) we
+    keep all and label the smaller ones as ``subpanel`` of the primary.
+
+    Returns a new list, preserving input order for items that weren't
+    duplicates. Sets ``panel_letter`` (``"a"``, ``"b"``, …) on subpanels
+    and ``primary_figure_docling_idx`` so the report can link them back.
+    """
+    if not items:
+        return items
+    from collections import defaultdict
+    by_num: Dict[str, List[Dict]] = defaultdict(list)
+    order: List[Dict] = []
+    for it in items:
+        num = it.get("figure_number")
+        if num is not None and str(num) != "":
+            by_num[str(num)].append(it)
+        else:
+            order.append(it)
+
+    for num, group in by_num.items():
+        if len(group) == 1:
+            order.append(group[0])
+            continue
+        # Sort by area desc — primary is the largest.
+        group.sort(key=lambda x: -_bbox_area(x.get("bbox")))
+        primary = group[0]
+        order.append(primary)
+        primary_bbox = primary.get("bbox")
+        panel_iter = iter("bcdefghijklmnop")
+        for other in group[1:]:
+            other_bbox = other.get("bbox")
+            overlap = _bbox_overlap_fraction(primary_bbox, other_bbox)
+            if overlap > 0.5:
+                # Redundant crop — drop.
+                logger.debug(
+                    "Figure dedup: dropping docling_%s (Fig %s) "
+                    "as crop of docling_%s (overlap=%.2f)",
+                    other.get("docling_idx"), num,
+                    primary.get("docling_idx"), overlap,
+                )
+                continue
+            # Legitimate subpanel or continuation — keep with link-back.
+            other["figure_type"] = FIGURE_TYPE_SUBPANEL
+            other["primary_figure_docling_idx"] = primary.get("docling_idx")
+            other["panel_letter"] = next(panel_iter, "x")
+            order.append(other)
+    return order
+
+
+# ---------------------------------------------------------------------------
+# File-naming policy
+# ---------------------------------------------------------------------------
+
+_NAME_SAFE_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slug(s: str) -> str:
+    return _NAME_SAFE_RE.sub("_", (s or "").lower()).strip("_")
+
+
+def compose_figure_filename(item: Dict) -> str:
+    """Return a semantic filename for a classified figure item.
+
+    Policy:
+
+    * ``figure`` with number → ``fig_{number}.png``
+    * ``figure`` without number (but still classified as such) →
+      ``fig_docling_{idx}.png``
+    * ``plate`` with number → ``plate_{number}.png``
+    * ``subpanel`` of Fig N, panel B → ``fig_{number}_panel_{letter}.png``
+    * ``graphical_element`` → ``_graphic_{idx}.png`` (leading underscore so
+      these sort separately from real figures in a directory listing)
+    * ``unclassified`` → ``_unclassified_{idx}.png``
+
+    Duplicate collisions (e.g., two "Figure 3"s that survived dedup)
+    append the docling idx so the filenames stay unique.
+    """
+    ftype = item.get("figure_type") or FIGURE_TYPE_UNCLASSIFIED
+    idx = item.get("docling_idx")
+    num = item.get("figure_number")
+
+    if ftype == FIGURE_TYPE_FIGURE:
+        return f"fig_{num}.png" if num else f"fig_docling_{idx}.png"
+    if ftype == FIGURE_TYPE_PLATE:
+        return f"plate_{num}.png" if num else f"plate_docling_{idx}.png"
+    if ftype == FIGURE_TYPE_SUBPANEL:
+        letter = item.get("panel_letter") or "b"
+        return f"fig_{num}_panel_{letter}.png" if num else f"_subpanel_{idx}.png"
+    if ftype == FIGURE_TYPE_GRAPHICAL:
+        return f"_graphic_{idx}.png"
+    return f"_unclassified_{idx}.png"
 
 
 def extract_caption_info(picture, document) -> Dict:
@@ -254,6 +451,7 @@ _REPORT_CSS = """
 body { font-family: -apple-system, system-ui, sans-serif; margin: 2em; color: #222; }
 header { border-bottom: 1px solid #ddd; padding-bottom: 0.5em; margin-bottom: 1em; }
 h1 { margin: 0 0 0.2em; font-size: 1.4em; }
+h2 { margin: 2em 0 0.5em; font-size: 1.1em; color: #555; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
 .meta { color: #666; font-size: 0.9em; }
 .fig { display: flex; gap: 1em; margin: 1.5em 0; padding: 0.5em; border: 1px solid #eee; border-radius: 4px; }
 .fig img { max-width: 320px; max-height: 300px; object-fit: contain; border: 1px solid #eee; background: #fafafa; }
@@ -265,8 +463,24 @@ h1 { margin: 0 0 0.2em; font-size: 1.4em; }
 .tag.heuristic { background: #fff3d6; color: #8a5a00; }
 .tag.none { background: #ffe0e0; color: #8b0303; }
 .tag.method { background: #eee; color: #555; }
+.tag.type-figure { background: #e0ffe0; color: #035e03; }
+.tag.type-plate  { background: #e8e0ff; color: #4a1f94; }
+.tag.type-subpanel { background: #fff0d6; color: #6e4200; }
+.tag.type-graphical_element { background: #eee; color: #555; }
+.tag.type-unclassified { background: #ffe0e0; color: #8b0303; }
 .refs { margin-top: 0.3em; color: #666; font-size: 0.85em; }
+details > summary { cursor: pointer; color: #666; font-size: 0.95em; margin: 1em 0 0.5em; }
 """
+
+
+# Ordered for rendering — real figures first, review bucket last.
+_REPORT_SECTIONS = [
+    ("Figures", {FIGURE_TYPE_FIGURE}),
+    ("Plates", {FIGURE_TYPE_PLATE}),
+    ("Subpanels", {FIGURE_TYPE_SUBPANEL}),
+    ("Needs review (graphical elements / unclassified)",
+     {FIGURE_TYPE_GRAPHICAL, FIGURE_TYPE_UNCLASSIFIED}),
+]
 
 
 def generate_figures_report(hash_dir: Path) -> Optional[Path]:
@@ -321,7 +535,13 @@ def generate_figures_report(hash_dir: Path) -> Optional[Path]:
         "</header>",
     ]
 
+    # Group figures by type so real content comes first and the review
+    # bucket (graphical elements + unclassified) can be collapsed.
+    by_type: Dict[str, List[Dict]] = {}
     for fig in figures:
+        by_type.setdefault(fig.get("figure_type") or FIGURE_TYPE_UNCLASSIFIED, []).append(fig)
+
+    def _render_figure(fig: Dict) -> List[str]:
         img_rel = fig.get("filename") or ""
         img_path = f"figures/{img_rel}" if img_rel else ""
         src = fig.get("caption_source")
@@ -329,37 +549,58 @@ def generate_figures_report(hash_dir: Path) -> Optional[Path]:
             "docling_caption_link": "<span class='tag docling'>docling-linked</span>",
             "heuristic_proximity": "<span class='tag heuristic'>heuristic</span>",
         }.get(src, "<span class='tag none'>no-caption</span>" if not fig.get("caption_text") else "")
-        method = fig.get("extraction_method", "")
-        method_tag = f"<span class='tag method'>{html.escape(method)}</span>" if method else ""
+        ftype = fig.get("figure_type") or FIGURE_TYPE_UNCLASSIFIED
+        type_tag = f"<span class='tag type-{html.escape(ftype)}'>{html.escape(ftype)}</span>"
 
         fig_num = fig.get("figure_number") or ""
         page = fig.get("page")
         caption = fig.get("caption_text") or fig.get("caption") or ""
         refs = fig.get("referenced_in_chunks") or []
 
-        parts.append("<div class='fig'>")
+        out: List[str] = ["<div class='fig'>"]
         if img_path:
-            parts.append(f"<img src='{html.escape(img_path)}' alt='{html.escape(img_rel)}'>")
+            out.append(f"<img src='{html.escape(img_path)}' alt='{html.escape(img_rel)}'>")
         else:
-            parts.append("<div style='width:320px;background:#fafafa;'></div>")
-        parts.append("<div class='body'>")
-        parts.append(
-            f"<div class='id'>{html.escape(fig['figure_id'])}"
-            + (f" · Fig. {html.escape(str(fig_num))}" if fig_num else "")
-            + (f" · page {page}" if page is not None else "")
-            + f"</div>"
-        )
-        parts.append(f"<div>{src_tag}{method_tag}</div>")
-        parts.append(
+            out.append("<div style='width:320px;background:#fafafa;'></div>")
+        out.append("<div class='body'>")
+        # id line: figure_id · Fig. 3 · panel_b · page 5
+        id_parts = [html.escape(fig.get("figure_id", ""))]
+        if fig_num:
+            id_parts.append(f"Fig. {html.escape(str(fig_num))}")
+        if fig.get("panel_letter"):
+            id_parts.append(f"panel {html.escape(fig['panel_letter'])}")
+        if page is not None:
+            id_parts.append(f"page {page}")
+        out.append(f"<div class='id'>{' · '.join(id_parts)}</div>")
+        out.append(f"<div>{type_tag}{src_tag}</div>")
+        out.append(
             f"<div class='caption'>{html.escape(caption) if caption else '<em>(no caption)</em>'}</div>"
         )
         if refs:
-            parts.append(
+            out.append(
                 "<div class='refs'>referenced in "
                 + ", ".join(f"<code>{html.escape(c)}</code>" for c in refs)
                 + "</div>"
             )
-        parts.append("</div></div>")
+        out.append("</div></div>")
+        return out
+
+    for heading, type_set in _REPORT_SECTIONS:
+        figs = [f for t in type_set for f in by_type.get(t, [])]
+        if not figs:
+            continue
+        # The "Needs review" section starts collapsed — it's for humans
+        # to skim quickly, not central to the report's primary content.
+        is_review = "Needs review" in heading
+        if is_review:
+            parts.append(f"<details><summary><h2 style='display:inline'>{html.escape(heading)} "
+                         f"({len(figs)})</h2></summary>")
+        else:
+            parts.append(f"<h2>{html.escape(heading)} ({len(figs)})</h2>")
+        for fig in figs:
+            parts.extend(_render_figure(fig))
+        if is_review:
+            parts.append("</details>")
 
     parts.append("</body></html>")
     out = hash_dir / "figures_report.html"

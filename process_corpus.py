@@ -1164,51 +1164,126 @@ def extract_docling_content(
                 logger.warning("Could not serialize docling bbox: %s", e)
         return meta
 
-    # First try: use docling pictures if document is available
+    # Two-pass docling figure extraction (Phase D.2 — see PLAN.md).
+    #
+    # Pass 1: gather every docling Picture's image + bbox + caption in
+    # memory. We don't write images to disk yet — the filename policy
+    # depends on the figure type (real figure? plate? graphical furniture?
+    # subpanel?) which we only know after dedup + classification.
+    #
+    # Pass 2: classify_figure() + dedupe_figures() prune redundant panel
+    # crops and flag non-figures (tiny journal-furniture boxes, captionless
+    # undersized elements).
+    #
+    # Pass 3: save surviving items under semantic filenames (fig_3.png,
+    # plate_2.png, _graphic_5.png) so a directory listing is human-readable
+    # and the MCP tools can default to real figures by filtering on
+    # figure_type.
     if document is not None and hasattr(document, "pictures"):
-        saved_count = 0
-        for idx, picture in enumerate(document.pictures or []):
-            figure_path = figures_dir / f"figure_{idx + 1}.png"
+        from figures import (
+            classify_figure,
+            dedupe_figures,
+            compose_figure_filename,
+            FIGURE_TYPE_FIGURE,
+            FIGURE_TYPE_PLATE,
+            FIGURE_TYPE_SUBPANEL,
+        )
 
-            # Rich caption extraction: docling-linked TextItem (preferred),
-            # proximity heuristic as fallback. Returns caption_text,
-            # caption_page, caption_bbox, caption_source — see figures.py.
+        raw_items: List[Dict] = []
+        for idx, picture in enumerate(document.pictures or []):
             caption_info = extract_caption_info(picture, document)
             caption_text = caption_info.get("caption_text", "")
             figure_number = parse_figure_number(caption_text)
-
-            # Save image if available
+            bbox_meta = _docling_prov_to_bbox_page(picture)
+            # Resolve image up-front (still in memory); we save after
+            # classification once we know the intended filename.
             try:
                 image = None
                 if hasattr(picture, "get_image"):
                     image = picture.get_image(document) if callable(picture.get_image) else picture.get_image
-                if image is not None and hasattr(image, "save"):
-                    image.save(str(figure_path))
-                    saved_count += 1
-                    meta = {"extraction_method": "docling"}
-                    meta.update(_docling_prov_to_bbox_page(picture))
-                    meta.update({
-                        "caption_page": caption_info.get("caption_page"),
-                        "caption_bbox": caption_info.get("caption_bbox"),
-                        "caption_source": caption_info.get("caption_source"),
-                        "figure_number": figure_number,
-                    })
-                    # Override append_figure's caption->caption_text slot
-                    # with the rich caption_text. append_figure also sets
-                    # "caption" (legacy alias) — we now store the text
-                    # under caption_text instead, since PLAN.md §3 calls
-                    # that out as the canonical field name.
-                    append_figure(
-                        figure_id=f"docling_{idx + 1}",
-                        figure_path=figure_path,
-                        caption=caption_text,  # stored in both slots below
-                        meta=meta,
-                    )
-                else:
-                    logger.warning("Docling did not return a savable image for figure %d", idx + 1)
             except Exception as e:
-                logger.warning("Could not save docling figure %d: %s", idx + 1, e)
+                logger.warning("Could not resolve docling figure %d image: %s", idx + 1, e)
+                image = None
 
+            raw_items.append({
+                "docling_idx": idx + 1,
+                "image": image,
+                "caption_text": caption_text,
+                "caption_page": caption_info.get("caption_page"),
+                "caption_bbox": caption_info.get("caption_bbox"),
+                "caption_source": caption_info.get("caption_source"),
+                "figure_number": figure_number,
+                "bbox": bbox_meta.get("bbox"),
+                "page": bbox_meta.get("page"),
+                "bbox_coord_system": bbox_meta.get("bbox_coord_system"),
+            })
+
+        # Pass 2: classify, then dedupe. Order matters — subpanels are
+        # identified during dedupe and we don't want the initial
+        # classify_figure() to call them "figure" and then the dedup pass
+        # relabel them.
+        for it in raw_items:
+            if "figure_type" not in it:
+                it["figure_type"] = classify_figure(it)
+        items = dedupe_figures(raw_items)
+
+        # Pass 3: save surviving images, record metadata.
+        saved_count = 0
+        for it in items:
+            image = it.get("image")
+            if image is None or not hasattr(image, "save"):
+                logger.warning(
+                    "No savable image for docling_%s (figure_type=%s); skipping",
+                    it.get("docling_idx"), it.get("figure_type"),
+                )
+                continue
+            filename = compose_figure_filename(it)
+            # Extremely unlikely collision guard — if a filename is already
+            # taken by a prior entry this pass, fall back to a docling-idx-
+            # qualified name so nothing is overwritten silently.
+            out_path = figures_dir / filename
+            if out_path.exists():
+                stem, ext = out_path.stem, out_path.suffix
+                out_path = figures_dir / f"{stem}_docling_{it['docling_idx']}{ext}"
+            try:
+                image.save(str(out_path))
+            except Exception as e:
+                logger.warning("Could not save figure %s: %s", filename, e)
+                continue
+            saved_count += 1
+
+            meta: Dict = {
+                "extraction_method": "docling",
+                "figure_type": it.get("figure_type"),
+                "figure_number": it.get("figure_number"),
+                "page": it.get("page"),
+                "bbox": it.get("bbox"),
+                "bbox_coord_system": it.get("bbox_coord_system"),
+                "caption_page": it.get("caption_page"),
+                "caption_bbox": it.get("caption_bbox"),
+                "caption_source": it.get("caption_source"),
+            }
+            if it.get("figure_type") == FIGURE_TYPE_SUBPANEL:
+                meta["primary_figure_docling_idx"] = it.get("primary_figure_docling_idx")
+                meta["panel_letter"] = it.get("panel_letter")
+            append_figure(
+                figure_id=f"docling_{it['docling_idx']}",
+                figure_path=out_path,
+                caption=it.get("caption_text") or "",
+                meta=meta,
+            )
+
+        # One-line summary of the classification outcome (useful in logs
+        # + pipeline.log when reviewing extraction quality).
+        type_counts: Dict[str, int] = {}
+        for it in items:
+            type_counts[it.get("figure_type", "?")] = type_counts.get(it.get("figure_type", "?"), 0) + 1
+        raw_n = len(raw_items)
+        dropped_dup = raw_n - len(items)
+        logger.info(
+            "Figure extraction: %d raw → %d kept (%d dup merged). types=%s",
+            raw_n, len(items), dropped_dup, type_counts,
+        )
         if saved_count == 0:
             logger.info("No figures saved via docling; will try PyMuPDF fallback")
 
