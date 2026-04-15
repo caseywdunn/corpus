@@ -171,6 +171,45 @@ output_directory/
     └── lancedb/                 # Actual vector database
 ```
 
+### Querying the corpus from an LLM (MCP)
+
+After processing PDFs, expose the output as an MCP server that any MCP-capable client (Claude Desktop, Claude Code, Cursor, Continue, …) can drive. The server is a thin view over the per-paper artifacts; it does not store data of its own. See [PLAN.md §3](PLAN.md) for design context and [PLAN.md §8](PLAN.md) for the queries it's designed to support.
+
+Run it standalone (mostly for testing — clients normally launch it themselves):
+
+```bash
+python mcp_server.py /path/to/output_dir
+```
+
+Add it to **Claude Desktop** by editing `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "corpus": {
+      "command": "/opt/anaconda3/envs/corpus/bin/python",
+      "args": ["/Users/you/repos/corpus/mcp_server.py", "/Users/you/repos/corpus/demo_output"]
+    }
+  }
+}
+```
+
+Add it to **Claude Code** (per-project `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "corpus": {
+      "type": "stdio",
+      "command": "/opt/anaconda3/envs/corpus/bin/python",
+      "args": ["mcp_server.py", "demo_output"]
+    }
+  }
+}
+```
+
+The server registers 13 tools — `list_papers`, `search_taxon`, `get_papers_for_taxon`, `get_chunks_for_taxon`, `get_figures_for_taxon`, `get_figures_for_anatomy`, `get_chunks_by_section`, `get_bibliography`, `get_papers_by_author`, `list_valid_species_under`, `get_paper`, `get_figure`, `get_chunk`. Restart the server after re-running `process_corpus.py` so the index picks up new papers.
+
 ### Advanced Usage
 
 **Resume interrupted processing** (skip already processed PDFs):
