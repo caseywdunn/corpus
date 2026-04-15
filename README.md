@@ -175,40 +175,79 @@ output_directory/
 
 After processing PDFs, expose the output as an MCP server that any MCP-capable client (Claude Desktop, Claude Code, Cursor, Continue, …) can drive. The server is a thin view over the per-paper artifacts; it does not store data of its own. See [PLAN.md §3](PLAN.md) for design context and [PLAN.md §8](PLAN.md) for the queries it's designed to support.
 
-Run it standalone (mostly for testing — clients normally launch it themselves):
+#### Quickstart: Claude Code against the demo output
+
+A project-scoped [.mcp.json](.mcp.json) ships in the repo root and points at `demo_output/` with the local conda env's Python. From a Claude Code session started in this repo, run `/mcp` to list / enable / reload MCP servers. After approving `corpus`, the 15 tools are available in-session.
+
+This works as long as:
+
+- You've run `python process_corpus.py demo demo_output` (and ideally `python embed_chunks.py demo_output` for the `get_chunks_for_topic` semantic-search tool).
+- Your conda env lives at `/opt/anaconda3/envs/corpus` — edit `.mcp.json` if yours is somewhere else.
+- You've pointed at a different corpus than `demo_output/`, in which case change the second arg in `.mcp.json`.
+
+Restart the MCP server (via `/mcp` → reload) after re-running `process_corpus.py` or `embed_chunks.py` so the index picks up new papers / new vectors.
+
+#### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (absolute paths — Claude Desktop doesn't know about your repo CWD):
+
+```json
+{
+  "mcpServers": {
+    "corpus": {
+      "command": "/opt/anaconda3/envs/corpus/bin/python",
+      "args": [
+        "/Users/you/repos/corpus/mcp_server.py",
+        "/Users/you/repos/corpus/demo_output"
+      ]
+    }
+  }
+}
+```
+
+Restart Claude Desktop after editing.
+
+#### Running the server by hand
+
+Mostly useful for testing the server's stdio handshake. Clients normally launch it themselves through the config snippets above.
 
 ```bash
-python mcp_server.py /path/to/output_dir
+python mcp_server.py demo_output
+# or, with an alternate WoRMS snapshot or embedding backend:
+python mcp_server.py demo_output \
+    --worms-sqlite /path/to/worms.sqlite \
+    --embedding-backend local --embedding-model BAAI/bge-m3
 ```
 
-Add it to **Claude Desktop** by editing `~/Library/Application Support/Claude/claude_desktop_config.json`:
+#### Tool surface (14 tools)
 
-```json
-{
-  "mcpServers": {
-    "corpus": {
-      "command": "/opt/anaconda3/envs/corpus/bin/python",
-      "args": ["/Users/you/repos/corpus/mcp_server.py", "/Users/you/repos/corpus/demo_output"]
-    }
-  }
-}
-```
+| Tool | What it returns |
+|---|---|
+| `list_papers(year_from, year_to, limit)` | Every paper with its metadata + annotation counts |
+| `get_paper(paper_hash)` | One paper's full metadata + top-10 taxa / anatomy rollups |
+| `search_taxon(name)` | WoRMS lookup, resolving through synonymy |
+| `get_papers_for_taxon(taxon_name)` | Papers mentioning a taxon, ordered by mention count |
+| `get_chunks_for_taxon(taxon_name, paper_hash?, limit)` | Every chunk that mentions the taxon (exhaustive, synonymy-aware) |
+| `get_chunks_for_topic(query, k, paper_hash?)` | Semantic search via the LanceDB vector index (needs `embed_chunks.py` to have been run) |
+| `translate_chunk(paper_hash, chunk_id, target_language?)` | On-demand translation via Claude API; caches the result (needs `ANTHROPIC_API_KEY`) |
+| `get_figures_for_taxon(taxon_name, paper_hash?)` | Figures from mentioning papers, ranked by caption overlap |
+| `get_figures_for_anatomy(anatomy_term, paper_hash?)` | Figures whose captions mention an anatomy lexicon term |
+| `get_chunks_by_section(paper_hash, section_class)` | Section-filtered chunks (introduction / description / references / …) |
+| `get_bibliography(paper_hash)` | Parsed Grobid references |
+| `get_papers_by_author(surname)` | Papers by a given author surname |
+| `list_valid_species_under(parent_taxon)` | WoRMS-tree filter with per-species corpus coverage |
+| `get_figure(paper_hash, figure_id)` | One figure's full record incl. image path |
+| `get_chunk(paper_hash, chunk_id)` | One chunk's full record |
 
-Add it to **Claude Code** (per-project `.mcp.json`):
+#### Example prompts
 
-```json
-{
-  "mcpServers": {
-    "corpus": {
-      "type": "stdio",
-      "command": "/opt/anaconda3/envs/corpus/bin/python",
-      "args": ["mcp_server.py", "demo_output"]
-    }
-  }
-}
-```
+In a Claude Code session with the `corpus` server connected:
 
-The server registers 13 tools — `list_papers`, `search_taxon`, `get_papers_for_taxon`, `get_chunks_for_taxon`, `get_figures_for_taxon`, `get_figures_for_anatomy`, `get_chunks_by_section`, `get_bibliography`, `get_papers_by_author`, `list_valid_species_under`, `get_paper`, `get_figure`, `get_chunk`. Restart the server after re-running `process_corpus.py` so the index picks up new papers.
+- *"What papers in the corpus mention Bargmannia? List them with year + first author."*
+- *"List every currently-valid Apolemia species, and flag which ones already have papers in the corpus."*
+- *"Give me the figures in Pugh 2001 that show nectophore morphology — include image paths so I can open them."*
+- *"Summarize what the corpus says about the structure and function of pneumatophores, citing paper hashes."*
+- *"Read the bibliography of Dunn 2005 and tell me which cited works are also in the corpus as their own papers."*
 
 ### Advanced Usage
 

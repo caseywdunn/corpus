@@ -444,19 +444,27 @@ def get_chunks_for_taxon(
     return out[offset: offset + int(limit)] if limit else out[offset:]
 
 
+_REAL_FIGURE_TYPES = {"figure", "plate"}
+
+
 @mcp.tool()
 def get_figures_for_taxon(
     taxon_name: str,
     paper_hash: Optional[str] = None,
     limit: int = 50,
+    include_all: bool = False,
 ) -> List[Dict]:
     """Figures from papers that mention the taxon, ranked by caption
     relevance.
 
     A figure whose caption names the taxon directly scores higher than
     a figure from a paper that merely mentions it elsewhere. Each
-    result carries the on-disk figure image path so a downstream
-    consumer (or the LLM client) can display it.
+    result carries the on-disk figure image path.
+
+    By default only returns items classified as ``figure`` or ``plate``
+    (skipping journal furniture, subpanels of already-returned figures,
+    and unclassifiable graphical elements). Pass ``include_all=True`` to
+    see every extracted item including the review bucket.
     """
     idx = _need_index()
     if idx.worms_db is None:
@@ -478,6 +486,9 @@ def get_figures_for_taxon(
             continue
         figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
         for f in figs.get("figures", []) or []:
+            ftype = f.get("figure_type")
+            if not include_all and ftype not in _REAL_FIGURE_TYPES:
+                continue
             caption = (f.get("caption_text") or f.get("caption") or "").lower()
             caption_hit = accepted_name_low in caption or (
                 matched_name_low and matched_name_low in caption
@@ -486,6 +497,7 @@ def get_figures_for_taxon(
                 "paper_hash": h,
                 "paper_title": p.get("title"),
                 "figure_id": f.get("figure_id"),
+                "figure_type": ftype,
                 "page": f.get("page"),
                 "caption_text": f.get("caption_text") or f.get("caption"),
                 "figure_number": f.get("figure_number"),
@@ -502,6 +514,7 @@ def get_figures_for_anatomy(
     anatomy_term: str,
     paper_hash: Optional[str] = None,
     limit: int = 50,
+    include_all: bool = False,
 ) -> List[Dict]:
     """Figures whose captions mention an anatomy term.
 
@@ -510,6 +523,9 @@ def get_figures_for_anatomy(
     term case-insensitively in figure captions and returns the figure
     records with image paths and caption text, ranked by number of
     occurrences in the caption.
+
+    By default only real figures and plates are returned; pass
+    ``include_all=True`` to include the review bucket.
     """
     idx = _need_index()
     term_low = (anatomy_term or "").strip().lower()
@@ -525,6 +541,9 @@ def get_figures_for_anatomy(
             continue
         figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
         for f in figs.get("figures", []) or []:
+            ftype = f.get("figure_type")
+            if not include_all and ftype not in _REAL_FIGURE_TYPES:
+                continue
             caption = (f.get("caption_text") or f.get("caption") or "")
             occ = caption.lower().count(term_low)
             if occ == 0:
@@ -533,6 +552,7 @@ def get_figures_for_anatomy(
                 "paper_hash": h,
                 "paper_title": p.get("title"),
                 "figure_id": f.get("figure_id"),
+                "figure_type": ftype,
                 "page": f.get("page"),
                 "figure_number": f.get("figure_number"),
                 "caption_text": caption,
@@ -704,6 +724,136 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
                 ),
             }
     return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+
+
+@mcp.tool()
+def translate_chunk(
+    paper_hash: str,
+    chunk_id: str,
+    target_language: str = "en",
+    model: str = "claude-haiku-4-5-20251001",
+) -> Dict:
+    """Translate one chunk to the target language (default English), via
+    the Anthropic Claude API.
+
+    On-demand — nothing is translated at ingest time (PLAN.md §3 decision).
+    Results are cached at ``<hash_dir>/translated_{target_language}.json``
+    keyed by ``chunk_id`` so repeated calls are free.
+
+    Returns the original text, the translation, the source language
+    reported by ``scan_detection.json``, and whether the result was
+    cached or freshly generated.
+
+    Returns ``{error: …}`` if ``ANTHROPIC_API_KEY`` isn't set or the
+    Anthropic SDK isn't installed. If the chunk is already in the target
+    language (matching ``scan_detection.detected_language``) the original
+    text is returned with ``translation_needed: False``.
+    """
+    idx = _need_index()
+    p = idx.papers.get(paper_hash)
+    if not p:
+        return {"error": f"no such paper_hash: {paper_hash}"}
+    hash_dir = Path(p["hash_dir"])
+
+    # Find the chunk text.
+    chunks = _load_json(hash_dir / "chunks.json", default={}) or {}
+    chunk = next((c for c in chunks.get("chunks", []) or [] if c.get("chunk_id") == chunk_id), None)
+    if chunk is None:
+        return {"error": f"no such chunk_id {chunk_id!r} in paper {paper_hash}"}
+    original = chunk.get("text") or ""
+
+    # If the paper's detected_language already matches, no translation
+    # needed. Short-circuit so the user doesn't pay a Claude call to get
+    # the same bytes back.
+    scan = _load_json(hash_dir / "scan_detection.json", default={}) or {}
+    src_lang = scan.get("detected_language")
+    if src_lang and src_lang.lower() == target_language.lower():
+        return {
+            "paper_hash": paper_hash,
+            "chunk_id": chunk_id,
+            "source_language": src_lang,
+            "target_language": target_language,
+            "translation_needed": False,
+            "original": original,
+            "translation": original,
+            "cached": False,
+        }
+
+    # Check the on-disk cache first.
+    cache_file = hash_dir / f"translated_{target_language}.json"
+    cache = _load_json(cache_file, default={}) or {}
+    if chunk_id in cache:
+        hit = cache[chunk_id]
+        return {
+            "paper_hash": paper_hash,
+            "chunk_id": chunk_id,
+            "source_language": src_lang,
+            "target_language": target_language,
+            "translation_needed": True,
+            "original": original,
+            "translation": hit.get("translation", ""),
+            "cached": True,
+            "model": hit.get("model"),
+        }
+
+    # Translate via Claude.
+    try:
+        import anthropic
+    except ImportError:
+        return {"error": "anthropic package not installed (pip install anthropic)"}
+    import os
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return {"error": "ANTHROPIC_API_KEY not set in environment"}
+
+    client = anthropic.Anthropic()
+    # Short prompt because Claude handles translation well without
+    # elaborate instruction. Preserve scientific names (Latin binomials,
+    # taxonomic authorities) and quoted terms verbatim — these carry
+    # technical meaning that paraphrase would degrade.
+    system_prompt = (
+        f"Translate the following scientific text into {target_language}. "
+        "Preserve any Latin scientific names, taxonomic authorities "
+        "(e.g., 'Eschscholtz, 1829'), and terms in quotation marks "
+        "exactly as written. Return only the translation — no preface, "
+        "no commentary, no source-text repetition."
+    )
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=max(512, min(4096, len(original))),
+            system=system_prompt,
+            messages=[{"role": "user", "content": original}],
+        )
+    except Exception as e:
+        return {"error": f"Claude API call failed: {e}"}
+
+    # Extract the text block from the response.
+    translated_text = ""
+    for block in response.content:
+        if getattr(block, "type", None) == "text":
+            translated_text += block.text or ""
+    translated_text = translated_text.strip()
+
+    # Persist to cache.
+    cache[chunk_id] = {
+        "translation": translated_text,
+        "model": model,
+        "source_language": src_lang,
+    }
+    with cache_file.open("w", encoding="utf-8") as f:
+        json.dump(cache, f, indent=2, ensure_ascii=False)
+
+    return {
+        "paper_hash": paper_hash,
+        "chunk_id": chunk_id,
+        "source_language": src_lang,
+        "target_language": target_language,
+        "translation_needed": True,
+        "original": original,
+        "translation": translated_text,
+        "cached": False,
+        "model": model,
+    }
 
 
 @mcp.tool()
