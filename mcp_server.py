@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp import FastMCP
 
 from taxa import WormsDB
+from embeddings import EmbeddingBackend, EmbeddingError, get_embedder
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,21 @@ class CorpusIndex:
     threads without external locking.
     """
 
-    def __init__(self, output_dir: Path, worms_db: Optional[WormsDB] = None):
+    def __init__(self, output_dir: Path, worms_db: Optional[WormsDB] = None,
+                 embedding_backend: str = "local",
+                 embedding_model: Optional[str] = None):
         self.output_dir = Path(output_dir).resolve()
         self.documents_dir = self.output_dir / "documents"
+        self.vector_db_dir = self.output_dir / "vector_db" / "lancedb"
         self.worms_db = worms_db
+        # Embedder + LanceDB table are loaded lazily on the first
+        # get_chunks_for_topic call — they cost ~600 MB resident and
+        # several seconds to load, both wasteful for users who only
+        # touch the structured tools.
+        self._embedding_backend_name = embedding_backend
+        self._embedding_model_override = embedding_model
+        self._embedder: Optional[EmbeddingBackend] = None
+        self._lance_table = None
 
         # Per-paper header, keyed on the 12-char short hash (directory name).
         self.papers: Dict[str, Dict] = {}
@@ -95,6 +107,53 @@ class CorpusIndex:
         # WoRMS accepted_aphia_id → accepted name (for display when we only
         # have IDs from the reverse index).
         self.taxon_display: Dict[int, Dict] = {}
+
+    def get_topic_searcher(self):
+        """Return (embedder, table) for semantic chunk search, loading on
+        first use. Returns ``(None, None)`` if there is no LanceDB table
+        on disk — get_chunks_for_topic surfaces this as a clear error
+        rather than crashing.
+        """
+        if self._lance_table is not None and self._embedder is not None:
+            return self._embedder, self._lance_table
+        try:
+            import lancedb
+        except ImportError:
+            return None, None
+        if not self.vector_db_dir.exists():
+            return None, None
+        try:
+            db = lancedb.connect(str(self.vector_db_dir))
+            if "document_chunks" not in db.table_names():
+                return None, None
+            table = db.open_table("document_chunks")
+        except Exception as e:
+            logger.warning("Could not open LanceDB at %s: %s", self.vector_db_dir, e)
+            return None, None
+
+        # Pin the model to whatever was used to build the table — schema
+        # carries the dim and we choose a backend with matching dim.
+        existing_dim = table.schema.field("vector").type.list_size
+        try:
+            embedder = get_embedder(
+                self._embedding_backend_name,
+                self._embedding_model_override,
+            )
+        except EmbeddingError as e:
+            logger.warning("Could not load embedding backend: %s", e)
+            return None, None
+        if embedder.dim != existing_dim:
+            logger.warning(
+                "Embedding-model dim mismatch: backend=%s/%s emits %d, "
+                "table expects %d. Topic search disabled until the model "
+                "matches the index.",
+                self._embedding_backend_name, embedder.model_name,
+                embedder.dim, existing_dim,
+            )
+            return None, None
+        self._embedder = embedder
+        self._lance_table = table
+        return embedder, table
 
     def load(self) -> int:
         """Populate the indexes from ``documents/*/``. Returns the number
@@ -648,6 +707,57 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
 
 
 @mcp.tool()
+def get_chunks_for_topic(
+    query: str,
+    k: int = 20,
+    paper_hash: Optional[str] = None,
+) -> List[Dict]:
+    """Semantic search over chunks via the LanceDB vector index.
+
+    Returns the top-``k`` chunks most similar to ``query`` by cosine
+    similarity. Use this for "how is X discussed in the corpus" style
+    questions (PLAN.md §8 Q6, Q8) where the match criterion is
+    semantic, not a literal taxon or anatomy term — for those use
+    ``get_chunks_for_taxon`` / ``get_figures_for_anatomy`` instead,
+    which return exhaustive matches.
+
+    Pass ``paper_hash`` to constrain the search to a single paper.
+
+    Returns ``[{error: ...}]`` if no LanceDB index exists yet — run
+    ``python embed_chunks.py <output_dir>`` to build one.
+    """
+    idx = _need_index()
+    embedder, table = idx.get_topic_searcher()
+    if embedder is None or table is None:
+        return [{
+            "error": "no LanceDB index available; run "
+                     "`python embed_chunks.py <output_dir>` to build one"
+        }]
+    try:
+        qvec = embedder.embed([query])[0]
+    except EmbeddingError as e:
+        return [{"error": f"embedding the query failed: {e}"}]
+    search = table.search(qvec).limit(int(k))
+    if paper_hash:
+        search = search.where(f"metadata.pdf_hash = '{paper_hash}'")
+    results = search.to_list()
+    out: List[Dict] = []
+    for r in results:
+        m = r.get("metadata") or {}
+        out.append({
+            "paper_hash": m.get("pdf_hash"),
+            "paper_title": m.get("title"),
+            "paper_year": m.get("year"),
+            "chunk_id": m.get("chunk_id"),
+            "section_class": m.get("section_class"),
+            "headings": m.get("headings") or [],
+            "text": r.get("text"),
+            "score": r.get("_distance"),  # LanceDB returns cosine distance
+        })
+    return out
+
+
+@mcp.tool()
 def get_chunk(paper_hash: str, chunk_id: str) -> Dict:
     """One chunk's full record: text, headings, section_class,
     figure_refs."""
@@ -680,6 +790,19 @@ def main() -> int:
         default=None,
         help="Override path to the WoRMS SQLite (default: resources/worms_siphonophorae.sqlite under repo root)",
     )
+    parser.add_argument(
+        "--embedding-backend",
+        choices=["local", "openai"],
+        default="local",
+        help="Embedding backend used by get_chunks_for_topic (default: local). "
+             "Must produce vectors of the same dim as the LanceDB index.",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default=None,
+        help="Override the per-backend default embedding model "
+             "(local default BAAI/bge-m3, openai default text-embedding-3-small).",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -708,7 +831,12 @@ def main() -> int:
         )
 
     global _INDEX
-    _INDEX = CorpusIndex(args.output_dir, worms_db=worms)
+    _INDEX = CorpusIndex(
+        args.output_dir,
+        worms_db=worms,
+        embedding_backend=args.embedding_backend,
+        embedding_model=args.embedding_model,
+    )
     n = _INDEX.load()
     logger.info("Serving corpus: %s (%d papers)", args.output_dir, n)
 

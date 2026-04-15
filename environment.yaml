@@ -52,5 +52,6 @@ dependencies:
       - lancedb
       - langdetect  # language detection for scan_detection / OCR language selection (Phase C)
       - mcp  # Model Context Protocol SDK for the corpus-serving agent tools layer
+      - sentence-transformers  # local embedding backend (Phase E); pulls torch + transformers
       - openai>=1.0.0  # transitional; swapped for a local open-weights backend in Phase E (see PLAN.md §7)
       - snakemake  # legacy Snakefile workflow; targeted for deprecation (see PLAN.md §4)

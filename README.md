@@ -219,18 +219,38 @@ python process_corpus.py /path/to/input /path/to/output --resume
 
 **Process embeddings separately** (useful for large corpora):
 ```bash
-# First, run main processing without embeddings taking too long
+# First, run main processing
 python process_corpus.py /path/to/input /path/to/output
 
-# Then run embeddings separately (requires OpenAI API key)
+# Then embed chunks. Default backend is local sentence-transformers
+# (BGE-M3, 1024-dim) running on the best available accelerator —
+# CUDA on Bouchet, MPS on Apple Silicon, CPU otherwise. The first
+# run downloads the model (~2 GB) and caches it under
+# ~/.cache/huggingface/.
 python embed_chunks.py /path/to/output
 
-# Or embed specific documents by hash
-python embed_chunks.py /path/to/output --pdf-hash A1B2C3D4
+# Pick a different model
+python embed_chunks.py /path/to/output --model BAAI/bge-large-en-v1.5
 
-# Resume embedding (skip already embedded documents)
+# Force a device
+python embed_chunks.py /path/to/output --device cpu
+
+# Use OpenAI text-embedding-3-small (transitional, requires
+# OPENAI_API_KEY in .env)
+python embed_chunks.py /path/to/output --backend openai
+
+# Embed one specific document by hash
+python embed_chunks.py /path/to/output --pdf-hash a1b2c3d4e5f6
+
+# Resume (skip docs already embedded with this backend+model)
 python embed_chunks.py /path/to/output --resume
+
+# Drop the existing table and re-embed (use when switching models)
+python embed_chunks.py /path/to/output --rebuild
 ```
+
+Once embedded, the MCP server's `get_chunks_for_topic` tool becomes
+available for semantic search over the corpus.
 
 ### Example Workflows
 
