@@ -176,59 +176,132 @@ def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -
     return FIGURE_TYPE_UNCLASSIFIED
 
 
+def _sort_by_reading_order(items: List[Dict]) -> List[Dict]:
+    """Sort figure panels by approximate reading order — top row first,
+    left-to-right within row.
+
+    docling bboxes are PDF bottom-left origin, so ``bbox[3]`` (``t``, top)
+    has the highest y on the page. We bucket top-y to the nearest 30 pts
+    so panels in the same visual row sort together despite sub-pixel
+    jitter from caption-box alignment, then break ties by ``bbox[0]``
+    (left edge). This matches how panels are labelled A/B/C/D in
+    scientific figures — A is top-left, B is top-right (or below A if
+    vertical), C follows in the next row, etc.
+    """
+    def key(p):
+        bb = p.get("bbox") or [0, 0, 0, 0]
+        l, b, r, t = bb
+        row_bucket = -round(t / 30) * 30  # negative → higher y sorts first
+        return (row_bucket, l)
+    return sorted(items, key=key)
+
+
 def dedupe_figures(items: List[Dict]) -> List[Dict]:
-    """Merge redundant crops of the same figure_number.
+    """Merge redundant crops, label multi-panel figures by position.
 
-    docling sometimes emits the same figure multiple times (the whole-figure
-    box, plus an internal crop per panel). When the bboxes overlap
-    substantially we keep only the largest; when they don't overlap
-    (genuine subpanels on the same page, or continuations across pages) we
-    keep all and label the smaller ones as ``subpanel`` of the primary.
+    Two modes per figure-number group:
 
-    Returns a new list, preserving input order for items that weren't
-    duplicates. Sets ``panel_letter`` (``"a"``, ``"b"``, …) on subpanels
-    and ``primary_figure_docling_idx`` so the report can link them back.
+    * **Coequal panels** (no one bbox encompasses the others) — the common
+      PLOS-style case where Figure 3 is really 4 separate panel images
+      labelled A/B/C/D. After removing overlap-duplicate crops, we sort
+      the survivors by :func:`_sort_by_reading_order` and assign
+      ``panel_letter = "a", "b", "c", …`` accordingly. Each panel keeps
+      ``figure_type = "figure"`` — they're all real figures. The filenames
+      become ``fig_3_a.png``, ``fig_3_b.png``, … (see
+      :func:`compose_figure_filename`).
+    * **Whole-figure + subpanels** — one bbox encompasses the others
+      (overlap ≥ 80% of each sibling's area). The encompassing item is
+      the primary (``figure_type = "figure"``, filename ``fig_3.png``);
+      the contained items are reclassified as
+      ``figure_type = "subpanel"`` with position-derived panel_letters.
+
+    Items classified upstream as ``graphical_element`` or
+    ``unclassified`` are **not** grouped by figure-number, even if the
+    caption-proximity heuristic accidentally attached a figure label to
+    them. This prevents the Siebert 2011 case where a 19×19 PLOS badge
+    near Figure 1's caption ended up filed as ``fig_1_panel_b.png``.
+
+    Returns a new list. Input order is preserved for items that weren't
+    grouped; grouped items appear in reading order.
     """
     if not items:
         return items
     from collections import defaultdict
+
     by_num: Dict[str, List[Dict]] = defaultdict(list)
-    order: List[Dict] = []
+    passthrough: List[Dict] = []
     for it in items:
         num = it.get("figure_number")
-        if num is not None and str(num) != "":
+        ftype = it.get("figure_type")
+        # Only real figures and plates participate in dedup + panel
+        # assignment. Graphical elements that happened to latch onto a
+        # figure_number via the caption-proximity heuristic keep their
+        # downgraded classification.
+        if num and str(num) and ftype in (FIGURE_TYPE_FIGURE, FIGURE_TYPE_PLATE):
             by_num[str(num)].append(it)
         else:
-            order.append(it)
+            passthrough.append(it)
+
+    kept: List[Dict] = list(passthrough)
 
     for num, group in by_num.items():
         if len(group) == 1:
-            order.append(group[0])
+            kept.append(group[0])
             continue
-        # Sort by area desc — primary is the largest.
-        group.sort(key=lambda x: -_bbox_area(x.get("bbox")))
-        primary = group[0]
-        order.append(primary)
-        primary_bbox = primary.get("bbox")
-        panel_iter = iter("bcdefghijklmnop")
-        for other in group[1:]:
-            other_bbox = other.get("bbox")
-            overlap = _bbox_overlap_fraction(primary_bbox, other_bbox)
-            if overlap > 0.5:
-                # Redundant crop — drop.
+
+        # Step 1: remove overlap-duplicate crops. Sort largest-area first
+        # and keep an item only if it doesn't overlap > 50% with any
+        # already-kept item. This eliminates the whole-figure + per-panel-
+        # crop duplication docling sometimes emits.
+        sorted_group = sorted(group, key=lambda x: -_bbox_area(x.get("bbox")))
+        unique: List[Dict] = []
+        for cand in sorted_group:
+            if any(
+                _bbox_overlap_fraction(cand.get("bbox"), u.get("bbox")) > 0.5
+                for u in unique
+            ):
                 logger.debug(
                     "Figure dedup: dropping docling_%s (Fig %s) "
-                    "as crop of docling_%s (overlap=%.2f)",
-                    other.get("docling_idx"), num,
-                    primary.get("docling_idx"), overlap,
+                    "as overlap-duplicate",
+                    cand.get("docling_idx"), num,
                 )
                 continue
-            # Legitimate subpanel or continuation — keep with link-back.
-            other["figure_type"] = FIGURE_TYPE_SUBPANEL
-            other["primary_figure_docling_idx"] = primary.get("docling_idx")
-            other["panel_letter"] = next(panel_iter, "x")
-            order.append(other)
-    return order
+            unique.append(cand)
+
+        if len(unique) == 1:
+            kept.append(unique[0])
+            continue
+
+        # Step 2: detect the whole-figure overview case. One bbox
+        # encompasses every sibling (overlap ≥ 80% measured against the
+        # sibling's bbox, so the overview's extra padding doesn't matter).
+        largest = max(unique, key=lambda x: _bbox_area(x.get("bbox")))
+        non_largest = [u for u in unique if u is not largest]
+        encompassed = sum(
+            1 for u in non_largest
+            if _bbox_overlap_fraction(largest.get("bbox"), u.get("bbox")) > 0.8
+        )
+        has_whole = non_largest and encompassed >= len(non_largest)
+
+        if has_whole:
+            # Primary = largest (no panel letter); others are subpanels
+            # with position-derived letters.
+            ordered_panels = _sort_by_reading_order(non_largest)
+            kept.append(largest)
+            for idx, panel in enumerate(ordered_panels):
+                panel["figure_type"] = FIGURE_TYPE_SUBPANEL
+                panel["primary_figure_docling_idx"] = largest.get("docling_idx")
+                panel["panel_letter"] = chr(ord("a") + idx)
+                kept.append(panel)
+        else:
+            # Coequal panels. Sort by reading order, assign a, b, c, d, …
+            # All keep figure_type = "figure".
+            ordered = _sort_by_reading_order(unique)
+            for idx, panel in enumerate(ordered):
+                panel["panel_letter"] = chr(ord("a") + idx)
+            kept.extend(ordered)
+
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -245,31 +318,40 @@ def _slug(s: str) -> str:
 def compose_figure_filename(item: Dict) -> str:
     """Return a semantic filename for a classified figure item.
 
-    Policy:
+    Filename convention matches how the paper labels its figures:
 
-    * ``figure`` with number → ``fig_{number}.png``
-    * ``figure`` without number (but still classified as such) →
-      ``fig_docling_{idx}.png``
-    * ``plate`` with number → ``plate_{number}.png``
-    * ``subpanel`` of Fig N, panel B → ``fig_{number}_panel_{letter}.png``
-    * ``graphical_element`` → ``_graphic_{idx}.png`` (leading underscore so
-      these sort separately from real figures in a directory listing)
+    * Single-item figure → ``fig_{number}.png``
+    * Multi-panel coequal figure (Fig 3 A/B/C/D) → ``fig_{number}_{letter}.png``
+      (each panel is its own image, ``figure_type = "figure"``)
+    * Whole-figure + contained subpanels:
+      - whole → ``fig_{number}.png`` (``figure_type = "figure"``, no letter)
+      - subpanels → ``fig_{number}_{letter}.png`` (``figure_type = "subpanel"``)
+    * ``plate`` with number → ``plate_{number}.png`` (+ ``_{letter}`` if panelled)
+    * ``figure`` / ``plate`` missing number → ``fig_docling_{idx}.png``
+    * ``graphical_element`` → ``_graphic_{idx}.png`` (leading underscore
+      sorts these separately from real content in a directory listing)
     * ``unclassified`` → ``_unclassified_{idx}.png``
 
-    Duplicate collisions (e.g., two "Figure 3"s that survived dedup)
-    append the docling idx so the filenames stay unique.
+    A collision-guard in the caller appends ``_docling_{idx}`` when a
+    composed filename is already taken.
     """
     ftype = item.get("figure_type") or FIGURE_TYPE_UNCLASSIFIED
     idx = item.get("docling_idx")
     num = item.get("figure_number")
+    letter = item.get("panel_letter")
 
     if ftype == FIGURE_TYPE_FIGURE:
+        if num and letter:
+            return f"fig_{num}_{letter}.png"
         return f"fig_{num}.png" if num else f"fig_docling_{idx}.png"
     if ftype == FIGURE_TYPE_PLATE:
+        if num and letter:
+            return f"plate_{num}_{letter}.png"
         return f"plate_{num}.png" if num else f"plate_docling_{idx}.png"
     if ftype == FIGURE_TYPE_SUBPANEL:
-        letter = item.get("panel_letter") or "b"
-        return f"fig_{num}_panel_{letter}.png" if num else f"_subpanel_{idx}.png"
+        if num and letter:
+            return f"fig_{num}_{letter}.png"
+        return f"_subpanel_{idx}.png"
     if ftype == FIGURE_TYPE_GRAPHICAL:
         return f"_graphic_{idx}.png"
     return f"_unclassified_{idx}.png"

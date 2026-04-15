@@ -444,7 +444,7 @@ def get_chunks_for_taxon(
     return out[offset: offset + int(limit)] if limit else out[offset:]
 
 
-_REAL_FIGURE_TYPES = {"figure", "plate"}
+_REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
 
 
 @mcp.tool()
