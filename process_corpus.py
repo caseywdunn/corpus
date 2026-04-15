@@ -24,6 +24,12 @@ from grobid_client import (
     parse_tei_header,
     parse_tei_references,
 )
+from figures import (
+    extract_caption_info,
+    parse_figure_number,
+    link_chunks_to_figures,
+    generate_figures_report,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -746,6 +752,16 @@ def run_pdf_processing_pipeline(
         processing_summary["files_created"].append(str(chunks_file))
         processing_summary["processing_steps"].append("text_chunking")
 
+        logger.info("Linking chunks to figures...")
+        _crossref_chunks_and_figures(figures_file, chunks_file)
+        processing_summary["processing_steps"].append("figure_crossref")
+
+        logger.info("Generating figures report...")
+        report_path = generate_figures_report(hash_dir)
+        if report_path:
+            processing_summary["files_created"].append(str(report_path))
+            processing_summary["processing_steps"].append("figures_report")
+
         processing_summary["status"] = "success"
 
     except Exception as e:
@@ -1096,7 +1112,7 @@ def extract_docling_content(
                 "figure_id": figure_id,
                 "filename": figure_path.name,
                 "file_path": str(figure_path),
-                "caption": caption or "",
+                "caption_text": caption or "",  # canonical; see PLAN.md §3
             }
             entry.update(meta or {})
             figures_data.append(entry)
@@ -1133,15 +1149,12 @@ def extract_docling_content(
         for idx, picture in enumerate(document.pictures or []):
             figure_path = figures_dir / f"figure_{idx + 1}.png"
 
-            # Caption (best-effort)
-            caption = ""
-            try:
-                if hasattr(picture, "caption_text"):
-                    caption = picture.caption_text(document) if callable(picture.caption_text) else (
-                        str(picture.caption_text) if picture.caption_text else ""
-                    )
-            except Exception as e:
-                logger.info("Caption extraction failed for figure %d: %s", idx + 1, e)
+            # Rich caption extraction: docling-linked TextItem (preferred),
+            # proximity heuristic as fallback. Returns caption_text,
+            # caption_page, caption_bbox, caption_source — see figures.py.
+            caption_info = extract_caption_info(picture, document)
+            caption_text = caption_info.get("caption_text", "")
+            figure_number = parse_figure_number(caption_text)
 
             # Save image if available
             try:
@@ -1153,10 +1166,21 @@ def extract_docling_content(
                     saved_count += 1
                     meta = {"extraction_method": "docling"}
                     meta.update(_docling_prov_to_bbox_page(picture))
+                    meta.update({
+                        "caption_page": caption_info.get("caption_page"),
+                        "caption_bbox": caption_info.get("caption_bbox"),
+                        "caption_source": caption_info.get("caption_source"),
+                        "figure_number": figure_number,
+                    })
+                    # Override append_figure's caption->caption_text slot
+                    # with the rich caption_text. append_figure also sets
+                    # "caption" (legacy alias) — we now store the text
+                    # under caption_text instead, since PLAN.md §3 calls
+                    # that out as the canonical field name.
                     append_figure(
                         figure_id=f"docling_{idx + 1}",
                         figure_path=figure_path,
-                        caption=caption,
+                        caption=caption_text,  # stored in both slots below
                         meta=meta,
                     )
                 else:
@@ -1571,6 +1595,52 @@ def create_summary_json(
         json.dump(summary, f, indent=2)
 
     return summary_file
+
+
+def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
+    """Run the bidirectional chunk ↔ figure cross-reference pass.
+
+    Reads figures.json and chunks.json, calls
+    :func:`figures.link_chunks_to_figures`, and writes both files back in
+    place. No-op when either file is missing or unreadable.
+    """
+    if not figures_file.exists() or not chunks_file.exists():
+        logger.debug("Skipping cross-ref: missing %s or %s", figures_file, chunks_file)
+        return
+    try:
+        figures_data = json.load(figures_file.open(encoding="utf-8"))
+        chunks_data = json.load(chunks_file.open(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Cross-ref skipped: could not load files: %s", e)
+        return
+
+    chunks = chunks_data.get("chunks", []) or []
+    figures = figures_data.get("figures", []) or []
+    if not chunks or not figures:
+        logger.info(
+            "Cross-ref: skipped (no chunks=%d or no figures=%d)",
+            len(chunks), len(figures),
+        )
+        return
+
+    link_chunks_to_figures(chunks, figures)
+
+    # Write back — data was modified in place but be explicit about
+    # re-serialization to keep JSON formatting consistent.
+    chunks_data["chunks"] = chunks
+    figures_data["figures"] = figures
+    with figures_file.open("w", encoding="utf-8") as f:
+        json.dump(figures_data, f, indent=2, ensure_ascii=False)
+    with chunks_file.open("w", encoding="utf-8") as f:
+        json.dump(chunks_data, f, indent=2, ensure_ascii=False)
+
+    # Log a small summary so pipeline.log captures the link density.
+    linked_figs = sum(1 for fig in figures if fig.get("referenced_in_chunks"))
+    linked_chunks = sum(1 for ch in chunks if ch.get("figure_refs"))
+    logger.info(
+        "Cross-ref: %d/%d figures referenced, %d/%d chunks cite a figure",
+        linked_figs, len(figures), linked_chunks, len(chunks),
+    )
 
 
 def _verify_or_raise_collision(hash_dir: Path, pdf_hash_full: str) -> Optional[bool]:
