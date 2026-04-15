@@ -27,6 +27,8 @@ from grobid_client import (
 from figures import (
     extract_caption_info,
     parse_figure_number,
+    parse_panels_from_caption,
+    detect_missing_figures,
     link_chunks_to_figures,
     generate_figures_report,
 )
@@ -764,6 +766,10 @@ def run_pdf_processing_pipeline(
         chunk_text(text_file, metadata_file, chunks_file)
         processing_summary["files_created"].append(str(chunks_file))
         processing_summary["processing_steps"].append("text_chunking")
+
+        logger.info("Pass 2.5: annotating figures from captions + text...")
+        _pass25_annotate_figures(text_file, figures_file)
+        processing_summary["processing_steps"].append("figure_pass25_annotation")
 
         logger.info("Linking chunks to figures...")
         _crossref_chunks_and_figures(figures_file, chunks_file)
@@ -1691,6 +1697,68 @@ def create_summary_json(
         json.dump(summary, f, indent=2)
 
     return summary_file
+
+
+def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
+    """Pass 2.5 — caption-based panel parsing + missing-figures scan.
+
+    Cheap, always-on. Reads ``text.json`` + ``figures.json``, and
+    in-place-updates ``figures.json`` to add:
+
+    * Per-figure:
+        - ``panels_from_caption`` — ``[{label, description, kind}]`` parsed
+          from the caption text (English/German/French/Russian figure
+          prefixes + A./(A)/A-C patterns).
+        - ``panel_count_from_caption`` — length of the list above.
+    * Per-document (top-level of figures.json):
+        - ``missing_figures`` — figure numbers cited in the running text
+          that docling didn't extract. Each entry includes a
+          best-effort ``caption_text_candidate`` pulled from the running
+          text so the content isn't lost just because the image was.
+
+    Does NOT change filenames or move images — that's Pass 3a's job.
+    """
+    if not figures_file.exists():
+        return
+    try:
+        figures_data = json.load(figures_file.open(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Pass 2.5 skipped: couldn't read %s: %s", figures_file, e)
+        return
+    figures = figures_data.get("figures", []) or []
+
+    for fig in figures:
+        caption = fig.get("caption_text") or fig.get("caption") or ""
+        panels = parse_panels_from_caption(caption)
+        fig["panels_from_caption"] = panels
+        fig["panel_count_from_caption"] = len(panels)
+
+    # Missing-figures scan runs only if text.json is readable.
+    running_text = ""
+    if text_file.exists():
+        try:
+            td = json.load(text_file.open(encoding="utf-8"))
+            running_text = td.get("text") or ""
+        except Exception as e:
+            logger.warning("Pass 2.5: could not read %s: %s", text_file, e)
+
+    extracted_nums = {
+        fig.get("figure_number") for fig in figures if fig.get("figure_number")
+    }
+    missing = detect_missing_figures(running_text, extracted_nums)
+    figures_data["missing_figures"] = missing
+    figures_data["total_missing_figures"] = len(missing)
+
+    with figures_file.open("w", encoding="utf-8") as f:
+        json.dump(figures_data, f, indent=2, ensure_ascii=False)
+
+    # Small per-doc summary in the pipeline log — useful for spotting
+    # when the corpus has extractions-vs-text gaps that need attention.
+    n_panelled = sum(1 for f in figures if f.get("panel_count_from_caption", 0) > 1)
+    logger.info(
+        "Pass 2.5: %d/%d figures have multi-panel captions; %d missing-figure(s) inferred from text",
+        n_panelled, len(figures), len(missing),
+    )
 
 
 def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:

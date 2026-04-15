@@ -56,6 +56,237 @@ _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
 )
 
 
+# ---------------------------------------------------------------------------
+# Caption → panel parsing (Pass 2.5, PLAN.md §9)
+# ---------------------------------------------------------------------------
+
+# Strips the leading "Fig. N" / "Figure N" / "Plate N" etc. from a caption
+# so the remaining body is where we look for panel labels. Multilingual to
+# match the corpus coverage (English, German, French, Russian).
+_CAPTION_BODY_PREFIX_RE = re.compile(
+    r"^\s*(?:fig(?:ure|\.?)|abb(?:ildung|\.?)|pl(?:ate|\.?)|plate|рис(?:унок|\.?))"
+    r"\s*\d+(?:[\-\u2013\u2014]\d+)?[.:]?\s*",
+    re.IGNORECASE,
+)
+
+# A letter followed by period, with word-boundary guards: not preceded by
+# another letter (so "Dr." / "Mr." / "pH" don't match), the period must be
+# followed by whitespace or end-of-string.
+_PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-Z])\.(?=\s|$)")
+
+# Parenthesized panel label — tolerates Siebert-style "( A )" with internal
+# whitespace. Must not be adjacent to letters (so "(NaCl)" doesn't match).
+_PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-Z])\s*\)(?![A-Za-z])")
+
+# A-C / A–C / A—C ranges. The end letter must come after the start letter
+# alphabetically — otherwise it's not a valid range.
+_PANEL_RANGE_RE = re.compile(
+    r"(?<![A-Za-z])([A-Z])\s*[\-\u2013\u2014]\s*([A-Z])(?=[.,:;\s)]|$)"
+)
+
+
+def parse_panels_from_caption(caption_text: str) -> List[Dict]:
+    """Extract panel labels + descriptions from a figure caption.
+
+    Handles the common panel conventions found in the corpus:
+
+    * ``A. upper and B. lower views …`` — letter + period
+    * ``(A) Paired samples (B) and (C) …`` — parenthesized (with optional
+      internal whitespace, ``( A )`` also matches)
+    * ``A-C. scale 2 mm`` — ranges (expand to A, B, C with shared description)
+
+    Returns a list ``[{label, description, kind}]`` in alphabetical order
+    of label, one entry per unique panel. Duplicate labels (common in
+    captions that list panels once for description and again for a scale
+    spec) keep the first-encountered description — the primary one.
+
+    Returns an empty list for captions with no panel markers; callers
+    decide what to do with that (non-panelled figures are the common
+    case).
+    """
+    if not caption_text:
+        return []
+    body = _CAPTION_BODY_PREFIX_RE.sub("", caption_text).strip()
+    if not body:
+        return []
+
+    # Gather markers ordered by start position. Each marker is
+    # (start, end, label_or_range, kind).
+    markers: List = []
+    # Ranges first so we can suppress individual labels inside their span.
+    range_spans: List = []
+    for m in _PANEL_RANGE_RE.finditer(body):
+        s, e = m.group(1), m.group(2)
+        if ord(e) <= ord(s):
+            continue
+        markers.append((m.start(), m.end(), (s, e), "range"))
+        range_spans.append((m.start(), m.end()))
+
+    def _in_range_span(pos: int) -> bool:
+        return any(s <= pos < e for s, e in range_spans)
+
+    for m in _PANEL_PAREN_RE.finditer(body):
+        if _in_range_span(m.start()):
+            continue
+        markers.append((m.start(), m.end(), m.group(1), "paren"))
+
+    for m in _PANEL_PERIOD_RE.finditer(body):
+        if _in_range_span(m.start()):
+            continue
+        markers.append((m.start(), m.end(), m.group(1), "period"))
+
+    markers.sort(key=lambda t: t[0])
+    if not markers:
+        return []
+
+    # First-occurrence wins for descriptions — duplicate labels later in
+    # the caption (scale specs, cross-refs) append nothing.
+    panels: Dict[str, Dict] = {}
+    for i, (start, end, data, kind) in enumerate(markers):
+        next_start = markers[i + 1][0] if i + 1 < len(markers) else len(body)
+        raw_desc = body[end:next_start]
+        # Clean up leading punctuation/whitespace and trailing separators.
+        desc = raw_desc.strip(" \t\n.,;:)")
+        if kind == "range":
+            s_label, e_label = data
+            for code in range(ord(s_label), ord(e_label) + 1):
+                lbl = chr(code)
+                panels.setdefault(lbl, {"label": lbl, "description": desc, "kind": kind})
+        else:
+            lbl = data
+            panels.setdefault(lbl, {"label": lbl, "description": desc, "kind": kind})
+
+    # Sanity filter: real panel sets are a contiguous run starting at 'A'
+    # ({A}, {A,B}, {A,B,C}, …). Any gap or outlier (B/L/P, A/L) is almost
+    # always a false positive — the matcher latching onto Latin binomial
+    # abbreviations (``L. patritii``, ``E. richardi``) or section
+    # letters ("Section B: …"). We cap at 'K' (11 panels) since anything
+    # beyond is vanishingly rare in scientific figures and the false-
+    # positive risk grows with the count.
+    if panels:
+        letters = sorted(panels)
+        if letters[0] != "A":
+            return []
+        # Require contiguous a..n sequence
+        expected = [chr(ord("A") + i) for i in range(len(letters))]
+        if letters != expected or letters[-1] > "K":
+            return []
+
+    return [panels[k] for k in sorted(panels)]
+
+
+# Broad "Fig. N" / "Figure N" / "Рис. N" mention matcher — used to detect
+# figures the running text cites that docling didn't extract. Trailing
+# lookahead excludes "Fig. 4.1" (subsection) and "Figure N,000" (numerics).
+_FIGURE_MENTION_RE = re.compile(
+    r"\b(?:fig(?:ure|\.?)|рис(?:унок|\.?))\s*(\d+)(?![\w.,]\d)",
+    re.IGNORECASE,
+)
+
+
+def _extract_caption_candidate_for_number(text: str, figure_number: str) -> str:
+    """Best-effort pull of the caption for a given ``Fig. N`` from the
+    running text — used when docling misses the figure but the caption
+    text is still present in ``text.json``.
+
+    Strategy: find every occurrence of ``Fig. N`` in ``text``; for each
+    one take the text from that point until the next ``Fig. <any>``
+    mention (or end of text, capped at 600 chars); return the longest
+    such span. Cross-refs like "(Fig. 4)" in body text end at the closing
+    paren / short period; real caption definitions run much longer, so
+    the longest-span rule reliably separates them.
+    """
+    if not text or not figure_number:
+        return ""
+    specific = re.compile(
+        r"(?:fig(?:ure|\.?)|рис(?:унок|\.?))\s*" + re.escape(str(figure_number))
+        + r"(?![\w.,]\d)",
+        re.IGNORECASE,
+    )
+    mentions = [(m.start(), m.end()) for m in specific.finditer(text)]
+    if not mentions:
+        return ""
+    any_fig = re.compile(
+        r"(?:fig(?:ure|\.?)|рис(?:унок|\.?))\s*\d+",
+        re.IGNORECASE,
+    )
+    best = ""
+    for start, end in mentions:
+        # Find the next "Fig. <any>" occurrence after this one ends.
+        next_match = next(any_fig.finditer(text, end), None)
+        stop = next_match.start() if next_match else len(text)
+        stop = min(stop, start + 600)
+        candidate = text[start:stop].strip()
+        if len(candidate) > len(best):
+            best = candidate
+    return best[:600]
+
+
+def detect_missing_figures(text: str, extracted_numbers) -> List[Dict]:
+    """Return a list of figures the text mentions but that docling didn't
+    extract (no matching ``figure_number`` in figures.json).
+
+    ``extracted_numbers`` may be any iterable of strings or ints — they're
+    normalised to strings for the set comparison.
+
+    Two heuristic filters eliminate the common false-positive classes:
+
+    1. **Cross-reference shape** — if every occurrence of ``Fig. N`` in
+       the running text is immediately followed by ``)`` (the closing
+       paren of a body-text citation like ``(Fig. N)``), the number is
+       probably just a cross-ref and not a missing caption.
+    2. **Out-of-range** — references to figures from *other* papers
+       (Totton 1965's Fig. 70, Lens & van Riemsdijk's Fig. 89) will use
+       figure numbers much larger than the paper's own range. We drop
+       any number whose integer value is more than twice the largest
+       extracted figure number (+10 buffer for short papers).
+    """
+    if not text:
+        return []
+    extracted = {str(n) for n in (extracted_numbers or [])}
+
+    # Collect all mentions with their character positions so filters can
+    # inspect context.
+    mentions_by_num: Dict[str, List[int]] = {}
+    for m in _FIGURE_MENTION_RE.finditer(text):
+        mentions_by_num.setdefault(m.group(1), []).append(m.end())
+
+    missing = set(mentions_by_num) - extracted
+    if not missing:
+        return []
+
+    # Out-of-range filter based on the paper's own figure-number range.
+    # Fall back to 'no filter' if the paper extracted nothing, so small /
+    # malformed papers don't silently suppress real missings.
+    int_extracted = [int(n) for n in extracted if n.isdigit()]
+    max_own = max(int_extracted) if int_extracted else 0
+    out_of_range_cutoff = max(2 * max_own, max_own + 10) if max_own else None
+
+    out: List[Dict] = []
+    for num in sorted(missing, key=lambda n: int(n) if n.isdigit() else 10**9):
+        if out_of_range_cutoff is not None and num.isdigit():
+            if int(num) > out_of_range_cutoff:
+                continue
+        ends = mentions_by_num[num]
+        # Shape filter: if EVERY occurrence is followed within a few chars
+        # by a closing paren, treat as cross-ref only.
+        def is_crossref(end_pos: int) -> bool:
+            window = text[end_pos : end_pos + 8]
+            # Allow a panel-letter suffix like 'A)' between the number and
+            # the ')': "Fig. 10A, B)" should still count as cross-ref.
+            return bool(re.match(r"[A-Z]?[,\s\-\u2013A-Z]*\)", window))
+        if ends and all(is_crossref(p) for p in ends):
+            continue
+
+        out.append({
+            "figure_number": num,
+            "caption_text_candidate": _extract_caption_candidate_for_number(text, num),
+            "detection_reason": "mentioned_in_text_but_no_extracted_figure",
+            "mention_count": len(ends),
+        })
+    return out
+
+
 def parse_figure_number(caption_text: str) -> Optional[str]:
     """Extract the figure number from the start of a caption string.
 

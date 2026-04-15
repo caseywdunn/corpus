@@ -373,3 +373,137 @@ The scope items these queries demand — WoRMS backbone as a first-class input, 
 
 - **Trait extraction + key generation (Q3).** Deferred; noted in §4 and called out in Q3's gaps line above. Will get its own plan section when we pick it up.
 - **Synthesis recipes (Q2, Q4).** The indices + MCP tools will be in place, but the specific Opus-driven prompts and map-reduce patterns for monographic review (Q2) and per-species catalog (Q4) are not yet scoped. These are cheap to iterate on once the substrate exists — prototype against the golden test set before committing to any one recipe.
+
+## 9. Three-pass figure extraction with ROI sidecar
+
+The initial figure pipeline (Phase D, §3 "Figure+caption as a first-class object") handles the common case — docling extracts one `Picture` per real figure and we classify + dedupe. Two harder cases surface in the demo set and drive this design:
+
+1. **Adjacent figures merged into one image** — docling sometimes extracts two logically-separate figures as a single bbox when there's insufficient whitespace or heading text between them. Pugh 2001's Figures 3 (panels A–B) and 4 (panels A–D) come out as one image whose caption is parsed as `Fig. 3`.
+2. **Panels inside one figure image** — docling treats multi-panel figures as a single image, because the panel labels (A, B, C, …) are embedded content, not structural PDF elements. Panel arrangement can be non-rectilinear (L-shapes, insets), so sorting crops by reading order is brittle.
+
+Both have the same underlying need: **content-aware region labels inside an already-extracted figure image**, with labels derived from what's physically in the image (panel letters, embedded "Fig. N" text) rather than guessed from bbox geometry.
+
+### Architecture
+
+Three cleanly-separable passes over the per-paper artifacts. Passes 1–2 are the current pipeline; 2.5 is cheap and always-on; 3 is the new content-aware layer and is opt-in.
+
+| Pass | Input | Output | Cost |
+|---|---|---|---|
+| 1. Extraction | PDF | raw docling `Picture` objects + captions + bboxes | existing |
+| 2. Classification | raw items | `figure_type` + dedupe + semantic filenames + coequal-panel letters | existing |
+| 2.5. Caption parsing + gap detection | `figures.json` + `text.json` | `panels_from_caption[]` per figure, `missing_figures[]` at doc level | cheap; always on |
+| 3a. Tesseract ROI pass | figure PNGs + captions | `rois[]` sidecar per figure, compound-figure renames | ~1 s / figure; opt-in via `--content-aware-figures` |
+| 3b. Vision-LLM ROI pass (future) | Pass 3a's unresolved figures | higher-quality ROIs from Claude over the image | pennies per figure; opt-in |
+
+Each pass is rerunnable independently. Pass 3a can be skipped on first ingest and added later without re-parsing PDFs or re-embedding.
+
+### Sidecar schema (inline in `figures.json`)
+
+A single `rois[]` array per figure object covers both concerns with different `type` values. Panels and sub-figures live in the same list so MCP tools can navigate without branching:
+
+```json
+{
+  "figure_id": "docling_5",
+  "filename": "fig_3-4.png",
+  "figure_number": "3-4",
+  "image_size_px": [1015, 1305],
+  "caption_text": "Fig. 3 A. upper and B. lower views of young nectophore. Scale bar 5 mm.",
+  "rois": [
+    {"type": "figure", "figure_number": "3",
+     "roi_px": [0, 0, 500, 1305],
+     "caption_text": "Fig. 3 A. upper and B. lower views of young nectophore.",
+     "source": "ocr:tesseract"},
+    {"type": "figure", "figure_number": "4",
+     "roi_px": [500, 0, 1015, 1305],
+     "caption_text": "Fig. 4 Erenna richardi. A. first and B., C. second types of bract…",
+     "source": "ocr:tesseract"},
+    {"type": "panel", "parent_figure_number": "3", "label": "A",
+     "roi_px": [0, 0, 500, 600],
+     "description_from_caption": "upper view of young nectophore",
+     "source": "ocr:tesseract"},
+    {"type": "panel", "parent_figure_number": "3", "label": "B",
+     "roi_px": [0, 600, 500, 1305],
+     "description_from_caption": "lower view of young nectophore",
+     "source": "ocr:tesseract"}
+  ],
+  "pass3_status": "completed",
+  "previous_filenames": ["fig_3.png"]
+}
+```
+
+Why inline: keeps the joint object self-contained; MCP tools don't cross-reference a second file; ROI annotations travel with the figure through any pipeline reorg.
+
+### Filename convention
+
+Filenames carry the figure-number(s) so `ls figures/` is self-documenting. Range notation matches bibliographic convention:
+
+| Case | Filename |
+|---|---|
+| Single figure, no panels | `fig_3.png` |
+| Multi-panel coequal (Pass 2 dedupe splits panels) | `fig_3_a.png`, `fig_3_b.png`, … |
+| Compound, contiguous range | `fig_3-4.png` |
+| Compound, non-contiguous | `fig_3+7.png` |
+| Plate | `plate_2.png` (+ `-3`, `_a` variants) |
+
+When Pass 3a renames a file (Pass 2 saved it as `fig_3.png`, Pass 3a detects the embedded "Fig. 4" and renames to `fig_3-4.png`), the previous name is recorded in `previous_filenames[]` so any cached URL can be traced to its current file.
+
+Panels inside a compound image live only in the ROI sidecar — not as separate panel files — since generating six crops (Fig 3 A+B + Fig 4 A+D) for content nobody may query is wasteful. Crop-on-demand via the MCP tool handles that.
+
+### Why not split compound images into separate files
+
+- **Reversible**: a better tool (vision LLM in 3b) can re-segment later without losing the first attempt
+- **Preserves provenance**: what docling gave us stays what docling gave us; any split is derived data
+- **Crops stay cheap**: PIL crop of a ROI at retrieval time is sub-second; zero cost for panels never queried
+- **Honest about uncertainty**: ROI boundaries inferred from a detected panel label are approximate; we don't fabricate crisp image files that imply more precision than we have
+
+### Pass 2.5 — caption parsing + gap detection (cheap, always on)
+
+Two small passes over existing artifacts:
+
+- **Caption-panel parser**: regex-based extraction of `[{label, description}]` from caption text. Handles the common conventions: `A.` / `(A)` / `A:` / `A–C.`, multilingual prefixes (A, A-C, Рис. 3A). Recorded as `panels_from_caption[]` + `panel_count_from_caption` on every figure.
+- **Missing-figures scan**: scan `text.json` for `Fig. N` / `Figure N` mentions; any N that's not present as a `figure_number` in `figures.json` gets recorded in a per-paper `missing_figures[]` list with the caption text (parsed out of the running text). Closes the Pugh 2001 Fig 4 observability gap even without Pass 3.
+
+Pass 2.5 does **not** change filenames or images — it only annotates.
+
+### Pass 3a — Tesseract ROI pass (opt-in)
+
+For each figure PNG:
+
+1. Load caption's expected panel labels (from Pass 2.5).
+2. Run `tesseract image_to_data` on the PNG, get text tokens + bboxes + font-size.
+3. Filter for panel-label candidates: single capital letter or letter+period/paren, isolated (whitespace on both sides), font size above median for the image, within ~30 px of an edge of some visual region.
+4. Filter for "Fig. N" labels: any `Fig\.?\s*\d+` string inside the image indicates the image contains multiple figures.
+5. Cross-check detected panel labels against caption-expected set; emit ROIs when consistent.
+6. For compound detection: if two or more `Fig. N` labels are found, split the image region between them (Voronoi by label position works for most layouts), emit `type: "figure"` ROIs per number, and rename the file to range notation.
+7. Mark `pass3_status` on the figure: `"not_run"` (skipped), `"completed"`, `"ocr_unresolved"` (ran but couldn't reconcile with caption), `"no_compound_or_panels"` (trivially resolved).
+
+OCR cost on the corpus: ~1 s per figure × ~20 figures/paper × 2000 papers ≈ 11 hours. Tolerable as a single Bouchet run; skippable on dev.
+
+### Pass 3b — vision-LLM fallback (later)
+
+Invoked only for `pass3_status = "ocr_unresolved"` figures (or globally with an explicit flag). One Claude call per figure with the image + caption + OCR candidates, asking for `{label, bbox_px, description}` JSON. Pennies per figure at Haiku; adds up at corpus scale, so gated behind a flag.
+
+### MCP tool surface additions
+
+Two new tools once Pass 3a lands:
+
+```text
+list_figure_rois(paper_hash, figure_id)
+  → [{type, label/figure_number, roi_px, caption_text, description_from_caption, source}, ...]
+
+get_figure_roi_image(paper_hash, figure_id, roi_index, save_to=None)
+  → {image_path: cropped.png, roi_px, caption_text}
+    # PIL crop on demand, cached to <hash_dir>/figures/crops/ keyed on
+    # (figure_id, roi_index) so repeated asks are free
+```
+
+`get_figures_for_taxon` / `get_figures_for_anatomy` gain a `prefer_panels: bool = False` flag so queries asking about a specific anatomy can return panel-level crops when they exist.
+
+### Rollout
+
+Implemented in two commits:
+
+1. **Pass 2.5** — caption parser + missing-figures scan. Cheap, always-on. Adds `panels_from_caption[]` / `panel_count_from_caption` / `missing_figures[]` to artifacts. No image or filename changes.
+2. **Pass 3a** — Tesseract ROI pass, filename rename for compounds, MCP crop-on-demand tools. Gated behind `--content-aware-figures` flag.
+
+Pass 3b (vision LLM) stays on the roadmap; ship when Pass 3a's failure modes justify the cost.
