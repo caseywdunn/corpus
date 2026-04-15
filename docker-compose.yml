@@ -18,19 +18,23 @@
 
 services:
   grobid:
-    # lfoppiano/grobid is the lightweight CRF-only image (~500 MB). Supports
-    # both linux/amd64 (Bouchet) and linux/arm64 (macOS dev). If bibliographic
-    # extraction quality turns out to be insufficient, swap for
-    # grobid/grobid:0.8.1 (~4 GB, with deep-learning models).
-    image: lfoppiano/grobid:0.8.1
+    # grobid/grobid is the full image with DeLFT deep-learning reference
+    # parsing (~32 GB on disk with all bundled models — `more disk and ram
+    # are OK for improved quality` per the project decision). Linux/amd64
+    # only; runs under Rosetta on Apple Silicon. If you need a smaller
+    # footprint (CI, low-disk machines), swap to the CRF-only lightweight
+    # image by changing this line to: ``lfoppiano/grobid:0.8.1``.
+    image: grobid/grobid:0.8.1
     container_name: corpus-grobid
     ports:
       - "8070:8070"
     restart: unless-stopped
-    # Grobid is memory-hungry under heavy load. These defaults are safe for
-    # a single-user dev machine; raise before batch-processing 2000 PDFs.
+    # Grobid is memory-hungry under heavy load; the full deep-learning
+    # image more so. 8 GB heap is comfortable on a 32 GB MacBook Pro and
+    # fine for batch-processing a 2000-paper corpus on Bouchet. Drop to
+    # -Xmx4g if running somewhere tight on memory.
     environment:
-      - JAVA_OPTS=-Xmx4g -Xms1g
+      - JAVA_OPTS=-Xmx8g -Xms2g
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8070/api/isalive"]
       interval: 30s

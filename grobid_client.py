@@ -225,15 +225,94 @@ def parse_tei_header(tei_xml: str) -> dict:
     }
 
 
+import re as _re
+
+# --- Post-processing helpers for the reference list ---
+
+# Titles that start with any of these are almost certainly not real citations —
+# they're the author-address / ORCID / correspondence block at the end of the
+# paper that Grobid's parser sometimes misclassifies as the next reference.
+_ADDRESS_TITLE_RE = _re.compile(
+    r"^\s*(?:addresses?|correspondence|corresponding author|funding|"
+    r"acknowledg(?:e?ment)s?|competing interest|author contributions|"
+    r"orcid|ethics statement|data availability|conflict of interest)[:.]?\s",
+    _re.IGNORECASE,
+)
+
+# Author strings that are the continuation placeholder ("same as previous ref")
+# scholarly papers often use em-dashes, hyphens, or underscores in the authors
+# position for chained refs. Grobid captures them literally; we want to reuse
+# the previous ref's authors instead.
+_EM_DASH_AUTHORS_RE = _re.compile(r"^[\s_\-\u2012-\u2015\u2E3A\u2E3B]+$")
+
+# Tokens that turn up as author "names" when Grobid fumbles a header / address
+# block. Used to filter bogus refs whose authors list is dominated by these.
+_BOGUS_AUTHOR_TOKENS = frozenset(
+    s.lower() for s in ["Submitted", "Received", "Accepted", "Corresponding"]
+)
+
+
+def _looks_like_address_block(ref: dict) -> bool:
+    """Return True if the ref is actually an author-address / end-matter block.
+
+    The Marrus 2005 case in the demo set is the canonical example: Grobid
+    turned the Sandholdt Road / NOC Southampton author addresses into a
+    spurious reference. These entries share a signature — an ``ADDRESSES:``
+    title, authors like ``Submitted``, or a journal value containing the
+    institution block's tail ("P.R.P.) National Oceanography Centre" in the
+    Marrus case).
+    """
+    title = ref.get("title") or ""
+    if _ADDRESS_TITLE_RE.match(title):
+        return True
+    authors = ref.get("authors") or []
+    if authors and all(a.lower() in _BOGUS_AUTHOR_TOKENS for a in authors):
+        return True
+    # A journal field that contains a parenthesized author initial + address
+    # noise is another tell-tale for this kind of mis-parse.
+    journal = ref.get("journal") or ""
+    if _re.search(r"[A-Z]\.[A-Z]\.\)\s", journal):
+        return True
+    return False
+
+
+def _resolve_em_dash_authors(refs: List[dict]) -> None:
+    """In-place fix: when a ref's authors are literal em-dashes / underscores
+    (the scholarly convention for 'same author as previous'), replace them
+    with the previous ref's authors.
+
+    If the previous ref is missing authors too, we walk back until we find
+    one. If no prior ref has real authors, the field is left empty.
+    """
+    last_real_authors: List[str] = []
+    for ref in refs:
+        authors = ref.get("authors") or []
+        # All tokens are dash/underscore placeholders?
+        if authors and all(_EM_DASH_AUTHORS_RE.match(a) for a in authors):
+            ref["authors"] = list(last_real_authors)
+            ref["authors_continued_from_previous"] = True
+        elif authors:
+            last_real_authors = list(authors)
+
+
 def parse_tei_references(tei_xml: str) -> List[dict]:
     """Extract the bibliography from Grobid TEI-XML.
 
     Returns a list of dicts, one per cited work, with best-effort fields:
     title, authors, year, journal, doi, raw (the original citation string
     if the TEI preserved it via includeRawCitations=1).
+
+    Post-processing:
+      * Address / end-matter blocks mistakenly parsed as references are
+        dropped (see :func:`_looks_like_address_block`).
+      * Em-dash / underscore author continuations are resolved to the
+        previous reference's author list, matching how the paper reads.
+
+    Dropped entries are counted in the caller's log but not emitted to the
+    returned list.
     """
     root = _parse_tei(tei_xml)
-    refs: List[dict] = []
+    raw_refs: List[dict] = []
 
     # listBibl can appear under <back> or elsewhere; take all.
     for bs in root.findall(".//tei:listBibl/tei:biblStruct", NSMAP):
@@ -265,7 +344,7 @@ def parse_tei_references(tei_xml: str) -> List[dict]:
         # Raw citation (only present if includeRawCitations=1 was requested)
         raw = _first_text(bs.find("tei:note[@type='raw_reference']", NSMAP)) or ""
 
-        refs.append({
+        raw_refs.append({
             "xml_id": bs.get("{http://www.w3.org/XML/1998/namespace}id") or "",
             "title": title,
             "authors": authors,
@@ -274,5 +353,26 @@ def parse_tei_references(tei_xml: str) -> List[dict]:
             "doi": doi,
             "raw": raw,
         })
+
+    # Em-dash author continuation: walk the list in-order BEFORE filtering.
+    _resolve_em_dash_authors(raw_refs)
+
+    # Drop address blocks and other non-citation residue.
+    refs: List[dict] = []
+    dropped = 0
+    for ref in raw_refs:
+        if _looks_like_address_block(ref):
+            dropped += 1
+            logger.info(
+                "Dropping non-citation TEI entry %s: title=%r authors=%r",
+                ref.get("xml_id"), (ref.get("title") or "")[:80],
+                ref.get("authors"),
+            )
+            continue
+        refs.append(ref)
+
+    if dropped:
+        logger.info("parse_tei_references: dropped %d non-citation entr%s",
+                    dropped, "y" if dropped == 1 else "ies")
 
     return refs
