@@ -1,0 +1,161 @@
+# Siphonophore anatomy lexicon used by taxa.py for NER-by-lookup.
+#
+# Each top-level key is a canonical English term. Values:
+#   synonyms:   English variants (plural, abbreviation, historical spelling)
+#   translations: non-English forms (German / French / Russian etc.)
+#   description: one-line definition; for documentation only.
+#
+# Matching is case-insensitive and done against exact tokens (whole words),
+# so adding overly broad terms here will produce false positives. When
+# unsure, leave a term out — the lexicon is easier to extend than to
+# retract.
+#
+# Initial set assembled from standard references (Totton 1965, Mackie et
+# al. 1987, Dunn & Pugh 2005, Pugh & Dunn 2009). Extend as the corpus
+# surfaces additional terms; PRs welcome.
+
+# --- Body regions ---
+
+pneumatophore:
+  synonyms: [pneumatophores, float, gas float]
+  translations:
+    de: [Luftblase, Schwimmblase]
+    fr: [pneumatophore, flotteur]
+    ru: [пневматофор]
+  description: Apical gas-filled float.
+
+nectosome:
+  synonyms: [nectosomes, nectosomal region, swimming region]
+  translations:
+    de: [Schwimmstock]
+    ru: [нектосома]
+  description: Anterior stem region bearing nectophores.
+
+siphosome:
+  synonyms: [siphosomes, siphosomal region, trailing region]
+  translations:
+    de: [Fressstock]
+    ru: [сифосома]
+  description: Posterior stem region bearing feeding and reproductive zooids.
+
+stem:
+  synonyms: [stems, stolon, stolons, colonial stem]
+  description: Linear axis of the colony on which zooids are budded.
+
+# --- Swimming zooids ---
+
+nectophore:
+  synonyms: [nectophores, swimming bell, swimming bells, medusoid bell]
+  translations:
+    de: [Schwimmglocke, Nektophore]
+    fr: [nectophore, cloche natatoire]
+    ru: [нектофор]
+  description: Medusoid zooid providing propulsion.
+
+nectosac:
+  synonyms: [nectosacs, subumbrellar cavity]
+  description: Internal cavity of a nectophore from which water is ejected.
+
+# --- Protective zooids ---
+
+bract:
+  synonyms: [bracts, hydrophyllium, hydrophyllia, bracteal]
+  translations:
+    de: [Deckstück, Brakteen]
+    fr: [bractée]
+    ru: [брактея]
+  description: Leaf-like protective zooid.
+
+# --- Feeding zooids ---
+
+gastrozooid:
+  synonyms: [gastrozooids, siphon, siphons, feeding polyp, feeding polyps, siphuncle]
+  translations:
+    de: [Fresspolyp]
+    ru: [гастрозоид, питающий полип]
+  description: Polyp specialized for feeding and digestion.
+
+tentacle:
+  synonyms: [tentacles]
+  translations:
+    de: [Tentakel]
+    fr: [tentacule]
+    ru: [щупальце]
+  description: Filament emerging from a gastrozooid; bears tentilla.
+
+tentilla:
+  synonyms: [tentillum, tentillae, side branches]
+  translations:
+    ru: [щупальца-ветви]
+  description: Side branch of a tentacle that bears a cnidoband.
+
+cnidoband:
+  synonyms: [cnidobands]
+  description: Battery of nematocysts at the tip of a tentillum.
+
+nematocyst:
+  synonyms: [nematocysts, cnidocyst, cnidocysts, cnida, cnidae, stinging cell, stinging cells]
+  translations:
+    de: [Nesselkapsel, Nesselzelle]
+    fr: [nématocyste, cnidocyte]
+    ru: [нематоциста]
+  description: Stinging organelle housed in a cnidocyte.
+
+terminal_filament:
+  synonyms: [terminal filaments]
+  description: Distal filament extending beyond a cnidoband.
+
+# --- Defensive / sensory zooids ---
+
+palpon:
+  synonyms: [palpons, feeler zooid, feeler zooids]
+  translations:
+    de: [Tasterpolyp, Taster]
+    fr: [palpon]
+    ru: [пальпон]
+  description: Sensory / defensive polyp without a mouth.
+
+palpacle:
+  synonyms: [palpacles]
+  description: Filament emerging from a palpon, often lacking tentilla.
+
+# --- Reproductive zooids ---
+
+gonophore:
+  synonyms: [gonophores, medusoid gonophore, medusoid gonophores, eudoxid, eudoxids, reproductive zooid, reproductive zooids]
+  translations:
+    de: [Geschlechtsmedusoid, Gonophore]
+    fr: [gonophore]
+    ru: [гонофор]
+  description: Reproductive zooid; may be male, female, or dioecious.
+
+gonodendron:
+  synonyms: [gonodendra, gonodendrons]
+  description: Branched cluster of gonophores with associated gastrozooid.
+
+# --- Internal structures ---
+
+involucrum:
+  synonyms: [involucra]
+  description: Investing sheath at the base of a nectophore.
+
+ostium:
+  synonyms: [ostia, velum opening]
+  description: Opening of the nectosac through which water is ejected.
+
+somatocyst:
+  synonyms: [somatocysts]
+  description: Axial canal in a nectophore.
+
+# --- Life-cycle stages ---
+
+larva:
+  synonyms: [larvae, planula, planulae, siphonula, calycoconula]
+  translations:
+    de: [Larve]
+    ru: [личинка]
+  description: Early post-embryonic stage.
+
+protozooid:
+  synonyms: [protozooids, primary gastrozooid]
+  description: First-formed feeding polyp at the posterior end of the pneumatophore.

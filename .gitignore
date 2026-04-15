@@ -6,6 +6,9 @@ output*/
 scratch/
 demo_*/
 
+# Regenerable WoRMS snapshot; rebuild with: python scripts/ingest_worms.py
+resources/worms*.sqlite
+
 
 
 # Byte-compiled / optimized / DLL files

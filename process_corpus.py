@@ -30,6 +30,12 @@ from figures import (
     link_chunks_to_figures,
     generate_figures_report,
 )
+from taxa import (
+    WormsDB,
+    load_anatomy_lexicon,
+    extract_taxon_mentions,
+    extract_anatomy_mentions,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -115,6 +121,11 @@ _DEFAULT_CONFIG = {
     "qc": {
         "enable_validation": True,
         "sample_size": 5,
+    },
+    # Phase F: WoRMS taxonomic backbone + anatomy lexicon.
+    "resources": {
+        "worms_sqlite": "resources/worms_siphonophorae.sqlite",
+        "anatomy_lexicon": "resources/anatomy_lexicon.yaml",
     },
 }
 
@@ -670,6 +681,8 @@ def run_pdf_processing_pipeline(
     hash_dir: Path,
     temp_dir: Path,
     grobid_client: Optional[GrobidClient] = None,
+    worms_db: Optional[WormsDB] = None,
+    anatomy_lexicon: Optional[Dict[str, Dict]] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -755,6 +768,14 @@ def run_pdf_processing_pipeline(
         logger.info("Linking chunks to figures...")
         _crossref_chunks_and_figures(figures_file, chunks_file)
         processing_summary["processing_steps"].append("figure_crossref")
+
+        logger.info("Extracting taxa + anatomy mentions...")
+        taxa_anat_files = _extract_taxa_and_anatomy(
+            chunks_file, hash_dir, worms_db, anatomy_lexicon
+        )
+        processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
+        if taxa_anat_files:
+            processing_summary["processing_steps"].append("taxa_anatomy_extraction")
 
         logger.info("Generating figures report...")
         report_path = generate_figures_report(hash_dir)
@@ -1643,6 +1664,58 @@ def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
     )
 
 
+def _extract_taxa_and_anatomy(
+    chunks_file: Path,
+    hash_dir: Path,
+    worms_db: Optional[WormsDB],
+    anatomy_lexicon: Optional[Dict[str, Dict]],
+) -> List[Path]:
+    """Run taxon + anatomy extraction on the per-PDF chunks and write
+    ``taxa.json`` / ``anatomy.json``.
+
+    Designed to degrade gracefully: if the WoRMS snapshot or anatomy
+    lexicon isn't configured / available, the corresponding artifact is
+    simply not emitted (not an error). This keeps the pipeline runnable
+    on a dev machine that hasn't yet run ``scripts/ingest_worms.py``.
+    """
+    out: List[Path] = []
+    if not chunks_file.exists():
+        return out
+    try:
+        chunks_data = json.load(chunks_file.open(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Skipping taxa/anatomy pass: couldn't read %s: %s", chunks_file, e)
+        return out
+    chunks = chunks_data.get("chunks") or []
+
+    if worms_db is not None:
+        taxa_res = extract_taxon_mentions(chunks, worms_db)
+        taxa_file = hash_dir / "taxa.json"
+        with taxa_file.open("w", encoding="utf-8") as f:
+            json.dump(taxa_res, f, indent=2, ensure_ascii=False)
+        out.append(taxa_file)
+        logger.info(
+            "Taxon mentions: %d (unique taxa: %d)",
+            taxa_res["total_mentions"], taxa_res["unique_taxa"],
+        )
+    else:
+        logger.info("Skipping taxon extraction (no WoRMS DB configured)")
+
+    if anatomy_lexicon:
+        anat_res = extract_anatomy_mentions(chunks, anatomy_lexicon)
+        anat_file = hash_dir / "anatomy.json"
+        with anat_file.open("w", encoding="utf-8") as f:
+            json.dump(anat_res, f, indent=2, ensure_ascii=False)
+        out.append(anat_file)
+        logger.info(
+            "Anatomy mentions: %d (unique terms: %d)",
+            anat_res["total_mentions"], anat_res["unique_terms"],
+        )
+    else:
+        logger.info("Skipping anatomy extraction (no lexicon configured)")
+    return out
+
+
 def _verify_or_raise_collision(hash_dir: Path, pdf_hash_full: str) -> Optional[bool]:
     """If ``hash_dir/summary.json`` exists, verify its recorded full hash
     matches ``pdf_hash_full``. Returns True if it matches (resume-safe), False
@@ -1696,6 +1769,23 @@ def main():
         action="store_true",
         help="Skip Grobid even if reachable (useful for dev iteration on non-metadata stages)",
     )
+    parser.add_argument(
+        "--worms-sqlite",
+        type=Path,
+        default=None,
+        help="Path to WoRMS SQLite snapshot (overrides config.resources.worms_sqlite)",
+    )
+    parser.add_argument(
+        "--anatomy-lexicon",
+        type=Path,
+        default=None,
+        help="Path to anatomy lexicon YAML (overrides config.resources.anatomy_lexicon)",
+    )
+    parser.add_argument(
+        "--no-taxa",
+        action="store_true",
+        help="Skip taxon + anatomy extraction",
+    )
 
     args = parser.parse_args()
 
@@ -1731,6 +1821,45 @@ def main():
                 "Start it with: docker compose up -d grobid",
                 args.grobid_url,
             )
+
+    # Open WoRMS snapshot and load anatomy lexicon once. Both are optional;
+    # missing resources are logged and their output artifacts are skipped.
+    worms_db: Optional[WormsDB] = None
+    anatomy_lexicon: Optional[Dict[str, Dict]] = None
+    if not args.no_taxa:
+        worms_path = args.worms_sqlite or Path(
+            CONFIG.get("resources", {}).get("worms_sqlite", "resources/worms_siphonophorae.sqlite")
+        )
+        if worms_path.exists():
+            try:
+                worms_db = WormsDB(worms_path)
+                logger.info(
+                    "WoRMS snapshot loaded from %s (%d names)",
+                    worms_path, len(worms_db.name_set()),
+                )
+            except Exception as e:
+                logger.warning("Could not open WoRMS snapshot %s: %s", worms_path, e)
+        else:
+            logger.warning(
+                "WoRMS snapshot %s not found — taxon extraction skipped. "
+                "Build it with: python scripts/ingest_worms.py",
+                worms_path,
+            )
+
+        anat_path = args.anatomy_lexicon or Path(
+            CONFIG.get("resources", {}).get("anatomy_lexicon", "resources/anatomy_lexicon.yaml")
+        )
+        if anat_path.exists():
+            try:
+                anatomy_lexicon = load_anatomy_lexicon(anat_path)
+                logger.info(
+                    "Anatomy lexicon loaded from %s (%d terms)",
+                    anat_path, len(anatomy_lexicon),
+                )
+            except Exception as e:
+                logger.warning("Could not load anatomy lexicon %s: %s", anat_path, e)
+        else:
+            logger.info("No anatomy lexicon at %s; skipping anatomy extraction", anat_path)
 
     # Create output directory structure
     documents_dir, vector_db_dir = create_output_structure(output_dir)
@@ -1779,7 +1908,10 @@ def main():
                 logger.info("pdf_hash_full: %s", pdf_hash_full)
 
                 processing_summary = run_pdf_processing_pipeline(
-                    primary_pdf, hash_dir, temp_dir, grobid_client=grobid_client
+                    primary_pdf, hash_dir, temp_dir,
+                    grobid_client=grobid_client,
+                    worms_db=worms_db,
+                    anatomy_lexicon=anatomy_lexicon,
                 )
 
                 summary_file = create_summary_json(
