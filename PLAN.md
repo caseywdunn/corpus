@@ -501,9 +501,22 @@ get_figure_roi_image(paper_hash, figure_id, roi_index, save_to=None)
 
 ### Rollout
 
-Implemented in two commits:
+Implemented in three commits:
 
-1. **Pass 2.5** — caption parser + missing-figures scan. Cheap, always-on. Adds `panels_from_caption[]` / `panel_count_from_caption` / `missing_figures[]` to artifacts. No image or filename changes.
-2. **Pass 3a** — Tesseract ROI pass, filename rename for compounds, MCP crop-on-demand tools. Gated behind `--content-aware-figures` flag.
+1. **Pass 2.5** (commit `a794bdc`) — caption parser + missing-figures scan. Cheap, always-on. Adds `panels_from_caption[]` / `panel_count_from_caption` / `missing_figures[]` to artifacts. No image or filename changes.
+2. **Pass 3a** (commit `72e0633`) — Tesseract ROI pass, MCP crop-on-demand tools. Gated behind `--content-aware-figures` flag. Recall turned out to be ~20–40% on line-art scientific figures — always-partial, rarely the primary signal.
+3. **Pass 3b** (commit `9e98455`) — Claude-vision backend, same result schema as 3a. Flagged via `--vision-backend claude` (+ `--vision-model …` override). On the demo set: 10/11 Pugh completed + 1 `completed_compound` (fig_3 → the Fig 3+4 case), 5/5 Siebert completed. Haiku 4.5 at ~$0.003/fig.
 
-Pass 3b (vision LLM) stays on the roadmap; ship when Pass 3a's failure modes justify the cost.
+### Status & immediate next steps (as of commit `9e98455`)
+
+**Done**: Phases A–F, MCP server (15 tools), filename-year fallback, figure dedup + position letters, Pass 2.5, Pass 3a, Pass 3b (Claude vision). All work committed; demo/ fully reprocessed.
+
+**Three natural follow-ups**, in rough order of user-facing value:
+
+- [ ] **Compound file rename + sub-figure split** (Phase 3c). When `pass3_status = completed_compound`, attribute the extra panels to a `missing_figures[]` entry, rename the file to `fig_M-N.png`, record `previous_filenames[]`, and emit a second logical figure record so MCP tools can list "Fig 4" separately even though its image is embedded in `fig_3-4.png`. Small — maybe 150 lines.
+- [ ] **Local VLM backend** (`vision.LocalVLMBackend` with Qwen2.5-VL-7B on CUDA/MPS). API contract already set; just implement `detect_figure_panels()` via HuggingFace transformers. Needed for the Bouchet production run so no per-figure API cost at the 20k-figure scale.
+- [ ] **Bouchet prep** — SLURM batch scripts (`batch_process_corpus.sh`, `batch_pass3b.sh` on `gpu_h200`, `batch_embed.sh` on `gpu`), Grobid via Singularity, model cache pre-download into `~/project/cache/huggingface/`, corpus `git lfs pull` to `~/project`, dry-run on 20-50 papers before the full 2000. Pair with the local-VLM backend above.
+
+**Fourth item deferred indefinitely**: `get_figure_roi_image` panel disambiguation when two A's exist in a compound (minor MCP polish).
+
+Pass 3c handles compound file rename; Phases A–F + 2.5 + 3a + 3b are otherwise considered complete as of this checkpoint.
