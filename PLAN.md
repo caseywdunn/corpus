@@ -507,16 +507,109 @@ Implemented in three commits:
 2. **Pass 3a** (commit `72e0633`) — Tesseract ROI pass, MCP crop-on-demand tools. Gated behind `--content-aware-figures` flag. Recall turned out to be ~20–40% on line-art scientific figures — always-partial, rarely the primary signal.
 3. **Pass 3b** (commit `9e98455`) — Claude-vision backend, same result schema as 3a. Flagged via `--vision-backend claude` (+ `--vision-model …` override). On the demo set: 10/11 Pugh completed + 1 `completed_compound` (fig_3 → the Fig 3+4 case), 5/5 Siebert completed. Haiku 4.5 at ~$0.003/fig.
 
-### Status & immediate next steps (as of commit `9e98455`)
+### Status & immediate next steps (as of commit `9e98455`, updated post-3c)
 
-**Done**: Phases A–F, MCP server (15 tools), filename-year fallback, figure dedup + position letters, Pass 2.5, Pass 3a, Pass 3b (Claude vision). All work committed; demo/ fully reprocessed.
+**Done**: Phases A–F, MCP server (15 tools), filename-year fallback, figure dedup + position letters, Pass 2.5, Pass 3a, Pass 3b (Claude vision), Pass 3c (compound file rename + sub-figure split), `LocalVLMBackend` (Qwen2.5-VL), Bouchet SLURM + Singularity prep (see `BOUCHET.md`). Demo/ fully reprocessed with Pugh 2001's Fig 3/Fig 4 compound now split: `fig_3.png` → `fig_3-4.png`, new `docling_3_embedded_1` figure record with `figure_number=4` and its own 4-panel ROI set.
 
 **Three natural follow-ups**, in rough order of user-facing value:
 
-- [ ] **Compound file rename + sub-figure split** (Phase 3c). When `pass3_status = completed_compound`, attribute the extra panels to a `missing_figures[]` entry, rename the file to `fig_M-N.png`, record `previous_filenames[]`, and emit a second logical figure record so MCP tools can list "Fig 4" separately even though its image is embedded in `fig_3-4.png`. Small — maybe 150 lines.
-- [ ] **Local VLM backend** (`vision.LocalVLMBackend` with Qwen2.5-VL-7B on CUDA/MPS). API contract already set; just implement `detect_figure_panels()` via HuggingFace transformers. Needed for the Bouchet production run so no per-figure API cost at the 20k-figure scale.
-- [ ] **Bouchet prep** — SLURM batch scripts (`batch_process_corpus.sh`, `batch_pass3b.sh` on `gpu_h200`, `batch_embed.sh` on `gpu`), Grobid via Singularity, model cache pre-download into `~/project/cache/huggingface/`, corpus `git lfs pull` to `~/project`, dry-run on 20-50 papers before the full 2000. Pair with the local-VLM backend above.
+- [x] **Compound file rename + sub-figure split** (Phase 3c). `resolve_compound_figures()` in `figures.py` partitions ROIs by `parent_figure_index` (with spatial-split fallback for duplicate labels), matches embedded sub-figures to `missing_figures[]` entries, renames the PNG to range notation (`fig_3-4.png`), records `previous_filenames[]`, and emits a standalone figure record per recovered sub-figure with `image_shared_with` pointing at the host. New records are fully MCP-visible (same `figures.json` list). Idempotent — skips figures with existing `pass3c_status`. Wired into the pipeline between Pass 3b and chunk cross-ref.
+- [x] **Local VLM backend** — `vision.LocalVLMBackend` wraps Qwen2.5-VL (default 7B-Instruct) via HuggingFace `transformers` + `qwen-vl-utils`. Same `detect_figure_panels()` contract as the Claude backend; device auto-detect follows `embeddings.detect_device()` (cuda → mps → cpu). Select with `--vision-backend local`. No per-figure API cost; needed for the Bouchet production run.
+- [x] **Bouchet prep** — three SLURM scripts (`batch_process_corpus.sh` on `day` for stage 1; `batch_pass3b.sh` on `gpu_h200` for Qwen2.5-VL; `batch_embed.sh` on `gpu` for BGE-M3). Companion `BOUCHET.md` captures one-time setup: `git lfs pull`, Grobid via Singularity, model cache pre-download to `~/project/cache/huggingface/`, and a dry-run recipe for 20–50 papers before committing to the full 2000. All three scripts use `--resume` so restarts are cheap and can be chained via `--dependency=afterok`.
 
 **Fourth item deferred indefinitely**: `get_figure_roi_image` panel disambiguation when two A's exist in a compound (minor MCP polish).
 
 Pass 3c handles compound file rename; Phases A–F + 2.5 + 3a + 3b are otherwise considered complete as of this checkpoint.
+
+## 10. Deployment to AWS (post-Bouchet, for collaborator access)
+
+Production runs on Bouchet, but the served corpus needs a long-lived public-ish endpoint so collaborators at other institutions and lab members can query it without pulling 10 GB of artifacts down to their laptops. AWS is the target; the design needs to be settled now (not after deployment) because the per-paper artifact set is the contract that the distillation, the MCP server, and downstream non-MCP consumers all key off.
+
+### Two-bundle model
+
+Bouchet produces a "build" bundle. AWS holds a "served" bundle. The two are not the same.
+
+| Concern | Build bundle (Bouchet output) | Served bundle (S3 / EC2) |
+|---|---|---|
+| Audience | the pipeline, golden-test scripts, re-runs | MCP clients, DuckDB users, web tools |
+| Per-paper size | ~5 MB | ~1.5 MB (≈70% smaller; ~95% if PDFs excluded) |
+| Includes | everything: `processed.pdf`, `docling_doc.json`, `visualizations/`, `grobid.tei.xml`, `pipeline.log` | only the JSONs that MCP tools read, the figure PNGs, the LanceDB index, WoRMS, and a manifest |
+| Lifecycle | rebuilt each pipeline run | versioned snapshot (`v1.0.0`, …) |
+
+**Files in the served-bundle whitelist** — this is the contract:
+
+- `summary.json`, `metadata.json`, `references.json`
+- `text.json`, `chunks.json`
+- `figures.json`, `taxa.json`, `anatomy.json`
+- `figures/*.png` (all extracted figure images, including Pass 3c-renamed compounds)
+- `vector_db/lancedb/` (the embedded chunks)
+- `worms_siphonophora.sqlite` (and any other corpus-level indices)
+- `bundle_manifest.json` (top-level — see below)
+
+**Excluded** from the served bundle (build-only):
+
+- `processed.pdf` — keep on Bouchet + cold-storage S3 for re-runs; not needed by MCP tools. Optional flag to include (~3 GB extra) if a future tool wants page-image retrieval.
+- `docling_doc.json` — raw docling dump; only useful for re-extraction.
+- `visualizations/*.png` — pure QC overlays.
+- `grobid.tei.xml` — already distilled into `metadata.json` + `references.json`.
+- `pipeline.log`, `scan_detection.json`, `figures_report.html` — debug / human-QC.
+
+For 2000 papers: build bundle ~10 GB, served bundle ~3 GB (with PDFs ~6 GB). Small enough to fit comfortably on a $1/mo EBS volume.
+
+### Distillation step
+
+A new `package_for_serve.py` on Bouchet, run after `batch_embed.sh`:
+
+```bash
+python package_for_serve.py "$OUTPUT_DIR" "$BOUCHET_PROJECT/serve_bundle" \
+    --version v1.0.0 \
+    --include-pdfs false
+```
+
+It walks `documents/<HASH>/`, copies whitelisted files into `serve_bundle/documents/<HASH>/`, copies the LanceDB and WoRMS, and writes `serve_bundle/bundle_manifest.json`:
+
+```json
+{
+  "bundle_version": "v1.0.0",
+  "created_at": "2026-04-16T12:00:00Z",
+  "pipeline_git_sha": "<commit>",
+  "embedding_model": "BAAI/bge-m3",
+  "embedding_dim": 1024,
+  "vision_backend": "vision:qwen2.5-vl-7b-instruct",
+  "worms_snapshot_date": "2026-03-15",
+  "paper_count": 2014,
+  "figure_count": 38291,
+  "chunk_count": 412677,
+  "includes_pdfs": false
+}
+```
+
+The manifest is what collaborators cite ("queried against corpus v1.0.0"); it's also what the MCP server reports via a new `bundle_info` tool so clients can detect stale endpoints.
+
+### AWS layout
+
+Three-tier, deliberately boring:
+
+1. **S3 bucket — `s3://siphonophore-corpus/`** — source of truth, versioned. Each release lives at `s3://siphonophore-corpus/v1.0.0/` and is immutable. Bouchet pushes via `aws s3 sync serve_bundle/ s3://…/v1.0.0/`. Lifecycle rule moves unused versions to Glacier after 90 days.
+   - Public-read on the parquet/SQLite/LanceDB files lets non-MCP collaborators query directly with DuckDB / pandas — zero infra cost on our end.
+2. **MCP server on EC2 — `t3.small` + 10 GB gp3 EBS** — single instance (~$15/mo + $1/mo storage), pulls the bundle from S3 on deploy, runs the MCP server as a systemd service over SSE/HTTP transport. Faster than Fargate (no cold starts, persistent LanceDB in memory). One CloudWatch dashboard, structured JSON logs to S3.
+3. **Edge — CloudFront → ALB → EC2**, HTTPS, API key in `X-Corpus-Key` header for collaborator auth. Generated keys are documented per-collaborator in a private spreadsheet; no Cognito, no OAuth dance for an academic tool. Rate-limit at CloudFront if needed.
+
+**Updates** = re-run pipeline on Bouchet → distill → `aws s3 sync` to a new version → SSH to EC2 and `systemctl reload corpus-mcp` (which pulls the new version from S3). Old versions stay in S3 for reproducibility.
+
+**Total ongoing cost**: ~$20/mo. Grows slowly with collaborator volume since reads are cheap.
+
+### Three things to design now (before §10 is implemented)
+
+These aren't implementation work — they're constraints that need to flow back into the existing Bouchet phases so the AWS step doesn't require re-engineering later.
+
+- [ ] **The served-file whitelist is a stable contract.** Add it as a constant at the top of `package_for_serve.py` (when written), and reference it from anywhere else that touches per-paper artifacts. Don't let new pipeline phases silently add must-have files without registering them.
+- [ ] **No absolute paths in any served JSON.** Audit `figures.json[].file_path`, `chunks.json[].source_file`, anywhere else a path appears. They must be relative-from-corpus-root (`documents/<HASH>/figures/fig_3.png`) so the same JSONs work on Bouchet at `/nfs/roberts/…` and on EC2 at `/srv/corpus/…`. Add a unit test: `assert not any(Path(p).is_absolute() for p in all_paths_in_served_json)`.
+- [ ] **Per-bundle version stamp from day one.** Even before `package_for_serve.py` exists, start writing `bundle_version`, `pipeline_git_sha`, `embedding_model`, `worms_snapshot_date` into a top-level `bundle_manifest.json` at the end of each Bouchet run. Lets early collaborators cite a corpus version, and future-you isn't reverse-engineering provenance from file timestamps.
+
+### What this section deliberately does not pin down
+
+- Whether the MCP server eventually gets a thin HTML/web UI on top (Streamlit, Next.js, …). Out of scope until the MCP-only experience has actual users.
+- Multi-region failover, autoscaling, blue/green deploys. Single-instance is fine until it isn't.
+- Whether to mirror the served bundle on a Cloudflare R2 / Backblaze B2 alternative for cost. Defer until S3 egress actually shows up on a bill.
+- Authentication beyond API keys. If we later expose this to a wider audience, evaluate Cognito or sign-in-with-ORCID then, not now.

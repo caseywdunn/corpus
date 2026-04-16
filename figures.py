@@ -1066,6 +1066,371 @@ def detect_figure_rois(
 
 
 # ---------------------------------------------------------------------------
+# Pass 3c — compound figure resolution (file rename + sub-figure split)
+# ---------------------------------------------------------------------------
+#
+# When Pass 3b marks a figure as ``*_compound`` it tells us the extracted
+# image actually contains more than one logical figure (e.g. Pugh 2001's
+# Fig 3 + Fig 4 landed in one docling Picture). Pass 3c takes those hints
+# and does three small but visible things:
+#
+#   1. Partition the ROIs into per-sub-figure groups.
+#   2. Match each "extra" group to a ``missing_figures[]`` entry so the
+#      sub-figure picks up a real figure_number + caption.
+#   3. Rename the PNG on disk to range notation (``fig_3-4.png``), record
+#      the previous name, and emit a standalone figure record for each
+#      recovered sub-figure.
+#
+# Inline in figures.json — the new records carry ``image_shared_with``
+# pointing at the host figure_id so consumers know the PNG is shared.
+
+
+def _numeric_key(num: str):
+    """Sort key for figure numbers that may have trailing letters
+    (``"9a"`` < ``"10"``). Non-numeric falls back to a large sentinel."""
+    m = re.match(r"(\d+)([A-Za-z]*)$", str(num or "").strip())
+    if not m:
+        return (10**9, str(num))
+    return (int(m.group(1)), m.group(2))
+
+
+def _format_compound_filename(stem_prefix: str, numbers: List[str],
+                              extension: str) -> str:
+    """Compose a compound filename from a sorted list of figure numbers.
+
+    ``stem_prefix`` is the pre-number part of the original filename
+    (typically ``"fig_"`` or ``"plate_"``). Contiguous runs are joined
+    with ``-`` (e.g., ``fig_3-4.png``), non-contiguous with ``+``
+    (``fig_3+7.png``). Leading letter suffixes on any number fall back
+    to ``+`` joining because ``3a-4`` is ambiguous.
+    """
+    if not numbers:
+        return f"{stem_prefix}unknown{extension}"
+    try:
+        ints = [int(re.match(r"(\d+)", str(n)).group(1)) for n in numbers]
+    except (AttributeError, ValueError):
+        return f"{stem_prefix}{'+'.join(numbers)}{extension}"
+    has_suffix = any(not str(n).isdigit() for n in numbers)
+    contiguous = (not has_suffix and len(ints) >= 2
+                  and all(b - a == 1 for a, b in zip(ints, ints[1:])))
+    if contiguous:
+        return f"{stem_prefix}{ints[0]}-{ints[-1]}{extension}"
+    joiner = "+"
+    return f"{stem_prefix}{joiner.join(str(n) for n in numbers)}{extension}"
+
+
+def _split_rois_by_parent(rois: List[Dict]) -> Dict[int, List[Dict]]:
+    """Group ROIs by ``parent_figure_index``. Missing index → group 0."""
+    groups: Dict[int, List[Dict]] = {}
+    for r in rois:
+        idx = r.get("parent_figure_index")
+        if idx is None:
+            idx = 0
+        try:
+            idx = int(idx)
+        except (TypeError, ValueError):
+            idx = 0
+        groups.setdefault(idx, []).append(r)
+    return groups
+
+
+def _spatial_split_rois(rois: List[Dict], expected_labels: List[str],
+                       image_size_px: List[int]) -> Dict[int, List[Dict]]:
+    """Fallback when vision returned every panel under the same
+    ``parent_figure_index`` but the label set clearly contains duplicates.
+
+    Heuristic: cluster panel ROIs by the midpoint of their whole-panel
+    bbox on the axis with the larger spread (long axis), pick a split at
+    the median, then assign the side whose labels best match
+    ``expected_labels`` as group 0 and the other as group 1.
+
+    Returns ``{}`` if no clean split is possible (caller treats this as
+    "vision failed to split — leave the figure alone").
+    """
+    panels = [r for r in rois if r.get("type") == "panel" and r.get("roi_px")]
+    if len(panels) < 2:
+        return {}
+
+    label_seq = [p.get("label", "") for p in panels]
+    if len(set(label_seq)) == len(label_seq):
+        # No duplicates: group 0 is the whole lot; nothing to split.
+        return {0: list(rois)}
+
+    # Compute centroids on each axis; pick the axis with greater span.
+    xs = [0.5 * (p["roi_px"][0] + p["roi_px"][2]) for p in panels]
+    ys = [0.5 * (p["roi_px"][1] + p["roi_px"][3]) for p in panels]
+    if (max(xs) - min(xs)) >= (max(ys) - min(ys)):
+        centroids, axis = xs, "x"
+    else:
+        centroids, axis = ys, "y"
+
+    median = sorted(centroids)[len(centroids) // 2]
+    side_a, side_b = [], []
+    for c, p in zip(centroids, panels):
+        (side_a if c < median else side_b).append(p)
+    # Handle ties — push anything equal to median onto the smaller side.
+    if not side_a or not side_b:
+        return {}
+
+    expected_set = set(expected_labels or [])
+
+    def match_score(group):
+        return len({g.get("label", "") for g in group} & expected_set)
+
+    # Group 0 is the one whose labels best match the caption's expected
+    # set — that's the figure we already have a caption for. The other
+    # side becomes the embedded extra figure.
+    if match_score(side_a) >= match_score(side_b):
+        primary, extra = side_a, side_b
+    else:
+        primary, extra = side_b, side_a
+
+    groups: Dict[int, List[Dict]] = {0: list(primary), 1: list(extra)}
+
+    # Route embedded_figure rois to whichever side contains their
+    # parent_figure_index anchor — otherwise stick them on group 0.
+    for r in rois:
+        if r.get("type") == "panel":
+            continue
+        groups[0].append(r)
+    return groups
+
+
+def _match_embedded_group_to_missing(
+    detected_labels: List[str],
+    missing_figures: List[Dict],
+) -> Optional[int]:
+    """Return the index into ``missing_figures`` whose caption-parsed
+    panel set best matches ``detected_labels``. The best match must cover
+    at least half of the detected labels and share at least one label, or
+    ``None`` is returned.
+    """
+    if not missing_figures or not detected_labels:
+        return None
+    detected_set = set(l for l in detected_labels if l)
+    best_idx, best_overlap = None, 0
+    for i, miss in enumerate(missing_figures):
+        panels = parse_panels_from_caption(miss.get("caption_text_candidate", ""))
+        labels = {p["label"] for p in panels}
+        overlap = len(detected_set & labels)
+        if overlap > best_overlap:
+            best_overlap, best_idx = overlap, i
+    if best_idx is None:
+        return None
+    # Require the overlap to cover at least half of the detected labels.
+    if best_overlap * 2 < len(detected_set):
+        return None
+    return best_idx
+
+
+def resolve_compound_figures(figures_file: Path) -> Dict:
+    """Pass 3c — post-process figures.json to split compound figures and
+    rename their images to range notation.
+
+    For each figure whose ``pass3_status`` ends in ``_compound``:
+
+    * Partition its ``rois`` by ``parent_figure_index`` (or fall back to
+      a spatial split when vision collapsed everything under index 0).
+    * Try to match each non-primary group to a ``missing_figures[]``
+      entry — that gives the sub-figure a real number + caption.
+    * Rename the PNG on disk to compound range notation
+      (``fig_3-4.png``), record the old name in ``previous_filenames``.
+    * Emit a new figure record per recovered sub-figure with
+      ``image_shared_with = <host_figure_id>``.
+
+    Mutates ``figures.json`` in place. Returns a small summary dict for
+    the caller to log.
+    """
+    if not figures_file.exists():
+        return {"resolved": 0, "renamed": 0, "unchanged": 0}
+
+    try:
+        data = json.load(figures_file.open(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Pass 3c skipped: couldn't read %s: %s", figures_file, e)
+        return {"resolved": 0, "renamed": 0, "unchanged": 0}
+
+    figures = data.get("figures", []) or []
+    missing_list = data.get("missing_figures", []) or []
+
+    new_records: List[Dict] = []
+    resolved_missing_indices: set = set()
+    n_renamed = n_resolved = n_unchanged = 0
+
+    # Iterate on a copy — we might add records, and we set fields in
+    # place on the host figures.
+    for host in list(figures):
+        status = host.get("pass3_status") or ""
+        if not status.endswith("_compound"):
+            continue
+        # Idempotent re-runs: skip figures this pass has already handled.
+        prior = host.get("pass3c_status")
+        if prior in ("resolved", "unsplit"):
+            continue
+
+        rois = host.get("rois") or []
+        expected_labels = [p.get("label") for p in
+                           (host.get("panels_from_caption") or [])
+                           if p.get("label")]
+
+        groups = _split_rois_by_parent(rois)
+        # If vision dumped everything under one index but duplicates
+        # exist, try a spatial split.
+        if len(groups) <= 1:
+            groups = _spatial_split_rois(
+                rois, expected_labels,
+                host.get("image_size_px") or [0, 0],
+            )
+
+        if len(groups) <= 1 or 0 not in groups:
+            # Could not split — leave the figure alone but note it.
+            n_unchanged += 1
+            host["pass3c_status"] = "unsplit"
+            continue
+
+        # Primary group: figure 0's panels stay on the host record; its
+        # label set should match the caption's expected set.
+        host_rois = groups.pop(0)
+        extra_groups = [groups[k] for k in sorted(groups.keys())]
+
+        # Build a standalone figure record for each extra group.
+        recovered_numbers: List[str] = []
+        host_id = host.get("figure_id", "")
+        for g_ord, extra_rois in enumerate(extra_groups, start=1):
+            detected = [r.get("label") for r in extra_rois
+                        if r.get("type") == "panel" and r.get("label")]
+            miss_idx = _match_embedded_group_to_missing(
+                detected,
+                [m for i, m in enumerate(missing_list)
+                 if i not in resolved_missing_indices],
+            )
+            # _match returned an index into the FILTERED list; map it
+            # back to the original missing_list index.
+            abs_miss_idx = None
+            if miss_idx is not None:
+                seen = -1
+                for i, _m in enumerate(missing_list):
+                    if i in resolved_missing_indices:
+                        continue
+                    seen += 1
+                    if seen == miss_idx:
+                        abs_miss_idx = i
+                        break
+
+            if abs_miss_idx is not None:
+                miss = missing_list[abs_miss_idx]
+                resolved_missing_indices.add(abs_miss_idx)
+                emb_number = miss.get("figure_number")
+                emb_caption = miss.get("caption_text_candidate") or ""
+            else:
+                emb_number = None
+                emb_caption = ""
+
+            rec = {
+                "figure_id": f"{host_id}_embedded_{g_ord}",
+                "figure_type": host.get("figure_type", "figure"),
+                "figure_number": emb_number,
+                "caption_text": emb_caption,
+                "caption_source": ("compound_split_from_missing_figures"
+                                   if abs_miss_idx is not None
+                                   else "compound_split_unresolved"),
+                "image_shared_with": host_id,
+                "rois": extra_rois,
+                "pass3_status": status.replace("_compound", ""),
+                "pass3_backend": host.get("pass3_backend"),
+                "pass3c_status": ("resolved" if abs_miss_idx is not None
+                                  else "split_but_unmatched"),
+                "panels_from_caption": parse_panels_from_caption(emb_caption),
+            }
+            if host.get("image_size_px"):
+                rec["image_size_px"] = list(host["image_size_px"])
+            if emb_number:
+                recovered_numbers.append(str(emb_number))
+            new_records.append(rec)
+            if abs_miss_idx is not None:
+                n_resolved += 1
+
+        # Rewrite the host figure's rois to just its own group.
+        host["rois"] = host_rois
+
+        # Rename the PNG if we have at least one numbered sub-figure.
+        if recovered_numbers:
+            try:
+                img_path = Path(host.get("file_path", ""))
+                if img_path.exists():
+                    all_numbers = [str(host.get("figure_number", ""))]
+                    all_numbers.extend(recovered_numbers)
+                    # Drop empty/None entries, stable-sort numerically.
+                    all_numbers = [n for n in all_numbers if n]
+                    all_numbers.sort(key=_numeric_key)
+                    stem = img_path.stem
+                    m = re.match(r"^([A-Za-z_]+)", stem)
+                    prefix = (m.group(1) if m else "fig_")
+                    if not prefix.endswith("_"):
+                        prefix = prefix + "_"
+                    new_name = _format_compound_filename(
+                        prefix, all_numbers, img_path.suffix,
+                    )
+                    if new_name != img_path.name:
+                        new_path = img_path.with_name(new_name)
+                        # If a file already exists at the target name,
+                        # leave as-is rather than clobbering it.
+                        if not new_path.exists():
+                            img_path.rename(new_path)
+                            host.setdefault("previous_filenames",
+                                            []).append(img_path.name)
+                            host["filename"] = new_name
+                            host["file_path"] = str(new_path)
+                            # New records share the same image file.
+                            for rec in new_records:
+                                if rec.get("image_shared_with") == host_id:
+                                    rec["filename"] = new_name
+                                    rec["file_path"] = str(new_path)
+                            n_renamed += 1
+                        else:
+                            logger.warning(
+                                "Pass 3c: target %s already exists; not "
+                                "renaming %s", new_path.name, img_path.name,
+                            )
+            except Exception as e:
+                logger.warning("Pass 3c rename failed for %s: %s",
+                               host.get("figure_id"), e)
+
+        host["pass3c_status"] = "resolved"
+
+    # Insert new records after their host so order stays predictable.
+    if new_records:
+        out: List[Dict] = []
+        by_host: Dict[str, List[Dict]] = {}
+        for rec in new_records:
+            by_host.setdefault(rec.get("image_shared_with", ""), []).append(rec)
+        for fig in figures:
+            out.append(fig)
+            fid = fig.get("figure_id", "")
+            if fid in by_host:
+                out.extend(by_host[fid])
+        data["figures"] = out
+
+    # Remove resolved missing_figures entries.
+    if resolved_missing_indices:
+        data["missing_figures"] = [
+            m for i, m in enumerate(missing_list)
+            if i not in resolved_missing_indices
+        ]
+        data["total_missing_figures"] = len(data["missing_figures"])
+
+    with figures_file.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+    return {
+        "resolved": n_resolved,
+        "renamed": n_renamed,
+        "unchanged": n_unchanged,
+        "new_records": len(new_records),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Chunk ↔ figure cross-reference pass
 # ---------------------------------------------------------------------------
 

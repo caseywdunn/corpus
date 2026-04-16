@@ -31,6 +31,7 @@ from figures import (
     detect_missing_figures,
     detect_figure_rois,
     detect_figure_rois_via_vision,
+    resolve_compound_figures,
     link_chunks_to_figures,
     generate_figures_report,
 )
@@ -783,6 +784,21 @@ def run_pdf_processing_pipeline(
             logger.info("Pass 3a: OCR-driven panel ROI detection...")
             _pass3a_annotate_rois(figures_file)
             processing_summary["processing_steps"].append("figure_pass3a_rois")
+
+        # Pass 3c — resolve *_compound figures: split their ROIs, match
+        # to missing_figures, rename the PNG to range notation. Cheap;
+        # worth running whenever 3a or 3b has been run.
+        if vision_backend is not None or content_aware_figures:
+            logger.info("Pass 3c: compound figure resolution + file rename...")
+            summary_3c = resolve_compound_figures(figures_file)
+            logger.info(
+                "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
+                summary_3c.get("resolved", 0),
+                summary_3c.get("renamed", 0),
+                summary_3c.get("unchanged", 0),
+                summary_3c.get("new_records", 0),
+            )
+            processing_summary["processing_steps"].append("figure_pass3c_resolve")
 
         logger.info("Linking chunks to figures...")
         _crossref_chunks_and_figures(figures_file, chunks_file)

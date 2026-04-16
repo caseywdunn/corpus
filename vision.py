@@ -347,19 +347,255 @@ class ClaudeVisionBackend(VisionBackend):
 
 
 # ---------------------------------------------------------------------------
+# Local VLM backend (Qwen2.5-VL)
+# ---------------------------------------------------------------------------
+
+
+_DEFAULT_LOCAL_VLM = "Qwen/Qwen2.5-VL-7B-Instruct"
+
+# Models smaller than 7B work on MPS / smaller GPUs.
+_LOCAL_VLM_VARIANTS = {
+    "Qwen/Qwen2.5-VL-7B-Instruct",
+    "Qwen/Qwen2.5-VL-3B-Instruct",
+    "Qwen/Qwen2.5-VL-2B-Instruct",
+}
+
+
+# The local model receives the same task as Claude, but phrased as a
+# Qwen2.5-VL chat prompt.  Qwen's vision-language models respond to
+# ``<|im_start|>system`` / ``<|im_start|>user`` templates automatically
+# when run through the HuggingFace transformers chat pipeline.
+_LOCAL_SYSTEM_PROMPT = _CLAUDE_SYSTEM_PROMPT  # identical task spec
+
+
+class LocalVLMBackend(VisionBackend):
+    """Pass 3b backend using a local Qwen2.5-VL model on CUDA / MPS / CPU.
+
+    Loads the model and processor once at construction; all subsequent
+    ``detect_figure_panels()`` calls run inference locally — no network
+    required. On an H200, per-figure inference is ~1–3 s.
+
+    Device selection follows the same ``CORPUS_DEVICE`` convention as
+    ``embeddings.py``. The default is auto-detect (cuda → mps → cpu).
+
+    ``max_pixels`` controls the maximum image resolution fed to the
+    model. Qwen2.5-VL resizes internally (min/max pixel budget), but
+    for scientific figures the default 1280×28×28 grid is enough; going
+    higher burns VRAM without improving label detection.
+    """
+
+    def __init__(
+        self,
+        model: str = _DEFAULT_LOCAL_VLM,
+        *,
+        device: Optional[str] = None,
+        max_new_tokens: int = 1024,
+        max_pixels: int = 1003520,  # 1280 * 28 * 28
+        min_pixels: int = 3136,     # 4 * 28 * 28
+    ):
+        self._model_id = model
+        self._max_new_tokens = max_new_tokens
+        self._max_pixels = max_pixels
+        self._min_pixels = min_pixels
+
+        # Device selection — reuse embeddings.detect_device when
+        # available; fall back to a simple torch probe.
+        if device:
+            self._device = device
+        else:
+            try:
+                from embeddings import detect_device
+                self._device = detect_device()
+            except ImportError:
+                self._device = self._probe_device()
+
+        logger.info("Loading local VLM %s on device=%s", model, self._device)
+
+        try:
+            from transformers import (
+                Qwen2_5_VLForConditionalGeneration,
+                AutoProcessor,
+            )
+        except ImportError as e:
+            raise VisionBackendError(
+                "transformers >= 4.45 is required for the local VLM backend "
+                "(pip install transformers>=4.45 qwen-vl-utils torch "
+                "accelerate)"
+            ) from e
+
+        try:
+            import torch
+            dtype = torch.bfloat16 if self._device == "cuda" else torch.float32
+            self._processor = AutoProcessor.from_pretrained(
+                model,
+                min_pixels=self._min_pixels,
+                max_pixels=self._max_pixels,
+            )
+            self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                model,
+                torch_dtype=dtype,
+                device_map=(self._device if self._device == "cuda" else None),
+            )
+            if self._device != "cuda":
+                self._model = self._model.to(self._device)
+        except Exception as e:
+            raise VisionBackendError(
+                f"Could not load local VLM {model!r} on device={self._device}: {e}"
+            ) from e
+
+    @staticmethod
+    def _probe_device() -> str:
+        try:
+            import torch
+        except ImportError:
+            return "cpu"
+        if torch.cuda.is_available():
+            return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+
+    @property
+    def name(self) -> str:
+        # Short identifier — just the model's basename.
+        return f"vision:{self._model_id.split('/')[-1].lower()}"
+
+    def detect_figure_panels(
+        self,
+        image_path: Path,
+        caption_text: str,
+        expected_labels: List[str],
+    ) -> List[Dict]:
+        import torch
+        from PIL import Image
+
+        try:
+            img = Image.open(image_path).convert("RGB")
+            w, h = img.size
+        except Exception as e:
+            raise VisionBackendError(
+                f"could not read image {image_path}: {e}"
+            ) from e
+
+        user_text = (
+            f"Caption of this figure: {caption_text!r}\n\n"
+            f"Expected panel labels from the caption (confirm visibility "
+            f"before emitting): {expected_labels}\n\n"
+            f"Image dimensions (px): {w} × {h}."
+        )
+
+        messages = [
+            {"role": "system", "content": _LOCAL_SYSTEM_PROMPT},
+            {"role": "user", "content": [
+                {"type": "image", "image": img},
+                {"type": "text", "text": user_text},
+            ]},
+        ]
+
+        try:
+            text_prompt = self._processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+            )
+            from qwen_vl_utils import process_vision_info
+            image_inputs, video_inputs = process_vision_info(messages)
+            inputs = self._processor(
+                text=[text_prompt],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt",
+            ).to(self._model.device)
+
+            with torch.no_grad():
+                output_ids = self._model.generate(
+                    **inputs,
+                    max_new_tokens=self._max_new_tokens,
+                    do_sample=False,
+                )
+            # Strip the prompt tokens to get only the generated response.
+            generated = output_ids[:, inputs.input_ids.shape[1]:]
+            response_text = self._processor.batch_decode(
+                generated, skip_special_tokens=True,
+            )[0]
+        except Exception as e:
+            raise VisionBackendError(
+                f"Local VLM inference failed on {image_path.name}: {e}"
+            ) from e
+
+        parsed = _extract_json(response_text)
+        if not parsed:
+            logger.warning(
+                "Could not extract JSON from local VLM response for %s; "
+                "response head: %r",
+                image_path.name, response_text[:200],
+            )
+            return []
+
+        # Convert normalized bboxes to pixel coordinates — same logic as
+        # the Claude backend.
+        def _norm_to_px(bbox_norm):
+            if not (isinstance(bbox_norm, list) and len(bbox_norm) == 4):
+                return None
+            try:
+                x0 = int(max(0.0, float(bbox_norm[0])) * w)
+                y0 = int(max(0.0, float(bbox_norm[1])) * h)
+                x1 = int(min(1.0, float(bbox_norm[2])) * w)
+                y1 = int(min(1.0, float(bbox_norm[3])) * h)
+            except (TypeError, ValueError):
+                return None
+            if x1 <= x0 or y1 <= y0:
+                return None
+            return [x0, y0, x1, y1]
+
+        out: List[Dict] = []
+        src = self.name
+        for p in parsed.get("panels") or []:
+            panel_px = _norm_to_px(p.get("panel_bbox_norm"))
+            if panel_px is None:
+                continue
+            entry = {
+                "type": "panel",
+                "label": p.get("label", ""),
+                "parent_figure_index": int(p.get("parent_figure_index", 0)),
+                "bbox_px": panel_px,
+                "confidence": float(p.get("confidence", 0.0)),
+                "description": (p.get("description") or "").strip(),
+                "source": src,
+            }
+            label_px = _norm_to_px(p.get("label_bbox_norm"))
+            if label_px is not None:
+                entry["label_bbox_px"] = label_px
+            out.append(entry)
+        for f in parsed.get("embedded_figures") or []:
+            panel_px = _norm_to_px(f.get("panel_bbox_norm"))
+            if panel_px is None:
+                continue
+            out.append({
+                "type": "embedded_figure",
+                "parent_figure_index": int(f.get("parent_figure_index", 0)),
+                "figure_number": str(f.get("figure_number") or "").strip() or None,
+                "bbox_px": panel_px,
+                "confidence": float(f.get("confidence", 0.0)),
+                "source": src,
+            })
+        return out
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
 
 def get_vision_backend(backend: str = "claude", **kwargs) -> VisionBackend:
-    """Construct a vision backend by name. ``"claude"`` for the Anthropic
-    API backend. ``"local"`` reserved for a future open-weights backend
-    (Qwen2.5-VL on CUDA/MPS)."""
+    """Construct a vision backend by name.
+
+    ``"claude"`` — Anthropic Claude API (default for development).
+    ``"local"``  — Qwen2.5-VL on CUDA / MPS / CPU (for production on
+    Bouchet; no network or per-call cost).
+    """
     backend = (backend or "claude").lower()
     if backend == "claude":
         return ClaudeVisionBackend(**kwargs)
     if backend == "local":
-        raise VisionBackendError(
-            "LocalVLMBackend not yet implemented; use --vision-backend claude for now"
-        )
+        return LocalVLMBackend(**kwargs)
     raise ValueError(f"Unknown vision backend: {backend!r}")
