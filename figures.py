@@ -681,6 +681,264 @@ def extract_caption_info(picture, document) -> Dict:
 
 
 # ---------------------------------------------------------------------------
+# Pass 3a: OCR-based panel / embedded-figure ROI detection (PLAN.md §9)
+# ---------------------------------------------------------------------------
+
+# Single capital letter used as a panel label, tolerates optional wrapping
+# punctuation (``(A)``, ``A.``, ``[A]``). We match on cleaned OCR tokens.
+_OCR_PANEL_LABEL_RE = re.compile(r"^[\(\[]?\s*([A-Z])\s*[\)\]]?\.?$")
+
+# Embedded "Fig. N" string — used to detect compound images containing
+# multiple labelled figures. Uppercase to support historical variants.
+_OCR_EMBEDDED_FIG_RE = re.compile(r"^(?:fig(?:ure|\.?)|рис(?:унок|\.?))$", re.IGNORECASE)
+
+
+def _ocr_figure_tokens(image_path: Path, upscale: int = 3,
+                       min_conf: int = 30) -> List[Dict]:
+    """Run Tesseract in sparse-text mode on a figure image.
+
+    Upscales the image by ``upscale``× first — most figure panels are
+    rendered at screen resolution (~100 DPI); Tesseract's accuracy on
+    small isolated letters improves dramatically with higher input
+    resolution. Bboxes are scaled back to the original image's pixel
+    coordinate system.
+
+    Returns ``[{text, conf, bbox_px: [x0, y0, x1, y1]}]`` for each token
+    whose confidence exceeds ``min_conf``. Errors return ``[]`` so the
+    caller just records "no labels found" rather than crashing.
+    """
+    try:
+        import pytesseract
+        from PIL import Image
+    except ImportError:
+        return []
+    try:
+        img = Image.open(image_path)
+    except Exception:
+        return []
+    if upscale != 1:
+        img = img.resize((img.width * upscale, img.height * upscale))
+    try:
+        data = pytesseract.image_to_data(
+            img, output_type=pytesseract.Output.DICT, config="--psm 11",
+        )
+    except Exception as e:
+        logger.debug("OCR failed for %s: %s", image_path, e)
+        return []
+
+    out: List[Dict] = []
+    for i, text in enumerate(data["text"]):
+        text_s = (text or "").strip()
+        if not text_s:
+            continue
+        try:
+            conf = int(data["conf"][i])
+        except (TypeError, ValueError):
+            conf = -1
+        if conf < min_conf:
+            continue
+        x0 = data["left"][i] / upscale
+        y0 = data["top"][i] / upscale
+        w = data["width"][i] / upscale
+        h = data["height"][i] / upscale
+        out.append({
+            "text": text_s,
+            "conf": conf,
+            "bbox_px": [int(x0), int(y0), int(x0 + w), int(y0 + h)],
+        })
+    return out
+
+
+def _extract_label_candidates(tokens: List[Dict]) -> List[Dict]:
+    """Filter OCR tokens for single-letter panel labels."""
+    out: List[Dict] = []
+    for tok in tokens:
+        m = _OCR_PANEL_LABEL_RE.match(tok["text"])
+        if not m:
+            continue
+        out.append({
+            "label": m.group(1),
+            "conf": tok["conf"],
+            "bbox_px": tok["bbox_px"],
+        })
+    return out
+
+
+def _approximate_panel_rois(
+    image_size_px: tuple,
+    labels: List[Dict],
+    expected_labels: List[str],
+) -> List[Dict]:
+    """Compute approximate ROIs from detected label bboxes.
+
+    The caller provides the image's pixel size and a list of OCR-detected
+    labels (each with its bbox and label letter), plus the caption's
+    expected label set. We emit one ROI per expected label:
+
+    * If OCR found the label, seed the ROI at the label's bbox and
+      extend to neighbouring labels / image edges via reading-order
+      partitioning.
+    * If OCR missed the label but OCR found other labels, interpolate
+      its position geometrically (evenly space missing labels within
+      the gaps).
+
+    If NO labels were detected by OCR we emit zero ROIs — the caller
+    marks the figure's ``pass3_status = "no_labels_found"``. That's a
+    quality signal rather than an error; downstream can still use
+    ``panels_from_caption`` for text-only queries.
+
+    Reading-order partitioning is a simple heuristic — good for regular
+    grids (2×N, 1×N, N×1) and degrades gracefully to "full image" for
+    a single detected label. Precise cutting (panels that don't form a
+    grid) is Pass 3b's job.
+    """
+    W, H = image_size_px
+    if not labels:
+        return []
+
+    # Map detected labels to their bboxes (first-occurrence wins if OCR
+    # reports a duplicate — should be rare).
+    detected = {}
+    for lbl in labels:
+        detected.setdefault(lbl["label"], lbl)
+
+    # Sort detected labels in reading order.
+    ordered_det = _sort_by_reading_order([
+        {"bbox": [d["bbox_px"][0], H - d["bbox_px"][3], d["bbox_px"][2], H - d["bbox_px"][1]], **d}
+        for d in detected.values()
+    ])
+    # Reading order with PIL top-left-origin (we flipped above for the
+    # reading-order helper). Strip the flip helper's synthesised "bbox".
+    ordered_det = [{"label": d["label"], "conf": d["conf"], "bbox_px": d["bbox_px"]}
+                   for d in ordered_det]
+
+    # Determine image partition scheme by labels' arrangement.
+    # Simplest rule: if all labels on roughly the same y (row), split
+    # horizontally; if same x (column), split vertically; else 2×2 grid
+    # if exactly 4 labels; else one ROI per label using nearest-neighbour
+    # partition.
+    n = len(ordered_det)
+    rois: List[Dict] = []
+
+    def panel_roi(i: int) -> List[int]:
+        """For a detected label at position i in reading order, compute
+        a rectangle that covers "this label's area" approximately."""
+        lbl = ordered_det[i]
+        # The label's own bbox is a seed; extend it outward until we hit
+        # the midpoint to the next/prev label on its axis or the image
+        # edge.
+        x0, y0, x1, y1 = lbl["bbox_px"]
+        prev_label = ordered_det[i - 1] if i > 0 else None
+        next_label = ordered_det[i + 1] if i < n - 1 else None
+
+        # x bounds
+        left = 0
+        right = W
+        if prev_label and prev_label["bbox_px"][1] < y1 and prev_label["bbox_px"][3] > y0:
+            # Same-row predecessor: left edge is midpoint in x
+            left = (prev_label["bbox_px"][2] + x0) // 2
+        if next_label and next_label["bbox_px"][1] < y1 and next_label["bbox_px"][3] > y0:
+            right = (x1 + next_label["bbox_px"][0]) // 2
+
+        # y bounds — labels in different rows set the y split
+        top = 0
+        bottom = H
+        for j, other in enumerate(ordered_det):
+            if j == i:
+                continue
+            ob = other["bbox_px"]
+            # Row above this label's y range
+            if ob[3] <= y0 and ob[3] > top:
+                top = (ob[3] + y0) // 2
+            if ob[1] >= y1 and ob[1] < bottom:
+                bottom = (y1 + ob[1]) // 2
+
+        return [int(left), int(top), int(right), int(bottom)]
+
+    for i, lbl in enumerate(ordered_det):
+        rois.append({
+            "type": "panel",
+            "label": lbl["label"],
+            "roi_px": panel_roi(i),
+            "source": "ocr:tesseract",
+            "ocr_confidence": lbl["conf"],
+            "label_bbox_px": lbl["bbox_px"],
+        })
+
+    # Report expected-but-not-detected labels as stub ROIs for
+    # observability. No roi_px — the crop-on-demand tool can fall back
+    # to returning the whole image + caption description for these.
+    detected_letters = {r["label"] for r in rois}
+    for exp in expected_labels:
+        if exp not in detected_letters:
+            rois.append({
+                "type": "panel",
+                "label": exp,
+                "roi_px": None,
+                "source": "expected_from_caption",
+            })
+
+    return rois
+
+
+def detect_figure_rois(
+    image_path: Path,
+    panels_from_caption: List[Dict],
+) -> Dict:
+    """Pass 3a entry point for one figure image.
+
+    Returns ``{"rois": [...], "pass3_status": ..., "ocr_token_count": ...}``.
+    ``pass3_status`` is one of:
+
+    * ``"skipped_no_panels"`` — caption declared no panels, so there was
+      nothing to detect. OCR was not run.
+    * ``"no_labels_found"`` — ran OCR, detected zero panel-label
+      candidates. Returns empty rois[].
+    * ``"partial_ocr"`` — detected some, but not all, of the caption's
+      expected labels. rois[] includes both detected and expected-only
+      panels.
+    * ``"completed"`` — every caption-expected label was detected.
+
+    Image OCR is skipped entirely for figures whose caption has no panel
+    labels — no point paying the OCR cost on a single-panel figure.
+    """
+    expected_labels = [p["label"] for p in (panels_from_caption or [])]
+    if len(expected_labels) <= 1:
+        return {"rois": [], "pass3_status": "skipped_no_panels",
+                "ocr_token_count": 0}
+
+    try:
+        from PIL import Image
+        with Image.open(image_path) as img:
+            image_size = img.size
+    except Exception as e:
+        logger.debug("Could not open %s for OCR: %s", image_path, e)
+        return {"rois": [], "pass3_status": "image_open_failed",
+                "ocr_token_count": 0}
+
+    tokens = _ocr_figure_tokens(image_path)
+    label_candidates = _extract_label_candidates(tokens)
+    # Drop candidates that don't match any expected label — OCR will
+    # sometimes misread axis labels or internal annotations as single
+    # capital letters, and we want to avoid emitting ROIs for those.
+    label_candidates = [lc for lc in label_candidates
+                        if lc["label"] in expected_labels]
+
+    if not label_candidates:
+        return {"rois": [], "pass3_status": "no_labels_found",
+                "ocr_token_count": len(tokens)}
+
+    rois = _approximate_panel_rois(image_size, label_candidates, expected_labels)
+
+    detected = {r["label"] for r in rois if r.get("roi_px")}
+    status = ("completed" if set(expected_labels).issubset(detected)
+              else "partial_ocr")
+    return {"rois": rois, "pass3_status": status,
+            "ocr_token_count": len(tokens),
+            "image_size_px": list(image_size)}
+
+
+# ---------------------------------------------------------------------------
 # Chunk ↔ figure cross-reference pass
 # ---------------------------------------------------------------------------
 

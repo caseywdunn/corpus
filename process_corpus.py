@@ -29,6 +29,7 @@ from figures import (
     parse_figure_number,
     parse_panels_from_caption,
     detect_missing_figures,
+    detect_figure_rois,
     link_chunks_to_figures,
     generate_figures_report,
 )
@@ -685,6 +686,7 @@ def run_pdf_processing_pipeline(
     grobid_client: Optional[GrobidClient] = None,
     worms_db: Optional[WormsDB] = None,
     anatomy_lexicon: Optional[Dict[str, Dict]] = None,
+    content_aware_figures: bool = False,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -770,6 +772,11 @@ def run_pdf_processing_pipeline(
         logger.info("Pass 2.5: annotating figures from captions + text...")
         _pass25_annotate_figures(text_file, figures_file)
         processing_summary["processing_steps"].append("figure_pass25_annotation")
+
+        if content_aware_figures:
+            logger.info("Pass 3a: OCR-driven panel ROI detection...")
+            _pass3a_annotate_rois(figures_file)
+            processing_summary["processing_steps"].append("figure_pass3a_rois")
 
         logger.info("Linking chunks to figures...")
         _crossref_chunks_and_figures(figures_file, chunks_file)
@@ -1761,6 +1768,62 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
     )
 
 
+def _pass3a_annotate_rois(figures_file: Path) -> None:
+    """Pass 3a — OCR-driven panel/figure ROI detection on each real figure
+    whose caption declares multiple panels.
+
+    Opt-in. In-place modifies ``figures.json`` to add ``rois`` +
+    ``pass3_status`` per figure, and ``image_size_px`` for figures whose
+    images we opened. Skips figures with no multi-panel caption (no
+    point paying OCR cost on single-panel figures).
+
+    OCR reliability on line-art scientific figures varies a lot — PLAN.md
+    §9 calls out vision-LLM fallback as Pass 3b for cases Pass 3a
+    can't resolve. For now, figures where OCR finds no labels keep
+    ``pass3_status = "no_labels_found"`` and no ROIs; downstream tools
+    should fall back to whole-image retrieval + caption description.
+    """
+    if not figures_file.exists():
+        return
+    try:
+        data = json.load(figures_file.open(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Pass 3a skipped: couldn't read %s: %s", figures_file, e)
+        return
+    figures = data.get("figures", []) or []
+    n_ok = n_partial = n_none = n_skipped = 0
+    for fig in figures:
+        if fig.get("figure_type") not in ("figure", "plate", "subpanel"):
+            continue
+        panels = fig.get("panels_from_caption") or []
+        if len(panels) <= 1:
+            continue
+        img_path = Path(fig.get("file_path", ""))
+        if not img_path.exists():
+            continue
+        result = detect_figure_rois(img_path, panels)
+        fig["rois"] = result.get("rois") or []
+        fig["pass3_status"] = result.get("pass3_status")
+        fig["ocr_token_count"] = result.get("ocr_token_count", 0)
+        if result.get("image_size_px"):
+            fig["image_size_px"] = result["image_size_px"]
+        s = result.get("pass3_status")
+        if s == "completed":
+            n_ok += 1
+        elif s == "partial_ocr":
+            n_partial += 1
+        elif s == "no_labels_found":
+            n_none += 1
+        else:
+            n_skipped += 1
+    with figures_file.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    logger.info(
+        "Pass 3a: %d completed, %d partial, %d no-labels, %d skipped",
+        n_ok, n_partial, n_none, n_skipped,
+    )
+
+
 def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
     """Run the bidirectional chunk ↔ figure cross-reference pass.
 
@@ -1929,6 +1992,13 @@ def main():
         action="store_true",
         help="Skip taxon + anatomy extraction",
     )
+    parser.add_argument(
+        "--content-aware-figures",
+        action="store_true",
+        help="Run Pass 3a — OCR-driven panel/figure ROI detection on multi-panel "
+             "figures (adds ~1-2 s per figure with caption panels; opt-in because "
+             "OCR reliability on line-art figures is mixed; see PLAN.md §9)",
+    )
 
     args = parser.parse_args()
 
@@ -2055,6 +2125,7 @@ def main():
                     grobid_client=grobid_client,
                     worms_db=worms_db,
                     anatomy_lexicon=anatomy_lexicon,
+                    content_aware_figures=args.content_aware_figures,
                 )
 
                 summary_file = create_summary_json(

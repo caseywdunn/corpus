@@ -908,6 +908,129 @@ def get_chunks_for_topic(
 
 
 @mcp.tool()
+def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
+    """Return the per-panel / per-subfigure ROIs annotated on a figure.
+
+    ROIs are populated by Pass 2.5 (caption-derived ``panels_from_caption``)
+    and Pass 3a (OCR-derived ``rois`` with pixel bboxes). The caption-
+    derived list gives labels + descriptions even when Pass 3a wasn't
+    run or OCR didn't find the panel; ``rois`` gives pixel coordinates
+    when available for :func:`get_figure_roi_image`.
+    """
+    idx = _need_index()
+    p = idx.papers.get(paper_hash)
+    if not p:
+        return [{"error": f"no such paper_hash: {paper_hash}"}]
+    figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
+    for f in figs.get("figures", []) or []:
+        if f.get("figure_id") == figure_id:
+            return [{
+                "paper_hash": paper_hash,
+                "figure_id": figure_id,
+                "figure_number": f.get("figure_number"),
+                "filename": f.get("filename"),
+                "panels_from_caption": f.get("panels_from_caption") or [],
+                "panel_count_from_caption": f.get("panel_count_from_caption", 0),
+                "rois": f.get("rois") or [],
+                "pass3_status": f.get("pass3_status"),
+                "image_size_px": f.get("image_size_px"),
+            }]
+    return [{"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}]
+
+
+@mcp.tool()
+def get_figure_roi_image(
+    paper_hash: str,
+    figure_id: str,
+    label: str,
+) -> Dict:
+    """Crop a panel ROI out of a figure image and return the crop's path.
+
+    ``label`` is the panel letter (e.g. ``"A"``, ``"B"``) as stored in
+    ``figures.json`` ``rois[*].label``. If Pass 3a found a pixel ROI
+    for that label, we crop the figure PNG to that region and cache the
+    result under ``<hash_dir>/figures/crops/{figure_id}__{label}.png``
+    so repeated asks are free.
+
+    Returns the crop path + caption description. If the label exists in
+    ``panels_from_caption`` but Pass 3a couldn't find a pixel ROI for it
+    (OCR missed the label), returns the whole figure's image path with
+    ``crop: false`` — the LLM can still display the whole figure and
+    reason about which region is which panel using the caption.
+    """
+    idx = _need_index()
+    p = idx.papers.get(paper_hash)
+    if not p:
+        return {"error": f"no such paper_hash: {paper_hash}"}
+    hash_dir = Path(p["hash_dir"])
+    figs = _load_json(hash_dir / "figures.json", default={}) or {}
+    fig = next(
+        (f for f in figs.get("figures", []) or [] if f.get("figure_id") == figure_id),
+        None,
+    )
+    if fig is None:
+        return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+
+    whole_image = hash_dir / "figures" / (fig.get("filename") or "")
+    caption_text = fig.get("caption_text") or fig.get("caption") or ""
+    description_from_caption = next(
+        (p["description"] for p in fig.get("panels_from_caption") or []
+         if p.get("label") == label),
+        None,
+    )
+    roi_entry = next(
+        (r for r in fig.get("rois") or []
+         if r.get("label") == label and r.get("roi_px")),
+        None,
+    )
+
+    if roi_entry is None:
+        # No pixel ROI — return whole figure with the caption info so the
+        # LLM can display + caption-filter mentally.
+        return {
+            "paper_hash": paper_hash,
+            "figure_id": figure_id,
+            "label": label,
+            "crop": False,
+            "image_path": str(whole_image),
+            "caption_text": caption_text,
+            "description_from_caption": description_from_caption,
+            "reason": "no_pixel_roi — Pass 3a didn't locate this label in the image",
+        }
+
+    # Cache crops so a second retrieval is free.
+    crops_dir = hash_dir / "figures" / "crops"
+    crops_dir.mkdir(parents=True, exist_ok=True)
+    crop_path = crops_dir / f"{figure_id}__{label}.png"
+    if not crop_path.exists():
+        try:
+            from PIL import Image
+            with Image.open(whole_image) as im:
+                x0, y0, x1, y1 = [int(v) for v in roi_entry["roi_px"]]
+                # Clamp the ROI to the image bounds defensively — ROI
+                # computation can exceed image dims at the edges.
+                x0 = max(0, min(x0, im.width - 1))
+                y0 = max(0, min(y0, im.height - 1))
+                x1 = max(x0 + 1, min(x1, im.width))
+                y1 = max(y0 + 1, min(y1, im.height))
+                im.crop((x0, y0, x1, y1)).save(str(crop_path))
+        except Exception as e:
+            return {"error": f"could not crop figure: {e}"}
+
+    return {
+        "paper_hash": paper_hash,
+        "figure_id": figure_id,
+        "label": label,
+        "crop": True,
+        "image_path": str(crop_path),
+        "roi_px": roi_entry.get("roi_px"),
+        "ocr_confidence": roi_entry.get("ocr_confidence"),
+        "caption_text": caption_text,
+        "description_from_caption": description_from_caption,
+    }
+
+
+@mcp.tool()
 def get_chunk(paper_hash: str, chunk_id: str) -> Dict:
     """One chunk's full record: text, headings, section_class,
     figure_refs."""
