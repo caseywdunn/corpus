@@ -30,6 +30,7 @@ from figures import (
     parse_panels_from_caption,
     detect_missing_figures,
     detect_figure_rois,
+    detect_figure_rois_via_vision,
     link_chunks_to_figures,
     generate_figures_report,
 )
@@ -687,6 +688,7 @@ def run_pdf_processing_pipeline(
     worms_db: Optional[WormsDB] = None,
     anatomy_lexicon: Optional[Dict[str, Dict]] = None,
     content_aware_figures: bool = False,
+    vision_backend=None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -773,7 +775,11 @@ def run_pdf_processing_pipeline(
         _pass25_annotate_figures(text_file, figures_file)
         processing_summary["processing_steps"].append("figure_pass25_annotation")
 
-        if content_aware_figures:
+        if vision_backend is not None:
+            logger.info("Pass 3b: vision-model-driven panel + compound detection...")
+            _pass3b_annotate_rois(figures_file, vision_backend)
+            processing_summary["processing_steps"].append("figure_pass3b_rois")
+        elif content_aware_figures:
             logger.info("Pass 3a: OCR-driven panel ROI detection...")
             _pass3a_annotate_rois(figures_file)
             processing_summary["processing_steps"].append("figure_pass3a_rois")
@@ -1824,6 +1830,68 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
     )
 
 
+def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
+    """Pass 3b — vision-model-driven panel + compound-figure detection.
+
+    Same contract as :func:`_pass3a_annotate_rois`: reads ``figures.json``,
+    runs the backend on every real figure with a multi-panel caption,
+    writes ROIs + ``pass3_status`` back in place.
+
+    Runs INSTEAD of Pass 3a when both flags are set (Pass 3b supersedes
+    Pass 3a because vision-LLM quality is consistently higher on
+    scientific-figure panel detection). If Pass 3a had already populated
+    ``rois`` for a figure, the vision result overwrites them.
+    """
+    if not figures_file.exists():
+        return
+    try:
+        data = json.load(figures_file.open(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Pass 3b skipped: couldn't read %s: %s", figures_file, e)
+        return
+    figures = data.get("figures", []) or []
+
+    n_ok = n_partial = n_none = n_compound = n_skipped = n_failed = 0
+    for fig in figures:
+        if fig.get("figure_type") not in ("figure", "plate", "subpanel"):
+            continue
+        panels = fig.get("panels_from_caption") or []
+        if len(panels) <= 1:
+            continue
+        img_path = Path(fig.get("file_path", ""))
+        if not img_path.exists():
+            continue
+        result = detect_figure_rois_via_vision(
+            img_path, panels, vision_backend,
+            caption_text=fig.get("caption_text") or fig.get("caption") or "",
+        )
+        fig["rois"] = result.get("rois") or []
+        fig["pass3_status"] = result.get("pass3_status")
+        fig["pass3_backend"] = result.get("pass3_backend")
+        if result.get("image_size_px"):
+            fig["image_size_px"] = result["image_size_px"]
+        s = result.get("pass3_status") or ""
+        if s.endswith("_compound"):
+            n_compound += 1
+        if s.startswith("completed"):
+            n_ok += 1
+        elif s.startswith("partial"):
+            n_partial += 1
+        elif s == "no_labels_found":
+            n_none += 1
+        elif s == "vision_backend_failed":
+            n_failed += 1
+        else:
+            n_skipped += 1
+    with figures_file.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    logger.info(
+        "Pass 3b: %d completed, %d partial, %d no-labels, %d compound, "
+        "%d skipped, %d backend-failed",
+        n_ok, n_partial, n_none, n_compound, n_skipped, n_failed,
+    )
+
+
 def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
     """Run the bidirectional chunk ↔ figure cross-reference pass.
 
@@ -1999,6 +2067,21 @@ def main():
              "figures (adds ~1-2 s per figure with caption panels; opt-in because "
              "OCR reliability on line-art figures is mixed; see PLAN.md §9)",
     )
+    parser.add_argument(
+        "--vision-backend",
+        choices=["claude", "local"],
+        default=None,
+        help="Run Pass 3b — vision-LLM-driven panel + compound-figure detection. "
+             "'claude' uses the Anthropic API (needs ANTHROPIC_API_KEY); "
+             "'local' uses an open-weights VLM on CUDA/MPS (Bouchet production). "
+             "Supersedes --content-aware-figures when both are set.",
+    )
+    parser.add_argument(
+        "--vision-model",
+        default=None,
+        help="Override the per-backend default vision model (e.g. "
+             "claude-sonnet-4-6-20251001 for higher quality than Haiku).",
+    )
 
     args = parser.parse_args()
 
@@ -2074,6 +2157,23 @@ def main():
         else:
             logger.info("No anatomy lexicon at %s; skipping anatomy extraction", anat_path)
 
+    # Vision backend for Pass 3b. Constructed once and reused so the
+    # backend can keep long-lived state (API client, loaded model, etc.).
+    vision_backend = None
+    if args.vision_backend:
+        try:
+            from vision import get_vision_backend
+            kwargs = {}
+            if args.vision_model:
+                kwargs["model"] = args.vision_model
+            vision_backend = get_vision_backend(args.vision_backend, **kwargs)
+            logger.info("Vision backend loaded: %s", vision_backend.name)
+        except Exception as e:
+            logger.error(
+                "Could not load vision backend %r: %s — Pass 3b will be skipped",
+                args.vision_backend, e,
+            )
+
     # Create output directory structure
     documents_dir, vector_db_dir = create_output_structure(output_dir)
 
@@ -2126,6 +2226,7 @@ def main():
                     worms_db=worms_db,
                     anatomy_lexicon=anatomy_lexicon,
                     content_aware_figures=args.content_aware_figures,
+                    vision_backend=vision_backend,
                 )
 
                 summary_file = create_summary_json(

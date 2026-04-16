@@ -881,6 +881,133 @@ def _approximate_panel_rois(
     return rois
 
 
+def detect_figure_rois_via_vision(
+    image_path: Path,
+    panels_from_caption: List[Dict],
+    backend,
+    caption_text: str = "",
+) -> Dict:
+    """Pass 3b entry point — same contract as :func:`detect_figure_rois`
+    but using a vision-language-model backend instead of Tesseract OCR.
+
+    The backend argument is a :class:`vision.VisionBackend` (typically
+    ``ClaudeVisionBackend`` during development, ``LocalVLMBackend`` in
+    production on Bouchet). See ``vision.py`` for the contract.
+
+    Returns the same result shape as Pass 3a (so the pipeline step can
+    write back into figures.json without branching): ``{rois: [...],
+    pass3_status: ..., image_size_px: [...]}``. Additionally records
+    ``pass3_backend`` on every ROI so downstream can tell where the
+    annotation came from.
+
+    Vision models also detect compounds — two or more sub-figures merged
+    into one extracted image. When the backend returns panels with
+    different ``parent_figure_index`` values, the ROIs array includes an
+    ``embedded_figure`` entry per sub-figure in addition to the panels.
+    """
+    expected_labels = [p["label"] for p in (panels_from_caption or [])]
+    if len(expected_labels) <= 1:
+        return {"rois": [], "pass3_status": "skipped_no_panels",
+                "pass3_backend": backend.name}
+
+    try:
+        from PIL import Image
+        with Image.open(image_path) as img:
+            image_size = list(img.size)
+    except Exception as e:
+        logger.debug("Could not open %s for vision pass: %s", image_path, e)
+        return {"rois": [], "pass3_status": "image_open_failed",
+                "pass3_backend": backend.name}
+
+    try:
+        backend_rois = backend.detect_figure_panels(
+            image_path, caption_text, expected_labels,
+        )
+    except Exception as e:
+        logger.warning("Vision backend %s failed on %s: %s",
+                       backend.name, image_path.name, e)
+        return {"rois": [], "pass3_status": "vision_backend_failed",
+                "pass3_backend": backend.name}
+
+    if not backend_rois:
+        return {"rois": [], "pass3_status": "no_labels_found",
+                "pass3_backend": backend.name,
+                "image_size_px": image_size}
+
+    # Normalize to the figures.json rois schema. Panels carry the whole-
+    # panel bbox as roi_px; label_bbox_px is added if the backend gave
+    # us a separate letter-level bbox. Embedded-figure entries become
+    # type=figure with a figure_number.
+    out: List[Dict] = []
+    for r in backend_rois:
+        if r["type"] == "panel":
+            entry = {
+                "type": "panel",
+                "label": r.get("label", ""),
+                "roi_px": r.get("bbox_px"),
+                "source": r.get("source") or backend.name,
+                "confidence": r.get("confidence"),
+                "description_from_vision": r.get("description", ""),
+            }
+            if r.get("parent_figure_index") is not None:
+                entry["parent_figure_index"] = r["parent_figure_index"]
+            if r.get("label_bbox_px"):
+                entry["label_bbox_px"] = r["label_bbox_px"]
+            out.append(entry)
+        elif r["type"] == "embedded_figure":
+            out.append({
+                "type": "figure",
+                "figure_number": r.get("figure_number"),
+                "parent_figure_index": r.get("parent_figure_index"),
+                "roi_px": r.get("bbox_px"),
+                "source": r.get("source") or backend.name,
+                "confidence": r.get("confidence"),
+            })
+
+    # Decide pass3_status from what the backend returned vs. expectations.
+    panel_labels_list = [e.get("label") for e in out
+                         if e.get("type") == "panel" and e.get("label")]
+    detected_labels = set(panel_labels_list)
+    expected_set = set(expected_labels)
+    if detected_labels >= expected_set:
+        status = "completed"
+    elif detected_labels:
+        status = "partial_vision"
+    else:
+        status = "no_labels_found"
+
+    # Compound detection. Three independent signals, any of which means
+    # the image contains more than one figure:
+    #   1. Vision returned multiple distinct ``parent_figure_index`` values
+    #      (Claude recognised the split explicitly).
+    #   2. Vision returned duplicate panel labels (e.g. two "A"s, two "B"s)
+    #      — a single figure's panels are always unique, so duplicates
+    #      mean two figures merged.
+    #   3. Vision returned more panels than the caption expected — the
+    #      extra panels must belong to a different figure that wasn't
+    #      extracted separately.
+    is_compound = False
+    parent_indices = {e.get("parent_figure_index", 0) for e in out}
+    if len(parent_indices) > 1:
+        is_compound = True
+    if len(panel_labels_list) != len(detected_labels):
+        is_compound = True
+    if len(panel_labels_list) > len(expected_set):
+        is_compound = True
+    if is_compound and status != "no_labels_found":
+        # Record the compound-ness at the figure level so the caller can
+        # decide whether to rename the file (fig_3-4.png). Renaming is
+        # Phase 3c; for now we signal via the status suffix.
+        status = status + "_compound"
+
+    return {
+        "rois": out,
+        "pass3_status": status,
+        "pass3_backend": backend.name,
+        "image_size_px": image_size,
+    }
+
+
 def detect_figure_rois(
     image_path: Path,
     panels_from_caption: List[Dict],

@@ -42,6 +42,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from dotenv import load_dotenv
+load_dotenv()  # Ensure ANTHROPIC_API_KEY etc. are visible to the stdio subprocess
+                # Claude Code launches — no shell inheritance to rely on.
+
 from mcp.server.fastmcp import FastMCP
 
 from taxa import WormsDB
