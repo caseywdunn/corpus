@@ -13,7 +13,7 @@ All paths in this guide and the `batch_*.sh` scripts derive from a single env va
 ```bash
 export BOUCHET_PROJECT=/nfs/roberts/project/pi_cwd7/cwd7
 cd "$BOUCHET_PROJECT"
-git clone git@github.com:dunnlab/corpus.git
+git clone git@github.com:caseywdunn/corpus.git
 git clone git@github.com:dunnlab/siphonophores.git
 
 # git-lfs is not on Bouchet's default PATH — load the module first.
