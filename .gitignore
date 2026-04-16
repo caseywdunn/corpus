@@ -5,6 +5,7 @@ output*/
 .snakemake/
 scratch/
 demo_*/
+logs/
 
 # Regenerable WoRMS snapshot; rebuild with: python scripts/ingest_worms.py
 resources/worms*.sqlite

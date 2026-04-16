@@ -144,7 +144,7 @@ echo "Chained: stage1=$J1, pass3b=$J2, embed=$J3"
 | Stage | Script | Partition | GPU? | Walltime |
 |---|---|---|---|---|
 | Stage 1 (OCR + docling + Grobid + Pass 2.5) | `batch_process_corpus.sh` | `day` | no | 24 h |
-| Pass 3b + 3c (Qwen2.5-VL-7B) | `batch_pass3b.sh` | `gpu_h200` | 1 | 12 h |
+| Pass 3b + 3c (Qwen2.5-VL-7B) | `batch_pass3b.sh` | `gpu_h200` | 1 | 24 h |
 | Embeddings (BGE-M3) | `batch_embed.sh` | `gpu` | 1 | 4 h |
 
 Adjust walltimes if the corpus grows beyond ~2000 papers.
@@ -155,3 +155,5 @@ Adjust walltimes if the corpus grows beyond ~2000 papers.
 - **Stale `HF_HOME`.** If a job re-downloads a model, `HF_HOME` isn't being honored — check that the export in the SLURM script points to a path you actually populated.
 - **Grobid URL.** SLURM compute nodes can't talk to your laptop's `localhost:8070` — `GROBID_URL` must resolve to a host visible from the job's node. If the Grobid node goes down mid-run, subsequent papers get placeholder metadata; `--resume` won't retry them without `--no-resume` or manually deleting `metadata.json`.
 - **LFS on stage 1.** If stage 1 can't see the full PDFs (only LFS pointers), re-run `git lfs pull` in `~/project/siphonophores`.
+- **GPU partition trap for Pass 3b.** `rtx_5000_ada` nodes on the `gpu` partition carry an older NVIDIA driver (`nvidia-smi` reports CUDA 12.8 but torch 2.9.0+cu128 rejects it as "too old") and silently fall back to CPU, where Qwen2.5-VL-7B is unusable. Always submit Pass 3b to `gpu_h200 --gpus=h200:1`. A pre-flight `python -c "import torch; assert torch.cuda.is_available()"` in `batch_pass3b.sh` aborts the job early if this is ever regressed.
+- **lmod module cache flakiness.** `module load CUDA/12.6.0` occasionally errors with `CUDA/12.6.0.lua: Empty or non-existent file` even though `module spider CUDA` lists it. `batch_pass3b.sh` now skips the explicit CUDA module entirely — torch 2.9.0+cu128 ships bundled CUDA userspace libs in `site-packages/nvidia/` and works without it on gpu_h200. If another script hits this, retry with `module --ignore-cache load …`.

@@ -2,7 +2,7 @@
 #SBATCH --job-name=corpus-stage1
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=8G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-stage1-%j.out
 #SBATCH --error=logs/slurm-stage1-%j.err
@@ -27,9 +27,10 @@
 set -euo pipefail
 
 # ── Paths ────────────────────────────────────────────────────────────
-# Resolve the directory of this script so it works regardless of cwd
-# (sbatch executes from the submission directory by default).
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# sbatch copies this script to /var/spool/slurmd, so BASH_SOURCE can't
+# locate bouchet_paths.sh. Use $SLURM_SUBMIT_DIR when running under
+# sbatch; otherwise fall back to the script's own directory.
+SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 

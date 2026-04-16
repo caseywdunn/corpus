@@ -2098,8 +2098,18 @@ def main():
         help="Override the per-backend default vision model (e.g. "
              "claude-sonnet-4-6-20251001 for higher quality than Haiku).",
     )
+    parser.add_argument(
+        "--refresh-vision",
+        action="store_true",
+        help="With --resume and --vision-backend: instead of skipping hashes whose "
+             "summary.json already exists, re-run ONLY Pass 3b on each hash's "
+             "existing figures.json. No OCR/Docling/Grobid/chunking is re-done.",
+    )
 
     args = parser.parse_args()
+
+    if args.refresh_vision and not args.vision_backend:
+        parser.error("--refresh-vision requires --vision-backend to be set")
 
     setup_root_logging()
 
@@ -2215,6 +2225,23 @@ def main():
                 sys.exit(2)
 
             if args.resume and prior_matches:
+                if args.refresh_vision and vision_backend is not None:
+                    figures_file = hash_dir / "figures.json"
+                    if not figures_file.exists():
+                        logger.info(
+                            "Skipping %s for vision refresh (no figures.json)", pdf_hash
+                        )
+                        continue
+                    logger.info("Refreshing Pass 3b on %s", pdf_hash)
+                    with per_pdf_file_log(hash_dir) as log_path:
+                        logger.info("pipeline.log: %s (refresh-vision)", log_path)
+                        try:
+                            _pass3b_annotate_rois(figures_file, vision_backend)
+                        except Exception as e:
+                            logger.exception(
+                                "Pass 3b refresh failed on %s: %s", pdf_hash, e
+                            )
+                    continue
                 logger.info("Skipping %s (already processed)", pdf_hash)
                 continue
 
