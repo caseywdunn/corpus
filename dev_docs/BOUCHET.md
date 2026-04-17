@@ -1,14 +1,12 @@
 # Running the corpus pipeline on Bouchet (YCRC)
 
-Operational notes for running the full ~2000-paper siphonophore corpus on Bouchet. Pairs with PLAN.md §9 ("Bouchet prep") and the three SLURM batch scripts in this repo: `batch_process_corpus.sh`, `batch_pass3b.sh`, `batch_embed.sh`.
-
-See also: `dunnlab-hpc` skill for Dunn-lab-wide YCRC conventions (partitions, storage layout, general SLURM).
+Operational notes for running the full ~2000-paper siphonophore corpus on Bouchet. See [OVERVIEW.md](OVERVIEW.md) for pipeline architecture and `dunnlab-hpc` skill for Dunn-lab-wide YCRC conventions.
 
 ## One-time setup
 
 ### 1. Repo + corpus on project storage
 
-All paths in this guide and the `batch_*.sh` scripts derive from a single env var, `$BOUCHET_PROJECT`, defined in [bouchet_paths.sh](bouchet_paths.sh). The default is `/nfs/roberts/project/pi_cwd7/cwd7` (PI Casey Dunn's lab project storage). To run from a different project root, edit that one line — every batch script sources it.
+All paths in this guide and the `batch_*.sh` scripts derive from a single env var, `$BOUCHET_PROJECT`, defined in [bouchet_paths.sh](../bouchet_paths.sh). The default is `/nfs/roberts/project/pi_cwd7/cwd7` (PI Casey Dunn's lab project storage). To run from a different project root, edit that one line — every batch script sources it.
 
 ```bash
 export BOUCHET_PROJECT=/nfs/roberts/project/pi_cwd7/cwd7
@@ -129,15 +127,33 @@ Only then submit the three production jobs against the full input.
 
 ## Production run
 
+The pipeline orchestrator (`batch_pipeline.sh`) handles Grobid startup, Stage 1 job-array submission, Grobid cleanup, and Pass 3b + Embed chaining automatically.
+
 ```bash
-# Assume Grobid is up at $GROBID_URL; all three jobs can be chained with -d afterok:
-J1=$(sbatch --parsable batch_process_corpus.sh)
-J2=$(sbatch --parsable --dependency=afterok:$J1 batch_pass3b.sh)
-J3=$(sbatch --parsable --dependency=afterok:$J2 batch_embed.sh)
-echo "Chained: stage1=$J1, pass3b=$J2, embed=$J3"
+# Full pipeline with parallel Stage 1 batches of 256 PDFs each.
+# Adjust NUM_BATCHES = ceil(total_unique_pdfs / 256).
+NUM_BATCHES=8 bash batch_pipeline.sh
+
+# Custom batch size:
+NUM_BATCHES=4 BATCH_SIZE=512 bash batch_pipeline.sh
 ```
 
-`--resume` in every script means restarts are cheap — re-queuing picks up where the previous run left off.
+The orchestrator:
+1. Starts Grobid as a SLURM job, waits for it to be alive
+2. Submits Stage 1 as a job array (`--array=0-N`), each task processing a deterministic slice of the sorted hash list
+3. Schedules Grobid cleanup after Stage 1 completes (runs regardless of success/failure)
+4. Queues Pass 3b (GPU) and Embed (GPU) with `afterok` dependency on the full array
+
+For manual submission without the orchestrator:
+
+```bash
+sbatch --array=0-7 batch_process_corpus.sh
+# After all array tasks complete:
+sbatch batch_pass3b.sh
+sbatch batch_embed.sh
+```
+
+`--resume` in every script means restarts are cheap — re-queuing picks up where the previous run left off. Without `NUM_BATCHES` (or set to 1), the pipeline runs as a single job for small corpora.
 
 ## Partition reference (from PLAN.md §7)
 
