@@ -528,60 +528,76 @@ def per_pdf_file_log(hash_dir: Path):
         fh.close()
 
 
-def create_cell_visualizations(input_pdf: Path, output_dir: Path, pdf_name: str, document):
-    """Create cell visualization PNGs using docling-parse with figure regions highlighted"""
+_MAX_VIZ_PAGES = 200
+_MAX_VIZ_WIDTH = 1600  # px — downscale wider renders to limit memory
+
+
+def create_cell_visualizations(
+    input_pdf: Path,
+    output_dir: Path,
+    pdf_name: str,
+    figure_bboxes_by_page: dict,
+):
+    """Create cell visualization PNGs using docling-parse with figure regions highlighted.
+
+    ``figure_bboxes_by_page`` maps page number to a list of docling bbox
+    objects.  Extracted by the caller *before* releasing the docling
+    document, so memory can be reclaimed before the (heavier) per-page
+    rendering loop.
+    """
+    import gc
+
     try:
         from docling_core.types.doc.page import TextCellUnit
         from docling_parse.pdf_parser import DoclingPdfParser, PdfDocument
-        from PIL import ImageDraw
-        
+        from PIL import Image, ImageDraw
+
         logger.info("Creating cell visualizations...")
-        
+
         pdf_parser = DoclingPdfParser()
         pdf_doc: PdfDocument = pdf_parser.load(path_or_stream=str(input_pdf))
-        
-        # Get figure bounding boxes from the docling document
-        figure_bboxes_by_page = {}
-        if hasattr(document, 'pictures') and document.pictures:
-            for picture in document.pictures:
-                if hasattr(picture, 'prov') and picture.prov:
-                    for prov_item in picture.prov:
-                        if hasattr(prov_item, 'page_no') and hasattr(prov_item, 'bbox'):
-                            page_no = prov_item.page_no
-                            if page_no not in figure_bboxes_by_page:
-                                figure_bboxes_by_page[page_no] = []
-                            figure_bboxes_by_page[page_no].append(prov_item.bbox)
-        
-        # Create visualization for word-level cells
+
+        # Collect pages into a list (iterate_pages may be a one-shot generator).
+        pages = list(pdf_doc.iterate_pages())
+        if len(pages) > _MAX_VIZ_PAGES:
+            logger.warning(
+                "Skipping cell visualizations for %s (%d pages > %d max)",
+                pdf_name, len(pages), _MAX_VIZ_PAGES,
+            )
+            return
+
         cell_unit = TextCellUnit.WORD
-        
-        for page_no, pred_page in pdf_doc.iterate_pages():
+        n_saved = 0
+
+        for page_no, pred_page in pages:
             img = pred_page.render_as_image(cell_unit=cell_unit)
+
+            # Downscale wide renders to cap memory usage.
+            if img.width > _MAX_VIZ_WIDTH:
+                ratio = _MAX_VIZ_WIDTH / img.width
+                img = img.resize(
+                    (int(img.width * ratio), int(img.height * ratio)),
+                    Image.LANCZOS,
+                )
+
             draw = ImageDraw.Draw(img)
             img_height = img.height
-            
+
             # First, highlight figure regions in yellow
             if page_no in figure_bboxes_by_page:
                 for bbox in figure_bboxes_by_page[page_no]:
-                    # Convert bbox coordinates (assumes bottom-left origin) to PIL coordinates (top-left origin)
                     x0 = bbox.l
                     x1 = bbox.r
-                    y0_raw = bbox.t  # top in document coordinates
-                    y1_raw = bbox.b  # bottom in document coordinates
-                    # Flip Y coordinates for PIL (top-left origin)
+                    y0_raw = bbox.t
+                    y1_raw = bbox.b
                     y0 = img_height - y0_raw
                     y1 = img_height - y1_raw
-                    
-                    # Ensure coordinates are in correct order
                     x0, x1 = min(x0, x1), max(x0, x1)
                     y0, y1 = min(y0, y1), max(y0, y1)
-                    
-                    rect = (x0, y0, x1, y1)
-                    draw.rectangle(rect, fill="yellow", outline="orange", width=3)
-            
-            # Then, draw red rectangles around text cells (these will show over non-figure areas)
+                    draw.rectangle((x0, y0, x1, y1), fill="yellow", outline="orange", width=3)
+
+            # Then, draw red rectangles around text cells (not in figures)
             for cell in pred_page.iterate_cells(unit_type=cell_unit):
-                # Convert cell.rect to (x0, y0, x1, y1) and flip y for PIL
                 x0 = min(getattr(cell.rect, "r_x0", 0), getattr(cell.rect, "r_x2", 0))
                 x1 = max(getattr(cell.rect, "r_x0", 0), getattr(cell.rect, "r_x2", 0))
                 y0_raw = min(getattr(cell.rect, "r_y0", 0), getattr(cell.rect, "r_y2", 0))
@@ -589,8 +605,7 @@ def create_cell_visualizations(input_pdf: Path, output_dir: Path, pdf_name: str,
                 y0 = img_height - y1_raw
                 y1 = img_height - y0_raw
                 rect = (x0, y0, x1, y1)
-                
-                # Check if this cell overlaps with any figure region
+
                 is_in_figure = False
                 if page_no in figure_bboxes_by_page:
                     for bbox in figure_bboxes_by_page[page_no]:
@@ -600,22 +615,21 @@ def create_cell_visualizations(input_pdf: Path, output_dir: Path, pdf_name: str,
                         fig_y1 = img_height - fig_y1_raw
                         fig_x0, fig_x1 = min(fig_x0, fig_x1), max(fig_x0, fig_x1)
                         fig_y0, fig_y1 = min(fig_y0, fig_y1), max(fig_y0, fig_y1)
-                        
-                        # Check for overlap
                         if (x0 < fig_x1 and x1 > fig_x0 and y0 < fig_y1 and y1 > fig_y0):
                             is_in_figure = True
                             break
-                
-                # Only draw cell boundaries for text regions (not in figures)
+
                 if not is_in_figure:
                     draw.rectangle(rect, outline="red", width=2)
-            
-            # Save the visualization
-            viz_filename = f"page_{page_no}_visualization.png"
-            viz_path = output_dir / viz_filename
+
+            viz_path = output_dir / f"page_{page_no}_visualization.png"
             img.save(str(viz_path))
-            
-        logger.info("Saved %d visualization PNGs", len(list(pdf_doc.iterate_pages())))
+            # Release per-page image memory immediately.
+            del draw, img
+            gc.collect()
+            n_saved += 1
+
+        logger.info("Saved %d visualization PNGs", n_saved)
 
     except ImportError as e:
         logger.warning("Could not create visualizations — missing dependencies: %s", e)
@@ -1393,13 +1407,31 @@ def extract_docling_content(
     with open(figures_output, "w", encoding="utf-8") as f:
         json.dump(figures_info, f, indent=2)
 
-    # Create cell visualizations only if we have a document from docling
+    # Extract figure bboxes from the docling document before releasing it,
+    # so the (large) document object can be garbage-collected before the
+    # per-page image rendering loop.
+    figure_bboxes_by_page: dict = {}
     if document is not None:
-        pdf_name = pdf_path.stem
-        try:
-            create_cell_visualizations(pdf_path, visualizations_dir, pdf_name, document)
-        except Exception as e:
-            logger.warning("Creating visualizations failed: %s", e)
+        if hasattr(document, "pictures") and document.pictures:
+            for picture in document.pictures:
+                if hasattr(picture, "prov") and picture.prov:
+                    for prov_item in picture.prov:
+                        if hasattr(prov_item, "page_no") and hasattr(prov_item, "bbox"):
+                            page_no = prov_item.page_no
+                            figure_bboxes_by_page.setdefault(page_no, []).append(
+                                prov_item.bbox
+                            )
+    del document
+    import gc; gc.collect()
+
+    pdf_name = pdf_path.stem
+    try:
+        create_cell_visualizations(
+            pdf_path, visualizations_dir, pdf_name,
+            figure_bboxes_by_page=figure_bboxes_by_page,
+        )
+    except Exception as e:
+        logger.warning("Creating visualizations failed: %s", e)
 
 
 # Years plausible for a siphonophore paper: 17xx (earliest Linnaean works) to
@@ -2105,6 +2137,19 @@ def main():
              "summary.json already exists, re-run ONLY Pass 3b on each hash's "
              "existing figures.json. No OCR/Docling/Grobid/chunking is re-done.",
     )
+    parser.add_argument(
+        "--batch-index",
+        type=int,
+        default=None,
+        help="0-based index of the batch to process (use with --batch-size). "
+             "Typically set to $SLURM_ARRAY_TASK_ID.",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=256,
+        help="Number of unique PDFs (hashes) per batch (default: 256).",
+    )
 
     args = parser.parse_args()
 
@@ -2209,6 +2254,28 @@ def main():
 
     logger.info("Found %d PDF file(s)", sum(len(paths) for paths in pdf_map.values()))
     logger.info("Unique PDFs (by hash): %d", len(pdf_map))
+
+    # ── Batch slicing (for SLURM job arrays) ────────────────────────
+    if args.batch_index is not None:
+        all_hashes = sorted(pdf_map.keys())
+        total = len(all_hashes)
+        total_batches = -(-total // args.batch_size)  # ceiling division
+        start = args.batch_index * args.batch_size
+        end = start + args.batch_size
+        batch_hashes = all_hashes[start:end]
+        logger.info(
+            "Batch %d/%d: processing hashes %d–%d (%d of %d total)",
+            args.batch_index, total_batches - 1,
+            start, min(end, total) - 1,
+            len(batch_hashes), total,
+        )
+        if not batch_hashes:
+            logger.warning(
+                "Batch %d is empty (only %d hashes exist) — nothing to do",
+                args.batch_index, total,
+            )
+            sys.exit(0)
+        pdf_map = {h: pdf_map[h] for h in batch_hashes}
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)

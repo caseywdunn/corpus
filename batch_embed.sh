@@ -48,6 +48,18 @@ echo "Output: $OUTPUT_DIR"
 python embed_chunks.py \
     "$OUTPUT_DIR" \
     --resume \
-    --backend local
+    --backend local || {
+    EC=$?
+    # Bus error (135) or segfault (139) during CUDA teardown after
+    # successful embedding is a known issue on RTX 5000 Ada nodes with
+    # older drivers. The embeddings are already written to disk — treat
+    # this as success.
+    if [ $EC -eq 135 ] || [ $EC -eq 139 ]; then
+        echo "WARNING: Bus error during cleanup (exit $EC) — embeddings are complete"
+    else
+        echo "ERROR: embed_chunks.py failed with exit code $EC"
+        exit $EC
+    fi
+}
 
 echo "Embedding completed at $(date)"

@@ -4,8 +4,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=8G
 #SBATCH --time=24:00:00
-#SBATCH --output=logs/slurm-stage1-%j.out
-#SBATCH --error=logs/slurm-stage1-%j.err
+#SBATCH --output=logs/slurm-stage1-%A_%a.out
+#SBATCH --error=logs/slurm-stage1-%A_%a.err
 #
 # Stage 1: PDF processing pipeline (CPU-only).
 # OCR, docling extraction, chunking, metadata (Grobid), Pass 2.5.
@@ -61,6 +61,14 @@ if [ -f "$REPO_DIR/resources/anatomy_lexicon.yaml" ]; then
     ANATOMY_FLAG="--anatomy-lexicon $REPO_DIR/resources/anatomy_lexicon.yaml"
 fi
 
+# ── Batch parameters (for SLURM job arrays) ─────────────────────────
+BATCH_SIZE="${BATCH_SIZE:-256}"
+BATCH_ARGS=""
+if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
+    BATCH_ARGS="--batch-index $SLURM_ARRAY_TASK_ID --batch-size $BATCH_SIZE"
+    echo "Array task $SLURM_ARRAY_TASK_ID, batch size $BATCH_SIZE"
+fi
+
 # ── Run ──────────────────────────────────────────────────────────────
 echo "Starting Stage 1 processing at $(date)"
 echo "Input:  $INPUT_DIR"
@@ -71,6 +79,7 @@ python process_corpus.py \
     --resume \
     --grobid-url "$GROBID_URL" \
     $WORMS_FLAG \
-    $ANATOMY_FLAG
+    $ANATOMY_FLAG \
+    $BATCH_ARGS
 
 echo "Stage 1 completed at $(date)"

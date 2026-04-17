@@ -39,10 +39,19 @@ _PLATE_CAPTION_RE = re.compile(
 
 # Multilingual "figure" prefix. Plate/Abbildung/Рисунок etc. all map to the
 # same reference namespace — figure_refs_in_chunks just tracks the number.
+# Covers English, German, French, Russian, Spanish, Italian variants.
+_FIGURE_PREFIX = (
+    r"fig(?:ure|\.?)|abb(?:ildung|\.?)|pl(?:ate|\.?)|plate|рис(?:унок|\.?)"
+    r"|image|illustration|lám(?:ina|\.?)|tav(?:ola|\.?)|bild"
+    r"|text[\-\s]?fig(?:ure|\.?)"
+)
+
 _FIGURE_REF_RE = re.compile(
     r"""
     \b
-    (?:fig(?:ure|\.?)|abb(?:ildung|\.?)|pl(?:ate|\.?)|plate|рис(?:унок|\.?))   # prefix
+    (?:"""
+    + _FIGURE_PREFIX
+    + r""")   # prefix
     \s*
     (\d+)                                                                        # number
     """,
@@ -50,8 +59,9 @@ _FIGURE_REF_RE = re.compile(
 )
 
 # Tighter version used only on caption text (the *leading* figure label).
+# Accepts sub-numbering like "3a", "3.1" which are common in multi-panel figures.
 _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
-    r"^\s*(?:fig(?:ure|\.?)|abb(?:ildung|\.?)|pl(?:ate|\.?)|plate|рис(?:унок|\.?))\s*(\d+)",
+    r"^\s*(?:" + _FIGURE_PREFIX + r")\s*(\d+(?:\.\d+)?[a-z]?)",
     re.IGNORECASE,
 )
 
@@ -179,7 +189,7 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
 # figures the running text cites that docling didn't extract. Trailing
 # lookahead excludes "Fig. 4.1" (subsection) and "Figure N,000" (numerics).
 _FIGURE_MENTION_RE = re.compile(
-    r"\b(?:fig(?:ure|\.?)|рис(?:унок|\.?))\s*(\d+)(?![\w.,]\d)",
+    r"\b(?:" + _FIGURE_PREFIX + r")\s*(\d+)(?![\w.,]\d)",
     re.IGNORECASE,
 )
 
@@ -199,7 +209,7 @@ def _extract_caption_candidate_for_number(text: str, figure_number: str) -> str:
     if not text or not figure_number:
         return ""
     specific = re.compile(
-        r"(?:fig(?:ure|\.?)|рис(?:унок|\.?))\s*" + re.escape(str(figure_number))
+        r"(?:" + _FIGURE_PREFIX + r")\s*" + re.escape(str(figure_number))
         + r"(?![\w.,]\d)",
         re.IGNORECASE,
     )
@@ -207,7 +217,7 @@ def _extract_caption_candidate_for_number(text: str, figure_number: str) -> str:
     if not mentions:
         return ""
     any_fig = re.compile(
-        r"(?:fig(?:ure|\.?)|рис(?:унок|\.?))\s*\d+",
+        r"(?:" + _FIGURE_PREFIX + r")\s*\d+",
         re.IGNORECASE,
     )
     best = ""
@@ -382,8 +392,9 @@ def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -
       "Planche N". Historical papers' non-figure non-furniture content
       lives here.
     * **figure** — has a caption AND a parseable figure number AND
-      reasonable size.
-    * **unclassified** — reasonable size but no caption or no number.
+      reasonable size; OR has a caption and reasonable size even without
+      a parseable number (non-standard prefix, unsupported language).
+    * **unclassified** — reasonable size but no caption at all.
       Kept but flagged for the HTML report's manual-review section.
     """
     bbox = item.get("bbox")
@@ -402,6 +413,12 @@ def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -
         return FIGURE_TYPE_PLATE
 
     if caption and fig_num:
+        return FIGURE_TYPE_FIGURE
+
+    # Captioned items without a parseable figure number are still figures if
+    # they have reasonable size — e.g. non-standard caption prefixes that the
+    # regex doesn't cover, or captions in an unsupported language.
+    if caption and area and area > _MIN_FIGURE_AREA_FRAC * page_area_pts:
         return FIGURE_TYPE_FIGURE
 
     return FIGURE_TYPE_UNCLASSIFIED
@@ -636,13 +653,16 @@ def extract_caption_info(picture, document) -> Dict:
         except Exception as e:
             logger.debug("docling caption resolve failed: %s", e)
 
-    # --- Path 2: proximity heuristic over same-page TextItems ---
+    # --- Path 2: proximity heuristic over same-page (+ facing-page) TextItems ---
     pic_prov = getattr(picture, "prov", None)
     if not pic_prov:
         return info
     pic_bbox_list, pic_page = _prov_to_bbox_and_page(pic_prov[0])
     if pic_page is None or pic_bbox_list is None:
         return info
+
+    # Large penalty so same-page candidates always beat cross-page ones.
+    _CROSS_PAGE_PENALTY = 1000.0
 
     candidates: List[Tuple[float, object, List[float], int]] = []
     for text_item in getattr(document, "texts", []) or []:
@@ -655,8 +675,13 @@ def extract_caption_info(picture, document) -> Dict:
         if not prov:
             continue
         bbox_list, page_no = _prov_to_bbox_and_page(prov[0])
-        if page_no != pic_page or bbox_list is None:
+        if bbox_list is None:
             continue
+        # Allow same page or the immediately following page (facing-page
+        # captions are common in historical plate-heavy monographs).
+        if page_no != pic_page and page_no != pic_page + 1:
+            continue
+        cross_page_penalty = _CROSS_PAGE_PENALTY if page_no != pic_page else 0.0
         # Vertical distance: figure bottom to caption top (captions are
         # usually below the figure). In bottom-left coords, figure bottom is
         # bbox[1] (b) and caption top is bbox[3] (t). Use absolute gap.
@@ -665,7 +690,7 @@ def extract_caption_info(picture, document) -> Dict:
         vertical_gap = min(
             abs(pic_bottom - cap_top),  # caption below figure
             abs(cap_bottom - pic_top),  # caption above figure (rare)
-        )
+        ) + cross_page_penalty
         candidates.append((vertical_gap, text_item, bbox_list, page_no))
 
     if not candidates:
@@ -1464,6 +1489,10 @@ def link_chunks_to_figures(
     number_to_figure_ids: Dict[str, List[str]] = {}
     for fig in figures:
         num = fig.get("figure_number")
+        # Fallback: parse figure number from caption text if not already set
+        if not num:
+            caption = fig.get("caption_text") or ""
+            num = parse_figure_number(caption)
         if not num:
             continue
         number_to_figure_ids.setdefault(str(num), []).append(fig["figure_id"])
