@@ -15,6 +15,7 @@ import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, List, Optional, Set
+import multiprocessing
 import tempfile
 import os
 
@@ -2255,6 +2256,24 @@ def main():
     logger.info("Found %d PDF file(s)", sum(len(paths) for paths in pdf_map.values()))
     logger.info("Unique PDFs (by hash): %d", len(pdf_map))
 
+    # ── Pre-filter completed documents before batch slicing ─────────
+    # When --resume is active and we're batching, remove already-completed
+    # hashes *before* dividing into batches. This ensures batches contain
+    # only unprocessed documents, instead of some batches being entirely
+    # skip-only while others carry all the remaining work.
+    if args.resume and args.batch_index is not None:
+        before = len(pdf_map)
+        pdf_map = {
+            h: paths for h, paths in pdf_map.items()
+            if not (documents_dir / short_hash(h) / "summary.json").exists()
+        }
+        skipped = before - len(pdf_map)
+        if skipped:
+            logger.info(
+                "Resume: filtered out %d already-completed documents "
+                "(%d remaining to process)", skipped, len(pdf_map),
+            )
+
     # ── Batch slicing (for SLURM job arrays) ────────────────────────
     if args.batch_index is not None:
         all_hashes = sorted(pdf_map.keys())
@@ -2325,30 +2344,49 @@ def main():
                 for path in pdf_paths[1:]:
                     logger.info("  additional copy: %s", path.relative_to(input_dir))
 
-            # Everything below is captured to the per-PDF pipeline.log.
-            with per_pdf_file_log(hash_dir) as log_path:
-                logger.info("pipeline.log: %s", log_path)
-                logger.info("pdf_hash_full: %s", pdf_hash_full)
+            # Run each document in a child process so that C-level crashes
+            # (segfaults in docling/PyMuPDF) don't kill the whole batch.
+            # On Linux the default fork start method inherits all objects
+            # (grobid_client, worms_db, vision_backend) without pickling.
+            def _worker():
+                with per_pdf_file_log(hash_dir) as log_path:
+                    logger.info("pipeline.log: %s", log_path)
+                    logger.info("pdf_hash_full: %s", pdf_hash_full)
 
-                processing_summary = run_pdf_processing_pipeline(
-                    primary_pdf, hash_dir, temp_dir,
-                    grobid_client=grobid_client,
-                    worms_db=worms_db,
-                    anatomy_lexicon=anatomy_lexicon,
-                    content_aware_figures=args.content_aware_figures,
-                    vision_backend=vision_backend,
-                )
+                    processing_summary = run_pdf_processing_pipeline(
+                        primary_pdf, hash_dir, temp_dir,
+                        grobid_client=grobid_client,
+                        worms_db=worms_db,
+                        anatomy_lexicon=anatomy_lexicon,
+                        content_aware_figures=args.content_aware_figures,
+                        vision_backend=vision_backend,
+                    )
 
-                summary_file = create_summary_json(
-                    pdf_hash_full, pdf_paths, input_dir, hash_dir, processing_summary
-                )
-                logger.info("Created summary: %s", summary_file)
+                    summary_file = create_summary_json(
+                        pdf_hash_full, pdf_paths, input_dir, hash_dir, processing_summary
+                    )
+                    logger.info("Created summary: %s", summary_file)
 
-                if processing_summary.get("status") == "success":
-                    chunks_file = hash_dir / "chunks.json"
-                    if chunks_file.exists():
-                        logger.info("Writing vector-db ingestion marker...")
-                        ingest_to_vector_db(chunks_file, vector_db_dir, pdf_hash)
+                    if processing_summary.get("status") == "success":
+                        chunks_file = hash_dir / "chunks.json"
+                        if chunks_file.exists():
+                            logger.info("Writing vector-db ingestion marker...")
+                            ingest_to_vector_db(chunks_file, vector_db_dir, pdf_hash)
+
+            proc = multiprocessing.Process(target=_worker)
+            proc.start()
+            proc.join()
+            if proc.exitcode != 0:
+                if proc.exitcode < 0:
+                    logger.error(
+                        "Document %s killed by signal %d (segfault?) — skipping",
+                        pdf_hash, -proc.exitcode,
+                    )
+                else:
+                    logger.error(
+                        "Document %s worker exited with code %d — skipping",
+                        pdf_hash, proc.exitcode,
+                    )
 
     logger.info("Processing complete. Results saved to: %s", output_dir)
     logger.info("  Documents: %s", documents_dir)
