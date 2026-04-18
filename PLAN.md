@@ -667,7 +667,7 @@ CREATE TABLE citations (
     citing_corpus_hash TEXT NOT NULL,   -- which paper's references.json
     grobid_xml_id      TEXT,
     raw_citation       TEXT,
-    match_method       TEXT NOT NULL,   -- 'doi_exact' | 'alias_exact' | 'title_fuzzy' | 'author_year_only'
+    match_method       TEXT NOT NULL,   -- 'doi_exact' | 'alias_exact' | 'bhl_lookup' | 'title_fuzzy' | 'author_year_only'
     match_score        REAL DEFAULT 1.0,
     PRIMARY KEY (citing_work_id, cited_work_id, citing_corpus_hash)
 );
@@ -695,21 +695,20 @@ Plus indexes on: `works(doi)`, `works(corpus_hash)`, `works(year)`, `works(in_co
 
 ### Build pipeline: `scripts/build_biblio_authority.py`
 
-Reads existing per-paper artifacts only — no Grobid re-runs needed. Four phases:
+Reads existing per-paper artifacts only — no Grobid re-runs needed. Three phases:
 
 **Phase 1 — Seed from corpus papers.** Walk `output/documents/*/metadata.json`. Create a `works` row per paper with `in_corpus=1`. Use DOI as `work_id` if available, else compute `corpus:` hash. Insert authors into `work_authors`, register alias key in `work_aliases`.
 
 **Phase 2 — Ingest cited references + build citation graph.** Walk `output/documents/*/references.json`. For each reference, match to an existing work via a cascade:
 1. *DOI exact* — if reference has a DOI, normalize and look up.
 2. *Alias key exact* — compute normalized key (first-author-surname + year + title prefix), check `work_aliases`. Handles ~60% of non-DOI matches.
-3. *Fuzzy title match* — query candidates by author surname + year, rank by `rapidfuzz.fuzz.token_set_ratio` on title. Threshold 80 = auto-match; 60–80 = lower confidence.
-4. *Author+year only* — last resort for references with no parsed title. Match if exactly one candidate; confidence 0.6.
+3. *BHL lookup* (optional, gated behind `--enrich-bhl`) — query BHL API by author + year + title. If matched, use `bhl:` as the GUID. Strong coverage of pre-1950 siphonophore literature (Haeckel, Agassiz, Huxley, Chun, etc.), so many historical references that would otherwise fall through to `corpus:` hashes get proper BHL identifiers. Requires network access; skipped in offline builds.
+4. *Fuzzy title match* — query candidates by author surname + year, rank by `rapidfuzz.fuzz.token_set_ratio` on title. Threshold 80 = auto-match; 60–80 = lower confidence.
+5. *Author+year only* — last resort for references with no parsed title. Match if exactly one candidate; confidence 0.6.
 
 Insert citation edge into `citations` with match method recorded. Expected: ~15,000–25,000 unique works after dedup.
 
 **Phase 3 — Link WoRMS authorities to works.** Parse authority strings (e.g., "Eschscholtz, 1829", "(Huxley, 1859)"). Search `works` by author+year. Insert into `worms_work_links`. Create stub works for unmatched authorities.
-
-**Phase 4 (optional) — BHL enrichment.** For works with no DOI, query BHL API by title+author+year. Gated behind `--enrich-bhl` flag.
 
 Idempotent via `INSERT OR IGNORE` / `INSERT OR REPLACE`. Dependency: `rapidfuzz`.
 
