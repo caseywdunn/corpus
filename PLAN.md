@@ -624,9 +624,9 @@ Every bibliographic entity gets a single globally-unique identifier, assigned in
 
 1. **DOI** (normalized lowercase, no URL prefix): `10.1007/s12526-013-0148-x`
 2. **BHL Part/Item ID**: `bhl:part/12345` or `bhl:item/31879`
-3. **Deterministic hash** of normalized bibliographic fields: `corpus:a3f7b2c8e1d04f56`
+3. **Normalized citation key**: `corpus:haeckel|1888|report on the siphonophorae col`
 
-The fallback hash is SHA-256 of `normalize(first_author_surname)|year|normalize(title_first_40_chars)` — lowercase, diacritics stripped (NFD), punctuation removed, whitespace collapsed. This means "Haeckel 1888", "Häckel, E. (1888)", and "HAECKEL, E., 1888" all produce the same key, which is the main dedup mechanism for the 94% of references without DOIs.
+The fallback key is the normalized string `normalize(first_author_surname)|year|normalize(title_first_40_chars)` — lowercase, diacritics stripped (NFD), punctuation removed, whitespace collapsed. Human-readable and reversible: `corpus:haeckel|1888|report on the siphonophorae col` is immediately recognizable. Titles shorter than 40 characters use their full length. This means "Haeckel 1888", "Häckel, E. (1888)", and "HAECKEL, E., 1888" all produce the same key, which is the main dedup mechanism for the 94% of references without DOIs.
 
 ### Schema
 
@@ -634,7 +634,7 @@ The fallback hash is SHA-256 of `normalize(first_author_surname)|year|normalize(
 -- One row per unique bibliographic work
 CREATE TABLE works (
     work_id        TEXT PRIMARY KEY,   -- DOI | bhl:* | corpus:*
-    guid_type      TEXT NOT NULL,      -- 'doi' | 'bhl' | 'corpus_hash'
+    guid_type      TEXT NOT NULL,      -- 'doi' | 'bhl' | 'corpus_key'
     title          TEXT,
     year           INTEGER,
     journal        TEXT,
