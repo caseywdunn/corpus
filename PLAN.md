@@ -613,3 +613,125 @@ These aren't implementation work — they're constraints that need to flow back 
 - Multi-region failover, autoscaling, blue/green deploys. Single-instance is fine until it isn't.
 - Whether to mirror the served bundle on a Cloudflare R2 / Backblaze B2 alternative for cost. Defer until S3 egress actually shows up on a bill.
 - Authentication beyond API keys. If we later expose this to a wider audience, evaluate Cognito or sign-in-with-ORCID then, not now.
+
+## 11. Bibliographic authority database
+
+The corpus has ~65,000 parsed references across ~1,350+ papers, but no cross-paper deduplication, no citation graph, and no link between WoRMS taxa and their original description papers. Only 5.6% of references carry DOIs — the rest (mostly historical siphonophore literature) need a fallback identifier. This section defines a single bibliographic authority that unifies corpus papers, cited references, and WoRMS taxa into one queryable graph stored as `resources/biblio_authority.sqlite`.
+
+### GUID scheme
+
+Every bibliographic entity gets a single globally-unique identifier, assigned in priority order:
+
+1. **DOI** (normalized lowercase, no URL prefix): `10.1007/s12526-013-0148-x`
+2. **BHL Part/Item ID**: `bhl:part/12345` or `bhl:item/31879`
+3. **Deterministic hash** of normalized bibliographic fields: `corpus:a3f7b2c8e1d04f56`
+
+The fallback hash is SHA-256 of `normalize(first_author_surname)|year|normalize(title_first_40_chars)` — lowercase, diacritics stripped (NFD), punctuation removed, whitespace collapsed. This means "Haeckel 1888", "Häckel, E. (1888)", and "HAECKEL, E., 1888" all produce the same key, which is the main dedup mechanism for the 94% of references without DOIs.
+
+### Schema
+
+```sql
+-- One row per unique bibliographic work
+CREATE TABLE works (
+    work_id        TEXT PRIMARY KEY,   -- DOI | bhl:* | corpus:*
+    guid_type      TEXT NOT NULL,      -- 'doi' | 'bhl' | 'corpus_hash'
+    title          TEXT,
+    year           INTEGER,
+    journal        TEXT,
+    doi            TEXT,
+    bhl_item_id    TEXT,
+    bhl_part_id    TEXT,
+    openalex_id    TEXT,
+    corpus_hash    TEXT,               -- 12-char SHA-256 if in corpus, else NULL
+    in_corpus      INTEGER NOT NULL DEFAULT 0,
+    source         TEXT NOT NULL,      -- 'corpus_paper' | 'cited_reference' | 'worms_authority'
+    confidence     REAL DEFAULT 1.0,
+    created_at     REAL NOT NULL,
+    updated_at     REAL NOT NULL
+);
+
+-- Ordered author list per work
+CREATE TABLE work_authors (
+    work_id            TEXT NOT NULL REFERENCES works(work_id),
+    position           INTEGER NOT NULL,
+    surname            TEXT NOT NULL,
+    surname_normalized TEXT NOT NULL,   -- lowercase, no diacritics
+    forename           TEXT,
+    PRIMARY KEY (work_id, position)
+);
+
+-- Directed citation edges
+CREATE TABLE citations (
+    citing_work_id     TEXT NOT NULL REFERENCES works(work_id),
+    cited_work_id      TEXT NOT NULL REFERENCES works(work_id),
+    citing_corpus_hash TEXT NOT NULL,   -- which paper's references.json
+    grobid_xml_id      TEXT,
+    raw_citation       TEXT,
+    match_method       TEXT NOT NULL,   -- 'doi_exact' | 'alias_exact' | 'title_fuzzy' | 'author_year_only'
+    match_score        REAL DEFAULT 1.0,
+    PRIMARY KEY (citing_work_id, cited_work_id, citing_corpus_hash)
+);
+
+-- Alternate citation forms that resolved to the same work
+CREATE TABLE work_aliases (
+    alias_key  TEXT NOT NULL,          -- normalized "haeckel|1888|report on the siphonopho"
+    work_id    TEXT NOT NULL REFERENCES works(work_id),
+    PRIMARY KEY (alias_key, work_id)
+);
+
+-- Links WoRMS taxa to their original-description works
+CREATE TABLE worms_work_links (
+    aphia_id   INTEGER NOT NULL,
+    work_id    TEXT NOT NULL REFERENCES works(work_id),
+    link_type  TEXT NOT NULL,          -- 'original_description' | 'authority_match'
+    confidence REAL DEFAULT 1.0,
+    PRIMARY KEY (aphia_id, work_id, link_type)
+);
+
+CREATE TABLE build_meta (key TEXT PRIMARY KEY, value TEXT);
+```
+
+Plus indexes on: `works(doi)`, `works(corpus_hash)`, `works(year)`, `works(in_corpus)`, `work_authors(surname_normalized)`, `citations(cited_work_id)`, `citations(citing_work_id)`, `worms_work_links(work_id)`.
+
+### Build pipeline: `scripts/build_biblio_authority.py`
+
+Reads existing per-paper artifacts only — no Grobid re-runs needed. Four phases:
+
+**Phase 1 — Seed from corpus papers.** Walk `output/documents/*/metadata.json`. Create a `works` row per paper with `in_corpus=1`. Use DOI as `work_id` if available, else compute `corpus:` hash. Insert authors into `work_authors`, register alias key in `work_aliases`.
+
+**Phase 2 — Ingest cited references + build citation graph.** Walk `output/documents/*/references.json`. For each reference, match to an existing work via a cascade:
+1. *DOI exact* — if reference has a DOI, normalize and look up.
+2. *Alias key exact* — compute normalized key (first-author-surname + year + title prefix), check `work_aliases`. Handles ~60% of non-DOI matches.
+3. *Fuzzy title match* — query candidates by author surname + year, rank by `rapidfuzz.fuzz.token_set_ratio` on title. Threshold 80 = auto-match; 60–80 = lower confidence.
+4. *Author+year only* — last resort for references with no parsed title. Match if exactly one candidate; confidence 0.6.
+
+Insert citation edge into `citations` with match method recorded. Expected: ~15,000–25,000 unique works after dedup.
+
+**Phase 3 — Link WoRMS authorities to works.** Parse authority strings (e.g., "Eschscholtz, 1829", "(Huxley, 1859)"). Search `works` by author+year. Insert into `worms_work_links`. Create stub works for unmatched authorities.
+
+**Phase 4 (optional) — BHL enrichment.** For works with no DOI, query BHL API by title+author+year. Gated behind `--enrich-bhl` flag.
+
+Idempotent via `INSERT OR IGNORE` / `INSERT OR REPLACE`. Dependency: `rapidfuzz`.
+
+### New MCP tools this enables
+
+| Tool | Purpose |
+|---|---|
+| `get_citation_graph(work_id, direction, depth)` | Citing/cited-by works around a given work |
+| `resolve_reference(query, author, year)` | Free-text bibliographic lookup against the authority DB |
+| `get_missing_references(min_citations)` | Works cited by corpus but not in corpus, ranked by citation count |
+| `get_original_description(taxon_name)` | WoRMS authority → work → in_corpus? |
+| `get_works_by_author(surname)` | Full bibliography across authority DB, not just corpus papers |
+
+Enhancement to existing `get_bibliography`: add `resolved=True` flag to join each reference to its authority DB work record (work_id, in_corpus, corpus_hash, cited_by_count), making bibliographies navigable.
+
+### Queries this unlocks
+
+- "What information about *Agalma* exists in papers that cite this paper?" → `get_citation_graph` → `get_chunks_for_taxon` on each citing paper
+- "Which cited references are missing from the corpus?" → `get_missing_references`
+- "Which papers are the original descriptions for species in genus *Forskalia*?" → `list_valid_species_under` → `get_original_description` per species
+- "Plot species descriptions per decade" → join `worms_work_links` to `works`, group by `year / 10`
+
+### Integration with §10 (AWS served bundle)
+
+Add `biblio_authority.sqlite` to the served-file whitelist alongside `worms_siphonophorae.sqlite`.
