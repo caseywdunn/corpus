@@ -19,3 +19,4 @@ pyqt5
 pyyaml
 matplotlib
 pillow
+rapidfuzz>=2.0

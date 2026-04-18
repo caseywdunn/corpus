@@ -7,8 +7,9 @@ scratch/
 demo_*/
 logs/
 
-# Regenerable WoRMS snapshot; rebuild with: python scripts/ingest_worms.py
+# Regenerable SQLite snapshots
 resources/worms*.sqlite
+resources/biblio_authority.sqlite
 
 
 
