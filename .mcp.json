@@ -2,8 +2,7 @@
   "mcpServers": {
     "corpus": {
       "type": "stdio",
-      "command": "/opt/anaconda3/envs/corpus/bin/python",
-      "args": ["mcp_server.py", "demo_output"]
+      "command": "scripts/run_mcp_server.sh"
     }
   }
 }
