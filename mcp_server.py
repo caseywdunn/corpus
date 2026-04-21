@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -88,6 +89,7 @@ class CorpusIndex:
 
     def __init__(self, output_dir: Path, worms_db: Optional[WormsDB] = None,
                  biblio_db: Optional[BiblioAuthority] = None,
+                 taxon_mention_db: Optional[TaxonMentionDB] = None,
                  embedding_backend: str = "local",
                  embedding_model: Optional[str] = None):
         self.output_dir = Path(output_dir).resolve()
@@ -95,6 +97,7 @@ class CorpusIndex:
         self.vector_db_dir = self.output_dir / "vector_db" / "lancedb"
         self.worms_db = worms_db
         self.biblio_db = biblio_db
+        self.taxon_mention_db = taxon_mention_db
         # Embedder + LanceDB table are loaded lazily on the first
         # get_chunks_for_topic call — they cost ~600 MB resident and
         # several seconds to load, both wasteful for users who only
@@ -244,6 +247,62 @@ class CorpusIndex:
 # ---------------------------------------------------------------------------
 # Bibliographic authority (read-only wrapper)
 # ---------------------------------------------------------------------------
+
+
+class TaxonMentionDB:
+    """Read-only wrapper around ``taxon_mentions.sqlite``.
+
+    Provides corpus-wide span-level taxon queries — §12 Layer 2.
+    """
+
+    def __init__(self, db_path: Path):
+        self.conn = sqlite3.connect(
+            f"file:{db_path}?mode=ro", uri=True, check_same_thread=False,
+        )
+        self.conn.row_factory = sqlite3.Row
+
+    def mentions_for_aphia(self, aphia_id: int, *,
+                           corpus_hash: Optional[str] = None,
+                           limit: int = 500,
+                           offset: int = 0) -> List[Dict]:
+        query = """SELECT * FROM taxon_mentions WHERE aphia_id = ?"""
+        params: list = [aphia_id]
+        if corpus_hash:
+            query += " AND corpus_hash = ?"
+            params.append(corpus_hash)
+        query += " ORDER BY corpus_hash, chunk_index, char_start"
+        query += " LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        return [dict(r) for r in self.conn.execute(query, params)]
+
+    def mention_count_for_aphia(self, aphia_id: int) -> int:
+        cur = self.conn.execute(
+            "SELECT COUNT(*) FROM taxon_mentions WHERE aphia_id = ?",
+            (aphia_id,),
+        )
+        return cur.fetchone()[0]
+
+    def papers_for_aphia(self, aphia_id: int) -> List[Dict]:
+        """Distinct papers mentioning a taxon, with mention count."""
+        cur = self.conn.execute(
+            """SELECT corpus_hash, COUNT(*) as mention_count
+               FROM taxon_mentions WHERE aphia_id = ?
+               GROUP BY corpus_hash
+               ORDER BY mention_count DESC""",
+            (aphia_id,),
+        )
+        return [dict(r) for r in cur]
+
+    def stats(self) -> Dict:
+        out = {}
+        for key in ("total_mentions", "total_papers", "unique_aphia_ids",
+                     "unique_accepted_names"):
+            cur = self.conn.execute(
+                "SELECT value FROM build_meta WHERE key = ?", (key,),
+            )
+            row = cur.fetchone()
+            out[key] = row[0] if row else None
+        return out
 
 
 class BiblioAuthority:
@@ -552,6 +611,99 @@ def get_chunks_for_taxon(
             })
 
     return out[offset: offset + int(limit)] if limit else out[offset:]
+
+
+@mcp.tool()
+def get_taxon_mentions(
+    taxon_name: str,
+    paper_hash: Optional[str] = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> List[Dict]:
+    """All text-span mentions of a taxon across the corpus, resolved
+    through synonymy.
+
+    Returns individual mention records with character offsets into the
+    chunk text — finer-grained than ``get_chunks_for_taxon`` which
+    returns whole chunks. Each record includes ``char_start``,
+    ``char_end``, ``mention_text``, and the chunk/paper context.
+
+    Requires the taxon mention database (built by
+    ``scripts/build_taxon_mentions.py``). Falls back to per-paper
+    ``taxa.json`` scanning if the database is not available.
+    """
+    idx = _need_index()
+    if idx.worms_db is None:
+        return [{"error": "no WoRMS snapshot configured"}]
+    hit = idx.worms_db.lookup(taxon_name)
+    if not hit:
+        return []
+    aid = hit["accepted_aphia_id"]
+
+    if idx.taxon_mention_db is not None:
+        # Fast path: query the corpus-wide SQLite
+        rows = idx.taxon_mention_db.mentions_for_aphia(
+            aid, corpus_hash=paper_hash, limit=limit, offset=offset,
+        )
+        # Enrich with paper-level metadata
+        out = []
+        for r in rows:
+            p = idx.papers.get(r["corpus_hash"], {})
+            out.append({
+                "paper_hash": r["corpus_hash"],
+                "paper_title": p.get("title"),
+                "paper_year": p.get("year"),
+                "chunk_id": r["chunk_id"],
+                "chunk_index": r["chunk_index"],
+                "char_start": r["char_start"],
+                "char_end": r["char_end"],
+                "mention_text": r["mention_text"],
+                "matched_name": r["matched_name"],
+                "accepted_name": r["accepted_name"],
+                "rank": r["rank"],
+                "name_type": r["name_type"],
+                "method": r["method"],
+            })
+        return out
+
+    # Fallback: scan per-paper taxa.json files (slower, same result shape)
+    target_hashes = (
+        [paper_hash] if paper_hash else idx.taxon_to_papers.get(aid, [])
+    )
+    out: List[Dict] = []
+    for h in target_hashes:
+        p = idx.papers.get(h)
+        if not p:
+            continue
+        taxa = _load_json(Path(p["hash_dir"]) / "taxa.json", default={}) or {}
+        for m in taxa.get("mentions", []) or []:
+            if m.get("accepted_aphia_id") != aid:
+                continue
+            span = m.get("text_span", [0, 0])
+            chunk_id = m.get("chunk_id", "")
+            out.append({
+                "paper_hash": h,
+                "paper_title": p.get("title"),
+                "paper_year": p.get("year"),
+                "chunk_id": chunk_id,
+                "chunk_index": parse_chunk_index(chunk_id),
+                "char_start": span[0] if len(span) > 0 else 0,
+                "char_end": span[1] if len(span) > 1 else 0,
+                "mention_text": m.get("matched_text", ""),
+                "matched_name": m.get("matched_text", ""),
+                "accepted_name": m.get("accepted_name", ""),
+                "rank": m.get("rank", ""),
+                "name_type": m.get("name_type", ""),
+                "method": "regex_worms",
+            })
+    return out[offset: offset + int(limit)] if limit else out[offset:]
+
+
+# Need the chunk-index parser for the fallback path
+_CHUNK_INDEX_RE_MCP = re.compile(r"chunk_(\d+)")
+def parse_chunk_index(chunk_id: str) -> int:
+    m = _CHUNK_INDEX_RE_MCP.search(chunk_id or "")
+    return int(m.group(1)) if m else -1
 
 
 _REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
@@ -1481,6 +1633,13 @@ def main() -> int:
              "(default: resources/biblio_authority.sqlite under repo root)",
     )
     parser.add_argument(
+        "--taxon-mention-sqlite",
+        type=Path,
+        default=None,
+        help="Override path to the taxon mention SQLite "
+             "(default: resources/taxon_mentions.sqlite under repo root)",
+    )
+    parser.add_argument(
         "--embedding-backend",
         choices=["local", "openai"],
         default="local",
@@ -1539,11 +1698,37 @@ def main() -> int:
             biblio_path,
         )
 
+    taxon_mention_path = args.taxon_mention_sqlite or (
+        Path(__file__).parent / "resources" / "taxon_mentions.sqlite"
+    )
+    taxon_mention_db: Optional[TaxonMentionDB] = None
+    if taxon_mention_path.exists():
+        try:
+            taxon_mention_db = TaxonMentionDB(taxon_mention_path)
+            stats = taxon_mention_db.stats()
+            logger.info(
+                "Taxon mention DB loaded from %s (%s mentions, %s taxa)",
+                taxon_mention_path,
+                stats.get("total_mentions", "?"),
+                stats.get("unique_aphia_ids", "?"),
+            )
+        except Exception as e:
+            logger.warning("Could not open taxon mention DB at %s: %s",
+                           taxon_mention_path, e)
+    else:
+        logger.info(
+            "Taxon mention DB not found at %s — get_taxon_mentions will "
+            "fall back to per-paper taxa.json scanning. Build it: "
+            "python scripts/build_taxon_mentions.py",
+            taxon_mention_path,
+        )
+
     global _INDEX
     _INDEX = CorpusIndex(
         args.output_dir,
         worms_db=worms,
         biblio_db=biblio,
+        taxon_mention_db=taxon_mention_db,
         embedding_backend=args.embedding_backend,
         embedding_model=args.embedding_model,
     )

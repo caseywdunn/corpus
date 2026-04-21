@@ -734,3 +734,140 @@ Enhancement to existing `get_bibliography`: add `resolved=True` flag to join eac
 ### Integration with §10 (AWS served bundle)
 
 Add `biblio_authority.sqlite` to the served-file whitelist alongside `worms_siphonophorae.sqlite`.
+
+## 12. Text-span mention layers: bibliography, taxonomy, geography
+
+The corpus currently stores structured data about papers (metadata, references, figures) but does not track *where in the text* those entities are mentioned. Three parallel annotation layers — bibliographic, taxonomic, and geographic — will deep-link structured entity databases into specific text spans, making every mention queryable and cross-referenceable.
+
+### Design principle: external tables, not inline annotation
+
+Mentions are stored in dedicated database tables that point into text, not as annotations baked into the per-paper JSON artifacts. Reasons:
+
+- **Independent rebuilds.** Re-running the WoRMS linker doesn't require re-running OCR. Updating geographic parsing doesn't touch bibliography. Each layer has its own lifecycle.
+- **Immutable paper artifacts.** The pipeline produces per-paper JSONs (`chunks.json`, `references.json`, etc.) that are content-addressed and stable. Layering annotations into those files couples extraction to resolution.
+- **Cross-paper queries are database queries.** "All records of *Agalma elegans*" joins across papers — that's a table scan, not a document search.
+
+The `biblio_authority.sqlite` pattern from §11 is the model. Taxonomy and geography follow the same shape.
+
+### Common mention schema
+
+Each layer has its own mention table, but all share the same spine:
+
+```sql
+-- Bibliographic mentions (in-text citations → works)
+CREATE TABLE biblio_mentions (
+    mention_id     INTEGER PRIMARY KEY,
+    work_id        TEXT NOT NULL,          -- FK to works(work_id) in biblio_authority
+    corpus_hash    TEXT NOT NULL,
+    chunk_index    INTEGER NOT NULL,
+    char_start     INTEGER NOT NULL,
+    char_end       INTEGER NOT NULL,
+    mention_text   TEXT NOT NULL,          -- surface form: "(Dunn et al., 2005)" or "[23]"
+    confidence     REAL DEFAULT 1.0,
+    method         TEXT NOT NULL           -- 'grobid_tei_ref', 'regex_fallback'
+);
+
+-- Taxonomic mentions (species/genus names → WoRMS)
+CREATE TABLE taxon_mentions (
+    mention_id     INTEGER PRIMARY KEY,
+    aphia_id       INTEGER,               -- WoRMS accepted taxon (NULL if unresolved)
+    matched_name   TEXT NOT NULL,          -- the name as resolved (accepted or synonym)
+    corpus_hash    TEXT NOT NULL,
+    chunk_index    INTEGER NOT NULL,
+    char_start     INTEGER NOT NULL,
+    char_end       INTEGER NOT NULL,
+    mention_text   TEXT NOT NULL,          -- surface form: "A. elegans", "Agalma elegans"
+    rank           TEXT,                   -- 'species', 'genus', 'family', etc.
+    confidence     REAL DEFAULT 1.0,
+    method         TEXT NOT NULL           -- 'gnfinder', 'regex_binomial', 'manual'
+);
+
+-- Geographic mentions (localities → coordinates)
+CREATE TABLE geo_mentions (
+    mention_id     INTEGER PRIMARY KEY,
+    locality_id    TEXT,                   -- FK to a localities table (NULL if unresolved)
+    corpus_hash    TEXT NOT NULL,
+    chunk_index    INTEGER NOT NULL,
+    char_start     INTEGER NOT NULL,
+    char_end       INTEGER NOT NULL,
+    mention_text   TEXT NOT NULL,          -- surface form: "Villefranche-sur-Mer", "Station 42"
+    latitude       REAL,
+    longitude      REAL,
+    depth_m        REAL,
+    confidence     REAL DEFAULT 1.0,
+    method         TEXT NOT NULL           -- 'spacy_ner', 'geonames_match', 'regex_coords'
+);
+
+-- Normalized locality entities (deduplicated across papers)
+CREATE TABLE localities (
+    locality_id    TEXT PRIMARY KEY,
+    name           TEXT NOT NULL,
+    latitude       REAL,
+    longitude      REAL,
+    country        TEXT,
+    geonames_id    INTEGER,
+    source         TEXT NOT NULL           -- 'geonames', 'manual', 'inferred'
+);
+```
+
+### Layer 1: Bibliographic mentions
+
+**Source data.** Grobid TEI XML already tags in-text citations as `<ref type="bibr">` with `target` attributes pointing to bibliography entries. This data is parsed during Stage 2 but currently discarded — only the bibliography entries themselves flow into `references.json`.
+
+**Extraction.** Parse `<ref type="bibr">` elements from `grobid.tei.xml`, map each to a chunk offset in `chunks.json` (by character position in the full text), and resolve the `target` attribute to a `work_id` in `biblio_authority.sqlite`.
+
+**What this enables.**
+- "Which papers cite Totton 1965, and what do they say about it?" → `biblio_mentions` WHERE `work_id = <totton_1965>` → return surrounding chunk text
+- "Show me the context of every citation of this paper" → all mention spans with their chunk text
+- Closes the loop between "this paper cites X" (references.json) and "here is where it cites X" (mention span)
+
+**Feasibility.** Lowest effort of the three layers. Grobid has already done the hard work; this is plumbing.
+
+### Layer 2: Taxonomic mentions
+
+**Source data.** Running text in `chunks.json` contains binomial names (*Agalma elegans*), abbreviated forms (*A. elegans*), genus-only references (*Agalma*), and higher taxa (*Calycophorae*). The WoRMS backbone (`worms_siphonophorae.sqlite`) provides the authority for resolution.
+
+**Extraction pipeline.**
+1. **Detection** — `gnfinder` (Global Names) for raw name detection, strong on historical variants and abbreviations. Supplement with regex for italicized binomials in born-digital PDFs.
+2. **Resolution** — match each detected name against WoRMS accepted names and synonyms. Record `aphia_id` for resolved names, flag unresolved names for manual review.
+3. **Abbreviation expansion** — track the most recent genus mention per paper to expand abbreviated forms (*A. elegans* → *Agalma elegans* when *Agalma* was last mentioned).
+
+**What this enables.**
+- "Which papers mention *Bargmannia elongata*?" → `taxon_mentions` WHERE `aphia_id = <bargmannia_elongata>`
+- "Make a map of all records of *Agalma elegans*" → join `taxon_mentions` to `geo_mentions` by (corpus_hash, chunk_index) proximity
+- All taxon-keyed queries in §8 (Q1, Q2, Q4, Q5) become precise span-level lookups rather than text search
+
+**Feasibility.** Medium effort. The focused domain (siphonophores, ~200 valid species) bounds the taxonomy. `gnfinder` handles the NER; resolution against WoRMS is a lookup. Main challenge: abbreviated forms and OCR-garbled names in historical text.
+
+### Layer 3: Geographic mentions
+
+**Source data.** Running text mentions sampling localities in several forms: named places ("Villefranche-sur-Mer", "Bay of Naples"), coordinates ("32°15′N, 64°40′W"), station references ("Station 42", "Sta. 1247"), depth ranges ("200–400 m"), and vessel names ("R/V *Dana*", "HMS *Challenger*").
+
+**Extraction pipeline.**
+1. **Named location NER** — spaCy `GPE`/`LOC` entities as a starting point. Filter for geographic relevance (not all GPEs are sampling locations).
+2. **Geocoding** — resolve named locations to coordinates via GeoNames API or a local GeoNames dump. Record `geonames_id` for traceability.
+3. **Coordinate extraction** — regex for degree-minute-second and decimal-degree patterns. Associate with nearby taxon mentions for taxon × locality co-occurrence.
+4. **Structured sampling events** (future) — extract (location, depth, date, vessel, taxon) tuples from methods sections. This is harder and may benefit from LLM extraction.
+
+**What this enables.**
+- "List all siphonophores collected at Villefranche, France" → `geo_mentions` WHERE `locality_id = <villefranche>` → join to nearby `taxon_mentions`
+- "Make a map of all records of *Agalma elegans*" → `taxon_mentions` for the species → co-occurring `geo_mentions` with coordinates → plot
+- GBIF-style occurrence maps built from literature rather than specimen databases
+
+**Feasibility.** Highest effort, lowest initial precision. Named locations are detectable but associating them with the right taxon and distinguishing sampling locations from other geographic references (e.g., "the Mediterranean fauna") requires context. Start with named locations + coordinates only; structured sampling events are a later enrichment.
+
+### Sequencing
+
+1. **Bibliographic mentions** — first, since Grobid TEI already has the data. Closes the citation-context loop.
+2. **Taxonomic mentions** — second. Enables all taxon-keyed queries and is prerequisite for taxon × locality co-occurrence in layer 3.
+3. **Geographic mentions** — third. Depends on layer 2 for meaningful taxon × locality joins.
+
+### MCP tool surface
+
+| Tool | Layer | Purpose |
+|---|---|---|
+| `get_citation_context(work_id)` | biblio | All in-text mentions of a cited work, with surrounding chunk text |
+| `get_taxon_mentions(name, include_synonyms=True)` | taxon | All text spans mentioning a taxon, resolved to accepted name |
+| `get_locality_mentions(locality, radius_km=None)` | geo | All text spans mentioning a locality (or within radius) |
+| `get_taxon_localities(name)` | taxon+geo | Co-occurring taxon × locality pairs across the corpus |
+| `get_locality_taxa(locality)` | geo+taxon | All taxa mentioned near a given locality |
