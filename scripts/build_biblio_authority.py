@@ -1057,13 +1057,25 @@ def main() -> int:
 
         # Phase 2
         logger.info("═══ Phase 2: Ingesting references + citation graph ═══")
-        if args.enrich_bhl and not args.bhl_api_key:
-            logger.warning(
-                "──enrich-bhl set but no API key provided. "
-                "Set BHL_API_KEY env var or pass --bhl-api-key. "
-                "Get a free key at https://www.biodiversitylibrary.org/account/. "
-                "BHL lookups will be skipped."
-            )
+        if args.enrich_bhl:
+            if not _HAS_BHL_DEPS:
+                logger.warning(
+                    "--enrich-bhl set but rapidfuzz/requests are not installed. "
+                    "Run `pip install rapidfuzz requests`. BHL lookups will be "
+                    "silently skipped."
+                )
+            elif not args.bhl_api_key:
+                logger.warning(
+                    "--enrich-bhl set but no API key provided. "
+                    "Set BHL_API_KEY env var or pass --bhl-api-key. "
+                    "Get a free key at https://www.biodiversitylibrary.org/account/. "
+                    "BHL lookups will be skipped."
+                )
+            else:
+                logger.info(
+                    "BHL enrichment enabled (max_year=%d, key set)",
+                    args.bhl_max_year,
+                )
         n_citations, n_new = phase2_references(
             conn, args.output_dir, enrich_bhl=args.enrich_bhl,
             bhl_api_key=args.bhl_api_key,
