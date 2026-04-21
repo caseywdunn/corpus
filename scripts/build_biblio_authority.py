@@ -21,7 +21,7 @@ existing database without duplicating existing records.
 
 Usage:
     python scripts/build_biblio_authority.py /path/to/output
-    python scripts/build_biblio_authority.py /path/to/output --enrich-bhl
+    python scripts/build_biblio_authority.py /path/to/output --enrich-bhl --bhl-api-key YOUR_KEY
     python scripts/build_biblio_authority.py /path/to/output --rebuild
 """
 
@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import signal
 import sqlite3
@@ -38,6 +39,13 @@ import time
 import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+try:
+    import requests
+    from rapidfuzz import fuzz
+    _HAS_BHL_DEPS = True
+except ImportError:
+    _HAS_BHL_DEPS = False
 
 logger = logging.getLogger("build_biblio")
 
@@ -224,6 +232,15 @@ def create_schema(conn: sqlite3.Connection) -> None:
             PRIMARY KEY (aphia_id, work_id, link_type)
         );
 
+        CREATE TABLE IF NOT EXISTS bhl_lookups (
+            work_id      TEXT NOT NULL,
+            query        TEXT NOT NULL,
+            status       TEXT NOT NULL,
+            error_msg    TEXT,
+            attempted_at REAL NOT NULL,
+            PRIMARY KEY (work_id)
+        );
+
         CREATE TABLE IF NOT EXISTS build_meta (
             key   TEXT PRIMARY KEY,
             value TEXT
@@ -327,9 +344,7 @@ def fuzzy_match(conn: sqlite3.Connection, surname: str, year: Optional[int],
 
     Returns (work_id, score) or None.
     """
-    try:
-        from rapidfuzz import fuzz
-    except ImportError:
+    if not _HAS_BHL_DEPS:
         return None
 
     if not surname or not title:
@@ -479,7 +494,9 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
 # ── Phase 2: Ingest references + citation graph ─────────────────────
 
 def _resolve_reference(conn: sqlite3.Connection, ref: dict,
-                       enrich_bhl: bool = False) -> Tuple[str, str, float]:
+                       enrich_bhl: bool = False,
+                       bhl_api_key: str = "",
+                       bhl_max_year: Optional[int] = None) -> Tuple[str, str, float]:
     """Resolve a single reference dict to a work_id.
 
     Returns (work_id, match_method, match_score).
@@ -528,32 +545,59 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
 
     # ── Cascade step 3: BHL lookup (optional) ──────────────────────
     if enrich_bhl and first_surname and title:
-        bhl_result = _bhl_lookup(first_surname, year, title)
-        if bhl_result:
-            bhl_work_id, bhl_item_id, bhl_part_id = bhl_result
-            existing = lookup_by_alias(conn, bhl_work_id)
-            if existing:
-                return existing, "bhl_lookup", 0.9
-            work_id = bhl_work_id
-            inserted = insert_work(conn, work_id, "bhl", title, year, journal, doi,
-                                   corpus_hash=None, in_corpus=False,
-                                   source="cited_reference", confidence=0.9)
-            if inserted:
-                authors = []
-                for a in authors_raw:
-                    sn = extract_surname_from_ref_author(a)
-                    fn = extract_forename_from_ref_author(a)
-                    if sn:
-                        authors.append((sn, fn))
-                insert_authors(conn, work_id, authors)
+        # Compute candidate work_id for resume checking
+        candidate_id = make_corpus_guid(first_surname, year, title or raw)
+        prev = conn.execute(
+            "SELECT status FROM bhl_lookups WHERE work_id = ?", (candidate_id,)
+        ).fetchone()
+        if prev:
+            prev_status = prev[0]
+            if prev_status == "found":
+                pass  # fall through — alias lookup below will catch it
+            elif prev_status == "not_found":
+                pass  # skip BHL, fall through to fuzzy match
+            elif prev_status == "error":
+                prev = None  # retry errors
+
+        if not prev:
+            bhl_status, bhl_match, bhl_error = _bhl_lookup(
+                first_surname, year, title, api_key=bhl_api_key,
+                max_year=bhl_max_year,
+            )
+            if bhl_status != "skipped":
+                now = time.time()
+                query_str = f"{first_surname} {year} {title[:60]}"
                 conn.execute(
-                    "UPDATE works SET bhl_item_id = ?, bhl_part_id = ? WHERE work_id = ?",
-                    (bhl_item_id, bhl_part_id, work_id),
+                    """INSERT OR REPLACE INTO bhl_lookups
+                       (work_id, query, status, error_msg, attempted_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (candidate_id, query_str, bhl_status, bhl_error, now),
                 )
-            if first_surname:
-                alias = make_alias_key(first_surname, year, title)
-                insert_alias(conn, alias, work_id)
-            return work_id, "bhl_lookup", 0.9
+            if bhl_status == "found":
+                bhl_work_id, bhl_item_id, bhl_part_id = bhl_match
+                existing = lookup_by_alias(conn, bhl_work_id)
+                if existing:
+                    return existing, "bhl_lookup", 0.9
+                work_id = bhl_work_id
+                inserted = insert_work(conn, work_id, "bhl", title, year, journal, doi,
+                                       corpus_hash=None, in_corpus=False,
+                                       source="cited_reference", confidence=0.9)
+                if inserted:
+                    authors = []
+                    for a in authors_raw:
+                        sn = extract_surname_from_ref_author(a)
+                        fn = extract_forename_from_ref_author(a)
+                        if sn:
+                            authors.append((sn, fn))
+                    insert_authors(conn, work_id, authors)
+                    conn.execute(
+                        "UPDATE works SET bhl_item_id = ?, bhl_part_id = ? WHERE work_id = ?",
+                        (bhl_item_id, bhl_part_id, work_id),
+                    )
+                if first_surname:
+                    alias = make_alias_key(first_surname, year, title)
+                    insert_alias(conn, alias, work_id)
+                return work_id, "bhl_lookup", 0.9
 
     # ── Cascade step 4: Fuzzy title match ──────────────────────────
     if first_surname and title:
@@ -598,52 +642,64 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     return work_id, "new", 1.0
 
 
-def _bhl_lookup(surname: str, year: Optional[int],
-                title: str) -> Optional[Tuple[str, str, str]]:
-    """Query BHL API for a matching publication.
+# In-memory memoization of BHL search results for the current build run.
+# Key is the query string; value is (results, error). Siphonophore lit
+# is author-heavy (Haeckel 1888, Totton 1954, Lesson 1843) and the same
+# (author, year) appears across many cited references with slightly
+# different title formatting — without this, stage 2 does the same
+# broad query dozens of times.
+_BHL_QUERY_CACHE: Dict[str, Tuple[Optional[list], Optional[str]]] = {}
+
+
+def _bhl_search(query: str, api_key: str) -> Tuple[Optional[list], Optional[str]]:
+    """Call BHL PublicationSearch API. Returns (results_list, error_string)."""
+    cached = _BHL_QUERY_CACHE.get(query)
+    if cached is not None:
+        return cached
+    try:
+        for attempt in range(3):
+            if attempt > 0:
+                time.sleep(2)  # back off on retry
+            else:
+                time.sleep(1)  # BHL API rate limit
+            r = requests.get(
+                "https://www.biodiversitylibrary.org/api3",
+                params={
+                    "op": "PublicationSearch",
+                    "searchterm": query,
+                    "searchtype": "C",
+                    "page": 1,
+                    "apikey": api_key,
+                    "format": "json",
+                },
+                timeout=15,
+            )
+            if r.status_code == 500 and attempt < 2:
+                time.sleep(2)
+                continue
+            r.raise_for_status()
+            break
+        result = (r.json().get("Result", []), None)
+    except Exception as e:
+        result = (None, str(e))
+    _BHL_QUERY_CACHE[query] = result
+    return result
+
+
+def _bhl_match_results(results: list, title: str,
+                       n_candidates: int = 10,
+                       threshold: int = 75) -> Optional[Tuple[str, str, str]]:
+    """Score BHL results against a reference title.
 
     Returns (work_id, bhl_item_id, bhl_part_id) or None.
     """
-    try:
-        import requests
-        from rapidfuzz import fuzz
-    except ImportError:
-        return None
-
-    if not year:
-        return None
-
-    query = f"{surname} {year} {title[:60]}"
-    try:
-        r = requests.get(
-            "https://www.biodiversitylibrary.org/api3",
-            params={
-                "op": "PublicationSearch",
-                "searchterm": query,
-                "searchtype": "C",
-                "page": 1,
-                "apikey": "",  # BHL allows limited unauthenticated access
-                "format": "json",
-            },
-            timeout=15,
-        )
-        r.raise_for_status()
-        data = r.json()
-    except Exception as e:
-        logger.debug("BHL lookup failed for '%s': %s", query, e)
-        return None
-
-    results = data.get("Result", [])
     if not results:
         return None
-
     norm_title = normalize_for_key(title)
-    for item in results[:5]:
+    for item in results[:n_candidates]:
         bhl_title = item.get("Title", "")
         score = fuzz.token_set_ratio(norm_title, normalize_for_key(bhl_title))
-        if score >= 75:
-            item_id = str(item.get("BHLType", "")) + "/" + str(item.get("ExternalResourceID", ""))
-            # Prefer PartID if available
+        if score >= threshold:
             part_id = str(item.get("PartID", "")) if item.get("PartID") else None
             bhl_item_id_val = str(item.get("ItemID", "")) if item.get("ItemID") else None
             if part_id:
@@ -653,12 +709,73 @@ def _bhl_lookup(surname: str, year: Optional[int],
             else:
                 continue
             return work_id, bhl_item_id_val or "", part_id or ""
-
     return None
 
 
+def _bhl_lookup(surname: str, year: Optional[int],
+                title: str,
+                api_key: str = "",
+                max_year: Optional[int] = None) -> Tuple[str, Optional[Tuple[str, str, str]], Optional[str]]:
+    """Query BHL API for a matching publication.
+
+    Two-stage search: first a narrow query (author + year + title prefix),
+    then a broad fallback (author + year only) with more candidates checked.
+
+    ``max_year`` skips refs newer than BHL's useful coverage window —
+    modern papers without a parsed DOI almost never match BHL (its
+    strength is pre-1960 natural history) and just burn rate-limited
+    calls.
+
+    Returns (status, match, error_msg):
+      - ("found",     (work_id, bhl_item_id, bhl_part_id), None)
+      - ("not_found", None, None)
+      - ("error",     None, error_string)
+      - ("skipped",   None, reason)  — missing prereqs (no year/key/deps)
+    """
+    if not _HAS_BHL_DEPS:
+        return ("skipped", None, "rapidfuzz or requests not installed")
+
+    if not year:
+        return ("skipped", None, "no year")
+
+    if max_year is not None and year > max_year:
+        return ("skipped", None, f"year {year} > max_year {max_year}")
+
+    if not api_key:
+        return ("skipped", None, "no API key")
+
+    # Strip chars that cause BHL API 500 errors
+    clean_title = re.sub(r'[(){}\[\]"\']', '', title)
+
+    # ── Stage 1: narrow query (author + year + title prefix) ──────
+    narrow_query = f"{surname} {year} {clean_title[:60]}"
+    results, error = _bhl_search(narrow_query, api_key)
+    if error:
+        logger.warning("BHL lookup failed for '%s': %s", narrow_query, error)
+        return ("error", None, error)
+
+    match = _bhl_match_results(results, title, n_candidates=10)
+    if match:
+        return ("found", match, None)
+
+    # ── Stage 2: broad query (author + year only) ─────────────────
+    broad_query = f"{surname} {year}"
+    results, error = _bhl_search(broad_query, api_key)
+    if error:
+        logger.warning("BHL broad lookup failed for '%s': %s", broad_query, error)
+        return ("error", None, error)
+
+    match = _bhl_match_results(results, title, n_candidates=20)
+    if match:
+        return ("found", match, None)
+
+    return ("not_found", None, None)
+
+
 def phase2_references(conn: sqlite3.Connection, output_dir: Path,
-                      enrich_bhl: bool = False) -> Tuple[int, int]:
+                      enrich_bhl: bool = False,
+                      bhl_api_key: str = "",
+                      bhl_max_year: Optional[int] = None) -> Tuple[int, int]:
     """Walk references.json files and build citation graph.
 
     Returns (n_citations, n_new_works).
@@ -666,6 +783,9 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
     docs_dir = output_dir / "documents"
     n_citations = 0
     n_new_works = 0
+    n_bhl_found = 0
+    n_bhl_not_found = 0
+    n_bhl_error = 0
     n_papers = 0
     batch = 0
 
@@ -696,6 +816,8 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         for ref in refs:
             cited_work_id, match_method, match_score = _resolve_reference(
                 conn, ref, enrich_bhl=enrich_bhl,
+                bhl_api_key=bhl_api_key,
+                bhl_max_year=bhl_max_year,
             )
             if match_method == "new":
                 n_new_works += 1
@@ -712,7 +834,7 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
 
         n_papers += 1
         batch += 1
-        if batch >= 50:
+        if batch >= 10:
             conn.commit()
             batch = 0
             logger.info("Phase 2 progress: %d papers, %d citations, %d new works",
@@ -868,7 +990,17 @@ def main() -> int:
     )
     parser.add_argument(
         "--enrich-bhl", action="store_true",
-        help="Query BHL API for references without DOI (requires network)",
+        help="Query BHL API for references without DOI (requires network + API key)",
+    )
+    parser.add_argument(
+        "--bhl-api-key", type=str,
+        default=os.environ.get("BHL_API_KEY", ""),
+        help="BHL API key (or set BHL_API_KEY env var). Free at biodiversitylibrary.org/account",
+    )
+    parser.add_argument(
+        "--bhl-max-year", type=int, default=1960,
+        help="Skip BHL lookups for refs newer than this (BHL coverage is mostly "
+             "pre-1960; modern refs without a DOI rarely match). Default: 1960.",
     )
     parser.add_argument(
         "--rebuild", action="store_true",
@@ -897,6 +1029,7 @@ def main() -> int:
         if args.rebuild:
             logger.info("Rebuilding: dropping all tables")
             conn.executescript("""
+                DROP TABLE IF EXISTS bhl_lookups;
                 DROP TABLE IF EXISTS worms_work_links;
                 DROP TABLE IF EXISTS citations;
                 DROP TABLE IF EXISTS work_aliases;
@@ -924,8 +1057,17 @@ def main() -> int:
 
         # Phase 2
         logger.info("═══ Phase 2: Ingesting references + citation graph ═══")
+        if args.enrich_bhl and not args.bhl_api_key:
+            logger.warning(
+                "──enrich-bhl set but no API key provided. "
+                "Set BHL_API_KEY env var or pass --bhl-api-key. "
+                "Get a free key at https://www.biodiversitylibrary.org/account/. "
+                "BHL lookups will be skipped."
+            )
         n_citations, n_new = phase2_references(
             conn, args.output_dir, enrich_bhl=args.enrich_bhl,
+            bhl_api_key=args.bhl_api_key,
+            bhl_max_year=args.bhl_max_year,
         )
 
         # Phase 3
@@ -960,6 +1102,12 @@ def main() -> int:
         logger.info("  WoRMS links:  %d", stats["worms_work_links"])
         logger.info("  GUID types:   %s", guid_dist)
         logger.info("  Match methods: %s", match_dist)
+        cur = conn.execute(
+            "SELECT status, COUNT(*) FROM bhl_lookups GROUP BY status ORDER BY COUNT(*) DESC"
+        )
+        bhl_dist = list(cur)
+        if bhl_dist:
+            logger.info("  BHL lookups:  %s", bhl_dist)
 
         conn.execute(
             "INSERT OR REPLACE INTO build_meta (key, value) VALUES (?, ?)",
