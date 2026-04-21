@@ -6,10 +6,13 @@ output*/
 scratch/
 demo_*/
 logs/
+tmp/
 
 # Regenerable SQLite snapshots
 resources/worms*.sqlite
 resources/biblio_authority.sqlite
+resources/taxon_mentions.sqlite
+resources/.nfs*
 
 
 
