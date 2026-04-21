@@ -593,11 +593,27 @@ Three-tier, deliberately boring:
 1. **S3 bucket — `s3://siphonophore-corpus/`** — source of truth, versioned. Each release lives at `s3://siphonophore-corpus/v1.0.0/` and is immutable. Bouchet pushes via `aws s3 sync serve_bundle/ s3://…/v1.0.0/`. Lifecycle rule moves unused versions to Glacier after 90 days.
    - Public-read on the parquet/SQLite/LanceDB files lets non-MCP collaborators query directly with DuckDB / pandas — zero infra cost on our end.
 2. **MCP server on EC2 — `t3.small` + 10 GB gp3 EBS** — single instance (~$15/mo + $1/mo storage), pulls the bundle from S3 on deploy, runs the MCP server as a systemd service over SSE/HTTP transport. Faster than Fargate (no cold starts, persistent LanceDB in memory). One CloudWatch dashboard, structured JSON logs to S3.
-3. **Edge — CloudFront → ALB → EC2**, HTTPS, API key in `X-Corpus-Key` header for collaborator auth. Generated keys are documented per-collaborator in a private spreadsheet; no Cognito, no OAuth dance for an academic tool. Rate-limit at CloudFront if needed.
+3. **Edge — CloudFront → ALB → EC2**, HTTPS, bearer-token auth (see *Authentication & access control* below). Rate-limit at CloudFront / WAF.
 
 **Updates** = re-run pipeline on Bouchet → distill → `aws s3 sync` to a new version → SSH to EC2 and `systemctl reload corpus-mcp` (which pulls the new version from S3). Old versions stay in S3 for reproducibility.
 
 **Total ongoing cost**: ~$20/mo. Grows slowly with collaborator volume since reads are cheap.
+
+### Authentication & access control
+
+Target audience is ~20 trusted collaborators. The threat model is runaway bills and random traffic, not data protection — the corpus is read-only and the content is already-published literature.
+
+**Shared bearer token first.** A Starlette/FastAPI middleware in `mcp_server.py` checks `Authorization: Bearer <TOKEN>` against a single secret (SSM Parameter Store on EC2, or `/etc/corpus/token` mode 600 as a fallback). Missing or wrong header → 401. Distribute the token over Slack / 1Password; collaborators paste `"headers": {"Authorization": "Bearer xxx"}` into their `.mcp.json` alongside the server URL. Rotation = generate new secret, update SSM, resend. Afternoon of work, all of it one-time.
+
+**Per-user tokens when revocation becomes a real need.** Replace the single-secret check with a `tokens.json` lookup (hashed token → user, issued-at, last-used). Add a small CLI — `corpus-admin {issue,revoke}-token <email>`. ~20 lines of change, still no AWS services.
+
+**API Gateway + usage plans only when quotas or per-key analytics matter.** Adds IAM, Terraform, and cold-start worries; not worth the tax for 20 friendly users.
+
+**Defense in depth, independent of auth.**
+
+- AWS Budgets alarm at $50/mo with email notification — the cheapest way to notice a runaway.
+- CloudFront + WAF rate-limit by IP (~100 req/min). Caps a misbehaving client before it hits the EC2.
+- If collaborators are at a stable set of institutions, an EC2 security group whitelisting their CIDRs is a second gate that costs nothing.
 
 ### Three things to design now (before §10 is implemented)
 
@@ -612,7 +628,7 @@ These aren't implementation work — they're constraints that need to flow back 
 - Whether the MCP server eventually gets a thin HTML/web UI on top (Streamlit, Next.js, …). Out of scope until the MCP-only experience has actual users.
 - Multi-region failover, autoscaling, blue/green deploys. Single-instance is fine until it isn't.
 - Whether to mirror the served bundle on a Cloudflare R2 / Backblaze B2 alternative for cost. Defer until S3 egress actually shows up on a bill.
-- Authentication beyond API keys. If we later expose this to a wider audience, evaluate Cognito or sign-in-with-ORCID then, not now.
+- Authentication beyond bearer tokens. If we expose this to a wider audience or need institutional SSO, evaluate Cognito / sign-in-with-ORCID then, not now.
 
 ## 11. Bibliographic authority database
 
