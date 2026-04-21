@@ -1,0 +1,33 @@
+# Pugh 2001 — Review of genus Erenna
+# Plate-heavy, compound figures, stress test for figure extraction
+
+pdf_filename: Pugh2001_Erenna.pdf
+hash: 4fe914163f59
+
+metadata:
+  title: "A review of the genus Erenna Bedot, 1904"
+  year: 2001
+  authors_contain:
+    - surname: Pugh
+
+text:
+  must_contain:
+    - "Erenna"
+    - "nectophore"
+    - "Erenna richardi"
+    - "Erenna laciniata"
+  must_not_contain: []
+  min_length: 40000
+
+figures:
+  min_count: 10
+  expected:
+    - figure_number: 1
+      caption_contains: "Erenna richardi"
+      figure_type: figure
+    - figure_number: 2
+      caption_contains: "nectophore"
+      figure_type: figure
+
+references:
+  min_count: 10

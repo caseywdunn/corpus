@@ -1,0 +1,44 @@
+# Dunn, Pugh & Haddock 2005 — Marrus claudanielis species description
+# Modern, born-digital, English
+
+pdf_filename: Dunn-etal2005_Marrus.pdf
+hash: af043530e5dd
+
+metadata:
+  title: "Marrus claudanielis, a new species of deep-sea physonect siphonophore"
+  year: 2005
+  authors_contain:
+    - surname: Dunn
+    - surname: Pugh
+    - surname: Haddock
+
+text:
+  must_contain:
+    - "Marrus claudanielis"
+    - "nectophore"
+    - "pneumatophore"
+    - "siphosomal stem"
+    - "type specimen"
+    - "Physonectae"
+  must_not_contain: []
+  min_length: 20000
+
+figures:
+  min_count: 5
+  expected:
+    - figure_number: 1
+      caption_contains: "Marrus claudanielis"
+      figure_type: figure
+    - figure_number: 2
+      caption_contains: "bract"
+      figure_type: figure
+
+references:
+  min_count: 10
+  expected:
+    - title_contains: "siphonophores"
+      authors_contain: ["Fewkes"]
+      year: 1880
+    - title_contains: "développement"
+      authors_contain: ["Carré"]
+      year: 1971

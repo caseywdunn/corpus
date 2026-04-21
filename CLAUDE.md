@@ -11,6 +11,7 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 - [README.md](README.md) — installation, usage, MCP server setup, examples
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
+- [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [PLAN.md](PLAN.md) — roadmap and design decisions
 
 ## Quick reference

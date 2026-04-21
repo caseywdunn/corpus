@@ -1,0 +1,31 @@
+# Siebert et al. 2011 — Differential gene expression in Nanomia bijuga
+# Modern, born-digital, English, many figures
+
+pdf_filename: Siebert_etal2011.pdf
+hash: 45d2af65e152
+
+metadata:
+  title: "Differential Gene Expression in the Siphonophore Nanomia bijuga"
+  year: 2011
+  authors_contain:
+    - surname: Siebert
+    - surname: Dunn
+    - surname: Haddock
+
+text:
+  must_contain:
+    - "Nanomia bijuga"
+    - "transcriptome"
+    - "gene expression"
+    - "zooid"
+  must_not_contain: []
+  min_length: 30000
+
+figures:
+  min_count: 5
+  expected:
+    - figure_number: 1
+      caption_contains: "Nanomia bijuga"
+
+references:
+  min_count: 20
