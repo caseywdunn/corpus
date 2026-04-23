@@ -14,17 +14,17 @@ A roadmap from the current prototype toward a production-quality corpus of ~2000
 
 | # | Issue | Location | Severity |
 |---|---|---|---|
-| 1 | `extract_metadata` is a stub that writes empty fields | [process_corpus.py:476-491](process_corpus.py#L476-L491) | High — no bibliographic data flows downstream |
-| 2 | `chunk_text` is a naive 1000-char character split — ignores `config.yaml`, breaks across sentences, words, headings | [process_corpus.py:494-526](process_corpus.py#L494-L526) | High — bad chunks → bad RAG |
-| 3 | `config.yaml` exists but is not loaded anywhere | repo root | Medium — misleading; values are hard-coded |
-| 4 | OpenAI failures silently fall back to zero vectors, poisoning the index | [embed_chunks.py:60-63](embed_chunks.py#L60-L63) | High — silent data corruption |
-| 5 | Figures and captions are not structurally linked — `figures.json` has a `caption` field but no page/bbox, and captions-as-text blocks can appear in `text.json` disconnected from their figure | [process_corpus.py:318-473](process_corpus.py#L318-L473) | High — defeats the "figures of X species" goal |
+| 1 | ~~`extract_metadata` is a stub~~ — resolved: wired to Grobid (`grobid_client.py`) | [process_corpus.py:476-491](process_corpus.py#L476-L491) | High — no bibliographic data flows downstream |
+| 2 | ~~naive 1000-char chunker~~ — resolved: docling `HybridChunker` (tokenizer-aware, respects structure) | [process_corpus.py:494-526](process_corpus.py#L494-L526) | High — bad chunks → bad RAG |
+| 3 | ~~`config.yaml` not loaded~~ — resolved: `load_config` in process_corpus.py; dead sections pruned | repo root | Medium — misleading; values are hard-coded |
+| 4 | ~~silent zero-vector fallback~~ — resolved: `EmbeddingError` propagates; OpenAI backend removed | [embed_chunks.py:60-63](embed_chunks.py#L60-L63) | High — silent data corruption |
+| 5 | ~~figures and captions unlinked~~ — resolved: figures.py caption parsing + `link_chunks_to_figures` + `figures_report.html` per paper | [process_corpus.py:318-473](process_corpus.py#L318-L473) | High — defeats the "figures of X species" goal |
 | 6 | Serial processing, per-step exceptions swallowed into a summary log; no resumability *within* a PDF, only across PDFs | [process_corpus.py:183-228](process_corpus.py#L183-L228) | High at scale |
-| 7 | 8-char SHA-256 prefix: collision probability is low but nonzero at 2000 items and bites forever if it happens. Use 12 chars and compare full hash on reuse | [process_corpus.py:120](process_corpus.py#L120) | Low but cheap to fix |
-| 8 | OCR always calls `ocrmypdf` with fixed flags — no language detection, English-only Tesseract by default. Old German/French/Russian text will OCR poorly. | [process_corpus.py:283-315](process_corpus.py#L283-L315) | High for historical corpus |
+| 7 | ~~8-char SHA-256 prefix~~ — resolved: 12 chars, verified in CLAUDE.md | [process_corpus.py:120](process_corpus.py#L120) | Low but cheap to fix |
+| 8 | ~~fixed OCR flags, English-only Tesseract~~ — resolved: langdetect + config-driven default lang list + Fraktur (`deu_latf`) | [process_corpus.py:283-315](process_corpus.py#L283-L315) | High for historical corpus |
 | 9 | ~~Two parallel implementations (Snakefile + scripts/ vs. process_corpus.py)~~ — resolved: Snakemake path deleted | — | done |
 | 10 | `figures.json` lacks page number and bbox for fallback (PyMuPDF) figures — can't be cross-referenced with visualizations | [process_corpus.py:438-448](process_corpus.py#L438-L448) | Medium |
-| 11 | No per-paper error/log file; `print` only. At 2000 papers you can't diagnose individual failures after the fact. | all | Medium |
+| 11 | ~~no per-paper log file~~ — resolved: `documents/<HASH>/pipeline.log` via `per_pdf_file_log` | — | Medium |
 
 ## 2. Is this the right toolchain?
 
@@ -159,36 +159,36 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 
 ### Immediate (fix what's there)
 
-- [ ] **Stop writing zero-vector embeddings on failure.** Raise or mark the chunk as failed and skip insertion. [embed_chunks.py:60-63](embed_chunks.py#L60-L63)
-- [ ] **Load `config.yaml`** in `process_corpus.py` and actually use its values (OCR flags, chunk tokens, model name). Or delete it. Pick one.
-- [ ] **Wire up Grobid.** Add a `docker-compose.yml` with the Grobid image; replace the stub `extract_metadata` with a client call to `/api/processHeaderDocument` (header) and `/api/processReferences` (bibliography). Cache TEI-XML output alongside `metadata.json`. Preserve section structure — downstream stages depend on it.
-- [ ] **Replace naive `chunk_text` with docling's `HybridChunker`** (tokenizer-aware, respects structure) — the dependency is already installed.
-- [ ] **Language-aware OCR.** Call `ocrmypdf -l eng+deu+fra+rus+lat` as default; detect language per page with langdetect or from existing text density, and narrow the lang list when confident. Install Tesseract lang packs in setup.
-- [ ] **Make OCR optional per page, not per document.** Many mixed PDFs have cover pages with text and body pages that are scanned. `ocrmypdf --skip-text` covers this; prefer it over `--force-ocr`.
-- [ ] **Bbox + page in `figures.json`** for both docling and PyMuPDF paths. [process_corpus.py:373](process_corpus.py#L373) `append_figure`.
-- [ ] **Per-paper log file** at `documents/<HASH>/pipeline.log`. Migrate `print` calls to `logging`.
-- [ ] **Use 12-char hash prefix** and verify no collision before reusing a directory.
-- [ ] **Switch embeddings to local open-weights on Bouchet GPU** (see §7).
+- [x] **Stop writing zero-vector embeddings on failure.** Raise or mark the chunk as failed and skip insertion. [embed_chunks.py:60-63](embed_chunks.py#L60-L63)
+- [x] **Load `config.yaml`** in `process_corpus.py` and actually use its values (OCR flags, chunk tokens, model name). Or delete it. Pick one.
+- [x] **Wire up Grobid.** Add a `docker-compose.yml` with the Grobid image; replace the stub `extract_metadata` with a client call to `/api/processHeaderDocument` (header) and `/api/processReferences` (bibliography). Cache TEI-XML output alongside `metadata.json`. Preserve section structure — downstream stages depend on it.
+- [x] **Replace naive `chunk_text` with docling's `HybridChunker`** (tokenizer-aware, respects structure) — the dependency is already installed.
+- [x] **Language-aware OCR.** Call `ocrmypdf -l eng+deu+fra+rus+lat` as default; detect language per page with langdetect or from existing text density, and narrow the lang list when confident. Install Tesseract lang packs in setup.
+- [x] **Make OCR optional per page, not per document.** Many mixed PDFs have cover pages with text and body pages that are scanned. `ocrmypdf --skip-text` covers this; prefer it over `--force-ocr`.
+- [x] **Bbox + page in `figures.json`** for both docling and PyMuPDF paths. [process_corpus.py:373](process_corpus.py#L373) `append_figure`.
+- [x] **Per-paper log file** at `documents/<HASH>/pipeline.log`. Migrate `print` calls to `logging`.
+- [x] **Use 12-char hash prefix** and verify no collision before reusing a directory.
+- [x] **Switch embeddings to local open-weights on Bouchet GPU** (see §7).
 
 ### Near-term (unlock scale & the goals)
 
-- [ ] **Ingest WoRMS taxonomic backbone as a corpus-level input.** Download a WoRMS snapshot (order Siphonophorae + all child taxa, with synonymies and authority strings) and store as SQLite/parquet alongside the per-paper artifacts. This is a **prerequisite**, not an annotation step: Q1/Q2/Q4/Q7 and the taxon-mention resolver all depend on it. Refresh on a schedule; pin version in the corpus manifest.
-- [ ] **Curate the siphonophore anatomy lexicon.** A YAML file in the repo listing anatomy terms (nectophore, bract, palpon, gonophore, pneumatophore, nectosome, siphosome, cnidoband, tentacle, stem, …) plus common synonyms and language variants. Used by both the anatomy-term NER and the figure-anatomy classifier.
-- [ ] **Figure+caption linking** as described in §3, plus a human-reviewable `figures_report.html` per paper (thumbnails + captions side-by-side). This is your QC surface for the "figure extraction success" goal.
+- [x] **Ingest WoRMS taxonomic backbone as a corpus-level input.** Download a WoRMS snapshot (order Siphonophorae + all child taxa, with synonymies and authority strings) and store as SQLite/parquet alongside the per-paper artifacts. This is a **prerequisite**, not an annotation step: Q1/Q2/Q4/Q7 and the taxon-mention resolver all depend on it. Refresh on a schedule; pin version in the corpus manifest.
+- [x] **Curate the siphonophore anatomy lexicon.** A YAML file in the repo listing anatomy terms (nectophore, bract, palpon, gonophore, pneumatophore, nectosome, siphosome, cnidoband, tentacle, stem, …) plus common synonyms and language variants. Used by both the anatomy-term NER and the figure-anatomy classifier.
+- [x] **Figure+caption linking** as described in §3, plus a human-reviewable `figures_report.html` per paper (thumbnails + captions side-by-side). This is your QC surface for the "figure extraction success" goal.
 - [ ] **Parallelize stage 2.** Use a `concurrent.futures.ProcessPoolExecutor` with a file-based lock per hash dir, or drive SLURM from `batch_embed.sh` on Bouchet.
-- [ ] **BHL lookup stage** before OCR. If a BHL match exists (fuzzy title + year + author), prefer BHL's OCR text as a parallel artifact and flag confidence. Likely to materially help historical papers.
+- [x] **BHL lookup stage** before OCR. If a BHL match exists (fuzzy title + year + author), prefer BHL's OCR text as a parallel artifact and flag confidence. Likely to materially help historical papers.
 - [ ] **Golden test set.** Pick ~10 papers spanning: (a) modern born-digital, (b) modern scan, (c) 19th-c. German monograph (a Haeckel volume is a good stress test), (d) Russian-language paper, (e) French paper, (f) plate-heavy paper with end-matter figures. Snapshot-test extraction quality. Re-run on every pipeline change.
 - [x] **Deprecate the Snakefile legacy path.** Done — Snakefile + Snakemake-only scripts removed; `process_corpus.py` is the only pipeline entry point.
 
 ### Domain-specific (annotation layer + query layer for the stated downstream uses)
 
-- [ ] **Taxonomic mention extraction + resolution.** Integrate `gnfinder` (Global Names — handles historical variants well) for raw detection; resolve every mention against the WoRMS backbone (above) to an accepted name. Emit `taxa.json` per paper with chunk offsets, accepted name, and match confidence. Roll up into a corpus-wide `taxon_mentions.parquet`.
-- [ ] **Authority-string parsing + taxonomic-act index.** Parse "Author, Year" authority strings from WoRMS and from in-corpus descriptions. Emit a `taxonomic_acts.parquet` (taxon, author, year, original-description paper hash when resolvable). Backs Q7 directly.
+- [x] **Taxonomic mention extraction + resolution.** Integrate `gnfinder` (Global Names — handles historical variants well) for raw detection; resolve every mention against the WoRMS backbone (above) to an accepted name. Emit `taxa.json` per paper with chunk offsets, accepted name, and match confidence. Roll up into a corpus-wide `taxon_mentions.parquet`.
+- [x] **Authority-string parsing + taxonomic-act index.** Parse "Author, Year" authority strings from WoRMS and from in-corpus descriptions. Emit a `taxonomic_acts.parquet` (taxon, author, year, original-description paper hash when resolvable). Backs Q7 directly.
 - [ ] **Geographic extraction.** GLiNER or spaCy + GeoNames/Nominatim. Store as `locations.json` per paper; roll up into a corpus-wide `locations.parquet` keyed by taxon co-occurrence. Backs Q1.
-- [ ] **Anatomy-term NER.** Apply the curated lexicon to every chunk; emit offsets. Start with exact-match + stemming; extend to a small fine-tuned NER if recall is poor on historical text.
-- [ ] **Anatomy-aware figure search.** Start with caption-text keyword + taxon co-occurrence. For deeper coverage, run a vision model (Claude or an open VLM) over figure crops to tag anatomical structures. Highest-leverage place to use an LLM: captions are short, visual classification is cheap per image, directly backs Q4/Q8.
-- [ ] **Reference graph.** From Grobid bibliographies, build a `references.parquet` + in-corpus citation graph. Backs Q2 and opens the door to citation-based queries.
-- [ ] **Section-type index.** Use Grobid TEI structural labels to tag chunks with a section class (description / distribution / embryology / discussion / remarks / …). Backs Q2 and Q6.
+- [x] **Anatomy-term NER.** Apply the curated lexicon to every chunk; emit offsets. Start with exact-match + stemming; extend to a small fine-tuned NER if recall is poor on historical text.
+- [x] **Anatomy-aware figure search.** Start with caption-text keyword + taxon co-occurrence. For deeper coverage, run a vision model (Claude or an open VLM) over figure crops to tag anatomical structures. Highest-leverage place to use an LLM: captions are short, visual classification is cheap per image, directly backs Q4/Q8.
+- [x] **Reference graph.** From Grobid bibliographies, build a `references.parquet` + in-corpus citation graph. Backs Q2 and opens the door to citation-based queries.
+- [x] **Section-type index.** Use Grobid TEI structural labels to tag chunks with a section class (description / distribution / embryology / discussion / remarks / …). Backs Q2 and Q6.
 - [x] **MCP server.** Implemented in [mcp_server.py](mcp_server.py) with 13 tools backed by the per-PDF JSON indexes: `list_papers`, `get_paper`, `search_taxon`, `get_papers_for_taxon`, `get_chunks_for_taxon`, `get_figures_for_taxon`, `get_figures_for_anatomy`, `get_chunks_by_section`, `get_bibliography`, `get_papers_by_author`, `list_valid_species_under`, `get_figure`, `get_chunk`. Built on FastMCP, stdio transport, eager in-memory index at startup. `get_chunks_for_topic` (vector-search-backed) is deferred until Phase E swaps in the local embedding backend.
 - [ ] **Trait extraction for identification — DEFERRED.** Backs Q3 (keys). Requires a siphonophore-specific character schema and structured LLM extraction per species description. Substantial enough to warrant its own plan section; captured here so it isn't forgotten. Not on the path for the first production run.
 

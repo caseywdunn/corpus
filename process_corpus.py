@@ -96,10 +96,6 @@ def classify_section(headings: Optional[List[str]]) -> Optional[str]:
 # Defaults used if config.yaml is missing or a key is absent.
 _DEFAULT_CONFIG = {
     "ocr": {
-        "language_detection": True,
-        "redo_ocr": True,
-        "deskew": True,
-        "rotate_pages": True,
         "optimize_level": 2,
         # Used when language detection fails or the doc has a broken
         # text layer. Tesseract combines languages gracefully though
@@ -112,7 +108,6 @@ _DEFAULT_CONFIG = {
     },
     "chunking": {
         "max_tokens": 8191,
-        "merge_peers": True,
     },
     # Cross-paper resources used by the pipeline.
     "resources": {

@@ -4,16 +4,10 @@ python-dotenv
 pydantic
 docling
 lancedb
-streamlit
-tiktoken
 ocrmypdf
 tesseract
 numpy
-pathlib2
-pulp
-coincbc
 pymupdf
-pyqt5
 pyyaml
 matplotlib
 pillow

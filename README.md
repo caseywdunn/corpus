@@ -8,11 +8,11 @@ Once the pipeline has run, the corpus is available through the **MCP server** ([
 
 Representative queries you can drive from a chat:
 
-- *"List every valid* Apolemia *species and flag which have papers in the corpus."*
-- *"Show the bibliography of Dunn 2005 and mark which cited works are also in the corpus."*
-- *"Give me every figure showing nectophore morphology in* Nanomia bijuga *papers."*
+- *"List every valid* Apolemia *species and for each list the papers that discuss them."*
+- *"Show the bibliography of Pugh 1997 and mark which cited works are also in the corpus."*
+- *"Give me every figure showing nectophore morphology in* Nanomia bijuga *."*
 - *"What are the most-cited siphonophore papers that aren't currently in the corpus?"*
-- *"Summarize what the corpus says about pneumatophore structure, with paper hashes."*
+- *"Summarize what the corpus says about pneumatophore structure."*
 
 The full tool surface lives in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md).
 

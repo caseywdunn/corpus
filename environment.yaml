@@ -40,7 +40,6 @@ dependencies:
   - python-dotenv
   - requests
   - rapidfuzz  # fuzzy title matching in biblio-authority builder
-  - tiktoken
   - lxml  # TEI-XML parsing (Grobid output)
 
   # Notebook / interactive dev
