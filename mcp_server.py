@@ -109,6 +109,10 @@ class CorpusIndex:
 
         # Per-paper header, keyed on the 12-char short hash (directory name).
         self.papers: Dict[str, Dict] = {}
+        # Bundle manifest (PLAN.md §10) if this is a served bundle.  None
+        # for build outputs — bundle_info surfaces this distinction so
+        # clients can tell a local dev run from a versioned deploy.
+        self.bundle_manifest: Optional[Dict] = None
         # Reverse indexes — all point to a list of paper hashes.
         self.taxon_to_papers: Dict[int, List[str]] = defaultdict(list)
         self.taxon_mention_counts: Dict[int, Dict[str, int]] = defaultdict(dict)
@@ -169,6 +173,19 @@ class CorpusIndex:
             raise FileNotFoundError(
                 f"documents/ not found under {self.output_dir}. "
                 f"Point the server at a processed corpus output directory."
+            )
+
+        # PLAN.md §10: served bundles ship a bundle_manifest.json at the
+        # root of the output dir.  Build outputs don't.  Read on startup
+        # so bundle_info can report it without re-opening files.
+        self.bundle_manifest = _load_json(
+            self.output_dir / "bundle_manifest.json", default=None
+        )
+        if self.bundle_manifest:
+            logger.info(
+                "Bundle manifest loaded: %s (created %s)",
+                self.bundle_manifest.get("bundle_version", "?"),
+                self.bundle_manifest.get("created_at", "?"),
             )
 
         count = 0
@@ -417,6 +434,32 @@ def _need_index() -> CorpusIndex:
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def bundle_info() -> Dict:
+    """Return metadata about the served bundle the server is backed by.
+
+    For bundles produced by ``package_for_serve.py`` this reports the
+    version string, creation timestamp, pipeline git SHA, embedding
+    model + dim, paper / chunk / figure counts, and whether PDFs were
+    included.  Clients can call this on startup to detect stale
+    endpoints ("I queried against v1.0.0 but the server now reports
+    v1.1.0") and to cite a corpus version in downstream work.
+
+    For local build outputs (no ``bundle_manifest.json`` at the root),
+    returns ``{"bundle_version": null}`` — the server still works but
+    there is no stable identifier for what it's serving.
+    """
+    idx = _need_index()
+    if idx.bundle_manifest is None:
+        return {
+            "bundle_version": None,
+            "note": "no bundle_manifest.json — this server is backed "
+                    "by a local build output, not a versioned served "
+                    "bundle.  run package_for_serve.py to produce one.",
+        }
+    return dict(idx.bundle_manifest)
 
 
 @mcp.tool()
