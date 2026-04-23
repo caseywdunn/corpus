@@ -49,6 +49,8 @@ load_dotenv()  # Ensure ANTHROPIC_API_KEY etc. are visible to the stdio subproce
 
 from mcp.server.fastmcp import FastMCP
 
+import hmac
+import os
 import sqlite3
 
 from taxa import WormsDB
@@ -1602,6 +1604,102 @@ def get_chunk(paper_hash: str, chunk_id: str) -> Dict:
 
 
 # ---------------------------------------------------------------------------
+# HTTP transport + bearer-token auth (PLAN.md §10)
+# ---------------------------------------------------------------------------
+
+
+class _BearerAuthASGI:
+    """ASGI middleware: 401 unless ``Authorization: Bearer <token>`` matches.
+
+    Wraps any ASGI app (FastMCP's ``sse_app()``) at construction time —
+    avoids the post-init middleware caveats on finalized Starlette apps.
+    Lifespan and websocket scopes pass through unauthenticated; only
+    ``http`` requests are gated.
+
+    ``hmac.compare_digest`` makes the comparison constant-time.  For a
+    shared-secret setup with ~20 trusted collaborators this is cheap
+    insurance against timing attacks.
+    """
+
+    def __init__(self, app, token: str):
+        self.app = app
+        self._token_bytes = token.encode("utf-8")
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        raw = dict(scope.get("headers", [])).get(b"authorization", b"")
+        auth = raw.decode("latin-1", errors="replace")
+        if not auth.startswith("Bearer "):
+            await _send_401(send, "missing bearer token")
+            return
+        offered = auth[7:].encode("utf-8")
+        if not hmac.compare_digest(offered, self._token_bytes):
+            await _send_401(send, "invalid bearer token")
+            return
+        await self.app(scope, receive, send)
+
+
+async def _send_401(send, reason: str) -> None:
+    body = f"Unauthorized: {reason}\n".encode("utf-8")
+    await send({
+        "type": "http.response.start",
+        "status": 401,
+        "headers": [
+            (b"content-type", b"text/plain; charset=utf-8"),
+            (b"www-authenticate", b'Bearer realm="corpus-mcp"'),
+        ],
+    })
+    await send({"type": "http.response.body", "body": body})
+
+
+def _load_auth_token(cli_token_file: Optional[Path]) -> Optional[str]:
+    """Resolve the bearer-auth token.
+
+    Search order:
+      1. ``--auth-token-file <path>`` — read, strip.
+      2. ``CORPUS_MCP_TOKEN`` env var.
+      3. None (server runs open; main() logs a big warning).
+
+    ``--auth-token`` is deliberately *not* a CLI flag — secrets on the
+    command line leak via ``ps``/proc/<pid>/cmdline.
+    """
+    if cli_token_file is not None:
+        return cli_token_file.read_text().strip()
+    env = os.environ.get("CORPUS_MCP_TOKEN", "").strip()
+    return env or None
+
+
+def _run_sse(host: str, port: int, token: Optional[str]) -> None:
+    """Serve the FastMCP app over SSE on ``host:port``, optionally
+    with bearer-token auth.  Requires uvicorn (pulled in transitively
+    by the ``mcp`` package for its HTTP transports)."""
+    try:
+        import uvicorn
+    except ImportError as e:
+        raise RuntimeError(
+            "uvicorn is required for --transport sse. "
+            "It should come in via `pip install mcp`; if you're seeing "
+            "this, your mcp install may be incomplete."
+        ) from e
+
+    app = mcp.sse_app()
+    if token:
+        app = _BearerAuthASGI(app, token)
+        logger.info("Bearer-token auth enabled")
+    else:
+        logger.warning(
+            "*** Running WITHOUT auth: anyone who can reach %s:%d can call "
+            "every MCP tool. Set CORPUS_MCP_TOKEN or --auth-token-file "
+            "before exposing this beyond localhost. ***",
+            host, port,
+        )
+    logger.info("Serving SSE on http://%s:%d", host, port)
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -1639,6 +1737,29 @@ def main() -> int:
         help="Override the default HuggingFace embedding model id "
              "(default: BAAI/bge-m3). Must emit vectors of the same "
              "dim as the LanceDB index.",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse"],
+        default="stdio",
+        help="MCP transport. stdio (default) is for local MCP clients "
+             "that launch this process themselves (Claude Desktop, Claude "
+             "Code, Cursor). sse serves over HTTP/Server-Sent-Events for "
+             "remote deployments (PLAN.md §10).",
+    )
+    parser.add_argument(
+        "--host", default="127.0.0.1",
+        help="Interface to bind when --transport sse (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port", type=int, default=8080,
+        help="Port to bind when --transport sse (default: 8080)",
+    )
+    parser.add_argument(
+        "--auth-token-file", type=Path, default=None,
+        help="Path to a file whose contents are the bearer-auth token. "
+             "Alternative: set CORPUS_MCP_TOKEN. CLI-literal tokens are "
+             "deliberately not supported — they leak via `ps`.",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -1722,7 +1843,13 @@ def main() -> int:
     n = _INDEX.load()
     logger.info("Serving corpus: %s (%d papers)", args.output_dir, n)
 
-    mcp.run()  # default transport is stdio
+    if args.transport == "stdio":
+        mcp.run()
+    elif args.transport == "sse":
+        token = _load_auth_token(args.auth_token_file)
+        _run_sse(args.host, args.port, token)
+    else:  # argparse's choices= should prevent this
+        raise ValueError(f"unknown transport: {args.transport!r}")
     return 0
 
 

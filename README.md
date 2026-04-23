@@ -77,7 +77,19 @@ python build_taxon_mentions.py output
 }
 ```
 
-**Shared access** — the server uses stdio transport, so exposing it to others means fronting it with a small HTTP bridge and deploying to a cloud VM. An AWS deployment pattern (EC2 + nginx + auth) is on the roadmap; see [PLAN.md §10](PLAN.md) for the auth/access control plan.
+**Shared access** — the same `mcp_server.py` speaks SSE over HTTP for remote clients. Expose with:
+
+```bash
+# Bearer token must come from a file or CORPUS_MCP_TOKEN env var —
+# CLI-literal tokens leak via `ps`.
+echo "your-shared-secret" > /run/corpus/mcp.token
+chmod 600 /run/corpus/mcp.token
+python mcp_server.py /path/to/output \
+    --transport sse --host 127.0.0.1 --port 8080 \
+    --auth-token-file /run/corpus/mcp.token
+```
+
+Clients send `Authorization: Bearer <token>` on every request. Without `--auth-token-file` or `CORPUS_MCP_TOKEN` the server runs open and logs a loud warning — fine for localhost experiments, never safe for public-facing deploys. The AWS pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is spelled out in [PLAN.md §10](PLAN.md).
 
 ## Installation
 
