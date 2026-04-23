@@ -16,6 +16,10 @@ Three phases:
   2. Ingest cited references + build citation graph (references.json)
   3. Link WoRMS authorities to works
 
+After a build completes, ``scripts/reconcile_corpus_to_biblio.py`` can
+be run to merge corpus papers whose Grobid-seeded work_id received no
+incoming citations onto matching ghost cited-reference rows.
+
 Idempotent and resumable: re-running merges new papers into the
 existing database without duplicating existing records.
 
@@ -338,53 +342,80 @@ def lookup_by_alias(conn: sqlite3.Connection, alias_key: str) -> Optional[str]:
     return row[0] if row else None
 
 
-def fuzzy_match(conn: sqlite3.Connection, surname: str, year: Optional[int],
-                title: str) -> Optional[Tuple[str, float]]:
-    """Find a matching work by author surname + year, ranked by title similarity.
-
-    Returns (work_id, score) or None.
+def _first_author_candidates(conn: sqlite3.Connection, surname: str,
+                             year: Optional[int]) -> List[Tuple[str, str]]:
+    """Return [(work_id, title), ...] whose first author matches surname
+    (and year, if given). First-author-only so multi-author ghosts don't
+    get resurrected via a later-position surname collision.
     """
-    if not _HAS_BHL_DEPS:
-        return None
-
-    if not surname or not title:
-        return None
-
     norm_surname = normalize_for_key(surname)
-    # Find candidate work_ids by author surname + year
     if year:
         cur = conn.execute(
             """SELECT DISTINCT wa.work_id, w.title
                FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-               WHERE wa.surname_normalized = ? AND w.year = ?""",
+               WHERE wa.surname_normalized = ? AND w.year = ? AND wa.position = 0""",
             (norm_surname, year),
         )
     else:
         cur = conn.execute(
             """SELECT DISTINCT wa.work_id, w.title
                FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-               WHERE wa.surname_normalized = ?""",
+               WHERE wa.surname_normalized = ? AND wa.position = 0""",
             (norm_surname,),
         )
-    candidates = cur.fetchall()
+    return [(r[0], r[1] or "") for r in cur.fetchall()]
+
+
+def fuzzy_match(conn: sqlite3.Connection, surname: str, year: Optional[int],
+                title: str) -> Optional[Tuple[str, float]]:
+    """Find a matching work by author surname + year, ranked by title similarity.
+
+    Returns (work_id, score) or None. Thin wrapper around
+    ``fuzzy_match_with_score`` that applies the same confidence
+    thresholds as the resolution cascade.
+    """
+    result = fuzzy_match_with_score(conn, surname, year, title)
+    if result is None:
+        return None
+    work_id, set_score, ratio_score = result
+    if set_score >= 85 and ratio_score >= 60:
+        return work_id, set_score / 100.0
+    return None
+
+
+def fuzzy_match_with_score(conn: sqlite3.Connection, surname: str,
+                           year: Optional[int],
+                           title: str) -> Optional[Tuple[str, int, int]]:
+    """Return the best (work_id, token_set_ratio, ratio) candidate, or None.
+
+    Two scores are needed because ``token_set_ratio`` alone misrouted
+    references in the live corpus (issue #2). It scores the Totton 1965
+    *Lensia* paper title vs *A synopsis of the Siphonophora* at 82 —
+    above the old 80 cutoff — because "a of the siphonophora" is a
+    shared substring. Levenshtein ``ratio`` scores the same pair at 43,
+    which is a truer signal of dissimilarity. The cascade uses both.
+
+    Ranked by ``token_set_ratio`` (primary), breaking ties by ``ratio``
+    to prefer candidates that also match by straight Levenshtein.
+    """
+    if not _HAS_BHL_DEPS:
+        return None
+    if not surname or not title:
+        return None
+    candidates = _first_author_candidates(conn, surname, year)
     if not candidates:
         return None
-
     norm_title = normalize_for_key(title)
-    best_id = None
-    best_score = 0.0
+    best = None
     for cand_id, cand_title in candidates:
         if not cand_title:
             continue
-        score = fuzz.token_set_ratio(norm_title, normalize_for_key(cand_title))
-        if score > best_score:
-            best_score = score
-            best_id = cand_id
-    if best_score >= 80:
-        return best_id, best_score / 100.0
-    if best_score >= 60:
-        return best_id, best_score / 100.0 * 0.8  # lower confidence
-    return None
+        norm_cand = normalize_for_key(cand_title)
+        set_s = int(fuzz.token_set_ratio(norm_title, norm_cand))
+        ratio_s = int(fuzz.ratio(norm_title, norm_cand))
+        if best is None or (set_s, ratio_s) > (best[1], best[2]):
+            best = (cand_id, set_s, ratio_s)
+    return best
 
 
 def author_year_match(conn: sqlite3.Connection, surname: str,
@@ -392,16 +423,9 @@ def author_year_match(conn: sqlite3.Connection, surname: str,
     """Last-resort match: author surname + year only, if exactly one candidate."""
     if not surname or not year:
         return None
-    norm_surname = normalize_for_key(surname)
-    cur = conn.execute(
-        """SELECT DISTINCT wa.work_id
-           FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-           WHERE wa.surname_normalized = ? AND w.year = ? AND wa.position = 0""",
-        (norm_surname, year),
-    )
-    rows = cur.fetchall()
-    if len(rows) == 1:
-        return rows[0][0]
+    candidates = _first_author_candidates(conn, surname, year)
+    if len(candidates) == 1:
+        return candidates[0][0]
     return None
 
 
@@ -599,24 +623,36 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
                     insert_alias(conn, alias, work_id)
                 return work_id, "bhl_lookup", 0.9
 
-    # ── Cascade step 4: Fuzzy title match ──────────────────────────
+    # ── Cascade step 4 & 5: Fuzzy title / author+year fallback ─────
+    # When the ref has a title, fuzzy-match it against the candidate
+    # set using two metrics (see ``fuzzy_match_with_score`` for why).
+    # Low scores mean the candidates are different works — do NOT
+    # fall through to author_year_match and do NOT cache via alias.
+    # (Single-metric fallthrough + unconditional alias caching is
+    # what misrouted 15 corpus citations of Totton 1965's Lensia
+    # paper onto the Synopsis row — see issue #2.)
     if first_surname and title:
-        result = fuzzy_match(conn, first_surname, year, title)
-        if result:
-            matched_id, score = result
-            # Register this alias form for future exact matches
-            alias = make_alias_key(first_surname, year, title)
-            insert_alias(conn, alias, matched_id)
-            method = "title_fuzzy"
-            return matched_id, method, score
-
-    # ── Cascade step 5: Author+year only ───────────────────────────
-    if first_surname and year:
-        matched_id = author_year_match(conn, first_surname, year)
-        if matched_id:
-            if title:
+        fuzzy_result = fuzzy_match_with_score(conn, first_surname, year, title)
+        if fuzzy_result is not None:
+            matched_id, set_score, ratio_score = fuzzy_result
+            if set_score >= 85 and ratio_score >= 60:
+                # Confident match. Cache so follow-up refs with the
+                # same title resolve via alias_exact. Lower-scoring
+                # candidates are treated as different works — better
+                # a new ghost we can merge later via reconciliation
+                # than a misroute that amplifies via the alias cache.
                 alias = make_alias_key(first_surname, year, title)
                 insert_alias(conn, alias, matched_id)
+                return matched_id, "title_fuzzy", set_score / 100.0
+            # Below threshold: fall through to new-work creation.
+
+    # author_year fallback is safe only when we have NO title to
+    # evaluate against the candidate. With a title we've already
+    # decided above; without one we're truly blind and accept a
+    # unique candidate. Never cache an alias on this path.
+    if first_surname and year and not title:
+        matched_id = author_year_match(conn, first_surname, year)
+        if matched_id:
             return matched_id, "author_year_only", 0.6
 
     # ── No match — create new work ─────────────────────────────────
@@ -1027,9 +1063,13 @@ def main() -> int:
 
     try:
         if args.rebuild:
-            logger.info("Rebuilding: dropping all tables")
+            # Preserve bhl_lookups across rebuilds — it's the cache of
+            # rate-limited BHL API calls. Dropping it forces every
+            # lookup to be re-paid the next time ``--enrich-bhl`` is
+            # used, which takes hours and is unrelated to the schema
+            # churn --rebuild is meant to address.
+            logger.info("Rebuilding: dropping all tables except bhl_lookups")
             conn.executescript("""
-                DROP TABLE IF EXISTS bhl_lookups;
                 DROP TABLE IF EXISTS worms_work_links;
                 DROP TABLE IF EXISTS citations;
                 DROP TABLE IF EXISTS work_aliases;
