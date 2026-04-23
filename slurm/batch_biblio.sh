@@ -64,7 +64,7 @@ echo "DB:          $FINAL_DB"
 echo "BHL enrich:  $BHL_ENRICH"
 echo "Rebuild:     $REBUILD"
 
-python scripts/build_biblio_authority.py \
+python build_biblio_authority.py \
     "$OUTPUT_DIR" \
     -o "$FINAL_DB" \
     $REBUILD_FLAG \

@@ -82,7 +82,7 @@ Figure extraction is a multi-pass process designed for historical taxonomic lite
 
 ## Taxonomic annotation
 
-When the WoRMS (World Register of Marine Species) SQLite snapshot is available (`resources/worms_siphonophorae.sqlite`, built by `scripts/ingest_worms.py`), the pipeline annotates chunks with recognized taxon names. The snapshot contains ~787 names under order Siphonophorae including synonyms, enabling synonymy-aware queries (e.g., searching for *Halistemma* also finds papers using the older name *Stephanomia*).
+When the WoRMS (World Register of Marine Species) SQLite snapshot is available (`resources/worms_siphonophorae.sqlite`, built by `ingest_worms.py`), the pipeline annotates chunks with recognized taxon names. The snapshot contains ~787 names under order Siphonophorae including synonyms, enabling synonymy-aware queries (e.g., searching for *Halistemma* also finds papers using the older name *Stephanomia*).
 
 An anatomy lexicon (`resources/anatomy_lexicon.yaml`, 22 terms) similarly tags chunks with siphonophore-specific anatomical terms (nectophore, pneumatophore, gastrozooid, etc.).
 
@@ -100,10 +100,10 @@ Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM 
 | `vision.py` | Vision-LLM backends (local Qwen, Claude API) |
 | `mcp_server.py` | MCP server for LLM-driven corpus queries |
 | `config.yaml` | Configuration (partially wired -- some values still hard-coded in scripts) |
-| `batch_pipeline.sh` | SLURM orchestrator: chains Grobid, Stage 1 array, cleanup, Pass 3b, Embed |
-| `batch_process_corpus.sh` | SLURM Stage 1 batch script (supports job arrays) |
-| `batch_pass3b.sh` | SLURM Pass 3b batch script (GPU) |
-| `batch_embed.sh` | SLURM embedding batch script (GPU) |
-| `bouchet_paths.sh` | Shared path definitions for all batch scripts |
-| `scripts/ingest_worms.py` | Build WoRMS SQLite snapshot from the live API |
+| `slurm/batch_pipeline.sh` | SLURM orchestrator: chains Grobid, Stage 1 array, cleanup, Pass 3b, Embed |
+| `slurm/batch_process_corpus.sh` | SLURM Stage 1 batch script (supports job arrays) |
+| `slurm/batch_pass3b.sh` | SLURM Pass 3b batch script (GPU) |
+| `slurm/batch_embed.sh` | SLURM embedding batch script (GPU) |
+| `slurm/bouchet_paths.sh` | Shared path definitions for all batch scripts |
+| `ingest_worms.py` | Build WoRMS SQLite snapshot from the live API |
 | `resources/anatomy_lexicon.yaml` | Siphonophore anatomy term list |

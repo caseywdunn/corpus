@@ -22,8 +22,8 @@ Three precompiled SQLite databases under `resources/` link entity mentions acros
 
 | Layer | File | Built by | Status |
 | --- | --- | --- | --- |
-| **Taxonomy** — WoRMS snapshot with synonymy | `worms_siphonophorae.sqlite` | `scripts/ingest_worms.py` | operational |
-| **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `scripts/build_biblio_authority.py` + `scripts/reconcile_corpus_to_biblio.py` | operational |
+| **Taxonomy** — WoRMS snapshot with synonymy | `worms_siphonophorae.sqlite` | `ingest_worms.py` | operational |
+| **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `build_biblio_authority.py` + `reconcile_corpus_to_biblio.py` | operational |
 | **Geography** — location mentions with coordinates | `locations.sqlite` (planned) | TBD | [PLAN.md §12](PLAN.md) |
 
 Each is independently rebuildable and does not require re-running OCR or extraction. See [PLAN.md §12](PLAN.md) for the design.
@@ -43,7 +43,7 @@ Stage 1 (OCR + docling + Grobid + chunking) is CPU-heavy; Pass 3b (vision-LLM fi
 On Yale's Bouchet (YCRC): [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) is the operational runbook — SLURM partitions, storage paths, dependency chain, known traps. The one-liner:
 
 ```bash
-NUM_BATCHES=8 bash batch_pipeline.sh
+NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 ```
 
 ### 3. Post-process locally
@@ -51,12 +51,15 @@ NUM_BATCHES=8 bash batch_pipeline.sh
 The fast, low-resource steps — bibliography authority DB, taxon mentions, reconciliation, QC — run comfortably on a laptop against the output from stage 2. Copy `output/` down from the cluster, then:
 
 ```bash
-# Bibliography authority DB (includes optional BHL enrichment)
-python scripts/build_biblio_authority.py output
-python scripts/reconcile_corpus_to_biblio.py output
+# Bibliography authority DB.  --enrich-bhl turns on Biodiversity
+# Heritage Library lookups for references without a DOI; needs
+# BHL_API_KEY and is rate-limited, so long-running (hours).  Skip
+# the flag for a ~minute-scale local build against corpus refs only.
+python build_biblio_authority.py output --enrich-bhl
+python reconcile_corpus_to_biblio.py output
 
 # Taxon mentions DB
-python scripts/build_taxon_mentions.py output
+python build_taxon_mentions.py output
 ```
 
 ### 4. Deploy the MCP server
@@ -103,8 +106,8 @@ python embed_chunks.py <output_dir> --resume
 python mcp_server.py <output_dir>
 
 # Rebuild the bibliography authority DB (after new papers land)
-python scripts/build_biblio_authority.py <output_dir>
-python scripts/reconcile_corpus_to_biblio.py <output_dir>
+python build_biblio_authority.py <output_dir>
+python reconcile_corpus_to_biblio.py <output_dir>
 ```
 
 ## Documentation

@@ -623,7 +623,7 @@ def get_taxon_mentions(
     ``char_end``, ``mention_text``, and the chunk/paper context.
 
     Requires the taxon mention database (built by
-    ``scripts/build_taxon_mentions.py``). Falls back to per-paper
+    ``build_taxon_mentions.py``). Falls back to per-paper
     ``taxa.json`` scanning if the database is not available.
     """
     idx = _need_index()
@@ -1663,7 +1663,7 @@ def main() -> int:
     else:
         logger.warning(
             "WoRMS snapshot not found at %s — search_taxon and taxon tools "
-            "will return an error. Build it: python scripts/ingest_worms.py",
+            "will return an error. Build it: python ingest_worms.py",
             worms_path,
         )
 
@@ -1682,7 +1682,7 @@ def main() -> int:
     else:
         logger.warning(
             "Bibliographic authority not found at %s — citation graph tools "
-            "will return an error. Build it: python scripts/build_biblio_authority.py",
+            "will return an error. Build it: python build_biblio_authority.py",
             biblio_path,
         )
 
@@ -1707,7 +1707,7 @@ def main() -> int:
         logger.info(
             "Taxon mention DB not found at %s — get_taxon_mentions will "
             "fall back to per-paper taxa.json scanning. Build it: "
-            "python scripts/build_taxon_mentions.py",
+            "python build_taxon_mentions.py",
             taxon_mention_path,
         )
 

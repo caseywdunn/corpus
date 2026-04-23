@@ -709,7 +709,7 @@ CREATE TABLE build_meta (key TEXT PRIMARY KEY, value TEXT);
 
 Plus indexes on: `works(doi)`, `works(corpus_hash)`, `works(year)`, `works(in_corpus)`, `work_authors(surname_normalized)`, `citations(cited_work_id)`, `citations(citing_work_id)`, `worms_work_links(work_id)`.
 
-### Build pipeline: `scripts/build_biblio_authority.py`
+### Build pipeline: `build_biblio_authority.py`
 
 Reads existing per-paper artifacts only — no Grobid re-runs needed. Three phases:
 

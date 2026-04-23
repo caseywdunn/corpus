@@ -1999,7 +1999,7 @@ def _extract_taxa_and_anatomy(
     Designed to degrade gracefully: if the WoRMS snapshot or anatomy
     lexicon isn't configured / available, the corresponding artifact is
     simply not emitted (not an error). This keeps the pipeline runnable
-    on a dev machine that hasn't yet run ``scripts/ingest_worms.py``.
+    on a dev machine that hasn't yet run ``ingest_worms.py``.
     """
     out: List[Path] = []
     if not chunks_file.exists():
@@ -2210,7 +2210,7 @@ def main():
         else:
             logger.warning(
                 "WoRMS snapshot %s not found — taxon extraction skipped. "
-                "Build it with: python scripts/ingest_worms.py",
+                "Build it with: python ingest_worms.py",
                 worms_path,
             )
 

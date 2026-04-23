@@ -7,7 +7,7 @@ mention extraction + resolution").
 Two concerns:
 
 1. :class:`WormsDB` — thin read-only wrapper around the SQLite file
-   produced by ``scripts/ingest_worms.py``. Case-insensitive name lookup
+   produced by ``ingest_worms.py``. Case-insensitive name lookup
    via the indexed ``names.name_lowercase`` column resolves to an
    AphiaID + the accepted-name AphiaID (following synonymy).
 2. :func:`extract_taxon_mentions` and :func:`extract_anatomy_mentions`
@@ -65,7 +65,7 @@ class WormsDB:
         if not self.db_path.exists():
             raise FileNotFoundError(
                 f"WoRMS SQLite not found at {self.db_path}. "
-                f"Run: python scripts/ingest_worms.py"
+                f"Run: python ingest_worms.py"
             )
         # uri=... read-only for safety; no writer process should ever touch
         # the snapshot during pipeline runs.

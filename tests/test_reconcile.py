@@ -1,4 +1,4 @@
-"""Unit tests for scripts/reconcile_corpus_to_biblio.py."""
+"""Unit tests for reconcile_corpus_to_biblio.py."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_PATH = REPO_ROOT / "scripts" / "reconcile_corpus_to_biblio.py"
+SCRIPT_PATH = REPO_ROOT / "reconcile_corpus_to_biblio.py"
 
-# Load the reconcile module by path — scripts/ isn't a package.
+# Load the reconcile module by path — the repo isn't structured as a package.
 _spec = importlib.util.spec_from_file_location("reconcile_corpus_to_biblio", SCRIPT_PATH)
 reconcile = importlib.util.module_from_spec(_spec)
 sys.modules["reconcile_corpus_to_biblio"] = reconcile

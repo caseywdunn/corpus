@@ -12,9 +12,9 @@ The per-paper taxa.json files remain the source of truth — this database
 is a derived index that can be rebuilt at any time.
 
 Usage:
-    python scripts/build_taxon_mentions.py /path/to/output
-    python scripts/build_taxon_mentions.py /path/to/output --rebuild
-    python scripts/build_taxon_mentions.py /path/to/output -o custom_path.sqlite
+    python build_taxon_mentions.py /path/to/output
+    python build_taxon_mentions.py /path/to/output --rebuild
+    python build_taxon_mentions.py /path/to/output -o custom_path.sqlite
 """
 
 from __future__ import annotations

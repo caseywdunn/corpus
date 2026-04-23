@@ -23,9 +23,9 @@ left off by skipping AphiaIDs already in the ``taxa`` table. Interrupt
 with SIGINT; the SQLite is committed in small batches.
 
 Usage:
-    python scripts/ingest_worms.py                       # default output
-    python scripts/ingest_worms.py -o /path/to/out.sqlite
-    python scripts/ingest_worms.py --root-aphia 1371     # default is Siphonophorae
+    python ingest_worms.py                       # default output
+    python ingest_worms.py -o /path/to/out.sqlite
+    python ingest_worms.py --root-aphia 1371     # default is Siphonophorae
 """
 
 from __future__ import annotations

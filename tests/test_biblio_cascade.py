@@ -1,4 +1,4 @@
-"""Unit tests for scripts/build_biblio_authority.py reference-resolution cascade.
+"""Unit tests for build_biblio_authority.py reference-resolution cascade.
 
 Covers the behavior introduced to fix GH issue #2: the cascade must not
 route a titled reference onto the only (surname, year) candidate when
@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_PATH = REPO_ROOT / "scripts" / "build_biblio_authority.py"
+SCRIPT_PATH = REPO_ROOT / "build_biblio_authority.py"
 
 _spec = importlib.util.spec_from_file_location("build_biblio_authority", SCRIPT_PATH)
 biblio = importlib.util.module_from_spec(_spec)

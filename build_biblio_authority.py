@@ -16,7 +16,7 @@ Three phases:
   2. Ingest cited references + build citation graph (references.json)
   3. Link WoRMS authorities to works
 
-After a build completes, ``scripts/reconcile_corpus_to_biblio.py`` can
+After a build completes, ``reconcile_corpus_to_biblio.py`` can
 be run to merge corpus papers whose Grobid-seeded work_id received no
 incoming citations onto matching ghost cited-reference rows.
 
@@ -24,9 +24,9 @@ Idempotent and resumable: re-running merges new papers into the
 existing database without duplicating existing records.
 
 Usage:
-    python scripts/build_biblio_authority.py /path/to/output
-    python scripts/build_biblio_authority.py /path/to/output --enrich-bhl --bhl-api-key YOUR_KEY
-    python scripts/build_biblio_authority.py /path/to/output --rebuild
+    python build_biblio_authority.py /path/to/output
+    python build_biblio_authority.py /path/to/output --enrich-bhl --bhl-api-key YOUR_KEY
+    python build_biblio_authority.py /path/to/output --rebuild
 """
 
 from __future__ import annotations

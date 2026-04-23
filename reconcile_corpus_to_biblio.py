@@ -42,9 +42,9 @@ therefore excluded from the candidate set, and the merged-into corpus
 paper now has incoming citations and is excluded from the scan.
 
 Usage:
-    python scripts/reconcile_corpus_to_biblio.py /path/to/output
-    python scripts/reconcile_corpus_to_biblio.py /path/to/output --dry-run
-    python scripts/reconcile_corpus_to_biblio.py /path/to/output --min-score 85
+    python reconcile_corpus_to_biblio.py /path/to/output
+    python reconcile_corpus_to_biblio.py /path/to/output --dry-run
+    python reconcile_corpus_to_biblio.py /path/to/output --min-score 85
 """
 
 from __future__ import annotations

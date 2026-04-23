@@ -22,7 +22,7 @@ python process_corpus.py <input_dir> <output_dir> --resume
 python embed_chunks.py <output_dir> --resume
 
 # Parallel on Bouchet (day partition, 256 PDFs per batch)
-NUM_BATCHES=8 bash batch_pipeline.sh
+NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 
 # MCP server
 python mcp_server.py <output_dir>

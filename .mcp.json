@@ -2,7 +2,7 @@
   "mcpServers": {
     "corpus": {
       "type": "stdio",
-      "command": "scripts/run_mcp_server.sh"
+      "command": "tools/run_mcp_server.sh"
     }
   }
 }
