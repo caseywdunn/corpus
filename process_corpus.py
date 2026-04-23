@@ -101,36 +101,22 @@ _DEFAULT_CONFIG = {
         "deskew": True,
         "rotate_pages": True,
         "optimize_level": 2,
-        # Phase C: used when language detection fails or the doc has a
-        # broken text layer. Tesseract combines languages gracefully
-        # though slowly; override in config.yaml to narrow for speed.
+        # Used when language detection fails or the doc has a broken
+        # text layer. Tesseract combines languages gracefully though
+        # slowly; override in config.yaml to narrow for speed.
         "ocr_languages_default": ["eng", "deu", "deu_latf", "fra", "rus", "lat"],
         # Gibberish-score threshold for flagging a broken text layer.
-        # See _gibberish_score; 0.5 reliably catches the Cyrillic-as-
-        # Latin-1 case without false-positiving on reference-heavy papers.
+        # 0.5 reliably catches the Cyrillic-as-Latin-1 case without
+        # false-positiving on reference-heavy papers.
         "gibberish_threshold": 0.5,
     },
     "chunking": {
         "max_tokens": 8191,
-        "model_name": "text-embedding-3-small",
         "merge_peers": True,
     },
-    "embedding": {
-        "model": "text-embedding-3-small",
-        "dimensions": 1536,
-        "batch_size": 100,
-    },
-    "vector_db": {
-        "path": "output/lancedb",
-        "table_name": "document_chunks",
-    },
-    "qc": {
-        "enable_validation": True,
-        "sample_size": 5,
-    },
-    # Phase F: WoRMS taxonomic backbone + anatomy lexicon.
+    # Cross-paper resources used by the pipeline.
     "resources": {
-        "worms_sqlite": "resources/worms_siphonophorae.sqlite",
+        "worms_sqlite": "resources/worms.sqlite",
         "anatomy_lexicon": "resources/anatomy_lexicon.yaml",
     },
 }
@@ -2196,7 +2182,7 @@ def main():
     anatomy_lexicon: Optional[Dict[str, Dict]] = None
     if not args.no_taxa:
         worms_path = args.worms_sqlite or Path(
-            CONFIG.get("resources", {}).get("worms_sqlite", "resources/worms_siphonophorae.sqlite")
+            CONFIG.get("resources", {}).get("worms_sqlite", "resources/worms.sqlite")
         )
         if worms_path.exists():
             try:

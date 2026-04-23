@@ -1617,7 +1617,7 @@ def main() -> int:
         "--worms-sqlite",
         type=Path,
         default=None,
-        help="Override path to the WoRMS SQLite (default: resources/worms_siphonophorae.sqlite under repo root)",
+        help="Override path to the WoRMS SQLite (default: resources/worms.sqlite under repo root)",
     )
     parser.add_argument(
         "--biblio-sqlite",
@@ -1650,7 +1650,7 @@ def main() -> int:
     )
 
     worms_path = args.worms_sqlite or (
-        Path(__file__).parent / "resources" / "worms_siphonophorae.sqlite"
+        Path(__file__).parent / "resources" / "worms.sqlite"
     )
     worms: Optional[WormsDB] = None
     if worms_path.exists():

@@ -543,7 +543,7 @@ Bouchet produces a "build" bundle. AWS holds a "served" bundle. The two are not 
 - `figures.json`, `taxa.json`, `anatomy.json`
 - `figures/*.png` (all extracted figure images, including Pass 3c-renamed compounds)
 - `vector_db/lancedb/` (the embedded chunks)
-- `worms_siphonophora.sqlite` (and any other corpus-level indices)
+- `worms.sqlite` (and any other corpus-level indices)
 - `bundle_manifest.json` (top-level — see below)
 
 **Excluded** from the served bundle (build-only):
@@ -749,7 +749,7 @@ Enhancement to existing `get_bibliography`: add `resolved=True` flag to join eac
 
 ### Integration with §10 (AWS served bundle)
 
-Add `biblio_authority.sqlite` to the served-file whitelist alongside `worms_siphonophorae.sqlite`.
+Add `biblio_authority.sqlite` to the served-file whitelist alongside `worms.sqlite`.
 
 ## 12. Text-span mention layers: bibliography, taxonomy, geography
 
@@ -841,7 +841,7 @@ CREATE TABLE localities (
 
 ### Layer 2: Taxonomic mentions
 
-**Source data.** Running text in `chunks.json` contains binomial names (*Agalma elegans*), abbreviated forms (*A. elegans*), genus-only references (*Agalma*), and higher taxa (*Calycophorae*). The WoRMS backbone (`worms_siphonophorae.sqlite`) provides the authority for resolution.
+**Source data.** Running text in `chunks.json` contains binomial names (*Agalma elegans*), abbreviated forms (*A. elegans*), genus-only references (*Agalma*), and higher taxa (*Calycophorae*). The WoRMS backbone (`worms.sqlite`) provides the authority for resolution.
 
 **Extraction pipeline.**
 1. **Detection** — `gnfinder` (Global Names) for raw name detection, strong on historical variants and abbreviations. Supplement with regex for italicized binomials in born-digital PDFs.

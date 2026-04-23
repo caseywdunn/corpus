@@ -78,7 +78,7 @@ def _require_rapidfuzz() -> None:
 
 logger = logging.getLogger("reconcile")
 
-DEFAULT_DB = Path(__file__).resolve().parent.parent / "resources" / "biblio_authority.sqlite"
+DEFAULT_DB = Path(__file__).resolve().parent / "resources" / "biblio_authority.sqlite"
 
 
 # ── Normalization (kept in sync with build_biblio_authority.py) ─────

@@ -53,8 +53,8 @@ fi
 
 # ── WoRMS + anatomy lexicon (if available) ───────────────────────────
 WORMS_FLAG=""
-if [ -f "$OUTPUT_DIR/worms_siphonophora.sqlite" ]; then
-    WORMS_FLAG="--worms-sqlite $OUTPUT_DIR/worms_siphonophora.sqlite"
+if [ -f "$OUTPUT_DIR/worms.sqlite" ]; then
+    WORMS_FLAG="--worms-sqlite $OUTPUT_DIR/worms.sqlite"
 fi
 ANATOMY_FLAG=""
 if [ -f "$REPO_DIR/resources/anatomy_lexicon.yaml" ]; then

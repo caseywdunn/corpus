@@ -82,7 +82,7 @@ Figure extraction is a multi-pass process designed for historical taxonomic lite
 
 ## Taxonomic annotation
 
-When the WoRMS (World Register of Marine Species) SQLite snapshot is available (`resources/worms_siphonophorae.sqlite`, built by `ingest_worms.py`), the pipeline annotates chunks with recognized taxon names. The snapshot contains ~787 names under order Siphonophorae including synonyms, enabling synonymy-aware queries (e.g., searching for *Halistemma* also finds papers using the older name *Stephanomia*).
+When the WoRMS (World Register of Marine Species) SQLite snapshot is available (`resources/worms.sqlite`, built by `ingest_worms.py`), the pipeline annotates chunks with recognized taxon names. By default the snapshot covers the subtree under AphiaID 1371 (Siphonophorae, ~787 names with synonyms) — pass `--root-aphia <id>` to `ingest_worms.py` to build a snapshot for a different marine group.
 
 An anatomy lexicon (`resources/anatomy_lexicon.yaml`, 22 terms) similarly tags chunks with siphonophore-specific anatomical terms (nectophore, pneumatophore, gastrozooid, etc.).
 

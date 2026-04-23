@@ -53,8 +53,8 @@ except ImportError:
 
 logger = logging.getLogger("build_biblio")
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "resources" / "biblio_authority.sqlite"
-DEFAULT_WORMS = Path(__file__).resolve().parent.parent / "resources" / "worms_siphonophorae.sqlite"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "biblio_authority.sqlite"
+DEFAULT_WORMS = Path(__file__).resolve().parent / "resources" / "worms.sqlite"
 
 # ── Normalization ────────────────────────────────────────────────────
 

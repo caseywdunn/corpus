@@ -1,49 +1,46 @@
-# Configuration for corpus processing workflow
+# Corpus-processing configuration.
+#
+# Loaded by process_corpus.py via load_config(). Keys here override the
+# built-in _DEFAULT_CONFIG; anything missing falls through to the defaults.
+# CLI flags on individual tools override config values in turn.
+#
+# The anatomy lexicon and WoRMS snapshot pointed at below are the current
+# siphonophore-flavored defaults. To apply the pipeline to a different
+# taxonomic group: (a) regenerate resources/worms.sqlite via
+# `python ingest_worms.py --root-aphia <AphiaID>` with your group's root,
+# (b) swap resources/anatomy_lexicon.yaml for a lexicon relevant to your
+# group. Everything else in the pipeline is taxon-agnostic.
 
-# Input/Output directories
-input_dir: "demo"
-output_dir: "output"
-
-# OCR settings
+# OCR settings used by process_corpus.py.
 ocr:
   language_detection: true
   redo_ocr: true
   deskew: true
   rotate_pages: true
   optimize_level: 2
-  # Tesseract traineddata codes used when language detection fails or when
+  # Tesseract traineddata codes used when language detection fails or
   # a document has a broken text layer (where detection is unreliable).
-  # Tesseract combines languages gracefully but slowly — narrow this list
-  # if you're running against a known-monolingual subset.
+  # Tesseract combines languages gracefully but slowly — narrow this
+  # list if you're running against a known-monolingual subset.
   ocr_languages_default:
     - eng
     - deu
-    - deu_latf    # 19th-c. German Fraktur (requires manual install; see README)
+    - deu_latf    # 19th-c. German Fraktur (manual install; see dev_docs/INSTALL.md)
     - fra
     - rus
     - lat
-  # Gibberish-score threshold above which a dense text layer is treated as
-  # corrupt (needing --force-ocr). See _gibberish_score in process_corpus.py.
+  # Gibberish-score threshold above which a dense text layer is treated
+  # as corrupt (needing --force-ocr). See _gibberish_score in
+  # process_corpus.py.
   gibberish_threshold: 0.5
 
-# Chunking settings
+# Chunking settings.
 chunking:
   max_tokens: 8191
-  model_name: "text-embedding-3-small"
   merge_peers: true
 
-# Embedding settings
-embedding:
-  model: "text-embedding-3-small"
-  dimensions: 1536
-  batch_size: 100
-
-# Vector database settings
-vector_db:
-  path: "output/lancedb"
-  table_name: "document_chunks"
-
-# Quality control
-qc:
-  enable_validation: true
-  sample_size: 5
+# Cross-paper resources pointed at by the pipeline. These paths are
+# resolved relative to the repo root.
+resources:
+  worms_sqlite: "resources/worms.sqlite"
+  anatomy_lexicon: "resources/anatomy_lexicon.yaml"

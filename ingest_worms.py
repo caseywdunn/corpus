@@ -44,7 +44,7 @@ import requests
 
 WORMS_API = "https://www.marinespecies.org/rest"
 DEFAULT_ROOT = 1371  # Siphonophorae
-DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "resources" / "worms_siphonophorae.sqlite"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "worms.sqlite"
 
 
 logger = logging.getLogger("ingest_worms")

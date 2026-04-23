@@ -32,7 +32,7 @@ from typing import Optional
 
 logger = logging.getLogger("build_taxon_mentions")
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "resources" / "taxon_mentions.sqlite"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "taxon_mentions.sqlite"
 
 # ── Schema ───────────────────────────────────────────────────────────
 
