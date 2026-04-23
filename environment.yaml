@@ -58,5 +58,3 @@ dependencies:
       - pytesseract  # Python wrapper for Tesseract — used in Pass 3a figure-label OCR (PLAN.md §9)
       - qwen-vl-utils  # image preprocessing for Qwen2.5-VL local VLM backend (vision.py)
       - accelerate  # HuggingFace device_map / model sharding for local VLM
-      - openai>=1.0.0  # transitional; swapped for a local open-weights backend in Phase E (see PLAN.md §7)
-      - snakemake  # legacy Snakefile workflow; targeted for deprecation (see PLAN.md §4)

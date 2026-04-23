@@ -1,7 +1,6 @@
 requests
 ipykernel
 python-dotenv
-openai>=1.0.0
 pydantic
 docling
 lancedb

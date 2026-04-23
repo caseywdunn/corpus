@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 """Embed per-paper chunks into a LanceDB vector index.
 
-Phase E: defaults to a local sentence-transformers backend (BGE-M3,
-1024-dim) running on the best available accelerator (CUDA → MPS → CPU).
-The OpenAI backend is still available behind ``--backend openai`` for
-comparison, but is no longer the default — see PLAN.md §7.
+Uses a local sentence-transformers backend (BGE-M3, 1024-dim) on the
+best available accelerator (CUDA → MPS → CPU).
 
 Reads ``<output_dir>/documents/<HASH>/chunks.json`` for each
 already-processed PDF, batches the chunk text through the embedding
 backend, and writes records into ``<output_dir>/vector_db/lancedb/``.
 A per-hash marker file at ``<output_dir>/vector_db/<HASH>_embedded.done``
-records the backend + model + dim used, so ``--resume`` knows what to
-skip and ``--rebuild`` knows when to drop and re-embed.
+records the model + dim used, so ``--resume`` knows what to skip and
+``--rebuild`` knows when to drop and re-embed.
 
 Usage:
-    python embed_chunks.py demo_output                         # local default
-    python embed_chunks.py demo_output --backend openai        # legacy path
+    python embed_chunks.py demo_output                         # default
     python embed_chunks.py demo_output --model BAAI/bge-m3
     python embed_chunks.py demo_output --pdf-hash af043530e5dd # one doc
     python embed_chunks.py demo_output --resume                # skip embedded
@@ -233,26 +230,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_dir", type=Path)
     parser.add_argument(
-        "--backend", choices=["local", "openai"], default="local",
-        help="Embedding backend (default: local sentence-transformers)",
-    )
-    parser.add_argument(
         "--model", default=None,
-        help="Override the per-backend default model "
-             "(local default BAAI/bge-m3, openai default text-embedding-3-small)",
+        help="Override the default HuggingFace model id (default: BAAI/bge-m3)",
     )
     parser.add_argument(
         "--device", default=None,
-        help="Force a torch device for the local backend (cuda|mps|cpu); "
+        help="Force a torch device (cuda|mps|cpu); "
              "default autodetects CUDA → MPS → CPU",
     )
     parser.add_argument("--pdf-hash", help="Process only this 12-char hash")
     parser.add_argument("--resume", action="store_true",
-                        help="Skip docs whose marker matches this backend+model")
+                        help="Skip docs whose marker matches this model")
     parser.add_argument(
         "--rebuild", action="store_true",
         help="Drop the existing LanceDB table before embedding "
-             "(needed if you switch backends and don't want stale rows)",
+             "(needed if you switch models and don't want stale rows)",
     )
     parser.add_argument(
         "--table-name", default="document_chunks",
@@ -279,11 +271,8 @@ def main() -> int:
     embedder_kwargs: Dict = {}
     if args.device:
         embedder_kwargs["device"] = args.device
-    embedder = get_embedder(args.backend, args.model, **embedder_kwargs)
-    logger.info(
-        "Embedding backend=%s model=%s dim=%d",
-        args.backend, embedder.model_name, embedder.dim,
-    )
+    embedder = get_embedder(args.model, **embedder_kwargs)
+    logger.info("Embedding model=%s dim=%d", embedder.model_name, embedder.dim)
 
     chunk_model = make_chunk_model(embedder.dim)
 

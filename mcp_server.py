@@ -90,7 +90,6 @@ class CorpusIndex:
     def __init__(self, output_dir: Path, worms_db: Optional[WormsDB] = None,
                  biblio_db: Optional[BiblioAuthority] = None,
                  taxon_mention_db: Optional[TaxonMentionDB] = None,
-                 embedding_backend: str = "local",
                  embedding_model: Optional[str] = None):
         self.output_dir = Path(output_dir).resolve()
         self.documents_dir = self.output_dir / "documents"
@@ -102,7 +101,6 @@ class CorpusIndex:
         # get_chunks_for_topic call — they cost ~600 MB resident and
         # several seconds to load, both wasteful for users who only
         # touch the structured tools.
-        self._embedding_backend_name = embedding_backend
         self._embedding_model_override = embedding_model
         self._embedder: Optional[EmbeddingBackend] = None
         self._lance_table = None
@@ -143,23 +141,19 @@ class CorpusIndex:
             return None, None
 
         # Pin the model to whatever was used to build the table — schema
-        # carries the dim and we choose a backend with matching dim.
+        # carries the dim and we choose a model with matching dim.
         existing_dim = table.schema.field("vector").type.list_size
         try:
-            embedder = get_embedder(
-                self._embedding_backend_name,
-                self._embedding_model_override,
-            )
+            embedder = get_embedder(self._embedding_model_override)
         except EmbeddingError as e:
             logger.warning("Could not load embedding backend: %s", e)
             return None, None
         if embedder.dim != existing_dim:
             logger.warning(
-                "Embedding-model dim mismatch: backend=%s/%s emits %d, "
+                "Embedding-model dim mismatch: model=%s emits %d, "
                 "table expects %d. Topic search disabled until the model "
                 "matches the index.",
-                self._embedding_backend_name, embedder.model_name,
-                embedder.dim, existing_dim,
+                embedder.model_name, embedder.dim, existing_dim,
             )
             return None, None
         self._embedder = embedder
@@ -1640,17 +1634,11 @@ def main() -> int:
              "(default: resources/taxon_mentions.sqlite under repo root)",
     )
     parser.add_argument(
-        "--embedding-backend",
-        choices=["local", "openai"],
-        default="local",
-        help="Embedding backend used by get_chunks_for_topic (default: local). "
-             "Must produce vectors of the same dim as the LanceDB index.",
-    )
-    parser.add_argument(
         "--embedding-model",
         default=None,
-        help="Override the per-backend default embedding model "
-             "(local default BAAI/bge-m3, openai default text-embedding-3-small).",
+        help="Override the default HuggingFace embedding model id "
+             "(default: BAAI/bge-m3). Must emit vectors of the same "
+             "dim as the LanceDB index.",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -1729,7 +1717,6 @@ def main() -> int:
         worms_db=worms,
         biblio_db=biblio,
         taxon_mention_db=taxon_mention_db,
-        embedding_backend=args.embedding_backend,
         embedding_model=args.embedding_model,
     )
     n = _INDEX.load()

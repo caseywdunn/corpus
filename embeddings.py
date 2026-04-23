@@ -1,20 +1,14 @@
-"""Embedding backend abstraction (Phase E).
+"""Embedding backend abstraction.
 
-Two backends are supported:
+:class:`LocalBackend` runs a sentence-transformers model on a local
+GPU (Apple Metal / CUDA) or CPU. Default model is **BGE-M3** (1024-dim,
+multilingual, 8k context — covers the corpus's German / French /
+Russian tail), pulled from HuggingFace and cached under
+``~/.cache/huggingface/``. Downloads on first use only.
 
-* :class:`LocalBackend` — runs a sentence-transformers model on a local
-  GPU (Apple Metal / CUDA) or CPU. Default model is **BGE-M3** (1024-dim,
-  multilingual, 8k context — covers the corpus's German / French /
-  Russian tail), pulled from HuggingFace and cached under
-  ``~/.cache/huggingface/``. Downloads on first use only.
-* :class:`OpenAIBackend` — kept behind a flag for comparison / fallback,
-  uses ``text-embedding-3-small`` (1536-dim). Marked transitional in
-  PLAN.md §7; we no longer build the index against it by default.
-
-Both backends raise :class:`EmbeddingError` on any failure (no silent
-zero-vector fallback — see Phase A's commit message). The caller
-typically catches at the per-document level and skips a failed doc
-rather than poisoning the index.
+Failures surface as :class:`EmbeddingError` (no silent zero-vector
+fallback). The caller typically catches at the per-document level and
+skips a failed doc rather than poisoning the index.
 
 Device selection for LocalBackend, in order of preference:
 
@@ -206,81 +200,13 @@ class LocalBackend(EmbeddingBackend):
 
 
 # ---------------------------------------------------------------------------
-# OpenAI backend (transitional)
-# ---------------------------------------------------------------------------
-
-
-class OpenAIBackend(EmbeddingBackend):
-    """OpenAI ``text-embedding-3-small`` (1536-dim).
-
-    Kept for comparison and as a fallback; not the default since Phase E.
-    Requires ``OPENAI_API_KEY`` in the environment.
-    """
-
-    def __init__(self, model_name: str = "text-embedding-3-small", batch_size: int = 100):
-        try:
-            from openai import OpenAI
-        except ImportError as e:
-            raise EmbeddingError(
-                "openai package not installed (pip install openai)"
-            ) from e
-        self._model_name = model_name
-        self._dim = 1536 if "small" in model_name else 3072
-        self.batch_size = batch_size
-        self.client = OpenAI()
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    @property
-    def model_name(self) -> str:
-        return self._model_name
-
-    def embed(self, texts: List[str]) -> List[List[float]]:
-        if not texts:
-            return []
-        out: List[List[float]] = []
-        for i in range(0, len(texts), self.batch_size):
-            batch = texts[i:i + self.batch_size]
-            try:
-                response = self.client.embeddings.create(
-                    model=self._model_name,
-                    input=batch,
-                )
-            except Exception as e:
-                raise EmbeddingError(
-                    f"OpenAI embeddings call failed at offset {i}: {e}"
-                ) from e
-            vecs = [d.embedding for d in response.data]
-            if len(vecs) != len(batch):
-                raise EmbeddingError(
-                    f"OpenAI returned {len(vecs)} vectors for batch of {len(batch)}"
-                )
-            out.extend(vecs)
-        return out
-
-
-# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
 
-def get_embedder(
-    backend: str = "local",
-    model: Optional[str] = None,
-    **kwargs,
-) -> EmbeddingBackend:
-    """Construct the requested embedding backend.
-
-    ``backend`` is one of ``"local"`` (default, sentence-transformers on
-    GPU/MPS/CPU) or ``"openai"``. ``model`` overrides the per-backend
-    default. Any extra ``kwargs`` are forwarded to the backend's
-    constructor.
+def get_embedder(model: Optional[str] = None, **kwargs) -> EmbeddingBackend:
+    """Construct a :class:`LocalBackend`. ``model`` overrides the default
+    HuggingFace model id; any extra ``kwargs`` are forwarded to the
+    backend's constructor.
     """
-    backend = (backend or "local").lower()
-    if backend == "local":
-        return LocalBackend(model or _DEFAULT_LOCAL_MODEL, **kwargs)
-    if backend == "openai":
-        return OpenAIBackend(model or "text-embedding-3-small", **kwargs)
-    raise ValueError(f"Unknown embedding backend: {backend!r}")
+    return LocalBackend(model or _DEFAULT_LOCAL_MODEL, **kwargs)
