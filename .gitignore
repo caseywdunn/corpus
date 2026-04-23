@@ -2,7 +2,6 @@
 .DS_Store
 output*/
 .claude/
-.snakemake/
 scratch/
 demo_*/
 logs/

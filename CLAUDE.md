@@ -19,14 +19,13 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 ```bash
 # Full pipeline
 python process_corpus.py <input_dir> <output_dir> --resume
-python embed_chunks.py <output_dir> --resume --backend local
+python embed_chunks.py <output_dir> --resume
 
 # Parallel on Bouchet (day partition, 256 PDFs per batch)
 NUM_BATCHES=8 bash batch_pipeline.sh
 
-# Analysis
-python scripts/analysis/search.py
-python scripts/analysis/chat.py
+# MCP server
+python mcp_server.py <output_dir>
 ```
 
 ## Implementation notes for contributors
@@ -37,4 +36,3 @@ python scripts/analysis/chat.py
 - Visualizations overlay text-cell boxes (red) and figure bboxes (yellow/orange). Coordinates are Y-flipped from docling's bottom-left origin to PIL's top-left.
 - Pipeline is resilient: most steps swallow exceptions into `processing_summary["errors"]` and continue.
 - `config.yaml` exists but is only partially wired — many values are still hard-coded in scripts. Edit scripts directly or plumb config through.
-- Legacy Snakemake workflow ([Snakefile](Snakefile) + [scripts/](scripts/)) is kept for the `demo/` directory only. New work goes through `process_corpus.py`.

@@ -22,7 +22,7 @@ A roadmap from the current prototype toward a production-quality corpus of ~2000
 | 6 | Serial processing, per-step exceptions swallowed into a summary log; no resumability *within* a PDF, only across PDFs | [process_corpus.py:183-228](process_corpus.py#L183-L228) | High at scale |
 | 7 | 8-char SHA-256 prefix: collision probability is low but nonzero at 2000 items and bites forever if it happens. Use 12 chars and compare full hash on reuse | [process_corpus.py:120](process_corpus.py#L120) | Low but cheap to fix |
 | 8 | OCR always calls `ocrmypdf` with fixed flags — no language detection, English-only Tesseract by default. Old German/French/Russian text will OCR poorly. | [process_corpus.py:283-315](process_corpus.py#L283-L315) | High for historical corpus |
-| 9 | Two parallel implementations (Snakefile + scripts/ vs. process_corpus.py) with different output layouts — confusing, invites drift | repo root + scripts/ | Medium |
+| 9 | ~~Two parallel implementations (Snakefile + scripts/ vs. process_corpus.py)~~ — resolved: Snakemake path deleted | — | done |
 | 10 | `figures.json` lacks page number and bbox for fallback (PyMuPDF) figures — can't be cross-referenced with visualizations | [process_corpus.py:438-448](process_corpus.py#L438-L448) | Medium |
 | 11 | No per-paper error/log file; `print` only. At 2000 papers you can't diagnose individual failures after the fact. | all | Medium |
 
@@ -175,10 +175,10 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 - [ ] **Ingest WoRMS taxonomic backbone as a corpus-level input.** Download a WoRMS snapshot (order Siphonophorae + all child taxa, with synonymies and authority strings) and store as SQLite/parquet alongside the per-paper artifacts. This is a **prerequisite**, not an annotation step: Q1/Q2/Q4/Q7 and the taxon-mention resolver all depend on it. Refresh on a schedule; pin version in the corpus manifest.
 - [ ] **Curate the siphonophore anatomy lexicon.** A YAML file in the repo listing anatomy terms (nectophore, bract, palpon, gonophore, pneumatophore, nectosome, siphosome, cnidoband, tentacle, stem, …) plus common synonyms and language variants. Used by both the anatomy-term NER and the figure-anatomy classifier.
 - [ ] **Figure+caption linking** as described in §3, plus a human-reviewable `figures_report.html` per paper (thumbnails + captions side-by-side). This is your QC surface for the "figure extraction success" goal.
-- [ ] **Parallelize stage 2.** Either bring back Snakemake (now targeting the hash-based layout) or use a simple `concurrent.futures.ProcessPoolExecutor` with a file-based lock per hash dir. Snakemake is a good fit at 2000 items — it gives free DAG tracking, retries, cluster submission, and plays naturally with the per-hash file markers you already emit.
+- [ ] **Parallelize stage 2.** Use a `concurrent.futures.ProcessPoolExecutor` with a file-based lock per hash dir, or drive SLURM from `batch_embed.sh` on Bouchet.
 - [ ] **BHL lookup stage** before OCR. If a BHL match exists (fuzzy title + year + author), prefer BHL's OCR text as a parallel artifact and flag confidence. Likely to materially help historical papers.
 - [ ] **Golden test set.** Pick ~10 papers spanning: (a) modern born-digital, (b) modern scan, (c) 19th-c. German monograph (a Haeckel volume is a good stress test), (d) Russian-language paper, (e) French paper, (f) plate-heavy paper with end-matter figures. Snapshot-test extraction quality. Re-run on every pipeline change.
-- [ ] **Deprecate the Snakefile legacy path** once stage 1 reaches parity, or rewrite it against the hash layout. Don't leave two divergent implementations in place.
+- [x] **Deprecate the Snakefile legacy path.** Done — Snakefile + Snakemake-only scripts removed; `process_corpus.py` is the only pipeline entry point.
 
 ### Domain-specific (annotation layer + query layer for the stated downstream uses)
 

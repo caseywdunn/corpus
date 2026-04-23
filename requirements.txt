@@ -6,7 +6,6 @@ docling
 lancedb
 streamlit
 tiktoken
-snakemake>=7.0
 ocrmypdf
 tesseract
 numpy
