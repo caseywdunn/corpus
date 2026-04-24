@@ -77,19 +77,30 @@ python build_taxon_mentions.py output
 }
 ```
 
-**Shared access** — the same `mcp_server.py` speaks SSE over HTTP for remote clients. Expose with:
+**Shared access** — the same `mcp_server.py` speaks SSE over HTTP for remote clients. Generate a bearer token and expose with:
 
 ```bash
-# Bearer token must come from a file or CORPUS_MCP_TOKEN env var —
-# CLI-literal tokens leak via `ps`.
-echo "your-shared-secret" > /run/corpus/mcp.token
-chmod 600 /run/corpus/mcp.token
+# Generate a URL-safe token and save to a mode-600 file.  Never pass
+# the token on the CLI — it would leak via `ps`.
+python -c 'import secrets; print(secrets.token_urlsafe(32))' > ~/corpus-mcp.token
+chmod 600 ~/corpus-mcp.token
+
 python mcp_server.py /path/to/output \
     --transport sse --host 127.0.0.1 --port 8080 \
-    --auth-token-file /run/corpus/mcp.token
+    --auth-token-file ~/corpus-mcp.token
 ```
 
 Clients send `Authorization: Bearer <token>` on every request. Without `--auth-token-file` or `CORPUS_MCP_TOKEN` the server runs open and logs a loud warning — fine for localhost experiments, never safe for public-facing deploys. The AWS pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is spelled out in [PLAN.md §10](PLAN.md).
+
+Before a remote deploy, confirm the SSE + auth stack works end-to-end with [tools/smoke_test_sse.py](tools/smoke_test_sse.py):
+
+```bash
+# Launches a fresh server on a random port, generates a token,
+# checks 401 without auth / 200 with auth, drives a real MCP client
+# through initialize → list_tools → bundle_info → list_papers, then
+# shuts everything down.
+python tools/smoke_test_sse.py /path/to/output
+```
 
 ## Installation
 
