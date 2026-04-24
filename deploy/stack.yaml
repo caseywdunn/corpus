@@ -6,7 +6,7 @@ Description: >
   nginx + Let's Encrypt (see deploy/nginx.conf + DEPLOY.md).
 
   This is the "deliberately boring" path from PLAN.md §10 scaled to
-  ~20 collaborators — no ALB, no CloudFront, no Route 53 dependency.
+  ~20 collaborators - no ALB, no CloudFront, no Route 53 dependency.
   Upgrade to those components later if WAF rate-limiting or
   multi-instance scale becomes real.
 
@@ -29,7 +29,7 @@ Parameters:
     Type: String
     Description: >
       Source CIDR for SSH (port 22).  Your home/office IP as a /32,
-      e.g. "203.0.113.45/32".  NOT 0.0.0.0/0 — leaving SSH open to
+      e.g. "203.0.113.45/32".  NOT 0.0.0.0/0 - leaving SSH open to
       the world is a common cause of brute-force bills.
     AllowedPattern: '\d+\.\d+\.\d+\.\d+/\d+'
 
@@ -48,6 +48,25 @@ Parameters:
     Description: >
       Ubuntu 24.04 LTS AMI.  Resolved via SSM Public Parameter so
       it stays current as Canonical ships new patch images.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: >
+      VPC to place the EC2 instance + security group in.  Use the
+      default VPC unless your org has a specific network posture
+      to honour.  Discover with:
+          aws ec2 describe-vpcs --filters Name=is-default,Values=true \\
+              --query 'Vpcs[0].VpcId' --output text
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: >
+      Public subnet (MapPublicIpOnLaunch=true) within VpcId.  Any
+      AZ is fine.  Discover with:
+          aws ec2 describe-subnets --filters \\
+              Name=vpc-id,Values=$VpcId \\
+              Name=map-public-ip-on-launch,Values=true \\
+              --query 'Subnets[0].SubnetId' --output text
 
 Resources:
 
@@ -71,7 +90,7 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
 
-  # ── IAM — let the EC2 instance pull bundles from the bucket ───────
+  # ── IAM - let the EC2 instance pull bundles from the bucket ───────
 
   InstanceRole:
     Type: AWS::IAM::Role
@@ -107,19 +126,20 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: corpus-mcp — SSH from operator, HTTP/HTTPS from world
+      VpcId: !Ref VpcId
+      GroupDescription: corpus-mcp - SSH from operator, HTTP/HTTPS from world
       SecurityGroupIngress:
         - Description: SSH from operator
           IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: !Ref SSHAllowCIDR
-        - Description: HTTP — for certbot http-01 + 301 redirect to HTTPS
+        - Description: HTTP - for certbot http-01 + 301 redirect to HTTPS
           IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
-        - Description: HTTPS — nginx terminates TLS
+        - Description: HTTPS - nginx terminates TLS
           IpProtocol: tcp
           FromPort: 443
           ToPort: 443
@@ -134,7 +154,17 @@ Resources:
       ImageId: !Ref AmiId
       KeyName: !Ref KeyPairName
       IamInstanceProfile: !Ref InstanceProfile
-      SecurityGroupIds: [!Ref SecurityGroup]
+      # Use NetworkInterfaces to force a public IP without needing
+      # ec2:AllocateAddress (some org SCPs deny EIPs).  The instance
+      # gets an ephemeral public IP that persists for as long as it
+      # runs; if the instance is stopped and started the IP may
+      # change and the DNS A record will need updating.  For 24/7
+      # uptime this is effectively never.
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref SubnetId
+          GroupSet: [!Ref SecurityGroup]
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs:
@@ -169,15 +199,9 @@ Resources:
           mkdir -p /srv/corpus /etc/corpus
           chown corpus:corpus /srv/corpus
 
-          # Signal completion — ssh in and follow DEPLOY.md from here.
+          # Signal completion - ssh in and follow DEPLOY.md from here.
           echo "cloud-init: base packages installed, user+dirs ready" \
               >> /var/log/corpus-userdata.log
-
-  ElasticIP:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-      InstanceId: !Ref Instance
 
 Outputs:
   BucketName:
@@ -190,10 +214,18 @@ Outputs:
 
   PublicIp:
     Description: >
-      Elastic IP — point your DNS A record at this.  Survives
-      instance stop/start and reboots.
-    Value: !Ref ElasticIP
+      Instance public IP.  Persists while the instance is running;
+      if you stop/start the instance the IP may change and you'll
+      need to update your DNS A record.  For a 24/7 server this is
+      effectively never.
+    Value: !GetAtt Instance.PublicIp
+
+  PublicDnsName:
+    Description: >
+      AWS-assigned public DNS name.  Alternative to the IP if you
+      prefer a CNAME; also changes if the instance is stopped/started.
+    Value: !GetAtt Instance.PublicDnsName
 
   SSHCommand:
     Description: Ready-to-paste SSH invocation (adjust path to your key)
-    Value: !Sub 'ssh -i ~/.ssh/${KeyPairName}.pem ubuntu@${ElasticIP}'
+    Value: !Sub 'ssh -i ~/.ssh/${KeyPairName}.pem ubuntu@${Instance.PublicIp}'

@@ -80,6 +80,27 @@ chmod 600 ~/.ssh/${KEYPAIR}.pem
 
 ## 3. Deploy the CloudFormation stack
 
+The stack needs to know which VPC and subnet to launch into.  Auto-
+discover the default VPC and a public subnet:
+
+```bash
+# If the account has no default VPC (some org-managed accounts
+# have it deleted), create one first.  Default VPCs are free:
+aws ec2 describe-vpcs --filters Name=is-default,Values=true --region "$REGION" \
+    --query 'Vpcs[0].VpcId' --output text | grep -q vpc || \
+    aws ec2 create-default-vpc --region "$REGION"
+
+export VPC_ID=$(aws ec2 describe-vpcs \
+    --filters Name=is-default,Values=true --region "$REGION" \
+    --query 'Vpcs[0].VpcId' --output text)
+export SUBNET_ID=$(aws ec2 describe-subnets --region "$REGION" \
+    --filters Name=vpc-id,Values=$VPC_ID Name=map-public-ip-on-launch,Values=true \
+    --query 'Subnets[0].SubnetId' --output text)
+echo "VPC=$VPC_ID  Subnet=$SUBNET_ID"
+```
+
+Now deploy:
+
 ```bash
 aws cloudformation deploy \
     --region "$REGION" \
@@ -89,7 +110,9 @@ aws cloudformation deploy \
     --parameter-overrides \
         BucketName=$BUCKET \
         KeyPairName=$KEYPAIR \
-        SSHAllowCIDR=$MY_IP
+        SSHAllowCIDR=$MY_IP \
+        VpcId=$VPC_ID \
+        SubnetId=$SUBNET_ID
 ```
 
 Takes ~2 minutes.  When it's done, grab the outputs:
@@ -98,27 +121,33 @@ Takes ~2 minutes.  When it's done, grab the outputs:
 aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
     --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue]' --output table
 
-export EIP=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
+export PUBLIC_IP=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
     --query 'Stacks[0].Outputs[?OutputKey==`PublicIp`].OutputValue' --output text)
-echo "Elastic IP: $EIP"
+echo "Public IP: $PUBLIC_IP"
 ```
 
-## 4. Point DNS at the Elastic IP
+The template uses the instance's auto-assigned public IP rather than
+an Elastic IP, because some org SCPs deny `ec2:AllocateAddress`.
+Trade-off: if the instance is stopped and later started, the IP
+changes and the DNS A record needs updating.  For a 24/7 server
+this is effectively never.
+
+## 4. Point DNS at the public IP
 
 **Not automated** — depends on your DNS provider.  Create an A record:
 
 ```text
-corpus.example.edu.  A  <EIP from step 3>
+corpus.example.edu.  A  <PUBLIC_IP from step 3>
 ```
 
-Wait for propagation (`dig +short $DOMAIN` should return `$EIP`).
+Wait for propagation (`dig +short $DOMAIN` should return the IP).
 
 ## 5. On-host setup — one-time
 
 SSH in using the keypair from step 2:
 
 ```bash
-ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$EIP
+ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$PUBLIC_IP
 # (cloud-init from the template has already installed python3.12,
 # nginx, certbot, awscli, and created the `corpus` user.)
 
@@ -168,7 +197,7 @@ BUCKET=$BUCKET deploy/sync_to_s3.sh ~/corpus-output v1.0.0
 ## 7. Pull it on EC2 and start the service
 
 ```bash
-ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$EIP
+ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$PUBLIC_IP
 sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.0.0
 sudo systemctl start corpus-mcp
 sudo systemctl status corpus-mcp
@@ -208,7 +237,7 @@ authority):
 deploy/sync_to_s3.sh ~/corpus-output v1.1.0
 
 # On EC2
-ssh ubuntu@$EIP
+ssh ubuntu@$PUBLIC_IP
 sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.1.0
 ```
 
@@ -220,7 +249,7 @@ client calls the `bundle_info` tool.
 Every version stays on disk under `/srv/corpus/bundles/`:
 
 ```bash
-ssh ubuntu@$EIP
+ssh ubuntu@$PUBLIC_IP
 sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.0.0
 ```
 
@@ -230,7 +259,7 @@ one extra `aws s3 sync`.
 ## Code-only updates
 
 ```bash
-ssh ubuntu@$EIP
+ssh ubuntu@$PUBLIC_IP
 cd /srv/corpus/repo
 sudo -u corpus git pull
 sudo systemctl restart corpus-mcp
@@ -263,15 +292,52 @@ aws cloudformation wait stack-delete-complete --stack-name $STACK --region $REGI
 
 ## Gotchas
 
-- **Default VPC required** by the template as shipped.  If your
-  account has the default VPC deleted, add `VpcId` + `SubnetId`
-  parameters to [stack.yaml](../deploy/stack.yaml) and pass them
-  through.
-- **certbot fails the first time** if DNS hasn't propagated yet
-  (step 4).  Re-run it after `dig` confirms the A record.
+All discovered on a real deploy against an org-managed account
+(Yale Landing Zone, etc.).  Your account may hit fewer or different
+ones.
+
+- **No default VPC.**  Some org-managed accounts have it deleted or
+  never create one.  Symptom: `SecurityGroup` fails with `No default
+  VPC for this user`.  Fix: `aws ec2 create-default-vpc --region $REGION`
+  (covered inline in §3).  Default VPCs are free.
+
+- **SCP denies `ec2:AllocateAddress`.**  Yale + many institutional
+  accounts block Elastic IPs at the org level.  Symptom:
+  `not authorized to perform: ec2:AllocateAddress ... explicit deny
+  in a service control policy`.  The template as shipped uses the
+  instance's auto-assigned public IP instead, so this is already
+  worked around.  Caveat noted in §3 — if you stop/start the
+  instance, update the DNS A record with the new IP.
+
+- **Multiple VPCs in one account.**  Default VPC + org-provisioned
+  VPC in the same region confuses CloudFormation's auto-detection.
+  Symptom: `security group ... does not exist in VPC ...` on
+  instance creation.  Fix: pin `VpcId` and `SubnetId` parameters
+  (covered inline in §3).
+
+- **Re-deploy after a failed attempt leaves artifacts.**  The
+  S3 bucket in the template has `DeletionPolicy: Retain` so
+  `delete-stack` doesn't remove it; the next `deploy` then trips
+  over the pre-existing bucket.  Fix before retry:
+
+  ```bash
+  aws cloudformation delete-stack --stack-name $STACK --region $REGION
+  aws cloudformation wait stack-delete-complete --stack-name $STACK --region $REGION
+  aws s3 rb s3://$BUCKET --force --region $REGION
+  ```
+
+- **certbot fails the first time** if DNS hasn't propagated (step 4).
+  Re-run after `dig +short $DOMAIN` returns the IP.
+
 - **SSH times out** if your home IP changed since stack deploy.
   Update `SSHAllowCIDR` and re-deploy:
-  `aws cloudformation deploy --stack-name $STACK --template-file deploy/stack.yaml --parameter-overrides SSHAllowCIDR=$(curl -4 -s https://ifconfig.co)/32 BucketName=$BUCKET KeyPairName=$KEYPAIR --capabilities CAPABILITY_IAM`
+  `aws cloudformation deploy --stack-name $STACK --template-file deploy/stack.yaml --parameter-overrides SSHAllowCIDR=$(curl -4 -s https://ifconfig.co)/32 BucketName=$BUCKET KeyPairName=$KEYPAIR VpcId=$VPC_ID SubnetId=$SUBNET_ID --capabilities CAPABILITY_IAM`
+
+- **ASCII-only in Security Group descriptions.**  The EC2 API
+  rejects non-ASCII (em-dashes, etc.) in SG `Description` /
+  `GroupDescription` fields.  The template stays strict ASCII in
+  those slots; if you edit it, don't paste smart punctuation in.
+
 - **ACM in us-east-1** isn't relevant here (we use Let's Encrypt on
   the instance) — but if you later add CloudFront, that's the region
   its cert must live in.
