@@ -144,12 +144,20 @@ Wait for propagation (`dig +short $DOMAIN` should return the IP).
 
 ## 5. On-host setup — one-time
 
-SSH in using the keypair from step 2:
+SSH in using the keypair from step 2.  First thing: confirm
+cloud-init finished its package installs + user-creation.  It can
+take a couple minutes on a fresh instance; blocking here is cheaper
+than re-doing half-made state:
 
 ```bash
 ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$PUBLIC_IP
-# (cloud-init from the template has already installed python3.12,
-# nginx, certbot, awscli, and created the `corpus` user.)
+cloud-init status --wait
+# 'status: done' means cloud-init succeeded and python3.12, nginx,
+# certbot, the AWS CLI v2, and the 'corpus' user are all in place.
+# 'status: error' means look at:
+#   sudo tail -80 /var/log/cloud-init-output.log
+# and install whatever's missing manually (all the user-data commands
+# are idempotent, so re-running is safe).
 
 # Clone the repo + create the venv.
 sudo git clone https://github.com/caseywdunn/corpus.git /srv/corpus/repo

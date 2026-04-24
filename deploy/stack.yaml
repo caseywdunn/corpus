@@ -186,12 +186,24 @@ Resources:
           set -euo pipefail
           exec > >(tee /var/log/corpus-userdata.log) 2>&1
 
+          # apt-get upgrade on a fresh Ubuntu AMI pulls hundreds of
+          # packages and can take 5-10 min, during which SSH users who
+          # get in first see half-installed state.  Canonical's AMI is
+          # already patched at publish time; targeted install is enough.
           apt-get update -y
-          apt-get upgrade -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
               python3.12 python3.12-venv python3-pip \
-              git awscli nginx certbot python3-certbot-nginx \
-              ca-certificates
+              git nginx certbot python3-certbot-nginx \
+              ca-certificates curl unzip
+
+          # AWS CLI v2 - Ubuntu 24.04 dropped the 'awscli' apt package
+          # (only v1 was in it; v2 is the current standard).  Install
+          # from Amazon's official bundle.
+          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+              -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          /tmp/aws/install
+          rm -rf /tmp/awscliv2.zip /tmp/aws
 
           # Create the dedicated user + directory layout.
           id -u corpus &>/dev/null || useradd --system --home-dir /srv/corpus \
