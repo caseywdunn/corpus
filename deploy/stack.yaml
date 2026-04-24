@@ -168,7 +168,13 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs:
-            VolumeSize: 20     # gp3; 10 GB is tight once bundles accumulate
+            # 40 GB fits: Ubuntu base (~5G) + venv incl torch (~6G) +
+            # two bundle versions retained for rollback (~10G each at
+            # 1800 papers).  20 GB was tight enough that the first real
+            # deploy ran out of space mid-aws-s3-sync.  gp3 at 40 GB
+            # is about $3.20/mo in us-east-1.  Live-resizable via
+            # aws ec2 modify-volume + growpart + resize2fs if needed.
+            VolumeSize: 40
             VolumeType: gp3
             DeleteOnTermination: true
             Encrypted: true

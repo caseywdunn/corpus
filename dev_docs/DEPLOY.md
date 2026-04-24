@@ -345,6 +345,24 @@ ones.
 - **certbot fails the first time** if DNS hasn't propagated (step 4).
   Re-run after `dig +short $DOMAIN` returns the IP.
 
+- **EBS full** during `update.sh` for the first time, usually
+  shows as `aws s3 sync` errors ending in `[Errno 28] No space
+  left on device`.  Check `df -h /`.  Resize live with no reboot:
+
+  ```bash
+  # on your laptop
+  VOLUME_ID=$(aws ec2 describe-volumes \
+      --filters "Name=attachment.instance-id,Values=$INSTANCE_ID" \
+      --region us-east-1 --query 'Volumes[0].VolumeId' --output text)
+  aws ec2 modify-volume --volume-id "$VOLUME_ID" --size 60 --region us-east-1
+  # wait ~1 min, then on the EC2 host:
+  sudo growpart /dev/nvme0n1 1 && sudo resize2fs /dev/nvme0n1p1
+  ```
+
+  Template ships at 40 GB which covers ~1800 papers + one rollback
+  version.  Larger corpora or more retained bundles — grow the
+  starting size by editing the template's `VolumeSize`.
+
 - **SSH times out** if your home IP changed since stack deploy.
   Update `SSHAllowCIDR` and re-deploy:
   `aws cloudformation deploy --stack-name $STACK --template-file deploy/stack.yaml --parameter-overrides SSHAllowCIDR=$(curl -4 -s https://ifconfig.co)/32 BucketName=$BUCKET KeyPairName=$KEYPAIR VpcId=$VPC_ID SubnetId=$SUBNET_ID --capabilities CAPABILITY_IAM`
