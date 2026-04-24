@@ -1,0 +1,48 @@
+[Unit]
+Description=Corpus MCP server (SSE transport over bearer-token auth)
+Documentation=https://github.com/caseywdunn/corpus/blob/main/PLAN.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=corpus
+Group=corpus
+WorkingDirectory=/srv/corpus/repo
+
+# Bundle directory is a symlink updated atomically by deploy/update.sh.
+# Token is in /etc/corpus/ mode 600, owned by root:corpus.
+ExecStart=/srv/corpus/venv/bin/python \
+    /srv/corpus/repo/mcp_server.py \
+    /srv/corpus/bundle \
+    --transport sse --host 127.0.0.1 --port 8080 \
+    --auth-token-file /etc/corpus/mcp.token
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=corpus-mcp
+
+# ── Hardening ──────────────────────────────────────────────────────
+# The server is a read-only view over the bundle; lock the rest of
+# the filesystem down.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# The process writes only to its working dir (for the HuggingFace
+# model cache, if the embedding tool ever runs) and its own tmp.
+ReadWritePaths=/srv/corpus
+
+[Install]
+WantedBy=multi-user.target
