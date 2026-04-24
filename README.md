@@ -104,9 +104,9 @@ python tools/smoke_test_sse.py output
 
 All seven checks should pass locally before you move to AWS. The deployment pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is spelled out in [PLAN.md §10](PLAN.md).
 
-**4. Connect a client.** Remote MCP support varies by client — in order of friction, lowest to highest:
+**4. Connect a client.** Remote-MCP support now exists natively in Claude Desktop, claude.ai web, and Claude Code. The paths differ in friction and in which transport + auth they target. Recommended in order:
 
-- **Claude Code (CLI)** — one-liner, recommended for testing:
+- **Claude Code (CLI)** — tested and working against our server. One-liner:
 
   ```bash
   claude mcp add corpus-remote http://127.0.0.1:18080/sse \
@@ -115,11 +115,11 @@ All seven checks should pass locally before you move to AWS. The deployment patt
       --header "Authorization: Bearer $(cat ~/corpus-mcp.token)"
   ```
 
-  Use `--scope project` to tie to one repo instead of your account, and `claude mcp remove corpus-remote --scope user` to undo. Once added, `/mcp` in any Claude Code session lists connected servers.
+  Use `--scope project` to tie to one repo, `claude mcp remove corpus-remote --scope user` to undo. `/mcp` in any Claude Code session lists connected servers and their tools. The CLI accepts `--transport sse` with custom headers, which maps cleanly to our current server.
 
-- **claude.ai web (Connectors)** — Settings → Connectors → Add custom. Paste the URL and bearer token. Best path for non-technical collaborators. Requires a plan that exposes Connectors (Pro / Team / Enterprise as of this writing).
+- **Claude Desktop / claude.ai web (Custom Connectors UI)** — Settings → Connectors → "Add custom connector", paste the URL. Available on Free / Pro / Max / Team / Enterprise plans ([Anthropic docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)). **Caveat for this repo's server:** Custom Connectors target the **Streamable HTTP** transport with OAuth-style auth, while our server speaks **SSE** with a static bearer token. Whether the UI accepts our URL depends on how strict the client is about the handshake — worth trying (Desktop → ⌘Q restart → add custom connector → paste URL), since it's reversible. If it rejects the SSE endpoint, fall back to the `mcp-remote` bridge below.
 
-- **Claude Desktop** — stable builds only accept stdio configs, so remote SSE needs an [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridge in `claude_desktop_config.json`:
+- **Claude Desktop fallback — mcp-remote bridge.** If the Custom Connectors UI doesn't connect to our SSE + bearer server, edit `~/Library/Application Support/Claude/claude_desktop_config.json` to launch [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a stdio subprocess that bridges to our SSE endpoint:
 
   ```json
   {
@@ -134,7 +134,7 @@ All seven checks should pass locally before you move to AWS. The deployment patt
   }
   ```
 
-  Newer Claude Desktop builds (Canary / beta at time of writing) support direct remote MCP and can drop the bridge.
+For a cleaner Custom Connectors experience in the future, the server would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery. That's a post-deploy item; tracked against the AWS rollout, not this initial release.
 
 The repo's project-scoped [.mcp.json](.mcp.json) stays useful for local development — it's stdio, no running server or token needed. Use it for coding against the corpus; use one of the above for testing or consuming the deployed pattern.
 
