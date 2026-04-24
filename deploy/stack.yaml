@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Corpus MCP server deploy: one EC2 instance with an Elastic IP, an S3
+  bucket for versioned bundles, and an IAM role letting the instance
+  pull bundles from S3.  TLS termination happens on the instance via
+  nginx + Let's Encrypt (see deploy/nginx.conf + DEPLOY.md).
+
+  This is the "deliberately boring" path from PLAN.md §10 scaled to
+  ~20 collaborators — no ALB, no CloudFront, no Route 53 dependency.
+  Upgrade to those components later if WAF rate-limiting or
+  multi-instance scale becomes real.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: >
+      Globally-unique S3 bucket for versioned serve bundles.
+      Must be lowercase, no underscores, e.g. "corpus-bundles-dunn".
+    AllowedPattern: '[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]'
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: >
+      Existing EC2 key pair name for SSH access.  Create one in the
+      console or via `aws ec2 create-key-pair --key-name corpus-mcp
+      --query KeyMaterial --output text > ~/.ssh/corpus-mcp.pem`.
+
+  SSHAllowCIDR:
+    Type: String
+    Description: >
+      Source CIDR for SSH (port 22).  Your home/office IP as a /32,
+      e.g. "203.0.113.45/32".  NOT 0.0.0.0/0 — leaving SSH open to
+      the world is a common cause of brute-force bills.
+    AllowedPattern: '\d+\.\d+\.\d+\.\d+/\d+'
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.small, t3.medium, t3.large]
+    Description: >
+      t3.small ($15/mo) is sufficient for ~20 collaborators.  Bump
+      to t3.medium if cold-start latency (LanceDB load) becomes
+      noticeable or RAM pressure shows in `free -h`.
+
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Description: >
+      Ubuntu 24.04 LTS AMI.  Resolved via SSM Public Parameter so
+      it stays current as Canonical ships new patch images.
+
+Resources:
+
+  # ── S3 bucket for versioned bundles ────────────────────────────────
+
+  BundleBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain   # don't nuke history on stack delete
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ── IAM — let the EC2 instance pull bundles from the bucket ───────
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BundleBucketRead
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt BundleBucket.Arn
+                  - !Sub '${BundleBucket.Arn}/*'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # ── Networking ─────────────────────────────────────────────────────
+
+  # Uses the default VPC to keep the template short.  If you've
+  # deleted the default VPC, add VpcId + SubnetId parameters and
+  # reference them here and on the instance.
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: corpus-mcp — SSH from operator, HTTP/HTTPS from world
+      SecurityGroupIngress:
+        - Description: SSH from operator
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHAllowCIDR
+        - Description: HTTP — for certbot http-01 + 301 redirect to HTTPS
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: HTTPS — nginx terminates TLS
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  # ── EC2 instance + Elastic IP ──────────────────────────────────────
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AmiId
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds: [!Ref SecurityGroup]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 20     # gp3; 10 GB is tight once bundles accumulate
+            VolumeType: gp3
+            DeleteOnTermination: true
+            Encrypted: true
+      Tags:
+        - Key: Name
+          Value: corpus-mcp
+      UserData:
+        Fn::Base64: !Sub |
+          #!/usr/bin/env bash
+          # Minimal bootstrap.  The heavier post-install steps
+          # (clone repo, venv, systemd unit, nginx, certbot) are
+          # in DEPLOY.md so they're easy to inspect / re-run /
+          # debug.  This user-data just puts the host in a known
+          # state on first boot.
+          set -euo pipefail
+          exec > >(tee /var/log/corpus-userdata.log) 2>&1
+
+          apt-get update -y
+          apt-get upgrade -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+              python3.12 python3.12-venv python3-pip \
+              git awscli nginx certbot python3-certbot-nginx \
+              ca-certificates
+
+          # Create the dedicated user + directory layout.
+          id -u corpus &>/dev/null || useradd --system --home-dir /srv/corpus \
+              --create-home --shell /bin/bash corpus
+          mkdir -p /srv/corpus /etc/corpus
+          chown corpus:corpus /srv/corpus
+
+          # Signal completion — ssh in and follow DEPLOY.md from here.
+          echo "cloud-init: base packages installed, user+dirs ready" \
+              >> /var/log/corpus-userdata.log
+
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Instance
+
+Outputs:
+  BucketName:
+    Description: S3 bucket for serve bundles
+    Value: !Ref BundleBucket
+
+  InstanceId:
+    Description: EC2 instance id
+    Value: !Ref Instance
+
+  PublicIp:
+    Description: >
+      Elastic IP — point your DNS A record at this.  Survives
+      instance stop/start and reboots.
+    Value: !Ref ElasticIP
+
+  SSHCommand:
+    Description: Ready-to-paste SSH invocation (adjust path to your key)
+    Value: !Sub 'ssh -i ~/.ssh/${KeyPairName}.pem ubuntu@${ElasticIP}'

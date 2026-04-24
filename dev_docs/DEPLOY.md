@@ -1,138 +1,236 @@
 # AWS deployment runbook
 
-This walks through the first deploy and the update flow.  The
-architecture is spelled out in [PLAN.md §10](../PLAN.md); this
-document is the operational instructions.
+End-to-end CLI-only deploy — no AWS console clicks.  The stack is
+defined declaratively in [deploy/stack.yaml](../deploy/stack.yaml)
+(CloudFormation); on-host setup and bundle operations happen via
+`ssh` + the shell scripts in [deploy/](../deploy/).
 
-## Layout on EC2
+## Architecture
 
-```
+Deliberately boring, per PLAN.md §10, scaled to ~20 collaborators:
+
+- **EC2 `t3.small`** on the default VPC, Ubuntu 24.04 LTS, Elastic IP.
+- **nginx** on the instance terminates TLS via Let's Encrypt, reverse-
+  proxies to `mcp_server.py` on `127.0.0.1:8080`.
+- **S3** bucket holds versioned serve bundles; the instance reads
+  from it via IAM role (no keys).
+- **Your DNS** (any provider) has an A record pointing at the
+  Elastic IP.
+
+Deliberately not yet: CloudFront, ALB, WAF, Route 53.  Upgrade if you
+hit rate-limit problems or scale beyond one instance.
+
+Layout on the EC2 host:
+
+```text
 /srv/corpus/
-  repo/               git checkout of this repository (code)
-  venv/               Python virtualenv with the server's deps
+  repo/               git checkout of this repository
+  venv/               Python 3.12 virtualenv
   bundles/
-    v1.0.0/           copy of s3://corpus-bundles/v1.0.0/
-    v1.1.0/           copy of s3://corpus-bundles/v1.1.0/
-    …                 older versions retained for instant rollback
-  bundle -> bundles/v1.1.0/   atomic symlink to the active version
+    v1.0.0/           copy of s3://<bucket>/v1.0.0/
+    v1.1.0/
+  bundle -> bundles/v1.1.0/       atomic symlink to active version
 
 /etc/corpus/
-  mcp.token           bearer token, mode 600, owned root:corpus
+  mcp.token           bearer token, mode 640, root:corpus
 
-/etc/systemd/system/corpus-mcp.service    the unit from deploy/
+/etc/nginx/sites-available/corpus-mcp   reverse-proxy config
+/etc/systemd/system/corpus-mcp.service  unit from deploy/
 ```
 
-## One-time setup
-
-### 1. AWS
-
-- **S3 bucket** — e.g. `corpus-bundles`.  Enable versioning.  IAM
-  policy giving the EC2 instance role `s3:GetObject` and
-  `s3:ListBucket`.  Optional lifecycle rule moving objects in
-  unused version prefixes to Glacier after 90 days.
-- **EC2 instance** — `t3.small` is plenty for ~20 collaborators.
-  Ubuntu 24.04 LTS.  10 GB gp3 EBS.  Security group allows 22 from
-  your IP and 8080 from the ALB only.
-- **ACM cert** — for your chosen domain.  Attach to the ALB (or
-  CloudFront; CloudFront → ALB → EC2 is the pattern from PLAN §10).
-- **Route 53 record** — CNAME or alias pointing at CloudFront.
-- **IAM role** attached to the EC2 instance giving it read on the S3
-  bucket (no keys in files).
-
-### 2. EC2 bootstrap
+## Prerequisites on your laptop
 
 ```bash
-# On the EC2 host as root or via sudo:
-sudo useradd --system --home-dir /srv/corpus --create-home corpus
-sudo mkdir -p /srv/corpus /etc/corpus
-sudo chown corpus:corpus /srv/corpus
-sudo apt-get update
-sudo apt-get install -y python3.12-venv python3-pip awscli
+# aws cli v2
+brew install awscli                   # macOS; other OSes similar
 
-# Clone + venv + deps (still as root, then chown to corpus)
+# Authenticate with an AWS account that can create EC2 / IAM / S3.
+aws configure                         # ACCESS_KEY, SECRET_KEY, region
+aws sts get-caller-identity           # sanity check
+```
+
+You'll also need:
+
+- A domain under your control (any registrar / DNS host works).
+- An email address for Let's Encrypt renewal notices.
+
+## 1. Pick parameters
+
+Set these once per shell session so subsequent commands can reference them:
+
+```bash
+export REGION=us-east-1                             # or your preferred
+export STACK=corpus-mcp
+export BUCKET=corpus-bundles-$(whoami)              # globally unique
+export KEYPAIR=corpus-mcp
+export DOMAIN=corpus.example.edu                    # your hostname
+export ACME_EMAIL=you@example.edu
+export MY_IP=$(curl -4 -s https://ifconfig.co)/32   # SSH source CIDR
+```
+
+## 2. Create the SSH keypair
+
+```bash
+aws ec2 create-key-pair \
+    --region "$REGION" \
+    --key-name "$KEYPAIR" \
+    --query KeyMaterial --output text > ~/.ssh/${KEYPAIR}.pem
+chmod 600 ~/.ssh/${KEYPAIR}.pem
+```
+
+## 3. Deploy the CloudFormation stack
+
+```bash
+aws cloudformation deploy \
+    --region "$REGION" \
+    --stack-name "$STACK" \
+    --template-file deploy/stack.yaml \
+    --capabilities CAPABILITY_IAM \
+    --parameter-overrides \
+        BucketName=$BUCKET \
+        KeyPairName=$KEYPAIR \
+        SSHAllowCIDR=$MY_IP
+```
+
+Takes ~2 minutes.  When it's done, grab the outputs:
+
+```bash
+aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
+    --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue]' --output table
+
+export EIP=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
+    --query 'Stacks[0].Outputs[?OutputKey==`PublicIp`].OutputValue' --output text)
+echo "Elastic IP: $EIP"
+```
+
+## 4. Point DNS at the Elastic IP
+
+**Not automated** — depends on your DNS provider.  Create an A record:
+
+```text
+corpus.example.edu.  A  <EIP from step 3>
+```
+
+Wait for propagation (`dig +short $DOMAIN` should return `$EIP`).
+
+## 5. On-host setup — one-time
+
+SSH in using the keypair from step 2:
+
+```bash
+ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$EIP
+# (cloud-init from the template has already installed python3.12,
+# nginx, certbot, awscli, and created the `corpus` user.)
+
+# Clone the repo + create the venv.
 sudo git clone https://github.com/caseywdunn/corpus.git /srv/corpus/repo
 sudo python3.12 -m venv /srv/corpus/venv
 sudo /srv/corpus/venv/bin/pip install -r /srv/corpus/repo/requirements.txt
 sudo chown -R corpus:corpus /srv/corpus
 
-# Bearer token — generate on your laptop, scp over, or:
-sudo python3 -c 'import secrets; print(secrets.token_urlsafe(32))' | \
-    sudo tee /etc/corpus/mcp.token >/dev/null
+# Generate the bearer token and stash at /etc/corpus/mcp.token.
+sudo bash -c 'python3 -c "import secrets; print(secrets.token_urlsafe(32))" \
+    > /etc/corpus/mcp.token'
 sudo chown root:corpus /etc/corpus/mcp.token
-sudo chmod 640 /etc/corpus/mcp.token    # readable by the corpus group
+sudo chmod 640 /etc/corpus/mcp.token
+sudo cat /etc/corpus/mcp.token    # copy for distribution to collaborators
 
-# systemd unit
+# Install the systemd unit.  Don't start yet — there's no bundle.
 sudo cp /srv/corpus/repo/deploy/corpus-mcp.service \
     /etc/systemd/system/corpus-mcp.service
 sudo systemctl daemon-reload
 sudo systemctl enable corpus-mcp
-# Don't start yet — there's no bundle to serve.
+
+# nginx reverse-proxy: install the config + get a TLS cert.
+# The DNS A record from step 4 must be resolving before certbot runs.
+sudo cp /srv/corpus/repo/deploy/nginx.conf /etc/nginx/sites-available/corpus-mcp
+sudo sed -i "s/REPLACE.example.edu/$DOMAIN/g" /etc/nginx/sites-available/corpus-mcp
+# (on the instance, $DOMAIN isn't your local shell var — hardcode the hostname)
+sudo ln -sf /etc/nginx/sites-available/corpus-mcp /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+
+sudo certbot --nginx -d corpus.example.edu --agree-tos --email you@example.edu \
+    --redirect --non-interactive
+# certbot edits the nginx config to wire in the cert + schedules renewals.
 ```
 
-Distribute the contents of `/etc/corpus/mcp.token` to your ~20
-collaborators via Slack DM, 1Password, signal, whatever.
+## 6. First bundle — from your laptop
 
-### 3. First bundle deploy (from your laptop)
-
-Bouchet pipeline produces `output/`.  `rsync` it down or run the
-pipeline locally on a smaller corpus.  Then:
+Still on your laptop:
 
 ```bash
-# From your local corpus repo checkout
-BUCKET=corpus-bundles deploy/sync_to_s3.sh ~/corpus-output v1.0.0
+# The output dir can be a local pipeline run or an rsync'd Bouchet tree.
+BUCKET=$BUCKET deploy/sync_to_s3.sh ~/corpus-output v1.0.0
 ```
 
-This runs `package_for_serve.py` to distill, then `aws s3 sync` to
-upload.
-
-### 4. Pull it onto EC2 and start the service
+## 7. Pull it on EC2 and start the service
 
 ```bash
-ssh ec2-host
+ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$EIP
 sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.0.0
 sudo systemctl start corpus-mcp
 sudo systemctl status corpus-mcp
 ```
 
-The service should come up in a few seconds and start listening on
-127.0.0.1:8080.  ALB/CloudFront terminates TLS on 443 and forwards.
+## 8. Smoke-test end-to-end
+
+From your laptop:
+
+```bash
+# Unauth should be 401
+curl -s -o /dev/null -w '%{http_code}\n' https://corpus.example.edu/sse
+# → 401
+
+# Authed should be 200 + text/event-stream
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
+    -H "Authorization: Bearer <the-token-you-copied-above>" \
+    https://corpus.example.edu/sse
+# → 200 text/event-stream; ...
+```
+
+Then add the server to Claude Code for a full client check:
+
+```bash
+claude mcp add corpus-prod https://corpus.example.edu/sse \
+    --transport sse --scope user \
+    --header "Authorization: Bearer <token>"
+```
 
 ## Updating to a new bundle
 
-Whenever new papers process, new indices are built (e.g., the
-geography layer when it lands), or the biblio authority is rebuilt:
+Whenever new data lands (new papers, geography layer, rebuilt biblio
+authority):
 
 ```bash
-# 1. Generate + upload the new bundle from your laptop
+# On your laptop
 deploy/sync_to_s3.sh ~/corpus-output v1.1.0
 
-# 2. On EC2
-ssh ec2-host
+# On EC2
+ssh ubuntu@$EIP
 sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.1.0
 ```
 
-The update script is idempotent; re-running with the same version
-is safe.  Collaborators see the new `bundle_version` via the
-`bundle_info` MCP tool the next time they call it.
+Collaborators see the new `bundle_version` the next time their
+client calls the `bundle_info` tool.
 
 ## Rollback
 
-Every version stays on disk under `/srv/corpus/bundles/`.  To revert:
+Every version stays on disk under `/srv/corpus/bundles/`:
 
 ```bash
-ssh ec2-host
+ssh ubuntu@$EIP
 sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.0.0
 ```
 
-Seconds.
+Seconds.  Rollback from S3 alone (if /srv/corpus was wiped) takes
+one extra `aws s3 sync`.
 
 ## Code-only updates
 
-If the change is pure code (bug fix, new MCP tool) without needing
-a new bundle:
-
 ```bash
-ssh ec2-host
+ssh ubuntu@$EIP
 cd /srv/corpus/repo
 sudo -u corpus git pull
 sudo systemctl restart corpus-mcp
@@ -141,20 +239,39 @@ sudo systemctl restart corpus-mcp
 ## Observability
 
 ```bash
-sudo journalctl -u corpus-mcp -f           # live logs
+sudo journalctl -u corpus-mcp -f           # live server logs
+sudo journalctl -u nginx -f                # reverse-proxy logs
 sudo systemctl status corpus-mcp           # status + last few lines
-sudo ss -ltnp | grep 8080                  # confirm the listener
-curl -H "Authorization: Bearer $(sudo cat /etc/corpus/mcp.token)" \
-    -N http://127.0.0.1:8080/sse           # auth GET from the host
+sudo ss -ltnp | grep -E '8080|443'         # confirm listeners
+curl -sS -H "Authorization: Bearer $(sudo cat /etc/corpus/mcp.token)" \
+    -N https://localhost/sse --resolve localhost:443:127.0.0.1 -k
 ```
 
-## Removing a retired version from S3
+## Teardown
+
+When you're done or rebuilding from scratch:
 
 ```bash
-aws s3 rm --recursive s3://corpus-bundles/v0.9.0/
-# Versioning keeps a delete marker; purge that too if disk matters.
+# Empty the bucket (CloudFormation retains it on purpose).
+aws s3 rm --recursive s3://$BUCKET/
+aws s3api delete-bucket --bucket $BUCKET --region $REGION
+
+# Delete the stack (EC2, EIP, IAM, security group).
+aws cloudformation delete-stack --stack-name $STACK --region $REGION
+aws cloudformation wait stack-delete-complete --stack-name $STACK --region $REGION
 ```
 
-The local copy in `/srv/corpus/bundles/` can be cleaned up with a
-simple cron; not urgent since the total disk footprint at 5–10 GB
-per version stays manageable for a long time on 10 GB EBS.
+## Gotchas
+
+- **Default VPC required** by the template as shipped.  If your
+  account has the default VPC deleted, add `VpcId` + `SubnetId`
+  parameters to [stack.yaml](../deploy/stack.yaml) and pass them
+  through.
+- **certbot fails the first time** if DNS hasn't propagated yet
+  (step 4).  Re-run it after `dig` confirms the A record.
+- **SSH times out** if your home IP changed since stack deploy.
+  Update `SSHAllowCIDR` and re-deploy:
+  `aws cloudformation deploy --stack-name $STACK --template-file deploy/stack.yaml --parameter-overrides SSHAllowCIDR=$(curl -4 -s https://ifconfig.co)/32 BucketName=$BUCKET KeyPairName=$KEYPAIR --capabilities CAPABILITY_IAM`
+- **ACM in us-east-1** isn't relevant here (we use Let's Encrypt on
+  the instance) — but if you later add CloudFront, that's the region
+  its cert must live in.
