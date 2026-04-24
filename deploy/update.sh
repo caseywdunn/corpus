@@ -11,10 +11,14 @@
 # any drift).  Keeps prior version directories in place for
 # instant rollback — see DEPLOY.md.
 #
-# Env overrides:
-#     BUCKET — source S3 bucket (default: corpus-bundles)
-#     ROOT   — root of the corpus install on this host
-#              (default: /srv/corpus)
+# Configuration:
+#     /etc/corpus/update.conf — optional per-host defaults.  Key=value
+#                               lines, e.g. BUCKET=corpus-bundles-cdunn.
+#                               Env vars at invocation time override.
+#
+# Env overrides (take precedence over the conf file):
+#     BUCKET  — source S3 bucket (required; error if not set)
+#     ROOT    — root of the corpus install on this host (default: /srv/corpus)
 #     SERVICE — systemd unit name (default: corpus-mcp)
 
 set -euo pipefail
@@ -24,7 +28,22 @@ die() { printf 'update: %s\n' "$*" >&2; exit 1; }
 VERSION="${1:-}"
 [[ -n "$VERSION" ]] || die "usage: $0 <version>   (e.g. v1.0.0)"
 
-BUCKET="${BUCKET:-corpus-bundles}"
+# Source /etc/corpus/update.conf if present - per-host defaults so
+# operators don't have to remember the bucket name on every update.
+CONF_FILE="${CORPUS_UPDATE_CONF:-/etc/corpus/update.conf}"
+if [[ -f "$CONF_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$CONF_FILE"
+fi
+
+# BUCKET is required - no default (defaults to a likely-wrong bucket
+# name that just produces an opaque NoSuchBucket error).  Either set
+# BUCKET in /etc/corpus/update.conf or pass it on the command line.
+BUCKET="${BUCKET:-}"
+[[ -n "$BUCKET" ]] || die \
+    "BUCKET is not set.  Either add 'BUCKET=<name>' to $CONF_FILE \
+or invoke with: sudo -u corpus env BUCKET=<name> $0 $VERSION"
+
 ROOT="${ROOT:-/srv/corpus}"
 SERVICE="${SERVICE:-corpus-mcp}"
 

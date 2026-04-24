@@ -178,6 +178,13 @@ sudo cp /srv/corpus/repo/deploy/corpus-mcp.service \
 sudo systemctl daemon-reload
 sudo systemctl enable corpus-mcp
 
+# Per-host config for deploy/update.sh — lets future deploys be
+# `sudo -u corpus /srv/corpus/repo/deploy/update.sh <version>` with
+# no env var gymnastics.
+sudo mkdir -p /etc/corpus
+echo "BUCKET=$BUCKET" | sudo tee /etc/corpus/update.conf > /dev/null
+sudo chmod 644 /etc/corpus/update.conf
+
 # nginx reverse-proxy: install the config + get a TLS cert.
 # The DNS A record from step 4 must be resolving before certbot runs.
 sudo cp /srv/corpus/repo/deploy/nginx.conf /etc/nginx/sites-available/corpus-mcp
@@ -247,6 +254,7 @@ deploy/sync_to_s3.sh ~/corpus-output v1.1.0
 # On EC2
 ssh ubuntu@$PUBLIC_IP
 sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.1.0
+# (reads BUCKET from /etc/corpus/update.conf set up in §5)
 ```
 
 Collaborators see the new `bundle_version` the next time their
