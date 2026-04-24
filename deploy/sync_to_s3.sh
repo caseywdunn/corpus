@@ -38,9 +38,14 @@ VERSION="${2:-}"
 
 BUCKET="${BUCKET:-corpus-bundles}"
 BUNDLE_DIR="${BUNDLE_DIR:-/tmp/corpus-bundle-${VERSION}}"
-EXTRA_FLAGS=()
+
+# Using a plain string instead of an array because macOS ships bash 3.2,
+# which errors on empty-array expansion under `set -u` ("unbound
+# variable").  Safer to build a flag string and let the shell split on
+# whitespace; we only pass fixed flags here, never user input.
+EXTRA_FLAGS=""
 if [[ "${INCLUDE_PDFS:-0}" == "1" ]]; then
-    EXTRA_FLAGS+=(--include-pdfs)
+    EXTRA_FLAGS="--include-pdfs"
 fi
 
 command -v aws >/dev/null 2>&1 || die "aws cli not on PATH; install awscli"
@@ -49,10 +54,11 @@ echo "── Distill ───────────────────�
 echo "  input:  $OUTPUT_DIR"
 echo "  bundle: $BUNDLE_DIR"
 echo "  version: $VERSION"
+# shellcheck disable=SC2086
 python "$REPO_DIR/package_for_serve.py" \
     "$OUTPUT_DIR" "$BUNDLE_DIR" \
     --version "$VERSION" \
-    "${EXTRA_FLAGS[@]}"
+    $EXTRA_FLAGS
 
 echo
 echo "── Upload ─────────────────────────────────────────────────────"
