@@ -104,6 +104,40 @@ python tools/smoke_test_sse.py output
 
 All seven checks should pass locally before you move to AWS. The deployment pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is spelled out in [PLAN.md §10](PLAN.md).
 
+**4. Connect a client.** Remote MCP support varies by client — in order of friction, lowest to highest:
+
+- **Claude Code (CLI)** — one-liner, recommended for testing:
+
+  ```bash
+  claude mcp add corpus-remote http://127.0.0.1:18080/sse \
+      --transport sse \
+      --scope user \
+      --header "Authorization: Bearer $(cat ~/corpus-mcp.token)"
+  ```
+
+  Use `--scope project` to tie to one repo instead of your account, and `claude mcp remove corpus-remote --scope user` to undo. Once added, `/mcp` in any Claude Code session lists connected servers.
+
+- **claude.ai web (Connectors)** — Settings → Connectors → Add custom. Paste the URL and bearer token. Best path for non-technical collaborators. Requires a plan that exposes Connectors (Pro / Team / Enterprise as of this writing).
+
+- **Claude Desktop** — stable builds only accept stdio configs, so remote SSE needs an [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridge in `claude_desktop_config.json`:
+
+  ```json
+  {
+    "mcpServers": {
+      "corpus-remote": {
+        "command": "/opt/homebrew/bin/npx",
+        "args": ["-y", "mcp-remote",
+                 "http://127.0.0.1:18080/sse",
+                 "--header", "Authorization: Bearer <token>"]
+      }
+    }
+  }
+  ```
+
+  Newer Claude Desktop builds (Canary / beta at time of writing) support direct remote MCP and can drop the bridge.
+
+The repo's project-scoped [.mcp.json](.mcp.json) stays useful for local development — it's stdio, no running server or token needed. Use it for coding against the corpus; use one of the above for testing or consuming the deployed pattern.
+
 ## Installation
 
 ```bash
