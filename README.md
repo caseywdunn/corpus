@@ -77,30 +77,32 @@ python build_taxon_mentions.py output
 }
 ```
 
-**Shared access** — the same `mcp_server.py` speaks SSE over HTTP for remote clients. Generate a bearer token and expose with:
+**Shared access** — the same `mcp_server.py` speaks SSE over HTTP for remote clients. Three steps:
+
+**1. Generate a bearer token.** Use `secrets.token_urlsafe` for a strong URL-safe random string, save to a mode-600 file, never pass it on the CLI (would leak via `ps`):
 
 ```bash
-# Generate a URL-safe token and save to a mode-600 file.  Never pass
-# the token on the CLI — it would leak via `ps`.
 python -c 'import secrets; print(secrets.token_urlsafe(32))' > ~/corpus-mcp.token
 chmod 600 ~/corpus-mcp.token
+```
 
-python mcp_server.py /path/to/output \
+**2. Start the server over SSE.** `output` is your pipeline output directory — replace with an absolute path if running from elsewhere:
+
+```bash
+python mcp_server.py output \
     --transport sse --host 127.0.0.1 --port 8080 \
     --auth-token-file ~/corpus-mcp.token
 ```
 
-Clients send `Authorization: Bearer <token>` on every request. Without `--auth-token-file` or `CORPUS_MCP_TOKEN` the server runs open and logs a loud warning — fine for localhost experiments, never safe for public-facing deploys. The AWS pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is spelled out in [PLAN.md §10](PLAN.md).
+Clients send `Authorization: Bearer <token>` on every request. Without `--auth-token-file` or `CORPUS_MCP_TOKEN` the server runs open and logs a loud warning — fine for localhost experiments, never safe for public-facing deploys.
 
-Before a remote deploy, confirm the SSE + auth stack works end-to-end with [tools/smoke_test_sse.py](tools/smoke_test_sse.py):
+**3. Smoke-test before exposing to anyone else.** [tools/smoke_test_sse.py](tools/smoke_test_sse.py) launches its own server on a free port, generates its own token, and drives the full stack — 401 without auth, 200 with auth, MCP `initialize` → `list_tools` → `bundle_info` → `list_papers`:
 
 ```bash
-# Launches a fresh server on a random port, generates a token,
-# checks 401 without auth / 200 with auth, drives a real MCP client
-# through initialize → list_tools → bundle_info → list_papers, then
-# shuts everything down.
-python tools/smoke_test_sse.py /path/to/output
+python tools/smoke_test_sse.py output
 ```
+
+All seven checks should pass locally before you move to AWS. The deployment pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is spelled out in [PLAN.md §10](PLAN.md).
 
 ## Installation
 
