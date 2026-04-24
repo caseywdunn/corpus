@@ -355,8 +355,26 @@ ones.
       --filters "Name=attachment.instance-id,Values=$INSTANCE_ID" \
       --region us-east-1 --query 'Volumes[0].VolumeId' --output text)
   aws ec2 modify-volume --volume-id "$VOLUME_ID" --size 60 --region us-east-1
-  # wait ~1 min, then on the EC2 host:
-  sudo growpart /dev/nvme0n1 1 && sudo resize2fs /dev/nvme0n1p1
+
+  # Poll until the modification is past the 'modifying' state.
+  # ModificationState transitions: modifying -> optimizing -> completed.
+  # The new size is usable as soon as the state is 'optimizing'; the
+  # 'completed' phase is a background performance rebalance.
+  until [[ "$(aws ec2 describe-volumes-modifications \
+      --volume-ids $VOLUME_ID --region us-east-1 \
+      --query 'VolumesModifications[0].ModificationState' \
+      --output text)" =~ ^(optimizing|completed)$ ]]; do
+      sleep 10
+  done
+  ```
+
+  Then on the EC2 host:
+
+  ```bash
+  lsblk                              # confirm the device name
+  sudo growpart /dev/nvme0n1 1
+  sudo resize2fs /dev/nvme0n1p1
+  df -h /                            # should show the new size
   ```
 
   Template ships at 40 GB which covers ~1800 papers + one rollback
