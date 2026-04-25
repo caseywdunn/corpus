@@ -1,14 +1,41 @@
+# Pip-based install for environments where conda isn't available
+# (e.g. the AWS deploy target — see dev_docs/DEPLOY.md).  This file
+# MUST stay in sync with environment.yaml's pip: section.
+#
+# Scope: everything needed to run mcp_server.py AND the build/
+# reconcile CLIs.  The heavy vision + OCR extras (docling,
+# ocrmypdf, qwen-vl-utils, accelerate) are included for parity
+# with the conda env but can be stripped on a server-only host
+# to save ~2 GB of disk.
+
+# Web, data, config
 requests
-ipykernel
 python-dotenv
 pydantic
-docling
-lancedb
-ocrmypdf
-tesseract
-numpy
-pymupdf
 pyyaml
-matplotlib
+numpy
 pillow
+matplotlib
 rapidfuzz>=2.0
+lxml
+
+# MCP server + transport deps (mcp pulls in uvicorn + starlette)
+mcp
+
+# Vector index + embedding backend
+lancedb
+sentence-transformers
+
+# LLM clients used by MCP tools
+anthropic
+
+# Pipeline-side (needed for process_corpus.py / figures.py, not
+# strictly required by the MCP server alone)
+docling
+ocrmypdf
+pymupdf
+langdetect
+pytesseract
+
+# Notebooks / interactive dev
+ipykernel
