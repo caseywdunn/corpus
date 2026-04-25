@@ -185,6 +185,16 @@ sudo mkdir -p /etc/corpus
 echo "BUCKET=$BUCKET" | sudo tee /etc/corpus/update.conf > /dev/null
 sudo chmod 644 /etc/corpus/update.conf
 
+# Narrow sudoers rule so the corpus user can restart the service
+# from inside deploy/update.sh without a password prompt.  It can
+# ONLY run these two systemctl subcommands on this one unit.
+sudo tee /etc/sudoers.d/corpus-mcp > /dev/null <<'EOF'
+# Allow corpus user to restart / check its own service, nothing else.
+corpus ALL=(root) NOPASSWD: /bin/systemctl restart corpus-mcp, /bin/systemctl is-active corpus-mcp
+EOF
+sudo chmod 440 /etc/sudoers.d/corpus-mcp
+sudo visudo -c -f /etc/sudoers.d/corpus-mcp   # sanity-check the file parses
+
 # nginx reverse-proxy: install the config + get a TLS cert.
 # The DNS A record from step 4 must be resolving before certbot runs.
 sudo cp /srv/corpus/repo/deploy/nginx.conf /etc/nginx/sites-available/corpus-mcp
@@ -380,6 +390,22 @@ ones.
   Template ships at 40 GB which covers ~1800 papers + one rollback
   version.  Larger corpora or more retained bundles — grow the
   starting size by editing the template's `VolumeSize`.
+
+- **`update.sh` prompts for a password** at the restart step on
+  hosts deployed before the sudoers rule was in the runbook.  The
+  corpus user doesn't have passwordless sudo by default.  Install
+  the narrow rule in place:
+
+  ```bash
+  sudo tee /etc/sudoers.d/corpus-mcp > /dev/null <<'EOF'
+  corpus ALL=(root) NOPASSWD: /bin/systemctl restart corpus-mcp, /bin/systemctl is-active corpus-mcp
+  EOF
+  sudo chmod 440 /etc/sudoers.d/corpus-mcp
+  sudo visudo -c -f /etc/sudoers.d/corpus-mcp
+  ```
+
+  For the current update, finish the restart manually as ubuntu:
+  `sudo systemctl restart corpus-mcp`.
 
 - **SSH times out** if your home IP changed since stack deploy.
   Update `SSHAllowCIDR` and re-deploy:
