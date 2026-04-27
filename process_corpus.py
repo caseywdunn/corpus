@@ -180,13 +180,15 @@ def setup_root_logging(level: int = logging.INFO) -> None:
 # Language detection & OCR language selection (Phase C)
 # ---------------------------------------------------------------------------
 
-# ISO 639-1 → Tesseract traineddata code. Extended as we encounter languages
-# in the corpus; anything missing here falls back to the CONFIG default union.
+# ISO 639-1 → Tesseract traineddata code. Covers every language langdetect
+# can return so we can check pack availability for any detected document. A
+# detected language not in this map (or whose pack isn't installed) falls
+# back to the CONFIG default union and triggers a warning.
 _ISO_TO_TESSERACT = {
+    # Latin-script European
     "en": "eng",
     "de": "deu",
     "fr": "fra",
-    "ru": "rus",
     "la": "lat",
     "it": "ita",
     "es": "spa",
@@ -200,6 +202,47 @@ _ISO_TO_TESSERACT = {
     "ca": "cat",
     "cs": "ces",
     "hu": "hun",
+    "ro": "ron",
+    "sk": "slk",
+    "sl": "slv",
+    "hr": "hrv",
+    "et": "est",
+    "lv": "lav",
+    "lt": "lit",
+    "sq": "sqi",
+    "cy": "cym",
+    "af": "afr",
+    "id": "ind",
+    "sw": "swa",
+    "tl": "tgl",
+    "vi": "vie",
+    "tr": "tur",
+    # Cyrillic
+    "ru": "rus",
+    "uk": "ukr",
+    "bg": "bul",
+    "mk": "mkd",
+    # Other scripts
+    "el": "ell",
+    "ar": "ara",
+    "fa": "fas",
+    "ur": "urd",
+    "he": "heb",
+    "hi": "hin",
+    "mr": "mar",
+    "ne": "nep",
+    "bn": "ben",
+    "gu": "guj",
+    "pa": "pan",
+    "ta": "tam",
+    "te": "tel",
+    "kn": "kan",
+    "ml": "mal",
+    "th": "tha",
+    "ja": "jpn",
+    "ko": "kor",
+    "zh-cn": "chi_sim",
+    "zh-tw": "chi_tra",
 }
 
 
@@ -376,15 +419,33 @@ def _visual_page_script(pdf_path: Path) -> Optional[str]:
 # ISO 639-1 code → expected script (for cross-check). Latin-family languages
 # also render as "Fraktur" for historical German — Tesseract reports that
 # as a distinct script, so we treat Latin and Fraktur as compatible here.
+# Script names match what Tesseract OSD emits ("Japanese", "Han", "Hangul",
+# "Devanagari", etc.).
 _LANG_EXPECTED_SCRIPT = {
+    # Latin
     "en": "Latin", "de": "Latin", "fr": "Latin", "it": "Latin", "es": "Latin",
     "pt": "Latin", "nl": "Latin", "pl": "Latin", "sv": "Latin", "no": "Latin",
     "da": "Latin", "fi": "Latin", "la": "Latin", "ca": "Latin", "cs": "Latin",
-    "hu": "Latin",
+    "hu": "Latin", "ro": "Latin", "sk": "Latin", "sl": "Latin", "hr": "Latin",
+    "et": "Latin", "lv": "Latin", "lt": "Latin", "sq": "Latin", "cy": "Latin",
+    "af": "Latin", "id": "Latin", "sw": "Latin", "tl": "Latin", "vi": "Latin",
+    "tr": "Latin",
+    # Cyrillic
     "ru": "Cyrillic", "uk": "Cyrillic", "bg": "Cyrillic", "sr": "Cyrillic",
     "mk": "Cyrillic", "be": "Cyrillic",
+    # Other scripts
     "el": "Greek",
-    "ar": "Arabic", "fa": "Arabic",
+    "ar": "Arabic", "fa": "Arabic", "ur": "Arabic",
+    "he": "Hebrew",
+    "hi": "Devanagari", "mr": "Devanagari", "ne": "Devanagari",
+    "bn": "Bengali",
+    "gu": "Gujarati",
+    "pa": "Gurmukhi",
+    "ta": "Tamil", "te": "Telugu", "kn": "Kannada", "ml": "Malayalam",
+    "th": "Thai",
+    "ja": "Japanese",
+    "ko": "Hangul",
+    "zh-cn": "Han", "zh-tw": "Han",
 }
 
 
@@ -421,47 +482,52 @@ def _available_tesseract_langs() -> frozenset:
     return _AVAILABLE_TESSERACT_LANGS_CACHE
 
 
+# Tesseract OSD script name → ordered list of Tesseract packs to try when
+# the visual page script disagrees with the text layer. The first installed
+# pack from each list is used.
 _SCRIPT_TO_TESSERACT = {
     "Cyrillic": ["rus"],
     "Greek": ["ell"],
     "Fraktur": ["deu_latf", "deu"],
     "Arabic": ["ara"],
+    "Hebrew": ["heb"],
+    "Devanagari": ["hin"],
+    "Japanese": ["jpn"],
+    "Hangul": ["kor"],
+    "Han": ["chi_sim", "chi_tra"],
+    "Thai": ["tha"],
+    "Bengali": ["ben"],
+    "Tamil": ["tam"],
+    "Telugu": ["tel"],
+    "Kannada": ["kan"],
+    "Malayalam": ["mal"],
+    "Gujarati": ["guj"],
+    "Gurmukhi": ["pan"],
 }
 
 
-def _compose_ocr_langs(
+def _resolve_tesseract_packs(
     detected_iso: Optional[str],
     visual_script: Optional[str] = None,
 ) -> List[str]:
-    """Pick Tesseract language codes to pass to ocrmypdf ``-l``.
+    """Return targeted Tesseract packs for ``(detected_iso, visual_script)``.
 
-    Policy, in precedence order:
+    Pure precedence resolution — no fallback union, no automatic ``eng``
+    suffix. Returns ``[]`` when no targeted pack is installed for the inputs,
+    which is the signal callers use to decide whether to warn or to fall
+    back to ``CONFIG["ocr"]["ocr_languages_default"]``.
 
-    1. **``visual_script`` wins over ``detected_iso``** when the text layer
-       was classified as corrupt. In that case langdetect's ISO code came
-       from the garbled text and is unreliable (Stepanjants 1970 is the
-       canonical example: OSD says Cyrillic, langdetect says "en"). The
-       OSD-derived script is what we trust.
-    2. If a specific language was detected with a clean text layer, prefer
-       its Tesseract pack plus English (for mixed pages / Latin binomials).
-    3. Otherwise, fall back to ``CONFIG["ocr"]["ocr_languages_default"]``
-       intersected with what's installed. Slower but safe.
-    4. ``eng`` is always included at the tail.
+    Precedence (same as :func:`_compose_ocr_langs`):
 
-    Packs in the configured default that aren't installed (e.g., a missing
-    manual ``deu_latf``) are silently dropped so ocrmypdf doesn't fail.
+    1. ``visual_script`` (from Tesseract OSD) wins over ``detected_iso`` —
+       langdetect's code is unreliable when the text layer is corrupt.
+    2. Otherwise use ``_ISO_TO_TESSERACT[detected_iso]``. For German the
+       Fraktur pack is added when installed (historical papers).
     """
     available = _available_tesseract_langs()
     if not available:
         return []
-
-    cfg_default = CONFIG.get("ocr", {}).get(
-        "ocr_languages_default",
-        ["eng", "deu", "deu_latf", "fra", "rus", "lat"],
-    )
-
     chosen: List[str] = []
-
     if visual_script and visual_script in _SCRIPT_TO_TESSERACT:
         for tess in _SCRIPT_TO_TESSERACT[visual_script]:
             if tess in available and tess not in chosen:
@@ -470,17 +536,36 @@ def _compose_ocr_langs(
         tess = _ISO_TO_TESSERACT.get(detected_iso)
         if tess and tess in available:
             chosen.append(tess)
-            # For German, also try Fraktur if installed (historical papers).
             if tess == "deu" and "deu_latf" in available:
                 chosen.append("deu_latf")
+    return chosen
 
-    # If we got a targeted choice via visual or detected language, that's
-    # enough — add eng and return. Otherwise fall back to the full union.
+
+def _compose_ocr_langs(
+    detected_iso: Optional[str],
+    visual_script: Optional[str] = None,
+) -> List[str]:
+    """Pick Tesseract language codes to pass to ocrmypdf ``-l``.
+
+    Tries :func:`_resolve_tesseract_packs` first; if that returns nothing
+    (unknown language, or pack not installed), falls back to
+    ``CONFIG["ocr"]["ocr_languages_default"]`` filtered to installed packs.
+    ``eng`` is always appended.
+    """
+    available = _available_tesseract_langs()
+    if not available:
+        return []
+
+    chosen = _resolve_tesseract_packs(detected_iso, visual_script)
     if chosen:
         if "eng" in available and "eng" not in chosen:
             chosen.append("eng")
         return chosen
 
+    cfg_default = CONFIG.get("ocr", {}).get(
+        "ocr_languages_default",
+        ["eng", "deu", "deu_latf", "fra", "rus", "lat"],
+    )
     for lang in cfg_default:
         if lang in available and lang not in chosen:
             chosen.append(lang)
@@ -824,6 +909,46 @@ def run_pdf_processing_pipeline(
     return processing_summary
 
 
+def _annotate_pack_availability(result: Dict) -> Dict:
+    """Tag a :func:`detect_scan_type` result with Tesseract pack availability.
+
+    Adds two fields:
+
+    - ``tesseract_packs`` — the targeted Tesseract pack list resolved from
+      ``(detected_language, visual_script)`` via
+      :func:`_resolve_tesseract_packs`. Empty when no pack is installed for
+      the detected language/script (the pipeline will then fall back to the
+      configured default union).
+    - ``tesseract_pack_available`` — ``True``/``False``/``None``. ``None``
+      means no language was detected (e.g., a low-text scan), so we can't
+      decide. Recording this for born-digital papers too is intentional —
+      it lets you grep ``scan_detection.json`` across the corpus to find
+      papers in unsupported languages.
+
+    Emits a WARNING when ``needs_ocr=True`` but no targeted pack is
+    installed; OCR will still run with the default union, but accuracy on
+    the detected language/script will be poor. Install the appropriate
+    pack (e.g. ``brew install tesseract-lang`` on macOS or
+    ``apt-get install tesseract-ocr-<code>`` on Debian) for better results.
+    """
+    iso = result.get("detected_language")
+    visual = result.get("visual_script")
+    packs = _resolve_tesseract_packs(iso, visual)
+    result["tesseract_packs"] = packs
+    if iso is None and visual is None:
+        result["tesseract_pack_available"] = None
+    else:
+        result["tesseract_pack_available"] = bool(packs)
+    if result.get("needs_ocr") and not packs and (iso or visual):
+        logger.warning(
+            "No installed Tesseract pack for detected_language=%r visual_script=%r "
+            "(%s); OCR will fall back to the default language union and may be "
+            "low quality.",
+            iso, visual, result.get("filename"),
+        )
+    return result
+
+
 def detect_scan_type(pdf_path: Path) -> Dict:
     """Classify the text-layer state of a PDF into one of three buckets:
 
@@ -844,7 +969,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
         import fitz  # PyMuPDF
     except ImportError:
         logger.warning("PyMuPDF not available; treating as born-digital (no OCR)")
-        return {
+        return _annotate_pack_availability({
             "filename": pdf_path.name,
             "file_type": "born_digital",
             "has_text": True,
@@ -853,7 +978,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
             "language_confidence": 0.0,
             "gibberish_score": 0.0,
             "ocr_mode": None,
-        }
+        })
 
     # Read up to the first 5 pages (or all pages if the doc is shorter) —
     # enough text for language detection and gibberish scoring without
@@ -867,7 +992,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
         doc.close()
     except Exception as e:
         logger.warning("Error reading %s: %s; assuming scanned", pdf_path.name, e)
-        return {
+        return _annotate_pack_availability({
             "filename": pdf_path.name,
             "file_type": "scanned",
             "has_text": False,
@@ -876,7 +1001,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
             "language_confidence": 0.0,
             "gibberish_score": 0.0,
             "ocr_mode": "skip_text",
-        }
+        })
 
     stripped = total_text.strip()
     total_chars = len(stripped)
@@ -886,7 +1011,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
 
     # Low-text path: treat as scanned and OCR it.
     if not (has_substantial_text and has_good_density):
-        return {
+        return _annotate_pack_availability({
             "filename": pdf_path.name,
             "file_type": "scanned",
             "has_text": False,
@@ -897,7 +1022,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             "ocr_mode": "skip_text",
-        }
+        })
 
     # Has enough text — now triage born_digital vs broken_text_layer.
     lang, conf = _detect_language(total_text)
@@ -911,7 +1036,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
     # High gibberish score is a direct signal the text layer is corrupt,
     # regardless of script. Catches the obvious cases.
     if gib > threshold:
-        return {
+        return _annotate_pack_availability({
             "filename": pdf_path.name,
             "file_type": "broken_text_layer",
             "detection_reason": "gibberish_score_above_threshold",
@@ -925,7 +1050,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             "ocr_mode": "force_ocr",
-        }
+        })
 
     # --- Visual-vs-text cross-check ---
     # If the text layer is almost entirely Latin-family characters *and*
@@ -953,7 +1078,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
                 "flagging as broken_text_layer",
                 visual,
             )
-            return {
+            return _annotate_pack_availability({
                 "filename": pdf_path.name,
                 "file_type": "broken_text_layer",
                 "detection_reason": "visual_script_mismatch",
@@ -967,9 +1092,9 @@ def detect_scan_type(pdf_path: Path) -> Dict:
                 "total_chars_sampled": total_chars,
                 "pages_checked": pages_to_check,
                 "ocr_mode": "force_ocr",
-            }
+            })
 
-    return {
+    return _annotate_pack_availability({
         "filename": pdf_path.name,
         "file_type": "born_digital",
         "detection_reason": "clean_text_layer",
@@ -983,7 +1108,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
         "total_chars_sampled": total_chars,
         "pages_checked": pages_to_check,
         "ocr_mode": None,
-    }
+    })
 
 
 def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
