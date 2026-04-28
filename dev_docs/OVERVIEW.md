@@ -41,7 +41,7 @@ Orchestrated by `run_pdf_processing_pipeline`, five steps per PDF:
 | **PDF preparation** | Copies born-digital PDFs as-is; runs `ocrmypdf` on scanned/broken PDFs with language-appropriate Tesseract models (eng, deu, fra, rus, lat, deu_latf for Fraktur) | `processed.pdf` |
 | **Text + figure extraction** | Docling parses the PDF into structured text and figure regions. Figures go through a classification/caption pipeline (see [Figure pipeline](#figure-pipeline) below). Falls back to raw PyMuPDF image extraction when docling finds nothing. | `text.json`, `figures.json`, `figures/*.png`, `visualizations/*.png` |
 | **Metadata extraction** | Grobid extracts title, authors, year, DOI, abstract, section structure, and parsed references. Falls back to placeholder when Grobid is unavailable. | `metadata.json` |
-| **Chunking** | Splits extracted text into overlapping chunks, annotated with section class, taxon mentions (via WoRMS), and anatomy-lexicon matches | `chunks.json` |
+| **Chunking** | Splits extracted text into overlapping chunks, annotated with section class, taxon mentions (via the configured DwC taxonomy snapshot), and anatomy-lexicon matches | `chunks.json` |
 
 Stage 1 supports SLURM job-array parallelization via `--batch-index` / `--batch-size`. Each array task deterministically processes a slice of the sorted hash list. See [BOUCHET.md](BOUCHET.md) for operational details.
 
@@ -82,7 +82,7 @@ Figure extraction is a multi-pass process designed for historical taxonomic lite
 
 ## Taxonomic annotation
 
-When the WoRMS (World Register of Marine Species) SQLite snapshot is available (`resources/worms.sqlite`, built by `ingest_worms.py`), the pipeline annotates chunks with recognized taxon names. By default the snapshot covers the subtree under AphiaID 1371 (Siphonophorae, ~787 names with synonyms) — pass `--root-aphia <id>` to `ingest_worms.py` to build a snapshot for a different marine group.
+When a Darwin Core taxonomy SQLite snapshot is available (`resources/taxonomy.sqlite`, built by `ingest_taxonomy.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py --source dwc <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
 
 An anatomy lexicon (`resources/anatomy_lexicon.yaml`, 22 terms) similarly tags chunks with siphonophore-specific anatomical terms (nectophore, pneumatophore, gastrozooid, etc.).
 
@@ -105,5 +105,5 @@ Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM 
 | `slurm/batch_pass3b.sh` | SLURM Pass 3b batch script (GPU) |
 | `slurm/batch_embed.sh` | SLURM embedding batch script (GPU) |
 | `slurm/bouchet_paths.sh` | Shared path definitions for all batch scripts |
-| `ingest_worms.py` | Build WoRMS SQLite snapshot from the live API |
+| `ingest_taxonomy.py` | Build Darwin Core taxonomy SQLite from a DwC file, archive, or the WoRMS API |
 | `resources/anatomy_lexicon.yaml` | Siphonophore anatomy term list |

@@ -51,10 +51,12 @@ if ! curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1; then
     echo "WARNING: Grobid not reachable at $GROBID_URL — metadata will use fallback"
 fi
 
-# ── WoRMS + anatomy lexicon (if available) ───────────────────────────
-WORMS_FLAG=""
-if [ -f "$OUTPUT_DIR/worms.sqlite" ]; then
-    WORMS_FLAG="--worms-sqlite $OUTPUT_DIR/worms.sqlite"
+# ── Taxonomy + anatomy lexicon (if available) ────────────────────────
+# Built by ingest_taxonomy.py (any DwC source — WoRMS, GBIF, iNaturalist,
+# or a curated CSV). Optional; pipeline degrades gracefully if absent.
+TAXONOMY_FLAG=""
+if [ -f "$OUTPUT_DIR/taxonomy.sqlite" ]; then
+    TAXONOMY_FLAG="--taxonomy-db $OUTPUT_DIR/taxonomy.sqlite"
 fi
 ANATOMY_FLAG=""
 if [ -f "$REPO_DIR/resources/anatomy_lexicon.yaml" ]; then
@@ -78,7 +80,7 @@ python process_corpus.py \
     "$INPUT_DIR" "$OUTPUT_DIR" \
     --resume \
     --grobid-url "$GROBID_URL" \
-    $WORMS_FLAG \
+    $TAXONOMY_FLAG \
     $ANATOMY_FLAG \
     $BATCH_ARGS
 

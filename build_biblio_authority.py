@@ -3,7 +3,8 @@
 
 Reads metadata.json and references.json from the corpus output directory,
 deduplicates cited references across papers, builds a citation graph,
-and links WoRMS taxa to their original-description works.
+and links Darwin Core taxa to their original-description works via
+``scientificNameAuthorship`` parsing.
 
 The result is a single SQLite database that serves as the corpus-level
 source of truth for all bibliographic entities — whether or not the
@@ -14,7 +15,7 @@ GUID priority: DOI > BHL Part/Item ID > normalized citation key.
 Three phases:
   1. Seed from corpus papers (metadata.json)
   2. Ingest cited references + build citation graph (references.json)
-  3. Link WoRMS authorities to works
+  3. Link taxonomic-authority strings to works
 
 After a build completes, ``reconcile_corpus_to_biblio.py`` can
 be run to merge corpus papers whose Grobid-seeded work_id received no
@@ -54,7 +55,7 @@ except ImportError:
 logger = logging.getLogger("build_biblio")
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "biblio_authority.sqlite"
-DEFAULT_WORMS = Path(__file__).resolve().parent / "resources" / "worms.sqlite"
+DEFAULT_TAXONOMY = Path(__file__).resolve().parent / "resources" / "taxonomy.sqlite"
 
 # ── Normalization ────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ _AUTHORITY_RE = re.compile(
 
 
 def parse_authority(authority: str) -> Optional[Tuple[List[str], int]]:
-    """Parse a WoRMS authority string into (author_surnames, year).
+    """Parse a DwC scientificNameAuthorship string into (author_surnames, year).
 
     Handles: 'Eschscholtz, 1829', '(Huxley, 1859)', 'Quoy & Gaimard, 1833',
     'L. Agassiz, 1862', 'Lens & van Riemsdijk, 1908'.
@@ -228,12 +229,15 @@ def create_schema(conn: sqlite3.Connection) -> None:
             PRIMARY KEY (alias_key, work_id)
         );
 
-        CREATE TABLE IF NOT EXISTS worms_work_links (
-            aphia_id   INTEGER NOT NULL,
+        -- Links between original-description works and Darwin Core taxa.
+        -- ``taxon_id`` is the DwC taxonID from the configured taxonomy
+        -- snapshot (TEXT — DwC identifiers are strings).
+        CREATE TABLE IF NOT EXISTS taxon_work_links (
+            taxon_id   TEXT NOT NULL,
             work_id    TEXT NOT NULL REFERENCES works(work_id),
             link_type  TEXT NOT NULL,
             confidence REAL DEFAULT 1.0,
-            PRIMARY KEY (aphia_id, work_id, link_type)
+            PRIMARY KEY (taxon_id, work_id, link_type)
         );
 
         CREATE TABLE IF NOT EXISTS bhl_lookups (
@@ -257,7 +261,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_work_authors_surname ON work_authors(surname_normalized);
         CREATE INDEX IF NOT EXISTS idx_citations_cited ON citations(cited_work_id);
         CREATE INDEX IF NOT EXISTS idx_citations_citing ON citations(citing_work_id);
-        CREATE INDEX IF NOT EXISTS idx_worms_work_links_work ON worms_work_links(work_id);
+        CREATE INDEX IF NOT EXISTS idx_taxon_work_links_work ON taxon_work_links(work_id);
     """)
     conn.commit()
 
@@ -882,20 +886,28 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
     return n_citations, n_new_works
 
 
-# ── Phase 3: Link WoRMS authorities ─────────────────────────────────
+# ── Phase 3: Link taxonomic-authority strings to works ─────────────
 
-def phase3_worms(conn: sqlite3.Connection, worms_path: Path) -> int:
-    """Link WoRMS taxa to works via authority strings."""
-    if not worms_path.exists():
-        logger.warning("WoRMS database not found: %s", worms_path)
+def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int:
+    """Link taxa to original-description works via DwC scientificNameAuthorship.
+
+    Reads ``taxon_id`` + ``scientific_name_authorship`` from the configured
+    Darwin Core taxonomy snapshot, parses each authority string into
+    (surnames, year), and matches against ``works`` by author+year. When
+    no work matches, a stub is inserted so the link still resolves.
+    """
+    if not taxonomy_path.exists():
+        logger.warning("Taxonomy database not found: %s", taxonomy_path)
         return 0
 
-    worms_conn = sqlite3.connect(f"file:{worms_path}?mode=ro", uri=True)
-    worms_conn.row_factory = sqlite3.Row
+    tx_conn = sqlite3.connect(f"file:{taxonomy_path}?mode=ro", uri=True)
+    tx_conn.row_factory = sqlite3.Row
 
-    cur = worms_conn.execute(
-        "SELECT aphia_id, scientific_name, authority FROM taxa "
-        "WHERE authority IS NOT NULL AND authority != ''"
+    cur = tx_conn.execute(
+        "SELECT taxon_id, scientific_name, scientific_name_authorship "
+        "FROM taxa "
+        "WHERE scientific_name_authorship IS NOT NULL "
+        "  AND scientific_name_authorship != ''"
     )
 
     n_linked = 0
@@ -903,12 +915,12 @@ def phase3_worms(conn: sqlite3.Connection, worms_path: Path) -> int:
     batch = 0
 
     for row in cur:
-        aphia_id = row["aphia_id"]
-        authority = row["authority"]
+        taxon_id = row["taxon_id"]
+        authority = row["scientific_name_authorship"]
 
         # Skip if already linked
         check = conn.execute(
-            "SELECT 1 FROM worms_work_links WHERE aphia_id = ?", (aphia_id,)
+            "SELECT 1 FROM taxon_work_links WHERE taxon_id = ?", (taxon_id,)
         )
         if check.fetchone():
             continue
@@ -926,14 +938,12 @@ def phase3_worms(conn: sqlite3.Connection, worms_path: Path) -> int:
         first_surname = surnames[0]
 
         # Try to find a matching work
-        # Step 1: alias key
-        # We don't have a title from the authority string, so try author+year match
+        # We don't have a title from the authority string, so use author+year
         matched_id = author_year_match(conn, first_surname, year)
         confidence = 0.7
 
         # If multiple authors in the authority, try matching with all of them
         if not matched_id and len(surnames) > 1:
-            # Try with just author+year on the first author
             norm_surname = normalize_for_key(first_surname)
             candidate_cur = conn.execute(
                 """SELECT DISTINCT wa.work_id
@@ -961,10 +971,10 @@ def phase3_worms(conn: sqlite3.Connection, worms_path: Path) -> int:
         if matched_id:
             try:
                 conn.execute(
-                    """INSERT OR IGNORE INTO worms_work_links
-                       (aphia_id, work_id, link_type, confidence)
+                    """INSERT OR IGNORE INTO taxon_work_links
+                       (taxon_id, work_id, link_type, confidence)
                        VALUES (?, ?, ?, ?)""",
-                    (aphia_id, matched_id, "authority_match", confidence),
+                    (taxon_id, matched_id, "authority_match", confidence),
                 )
                 n_linked += 1
             except sqlite3.IntegrityError:
@@ -975,19 +985,18 @@ def phase3_worms(conn: sqlite3.Connection, worms_path: Path) -> int:
             inserted = insert_work(
                 conn, work_id, "corpus_key", title="", year=year, journal="",
                 doi="", corpus_hash=None, in_corpus=False,
-                source="worms_authority", confidence=0.5,
+                source="taxon_authority", confidence=0.5,
             )
             if inserted:
-                # Insert all authority authors
                 authors = [(s, "") for s in surnames]
                 insert_authors(conn, work_id, authors)
                 n_stubs += 1
             try:
                 conn.execute(
-                    """INSERT OR IGNORE INTO worms_work_links
-                       (aphia_id, work_id, link_type, confidence)
+                    """INSERT OR IGNORE INTO taxon_work_links
+                       (taxon_id, work_id, link_type, confidence)
                        VALUES (?, ?, ?, ?)""",
-                    (aphia_id, work_id, "authority_match", 0.5),
+                    (taxon_id, work_id, "authority_match", 0.5),
                 )
                 n_linked += 1
             except sqlite3.IntegrityError:
@@ -999,7 +1008,7 @@ def phase3_worms(conn: sqlite3.Connection, worms_path: Path) -> int:
             batch = 0
 
     conn.commit()
-    worms_conn.close()
+    tx_conn.close()
     logger.info("Phase 3 complete: %d taxa linked, %d stub works created",
                 n_linked, n_stubs)
     return n_linked
@@ -1021,8 +1030,8 @@ def main() -> int:
         help=f"SQLite output path (default: {DEFAULT_OUTPUT})",
     )
     parser.add_argument(
-        "--worms-sqlite", type=Path, default=DEFAULT_WORMS,
-        help=f"WoRMS SQLite path (default: {DEFAULT_WORMS})",
+        "--taxonomy-db", type=Path, default=DEFAULT_TAXONOMY,
+        help=f"Darwin Core taxonomy SQLite path (default: {DEFAULT_TAXONOMY})",
     )
     parser.add_argument(
         "--enrich-bhl", action="store_true",
@@ -1070,7 +1079,7 @@ def main() -> int:
             # churn --rebuild is meant to address.
             logger.info("Rebuilding: dropping all tables except bhl_lookups")
             conn.executescript("""
-                DROP TABLE IF EXISTS worms_work_links;
+                DROP TABLE IF EXISTS taxon_work_links;
                 DROP TABLE IF EXISTS citations;
                 DROP TABLE IF EXISTS work_aliases;
                 DROP TABLE IF EXISTS work_authors;
@@ -1123,12 +1132,12 @@ def main() -> int:
         )
 
         # Phase 3
-        logger.info("═══ Phase 3: Linking WoRMS authorities ═══")
-        n_linked = phase3_worms(conn, args.worms_sqlite)
+        logger.info("═══ Phase 3: Linking taxonomic authorities ═══")
+        n_linked = phase3_authority_links(conn, args.taxonomy_db)
 
         # Summary
         stats = {}
-        for table in ("works", "work_authors", "citations", "work_aliases", "worms_work_links"):
+        for table in ("works", "work_authors", "citations", "work_aliases", "taxon_work_links"):
             cur = conn.execute(f"SELECT COUNT(*) FROM {table}")  # noqa: S608
             stats[table] = cur.fetchone()[0]
 
@@ -1151,7 +1160,7 @@ def main() -> int:
         logger.info("  Authors:      %d", stats["work_authors"])
         logger.info("  Citations:    %d", stats["citations"])
         logger.info("  Aliases:      %d", stats["work_aliases"])
-        logger.info("  WoRMS links:  %d", stats["worms_work_links"])
+        logger.info("  Taxon links:  %d", stats["taxon_work_links"])
         logger.info("  GUID types:   %s", guid_dist)
         logger.info("  Match methods: %s", match_dist)
         cur = conn.execute(

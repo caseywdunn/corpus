@@ -22,7 +22,7 @@ Three precompiled SQLite databases under `resources/` link entity mentions acros
 
 | Layer | File | Built by | Status |
 | --- | --- | --- | --- |
-| **Taxonomy** — WoRMS snapshot with synonymy | `worms.sqlite` | `ingest_worms.py` | operational |
+| **Taxonomy** — Darwin Core snapshot with synonymy | `taxonomy.sqlite` | `ingest_taxonomy.py` (sources: `dwc` / `dwca` / `worms`) | operational |
 | **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `build_biblio_authority.py` + `reconcile_corpus_to_biblio.py` | operational |
 | **Geography** — location mentions with coordinates | `locations.sqlite` (planned) | TBD | [PLAN.md §12](PLAN.md) |
 

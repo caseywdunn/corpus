@@ -22,7 +22,7 @@ Files in the served-bundle whitelist (the contract):
 
   Top-level:
     vector_db/lancedb/               (the embedded chunks)
-    resources/worms.sqlite           (copy from repo's resources/)
+    resources/taxonomy.sqlite        (copy from repo's resources/)
     resources/biblio_authority.sqlite
     resources/taxon_mentions.sqlite
     resources/anatomy_lexicon.yaml
@@ -169,21 +169,27 @@ def _count_figures_and_chunks(documents_dir: Path) -> Tuple[int, int]:
     return fig_total, chunk_total
 
 
-def _worms_snapshot_date(worms_path: Path) -> Optional[str]:
-    """Read the build timestamp from the WoRMS SQLite.  ingest_worms
-    writes a ``meta(key='built_at', value=...)`` row on each build;
+def _taxonomy_snapshot_date(taxonomy_path: Path) -> Optional[str]:
+    """Read the build timestamp from the taxonomy SQLite. ingest_taxonomy
+    writes a ``meta(key='last_ingest_ts', value=...)`` row on each build;
     fall back to the file's mtime if that table is absent."""
-    if not worms_path.exists():
+    if not taxonomy_path.exists():
         return None
     try:
-        conn = sqlite3.connect(f"file:{worms_path}?mode=ro", uri=True)
+        conn = sqlite3.connect(f"file:{taxonomy_path}?mode=ro", uri=True)
         try:
             cur = conn.execute(
-                "SELECT value FROM meta WHERE key='built_at' LIMIT 1"
+                "SELECT value FROM meta WHERE key IN "
+                "('built_at', 'last_ingest_ts') LIMIT 1"
             )
             row = cur.fetchone()
             if row and row[0]:
-                return str(row[0])
+                # last_ingest_ts is a Unix timestamp; rendered as ISO date.
+                try:
+                    ts = float(row[0])
+                    return dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc).strftime("%Y-%m-%d")
+                except (TypeError, ValueError):
+                    return str(row[0])
         except sqlite3.OperationalError:
             pass
         finally:
@@ -192,7 +198,7 @@ def _worms_snapshot_date(worms_path: Path) -> Optional[str]:
         pass
     # Fallback: file mtime as ISO date
     try:
-        ts = worms_path.stat().st_mtime
+        ts = taxonomy_path.stat().st_mtime
         return dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc).strftime("%Y-%m-%d")
     except OSError:
         return None
@@ -264,7 +270,7 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     # we don't require the user to symlink them into their output dir.
     resources_src = REPO_ROOT / "resources"
     resources_dst = serve_dir / "resources"
-    for fname in ("worms.sqlite", "biblio_authority.sqlite",
+    for fname in ("taxonomy.sqlite", "biblio_authority.sqlite",
                   "taxon_mentions.sqlite", "anatomy_lexicon.yaml"):
         bw = _copy_file(resources_src / fname, resources_dst / fname, dry_run)
         if bw:
@@ -280,7 +286,7 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         "pipeline_git_sha": _git_sha(),
         "embedding_model": model,
         "embedding_dim": dim,
-        "worms_snapshot_date": _worms_snapshot_date(resources_src / "worms.sqlite"),
+        "taxonomy_snapshot_date": _taxonomy_snapshot_date(resources_src / "taxonomy.sqlite"),
         "paper_count": n_papers,
         "figure_count": fig_count,
         "chunk_count": chunk_count,

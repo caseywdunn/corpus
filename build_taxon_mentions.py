@@ -38,13 +38,15 @@ DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "taxon_mentions
 
 def create_schema(conn: sqlite3.Connection) -> None:
     conn.executescript("""
-        -- Per-span mention records
+        -- Per-span mention records. ``taxon_id`` matches taxa.taxon_id in
+        -- the Darwin Core taxonomy snapshot (TEXT — DwC taxonID is a
+        -- string, e.g. "1371" for WoRMS or "urn:lsid:..." for GBIF).
         CREATE TABLE IF NOT EXISTS taxon_mentions (
             mention_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-            aphia_id       INTEGER,
+            taxon_id       TEXT,
             matched_name   TEXT NOT NULL,
             accepted_name  TEXT,
-            rank           TEXT,
+            taxon_rank     TEXT,
             corpus_hash    TEXT NOT NULL,
             chunk_id       TEXT NOT NULL,
             chunk_index    INTEGER NOT NULL,
@@ -53,7 +55,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
             mention_text   TEXT NOT NULL,
             name_type      TEXT,
             confidence     REAL DEFAULT 1.0,
-            method         TEXT NOT NULL DEFAULT 'regex_worms'
+            method         TEXT NOT NULL DEFAULT 'regex_taxonomy'
         );
 
         -- Per-paper processing status for resumability
@@ -70,8 +72,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
         );
 
         -- Indexes for the queries we care about
-        CREATE INDEX IF NOT EXISTS idx_tm_aphia
-            ON taxon_mentions(aphia_id);
+        CREATE INDEX IF NOT EXISTS idx_tm_taxon_id
+            ON taxon_mentions(taxon_id);
         CREATE INDEX IF NOT EXISTS idx_tm_corpus_hash
             ON taxon_mentions(corpus_hash);
         CREATE INDEX IF NOT EXISTS idx_tm_chunk
@@ -107,7 +109,7 @@ def ingest_paper(conn: sqlite3.Connection, corpus_hash: str,
         chunk_id = m.get("chunk_id", "")
         span = m.get("text_span", [0, 0])
         rows.append((
-            m.get("accepted_aphia_id"),
+            m.get("accepted_taxon_id"),
             m.get("matched_text", ""),
             m.get("accepted_name", ""),
             m.get("rank", ""),
@@ -119,12 +121,12 @@ def ingest_paper(conn: sqlite3.Connection, corpus_hash: str,
             m.get("matched_text", ""),
             m.get("name_type", ""),
             1.0,
-            "regex_worms",
+            "regex_taxonomy",
         ))
 
     conn.executemany(
         """INSERT INTO taxon_mentions
-           (aphia_id, matched_name, accepted_name, rank, corpus_hash,
+           (taxon_id, matched_name, accepted_name, taxon_rank, corpus_hash,
             chunk_id, chunk_index, char_start, char_end, mention_text,
             name_type, confidence, method)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -210,7 +212,7 @@ def write_stats(conn: sqlite3.Connection) -> None:
     for key, query in [
         ("total_mentions", "SELECT COUNT(*) FROM taxon_mentions"),
         ("total_papers", "SELECT COUNT(*) FROM papers_processed"),
-        ("unique_aphia_ids", "SELECT COUNT(DISTINCT aphia_id) FROM taxon_mentions WHERE aphia_id IS NOT NULL"),
+        ("unique_taxon_ids", "SELECT COUNT(DISTINCT taxon_id) FROM taxon_mentions WHERE taxon_id IS NOT NULL"),
         ("unique_accepted_names", "SELECT COUNT(DISTINCT accepted_name) FROM taxon_mentions WHERE accepted_name IS NOT NULL AND accepted_name != ''"),
     ]:
         cur = conn.execute(query)

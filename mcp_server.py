@@ -25,7 +25,7 @@ Run standalone (for local Claude Desktop / Claude Code / Cursor):
 Or with absolute overrides:
 
     python mcp_server.py /path/to/demo_output \\
-        --worms-sqlite /path/to/worms.sqlite
+        --taxonomy-db /path/to/taxonomy.sqlite
 
 MCP clients typically discover the server through a config file that
 tells them to launch this script. See README.md for the Claude Desktop
@@ -53,7 +53,7 @@ import hmac
 import os
 import sqlite3
 
-from taxa import WormsDB
+from taxa import TaxonomyDB
 from embeddings import EmbeddingBackend, EmbeddingError, get_embedder
 
 logger = logging.getLogger(__name__)
@@ -89,14 +89,14 @@ class CorpusIndex:
     threads without external locking.
     """
 
-    def __init__(self, output_dir: Path, worms_db: Optional[WormsDB] = None,
+    def __init__(self, output_dir: Path, taxonomy_db: Optional[TaxonomyDB] = None,
                  biblio_db: Optional[BiblioAuthority] = None,
                  taxon_mention_db: Optional[TaxonMentionDB] = None,
                  embedding_model: Optional[str] = None):
         self.output_dir = Path(output_dir).resolve()
         self.documents_dir = self.output_dir / "documents"
         self.vector_db_dir = self.output_dir / "vector_db" / "lancedb"
-        self.worms_db = worms_db
+        self.taxonomy_db = taxonomy_db
         self.biblio_db = biblio_db
         self.taxon_mention_db = taxon_mention_db
         # Embedder + LanceDB table are loaded lazily on the first
@@ -114,14 +114,14 @@ class CorpusIndex:
         # clients can tell a local dev run from a versioned deploy.
         self.bundle_manifest: Optional[Dict] = None
         # Reverse indexes — all point to a list of paper hashes.
-        self.taxon_to_papers: Dict[int, List[str]] = defaultdict(list)
-        self.taxon_mention_counts: Dict[int, Dict[str, int]] = defaultdict(dict)
+        self.taxon_to_papers: Dict[str, List[str]] = defaultdict(list)
+        self.taxon_mention_counts: Dict[str, Dict[str, int]] = defaultdict(dict)
         self.anatomy_to_papers: Dict[str, List[str]] = defaultdict(list)
         self.anatomy_mention_counts: Dict[str, Dict[str, int]] = defaultdict(dict)
         self.author_to_papers: Dict[str, List[str]] = defaultdict(list)
-        # WoRMS accepted_aphia_id → accepted name (for display when we only
+        # accepted_taxon_id → accepted name (for display when we only
         # have IDs from the reverse index).
-        self.taxon_display: Dict[int, Dict] = {}
+        self.taxon_display: Dict[str, Dict] = {}
 
     def get_topic_searcher(self):
         """Return (embedder, table) for semantic chunk search, loading on
@@ -223,13 +223,13 @@ class CorpusIndex:
             }
 
             for t in taxa.get("taxa", []) or []:
-                aid = t.get("accepted_aphia_id")
+                aid = t.get("accepted_taxon_id")
                 if not aid:
                     continue
                 self.taxon_to_papers[aid].append(paper_hash)
                 self.taxon_mention_counts[aid][paper_hash] = t.get("mention_count", 0)
                 self.taxon_display.setdefault(aid, {
-                    "accepted_aphia_id": aid,
+                    "accepted_taxon_id": aid,
                     "accepted_name": t.get("accepted_name"),
                     "authority": t.get("authority"),
                     "rank": t.get("rank"),
@@ -274,12 +274,12 @@ class TaxonMentionDB:
         )
         self.conn.row_factory = sqlite3.Row
 
-    def mentions_for_aphia(self, aphia_id: int, *,
+    def mentions_for_taxon(self, taxon_id: int, *,
                            corpus_hash: Optional[str] = None,
                            limit: int = 500,
                            offset: int = 0) -> List[Dict]:
-        query = """SELECT * FROM taxon_mentions WHERE aphia_id = ?"""
-        params: list = [aphia_id]
+        query = """SELECT * FROM taxon_mentions WHERE taxon_id = ?"""
+        params: list = [taxon_id]
         if corpus_hash:
             query += " AND corpus_hash = ?"
             params.append(corpus_hash)
@@ -288,27 +288,27 @@ class TaxonMentionDB:
         params.extend([limit, offset])
         return [dict(r) for r in self.conn.execute(query, params)]
 
-    def mention_count_for_aphia(self, aphia_id: int) -> int:
+    def mention_count_for_taxon(self, taxon_id: int) -> int:
         cur = self.conn.execute(
-            "SELECT COUNT(*) FROM taxon_mentions WHERE aphia_id = ?",
-            (aphia_id,),
+            "SELECT COUNT(*) FROM taxon_mentions WHERE taxon_id = ?",
+            (taxon_id,),
         )
         return cur.fetchone()[0]
 
-    def papers_for_aphia(self, aphia_id: int) -> List[Dict]:
+    def papers_for_taxon_id(self, taxon_id: int) -> List[Dict]:
         """Distinct papers mentioning a taxon, with mention count."""
         cur = self.conn.execute(
             """SELECT corpus_hash, COUNT(*) as mention_count
-               FROM taxon_mentions WHERE aphia_id = ?
+               FROM taxon_mentions WHERE taxon_id = ?
                GROUP BY corpus_hash
                ORDER BY mention_count DESC""",
-            (aphia_id,),
+            (taxon_id,),
         )
         return [dict(r) for r in cur]
 
     def stats(self) -> Dict:
         out = {}
-        for key in ("total_mentions", "total_papers", "unique_aphia_ids",
+        for key in ("total_mentions", "total_papers", "unique_taxon_ids",
                      "unique_accepted_names"):
             cur = self.conn.execute(
                 "SELECT value FROM build_meta WHERE key = ?", (key,),
@@ -397,20 +397,20 @@ class BiblioAuthority:
         )
         return cur.fetchone()[0]
 
-    def worms_links_for_work(self, work_id: str) -> List[Dict]:
+    def taxon_links_for_work(self, work_id: str) -> List[Dict]:
         cur = self.conn.execute(
-            "SELECT aphia_id, link_type, confidence FROM worms_work_links WHERE work_id = ?",
+            "SELECT taxon_id, link_type, confidence FROM taxon_work_links WHERE work_id = ?",
             (work_id,),
         )
         return [dict(r) for r in cur]
 
-    def work_for_taxon(self, aphia_id: int) -> List[Dict]:
+    def work_for_taxon(self, taxon_id: int) -> List[Dict]:
         cur = self.conn.execute(
             """SELECT w.work_id, w.title, w.year, w.in_corpus, w.corpus_hash,
                       wl.link_type, wl.confidence
-               FROM worms_work_links wl JOIN works w ON wl.work_id = w.work_id
-               WHERE wl.aphia_id = ?""",
-            (aphia_id,),
+               FROM taxon_work_links wl JOIN works w ON wl.work_id = w.work_id
+               WHERE wl.taxon_id = ?""",
+            (taxon_id,),
         )
         return [dict(r) for r in cur]
 
@@ -523,26 +523,27 @@ def get_paper(paper_hash: str) -> Dict:
 
 @mcp.tool()
 def search_taxon(name: str) -> Dict:
-    """Resolve a taxon name against the WoRMS snapshot.
+    """Resolve a taxon name against the configured DwC taxonomy snapshot.
 
-    Accepts any form WoRMS knows: accepted names, historical synonyms,
-    common misspellings present in the snapshot. Returns the accepted
-    AphiaID, name, authority, rank, and the name_type of the match
-    ('accepted' | 'unaccepted' | 'synonym'). Missing names return a
-    structured ``not_found`` result rather than an error.
+    Accepts any form the snapshot knows: accepted names, historical
+    synonyms, common misspellings registered as ``names`` rows. Returns
+    the accepted DwC ``taxonID``, scientific name, authorship, rank, and
+    the ``name_type`` of the match (``accepted`` | ``unaccepted`` |
+    ``synonym``). Missing names return a structured ``not_found`` result
+    rather than an error.
     """
     idx = _need_index()
-    if idx.worms_db is None:
-        return {"error": "no WoRMS snapshot configured"}
-    hit = idx.worms_db.lookup(name)
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(name)
     if not hit:
         return {"not_found": True, "queried": name}
-    in_corpus = hit["accepted_aphia_id"] in idx.taxon_to_papers
+    in_corpus = hit["accepted_taxon_id"] in idx.taxon_to_papers
     return {
         **hit,
         "queried": name,
         "in_corpus": in_corpus,
-        "mentioning_paper_count": len(idx.taxon_to_papers.get(hit["accepted_aphia_id"], [])),
+        "mentioning_paper_count": len(idx.taxon_to_papers.get(hit["accepted_taxon_id"], [])),
     }
 
 
@@ -555,17 +556,17 @@ def get_papers_for_taxon(
     """List papers mentioning a taxon, resolved through synonymy.
 
     Papers are returned ordered by mention count (desc). Synonymy is
-    followed to the accepted AphiaID — so a query for
+    followed to the accepted ``taxonID`` — so a query for
     'Stephanomia amphitridis' returns papers citing its accepted synonym
     *Apolemia uvaria*, without the caller needing to know the synonymy.
     """
     idx = _need_index()
-    if idx.worms_db is None:
-        return [{"error": "no WoRMS snapshot configured"}]
-    hit = idx.worms_db.lookup(taxon_name)
+    if idx.taxonomy_db is None:
+        return [{"error": "no taxonomy snapshot configured"}]
+    hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
-    aid = hit["accepted_aphia_id"]
+    aid = hit["accepted_taxon_id"]
     hashes = idx.taxon_to_papers.get(aid, [])
     counts = idx.taxon_mention_counts.get(aid, {})
     ordered = sorted(set(hashes), key=lambda h: -counts.get(h, 0))
@@ -607,12 +608,12 @@ def get_chunks_for_taxon(
     monographic review of a genus) need the full set.
     """
     idx = _need_index()
-    if idx.worms_db is None:
-        return [{"error": "no WoRMS snapshot configured"}]
-    hit = idx.worms_db.lookup(taxon_name)
+    if idx.taxonomy_db is None:
+        return [{"error": "no taxonomy snapshot configured"}]
+    hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
-    aid = hit["accepted_aphia_id"]
+    aid = hit["accepted_taxon_id"]
     target_hashes = (
         [paper_hash] if paper_hash else idx.taxon_to_papers.get(aid, [])
     )
@@ -630,7 +631,7 @@ def get_chunks_for_taxon(
         # so each chunk appears once per paper.
         seen = set()
         for m in taxa.get("mentions", []) or []:
-            if m.get("accepted_aphia_id") != aid:
+            if m.get("accepted_taxon_id") != aid:
                 continue
             cid = m.get("chunk_id")
             if cid and cid not in seen:
@@ -672,16 +673,16 @@ def get_taxon_mentions(
     ``taxa.json`` scanning if the database is not available.
     """
     idx = _need_index()
-    if idx.worms_db is None:
-        return [{"error": "no WoRMS snapshot configured"}]
-    hit = idx.worms_db.lookup(taxon_name)
+    if idx.taxonomy_db is None:
+        return [{"error": "no taxonomy snapshot configured"}]
+    hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
-    aid = hit["accepted_aphia_id"]
+    aid = hit["accepted_taxon_id"]
 
     if idx.taxon_mention_db is not None:
         # Fast path: query the corpus-wide SQLite
-        rows = idx.taxon_mention_db.mentions_for_aphia(
+        rows = idx.taxon_mention_db.mentions_for_taxon(
             aid, corpus_hash=paper_hash, limit=limit, offset=offset,
         )
         # Enrich with paper-level metadata
@@ -716,7 +717,7 @@ def get_taxon_mentions(
             continue
         taxa = _load_json(Path(p["hash_dir"]) / "taxa.json", default={}) or {}
         for m in taxa.get("mentions", []) or []:
-            if m.get("accepted_aphia_id") != aid:
+            if m.get("accepted_taxon_id") != aid:
                 continue
             span = m.get("text_span", [0, 0])
             chunk_id = m.get("chunk_id", "")
@@ -733,7 +734,7 @@ def get_taxon_mentions(
                 "accepted_name": m.get("accepted_name", ""),
                 "rank": m.get("rank", ""),
                 "name_type": m.get("name_type", ""),
-                "method": "regex_worms",
+                "method": "regex_taxonomy",
             })
     return out[offset: offset + int(limit)] if limit else out[offset:]
 
@@ -768,12 +769,12 @@ def get_figures_for_taxon(
     see every extracted item including the review bucket.
     """
     idx = _need_index()
-    if idx.worms_db is None:
-        return [{"error": "no WoRMS snapshot configured"}]
-    hit = idx.worms_db.lookup(taxon_name)
+    if idx.taxonomy_db is None:
+        return [{"error": "no taxonomy snapshot configured"}]
+    hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
-    aid = hit["accepted_aphia_id"]
+    aid = hit["accepted_taxon_id"]
     accepted_name_low = (hit["accepted_name"] or "").lower()
     matched_name_low = (hit["matched_name"] or "").lower()
     target_hashes = (
@@ -1073,7 +1074,7 @@ def resolve_reference(
         w = results[0]
         w["authors"] = idx.biblio_db.get_authors(w["work_id"])
         w["cited_by_count"] = idx.biblio_db.citation_count(w["work_id"])
-        w["worms_links"] = idx.biblio_db.worms_links_for_work(w["work_id"])
+        w["taxon_links"] = idx.biblio_db.taxon_links_for_work(w["work_id"])
         return w
     # Multiple matches — return all with citation counts
     for w in results:
@@ -1129,23 +1130,23 @@ def get_missing_references(
 def get_original_description(taxon_name: str) -> Dict:
     """Find the original description paper for a taxon.
 
-    Resolves the taxon through WoRMS synonymy, parses the authority
-    string, and looks up the corresponding work in the bibliographic
-    authority database. Returns the work record, whether it's in the
-    corpus, and if so the ``corpus_hash`` for direct access via
-    ``get_paper()``.
+    Resolves the taxon through DwC synonymy (``acceptedNameUsageID``),
+    parses ``scientificNameAuthorship``, and looks up the corresponding
+    work in the bibliographic authority database. Returns the work
+    record, whether it's in the corpus, and if so the ``corpus_hash``
+    for direct access via ``get_paper()``.
     """
     idx = _need_index()
-    if idx.worms_db is None:
-        return {"error": "no WoRMS snapshot configured"}
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
     if idx.biblio_db is None:
         return {"error": "bibliographic authority database not configured"}
 
-    hit = idx.worms_db.lookup(taxon_name)
+    hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return {"not_found": True, "queried": taxon_name}
 
-    aid = hit["accepted_aphia_id"]
+    aid = hit["accepted_taxon_id"]
     works = idx.biblio_db.work_for_taxon(aid)
     if not works:
         return {
@@ -1175,7 +1176,7 @@ def get_works_by_author(
 ) -> List[Dict]:
     """All works by an author across the full bibliographic authority
     database — not just corpus papers, but also cited references and
-    WoRMS authority works.
+    stub works synthesized from taxonomic-authority strings.
 
     Each result includes ``cited_by_count`` (how many corpus papers
     cite it) and ``in_corpus`` flag. Use ``in_corpus_only=True`` to
@@ -1243,64 +1244,64 @@ def get_papers_by_author(surname: str) -> List[Dict]:
 
 @mcp.tool()
 def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
-    """All currently-valid species that descend from the given taxon in
-    the WoRMS snapshot.
+    """All currently-valid species descending from the given taxon in
+    the configured Darwin Core taxonomy snapshot.
 
     Accepts any rank above species (genus, family, order, …). The result
-    is a filtered view of the WoRMS snapshot; it does not consult the
+    is a filtered view of the taxonomy snapshot; it does not consult the
     corpus — pair with :func:`get_papers_for_taxon` for per-species
     corpus coverage.
     """
     idx = _need_index()
-    if idx.worms_db is None:
-        return [{"error": "no WoRMS snapshot configured"}]
-    hit = idx.worms_db.lookup(parent_taxon_name)
+    if idx.taxonomy_db is None:
+        return [{"error": "no taxonomy snapshot configured"}]
+    hit = idx.taxonomy_db.lookup(parent_taxon_name)
     if not hit:
         return []
-    parent_aid = hit["accepted_aphia_id"]
-    # Walk the parent_id tree in the snapshot. The tree may not be
-    # strictly shallow so we BFS. Only include status='accepted'
-    # Species (and Subspecies for completeness).
-    conn = idx.worms_db.conn
-    frontier = [parent_aid]
-    descendants: List[int] = []
-    seen = set()
+    parent_id = hit["accepted_taxon_id"]
+    # Walk the parent_name_usage_id tree in the snapshot. BFS — the tree
+    # may not be strictly shallow. Only accepted species/subspecies are
+    # returned, matching the DwC taxonomicStatus convention.
+    conn = idx.taxonomy_db.conn
+    frontier = [parent_id]
+    descendants: List[str] = []
+    seen: set = set()
     while frontier:
         parent = frontier.pop(0)
         if parent in seen:
             continue
         seen.add(parent)
         cur = conn.execute(
-            "SELECT aphia_id, rank, status FROM taxa WHERE parent_id = ?", (parent,)
+            "SELECT taxon_id, taxon_rank, taxonomic_status FROM taxa "
+            "WHERE parent_name_usage_id = ?",
+            (parent,),
         )
         for row in cur:
             descendants.append(row[0])
             frontier.append(row[0])
     if not descendants:
         return []
-    # Now fetch the species-level records
     placeholders = ",".join("?" * len(descendants))
     cur = conn.execute(
         f"""
-        SELECT aphia_id, scientific_name, authority, rank
+        SELECT taxon_id, scientific_name, scientific_name_authorship, taxon_rank
         FROM taxa
-        WHERE aphia_id IN ({placeholders})
-          AND status = 'accepted'
-          AND rank IN ('Species', 'Subspecies')
+        WHERE taxon_id IN ({placeholders})
+          AND taxonomic_status = 'accepted'
+          AND lower(taxon_rank) IN ('species', 'subspecies')
         ORDER BY scientific_name
         """,
         descendants,
     )
     out: List[Dict] = []
     for row in cur:
-        aid = row[0]
-        name = row[1]
+        tid = row[0]
         out.append({
-            "accepted_aphia_id": aid,
-            "accepted_name": name,
-            "authority": row[2],
+            "accepted_taxon_id": tid,
+            "accepted_name": row[1],
+            "authorship": row[2],
             "rank": row[3],
-            "mentioning_paper_count": len(idx.taxon_to_papers.get(aid, [])),
+            "mentioning_paper_count": len(idx.taxon_to_papers.get(tid, [])),
         })
     return out
 
@@ -1755,10 +1756,12 @@ def main() -> int:
         help="Root of the processed corpus (contains documents/)",
     )
     parser.add_argument(
-        "--worms-sqlite",
+        "--taxonomy-db",
         type=Path,
         default=None,
-        help="Override path to the WoRMS SQLite (default: resources/worms.sqlite under repo root)",
+        help="Override path to the Darwin Core taxonomy SQLite "
+             "(default: resources/taxonomy.sqlite under repo root). "
+             "Build with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
     )
     parser.add_argument(
         "--biblio-sqlite",
@@ -1813,22 +1816,23 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    worms_path = args.worms_sqlite or (
-        Path(__file__).parent / "resources" / "worms.sqlite"
+    taxonomy_path = args.taxonomy_db or (
+        Path(__file__).parent / "resources" / "taxonomy.sqlite"
     )
-    worms: Optional[WormsDB] = None
-    if worms_path.exists():
+    taxonomy: Optional[TaxonomyDB] = None
+    if taxonomy_path.exists():
         try:
-            worms = WormsDB(worms_path)
-            logger.info("WoRMS snapshot loaded from %s (%d names)",
-                        worms_path, len(worms.name_set()))
+            taxonomy = TaxonomyDB(taxonomy_path)
+            logger.info("Taxonomy snapshot loaded from %s (%d names)",
+                        taxonomy_path, len(taxonomy.name_set()))
         except Exception as e:
-            logger.warning("Could not open WoRMS at %s: %s", worms_path, e)
+            logger.warning("Could not open taxonomy DB at %s: %s", taxonomy_path, e)
     else:
         logger.warning(
-            "WoRMS snapshot not found at %s — search_taxon and taxon tools "
-            "will return an error. Build it: python ingest_worms.py",
-            worms_path,
+            "Taxonomy snapshot not found at %s — search_taxon and taxon tools "
+            "will return an error. Build it: "
+            "python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
+            taxonomy_path,
         )
 
     biblio_path = args.biblio_sqlite or (
@@ -1862,7 +1866,7 @@ def main() -> int:
                 "Taxon mention DB loaded from %s (%s mentions, %s taxa)",
                 taxon_mention_path,
                 stats.get("total_mentions", "?"),
-                stats.get("unique_aphia_ids", "?"),
+                stats.get("unique_taxon_ids", "?"),
             )
         except Exception as e:
             logger.warning("Could not open taxon mention DB at %s: %s",
@@ -1878,7 +1882,7 @@ def main() -> int:
     global _INDEX
     _INDEX = CorpusIndex(
         args.output_dir,
-        worms_db=worms,
+        taxonomy_db=taxonomy,
         biblio_db=biblio,
         taxon_mention_db=taxon_mention_db,
         embedding_model=args.embedding_model,

@@ -38,7 +38,7 @@ from figures import (
     generate_figures_report,
 )
 from taxa import (
-    WormsDB,
+    TaxonomyDB,
     load_anatomy_lexicon,
     extract_taxon_mentions,
     extract_anatomy_mentions,
@@ -112,7 +112,7 @@ _DEFAULT_CONFIG = {
     },
     # Cross-paper resources used by the pipeline.
     "resources": {
-        "worms_sqlite": "resources/worms.sqlite",
+        "taxonomy_db": "resources/taxonomy.sqlite",
         "anatomy_lexicon": "resources/anatomy_lexicon.yaml",
     },
 }
@@ -768,7 +768,7 @@ def run_pdf_processing_pipeline(
     hash_dir: Path,
     temp_dir: Path,
     grobid_client: Optional[GrobidClient] = None,
-    worms_db: Optional[WormsDB] = None,
+    taxonomy_db: Optional[TaxonomyDB] = None,
     anatomy_lexicon: Optional[Dict[str, Dict]] = None,
     content_aware_figures: bool = False,
     vision_backend=None,
@@ -891,7 +891,7 @@ def run_pdf_processing_pipeline(
 
         logger.info("Extracting taxa + anatomy mentions...")
         taxa_anat_files = _extract_taxa_and_anatomy(
-            chunks_file, hash_dir, worms_db, anatomy_lexicon
+            chunks_file, hash_dir, taxonomy_db, anatomy_lexicon
         )
         processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
         if taxa_anat_files:
@@ -2132,16 +2132,16 @@ def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
 def _extract_taxa_and_anatomy(
     chunks_file: Path,
     hash_dir: Path,
-    worms_db: Optional[WormsDB],
+    taxonomy_db: Optional[TaxonomyDB],
     anatomy_lexicon: Optional[Dict[str, Dict]],
 ) -> List[Path]:
     """Run taxon + anatomy extraction on the per-PDF chunks and write
     ``taxa.json`` / ``anatomy.json``.
 
-    Designed to degrade gracefully: if the WoRMS snapshot or anatomy
+    Designed to degrade gracefully: if the taxonomy snapshot or anatomy
     lexicon isn't configured / available, the corresponding artifact is
     simply not emitted (not an error). This keeps the pipeline runnable
-    on a dev machine that hasn't yet run ``ingest_worms.py``.
+    on a dev machine that hasn't yet run ``ingest_taxonomy.py``.
     """
     out: List[Path] = []
     if not chunks_file.exists():
@@ -2153,8 +2153,8 @@ def _extract_taxa_and_anatomy(
         return out
     chunks = chunks_data.get("chunks") or []
 
-    if worms_db is not None:
-        taxa_res = extract_taxon_mentions(chunks, worms_db)
+    if taxonomy_db is not None:
+        taxa_res = extract_taxon_mentions(chunks, taxonomy_db)
         taxa_file = hash_dir / "taxa.json"
         with taxa_file.open("w", encoding="utf-8") as f:
             json.dump(taxa_res, f, indent=2, ensure_ascii=False)
@@ -2164,7 +2164,7 @@ def _extract_taxa_and_anatomy(
             taxa_res["total_mentions"], taxa_res["unique_taxa"],
         )
     else:
-        logger.info("Skipping taxon extraction (no WoRMS DB configured)")
+        logger.info("Skipping taxon extraction (no taxonomy DB configured)")
 
     if anatomy_lexicon:
         anat_res = extract_anatomy_mentions(chunks, anatomy_lexicon)
@@ -2244,10 +2244,11 @@ def main():
              "parsed from each PDF by Grobid.",
     )
     parser.add_argument(
-        "--worms-sqlite",
+        "--taxonomy-db",
         type=Path,
         default=None,
-        help="Path to WoRMS SQLite snapshot (overrides config.resources.worms_sqlite)",
+        help="Path to Darwin Core taxonomy SQLite (overrides config.resources.taxonomy_db). "
+             "Build with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
     )
     parser.add_argument(
         "--anatomy-lexicon",
@@ -2354,28 +2355,30 @@ def main():
             logger.error("Could not parse %s: %s", args.bib, e)
             sys.exit(1)
 
-    # Open WoRMS snapshot and load anatomy lexicon once. Both are optional;
+    # Open taxonomy snapshot and load anatomy lexicon once. Both are optional;
     # missing resources are logged and their output artifacts are skipped.
-    worms_db: Optional[WormsDB] = None
+    taxonomy_db: Optional[TaxonomyDB] = None
     anatomy_lexicon: Optional[Dict[str, Dict]] = None
     if not args.no_taxa:
-        worms_path = args.worms_sqlite or Path(
-            CONFIG.get("resources", {}).get("worms_sqlite", "resources/worms.sqlite")
+        taxonomy_path = args.taxonomy_db or Path(
+            CONFIG.get("resources", {}).get("taxonomy_db", "resources/taxonomy.sqlite")
         )
-        if worms_path.exists():
+        if taxonomy_path.exists():
             try:
-                worms_db = WormsDB(worms_path)
+                taxonomy_db = TaxonomyDB(taxonomy_path)
                 logger.info(
-                    "WoRMS snapshot loaded from %s (%d names)",
-                    worms_path, len(worms_db.name_set()),
+                    "Taxonomy snapshot loaded from %s (%d names)",
+                    taxonomy_path, len(taxonomy_db.name_set()),
                 )
             except Exception as e:
-                logger.warning("Could not open WoRMS snapshot %s: %s", worms_path, e)
+                logger.warning(
+                    "Could not open taxonomy snapshot %s: %s", taxonomy_path, e,
+                )
         else:
             logger.warning(
-                "WoRMS snapshot %s not found — taxon extraction skipped. "
-                "Build it with: python ingest_worms.py",
-                worms_path,
+                "Taxonomy snapshot %s not found — taxon extraction skipped. "
+                "Build it with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
+                taxonomy_path,
             )
 
         anat_path = args.anatomy_lexicon or Path(
@@ -2511,7 +2514,7 @@ def main():
             # Run each document in a child process so that C-level crashes
             # (segfaults in docling/PyMuPDF) don't kill the whole batch.
             # On Linux the default fork start method inherits all objects
-            # (grobid_client, worms_db, vision_backend) without pickling.
+            # (grobid_client, taxonomy_db, vision_backend) without pickling.
             def _worker():
                 with per_pdf_file_log(hash_dir) as log_path:
                     logger.info("pipeline.log: %s", log_path)
@@ -2520,7 +2523,7 @@ def main():
                     processing_summary = run_pdf_processing_pipeline(
                         primary_pdf, hash_dir, temp_dir,
                         grobid_client=grobid_client,
-                        worms_db=worms_db,
+                        taxonomy_db=taxonomy_db,
                         anatomy_lexicon=anatomy_lexicon,
                         content_aware_figures=args.content_aware_figures,
                         vision_backend=vision_backend,

@@ -25,11 +25,11 @@ for m in re.finditer(r'@mcp\.tool\(\).*?def (\w+)\([^)]*\).*?:\s*\"\"\"([^.]+)\.
 
 | Tool | Returns |
 | --- | --- |
-| `search_taxon` | Resolve a taxon name against the WoRMS snapshot. |
+| `search_taxon` | Resolve a taxon name against the configured Darwin Core taxonomy snapshot. |
 | `get_papers_for_taxon` | Papers mentioning a taxon, resolved through synonymy. |
 | `get_chunks_for_taxon` | Every chunk that mentions the taxon (resolved through synonymy). |
 | `get_taxon_mentions` | All text-span mentions of a taxon across the corpus. |
-| `list_valid_species_under` | All currently-valid species that descend from the given taxon in the WoRMS snapshot. |
+| `list_valid_species_under` | All currently-valid species descending from the given taxon in the configured taxonomy snapshot. |
 | `get_original_description` | Find the original-description paper for a taxon. |
 
 ## Bibliography + citation graph

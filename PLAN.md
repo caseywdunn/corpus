@@ -543,7 +543,7 @@ Bouchet produces a "build" bundle. AWS holds a "served" bundle. The two are not 
 - `figures.json`, `taxa.json`, `anatomy.json`
 - `figures/*.png` (all extracted figure images, including Pass 3c-renamed compounds)
 - `vector_db/lancedb/` (the embedded chunks)
-- `worms.sqlite` (and any other corpus-level indices)
+- `taxonomy.sqlite` (DwC) and any other corpus-level indices
 - `bundle_manifest.json` (top-level — see below)
 
 **Excluded** from the served bundle (build-only):
@@ -576,7 +576,7 @@ It walks `documents/<HASH>/`, copies whitelisted files into `serve_bundle/docume
   "embedding_model": "BAAI/bge-m3",
   "embedding_dim": 1024,
   "vision_backend": "vision:qwen2.5-vl-7b-instruct",
-  "worms_snapshot_date": "2026-03-15",
+  "taxonomy_snapshot_date": "2026-03-15",
   "paper_count": 2014,
   "figure_count": 38291,
   "chunk_count": 412677,
@@ -695,19 +695,20 @@ CREATE TABLE work_aliases (
     PRIMARY KEY (alias_key, work_id)
 );
 
--- Links WoRMS taxa to their original-description works
-CREATE TABLE worms_work_links (
-    aphia_id   INTEGER NOT NULL,
+-- Links Darwin Core taxa (taxonID from the configured taxonomy snapshot)
+-- to their original-description works.
+CREATE TABLE taxon_work_links (
+    taxon_id   TEXT NOT NULL,
     work_id    TEXT NOT NULL REFERENCES works(work_id),
     link_type  TEXT NOT NULL,          -- 'original_description' | 'authority_match'
     confidence REAL DEFAULT 1.0,
-    PRIMARY KEY (aphia_id, work_id, link_type)
+    PRIMARY KEY (taxon_id, work_id, link_type)
 );
 
 CREATE TABLE build_meta (key TEXT PRIMARY KEY, value TEXT);
 ```
 
-Plus indexes on: `works(doi)`, `works(corpus_hash)`, `works(year)`, `works(in_corpus)`, `work_authors(surname_normalized)`, `citations(cited_work_id)`, `citations(citing_work_id)`, `worms_work_links(work_id)`.
+Plus indexes on: `works(doi)`, `works(corpus_hash)`, `works(year)`, `works(in_corpus)`, `work_authors(surname_normalized)`, `citations(cited_work_id)`, `citations(citing_work_id)`, `taxon_work_links(work_id)`.
 
 ### Build pipeline: `build_biblio_authority.py`
 
@@ -724,7 +725,7 @@ Reads existing per-paper artifacts only — no Grobid re-runs needed. Three phas
 
 Insert citation edge into `citations` with match method recorded. Expected: ~15,000–25,000 unique works after dedup.
 
-**Phase 3 — Link WoRMS authorities to works.** Parse authority strings (e.g., "Eschscholtz, 1829", "(Huxley, 1859)"). Search `works` by author+year. Insert into `worms_work_links`. Create stub works for unmatched authorities.
+**Phase 3 — Link taxonomic authorities to works.** Parse `scientificNameAuthorship` strings from the configured DwC taxonomy snapshot (e.g., "Eschscholtz, 1829", "(Huxley, 1859)"). Search `works` by author+year. Insert into `taxon_work_links`. Create stub works for unmatched authorities.
 
 Idempotent via `INSERT OR IGNORE` / `INSERT OR REPLACE`. Dependency: `rapidfuzz`.
 
@@ -735,7 +736,7 @@ Idempotent via `INSERT OR IGNORE` / `INSERT OR REPLACE`. Dependency: `rapidfuzz`
 | `get_citation_graph(work_id, direction, depth)` | Citing/cited-by works around a given work |
 | `resolve_reference(query, author, year)` | Free-text bibliographic lookup against the authority DB |
 | `get_missing_references(min_citations)` | Works cited by corpus but not in corpus, ranked by citation count |
-| `get_original_description(taxon_name)` | WoRMS authority → work → in_corpus? |
+| `get_original_description(taxon_name)` | DwC scientificNameAuthorship → work → in_corpus? |
 | `get_works_by_author(surname)` | Full bibliography across authority DB, not just corpus papers |
 
 Enhancement to existing `get_bibliography`: add `resolved=True` flag to join each reference to its authority DB work record (work_id, in_corpus, corpus_hash, cited_by_count), making bibliographies navigable.
@@ -745,11 +746,11 @@ Enhancement to existing `get_bibliography`: add `resolved=True` flag to join eac
 - "What information about *Agalma* exists in papers that cite this paper?" → `get_citation_graph` → `get_chunks_for_taxon` on each citing paper
 - "Which cited references are missing from the corpus?" → `get_missing_references`
 - "Which papers are the original descriptions for species in genus *Forskalia*?" → `list_valid_species_under` → `get_original_description` per species
-- "Plot species descriptions per decade" → join `worms_work_links` to `works`, group by `year / 10`
+- "Plot species descriptions per decade" → join `taxon_work_links` to `works`, group by `year / 10`
 
 ### Integration with §10 (AWS served bundle)
 
-Add `biblio_authority.sqlite` to the served-file whitelist alongside `worms.sqlite`.
+Add `biblio_authority.sqlite` to the served-file whitelist alongside `taxonomy.sqlite`.
 
 ## 12. Text-span mention layers: bibliography, taxonomy, geography
 
@@ -783,19 +784,19 @@ CREATE TABLE biblio_mentions (
     method         TEXT NOT NULL           -- 'grobid_tei_ref', 'regex_fallback'
 );
 
--- Taxonomic mentions (species/genus names → WoRMS)
+-- Taxonomic mentions (species/genus names → Darwin Core taxonID)
 CREATE TABLE taxon_mentions (
     mention_id     INTEGER PRIMARY KEY,
-    aphia_id       INTEGER,               -- WoRMS accepted taxon (NULL if unresolved)
+    taxon_id       TEXT,                   -- DwC accepted taxonID (NULL if unresolved)
     matched_name   TEXT NOT NULL,          -- the name as resolved (accepted or synonym)
     corpus_hash    TEXT NOT NULL,
     chunk_index    INTEGER NOT NULL,
     char_start     INTEGER NOT NULL,
     char_end       INTEGER NOT NULL,
     mention_text   TEXT NOT NULL,          -- surface form: "A. elegans", "Agalma elegans"
-    rank           TEXT,                   -- 'species', 'genus', 'family', etc.
+    taxon_rank     TEXT,                   -- 'species', 'genus', 'family', etc.
     confidence     REAL DEFAULT 1.0,
-    method         TEXT NOT NULL           -- 'gnfinder', 'regex_binomial', 'manual'
+    method         TEXT NOT NULL           -- 'regex_taxonomy', 'gnfinder', 'manual'
 );
 
 -- Geographic mentions (localities → coordinates)
@@ -841,15 +842,15 @@ CREATE TABLE localities (
 
 ### Layer 2: Taxonomic mentions
 
-**Source data.** Running text in `chunks.json` contains binomial names (*Agalma elegans*), abbreviated forms (*A. elegans*), genus-only references (*Agalma*), and higher taxa (*Calycophorae*). The WoRMS backbone (`worms.sqlite`) provides the authority for resolution.
+**Source data.** Running text in `chunks.json` contains binomial names (*Agalma elegans*), abbreviated forms (*A. elegans*), genus-only references (*Agalma*), and higher taxa (*Calycophorae*). The configured Darwin Core taxonomy snapshot (`taxonomy.sqlite`, built by `ingest_taxonomy.py` from any DwC source) provides the authority for resolution.
 
 **Extraction pipeline.**
 1. **Detection** — `gnfinder` (Global Names) for raw name detection, strong on historical variants and abbreviations. Supplement with regex for italicized binomials in born-digital PDFs.
-2. **Resolution** — match each detected name against WoRMS accepted names and synonyms. Record `aphia_id` for resolved names, flag unresolved names for manual review.
+2. **Resolution** — match each detected name against accepted names and synonyms in `taxonomy.sqlite`. Record `taxon_id` (DwC `taxonID`) for resolved names, flag unresolved names for manual review.
 3. **Abbreviation expansion** — track the most recent genus mention per paper to expand abbreviated forms (*A. elegans* → *Agalma elegans* when *Agalma* was last mentioned).
 
 **What this enables.**
-- "Which papers mention *Bargmannia elongata*?" → `taxon_mentions` WHERE `aphia_id = <bargmannia_elongata>`
+- "Which papers mention *Bargmannia elongata*?" → `taxon_mentions` WHERE `taxon_id = <bargmannia_elongata>`
 - "Make a map of all records of *Agalma elegans*" → join `taxon_mentions` to `geo_mentions` by (corpus_hash, chunk_index) proximity
 - All taxon-keyed queries in §8 (Q1, Q2, Q4, Q5) become precise span-level lookups rather than text search
 

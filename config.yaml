@@ -4,10 +4,10 @@
 # built-in _DEFAULT_CONFIG; anything missing falls through to the defaults.
 # CLI flags on individual tools override config values in turn.
 #
-# The anatomy lexicon and WoRMS snapshot pointed at below are the current
+# The taxonomy and anatomy lexicon pointed at below are the current
 # siphonophore-flavored defaults. To apply the pipeline to a different
-# taxonomic group: (a) regenerate resources/worms.sqlite via
-# `python ingest_worms.py --root-aphia <AphiaID>` with your group's root,
+# group: (a) regenerate resources/taxonomy.sqlite via
+# `python ingest_taxonomy.py --source <dwc|dwca|worms> ... --root-id <ID>`,
 # (b) swap resources/anatomy_lexicon.yaml for a lexicon relevant to your
 # group. Everything else in the pipeline is taxon-agnostic.
 
@@ -37,5 +37,8 @@ chunking:
 # Cross-paper resources pointed at by the pipeline. These paths are
 # resolved relative to the repo root.
 resources:
-  worms_sqlite: "resources/worms.sqlite"
+  # Darwin Core taxonomy snapshot (built by ingest_taxonomy.py from any
+  # DwC-publishing source: WoRMS, GBIF, iNaturalist, ITIS, or a curated
+  # CSV). Empty value disables taxon mention extraction.
+  taxonomy_db: "resources/taxonomy.sqlite"
   anatomy_lexicon: "resources/anatomy_lexicon.yaml"
