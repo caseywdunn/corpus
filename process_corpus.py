@@ -25,6 +25,7 @@ from grobid_client import (
     parse_tei_header,
     parse_tei_references,
 )
+from bib_metadata import BibIndex, bib_entry_to_metadata
 from figures import (
     extract_caption_info,
     parse_figure_number,
@@ -771,6 +772,7 @@ def run_pdf_processing_pipeline(
     anatomy_lexicon: Optional[Dict[str, Dict]] = None,
     content_aware_figures: bool = False,
     vision_backend=None,
+    bib_index: Optional[BibIndex] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -832,6 +834,7 @@ def run_pdf_processing_pipeline(
         metadata_file = hash_dir / "metadata.json"
         references_file = hash_dir / "references.json"
         tei_file = hash_dir / "grobid.tei.xml"
+        bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
         extract_metadata(
             processed_pdf,
             metadata_file,
@@ -839,6 +842,7 @@ def run_pdf_processing_pipeline(
             tei_output=tei_file,
             grobid_client=grobid_client,
             original_filename=pdf_path.name,
+            bib_entry=bib_entry,
         )
         processing_summary["files_created"].extend(
             [str(metadata_file), str(references_file)]
@@ -1606,6 +1610,7 @@ def extract_metadata(
     tei_output: Optional[Path] = None,
     grobid_client: Optional[GrobidClient] = None,
     original_filename: Optional[str] = None,
+    bib_entry: Optional[Dict] = None,
 ):
     """Extract bibliographic metadata + references via Grobid.
 
@@ -1615,6 +1620,13 @@ def extract_metadata(
     back to placeholder files so downstream stages still run — the caller
     can inspect ``metadata["extraction_method"]`` to tell which path was
     taken.
+
+    When ``bib_entry`` is supplied (a parsed BibTeX record matched to this
+    PDF by filename), its title/authors/year/journal/DOI override the
+    Grobid header — Grobid is still called for the reference list so we
+    can build the citation graph, but the header parse is skipped. This
+    lets a curated bibliography be the source of truth for header fields
+    while keeping Grobid's reference extraction.
 
     Parameters
     ----------
@@ -1633,6 +1645,9 @@ def extract_metadata(
     grobid_client:
         A live :class:`GrobidClient`, or None to skip Grobid entirely
         (placeholder-only mode).
+    bib_entry:
+        Parsed BibTeX entry from :class:`bib_metadata.BibIndex`. When
+        present, overrides Grobid's header parse for this document.
     """
     hash_dir = metadata_output.parent
     if references_output is None:
@@ -1667,12 +1682,31 @@ def extract_metadata(
         except Exception as e:
             logger.warning("Grobid call failed on %s: %s", pdf_path.name, e)
 
-    # 3. Parse TEI if we have one; fall back on any parsing error.
+    # 3. Parse references from TEI if available — independent of which
+    # source we use for the header. Anything that fails leaves us with
+    # an empty reference list (written below as a fallback).
+    refs: List[dict] = []
+    refs_parsed = False
     if tei_xml is not None:
+        try:
+            refs = parse_tei_references(tei_xml)
+            refs_parsed = True
+        except Exception as e:
+            logger.warning("Failed to parse Grobid TEI references (%s)", e)
+
+    # 4. Build the header. Bib record wins if present; otherwise Grobid's
+    # header parse, with filename-year fallback. If both fail, placeholder.
+    header: Optional[Dict] = None
+    if bib_entry is not None:
+        header = bib_entry_to_metadata(bib_entry, effective_filename)
+        logger.info(
+            "Using bib entry %r for header (overrides Grobid)",
+            header.get("bib_key"),
+        )
+    elif tei_xml is not None:
         try:
             header = parse_tei_header(tei_xml)
             header["filename"] = effective_filename
-
             # Year fallback: Grobid emits <date/> (empty) on many papers
             # whose title page doesn't match its header template — especially
             # historical and non-English. The Pugh library's "AuthorYYYY"
@@ -1693,32 +1727,34 @@ def extract_metadata(
                     header["year_source"] = None
             else:
                 header["year_source"] = "grobid"
-
-            with open(metadata_output, "w", encoding="utf-8") as f:
-                json.dump(header, f, indent=2, ensure_ascii=False)
-
-            refs = parse_tei_references(tei_xml)
-            with open(references_output, "w", encoding="utf-8") as f:
-                json.dump(
-                    {"references": refs, "total_references": len(refs)},
-                    f,
-                    indent=2,
-                    ensure_ascii=False,
-                )
-            logger.info(
-                "Parsed Grobid TEI: %d authors, %d references, year=%s (source=%s)",
-                len(header.get("authors", [])),
-                len(refs),
-                header.get("year"),
-                header.get("year_source"),
-            )
-            return
         except Exception as e:
             logger.warning(
-                "Failed to parse Grobid TEI (%s); writing placeholder", e
+                "Failed to parse Grobid TEI header (%s); writing placeholder", e
             )
+            header = None
 
-    # 4. Placeholder path.
+    # 5. Write outputs. If we got a header, write it + the reference list
+    # (which may be empty if Grobid was unavailable). Otherwise placeholder.
+    if header is not None:
+        with open(metadata_output, "w", encoding="utf-8") as f:
+            json.dump(header, f, indent=2, ensure_ascii=False)
+        with open(references_output, "w", encoding="utf-8") as f:
+            json.dump(
+                {"references": refs, "total_references": len(refs)},
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
+        logger.info(
+            "Wrote metadata (method=%s, %d authors) and %d references (parsed=%s)",
+            header.get("extraction_method"),
+            len(header.get("authors", [])),
+            len(refs),
+            refs_parsed,
+        )
+        return
+
+    # 6. Placeholder path.
     _write_placeholder_metadata(
         pdf_path, metadata_output, references_output,
         original_filename=effective_filename,
@@ -2199,6 +2235,15 @@ def main():
         help="Skip Grobid even if reachable (useful for dev iteration on non-metadata stages)",
     )
     parser.add_argument(
+        "--bib",
+        type=Path,
+        default=None,
+        help="Optional BibTeX file. Records whose 'file = {Foo.pdf}' field "
+             "matches an input PDF supply the metadata header (title, authors, "
+             "year, journal, DOI) instead of Grobid. References are still "
+             "parsed from each PDF by Grobid.",
+    )
+    parser.add_argument(
         "--worms-sqlite",
         type=Path,
         default=None,
@@ -2295,6 +2340,19 @@ def main():
                 "Start it with: docker compose up -d grobid",
                 args.grobid_url,
             )
+
+    # Optional BibTeX-driven metadata override. Loaded once and shared
+    # across workers — entries are looked up by PDF basename.
+    bib_index: Optional[BibIndex] = None
+    if args.bib is not None:
+        if not args.bib.exists():
+            logger.error("Bib file %s does not exist", args.bib)
+            sys.exit(1)
+        try:
+            bib_index = BibIndex.from_path(args.bib)
+        except Exception as e:
+            logger.error("Could not parse %s: %s", args.bib, e)
+            sys.exit(1)
 
     # Open WoRMS snapshot and load anatomy lexicon once. Both are optional;
     # missing resources are logged and their output artifacts are skipped.
@@ -2466,6 +2524,7 @@ def main():
                         anatomy_lexicon=anatomy_lexicon,
                         content_aware_figures=args.content_aware_figures,
                         vision_backend=vision_backend,
+                        bib_index=bib_index,
                     )
 
                     summary_file = create_summary_json(
