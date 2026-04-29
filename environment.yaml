@@ -45,6 +45,9 @@ dependencies:
   # Notebook / interactive dev
   - ipykernel
 
+  # Test runner
+  - pytest
+
   # Pip-only packages
   - pip:
       - ocrmypdf  # pulls its own Python deps; finds tesseract/ghostscript on PATH from conda
@@ -52,7 +55,10 @@ dependencies:
       - lancedb
       - langdetect  # language detection for scan_detection / OCR language selection (Phase C)
       - mcp  # Model Context Protocol SDK for the corpus-serving agent tools layer
+      - uvicorn  # ASGI server for `mcp_server.py --transport sse`; declared explicitly so we don't rely on mcp's transitive pin
       - sentence-transformers  # local embedding backend (Phase E); pulls torch + transformers
+      - torch  # imported directly in embeddings.py / vision.py; declared so we don't rely on the sentence-transformers transitive
+      - transformers  # imported directly in vision.py for the local VLM backend
       - anthropic  # Claude API client for on-demand translation (translate_chunk MCP tool)
       - pytesseract  # Python wrapper for Tesseract — used in Pass 3a figure-label OCR (PLAN.md §9)
       - qwen-vl-utils  # image preprocessing for Qwen2.5-VL local VLM backend (vision.py)

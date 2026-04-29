@@ -19,12 +19,19 @@ matplotlib
 rapidfuzz>=2.0
 lxml
 
-# MCP server + transport deps (mcp pulls in uvicorn + starlette)
+# MCP server + transport deps.  uvicorn is also a transitive dep of
+# mcp today, but we pin it explicitly because mcp_server.py imports it
+# by name for the SSE transport.
 mcp
+uvicorn
 
-# Vector index + embedding backend
+# Vector index + embedding backend.  torch + transformers come in via
+# sentence-transformers, but vision.py and embeddings.py import them
+# directly, so we declare them to avoid relying on a transitive pin.
 lancedb
 sentence-transformers
+torch
+transformers
 
 # LLM clients used by MCP tools
 anthropic
@@ -36,6 +43,11 @@ ocrmypdf
 pymupdf
 langdetect
 pytesseract
+qwen-vl-utils
+accelerate
 
 # Notebooks / interactive dev
 ipykernel
+
+# Test runner
+pytest
