@@ -1,70 +1,173 @@
 # corpus
 
-A workflow for turning a collection of scientific-literature PDFs — spanning born-digital papers and centuries-old scans in multiple languages — into a queryable knowledge base exposed over MCP. The primary target is the siphonophore literature, but the pipeline is discipline-agnostic as long as a taxonomic / entity layer relevant to the domain can be supplied.
+A workflow for turning a collection of scientific-literature PDFs — spanning born-digital papers and centuries-old scans in multiple languages — into a queryable knowledge base exposed over MCP. The primary target is taxonomic literature.
 
-## What this gives you
+## What corpus does
 
-Once the pipeline has run, the corpus is available through the **MCP server** ([mcp_server.py](mcp_server.py)). [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) is a standard way to hand LLM clients a set of tools they can call; Claude Desktop, Claude Code, Cursor, and Continue all speak it. The server is a read-only view over the per-paper artifacts — no separate store, no sync issues — so re-running the pipeline is the only way new data reaches the tools.
+corpus reads a folder of PDFs and produces a knowledge base built around: **taxa, figures, bibliographies, and the cross-paper relationships between them**. It handles several tasks:
 
-Representative queries you can drive from a chat:
+- **OCR for old scans** — including 19th-century German Fraktur and other historical typefaces, with per-paper language detection.
+- **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then vision-LLM-tagged for taxonomy and anatomy.
+- **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton 1965" is one entity even when twenty papers cite it differently.
+- **Taxonomy linking** — every species mention is matched against a Darwin Core taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
+
+The output is a per-paper artifact tree plus cross-paper databases. You query it through an **MCP server** ([mcp_server.py](mcp_server.py)) that any [MCP](https://modelcontextprotocol.io/) client (Claude Desktop, Claude Code, claude.ai web) can connect to — so "show me every figure of *Nanomia bijuga* nectophores in the corpus" becomes something you ask in chat instead of grep across a hard drive. The server is a read-only view over the per-paper artifacts, so re-running the pipeline is the only way new data reaches the tools.
+
+### Example uses
 
 - *"List every valid* Apolemia *species and for each list the papers that discuss them."*
 - *"Show the bibliography of Pugh 1997 and mark which cited works are also in the corpus."*
 - *"Give me every figure showing nectophore morphology in* Nanomia bijuga *."*
 - *"What are the most-cited siphonophore papers that aren't currently in the corpus?"*
 - *"Summarize what the corpus says about pneumatophore structure."*
+- *"Translate the diagnosis of* Forskalia edwardsii *from Haeckel 1888 (German) into English."*
 
-The full tool surface lives in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md).
+The full tool surface is in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md).
+
+## What you bring
+
+### A body of pdfs (required)
+
+A directory of PDFs is the only required input. They can be any mix of born-digital papers and scanned older literature — the pipeline handles both. Two practical points:
+
+- **Quality matters.** Clean high-resolution scans produce dramatically better OCR and figure extraction than re-scans of photocopies. For born-digital papers, the original publisher PDF beats any downstream export.
+- **Filename convention.** Name files `<Surname><Year>.pdf` (e.g., `Totton1965a.pdf`). The bibliography reconciler uses this filename as a fallback when Grobid mis-parses the paper reference.
+
+
+### Bibliographic data for pdfs (optional)
+
+Grobid extracts metadata (authors, title, year, journal) from each PDF's header, but it gets confused on older scans and unusual layouts. If you have a curated BibTeX file, pass it with `--bib` and it overrides Grobid for any paper that an entry references via its `file = {...}` field:
+
+```bibtex
+@article{Totton1965a,
+  author  = {Totton, A. K.},
+  title   = {A Synopsis of the Siphonophora},
+  year    = {1965},
+  journal = {British Museum (Natural History)},
+  file    = {Totton1965a.pdf},
+}
+```
+
+```bash
+python process_corpus.py <input_dir> <output_dir> --bib references.bib --resume
+```
+
+Matching is on the basename (case-insensitive), so the `file` value can be a bare filename or a full path. This is the cleanest way to get accurate per-paper metadata where you've already curated references for your own writing.
+
+### External taxonomic data (optional)
+
+The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution. By default it builds from a Darwin Core Archive of your choice — for siphonophores we use the [WoRMS](https://www.marinespecies.org/) export. Other groups: pull a DwC-A from the relevant authority ([GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/)) and point the ingest script at it:
+
+```bash
+python ingest_taxonomy.py --dwca path/to/dwca.zip
+```
+
+Without external taxonomy the pipeline still extracts taxon mentions from text — you lose the synonymy graph that links historical names to current valid names.
+
+## Computational requirements
+
+- **Disk.** Plan on several times the size of the original PDFs.
+- **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking) is CPU-bound and parallelizes well across PDFs. Stage 2 (vision-LLM figure analysis and BGE-M3 embeddings) is GPU-accelerated; without a GPU these steps still run but are much slower.
+- **Scale.** A few dozen PDFs run on a laptop in a couple of hours. A few thousand benefit from an HPC cluster — we use Yale's Bouchet, runbook in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
+- **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
+- **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 + ALB + CloudFront), but any host with Python and an open port works. See [Deploying remotely](#deploying-remotely) below.
 
 ## Cross-paper sources of truth
 
-Three precompiled SQLite databases under `resources/` link entity mentions across every paper in the corpus:
+Two precompiled SQLite databases under `resources/` link entity mentions across every paper in the corpus:
 
-| Layer | File | Built by | Status |
-| --- | --- | --- | --- |
-| **Taxonomy** — Darwin Core snapshot with synonymy | `taxonomy.sqlite` | `ingest_taxonomy.py` (sources: `dwc` / `dwca` / `worms`) | operational |
-| **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `build_biblio_authority.py` + `reconcile_corpus_to_biblio.py` | operational |
-| **Geography** — location mentions with coordinates | `locations.sqlite` (planned) | TBD | [PLAN.md §12](PLAN.md) |
+| Layer | File | Built by |
+| --- | --- | --- |
+| **Taxonomy** — Darwin Core snapshot with synonymy | `taxonomy.sqlite` | `ingest_taxonomy.py` (sources: `dwc` / `dwca` / `worms`) |
+| **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `build_biblio_authority.py` + `reconcile_corpus_to_biblio.py` |
 
-Each is independently rebuildable and does not require re-running OCR or extraction. See [PLAN.md §12](PLAN.md) for the design.
+Each is independently rebuildable and does not require re-running OCR or extraction.
 
-## Workflow
+## Installation
 
-The work divides naturally into four stages, best run on different hardware:
+```bash
+conda env create -f environment.yaml
+conda activate corpus
+```
 
-### 1. Collect the corpus
+Grobid runs as a separate service:
 
-PDFs live outside this repo. For the siphonophore corpus I use [`dunnlab/siphonophores`](https://github.com/dunnlab/siphonophores) (Git LFS). Quality matters: **clean high-resolution scans** produce dramatically better OCR and figure extraction than re-scans of photocopies. For born-digital papers, the original publisher PDF beats any downstream export. Filenames should carry `<Surname><Year>` (e.g., `Totton1965a.pdf`) — the reconciler uses this to link corpus papers to their citations when Grobid mis-parses the header.
+```bash
+docker compose up -d grobid
+curl http://localhost:8070/api/isalive   # should print "true"
+```
 
-### 2. Process PDFs on a cluster (the big lift)
+Platform-specific OCR extras (Fraktur for 19th-century German, additional `pngquant`/`jbig2enc` compression) are covered in [dev_docs/INSTALL.md](dev_docs/INSTALL.md).
 
-Stage 1 (OCR + docling + Grobid + chunking) is CPU-heavy; Pass 3b (vision-LLM figure analysis) and embedding are GPU. One pass over ~2,000 PDFs takes tens of hours wall-clock, even with job-array parallelization. Run it on an HPC cluster.
+## Try it on the demo corpus
 
-On Yale's Bouchet (YCRC): [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) is the operational runbook — SLURM partitions, storage paths, dependency chain, known traps. The one-liner:
+The repo ships with 11 siphonophore PDFs and a matching BibTeX under [demo/](demo/). Running the whole pipeline against them takes a few minutes on a laptop, with two uses:
+
+- **First-run smoke test** — confirm your install works before processing your own corpus.
+- **Regression check on top of a real corpus** — the demo writes to its own `output_demo/` directory and the `-o`/`-d` flags below keep the cross-paper SQLites alongside it, so re-running won't touch your production `output/` or `resources/`.
+
+```bash
+python process_corpus.py demo output_demo --bib demo/siphonophores.bib --resume
+python embed_chunks.py output_demo --resume
+
+python build_biblio_authority.py output_demo -o output_demo/biblio_authority.sqlite
+python reconcile_corpus_to_biblio.py output_demo -d output_demo/biblio_authority.sqlite
+python build_taxon_mentions.py output_demo -o output_demo/taxon_mentions.sqlite
+```
+
+The biblio step expects a Darwin Core taxonomy at `resources/taxonomy.sqlite` (see [First time run](#first-time-run) below for how to build one).
+
+## First time run
+
+The work divides into two stages, best run on different hardware. Stage 1 is CPU-heavy and embarrassingly parallel; Stage 2 wants a GPU. Each unique PDF is identified by the first 12 hex chars of its SHA-256, and all artifacts live under `<output_dir>/documents/<HASH>/`.
+
+```bash
+# Stage 1 — OCR, docling, Grobid, chunking (CPU, parallelizable)
+python process_corpus.py <input_dir> <output_dir> --resume
+
+# Stage 2 — embeddings (GPU helpful, not required)
+python embed_chunks.py <output_dir> --resume
+```
+
+`--resume` skips PDFs that already have a `summary.json`, so you can interrupt and restart without losing work. For large corpora, run stage 1 on a cluster — the SLURM one-liner on Bouchet is:
 
 ```bash
 NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 ```
 
-### 3. Post-process locally
-
-The fast, low-resource steps — bibliography authority DB, taxon mentions, reconciliation, QC — run comfortably on a laptop against the output from stage 2. Copy `output/` down from the cluster, then:
+Once Stage 1 and 2 are done, build the cross-paper databases. These are fast (minutes against a few thousand papers) and run comfortably on a laptop:
 
 ```bash
-# Bibliography authority DB.  --enrich-bhl turns on Biodiversity
-# Heritage Library lookups for references without a DOI; needs
-# BHL_API_KEY and is rate-limited, so long-running (hours).  Skip
-# the flag for a ~minute-scale local build against corpus refs only.
-python build_biblio_authority.py output --enrich-bhl
-python reconcile_corpus_to_biblio.py output
-
-# Taxon mentions DB
-python build_taxon_mentions.py output
+python build_biblio_authority.py <output_dir>
+python reconcile_corpus_to_biblio.py <output_dir>
+python build_taxon_mentions.py <output_dir>
 ```
 
-### 4. Deploy the MCP server
+To enrich references that lack DOIs against the Biodiversity Heritage Library, add `--enrich-bhl`:
 
-**Personal use** — point your MCP client at a local server. A project-scoped [.mcp.json](.mcp.json) ships in the repo for Claude Code; for Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+```bash
+python build_biblio_authority.py <output_dir> --enrich-bhl
+```
+
+This needs `BHL_API_KEY` and is rate-limited (hours, not minutes). Skip it for a fast local build against in-corpus references only.
+
+## Adding and updating documents
+
+Drop new PDFs into `<input_dir>` and re-run the same commands. `--resume` recognizes existing artifacts by SHA-256 hash, so only new or changed PDFs are processed:
+
+```bash
+python process_corpus.py <input_dir> <output_dir> --resume
+python embed_chunks.py <output_dir> --resume
+python build_biblio_authority.py <output_dir>
+python reconcile_corpus_to_biblio.py <output_dir>
+python build_taxon_mentions.py <output_dir>
+```
+
+The cross-paper databases (bibliography, taxon mentions) rebuild from scratch each time — fast at corpus scale, and the only way they pick up new cross-references.
+
+## Deploying MCP server locally
+
+Point your MCP client at a local server. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code; for Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -77,7 +180,11 @@ python build_taxon_mentions.py output
 }
 ```
 
-**Shared access** — the same `mcp_server.py` speaks SSE over HTTP for remote clients. Three steps:
+Restart the client and the corpus tools appear. From there, the [example queries](#example-uses) above become chat messages.
+
+## Deploying MCP server remotely
+
+The same `mcp_server.py` speaks SSE over HTTP for remote clients — useful for sharing a corpus with colleagues or running it from a tablet.
 
 **1. Generate a bearer token.** Use `secrets.token_urlsafe` for a strong URL-safe random string, save to a mode-600 file, never pass it on the CLI (would leak via `ps`):
 
@@ -102,11 +209,11 @@ Clients send `Authorization: Bearer <token>` on every request. Without `--auth-t
 python tools/smoke_test_sse.py output
 ```
 
-All seven checks should pass locally before you move to AWS. The deployment pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is spelled out in [PLAN.md §10](PLAN.md).
+All seven checks should pass locally before you move to a real server. The deployment pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) and [PLAN.md §10](PLAN.md).
 
-**4. Connect a client.** Remote-MCP support now exists natively in Claude Desktop, claude.ai web, and Claude Code. The paths differ in friction and in which transport + auth they target. Recommended in order:
+**4. Connect a client.** Remote-MCP support exists natively in Claude Desktop, claude.ai web, and Claude Code. The paths differ in friction and in which transport + auth they target. Recommended in order:
 
-- **Claude Code (CLI)** — tested and working against our server. One-liner:
+- **Claude Code (CLI)** — tested and working against our server:
 
   ```bash
   claude mcp add corpus-remote http://127.0.0.1:18080/sse \
@@ -115,11 +222,11 @@ All seven checks should pass locally before you move to AWS. The deployment patt
       --header "Authorization: Bearer $(cat ~/corpus-mcp.token)"
   ```
 
-  Use `--scope project` to tie to one repo, `claude mcp remove corpus-remote --scope user` to undo. `/mcp` in any Claude Code session lists connected servers and their tools. The CLI accepts `--transport sse` with custom headers, which maps cleanly to our current server.
+  Use `--scope project` to tie to one repo, `claude mcp remove corpus-remote --scope user` to undo. `/mcp` in any session lists connected servers and their tools.
 
-- **Claude Desktop / claude.ai web (Custom Connectors UI)** — Settings → Connectors → "Add custom connector", paste the URL. Available on Free / Pro / Max / Team / Enterprise plans ([Anthropic docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)). **Caveat for this repo's server:** Custom Connectors target the **Streamable HTTP** transport with OAuth-style auth, while our server speaks **SSE** with a static bearer token. Whether the UI accepts our URL depends on how strict the client is about the handshake — worth trying (Desktop → ⌘Q restart → add custom connector → paste URL), since it's reversible. If it rejects the SSE endpoint, fall back to the `mcp-remote` bridge below.
+- **Claude Desktop / claude.ai web (Custom Connectors UI)** — Settings → Connectors → "Add custom connector", paste the URL. Available on Free / Pro / Max / Team / Enterprise plans ([Anthropic docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)). **Caveat:** Custom Connectors target the **Streamable HTTP** transport with OAuth-style auth, while our server speaks **SSE** with a static bearer token. Whether the UI accepts our URL depends on how strict the client is — worth trying. If it rejects the SSE endpoint, fall back to the bridge below.
 
-- **Claude Desktop fallback — mcp-remote bridge.** If the Custom Connectors UI doesn't connect to our SSE + bearer server, edit `~/Library/Application Support/Claude/claude_desktop_config.json` to launch [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a stdio subprocess that bridges to our SSE endpoint:
+- **Claude Desktop fallback — mcp-remote bridge.** Edit `~/Library/Application Support/Claude/claude_desktop_config.json` to launch [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a stdio subprocess that bridges to the SSE endpoint:
 
   ```json
   {
@@ -134,42 +241,13 @@ All seven checks should pass locally before you move to AWS. The deployment patt
   }
   ```
 
-For a cleaner Custom Connectors experience in the future, the server would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery. That's a post-deploy item; tracked against the AWS rollout, not this initial release.
+For a cleaner Custom Connectors experience in the future, the server would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery. That's a post-deploy item, tracked against the AWS rollout.
 
-The repo's project-scoped [.mcp.json](.mcp.json) stays useful for local development — it's stdio, no running server or token needed. Use it for coding against the corpus; use one of the above for testing or consuming the deployed pattern.
+## Gotchas
 
-## Installation
 
-```bash
-conda env create -f environment.yaml
-conda activate corpus
-```
 
-Grobid runs as a separate service:
-
-```bash
-docker compose up -d grobid
-curl http://localhost:8070/api/isalive   # should print "true"
-```
-
-Platform-specific OCR extras (Fraktur for 19th-century German, additional `pngquant`/`jbig2enc` compression) are covered in [dev_docs/INSTALL.md](dev_docs/INSTALL.md).
-
-## Quick reference
-
-```bash
-# Full pipeline on a small local collection
-python process_corpus.py <input_dir> <output_dir> --resume
-python embed_chunks.py <output_dir> --resume
-
-# MCP server
-python mcp_server.py <output_dir>
-
-# Rebuild the bibliography authority DB (after new papers land)
-python build_biblio_authority.py <output_dir>
-python reconcile_corpus_to_biblio.py <output_dir>
-```
-
-## Documentation
+## Additional documentation and resources
 
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
@@ -179,8 +257,9 @@ python reconcile_corpus_to_biblio.py <output_dir>
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [PLAN.md](PLAN.md) — roadmap and design decisions
 
-## Resources
+External:
 
+- [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) — the standard the query interface speaks
 - [Docling tutorial](https://youtu.be/9lBTS5dM27c?si=d8cS4wbY6eGXaHH1), based on [this repo](https://github.com/daveebbelaar/ai-cookbook/tree/main/knowledge/docling)
 - [Docling figure export docs](https://docling-project.github.io/docling/examples/export_figures/)
 - [docling-parse](https://github.com/docling-project/docling-parse)
