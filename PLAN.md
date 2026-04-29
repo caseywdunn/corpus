@@ -209,7 +209,7 @@ Tracked work before the v0.1 tag and full corpus rebuild on Bouchet. Issues are 
 
 - [ ] [#10](https://github.com/caseywdunn/corpus/issues/10) — Diagnose why ocrmypdf produces zero-text PDFs on ~33 docs. Run flag matrix on Stepanjants/MilosMaley/Pagenstecher; install pngquant; apply winning flags to `prepare_pdf`. Likely recovers ~25–30 docs.
 - [ ] [#9](https://github.com/caseywdunn/corpus/issues/9) — Install `deu_latf` Fraktur Tesseract pack on Bouchet. Recovers ~6–8 19th-c. German scans (Goldfuss 1820, Pagenstecher 1869, Brandt 1837, Donitz 1871, Stechow 1921, Hoeven 1836, Schmidtlein 1881, Doflein 1906).
-- [ ] [#8](https://github.com/caseywdunn/corpus/issues/8) — Vendor-watermark detection in `detect_scan_type`. Recovers Karplus 2014, Browne 1905, Fleming 1828. ~5-line patch; can land locally before going to Bouchet.
+- [x] [#8](https://github.com/caseywdunn/corpus/issues/8) — Vendor-watermark detection in `detect_scan_type`. Recovers Karplus 2014, Browne 1905, Fleming 1828. Implemented in commit `403040b`.
 - [ ] [#11](https://github.com/caseywdunn/corpus/issues/11) — Queue `slurm/batch_pass3b.sh` so vision Pass 3b + Pass 3c run as part of the rebuild. Resolves the bulk of 6,841 missing-figure records and applies compound-figure splits across the corpus.
 - [ ] **Trigger the full rebuild**: `slurm/batch_process_corpus.sh` (Stage 1) → `batch_pass3b.sh` (vision) → `batch_embed.sh` (BGE-M3) → `batch_grobid.sh` if needed → `batch_biblio.sh`. All chainable via `--dependency=afterok`.
 - [ ] **Audit the rebuild output** before tagging: zero-text-extraction count, `pass3c_status` coverage, `missing_figures[]` reduction, figure-type coverage on PyMuPDF rescues.
