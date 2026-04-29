@@ -204,6 +204,41 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 
 Implementation status of the items in §4 is reflected by `[x]`/`[ ]` checkboxes in that section. Per-release rollups live in [`CHANGELOG.md`](CHANGELOG.md). This document focuses on the design and roadmap; for "what is currently done?" consult those two surfaces.
 
+### v0.1 release punch list
+
+Tracked work before the v0.1 tag and full corpus rebuild on Bouchet. Issues are tracked in GitHub; checkboxes here are the running status.
+
+**Bouchet (rebuild dependencies):**
+
+- [ ] [#10](https://github.com/caseywdunn/corpus/issues/10) — Diagnose why ocrmypdf produces zero-text PDFs on ~33 docs. Run flag matrix on Stepanjants/MilosMaley/Pagenstecher; install pngquant; apply winning flags to `prepare_pdf`. Likely recovers ~25–30 docs.
+- [ ] [#9](https://github.com/caseywdunn/corpus/issues/9) — Install `deu_latf` Fraktur Tesseract pack on Bouchet. Recovers ~6–8 19th-c. German scans (Goldfuss 1820, Pagenstecher 1869, Brandt 1837, Donitz 1871, Stechow 1921, Hoeven 1836, Schmidtlein 1881, Doflein 1906).
+- [ ] [#8](https://github.com/caseywdunn/corpus/issues/8) — Vendor-watermark detection in `detect_scan_type`. Recovers Karplus 2014, Browne 1905, Fleming 1828. ~5-line patch; can land locally before going to Bouchet.
+- [ ] [#11](https://github.com/caseywdunn/corpus/issues/11) — Queue `slurm/batch_pass3b.sh` so vision Pass 3b + Pass 3c run as part of the rebuild. Resolves the bulk of 6,841 missing-figure records and applies compound-figure splits across the corpus.
+- [ ] **Trigger the full rebuild**: `slurm/batch_process_corpus.sh` (Stage 1) → `batch_pass3b.sh` (vision) → `batch_embed.sh` (BGE-M3) → `batch_grobid.sh` if needed → `batch_biblio.sh`. All chainable via `--dependency=afterok`.
+- [ ] **Audit the rebuild output** before tagging: zero-text-extraction count, `pass3c_status` coverage, `missing_figures[]` reduction, figure-type coverage on PyMuPDF rescues.
+
+**Local (no Bouchet needed):**
+
+- [ ] [#5](https://github.com/caseywdunn/corpus/issues/5) — Streamable HTTP transport + OAuth for native Custom Connectors UI (defer if not required for v0.1 collaborator access).
+- [ ] [#6](https://github.com/caseywdunn/corpus/issues/6) — `deploy/stack.yaml` default-VPC assumption; either fix or document as a known prerequisite.
+- [ ] **§10 design item: no absolute paths in served JSON.** Audit `figures.json[].file_path`, `chunks.json[].source_file`, etc. Add a unit test that asserts no absolute paths leak into the served bundle.
+
+**Tagging:**
+
+- [ ] **Date `CHANGELOG.md`** — replace `2026-04-XX` with the tag date once the rebuild lands and the bundle is uploaded.
+- [ ] **Distill served bundle**: `python package_for_serve.py "$OUTPUT_DIR" "$BOUCHET_PROJECT/serve_bundle" --version v0.1.0`.
+- [ ] **Sync to S3**: `aws s3 sync serve_bundle/ s3://<corpus-name>/v0.1.0/`.
+- [ ] **`git tag v0.1.0`** + push tag + create GitHub release pointing at the changelog section.
+- [ ] **EC2 reload**: `systemctl reload corpus-mcp` on the served instance to pick up the new bundle.
+
+**Deferred to post-v0.1** (not blocking the tag):
+
+- [ ] Parallelize stage 2 (file an issue).
+- [ ] Geographic extraction / §12 Layer 3 (file an issue).
+- [ ] Trait extraction / Q3 keys (file an issue).
+- [ ] `mcp_server.py` refactor — split 78 KB single file into per-concern modules (file an issue).
+- [ ] [#7 part 3](https://github.com/caseywdunn/corpus/issues/7) — any remaining work on the in-text citation graph beyond parts 1 and 2 already merged.
+
 ## 7. Switch embeddings from OpenAI → local open-weights on Bouchet
 
 The production run will execute on Bouchet (YCRC), which has idle GPU capacity we've already been allocated. Replacing the OpenAI embedding call with a local open-weights model is a small code change with three real benefits and one cost.
