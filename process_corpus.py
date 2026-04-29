@@ -1060,7 +1060,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
     # text layer claims. Only invoked in the suspect zone so OSD cost is
     # bounded at corpus scale.
     visual = None
-    if latin_frac > 0.90 and gib > 0.25:
+    if latin_frac > 0.90 and gib > 0.40:
         visual = _visual_page_script(pdf_path)
         # The expected script from langdetect — if it disagrees with what
         # OSD sees on the actual page image, the text layer is corrupt.
