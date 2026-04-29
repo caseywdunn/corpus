@@ -1780,6 +1780,17 @@ def main() -> int:
              "(default: <output_dir>/taxon_mentions.sqlite)",
     )
     parser.add_argument(
+        "--instructions",
+        type=Path,
+        default=None,
+        help="Markdown file whose contents are returned to MCP clients in "
+             "the InitializeResult.instructions field, so well-behaved "
+             "clients (Claude Desktop, Claude Code) inject it into the LLM's "
+             "context at session start.  Use it for per-corpus nudges — e.g. "
+             "'Velella is not a siphonophore'.  "
+             "Default: <output_dir>/instructions.md if it exists.",
+    )
+    parser.add_argument(
         "--embedding-model",
         default=None,
         help="Override the default HuggingFace embedding model id "
@@ -1817,6 +1828,26 @@ def main() -> int:
         stream=sys.stderr,  # stdout is the MCP transport
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    # Optional per-corpus instructions surfaced to clients in
+    # InitializeResult.instructions.  FastMCP exposes ``instructions`` as
+    # a read-only property backed by ``_mcp_server.instructions``; that
+    # backing attribute is plain mutable state on the lower-level Server,
+    # so setting it here (after the module-level FastMCP is constructed)
+    # takes effect on the next ``initialize`` call.
+    instructions_path = args.instructions or (args.output_dir / "instructions.md")
+    if instructions_path.exists():
+        try:
+            text = instructions_path.read_text(encoding="utf-8").strip()
+            mcp._mcp_server.instructions = text
+            logger.info(
+                "Loaded MCP instructions from %s (%d chars)",
+                instructions_path, len(text),
+            )
+        except Exception as e:
+            logger.warning(
+                "Could not read instructions %s: %s", instructions_path, e,
+            )
 
     taxonomy_path = args.taxonomy_db or (args.output_dir / "taxonomy.sqlite")
     taxonomy: Optional[TaxonomyDB] = None
