@@ -56,6 +56,9 @@ def _make_fake_output(root: Path, paper_hashes=("abc", "def")) -> Path:
         (hd / "summary.json").write_text(json.dumps({"pdf_hash": h}))
         (hd / "metadata.json").write_text(json.dumps({"title": f"Paper {h}"}))
         (hd / "references.json").write_text(json.dumps({"references": []}))
+        (hd / "intext_citations.json").write_text(json.dumps(
+            {"paragraphs": [], "citations": []}
+        ))
         (hd / "text.json").write_text(json.dumps({"text": "body"}))
         (hd / "chunks.json").write_text(json.dumps(
             {"chunks": [{"id": 0, "text": "hello"}]}

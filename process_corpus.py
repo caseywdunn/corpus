@@ -23,6 +23,7 @@ from grobid_client import (
     GrobidClient,
     GrobidUnavailableError,
     parse_tei_header,
+    parse_tei_intext_citations,
     parse_tei_references,
 )
 from bib_metadata import BibIndex, bib_entry_to_metadata
@@ -1596,6 +1597,8 @@ def _write_placeholder_metadata(
         json.dump(placeholder, f, indent=2, ensure_ascii=False)
     with open(references_output, "w", encoding="utf-8") as f:
         json.dump({"references": [], "total_references": 0}, f, indent=2)
+    with open(metadata_output.parent / "intext_citations.json", "w", encoding="utf-8") as f:
+        json.dump({"paragraphs": [], "citations": []}, f, indent=2)
 
 
 def extract_metadata(
@@ -1682,12 +1685,19 @@ def extract_metadata(
     # an empty reference list (written below as a fallback).
     refs: List[dict] = []
     refs_parsed = False
+    intext = {"paragraphs": [], "citations": []}
     if tei_xml is not None:
         try:
             refs = parse_tei_references(tei_xml)
             refs_parsed = True
         except Exception as e:
             logger.warning("Failed to parse Grobid TEI references (%s)", e)
+        # In-text citation graph (issue #7).  Independent of refs parse —
+        # we want partial recovery when one fails and the other doesn't.
+        try:
+            intext = parse_tei_intext_citations(tei_xml)
+        except Exception as e:
+            logger.warning("Failed to parse Grobid TEI in-text citations (%s)", e)
 
     # 4. Build the header. Bib record wins if present; otherwise Grobid's
     # header parse, with filename-year fallback. If both fail, placeholder.
@@ -1740,12 +1750,15 @@ def extract_metadata(
                 indent=2,
                 ensure_ascii=False,
             )
+        with open(hash_dir / "intext_citations.json", "w", encoding="utf-8") as f:
+            json.dump(intext, f, indent=2, ensure_ascii=False)
         logger.info(
-            "Wrote metadata (method=%s, %d authors) and %d references (parsed=%s)",
+            "Wrote metadata (method=%s, %d authors), %d references (parsed=%s), %d in-text citations",
             header.get("extraction_method"),
             len(header.get("authors", [])),
             len(refs),
             refs_parsed,
+            len(intext["citations"]),
         )
         return
 

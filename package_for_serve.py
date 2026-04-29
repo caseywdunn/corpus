@@ -58,6 +58,7 @@ PER_PAPER_FILES = (
     "summary.json",
     "metadata.json",
     "references.json",
+    "intext_citations.json",
     "text.json",
     "chunks.json",
     "figures.json",

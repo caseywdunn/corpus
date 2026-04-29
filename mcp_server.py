@@ -951,6 +951,43 @@ def get_bibliography(
 
 
 @mcp.tool()
+def get_intext_citations(paper_hash: str) -> Dict:
+    """In-text citations parsed from this paper's body (issue #7).
+
+    Returns the deduplicated paragraphs from the paper plus a list of
+    citation records, one per ``<ref type="bibr">`` Grobid found in the
+    body.  Each record has:
+
+    * ``target_xml_id`` — ``"#b5"``-style ID into ``get_bibliography``'s
+      ``xml_id`` field.  ``None`` for unresolved citations (Grobid
+      couldn't match the surface text to a bibliography entry; ~40% of
+      cases corpus-wide).  Surface text is preserved either way.
+    * ``surface`` — original text from the TEI ref element
+      (e.g. ``"Furnestin, 1960"``).
+    * ``section`` — text of the nearest enclosing section heading.
+    * ``para_index`` — index into the returned ``paragraphs`` list.
+
+    The paragraphs list is the actual passages where the citations
+    appear — useful for "show me where this paper cites X" lookups.
+
+    Returns ``{"error": ...}`` if the paper isn't in the corpus or its
+    intext_citations.json is missing (papers processed before issue #7
+    landed; backfill with ``backfill_intext_citations.py``).
+    """
+    idx = _need_index()
+    p = idx.papers.get(paper_hash)
+    if not p:
+        return {"error": f"no such paper_hash: {paper_hash}"}
+    data = _load_json(Path(p["hash_dir"]) / "intext_citations.json", default=None)
+    if data is None:
+        return {
+            "error": "intext_citations.json missing — backfill with "
+                     "`python backfill_intext_citations.py <output_dir>`",
+        }
+    return data
+
+
+@mcp.tool()
 def get_citation_graph(
     work_id: Optional[str] = None,
     paper_hash: Optional[str] = None,
