@@ -56,13 +56,19 @@ Matching is on the basename (case-insensitive), so the `file` value can be a bar
 
 ### External taxonomic data (optional)
 
-The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution. By default it builds from a Darwin Core Archive of your choice — for siphonophores we use the [WoRMS](https://www.marinespecies.org/) export. Other groups: pull a DwC-A from the relevant authority ([GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/)) and point the ingest script at it:
+The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution. By default it builds from a Darwin Core Archive of your choice — for siphonophores we use the [WoRMS](https://www.marinespecies.org/) export. Other groups: pull a DwC-A from the relevant authority ([GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/)) and ingest into your corpuscle:
 
 ```bash
-python ingest_taxonomy.py --dwca path/to/dwca.zip
+python ingest_taxonomy.py <output_dir> --source dwca --input path/to/dwca.zip
 ```
 
 Without external taxonomy the pipeline still extracts taxon mentions from text — you lose the synonymy graph that links historical names to current valid names.
+
+### Anatomy lexicon (optional)
+
+A small YAML file that lists the anatomical terms you want tagged in figure captions and chunk text — *nectophore*, *pneumatophore*, *gastrozooid* for siphonophores, or whatever vocabulary fits your group. Pass it with `--anatomy-lexicon`; without it, anatomy extraction is skipped.
+
+The format is a flat term-to-metadata map; see [demo/anatomy_lexicon.yaml](demo/anatomy_lexicon.yaml) for a worked example. Like `--bib`, the lexicon is something you maintain alongside your literature, not something the tool ships.
 
 ## Computational requirements
 
@@ -72,16 +78,27 @@ Without external taxonomy the pipeline still extracts taxon mentions from text �
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
 - **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 + ALB + CloudFront), but any host with Python and an open port works. See [Deploying remotely](#deploying-remotely) below.
 
-## Cross-paper sources of truth
+## Corpuscle layout
 
-Two precompiled SQLite databases under `resources/` link entity mentions across every paper in the corpus:
+A *corpuscle* is the on-disk container for one corpus instance — siphonophores, drosophila, or whatever group you're working on. It's a single directory:
+
+```text
+<corpuscle>/
+├── documents/<HASH>/         # per-paper artifacts (text, chunks, figures, taxa, anatomy, …)
+├── vector_db/lancedb/        # embeddings index
+├── taxonomy.sqlite           # Darwin Core snapshot, built by ingest_taxonomy.py
+├── biblio_authority.sqlite   # deduplicated works + citation graph
+└── taxon_mentions.sqlite     # cross-paper taxon index
+```
+
+Two cross-paper layers are built from the per-paper artifacts and are independently rebuildable without re-running OCR or extraction:
 
 | Layer | File | Built by |
 | --- | --- | --- |
 | **Taxonomy** — Darwin Core snapshot with synonymy | `taxonomy.sqlite` | `ingest_taxonomy.py` (sources: `dwc` / `dwca` / `worms`) |
 | **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `build_biblio_authority.py` + `reconcile_corpus_to_biblio.py` |
 
-Each is independently rebuildable and does not require re-running OCR or extraction.
+Every CLI takes the corpuscle root as its first positional argument and resolves all per-instance files from there. Run two corpora side-by-side by giving each its own corpuscle directory; they don't share state.
 
 ## Installation
 
@@ -101,21 +118,28 @@ Platform-specific OCR extras (Fraktur for 19th-century German, additional `pngqu
 
 ## Try it on the demo corpus
 
-The repo ships with 11 siphonophore PDFs and a matching BibTeX under [demo/](demo/). Running the whole pipeline against them takes a few minutes on a laptop, with two uses:
+The repo ships with 11 siphonophore PDFs, a matching BibTeX, and an example anatomy lexicon under [demo/](demo/). Running the whole pipeline against them takes a few minutes on a laptop, with two uses:
 
 - **First-run smoke test** — confirm your install works before processing your own corpus.
-- **Regression check on top of a real corpus** — the demo writes to its own `output_demo/` directory and the `-o`/`-d` flags below keep the cross-paper SQLites alongside it, so re-running won't touch your production `output/` or `resources/`.
+- **Regression check on top of a real corpus** — `output_demo/` is its own corpuscle, so it lives alongside (and never clobbers) your production corpuscle.
 
 ```bash
-python process_corpus.py demo output_demo --bib demo/siphonophores.bib --resume
+# Build a small WoRMS taxonomy snapshot into the demo corpuscle.  Skip
+# this step if you only want to smoke-test stages 1 + 2.
+python ingest_taxonomy.py output_demo --source worms --root-id 1371
+
+python process_corpus.py demo output_demo \
+    --bib demo/siphonophores.bib \
+    --anatomy-lexicon demo/anatomy_lexicon.yaml \
+    --resume
 python embed_chunks.py output_demo --resume
 
-python build_biblio_authority.py output_demo -o output_demo/biblio_authority.sqlite
-python reconcile_corpus_to_biblio.py output_demo -d output_demo/biblio_authority.sqlite
-python build_taxon_mentions.py output_demo -o output_demo/taxon_mentions.sqlite
+python build_biblio_authority.py output_demo
+python reconcile_corpus_to_biblio.py output_demo
+python build_taxon_mentions.py output_demo
 ```
 
-The biblio step expects a Darwin Core taxonomy at `resources/taxonomy.sqlite` (see [First time run](#first-time-run) below for how to build one).
+Every cross-paper SQLite lands inside `output_demo/` automatically — no override flags needed.
 
 ## First time run
 

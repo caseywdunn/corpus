@@ -54,8 +54,8 @@ except ImportError:
 
 logger = logging.getLogger("build_biblio")
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "biblio_authority.sqlite"
-DEFAULT_TAXONOMY = Path(__file__).resolve().parent / "resources" / "taxonomy.sqlite"
+# Defaults are derived per-corpus from the output_dir positional arg in
+# main(); see "corpuscle" layout in README.md.
 
 # ── Normalization ────────────────────────────────────────────────────
 
@@ -1026,12 +1026,13 @@ def main() -> int:
         help="Corpus output directory (contains documents/<hash>/ subdirs)",
     )
     parser.add_argument(
-        "-o", "--output", type=Path, default=DEFAULT_OUTPUT,
-        help=f"SQLite output path (default: {DEFAULT_OUTPUT})",
+        "-o", "--output", type=Path, default=None,
+        help="SQLite output path (default: <output_dir>/biblio_authority.sqlite)",
     )
     parser.add_argument(
-        "--taxonomy-db", type=Path, default=DEFAULT_TAXONOMY,
-        help=f"Darwin Core taxonomy SQLite path (default: {DEFAULT_TAXONOMY})",
+        "--taxonomy-db", type=Path, default=None,
+        help="Darwin Core taxonomy SQLite path "
+             "(default: <output_dir>/taxonomy.sqlite)",
     )
     parser.add_argument(
         "--enrich-bhl", action="store_true",
@@ -1058,6 +1059,11 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    if args.output is None:
+        args.output = args.output_dir / "biblio_authority.sqlite"
+    if args.taxonomy_db is None:
+        args.taxonomy_db = args.output_dir / "taxonomy.sqlite"
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(args.output)

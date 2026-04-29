@@ -7,11 +7,13 @@ demo_*/
 logs/
 tmp/
 
-# Regenerable SQLite snapshots
-resources/worms*.sqlite
-resources/biblio_authority.sqlite
-resources/taxon_mentions.sqlite
-resources/.nfs*
+# Regenerable SQLite snapshots — corpuscle layout: live alongside
+# documents/ inside the per-instance output directory.  output*/ is
+# already ignored above; these patterns keep stragglers out of any
+# directory that happens to be named differently.
+*.sqlite
+*.sqlite-journal
+.nfs*
 
 
 

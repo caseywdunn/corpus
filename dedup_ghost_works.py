@@ -71,7 +71,8 @@ except ImportError:
 
 logger = logging.getLogger("dedup_ghosts")
 
-DEFAULT_DB = Path(__file__).resolve().parent / "resources" / "biblio_authority.sqlite"
+# Default is derived per-corpus from the output_dir positional arg in
+# main(); see "corpuscle" layout in README.md.
 
 
 # ── Normalization (kept in sync with build_biblio_authority.py) ─────
@@ -315,8 +316,11 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-d", "--db", type=Path, default=DEFAULT_DB,
-                        help=f"Biblio authority SQLite (default: {DEFAULT_DB})")
+    parser.add_argument("output_dir", type=Path,
+                        help="Corpus output directory (used to locate biblio_authority.sqlite)")
+    parser.add_argument("-d", "--db", type=Path, default=None,
+                        help="Biblio authority SQLite "
+                             "(default: <output_dir>/biblio_authority.sqlite)")
     parser.add_argument("--min-set-score", type=int, default=95,
                         help="token_set_ratio threshold for fuzzy merge (default: 95)")
     parser.add_argument("--min-ratio", type=int, default=40, dest="min_ratio_score",
@@ -342,6 +346,9 @@ def main() -> int:
             "rapidfuzz is required. Install with `pip install rapidfuzz`.\n"
         )
         return 1
+    if args.db is None:
+        args.db = args.output_dir / "biblio_authority.sqlite"
+
     if not args.db.exists():
         logger.error("DB not found: %s", args.db)
         return 1

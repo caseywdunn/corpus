@@ -821,7 +821,9 @@ def get_figures_for_anatomy(
     """Figures whose captions mention an anatomy term.
 
     Takes the canonical anatomy term or any of its configured synonyms
-    / translations (see ``resources/anatomy_lexicon.yaml``). Matches the
+    / translations (defined by the user-supplied ``--anatomy-lexicon``
+    YAML at process time; see ``demo/anatomy_lexicon.yaml`` for an
+    example). Matches the
     term case-insensitively in figure captions and returns the figure
     records with image paths and caption text, ranked by number of
     occurrences in the caption.
@@ -1760,7 +1762,7 @@ def main() -> int:
         type=Path,
         default=None,
         help="Override path to the Darwin Core taxonomy SQLite "
-             "(default: resources/taxonomy.sqlite under repo root). "
+             "(default: <output_dir>/taxonomy.sqlite). "
              "Build with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
     )
     parser.add_argument(
@@ -1768,14 +1770,14 @@ def main() -> int:
         type=Path,
         default=None,
         help="Override path to the bibliographic authority SQLite "
-             "(default: resources/biblio_authority.sqlite under repo root)",
+             "(default: <output_dir>/biblio_authority.sqlite)",
     )
     parser.add_argument(
         "--taxon-mention-sqlite",
         type=Path,
         default=None,
         help="Override path to the taxon mention SQLite "
-             "(default: resources/taxon_mentions.sqlite under repo root)",
+             "(default: <output_dir>/taxon_mentions.sqlite)",
     )
     parser.add_argument(
         "--embedding-model",
@@ -1816,9 +1818,7 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    taxonomy_path = args.taxonomy_db or (
-        Path(__file__).parent / "resources" / "taxonomy.sqlite"
-    )
+    taxonomy_path = args.taxonomy_db or (args.output_dir / "taxonomy.sqlite")
     taxonomy: Optional[TaxonomyDB] = None
     if taxonomy_path.exists():
         try:
@@ -1835,9 +1835,7 @@ def main() -> int:
             taxonomy_path,
         )
 
-    biblio_path = args.biblio_sqlite or (
-        Path(__file__).parent / "resources" / "biblio_authority.sqlite"
-    )
+    biblio_path = args.biblio_sqlite or (args.output_dir / "biblio_authority.sqlite")
     biblio: Optional[BiblioAuthority] = None
     if biblio_path.exists():
         try:
@@ -1854,9 +1852,7 @@ def main() -> int:
             biblio_path,
         )
 
-    taxon_mention_path = args.taxon_mention_sqlite or (
-        Path(__file__).parent / "resources" / "taxon_mentions.sqlite"
-    )
+    taxon_mention_path = args.taxon_mention_sqlite or (args.output_dir / "taxon_mentions.sqlite")
     taxon_mention_db: Optional[TaxonMentionDB] = None
     if taxon_mention_path.exists():
         try:

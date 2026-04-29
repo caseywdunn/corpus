@@ -110,11 +110,6 @@ _DEFAULT_CONFIG = {
     "chunking": {
         "max_tokens": 8191,
     },
-    # Cross-paper resources used by the pipeline.
-    "resources": {
-        "taxonomy_db": "resources/taxonomy.sqlite",
-        "anatomy_lexicon": "resources/anatomy_lexicon.yaml",
-    },
 }
 
 
@@ -2247,14 +2242,17 @@ def main():
         "--taxonomy-db",
         type=Path,
         default=None,
-        help="Path to Darwin Core taxonomy SQLite (overrides config.resources.taxonomy_db). "
+        help="Path to Darwin Core taxonomy SQLite "
+             "(default: <output_dir>/taxonomy.sqlite). "
              "Build with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
     )
     parser.add_argument(
         "--anatomy-lexicon",
         type=Path,
         default=None,
-        help="Path to anatomy lexicon YAML (overrides config.resources.anatomy_lexicon)",
+        help="Path to a domain-specific anatomy lexicon YAML. Optional and "
+             "user-supplied — see demo/anatomy_lexicon.yaml for the format. "
+             "Without this flag, anatomy extraction is skipped.",
     )
     parser.add_argument(
         "--no-taxa",
@@ -2355,14 +2353,14 @@ def main():
             logger.error("Could not parse %s: %s", args.bib, e)
             sys.exit(1)
 
-    # Open taxonomy snapshot and load anatomy lexicon once. Both are optional;
-    # missing resources are logged and their output artifacts are skipped.
+    # Open taxonomy snapshot and (if supplied) load anatomy lexicon. Both
+    # are optional; missing inputs are logged and their output artifacts
+    # are skipped.  The lexicon is opt-in via --anatomy-lexicon — there
+    # is no default lookup because it's a domain-specific user input.
     taxonomy_db: Optional[TaxonomyDB] = None
     anatomy_lexicon: Optional[Dict[str, Dict]] = None
     if not args.no_taxa:
-        taxonomy_path = args.taxonomy_db or Path(
-            CONFIG.get("resources", {}).get("taxonomy_db", "resources/taxonomy.sqlite")
-        )
+        taxonomy_path = args.taxonomy_db or (args.output_dir / "taxonomy.sqlite")
         if taxonomy_path.exists():
             try:
                 taxonomy_db = TaxonomyDB(taxonomy_path)
@@ -2377,24 +2375,28 @@ def main():
         else:
             logger.warning(
                 "Taxonomy snapshot %s not found — taxon extraction skipped. "
-                "Build it with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
-                taxonomy_path,
+                "Build it with: python ingest_taxonomy.py %s --source <dwc|dwca|worms> ...",
+                taxonomy_path, args.output_dir,
             )
 
-        anat_path = args.anatomy_lexicon or Path(
-            CONFIG.get("resources", {}).get("anatomy_lexicon", "resources/anatomy_lexicon.yaml")
-        )
-        if anat_path.exists():
-            try:
-                anatomy_lexicon = load_anatomy_lexicon(anat_path)
-                logger.info(
-                    "Anatomy lexicon loaded from %s (%d terms)",
-                    anat_path, len(anatomy_lexicon),
+        if args.anatomy_lexicon is not None:
+            if args.anatomy_lexicon.exists():
+                try:
+                    anatomy_lexicon = load_anatomy_lexicon(args.anatomy_lexicon)
+                    logger.info(
+                        "Anatomy lexicon loaded from %s (%d terms)",
+                        args.anatomy_lexicon, len(anatomy_lexicon),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Could not load anatomy lexicon %s: %s",
+                        args.anatomy_lexicon, e,
+                    )
+            else:
+                logger.warning(
+                    "Anatomy lexicon %s not found — anatomy extraction skipped",
+                    args.anatomy_lexicon,
                 )
-            except Exception as e:
-                logger.warning("Could not load anatomy lexicon %s: %s", anat_path, e)
-        else:
-            logger.info("No anatomy lexicon at %s; skipping anatomy extraction", anat_path)
 
     # Vision backend for Pass 3b. Constructed once and reused so the
     # backend can keep long-lived state (API client, loaded model, etc.).

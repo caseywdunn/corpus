@@ -59,8 +59,8 @@ if [ -f "$OUTPUT_DIR/taxonomy.sqlite" ]; then
     TAXONOMY_FLAG="--taxonomy-db $OUTPUT_DIR/taxonomy.sqlite"
 fi
 ANATOMY_FLAG=""
-if [ -f "$REPO_DIR/resources/anatomy_lexicon.yaml" ]; then
-    ANATOMY_FLAG="--anatomy-lexicon $REPO_DIR/resources/anatomy_lexicon.yaml"
+if [ -f "$OUTPUT_DIR/anatomy_lexicon.yaml" ]; then
+    ANATOMY_FLAG="--anatomy-lexicon $OUTPUT_DIR/anatomy_lexicon.yaml"
 fi
 
 # ── Batch parameters (for SLURM job arrays) ─────────────────────────

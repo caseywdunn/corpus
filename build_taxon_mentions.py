@@ -2,8 +2,8 @@
 """Build the corpus-wide taxon mention database from per-paper taxa.json.
 
 Reads existing per-paper artifacts only — no re-extraction needed. Walks
-``output/documents/*/taxa.json`` and rolls up every mention into a single
-SQLite database at ``resources/taxon_mentions.sqlite``.
+``<corpuscle>/documents/*/taxa.json`` and rolls up every mention into a
+single SQLite database at ``<corpuscle>/taxon_mentions.sqlite``.
 
 This is §12 Layer 2 from PLAN.md: a cross-paper mention table that enables
 span-level taxon queries and (later) taxon × locality joins with Layer 3.
@@ -32,7 +32,8 @@ from typing import Optional
 
 logger = logging.getLogger("build_taxon_mentions")
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "taxon_mentions.sqlite"
+# Default is derived per-corpus from the output_dir positional arg in
+# main(); see "corpuscle" layout in README.md.
 
 # ── Schema ───────────────────────────────────────────────────────────
 
@@ -242,8 +243,8 @@ def main() -> int:
         help="Corpus output directory (contains documents/<hash>/ subdirs)",
     )
     parser.add_argument(
-        "-o", "--output", type=Path, default=DEFAULT_OUTPUT,
-        help=f"SQLite output path (default: {DEFAULT_OUTPUT})",
+        "-o", "--output", type=Path, default=None,
+        help="SQLite output path (default: <output_dir>/taxon_mentions.sqlite)",
     )
     parser.add_argument(
         "--rebuild", action="store_true",
@@ -256,6 +257,9 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    if args.output is None:
+        args.output = args.output_dir / "taxon_mentions.sqlite"
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(args.output)

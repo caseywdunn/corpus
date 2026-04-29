@@ -632,7 +632,7 @@ These aren't implementation work — they're constraints that need to flow back 
 
 ## 11. Bibliographic authority database
 
-The corpus has ~65,000 parsed references across ~1,350+ papers, but no cross-paper deduplication, no citation graph, and no link between WoRMS taxa and their original description papers. Only 5.6% of references carry DOIs — the rest (mostly historical siphonophore literature) need a fallback identifier. This section defines a single bibliographic authority that unifies corpus papers, cited references, and WoRMS taxa into one queryable graph stored as `resources/biblio_authority.sqlite`.
+The corpus has ~65,000 parsed references across ~1,350+ papers, but no cross-paper deduplication, no citation graph, and no link between WoRMS taxa and their original description papers. Only 5.6% of references carry DOIs — the rest (mostly historical siphonophore literature) need a fallback identifier. This section defines a single bibliographic authority that unifies corpus papers, cited references, and WoRMS taxa into one queryable graph stored as `<corpuscle>/biblio_authority.sqlite` alongside the per-paper artifacts.
 
 ### GUID scheme
 

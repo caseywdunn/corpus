@@ -20,12 +20,11 @@ Files in the served-bundle whitelist (the contract):
     taxa.json, anatomy.json,
     figures/*.png                    (all extracted figure images)
 
-  Top-level:
+  Top-level (corpuscle layout — flat at the bundle root):
     vector_db/lancedb/               (the embedded chunks)
-    resources/taxonomy.sqlite        (copy from repo's resources/)
-    resources/biblio_authority.sqlite
-    resources/taxon_mentions.sqlite
-    resources/anatomy_lexicon.yaml
+    taxonomy.sqlite                  (copied from <output_dir>/)
+    biblio_authority.sqlite
+    taxon_mentions.sqlite
     bundle_manifest.json             (written by this script)
 
 With ``--include-pdfs`` also: ``processed.pdf`` per document.
@@ -266,13 +265,13 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     n_files += nf
     total_bytes += nb
 
-    # Resources — copy from the repo's resources/, not from output/, so
-    # we don't require the user to symlink them into their output dir.
-    resources_src = REPO_ROOT / "resources"
-    resources_dst = serve_dir / "resources"
+    # Cross-paper SQLites — corpuscle layout: they live at the root of
+    # the output dir alongside documents/, and the bundle mirrors that.
+    # The anatomy lexicon is not bundled — anatomy extraction happens at
+    # process time and lands in each paper's anatomy.json.
     for fname in ("taxonomy.sqlite", "biblio_authority.sqlite",
-                  "taxon_mentions.sqlite", "anatomy_lexicon.yaml"):
-        bw = _copy_file(resources_src / fname, resources_dst / fname, dry_run)
+                  "taxon_mentions.sqlite"):
+        bw = _copy_file(output_dir / fname, serve_dir / fname, dry_run)
         if bw:
             n_files += 1
             total_bytes += bw
@@ -286,7 +285,7 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         "pipeline_git_sha": _git_sha(),
         "embedding_model": model,
         "embedding_dim": dim,
-        "taxonomy_snapshot_date": _taxonomy_snapshot_date(resources_src / "taxonomy.sqlite"),
+        "taxonomy_snapshot_date": _taxonomy_snapshot_date(output_dir / "taxonomy.sqlite"),
         "paper_count": n_papers,
         "figure_count": fig_count,
         "chunk_count": chunk_count,

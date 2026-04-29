@@ -28,7 +28,7 @@ SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 
-FINAL_DB="$REPO_DIR/resources/biblio_authority.sqlite"
+FINAL_DB="$OUTPUT_DIR/biblio_authority.sqlite"
 
 # ── Environment ──────────────────────────────────────────────────────
 module purge
@@ -36,7 +36,7 @@ module load miniconda
 conda activate corpus
 
 cd "$REPO_DIR"
-mkdir -p logs resources
+mkdir -p logs
 
 # ── Options ──────────────────────────────────────────────────────────
 BHL_ENRICH="${BHL_ENRICH:-1}"

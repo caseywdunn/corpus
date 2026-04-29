@@ -78,7 +78,8 @@ def _require_rapidfuzz() -> None:
 
 logger = logging.getLogger("reconcile")
 
-DEFAULT_DB = Path(__file__).resolve().parent / "resources" / "biblio_authority.sqlite"
+# Default is derived per-corpus from the output_dir positional arg in
+# main(); see "corpuscle" layout in README.md.
 
 
 # ── Normalization (kept in sync with build_biblio_authority.py) ─────
@@ -419,8 +420,9 @@ def main() -> int:
     )
     parser.add_argument("output_dir", type=Path,
                         help="Corpus output directory (contains documents/<hash>/ subdirs)")
-    parser.add_argument("-d", "--db", type=Path, default=DEFAULT_DB,
-                        help=f"Biblio authority SQLite (default: {DEFAULT_DB})")
+    parser.add_argument("-d", "--db", type=Path, default=None,
+                        help="Biblio authority SQLite "
+                             "(default: <output_dir>/biblio_authority.sqlite)")
     parser.add_argument("--min-score", type=int, default=80,
                         help="Minimum rapidfuzz.partial_ratio score to accept a match (default: 80)")
     parser.add_argument("--margin", type=int, default=15,
@@ -441,6 +443,9 @@ def main() -> int:
     )
 
     _require_rapidfuzz()
+
+    if args.db is None:
+        args.db = args.output_dir / "biblio_authority.sqlite"
 
     if not args.db.exists():
         logger.error("DB not found: %s. Run build_biblio_authority.py first.", args.db)

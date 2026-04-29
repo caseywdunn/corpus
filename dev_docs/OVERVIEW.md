@@ -82,9 +82,9 @@ Figure extraction is a multi-pass process designed for historical taxonomic lite
 
 ## Taxonomic annotation
 
-When a Darwin Core taxonomy SQLite snapshot is available (`resources/taxonomy.sqlite`, built by `ingest_taxonomy.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py --source dwc <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
+When a Darwin Core taxonomy SQLite snapshot is available (`<corpuscle>/taxonomy.sqlite`, built by `ingest_taxonomy.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default for siphonophores is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py <corpuscle> --source dwc --input <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
 
-An anatomy lexicon (`resources/anatomy_lexicon.yaml`, 22 terms) similarly tags chunks with siphonophore-specific anatomical terms (nectophore, pneumatophore, gastrozooid, etc.).
+A user-supplied anatomy lexicon (passed via `--anatomy-lexicon path/to/lexicon.yaml`) similarly tags chunks with anatomical terms specific to the group under study. The lexicon is treated as input data parallel to `--bib`, not part of the tool — see [demo/anatomy_lexicon.yaml](../demo/anatomy_lexicon.yaml) for an example covering siphonophore terms (nectophore, pneumatophore, gastrozooid, etc.).
 
 ## MCP server (`mcp_server.py`)
 
@@ -106,4 +106,4 @@ Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM 
 | `slurm/batch_embed.sh` | SLURM embedding batch script (GPU) |
 | `slurm/bouchet_paths.sh` | Shared path definitions for all batch scripts |
 | `ingest_taxonomy.py` | Build Darwin Core taxonomy SQLite from a DwC file, archive, or the WoRMS API |
-| `resources/anatomy_lexicon.yaml` | Siphonophore anatomy term list |
+| `demo/anatomy_lexicon.yaml` | Example siphonophore anatomy lexicon (user-supplied input pattern) |

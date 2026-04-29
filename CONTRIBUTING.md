@@ -44,7 +44,8 @@ python -m pytest tests/test_biblio_cascade.py -v
 - [slurm/](slurm/) — SLURM batch scripts for Bouchet; documented in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`.
 - [tests/](tests/) — one file per subsystem.
-- [resources/](resources/) — regenerable precompiled data (WoRMS SQLite, bibliography authority DB, taxon mentions DB). The SQLite files are `.gitignore`d; the YAML lexicon is checked in.
+- Per-instance data (SQLites, embeddings, per-paper artifacts) lives inside the user's *corpuscle* directory — passed as the first positional arg to every CLI — not under the repo root. See the [corpuscle layout](README.md#corpuscle-layout) in README.md. The repo no longer ships a `resources/` directory.
+- [demo/](demo/) — small bundle for smoke-testing the pipeline: 11 siphonophore PDFs, a matching `siphonophores.bib`, and an example `anatomy_lexicon.yaml`. The lexicon is treated as user input, parallel to `--bib` — not part of the tool.
 
 ## Dependencies — two files, on purpose
 

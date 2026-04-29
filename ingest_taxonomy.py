@@ -2,7 +2,7 @@
 """Build a Darwin Core taxonomy SQLite snapshot from one of several sources.
 
 The corpus pipeline consumes a single SQLite file (default
-``resources/taxonomy.sqlite``) at run time. This tool produces it from:
+``<corpuscle>/taxonomy.sqlite``) at run time. This tool produces it from:
 
 * ``--source dwc PATH``   — a DwC Taxon CSV/TSV (recommended; download
                             from any DwC publisher, e.g. WoRMS, GBIF,
@@ -64,7 +64,8 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional
 logger = logging.getLogger("ingest_taxonomy")
 
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "resources" / "taxonomy.sqlite"
+# Default is derived per-corpus from the output_dir positional arg in
+# main(); see "corpuscle" layout in README.md.
 
 
 # ---------------------------------------------------------------------------
@@ -675,6 +676,11 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
+        "output_dir", type=Path,
+        help="Corpus output directory; the taxonomy SQLite is written to "
+             "<output_dir>/taxonomy.sqlite by default.",
+    )
+    parser.add_argument(
         "--source", required=True, choices=["dwc", "dwca", "worms"],
         help="Where to load taxonomy data from. 'dwc' is a single CSV/TSV "
              "with DwC Taxon headers; 'dwca' is a Darwin Core Archive "
@@ -691,8 +697,8 @@ def main() -> int:
              "ingest to descendants of this taxon (plus their synonyms).",
     )
     parser.add_argument(
-        "-o", "--output", type=Path, default=DEFAULT_OUTPUT,
-        help=f"Output SQLite path (default: {DEFAULT_OUTPUT})",
+        "-o", "--output", type=Path, default=None,
+        help="Output SQLite path (default: <output_dir>/taxonomy.sqlite)",
     )
     parser.add_argument(
         "--rebuild", action="store_true",
@@ -714,6 +720,9 @@ def main() -> int:
         parser.error(f"--source {args.source} requires --input PATH")
     if args.source == "worms" and args.root_id is None:
         parser.error("--source worms requires --root-id <AphiaID>")
+
+    if args.output is None:
+        args.output = args.output_dir / "taxonomy.sqlite"
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(args.output)
