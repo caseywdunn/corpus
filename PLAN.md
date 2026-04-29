@@ -1,6 +1,6 @@
-# PLAN.md — Siphonophore corpus pipeline
+# PLAN.md — Corpus pipeline
 
-A roadmap from the current prototype toward a production-quality corpus of ~2000 siphonophore papers spanning late-18th-century to modern literature in English, German, French, Russian, and others.
+A roadmap toward a production-quality corpus pipeline. The pipeline is taxon-agnostic: domain specifics (taxonomy snapshot, anatomy lexicon, target queries, instructions to MCP clients) live in the per-corpus *corpuscle* directory, and only the pipeline code lives in this repo. The first deployment targets a corpus of ~2000 papers spanning late-18th-century to modern scientific literature in multiple languages (English, German, French, Russian, and others).
 
 ## 1. Assessment of current repo
 
@@ -43,7 +43,7 @@ Still the best general-purpose scientific-PDF metadata/reference extractor. Run 
 - **Marker** (surya + texify) — often better than docling on mixed-quality PDFs, native markdown output with structure.
 - **Nougat** (Meta) — good on modern arxiv-like PDFs but trained on that distribution; poor on historical.
 - **Claude / GPT-4o vision** on page images — expensive per page, but dramatically better on hard pages (fraktur, plates, hand-lettered captions). Reasonable as a **fallback for pages that fail structural parsing**, not as the default.
-- **BHL (Biodiversity Heritage Library) API** — a sizable fraction of historical siphonophore literature (Haeckel's Challenger report, early Agassiz, Huxley, Claus, Chun, Moser, Totton) is already in BHL with OCR and bibliographic metadata. **Query BHL before OCRing a scan yourself.** This alone could save hundreds of papers' worth of OCR effort and provide cleaner ground truth.
+- **BHL (Biodiversity Heritage Library) API** — a sizable fraction of historical zoological literature is already in BHL with OCR and bibliographic metadata. **Query BHL before OCRing a scan yourself.** This alone could save hundreds of papers' worth of OCR effort and provide cleaner ground truth.
 - **CrossRef / OpenAlex** for bibliographic metadata by DOI. Faster and more accurate than Grobid when a DOI is available.
 
 ### Recommended toolchain
@@ -74,19 +74,19 @@ Stage 3  Chunking
          └─ HybridChunker (respects headings/sections), tiktoken-aware
 
 Stage 4  Annotation (new)
-         ├─ taxonomic names        (gnfinder + WoRMS / GBIF verification)
+         ├─ taxonomic names        (gnfinder + DwC verification, e.g. WoRMS/GBIF)
          ├─ geographic mentions    (spaCy / GLiNER + GeoNames)
-         ├─ anatomy terms          (domain lexicon — nectophore, bract, palpon, ...)
+         ├─ anatomy terms          (corpus-specific domain lexicon)
          └─ figure classification  (what anatomical structure is depicted? — vision LLM)
 
 Stage 5  Indexing (all outputs in open, file-based formats)
          ├─ vector index (LanceDB)               — semantic / topic retrieval
          ├─ taxon mention index (parquet)        — accepted-name resolved, chunk offsets
-         ├─ WoRMS taxonomic backbone (sqlite)    — genera / species / synonymy / authorities
+         ├─ DwC taxonomy backbone (sqlite)       — genera / species / synonymy / authorities
          ├─ bibliographic index (parquet)        — authors, year, title, journal, refs (Grobid + CSL-JSON export)
          ├─ reference graph (parquet)            — citations between papers
          ├─ section-type index (parquet)         — chunk → section class (from Grobid TEI)
-         ├─ anatomy-term index (parquet)         — siphonophore anatomy NER offsets
+         ├─ anatomy-term index (parquet)         — domain anatomy NER offsets
          ├─ geographic index (parquet)           — location mentions + coordinates
          ├─ figure index (parquet + PNGs)        — captions, taxon tags, anatomy tags
          └─ trait / character matrix (parquet)   — species × character (deferred; see §8 Q3)
@@ -99,8 +99,8 @@ Stage 6  MCP tools layer
 
 Not every input comes from the PDF directory. The pipeline also depends on a small set of **corpus-level reference data** that must be materialized alongside the per-paper artifacts:
 
-- **WoRMS snapshot** — the authoritative backbone of accepted siphonophore names, synonymies, and authority strings. Ingested as a SQLite/parquet resource once, refreshed periodically. Consumed by every taxon-keyed query (§8 Q1/Q2/Q4/Q7) and required by the taxon-mention resolver.
-- **Siphonophore anatomy lexicon** — curated terminology (nectophore, bract, palpon, gonophore, pneumatophore, nectosome, siphosome, cnidoband, tentacle, …) used by the anatomy-term NER pass and the figure-anatomy classifier. Maintained as a YAML file in the repo.
+- **DwC taxonomy snapshot** — the authoritative backbone of accepted names, synonymies, and authority strings for the focal taxonomic group. Sourced from any Darwin Core archive (e.g. WoRMS for marine taxa, GBIF for general biodiversity) and ingested as `taxonomy.sqlite` once, refreshed periodically. Consumed by every taxon-keyed query (§8) and required by the taxon-mention resolver.
+- **Domain anatomy lexicon** — curated terminology specific to the corpus's focal group, used by the anatomy-term NER pass and the figure-anatomy classifier. Maintained as a YAML file in the corpuscle directory.
 - **(optional) BHL bibliographic index** — pre-queried BHL metadata/OCR for the historical tail; see §4 BHL lookup.
 
 These are distinct from per-paper stages because they apply across the whole corpus and are not content-addressed by PDF hash.
@@ -116,7 +116,7 @@ Replace the current loose `figures.json` with:
   "bbox": [x0, y0, x1, y1],
   "bbox_coord_system": "pdf_pts_bottom_left",
   "image_file": "figures/figure_3.png",
-  "caption_text": "Fig. 3. Nectophore of Nanomia cara ...",
+  "caption_text": "Fig. 3. <example caption text> ...",
   "caption_page": 14,
   "caption_bbox": [...],
   "caption_source": "docling_caption_link" | "heuristic_proximity" | "manual",
@@ -135,14 +135,14 @@ The end-user interface is **not** a chat UI backed by vector search. It is an **
 
 - It is the emerging standard specifically for tool/resource exposure to LLMs — one server, many clients.
 - It decouples the corpus from any single front-end. Swap Claude Desktop for a custom agent, or for a future model, without touching the corpus.
-- Tools can return **exhaustive** result sets (e.g., all 180 chunks mentioning *Bargmannia*) — the LLM does the synthesis, not the retrieval layer. Top-K truncation is a per-tool opt-in, not a default.
+- Tools can return **exhaustive** result sets (e.g., every chunk mentioning a given taxon) — the LLM does the synthesis, not the retrieval layer. Top-K truncation is a per-tool opt-in, not a default.
 - Outside-lab tools can use the exact same corpus: either via MCP, or — for non-LLM use cases — by reading the underlying parquet/SQLite/LanceDB files directly.
 
 **Initial tool surface:**
 
 | Tool | Purpose | Backs queries |
 |---|---|---|
-| `search_taxon(name)` | resolve a string to WoRMS accepted name + synonyms + rank | all taxon-keyed |
+| `search_taxon(name)` | resolve a string against the DwC taxonomy snapshot to accepted name + synonyms + rank | all taxon-keyed |
 | `get_chunks_for_taxon(accepted_name, include_synonyms=True)` | exhaustive chunk list | Q1, Q2, Q5 |
 | `get_chunks_for_topic(query, k=None)` | semantic vector search; `k=None` returns all above a threshold | Q6, Q8 |
 | `get_figures_for_taxon(accepted_name)` | figure records incl. image paths, captions, bboxes | Q2, Q4 |
@@ -151,7 +151,7 @@ The end-user interface is **not** a chat UI backed by vector search. It is an **
 | `get_chunks_by_section(paper_hash, section_class)` | chunks of a given section type ("description", "embryology", …) | Q2, Q6 |
 | `get_bibliography(paper_hash)` | refs + citations from Grobid TEI | Q2 |
 | `aggregate_taxonomic_acts(rank, group_by="decade")` | analytic rollup over authority strings | Q7 |
-| `list_valid_species_under(taxon)` | WoRMS children filter | Q4 |
+| `list_valid_species_under(taxon)` | DwC-snapshot children filter | Q4 |
 
 The server is thin: each tool is a small function over the parquet/SQLite/LanceDB indices. The storage layer is intentionally format-neutral so non-MCP consumers (a Jupyter notebook, a Snakemake rule, another lab's pipeline) can query the same corpus directly via DuckDB / SQLite / LanceDB without going through the MCP layer at all.
 
@@ -172,25 +172,25 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 
 ### Near-term (unlock scale & the goals)
 
-- [x] **Ingest WoRMS taxonomic backbone as a corpus-level input.** Download a WoRMS snapshot (order Siphonophorae + all child taxa, with synonymies and authority strings) and store as SQLite/parquet alongside the per-paper artifacts. This is a **prerequisite**, not an annotation step: Q1/Q2/Q4/Q7 and the taxon-mention resolver all depend on it. Refresh on a schedule; pin version in the corpus manifest.
-- [x] **Curate the siphonophore anatomy lexicon.** A YAML file in the repo listing anatomy terms (nectophore, bract, palpon, gonophore, pneumatophore, nectosome, siphosome, cnidoband, tentacle, stem, …) plus common synonyms and language variants. Used by both the anatomy-term NER and the figure-anatomy classifier.
+- [x] **Ingest DwC taxonomy backbone as a corpus-level input.** Download a Darwin Core snapshot for the focal group (e.g. the relevant order/family + all child taxa, with synonymies and authority strings) and store as `taxonomy.sqlite` alongside the per-paper artifacts. This is a **prerequisite**, not an annotation step: every taxon-keyed query and the taxon-mention resolver depend on it. Refresh on a schedule; pin version in the corpus manifest.
+- [x] **Curate the domain anatomy lexicon.** A YAML file in the corpuscle listing the focal-group's anatomy terms plus common synonyms and language variants. Used by both the anatomy-term NER and the figure-anatomy classifier.
 - [x] **Figure+caption linking** as described in §3, plus a human-reviewable `figures_report.html` per paper (thumbnails + captions side-by-side). This is your QC surface for the "figure extraction success" goal.
 - [ ] **Parallelize stage 2.** Use a `concurrent.futures.ProcessPoolExecutor` with a file-based lock per hash dir, or drive SLURM from `batch_embed.sh` on Bouchet.
 - [x] **BHL lookup stage** before OCR. If a BHL match exists (fuzzy title + year + author), prefer BHL's OCR text as a parallel artifact and flag confidence. Likely to materially help historical papers.
-- [ ] **Golden test set.** Pick ~10 papers spanning: (a) modern born-digital, (b) modern scan, (c) 19th-c. German monograph (a Haeckel volume is a good stress test), (d) Russian-language paper, (e) French paper, (f) plate-heavy paper with end-matter figures. Snapshot-test extraction quality. Re-run on every pipeline change.
+- [x] **Golden test set.** Curated ground-truth answers for a handful of papers + corpus-wide structural/consistency checks across the full corpus, in `tests/`. Spans modern born-digital, scanned historical, and multilingual sources. See [`dev_docs/TESTING.md`](dev_docs/TESTING.md).
 - [x] **Deprecate the Snakefile legacy path.** Done — Snakefile + Snakemake-only scripts removed; `process_corpus.py` is the only pipeline entry point.
 
 ### Domain-specific (annotation layer + query layer for the stated downstream uses)
 
-- [x] **Taxonomic mention extraction + resolution.** Integrate `gnfinder` (Global Names — handles historical variants well) for raw detection; resolve every mention against the WoRMS backbone (above) to an accepted name. Emit `taxa.json` per paper with chunk offsets, accepted name, and match confidence. Roll up into a corpus-wide `taxon_mentions.parquet`.
-- [x] **Authority-string parsing + taxonomic-act index.** Parse "Author, Year" authority strings from WoRMS and from in-corpus descriptions. Emit a `taxonomic_acts.parquet` (taxon, author, year, original-description paper hash when resolvable). Backs Q7 directly.
+- [x] **Taxonomic mention extraction + resolution.** Integrate `gnfinder` (Global Names — handles historical variants well) for raw detection; resolve every mention against the DwC taxonomy snapshot (above) to an accepted name. Emit `taxa.json` per paper with chunk offsets, accepted name, and match confidence. Roll up into a corpus-wide `taxon_mentions.parquet`.
+- [x] **Authority-string parsing + taxonomic-act index.** Parse "Author, Year" authority strings from the DwC snapshot and from in-corpus descriptions. Emit a `taxonomic_acts.parquet` (taxon, author, year, original-description paper hash when resolvable). Backs Q7 directly.
 - [ ] **Geographic extraction.** GLiNER or spaCy + GeoNames/Nominatim. Store as `locations.json` per paper; roll up into a corpus-wide `locations.parquet` keyed by taxon co-occurrence. Backs Q1.
 - [x] **Anatomy-term NER.** Apply the curated lexicon to every chunk; emit offsets. Start with exact-match + stemming; extend to a small fine-tuned NER if recall is poor on historical text.
 - [x] **Anatomy-aware figure search.** Start with caption-text keyword + taxon co-occurrence. For deeper coverage, run a vision model (Claude or an open VLM) over figure crops to tag anatomical structures. Highest-leverage place to use an LLM: captions are short, visual classification is cheap per image, directly backs Q4/Q8.
 - [x] **Reference graph.** From Grobid bibliographies, build a `references.parquet` + in-corpus citation graph. Backs Q2 and opens the door to citation-based queries.
 - [x] **Section-type index.** Use Grobid TEI structural labels to tag chunks with a section class (description / distribution / embryology / discussion / remarks / …). Backs Q2 and Q6.
-- [x] **MCP server.** Implemented in [mcp_server.py](mcp_server.py) with 13 tools backed by the per-PDF JSON indexes: `list_papers`, `get_paper`, `search_taxon`, `get_papers_for_taxon`, `get_chunks_for_taxon`, `get_figures_for_taxon`, `get_figures_for_anatomy`, `get_chunks_by_section`, `get_bibliography`, `get_papers_by_author`, `list_valid_species_under`, `get_figure`, `get_chunk`. Built on FastMCP, stdio transport, eager in-memory index at startup. `get_chunks_for_topic` (vector-search-backed) is deferred until Phase E swaps in the local embedding backend.
-- [ ] **Trait extraction for identification — DEFERRED.** Backs Q3 (keys). Requires a siphonophore-specific character schema and structured LLM extraction per species description. Substantial enough to warrant its own plan section; captured here so it isn't forgotten. Not on the path for the first production run.
+- [x] **MCP server.** Implemented in [mcp_server.py](mcp_server.py), backed by the per-PDF JSON indexes and the corpus-level SQLite databases. Tool surface listed in [`dev_docs/MCP_TOOLS.md`](dev_docs/MCP_TOOLS.md). Built on FastMCP with both stdio and SSE-over-HTTP transports; eager in-memory index at startup.
+- [ ] **Trait extraction for identification — DEFERRED.** Backs trait-structured queries (e.g., generating identification keys). Requires a domain-specific character schema and structured LLM extraction per species description. Substantial enough to warrant its own plan section; captured here so it isn't forgotten. Not on the path for the first production run.
 
 ## 5. Scale considerations for ~2000 papers
 
@@ -200,13 +200,9 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 - Keep intermediate artifacts on disk, not in memory — the current file-per-step layout is correct, just add per-paper logs.
 - Add a corpus-level `manifest.parquet` or SQLite that rolls up one row per hash (status, pages, language, taxa count, figure count, errors). This is what you'll actually query when inspecting corpus health.
 
-## 6. What to do first
+## 6. Status snapshot
 
-If picking only three items from this plan, start with:
-
-- [ ] **Grobid integration** — unlocks every downstream goal that needs bibliographic, section-structure, or citation data.
-- [ ] **WoRMS backbone ingest + figure+caption joint object** — together these back the "nectophore of X species across all papers" goal and every taxon-keyed query in §8.
-- [ ] **Golden test set + per-paper logs** — without these, every subsequent change is a leap of faith across 2000 inputs.
+Implementation status of the items in §4 is reflected by `[x]`/`[ ]` checkboxes in that section. Per-release rollups live in [`CHANGELOG.md`](CHANGELOG.md). This document focuses on the design and roadmap; for "what is currently done?" consult those two surfaces.
 
 ## 7. Switch embeddings from OpenAI → local open-weights on Bouchet
 
@@ -269,10 +265,10 @@ Stage 1 (`process_corpus.py`) stays CPU-only and can run on `day` — no reason 
 
 ### Rollout order
 
-- [ ] Add the local-embedding path behind a `--backend {openai,local}` flag; keep OpenAI working.
-- [ ] Run on the existing demo corpus; compare retrieval quality on a handful of query→expected-chunk pairs.
-- [ ] If acceptable, flip the default to `local` and drop the OpenAI dependency from `requirements.txt` (or leave as optional extra).
-- [ ] Execute the full production run on Bouchet.
+- [x] Add the local-embedding path behind a `--backend {openai,local}` flag; keep OpenAI working.
+- [x] Run on the existing demo corpus; compare retrieval quality on a handful of query→expected-chunk pairs.
+- [x] Flip the default to `local` and drop the OpenAI dependency entirely (commit `202ff04`).
+- [ ] Execute the full production run on Bouchet (the v0.1 release rebuild).
 
 ## 8. Target queries & end-user interface
 
@@ -290,63 +286,63 @@ The corpus therefore produces **a set of indices**, and the user-facing layer is
 
 Natural implementation shape: an agent with tools over the indices (`search_taxon`, `get_chunks_for_taxon`, `get_figures`, `get_bibliography`, `aggregate_by_year`, `run_sql`), not a single `chat.py` backed by vector search. Vector search is one tool among several, used for semantic/topic queries where the match criterion is fuzzy.
 
-### The eight target queries
+### Eight target query patterns
 
-Each is traced as **Shape → Path → Output → Gaps in current plan**.
+Generic shapes, traced as **Shape → Path → Output → Gaps in current plan**. Concrete instantiations (specific taxa, anatomy terms, authors, topics) live in the corpuscle's `instructions.md`, not here. Placeholders below: `<species>` / `<genus>` for taxa, `<anatomy>` for anatomy terms, `<topic>` for a free-text topic, `<author X>` / `<author Y>` for personal names.
 
-#### Q1. "List all collection locations of *Agalma elegans*."
+#### Q1. "List all collection locations of `<species>`."
 
 - **Shape:** enumerative, entity-keyed, structured output.
-- **Path:** resolve "Agalma elegans" to accepted WoRMS taxon (+ synonyms) → taxon index returns all chunks/captions/tables mentioning the species → geographic NER on those chunks → dedupe + group by paper.
+- **Path:** resolve `<species>` to accepted DwC taxon (+ synonyms) → taxon index returns all chunks/captions/tables mentioning the species → geographic NER on those chunks → dedupe + group by paper.
 - **Output:** table (location, coordinates if present, paper, page, quote).
 - **Gaps:** taxon↔chunk offset index (§4 *Taxonomic mention extraction + resolution* — must be exhaustive, not retrieval-ranked); geographic NER at chunk scope tied to taxon co-occurrence (§4 *Geographic extraction*); tabular output recipe (not yet scoped).
 
-#### Q2. "Compose a monographic review of *Apolemia*."
+#### Q2. "Compose a monographic review of `<genus>`."
 
 - **Shape:** enumerative, genus-level, long-form synthesis.
-- **Path:** genus → all child species (incl. synonyms) via WoRMS → all chunks mentioning any of them → section-filtered retrieval (descriptions, habitat, distribution, remarks) via Grobid TEI → all figures + captions → all references → Opus synthesis in one or a few passes.
+- **Path:** genus → all child species (incl. synonyms) via the DwC snapshot → all chunks mentioning any of them → section-filtered retrieval (descriptions, habitat, distribution, remarks) via Grobid TEI → all figures + captions → all references → Opus synthesis in one or a few passes.
 - **Output:** structured long-form document with inline citations, figures, and a reference list.
-- **Gaps:** WoRMS backbone as a first-class pipeline artifact (§4 *Ingest WoRMS taxonomic backbone*); section-type tagging of chunks from Grobid TEI (§4 *Section-type index*); synthesis recipe for monographic output (not yet scoped); reliable figure+caption joint object (§4 *Figure+caption linking*).
+- **Gaps:** DwC backbone as a first-class pipeline artifact (§4 *Ingest DwC taxonomy backbone*); section-type tagging of chunks from Grobid TEI (§4 *Section-type index*); synthesis recipe for monographic output (not yet scoped); reliable figure+caption joint object (§4 *Figure+caption linking*).
 
-#### Q3. "Make a key to identify *Forskalia* species."
+#### Q3. "Make a key to identify species in `<genus>`."
 
 - **Shape:** trait-structured, comparative.
 - **Path:** genus → all valid species → per-species diagnostic traits (meristics, counts, dimensions, colors, structural presence/absence) from species-description sections → pivot into species × character matrix → generate dichotomous (or polyclave) key.
 - **Output:** a usable identification key.
-- **Gaps:** §4 lists *Trait extraction for identification* as **deferred**. A key requires (a) a siphonophore-specific character schema, (b) structured LLM extraction against that schema per species description, (c) a trait index as a first-class artifact, (d) key-generation logic. Substantial enough to warrant its own plan section when we return to it; out of scope for the first production run.
+- **Gaps:** §4 lists *Trait extraction for identification* as **deferred**. A key requires (a) a domain-specific character schema, (b) structured LLM extraction against that schema per species description, (c) a trait index as a first-class artifact, (d) key-generation logic. Substantial enough to warrant its own plan section when we return to it; out of scope for the first production run.
 
-#### Q4. "List all currently valid siphonophore species with a one-paragraph summary and diagnostic figures."
+#### Q4. "List all currently valid species in the focal group with a one-paragraph summary and diagnostic figures."
 
 - **Shape:** enumerative over a closed taxonomic set; per-entity synthesis; figure selection.
-- **Path:** WoRMS → list of currently-valid siphonophore species (~200) → per species: all mentioning chunks → Opus one-paragraph summary → figure index: find figures captioned/tagged with the species and a diagnostic anatomy term → assemble.
+- **Path:** DwC snapshot → list of currently-valid species → per species: all mentioning chunks → Opus one-paragraph summary → figure index: find figures captioned/tagged with the species and a diagnostic anatomy term → assemble.
 - **Output:** a catalog document / website.
 - **Gaps:** figure index with **anatomy tags** (§4 *Anatomy-aware figure search* — needs vision-model figure classification); a per-species batch synthesis recipe (not yet scoped); concept of "diagnostic structure" — either user-curated per genus or learned from description sections.
 
-#### Q5. "Summarize all of Phil Pugh's comments about Haeckel."
+#### Q5. "Summarize all of `<author X>`'s comments about `<author Y>`."
 
 - **Shape:** author-filtered + entity-filtered; meta-commentary extraction.
-- **Path:** author index (from Grobid headers) → all papers authored by Pugh → chunks mentioning "Haeckel" (as person, not just cited work) → LLM filter: which mentions are substantive commentary vs. routine citation → synthesis.
+- **Path:** author index (from Grobid headers) → all papers authored by `<author X>` → chunks mentioning `<author Y>` (as person, not just cited work) → LLM filter: which mentions are substantive commentary vs. routine citation → synthesis.
 - **Output:** narrative summary with direct quotes + citations.
 - **Gaps:** author-indexed corpus (falls out of §4 *Wire up Grobid* but needs explicit per-author rollup); person-name NER that distinguishes cited-author-as-entity from cited-work; "meta-commentary vs. citation" classification (LLM in the loop at query time is fine — don't pre-compute).
 
-#### Q6. "Write a summary of siphonophore embryology."
+#### Q6. "Write a summary of `<topic>` across the corpus."
 
 - **Shape:** topic-semantic, corpus-wide.
-- **Path:** (a) section-type index: chunks from sections titled/classified "development / embryology / larval stages" + (b) vector search for "embryology" and related concepts across all chunks → union → Opus synthesis with citations.
+- **Path:** (a) section-type index: chunks from sections classified to a relevant section type + (b) vector search for the topic and related concepts across all chunks → union → Opus synthesis with citations.
 - **Output:** narrative summary with references.
 - **Gaps:** this is the query the vector index was built for. Also benefits from Grobid-provided section labels. No new scope items — just needs what's already planned to work well.
 
-#### Q7. "Plot number of siphonophore species described per decade."
+#### Q7. "Plot number of species in the focal group described per decade."
 
 - **Shape:** analytic aggregation over structured metadata. No LLM required.
-- **Path:** for every currently-valid siphonophore species in WoRMS: parse authority string ("Eschscholtz, 1829" → 1829) → cross-check against the paper in our corpus where available → aggregate by decade → plot.
+- **Path:** for every currently-valid species in the DwC snapshot: parse authority string (`"Author, YYYY"` → year) → cross-check against the paper in the corpus where available → aggregate by decade → plot.
 - **Output:** a figure.
-- **Gaps:** authority-string parsing and taxonomic-act index (not in current plan). Much of the data comes from WoRMS directly — the corpus only needs to supply the original description PDFs for cross-reference. Consider whether this query even requires the corpus or can be answered from WoRMS alone; if the latter, it's a good sanity-check baseline.
+- **Gaps:** authority-string parsing and taxonomic-act index. Much of the data comes from the DwC snapshot directly — the corpus only needs to supply the original-description PDFs for cross-reference. Consider whether this query even requires the corpus or can be answered from the DwC snapshot alone; if the latter, it's a good sanity-check baseline.
 
-#### Q8. "Summarize what is known about the structure and function of pneumatophores."
+#### Q8. "Summarize what is known about the structure and function of `<anatomy>`."
 
 - **Shape:** topic-semantic, anatomy-keyed.
-- **Path:** anatomy index returns all chunks tagged with "pneumatophore" → plus vector search for adjacent concepts (pneumatosaccus, gas gland, float, buoyancy) to catch non-lexical matches → figures tagged with pneumatophore → Opus synthesis.
+- **Path:** anatomy index returns all chunks tagged with `<anatomy>` → plus vector search for adjacent concepts (synonyms, related structures from the lexicon) to catch non-lexical matches → figures tagged with `<anatomy>` → Opus synthesis.
 - **Output:** narrative summary with citations and figures.
 - **Gaps:** anatomy-term index (§4 *Anatomy-term NER*); vision-based figure anatomy tagging (§4 *Anatomy-aware figure search*).
 
@@ -356,11 +352,11 @@ Vector embeddings are one of ten indices. Only Q6 and Q8 treat vector search as 
 
 | # | Index | Produced by | Used by |
 |---|---|---|---|
-| 1 | Taxon mention index (chunk-offset) | gnfinder + WoRMS resolution | Q1, Q2, Q4, Q5 (indirectly), Q7 |
-| 2 | WoRMS taxonomic backbone (genera/species/synonyms/authorities) | WoRMS snapshot | Q1, Q2, Q3, Q4, Q7 |
+| 1 | Taxon mention index (chunk-offset) | gnfinder + DwC resolution | Q1, Q2, Q4, Q5 (indirectly), Q7 |
+| 2 | DwC taxonomy backbone (genera/species/synonyms/authorities) | DwC snapshot | Q1, Q2, Q3, Q4, Q7 |
 | 3 | Bibliographic index (author, year, title, journal) | Grobid headers + CrossRef/OpenAlex | Q2, Q5, Q7 |
 | 4 | Reference graph | Grobid bibliography | Q2 |
-| 5 | Section-type index (descriptions, embryology, etc.) | Grobid TEI structure | Q2, Q6 |
+| 5 | Section-type index (descriptions, distributions, etc.) | Grobid TEI structure | Q2, Q6 |
 | 6 | Anatomy-term index | domain lexicon + NER | Q1 (anatomy qualifier), Q3, Q8, Q4 (diagnostic) |
 | 7 | Geographic index | NER + GeoNames | Q1 |
 | 8 | Figure index (image + caption + taxon + anatomy tags) | docling + vision LLM classifier | Q2, Q4, Q8 |
@@ -369,16 +365,16 @@ Vector embeddings are one of ten indices. Only Q6 and Q8 treat vector search as 
 
 ### Coverage of these queries by the current plan
 
-The scope items these queries demand — WoRMS backbone as a first-class input, anatomy lexicon + NER, authority-string / taxonomic-act parsing, section-type tagging, figure anatomy classification, reference graph, and the MCP tools layer — are now all reflected as line items in §4. The two genuine gaps remaining are:
+The scope items these queries demand — DwC backbone as a first-class input, anatomy lexicon + NER, authority-string / taxonomic-act parsing, section-type tagging, figure anatomy classification, reference graph, and the MCP tools layer — are now all reflected as line items in §4. The two genuine gaps remaining are:
 
 - **Trait extraction + key generation (Q3).** Deferred; noted in §4 and called out in Q3's gaps line above. Will get its own plan section when we pick it up.
-- **Synthesis recipes (Q2, Q4).** The indices + MCP tools will be in place, but the specific Opus-driven prompts and map-reduce patterns for monographic review (Q2) and per-species catalog (Q4) are not yet scoped. These are cheap to iterate on once the substrate exists — prototype against the golden test set before committing to any one recipe.
+- **Synthesis recipes (Q2, Q4).** The indices + MCP tools will be in place, but the specific Opus-driven prompts and map-reduce patterns for monographic review (Q2) and per-entity catalog (Q4) are not yet scoped. These are cheap to iterate on once the substrate exists — prototype against the golden test set before committing to any one recipe.
 
 ## 9. Three-pass figure extraction with ROI sidecar
 
 The initial figure pipeline (Phase D, §3 "Figure+caption as a first-class object") handles the common case — docling extracts one `Picture` per real figure and we classify + dedupe. Two harder cases surface in the demo set and drive this design:
 
-1. **Adjacent figures merged into one image** — docling sometimes extracts two logically-separate figures as a single bbox when there's insufficient whitespace or heading text between them. Pugh 2001's Figures 3 (panels A–B) and 4 (panels A–D) come out as one image whose caption is parsed as `Fig. 3`.
+1. **Adjacent figures merged into one image** — docling sometimes extracts two logically-separate figures as a single bbox when there's insufficient whitespace or heading text between them. Concrete example from the demo set: a paper with adjacent figures (Fig. 3, panels A–B; Fig. 4, panels A–D) comes out as one image whose caption is parsed as `Fig. 3`.
 2. **Panels inside one figure image** — docling treats multi-panel figures as a single image, because the panel labels (A, B, C, …) are embedded content, not structural PDF elements. Panel arrangement can be non-rectilinear (L-shapes, insets), so sorting crops by reading order is brittle.
 
 Both have the same underlying need: **content-aware region labels inside an already-extracted figure image**, with labels derived from what's physically in the image (panel letters, embedded "Fig. N" text) rather than guessed from bbox geometry.
@@ -407,23 +403,23 @@ A single `rois[]` array per figure object covers both concerns with different `t
   "filename": "fig_3-4.png",
   "figure_number": "3-4",
   "image_size_px": [1015, 1305],
-  "caption_text": "Fig. 3 A. upper and B. lower views of young nectophore. Scale bar 5 mm.",
+  "caption_text": "Fig. 3 A. upper and B. lower views of <subject>. Scale bar 5 mm.",
   "rois": [
     {"type": "figure", "figure_number": "3",
      "roi_px": [0, 0, 500, 1305],
-     "caption_text": "Fig. 3 A. upper and B. lower views of young nectophore.",
+     "caption_text": "Fig. 3 A. upper and B. lower views of <subject>.",
      "source": "ocr:tesseract"},
     {"type": "figure", "figure_number": "4",
      "roi_px": [500, 0, 1015, 1305],
-     "caption_text": "Fig. 4 Erenna richardi. A. first and B., C. second types of bract…",
+     "caption_text": "Fig. 4 <Genus species>. A. <variant 1> and B., C. <variant 2>…",
      "source": "ocr:tesseract"},
     {"type": "panel", "parent_figure_number": "3", "label": "A",
      "roi_px": [0, 0, 500, 600],
-     "description_from_caption": "upper view of young nectophore",
+     "description_from_caption": "upper view of <subject>",
      "source": "ocr:tesseract"},
     {"type": "panel", "parent_figure_number": "3", "label": "B",
      "roi_px": [0, 600, 500, 1305],
-     "description_from_caption": "lower view of young nectophore",
+     "description_from_caption": "lower view of <subject>",
      "source": "ocr:tesseract"}
   ],
   "pass3_status": "completed",
@@ -461,7 +457,7 @@ Panels inside a compound image live only in the ROI sidecar — not as separate 
 Two small passes over existing artifacts:
 
 - **Caption-panel parser**: regex-based extraction of `[{label, description}]` from caption text. Handles the common conventions: `A.` / `(A)` / `A:` / `A–C.`, multilingual prefixes (A, A-C, Рис. 3A). Recorded as `panels_from_caption[]` + `panel_count_from_caption` on every figure.
-- **Missing-figures scan**: scan `text.json` for `Fig. N` / `Figure N` mentions; any N that's not present as a `figure_number` in `figures.json` gets recorded in a per-paper `missing_figures[]` list with the caption text (parsed out of the running text). Closes the Pugh 2001 Fig 4 observability gap even without Pass 3.
+- **Missing-figures scan**: scan `text.json` for `Fig. N` / `Figure N` mentions; any N that's not present as a `figure_number` in `figures.json` gets recorded in a per-paper `missing_figures[]` list with the caption text (parsed out of the running text). Closes the merged-adjacent-figures observability gap even without Pass 3.
 
 Pass 2.5 does **not** change filenames or images — it only annotates.
 
@@ -505,11 +501,11 @@ Implemented in three commits:
 
 1. **Pass 2.5** (commit `a794bdc`) — caption parser + missing-figures scan. Cheap, always-on. Adds `panels_from_caption[]` / `panel_count_from_caption` / `missing_figures[]` to artifacts. No image or filename changes.
 2. **Pass 3a** (commit `72e0633`) — Tesseract ROI pass, MCP crop-on-demand tools. Gated behind `--content-aware-figures` flag. Recall turned out to be ~20–40% on line-art scientific figures — always-partial, rarely the primary signal.
-3. **Pass 3b** (commit `9e98455`) — Claude-vision backend, same result schema as 3a. Flagged via `--vision-backend claude` (+ `--vision-model …` override). On the demo set: 10/11 Pugh completed + 1 `completed_compound` (fig_3 → the Fig 3+4 case), 5/5 Siebert completed. Haiku 4.5 at ~$0.003/fig.
+3. **Pass 3b** (commit `9e98455`) — Claude-vision backend, same result schema as 3a. Flagged via `--vision-backend claude` (+ `--vision-model …` override). Demo-corpus results show high completion rates with the merged-adjacent-figures case correctly split. Haiku 4.5 at ~$0.003/fig.
 
 ### Status & immediate next steps (as of commit `9e98455`, updated post-3c)
 
-**Done**: Phases A–F, MCP server (15 tools), filename-year fallback, figure dedup + position letters, Pass 2.5, Pass 3a, Pass 3b (Claude vision), Pass 3c (compound file rename + sub-figure split), `LocalVLMBackend` (Qwen2.5-VL), Bouchet SLURM + Singularity prep (see `BOUCHET.md`). Demo/ fully reprocessed with Pugh 2001's Fig 3/Fig 4 compound now split: `fig_3.png` → `fig_3-4.png`, new `docling_3_embedded_1` figure record with `figure_number=4` and its own 4-panel ROI set.
+**Done**: Phases A–F, MCP server (see `dev_docs/MCP_TOOLS.md`), filename-year fallback, figure dedup + position letters, Pass 2.5, Pass 3a, Pass 3b (Claude vision), Pass 3c (compound file rename + sub-figure split), `LocalVLMBackend` (Qwen2.5-VL), Bouchet SLURM + Singularity prep (see `BOUCHET.md`). Demo/ fully reprocessed with the merged-adjacent-figures case correctly split: `fig_3.png` → `fig_3-4.png`, with a new `figure_number=4` figure record and its own 4-panel ROI set.
 
 **Three natural follow-ups**, in rough order of user-facing value:
 
@@ -533,7 +529,7 @@ Bouchet produces a "build" bundle. AWS holds a "served" bundle. The two are not 
 |---|---|---|
 | Audience | the pipeline, golden-test scripts, re-runs | MCP clients, DuckDB users, web tools |
 | Per-paper size | ~5 MB | ~1.5 MB (≈70% smaller; ~95% if PDFs excluded) |
-| Includes | everything: `processed.pdf`, `docling_doc.json`, `visualizations/`, `grobid.tei.xml`, `pipeline.log` | only the JSONs that MCP tools read, the figure PNGs, the LanceDB index, WoRMS, and a manifest |
+| Includes | everything: `processed.pdf`, `docling_doc.json`, `visualizations/`, `grobid.tei.xml`, `pipeline.log` | only the JSONs that MCP tools read, the figure PNGs, the LanceDB index, the DwC taxonomy snapshot, and a manifest |
 | Lifecycle | rebuilt each pipeline run | versioned snapshot (`v1.0.0`, …) |
 
 **Files in the served-bundle whitelist** — this is the contract:
@@ -566,7 +562,7 @@ python package_for_serve.py "$OUTPUT_DIR" "$BOUCHET_PROJECT/serve_bundle" \
     --include-pdfs false
 ```
 
-It walks `documents/<HASH>/`, copies whitelisted files into `serve_bundle/documents/<HASH>/`, copies the LanceDB and WoRMS, and writes `serve_bundle/bundle_manifest.json`:
+It walks `documents/<HASH>/`, copies whitelisted files into `serve_bundle/documents/<HASH>/`, copies the LanceDB and `taxonomy.sqlite`, and writes `serve_bundle/bundle_manifest.json`:
 
 ```json
 {
@@ -590,7 +586,7 @@ The manifest is what collaborators cite ("queried against corpus v1.0.0"); it's 
 
 Three-tier, deliberately boring:
 
-1. **S3 bucket — `s3://siphonophore-corpus/`** — source of truth, versioned. Each release lives at `s3://siphonophore-corpus/v1.0.0/` and is immutable. Bouchet pushes via `aws s3 sync serve_bundle/ s3://…/v1.0.0/`. Lifecycle rule moves unused versions to Glacier after 90 days.
+1. **S3 bucket — `s3://<corpus-name>/`** — source of truth, versioned. Each release lives at `s3://<corpus-name>/v1.0.0/` and is immutable. Bouchet pushes via `aws s3 sync serve_bundle/ s3://…/v1.0.0/`. Lifecycle rule moves unused versions to Glacier after 90 days.
    - Public-read on the parquet/SQLite/LanceDB files lets non-MCP collaborators query directly with DuckDB / pandas — zero infra cost on our end.
 2. **MCP server on EC2 — `t3.small` + 10 GB gp3 EBS** — single instance (~$15/mo + $1/mo storage), pulls the bundle from S3 on deploy, runs the MCP server as a systemd service over SSE/HTTP transport. Faster than Fargate (no cold starts, persistent LanceDB in memory). One CloudWatch dashboard, structured JSON logs to S3.
 3. **Edge — CloudFront → ALB → EC2**, HTTPS, bearer-token auth (see *Authentication & access control* below). Rate-limit at CloudFront / WAF.
@@ -619,9 +615,9 @@ Target audience is ~20 trusted collaborators. The threat model is runaway bills 
 
 These aren't implementation work — they're constraints that need to flow back into the existing Bouchet phases so the AWS step doesn't require re-engineering later.
 
-- [ ] **The served-file whitelist is a stable contract.** Add it as a constant at the top of `package_for_serve.py` (when written), and reference it from anywhere else that touches per-paper artifacts. Don't let new pipeline phases silently add must-have files without registering them.
+- [x] **The served-file whitelist is a stable contract.** `PER_PAPER_FILES` constant at the top of `package_for_serve.py` enumerates the contract. Don't let new pipeline phases silently add must-have files without registering them.
 - [ ] **No absolute paths in any served JSON.** Audit `figures.json[].file_path`, `chunks.json[].source_file`, anywhere else a path appears. They must be relative-from-corpus-root (`documents/<HASH>/figures/fig_3.png`) so the same JSONs work on Bouchet at `/nfs/roberts/…` and on EC2 at `/srv/corpus/…`. Add a unit test: `assert not any(Path(p).is_absolute() for p in all_paths_in_served_json)`.
-- [ ] **Per-bundle version stamp from day one.** Even before `package_for_serve.py` exists, start writing `bundle_version`, `pipeline_git_sha`, `embedding_model`, `worms_snapshot_date` into a top-level `bundle_manifest.json` at the end of each Bouchet run. Lets early collaborators cite a corpus version, and future-you isn't reverse-engineering provenance from file timestamps.
+- [x] **Per-bundle version stamp from day one.** `package_for_serve.py` writes `bundle_version`, `pipeline_git_sha`, `embedding_model`, `taxonomy_snapshot_date` into a top-level `bundle_manifest.json` at the end of each Bouchet run. Lets early collaborators cite a corpus version.
 
 ### What this section deliberately does not pin down
 
@@ -632,7 +628,7 @@ These aren't implementation work — they're constraints that need to flow back 
 
 ## 11. Bibliographic authority database
 
-The corpus has ~65,000 parsed references across ~1,350+ papers, but no cross-paper deduplication, no citation graph, and no link between WoRMS taxa and their original description papers. Only 5.6% of references carry DOIs — the rest (mostly historical siphonophore literature) need a fallback identifier. This section defines a single bibliographic authority that unifies corpus papers, cited references, and WoRMS taxa into one queryable graph stored as `<corpuscle>/biblio_authority.sqlite` alongside the per-paper artifacts.
+The corpus has tens of thousands of parsed references across the full paper set, but without cross-paper deduplication there is no citation graph and no link between taxonomic authority strings and their original-description papers. Typically only a small fraction of historical references carry DOIs — the rest need a fallback identifier. This section defines a single bibliographic authority that unifies corpus papers, cited references, and DwC taxonomic authorities into one queryable graph stored as `<corpuscle>/biblio_authority.sqlite` alongside the per-paper artifacts.
 
 ### GUID scheme
 
@@ -640,9 +636,9 @@ Every bibliographic entity gets a single globally-unique identifier, assigned in
 
 1. **DOI** (normalized lowercase, no URL prefix): `10.1007/s12526-013-0148-x`
 2. **BHL Part/Item ID**: `bhl:part/12345` or `bhl:item/31879`
-3. **Normalized citation key**: `corpus:haeckel|1888|report on the siphonophorae col`
+3. **Normalized citation key**: `corpus:smith|1995|introduction to the focal group`
 
-The fallback key is the normalized string `normalize(first_author_surname)|year|normalize(title_first_40_chars)` — lowercase, diacritics stripped (NFD), punctuation removed, whitespace collapsed. Human-readable and reversible: `corpus:haeckel|1888|report on the siphonophorae col` is immediately recognizable. Titles shorter than 40 characters use their full length. This means "Haeckel 1888", "Häckel, E. (1888)", and "HAECKEL, E., 1888" all produce the same key, which is the main dedup mechanism for the 94% of references without DOIs.
+The fallback key is the normalized string `normalize(first_author_surname)|year|normalize(title_first_40_chars)` — lowercase, diacritics stripped (NFD), punctuation removed, whitespace collapsed. Human-readable and reversible. Titles shorter than 40 characters use their full length. This means "Smith 1995", "Smith, J. (1995)", and "SMITH, J., 1995" all produce the same key, which is the main dedup mechanism for references without DOIs.
 
 ### Schema
 
@@ -660,7 +656,7 @@ CREATE TABLE works (
     openalex_id    TEXT,
     corpus_hash    TEXT,               -- 12-char SHA-256 if in corpus, else NULL
     in_corpus      INTEGER NOT NULL DEFAULT 0,
-    source         TEXT NOT NULL,      -- 'corpus_paper' | 'cited_reference' | 'worms_authority'
+    source         TEXT NOT NULL,      -- 'corpus_paper' | 'cited_reference' | 'taxon_authority'
     confidence     REAL DEFAULT 1.0,
     created_at     REAL NOT NULL,
     updated_at     REAL NOT NULL
@@ -690,7 +686,7 @@ CREATE TABLE citations (
 
 -- Alternate citation forms that resolved to the same work
 CREATE TABLE work_aliases (
-    alias_key  TEXT NOT NULL,          -- normalized "haeckel|1888|report on the siphonopho"
+    alias_key  TEXT NOT NULL,          -- normalized "smith|1995|introduction to the foca"
     work_id    TEXT NOT NULL REFERENCES works(work_id),
     PRIMARY KEY (alias_key, work_id)
 );
@@ -719,7 +715,7 @@ Reads existing per-paper artifacts only — no Grobid re-runs needed. Three phas
 **Phase 2 — Ingest cited references + build citation graph.** Walk `output/documents/*/references.json`. For each reference, match to an existing work via a cascade:
 1. *DOI exact* — if reference has a DOI, normalize and look up.
 2. *Alias key exact* — compute normalized key (first-author-surname + year + title prefix), check `work_aliases`. Handles ~60% of non-DOI matches.
-3. *BHL lookup* (optional, gated behind `--enrich-bhl`) — query BHL API by author + year + title. If matched, use `bhl:` as the GUID. Strong coverage of pre-1950 siphonophore literature (Haeckel, Agassiz, Huxley, Chun, etc.), so many historical references that would otherwise fall through to `corpus:` hashes get proper BHL identifiers. Requires network access; skipped in offline builds.
+3. *BHL lookup* (optional, gated behind `--enrich-bhl`) — query BHL API by author + year + title. If matched, use `bhl:` as the GUID. Strong coverage of pre-1950 zoological literature, so many historical references that would otherwise fall through to `corpus:` hashes get proper BHL identifiers. Requires network access; skipped in offline builds.
 4. *Fuzzy title match* — query candidates by author surname + year, rank by `rapidfuzz.fuzz.token_set_ratio` on title. Threshold 80 = auto-match; 60–80 = lower confidence.
 5. *Author+year only* — last resort for references with no parsed title. Match if exactly one candidate; confidence 0.6.
 
@@ -743,9 +739,9 @@ Enhancement to existing `get_bibliography`: add `resolved=True` flag to join eac
 
 ### Queries this unlocks
 
-- "What information about *Agalma* exists in papers that cite this paper?" → `get_citation_graph` → `get_chunks_for_taxon` on each citing paper
+- "What information about a focal taxon exists in papers that cite this paper?" → `get_citation_graph` → `get_chunks_for_taxon` on each citing paper
 - "Which cited references are missing from the corpus?" → `get_missing_references`
-- "Which papers are the original descriptions for species in genus *Forskalia*?" → `list_valid_species_under` → `get_original_description` per species
+- "Which papers are the original descriptions for species in a focal genus?" → `list_valid_species_under` → `get_original_description` per species
 - "Plot species descriptions per decade" → join `taxon_work_links` to `works`, group by `year / 10`
 
 ### Integration with §10 (AWS served bundle)
@@ -760,9 +756,9 @@ The corpus currently stores structured data about papers (metadata, references, 
 
 Mentions are stored in dedicated database tables that point into text, not as annotations baked into the per-paper JSON artifacts. Reasons:
 
-- **Independent rebuilds.** Re-running the WoRMS linker doesn't require re-running OCR. Updating geographic parsing doesn't touch bibliography. Each layer has its own lifecycle.
+- **Independent rebuilds.** Re-running the taxonomy linker doesn't require re-running OCR. Updating geographic parsing doesn't touch bibliography. Each layer has its own lifecycle.
 - **Immutable paper artifacts.** The pipeline produces per-paper JSONs (`chunks.json`, `references.json`, etc.) that are content-addressed and stable. Layering annotations into those files couples extraction to resolution.
-- **Cross-paper queries are database queries.** "All records of *Agalma elegans*" joins across papers — that's a table scan, not a document search.
+- **Cross-paper queries are database queries.** "All records of a focal species" joins across papers — that's a table scan, not a document search.
 
 The `biblio_authority.sqlite` pattern from §11 is the model. Taxonomy and geography follow the same shape.
 
@@ -793,7 +789,7 @@ CREATE TABLE taxon_mentions (
     chunk_index    INTEGER NOT NULL,
     char_start     INTEGER NOT NULL,
     char_end       INTEGER NOT NULL,
-    mention_text   TEXT NOT NULL,          -- surface form: "A. elegans", "Agalma elegans"
+    mention_text   TEXT NOT NULL,          -- surface form (abbreviated or full binomial)
     taxon_rank     TEXT,                   -- 'species', 'genus', 'family', etc.
     confidence     REAL DEFAULT 1.0,
     method         TEXT NOT NULL           -- 'regex_taxonomy', 'gnfinder', 'manual'
@@ -842,19 +838,19 @@ CREATE TABLE localities (
 
 ### Layer 2: Taxonomic mentions
 
-**Source data.** Running text in `chunks.json` contains binomial names (*Agalma elegans*), abbreviated forms (*A. elegans*), genus-only references (*Agalma*), and higher taxa (*Calycophorae*). The configured Darwin Core taxonomy snapshot (`taxonomy.sqlite`, built by `ingest_taxonomy.py` from any DwC source) provides the authority for resolution.
+**Source data.** Running text in `chunks.json` contains binomial names (e.g., *Genus species*), abbreviated forms (*G. species*), genus-only references, and higher taxa. The configured Darwin Core taxonomy snapshot (`taxonomy.sqlite`, built by `ingest_taxonomy.py` from any DwC source) provides the authority for resolution.
 
 **Extraction pipeline.**
 1. **Detection** — `gnfinder` (Global Names) for raw name detection, strong on historical variants and abbreviations. Supplement with regex for italicized binomials in born-digital PDFs.
 2. **Resolution** — match each detected name against accepted names and synonyms in `taxonomy.sqlite`. Record `taxon_id` (DwC `taxonID`) for resolved names, flag unresolved names for manual review.
-3. **Abbreviation expansion** — track the most recent genus mention per paper to expand abbreviated forms (*A. elegans* → *Agalma elegans* when *Agalma* was last mentioned).
+3. **Abbreviation expansion** — track the most recent genus mention per paper to expand abbreviated forms (e.g., *G. species* → *Genus species* when *Genus* was last mentioned).
 
 **What this enables.**
-- "Which papers mention *Bargmannia elongata*?" → `taxon_mentions` WHERE `taxon_id = <bargmannia_elongata>`
-- "Make a map of all records of *Agalma elegans*" → join `taxon_mentions` to `geo_mentions` by (corpus_hash, chunk_index) proximity
-- All taxon-keyed queries in §8 (Q1, Q2, Q4, Q5) become precise span-level lookups rather than text search
+- "Which papers mention a focal species?" → `taxon_mentions` WHERE `taxon_id = <species>`
+- "Make a map of all records of a focal species" → join `taxon_mentions` to `geo_mentions` by (corpus_hash, chunk_index) proximity
+- All taxon-keyed queries in §8 become precise span-level lookups rather than text search
 
-**Feasibility.** Medium effort. The focused domain (siphonophores, ~200 valid species) bounds the taxonomy. `gnfinder` handles the NER; resolution against WoRMS is a lookup. Main challenge: abbreviated forms and OCR-garbled names in historical text.
+**Feasibility.** Medium effort. A focused taxonomic domain (typically a single order or family with hundreds of valid species) bounds the taxonomy. `gnfinder` handles the NER; resolution against the DwC snapshot is a lookup. Main challenge: abbreviated forms and OCR-garbled names in historical text.
 
 ### Layer 3: Geographic mentions
 
@@ -867,8 +863,8 @@ CREATE TABLE localities (
 4. **Structured sampling events** (future) — extract (location, depth, date, vessel, taxon) tuples from methods sections. This is harder and may benefit from LLM extraction.
 
 **What this enables.**
-- "List all siphonophores collected at Villefranche, France" → `geo_mentions` WHERE `locality_id = <villefranche>` → join to nearby `taxon_mentions`
-- "Make a map of all records of *Agalma elegans*" → `taxon_mentions` for the species → co-occurring `geo_mentions` with coordinates → plot
+- "List all taxa collected at a focal locality" → `geo_mentions` WHERE `locality_id = <locality>` → join to nearby `taxon_mentions`
+- "Make a map of all records of a focal species" → `taxon_mentions` for the species → co-occurring `geo_mentions` with coordinates → plot
 - GBIF-style occurrence maps built from literature rather than specimen databases
 
 **Feasibility.** Highest effort, lowest initial precision. Named locations are detectable but associating them with the right taxon and distinguishing sampling locations from other geographic references (e.g., "the Mediterranean fauna") requires context. Start with named locations + coordinates only; structured sampling events are a later enrichment.

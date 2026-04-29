@@ -37,7 +37,7 @@ Orchestrated by `run_pdf_processing_pipeline`, five steps per PDF:
 
 | Step | What happens | Output |
 |---|---|---|
-| **Scan detection** | PyMuPDF text-density heuristic classifies as `born_digital`, `scanned`, or `broken_text_layer` | `scan_detection.json` |
+| **Scan detection** | Multi-stage heuristic — text-volume gate, langdetect on the existing text layer, gibberish-score, and (for borderline cases) a Tesseract OSD visual-script cross-check — classifies as `born_digital`, `scanned`, or `broken_text_layer` | `scan_detection.json` |
 | **PDF preparation** | Copies born-digital PDFs as-is; runs `ocrmypdf` on scanned/broken PDFs with language-appropriate Tesseract models (eng, deu, fra, rus, lat, deu_latf for Fraktur) | `processed.pdf` |
 | **Text + figure extraction** | Docling parses the PDF into structured text and figure regions. Figures go through a classification/caption pipeline (see [Figure pipeline](#figure-pipeline) below). Falls back to raw PyMuPDF image extraction when docling finds nothing. | `text.json`, `figures.json`, `figures/*.png`, `visualizations/*.png` |
 | **Metadata extraction** | Grobid extracts title, authors, year, DOI, abstract, section structure, and parsed references. Falls back to placeholder when Grobid is unavailable. | `metadata.json` |
