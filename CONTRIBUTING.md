@@ -46,6 +46,15 @@ python -m pytest tests/test_biblio_cascade.py -v
 - [tests/](tests/) — one file per subsystem.
 - [resources/](resources/) — regenerable precompiled data (WoRMS SQLite, bibliography authority DB, taxon mentions DB). The SQLite files are `.gitignore`d; the YAML lexicon is checked in.
 
+## Dependencies — two files, on purpose
+
+Two install manifests live at the repo root:
+
+- [environment.yaml](environment.yaml) — conda env used on dev laptops and on Bouchet (YCRC). Pulls native binaries (`tesseract`, `ghostscript`) and the heavier Python deps with bundled C libs (`pymupdf`, `lxml`) from conda-forge in one shot, alongside the rest of the Python deps. This is the path most contributors hit.
+- [requirements.txt](requirements.txt) — plain pip requirements used by the AWS deploy target ([dev_docs/DEPLOY.md §5](dev_docs/DEPLOY.md)), which builds a stock `python3.12 -m venv` on Ubuntu and has no conda. Native bins come from `apt`; only Python deps come from this file.
+
+**They must stay in sync.** If you add a Python dependency, add it to *both* — to `environment.yaml` (in the conda block when there's a good conda-forge build, otherwise in the `pip:` section) and to `requirements.txt`. The only entries that legitimately appear in `environment.yaml` alone are native binaries that come from `apt` on the AWS host (`tesseract`, `ghostscript`).
+
 ## Reporting bugs + proposing changes
 
 Open a GitHub issue with enough context to reproduce: paper hashes, exact commands, the output tree you're running against. For design changes, link or quote the relevant [PLAN.md](PLAN.md) section.
