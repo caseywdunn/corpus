@@ -988,6 +988,88 @@ def get_intext_citations(paper_hash: str) -> Dict:
 
 
 @mcp.tool()
+def get_excerpts_citing(work_id: str, limit: int = 50) -> Dict:
+    """Passages across the corpus that cite ``work_id`` (issue #7).
+
+    Cross-paper view of in-text citations.  Joins the bibliography
+    authority's ``citations`` table (which carries the
+    paper_hash → grobid_xml_id → cited_work_id mapping built by
+    ``reconcile_corpus_to_biblio.py``) against each citing paper's
+    ``intext_citations.json`` to return the actual paragraph text
+    surrounding each citation marker.
+
+    Useful for "show me every passage where Pugh 1997 is cited" —
+    answers questions an unweighted citation graph can't.
+
+    Parameters
+    ----------
+    work_id:
+        DOI, ``corpus:...`` key, or ``bhl:...`` key — same identifier
+        space as ``get_citation_graph``.
+    limit:
+        Cap on excerpts returned across all citing papers.
+
+    Returns ``{"work_id": ..., "n_excerpts": N, "excerpts": [...]}``
+    where each excerpt has ``citing_paper_hash``, ``citing_paper_title``,
+    ``surface``, ``section``, and ``paragraph``.
+
+    Only resolved citations contribute (the ~40% of in-text refs Grobid
+    couldn't match to a listBibl entry produce no row in ``citations``
+    and so don't show up here).  A future fuzzy-resolution pass against
+    the surface text would close that gap.
+    """
+    idx = _need_index()
+    if idx.biblio_db is None:
+        return {"error": "biblio_authority DB not loaded"}
+
+    rows = idx.biblio_db.conn.execute(
+        """SELECT c.citing_corpus_hash, c.grobid_xml_id
+           FROM citations c
+           WHERE c.cited_work_id = ?""",
+        (work_id,),
+    ).fetchall()
+
+    excerpts: List[Dict] = []
+    for row in rows:
+        if len(excerpts) >= limit:
+            break
+        citing_hash = row["citing_corpus_hash"]
+        grobid_id = row["grobid_xml_id"]
+        if not citing_hash or not grobid_id:
+            continue
+        p = idx.papers.get(citing_hash)
+        if not p:
+            continue
+        data = _load_json(
+            Path(p["hash_dir"]) / "intext_citations.json", default=None,
+        )
+        if data is None:
+            continue
+        paras = data.get("paragraphs", [])
+        target_match = "#" + grobid_id
+        for c in data.get("citations", []):
+            if c.get("target_xml_id") != target_match:
+                continue
+            pi = c.get("para_index")
+            paragraph = paras[pi] if isinstance(pi, int) and 0 <= pi < len(paras) else ""
+            excerpts.append({
+                "citing_paper_hash": citing_hash,
+                "citing_paper_title": p.get("title") or "",
+                "surface": c.get("surface", ""),
+                "section": c.get("section", ""),
+                "paragraph": paragraph,
+            })
+            if len(excerpts) >= limit:
+                break
+
+    return {
+        "work_id": work_id,
+        "n_excerpts": len(excerpts),
+        "excerpts": excerpts,
+    }
+
+
+@mcp.tool()
 def get_citation_graph(
     work_id: Optional[str] = None,
     paper_hash: Optional[str] = None,

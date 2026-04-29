@@ -37,6 +37,8 @@ for m in re.finditer(r'@mcp\.tool\(\).*?def (\w+)\([^)]*\).*?:\s*\"\"\"([^.]+)\.
 | Tool | Returns |
 | --- | --- |
 | `get_bibliography` | Parsed references for one paper (from Grobid TEI). |
+| `get_intext_citations` | In-text `<ref type="bibr">` markers for one paper, with deduplicated paragraph excerpts and section context. |
+| `get_excerpts_citing` | Cross-corpus: every passage citing a given work — surface text, section, and the surrounding paragraph. |
 | `get_citation_graph` | Citation graph around a work. |
 | `resolve_reference` | Resolve a free-text bibliographic reference to a work in the authority database. |
 | `get_missing_references` | Works cited by corpus papers that are NOT in the corpus. |
