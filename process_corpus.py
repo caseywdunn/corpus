@@ -503,6 +503,18 @@ _SCRIPT_TO_TESSERACT = {
 }
 
 
+# Vendor watermark / wrapper signatures. When a PDF's text layer contains
+# nothing but one of these markers (and below 5K chars across the sample),
+# treat it as a scanned PDF whose actual content is image-only — even
+# though docling/PyMuPDF can read the boilerplate banner. See
+# detect_scan_type's vendor cross-check.
+_VENDOR_BOILERPLATE = (
+    "ProQuest ebrary",
+    "biodiversitylibrary.org",
+    "This page intentionally left blank",
+)
+
+
 def _resolve_tesseract_packs(
     detected_iso: Optional[str],
     visual_script: Optional[str] = None,
@@ -1030,6 +1042,36 @@ def detect_scan_type(pdf_path: Path) -> Dict:
     gib = _gibberish_score(total_text)
     scripts = _text_layer_scripts(total_text)
     latin_frac = scripts.get("Latin", 0.0)
+
+    # --- Vendor-watermark cross-check ---
+    # Some PDF exports (ProQuest eBooks, BHL scan exports) stamp a thin
+    # per-page boilerplate banner on top of image-only content. Their text
+    # layer clears the volume gate above but contains nothing but the
+    # banner — the actual book content is in raster images. Re-route to
+    # the OCR path so prepare_pdf can recover content from the images.
+    if total_chars < 5000 and any(m in total_text for m in _VENDOR_BOILERPLATE):
+        matched = next(m for m in _VENDOR_BOILERPLATE if m in total_text)
+        logger.info(
+            "Vendor-boilerplate-only text layer detected (%r) in %s; "
+            "re-routing to OCR",
+            matched, pdf_path.name,
+        )
+        return _annotate_pack_availability({
+            "filename": pdf_path.name,
+            "file_type": "scanned",
+            "detection_reason": "vendor_boilerplate_only",
+            "has_text": True,
+            "needs_ocr": True,
+            "detected_language": lang,
+            "language_confidence": conf,
+            "gibberish_score": gib,
+            "text_layer_scripts": scripts,
+            "visual_script": None,
+            "total_chars_sampled": total_chars,
+            "pages_checked": pages_to_check,
+            "ocr_mode": "skip_text",
+            "vendor_marker": matched,
+        })
 
     threshold = float(CONFIG.get("ocr", {}).get("gibberish_threshold", 0.5))
 
