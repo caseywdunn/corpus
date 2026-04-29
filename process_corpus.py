@@ -820,6 +820,7 @@ def run_pdf_processing_pipeline(
             figures_dir,
             visualizations_dir,
             docling_doc_output=docling_doc_file,
+            scan_file_type=detection_result.get("file_type"),
         )
         processing_summary["files_created"].extend([str(text_file), str(figures_file)])
         if docling_doc_file.exists():
@@ -1212,6 +1213,7 @@ def extract_docling_content(
     figures_dir: Path,
     visualizations_dir: Path,
     docling_doc_output: Optional[Path] = None,
+    scan_file_type: Optional[str] = None,
 ):
     """Extract text and figures using docling, with PyMuPDF fallback for figures.
 
@@ -1220,6 +1222,12 @@ def extract_docling_content(
     ``docling_doc_output`` (defaults to ``<text_output.parent>/docling_doc.json``)
     so the chunking step can re-load the structured document and run
     HybridChunker without re-parsing the PDF.
+
+    ``scan_file_type`` is the ``file_type`` from ``scan_detection.json``
+    (``"scanned"`` / ``"born_digital"`` / ``"broken_text_layer"`` / None).
+    Used to suppress the PyMuPDF figure fallback on rasterized scans, where
+    each ``page.get_images()`` would just emit one full-page bitmap per page
+    rather than a real figure.
     """
     document = None
     text_content = None
@@ -1443,9 +1451,18 @@ def extract_docling_content(
         if saved_count == 0:
             logger.info("No figures saved via docling; will try PyMuPDF fallback")
 
-    # Fallback: use PyMuPDF to extract embedded images from the PDF
-    if len(figures_data) == 0:
+    # Fallback: use PyMuPDF to extract embedded images from the PDF.
+    # Skipped on scanned PDFs — every page is a rasterized bitmap, so
+    # page.get_images() would just emit one full-page image per page rather
+    # than rescuing real figures.
+    if len(figures_data) == 0 and scan_file_type == "scanned":
+        logger.info(
+            "PyMuPDF figure fallback skipped: scan_detection.file_type=scanned "
+            "(page bitmaps are not real figures)"
+        )
+    elif len(figures_data) == 0:
         try:
+            from figures import classify_figure
             import fitz  # PyMuPDF
             doc = fitz.open(str(pdf_path))
             for page_num in range(len(doc)):
@@ -1487,6 +1504,18 @@ def extract_docling_content(
                                 # don't confuse it with docling's bottom-left.
                                 meta["bbox"] = bbox_list
                                 meta["bbox_coord_system"] = "pdf_pts_top_left"
+                            # Run the same size-threshold classifier docling
+                            # figures get, so MCP _REAL_FIGURE_TYPES filtering
+                            # works on PyMuPDF rescues too. No caption is
+                            # available here, so size is the only signal —
+                            # the classifier will return "graphical_element"
+                            # for tiny page-corner thumbnails or "unclassified"
+                            # for full-sized images without captions.
+                            meta["figure_type"] = classify_figure({
+                                "bbox": bbox_list,
+                                "caption_text": "",
+                                "figure_number": None,
+                            })
                             append_figure(
                                 figure_id=f"pymupdf_p{page_num + 1}_i{img_index + 1}",
                                 figure_path=figure_path,
