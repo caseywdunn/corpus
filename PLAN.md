@@ -175,7 +175,6 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 - [x] **Ingest DwC taxonomy backbone as a corpus-level input.** Download a Darwin Core snapshot for the focal group (e.g. the relevant order/family + all child taxa, with synonymies and authority strings) and store as `taxonomy.sqlite` alongside the per-paper artifacts. This is a **prerequisite**, not an annotation step: every taxon-keyed query and the taxon-mention resolver depend on it. Refresh on a schedule; pin version in the corpus manifest.
 - [x] **Curate the domain anatomy lexicon.** A YAML file in the corpuscle listing the focal-group's anatomy terms plus common synonyms and language variants. Used by both the anatomy-term NER and the figure-anatomy classifier.
 - [x] **Figure+caption linking** as described in §3, plus a human-reviewable `figures_report.html` per paper (thumbnails + captions side-by-side). This is your QC surface for the "figure extraction success" goal.
-- [ ] **Parallelize stage 2.** Use a `concurrent.futures.ProcessPoolExecutor` with a file-based lock per hash dir, or drive SLURM from `batch_embed.sh` on Bouchet.
 - [x] **BHL lookup stage** before OCR. If a BHL match exists (fuzzy title + year + author), prefer BHL's OCR text as a parallel artifact and flag confidence. Likely to materially help historical papers.
 - [x] **Golden test set.** Curated ground-truth answers for a handful of papers + corpus-wide structural/consistency checks across the full corpus, in `tests/`. Spans modern born-digital, scanned historical, and multilingual sources. See [`dev_docs/TESTING.md`](dev_docs/TESTING.md).
 - [x] **Deprecate the Snakefile legacy path.** Done — Snakefile + Snakemake-only scripts removed; `process_corpus.py` is the only pipeline entry point.
@@ -184,13 +183,11 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 
 - [x] **Taxonomic mention extraction + resolution.** Integrate `gnfinder` (Global Names — handles historical variants well) for raw detection; resolve every mention against the DwC taxonomy snapshot (above) to an accepted name. Emit `taxa.json` per paper with chunk offsets, accepted name, and match confidence. Roll up into a corpus-wide `taxon_mentions.parquet`.
 - [x] **Authority-string parsing + taxonomic-act index.** Parse "Author, Year" authority strings from the DwC snapshot and from in-corpus descriptions. Emit a `taxonomic_acts.parquet` (taxon, author, year, original-description paper hash when resolvable). Backs Q7 directly.
-- [ ] **Geographic extraction.** GLiNER or spaCy + GeoNames/Nominatim. Store as `locations.json` per paper; roll up into a corpus-wide `locations.parquet` keyed by taxon co-occurrence. Backs Q1.
 - [x] **Anatomy-term NER.** Apply the curated lexicon to every chunk; emit offsets. Start with exact-match + stemming; extend to a small fine-tuned NER if recall is poor on historical text.
 - [x] **Anatomy-aware figure search.** Start with caption-text keyword + taxon co-occurrence. For deeper coverage, run a vision model (Claude or an open VLM) over figure crops to tag anatomical structures. Highest-leverage place to use an LLM: captions are short, visual classification is cheap per image, directly backs Q4/Q8.
 - [x] **Reference graph.** From Grobid bibliographies, build a `references.parquet` + in-corpus citation graph. Backs Q2 and opens the door to citation-based queries.
 - [x] **Section-type index.** Use Grobid TEI structural labels to tag chunks with a section class (description / distribution / embryology / discussion / remarks / …). Backs Q2 and Q6.
 - [x] **MCP server.** Implemented in [mcp_server.py](mcp_server.py), backed by the per-PDF JSON indexes and the corpus-level SQLite databases. Tool surface listed in [`dev_docs/MCP_TOOLS.md`](dev_docs/MCP_TOOLS.md). Built on FastMCP with both stdio and SSE-over-HTTP transports; eager in-memory index at startup.
-- [ ] **Trait extraction for identification — DEFERRED.** Backs trait-structured queries (e.g., generating identification keys). Requires a domain-specific character schema and structured LLM extraction per species description. Substantial enough to warrant its own plan section; captured here so it isn't forgotten. Not on the path for the first production run.
 
 ## 5. Scale considerations for ~2000 papers
 
@@ -233,11 +230,13 @@ Tracked work before the v0.1 tag and full corpus rebuild on Bouchet. Issues are 
 
 **Deferred to post-v0.1** (not blocking the tag):
 
-- [ ] Parallelize stage 2 (file an issue).
-- [ ] Geographic extraction / §12 Layer 3 (file an issue).
-- [ ] Trait extraction / Q3 keys (file an issue).
-- [ ] `mcp_server.py` refactor — split 78 KB single file into per-concern modules (file an issue).
-- [ ] [#7 part 3](https://github.com/caseywdunn/corpus/issues/7) — any remaining work on the in-text citation graph beyond parts 1 and 2 already merged.
+Tracked in the GitHub issue tracker, not in this document:
+
+- [#12](https://github.com/caseywdunn/corpus/issues/12) — Stage 2 parallelism: assess whether further work is needed beyond `batch_embed.sh`.
+- [#13](https://github.com/caseywdunn/corpus/issues/13) — Geographic extraction (§12 Layer 3): NER + GeoNames + locality table.
+- [#14](https://github.com/caseywdunn/corpus/issues/14) — Trait extraction + identification keys (Q3).
+- [#15](https://github.com/caseywdunn/corpus/issues/15) — Refactor `mcp_server.py`: split 2050-line single file into per-concern modules.
+- [#7 part 3](https://github.com/caseywdunn/corpus/issues/7) — any remaining work on the in-text citation graph beyond parts 1 and 2 already merged.
 
 ## 7. Switch embeddings from OpenAI → local open-weights on Bouchet
 
@@ -330,7 +329,7 @@ Generic shapes, traced as **Shape → Path → Output → Gaps in current plan**
 - **Shape:** enumerative, entity-keyed, structured output.
 - **Path:** resolve `<species>` to accepted DwC taxon (+ synonyms) → taxon index returns all chunks/captions/tables mentioning the species → geographic NER on those chunks → dedupe + group by paper.
 - **Output:** table (location, coordinates if present, paper, page, quote).
-- **Gaps:** taxon↔chunk offset index (§4 *Taxonomic mention extraction + resolution* — must be exhaustive, not retrieval-ranked); geographic NER at chunk scope tied to taxon co-occurrence (§4 *Geographic extraction*); tabular output recipe (not yet scoped).
+- **Gaps:** taxon↔chunk offset index (§4 *Taxonomic mention extraction + resolution* — must be exhaustive, not retrieval-ranked); geographic NER at chunk scope tied to taxon co-occurrence ([#13](https://github.com/caseywdunn/corpus/issues/13)); tabular output recipe (not yet scoped).
 
 #### Q2. "Compose a monographic review of `<genus>`."
 
@@ -344,7 +343,7 @@ Generic shapes, traced as **Shape → Path → Output → Gaps in current plan**
 - **Shape:** trait-structured, comparative.
 - **Path:** genus → all valid species → per-species diagnostic traits (meristics, counts, dimensions, colors, structural presence/absence) from species-description sections → pivot into species × character matrix → generate dichotomous (or polyclave) key.
 - **Output:** a usable identification key.
-- **Gaps:** §4 lists *Trait extraction for identification* as **deferred**. A key requires (a) a domain-specific character schema, (b) structured LLM extraction against that schema per species description, (c) a trait index as a first-class artifact, (d) key-generation logic. Substantial enough to warrant its own plan section when we return to it; out of scope for the first production run.
+- **Gaps:** trait extraction for identification is deferred to post-v0.1 ([#14](https://github.com/caseywdunn/corpus/issues/14)). A key requires (a) a domain-specific character schema, (b) structured LLM extraction against that schema per species description, (c) a trait index as a first-class artifact, (d) key-generation logic. Substantial enough to warrant its own plan section when we return to it; out of scope for the first production run.
 
 #### Q4. "List all currently valid species in the focal group with a one-paragraph summary and diagnostic figures."
 
@@ -402,7 +401,7 @@ Vector embeddings are one of ten indices. Only Q6 and Q8 treat vector search as 
 
 The scope items these queries demand — DwC backbone as a first-class input, anatomy lexicon + NER, authority-string / taxonomic-act parsing, section-type tagging, figure anatomy classification, reference graph, and the MCP tools layer — are now all reflected as line items in §4. The two genuine gaps remaining are:
 
-- **Trait extraction + key generation (Q3).** Deferred; noted in §4 and called out in Q3's gaps line above. Will get its own plan section when we pick it up.
+- **Trait extraction + key generation (Q3).** Deferred to post-v0.1 ([#14](https://github.com/caseywdunn/corpus/issues/14)). Will get its own plan section when we pick it up.
 - **Synthesis recipes (Q2, Q4).** The indices + MCP tools will be in place, but the specific Opus-driven prompts and map-reduce patterns for monographic review (Q2) and per-entity catalog (Q4) are not yet scoped. These are cheap to iterate on once the substrate exists — prototype against the golden test set before committing to any one recipe.
 
 ## 9. Three-pass figure extraction with ROI sidecar
