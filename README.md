@@ -74,15 +74,7 @@ The format is a flat term-to-metadata map; see [demo/anatomy_lexicon.yaml](demo/
 
 A markdown file at `<corpuscle>/instructions.md` whose contents land in every chat session against the corpus. The MCP server returns it in `InitializeResult.instructions`, and well-behaved clients (Claude Desktop, Claude Code) inject it into the LLM's context at session start.
 
-Use it for per-corpus nudges that no taxonomy or lexicon entry can express — for the siphonophore corpus:
-
-```markdown
-- *Velella velella* is **not** a siphonophore (it's an Anthoathecate
-  hydrozoan); historical literature occasionally groups it with
-  Siphonophora — flag such mentions rather than accept them.
-- "Pugh 1997" without further qualification is the systematic
-  monograph; the 1986 paper is the developmental work.
-```
+Use it for per-corpus nudges that no taxonomy or lexicon entry can express — see [demo/instructions.md](demo/instructions.md) for a worked example, which (among other things) tells the model that *Velella* and *Porpita* are not siphonophores even when older literature lumps them in.
 
 Override the default location with `--instructions <path>` when starting the MCP server. If the file is absent, no instructions are sent.
 
