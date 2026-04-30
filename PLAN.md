@@ -218,7 +218,7 @@ Tracked work before the v0.1 tag and full corpus rebuild on Bouchet. Issues are 
 
 - [ ] [#5](https://github.com/caseywdunn/corpus/issues/5) — Streamable HTTP transport + OAuth for native Custom Connectors UI (defer if not required for v0.1 collaborator access).
 - [ ] [#6](https://github.com/caseywdunn/corpus/issues/6) — `deploy/stack.yaml` default-VPC assumption; either fix or document as a known prerequisite.
-- [ ] **§10 design item: no absolute paths in served JSON.** Audit `figures.json[].file_path`, `chunks.json[].source_file`, etc. Add a unit test that asserts no absolute paths leak into the served bundle.
+- [x] **§10 design item: no absolute paths in served JSON.** Implemented in commit `304257a` as a `package_for_serve.py` scrub + audit pass.
 
 **Tagging:**
 
@@ -650,7 +650,7 @@ Target audience is ~20 trusted collaborators. The threat model is runaway bills 
 These aren't implementation work — they're constraints that need to flow back into the existing Bouchet phases so the AWS step doesn't require re-engineering later.
 
 - [x] **The served-file whitelist is a stable contract.** `PER_PAPER_FILES` constant at the top of `package_for_serve.py` enumerates the contract. Don't let new pipeline phases silently add must-have files without registering them.
-- [ ] **No absolute paths in any served JSON.** Audit `figures.json[].file_path`, `chunks.json[].source_file`, anywhere else a path appears. They must be relative-from-corpus-root (`documents/<HASH>/figures/fig_3.png`) so the same JSONs work on Bouchet at `/nfs/roberts/…` and on EC2 at `/srv/corpus/…`. Add a unit test: `assert not any(Path(p).is_absolute() for p in all_paths_in_served_json)`.
+- [x] **No absolute paths in any served JSON.** Implemented in `package_for_serve.py` as a distillation-time scrub on `summary.json` (drops `input_dir`/`output_directory`, basename-ifies `original_pdf`, rewrites `files_created` to corpus-root-relative) and `figures.json` (rewrites `file_path` and `figures_directory`), followed by a JSON-walk audit that fails the build if any absolute-path-shaped string value remains. Unit tests in `tests/test_package_for_serve.py`.
 - [x] **Per-bundle version stamp from day one.** `package_for_serve.py` writes `bundle_version`, `pipeline_git_sha`, `embedding_model`, `taxonomy_snapshot_date` into a top-level `bundle_manifest.json` at the end of each Bouchet run. Lets early collaborators cite a corpus version.
 
 ### What this section deliberately does not pin down
