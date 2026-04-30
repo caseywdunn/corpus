@@ -28,7 +28,11 @@ ocr:
   # Gibberish-score threshold above which a dense text layer is treated
   # as corrupt (needing --force-ocr). See _gibberish_score in
   # process_corpus.py.
-  gibberish_threshold: 0.5
+  # Raised from 0.5 → 0.65: 0.5 was a false positive for MilosMaley2005
+  # (valid text layer, langdetect misfired as Swahili, score=0.59).
+  # Documents with truly corrupt text (Cyrillic mojibake etc.) are caught
+  # by the visual_script_mismatch path before reaching this threshold.
+  gibberish_threshold: 0.65
 
 # Chunking settings.
 chunking:

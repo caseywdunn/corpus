@@ -25,6 +25,7 @@ set -euo pipefail
 
 # ── Paths ────────────────────────────────────────────────────────────
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+[ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 

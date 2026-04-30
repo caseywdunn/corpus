@@ -11,8 +11,10 @@
 BOUCHET_PROJECT="${BOUCHET_PROJECT:-/nfs/roberts/project/pi_cwd7/cwd7}"
 
 REPO_DIR="${REPO_DIR:-$BOUCHET_PROJECT/corpus}"
-INPUT_DIR="${INPUT_DIR:-$BOUCHET_PROJECT/siphonophores}"
-OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/output}"
+INPUT_DIR="${INPUT_DIR:-$BOUCHET_PROJECT/siphonophores/library}"
+OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/siphonophore_corpuscle}"
+BIB_FILE="${BIB_FILE:-$BOUCHET_PROJECT/siphonophores/siphonophores.bib}"
+ANATOMY_LEXICON="${ANATOMY_LEXICON:-$BOUCHET_PROJECT/siphonophores/anatomy_lexicon.yaml}"
 CACHE_DIR="${CACHE_DIR:-$BOUCHET_PROJECT/cache}"
 
 # HuggingFace cache (BGE-M3 + Qwen2.5-VL weights). Pre-download once on

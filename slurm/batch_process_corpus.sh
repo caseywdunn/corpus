@@ -31,6 +31,7 @@ set -euo pipefail
 # locate bouchet_paths.sh. Use $SLURM_SUBMIT_DIR when running under
 # sbatch; otherwise fall back to the script's own directory.
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+[ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 
@@ -58,9 +59,17 @@ TAXONOMY_FLAG=""
 if [ -f "$OUTPUT_DIR/taxonomy.sqlite" ]; then
     TAXONOMY_FLAG="--taxonomy-db $OUTPUT_DIR/taxonomy.sqlite"
 fi
+
 ANATOMY_FLAG=""
-if [ -f "$OUTPUT_DIR/anatomy_lexicon.yaml" ]; then
+if [ -f "${ANATOMY_LEXICON:-}" ]; then
+    ANATOMY_FLAG="--anatomy-lexicon $ANATOMY_LEXICON"
+elif [ -f "$OUTPUT_DIR/anatomy_lexicon.yaml" ]; then
     ANATOMY_FLAG="--anatomy-lexicon $OUTPUT_DIR/anatomy_lexicon.yaml"
+fi
+
+BIB_FLAG=""
+if [ -f "${BIB_FILE:-}" ]; then
+    BIB_FLAG="--bib $BIB_FILE"
 fi
 
 # ── Batch parameters (for SLURM job arrays) ─────────────────────────
@@ -82,6 +91,7 @@ python process_corpus.py \
     --grobid-url "$GROBID_URL" \
     $TAXONOMY_FLAG \
     $ANATOMY_FLAG \
+    $BIB_FLAG \
     $BATCH_ARGS
 
 echo "Stage 1 completed at $(date)"

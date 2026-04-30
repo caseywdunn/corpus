@@ -28,6 +28,7 @@ set -euo pipefail
 #     python -c "from sentence_transformers import SentenceTransformer; \
 #         SentenceTransformer('BAAI/bge-m3')"
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+[ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 echo "HuggingFace cache: $HF_HOME"

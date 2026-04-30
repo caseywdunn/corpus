@@ -35,6 +35,7 @@ set -euo pipefail
 #         AutoProcessor.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct'); \
 #         Qwen2_5_VLForConditionalGeneration.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct')"
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+[ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 echo "HuggingFace cache: $HF_HOME"

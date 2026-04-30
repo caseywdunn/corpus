@@ -16,25 +16,33 @@
 #     export GROBID_URL=http://$NODE:8070
 #     sbatch batch_process_corpus.sh
 #
-# Two binds matter:
+# Three binds matter:
 #   1. $BOUCHET_PROJECT → so Grobid can read PDFs from the corpus tree.
 #   2. A writable host dir → /opt/grobid/grobid-home/tmp. Without this
 #      Grobid fails every request with HTTP 500 because the Singularity
 #      rootfs is read-only and Grobid creates temp files per request.
+#   3. A writable host dir → /opt/grobid/logs. Without this Grobid crashes
+#      on startup trying to open logs/grobid-service.log (FileNotFoundException).
 
 set -euo pipefail
 
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+[ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 
 cd "$REPO_DIR"
 mkdir -p logs
 
-# Per-job writable tmp so concurrent Grobid instances (if any) don't collide.
+# Per-job writable dirs so concurrent Grobid instances don't collide.
+# Two binds required (comment in script header) plus a third:
+#   3. A writable host dir → /opt/grobid/logs. Grobid tries to open
+#      logs/grobid-service.log relative to --pwd and crashes when the
+#      Singularity rootfs is read-only and the directory doesn't exist.
 GROBID_TMP="$CACHE_DIR/grobid_tmp/$SLURM_JOB_ID"
-mkdir -p "$GROBID_TMP"
-trap 'rm -rf "$GROBID_TMP"' EXIT
+GROBID_LOGS="$CACHE_DIR/grobid_logs/$SLURM_JOB_ID"
+mkdir -p "$GROBID_TMP" "$GROBID_LOGS"
+trap 'rm -rf "$GROBID_TMP" "$GROBID_LOGS"' EXIT
 
 echo "Grobid host: $(hostname)"
 echo "Grobid tmp:  $GROBID_TMP"
@@ -44,4 +52,5 @@ singularity run \
     --pwd /opt/grobid \
     --bind "$BOUCHET_PROJECT" \
     --bind "$GROBID_TMP:/opt/grobid/grobid-home/tmp" \
+    --bind "$GROBID_LOGS:/opt/grobid/logs" \
     "$CACHE_DIR/grobid.sif"
