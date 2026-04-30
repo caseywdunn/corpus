@@ -4,27 +4,12 @@ A roadmap toward a production-quality corpus pipeline. The pipeline is taxon-agn
 
 ## 1. Assessment of current repo
 
-### What works well
-- **Hash-based content addressing** is the right foundation for this project. SHA-256 prefix directories give idempotent resume, natural dedup across messy input trees, and survive rename/reorg of source collections.
-- **Two-stage split** (local extraction vs. OpenAI embeddings) is correct — embeddings are the expensive, rate-limited, and re-runnable step.
-- **Figure QC visualizations** (red word boxes + yellow/orange figure bboxes per page) are exactly the kind of intermediate artifact this corpus needs. Keep and extend these.
-- **PyMuPDF fallback for figure extraction** acknowledges docling doesn't always deliver.
+The initial-prototype bug-fix punch list (eleven items: stub `extract_metadata`, naive chunker, unloaded config, silent zero-vector embeddings, unlinked figure captions, serial processing, 8-char hash collisions, English-only OCR, dual Snakemake/Python pipelines, missing PyMuPDF figure metadata, missing per-paper logs) has been fully delivered. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release history. The "what works well" items below remain the foundation:
 
-### Bugs and gaps to fix before scaling
-
-| # | Issue | Location | Severity |
-|---|---|---|---|
-| 1 | ~~`extract_metadata` is a stub~~ — resolved: wired to Grobid (`grobid_client.py`) | [process_corpus.py:476-491](process_corpus.py#L476-L491) | High — no bibliographic data flows downstream |
-| 2 | ~~naive 1000-char chunker~~ — resolved: docling `HybridChunker` (tokenizer-aware, respects structure) | [process_corpus.py:494-526](process_corpus.py#L494-L526) | High — bad chunks → bad RAG |
-| 3 | ~~`config.yaml` not loaded~~ — resolved: `load_config` in process_corpus.py; dead sections pruned | repo root | Medium — misleading; values are hard-coded |
-| 4 | ~~silent zero-vector fallback~~ — resolved: `EmbeddingError` propagates; OpenAI backend removed | [embed_chunks.py:60-63](embed_chunks.py#L60-L63) | High — silent data corruption |
-| 5 | ~~figures and captions unlinked~~ — resolved: figures.py caption parsing + `link_chunks_to_figures` + `figures_report.html` per paper | [process_corpus.py:318-473](process_corpus.py#L318-L473) | High — defeats the "figures of X species" goal |
-| 6 | Serial processing, per-step exceptions swallowed into a summary log; no resumability *within* a PDF, only across PDFs | [process_corpus.py:183-228](process_corpus.py#L183-L228) | High at scale |
-| 7 | ~~8-char SHA-256 prefix~~ — resolved: 12 chars, verified in CLAUDE.md | [process_corpus.py:120](process_corpus.py#L120) | Low but cheap to fix |
-| 8 | ~~fixed OCR flags, English-only Tesseract~~ — resolved: langdetect + config-driven default lang list + Fraktur (`deu_latf`) | [process_corpus.py:283-315](process_corpus.py#L283-L315) | High for historical corpus |
-| 9 | ~~Two parallel implementations (Snakefile + scripts/ vs. process_corpus.py)~~ — resolved: Snakemake path deleted | — | done |
-| 10 | `figures.json` lacks page number and bbox for fallback (PyMuPDF) figures — can't be cross-referenced with visualizations | [process_corpus.py:438-448](process_corpus.py#L438-L448) | Medium |
-| 11 | ~~no per-paper log file~~ — resolved: `documents/<HASH>/pipeline.log` via `per_pdf_file_log` | — | Medium |
+- **Hash-based content addressing** — SHA-256 prefix directories give idempotent resume, natural dedup across messy input trees, and survive rename/reorg of source collections.
+- **Two-stage split** (CPU extraction vs. GPU embeddings) — embeddings are the resource-bound step that benefits from rerunnability and parallelism.
+- **Figure QC visualizations** (red word boxes + yellow/orange figure bboxes per page) — the intermediate artifact that catches extraction problems early.
+- **PyMuPDF fallback for figure extraction** — docling doesn't always deliver; the fallback now classifies by size threshold so MCP-visible types are right.
 
 ## 2. Is this the right toolchain?
 
@@ -36,8 +21,8 @@ Works well on modern born-digital papers. Struggles on: plate-heavy 19th-century
 ### ocrmypdf + Tesseract
 Usable if given the right language packs. Needs: `tesseract-lang` (deu, fra, rus, lat), and specifically `deu_latf` / Fraktur models for 19th-c. German. For very old or damaged scans, Tesseract is weak — **Kraken** (historical documents, fraktur, Cyrillic) or a vision LLM may do better.
 
-### Grobid (currently stubbed)
-Still the best general-purpose scientific-PDF metadata/reference extractor. Run it as a Docker service and call it per PDF. It also extracts references and section structure, which is foundational for the citation-analysis goal. **Re-enable this now, don't ship without it.**
+### Grobid
+Still the best general-purpose scientific-PDF metadata/reference extractor. Runs as a Docker (or Singularity on Bouchet) service, called per PDF. Extracts references and section structure, foundational for the citation-analysis goal.
 
 ### Alternatives worth piloting
 - **Marker** (surya + texify) — often better than docling on mixed-quality PDFs, native markdown output with structure.
@@ -157,37 +142,7 @@ The server is thin: each tool is a small function over the parquet/SQLite/LanceD
 
 ## 4. Concrete next steps, ordered
 
-### Immediate (fix what's there)
-
-- [x] **Stop writing zero-vector embeddings on failure.** Raise or mark the chunk as failed and skip insertion. [embed_chunks.py:60-63](embed_chunks.py#L60-L63)
-- [x] **Load `config.yaml`** in `process_corpus.py` and actually use its values (OCR flags, chunk tokens, model name). Or delete it. Pick one.
-- [x] **Wire up Grobid.** Add a `docker-compose.yml` with the Grobid image; replace the stub `extract_metadata` with a client call to `/api/processHeaderDocument` (header) and `/api/processReferences` (bibliography). Cache TEI-XML output alongside `metadata.json`. Preserve section structure — downstream stages depend on it.
-- [x] **Replace naive `chunk_text` with docling's `HybridChunker`** (tokenizer-aware, respects structure) — the dependency is already installed.
-- [x] **Language-aware OCR.** Call `ocrmypdf -l eng+deu+fra+rus+lat` as default; detect language per page with langdetect or from existing text density, and narrow the lang list when confident. Install Tesseract lang packs in setup.
-- [x] **Make OCR optional per page, not per document.** Many mixed PDFs have cover pages with text and body pages that are scanned. `ocrmypdf --skip-text` covers this; prefer it over `--force-ocr`.
-- [x] **Bbox + page in `figures.json`** for both docling and PyMuPDF paths. [process_corpus.py:373](process_corpus.py#L373) `append_figure`.
-- [x] **Per-paper log file** at `documents/<HASH>/pipeline.log`. Migrate `print` calls to `logging`.
-- [x] **Use 12-char hash prefix** and verify no collision before reusing a directory.
-- [x] **Switch embeddings to local open-weights on Bouchet GPU** (see §7).
-
-### Near-term (unlock scale & the goals)
-
-- [x] **Ingest DwC taxonomy backbone as a corpus-level input.** Download a Darwin Core snapshot for the focal group (e.g. the relevant order/family + all child taxa, with synonymies and authority strings) and store as `taxonomy.sqlite` alongside the per-paper artifacts. This is a **prerequisite**, not an annotation step: every taxon-keyed query and the taxon-mention resolver depend on it. Refresh on a schedule; pin version in the corpus manifest.
-- [x] **Curate the domain anatomy lexicon.** A YAML file in the corpuscle listing the focal-group's anatomy terms plus common synonyms and language variants. Used by both the anatomy-term NER and the figure-anatomy classifier.
-- [x] **Figure+caption linking** as described in §3, plus a human-reviewable `figures_report.html` per paper (thumbnails + captions side-by-side). This is your QC surface for the "figure extraction success" goal.
-- [x] **BHL lookup stage** before OCR. If a BHL match exists (fuzzy title + year + author), prefer BHL's OCR text as a parallel artifact and flag confidence. Likely to materially help historical papers.
-- [x] **Golden test set.** Curated ground-truth answers for a handful of papers + corpus-wide structural/consistency checks across the full corpus, in `tests/`. Spans modern born-digital, scanned historical, and multilingual sources. See [`dev_docs/TESTING.md`](dev_docs/TESTING.md).
-- [x] **Deprecate the Snakefile legacy path.** Done — Snakefile + Snakemake-only scripts removed; `process_corpus.py` is the only pipeline entry point.
-
-### Domain-specific (annotation layer + query layer for the stated downstream uses)
-
-- [x] **Taxonomic mention extraction + resolution.** Integrate `gnfinder` (Global Names — handles historical variants well) for raw detection; resolve every mention against the DwC taxonomy snapshot (above) to an accepted name. Emit `taxa.json` per paper with chunk offsets, accepted name, and match confidence. Roll up into a corpus-wide `taxon_mentions.parquet`.
-- [x] **Authority-string parsing + taxonomic-act index.** Parse "Author, Year" authority strings from the DwC snapshot and from in-corpus descriptions. Emit a `taxonomic_acts.parquet` (taxon, author, year, original-description paper hash when resolvable). Backs Q7 directly.
-- [x] **Anatomy-term NER.** Apply the curated lexicon to every chunk; emit offsets. Start with exact-match + stemming; extend to a small fine-tuned NER if recall is poor on historical text.
-- [x] **Anatomy-aware figure search.** Start with caption-text keyword + taxon co-occurrence. For deeper coverage, run a vision model (Claude or an open VLM) over figure crops to tag anatomical structures. Highest-leverage place to use an LLM: captions are short, visual classification is cheap per image, directly backs Q4/Q8.
-- [x] **Reference graph.** From Grobid bibliographies, build a `references.parquet` + in-corpus citation graph. Backs Q2 and opens the door to citation-based queries.
-- [x] **Section-type index.** Use Grobid TEI structural labels to tag chunks with a section class (description / distribution / embryology / discussion / remarks / …). Backs Q2 and Q6.
-- [x] **MCP server.** Implemented in [mcp_server.py](mcp_server.py), backed by the per-PDF JSON indexes and the corpus-level SQLite databases. Tool surface listed in [`dev_docs/MCP_TOOLS.md`](dev_docs/MCP_TOOLS.md). Built on FastMCP with both stdio and SSE-over-HTTP transports; eager in-memory index at startup.
+The Phase A–F roadmap that lived here — Grobid wiring, HybridChunker, language-aware OCR, BHL lookup, DwC taxonomy ingest, anatomy lexicon, taxon mention resolution, reference graph, section-type index, MCP server, the golden test set, and the rest — has been fully delivered. See [`CHANGELOG.md`](CHANGELOG.md) for the per-feature record and §6 for current status. Open items have been moved to the GitHub issue tracker.
 
 ## 5. Scale considerations for ~2000 papers
 
@@ -265,44 +220,9 @@ Alternatives to keep in mind:
 - `intfloat/multilingual-e5-large` — 560M, 1024-dim, proven multilingual baseline.
 - `Qwen/Qwen3-Embedding-8B` — top of MTEB, 4096-dim, needs `gpu_h200` and more care; overkill unless we find BGE-M3 wanting.
 
-### Code changes required
+### Implementation status
 
-[embed_chunks.py](embed_chunks.py) is small; the diff is contained.
-
-1. Replace OpenAI client with `sentence_transformers.SentenceTransformer` (or `FlagEmbedding.BGEM3FlagModel` for BGE-M3-native features). Load once at process start, move to CUDA.
-2. Change embedding dim: `Vector(1536)` → `Vector(1024)` (BGE-M3). Any existing LanceDB index has to be rebuilt — it's stage 2 output, cheap to regenerate.
-3. Replace per-batch-of-100 API calls with a single `.encode(chunks, batch_size=64, normalize_embeddings=True, show_progress_bar=True)` call per PDF (or across PDFs, if we batch globally).
-4. **Fix bug #4 while we're here:** embed failures must raise, not zero-vector. With a local model, failure means OOM or driver issue — both should stop the run loudly.
-5. Gate the model/device behind config so we can fall back to OpenAI or swap models without editing code. Finally consume `config.yaml` (bug #3).
-
-### SLURM submission
-
-New `batch_embed.sh` alongside `embed_chunks.py`:
-
-```bash
-#!/bin/bash
-#SBATCH --job-name=corpus-embed
-#SBATCH --partition=gpu
-#SBATCH --gpus=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
-#SBATCH --time=4:00:00
-#SBATCH --output=logs/slurm-%j.out
-
-module purge
-module load miniconda CUDA
-conda activate corpus
-python embed_chunks.py <output_dir>
-```
-
-Stage 1 (`process_corpus.py`) stays CPU-only and can run on `day` — no reason to hold a GPU during OCR/docling.
-
-### Rollout order
-
-- [x] Add the local-embedding path behind a `--backend {openai,local}` flag; keep OpenAI working.
-- [x] Run on the existing demo corpus; compare retrieval quality on a handful of query→expected-chunk pairs.
-- [x] Flip the default to `local` and drop the OpenAI dependency entirely (commit `202ff04`).
-- [ ] Execute the full production run on Bouchet (the v0.1 release rebuild).
+OpenAI removed entirely (commit `202ff04`); BGE-M3 is the only embedding backend (1024-dim). SLURM submission via `slurm/batch_embed.sh` on `--partition=gpu`. Stage 1 stays CPU-only on `day`. Embed failures raise rather than silently zero-vector.
 
 ## 8. Target queries & end-user interface
 
@@ -329,14 +249,14 @@ Generic shapes, traced as **Shape → Path → Output → Gaps in current plan**
 - **Shape:** enumerative, entity-keyed, structured output.
 - **Path:** resolve `<species>` to accepted DwC taxon (+ synonyms) → taxon index returns all chunks/captions/tables mentioning the species → geographic NER on those chunks → dedupe + group by paper.
 - **Output:** table (location, coordinates if present, paper, page, quote).
-- **Gaps:** taxon↔chunk offset index (§4 *Taxonomic mention extraction + resolution* — must be exhaustive, not retrieval-ranked); geographic NER at chunk scope tied to taxon co-occurrence ([#13](https://github.com/caseywdunn/corpus/issues/13)); tabular output recipe (not yet scoped).
+- **Gaps:** geographic NER at chunk scope tied to taxon co-occurrence ([#13](https://github.com/caseywdunn/corpus/issues/13)); tabular output recipe (not yet scoped). Taxon↔chunk offset index is in place (must remain exhaustive, not retrieval-ranked).
 
 #### Q2. "Compose a monographic review of `<genus>`."
 
 - **Shape:** enumerative, genus-level, long-form synthesis.
 - **Path:** genus → all child species (incl. synonyms) via the DwC snapshot → all chunks mentioning any of them → section-filtered retrieval (descriptions, habitat, distribution, remarks) via Grobid TEI → all figures + captions → all references → Opus synthesis in one or a few passes.
 - **Output:** structured long-form document with inline citations, figures, and a reference list.
-- **Gaps:** DwC backbone as a first-class pipeline artifact (§4 *Ingest DwC taxonomy backbone*); section-type tagging of chunks from Grobid TEI (§4 *Section-type index*); synthesis recipe for monographic output (not yet scoped); reliable figure+caption joint object (§4 *Figure+caption linking*).
+- **Gaps:** synthesis recipe for monographic output (not yet scoped). The supporting indices — DwC taxonomy backbone, section-type tagging, figure+caption joint object — are all in place.
 
 #### Q3. "Make a key to identify species in `<genus>`."
 
@@ -350,14 +270,14 @@ Generic shapes, traced as **Shape → Path → Output → Gaps in current plan**
 - **Shape:** enumerative over a closed taxonomic set; per-entity synthesis; figure selection.
 - **Path:** DwC snapshot → list of currently-valid species → per species: all mentioning chunks → Opus one-paragraph summary → figure index: find figures captioned/tagged with the species and a diagnostic anatomy term → assemble.
 - **Output:** a catalog document / website.
-- **Gaps:** figure index with **anatomy tags** (§4 *Anatomy-aware figure search* — needs vision-model figure classification); a per-species batch synthesis recipe (not yet scoped); concept of "diagnostic structure" — either user-curated per genus or learned from description sections.
+- **Gaps:** vision-model figure-anatomy classification at corpus scale (Pass 3b on the v0.1 rebuild — see [#11](https://github.com/caseywdunn/corpus/issues/11)); a per-species batch synthesis recipe (not yet scoped); concept of "diagnostic structure" — either user-curated per genus or learned from description sections.
 
 #### Q5. "Summarize all of `<author X>`'s comments about `<author Y>`."
 
 - **Shape:** author-filtered + entity-filtered; meta-commentary extraction.
 - **Path:** author index (from Grobid headers) → all papers authored by `<author X>` → chunks mentioning `<author Y>` (as person, not just cited work) → LLM filter: which mentions are substantive commentary vs. routine citation → synthesis.
 - **Output:** narrative summary with direct quotes + citations.
-- **Gaps:** author-indexed corpus (falls out of §4 *Wire up Grobid* but needs explicit per-author rollup); person-name NER that distinguishes cited-author-as-entity from cited-work; "meta-commentary vs. citation" classification (LLM in the loop at query time is fine — don't pre-compute).
+- **Gaps:** explicit per-author rollup over Grobid headers; person-name NER that distinguishes cited-author-as-entity from cited-work; "meta-commentary vs. citation" classification (LLM in the loop at query time is fine — don't pre-compute).
 
 #### Q6. "Write a summary of `<topic>` across the corpus."
 
@@ -378,7 +298,7 @@ Generic shapes, traced as **Shape → Path → Output → Gaps in current plan**
 - **Shape:** topic-semantic, anatomy-keyed.
 - **Path:** anatomy index returns all chunks tagged with `<anatomy>` → plus vector search for adjacent concepts (synonyms, related structures from the lexicon) to catch non-lexical matches → figures tagged with `<anatomy>` → Opus synthesis.
 - **Output:** narrative summary with citations and figures.
-- **Gaps:** anatomy-term index (§4 *Anatomy-term NER*); vision-based figure anatomy tagging (§4 *Anatomy-aware figure search*).
+- **Gaps:** none structural — anatomy-term index and vision-based figure anatomy tagging are both in place. Quality of vision tagging at corpus scale lands with the v0.1 rebuild ([#11](https://github.com/caseywdunn/corpus/issues/11)).
 
 ### Indices this implies
 
@@ -399,10 +319,10 @@ Vector embeddings are one of ten indices. Only Q6 and Q8 treat vector search as 
 
 ### Coverage of these queries by the current plan
 
-The scope items these queries demand — DwC backbone as a first-class input, anatomy lexicon + NER, authority-string / taxonomic-act parsing, section-type tagging, figure anatomy classification, reference graph, and the MCP tools layer — are now all reflected as line items in §4. The two genuine gaps remaining are:
+The scope items these queries demand — DwC backbone, anatomy lexicon + NER, authority-string / taxonomic-act parsing, section-type tagging, figure anatomy classification, reference graph, and the MCP tools layer — are all in place. The two genuine gaps remaining are:
 
 - **Trait extraction + key generation (Q3).** Deferred to post-v0.1 ([#14](https://github.com/caseywdunn/corpus/issues/14)). Will get its own plan section when we pick it up.
-- **Synthesis recipes (Q2, Q4).** The indices + MCP tools will be in place, but the specific Opus-driven prompts and map-reduce patterns for monographic review (Q2) and per-entity catalog (Q4) are not yet scoped. These are cheap to iterate on once the substrate exists — prototype against the golden test set before committing to any one recipe.
+- **Synthesis recipes (Q2, Q4).** The indices + MCP tools are in place, but the specific Opus-driven prompts and map-reduce patterns for monographic review (Q2) and per-entity catalog (Q4) are not yet scoped. Cheap to iterate on once collaborators are using the served bundle — prototype against the golden test set before committing to any one recipe.
 
 ## 9. Three-pass figure extraction with ROI sidecar
 
@@ -529,28 +449,6 @@ get_figure_roi_image(paper_hash, figure_id, roi_index, save_to=None)
 
 `get_figures_for_taxon` / `get_figures_for_anatomy` gain a `prefer_panels: bool = False` flag so queries asking about a specific anatomy can return panel-level crops when they exist.
 
-### Rollout
-
-Implemented in three commits:
-
-1. **Pass 2.5** (commit `a794bdc`) — caption parser + missing-figures scan. Cheap, always-on. Adds `panels_from_caption[]` / `panel_count_from_caption` / `missing_figures[]` to artifacts. No image or filename changes.
-2. **Pass 3a** (commit `72e0633`) — Tesseract ROI pass, MCP crop-on-demand tools. Gated behind `--content-aware-figures` flag. Recall turned out to be ~20–40% on line-art scientific figures — always-partial, rarely the primary signal.
-3. **Pass 3b** (commit `9e98455`) — Claude-vision backend, same result schema as 3a. Flagged via `--vision-backend claude` (+ `--vision-model …` override). Demo-corpus results show high completion rates with the merged-adjacent-figures case correctly split. Haiku 4.5 at ~$0.003/fig.
-
-### Status & immediate next steps (as of commit `9e98455`, updated post-3c)
-
-**Done**: Phases A–F, MCP server (see `dev_docs/MCP_TOOLS.md`), filename-year fallback, figure dedup + position letters, Pass 2.5, Pass 3a, Pass 3b (Claude vision), Pass 3c (compound file rename + sub-figure split), `LocalVLMBackend` (Qwen2.5-VL), Bouchet SLURM + Singularity prep (see `BOUCHET.md`). Demo/ fully reprocessed with the merged-adjacent-figures case correctly split: `fig_3.png` → `fig_3-4.png`, with a new `figure_number=4` figure record and its own 4-panel ROI set.
-
-**Three natural follow-ups**, in rough order of user-facing value:
-
-- [x] **Compound file rename + sub-figure split** (Phase 3c). `resolve_compound_figures()` in `figures.py` partitions ROIs by `parent_figure_index` (with spatial-split fallback for duplicate labels), matches embedded sub-figures to `missing_figures[]` entries, renames the PNG to range notation (`fig_3-4.png`), records `previous_filenames[]`, and emits a standalone figure record per recovered sub-figure with `image_shared_with` pointing at the host. New records are fully MCP-visible (same `figures.json` list). Idempotent — skips figures with existing `pass3c_status`. Wired into the pipeline between Pass 3b and chunk cross-ref.
-- [x] **Local VLM backend** — `vision.LocalVLMBackend` wraps Qwen2.5-VL (default 7B-Instruct) via HuggingFace `transformers` + `qwen-vl-utils`. Same `detect_figure_panels()` contract as the Claude backend; device auto-detect follows `embeddings.detect_device()` (cuda → mps → cpu). Select with `--vision-backend local`. No per-figure API cost; needed for the Bouchet production run.
-- [x] **Bouchet prep** — three SLURM scripts (`batch_process_corpus.sh` on `day` for stage 1; `batch_pass3b.sh` on `gpu_h200` for Qwen2.5-VL; `batch_embed.sh` on `gpu` for BGE-M3). Companion `BOUCHET.md` captures one-time setup: `git lfs pull`, Grobid via Singularity, model cache pre-download to `~/project/cache/huggingface/`, and a dry-run recipe for 20–50 papers before committing to the full 2000. All three scripts use `--resume` so restarts are cheap and can be chained via `--dependency=afterok`.
-
-**Fourth item deferred indefinitely**: `get_figure_roi_image` panel disambiguation when two A's exist in a compound (minor MCP polish).
-
-Pass 3c handles compound file rename; Phases A–F + 2.5 + 3a + 3b are otherwise considered complete as of this checkpoint.
-
 ## 10. Deployment to AWS (post-Bouchet, for collaborator access)
 
 Production runs on Bouchet, but the served corpus needs a long-lived public-ish endpoint so collaborators at other institutions and lab members can query it without pulling 10 GB of artifacts down to their laptops. AWS is the target; the design needs to be settled now (not after deployment) because the per-paper artifact set is the contract that the distillation, the MCP server, and downstream non-MCP consumers all key off.
@@ -645,13 +543,9 @@ Target audience is ~20 trusted collaborators. The threat model is runaway bills 
 - CloudFront + WAF rate-limit by IP (~100 req/min). Caps a misbehaving client before it hits the EC2.
 - If collaborators are at a stable set of institutions, an EC2 security group whitelisting their CIDRs is a second gate that costs nothing.
 
-### Three things to design now (before §10 is implemented)
+### Design constraints (now satisfied)
 
-These aren't implementation work — they're constraints that need to flow back into the existing Bouchet phases so the AWS step doesn't require re-engineering later.
-
-- [x] **The served-file whitelist is a stable contract.** `PER_PAPER_FILES` constant at the top of `package_for_serve.py` enumerates the contract. Don't let new pipeline phases silently add must-have files without registering them.
-- [x] **No absolute paths in any served JSON.** Implemented in `package_for_serve.py` as a distillation-time scrub on `summary.json` (drops `input_dir`/`output_directory`, basename-ifies `original_pdf`, rewrites `files_created` to corpus-root-relative) and `figures.json` (rewrites `file_path` and `figures_directory`), followed by a JSON-walk audit that fails the build if any absolute-path-shaped string value remains. Unit tests in `tests/test_package_for_serve.py`.
-- [x] **Per-bundle version stamp from day one.** `package_for_serve.py` writes `bundle_version`, `pipeline_git_sha`, `embedding_model`, `taxonomy_snapshot_date` into a top-level `bundle_manifest.json` at the end of each Bouchet run. Lets early collaborators cite a corpus version.
+Three constraints had to flow back into the Bouchet pipeline before AWS deployment so the served-bundle contract was stable: (1) a single source-of-truth whitelist of served-bundle files (`PER_PAPER_FILES` in `package_for_serve.py`), (2) no absolute paths in any served JSON (distillation-time scrub + JSON-walk audit, see `tests/test_package_for_serve.py`), and (3) a per-bundle version stamp written into `bundle_manifest.json` (`bundle_version`, `pipeline_git_sha`, `embedding_model`, `taxonomy_snapshot_date`) so collaborators can cite a corpus version. All three are in place.
 
 ### What this section deliberately does not pin down
 
