@@ -43,6 +43,7 @@ import argparse
 import datetime as dt
 import json
 import logging
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -51,6 +52,14 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 logger = logging.getLogger("package_for_serve")
+
+# Filesystem roots that flag a string as "absolute path that needs to be
+# scrubbed before this bundle leaves the build host". The pattern is
+# anchored at the start of a string value, not as a substring — body-text
+# JSONs (chunks.json, text.json) routinely contain URLs whose path
+# components include "/home/...", "/var/..." etc. mid-string. Anchored
+# matching only catches values whose *entire* shape is a filesystem path.
+_ABS_PATH_RE = re.compile(r'^/(?:nfs|Users|home|mnt|var|opt|srv)/')
 
 # The per-paper whitelist.  Top-level files only — figures/ is handled
 # separately as a directory copy.
@@ -208,6 +217,156 @@ def _iso_now() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# ── Path scrubbing (PLAN.md §10) ────────────────────────────────────
+#
+# `process_corpus.py` writes summary.json with absolute Bouchet paths in
+# input_dir / output_directory / processing_summary.original_pdf /
+# processing_summary.files_created, and figures.json with absolute
+# file_path / figures_directory. None of those are useful (or correct)
+# once the bundle is served from a different machine. Rewrite them to
+# corpus-root-relative form (e.g. ``documents/<HASH>/figures/fig_3.png``)
+# at distillation time so the served bundle is portable, and assert
+# absence of any remaining absolute path before declaring success.
+
+def _to_corpus_relative(s: str, output_root: Path) -> Optional[str]:
+    """Map an absolute path string to corpus-root-relative.
+
+    Returns:
+    - ``None`` if ``s`` is not an absolute path (already relative — leave alone).
+    - The relative path under ``output_root`` if ``s`` is under that root
+      (the common case during a same-machine distillation).
+    - A ``documents/<HASH>/...`` slice if the path contains that segment
+      but isn't under ``output_root`` (e.g. distilling a build copied
+      from a different mount point — the corpus shape is preserved
+      even though the absolute prefix differs).
+    - The basename as a last resort (e.g. an input-PDF path with no
+      ``documents/`` segment — the absolute prefix is provenance, not
+      something the served bundle should carry, so keep the filename).
+    """
+    p = Path(s)
+    if not p.is_absolute():
+        return None
+    try:
+        return str(p.relative_to(output_root))
+    except ValueError:
+        parts = p.parts
+        if "documents" in parts:
+            i = parts.index("documents")
+            return str(Path(*parts[i:]))
+        return p.name
+
+
+def _scrub_summary(serve_path: Path, output_root: Path) -> bool:
+    """Rewrite absolute-path fields in a copied summary.json.
+
+    Drops ``input_dir`` and ``output_directory`` (machine-specific
+    provenance). Replaces ``processing_summary.original_pdf`` with the
+    basename. Rewrites ``processing_summary.files_created`` entries to
+    corpus-root-relative paths.
+
+    Returns True if any change was made.
+    """
+    try:
+        data = json.loads(serve_path.read_text())
+    except Exception:
+        return False
+    changed = False
+    for key in ("input_dir", "output_directory"):
+        if key in data:
+            data.pop(key)
+            changed = True
+    ps = data.get("processing_summary")
+    if isinstance(ps, dict):
+        op = ps.get("original_pdf")
+        if isinstance(op, str) and Path(op).is_absolute():
+            ps["original_pdf"] = Path(op).name
+            changed = True
+        fc = ps.get("files_created")
+        if isinstance(fc, list):
+            new_list: List[str] = []
+            for entry in fc:
+                if isinstance(entry, str):
+                    rel = _to_corpus_relative(entry, output_root)
+                    new_list.append(rel if rel is not None else entry)
+                else:
+                    new_list.append(entry)
+            if new_list != fc:
+                ps["files_created"] = new_list
+                changed = True
+    if changed:
+        serve_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    return changed
+
+
+def _scrub_figures(serve_path: Path, output_root: Path) -> bool:
+    """Rewrite absolute-path fields in a copied figures.json.
+
+    Rewrites ``figures[].file_path`` and the top-level
+    ``figures_directory`` to corpus-root-relative form. Returns True
+    if any change was made.
+    """
+    try:
+        data = json.loads(serve_path.read_text())
+    except Exception:
+        return False
+    changed = False
+    for fig in data.get("figures") or []:
+        if not isinstance(fig, dict):
+            continue
+        fp = fig.get("file_path")
+        if isinstance(fp, str):
+            rel = _to_corpus_relative(fp, output_root)
+            if rel is not None and rel != fp:
+                fig["file_path"] = rel
+                changed = True
+    fd = data.get("figures_directory")
+    if isinstance(fd, str):
+        rel = _to_corpus_relative(fd, output_root)
+        if rel is not None and rel != fd:
+            data["figures_directory"] = rel
+            changed = True
+    if changed:
+        serve_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    return changed
+
+
+def _walk_strings(node) -> Iterable[str]:
+    """Yield every string leaf in a parsed JSON tree (depth-first)."""
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for v in node.values():
+            yield from _walk_strings(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _walk_strings(v)
+
+
+def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
+    """Walk every JSON in the served bundle and flag string values that
+    *are* absolute filesystem paths. Returns a list of
+    ``(relative_path, offending_value)`` — empty when the bundle is clean.
+
+    This is the §10 "no absolute paths in any served JSON" audit. Run
+    after scrubbing; raises in the caller on non-empty result. Body-text
+    fields (chunks.json text, intext_citations.json paragraph excerpts)
+    can contain URLs with ``/home/...``-shaped path components — those
+    don't trigger because the regex is anchored at start-of-string and
+    the surrounding body text isn't itself a path.
+    """
+    offenders: List[Tuple[str, str]] = []
+    for jp in sorted(serve_dir.rglob("*.json")):
+        try:
+            data = json.loads(jp.read_text())
+        except Exception:
+            continue
+        for s in _walk_strings(data):
+            if _ABS_PATH_RE.match(s):
+                offenders.append((str(jp.relative_to(serve_dir)), s[:120]))
+                break  # one offender per file is enough to flag it
+    return offenders
+
+
 # ── Main packager ───────────────────────────────────────────────────
 
 def package(output_dir: Path, serve_dir: Path, version: str,
@@ -277,6 +436,32 @@ def package(output_dir: Path, serve_dir: Path, version: str,
             n_files += 1
             total_bytes += bw
 
+    # Path scrubbing (§10): rewrite absolute paths in copied summary.json
+    # and figures.json to corpus-root-relative form, then audit the whole
+    # served bundle to confirm no absolute paths leaked through. Skipped
+    # in dry-run since the destination files don't exist.
+    n_scrubbed = 0
+    if not dry_run:
+        for hash_dir in sorted((serve_dir / "documents").iterdir()):
+            if not hash_dir.is_dir():
+                continue
+            if _scrub_summary(hash_dir / "summary.json", output_dir):
+                n_scrubbed += 1
+            if _scrub_figures(hash_dir / "figures.json", output_dir):
+                n_scrubbed += 1
+        offenders = _audit_no_absolute_paths(serve_dir)
+        if offenders:
+            logger.error("Absolute paths leaked into served bundle:")
+            for rel, snippet in offenders[:10]:
+                logger.error("  %s: …%s…", rel, snippet)
+            raise RuntimeError(
+                f"Absolute-path audit failed: {len(offenders)} file(s) "
+                "still contain absolute paths. Update _scrub_summary / "
+                "_scrub_figures (or add a new scrubber for the affected "
+                "JSON) before re-running."
+            )
+        logger.info("Path scrub: rewrote %d files; audit clean.", n_scrubbed)
+
     # Manifest
     model, dim = _read_one_embedding_marker(output_dir)
     fig_count, chunk_count = _count_figures_and_chunks(documents_dir)
@@ -299,6 +484,7 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     manifest["_stats"] = {
         "n_files_copied": n_files,
         "total_bytes": total_bytes,
+        "n_files_scrubbed": n_scrubbed if not dry_run else 0,
         "dry_run": dry_run,
     }
     return manifest

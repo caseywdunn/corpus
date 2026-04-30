@@ -179,3 +179,118 @@ def test_package_raises_when_documents_missing(tmp_path: Path):
             serve_dir=tmp_path / "serve",
             version="v0", include_pdfs=False, dry_run=False,
         )
+
+
+# ── Path scrubbing (PLAN.md §10) ────────────────────────────────────
+
+def _make_output_with_absolute_paths(root: Path) -> Path:
+    """Build an output/ tree whose summary.json and figures.json carry the
+    absolute Bouchet-style paths that ``process_corpus.py`` actually writes,
+    so the scrub + audit have something real to chew on."""
+    h = "abc"
+    hd = root / "documents" / h
+    (hd / "figures").mkdir(parents=True)
+    (hd / "figures" / "fig1.png").write_bytes(b"\x89PNG..stub..")
+
+    # Mimic an absolute Bouchet-rooted paths inside the corpus tree.
+    abs_root = str(root)
+    (hd / "summary.json").write_text(json.dumps({
+        "pdf_hash": h,
+        "input_dir": "/nfs/roberts/project/cwd7/source",
+        "relative_paths": ["library/Q_R/Foo.pdf"],
+        "output_directory": f"{abs_root}/documents/{h}",
+        "processing_summary": {
+            "original_pdf": "/nfs/roberts/project/cwd7/source/library/Q_R/Foo.pdf",
+            "files_created": [
+                f"{abs_root}/documents/{h}/text.json",
+                f"{abs_root}/documents/{h}/chunks.json",
+                f"{abs_root}/documents/{h}/figures.json",
+            ],
+            "status": "success",
+        },
+    }))
+    (hd / "figures.json").write_text(json.dumps({
+        "figures": [{
+            "figure_id": "f1",
+            "filename": "fig1.png",
+            "file_path": f"{abs_root}/documents/{h}/figures/fig1.png",
+            "caption_text": "",
+        }],
+        "figures_directory": f"{abs_root}/documents/{h}/figures",
+        "total_figures": 1,
+    }))
+    # Other whitelisted files: leave as plain stubs (no path fields).
+    for fname in ("metadata.json", "references.json", "intext_citations.json",
+                  "text.json", "chunks.json", "taxa.json", "anatomy.json"):
+        (hd / fname).write_text("{}")
+
+    # Minimal LanceDB so package() succeeds.
+    (root / "vector_db" / "lancedb").mkdir(parents=True)
+    (root / "vector_db" / "lancedb" / "manifest.txt").write_bytes(b"x")
+    return root
+
+
+def test_package_scrubs_absolute_paths_in_summary_and_figures(tmp_path: Path):
+    src = _make_output_with_absolute_paths(tmp_path / "out")
+    dst = tmp_path / "serve"
+    manifest = pkg.package(
+        output_dir=src.resolve(), serve_dir=dst,
+        version="v0.1.0", include_pdfs=False, dry_run=False,
+    )
+
+    summary = json.loads((dst / "documents" / "abc" / "summary.json").read_text())
+    figures = json.loads((dst / "documents" / "abc" / "figures.json").read_text())
+
+    # input_dir + output_directory dropped entirely.
+    assert "input_dir" not in summary
+    assert "output_directory" not in summary
+
+    # original_pdf becomes basename, files_created becomes corpus-root-relative.
+    assert summary["processing_summary"]["original_pdf"] == "Foo.pdf"
+    assert summary["processing_summary"]["files_created"] == [
+        "documents/abc/text.json",
+        "documents/abc/chunks.json",
+        "documents/abc/figures.json",
+    ]
+    # relative_paths was already relative — must be preserved untouched.
+    assert summary["relative_paths"] == ["library/Q_R/Foo.pdf"]
+
+    # figures.json paths: corpus-root-relative.
+    assert figures["figures"][0]["file_path"] == "documents/abc/figures/fig1.png"
+    assert figures["figures_directory"] == "documents/abc/figures"
+
+    # Manifest reports the scrub count.
+    assert manifest["_stats"]["n_files_scrubbed"] == 2  # summary + figures
+
+
+def test_package_audit_fails_when_absolute_path_unscrubbed(tmp_path: Path):
+    """If a JSON outside summary/figures sneaks in an absolute path, the
+    audit pass MUST fail loudly. Otherwise §10 portability silently breaks."""
+    src = _make_output_with_absolute_paths(tmp_path / "out")
+    # Plant an absolute path in chunks.json, which has no scrubber.
+    (src / "documents" / "abc" / "chunks.json").write_text(json.dumps({
+        "chunks": [{"id": 0, "source_file": "/nfs/roberts/some/leak.json"}],
+    }))
+    dst = tmp_path / "serve"
+    with pytest.raises(RuntimeError, match="Absolute-path audit failed"):
+        pkg.package(
+            output_dir=src.resolve(), serve_dir=dst,
+            version="v0.1.0", include_pdfs=False, dry_run=False,
+        )
+
+
+def test_to_corpus_relative_helper(tmp_path: Path):
+    root = tmp_path / "out"
+    root.mkdir()
+    # Absolute path under output_root → relative.
+    s = str(root / "documents" / "abc" / "figures" / "fig1.png")
+    assert pkg._to_corpus_relative(s, root) == "documents/abc/figures/fig1.png"
+    # Absolute path NOT under output_root but with documents/<HASH>/ segment
+    # (cross-machine distillation case) → slice from documents/ onwards.
+    assert pkg._to_corpus_relative(
+        "/nfs/elsewhere/build/documents/abc/figures/fig1.png", root,
+    ) == "documents/abc/figures/fig1.png"
+    # Absolute path NOT under output_root and no documents/ segment → basename.
+    assert pkg._to_corpus_relative("/nfs/elsewhere/foo.pdf", root) == "foo.pdf"
+    # Already-relative path → None (caller leaves it alone).
+    assert pkg._to_corpus_relative("documents/abc/text.json", root) is None
