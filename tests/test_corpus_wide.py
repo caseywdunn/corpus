@@ -98,15 +98,27 @@ _FIG_REF_PATTERN = re.compile(
 
 
 def _extract_text_figure_numbers(text):
-    """Return set of figure/plate numbers mentioned in running text."""
+    """Return set of digit strings for figure/plate numbers mentioned in text.
+
+    Returns strings (not ints) so they can be compared directly against the
+    string figure_number values stored in figures.json.
+    """
     nums = set()
     for m in _FIG_REF_PATTERN.finditer(text):
-        nums.add(int(m.group(1)))
-        # Capture range endpoints (e.g. "Figs. 1-3")
-        rest = m.group(0)
-        for n in re.findall(r"\d+", rest):
-            nums.add(int(n))
+        # Capture range endpoints (e.g. "Figs. 1-3") as digit strings
+        for n in re.findall(r"\d+", m.group(0)):
+            nums.add(n)
     return nums
+
+
+def _fig_number_digit_keys(fn):
+    """Extract digit strings from a figure_number for comparison against text.
+
+    Handles plain integers ('5'), subfigure panels ('3c'), and
+    book-style chapter.figure numbers ('2.1').  Returns the set of
+    digit-run strings extracted, e.g. '3c' -> {'3'}, '2.1' -> {'2', '1'}.
+    """
+    return set(re.findall(r"\d+", str(fn)))
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +311,7 @@ class TestFigureTextConsistency:
 
         unreferenced = [
             f["figure_number"] for f in numbered
-            if f["figure_number"] not in text_nums
+            if not _fig_number_digit_keys(f["figure_number"]) & text_nums
         ]
         # Allow some slack — captions can use unusual formatting
         frac = len(unreferenced) / len(numbered) if numbered else 0
@@ -324,12 +336,13 @@ class TestFigureTextConsistency:
         if not text_nums:
             pytest.skip("no figure references in text")
 
-        extracted_nums = {
-            f["figure_number"] for f in figs
-            if f.get("figure_number") is not None
-        }
+        extracted_keys = set()
+        for f in figs:
+            fn = f.get("figure_number")
+            if fn is not None:
+                extracted_keys |= _fig_number_digit_keys(fn)
 
-        missing = text_nums - extracted_nums
+        missing = text_nums - extracted_keys
         # Many papers reference figures in other papers, so be lenient.
         # But if >50% of referenced figures are missing, something is wrong.
         frac = len(missing) / len(text_nums) if text_nums else 0
