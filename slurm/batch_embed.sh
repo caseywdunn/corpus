@@ -48,8 +48,7 @@ echo "Output: $OUTPUT_DIR"
 
 python embed_chunks.py \
     "$OUTPUT_DIR" \
-    --resume \
-    --backend local || {
+    --resume || {
     EC=$?
     # Bus error (135) or segfault (139) during CUDA teardown after
     # successful embedding is a known issue on RTX 5000 Ada nodes with
