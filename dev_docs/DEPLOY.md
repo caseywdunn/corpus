@@ -407,6 +407,16 @@ ones.
   For the current update, finish the restart manually as ubuntu:
   `sudo systemctl restart corpus-mcp`.
 
+- **`421 Invalid Host header` from the MCP server** when nginx forwards
+  the client's `Host` through unchanged.  FastMCP's SSE transport has
+  DNS-rebinding protection that only matches its allowlist (default
+  `["127.0.0.1:*", "localhost:*"]`), so `Host: corpus.example.edu`
+  gets rejected.  `deploy/nginx.conf` rewrites Host to `localhost:8080`
+  on both `/sse` and `/messages/` for this reason.  If you ever rebuild
+  the nginx config from scratch, keep the rewrite — passing `$host`
+  upstream silently breaks every client with a 421 even though
+  `nginx -t` is happy.
+
 - **SSH times out** if your home IP changed since stack deploy.
   Update `SSHAllowCIDR` and re-deploy:
   `aws cloudformation deploy --stack-name $STACK --template-file deploy/stack.yaml --parameter-overrides SSHAllowCIDR=$(curl -4 -s https://ifconfig.co)/32 BucketName=$BUCKET KeyPairName=$KEYPAIR VpcId=$VPC_ID SubnetId=$SUBNET_ID --capabilities CAPABILITY_IAM`
