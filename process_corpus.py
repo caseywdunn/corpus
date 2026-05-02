@@ -2599,8 +2599,16 @@ def main():
 
             # Run each document in a child process so that C-level crashes
             # (segfaults in docling/PyMuPDF) don't kill the whole batch.
-            # On Linux the default fork start method inherits all objects
-            # (grobid_client, taxonomy_db, vision_backend) without pickling.
+            # We use the fork start method so the child inherits already-built
+            # objects (grobid_client, taxonomy_db, vision_backend, _worker
+            # closure) without pickling.
+            #
+            # macOS exception: PyTorch + Apple's Objective-C frameworks
+            # (Metal/MPSGraph) are not fork-safe. The forked child crashes
+            # the moment docling loads torch. There is no env-var workaround
+            # that holds — OBJC_DISABLE_INITIALIZE_FORK_SAFETY just turns the
+            # abort into a SIGSEGV. So on macOS we run inline and rely on
+            # --resume to recover from the rare segfault.
             def _worker():
                 with per_pdf_file_log(hash_dir) as log_path:
                     logger.info("pipeline.log: %s", log_path)
@@ -2627,20 +2635,24 @@ def main():
                             logger.info("Writing vector-db ingestion marker...")
                             ingest_to_vector_db(chunks_file, vector_db_dir, pdf_hash)
 
-            proc = multiprocessing.Process(target=_worker)
-            proc.start()
-            proc.join()
-            if proc.exitcode != 0:
-                if proc.exitcode < 0:
-                    logger.error(
-                        "Document %s killed by signal %d (segfault?) — skipping",
-                        pdf_hash, -proc.exitcode,
-                    )
-                else:
-                    logger.error(
-                        "Document %s worker exited with code %d — skipping",
-                        pdf_hash, proc.exitcode,
-                    )
+            if sys.platform == "darwin":
+                _worker()
+            else:
+                mp_ctx = multiprocessing.get_context("fork")
+                proc = mp_ctx.Process(target=_worker)
+                proc.start()
+                proc.join()
+                if proc.exitcode != 0:
+                    if proc.exitcode < 0:
+                        logger.error(
+                            "Document %s killed by signal %d (segfault?) — skipping",
+                            pdf_hash, -proc.exitcode,
+                        )
+                    else:
+                        logger.error(
+                            "Document %s worker exited with code %d — skipping",
+                            pdf_hash, proc.exitcode,
+                        )
 
     logger.info("Processing complete. Results saved to: %s", output_dir)
     logger.info("  Documents: %s", documents_dir)
