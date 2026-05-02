@@ -9,7 +9,7 @@ defined declaratively in [deploy/stack.yaml](../deploy/stack.yaml)
 
 Deliberately boring, per PLAN.md §10, scaled to ~20 collaborators:
 
-- **EC2 `t3.small`** on the default VPC, Ubuntu 24.04 LTS, Elastic IP.
+- **EC2 `t3.large`** on the default VPC, Ubuntu 24.04 LTS, Elastic IP.
 - **nginx** on the instance terminates TLS via Let's Encrypt, reverse-
   proxies to `mcp_server.py` on `127.0.0.1:8080`.
 - **S3** bucket holds versioned serve bundles; the instance reads

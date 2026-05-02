@@ -35,12 +35,12 @@ Parameters:
 
   InstanceType:
     Type: String
-    Default: t3.small
+    Default: t3.large
     AllowedValues: [t3.small, t3.medium, t3.large]
     Description: >
-      t3.small ($15/mo) is sufficient for ~20 collaborators.  Bump
-      to t3.medium if cold-start latency (LanceDB load) becomes
-      noticeable or RAM pressure shows in `free -h`.
+      t3.large gives 8 GB RAM with headroom for LanceDB and concurrent
+      collaborators.  Drop to t3.medium/t3.small to cut cost if
+      `free -h` shows persistent slack.
 
   AmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>

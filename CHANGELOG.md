@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2026-04-XX
+## [0.1.0] - 2026-05-01
 
 First tagged release. The pipeline ingests a corpus of scientific-literature
 PDFs, extracts text/figures/references, builds a set of structured indices
@@ -188,16 +188,27 @@ late-18th-century printed monographs through born-digital 2025 articles.
 
 ### Deferred / known limitations
 
-- **OCR-step failure on ~33 docs** — ocrmypdf produces 0-text outputs on a
-  subset of `force_ocr` and `skip_text` invocations. Diagnostic ticket with
-  flag matrix in [#10]. Affects three real Cyrillic-mojibake papers
-  (Stepanjants 1966 et al.) plus various very-old scans. Workaround
-  pending.
-- **Vendor-watermark misclassification** — three papers (Karplus2014,
-  Browne1905, Fleming1828) classified `born_digital` because the only
-  text layer is a per-page ProQuest/BHL banner. Tracked in [#8].
-- **Fraktur pack not yet installed on Bouchet** — 19th-c. German scans
-  (Goldfuss 1820, Pagenstecher 1869, Brandt 1837, Donitz 1871, …) currently
-  OCR to whitespace. Tracked in [#9].
-- **Geographic extraction (Q1 in PLAN.md §8)** — not yet implemented.
+- **Figure-number extraction on historical scans** — ~538 of 1,787 papers
+  (~30%) have `Fig. N` references in body text but no extracted figure
+  numbers. Mostly 19th-c. and early-20th-c. scans whose caption formatting
+  doesn't match the heuristics that drive `parse_figure_number`. Figures
+  are still extracted; only the numbering is missing. Tracked in
+  [#16](https://github.com/caseywdunn/corpus/issues/16) for v0.1.x.
+- **MCP server identity is not corpuscle-aware** — the deployed server
+  identifies itself as `corpus` rather than after the corpuscle it serves,
+  and is not version-stamped at the server level (the bundle manifest is
+  versioned, but the server name isn't). Affects multi-corpus deployments.
+  Tracked in [#17](https://github.com/caseywdunn/corpus/issues/17) for v0.1.x.
+- **Fraktur Tesseract pack on Bouchet** — 19th-c. German scans (Goldfuss
+  1820, Pagenstecher 1869, Brandt 1837, Donitz 1871, etc.) currently OCR
+  to whitespace because the `deu_latf` pack isn't installed in the build
+  environment. Tracked in [#9](https://github.com/caseywdunn/corpus/issues/9)
+  for v0.1.x; install + reprocess the affected papers to recover them.
+- **Vision-pass coverage at corpus scale** — `batch_pass3b.sh` (Qwen2.5-VL)
+  is wired and tested but did not run as part of the v0.1 rebuild. Pass 3c
+  (compound-figure split) and the bulk of the 6,841 pre-existing
+  `missing_figures[]` records are unresolved. Tracked in
+  [#11](https://github.com/caseywdunn/corpus/issues/11) for v0.1.x.
+- **Geographic extraction** (§12 Layer 3 in PLAN.md) — not yet implemented.
+  Tracked in [#13](https://github.com/caseywdunn/corpus/issues/13).
   

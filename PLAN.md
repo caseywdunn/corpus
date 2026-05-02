@@ -158,34 +158,33 @@ Implementation status of the items in §4 is reflected by `[x]`/`[ ]` checkboxes
 
 ### v0.1 release punch list
 
-Tracked work before the v0.1 tag and full corpus rebuild on Bouchet. Issues are tracked in GitHub; checkboxes here are the running status.
+Closed out for the v0.1 tag. Pre-tag tasks done; tagging mechanics and post-tag follow-ups remain.
 
-**Bouchet (rebuild dependencies):**
+**Pre-tag (done):**
 
-- [ ] [#10](https://github.com/caseywdunn/corpus/issues/10) — Diagnose why ocrmypdf produces zero-text PDFs on ~33 docs. Run flag matrix on Stepanjants/MilosMaley/Pagenstecher; install pngquant; apply winning flags to `prepare_pdf`. Likely recovers ~25–30 docs.
-- [ ] [#9](https://github.com/caseywdunn/corpus/issues/9) — Install `deu_latf` Fraktur Tesseract pack on Bouchet. Recovers ~6–8 19th-c. German scans (Goldfuss 1820, Pagenstecher 1869, Brandt 1837, Donitz 1871, Stechow 1921, Hoeven 1836, Schmidtlein 1881, Doflein 1906).
-- [x] [#8](https://github.com/caseywdunn/corpus/issues/8) — Vendor-watermark detection in `detect_scan_type`. Recovers Karplus 2014, Browne 1905, Fleming 1828. Implemented in commit `403040b`.
-- [ ] [#11](https://github.com/caseywdunn/corpus/issues/11) — Queue `slurm/batch_pass3b.sh` so vision Pass 3b + Pass 3c run as part of the rebuild. Resolves the bulk of 6,841 missing-figure records and applies compound-figure splits across the corpus.
-- [ ] **Trigger the full rebuild**: `slurm/batch_process_corpus.sh` (Stage 1) → `batch_pass3b.sh` (vision) → `batch_embed.sh` (BGE-M3) → `batch_grobid.sh` if needed → `batch_biblio.sh`. All chainable via `--dependency=afterok`.
-- [ ] **Audit the rebuild output** before tagging: zero-text-extraction count, `pass3c_status` coverage, `missing_figures[]` reduction, figure-type coverage on PyMuPDF rescues.
+- [x] [#8](https://github.com/caseywdunn/corpus/issues/8) — Vendor-watermark detection in `detect_scan_type` (commit `403040b`).
+- [x] [#10](https://github.com/caseywdunn/corpus/issues/10) — ocrmypdf empty-output diagnostic + fix (closed 2026-04-30).
+- [x] **§10 design item: no absolute paths in served JSON** — `package_for_serve.py` scrub + audit (commit `304257a`).
+- [x] **Trigger the full rebuild** on Bouchet — Stage 1 + Stage 2 ran on the v0.1 corpus.
 
-**Local (no Bouchet needed):**
+**Tagging mechanics (do these in order):**
 
-- [ ] [#5](https://github.com/caseywdunn/corpus/issues/5) — Streamable HTTP transport + OAuth for native Custom Connectors UI (defer if not required for v0.1 collaborator access).
-- [ ] [#6](https://github.com/caseywdunn/corpus/issues/6) — `deploy/stack.yaml` default-VPC assumption; either fix or document as a known prerequisite.
-- [x] **§10 design item: no absolute paths in served JSON.** Implemented in commit `304257a` as a `package_for_serve.py` scrub + audit pass.
+1. **Distill served bundle** on Bouchet: `python package_for_serve.py "$OUTPUT_DIR" "$BOUCHET_PROJECT/serve_bundle" --version v0.1.0`. The scrub + audit will fail loudly if any absolute path leaks.
+2. **Sync to S3**: `aws s3 sync serve_bundle/ s3://<corpus-name>/v0.1.0/`.
+3. **`git tag v0.1.0 && git push origin v0.1.0`**.
+4. **GitHub Release** — paste the `[0.1.0]` block from `CHANGELOG.md` into the release body.
+5. **EC2 reload**: `systemctl reload corpus-mcp` on the served instance.
 
-**Tagging:**
+**Deferred to v0.1.x** (tracked in GitHub, not blocking the tag):
 
-- [ ] **Date `CHANGELOG.md`** — replace `2026-04-XX` with the tag date once the rebuild lands and the bundle is uploaded.
-- [ ] **Distill served bundle**: `python package_for_serve.py "$OUTPUT_DIR" "$BOUCHET_PROJECT/serve_bundle" --version v0.1.0`.
-- [ ] **Sync to S3**: `aws s3 sync serve_bundle/ s3://<corpus-name>/v0.1.0/`.
-- [ ] **`git tag v0.1.0`** + push tag + create GitHub release pointing at the changelog section.
-- [ ] **EC2 reload**: `systemctl reload corpus-mcp` on the served instance to pick up the new bundle.
+- [#5](https://github.com/caseywdunn/corpus/issues/5) — Streamable HTTP transport + OAuth.
+- [#6](https://github.com/caseywdunn/corpus/issues/6) — `deploy/stack.yaml` default-VPC assumption.
+- [#9](https://github.com/caseywdunn/corpus/issues/9) — Install `deu_latf` Fraktur pack on Bouchet (~6–8 papers recoverable on reprocess).
+- [#11](https://github.com/caseywdunn/corpus/issues/11) — Vision pass + Pass 3c at corpus scale (resolves missing-figure records and compound-figure splits).
+- [#16](https://github.com/caseywdunn/corpus/issues/16) — Figure-number extraction on old/scanned papers (~538/1787 papers).
+- [#17](https://github.com/caseywdunn/corpus/issues/17) — MCP server name should be corpuscle-aware and versioned.
 
-**Deferred to post-v0.1** (not blocking the tag):
-
-Tracked in the GitHub issue tracker, not in this document:
+**Deferred to post-v0.1** (substantial scope; tracked in GitHub):
 
 - [#12](https://github.com/caseywdunn/corpus/issues/12) — Stage 2 parallelism: assess whether further work is needed beyond `batch_embed.sh`.
 - [#13](https://github.com/caseywdunn/corpus/issues/13) — Geographic extraction (§12 Layer 3): NER + GeoNames + locality table.
@@ -520,7 +519,7 @@ Three-tier, deliberately boring:
 
 1. **S3 bucket — `s3://<corpus-name>/`** — source of truth, versioned. Each release lives at `s3://<corpus-name>/v1.0.0/` and is immutable. Bouchet pushes via `aws s3 sync serve_bundle/ s3://…/v1.0.0/`. Lifecycle rule moves unused versions to Glacier after 90 days.
    - Public-read on the parquet/SQLite/LanceDB files lets non-MCP collaborators query directly with DuckDB / pandas — zero infra cost on our end.
-2. **MCP server on EC2 — `t3.small` + 10 GB gp3 EBS** — single instance (~$15/mo + $1/mo storage), pulls the bundle from S3 on deploy, runs the MCP server as a systemd service over SSE/HTTP transport. Faster than Fargate (no cold starts, persistent LanceDB in memory). One CloudWatch dashboard, structured JSON logs to S3.
+2. **MCP server on EC2 — `t3.large` + 10 GB gp3 EBS** — single instance (~$60/mo + $1/mo storage), pulls the bundle from S3 on deploy, runs the MCP server as a systemd service over SSE/HTTP transport. Faster than Fargate (no cold starts, persistent LanceDB in memory). One CloudWatch dashboard, structured JSON logs to S3.
 3. **Edge — CloudFront → ALB → EC2**, HTTPS, bearer-token auth (see *Authentication & access control* below). Rate-limit at CloudFront / WAF.
 
 **Updates** = re-run pipeline on Bouchet → distill → `aws s3 sync` to a new version → SSH to EC2 and `systemctl reload corpus-mcp` (which pulls the new version from S3). Old versions stay in S3 for reproducibility.
