@@ -25,6 +25,8 @@ Files in the served-bundle whitelist (the contract):
     taxonomy.sqlite                  (copied from <output_dir>/)
     biblio_authority.sqlite
     taxon_mentions.sqlite
+    instructions.md                  (per-corpus client guidance,
+                                      surfaced via MCP InitializeResult.instructions)
     bundle_manifest.json             (written by this script)
 
 With ``--include-pdfs`` also: ``processed.pdf`` per document.
@@ -425,13 +427,23 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     n_files += nf
     total_bytes += nb
 
-    # Cross-paper SQLites — corpuscle layout: they live at the root of
-    # the output dir alongside documents/, and the bundle mirrors that.
-    # The anatomy lexicon is not bundled — anatomy extraction happens at
-    # process time and lands in each paper's anatomy.json.
+    # Top-level corpuscle files — flat at the root of the output dir
+    # alongside documents/, mirrored into the bundle root. All entries
+    # here are expected; missing files emit a warning so the operator
+    # notices before deploy. The earlier silent-skip behavior let v0.2
+    # ship without biblio_authority.sqlite and taxon_mentions.sqlite.
+    # The anatomy lexicon is not bundled — anatomy extraction happens
+    # at process time and lands in each paper's anatomy.json.
     for fname in ("taxonomy.sqlite", "biblio_authority.sqlite",
-                  "taxon_mentions.sqlite"):
-        bw = _copy_file(output_dir / fname, serve_dir / fname, dry_run)
+                  "taxon_mentions.sqlite", "instructions.md"):
+        src = output_dir / fname
+        if not src.exists():
+            logger.warning(
+                "Expected top-level file %s missing from %s — "
+                "bundle will not include it", fname, output_dir,
+            )
+            continue
+        bw = _copy_file(src, serve_dir / fname, dry_run)
         if bw:
             n_files += 1
             total_bytes += bw
