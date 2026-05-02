@@ -155,6 +155,45 @@ sbatch slurm/batch_embed.sh
 
 `--resume` in every script means restarts are cheap — re-queuing picks up where the previous run left off. Without `NUM_BATCHES` (or set to 1), the pipeline runs as a single job for small corpora.
 
+## Post-pipeline cross-paper databases
+
+The SLURM array produces per-paper artifacts under `$OUTPUT_DIR/documents/<HASH>/`. Two cross-paper SQLites are then built in single-pass post-processing — they are required inputs to `package_for_serve.py`, which **silently skips missing SQLites** (see [package_for_serve.py:432](../package_for_serve.py#L432)) and produces an incomplete bundle. Always run these before packaging or uploading to S3.
+
+```bash
+cd "$BOUCHET_PROJECT/corpus"
+conda activate corpus
+
+# 1. Bibliographic authority (deduplicated works + citation graph).
+#    Default enables BHL enrichment for pre-1960 refs without DOIs —
+#    rate-limited at ~1 req/s, so this can take many hours on the
+#    week partition. Set BHL_ENRICH=0 for a fast (~10 min) build
+#    without BHL coverage.
+export BHL_API_KEY=<your-key>           # free at biodiversitylibrary.org/account
+sbatch slurm/batch_biblio.sh
+# BHL_ENRICH=0 sbatch slurm/batch_biblio.sh
+
+# 2. Cross-paper taxon mentions index. Single-pass, quick — run on
+#    a login or interactive node, no SLURM wrapper needed.
+python build_taxon_mentions.py "$OUTPUT_DIR"
+```
+
+Confirm both SQLites landed before packaging:
+
+```bash
+ls -la "$OUTPUT_DIR"/{taxonomy,biblio_authority,taxon_mentions}.sqlite
+```
+
+Then package the served bundle (path scrub + audit + manifest):
+
+```bash
+python package_for_serve.py \
+    "$OUTPUT_DIR" "$BOUCHET_PROJECT/serve_bundle" \
+    --version v0.x.0
+cat "$BOUCHET_PROJECT/serve_bundle/bundle_manifest.json"
+```
+
+The bundle is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](DEPLOY.md) §6.
+
 ## Partition reference (from PLAN.md §7)
 
 | Stage | Script | Partition | GPU? | Walltime |

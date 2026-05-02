@@ -212,6 +212,8 @@ sudo certbot --nginx -d corpus.example.edu --agree-tos --email you@example.edu \
 
 ## 6. First bundle — from your laptop
 
+**Prerequisite:** the `output_dir` you point `sync_to_s3.sh` at must already contain `taxonomy.sqlite`, `biblio_authority.sqlite`, and `taxon_mentions.sqlite` at its root. `package_for_serve.py` silently skips missing cross-paper SQLites (see [package_for_serve.py:432](../package_for_serve.py#L432)) — without this, the served bundle works for taxonomy + vector search but every citation-graph and cross-paper-taxon tool returns "DB not loaded". For a Bouchet run, build them via [BOUCHET.md "Post-pipeline cross-paper databases"](BOUCHET.md#post-pipeline-cross-paper-databases) before rsync'ing or running this step.
+
 Still on your laptop:
 
 ```bash
