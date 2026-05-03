@@ -47,7 +47,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Ensure ANTHROPIC_API_KEY etc. are visible to the stdio subprocess
                 # Claude Code launches — no shell inheritance to rely on.
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Image
 
 import hmac
 import os
@@ -1751,6 +1751,74 @@ def get_figure_roi_image(
         "caption_text": caption_text,
         "description_from_caption": description_from_caption,
     }
+
+
+@mcp.tool()
+def get_figure_image(
+    paper_hash: str,
+    figure_id: str,
+    label: Optional[str] = None,
+) -> Image:
+    """Return a figure (or panel crop) as inline PNG bytes.
+
+    Companion to ``get_figure`` and ``get_figure_roi_image``: those tools
+    return server-side filesystem paths, which only resolve on hosts that
+    have the bundle locally.  This tool returns the actual PNG bytes via
+    FastMCP's ``Image`` content type so MCP clients (LLM agents, web
+    UIs, etc.) can display or save figures without out-of-band access
+    to ``/srv/corpus/...``.
+
+    Without ``label`` the whole figure is returned.  With ``label`` the
+    panel crop is returned (same on-disk cache as ``get_figure_roi_image``:
+    cropped on first ask, served from cache thereafter).  If the
+    requested panel label has no pixel ROI, the whole figure is returned
+    instead; ``get_figure_roi_image`` reports the fallback explicitly in
+    its metadata response and pairs well with this tool.
+    """
+    idx = _need_index()
+    p = idx.papers.get(paper_hash)
+    if not p:
+        raise ValueError(f"no such paper_hash: {paper_hash}")
+
+    hash_dir = Path(p["hash_dir"])
+    figs = _load_json(hash_dir / "figures.json", default={}) or {}
+    fig = next(
+        (f for f in figs.get("figures", []) or [] if f.get("figure_id") == figure_id),
+        None,
+    )
+    if fig is None:
+        raise ValueError(f"no such figure_id {figure_id!r} in paper {paper_hash}")
+
+    whole_image = hash_dir / "figures" / (fig.get("filename") or "")
+    if not whole_image.exists():
+        raise FileNotFoundError(f"figure file missing on disk: {whole_image}")
+
+    if label is None:
+        return Image(path=str(whole_image))
+
+    roi_entry = next(
+        (r for r in fig.get("rois") or []
+         if r.get("label") == label and r.get("roi_px")),
+        None,
+    )
+    if roi_entry is None:
+        # No pixel ROI for this label — fall back to the whole figure.
+        return Image(path=str(whole_image))
+
+    crops_dir = hash_dir / "figures" / "crops"
+    crops_dir.mkdir(parents=True, exist_ok=True)
+    crop_path = crops_dir / f"{figure_id}__{label}.png"
+    if not crop_path.exists():
+        from PIL import Image as PILImage
+        with PILImage.open(whole_image) as im:
+            x0, y0, x1, y1 = [int(v) for v in roi_entry["roi_px"]]
+            # Clamp defensively — ROI computation can exceed image dims.
+            x0 = max(0, min(x0, im.width - 1))
+            y0 = max(0, min(y0, im.height - 1))
+            x1 = max(x0 + 1, min(x1, im.width))
+            y1 = max(y0 + 1, min(y1, im.height))
+            im.crop((x0, y0, x1, y1)).save(str(crop_path))
+    return Image(path=str(crop_path))
 
 
 @mcp.tool()
