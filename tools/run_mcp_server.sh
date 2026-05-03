@@ -8,7 +8,14 @@ set -e
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 case "$OSTYPE" in
-    darwin*) CORPUS_PY="${CORPUS_PY:-/opt/anaconda3/envs/corpus/bin/python}" ;;
+    darwin*)
+        # Apple Silicon needs a native arm64 env (Intel anaconda cannot
+        # provide a torch new enough for current docling/transformers).
+        CORPUS_PY="${CORPUS_PY:-$HOME/miniforge3/envs/corpus/bin/python}"
+        # conda-forge numpy and torch each ship their own libomp.dylib;
+        # set this so both can coexist in one process.
+        export KMP_DUPLICATE_LIB_OK="${KMP_DUPLICATE_LIB_OK:-TRUE}"
+        ;;
     linux*)  CORPUS_PY="${CORPUS_PY:-/home/cwd7/.conda/envs/corpus/bin/python}" ;;
     *)       echo "run_mcp_server.sh: unknown OSTYPE=$OSTYPE" >&2; exit 1 ;;
 esac
