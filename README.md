@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19964909.svg)](https://doi.org/10.5281/zenodo.19964909)
 
-A workflow for turning a collection of scientific-literature PDFs — spanning born-digital papers and centuries-old scans in multiple languages — into a queryable knowledge base exposed over MCP. The primary target is taxonomic literature.
+A workflow for turning a collection of scientific-literature PDFs — spanning born-digital papers and centuries-old scans in multiple languages — into a queryable knowledge base exposed over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), so AI agents can interrogate and synthesize the literature directly. The primary target is taxonomic literature.
 
 ## Citing corpus
 
