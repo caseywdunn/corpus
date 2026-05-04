@@ -4,6 +4,12 @@
 
 A workflow for turning a collection of scientific-literature PDFs — spanning born-digital papers and centuries-old scans in multiple languages — into a queryable knowledge base exposed over MCP. The primary target is taxonomic literature.
 
+## Citing corpus
+
+We are preparing a manuscript that presents corpus. In the mean time, please cite corpus as:
+
+> Dunn, C. W., Zapata, F., & Church, S. H. (2026). Corpus: Model Context Protocol (MCP) server for taxonomic literature. <https://doi.org/10.5281/zenodo.19964909>
+
 ## What corpus does
 
 corpus reads a folder of PDFs and produces a knowledge base built around: **taxa, figures, bibliographies, and the cross-paper relationships between them**. It handles several tasks:
