@@ -42,9 +42,9 @@ from figures import (
 )
 from taxa import (
     TaxonomyDB,
-    load_anatomy_lexicon,
     extract_taxon_mentions,
-    extract_anatomy_mentions,
+    extract_lexicon_mentions,
+    load_lexicon,
 )
 
 
@@ -1258,6 +1258,8 @@ def run_pdf_processing_pipeline(
     resume: bool = False,
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     anatomy_fingerprint: Optional[Dict[str, Any]] = None,
+    extra_lexicons: Optional[Dict[str, Dict[str, Dict]]] = None,
+    extra_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -1424,13 +1426,18 @@ def run_pdf_processing_pipeline(
 
         # ── taxa_anatomy_extraction ─────────────────────────────────
         # Per-stage guard: the expected artifacts depend on which inputs
-        # are configured (taxonomy DB and/or anatomy lexicon). Only check
-        # the artifacts whose stage will actually emit them.
+        # are configured (taxonomy DB, anatomy lexicon, and any
+        # additional --lexicon CATEGORY:PATH entries from #24). Only
+        # check the artifacts whose stage will actually emit them.
         expected_taxa_anat: List[Path] = []
         if taxonomy_db is not None:
             expected_taxa_anat.append(hash_dir / "taxa.json")
         if anatomy_lexicon:
             expected_taxa_anat.append(hash_dir / "anatomy.json")
+        for category in (extra_lexicons or {}):
+            if category == "anatomy":
+                continue
+            expected_taxa_anat.append(hash_dir / f"{category}.json")
         if expected_taxa_anat and _should_run_stage(
             "taxa_anatomy_extraction",
             expected_taxa_anat,
@@ -1438,7 +1445,7 @@ def run_pdf_processing_pipeline(
             processing_summary=processing_summary,
         ):
             with _stage(processing_summary, "taxa_anatomy_extraction"):
-                logger.info("Extracting taxa + anatomy mentions...")
+                logger.info("Extracting taxa + lexicon mentions...")
                 taxa_anat_files = _extract_taxa_and_anatomy(
                     chunks_file,
                     hash_dir,
@@ -1446,12 +1453,14 @@ def run_pdf_processing_pipeline(
                     anatomy_lexicon,
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     anatomy_fingerprint=anatomy_fingerprint,
+                    extra_lexicons=extra_lexicons,
+                    extra_fingerprints=extra_fingerprints,
                 )
                 processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
                 if taxa_anat_files:
                     processing_summary["processing_steps"].append("taxa_anatomy_extraction")
         elif not expected_taxa_anat:
-            # No taxonomy DB and no anatomy lexicon configured — nothing to do.
+            # No taxonomy DB and no lexicon configured — nothing to do.
             pass
 
         with _stage(processing_summary, "figures_report"):
@@ -2794,18 +2803,21 @@ def _extract_taxa_and_anatomy(
     *,
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     anatomy_fingerprint: Optional[Dict[str, Any]] = None,
+    extra_lexicons: Optional[Dict[str, Dict[str, Dict]]] = None,
+    extra_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> List[Path]:
-    """Run taxon + anatomy extraction on the per-PDF chunks and write
-    ``taxa.json`` / ``anatomy.json``.
+    """Run taxon + multi-category lexicon extraction on the per-PDF chunks.
 
-    Designed to degrade gracefully: if the taxonomy snapshot or anatomy
-    lexicon isn't configured / available, the corresponding artifact is
-    simply not emitted (not an error). This keeps the pipeline runnable
-    on a dev machine that hasn't yet run ``ingest_taxonomy.py``.
+    Always-emitted artifacts:
+        ``taxa.json`` — when a taxonomy DB is configured
+        ``anatomy.json`` — when ``anatomy_lexicon`` is supplied
+        ``<category>.json`` — one per ``extra_lexicons`` category (#24)
 
-    When ``taxonomy_fingerprint`` / ``anatomy_fingerprint`` are supplied
-    (#29), they are stamped into the output JSON so corpus_status can
-    detect stale annotations after the input changes.
+    Designed to degrade gracefully: missing inputs simply skip their
+    output artifact rather than raising.
+
+    Fingerprints (#29) get stamped into each output so corpus_status
+    can detect stale annotations after an input changes.
     """
     out: List[Path] = []
     if not chunks_file.exists():
@@ -2813,7 +2825,7 @@ def _extract_taxa_and_anatomy(
     try:
         chunks_data = json.load(chunks_file.open(encoding="utf-8"))
     except Exception as e:
-        logger.warning("Skipping taxa/anatomy pass: couldn't read %s: %s", chunks_file, e)
+        logger.warning("Skipping taxa/lexicon pass: couldn't read %s: %s", chunks_file, e)
         return out
     chunks = chunks_data.get("chunks") or []
 
@@ -2832,20 +2844,40 @@ def _extract_taxa_and_anatomy(
     else:
         logger.info("Skipping taxon extraction (no taxonomy DB configured)")
 
+    # Build the unified category → lexicon map. Anatomy is the v0.1
+    # default category; extra_lexicons (#24) layers in user-defined
+    # ones (biogeography, life_history, …).
+    lexicons_to_run: Dict[str, Dict[str, Dict]] = {}
+    fingerprints_to_run: Dict[str, Optional[Dict[str, Any]]] = {}
     if anatomy_lexicon:
-        anat_res = extract_anatomy_mentions(chunks, anatomy_lexicon)
-        if anatomy_fingerprint is not None:
-            anat_res["input_fingerprint"] = anatomy_fingerprint
-        anat_file = hash_dir / "anatomy.json"
-        with anat_file.open("w", encoding="utf-8") as f:
-            json.dump(anat_res, f, indent=2, ensure_ascii=False)
-        out.append(anat_file)
+        lexicons_to_run["anatomy"] = anatomy_lexicon
+        fingerprints_to_run["anatomy"] = anatomy_fingerprint
+    if extra_lexicons:
+        for cat, lex in extra_lexicons.items():
+            if cat == "anatomy":
+                # Already in the map under the canonical name; don't
+                # double-process even if --lexicon anatomy:... is
+                # supplied alongside --anatomy-lexicon.
+                continue
+            if lex:
+                lexicons_to_run[cat] = lex
+                fingerprints_to_run[cat] = (extra_fingerprints or {}).get(cat)
+
+    if not lexicons_to_run:
+        logger.info("Skipping lexicon extraction (no lexicon configured)")
+    for category, lex in lexicons_to_run.items():
+        res = extract_lexicon_mentions(chunks, lex, category=category)
+        fp = fingerprints_to_run.get(category)
+        if fp is not None:
+            res["input_fingerprint"] = fp
+        out_file = hash_dir / f"{category}.json"
+        with out_file.open("w", encoding="utf-8") as f:
+            json.dump(res, f, indent=2, ensure_ascii=False)
+        out.append(out_file)
         logger.info(
-            "Anatomy mentions: %d (unique terms: %d)",
-            anat_res["total_mentions"], anat_res["unique_terms"],
+            "%s mentions: %d (unique terms: %d)",
+            category.capitalize(), res["total_mentions"], res["unique_terms"],
         )
-    else:
-        logger.info("Skipping anatomy extraction (no lexicon configured)")
     return out
 
 
@@ -2926,6 +2958,18 @@ def main():
         help="Path to a domain-specific anatomy lexicon YAML. Optional and "
              "user-supplied — see demo/anatomy_lexicon.yaml for the format. "
              "Without this flag, anatomy extraction is skipped.",
+    )
+    parser.add_argument(
+        "--lexicon",
+        action="append",
+        default=[],
+        metavar="CATEGORY:PATH",
+        help="Additional category-tagged lexicon YAML, e.g. "
+             "--lexicon biogeography:/path/to/biogeo.yaml. Repeatable. "
+             "Same YAML format as --anatomy-lexicon (see "
+             "demo/anatomy_lexicon.yaml). Output lands in "
+             "<hash>/<CATEGORY>.json; per-stage resume + corpus_status "
+             "treat each category independently. (#24)",
     )
     parser.add_argument(
         "--no-taxa",
@@ -3098,7 +3142,7 @@ def main():
         if args.anatomy_lexicon is not None:
             if args.anatomy_lexicon.exists():
                 try:
-                    anatomy_lexicon = load_anatomy_lexicon(args.anatomy_lexicon)
+                    anatomy_lexicon = load_lexicon(args.anatomy_lexicon)
                     anatomy_fingerprint = {
                         "path": str(args.anatomy_lexicon),
                         "sha256": _file_sha256(args.anatomy_lexicon),
@@ -3119,6 +3163,46 @@ def main():
                     "Anatomy lexicon %s not found — anatomy extraction skipped",
                     args.anatomy_lexicon,
                 )
+
+    # Multi-category lexicons (#24). --lexicon CATEGORY:PATH, repeatable.
+    extra_lexicons: Dict[str, Dict[str, Dict]] = {}
+    extra_fingerprints: Dict[str, Dict[str, Any]] = {}
+    for spec in (args.lexicon or []):
+        if ":" not in spec:
+            logger.error("--lexicon expects CATEGORY:PATH, got %r", spec)
+            sys.exit(2)
+        category, _, raw_path = spec.partition(":")
+        category = category.strip().lower()
+        path = Path(raw_path).expanduser()
+        if not category or not category.replace("_", "").isalnum():
+            logger.error(
+                "--lexicon CATEGORY must be alphanumeric/underscore (got %r)",
+                category,
+            )
+            sys.exit(2)
+        if not path.exists():
+            logger.warning(
+                "--lexicon %s:%s not found — %s extraction skipped",
+                category, path, category,
+            )
+            continue
+        try:
+            lex = load_lexicon(path)
+            fp = {
+                "path": str(path),
+                "sha256": _file_sha256(path),
+                "size": path.stat().st_size,
+            }
+            extra_lexicons[category] = lex
+            extra_fingerprints[category] = fp
+            logger.info(
+                "Lexicon[%s] loaded from %s (%d terms, sha256=%s…)",
+                category, path, len(lex), fp["sha256"][:12],
+            )
+        except Exception as e:
+            logger.warning(
+                "Could not load --lexicon %s:%s: %s", category, path, e,
+            )
 
     # Vision backend for Pass 3b. Constructed once and reused so the
     # backend can keep long-lived state (API client, loaded model, etc.).
@@ -3317,6 +3401,8 @@ def main():
                         resume=args.resume,
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         anatomy_fingerprint=anatomy_fingerprint,
+                        extra_lexicons=extra_lexicons,
+                        extra_fingerprints=extra_fingerprints,
                     )
 
                     summary_file = create_summary_json(

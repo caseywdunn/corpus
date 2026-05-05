@@ -331,8 +331,14 @@ def extract_taxon_mentions(
 # ---------------------------------------------------------------------------
 
 
-def load_anatomy_lexicon(path: Path) -> Dict[str, Dict]:
-    """Load the YAML lexicon into an in-memory dict.
+def load_lexicon(path: Path) -> Dict[str, Dict]:
+    """Load a domain lexicon YAML into an in-memory dict.
+
+    Generalization of the original anatomy-only loader (#24): the same
+    YAML format works for anatomy, biogeography, life history, or any
+    other category of user-curated terms. The category label is set
+    by the caller (typically the basename of the file or an explicit
+    ``CATEGORY:PATH`` override on ``--lexicon``).
 
     Structure returned:
         {canonical_term: {"synonyms": [...], "translations": {lang: [...]},
@@ -354,7 +360,11 @@ def load_anatomy_lexicon(path: Path) -> Dict[str, Dict]:
     return out
 
 
-def _build_anatomy_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[str, str]]:
+# Backwards-compat alias — the function was anatomy-named before #24.
+load_anatomy_lexicon = load_lexicon
+
+
+def _build_lexicon_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[str, str]]:
     """Compile one big alternation regex and a variant→canonical map.
 
     Variants are matched as whole words, case-insensitive. Canonical
@@ -386,20 +396,31 @@ def _build_anatomy_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[s
     return pattern, variant_to_canonical
 
 
-def extract_anatomy_mentions(
+def extract_lexicon_mentions(
     chunks: List[Dict],
     lexicon: Dict[str, Dict],
+    *,
+    category: Optional[str] = None,
 ) -> Dict:
-    """Scan chunks for anatomy lexicon terms.
+    """Scan chunks for a domain lexicon's terms.
+
+    Generalization of the original anatomy-only extractor (#24): the
+    same matcher produces mentions for any user-curated category
+    (anatomy, biogeography, life history, …). When ``category`` is
+    supplied it lands on the output dict so consumers can tell
+    multiple categories apart.
 
     Same output shape as :func:`extract_taxon_mentions` — flat mentions
     list plus a per-canonical-term rollup. Matches are case-insensitive
-    and whole-word; see :func:`_build_anatomy_matcher`.
+    and whole-word; see :func:`_build_lexicon_matcher`.
     """
     if not lexicon:
-        return {"total_mentions": 0, "unique_terms": 0, "mentions": [], "terms": []}
+        out_empty = {"total_mentions": 0, "unique_terms": 0, "mentions": [], "terms": []}
+        if category is not None:
+            out_empty["category"] = category
+        return out_empty
 
-    pattern, variant_to_canonical = _build_anatomy_matcher(lexicon)
+    pattern, variant_to_canonical = _build_lexicon_matcher(lexicon)
 
     mentions: List[Dict] = []
     term_counts: Counter = Counter()
@@ -434,9 +455,16 @@ def extract_anatomy_mentions(
         }
         for canonical, count in term_counts.most_common()
     ]
-    return {
+    out = {
         "total_mentions": len(mentions),
         "unique_terms": len(terms_list),
         "mentions": mentions,
         "terms": terms_list,
     }
+    if category is not None:
+        out["category"] = category
+    return out
+
+
+# Backwards-compat alias — the function was anatomy-named before #24.
+extract_anatomy_mentions = extract_lexicon_mentions
