@@ -132,6 +132,24 @@ curl http://localhost:8070/api/isalive   # should print "true"
 
 Platform-specific OCR extras (Fraktur for 19th-century German, additional `pngquant`/`jbig2enc` compression) are covered in [dev_docs/INSTALL.md](dev_docs/INSTALL.md).
 
+## Language support
+
+OCR is the only stage where language matters. Each scanned PDF gets its language detected automatically (`langdetect` on the first few pages of extracted text), and the result is routed to a matching [Tesseract](https://github.com/tesseract-ocr/tesseract) language pack — a `<code>.traineddata` file that teaches Tesseract to recognize a particular language or script. Born-digital PDFs with a clean text layer skip OCR entirely, so packs only matter for scans.
+
+**What ships by default.** The conda environment installs `tesseract` with **English only** (`eng`). The pipeline's default fallback set, defined in `config.yaml` under `ocr.ocr_languages_default`, is `eng`, `deu`, `deu_latf` (19th-century Fraktur), `fra`, `rus`, `lat` — but only the packs you've actually installed get used. Install whatever subset matches your literature:
+
+```bash
+conda install -c conda-forge tesseract-data-deu tesseract-data-fra tesseract-data-rus tesseract-data-lat
+```
+
+Fraktur (`deu_latf`) isn't on conda-forge; the manual `traineddata` download is in [dev_docs/INSTALL.md](dev_docs/INSTALL.md#additional-ocr-language-packs).
+
+**How to tell if you need more packs.** After a Stage 1 run, `<output_dir>/documents/<HASH>/scan_detection.json` records the detected language for each scanned PDF. Skim those to see what languages your corpus actually contains. If a language is detected but no matching pack is installed, OCR silently falls back to the union of installed packs (English is always appended last) — extraction still succeeds, but accuracy on that paper drops. Adding more languages than you need is safe but slows OCR, so install the ones you actually have.
+
+**Adding a language outside the default set.** The full ISO-to-Tesseract map covers ~40 languages including CJK, Cyrillic, Greek, Arabic, and Indic scripts — see `_ISO_TO_TESSERACT` in [process_corpus.py](process_corpus.py). Install the matching `tesseract-data-<code>` pack and the detector will pick it up on the next run. To make it part of the fallback set tried when detection is uncertain, add the code to `ocr.ocr_languages_default` in `config.yaml`.
+
+**Everything past OCR is language-agnostic.** The [BGE-M3](https://huggingface.co/BAAI/bge-m3) embedding model is multilingual (trained on 100+ languages) and built for cross-lingual retrieval — a question in English finds passages in German, Latin, French, and so on. Grobid metadata extraction works across European languages, and the vision LLM that tags figures reads labels in whatever script is on the plate. So once OCR succeeds, no further language configuration is needed.
+
 ## Try it on the demo corpus
 
 The repo ships with 11 siphonophore PDFs, a matching BibTeX, and an example anatomy lexicon under [demo/](demo/). Running the whole pipeline against them takes a few minutes on a laptop, with two uses:
