@@ -39,11 +39,14 @@ _PLATE_CAPTION_RE = re.compile(
 
 # Multilingual "figure" prefix. Plate/Abbildung/Рисунок etc. all map to the
 # same reference namespace — figure_refs_in_chunks just tracks the number.
-# Covers English, German, French, Russian, Spanish, Italian variants.
+# Covers English, German, French, Russian, Spanish, Italian variants, plus
+# archaic German "Tafel" (Taf.) and Latin "Tabula" (Tab.) used as plate
+# labels in 19th-c. monographs (#16).
 _FIGURE_PREFIX = (
     r"fig(?:ure|\.?)|abb(?:ildung|\.?)|pl(?:ate|\.?)|plate|рис(?:унок|\.?)"
     r"|image|illustration|lám(?:ina|\.?)|tav(?:ola|\.?)|bild"
     r"|text[\-\s]?fig(?:ure|\.?)"
+    r"|taf(?:el|\.?)|tab(?:ula|\.?)"
 )
 
 _FIGURE_REF_RE = re.compile(
@@ -59,11 +62,42 @@ _FIGURE_REF_RE = re.compile(
 )
 
 # Tighter version used only on caption text (the *leading* figure label).
-# Accepts sub-numbering like "3a", "3.1" which are common in multi-panel figures.
+# Accepts sub-numbering like "3a", "3.1" (multi-panel figures) and Roman
+# numerals (e.g. "Plate IV.", common on 19th-c. plate captions; #16).
 _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
-    r"^\s*(?:" + _FIGURE_PREFIX + r")\s*(\d+(?:\.\d+)?[a-z]?)",
+    r"^\s*(?:" + _FIGURE_PREFIX + r")\s*(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+)",
     re.IGNORECASE,
 )
+
+
+# Roman numerals up to MMMM (4000) — covers any plate number we'll
+# realistically encounter. Used by parse_figure_number to convert
+# archaic Roman labels to a canonical Arabic form so body-text
+# references "Fig. 4" can join to plate captions written "Plate IV." (#16).
+_ROMAN_RE = re.compile(
+    r"^m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$",
+    re.IGNORECASE,
+)
+_ROMAN_VALUES = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100, "d": 500, "m": 1000}
+
+
+def _roman_to_int(token: str) -> Optional[int]:
+    """Convert a Roman numeral to int. Returns None for non-Romans (incl. plain digits)."""
+    s = token.strip().lower()
+    if not s or not _ROMAN_RE.match(s):
+        return None
+    total = 0
+    prev = 0
+    for c in reversed(s):
+        v = _ROMAN_VALUES.get(c, 0)
+        if v == 0:
+            return None
+        if v < prev:
+            total -= v
+        else:
+            total += v
+        prev = v
+    return total or None
 
 
 # ---------------------------------------------------------------------------
@@ -303,13 +337,26 @@ def parse_figure_number(caption_text: str) -> Optional[str]:
     Returns ``"3"`` for ``"Figure 3. Nectophore of Nanomia cara ..."``.
     Returns None if the caption doesn't start with a recognizable prefix —
     some captions (e.g., "Plate 2.") still match because we cover plate/
-    pl/Abb/Pl/Рис. Best-effort, intended as a join key for body-text
-    references, not as a canonical identifier.
+    pl/Abb/Pl/Рис.
+
+    Roman numerals (e.g. "Plate IV.", "Taf. III.") are normalized to
+    their Arabic form ("4", "3") so they join cleanly to body-text
+    references that use Arabic numerals (#16). Best-effort, intended
+    as a join key for body-text references, not as a canonical
+    identifier.
     """
     if not caption_text:
         return None
     m = _FIGURE_NUMBER_IN_CAPTION_RE.match(caption_text)
-    return m.group(1) if m else None
+    if not m:
+        return None
+    num = m.group(1)
+    # Pure Roman numeral → Arabic; Arabic stays as-is. The character
+    # class ``[IVXLCDM]`` in the capture overlaps with single letters
+    # that are panel labels in body text, but here the alternation in
+    # the regex placed the digit branch first so an Arabic match wins.
+    arabic = _roman_to_int(num)
+    return str(arabic) if arabic is not None else num
 
 
 def _prov_to_bbox_and_page(prov_item) -> Tuple[Optional[List[float]], Optional[int]]:
