@@ -28,6 +28,13 @@ from typing import List, Optional
 import requests
 from lxml import etree
 
+from external import (
+    CircuitBreaker,
+    CircuitOpenError,
+    is_transient,
+    retry_with_backoff,
+)
+
 logger = logging.getLogger(__name__)
 
 # TEI namespace used by Grobid's output
@@ -56,9 +63,27 @@ class GrobidClient:
         (minutes for a Haeckel monograph); set generously.
     """
 
-    def __init__(self, base_url: str = "http://localhost:8070", timeout: float = 300.0):
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8070",
+        timeout: float = 300.0,
+        max_attempts: int = 3,
+        breaker_threshold: int = 10,
+        breaker_cooldown_s: float = 300.0,
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.max_attempts = max_attempts
+        # Per-instance circuit breaker — process_corpus.py keeps a single
+        # GrobidClient across all papers, so the breaker tracks consecutive
+        # Grobid failures across the whole batch and short-circuits when
+        # the service goes down (instead of burning retry budget on every
+        # paper for the next hour).
+        self._breaker = CircuitBreaker(
+            "grobid",
+            threshold=breaker_threshold,
+            cooldown_s=breaker_cooldown_s,
+        )
 
     def is_alive(self) -> bool:
         """Return True if the Grobid ``/api/isalive`` endpoint responds OK.
@@ -110,10 +135,33 @@ class GrobidClient:
         if include_raw_citations:
             params["includeRawCitations"] = "1"
 
+        def do_request() -> requests.Response:
+            self._breaker.check()
+            try:
+                with open(pdf_path, "rb") as f:
+                    files = {"input": (pdf_path.name, f, "application/pdf")}
+                    r = requests.post(
+                        url, files=files, data=params, timeout=self.timeout,
+                    )
+            except (requests.ConnectionError, requests.Timeout) as e:
+                self._breaker.record_failure()
+                raise
+            # raise_for_status raises HTTPError for 4xx/5xx; transient
+            # 5xx classifies via is_transient and is retried, real 4xx
+            # bubbles out as a permanent failure.
+            try:
+                r.raise_for_status()
+            except requests.HTTPError as e:
+                if is_transient(e):
+                    self._breaker.record_failure()
+                raise
+            self._breaker.record_success()
+            return r
+
         try:
-            with open(pdf_path, "rb") as f:
-                files = {"input": (pdf_path.name, f, "application/pdf")}
-                r = requests.post(url, files=files, data=params, timeout=self.timeout)
+            r = retry_with_backoff(do_request, max_attempts=self.max_attempts)
+        except CircuitOpenError as e:
+            raise GrobidUnavailableError(str(e)) from e
         except requests.ConnectionError as e:
             raise GrobidUnavailableError(
                 f"Cannot connect to Grobid at {self.base_url}: {e}"
@@ -122,12 +170,12 @@ class GrobidClient:
             raise RuntimeError(
                 f"Grobid request timed out after {self.timeout}s on {pdf_path.name}"
             ) from e
-
-        if r.status_code != 200:
+        except requests.HTTPError as e:
             raise RuntimeError(
-                f"Grobid returned HTTP {r.status_code} on {pdf_path.name}: "
-                f"{r.text[:300]}"
-            )
+                f"Grobid returned HTTP {e.response.status_code} on {pdf_path.name}: "
+                f"{e.response.text[:300]}"
+            ) from e
+
         return r.text
 
 

@@ -2820,6 +2820,14 @@ def main():
              "Does not delete anything.",
     )
     parser.add_argument(
+        "--strict-network",
+        action="store_true",
+        help="Fail fast on the first transient external-service failure "
+             "(Grobid 5xx, connect error, timeout) instead of retrying. "
+             "Use for release-build runs where silent partial data is "
+             "worse than aborting.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Discover input PDFs, apply --resume + batch filters, and report "
@@ -2846,6 +2854,10 @@ def main():
         parser.error("--refresh-vision requires --vision-backend to be set")
 
     setup_root_logging()
+
+    if args.strict_network:
+        from external import set_strict_network
+        set_strict_network(True)
 
     global CONFIG
     CONFIG = load_config(args.config)

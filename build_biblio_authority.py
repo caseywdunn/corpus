@@ -52,7 +52,20 @@ try:
 except ImportError:
     _HAS_BHL_DEPS = False
 
+from external import (
+    CircuitBreaker,
+    CircuitOpenError,
+    is_transient,
+    retry_with_backoff,
+)
+
 logger = logging.getLogger("build_biblio")
+
+# Module-level breaker — BHL is hit from a single CLI run, so per-process
+# state is the right scope. Threshold is generous: BHL routinely 500s on
+# papers with funky title characters, and we don't want one bad paper to
+# shut the whole BHL pass down.
+_BHL_BREAKER = CircuitBreaker("bhl", threshold=20, cooldown_s=120.0)
 
 # Defaults are derived per-corpus from the output_dir positional arg in
 # main(); see "corpuscle" layout in README.md.
@@ -692,16 +705,22 @@ _BHL_QUERY_CACHE: Dict[str, Tuple[Optional[list], Optional[str]]] = {}
 
 
 def _bhl_search(query: str, api_key: str) -> Tuple[Optional[list], Optional[str]]:
-    """Call BHL PublicationSearch API. Returns (results_list, error_string)."""
+    """Call BHL PublicationSearch API. Returns (results_list, error_string).
+
+    Retry + backoff via :mod:`external`. Per-process circuit breaker
+    (:data:`_BHL_BREAKER`) trips after ~20 consecutive failures so a BHL
+    outage doesn't burn the entire enrichment pass on every paper.
+    """
     cached = _BHL_QUERY_CACHE.get(query)
     if cached is not None:
         return cached
-    try:
-        for attempt in range(3):
-            if attempt > 0:
-                time.sleep(2)  # back off on retry
-            else:
-                time.sleep(1)  # BHL API rate limit
+
+    def do_request() -> requests.Response:
+        _BHL_BREAKER.check()
+        # Built-in inter-call rate-limit nudge — BHL throttles harshly
+        # without it.
+        time.sleep(1)
+        try:
             r = requests.get(
                 "https://www.biodiversitylibrary.org/api3",
                 params={
@@ -714,12 +733,23 @@ def _bhl_search(query: str, api_key: str) -> Tuple[Optional[list], Optional[str]
                 },
                 timeout=15,
             )
-            if r.status_code == 500 and attempt < 2:
-                time.sleep(2)
-                continue
+        except (requests.ConnectionError, requests.Timeout):
+            _BHL_BREAKER.record_failure()
+            raise
+        try:
             r.raise_for_status()
-            break
+        except requests.HTTPError as e:
+            if is_transient(e):
+                _BHL_BREAKER.record_failure()
+            raise
+        _BHL_BREAKER.record_success()
+        return r
+
+    try:
+        r = retry_with_backoff(do_request, max_attempts=3, base_delay=2.0)
         result = (r.json().get("Result", []), None)
+    except CircuitOpenError as e:
+        result = (None, f"circuit open: {e}")
     except Exception as e:
         result = (None, str(e))
     _BHL_QUERY_CACHE[query] = result
@@ -1057,6 +1087,11 @@ def main() -> int:
         help="Report what would be processed without opening the SQLite or "
              "calling external services.",
     )
+    parser.add_argument(
+        "--strict-network", action="store_true",
+        help="Fail fast on the first transient external-service failure "
+             "(BHL 5xx, connect error, timeout) instead of retrying.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -1064,6 +1099,10 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    if args.strict_network:
+        from external import set_strict_network
+        set_strict_network(True)
 
     if args.output is None:
         args.output = args.output_dir / "biblio_authority.sqlite"
