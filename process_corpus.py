@@ -3153,7 +3153,12 @@ def main():
     # summary.json exists AND every per-stage artifact is on disk (#28);
     # otherwise it has missing stages and the inner per-stage guards will
     # only re-run those.
-    if args.resume and args.batch_index is not None:
+    #
+    # Exception: --refresh-vision (#27) explicitly targets the
+    # already-completed population (it re-runs Pass 3b on existing
+    # figures.json files). Skipping the pre-filter for that case
+    # preserves the work-set so array tasks aren't silently emptied.
+    if args.resume and args.batch_index is not None and not args.refresh_vision:
         expect_taxa = taxonomy_db is not None
         expect_anatomy = bool(anatomy_lexicon)
         before = len(pdf_map)

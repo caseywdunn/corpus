@@ -105,8 +105,20 @@ echo "  Grobid cancel job: $CANCEL_JOB (runs after Stage 1)"
 
 # ── Step 6: Submit Pass 3b and Embed (depend on Stage 1) ────────────
 echo ""
-echo "Submitting Pass 3b (vision, GPU)..."
-PASS3B_JOB=$(sbatch --parsable --dependency=afterok:"$STAGE1_JOB" "$SCRIPT_DIR/batch_pass3b.sh")
+NUM_PASS3B_BATCHES="${NUM_PASS3B_BATCHES:-1}"
+PASS3B_BATCH_SIZE="${PASS3B_BATCH_SIZE:-256}"
+echo "Submitting Pass 3b (vision, GPU; $NUM_PASS3B_BATCHES batch(es) of $PASS3B_BATCH_SIZE)..."
+if [ "$NUM_PASS3B_BATCHES" -gt 1 ]; then
+    PASS3B_JOB=$(sbatch --parsable \
+        --dependency=afterok:"$STAGE1_JOB" \
+        --array="0-$((NUM_PASS3B_BATCHES - 1))" \
+        --export="ALL,BATCH_SIZE=$PASS3B_BATCH_SIZE" \
+        "$SCRIPT_DIR/batch_pass3b.sh")
+else
+    PASS3B_JOB=$(sbatch --parsable \
+        --dependency=afterok:"$STAGE1_JOB" \
+        "$SCRIPT_DIR/batch_pass3b.sh")
+fi
 echo "  Pass 3b job: $PASS3B_JOB"
 
 echo "Submitting Embed (GPU)..."

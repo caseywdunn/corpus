@@ -5,13 +5,18 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=8G
 #SBATCH --time=24:00:00
-#SBATCH --output=logs/slurm-pass3b-%j.out
-#SBATCH --error=logs/slurm-pass3b-%j.err
+#SBATCH --output=logs/slurm-pass3b-%A_%a.out
+#SBATCH --error=logs/slurm-pass3b-%A_%a.err
 #
 # Pass 3b + 3c: vision-model-driven panel detection + compound resolution.
 # Uses the local Qwen2.5-VL-7B backend on GPU — no API cost, no network.
 #
 # Run AFTER Stage 1 (batch_process_corpus.sh) has completed.
+#
+# SLURM array support (#27): set --array=0-N when submitting and pass
+# BATCH_SIZE in the env to slice the work across N+1 GPU jobs. Single-job
+# mode (no --array) is unchanged. Example for 8 H200s in parallel:
+#     BATCH_SIZE=256 sbatch --array=0-7 batch_pass3b.sh
 #
 # Partition: we MUST use gpu_h200. The rtx_5000_ada nodes (gpu partition)
 # carry an NVIDIA driver that torch 2.9.0+cu128 rejects as "too old"
@@ -66,6 +71,16 @@ python -c "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 2)" |
     exit 2
 }
 
+# Array-task batch slicing (#27). Activates only under sbatch --array.
+# In single-job mode, no batch flags are passed and the run covers all
+# papers.
+BATCH_SIZE="${BATCH_SIZE:-256}"
+BATCH_ARGS=()
+if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
+    BATCH_ARGS=(--batch-index "$SLURM_ARRAY_TASK_ID" --batch-size "$BATCH_SIZE")
+    echo "Array task $SLURM_ARRAY_TASK_ID, batch size $BATCH_SIZE"
+fi
+
 PY_ARGS=(
     "$INPUT_DIR" "$OUTPUT_DIR"
     --resume
@@ -73,6 +88,7 @@ PY_ARGS=(
     --no-grobid
     --no-taxa
     --vision-backend local
+    "${BATCH_ARGS[@]}"
 )
 echo "python args: process_corpus.py ${PY_ARGS[*]}"
 
