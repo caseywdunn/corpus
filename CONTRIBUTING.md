@@ -38,6 +38,76 @@ python -m pytest tests/test_biblio_cascade.py -v
 - Reference GitHub issues as `Closes #N` in the body when a commit resolves one.
 - Don't squash unrelated changes — a cleanup and a bug fix belong in separate commits. See recent `main` history for the house style.
 
+## Branching model
+
+### Branches
+
+- `main` — tagged releases only. Never commit directly to `main`.
+- `dev` — active development for the next unreleased version. All feature
+  work targets this branch.
+- `vN` (e.g. `v0`, `v1`) — release maintenance branches, created from the
+  release tag when a major version ships. Used only for patches to released
+  versions.
+- Issue branches — created from `dev` (or from `vN` for patches), named after
+  the issue they address (e.g. `issue-17`).
+
+### Normal workflow
+
+1. Create an issue branch from `dev` (`git checkout -b issue-NNN dev`)
+2. Do the work; ensure the structural test command and any affected
+   ground-truth tests pass (see [What to run before opening a PR](#what-to-run-before-opening-a-pr)).
+3. Merge to `dev` and push (`git checkout dev && git merge issue-NNN && git push`)
+4. Delete the issue branch
+5. When ready to release: merge `dev` to `main`, tag the release, create
+   a `vN` branch from the tag
+
+Always merge and push completed issue branches to `dev` before starting the
+next issue. This keeps `dev` up to date and avoids dependency tangles when
+later issue branches need earlier work.
+
+### Patching a released version
+
+If a bug is found in v0.1 while v0.2 is in development on `dev`:
+
+1. Create an issue branch from `v0`
+2. Fix the bug
+3. Merge to `v0`, tag `v0.1.1`
+4. Merge `v0` to `main`
+5. Cherry-pick the fix into `dev` so the next version gets it too
+
+### Releasing
+
+1. On `dev`, set `__version__` in [version.py](version.py) to the release
+   string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
+   for it. Commit.
+2. Merge `dev` → `main`, push.
+3. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`. The tag
+   name and `__version__` must match (modulo the `v` prefix).
+4. Create the GitHub release from the tag (CHANGELOG entry as release notes).
+5. Create the `vN` maintenance branch from the tag if this is a new major.
+6. On `dev`, bump `__version__` to the next pre-release (e.g.
+   `"0.3.0.dev0"` — PEP 440 suffix) and open a new `## [Unreleased]`
+   section in `CHANGELOG.md`.
+
+### Versioning
+
+[version.py](version.py) is the single source of truth for the code
+version. It is imported by `mcp_server.py` (surfaced via the
+`bundle_info` tool) and `package_for_serve.py` (default for
+`--version`, stamped into `bundle_manifest.json`), and gets paired with
+the git HEAD SHA on every artifact. So any output tree carries the
+exact code that produced it.
+
+Between releases, `dev` carries a PEP 440 pre-release suffix
+(`0.3.0.dev0`, `0.3.0a1`, `0.3.0rc1`). The release commit drops the
+suffix; the next commit on `dev` reintroduces one for the *next*
+target version.
+
+Schema versions for on-disk artifacts (sqlite DBs, LanceDB index) are
+tracked separately from code SemVer — a code bug-fix doesn't break old
+DBs, but a schema change does. Stamp schema versions inside the file
+itself if you change one.
+
 ## Layout conventions
 
 - Code at the repo root is either a library module imported by the pipeline (`embeddings.py`, `figures.py`, `grobid_client.py`, `taxa.py`, `vision.py`) or a CLI entry point the user runs directly (`process_corpus.py`, `embed_chunks.py`, `mcp_server.py`, `build_biblio_authority.py`, `build_taxon_mentions.py`, `ingest_worms.py`, `reconcile_corpus_to_biblio.py`).

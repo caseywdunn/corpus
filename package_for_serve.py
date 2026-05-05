@@ -53,6 +53,8 @@ import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
+from version import __version__
+
 logger = logging.getLogger("package_for_serve")
 
 # Filesystem roots that flag a string as "absolute path that needs to be
@@ -511,8 +513,9 @@ def main() -> int:
                         help="Pipeline output (contains documents/ and vector_db/)")
     parser.add_argument("serve_dir", type=Path,
                         help="Destination for the served bundle")
-    parser.add_argument("--version", default="v0.0.0-dev",
-                        help="Bundle version string (e.g., v1.0.0)")
+    parser.add_argument("--version", default=f"v{__version__}",
+                        help="Bundle version string (e.g., v1.0.0). "
+                             "Defaults to the pipeline's __version__.")
     parser.add_argument("--include-pdfs", action="store_true",
                         help="Also copy processed.pdf per document (~3 GB extra at 2000 papers)")
     parser.add_argument("--dry-run", action="store_true",

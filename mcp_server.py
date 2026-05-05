@@ -55,6 +55,7 @@ import sqlite3
 
 from taxa import TaxonomyDB
 from embeddings import EmbeddingBackend, EmbeddingError, get_embedder
+from version import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -454,12 +455,13 @@ def bundle_info() -> Dict:
     idx = _need_index()
     if idx.bundle_manifest is None:
         return {
+            "server_version": __version__,
             "bundle_version": None,
             "note": "no bundle_manifest.json — this server is backed "
                     "by a local build output, not a versioned served "
                     "bundle.  run package_for_serve.py to produce one.",
         }
-    return dict(idx.bundle_manifest)
+    return {"server_version": __version__, **dict(idx.bundle_manifest)}
 
 
 @mcp.tool()
