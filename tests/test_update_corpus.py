@@ -81,3 +81,122 @@ def test_missing_input_dir_errors(tmp_path):
     r = _run(str(tmp_path / "nonexistent"), str(tmp_path / "out"), "--dry-run")
     assert r.returncode == 1
     assert "does not exist" in r.stderr
+
+
+# ---------------------------------------------------------------------------
+# --re-annotate-stale (#33)
+# ---------------------------------------------------------------------------
+
+
+import hashlib
+import json
+
+
+def _make_corpus(tmp_path: Path, anatomy_sha: str) -> Path:
+    """Synthetic 3-paper corpus with anatomy.json files stamped with
+    the given fingerprint sha. Two papers stale, one fresh.
+    """
+    inp = tmp_path / "in"
+    inp.mkdir()
+    out = tmp_path / "out"
+    docs = out / "documents"
+    docs.mkdir(parents=True)
+
+    fresh_sha = anatomy_sha  # matches current
+    stale_sha = hashlib.sha256(b"old version").hexdigest()
+
+    for h, sha in [("aaa", fresh_sha), ("bbb", stale_sha), ("ccc", stale_sha)]:
+        hd = docs / h
+        hd.mkdir()
+        (hd / "anatomy.json").write_text(json.dumps({
+            "total_mentions": 0, "unique_terms": 0, "mentions": [],
+            "input_fingerprint": {"path": "...", "sha256": sha, "size": 1},
+        }))
+    return out
+
+
+def test_re_annotate_stale_requires_resume(tmp_path):
+    inp = tmp_path / "in"
+    inp.mkdir()
+    lexicon = tmp_path / "lex.yaml"
+    lexicon.write_text("terms: []")
+    r = _run(
+        str(inp), str(tmp_path / "out"),
+        "--re-annotate-stale", "anatomy",
+        "--anatomy-lexicon", str(lexicon),
+    )
+    assert r.returncode != 0
+    assert "requires --resume" in r.stderr
+
+
+def test_re_annotate_stale_dry_run_lists_but_does_not_delete(tmp_path):
+    lexicon = tmp_path / "lex.yaml"
+    lexicon.write_text("terms: ['nectophore']")
+    sha = hashlib.sha256(lexicon.read_bytes()).hexdigest()
+    out = _make_corpus(tmp_path, sha)
+    inp = tmp_path / "in"
+
+    r = _run(
+        str(inp), str(out),
+        "--resume", "--dry-run",
+        "--re-annotate-stale", "anatomy",
+        "--anatomy-lexicon", str(lexicon),
+    )
+    assert r.returncode == 0, r.stderr
+    # Two stale papers — should report them
+    assert "2 anatomy_stale" in r.stderr
+    assert "would delete" in r.stderr
+    # Files still present (dry-run)
+    for h in ("aaa", "bbb", "ccc"):
+        assert (out / "documents" / h / "anatomy.json").exists()
+
+
+def test_re_annotate_stale_deletes_only_stale_artifacts(tmp_path):
+    lexicon = tmp_path / "lex.yaml"
+    lexicon.write_text("terms: ['nectophore']")
+    sha = hashlib.sha256(lexicon.read_bytes()).hexdigest()
+    out = _make_corpus(tmp_path, sha)
+    inp = tmp_path / "in"
+
+    r = _run(
+        str(inp), str(out),
+        "--resume",
+        "--re-annotate-stale", "anatomy",
+        "--anatomy-lexicon", str(lexicon),
+        "--skip-pipeline",  # we only want the deletion step exercised here
+    )
+    assert r.returncode == 0, r.stderr
+    # aaa was fresh — anatomy.json must remain
+    assert (out / "documents" / "aaa" / "anatomy.json").exists()
+    # bbb + ccc were stale — anatomy.json must be gone
+    assert not (out / "documents" / "bbb" / "anatomy.json").exists()
+    assert not (out / "documents" / "ccc" / "anatomy.json").exists()
+
+
+def test_re_annotate_stale_no_change_when_nothing_stale(tmp_path):
+    lexicon = tmp_path / "lex.yaml"
+    lexicon.write_text("terms: ['x']")
+    sha = hashlib.sha256(lexicon.read_bytes()).hexdigest()
+
+    inp = tmp_path / "in"
+    inp.mkdir()
+    out = tmp_path / "out"
+    docs = out / "documents"
+    docs.mkdir(parents=True)
+    # Single paper, fingerprint matches current
+    hd = docs / "fresh"
+    hd.mkdir()
+    (hd / "anatomy.json").write_text(json.dumps({
+        "total_mentions": 0, "unique_terms": 0, "mentions": [],
+        "input_fingerprint": {"sha256": sha, "size": 1, "path": "..."},
+    }))
+
+    r = _run(
+        str(inp), str(out),
+        "--resume", "--skip-pipeline",
+        "--re-annotate-stale", "anatomy",
+        "--anatomy-lexicon", str(lexicon),
+    )
+    assert r.returncode == 0, r.stderr
+    assert "nothing to delete" in r.stderr.lower()
+    assert (hd / "anatomy.json").exists()
