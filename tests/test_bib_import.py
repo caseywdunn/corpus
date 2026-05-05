@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from bib_export import export_bibtex
-from bib_import import (
+from bib import parse_bibtex
+from bib.export import export_bibtex
+from bib.importer import (
     _normalize_doi,
     diff_entry_against_work,
     find_matching_work_id,
     import_bibtex,
 )
-from bib_metadata import parse_bibtex
 
 
 # ---------------------------------------------------------------------------

@@ -28,7 +28,7 @@ from grobid_client import (
     parse_tei_intext_citations,
     parse_tei_references,
 )
-from bib_metadata import BibIndex, bib_entry_to_metadata
+from bib import BibIndex, bib_entry_to_metadata
 from figures import (
     extract_caption_info,
     parse_figure_number,

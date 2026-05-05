@@ -110,7 +110,8 @@ itself if you change one.
 
 ## Layout conventions
 
-- Code at the repo root is either a library module imported by the pipeline (`bib_metadata.py`, `embeddings.py`, `external.py`, `figures.py`, `grobid_client.py`, `taxa.py`, `vision.py`) or a CLI entry point the user runs directly (`process_corpus.py`, `embed_chunks.py`, `mcp_server.py`, `build_biblio_authority.py`, `build_taxon_mentions.py`, `ingest_taxonomy.py`, `reconcile_corpus_to_biblio.py`, `corpus_status.py`, `update_corpus.py`, `backfill_intext_citations.py`, `package_for_serve.py`, `bib_export.py`, `bib_import.py`).
+- Code at the repo root is either a library module imported by the pipeline (`embeddings.py`, `external.py`, `figures.py`, `grobid_client.py`, `taxa.py`, `vision.py`) or a CLI entry point the user runs directly (`process_corpus.py`, `embed_chunks.py`, `mcp_server.py`, `build_biblio_authority.py`, `build_taxon_mentions.py`, `ingest_taxonomy.py`, `reconcile_corpus_to_biblio.py`, `corpus_status.py`, `update_corpus.py`, `backfill_intext_citations.py`, `package_for_serve.py`, `bib_export.py`, `bib_import.py`).
+- [bib/](bib/) — bibliographic round-trip package: `parser.py` (BibTeX parser, `BibIndex`), `export.py` (DB → BibTeX), `importer.py` (BibTeX → DB). Exposed as a single namespace via `from bib import …`. The root `bib_export.py` / `bib_import.py` are thin CLI shims; `bib_metadata.py` at root is a backwards-compat re-export shim slated for removal.
 - [slurm/](slurm/) — SLURM batch scripts for Bouchet; documented in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`.
 - [tests/](tests/) — one file per subsystem.

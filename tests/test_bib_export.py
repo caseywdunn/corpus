@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from bib_export import (
+from bib.export import (
     _alpha_suffix,
     _ascii_surname,
     assign_cite_keys,
