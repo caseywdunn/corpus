@@ -2,9 +2,11 @@
 
 v0.1 (2026-05-01) shipped the full extraction → annotation → indexing →
 MCP-serving stack on a ~1,800-paper siphonophore corpus. v0.2 hardens
-v0.1's rough edges and fills in the deferred design items: vision pass
-at corpus scale, geographic mention layer, batch-script cleanup, and
-the granular-resume restructure now under evaluation.
+v0.1's rough edges and fills in the deferred items: vision pass at
+corpus scale, expanded taxonomy + lexicon coverage, a Streamable-HTTP
+transport with OAuth, batch-script cleanup, and the granular-resume
+restructure now under evaluation. Geographic extraction is pushed to
+v2.0+ (see §5).
 
 This document is scoped to v0.2 work. Architectural background and
 pipeline internals live in [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md);
@@ -40,14 +42,9 @@ v0.2-scoped subset is listed below.
 - [#25](https://github.com/caseywdunn/corpus/issues/25) — `pngquant`
   missing from `environment.yaml`.
 - Bouchet batch-script cleanup
-  ([#19](https://github.com/caseywdunn/corpus/issues/19),
-  [#20](https://github.com/caseywdunn/corpus/issues/20),
-  [#21](https://github.com/caseywdunn/corpus/issues/21)) — old code in
-  `batch_embed.sh`, library-load problems across batch scripts, CUDA
-  / torch fixes.
-- [#7 part 3](https://github.com/caseywdunn/corpus/issues/7) — Any
-  remaining work on the in-text citation graph beyond parts 1 and 2
-  already merged.
+  ([#20](https://github.com/caseywdunn/corpus/issues/20),
+  [#21](https://github.com/caseywdunn/corpus/issues/21)) —
+  library-load problems across batch scripts, CUDA / torch fixes.
 
 ### Vision + figures
 
@@ -64,8 +61,6 @@ v0.2-scoped subset is listed below.
 
 ### Indices + features
 
-- [#13](https://github.com/caseywdunn/corpus/issues/13) —
-  **Geographic mention layer.** Largest new design item; see [§2](#2-geographic-mention-layer-issue-13).
 - [#5](https://github.com/caseywdunn/corpus/issues/5) — **Streamable
   HTTP transport with OAuth**, replacing the SSE-with-bearer-token
   transport that v0.1 ships. Streamable HTTP is the current MCP
@@ -90,82 +85,7 @@ v0.2-scoped subset is listed below.
   further work is needed (per-document chunking concurrency, BGE-M3
   batch sizing).
 
-## 2. Geographic mention layer (issue #13)
-
-Bibliographic and taxonomic mention layers shipped in v0.1; geographic
-is the third and last layer in the per-corpuscle `*_mentions` family.
-Same shape as the others — external table that points into chunk text,
-rebuilt independently of the pipeline (see
-[dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) for the existing layers).
-
-### Schema
-
-```sql
-CREATE TABLE geo_mentions (
-    mention_id     INTEGER PRIMARY KEY,
-    locality_id    TEXT,                   -- FK to localities (NULL if unresolved)
-    corpus_hash    TEXT NOT NULL,
-    chunk_index    INTEGER NOT NULL,
-    char_start     INTEGER NOT NULL,
-    char_end       INTEGER NOT NULL,
-    mention_text   TEXT NOT NULL,
-    latitude       REAL,
-    longitude      REAL,
-    depth_m        REAL,
-    confidence     REAL DEFAULT 1.0,
-    method         TEXT NOT NULL           -- 'spacy_ner' | 'geonames_match' | 'regex_coords'
-);
-
-CREATE TABLE localities (
-    locality_id    TEXT PRIMARY KEY,
-    name           TEXT NOT NULL,
-    latitude       REAL,
-    longitude      REAL,
-    country        TEXT,
-    geonames_id    INTEGER,
-    source         TEXT NOT NULL           -- 'geonames' | 'manual' | 'inferred'
-);
-```
-
-### Extraction
-
-Sampling localities appear in this literature in several forms: named
-places ("Villefranche-sur-Mer", "Bay of Naples"), coordinates
-("32°15′N, 64°40′W"), station references ("Station 42", "Sta. 1247"),
-depth ranges ("200–400 m"), and vessel names ("R/V *Dana*",
-"HMS *Challenger*").
-
-1. **Named-location NER** — spaCy `GPE`/`LOC` entities as a starting
-   point. Filter for geographic relevance (not all GPEs are sampling
-   locations).
-2. **Geocoding** — resolve named locations to coordinates via the
-   GeoNames API or a local GeoNames dump. Record `geonames_id` for
-   traceability.
-3. **Coordinate extraction** — regex for degree-minute-second and
-   decimal-degree patterns. Associate with nearby taxon mentions for
-   taxon × locality co-occurrence.
-4. **Structured sampling events (deferred).** Extract (location,
-   depth, date, vessel, taxon) tuples from methods sections. Harder;
-   may benefit from LLM extraction. Out of scope for v0.2.
-
-### MCP tool surface
-
-| Tool | Purpose |
-| --- | --- |
-| `get_locality_mentions(locality, radius_km=None)` | All text spans mentioning a locality (or within radius) |
-| `get_taxon_localities(name)` | Co-occurring taxon × locality pairs across the corpus |
-| `get_locality_taxa(locality)` | All taxa mentioned near a given locality |
-
-### Feasibility
-
-Highest-effort and lowest-initial-precision of the three mention
-layers. Named locations are detectable but associating them with the
-right taxon — and distinguishing sampling locations from other
-geographic references ("the Mediterranean fauna") — requires context.
-Start with named locations + coordinates only; structured sampling
-events are a later enrichment.
-
-## 3. Proposal under evaluation: granular per-stage resume (#28)
+## 2. Proposal under evaluation: granular per-stage resume (#28)
 
 [#28](https://github.com/caseywdunn/corpus/issues/28) proposes
 replacing the all-or-nothing `summary.json` completion marker with
@@ -177,17 +97,17 @@ re-paying for Docling extraction. Decision needed before this lands
 in v0.2 — restructure work touches every batch script, the resume
 logic, and the MCP server's startup checks.
 
-## 4. Target queries (evergreen reference)
+## 3. Target queries (evergreen reference)
 
 The eight target query patterns the corpus is designed to serve.
 Generic shapes; concrete instantiations live in the corpuscle's
-`instructions.md`. v0.1 made Q1, Q2, Q4–Q8 answerable; Q3 is the only
-one still gated on unbuilt indices (trait extraction, deferred to
-post-v0.2 — [#14](https://github.com/caseywdunn/corpus/issues/14)).
+`instructions.md`. v0.1 made Q2, Q5–Q7 fully answerable; Q1, Q4, Q8
+remain partial pending v0.2 work; Q3 is gated on trait extraction
+deferred post-v0.2 ([#14](https://github.com/caseywdunn/corpus/issues/14)).
 
 | # | Pattern | Status after v0.1 |
 | --- | --- | --- |
-| Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer (§2) for the locality side |
+| Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer (#13, deferred to v2.0+) |
 | Q2 | "Compose a monographic review of `<genus>`." | Indices in place; synthesis recipe not yet scoped |
 | Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred (#14, post-v0.2) |
 | Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Needs vision pass at corpus scale (#11) |
@@ -196,7 +116,7 @@ post-v0.2 — [#14](https://github.com/caseywdunn/corpus/issues/14)).
 | Q7 | "Plot species described per decade." | Indices in place |
 | Q8 | "Summarize what is known about `<anatomy>`." | Needs vision-pass figure tagging at corpus scale (#11) |
 
-## 5. Versioning + release ritual
+## 4. Versioning + release ritual
 
 `__version__` in [version.py](version.py) is the single source of
 truth and is stamped into every persistent artifact (bundle manifest,
@@ -206,8 +126,13 @@ a PEP 440 pre-release suffix (`0.2.0.dev0` → `0.2.0a1` → `0.2.0`),
 the release commit drops the suffix, the next commit on `dev`
 reintroduces one for the next target.
 
-## 6. Out of scope for v0.2
+## 5. Out of scope for v0.2
 
+- [#13](https://github.com/caseywdunn/corpus/issues/13) — Geographic
+  mention layer (NER + GeoNames + locality table; the third layer in
+  the `*_mentions` family alongside biblio + taxon). Deferred to
+  v2.0+; the mention-layer surface is likely to be reworked at the
+  major-version boundary.
 - [#14](https://github.com/caseywdunn/corpus/issues/14) — Trait
   extraction + identification keys (Q3). Substantial enough to
   warrant its own plan section when picked up; v0.3 candidate.
