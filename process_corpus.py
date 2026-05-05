@@ -16,7 +16,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 import multiprocessing
 import tempfile
 import os
@@ -288,6 +288,80 @@ def _safe_load_json(path: Path) -> Any:
     except Exception:
         return {}
     return {}
+
+
+# ---------------------------------------------------------------------------
+# Per-stage resume (#28)
+# ---------------------------------------------------------------------------
+#
+# A stage is considered "complete" if its output artifact exists and is
+# nonzero. Per-stage resume makes "delete the artifact, re-run with
+# --resume" the workflow for selective redo: the deleted artifact's
+# stage runs, every other stage skips (since its artifact is still
+# present), and Docling — the expensive bottleneck — is not re-paid
+# unless text.json or figures.json is actually missing.
+#
+# summary.json remains the nuclear option per the issue: deleting it
+# forces full reprocessing of the document.
+
+
+def _stage_artifacts_present(paths: Iterable[Path]) -> bool:
+    """All artifacts exist and are nonzero. Empty iterable → True."""
+    paths = list(paths)
+    if not paths:
+        return True
+    return all(p.exists() and p.stat().st_size > 0 for p in paths)
+
+
+def _should_run_stage(
+    stage_name: str,
+    artifacts: List[Path],
+    *,
+    resume: bool,
+    processing_summary: Dict[str, Any],
+) -> bool:
+    """Return True if the stage should run. When False, record a skip
+    on processing_summary['skipped_stages'] and log it.
+    """
+    if not resume:
+        return True
+    if not _stage_artifacts_present(artifacts):
+        return True
+    logger.info("%s: skipping (artifacts present)", stage_name)
+    processing_summary.setdefault("skipped_stages", []).append(stage_name)
+    return False
+
+
+def _all_stage_artifacts_complete(
+    hash_dir: Path,
+    *,
+    expect_taxa: bool = False,
+    expect_anatomy: bool = False,
+) -> bool:
+    """Return True if every per-stage artifact for ``hash_dir`` is present.
+
+    Used by the outer --resume short-circuit: if every artifact is on
+    disk, skip the paper entirely (fast path); otherwise fall through to
+    the pipeline and let per-stage guards run only the missing stages.
+
+    ``expect_taxa`` / ``expect_anatomy`` reflect whether the run is
+    configured to produce those artifacts (taxonomy DB / anatomy lexicon
+    available); set False to relax the check for runs that legitimately
+    skip them.
+    """
+    required = [
+        hash_dir / "scan_detection.json",
+        hash_dir / "processed.pdf",
+        hash_dir / "text.json",
+        hash_dir / "figures.json",
+        hash_dir / "metadata.json",
+        hash_dir / "chunks.json",
+    ]
+    if expect_taxa:
+        required.append(hash_dir / "taxa.json")
+    if expect_anatomy:
+        required.append(hash_dir / "anatomy.json")
+    return _stage_artifacts_present(required)
 
 
 def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
@@ -1165,6 +1239,7 @@ def run_pdf_processing_pipeline(
     content_aware_figures: bool = False,
     vision_backend=None,
     bib_index: Optional[BibIndex] = None,
+    resume: bool = False,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -1191,6 +1266,7 @@ def run_pdf_processing_pipeline(
         "errors": [],             # legacy free-text; kept for backwards compat
         "stage_timings": [],      # #34: per-stage timing, success or fail
         "stage_failures": [],     # #34: structured failure records
+        "skipped_stages": [],     # #28: stages whose artifact was already present
     }
 
     try:
@@ -1209,69 +1285,87 @@ def run_pdf_processing_pipeline(
                     )
             processing_summary["processing_steps"].append("huge_document_check")
 
-        with _stage(processing_summary, "scan_detection"):
-            logger.info("Detecting scan type...")
-            detection_result = detect_scan_type(temp_pdf)
-            detection_file = hash_dir / "scan_detection.json"
-            with open(detection_file, "w") as f:
-                json.dump(detection_result, f, indent=2)
-            processing_summary["files_created"].append(str(detection_file))
-            processing_summary["processing_steps"].append("scan_detection")
+        # ── scan_detection ──────────────────────────────────────────
+        detection_file = hash_dir / "scan_detection.json"
+        if _should_run_stage("scan_detection", [detection_file],
+                             resume=resume, processing_summary=processing_summary):
+            with _stage(processing_summary, "scan_detection"):
+                logger.info("Detecting scan type...")
+                detection_result = detect_scan_type(temp_pdf)
+                with open(detection_file, "w") as f:
+                    json.dump(detection_result, f, indent=2)
+                processing_summary["files_created"].append(str(detection_file))
+                processing_summary["processing_steps"].append("scan_detection")
+        else:
+            with open(detection_file) as f:
+                detection_result = json.load(f)
 
-        with _stage(processing_summary, "pdf_preparation"):
-            logger.info("Preparing PDF...")
-            processed_pdf = hash_dir / "processed.pdf"
-            prepare_pdf(temp_pdf, detection_result, processed_pdf)
-            processing_summary["files_created"].append(str(processed_pdf))
-            processing_summary["processing_steps"].append("pdf_preparation")
+        # ── pdf_preparation ─────────────────────────────────────────
+        processed_pdf = hash_dir / "processed.pdf"
+        if _should_run_stage("pdf_preparation", [processed_pdf],
+                             resume=resume, processing_summary=processing_summary):
+            with _stage(processing_summary, "pdf_preparation"):
+                logger.info("Preparing PDF...")
+                prepare_pdf(temp_pdf, detection_result, processed_pdf)
+                processing_summary["files_created"].append(str(processed_pdf))
+                processing_summary["processing_steps"].append("pdf_preparation")
 
-        with _stage(processing_summary, "docling_extraction"):
-            logger.info("Extracting text and figures...")
-            text_file = hash_dir / "text.json"
-            figures_file = hash_dir / "figures.json"
-            docling_doc_file = hash_dir / "docling_doc.json"
-            extract_docling_content(
-                processed_pdf,
-                text_file,
-                figures_file,
-                figures_dir,
-                visualizations_dir,
-                docling_doc_output=docling_doc_file,
-                scan_file_type=detection_result.get("file_type"),
-            )
-            processing_summary["files_created"].extend([str(text_file), str(figures_file)])
-            if docling_doc_file.exists():
-                processing_summary["files_created"].append(str(docling_doc_file))
-            processing_summary["processing_steps"].append("docling_extraction")
+        # ── docling_extraction ─────────────────────────────────────
+        text_file = hash_dir / "text.json"
+        figures_file = hash_dir / "figures.json"
+        docling_doc_file = hash_dir / "docling_doc.json"
+        if _should_run_stage("docling_extraction", [text_file, figures_file],
+                             resume=resume, processing_summary=processing_summary):
+            with _stage(processing_summary, "docling_extraction"):
+                logger.info("Extracting text and figures...")
+                extract_docling_content(
+                    processed_pdf,
+                    text_file,
+                    figures_file,
+                    figures_dir,
+                    visualizations_dir,
+                    docling_doc_output=docling_doc_file,
+                    scan_file_type=detection_result.get("file_type"),
+                )
+                processing_summary["files_created"].extend([str(text_file), str(figures_file)])
+                if docling_doc_file.exists():
+                    processing_summary["files_created"].append(str(docling_doc_file))
+                processing_summary["processing_steps"].append("docling_extraction")
 
-        with _stage(processing_summary, "metadata_extraction"):
-            logger.info("Extracting metadata (Grobid)...")
-            metadata_file = hash_dir / "metadata.json"
-            references_file = hash_dir / "references.json"
-            tei_file = hash_dir / "grobid.tei.xml"
-            bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
-            extract_metadata(
-                processed_pdf,
-                metadata_file,
-                references_output=references_file,
-                tei_output=tei_file,
-                grobid_client=grobid_client,
-                original_filename=pdf_path.name,
-                bib_entry=bib_entry,
-            )
-            processing_summary["files_created"].extend(
-                [str(metadata_file), str(references_file)]
-            )
-            if tei_file.exists():
-                processing_summary["files_created"].append(str(tei_file))
-            processing_summary["processing_steps"].append("metadata_extraction")
+        # ── metadata_extraction ─────────────────────────────────────
+        metadata_file = hash_dir / "metadata.json"
+        references_file = hash_dir / "references.json"
+        tei_file = hash_dir / "grobid.tei.xml"
+        if _should_run_stage("metadata_extraction", [metadata_file],
+                             resume=resume, processing_summary=processing_summary):
+            with _stage(processing_summary, "metadata_extraction"):
+                logger.info("Extracting metadata (Grobid)...")
+                bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
+                extract_metadata(
+                    processed_pdf,
+                    metadata_file,
+                    references_output=references_file,
+                    tei_output=tei_file,
+                    grobid_client=grobid_client,
+                    original_filename=pdf_path.name,
+                    bib_entry=bib_entry,
+                )
+                processing_summary["files_created"].extend(
+                    [str(metadata_file), str(references_file)]
+                )
+                if tei_file.exists():
+                    processing_summary["files_created"].append(str(tei_file))
+                processing_summary["processing_steps"].append("metadata_extraction")
 
-        with _stage(processing_summary, "text_chunking"):
-            logger.info("Chunking text...")
-            chunks_file = hash_dir / "chunks.json"
-            chunk_text(text_file, metadata_file, chunks_file)
-            processing_summary["files_created"].append(str(chunks_file))
-            processing_summary["processing_steps"].append("text_chunking")
+        # ── text_chunking ──────────────────────────────────────────
+        chunks_file = hash_dir / "chunks.json"
+        if _should_run_stage("text_chunking", [chunks_file],
+                             resume=resume, processing_summary=processing_summary):
+            with _stage(processing_summary, "text_chunking"):
+                logger.info("Chunking text...")
+                chunk_text(text_file, chunks_output=chunks_file)
+                processing_summary["files_created"].append(str(chunks_file))
+                processing_summary["processing_steps"].append("text_chunking")
 
         with _stage(processing_summary, "figure_pass25_annotation"):
             logger.info("Pass 2.5: annotating figures from captions + text...")
@@ -1310,14 +1404,32 @@ def run_pdf_processing_pipeline(
             _crossref_chunks_and_figures(figures_file, chunks_file)
             processing_summary["processing_steps"].append("figure_crossref")
 
-        with _stage(processing_summary, "taxa_anatomy_extraction"):
-            logger.info("Extracting taxa + anatomy mentions...")
-            taxa_anat_files = _extract_taxa_and_anatomy(
-                chunks_file, hash_dir, taxonomy_db, anatomy_lexicon
-            )
-            processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
-            if taxa_anat_files:
-                processing_summary["processing_steps"].append("taxa_anatomy_extraction")
+        # ── taxa_anatomy_extraction ─────────────────────────────────
+        # Per-stage guard: the expected artifacts depend on which inputs
+        # are configured (taxonomy DB and/or anatomy lexicon). Only check
+        # the artifacts whose stage will actually emit them.
+        expected_taxa_anat: List[Path] = []
+        if taxonomy_db is not None:
+            expected_taxa_anat.append(hash_dir / "taxa.json")
+        if anatomy_lexicon:
+            expected_taxa_anat.append(hash_dir / "anatomy.json")
+        if expected_taxa_anat and _should_run_stage(
+            "taxa_anatomy_extraction",
+            expected_taxa_anat,
+            resume=resume,
+            processing_summary=processing_summary,
+        ):
+            with _stage(processing_summary, "taxa_anatomy_extraction"):
+                logger.info("Extracting taxa + anatomy mentions...")
+                taxa_anat_files = _extract_taxa_and_anatomy(
+                    chunks_file, hash_dir, taxonomy_db, anatomy_lexicon
+                )
+                processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
+                if taxa_anat_files:
+                    processing_summary["processing_steps"].append("taxa_anatomy_extraction")
+        elif not expected_taxa_anat:
+            # No taxonomy DB and no anatomy lexicon configured — nothing to do.
+            pass
 
         with _stage(processing_summary, "figures_report"):
             logger.info("Generating figures report...")
@@ -2281,8 +2393,8 @@ def extract_metadata(
 
 def chunk_text(
     text_file: Path,
-    metadata_file: Path,
-    chunks_output: Path,
+    metadata_file: Optional[Path] = None,
+    chunks_output: Optional[Path] = None,
     docling_doc_file: Optional[Path] = None,
 ):
     """Chunk the document into structurally-aware pieces.
@@ -2296,9 +2408,14 @@ def chunk_text(
     When no DoclingDocument is available (e.g., docling import failed
     upstream), we fall back to the prior naive character-window behavior so
     downstream stages still run.
+
+    ``metadata_file`` is accepted for backward compatibility with callers
+    that still pass it but is unused — chunking has no dependency on
+    Grobid output, decoupling Stage 1 from the metadata stage (#28).
     """
-    with open(metadata_file, "r") as f:
-        metadata = json.load(f)
+    if chunks_output is None:
+        raise TypeError("chunk_text: chunks_output is required")
+    del metadata_file  # explicitly unused; preserved in signature for compat
 
     # Resolve default docling_doc_file relative to text_file's directory.
     if docling_doc_file is None:
@@ -2361,7 +2478,6 @@ def chunk_text(
         logger.info("Naive chunker produced %d chunks", len(chunks))
 
     chunks_data = {
-        "metadata": metadata,
         "chunker": chunker_name,
         "total_chunks": len(chunks),
         "chunks": chunks,
@@ -2980,20 +3096,28 @@ def main():
     logger.info("Unique PDFs (by hash): %d", len(pdf_map))
 
     # ── Pre-filter completed documents before batch slicing ─────────
-    # When --resume is active and we're batching, remove already-completed
-    # hashes *before* dividing into batches. This ensures batches contain
-    # only unprocessed documents, instead of some batches being entirely
-    # skip-only while others carry all the remaining work.
+    # When --resume is active and we're batching, remove fully-completed
+    # hashes *before* dividing into batches. A hash is fully complete iff
+    # summary.json exists AND every per-stage artifact is on disk (#28);
+    # otherwise it has missing stages and the inner per-stage guards will
+    # only re-run those.
     if args.resume and args.batch_index is not None:
+        expect_taxa = taxonomy_db is not None
+        expect_anatomy = bool(anatomy_lexicon)
         before = len(pdf_map)
-        pdf_map = {
-            h: paths for h, paths in pdf_map.items()
-            if not (documents_dir / short_hash(h) / "summary.json").exists()
-        }
+        kept = {}
+        for h, paths in pdf_map.items():
+            hd = documents_dir / short_hash(h)
+            if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
+                hd, expect_taxa=expect_taxa, expect_anatomy=expect_anatomy,
+            ):
+                continue
+            kept[h] = paths
+        pdf_map = kept
         skipped = before - len(pdf_map)
         if skipped:
             logger.info(
-                "Resume: filtered out %d already-completed documents "
+                "Resume: filtered out %d fully-completed documents "
                 "(%d remaining to process)", skipped, len(pdf_map),
             )
 
@@ -3020,16 +3144,28 @@ def main():
         pdf_map = {h: pdf_map[h] for h in batch_hashes}
 
     if args.dry_run:
-        n_would = n_would_skip = 0
+        n_would_full = n_would_partial = n_would_skip = 0
+        expect_taxa = taxonomy_db is not None
+        expect_anatomy = bool(anatomy_lexicon)
         for h in pdf_map:
-            if args.resume and (documents_dir / short_hash(h) / "summary.json").exists():
+            hd = documents_dir / short_hash(h)
+            if not args.resume:
+                n_would_full += 1
+                continue
+            if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
+                hd, expect_taxa=expect_taxa, expect_anatomy=expect_anatomy,
+            ):
                 n_would_skip += 1
+            elif (hd / "summary.json").exists():
+                # Partial — per-stage guards will run only the missing stages
+                n_would_partial += 1
             else:
-                n_would += 1
+                n_would_full += 1
         logger.info(
-            "Dry-run: %d unique PDF(s) in scope; would process %d, would skip %d "
-            "(--resume = %s). Vision backend: %s. Grobid: %s. No files written.",
-            len(pdf_map), n_would, n_would_skip,
+            "Dry-run: %d unique PDF(s) in scope; would full-process %d, "
+            "partial-process %d, skip %d (--resume = %s). Vision backend: %s. "
+            "Grobid: %s. No files written.",
+            len(pdf_map), n_would_full, n_would_partial, n_would_skip,
             "on" if args.resume else "off",
             args.vision_backend or "off",
             "off (--no-grobid or empty URL)" if (args.no_grobid or not args.grobid_url) else args.grobid_url,
@@ -3068,8 +3204,20 @@ def main():
                                 "Pass 3b refresh failed on %s: %s", pdf_hash, e
                             )
                     continue
-                logger.info("Skipping %s (already processed)", pdf_hash)
-                continue
+                # Per-stage resume (#28): if every artifact is on disk,
+                # skip the whole paper (fast path). Otherwise fall through
+                # — run_pdf_processing_pipeline runs only the missing
+                # stages.
+                if _all_stage_artifacts_complete(
+                    hash_dir,
+                    expect_taxa=taxonomy_db is not None,
+                    expect_anatomy=bool(anatomy_lexicon),
+                ):
+                    logger.info("Skipping %s (all stages complete)", pdf_hash)
+                    continue
+                logger.info(
+                    "Resuming %s (re-running missing stages only)", pdf_hash
+                )
 
             hash_dir.mkdir(exist_ok=True)
 
@@ -3109,6 +3257,7 @@ def main():
                         content_aware_figures=args.content_aware_figures,
                         vision_backend=vision_backend,
                         bib_index=bib_index,
+                        resume=args.resume,
                     )
 
                     summary_file = create_summary_json(
