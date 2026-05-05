@@ -4,9 +4,10 @@ v0.1 (2026-05-01) shipped the full extraction → annotation → indexing →
 MCP-serving stack on a ~1,800-paper siphonophore corpus. v0.2 hardens
 v0.1's rough edges and fills in the deferred items: vision pass at
 corpus scale, expanded taxonomy + lexicon coverage, a Streamable-HTTP
-transport with OAuth, batch-script cleanup, and the granular-resume
-restructure now under evaluation. Geographic extraction is pushed to
-v2.0+ (see §5).
+transport with OAuth, batch-script cleanup, granular per-stage resume,
+robustness + quality gates against silent-failure modes, and a
+`corpus_status` view of the build. Geographic extraction is pushed to
+v2.0+ (see §4).
 
 This document is scoped to v0.2 work. Architectural background and
 pipeline internals live in [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md);
@@ -111,6 +112,38 @@ fast and obviously-correct.
   lexicon: edit `anatomy_lexicon.yaml`, re-annotate only stale
   papers. Depends on #29 + #28.
 
+### Robustness + observability
+
+The pipeline is resilient (it doesn't crash on bad inputs) but it
+isn't *diagnosable* — failures are free-text strings in `errors[]`,
+silent-failure modes (gibberish OCR, empty extractions) ship without
+a flag, and there's no single command to ask "what's the state of
+this build." This section closes those gaps.
+
+- [#34](https://github.com/caseywdunn/corpus/issues/34) — **Per-stage
+  wallclock caps + structured `stage_failures[]`** with reason codes
+  (`timeout`, `crash`, `external_unavailable`, `unsupported_format`,
+  `corrupted`, `quality_gate`). Replaces free-text `errors[]`.
+- [#35](https://github.com/caseywdunn/corpus/issues/35) — **Huge-document
+  path.** Page-count gate + chunked OCR for 500+ page monographs
+  (Haeckel 1888 *Challenger Siphonophorae* is the canary).
+- [#36](https://github.com/caseywdunn/corpus/issues/36) — **Quality
+  gates** that catch silent failures: empty text, gibberish OCR
+  output, all-black figures, suspicious zero-reference papers,
+  collapsed-extraction chunks.
+- [#37](https://github.com/caseywdunn/corpus/issues/37) — **External-service
+  flakiness.** Standardized retry + backoff + caching for Grobid,
+  BHL, CrossRef, OpenAlex; circuit breakers; `--strict-network` for
+  release builds.
+- [#40](https://github.com/caseywdunn/corpus/issues/40) —
+  **`corpus_status.py`.** Single command that reports stage
+  completion, failure breakdown by reason, quality flags, and
+  staleness. The dashboard for everything else in this section and
+  in §1 Update lifecycle.
+- [#41](https://github.com/caseywdunn/corpus/issues/41) —
+  **Standardize `--dry-run`** across all pipeline + post-pipeline
+  CLIs. Currently inconsistent (4 of 10 scripts have it).
+
 ### Internal
 
 - [#15](https://github.com/caseywdunn/corpus/issues/15) — Refactor
@@ -161,6 +194,13 @@ reintroduces one for the next target.
 - [#14](https://github.com/caseywdunn/corpus/issues/14) — Trait
   extraction + identification keys (Q3). Substantial enough to
   warrant its own plan section when picked up; v0.3 candidate.
+- [#38](https://github.com/caseywdunn/corpus/issues/38) — Embedding
+  model migration path (versioned LanceDB tables + dual-read).
+  Design-only for v0.2; implement when a model swap is actually
+  needed (BGE-M3 v2 or a switch to a different family).
+- [#39](https://github.com/caseywdunn/corpus/issues/39) — MCP server
+  lazy index loading. Premature at 1.8K papers; document as a known
+  scaling cliff and revisit when a corpuscle pushes 10K+.
 - Multi-region failover, autoscaling, or blue/green deploys for the
   AWS served bundle. Single-instance is fine until it isn't.
 - Authentication beyond bearer tokens / OAuth (Cognito, institutional
