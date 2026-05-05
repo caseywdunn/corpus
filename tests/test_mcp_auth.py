@@ -1,4 +1,4 @@
-"""Unit tests for the bearer-auth ASGI middleware in mcp_server.py.
+"""Unit tests for the bearer-auth ASGI middleware (mcpsrv.transport).
 
 The middleware is the only piece of the HTTP transport that enforces
 access control, so test it directly at the ASGI protocol level.  We
@@ -9,25 +9,14 @@ scope/receive/send callables.
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-import sys
-from pathlib import Path
 from typing import List
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-
-# Load mcp_server.py as a module — can't import normally because it
-# pulls in the FastMCP dep which isn't always present in a dev env.
-# Skip gracefully if that dep is missing; the middleware itself is
-# pure asyncio code that doesn't need mcp installed to be tested.
-_spec = importlib.util.spec_from_file_location(
-    "mcp_server", REPO_ROOT / "mcp_server.py"
-)
+# The middleware lives in mcpsrv.transport after #15. Skip the suite
+# gracefully if the mcp SDK isn't installed in the env.
 try:
-    _mcp_server = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_mcp_server)
+    from mcpsrv.transport import _BearerAuthASGI
     _HAS_MCP = True
 except ModuleNotFoundError:
     _HAS_MCP = False
@@ -35,7 +24,7 @@ except ModuleNotFoundError:
 
 pytestmark = pytest.mark.skipif(
     not _HAS_MCP,
-    reason="mcp_server imports the mcp sdk; skip when not installed",
+    reason="mcpsrv imports the mcp sdk; skip when not installed",
 )
 
 
@@ -78,7 +67,7 @@ def _run(coro):
 
 def test_missing_auth_header_rejects_with_401():
     inner = _CaptureApp()
-    mw = _mcp_server._BearerAuthASGI(inner, token="secret")
+    mw = _BearerAuthASGI(inner, token="secret")
 
     async def run():
         scope = {"type": "http", "headers": []}
@@ -98,7 +87,7 @@ def test_missing_auth_header_rejects_with_401():
 
 def test_wrong_token_rejects_with_401():
     inner = _CaptureApp()
-    mw = _mcp_server._BearerAuthASGI(inner, token="secret")
+    mw = _BearerAuthASGI(inner, token="secret")
 
     async def run():
         scope = {"type": "http", "headers": [(b"authorization", b"Bearer wrong")]}
@@ -117,7 +106,7 @@ def test_wrong_token_rejects_with_401():
 
 def test_correct_token_passes_through():
     inner = _CaptureApp()
-    mw = _mcp_server._BearerAuthASGI(inner, token="secret")
+    mw = _BearerAuthASGI(inner, token="secret")
 
     async def run():
         scope = {
@@ -141,7 +130,7 @@ def test_non_http_scope_passes_through_unauthenticated():
     checks the client has no way to supply.
     """
     inner = _CaptureApp()
-    mw = _mcp_server._BearerAuthASGI(inner, token="secret")
+    mw = _BearerAuthASGI(inner, token="secret")
 
     async def run():
         scope = {"type": "lifespan"}
@@ -158,7 +147,7 @@ def test_token_comparison_is_constant_time():
     against a well-meaning refactor re-introducing the timing leak.
     """
     import inspect
-    src = inspect.getsource(_mcp_server._BearerAuthASGI.__call__)
+    src = inspect.getsource(_BearerAuthASGI.__call__)
     assert "compare_digest" in src, (
         "token comparison must use hmac.compare_digest for constant-time "
         "behavior — do not switch to == without thinking about timing attacks"
