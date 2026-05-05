@@ -8,8 +8,10 @@ The corpus pipeline consumes a single SQLite file (default
                             from any DwC publisher, e.g. WoRMS, GBIF,
                             iNaturalist, ITIS, or hand-curated).
 * ``--source dwca PATH``  — a Darwin Core Archive (.zip with meta.xml +
-                            Taxon.tsv), or an extracted directory, or a
-                            bare ``Taxon.tsv``.
+                            Taxon.tsv or taxa.tsv), or an extracted
+                            directory, or a bare ``Taxon.tsv`` /
+                            ``taxa.tsv``. ITIS emits ``taxa.tsv``;
+                            WoRMS / GBIF emit ``Taxon.tsv``.
 * ``--source worms``      — walks the WoRMS REST API from a root AphiaID
                             and writes the same DwC schema. Network +
                             rate-limited (~0.3 s per call).
@@ -288,11 +290,24 @@ def iter_dwc_csv(path: Path) -> Iterator[Dict]:
 # ---------------------------------------------------------------------------
 
 
+def _is_taxon_core_file(name: str) -> bool:
+    """Return True if ``name`` looks like a DwC-A Taxon-core file.
+
+    DwC publishers disagree on the filename: WoRMS/GBIF emit
+    ``Taxon.tsv``, ITIS emits ``taxa.tsv`` (https://itis.gov/dwca_format.html),
+    GBIF DwC-As also use ``taxon.txt``. Match any of those — prefix
+    ``taxon`` *or* ``taxa``, with a tabular extension.
+    """
+    base = Path(name).name.lower()
+    if Path(name).suffix.lower() not in (".tsv", ".csv", ".txt"):
+        return False
+    return base.startswith("taxon") or base.startswith("taxa")
+
+
 def iter_dwca(path: Path) -> Iterator[Dict]:
     """Yield records from a DwC-A. Accepts a .zip, an extracted directory,
-    or a bare ``Taxon.tsv``. Looks for any file whose lowercased name
-    starts with ``taxon`` and ends in .tsv/.csv/.txt — DwC archives use
-    ``taxon.txt`` by convention but we don't insist on it.
+    or a bare ``Taxon.tsv``/``taxa.tsv``. See ``_is_taxon_core_file`` for
+    the filename rules.
 
     For the .zip case we extract the matching member to a temp buffer.
     Avoids requiring a full DwC-A library (python-dwca-reader); we only
@@ -302,13 +317,11 @@ def iter_dwca(path: Path) -> Iterator[Dict]:
     if p.is_file() and p.suffix.lower() == ".zip":
         with zipfile.ZipFile(p) as zf:
             taxon_member = next(
-                (n for n in zf.namelist()
-                 if Path(n).name.lower().startswith("taxon")
-                 and Path(n).suffix.lower() in (".tsv", ".csv", ".txt")),
+                (n for n in zf.namelist() if _is_taxon_core_file(n)),
                 None,
             )
             if taxon_member is None:
-                raise ValueError(f"{p}: no Taxon.tsv-like file in archive")
+                raise ValueError(f"{p}: no Taxon-core file (Taxon.tsv / taxa.tsv) in archive")
             logger.info("Reading %s from %s", taxon_member, p)
             with zf.open(taxon_member) as raw:
                 # csv.DictReader needs text; wrap.
@@ -317,14 +330,11 @@ def iter_dwca(path: Path) -> Iterator[Dict]:
         return
     if p.is_dir():
         cand = next(
-            (q for q in p.iterdir()
-             if q.is_file()
-             and q.name.lower().startswith("taxon")
-             and q.suffix.lower() in (".tsv", ".csv", ".txt")),
+            (q for q in p.iterdir() if q.is_file() and _is_taxon_core_file(q.name)),
             None,
         )
         if cand is None:
-            raise ValueError(f"{p}: no Taxon.tsv-like file in directory")
+            raise ValueError(f"{p}: no Taxon-core file (Taxon.tsv / taxa.tsv) in directory")
         logger.info("Reading %s", cand)
         yield from iter_dwc_csv(cand)
         return
