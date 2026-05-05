@@ -57,7 +57,7 @@ dependencies:
       - mcp  # Model Context Protocol SDK for the corpus-serving agent tools layer
       - uvicorn  # ASGI server for `mcp_server.py --transport sse`; declared explicitly so we don't rely on mcp's transitive pin
       - sentence-transformers  # local embedding backend (Phase E); pulls torch + transformers
-      - torch  # imported directly in embeddings.py / vision.py; declared so we don't rely on the sentence-transformers transitive
+      - torch  # imported directly in embeddings.py / vision.py. On Bouchet this PyPI build is CUDA 13; reinstall from the cu128 index — see dev_docs/BOUCHET.md (issue #21).
       - transformers  # imported directly in vision.py for the local VLM backend
       - anthropic  # Claude API client for on-demand translation (translate_chunk MCP tool)
       - pytesseract  # Python wrapper for Tesseract — used in Pass 3a figure-label OCR (PLAN.md §9)

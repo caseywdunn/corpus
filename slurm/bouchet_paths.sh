@@ -21,3 +21,13 @@ CACHE_DIR="${CACHE_DIR:-$BOUCHET_PROJECT/cache}"
 # a compute node — see BOUCHET.md.
 export HF_HOME="${HF_HOME:-$CACHE_DIR/huggingface}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/hub}"
+
+# Native libs for the conda env (#20). Bouchet compute nodes don't
+# always have $CONDA_PREFIX/lib on the runtime loader path; without
+# it docling/torch silently fall back to whatever the system has and
+# produce mis-structured output without crashing. Prepend the env's
+# libs so they win — matches the resolution order pip / conda used
+# at install time. Caller must `conda activate corpus` before sourcing.
+if [[ -n "${CONDA_PREFIX:-}" ]]; then
+    export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
+fi

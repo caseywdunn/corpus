@@ -43,6 +43,17 @@ conda activate corpus
 
 Additional Tesseract language packs (German Fraktur, French, Russian, Latin) still need to be installed — see `README.md` for specifics.
 
+**GPU torch (issue #21).** PyPI's default `torch` resolves to a CUDA 13 build, but Bouchet's H200 driver caps at CUDA 12.8. Re-install torch from PyTorch's cu128 index after the conda env exists:
+
+```bash
+conda activate corpus
+pip install torch==2.9.0 torchvision==0.24.0 \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    --force-reinstall
+```
+
+Verify with `python -c "import torch; print(torch.__version__, torch.cuda.is_available())"` on a `gpu` or `gpu_h200` node — should print `2.9.0+cu128 True`. The Stage 1 batch script's preflight (`slurm/batch_process_corpus.sh`) aborts loudly if torch / docling can't import, so a botched install fails fast instead of producing mis-structured output.
+
 ### 3. Pre-download HuggingFace models
 
 Do this once on an interactive node (login nodes usually block outbound internet; request a compute node with `salloc -p interactive -t 0:30:00`):

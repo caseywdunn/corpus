@@ -43,6 +43,27 @@ conda activate corpus
 cd "$REPO_DIR"
 mkdir -p logs "$OUTPUT_DIR"
 
+# Fail-loud preflight (#20). docling import on Bouchet has historically
+# fallen back to a broken tree-sitter / torch when LD_LIBRARY_PATH
+# wasn't set right; the pipeline kept running and produced
+# mis-structured output. Abort here instead.
+echo "Preflight: import docling + torch ..."
+python -c "
+import sys
+try:
+    import docling.document_converter  # noqa: F401
+    import torch  # noqa: F401
+except Exception as e:
+    sys.stderr.write(f'PREFLIGHT FAILED: {type(e).__name__}: {e}\n')
+    sys.stderr.write(
+        'Likely missing native libs. Confirm CONDA_PREFIX/lib is on '
+        'LD_LIBRARY_PATH (handled by bouchet_paths.sh) and that '
+        'torch matches the cluster CUDA version (issue #21).\n'
+    )
+    sys.exit(2)
+print(f'docling + torch loaded OK ({torch.__version__})')
+"
+
 # ── Grobid ───────────────────────────────────────────────────────────
 GROBID_URL="${GROBID_URL:-http://localhost:8070}"
 echo "Grobid URL: $GROBID_URL"
