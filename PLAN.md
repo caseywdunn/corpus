@@ -19,6 +19,31 @@ v0.2-scoped subset is listed below.
 
 ## 1. v0.2 punch list
 
+### Implementation order
+
+Items below are grouped thematically, but implemented in this order so
+data shapes land before consumers and small wins land before
+architectural lifts:
+
+1. **Quick wins** — #6, #22, #25, #31, #41. Small fixes, a read-only
+   audit, and `--dry-run` flags. Low risk; lands first to build
+   momentum.
+2. **Robustness layer** — #34 → #36 → #40, then #35, #37. Structured
+   `stage_failures[]`, quality gates, `corpus_status.py`. Establishes
+   the failure / status data model before anything restructures the
+   pipeline.
+3. **Update lifecycle** — #28 → #29, then #30, #32, #33. Granular
+   per-stage resume + input fingerprints. #34's structured-failure
+   schema lands first so #28 inherits it instead of inventing a
+   parallel one.
+4. **Slot in anywhere** — #11 + #27 (vision at corpus scale), #15
+   (mcp_server refactor), batch-script cleanup (#20, #21), feature
+   work (#5, #23, #24, #26), #12, #16, #17. Independent enough to
+   land in any session.
+
+The thematic groupings below remain useful reference; read this list
+when planning a session.
+
 ### Hardening — close out v0.1 rough edges
 
 - [#9](https://github.com/caseywdunn/corpus/issues/9) — Install
