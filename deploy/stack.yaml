@@ -52,11 +52,14 @@ Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: >
-      VPC to place the EC2 instance + security group in.  Use the
-      default VPC unless your org has a specific network posture
-      to honour.  Discover with:
+      VPC to place the EC2 instance + security group in.  Required —
+      this template does not assume a default VPC exists, since some
+      accounts have it intentionally deleted or never had one.
+      Default-VPC discovery (when one exists):
           aws ec2 describe-vpcs --filters Name=is-default,Values=true \\
               --query 'Vpcs[0].VpcId' --output text
+      Otherwise, list all VPCs with:
+          aws ec2 describe-vpcs --query 'Vpcs[].[VpcId,Tags]' --output table
 
   SubnetId:
     Type: AWS::EC2::Subnet::Id
@@ -119,9 +122,8 @@ Resources:
 
   # ── Networking ─────────────────────────────────────────────────────
 
-  # Uses the default VPC to keep the template short.  If you've
-  # deleted the default VPC, add VpcId + SubnetId parameters and
-  # reference them here and on the instance.
+  # VpcId + SubnetId are required parameters — explicit so this
+  # template works on accounts without a default VPC.
 
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
