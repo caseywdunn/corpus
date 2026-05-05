@@ -38,6 +38,16 @@ ocr:
 chunking:
   max_tokens: 8191
 
+# Per-stage wallclock caps in seconds (#34). Hard-enforced where
+# technically feasible (subprocess.run on ocrmypdf, GrobidClient
+# request timeout). Stages without a hard-cap mechanism still record
+# timing in summary.json; the value is informational.
+stage_timeouts:
+  ocr: 1800            # 30 min — long monographs can run scary long
+  grobid: 300          # 5 min — enforced by GrobidClient default
+  docling: 600         # 10 min — informational only (in-process)
+  vision_pass: 600     # 10 min — informational only
+
 # Cross-paper resources pointed at by the pipeline. These paths are
 # resolved relative to the repo root.
 resources:

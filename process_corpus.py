@@ -12,9 +12,11 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 import multiprocessing
 import tempfile
 import os
@@ -111,6 +113,16 @@ _DEFAULT_CONFIG = {
     "chunking": {
         "max_tokens": 8191,
     },
+    # Per-stage wallclock caps in seconds (#34). Hard-enforced where
+    # technically feasible (subprocess.run on ocrmypdf; GrobidClient
+    # request timeout). Stages without a hard-cap mechanism still record
+    # timing in summary.json; the value is informational.
+    "stage_timeouts": {
+        "ocr": 1800,         # 30 min — long monographs can run scary long
+        "grobid": 300,       # 5 min — enforced by GrobidClient default
+        "docling": 600,      # 10 min — informational only (in-process)
+        "vision_pass": 600,  # 10 min — informational only
+    },
 }
 
 
@@ -152,6 +164,98 @@ def load_config(config_path: Optional[Path] = None) -> dict:
 # Module-level config; populated by main(), also safe-loaded on import with
 # defaults so helper functions can run outside main() (e.g., in tests).
 CONFIG: dict = dict(_DEFAULT_CONFIG)
+
+
+# ---------------------------------------------------------------------------
+# Per-stage timing + structured failures (#34)
+# ---------------------------------------------------------------------------
+
+# Reason codes recorded in stage_failures[]. The set is closed: any
+# unmapped exception falls through to "crash". When extending, also
+# update tools that group/aggregate failures (corpus_status.py, #40).
+_REASON_CODES = (
+    "timeout",                # wallclock cap exceeded
+    "crash",                  # unhandled exception, subprocess died
+    "external_unavailable",   # Grobid / BHL / CrossRef / OpenAlex non-200
+    "unsupported_format",     # encrypted, password-protected, etc.
+    "corrupted",              # PDF parse error
+    "quality_gate",           # failed a downstream sanity check (#36)
+)
+
+
+def _utcnow_iso() -> str:
+    """UTC ISO-8601 timestamp with second precision (no microseconds)."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _classify_exception(e: BaseException) -> Tuple[str, str]:
+    """Map an exception to ``(reason_code, short_detail)`` for stage_failures[].
+
+    Conservative — anything not specifically recognized falls through
+    to ``crash`` rather than being silently mis-categorized.
+    """
+    name = type(e).__name__
+    if isinstance(e, subprocess.TimeoutExpired):
+        return "timeout", f"{name}: command timed out after {e.timeout}s"
+    # Grobid availability errors are imported lazily — avoid circular import
+    # when grobid_client doesn't exist (e.g., in unit tests).
+    try:
+        from grobid_client import GrobidUnavailableError  # type: ignore
+        if isinstance(e, GrobidUnavailableError):
+            return "external_unavailable", f"{name}: {e}"
+    except ImportError:
+        pass
+    try:
+        import requests
+        if isinstance(e, (requests.ConnectionError, requests.Timeout, requests.HTTPError)):
+            return "external_unavailable", f"{name}: {e}"
+    except ImportError:
+        pass
+    msg = str(e).lower()
+    if "encrypted" in msg or "password" in msg:
+        return "unsupported_format", f"{name}: {e}"
+    if "corrupt" in msg or "invalid pdf" in msg or "syntax error" in msg:
+        return "corrupted", f"{name}: {e}"
+    return "crash", f"{name}: {e}"
+
+
+@contextmanager
+def _stage(processing_summary: Dict[str, Any], name: str):
+    """Record per-stage timing into ``stage_timings[]`` and, on exception,
+    append a structured failure into ``stage_failures[]``. Re-raises
+    so the pipeline-level try/except still catches.
+
+    Pure addition — does not touch the legacy ``processing_steps[]`` /
+    ``errors[]``, which the caller continues to populate explicitly.
+    """
+    started_at = _utcnow_iso()
+    t0 = time.monotonic()
+    err: Optional[BaseException] = None
+    try:
+        yield
+    except Exception as e:
+        err = e
+        raise
+    finally:
+        ended_at = _utcnow_iso()
+        duration_s = round(time.monotonic() - t0, 3)
+        processing_summary.setdefault("stage_timings", []).append({
+            "stage": name,
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "duration_s": duration_s,
+            "ok": err is None,
+        })
+        if err is not None:
+            reason_code, detail = _classify_exception(err)
+            processing_summary.setdefault("stage_failures", []).append({
+                "stage": name,
+                "reason_code": reason_code,
+                "reason_detail": detail[:500],
+                "started_at": started_at,
+                "ended_at": ended_at,
+                "duration_s": duration_s,
+            })
 
 
 def setup_root_logging(level: int = logging.INFO) -> None:
@@ -886,116 +990,131 @@ def run_pdf_processing_pipeline(
 
     processing_summary = {
         "original_pdf": str(pdf_path),
-        "processing_steps": [],
+        "started_at": _utcnow_iso(),
+        "processing_steps": [],   # legacy: stage names, success only
         "files_created": [],
-        "errors": [],
+        "errors": [],             # legacy free-text; kept for backwards compat
+        "stage_timings": [],      # #34: per-stage timing, success or fail
+        "stage_failures": [],     # #34: structured failure records
     }
 
     try:
-        logger.info("Detecting scan type...")
-        detection_result = detect_scan_type(temp_pdf)
-        detection_file = hash_dir / "scan_detection.json"
-        with open(detection_file, "w") as f:
-            json.dump(detection_result, f, indent=2)
-        processing_summary["files_created"].append(str(detection_file))
-        processing_summary["processing_steps"].append("scan_detection")
+        with _stage(processing_summary, "scan_detection"):
+            logger.info("Detecting scan type...")
+            detection_result = detect_scan_type(temp_pdf)
+            detection_file = hash_dir / "scan_detection.json"
+            with open(detection_file, "w") as f:
+                json.dump(detection_result, f, indent=2)
+            processing_summary["files_created"].append(str(detection_file))
+            processing_summary["processing_steps"].append("scan_detection")
 
-        logger.info("Preparing PDF...")
-        processed_pdf = hash_dir / "processed.pdf"
-        prepare_pdf(temp_pdf, detection_result, processed_pdf)
-        processing_summary["files_created"].append(str(processed_pdf))
-        processing_summary["processing_steps"].append("pdf_preparation")
+        with _stage(processing_summary, "pdf_preparation"):
+            logger.info("Preparing PDF...")
+            processed_pdf = hash_dir / "processed.pdf"
+            prepare_pdf(temp_pdf, detection_result, processed_pdf)
+            processing_summary["files_created"].append(str(processed_pdf))
+            processing_summary["processing_steps"].append("pdf_preparation")
 
-        logger.info("Extracting text and figures...")
-        text_file = hash_dir / "text.json"
-        figures_file = hash_dir / "figures.json"
-        docling_doc_file = hash_dir / "docling_doc.json"
-        extract_docling_content(
-            processed_pdf,
-            text_file,
-            figures_file,
-            figures_dir,
-            visualizations_dir,
-            docling_doc_output=docling_doc_file,
-            scan_file_type=detection_result.get("file_type"),
-        )
-        processing_summary["files_created"].extend([str(text_file), str(figures_file)])
-        if docling_doc_file.exists():
-            processing_summary["files_created"].append(str(docling_doc_file))
-        processing_summary["processing_steps"].append("docling_extraction")
+        with _stage(processing_summary, "docling_extraction"):
+            logger.info("Extracting text and figures...")
+            text_file = hash_dir / "text.json"
+            figures_file = hash_dir / "figures.json"
+            docling_doc_file = hash_dir / "docling_doc.json"
+            extract_docling_content(
+                processed_pdf,
+                text_file,
+                figures_file,
+                figures_dir,
+                visualizations_dir,
+                docling_doc_output=docling_doc_file,
+                scan_file_type=detection_result.get("file_type"),
+            )
+            processing_summary["files_created"].extend([str(text_file), str(figures_file)])
+            if docling_doc_file.exists():
+                processing_summary["files_created"].append(str(docling_doc_file))
+            processing_summary["processing_steps"].append("docling_extraction")
 
-        logger.info("Extracting metadata (Grobid)...")
-        metadata_file = hash_dir / "metadata.json"
-        references_file = hash_dir / "references.json"
-        tei_file = hash_dir / "grobid.tei.xml"
-        bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
-        extract_metadata(
-            processed_pdf,
-            metadata_file,
-            references_output=references_file,
-            tei_output=tei_file,
-            grobid_client=grobid_client,
-            original_filename=pdf_path.name,
-            bib_entry=bib_entry,
-        )
-        processing_summary["files_created"].extend(
-            [str(metadata_file), str(references_file)]
-        )
-        if tei_file.exists():
-            processing_summary["files_created"].append(str(tei_file))
-        processing_summary["processing_steps"].append("metadata_extraction")
+        with _stage(processing_summary, "metadata_extraction"):
+            logger.info("Extracting metadata (Grobid)...")
+            metadata_file = hash_dir / "metadata.json"
+            references_file = hash_dir / "references.json"
+            tei_file = hash_dir / "grobid.tei.xml"
+            bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
+            extract_metadata(
+                processed_pdf,
+                metadata_file,
+                references_output=references_file,
+                tei_output=tei_file,
+                grobid_client=grobid_client,
+                original_filename=pdf_path.name,
+                bib_entry=bib_entry,
+            )
+            processing_summary["files_created"].extend(
+                [str(metadata_file), str(references_file)]
+            )
+            if tei_file.exists():
+                processing_summary["files_created"].append(str(tei_file))
+            processing_summary["processing_steps"].append("metadata_extraction")
 
-        logger.info("Chunking text...")
-        chunks_file = hash_dir / "chunks.json"
-        chunk_text(text_file, metadata_file, chunks_file)
-        processing_summary["files_created"].append(str(chunks_file))
-        processing_summary["processing_steps"].append("text_chunking")
+        with _stage(processing_summary, "text_chunking"):
+            logger.info("Chunking text...")
+            chunks_file = hash_dir / "chunks.json"
+            chunk_text(text_file, metadata_file, chunks_file)
+            processing_summary["files_created"].append(str(chunks_file))
+            processing_summary["processing_steps"].append("text_chunking")
 
-        logger.info("Pass 2.5: annotating figures from captions + text...")
-        _pass25_annotate_figures(text_file, figures_file)
-        processing_summary["processing_steps"].append("figure_pass25_annotation")
+        with _stage(processing_summary, "figure_pass25_annotation"):
+            logger.info("Pass 2.5: annotating figures from captions + text...")
+            _pass25_annotate_figures(text_file, figures_file)
+            processing_summary["processing_steps"].append("figure_pass25_annotation")
 
         if vision_backend is not None:
-            logger.info("Pass 3b: vision-model-driven panel + compound detection...")
-            _pass3b_annotate_rois(figures_file, vision_backend)
-            processing_summary["processing_steps"].append("figure_pass3b_rois")
+            with _stage(processing_summary, "figure_pass3b_rois"):
+                logger.info("Pass 3b: vision-model-driven panel + compound detection...")
+                _pass3b_annotate_rois(figures_file, vision_backend)
+                processing_summary["processing_steps"].append("figure_pass3b_rois")
         elif content_aware_figures:
-            logger.info("Pass 3a: OCR-driven panel ROI detection...")
-            _pass3a_annotate_rois(figures_file)
-            processing_summary["processing_steps"].append("figure_pass3a_rois")
+            with _stage(processing_summary, "figure_pass3a_rois"):
+                logger.info("Pass 3a: OCR-driven panel ROI detection...")
+                _pass3a_annotate_rois(figures_file)
+                processing_summary["processing_steps"].append("figure_pass3a_rois")
 
         # Pass 3c — resolve *_compound figures: split their ROIs, match
         # to missing_figures, rename the PNG to range notation. Cheap;
         # worth running whenever 3a or 3b has been run.
         if vision_backend is not None or content_aware_figures:
-            logger.info("Pass 3c: compound figure resolution + file rename...")
-            summary_3c = resolve_compound_figures(figures_file)
-            logger.info(
-                "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
-                summary_3c.get("resolved", 0),
-                summary_3c.get("renamed", 0),
-                summary_3c.get("unchanged", 0),
-                summary_3c.get("new_records", 0),
+            with _stage(processing_summary, "figure_pass3c_resolve"):
+                logger.info("Pass 3c: compound figure resolution + file rename...")
+                summary_3c = resolve_compound_figures(figures_file)
+                logger.info(
+                    "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
+                    summary_3c.get("resolved", 0),
+                    summary_3c.get("renamed", 0),
+                    summary_3c.get("unchanged", 0),
+                    summary_3c.get("new_records", 0),
+                )
+                processing_summary["processing_steps"].append("figure_pass3c_resolve")
+
+        with _stage(processing_summary, "figure_crossref"):
+            logger.info("Linking chunks to figures...")
+            _crossref_chunks_and_figures(figures_file, chunks_file)
+            processing_summary["processing_steps"].append("figure_crossref")
+
+        with _stage(processing_summary, "taxa_anatomy_extraction"):
+            logger.info("Extracting taxa + anatomy mentions...")
+            taxa_anat_files = _extract_taxa_and_anatomy(
+                chunks_file, hash_dir, taxonomy_db, anatomy_lexicon
             )
-            processing_summary["processing_steps"].append("figure_pass3c_resolve")
+            processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
+            if taxa_anat_files:
+                processing_summary["processing_steps"].append("taxa_anatomy_extraction")
 
-        logger.info("Linking chunks to figures...")
-        _crossref_chunks_and_figures(figures_file, chunks_file)
-        processing_summary["processing_steps"].append("figure_crossref")
-
-        logger.info("Extracting taxa + anatomy mentions...")
-        taxa_anat_files = _extract_taxa_and_anatomy(
-            chunks_file, hash_dir, taxonomy_db, anatomy_lexicon
-        )
-        processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
-        if taxa_anat_files:
-            processing_summary["processing_steps"].append("taxa_anatomy_extraction")
-
-        logger.info("Generating figures report...")
-        report_path = generate_figures_report(hash_dir)
-        if report_path:
-            processing_summary["files_created"].append(str(report_path))
-            processing_summary["processing_steps"].append("figures_report")
+        with _stage(processing_summary, "figures_report"):
+            logger.info("Generating figures report...")
+            report_path = generate_figures_report(hash_dir)
+            if report_path:
+                processing_summary["files_created"].append(str(report_path))
+                processing_summary["processing_steps"].append("figures_report")
 
         processing_summary["status"] = "success"
 
@@ -1004,6 +1123,7 @@ def run_pdf_processing_pipeline(
         processing_summary["errors"].append(str(e))
         logger.exception("Error processing PDF: %s", e)
 
+    processing_summary["ended_at"] = _utcnow_iso()
     return processing_summary
 
 
@@ -1317,7 +1437,17 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         str(output_pdf),
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    ocr_timeout = float(CONFIG.get("stage_timeouts", {}).get("ocr", 1800))
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=ocr_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        # Re-raise so the wrapping _stage records reason_code=timeout.
+        # The pipeline-level try/except still catches and continues to
+        # the next paper, with the timeout structured into stage_failures[].
+        logger.warning("OCR timed out after %.0fs on %s", ocr_timeout, input_pdf.name)
+        raise
 
     if result.returncode != 0:
         logger.warning(
