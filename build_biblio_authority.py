@@ -21,8 +21,13 @@ After a build completes, ``reconcile_corpus_to_biblio.py`` can
 be run to merge corpus papers whose Grobid-seeded work_id received no
 incoming citations onto matching ghost cited-reference rows.
 
-Idempotent and resumable: re-running merges new papers into the
-existing database without duplicating existing records.
+Idempotency (#30): every INSERT is either ``OR IGNORE`` (work_authors,
+work_aliases, citations, taxon_work_links) or paired with a SELECT
+existence check (works), so re-running on an unchanged corpus is a
+no-op modulo updated_at timestamps. Adding a new paper is an
+incremental update — its work_id seeds, its references cascade-match
+against existing works, no existing rows are recomputed. ``--rebuild``
+drops every table except the rate-limited ``bhl_lookups`` cache.
 
 Usage:
     python build_biblio_authority.py /path/to/output

@@ -10,8 +10,11 @@ the cached TEI; no Grobid call, no re-OCR.
 Usage:
     python backfill_intext_citations.py /path/to/output_dir
 
-By default skips papers whose ``intext_citations.json`` already exists.
-``--force`` re-parses every paper.
+Idempotency (#30): by default each hash dir is processed only when
+``intext_citations.json`` is missing. Re-running on an unchanged corpus
+is a near-zero-work no-op (one stat() per hash dir). Adding a new paper
+picks it up automatically. ``--force`` re-parses every paper —
+deterministic re-write of the same content given the same TEI.
 """
 from __future__ import annotations
 

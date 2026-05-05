@@ -11,6 +11,13 @@ span-level taxon queries and (later) taxon × locality joins with Layer 3.
 The per-paper taxa.json files remain the source of truth — this database
 is a derived index that can be rebuilt at any time.
 
+Idempotency (#30): each paper has a row in the ``papers_processed``
+table; subsequent runs skip already-processed papers at the top of the
+ingest loop. Re-running is a near-zero-work no-op when the corpus
+hasn't changed; adding a new paper picks it up incrementally without
+disturbing existing rows. ``--rebuild`` drops everything and
+re-ingests from scratch.
+
 Usage:
     python build_taxon_mentions.py /path/to/output
     python build_taxon_mentions.py /path/to/output --rebuild
