@@ -6,20 +6,33 @@ The corpus pipeline consumes a single SQLite file (default
 
 * ``--source dwc PATH``   — a DwC Taxon CSV/TSV (recommended; download
                             from any DwC publisher, e.g. WoRMS, GBIF,
-                            iNaturalist, ITIS, or hand-curated).
+                            iNaturalist, ITIS, World Flora Online,
+                            Plants of the World Online, or
+                            hand-curated).
 * ``--source dwca PATH``  — a Darwin Core Archive (.zip with meta.xml +
                             Taxon.tsv or taxa.tsv), or an extracted
                             directory, or a bare ``Taxon.tsv`` /
                             ``taxa.tsv``. ITIS emits ``taxa.tsv``;
-                            WoRMS / GBIF emit ``Taxon.tsv``.
+                            WoRMS / GBIF / WFO emit ``Taxon.tsv``.
 * ``--source worms``      — walks the WoRMS REST API from a root AphiaID
                             and writes the same DwC schema. Network +
                             rate-limited (~0.3 s per call).
 
+Taxon-agnostic: the parser reads the standard DwC ``Taxon`` class fields
+(``taxonID``, ``scientificName``, ``parentNameUsageID``, etc.), so any
+DwC publisher's archive works. Tested with WoRMS (marine) and GBIF
+(general); plant sources (#23) — World Flora Online at
+https://www.worldfloraonline.org/downloadData and POWO via
+https://powo.science.kew.org/about — publish DwC Taxon files of the
+same shape and ingest the same way:
+
+    python ingest_taxonomy.py output --source dwc /path/to/wfo_taxon.csv
+
 Optional ``--root-id <taxonID>`` prunes the snapshot to the subgraph
 rooted at that taxon: useful for ingesting only Siphonophorae out of the
-full WoRMS export, for example. Synonyms whose ``acceptedNameUsageID``
-points into the kept set are preserved; everything else is dropped.
+full WoRMS export, or only one plant family out of WFO. Synonyms whose
+``acceptedNameUsageID`` points into the kept set are preserved;
+everything else is dropped.
 
 Schema (Darwin Core Taxon class, plus an indexed ``names`` table for
 lookup):
