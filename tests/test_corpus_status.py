@@ -162,3 +162,101 @@ def test_render_text_does_not_crash(documents_dir):
     assert "Quality flags" in out
     # Legacy note should mention eee
     assert "legacy errors" in out
+
+
+# ---------------------------------------------------------------------------
+# Stale-fingerprint detection (#29)
+# ---------------------------------------------------------------------------
+
+
+def _write_taxa(documents_dir: Path, h: str, sha: str) -> None:
+    hd = documents_dir / h
+    hd.mkdir(parents=True, exist_ok=True)
+    (hd / "taxa.json").write_text(json.dumps({
+        "total_mentions": 0, "unique_taxa": 0, "mentions": [],
+        "input_fingerprint": {"path": "/tmp/taxonomy.sqlite", "sha256": sha, "size": 100},
+    }))
+
+
+def _write_anatomy(documents_dir: Path, h: str, sha: str) -> None:
+    hd = documents_dir / h
+    hd.mkdir(parents=True, exist_ok=True)
+    (hd / "anatomy.json").write_text(json.dumps({
+        "total_mentions": 0, "unique_terms": 0, "mentions": [],
+        "input_fingerprint": {"path": "/tmp/anatomy.yaml", "sha256": sha, "size": 100},
+    }))
+
+
+def test_detect_stale_taxonomy(tmp_path):
+    from corpus_status import detect_stale_fingerprints
+
+    docs = tmp_path / "documents"
+    docs.mkdir()
+    # Current taxonomy has a known SHA-256
+    cur_taxonomy = tmp_path / "taxonomy.sqlite"
+    cur_taxonomy.write_bytes(b"current")
+    import hashlib
+    cur_sha = hashlib.sha256(b"current").hexdigest()
+    old_sha = hashlib.sha256(b"old").hexdigest()
+
+    _write_taxa(docs, "fresh", cur_sha)   # matches current — not stale
+    _write_taxa(docs, "stale", old_sha)   # different sha — stale
+
+    stale = detect_stale_fingerprints(docs, taxonomy_path=cur_taxonomy)
+    assert stale["taxonomy_stale"] == ["stale"]
+    assert stale["anatomy_stale"] == []
+
+
+def test_detect_stale_anatomy(tmp_path):
+    from corpus_status import detect_stale_fingerprints
+
+    docs = tmp_path / "documents"
+    docs.mkdir()
+    cur_anatomy = tmp_path / "anatomy.yaml"
+    cur_anatomy.write_bytes(b"current")
+    import hashlib
+    cur_sha = hashlib.sha256(b"current").hexdigest()
+    old_sha = hashlib.sha256(b"old").hexdigest()
+
+    _write_anatomy(docs, "fresh", cur_sha)
+    _write_anatomy(docs, "stale1", old_sha)
+    _write_anatomy(docs, "stale2", old_sha)
+
+    stale = detect_stale_fingerprints(docs, anatomy_lexicon_path=cur_anatomy)
+    assert sorted(stale["anatomy_stale"]) == ["stale1", "stale2"]
+
+
+def test_pre_29_papers_without_fingerprint_not_flagged(tmp_path):
+    from corpus_status import detect_stale_fingerprints
+
+    docs = tmp_path / "documents"
+    docs.mkdir()
+    hd = docs / "old_paper"
+    hd.mkdir()
+    # taxa.json without input_fingerprint (pre-#29 layout)
+    (hd / "taxa.json").write_text(json.dumps({
+        "total_mentions": 0, "unique_taxa": 0, "mentions": [],
+    }))
+
+    cur_taxonomy = tmp_path / "taxonomy.sqlite"
+    cur_taxonomy.write_bytes(b"x")
+
+    stale = detect_stale_fingerprints(docs, taxonomy_path=cur_taxonomy)
+    # No fingerprint to compare against → skipped, not flagged
+    assert stale["taxonomy_stale"] == []
+
+
+def test_filter_stale_taxonomy(tmp_path):
+    from corpus_status import filtered_hashes
+
+    rollup = aggregate(tmp_path / "nonexistent_documents") if False else {
+        "papers_by_reason_stage": {},
+        "papers_by_gate": {},
+        "papers_with_failures": set(),
+        "papers_with_quality_flags": set(),
+    }
+    stale = {"taxonomy_stale": ["aaa", "bbb"], "anatomy_stale": ["ccc"]}
+
+    assert filtered_hashes(rollup, filter_stale="taxonomy", stale=stale) == ["aaa", "bbb"]
+    assert filtered_hashes(rollup, filter_stale="anatomy", stale=stale) == ["ccc"]
+    assert filtered_hashes(rollup, filter_stale="any", stale=stale) == ["aaa", "bbb", "ccc"]

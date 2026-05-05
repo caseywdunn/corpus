@@ -275,6 +275,22 @@ def _classify_exception(e: BaseException) -> Tuple[str, str]:
     return "crash", f"{name}: {e}"
 
 
+def _file_sha256(path: Path) -> str:
+    """Streaming SHA-256 of ``path``. Used by #29 to fingerprint inputs
+    (taxonomy.sqlite, anatomy_lexicon.yaml) so per-paper annotation
+    artifacts can record the exact input version they were built from.
+
+    Streamed in 64 KB chunks — taxonomy.sqlite at corpus scale is tens
+    of MB, well within scope for in-process hashing during startup but
+    not something to load into memory whole.
+    """
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for buf in iter(lambda: f.read(64 * 1024), b""):
+            h.update(buf)
+    return h.hexdigest()
+
+
 def _safe_load_json(path: Path) -> Any:
     """Load JSON; return {} when missing or malformed.
 
@@ -1240,6 +1256,8 @@ def run_pdf_processing_pipeline(
     vision_backend=None,
     bib_index: Optional[BibIndex] = None,
     resume: bool = False,
+    taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
+    anatomy_fingerprint: Optional[Dict[str, Any]] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -1422,7 +1440,12 @@ def run_pdf_processing_pipeline(
             with _stage(processing_summary, "taxa_anatomy_extraction"):
                 logger.info("Extracting taxa + anatomy mentions...")
                 taxa_anat_files = _extract_taxa_and_anatomy(
-                    chunks_file, hash_dir, taxonomy_db, anatomy_lexicon
+                    chunks_file,
+                    hash_dir,
+                    taxonomy_db,
+                    anatomy_lexicon,
+                    taxonomy_fingerprint=taxonomy_fingerprint,
+                    anatomy_fingerprint=anatomy_fingerprint,
                 )
                 processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
                 if taxa_anat_files:
@@ -2768,6 +2791,9 @@ def _extract_taxa_and_anatomy(
     hash_dir: Path,
     taxonomy_db: Optional[TaxonomyDB],
     anatomy_lexicon: Optional[Dict[str, Dict]],
+    *,
+    taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
+    anatomy_fingerprint: Optional[Dict[str, Any]] = None,
 ) -> List[Path]:
     """Run taxon + anatomy extraction on the per-PDF chunks and write
     ``taxa.json`` / ``anatomy.json``.
@@ -2776,6 +2802,10 @@ def _extract_taxa_and_anatomy(
     lexicon isn't configured / available, the corresponding artifact is
     simply not emitted (not an error). This keeps the pipeline runnable
     on a dev machine that hasn't yet run ``ingest_taxonomy.py``.
+
+    When ``taxonomy_fingerprint`` / ``anatomy_fingerprint`` are supplied
+    (#29), they are stamped into the output JSON so corpus_status can
+    detect stale annotations after the input changes.
     """
     out: List[Path] = []
     if not chunks_file.exists():
@@ -2789,6 +2819,8 @@ def _extract_taxa_and_anatomy(
 
     if taxonomy_db is not None:
         taxa_res = extract_taxon_mentions(chunks, taxonomy_db)
+        if taxonomy_fingerprint is not None:
+            taxa_res["input_fingerprint"] = taxonomy_fingerprint
         taxa_file = hash_dir / "taxa.json"
         with taxa_file.open("w", encoding="utf-8") as f:
             json.dump(taxa_res, f, indent=2, ensure_ascii=False)
@@ -2802,6 +2834,8 @@ def _extract_taxa_and_anatomy(
 
     if anatomy_lexicon:
         anat_res = extract_anatomy_mentions(chunks, anatomy_lexicon)
+        if anatomy_fingerprint is not None:
+            anat_res["input_fingerprint"] = anatomy_fingerprint
         anat_file = hash_dir / "anatomy.json"
         with anat_file.open("w", encoding="utf-8") as f:
             json.dump(anat_res, f, indent=2, ensure_ascii=False)
@@ -3029,14 +3063,26 @@ def main():
     # is no default lookup because it's a domain-specific user input.
     taxonomy_db: Optional[TaxonomyDB] = None
     anatomy_lexicon: Optional[Dict[str, Dict]] = None
+    taxonomy_fingerprint: Optional[Dict[str, Any]] = None
+    anatomy_fingerprint: Optional[Dict[str, Any]] = None
     if not args.no_taxa:
         taxonomy_path = args.taxonomy_db or (args.output_dir / "taxonomy.sqlite")
         if taxonomy_path.exists():
             try:
                 taxonomy_db = TaxonomyDB(taxonomy_path)
+                # Stamp #29: hash once at startup so per-paper writes are
+                # cheap. SHA-256 of taxonomy.sqlite is a stable identifier
+                # that survives copy/move and changes any time the DB is
+                # rebuilt.
+                taxonomy_fingerprint = {
+                    "path": str(taxonomy_path),
+                    "sha256": _file_sha256(taxonomy_path),
+                    "size": taxonomy_path.stat().st_size,
+                }
                 logger.info(
-                    "Taxonomy snapshot loaded from %s (%d names)",
+                    "Taxonomy snapshot loaded from %s (%d names, sha256=%s…)",
                     taxonomy_path, len(taxonomy_db.name_set()),
+                    taxonomy_fingerprint["sha256"][:12],
                 )
             except Exception as e:
                 logger.warning(
@@ -3053,9 +3099,15 @@ def main():
             if args.anatomy_lexicon.exists():
                 try:
                     anatomy_lexicon = load_anatomy_lexicon(args.anatomy_lexicon)
+                    anatomy_fingerprint = {
+                        "path": str(args.anatomy_lexicon),
+                        "sha256": _file_sha256(args.anatomy_lexicon),
+                        "size": args.anatomy_lexicon.stat().st_size,
+                    }
                     logger.info(
-                        "Anatomy lexicon loaded from %s (%d terms)",
+                        "Anatomy lexicon loaded from %s (%d terms, sha256=%s…)",
                         args.anatomy_lexicon, len(anatomy_lexicon),
+                        anatomy_fingerprint["sha256"][:12],
                     )
                 except Exception as e:
                     logger.warning(
@@ -3258,6 +3310,8 @@ def main():
                         vision_backend=vision_backend,
                         bib_index=bib_index,
                         resume=args.resume,
+                        taxonomy_fingerprint=taxonomy_fingerprint,
+                        anatomy_fingerprint=anatomy_fingerprint,
                     )
 
                     summary_file = create_summary_json(
