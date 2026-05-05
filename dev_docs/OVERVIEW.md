@@ -1,6 +1,6 @@
 # Architecture Overview
 
-The corpus pipeline processes a collection of scientific literature PDFs (focused on siphonophore taxonomy spanning the late 18th century to present) into a searchable, queryable knowledge base. It handles born-digital papers, scanned historical plates, multilingual text (English, German, French, Russian, Latin), and Fraktur typefaces.
+The corpus pipeline processes a collection of scientific literature PDFs into a searchable, queryable knowledge base. It handles born-digital papers, scanned historical plates, multilingual text (English, German, French, Russian, Latin), and Fraktur typefaces.
 
 ## Content-addressed storage
 
