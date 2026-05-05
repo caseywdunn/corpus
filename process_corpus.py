@@ -755,6 +755,91 @@ def find_all_pdfs(input_dir: Path) -> Dict[str, List[Path]]:
     return pdf_map
 
 
+def audit_orphans(input_dir: Path, output_dir: Path) -> int:
+    """Read-only orphan audit (#31). Returns count of orphans found.
+
+    Two orphan classes:
+
+    1. Document orphans — ``documents/<HASH>/`` whose hash is no longer
+       present in the input set.
+    2. Vector-index orphans — LanceDB rows whose ``hash`` column has
+       no corresponding ``documents/<HASH>/`` directory (which implies
+       the document was deleted but its embeddings linger).
+
+    Re-hashes input PDFs to make the check path-independent — moving or
+    renaming the input dir does not produce false orphans.
+    """
+    documents_dir = output_dir / "documents"
+    if not documents_dir.is_dir():
+        logger.error("No documents/ directory at %s", documents_dir)
+        return 0
+
+    logger.info("Hashing input PDFs under %s …", input_dir)
+    input_pdf_map = find_all_pdfs(input_dir)
+    input_hashes = {short_hash(h) for h in input_pdf_map}
+    logger.info("Found %d unique input PDFs", len(input_hashes))
+
+    doc_hashes = {p.name for p in sorted(documents_dir.iterdir()) if p.is_dir()}
+    logger.info("Found %d hash directories under documents/", len(doc_hashes))
+
+    document_orphans = sorted(doc_hashes - input_hashes)
+    print()
+    print(f"=== Document orphans ({len(document_orphans)}) ===")
+    print("(hash directories whose source PDF is no longer in the input set)")
+    if not document_orphans:
+        print("  (none)")
+    else:
+        for h in document_orphans:
+            summary_file = documents_dir / h / "summary.json"
+            last_known = ""
+            if summary_file.exists():
+                try:
+                    with summary_file.open() as f:
+                        s = json.load(f)
+                    rels = s.get("relative_paths") or []
+                    if rels:
+                        last_known = f"  (last known: {rels[0]}"
+                        if len(rels) > 1:
+                            last_known += f" + {len(rels) - 1} more"
+                        last_known += ")"
+                except Exception:
+                    pass
+            print(f"  {h}{last_known}")
+
+    vector_orphans: List[str] = []
+    vector_db_path = output_dir / "vector_db"
+    if vector_db_path.is_dir():
+        try:
+            import lancedb  # type: ignore
+            db = lancedb.connect(str(vector_db_path))
+            if "document_chunks" in db.table_names():
+                table = db.open_table("document_chunks")
+                hashes_in_table = {
+                    row["hash"]
+                    for row in table.search().select(["hash"]).limit(10**9).to_list()
+                    if row.get("hash")
+                }
+                vector_orphans = sorted(hashes_in_table - doc_hashes)
+        except ImportError:
+            logger.info("lancedb not importable; skipping vector-index audit")
+        except Exception as e:
+            logger.warning("Could not audit LanceDB: %s", e)
+
+    print()
+    print(f"=== Vector-index orphans ({len(vector_orphans)}) ===")
+    print("(LanceDB hashes with no documents/<HASH>/ directory)")
+    if not vector_orphans:
+        print("  (none)")
+    else:
+        for h in vector_orphans:
+            print(f"  {h}")
+
+    total = len(document_orphans) + len(vector_orphans)
+    print()
+    print(f"Total orphans: {total}. Audit is read-only — nothing was deleted.")
+    return total
+
+
 def create_output_structure(output_dir: Path):
     """Create the output directory structure."""
     documents_dir = output_dir / "documents"
@@ -2373,6 +2458,14 @@ def main():
              "existing figures.json. No OCR/Docling/Grobid/chunking is re-done.",
     )
     parser.add_argument(
+        "--audit-orphans",
+        action="store_true",
+        help="Read-only audit. List documents/<HASH>/ directories whose source "
+             "PDF is no longer in input_dir, and LanceDB rows whose hash has no "
+             "documents/ directory. Re-hashes input PDFs so it's path-independent. "
+             "Does not delete anything.",
+    )
+    parser.add_argument(
         "--batch-index",
         type=int,
         default=None,
@@ -2402,6 +2495,10 @@ def main():
     if not input_dir.exists():
         logger.error("Input directory %s does not exist", input_dir)
         sys.exit(1)
+
+    if args.audit_orphans:
+        audit_orphans(input_dir, output_dir)
+        return
 
     logger.info("Processing PDFs from: %s", input_dir)
     logger.info("Output directory: %s", output_dir)
