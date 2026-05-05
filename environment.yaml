@@ -4,12 +4,11 @@
 #     conda env create -f environment.yaml
 #     conda activate corpus
 #
-# Most Python and system tools (tesseract, ghostscript, pymupdf) come from
-# conda-forge. ocrmypdf is installed via pip because two of its optional
-# native helpers (pngquant, jbig2enc) are not packaged on conda-forge for
-# all platforms — notably osx-arm64. ocrmypdf runs fine without them, just
-# at a lower OCR optimization level. See README.md for the optional system
-# install to enable full optimization.
+# Most Python and system tools (tesseract, ghostscript, pymupdf, pngquant)
+# come from conda-forge. ocrmypdf itself is installed via pip — its other
+# optional native helper (jbig2enc) is not packaged on conda-forge for all
+# platforms; ocrmypdf runs fine without it at a lower optimization level.
+# See README.md for jbig2enc system-install instructions.
 #
 # Additional Tesseract language packs (German Fraktur, French, Russian,
 # Latin) are installed separately — see README.md.
@@ -29,6 +28,7 @@ dependencies:
   # PDF + OCR toolchain (native side)
   - tesseract  # English data is bundled; additional languages installed separately (see README)
   - ghostscript
+  - pngquant  # ocrmypdf optional helper; substantial size savings on PDFs with many embedded color images
   - pymupdf
 
   # Config, data, scientific

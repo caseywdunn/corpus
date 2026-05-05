@@ -2,19 +2,19 @@
 
 The one-command conda install in the [README](../README.md) covers most setups. The additions below are needed only for specific OCR or deployment scenarios.
 
-## Higher OCR compression: pngquant + jbig2enc
+## Higher OCR compression: jbig2enc
 
-`ocrmypdf` is installed via pip and works without any extra native tools, but its highest optimization level requires `pngquant` and `jbig2enc` — not on conda-forge for all platforms (notably `osx-arm64`). Install at the system level if you want smaller output PDFs:
+`pngquant` ships with the conda environment. `jbig2enc` is the other optional `ocrmypdf` helper and is not packaged on conda-forge for all platforms — install it at the system level for further size savings:
 
 ```bash
 # macOS
-brew install pngquant jbig2enc
+brew install jbig2enc
 
 # Debian/Ubuntu
-sudo apt-get install pngquant jbig2enc
+sudo apt-get install jbig2enc
 ```
 
-On Bouchet, `module avail pngquant` will tell you whether a module is available; if not, skip — `ocrmypdf` falls back gracefully.
+On Bouchet, `module avail jbig2enc` will tell you whether a module is available; if not, skip — `ocrmypdf` falls back gracefully.
 
 ## Additional OCR language packs
 
@@ -45,7 +45,7 @@ python process_corpus.py <input> <output> --grobid-url http://localhost:8070
 
 ## Pip-only fallback
 
-If you can't use conda, `requirements.txt` still works but you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc` on macOS):
+If you can't use conda, `requirements.txt` still works but you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc` on macOS, or `apt-get install` the equivalents on Debian/Ubuntu):
 
 ```bash
 pip install -r requirements.txt
