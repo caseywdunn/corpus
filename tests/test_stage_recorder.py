@@ -6,7 +6,13 @@ import subprocess
 import pytest
 import requests
 
-from process_corpus import _classify_exception, _stage, _utcnow_iso
+from process_corpus import (
+    _HugeDocumentError,
+    _classify_exception,
+    _pdf_page_count,
+    _stage,
+    _utcnow_iso,
+)
 
 
 def test_utcnow_iso_format():
@@ -25,6 +31,7 @@ def test_utcnow_iso_format():
     (Exception("password-protected"), "unsupported_format"),
     (Exception("Invalid PDF: corrupt header"), "corrupted"),
     (Exception("syntax error in xref table"), "corrupted"),
+    (_HugeDocumentError("PDF has 600 pages"), "too_large"),
     (ValueError("anything else"), "crash"),
     (RuntimeError("kaboom"), "crash"),
 ])
@@ -32,6 +39,24 @@ def test_classify_exception(exc, expected_code):
     code, detail = _classify_exception(exc)
     assert code == expected_code
     assert detail  # non-empty
+
+
+def test_pdf_page_count_returns_int_for_real_pdf():
+    """Demo PDFs are real born-digital papers; page_count should resolve."""
+    from pathlib import Path
+    demo = Path(__file__).resolve().parent.parent / "demo"
+    if not demo.is_dir():
+        pytest.skip("no demo/ corpus available")
+    sample = next(demo.glob("*.pdf"), None)
+    if sample is None:
+        pytest.skip("no PDFs under demo/")
+    n = _pdf_page_count(sample)
+    assert isinstance(n, int)
+    assert n > 0
+
+
+def test_pdf_page_count_returns_none_for_missing_file(tmp_path):
+    assert _pdf_page_count(tmp_path / "nope.pdf") is None
 
 
 def test_stage_records_success_timing_only():
@@ -67,6 +92,21 @@ def test_stage_failure_uses_classified_reason_code():
         with _stage(ps, "demo_timeout"):
             raise subprocess.TimeoutExpired("cmd", 5)
     assert ps["stage_failures"][0]["reason_code"] == "timeout"
+
+
+def test_huge_document_gate_emits_too_large():
+    """End-to-end: simulate the huge-document gate by raising
+    _HugeDocumentError inside _stage; confirm it surfaces as
+    reason_code=too_large with the page count in the detail.
+    """
+    ps = {}
+    with pytest.raises(_HugeDocumentError):
+        with _stage(ps, "huge_document_check"):
+            raise _HugeDocumentError("PDF has 600 pages (max: 500)")
+    failure = ps["stage_failures"][0]
+    assert failure["stage"] == "huge_document_check"
+    assert failure["reason_code"] == "too_large"
+    assert "600 pages" in failure["reason_detail"]
 
 
 def test_stage_appends_in_order_for_multiple_stages():

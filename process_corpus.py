@@ -123,6 +123,15 @@ _DEFAULT_CONFIG = {
         "docling": 600,      # 10 min — informational only (in-process)
         "vision_pass": 600,  # 10 min — informational only
     },
+    # Huge-document gate (#35). PDFs above max_pages skip the pipeline
+    # with a structured too_large failure rather than burning hours of
+    # OCR / docling on something that may not even fit in memory. The
+    # Haeckel 1888 *Challenger Siphonophorae* report (~600 pages of
+    # plates) is the canary case. Chunked-OCR is an open follow-up;
+    # the v0.2 implementation is skip-and-flag.
+    "huge_document": {
+        "max_pages": 500,
+    },
     # Silent-failure quality gates (#36). Each threshold is conservative
     # by default; tighten in config.yaml for stricter corpora. A gate
     # produces a flag in summary.json["quality_flags"]; nothing is
@@ -193,8 +202,39 @@ _REASON_CODES = (
     "external_unavailable",   # Grobid / BHL / CrossRef / OpenAlex non-200
     "unsupported_format",     # encrypted, password-protected, etc.
     "corrupted",              # PDF parse error
+    "too_large",              # exceeds huge_document.max_pages (#35)
     "quality_gate",           # failed a downstream sanity check (#36)
 )
+
+
+class _HugeDocumentError(Exception):
+    """Raised by the huge-document gate (#35) when a PDF's page count
+    exceeds ``CONFIG['huge_document']['max_pages']``.
+
+    Caught by the pipeline's outer try/except like any other stage
+    error; ``_classify_exception`` maps it to ``reason_code=too_large``
+    so corpus_status.py can group these separately from real crashes.
+    """
+
+
+def _pdf_page_count(pdf_path: Path) -> Optional[int]:
+    """Return the page count of ``pdf_path`` via PyMuPDF metadata.
+
+    Cheap — opens the document but does not render pages. Returns
+    None if the file can't be read; the gate then lets the rest of
+    the pipeline handle it (a corrupted PDF will fail later with the
+    appropriate reason_code).
+    """
+    try:
+        import fitz  # type: ignore
+    except ImportError:
+        return None
+    try:
+        with fitz.open(str(pdf_path)) as doc:
+            return int(doc.page_count)
+    except Exception as e:
+        logger.warning("Could not read page count from %s: %s", pdf_path, e)
+        return None
 
 
 def _utcnow_iso() -> str:
@@ -209,6 +249,8 @@ def _classify_exception(e: BaseException) -> Tuple[str, str]:
     to ``crash`` rather than being silently mis-categorized.
     """
     name = type(e).__name__
+    if isinstance(e, _HugeDocumentError):
+        return "too_large", str(e)
     if isinstance(e, subprocess.TimeoutExpired):
         return "timeout", f"{name}: command timed out after {e.timeout}s"
     # Grobid availability errors are imported lazily — avoid circular import
@@ -1152,6 +1194,21 @@ def run_pdf_processing_pipeline(
     }
 
     try:
+        # Huge-document gate (#35) — skip-and-flag PDFs above max_pages
+        # before any expensive stage runs.
+        with _stage(processing_summary, "huge_document_check"):
+            max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 500))
+            n_pages = _pdf_page_count(temp_pdf)
+            if n_pages is not None:
+                processing_summary["page_count"] = n_pages
+                if n_pages > max_pages:
+                    raise _HugeDocumentError(
+                        f"PDF has {n_pages} pages (max: {max_pages}); skipping. "
+                        "Pre-split this paper or raise huge_document.max_pages "
+                        "to process it."
+                    )
+            processing_summary["processing_steps"].append("huge_document_check")
+
         with _stage(processing_summary, "scan_detection"):
             logger.info("Detecting scan type...")
             detection_result = detect_scan_type(temp_pdf)

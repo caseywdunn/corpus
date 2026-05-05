@@ -48,6 +48,14 @@ stage_timeouts:
   docling: 600         # 10 min — informational only (in-process)
   vision_pass: 600     # 10 min — informational only
 
+# Huge-document gate (#35). PDFs above max_pages are skipped before
+# any expensive stage runs and recorded with reason_code=too_large in
+# stage_failures[]. The Haeckel 1888 *Challenger Siphonophorae* report
+# (~600 pages of plates) is the canary case. To process such a paper:
+# pre-split it, or raise this threshold knowing OCR may take hours.
+huge_document:
+  max_pages: 500
+
 # Silent-failure quality gates (#36). Each threshold is conservative
 # by default; tighten for stricter corpora. A failed gate emits a
 # quality_flag in summary.json — nothing is rejected automatically.
