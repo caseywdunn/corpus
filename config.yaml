@@ -48,6 +48,19 @@ stage_timeouts:
   docling: 600         # 10 min — informational only (in-process)
   vision_pass: 600     # 10 min — informational only
 
+# Silent-failure quality gates (#36). Each threshold is conservative
+# by default; tighten for stricter corpora. A failed gate emits a
+# quality_flag in summary.json — nothing is rejected automatically.
+# corpus_status.py (#40) rolls these up so operators can review.
+quality_gates:
+  empty_text_min_chars: 500           # text.json body shorter than this → "empty_text"
+  min_chars_per_page: 200             # text/page ratio below → "low_text_density"
+  max_gibberish_score: 0.5            # OCR'd paper still gibberish → "gibberish_after_ocr"
+  zero_refs_min_pages: 5              # pages ≥ N but 0 refs → "zero_references_unexpected"
+  min_median_chunk_chars: 50          # median chunk shorter → "single_token_chunks"
+  min_figure_mean_intensity: 10       # >50% of figures dimmer than this → "all_black_figures"
+  max_figures_sampled: 50             # cap PIL load cost on figure-heavy papers
+
 # Cross-paper resources pointed at by the pipeline. These paths are
 # resolved relative to the repo root.
 resources:

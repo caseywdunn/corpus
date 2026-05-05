@@ -123,6 +123,20 @@ _DEFAULT_CONFIG = {
         "docling": 600,      # 10 min — informational only (in-process)
         "vision_pass": 600,  # 10 min — informational only
     },
+    # Silent-failure quality gates (#36). Each threshold is conservative
+    # by default; tighten in config.yaml for stricter corpora. A gate
+    # produces a flag in summary.json["quality_flags"]; nothing is
+    # rejected automatically — operators decide what to do with flagged
+    # papers using corpus_status.py (#40).
+    "quality_gates": {
+        "empty_text_min_chars": 500,
+        "min_chars_per_page": 200,
+        "max_gibberish_score": 0.5,
+        "zero_refs_min_pages": 5,
+        "min_median_chunk_chars": 50,
+        "min_figure_mean_intensity": 10,
+        "max_figures_sampled": 50,
+    },
 }
 
 
@@ -217,6 +231,145 @@ def _classify_exception(e: BaseException) -> Tuple[str, str]:
     if "corrupt" in msg or "invalid pdf" in msg or "syntax error" in msg:
         return "corrupted", f"{name}: {e}"
     return "crash", f"{name}: {e}"
+
+
+def _safe_load_json(path: Path) -> Any:
+    """Load JSON; return {} when missing or malformed.
+
+    Used by quality gates so a missing/broken artifact short-circuits
+    individual checks rather than crashing the gate runner.
+    """
+    try:
+        if path.exists() and path.stat().st_size > 0:
+            with path.open(encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        return {}
+    return {}
+
+
+def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
+    """Cheap silent-failure detectors against the produced artifacts (#36).
+
+    Returns a list of ``{gate, severity, detail, metric}`` records — one
+    per failed gate. Empty when everything looks clean. Read-only.
+
+    Each gate is informational. Operators decide what to do with flagged
+    papers via ``corpus_status.py`` (#40); nothing is rejected here.
+    """
+    cfg = CONFIG.get("quality_gates", {})
+    flags: List[Dict[str, Any]] = []
+
+    text = _safe_load_json(hash_dir / "text.json")
+    chunks = _safe_load_json(hash_dir / "chunks.json")
+    figures = _safe_load_json(hash_dir / "figures.json")
+    refs = _safe_load_json(hash_dir / "references.json")
+    scan = _safe_load_json(hash_dir / "scan_detection.json")
+
+    body = (text.get("text") or "") if isinstance(text, dict) else ""
+    pages = int(text.get("pages") or 0) if isinstance(text, dict) else 0
+    chunk_list = chunks.get("chunks") or [] if isinstance(chunks, dict) else []
+    fig_list = figures.get("figures") or [] if isinstance(figures, dict) else []
+    ref_count = int(refs.get("total_references") or 0) if isinstance(refs, dict) else 0
+    needs_ocr = bool(scan.get("needs_ocr")) if isinstance(scan, dict) else False
+
+    # empty_text — extracted text is implausibly short
+    min_chars = int(cfg.get("empty_text_min_chars", 500))
+    if len(body) < min_chars:
+        flags.append({
+            "gate": "empty_text",
+            "severity": "error",
+            "detail": f"text.json body has {len(body)} chars (min: {min_chars})",
+            "metric": len(body),
+        })
+
+    # low_text_density — text/page ratio below threshold
+    min_chars_per_page = int(cfg.get("min_chars_per_page", 200))
+    if pages > 0:
+        density = len(body) / pages
+        if density < min_chars_per_page:
+            flags.append({
+                "gate": "low_text_density",
+                "severity": "warn",
+                "detail": f"{density:.0f} chars/page over {pages} pages (min: {min_chars_per_page})",
+                "metric": round(density, 1),
+            })
+
+    # gibberish_after_ocr — OCR'd papers whose final extracted text
+    # is still gibberish (silent-failure mode)
+    max_gibberish = float(cfg.get("max_gibberish_score", 0.5))
+    if needs_ocr and body:
+        score = _gibberish_score(body[:50000])  # cap sample for speed
+        if score > max_gibberish:
+            flags.append({
+                "gate": "gibberish_after_ocr",
+                "severity": "error",
+                "detail": f"gibberish_score={score:.2f} on extracted text (max: {max_gibberish})",
+                "metric": round(score, 3),
+            })
+
+    # zero_references_unexpected — multi-page paper with no references
+    min_pages_for_refs = int(cfg.get("zero_refs_min_pages", 5))
+    if pages >= min_pages_for_refs and ref_count == 0:
+        flags.append({
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": f"{pages} pages but references.json is empty",
+            "metric": pages,
+        })
+
+    # single_token_chunks — extraction collapsed; median chunk too short
+    min_median_chars = int(cfg.get("min_median_chunk_chars", 50))
+    if chunk_list:
+        lengths = sorted(len(c.get("text") or "") for c in chunk_list if isinstance(c, dict))
+        if lengths:
+            median = lengths[len(lengths) // 2]
+            if median < min_median_chars:
+                flags.append({
+                    "gate": "single_token_chunks",
+                    "severity": "warn",
+                    "detail": f"median chunk length {median} chars over {len(chunk_list)} chunks (min: {min_median_chars})",
+                    "metric": median,
+                })
+
+    # all_black_figures — extraction artifact where most figures are empty
+    if fig_list:
+        try:
+            from PIL import Image, ImageStat
+        except ImportError:
+            Image = None  # type: ignore
+        if Image is not None:
+            mean_threshold = float(cfg.get("min_figure_mean_intensity", 10))
+            max_sampled = int(cfg.get("max_figures_sampled", 50))
+            n_black = 0
+            n_checked = 0
+            for fig in fig_list[:max_sampled]:
+                if not isinstance(fig, dict):
+                    continue
+                fname = fig.get("filename")
+                if not fname:
+                    continue
+                fpath = hash_dir / "figures" / fname
+                if not fpath.exists():
+                    continue
+                try:
+                    with Image.open(fpath) as im:
+                        gray = im.convert("L")
+                        mean = ImageStat.Stat(gray).mean[0]
+                except Exception:
+                    continue
+                n_checked += 1
+                if mean < mean_threshold:
+                    n_black += 1
+            if n_checked > 0 and n_black / n_checked > 0.5:
+                flags.append({
+                    "gate": "all_black_figures",
+                    "severity": "warn",
+                    "detail": f"{n_black}/{n_checked} figures have mean intensity < {mean_threshold}",
+                    "metric": n_black,
+                })
+
+    return flags
 
 
 @contextmanager
@@ -1115,6 +1268,20 @@ def run_pdf_processing_pipeline(
             if report_path:
                 processing_summary["files_created"].append(str(report_path))
                 processing_summary["processing_steps"].append("figures_report")
+
+        # Quality gates (#36) — informational silent-failure detectors.
+        # Run after success so artifacts are populated. A failed gate
+        # records a quality_flag in summary.json but does not fail the
+        # paper; corpus_status.py (#40) rolls these up for review.
+        with _stage(processing_summary, "quality_gates"):
+            qgs = _run_quality_gates(hash_dir)
+            processing_summary["quality_flags"] = qgs
+            if qgs:
+                logger.warning(
+                    "Quality gates flagged %d issue(s): %s",
+                    len(qgs), ", ".join(g["gate"] for g in qgs),
+                )
+            processing_summary["processing_steps"].append("quality_gates")
 
         processing_summary["status"] = "success"
 
