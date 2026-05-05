@@ -455,13 +455,18 @@ def bundle_info() -> Dict:
     idx = _need_index()
     if idx.bundle_manifest is None:
         return {
+            "server_name": mcp._mcp_server.name,
             "server_version": __version__,
             "bundle_version": None,
             "note": "no bundle_manifest.json — this server is backed "
                     "by a local build output, not a versioned served "
                     "bundle.  run package_for_serve.py to produce one.",
         }
-    return {"server_version": __version__, **dict(idx.bundle_manifest)}
+    return {
+        "server_name": mcp._mcp_server.name,
+        "server_version": __version__,
+        **dict(idx.bundle_manifest),
+    }
 
 
 @mcp.tool()
@@ -2009,6 +2014,12 @@ def main() -> int:
              "Alternative: set CORPUS_MCP_TOKEN. CLI-literal tokens are "
              "deliberately not supported — they leak via `ps`.",
     )
+    parser.add_argument(
+        "--name", default=None,
+        help="Server name reported to MCP clients (e.g. corpus:siphonophores). "
+             "Default: 'corpus:<basename of output_dir>'. Lets clients tell "
+             "multiple corpuscle deployments apart in their server list.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -2017,6 +2028,15 @@ def main() -> int:
         stream=sys.stderr,  # stdout is the MCP transport
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    # Corpuscle-aware server name (#17). FastMCP exposes ``name`` as a
+    # read-only property backed by the lower-level Server's ``name``
+    # attribute, which is plain mutable state — we can rename after
+    # the module-level FastMCP is constructed and the change takes
+    # effect on subsequent ``initialize`` calls.
+    server_name = args.name or f"corpus:{args.output_dir.name}"
+    mcp._mcp_server.name = server_name
+    logger.info("MCP server name: %s", server_name)
 
     # Optional per-corpus instructions surfaced to clients in
     # InitializeResult.instructions.  FastMCP exposes ``instructions`` as
