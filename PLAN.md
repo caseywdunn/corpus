@@ -74,6 +74,43 @@ v0.2-scoped subset is listed below.
 - [#24](https://github.com/caseywdunn/corpus/issues/24) — Expand
   anatomy lexicon.
 
+### Update lifecycle — make re-runs cheap and correct
+
+The user-curatable inputs (anatomy lexicon, taxonomy snapshot, bib
+file, input PDF set) all change between runs. v0.1 has no incremental
+path for any of them: the only safe response to a lexicon edit or a
+taxonomy bump is "rebuild every paper from Docling onward." This
+section makes update flows first-class so iteration on inputs is
+fast and obviously-correct.
+
+- [#28](https://github.com/caseywdunn/corpus/issues/28) — **Granular
+  per-stage resume.** Linchpin of the rest of this section. Replaces
+  the all-or-nothing `summary.json` completion marker with per-stage
+  status and renames the numbered passes to describe-what-they-do
+  (`extract.py`, `parse_metadata.py`, …). Touches every batch script
+  and the resume logic.
+- [#29](https://github.com/caseywdunn/corpus/issues/29) — **Input
+  fingerprints on annotation artifacts.** Stamp `lexicon_sha256` /
+  `taxonomy_snapshot_date` into `chunks.json` / `taxa.json` /
+  `anatomy.json`. Without this there is no signal for which papers'
+  annotations are stale.
+- [#30](https://github.com/caseywdunn/corpus/issues/30) — **Idempotency
+  audit + tests** for the four post-pipeline scripts
+  (`build_biblio_authority.py`, `build_taxon_mentions.py`,
+  `backfill_intext_citations.py`, `reconcile_corpus_to_biblio.py`).
+- [#31](https://github.com/caseywdunn/corpus/issues/31) — **Orphan
+  detection.** `--audit-orphans` lists `documents/<HASH>/` (and
+  LanceDB rows) whose source PDF is no longer in the input set.
+  Read-only; deletion stays manual.
+- [#32](https://github.com/caseywdunn/corpus/issues/32) —
+  **`update_corpus.py` wrapper.** One command that runs the pipeline
+  and post-pipeline scripts in dependency order with `--resume`.
+  Makes "add papers and update everything" a one-liner.
+- [#33](https://github.com/caseywdunn/corpus/issues/33) — **Lexicon
+  round-trip.** Mirrors #26 (bibliography round-trip) for the anatomy
+  lexicon: edit `anatomy_lexicon.yaml`, re-annotate only stale
+  papers. Depends on #29 + #28.
+
 ### Internal
 
 - [#15](https://github.com/caseywdunn/corpus/issues/15) — Refactor
@@ -85,19 +122,7 @@ v0.2-scoped subset is listed below.
   further work is needed (per-document chunking concurrency, BGE-M3
   batch sizing).
 
-## 2. Proposal under evaluation: granular per-stage resume (#28)
-
-[#28](https://github.com/caseywdunn/corpus/issues/28) proposes
-replacing the all-or-nothing `summary.json` completion marker with
-per-stage status, plus renaming `process_corpus.py` and the numbered
-passes to describe-what-they-do (`extract.py`, `parse_metadata.py`,
-…). Motivation: selective redo (re-run only Grobid metadata after a
-Grobid outage; re-run only annotation after a taxonomy bump) without
-re-paying for Docling extraction. Decision needed before this lands
-in v0.2 — restructure work touches every batch script, the resume
-logic, and the MCP server's startup checks.
-
-## 3. Target queries (evergreen reference)
+## 2. Target queries (evergreen reference)
 
 The eight target query patterns the corpus is designed to serve.
 Generic shapes; concrete instantiations live in the corpuscle's
@@ -116,7 +141,7 @@ deferred post-v0.2 ([#14](https://github.com/caseywdunn/corpus/issues/14)).
 | Q7 | "Plot species described per decade." | Indices in place |
 | Q8 | "Summarize what is known about `<anatomy>`." | Needs vision-pass figure tagging at corpus scale (#11) |
 
-## 4. Versioning + release ritual
+## 3. Versioning + release ritual
 
 `__version__` in [version.py](version.py) is the single source of
 truth and is stamped into every persistent artifact (bundle manifest,
@@ -126,7 +151,7 @@ a PEP 440 pre-release suffix (`0.2.0.dev0` → `0.2.0a1` → `0.2.0`),
 the release commit drops the suffix, the next commit on `dev`
 reintroduces one for the next target.
 
-## 5. Out of scope for v0.2
+## 4. Out of scope for v0.2
 
 - [#13](https://github.com/caseywdunn/corpus/issues/13) — Geographic
   mention layer (NER + GeoNames + locality table; the third layer in
