@@ -718,6 +718,12 @@ def main() -> int:
         "--min-interval", type=float, default=0.3,
         help="WoRMS API: minimum seconds between calls (default: 0.3).",
     )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Read the source and report record counts without writing the SQLite. "
+             "For --source worms this still walks the API (counting is the only "
+             "way to know what would be ingested).",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -733,6 +739,31 @@ def main() -> int:
 
     if args.output is None:
         args.output = args.output_dir / "taxonomy.sqlite"
+
+    if args.dry_run:
+        if args.source == "worms":
+            logger.info("Dry-run: --source worms still walks the API; aborting "
+                        "before any writes. Use --source dwc/dwca to plan offline.")
+            return 0
+        logger.info("Reading %s %s for dry-run …", args.source, args.input)
+        if args.source == "dwc":
+            records = list(iter_dwc_csv(args.input))
+        else:  # dwca
+            records = list(iter_dwca(args.input))
+        n_total = len(records)
+        if args.root_id:
+            records = prune_to_subgraph(records, args.root_id)
+            logger.info(
+                "Dry-run: %d records in source; %d after subgraph prune (--root-id %s). "
+                "Would write to %s. No SQLite changes.",
+                n_total, len(records), args.root_id, args.output,
+            )
+        else:
+            logger.info(
+                "Dry-run: %d records in source. Would write to %s. No SQLite changes.",
+                n_total, args.output,
+            )
+        return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(args.output)

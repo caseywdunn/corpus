@@ -36,6 +36,10 @@ def main() -> int:
         "--force", action="store_true",
         help="Re-parse even if intext_citations.json already exists",
     )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Report which papers would be parsed without writing anything.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -49,7 +53,7 @@ def main() -> int:
         logger.error("Not a corpus output dir: %s (no documents/)", args.output_dir)
         return 1
 
-    n_total = n_parsed = n_skipped = n_failed = 0
+    n_total = n_parsed = n_skipped = n_failed = n_no_tei = 0
     n_citations = 0
     for hash_dir in sorted(docs.iterdir()):
         if not hash_dir.is_dir():
@@ -59,9 +63,15 @@ def main() -> int:
         out_path = hash_dir / "intext_citations.json"
 
         if not tei_path.exists():
+            n_no_tei += 1
             continue  # placeholder / Grobid-failed papers — leave alone
         if out_path.exists() and not args.force:
             n_skipped += 1
+            continue
+
+        if args.dry_run:
+            n_parsed += 1
+            logger.debug("would parse %s", hash_dir.name)
             continue
 
         try:
@@ -81,10 +91,17 @@ def main() -> int:
                 n_parsed, n_total, n_citations,
             )
 
-    logger.info(
-        "Done: %d papers (%d parsed, %d skipped, %d failed); %d citations total",
-        n_total, n_parsed, n_skipped, n_failed, n_citations,
-    )
+    if args.dry_run:
+        logger.info(
+            "Dry-run: %d papers (would parse %d; %d already up-to-date; "
+            "%d have no grobid.tei.xml). No files written.",
+            n_total, n_parsed, n_skipped, n_no_tei,
+        )
+    else:
+        logger.info(
+            "Done: %d papers (%d parsed, %d skipped, %d failed); %d citations total",
+            n_total, n_parsed, n_skipped, n_failed, n_citations,
+        )
     return 0
 
 

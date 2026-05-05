@@ -250,6 +250,10 @@ def main() -> int:
         "--rebuild", action="store_true",
         help="Drop and recreate all tables before building",
     )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Report what would be processed without writing to the SQLite.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -260,6 +264,24 @@ def main() -> int:
 
     if args.output is None:
         args.output = args.output_dir / "taxon_mentions.sqlite"
+
+    if args.dry_run:
+        documents_dir = args.output_dir / "documents"
+        if not documents_dir.is_dir():
+            logger.error("Not a corpus output dir: %s (no documents/)", args.output_dir)
+            return 1
+        n_papers = sum(1 for d in documents_dir.iterdir() if d.is_dir())
+        n_chunks_files = sum(
+            1 for d in documents_dir.iterdir()
+            if d.is_dir() and (d / "chunks.json").exists()
+        )
+        action = "rebuild from scratch" if args.rebuild else "incrementally update"
+        logger.info(
+            "Dry-run: would %s %s. Source: %d hash dirs, %d with chunks.json. "
+            "No SQLite writes.",
+            action, args.output, n_papers, n_chunks_files,
+        )
+        return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(args.output)

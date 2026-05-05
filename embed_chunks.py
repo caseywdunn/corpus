@@ -250,6 +250,11 @@ def main() -> int:
         "--table-name", default="document_chunks",
         help="LanceDB table name (default: document_chunks)",
     )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Report which hashes would be embedded without loading the model "
+             "or writing to LanceDB.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
 
     args = parser.parse_args()
@@ -264,6 +269,29 @@ def main() -> int:
     if not documents_dir.exists():
         logger.error("Documents directory %s does not exist", documents_dir)
         return 1
+
+    if args.dry_run:
+        if args.pdf_hash:
+            hash_dirs = [documents_dir / args.pdf_hash]
+            if not hash_dirs[0].exists():
+                logger.error("PDF hash directory %s not found", args.pdf_hash)
+                return 1
+        else:
+            hash_dirs = sorted(d for d in documents_dir.iterdir() if d.is_dir())
+        n_would_embed = n_skip = 0
+        for hash_dir in hash_dirs:
+            marker = vector_db_dir / f"{hash_dir.name}_embedded.done"
+            if args.resume and marker.exists():
+                n_skip += 1
+            else:
+                n_would_embed += 1
+        logger.info(
+            "Dry-run: would embed %d hash(es); %d already have a marker. "
+            "No model loaded, no LanceDB writes.",
+            n_would_embed, n_skip,
+        )
+        return 0
+
     vector_db_dir.mkdir(exist_ok=True)
 
     # Build the embedder up front so we know the dim before opening the

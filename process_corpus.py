@@ -2466,6 +2466,13 @@ def main():
              "Does not delete anything.",
     )
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Discover input PDFs, apply --resume + batch filters, and report "
+             "the work plan without processing anything. No external services "
+             "are contacted; no files are written.",
+    )
+    parser.add_argument(
         "--batch-index",
         type=int,
         default=None,
@@ -2645,6 +2652,23 @@ def main():
             )
             sys.exit(0)
         pdf_map = {h: pdf_map[h] for h in batch_hashes}
+
+    if args.dry_run:
+        n_would = n_would_skip = 0
+        for h in pdf_map:
+            if args.resume and (documents_dir / short_hash(h) / "summary.json").exists():
+                n_would_skip += 1
+            else:
+                n_would += 1
+        logger.info(
+            "Dry-run: %d unique PDF(s) in scope; would process %d, would skip %d "
+            "(--resume = %s). Vision backend: %s. Grobid: %s. No files written.",
+            len(pdf_map), n_would, n_would_skip,
+            "on" if args.resume else "off",
+            args.vision_backend or "off",
+            "off (--no-grobid or empty URL)" if (args.no_grobid or not args.grobid_url) else args.grobid_url,
+        )
+        return
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)

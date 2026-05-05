@@ -1052,6 +1052,11 @@ def main() -> int:
         "--rebuild", action="store_true",
         help="Drop and recreate all tables before building",
     )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Report what would be processed without opening the SQLite or "
+             "calling external services.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -1064,6 +1069,31 @@ def main() -> int:
         args.output = args.output_dir / "biblio_authority.sqlite"
     if args.taxonomy_db is None:
         args.taxonomy_db = args.output_dir / "taxonomy.sqlite"
+
+    if args.dry_run:
+        documents_dir = args.output_dir / "documents"
+        if not documents_dir.is_dir():
+            logger.error("Not a corpus output dir: %s (no documents/)", args.output_dir)
+            return 1
+        n_papers = sum(1 for d in documents_dir.iterdir() if d.is_dir())
+        n_metadata = sum(
+            1 for d in documents_dir.iterdir()
+            if d.is_dir() and (d / "metadata.json").exists()
+        )
+        n_refs = sum(
+            1 for d in documents_dir.iterdir()
+            if d.is_dir() and (d / "references.json").exists()
+        )
+        action = "rebuild from scratch" if args.rebuild else "incrementally update"
+        logger.info(
+            "Dry-run: would %s %s. Source: %d hash dirs (%d with metadata.json, "
+            "%d with references.json). Taxonomy: %s. BHL enrichment: %s. "
+            "No SQLite or network writes.",
+            action, args.output, n_papers, n_metadata, n_refs,
+            args.taxonomy_db,
+            "ON" if args.enrich_bhl else "off",
+        )
+        return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(args.output)
