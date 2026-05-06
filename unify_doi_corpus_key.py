@@ -59,12 +59,7 @@ import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-try:
-    from rapidfuzz import fuzz
-    _HAS_RAPIDFUZZ = True
-except ImportError:
-    fuzz = None  # type: ignore
-    _HAS_RAPIDFUZZ = False
+from rapidfuzz import fuzz
 
 logger = logging.getLogger("unify_doi")
 
@@ -356,11 +351,6 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    if not _HAS_RAPIDFUZZ:
-        sys.stderr.write(
-            "rapidfuzz is required. Install with `pip install rapidfuzz`.\n"
-        )
-        return 1
     if args.db is None:
         args.db = args.output_dir / "biblio_authority.sqlite"
 
