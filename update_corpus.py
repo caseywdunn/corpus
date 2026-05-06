@@ -67,12 +67,32 @@ class Step:
                 cmd.append("--resume")
             if args.dry_run:
                 cmd.append("--dry-run")
+            if args.config:
+                cmd += ["--config", str(args.config)]
             if args.bib:
                 cmd += ["--bib", str(args.bib)]
             if args.anatomy_lexicon:
                 cmd += ["--anatomy-lexicon", str(args.anatomy_lexicon)]
             if args.taxonomy_db:
                 cmd += ["--taxonomy-db", str(args.taxonomy_db)]
+            for spec in args.lexicon or []:
+                cmd += ["--lexicon", spec]
+            if args.no_taxa:
+                cmd.append("--no-taxa")
+            if args.no_grobid:
+                cmd.append("--no-grobid")
+            if args.grobid_url is not None:
+                cmd += ["--grobid-url", args.grobid_url]
+            if args.strict_network:
+                cmd.append("--strict-network")
+            if args.content_aware_figures:
+                cmd.append("--content-aware-figures")
+            if args.vision_backend:
+                cmd += ["--vision-backend", args.vision_backend]
+            if args.vision_model:
+                cmd += ["--vision-model", args.vision_model]
+            if args.refresh_vision:
+                cmd.append("--refresh-vision")
         elif self.name == "embed":
             cmd += [str(args.output_dir)]
             if args.resume:
@@ -221,6 +241,52 @@ def main() -> int:
     parser.add_argument(
         "--taxonomy-db", type=Path, default=None,
         help="Taxonomy SQLite path (passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--lexicon", action="append", default=[], metavar="CATEGORY:PATH",
+        help="Additional category-tagged lexicon YAML; repeatable "
+             "(passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--no-taxa", action="store_true",
+        help="Skip taxon + anatomy extraction (passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--no-grobid", action="store_true",
+        help="Skip Grobid even if reachable (passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--grobid-url", default=None,
+        help="Grobid service URL (passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--strict-network", action="store_true",
+        help="Fail fast on the first transient external-service failure "
+             "(passed to process_corpus.py). Recommended for release runs.",
+    )
+    parser.add_argument(
+        "--content-aware-figures", action="store_true",
+        help="Run Pass 3a OCR-driven panel ROI detection "
+             "(passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--vision-backend", choices=["claude", "local"], default=None,
+        help="Run Pass 3b vision-LLM-driven panel detection "
+             "(passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--vision-model", default=None,
+        help="Override the per-backend default vision model "
+             "(passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--refresh-vision", action="store_true",
+        help="With --resume + --vision-backend, re-run only Pass 3b on "
+             "existing figures.json (passed to process_corpus.py).",
+    )
+    parser.add_argument(
+        "--config", type=Path, default=None,
+        help="Path to config.yaml (passed to process_corpus.py).",
     )
     parser.add_argument(
         "--resume", action="store_true",
