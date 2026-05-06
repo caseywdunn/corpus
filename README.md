@@ -41,7 +41,6 @@ A directory of PDFs is the only required input. They can be any mix of born-digi
 - **Quality matters.** Clean high-resolution scans produce dramatically better OCR and figure extraction than re-scans of photocopies. For born-digital papers, the original publisher PDF beats any downstream export.
 - **Filename convention.** Name files `<Surname><Year>.pdf` (e.g., `Totton1965a.pdf`). The bibliography reconciler uses this filename as a fallback when Grobid mis-parses the paper reference.
 
-
 ### Bibliographic data for pdfs (optional)
 
 Grobid extracts metadata (authors, title, year, journal) from each PDF's header, but it gets confused on older scans and unusual layouts. If you have a curated BibTeX file, pass it with `--bib` and it overrides Grobid for any paper that an entry references via its `file = {...}` field:
@@ -72,11 +71,16 @@ python ingest_taxonomy.py <output_dir> --source dwca --input path/to/dwca.zip
 
 Without external taxonomy the pipeline still extracts taxon mentions from text — you lose the synonymy graph that links historical names to current valid names.
 
-### Anatomy lexicon (optional)
+### Lexicons (optional)
 
-A small YAML file that lists the anatomical terms you want tagged in figure captions and chunk text — *nectophore*, *pneumatophore*, *gastrozooid* for siphonophores, or whatever vocabulary fits your group. Pass it with `--anatomy-lexicon`; without it, anatomy extraction is skipped.
+A lexicon is a small YAML file listing terms you want tagged in figure captions and chunk text. The flat term-to-metadata format is shared across all categories — see [demo/anatomy_lexicon.yaml](demo/anatomy_lexicon.yaml) for a worked example covering siphonophore anatomy (*nectophore*, *pneumatophore*, *gastrozooid* …).
 
-The format is a flat term-to-metadata map; see [demo/anatomy_lexicon.yaml](demo/anatomy_lexicon.yaml) for a worked example. Like `--bib`, the lexicon is something you maintain alongside your literature, not something the tool ships.
+Two CLI flags drive the same machinery:
+
+- `--anatomy-lexicon path/to/anatomy.yaml` — tag anatomy terms; output lands in `<hash>/anatomy.json`.
+- `--lexicon CATEGORY:path/to/category.yaml` — tag any other category. Repeatable. Output lands in `<hash>/<CATEGORY>.json` and is treated independently for per-stage resume and corpus status. For example, `--lexicon biogeography:biogeo.yaml --lexicon methods:methods.yaml` runs three lexicons in one pass.
+
+Without any lexicon flag, that category's extraction is skipped. Like `--bib`, lexicons are inputs you maintain alongside your literature, not something the tool ships.
 
 ### Instructions for the LLM (optional)
 
@@ -92,7 +96,7 @@ Override the default location with `--instructions <path>` when starting the MCP
 - **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking) is CPU-bound and parallelizes well across PDFs. Stage 2 (vision-LLM figure analysis and BGE-M3 embeddings) is GPU-accelerated; without a GPU these steps still run but are much slower.
 - **Scale.** A few dozen PDFs run on a laptop in a couple of hours. A few thousand benefit from an HPC cluster — we use Yale's Bouchet, runbook in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
-- **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 + ALB + CloudFront), but any host with Python and an open port works. See [Deploying remotely](#deploying-remotely) below.
+- **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 + nginx + Let's Encrypt), but any host with Python and an open port works. See [Deploying MCP server remotely](#deploying-mcp-server-remotely) below.
 
 ## Corpuscle layout
 
@@ -158,15 +162,15 @@ The repo ships with 11 siphonophore PDFs, a matching BibTeX, and an example anat
 # this step if you only want to smoke-test stages 1 + 2.
 python ingest_taxonomy.py output_demo --source worms --root-id 1371
 
-python process_corpus.py demo output_demo \
+# update_corpus.py runs the pipeline + post-pipeline scripts in
+# dependency order — equivalent to chaining process_corpus.py,
+# embed_chunks.py, build_biblio_authority.py,
+# build_taxon_mentions.py, backfill_intext_citations.py, and
+# reconcile_corpus_to_biblio.py with --resume throughout.
+python update_corpus.py demo output_demo \
     --bib demo/siphonophores.bib \
     --anatomy-lexicon demo/anatomy_lexicon.yaml \
     --resume
-python embed_chunks.py output_demo --resume
-
-python build_biblio_authority.py output_demo
-python reconcile_corpus_to_biblio.py output_demo
-python build_taxon_mentions.py output_demo
 ```
 
 Every cross-paper SQLite lands inside `output_demo/` automatically — no override flags needed.
@@ -175,47 +179,63 @@ Every cross-paper SQLite lands inside `output_demo/` automatically — no overri
 
 The work divides into two stages, best run on different hardware. Stage 1 is CPU-heavy and embarrassingly parallel; Stage 2 wants a GPU. Each unique PDF is identified by the first 12 hex chars of its SHA-256, and all artifacts live under `<output_dir>/documents/<HASH>/`.
 
+The fastest path is `update_corpus.py`, which runs the pipeline and the four post-pipeline scripts in dependency order with `--resume` throughout — see [update_corpus.py](update_corpus.py) for the full list of steps:
+
 ```bash
-# Stage 1 — OCR, docling, Grobid, chunking (CPU, parallelizable)
+python update_corpus.py <input_dir> <output_dir> --resume
+```
+
+Run-by-run, that command is equivalent to:
+
+```bash
+# Stage 1 — OCR, docling, Grobid, chunking, annotation (CPU, parallelizable)
 python process_corpus.py <input_dir> <output_dir> --resume
 
 # Stage 2 — embeddings (GPU helpful, not required)
 python embed_chunks.py <output_dir> --resume
+
+# Cross-paper databases (fast — minutes at corpus scale)
+python build_biblio_authority.py <output_dir>
+python build_taxon_mentions.py <output_dir>
+python backfill_intext_citations.py <output_dir>
+python reconcile_corpus_to_biblio.py <output_dir>
 ```
 
-`--resume` skips PDFs that already have a `summary.json`, so you can interrupt and restart without losing work. For large corpora, run stage 1 on a cluster — the SLURM one-liner on Bouchet is:
+`--resume` skips work whose artifact is already on disk — per-stage inside Stage 1 (so a lexicon edit only re-runs the annotation pass, not Docling) and per-paper across Stage 2. For large corpora, run stage 1 on a cluster — the SLURM one-liner on Bouchet is:
 
 ```bash
 NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 ```
 
-Once Stage 1 and 2 are done, build the cross-paper databases. These are fast (minutes against a few thousand papers) and run comfortably on a laptop:
-
-```bash
-python build_biblio_authority.py <output_dir>
-python reconcile_corpus_to_biblio.py <output_dir>
-python build_taxon_mentions.py <output_dir>
-```
-
-To enrich references that lack DOIs against the Biodiversity Heritage Library, add `--enrich-bhl`:
+To enrich pre-DOI references against the Biodiversity Heritage Library, add `--enrich-bhl` to the bibliography step (needs `BHL_API_KEY`, rate-limited at hours not minutes):
 
 ```bash
 python build_biblio_authority.py <output_dir> --enrich-bhl
 ```
 
-This needs `BHL_API_KEY` and is rate-limited (hours, not minutes). Skip it for a fast local build against in-corpus references only.
+After a run, [`corpus_status.py`](corpus_status.py) reports stage completion, quality flags, and which papers have stale annotations relative to the current lexicon / taxonomy snapshot:
+
+```bash
+python corpus_status.py <output_dir>
+```
 
 ## Adding and updating documents
 
-Drop new PDFs into `<input_dir>` and re-run the same commands. `--resume` recognizes existing artifacts by SHA-256 hash, so only new or changed PDFs are processed:
+Drop new PDFs into `<input_dir>` and re-run `update_corpus.py`. `--resume` recognizes existing artifacts by SHA-256 hash, so only new or changed PDFs are reprocessed:
 
 ```bash
-python process_corpus.py <input_dir> <output_dir> --resume
-python embed_chunks.py <output_dir> --resume
-python build_biblio_authority.py <output_dir>
-python reconcile_corpus_to_biblio.py <output_dir>
-python build_taxon_mentions.py <output_dir>
+python update_corpus.py <input_dir> <output_dir> --resume
 ```
+
+When the lexicon or taxonomy snapshot changes (not the PDFs), use `--re-annotate-stale` to delete only the annotation artifacts whose stored input fingerprint disagrees with the current input — per-stage resume regenerates them on the next run:
+
+```bash
+python update_corpus.py <input_dir> <output_dir> --resume \
+    --anatomy-lexicon path/to/anatomy.yaml \
+    --re-annotate-stale any
+```
+
+To remove papers, delete the PDFs from `<input_dir>` and run `python process_corpus.py <input_dir> <output_dir> --audit-orphans` for a read-only listing of `documents/<HASH>/` directories whose source PDF is gone (deletion stays manual).
 
 The cross-paper databases (bibliography, taxon mentions) rebuild from scratch each time — fast at corpus scale, and the only way they pick up new cross-references.
 
@@ -297,12 +317,11 @@ All seven checks should pass locally before you move to a real server. The deplo
 
 For a cleaner Custom Connectors experience in the future, the server would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery. That's a post-deploy item, tracked against the AWS rollout.
 
-## Gotchas
-
-
-
 ## Additional documentation and resources
 
+- [AGENTS.md](AGENTS.md) — orientation for AI coding agents working in the repo
+- [CONTRIBUTING.md](CONTRIBUTING.md) — branching model, release ritual, version bumps
+- [CHANGELOG.md](CHANGELOG.md) — what changed in each release
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
 - [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)

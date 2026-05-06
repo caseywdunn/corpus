@@ -41,7 +41,7 @@ conda env create -f ~/project/corpus/environment.yaml
 conda activate corpus
 ```
 
-Additional Tesseract language packs (German Fraktur, French, Russian, Latin) still need to be installed — see `README.md` for specifics.
+`environment.yaml` ships the Tesseract packs that back the default `ocr.ocr_languages_default` set in `config.yaml` (eng, deu, fra, rus, lat, spa, por, chi_sim, chi_tra, jpn, ell, kor, plus opt-in grc). The one exception is **19th-c. German Fraktur (`deu_latf`)**, which isn't on conda-forge — install it manually per [INSTALL.md](INSTALL.md#additional-ocr-language-packs).
 
 **GPU torch (issue #21).** PyPI's default `torch` resolves to a CUDA 13 build, but Bouchet's H200 driver caps at CUDA 12.8. Re-install torch from PyTorch's cu128 index after the conda env exists:
 
@@ -168,7 +168,7 @@ sbatch slurm/batch_embed.sh
 
 ## Post-pipeline cross-paper databases
 
-The SLURM array produces per-paper artifacts under `$OUTPUT_DIR/documents/<HASH>/`. Two cross-paper SQLites are then built in single-pass post-processing — they are required inputs to `package_for_serve.py`, which **silently skips missing SQLites** (see [package_for_serve.py:432](../package_for_serve.py#L432)) and produces an incomplete bundle. Always run these before packaging or uploading to S3.
+The SLURM array produces per-paper artifacts under `$OUTPUT_DIR/documents/<HASH>/`. Four cross-paper steps then run as single-pass post-processing — they are required inputs to `package_for_serve.py`, which **silently skips missing SQLites** (see [package_for_serve.py:432](../package_for_serve.py#L432)) and produces an incomplete bundle. Always run these before packaging or uploading to S3.
 
 ```bash
 cd "$BOUCHET_PROJECT/corpus"
@@ -186,9 +186,27 @@ sbatch slurm/batch_biblio.sh
 # 2. Cross-paper taxon mentions index. Single-pass, quick — run on
 #    a login or interactive node, no SLURM wrapper needed.
 python build_taxon_mentions.py "$OUTPUT_DIR"
+
+# 3. In-text citation graph. Walks each paper's TEI body, joins
+#    <ref type="bibr"> elements to chunk offsets, and writes
+#    intext_citations.json into each documents/<HASH>/. Fast.
+python backfill_intext_citations.py "$OUTPUT_DIR"
+
+# 4. Reconcile ghost cited-references onto corpus papers. Merges
+#    references parsed by Grobid that point at corpus papers but
+#    weren't matched by the initial authority build.
+python reconcile_corpus_to_biblio.py "$OUTPUT_DIR"
 ```
 
-Confirm both SQLites landed before packaging:
+Or chain all four (after the BHL-enriched SLURM step finishes) with:
+
+```bash
+python update_corpus.py "$INPUT_DIR" "$OUTPUT_DIR" --skip-pipeline --resume
+```
+
+`--skip-pipeline` runs only the post-pipeline scripts (steps 1-4), assuming Stages 1 + 2 already produced the per-paper artifacts. `--from build_taxa` is the equivalent if you need to rerun starting from a specific step.
+
+Confirm the SQLites landed before packaging:
 
 ```bash
 ls -la "$OUTPUT_DIR"/{taxonomy,biblio_authority,taxon_mentions}.sqlite
