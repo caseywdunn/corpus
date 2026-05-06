@@ -1,9 +1,8 @@
 """Per-paper taxon + lexicon annotation stage.
 
-Walks the chunks of one paper and emits ``taxa.json`` (when a
-taxonomy snapshot is configured) plus one ``<category>.json`` per
-configured lexicon (anatomy by default, plus any --lexicon
-CATEGORY:PATH overrides from #24).
+Walks the chunks of one paper and emits ``taxa.json`` (when a taxonomy
+snapshot is configured) plus one ``<category>.json`` per category in
+the configured ``lexicons`` mapping.
 
 Each artifact carries an ``input_fingerprint`` (#29) so corpus_status
 can detect stale annotations after the input file changes.
@@ -24,25 +23,25 @@ def _extract_taxa_and_anatomy(
     chunks_file: Path,
     hash_dir: Path,
     taxonomy_db: Optional[TaxonomyDB],
-    anatomy_lexicon: Optional[Dict[str, Dict]],
+    lexicons: Optional[Dict[str, Dict[str, Dict]]] = None,
     *,
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
-    anatomy_fingerprint: Optional[Dict[str, Any]] = None,
-    extra_lexicons: Optional[Dict[str, Dict[str, Dict]]] = None,
-    extra_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+    lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> List[Path]:
     """Run taxon + multi-category lexicon extraction on the per-PDF chunks.
 
     Always-emitted artifacts:
         ``taxa.json`` — when a taxonomy DB is configured
-        ``anatomy.json`` — when ``anatomy_lexicon`` is supplied
-        ``<category>.json`` — one per ``extra_lexicons`` category (#24)
+        ``<category>.json`` — one per category in ``lexicons``
+
+    ``lexicons`` is a two-level dict: ``{category: {term: {synonyms,
+    translations, description}}}`` (the shape returned by
+    :func:`taxa.load_lexicon`). ``lexicon_fingerprints`` carries the
+    matching ``{category: {sha256, size, path}}`` so corpus_status can
+    detect stale annotations after a section changes.
 
     Designed to degrade gracefully: missing inputs simply skip their
     output artifact rather than raising.
-
-    Fingerprints (#29) get stamped into each output so corpus_status
-    can detect stale annotations after an input changes.
     """
     out: List[Path] = []
     if not chunks_file.exists():
@@ -69,30 +68,15 @@ def _extract_taxa_and_anatomy(
     else:
         logger.info("Skipping taxon extraction (no taxonomy DB configured)")
 
-    # Build the unified category → lexicon map. Anatomy is the v0.1
-    # default category; extra_lexicons (#24) layers in user-defined
-    # ones (biogeography, life_history, …).
-    lexicons_to_run: Dict[str, Dict[str, Dict]] = {}
-    fingerprints_to_run: Dict[str, Optional[Dict[str, Any]]] = {}
-    if anatomy_lexicon:
-        lexicons_to_run["anatomy"] = anatomy_lexicon
-        fingerprints_to_run["anatomy"] = anatomy_fingerprint
-    if extra_lexicons:
-        for cat, lex in extra_lexicons.items():
-            if cat == "anatomy":
-                # Already in the map under the canonical name; don't
-                # double-process even if --lexicon anatomy:... is
-                # supplied alongside --anatomy-lexicon.
-                continue
-            if lex:
-                lexicons_to_run[cat] = lex
-                fingerprints_to_run[cat] = (extra_fingerprints or {}).get(cat)
-
-    if not lexicons_to_run:
+    lexicons = lexicons or {}
+    if not lexicons:
         logger.info("Skipping lexicon extraction (no lexicon configured)")
-    for category, lex in lexicons_to_run.items():
+    fingerprints = lexicon_fingerprints or {}
+    for category, lex in lexicons.items():
+        if not lex:
+            continue
         res = extract_lexicon_mentions(chunks, lex, category=category)
-        fp = fingerprints_to_run.get(category)
+        fp = fingerprints.get(category)
         if fp is not None:
             res["input_fingerprint"] = fp
         out_file = hash_dir / f"{category}.json"

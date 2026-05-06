@@ -59,11 +59,11 @@ python mcp_server.py <output_dir>
 
 ## Implementation notes for contributors
 
-- Each unique PDF is identified by the first 12 hex chars of its SHA-256. All artifacts live under `<output_dir>/documents/<HASH>/`. Presence of `summary.json` is the per-paper completion marker; per-stage resume (#28) additionally tracks each stage's artifact independently — a lexicon edit only re-runs the annotation pass.
+- Each unique PDF is identified by the first 12 hex chars of its SHA-256. All artifacts live under `<output_dir>/documents/<HASH>/`. Per-paper `pipeline_state.json` records each stage's `pipeline_version` + `input_fingerprint`; on `--resume` a stage re-runs iff its record is missing or disagrees with the current input. A lexicon edit only re-runs the annotation pass.
 - Stage 1 (`pipeline/`) is CPU-only: scan detection, OCR, docling extraction, Grobid metadata, chunking, annotation. Stage 2 (`embed_chunks.py`) is GPU: BGE-M3 embeddings into LanceDB. Pass 3b (vision LLM) is opt-in via `--vision-backend {claude,local}`.
 - Figure extraction has a fallback chain: docling pictures first, then raw PyMuPDF `page.get_images()`. Only figures that land on disk are recorded in `figures.json`.
 - Visualizations overlay text-cell boxes (red) and figure bboxes (yellow/orange). Coordinates are Y-flipped from docling's bottom-left origin to PIL's top-left.
-- Annotation artifacts (`taxa.json`, `anatomy.json`, `<category>.json`) stamp an `input_fingerprint` so `corpus_status.py` and `update_corpus.py --re-annotate-stale` can detect papers whose annotations no longer match the current lexicon / taxonomy snapshot.
+- Annotation artifacts (`taxa.json` plus one `<category>.json` per category in the `--lexicon` YAML) stamp an `input_fingerprint`; per-stage resume detects mismatch and re-runs the annotation pass automatically.
 - Pipeline failures land in structured `summary.json["stage_failures"]` with reason codes (`timeout`, `crash`, `external_unavailable`, `unsupported_format`, `corrupted`, `quality_gate`, `too_large`); silent-failure quality gates emit `quality_flags`. Free-text `errors[]` is being phased out.
 - `config.yaml` is loaded by `pipeline.config.load_config`; CLI flags override config values, which override built-in defaults.
 - External calls (Grobid, BHL, CrossRef, OpenAlex) flow through `external.py` for shared retry + backoff + circuit breaker. `--strict-network` aborts on the first transient failure for release builds.

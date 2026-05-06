@@ -559,15 +559,13 @@ def run_pdf_processing_pipeline(
     temp_dir: Path,
     grobid_client: Optional[GrobidClient] = None,
     taxonomy_db: Optional[TaxonomyDB] = None,
-    anatomy_lexicon: Optional[Dict[str, Dict]] = None,
+    lexicons: Optional[Dict[str, Dict[str, Dict]]] = None,
     content_aware_figures: bool = False,
     vision_backend=None,
     bib_index: Optional[BibIndex] = None,
     resume: bool = False,
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
-    anatomy_fingerprint: Optional[Dict[str, Any]] = None,
-    extra_lexicons: Optional[Dict[str, Dict[str, Dict]]] = None,
-    extra_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+    lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -733,24 +731,17 @@ def run_pdf_processing_pipeline(
             processing_summary["processing_steps"].append("figure_crossref")
 
         # ── taxa_anatomy_extraction ─────────────────────────────────
-        # Stage runs only when at least one source (taxonomy DB,
-        # anatomy lexicon, or extra lexicon) is configured. The
-        # input_fingerprint captures every configured source's content
-        # hash, so a lexicon swap forces this stage to re-run on
-        # --resume without needing --re-annotate-stale.
-        run_taxa_anat = (
-            taxonomy_db is not None
-            or bool(anatomy_lexicon)
-            or bool(extra_lexicons)
-        )
+        # Stage runs only when a taxonomy DB or at least one lexicon
+        # category is configured. The input_fingerprint captures the
+        # taxonomy + per-category content hashes, so editing one
+        # lexicon section forces this stage to re-run on --resume.
+        run_taxa_anat = taxonomy_db is not None or bool(lexicons)
         if run_taxa_anat:
             taxa_anat_fingerprint: Dict[str, Any] = {}
             if taxonomy_db is not None and taxonomy_fingerprint is not None:
                 taxa_anat_fingerprint["taxonomy"] = taxonomy_fingerprint
-            if anatomy_lexicon and anatomy_fingerprint is not None:
-                taxa_anat_fingerprint["anatomy"] = anatomy_fingerprint
-            if extra_fingerprints:
-                taxa_anat_fingerprint["extra"] = extra_fingerprints
+            if lexicon_fingerprints:
+                taxa_anat_fingerprint["lexicons"] = lexicon_fingerprints
             if _should_run_stage(
                 "taxa_anatomy_extraction",
                 hash_dir=hash_dir,
@@ -765,11 +756,9 @@ def run_pdf_processing_pipeline(
                         chunks_file,
                         hash_dir,
                         taxonomy_db,
-                        anatomy_lexicon,
+                        lexicons,
                         taxonomy_fingerprint=taxonomy_fingerprint,
-                        anatomy_fingerprint=anatomy_fingerprint,
-                        extra_lexicons=extra_lexicons,
-                        extra_fingerprints=extra_fingerprints,
+                        lexicon_fingerprints=lexicon_fingerprints,
                     )
                     processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
                     if taxa_anat_files:

@@ -91,9 +91,9 @@ def get_figures_for_anatomy(
     """Figures whose captions mention an anatomy term.
 
     Takes the canonical anatomy term or any of its configured synonyms
-    / translations (defined by the user-supplied ``--anatomy-lexicon``
-    YAML at process time; see ``demo/anatomy_lexicon.yaml`` for an
-    example). Matches the
+    / translations (defined under the ``anatomy:`` key of the
+    user-supplied ``--lexicon`` YAML at process time; see
+    ``demo/lexicon.yaml`` for an example). Matches the
     term case-insensitively in figure captions and returns the figure
     records with image paths and caption text, ranked by number of
     occurrences in the caption.

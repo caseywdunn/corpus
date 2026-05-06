@@ -35,8 +35,8 @@ output/
       metadata.json            # Grobid bibliographic metadata + references
       chunks.json              # text chunks for embedding
       taxa.json                # taxon mentions (incl. input fingerprint)
-      anatomy.json             # anatomy-lexicon mentions (if --anatomy-lexicon)
-      <category>.json          # any --lexicon CATEGORY:PATH output
+      <category>.json          # one per category in --lexicon (anatomy.json,
+                               # biogeography.json, …)
       intext_citations.json    # in-text <ref type="bibr"> resolved to work_ids
       pipeline.log             # per-document processing log
       summary.json             # provenance + per-stage status + quality flags
@@ -64,7 +64,7 @@ Orchestrated by `pipeline.runner.run_pdf_processing_pipeline`, six steps per PDF
 | **Text + figure extraction** (`pipeline/extract.py`) | Docling parses the PDF into structured text and figure regions. Figures go through a classification/caption pipeline (see [Figure pipeline](#figure-pipeline) below). Falls back to raw PyMuPDF image extraction when docling finds nothing. | `text.json`, `figures.json`, `figures/*.png`, `visualizations/*.png` |
 | **Metadata extraction** (`pipeline/metadata.py`, `bib/`) | Grobid extracts title, authors, year, DOI, abstract, section structure, and parsed references. `--bib` overrides the header from a curated BibTeX. Falls back to placeholder when Grobid is unavailable. | `metadata.json` |
 | **Chunking** (`pipeline/chunking.py`) | Splits extracted text via docling's `HybridChunker` (tokenizer-aware, respects section/heading structure), with section-class labels. | `chunks.json` |
-| **Annotation** (`pipeline/annotate.py`) | Per-chunk taxon mentions (against the DwC taxonomy snapshot) and lexicon matches (anatomy + any `--lexicon CATEGORY:PATH`). Each output file stamps an `input_fingerprint` for staleness detection. | `taxa.json`, `anatomy.json`, `<category>.json` |
+| **Annotation** (`pipeline/annotate.py`) | Per-chunk taxon mentions (against the DwC taxonomy snapshot) and lexicon matches (one pass per category in `--lexicon`). Each output file stamps a per-category `input_fingerprint`; the stage-completion record in `pipeline_state.json` mirrors it so a per-category resume detects exactly which categories changed. | `taxa.json`, `<category>.json` |
 
 Stage 1 supports SLURM job-array parallelization via `--batch-index` / `--batch-size`. Each array task deterministically processes a slice of the sorted hash list. See [BOUCHET.md](BOUCHET.md) for operational details.
 
@@ -108,12 +108,20 @@ When a Darwin Core taxonomy SQLite snapshot is available (`<corpuscle>/taxonomy.
 
 ## Lexicon-driven annotation
 
-User-supplied lexicons tag chunks with category-specific terms. Two CLI flags drive the same machinery:
+A user-supplied lexicon tags chunks with category-specific terms. The YAML is two-level — top-level keys are categories, each value is a flat term map:
 
-- `--anatomy-lexicon path/to/anatomy.yaml` writes `<hash>/anatomy.json`. See [demo/anatomy_lexicon.yaml](../demo/anatomy_lexicon.yaml) for the YAML format, with siphonophore anatomy as the worked example (nectophore, pneumatophore, gastrozooid, …).
-- `--lexicon CATEGORY:path/to/lexicon.yaml` is repeatable; each invocation writes `<hash>/<CATEGORY>.json`. Per-stage resume + `corpus_status` treat each category independently, so adding a new lexicon only re-runs that one annotator.
+```yaml
+anatomy:
+  nectophore:
+    synonyms: [nectophores, swimming bell]
+biogeography:
+  pelagic:
+    synonyms: [open water]
+```
 
-Lexicons are inputs you maintain alongside the literature, not part of the tool. Each annotation artifact stamps an `input_fingerprint` recording the lexicon's SHA-256, so `corpus_status.py` and `update_corpus.py --re-annotate-stale` can detect papers whose annotations no longer match the current lexicon.
+Pass it with `--lexicon path/to/lexicon.yaml`; each category emits its own `<hash>/<category>.json` (so `anatomy.json`, `biogeography.json`, …). See [demo/lexicon.yaml](../demo/lexicon.yaml) for a worked siphonophore example.
+
+Lexicons are inputs you maintain alongside the literature, not part of the tool. Each category's content is fingerprinted independently (SHA-256 over the canonical JSON of just that section) and recorded both inside the `<category>.json` artifact and in the per-paper `pipeline_state.json` completion record. On `--resume`, editing one section re-runs `taxa_anatomy_extraction` against the new fingerprint; sections whose hash didn't change stay cached.
 
 ## Cross-paper databases
 
@@ -159,4 +167,4 @@ Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM 
 | `backfill_intext_citations.py` | TEI body → `intext_citations.json` per paper |
 | `reconcile_corpus_to_biblio.py` | Merge ghost cited-references onto corpus papers |
 | `package_for_serve.py` | Whitelist + manifest the served bundle for S3 / EC2 deploy |
-| `demo/anatomy_lexicon.yaml` | Example siphonophore anatomy lexicon (user-supplied input pattern) |
+| `demo/lexicon.yaml` | Example multi-category lexicon (siphonophore anatomy under `anatomy:`) |

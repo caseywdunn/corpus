@@ -1,11 +1,10 @@
-"""Tests for multi-category lexicons (#24).
+"""Tests for the multi-category lexicon format.
 
-The matcher and extractor functions were generalized from anatomy-only
-to category-agnostic. These tests confirm:
-  1. Backwards-compat aliases (load_anatomy_lexicon, extract_anatomy_mentions)
-     keep working.
-  2. extract_lexicon_mentions stamps the category onto its output.
-  3. _extract_taxa_and_anatomy writes <category>.json per configured lexicon.
+The lexicon YAML is two-level: top-level keys are categories
+(``anatomy``, ``biogeography``, …); each value is the canonical-term
+map that drives extraction. ``load_lexicon`` returns that two-level
+dict, and ``lexicon_fingerprints`` returns per-category content hashes
+so resume can detect which categories changed.
 """
 from __future__ import annotations
 
@@ -13,75 +12,146 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from taxa import (
-    extract_anatomy_mentions,
     extract_lexicon_mentions,
-    load_anatomy_lexicon,
+    lexicon_fingerprints,
     load_lexicon,
 )
 
 
 # ---------------------------------------------------------------------------
-# Aliases
-# ---------------------------------------------------------------------------
-
-
-def test_load_anatomy_lexicon_alias_is_load_lexicon():
-    assert load_anatomy_lexicon is load_lexicon
-
-
-def test_extract_anatomy_mentions_alias_is_extract_lexicon_mentions():
-    assert extract_anatomy_mentions is extract_lexicon_mentions
-
-
-# ---------------------------------------------------------------------------
-# Category labelling
+# YAML format
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def biogeo_lexicon() -> dict:
-    return {
-        "pelagic": {
-            "synonyms": ["open_water", "open water"],
-            "translations": {},
-            "description": "Free-swimming, off the bottom.",
-        },
-        "benthic": {
-            "synonyms": ["seafloor", "bottom-dwelling"],
-            "translations": {},
-            "description": "Bottom-associated.",
-        },
-    }
+def two_category_yaml(tmp_path: Path) -> Path:
+    p = tmp_path / "lex.yaml"
+    p.write_text(
+        yaml.safe_dump({
+            "anatomy": {
+                "nectophore": {
+                    "synonyms": ["nectophores"],
+                    "translations": {"de": ["Schwimmglocke"]},
+                    "description": "Medusoid swimming bell.",
+                },
+            },
+            "biogeography": {
+                "pelagic": {
+                    "synonyms": ["open water"],
+                    "translations": {},
+                    "description": "Open-ocean.",
+                },
+                "benthic": {
+                    "synonyms": ["seafloor"],
+                    "translations": {},
+                    "description": "Bottom-associated.",
+                },
+            },
+        }),
+        encoding="utf-8",
+    )
+    return p
 
 
-def test_extract_lexicon_mentions_stamps_category(biogeo_lexicon):
+def test_load_lexicon_returns_two_level_dict(two_category_yaml):
+    lex = load_lexicon(two_category_yaml)
+    assert set(lex.keys()) == {"anatomy", "biogeography"}
+    assert "nectophore" in lex["anatomy"]
+    assert "pelagic" in lex["biogeography"]
+    assert lex["biogeography"]["pelagic"]["synonyms"] == ["open water"]
+
+
+def test_load_lexicon_normalizes_category_to_lowercase(tmp_path):
+    p = tmp_path / "lex.yaml"
+    p.write_text("Anatomy:\n  foo:\n    synonyms: []\n", encoding="utf-8")
+    lex = load_lexicon(p)
+    assert "anatomy" in lex
+    assert "Anatomy" not in lex
+
+
+def test_load_lexicon_rejects_non_mapping_root(tmp_path):
+    p = tmp_path / "bad.yaml"
+    p.write_text("- this is a list\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="root must be a mapping"):
+        load_lexicon(p)
+
+
+def test_load_lexicon_rejects_non_mapping_category(tmp_path):
+    p = tmp_path / "bad.yaml"
+    p.write_text("anatomy:\n  - foo\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="must be a mapping"):
+        load_lexicon(p)
+
+
+def test_demo_lexicon_loads(tmp_path):
+    """The shipped demo lexicon round-trips through load_lexicon."""
+    demo = Path(__file__).resolve().parent.parent / "demo" / "lexicon.yaml"
+    if not demo.exists():
+        pytest.skip("demo/lexicon.yaml not present")
+    lex = load_lexicon(demo)
+    assert "anatomy" in lex
+    assert len(lex["anatomy"]) > 10
+
+
+# ---------------------------------------------------------------------------
+# Fingerprints
+# ---------------------------------------------------------------------------
+
+
+def test_lexicon_fingerprints_per_category(two_category_yaml):
+    fps = lexicon_fingerprints(two_category_yaml)
+    assert set(fps.keys()) == {"anatomy", "biogeography"}
+    assert fps["anatomy"]["sha256"] != fps["biogeography"]["sha256"]
+    assert fps["anatomy"]["path"] == str(two_category_yaml)
+
+
+def test_lexicon_fingerprints_unchanged_when_unrelated_category_edits(tmp_path):
+    """A change to one section's content must not perturb another's hash."""
+    p1 = tmp_path / "v1.yaml"
+    p1.write_text(yaml.safe_dump({
+        "anatomy": {"a": {"synonyms": []}},
+        "biogeo": {"x": {"synonyms": []}},
+    }), encoding="utf-8")
+    p2 = tmp_path / "v2.yaml"
+    p2.write_text(yaml.safe_dump({
+        "anatomy": {"a": {"synonyms": []}},
+        "biogeo": {"x": {"synonyms": ["NEW"]}},  # only this section changed
+    }), encoding="utf-8")
+    fp1, fp2 = lexicon_fingerprints(p1), lexicon_fingerprints(p2)
+    assert fp1["anatomy"]["sha256"] == fp2["anatomy"]["sha256"]
+    assert fp1["biogeo"]["sha256"] != fp2["biogeo"]["sha256"]
+
+
+# ---------------------------------------------------------------------------
+# Category labelling on extraction output
+# ---------------------------------------------------------------------------
+
+
+def test_extract_lexicon_mentions_stamps_category():
+    section = {"pelagic": {"synonyms": [], "translations": {}, "description": ""}}
     chunks = [{"chunk_id": "c0", "text": "found in pelagic waters"}]
-    res = extract_lexicon_mentions(chunks, biogeo_lexicon, category="biogeography")
+    res = extract_lexicon_mentions(chunks, section, category="biogeography")
     assert res["category"] == "biogeography"
     assert res["total_mentions"] == 1
     assert res["mentions"][0]["canonical"] == "pelagic"
 
 
-def test_extract_lexicon_mentions_no_category_when_unset(biogeo_lexicon):
-    chunks = [{"chunk_id": "c0", "text": "found in pelagic waters"}]
-    res = extract_lexicon_mentions(chunks, biogeo_lexicon)
+def test_extract_lexicon_mentions_no_category_when_unset():
+    section = {"pelagic": {"synonyms": [], "translations": {}, "description": ""}}
+    chunks = [{"chunk_id": "c0", "text": "pelagic"}]
+    res = extract_lexicon_mentions(chunks, section)
     assert "category" not in res
 
 
-def test_empty_lexicon_returns_empty_with_category():
-    res = extract_lexicon_mentions([{"chunk_id": "c0", "text": "x"}], {}, category="ecology")
-    assert res["category"] == "ecology"
-    assert res["total_mentions"] == 0
-
-
 # ---------------------------------------------------------------------------
-# _extract_taxa_and_anatomy with extra_lexicons
+# _extract_taxa_and_anatomy with the new lexicons param
 # ---------------------------------------------------------------------------
 
 
-def test_extract_writes_extra_category_json(tmp_path, biogeo_lexicon):
+def test_extract_writes_one_json_per_category(tmp_path):
     from process_corpus import _extract_taxa_and_anatomy
 
     hd = tmp_path / "abc"
@@ -89,73 +159,26 @@ def test_extract_writes_extra_category_json(tmp_path, biogeo_lexicon):
     (hd / "chunks.json").write_text(json.dumps({
         "chunks": [
             {"chunk_id": "c0", "text": "Specimens collected in pelagic waters."},
-            {"chunk_id": "c1", "text": "Benthic specimens were rare."},
+            {"chunk_id": "c1", "text": "A nectophore was observed."},
         ],
     }))
 
+    lexicons = {
+        "anatomy": {
+            "nectophore": {"synonyms": [], "translations": {}, "description": ""},
+        },
+        "biogeography": {
+            "pelagic": {"synonyms": [], "translations": {}, "description": ""},
+        },
+    }
     out = _extract_taxa_and_anatomy(
         chunks_file=hd / "chunks.json",
         hash_dir=hd,
         taxonomy_db=None,
-        anatomy_lexicon=None,
-        extra_lexicons={"biogeography": biogeo_lexicon},
+        lexicons=lexicons,
     )
+    assert (hd / "anatomy.json") in out
     assert (hd / "biogeography.json") in out
-    data = json.loads((hd / "biogeography.json").read_text())
-    assert data["category"] == "biogeography"
-    assert data["total_mentions"] == 2
-    canonicals = sorted(m["canonical"] for m in data["mentions"])
-    assert canonicals == ["benthic", "pelagic"]
-
-
-def test_extract_anatomy_lexicon_under_anatomy_takes_precedence_over_extra(tmp_path):
-    """When --anatomy-lexicon is set AND --lexicon anatomy:... is also
-    set (unlikely but possible), the explicit --anatomy-lexicon wins
-    and the duplicate is silently ignored.
-    """
-    from process_corpus import _extract_taxa_and_anatomy
-
-    hd = tmp_path / "abc"
-    hd.mkdir()
-    (hd / "chunks.json").write_text(json.dumps({
-        "chunks": [{"chunk_id": "c0", "text": "nectophore observed"}],
-    }))
-
-    real = {"nectophore": {"synonyms": [], "translations": {}, "description": "real"}}
-    duplicate = {"foo": {"synonyms": [], "translations": {}, "description": "should not run"}}
-
-    _extract_taxa_and_anatomy(
-        chunks_file=hd / "chunks.json",
-        hash_dir=hd,
-        taxonomy_db=None,
-        anatomy_lexicon=real,
-        extra_lexicons={"anatomy": duplicate},
-    )
-    data = json.loads((hd / "anatomy.json").read_text())
-    assert data["mentions"], "anatomy.json should reflect --anatomy-lexicon, not the duplicate"
-    assert data["mentions"][0]["canonical"] == "nectophore"
-
-
-def test_extract_with_multiple_categories(tmp_path, biogeo_lexicon):
-    """All configured categories are emitted as their own JSON files."""
-    from process_corpus import _extract_taxa_and_anatomy
-
-    hd = tmp_path / "abc"
-    hd.mkdir()
-    (hd / "chunks.json").write_text(json.dumps({
-        "chunks": [
-            {"chunk_id": "c0", "text": "A pelagic colony bears one nectophore."},
-        ],
-    }))
-    anatomy = {"nectophore": {"synonyms": [], "translations": {}, "description": ""}}
-
-    _extract_taxa_and_anatomy(
-        chunks_file=hd / "chunks.json",
-        hash_dir=hd,
-        taxonomy_db=None,
-        anatomy_lexicon=anatomy,
-        extra_lexicons={"biogeography": biogeo_lexicon},
-    )
 
     anat = json.loads((hd / "anatomy.json").read_text())
     biogeo = json.loads((hd / "biogeography.json").read_text())
@@ -165,21 +188,42 @@ def test_extract_with_multiple_categories(tmp_path, biogeo_lexicon):
     assert biogeo["total_mentions"] == 1
 
 
-def test_fingerprint_stamped_on_extra_category(tmp_path, biogeo_lexicon):
+def test_extract_skips_empty_category(tmp_path):
+    """An empty section is silently skipped — no <category>.json written."""
     from process_corpus import _extract_taxa_and_anatomy
 
     hd = tmp_path / "abc"
     hd.mkdir()
     (hd / "chunks.json").write_text(json.dumps({"chunks": []}))
 
-    fp = {"path": "/x/biogeo.yaml", "sha256": "deadbeef" * 8, "size": 100}
+    out = _extract_taxa_and_anatomy(
+        chunks_file=hd / "chunks.json",
+        hash_dir=hd,
+        taxonomy_db=None,
+        lexicons={"empty_cat": {}, "anatomy": {
+            "x": {"synonyms": [], "translations": {}, "description": ""},
+        }},
+    )
+    assert (hd / "anatomy.json") in out
+    assert not (hd / "empty_cat.json").exists()
+
+
+def test_fingerprint_stamped_per_category(tmp_path):
+    from process_corpus import _extract_taxa_and_anatomy
+
+    hd = tmp_path / "abc"
+    hd.mkdir()
+    (hd / "chunks.json").write_text(json.dumps({"chunks": []}))
+
+    fp = {"path": "/x/lex.yaml", "sha256": "deadbeef" * 8, "size": 100}
     _extract_taxa_and_anatomy(
         chunks_file=hd / "chunks.json",
         hash_dir=hd,
         taxonomy_db=None,
-        anatomy_lexicon=None,
-        extra_lexicons={"biogeography": biogeo_lexicon},
-        extra_fingerprints={"biogeography": fp},
+        lexicons={"biogeography": {
+            "pelagic": {"synonyms": [], "translations": {}, "description": ""},
+        }},
+        lexicon_fingerprints={"biogeography": fp},
     )
     data = json.loads((hd / "biogeography.json").read_text())
     assert data["input_fingerprint"] == fp

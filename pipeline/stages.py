@@ -120,7 +120,7 @@ def _classify_exception(e: BaseException) -> Tuple[str, str]:
 
 def _file_sha256(path: Path) -> str:
     """Streaming SHA-256 of ``path``. Used by #29 to fingerprint inputs
-    (taxonomy.sqlite, anatomy_lexicon.yaml) so per-paper annotation
+    (taxonomy.sqlite, lexicon.yaml) so per-paper annotation
     artifacts can record the exact input version they were built from.
 
     Streamed in 64 KB chunks — taxonomy.sqlite at corpus scale is tens

@@ -71,12 +71,10 @@ class Step:
                 cmd += ["--config", str(args.config)]
             if args.bib:
                 cmd += ["--bib", str(args.bib)]
-            if args.anatomy_lexicon:
-                cmd += ["--anatomy-lexicon", str(args.anatomy_lexicon)]
             if args.taxonomy_db:
                 cmd += ["--taxonomy-db", str(args.taxonomy_db)]
-            for spec in args.lexicon or []:
-                cmd += ["--lexicon", spec]
+            if args.lexicon:
+                cmd += ["--lexicon", str(args.lexicon)]
             if args.no_taxa:
                 cmd.append("--no-taxa")
             if args.no_grobid:
@@ -130,99 +128,6 @@ STEPS: List[Step] = [
 POST_PIPELINE_STEPS = {"build_biblio", "build_taxa", "backfill_intext", "reconcile"}
 
 
-def _delete_stale_artifacts(args: argparse.Namespace) -> int:
-    """Delete anatomy.json / taxa.json for papers whose stored
-    input_fingerprint disagrees with the current input file (#33).
-
-    The pipeline's per-stage resume (#28) regenerates the deleted
-    artifact on the next run. In --dry-run mode, deletions are
-    reported but not performed.
-    """
-    from corpus_status import detect_stale_fingerprints
-
-    documents_dir = args.output_dir / "documents"
-    if not documents_dir.is_dir():
-        logger.warning(
-            "--re-annotate-stale: no documents/ at %s, nothing to scan",
-            args.output_dir,
-        )
-        return 0
-
-    # Resolve current taxonomy / anatomy paths
-    taxonomy_path = args.taxonomy_db
-    if taxonomy_path is None:
-        candidate = args.output_dir / "taxonomy.sqlite"
-        if candidate.exists():
-            taxonomy_path = candidate
-
-    mode = args.re_annotate_stale
-    want_taxonomy = mode in ("taxonomy", "any")
-    want_anatomy = mode in ("anatomy", "any")
-
-    if want_taxonomy and taxonomy_path is None:
-        logger.error(
-            "--re-annotate-stale=%s needs taxonomy.sqlite (not at the "
-            "default <output>/taxonomy.sqlite; pass --taxonomy-db).", mode,
-        )
-        return 1
-    if want_anatomy and args.anatomy_lexicon is None:
-        logger.error(
-            "--re-annotate-stale=%s needs --anatomy-lexicon to compare "
-            "against.", mode,
-        )
-        return 1
-
-    stale = detect_stale_fingerprints(
-        documents_dir,
-        taxonomy_path=taxonomy_path if want_taxonomy else None,
-        anatomy_lexicon_path=args.anatomy_lexicon if want_anatomy else None,
-    )
-
-    n_taxa = len(stale.get("taxonomy_stale", []))
-    n_anat = len(stale.get("anatomy_stale", []))
-    logger.info(
-        "Stale fingerprints: %d taxonomy_stale, %d anatomy_stale",
-        n_taxa, n_anat,
-    )
-
-    if not (n_taxa or n_anat):
-        logger.info("No stale annotations — nothing to delete.")
-        return 0
-
-    deleted = 0
-    for h in stale.get("taxonomy_stale", []):
-        path = documents_dir / h / "taxa.json"
-        if args.dry_run:
-            logger.info("would delete %s", path)
-        else:
-            try:
-                path.unlink()
-                deleted += 1
-            except FileNotFoundError:
-                pass
-    for h in stale.get("anatomy_stale", []):
-        path = documents_dir / h / "anatomy.json"
-        if args.dry_run:
-            logger.info("would delete %s", path)
-        else:
-            try:
-                path.unlink()
-                deleted += 1
-            except FileNotFoundError:
-                pass
-
-    if args.dry_run:
-        logger.info(
-            "Dry-run: would delete %d artifact(s).", n_taxa + n_anat,
-        )
-    else:
-        logger.info(
-            "Deleted %d annotation artifact(s); per-stage resume will "
-            "regenerate them.", deleted,
-        )
-    return 0
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -235,17 +140,13 @@ def main() -> int:
         help="Optional BibTeX for metadata override (passed to process_corpus.py).",
     )
     parser.add_argument(
-        "--anatomy-lexicon", type=Path, default=None,
-        help="Anatomy lexicon YAML (passed to process_corpus.py).",
-    )
-    parser.add_argument(
         "--taxonomy-db", type=Path, default=None,
         help="Taxonomy SQLite path (passed to process_corpus.py).",
     )
     parser.add_argument(
-        "--lexicon", action="append", default=[], metavar="CATEGORY:PATH",
-        help="Additional category-tagged lexicon YAML; repeatable "
-             "(passed to process_corpus.py).",
+        "--lexicon", type=Path, default=None,
+        help="Multi-category lexicon YAML (passed to process_corpus.py). "
+             "Top-level keys are categories; see demo/lexicon.yaml.",
     )
     parser.add_argument(
         "--no-taxa", action="store_true",
@@ -301,24 +202,12 @@ def main() -> int:
         help="Skip Stage 1 + Stage 2 (extract + embed). Only run the "
              "post-pipeline scripts. Use when no per-paper artifacts "
              "need to be (re)generated — e.g. you only want to rebuild "
-             "the biblio/taxon DBs from existing taxa.json/anatomy.json. "
-             "Incompatible with --re-annotate-stale, which requires the "
-             "extract stage to regenerate the artifacts it deletes.",
+             "the biblio/taxon DBs from existing per-paper artifacts.",
     )
     parser.add_argument(
         "--from", dest="from_step", default=None,
         choices=[s.name for s in STEPS],
         help="Start from this step (skipping all earlier steps).",
-    )
-    parser.add_argument(
-        "--re-annotate-stale", choices=["anatomy", "taxonomy", "any"],
-        default=None,
-        help="Before running the pipeline, scan for papers whose stored "
-             "input_fingerprint disagrees with the current "
-             "anatomy_lexicon / taxonomy.sqlite, then delete the relevant "
-             "annotation artifact so per-stage resume regenerates it. "
-             "Requires --resume and the matching input flag(s) "
-             "(--anatomy-lexicon / --taxonomy-db).",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -332,21 +221,11 @@ def main() -> int:
         logger.error("Input directory %s does not exist", args.input_dir)
         return 1
 
-    # Re-annotate-stale (#33): delete annotation artifacts whose stored
-    # input_fingerprint disagrees with the current input. Pipeline's
-    # per-stage resume (#28) will then regenerate them.
-    if args.re_annotate_stale:
-        if not args.resume:
-            parser.error("--re-annotate-stale requires --resume")
-        if args.skip_pipeline:
-            parser.error(
-                "--re-annotate-stale and --skip-pipeline are incompatible: "
-                "the deleted artifacts are only regenerated by the extract "
-                "stage that --skip-pipeline drops."
-            )
-        rc = _delete_stale_artifacts(args)
-        if rc != 0:
-            return rc
+    # Lexicon / taxonomy edits no longer need a separate flag: the
+    # per-paper pipeline_state.json records the input_fingerprint of
+    # every stage, and --resume re-runs whichever stages' fingerprint
+    # disagrees with the current input. Edit your inputs, run with
+    # --resume, done.
 
     # Determine the step subset
     if args.skip_pipeline and args.from_step:

@@ -73,14 +73,21 @@ Without external taxonomy the pipeline still extracts taxon mentions from text �
 
 ### Lexicons (optional)
 
-A lexicon is a small YAML file listing terms you want tagged in figure captions and chunk text. The flat term-to-metadata format is shared across all categories — see [demo/anatomy_lexicon.yaml](demo/anatomy_lexicon.yaml) for a worked example covering siphonophore anatomy (*nectophore*, *pneumatophore*, *gastrozooid* …).
+A lexicon is a small YAML file listing terms you want tagged in figure captions and chunk text. Top-level keys are categories (e.g. `anatomy:`, `biogeography:`, `methods:`); each value is a flat term-to-metadata map. See [demo/lexicon.yaml](demo/lexicon.yaml) for a worked example with siphonophore anatomy (*nectophore*, *pneumatophore*, *gastrozooid* …).
 
-Two CLI flags drive the same machinery:
+```yaml
+anatomy:
+  nectophore:
+    synonyms: [nectophores, swimming bell]
+    translations: {de: [Schwimmglocke]}
+biogeography:
+  pelagic:
+    synonyms: [open water]
+```
 
-- `--anatomy-lexicon path/to/anatomy.yaml` — tag anatomy terms; output lands in `<hash>/anatomy.json`.
-- `--lexicon CATEGORY:path/to/category.yaml` — tag any other category. Repeatable. Output lands in `<hash>/<CATEGORY>.json` and is treated independently for per-stage resume and corpus status. For example, `--lexicon biogeography:biogeo.yaml --lexicon methods:methods.yaml` runs three lexicons in one pass.
+Pass the file with `--lexicon path/to/lexicon.yaml`. Each category emits its own `<hash>/<category>.json` artifact. Per-category content is fingerprinted independently, so editing a single section only invalidates that category's annotations on `--resume` — the rest stay cached.
 
-Without any lexicon flag, that category's extraction is skipped. Like `--bib`, lexicons are inputs you maintain alongside your literature, not something the tool ships.
+Without `--lexicon`, lexicon extraction is skipped entirely. Like `--bib`, the lexicon is an input you maintain alongside your literature, not something the tool ships.
 
 ### Instructions for the LLM (optional)
 
@@ -169,7 +176,7 @@ python ingest_taxonomy.py output_demo --source worms --root-id 1371
 # reconcile_corpus_to_biblio.py with --resume throughout.
 python update_corpus.py demo output_demo \
     --bib demo/siphonophores.bib \
-    --anatomy-lexicon demo/anatomy_lexicon.yaml \
+    --lexicon demo/lexicon.yaml \
     --resume
 ```
 
@@ -241,12 +248,11 @@ Drop new PDFs into `<input_dir>` and re-run `update_corpus.py`. `--resume` recog
 python update_corpus.py <input_dir> <output_dir> --resume
 ```
 
-When the lexicon or taxonomy snapshot changes (not the PDFs), use `--re-annotate-stale` to delete only the annotation artifacts whose stored input fingerprint disagrees with the current input — per-stage resume regenerates them on the next run:
+When the lexicon or taxonomy snapshot changes (not the PDFs), just re-run with `--resume`. Each per-paper `pipeline_state.json` records the input fingerprint of every stage; a mismatch forces only the affected stage to re-run, so editing one lexicon section regenerates that category's annotations and leaves everything else cached:
 
 ```bash
 python update_corpus.py <input_dir> <output_dir> --resume \
-    --anatomy-lexicon path/to/anatomy.yaml \
-    --re-annotate-stale any
+    --lexicon path/to/lexicon.yaml
 ```
 
 To remove papers, delete the PDFs from `<input_dir>` and run `python process_corpus.py <input_dir> <output_dir> --audit-orphans` for a read-only listing of `documents/<HASH>/` directories whose source PDF is gone (deletion stays manual).

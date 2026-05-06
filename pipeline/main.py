@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from bib import BibIndex
 from grobid_client import GrobidClient
-from taxa import TaxonomyDB, load_lexicon
+from taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_anatomy
@@ -50,15 +50,14 @@ logger = logging.getLogger(__name__)
 def _expected_stages_for_run(
     *,
     taxonomy_db: Any,
-    anatomy_lexicon: Any,
-    extra_lexicons: Optional[Dict[str, Any]],
+    lexicons: Optional[Dict[str, Any]],
 ) -> List[str]:
     """Return the list of stage names this run is configured to produce.
 
     Always includes the core stages (scan_detection, pdf_preparation,
     docling_extraction, metadata_extraction, text_chunking).
-    ``taxa_anatomy_extraction`` is added when any of taxonomy DB,
-    anatomy lexicon, or an extra ``--lexicon`` is configured.
+    ``taxa_anatomy_extraction`` is added when a taxonomy DB or any
+    lexicon category is configured.
     """
     stages = [
         "scan_detection",
@@ -67,7 +66,7 @@ def _expected_stages_for_run(
         "metadata_extraction",
         "text_chunking",
     ]
-    if taxonomy_db is not None or anatomy_lexicon or extra_lexicons:
+    if taxonomy_db is not None or lexicons:
         stages.append("taxa_anatomy_extraction")
     return stages
 
@@ -109,24 +108,15 @@ def main():
              "Build with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
     )
     parser.add_argument(
-        "--anatomy-lexicon",
+        "--lexicon",
         type=Path,
         default=None,
-        help="Path to a domain-specific anatomy lexicon YAML. Optional and "
-             "user-supplied — see demo/anatomy_lexicon.yaml for the format. "
-             "Without this flag, anatomy extraction is skipped.",
-    )
-    parser.add_argument(
-        "--lexicon",
-        action="append",
-        default=[],
-        metavar="CATEGORY:PATH",
-        help="Additional category-tagged lexicon YAML, e.g. "
-             "--lexicon biogeography:/path/to/biogeo.yaml. Repeatable. "
-             "Same YAML format as --anatomy-lexicon (see "
-             "demo/anatomy_lexicon.yaml). Output lands in "
-             "<hash>/<CATEGORY>.json; per-stage resume + corpus_status "
-             "treat each category independently. (#24)",
+        help="Path to a multi-category lexicon YAML. Top-level keys are "
+             "categories (anatomy, biogeography, …); see demo/lexicon.yaml "
+             "for the format. Each category emits its own "
+             "<hash>/<category>.json artifact and is fingerprinted "
+             "separately, so editing one section only invalidates that "
+             "category's annotations on --resume.",
     )
     parser.add_argument(
         "--no-taxa",
@@ -264,14 +254,15 @@ def main():
             logger.error("Could not parse %s: %s", args.bib, e)
             sys.exit(1)
 
-    # Open taxonomy snapshot and (if supplied) load anatomy lexicon. Both
-    # are optional; missing inputs are logged and their output artifacts
-    # are skipped.  The lexicon is opt-in via --anatomy-lexicon — there
-    # is no default lookup because it's a domain-specific user input.
+    # Open taxonomy snapshot and (if supplied) the multi-category
+    # lexicon. Both are optional; missing inputs are logged and their
+    # output artifacts are skipped. The lexicon is opt-in via
+    # --lexicon — there is no default lookup because it's a
+    # domain-specific user input.
     taxonomy_db: Optional[TaxonomyDB] = None
-    anatomy_lexicon: Optional[Dict[str, Dict]] = None
+    lexicons: Dict[str, Dict[str, Dict]] = {}
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None
-    anatomy_fingerprint: Optional[Dict[str, Any]] = None
+    lex_fingerprints: Dict[str, Dict[str, Any]] = {}
     if not args.no_taxa:
         taxonomy_path = args.taxonomy_db or (args.output_dir / "taxonomy.sqlite")
         if taxonomy_path.exists():
@@ -302,70 +293,27 @@ def main():
                 taxonomy_path, args.output_dir,
             )
 
-        if args.anatomy_lexicon is not None:
-            if args.anatomy_lexicon.exists():
+        if args.lexicon is not None:
+            if args.lexicon.exists():
                 try:
-                    anatomy_lexicon = load_lexicon(args.anatomy_lexicon)
-                    anatomy_fingerprint = {
-                        "path": str(args.anatomy_lexicon),
-                        "sha256": _file_sha256(args.anatomy_lexicon),
-                        "size": args.anatomy_lexicon.stat().st_size,
-                    }
-                    logger.info(
-                        "Anatomy lexicon loaded from %s (%d terms, sha256=%s…)",
-                        args.anatomy_lexicon, len(anatomy_lexicon),
-                        anatomy_fingerprint["sha256"][:12],
-                    )
+                    lexicons = load_lexicon(args.lexicon)
+                    lex_fingerprints = lexicon_fingerprints(args.lexicon)
+                    for category, section in lexicons.items():
+                        fp = lex_fingerprints.get(category, {})
+                        sha = fp.get("sha256", "?" * 12)
+                        logger.info(
+                            "Lexicon[%s] loaded from %s (%d terms, sha256=%s…)",
+                            category, args.lexicon, len(section), sha[:12],
+                        )
                 except Exception as e:
                     logger.warning(
-                        "Could not load anatomy lexicon %s: %s",
-                        args.anatomy_lexicon, e,
+                        "Could not load lexicon %s: %s", args.lexicon, e,
                     )
             else:
                 logger.warning(
-                    "Anatomy lexicon %s not found — anatomy extraction skipped",
-                    args.anatomy_lexicon,
+                    "Lexicon %s not found — lexicon extraction skipped",
+                    args.lexicon,
                 )
-
-    # Multi-category lexicons (#24). --lexicon CATEGORY:PATH, repeatable.
-    extra_lexicons: Dict[str, Dict[str, Dict]] = {}
-    extra_fingerprints: Dict[str, Dict[str, Any]] = {}
-    for spec in (args.lexicon or []):
-        if ":" not in spec:
-            logger.error("--lexicon expects CATEGORY:PATH, got %r", spec)
-            sys.exit(2)
-        category, _, raw_path = spec.partition(":")
-        category = category.strip().lower()
-        path = Path(raw_path).expanduser()
-        if not category or not category.replace("_", "").isalnum():
-            logger.error(
-                "--lexicon CATEGORY must be alphanumeric/underscore (got %r)",
-                category,
-            )
-            sys.exit(2)
-        if not path.exists():
-            logger.warning(
-                "--lexicon %s:%s not found — %s extraction skipped",
-                category, path, category,
-            )
-            continue
-        try:
-            lex = load_lexicon(path)
-            fp = {
-                "path": str(path),
-                "sha256": _file_sha256(path),
-                "size": path.stat().st_size,
-            }
-            extra_lexicons[category] = lex
-            extra_fingerprints[category] = fp
-            logger.info(
-                "Lexicon[%s] loaded from %s (%d terms, sha256=%s…)",
-                category, path, len(lex), fp["sha256"][:12],
-            )
-        except Exception as e:
-            logger.warning(
-                "Could not load --lexicon %s:%s: %s", category, path, e,
-            )
 
     # Vision backend for Pass 3b. Constructed once and reused so the
     # backend can keep long-lived state (API client, loaded model, etc.).
@@ -408,8 +356,7 @@ def main():
     if args.resume and args.batch_index is not None and not args.refresh_vision:
         expected_stages = _expected_stages_for_run(
             taxonomy_db=taxonomy_db,
-            anatomy_lexicon=anatomy_lexicon,
-            extra_lexicons=extra_lexicons,
+            lexicons=lexicons,
         )
         before = len(pdf_map)
         kept = {}
@@ -454,8 +401,7 @@ def main():
         n_would_full = n_would_partial = n_would_skip = 0
         expected_stages = _expected_stages_for_run(
             taxonomy_db=taxonomy_db,
-            anatomy_lexicon=anatomy_lexicon,
-            extra_lexicons=extra_lexicons,
+            lexicons=lexicons,
         )
         for h in pdf_map:
             hd = documents_dir / short_hash(h)
@@ -523,8 +469,7 @@ def main():
                     hash_dir,
                     expected_stages=_expected_stages_for_run(
                         taxonomy_db=taxonomy_db,
-                        anatomy_lexicon=anatomy_lexicon,
-                        extra_lexicons=extra_lexicons,
+                        lexicons=lexicons,
                     ),
                 ):
                     logger.info("Skipping %s (all stages complete)", pdf_hash)
@@ -567,15 +512,13 @@ def main():
                         primary_pdf, hash_dir, temp_dir,
                         grobid_client=grobid_client,
                         taxonomy_db=taxonomy_db,
-                        anatomy_lexicon=anatomy_lexicon,
+                        lexicons=lexicons,
                         content_aware_figures=args.content_aware_figures,
                         vision_backend=vision_backend,
                         bib_index=bib_index,
                         resume=args.resume,
                         taxonomy_fingerprint=taxonomy_fingerprint,
-                        anatomy_fingerprint=anatomy_fingerprint,
-                        extra_lexicons=extra_lexicons,
-                        extra_fingerprints=extra_fingerprints,
+                        lexicon_fingerprints=lex_fingerprints,
                     )
 
                     summary_file = create_summary_json(

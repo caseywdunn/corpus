@@ -68,41 +68,11 @@ def _file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def detect_stale_fingerprints(
-    documents_dir: Path,
-    *,
-    taxonomy_path: Optional[Path] = None,
-    anatomy_lexicon_path: Optional[Path] = None,
-) -> Dict[str, List[str]]:
-    """Walk per-paper artifacts and return papers whose stored input
-    fingerprints disagree with the current taxonomy / anatomy files.
-
-    Returns ``{"taxonomy_stale": [...], "anatomy_stale": [...]}`` —
-    sorted hash lists per stale-input class. Empty lists when no
-    current input is supplied or no artifact has a fingerprint.
-
-    Pre-#29 papers (no ``input_fingerprint`` field) are skipped — there
-    is no way to tell whether they're stale or not without re-running.
-    """
-    out: Dict[str, List[str]] = {"taxonomy_stale": [], "anatomy_stale": []}
-    cur_taxonomy_sha = _file_sha256(taxonomy_path) if (taxonomy_path and taxonomy_path.exists()) else None
-    cur_anatomy_sha = _file_sha256(anatomy_lexicon_path) if (anatomy_lexicon_path and anatomy_lexicon_path.exists()) else None
-
-    for hash_dir in sorted(documents_dir.iterdir()):
-        if not hash_dir.is_dir():
-            continue
-        h = hash_dir.name
-        if cur_taxonomy_sha is not None:
-            taxa = _safe_load_json(hash_dir / "taxa.json")
-            stamped = (taxa or {}).get("input_fingerprint", {}).get("sha256")
-            if stamped is not None and stamped != cur_taxonomy_sha:
-                out["taxonomy_stale"].append(h)
-        if cur_anatomy_sha is not None:
-            anat = _safe_load_json(hash_dir / "anatomy.json")
-            stamped = (anat or {}).get("input_fingerprint", {}).get("sha256")
-            if stamped is not None and stamped != cur_anatomy_sha:
-                out["anatomy_stale"].append(h)
-    return out
+# Stale-fingerprint detection lived here in v0.1; v0.2 moves the
+# signal into ``pipeline_state.json`` (per-stage completion records
+# stamped with PIPELINE_VERSION + input_fingerprint), so a plain
+# ``--resume`` already re-runs whichever stages disagree with the
+# current input. No extra detection step is required.
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +157,7 @@ def _bar(n: int, total: int, width: int = 30) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
-def render_text(rollup: Dict[str, Any], stale: Optional[Dict[str, List[str]]] = None) -> str:
+def render_text(rollup: Dict[str, Any]) -> str:
     out: List[str] = []
     n_total = rollup["total_documents"]
     out.append(f"Corpus status — {rollup['documents_dir']} ({n_total} documents)")
@@ -229,21 +199,6 @@ def render_text(rollup: Dict[str, Any], stale: Optional[Dict[str, List[str]]] = 
     else:
         out.append("Quality flags: none recorded.")
     out.append("")
-
-    # Stale fingerprints (#29)
-    if stale is not None:
-        n_taxa_stale = len(stale.get("taxonomy_stale", []))
-        n_anat_stale = len(stale.get("anatomy_stale", []))
-        if n_taxa_stale or n_anat_stale:
-            out.append(f"Stale fingerprints ({n_taxa_stale + n_anat_stale} papers):")
-            if n_taxa_stale:
-                out.append(f"  taxonomy_stale                 {n_taxa_stale:>5d}  (taxonomy.sqlite hash differs)")
-            if n_anat_stale:
-                out.append(f"  anatomy_stale                  {n_anat_stale:>5d}  (anatomy_lexicon hash differs)")
-            out.append("")
-        else:
-            out.append("Stale fingerprints: none — annotations match current inputs.")
-            out.append("")
 
     # Legacy errors
     legacy = rollup["papers_with_legacy_errors_only"]
@@ -290,16 +245,11 @@ def filtered_hashes(
     filter_stage: Optional[str] = None,
     filter_reason: Optional[str] = None,
     filter_gate: Optional[str] = None,
-    filter_stale: Optional[str] = None,
-    stale: Optional[Dict[str, List[str]]] = None,
 ) -> List[str]:
     """Return the sorted list of hashes that match the active filter(s).
 
     With multiple filters, hashes must match all of them (intersection).
     With no filter, returns the union of papers-with-failures-or-flags.
-
-    ``filter_stale`` — one of "taxonomy", "anatomy", "any". Requires
-    ``stale`` from :func:`detect_stale_fingerprints`.
     """
     selected: Optional[set] = None
 
@@ -319,18 +269,6 @@ def filtered_hashes(
 
     if filter_gate:
         _intersect(rollup["papers_by_gate"].get(filter_gate, set()))
-
-    if filter_stale:
-        s = stale or {"taxonomy_stale": [], "anatomy_stale": []}
-        if filter_stale == "taxonomy":
-            stale_set = set(s.get("taxonomy_stale", []))
-        elif filter_stale == "anatomy":
-            stale_set = set(s.get("anatomy_stale", []))
-        elif filter_stale == "any":
-            stale_set = set(s.get("taxonomy_stale", [])) | set(s.get("anatomy_stale", []))
-        else:
-            stale_set = set()
-        _intersect(stale_set)
 
     if selected is None:
         selected = (
@@ -378,23 +316,6 @@ def main() -> int:
         help="Only papers with this quality_flag gate "
              "(e.g. gibberish_after_ocr, empty_text).",
     )
-    parser.add_argument(
-        "--filter-stale", choices=["taxonomy", "anatomy", "any"], default=None,
-        help="Only papers whose stored taxa/anatomy fingerprint "
-             "disagrees with the current input. Requires --taxonomy-db "
-             "and/or --anatomy-lexicon.",
-    )
-    parser.add_argument(
-        "--taxonomy-db", type=Path, default=None,
-        help="Current taxonomy SQLite path. Defaults to "
-             "<output_dir>/taxonomy.sqlite. Used by stale-fingerprint "
-             "detection (#29).",
-    )
-    parser.add_argument(
-        "--anatomy-lexicon", type=Path, default=None,
-        help="Current anatomy lexicon YAML path. Required for "
-             "anatomy stale-fingerprint detection (#29).",
-    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -410,30 +331,12 @@ def main() -> int:
 
     rollup = aggregate(documents_dir)
 
-    # Stale-fingerprint detection (#29). Auto-detect taxonomy at the
-    # standard path; anatomy must be supplied explicitly because it's
-    # corpuscle-specific and there's no canonical default location.
-    taxonomy_path = args.taxonomy_db
-    if taxonomy_path is None:
-        candidate = args.output_dir / "taxonomy.sqlite"
-        if candidate.exists():
-            taxonomy_path = candidate
-    stale: Optional[Dict[str, List[str]]] = None
-    if taxonomy_path is not None or args.anatomy_lexicon is not None:
-        stale = detect_stale_fingerprints(
-            documents_dir,
-            taxonomy_path=taxonomy_path,
-            anatomy_lexicon_path=args.anatomy_lexicon,
-        )
-
     if args.list_hashes:
         for h in filtered_hashes(
             rollup,
             filter_stage=args.filter_stage,
             filter_reason=args.filter_reason,
             filter_gate=args.filter_gate,
-            filter_stale=args.filter_stale,
-            stale=stale,
         ):
             print(h)
         return 0
@@ -441,7 +344,7 @@ def main() -> int:
     if args.json:
         print(render_json(rollup))
     else:
-        print(render_text(rollup, stale=stale))
+        print(render_text(rollup))
     return 0
 
 

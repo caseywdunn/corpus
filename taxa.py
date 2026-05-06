@@ -12,8 +12,8 @@ Two concerns:
    ``acceptedNameUsageID``, …) so any DwC source — a downloaded WoRMS,
    GBIF or iNaturalist export, or a user-supplied CSV — slots in behind
    the same interface.
-2. :func:`extract_taxon_mentions` and :func:`extract_anatomy_mentions`
-   scan chunks for candidate name spans and anatomy terms respectively,
+2. :func:`extract_taxon_mentions` and :func:`extract_lexicon_mentions`
+   scan chunks for candidate name spans and lexicon terms respectively,
    returning flat lists of mentions with chunk_id + char offsets and
    per-taxon / per-term rollups.
 
@@ -331,37 +331,86 @@ def extract_taxon_mentions(
 # ---------------------------------------------------------------------------
 
 
-def load_lexicon(path: Path) -> Dict[str, Dict]:
-    """Load a domain lexicon YAML into an in-memory dict.
+def load_lexicon(path: Path) -> Dict[str, Dict[str, Dict]]:
+    """Load a multi-category lexicon YAML.
 
-    Generalization of the original anatomy-only loader (#24): the same
-    YAML format works for anatomy, biogeography, life history, or any
-    other category of user-curated terms. The category label is set
-    by the caller (typically the basename of the file or an explicit
-    ``CATEGORY:PATH`` override on ``--lexicon``).
+    The file is two-level: each top-level key is a category name
+    (``anatomy``, ``biogeography``, …) whose value is the per-term
+    mapping that drives extraction:
 
-    Structure returned:
-        {canonical_term: {"synonyms": [...], "translations": {lang: [...]},
-                          "description": str}}
+        anatomy:
+          pneumatophore:
+            synonyms: [pneumatophores, float]
+            translations: {de: [Luftblase]}
+            description: Apical gas-filled float.
+          nectosome:
+            ...
+        biogeography:
+          pelagic:
+            synonyms: [open water]
+            description: ...
 
-    Keys are as-written in the YAML (lowercase snake_case recommended).
+    Returns ``{category: {canonical_term: {synonyms, translations,
+    description}}}``. Category names are normalized to lowercase. Term
+    keys are taken as-written (lowercase snake_case recommended).
     """
     import yaml
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
-    out: Dict[str, Dict] = {}
-    for canonical, entry in data.items():
-        entry = entry or {}
-        out[canonical] = {
-            "synonyms": list(entry.get("synonyms") or []),
-            "translations": dict(entry.get("translations") or {}),
-            "description": entry.get("description") or "",
-        }
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"{path}: lexicon root must be a mapping of category → terms"
+        )
+    out: Dict[str, Dict[str, Dict]] = {}
+    for category, terms in data.items():
+        category = str(category).strip().lower()
+        if not category:
+            continue
+        if not isinstance(terms, dict):
+            raise ValueError(
+                f"{path}: category '{category}' must be a mapping of "
+                f"term → {{synonyms, translations, description}}"
+            )
+        section: Dict[str, Dict] = {}
+        for canonical, entry in terms.items():
+            entry = entry or {}
+            section[canonical] = {
+                "synonyms": list(entry.get("synonyms") or []),
+                "translations": dict(entry.get("translations") or {}),
+                "description": entry.get("description") or "",
+            }
+        out[category] = section
     return out
 
 
-# Backwards-compat alias — the function was anatomy-named before #24.
-load_anatomy_lexicon = load_lexicon
+def lexicon_fingerprints(path: Path) -> Dict[str, Dict[str, object]]:
+    """Per-category content hashes for the lexicon at ``path``.
+
+    Returns ``{category: {"path": ..., "sha256": ..., "size": ...}}``.
+    The SHA is taken over the *canonical* JSON of just that category's
+    section, so a change to one category does not perturb another's
+    fingerprint. ``path`` is recorded so corpus_status can attribute
+    a stale fingerprint back to its source file.
+    """
+    import hashlib
+    import json as _json
+    import yaml
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    out: Dict[str, Dict[str, object]] = {}
+    for category, section in (data or {}).items():
+        category = str(category).strip().lower()
+        if not category:
+            continue
+        canonical = _json.dumps(
+            section or {}, sort_keys=True, ensure_ascii=False,
+        ).encode("utf-8")
+        out[category] = {
+            "path": str(path),
+            "sha256": hashlib.sha256(canonical).hexdigest(),
+            "size": len(canonical),
+        }
+    return out
 
 
 def _build_lexicon_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[str, str]]:
@@ -466,5 +515,3 @@ def extract_lexicon_mentions(
     return out
 
 
-# Backwards-compat alias — the function was anatomy-named before #24.
-extract_anatomy_mentions = extract_lexicon_mentions
