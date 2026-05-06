@@ -93,7 +93,7 @@ Override the default location with `--instructions <path>` when starting the MCP
 ## Computational requirements
 
 - **Disk.** Plan on several times the size of the original PDFs.
-- **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking) is CPU-bound and parallelizes well across PDFs. Stage 2 (vision-LLM figure analysis and BGE-M3 embeddings) is GPU-accelerated; without a GPU these steps still run but are much slower.
+- **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking, annotation) is CPU-bound and parallelizes well across PDFs. Stage 2 (BGE-M3 embeddings) and the optional vision pass (Qwen2.5-VL-7B figure tagging) are GPU-accelerated; embeddings still run on CPU but slowly, and the local vision backend needs a GPU to be usable. A Claude API vision backend is also available — costs API credits but runs anywhere.
 - **Scale.** A few dozen PDFs run on a laptop in a couple of hours. A few thousand benefit from an HPC cluster — we use Yale's Bouchet, runbook in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
 - **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 + nginx + Let's Encrypt), but any host with Python and an open port works. See [Deploying MCP server remotely](#deploying-mcp-server-remotely) below.
@@ -219,6 +219,20 @@ After a run, [`corpus_status.py`](corpus_status.py) reports stage completion, qu
 python corpus_status.py <output_dir>
 ```
 
+## Vision pass (optional)
+
+The default pipeline extracts figures with their captions and bounding boxes but doesn't open the images. **Pass 3b** runs a vision-language model over each extracted figure to detect multi-panel structure, recover compound-figure splits, and tag panels with ROI bounding boxes. It's a separate, opt-in pass because it's expensive — GPU minutes per paper for a local model, or API tokens for the remote backend.
+
+```bash
+# Local backend — needs a CUDA or MPS GPU; uses Qwen2.5-VL-7B-Instruct
+python process_corpus.py <input_dir> <output_dir> --resume --vision-backend local
+
+# Remote backend — needs ANTHROPIC_API_KEY; runs anywhere
+python process_corpus.py <input_dir> <output_dir> --resume --vision-backend claude
+```
+
+`--refresh-vision` re-runs only Pass 3b on hashes that already have a `summary.json`, so you can layer vision over an existing corpus without re-doing OCR / Docling / Grobid. On Bouchet, [slurm/batch_pass3b.sh](slurm/batch_pass3b.sh) does the same job as a SLURM array on `gpu_h200` — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
+
 ## Adding and updating documents
 
 Drop new PDFs into `<input_dir>` and re-run `update_corpus.py`. `--resume` recognizes existing artifacts by SHA-256 hash, so only new or changed PDFs are reprocessed:
@@ -238,6 +252,24 @@ python update_corpus.py <input_dir> <output_dir> --resume \
 To remove papers, delete the PDFs from `<input_dir>` and run `python process_corpus.py <input_dir> <output_dir> --audit-orphans` for a read-only listing of `documents/<HASH>/` directories whose source PDF is gone (deletion stays manual).
 
 The cross-paper databases (bibliography, taxon mentions) rebuild from scratch each time — fast at corpus scale, and the only way they pick up new cross-references.
+
+## Curating bibliographic metadata
+
+Grobid will mis-parse some references — wrong year on a 19th-c. monograph, scrambled author list, dropped subtitle. Rather than hand-editing per-paper `metadata.json` files (which get clobbered on the next pipeline run), corpus supports a **BibTeX round-trip** against `biblio_authority.sqlite`:
+
+```bash
+# Export the authority database as BibTeX
+python bib_export.py <output_dir> -o my_corpus.bib
+
+# Hand-edit my_corpus.bib (fix titles, years, authors, …)
+
+# Apply the edits back into the authority DB
+python bib_import.py <output_dir> my_corpus.bib
+```
+
+Each entry carries a stable `corpus_hash` field that bib_import uses to match edits back to the right `works` row, with DOI as a fallback. The `.bib` is the source of truth for user edits — preserve it across pipeline rebuilds and re-run `bib_import.py` afterward to re-apply your curation. Hand-edited entries override Grobid-derived metadata in every MCP tool that reads from the authority DB.
+
+`--bib` (the input flag described in [Bibliographic data for pdfs](#bibliographic-data-for-pdfs-optional)) and the round-trip above are independent: the input flag overrides Grobid's per-paper header from a curated BibTeX *before* the authority DB is built; the round-trip edits the authority DB *after*. Use whichever fits where you already maintain the metadata.
 
 ## Distilling a served bundle
 
