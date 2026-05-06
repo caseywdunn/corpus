@@ -25,6 +25,7 @@ from taxa import TaxonomyDB, load_lexicon
 
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_anatomy
+from .chunking import ingest_to_vector_db
 from .config import CONFIG, load_config
 from .figure_passes import _pass3b_annotate_rois
 from .io import (
