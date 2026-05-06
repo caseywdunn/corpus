@@ -47,6 +47,31 @@ from .stages import (
 logger = logging.getLogger(__name__)
 
 
+def _expected_stages_for_run(
+    *,
+    taxonomy_db: Any,
+    anatomy_lexicon: Any,
+    extra_lexicons: Optional[Dict[str, Any]],
+) -> List[str]:
+    """Return the list of stage names this run is configured to produce.
+
+    Always includes the core stages (scan_detection, pdf_preparation,
+    docling_extraction, metadata_extraction, text_chunking).
+    ``taxa_anatomy_extraction`` is added when any of taxonomy DB,
+    anatomy lexicon, or an extra ``--lexicon`` is configured.
+    """
+    stages = [
+        "scan_detection",
+        "pdf_preparation",
+        "docling_extraction",
+        "metadata_extraction",
+        "text_chunking",
+    ]
+    if taxonomy_db is not None or anatomy_lexicon or extra_lexicons:
+        stages.append("taxa_anatomy_extraction")
+    return stages
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Process a corpus of PDFs with hash-based organization"
@@ -381,14 +406,17 @@ def main():
     # figures.json files). Skipping the pre-filter for that case
     # preserves the work-set so array tasks aren't silently emptied.
     if args.resume and args.batch_index is not None and not args.refresh_vision:
-        expect_taxa = taxonomy_db is not None
-        expect_anatomy = bool(anatomy_lexicon)
+        expected_stages = _expected_stages_for_run(
+            taxonomy_db=taxonomy_db,
+            anatomy_lexicon=anatomy_lexicon,
+            extra_lexicons=extra_lexicons,
+        )
         before = len(pdf_map)
         kept = {}
         for h, paths in pdf_map.items():
             hd = documents_dir / short_hash(h)
             if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
-                hd, expect_taxa=expect_taxa, expect_anatomy=expect_anatomy,
+                hd, expected_stages=expected_stages,
             ):
                 continue
             kept[h] = paths
@@ -424,15 +452,18 @@ def main():
 
     if args.dry_run:
         n_would_full = n_would_partial = n_would_skip = 0
-        expect_taxa = taxonomy_db is not None
-        expect_anatomy = bool(anatomy_lexicon)
+        expected_stages = _expected_stages_for_run(
+            taxonomy_db=taxonomy_db,
+            anatomy_lexicon=anatomy_lexicon,
+            extra_lexicons=extra_lexicons,
+        )
         for h in pdf_map:
             hd = documents_dir / short_hash(h)
             if not args.resume:
                 n_would_full += 1
                 continue
             if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
-                hd, expect_taxa=expect_taxa, expect_anatomy=expect_anatomy,
+                hd, expected_stages=expected_stages,
             ):
                 n_would_skip += 1
             elif (hd / "summary.json").exists():
@@ -483,14 +514,18 @@ def main():
                                 "Pass 3b refresh failed on %s: %s", pdf_hash, e
                             )
                     continue
-                # Per-stage resume (#28): if every artifact is on disk,
-                # skip the whole paper (fast path). Otherwise fall through
-                # — run_pdf_processing_pipeline runs only the missing
-                # stages.
+                # Per-stage resume (#28): if every required stage is
+                # recorded as complete in pipeline_state.json under the
+                # current PIPELINE_VERSION, skip the whole paper (fast
+                # path). Otherwise fall through — run_pdf_processing_pipeline
+                # runs only the stages that aren't recorded complete.
                 if _all_stage_artifacts_complete(
                     hash_dir,
-                    expect_taxa=taxonomy_db is not None,
-                    expect_anatomy=bool(anatomy_lexicon),
+                    expected_stages=_expected_stages_for_run(
+                        taxonomy_db=taxonomy_db,
+                        anatomy_lexicon=anatomy_lexicon,
+                        extra_lexicons=extra_lexicons,
+                    ),
                 ):
                     logger.info("Skipping %s (all stages complete)", pdf_hash)
                     continue

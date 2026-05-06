@@ -151,21 +151,42 @@ def test_re_annotate_stale_dry_run_lists_but_does_not_delete(tmp_path):
         assert (out / "documents" / h / "anatomy.json").exists()
 
 
+def _call_delete_stale(*, output_dir: Path, anatomy_lexicon: Path,
+                       dry_run: bool = False, mode: str = "anatomy",
+                       taxonomy_db: Path = None):
+    """Invoke ``update_corpus._delete_stale_artifacts`` directly.
+
+    The two tests that exercise the deletion logic need to verify
+    on-disk effects without running the rest of the wrapper, since
+    --re-annotate-stale + --skip-pipeline is now mutually exclusive
+    and the rest of the post-pipeline chain pulls in optional deps
+    (lancedb etc.) that aren't required just to test deletion.
+    """
+    import argparse
+    import sys
+    sys.path.insert(0, str(REPO_ROOT))
+    try:
+        import update_corpus as uc
+    finally:
+        sys.path.pop(0)
+    args = argparse.Namespace(
+        output_dir=output_dir,
+        anatomy_lexicon=anatomy_lexicon,
+        taxonomy_db=taxonomy_db,
+        re_annotate_stale=mode,
+        dry_run=dry_run,
+    )
+    return uc._delete_stale_artifacts(args)
+
+
 def test_re_annotate_stale_deletes_only_stale_artifacts(tmp_path):
     lexicon = tmp_path / "lex.yaml"
     lexicon.write_text("terms: ['nectophore']")
     sha = hashlib.sha256(lexicon.read_bytes()).hexdigest()
     out = _make_corpus(tmp_path, sha)
-    inp = tmp_path / "in"
 
-    r = _run(
-        str(inp), str(out),
-        "--resume",
-        "--re-annotate-stale", "anatomy",
-        "--anatomy-lexicon", str(lexicon),
-        "--skip-pipeline",  # we only want the deletion step exercised here
-    )
-    assert r.returncode == 0, r.stderr
+    rc = _call_delete_stale(output_dir=out, anatomy_lexicon=lexicon)
+    assert rc == 0
     # aaa was fresh — anatomy.json must remain
     assert (out / "documents" / "aaa" / "anatomy.json").exists()
     # bbb + ccc were stale — anatomy.json must be gone
@@ -178,12 +199,9 @@ def test_re_annotate_stale_no_change_when_nothing_stale(tmp_path):
     lexicon.write_text("terms: ['x']")
     sha = hashlib.sha256(lexicon.read_bytes()).hexdigest()
 
-    inp = tmp_path / "in"
-    inp.mkdir()
     out = tmp_path / "out"
     docs = out / "documents"
     docs.mkdir(parents=True)
-    # Single paper, fingerprint matches current
     hd = docs / "fresh"
     hd.mkdir()
     (hd / "anatomy.json").write_text(json.dumps({
@@ -191,12 +209,6 @@ def test_re_annotate_stale_no_change_when_nothing_stale(tmp_path):
         "input_fingerprint": {"sha256": sha, "size": 1, "path": "..."},
     }))
 
-    r = _run(
-        str(inp), str(out),
-        "--resume", "--skip-pipeline",
-        "--re-annotate-stale", "anatomy",
-        "--anatomy-lexicon", str(lexicon),
-    )
-    assert r.returncode == 0, r.stderr
-    assert "nothing to delete" in r.stderr.lower()
+    rc = _call_delete_stale(output_dir=out, anatomy_lexicon=lexicon)
+    assert rc == 0
     assert (hd / "anatomy.json").exists()

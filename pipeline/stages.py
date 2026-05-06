@@ -5,10 +5,14 @@ quality gates, fingerprints, resume helpers.
   Records per-stage timing into ``processing_summary['stage_timings']``
   and on exception appends a structured failure into
   ``processing_summary['stage_failures']`` with a reason code from
-  :func:`_classify_exception`. Re-raises so the pipeline-level
-  try/except still catches.
+  :func:`_classify_exception`. On successful exit, persists a
+  completion record (pipeline_version + input_fingerprint) to
+  ``pipeline_state.json`` so resume decisions are based on recorded
+  state, not on artifact file existence. Re-raises so the
+  pipeline-level try/except still catches.
 * :func:`_should_run_stage` / :func:`_all_stage_artifacts_complete`
-  / :func:`_stage_artifacts_present` — per-stage resume (#28).
+  / :func:`_stage_recorded_complete` — per-stage resume backed by
+  ``pipeline_state.json``.
 * :func:`_run_quality_gates` — silent-failure detectors (#36).
 * :func:`_file_sha256` / :func:`_safe_load_json` — small utilities
   used by other stages and by :func:`_run_quality_gates`.
@@ -146,77 +150,142 @@ def _safe_load_json(path: Path) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Per-stage resume (#28)
+# Per-stage resume (#28) — pipeline_state.json
 # ---------------------------------------------------------------------------
 #
-# A stage is considered "complete" if its output artifact exists and is
-# nonzero. Per-stage resume makes "delete the artifact, re-run with
-# --resume" the workflow for selective redo: the deleted artifact's
-# stage runs, every other stage skips (since its artifact is still
-# present), and Docling — the expensive bottleneck — is not re-paid
-# unless text.json or figures.json is actually missing.
+# A stage is "complete" iff pipeline_state.json records a completion
+# entry whose pipeline_version matches the current PIPELINE_VERSION
+# and whose input_fingerprint matches what the caller now expects.
+# File existence on disk is no longer the correctness signal: a paper
+# that ran under an older pipeline version, or whose lexicons changed
+# since it last ran, is forced to re-execute the affected stages.
 #
-# summary.json remains the nuclear option per the issue: deleting it
-# forces full reprocessing of the document.
+# The state file is written incrementally by :func:`_stage` on every
+# successful stage exit (atomic tmp+rename), so a crash between stages
+# loses no completion records.
+
+PIPELINE_STATE_FILE = "pipeline_state.json"
 
 
-def _stage_artifacts_present(paths: Iterable[Path]) -> bool:
-    """All artifacts exist and are nonzero. Empty iterable → True."""
-    paths = list(paths)
-    if not paths:
-        return True
-    return all(p.exists() and p.stat().st_size > 0 for p in paths)
+def _load_pipeline_state(hash_dir: Path) -> Dict[str, Any]:
+    """Return the parsed pipeline_state.json or an empty skeleton.
+
+    Returns a dict with ``stages: {<stage_name>: {...}}`` even when the
+    file is missing or malformed, so callers don't have to guard.
+    """
+    path = hash_dir / PIPELINE_STATE_FILE
+    state = _safe_load_json(path)
+    if not isinstance(state, dict):
+        state = {}
+    state.setdefault("stages", {})
+    return state
+
+
+def _save_pipeline_state(hash_dir: Path, state: Dict[str, Any]) -> None:
+    """Atomically persist pipeline_state.json (tmp + rename)."""
+    path = hash_dir / PIPELINE_STATE_FILE
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _record_stage_completion(
+    hash_dir: Path,
+    stage_name: str,
+    *,
+    input_fingerprint: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Record a successful stage completion in pipeline_state.json.
+
+    Captures pipeline_version + completed_at + input_fingerprint so
+    resume can detect both code-version and input-version drift.
+    """
+    from . import PIPELINE_VERSION
+
+    state = _load_pipeline_state(hash_dir)
+    state["pipeline_version_latest"] = PIPELINE_VERSION
+    state["stages"][stage_name] = {
+        "completed_at": _utcnow_iso(),
+        "pipeline_version": PIPELINE_VERSION,
+        "input_fingerprint": input_fingerprint or {},
+    }
+    _save_pipeline_state(hash_dir, state)
+
+
+def _stage_recorded_complete(
+    hash_dir: Path,
+    stage_name: str,
+    *,
+    expected_fingerprint: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Return True iff pipeline_state.json has a completion record for
+    ``stage_name`` whose pipeline_version matches PIPELINE_VERSION and
+    whose input_fingerprint matches ``expected_fingerprint`` (when given).
+    """
+    from . import PIPELINE_VERSION
+
+    rec = _load_pipeline_state(hash_dir)["stages"].get(stage_name)
+    if not isinstance(rec, dict):
+        return False
+    if rec.get("pipeline_version") != PIPELINE_VERSION:
+        return False
+    if expected_fingerprint is not None:
+        if rec.get("input_fingerprint") != expected_fingerprint:
+            return False
+    return True
 
 
 def _should_run_stage(
     stage_name: str,
-    artifacts: List[Path],
     *,
+    hash_dir: Path,
     resume: bool,
     processing_summary: Dict[str, Any],
+    expected_fingerprint: Optional[Dict[str, Any]] = None,
 ) -> bool:
-    """Return True if the stage should run. When False, record a skip
-    on processing_summary['skipped_stages'] and log it.
+    """Return True if the stage should run.
+
+    With ``resume=True``, skip only when pipeline_state.json records
+    this stage as complete under the current PIPELINE_VERSION (and
+    matching input_fingerprint, when supplied). On skip, record on
+    ``processing_summary['skipped_stages']`` and log.
     """
     if not resume:
         return True
-    if not _stage_artifacts_present(artifacts):
+    if not _stage_recorded_complete(hash_dir, stage_name,
+                                    expected_fingerprint=expected_fingerprint):
         return True
-    logger.info("%s: skipping (artifacts present)", stage_name)
+    logger.info("%s: skipping (recorded complete)", stage_name)
     processing_summary.setdefault("skipped_stages", []).append(stage_name)
     return False
+
+
+# Stages that every paper produces, regardless of optional inputs.
+_CORE_STAGES: Tuple[str, ...] = (
+    "scan_detection",
+    "pdf_preparation",
+    "docling_extraction",
+    "metadata_extraction",
+    "text_chunking",
+)
 
 
 def _all_stage_artifacts_complete(
     hash_dir: Path,
     *,
-    expect_taxa: bool = False,
-    expect_anatomy: bool = False,
+    expected_stages: Optional[Iterable[str]] = None,
 ) -> bool:
-    """Return True if every per-stage artifact for ``hash_dir`` is present.
+    """Return True iff every required stage is recorded as complete in
+    pipeline_state.json under the current PIPELINE_VERSION.
 
-    Used by the outer --resume short-circuit: if every artifact is on
-    disk, skip the paper entirely (fast path); otherwise fall through to
-    the pipeline and let per-stage guards run only the missing stages.
-
-    ``expect_taxa`` / ``expect_anatomy`` reflect whether the run is
-    configured to produce those artifacts (taxonomy DB / anatomy lexicon
-    available); set False to relax the check for runs that legitimately
-    skip them.
+    Used by the outer --resume short-circuit. ``expected_stages``
+    defaults to ``_CORE_STAGES``; callers extend it with optional
+    stages whose presence depends on configured inputs (e.g.
+    ``"taxa_anatomy_extraction"`` when a taxonomy DB or lexicon is
+    configured).
     """
-    required = [
-        hash_dir / "scan_detection.json",
-        hash_dir / "processed.pdf",
-        hash_dir / "text.json",
-        hash_dir / "figures.json",
-        hash_dir / "metadata.json",
-        hash_dir / "chunks.json",
-    ]
-    if expect_taxa:
-        required.append(hash_dir / "taxa.json")
-    if expect_anatomy:
-        required.append(hash_dir / "anatomy.json")
-    return _stage_artifacts_present(required)
+    stages = tuple(expected_stages) if expected_stages is not None else _CORE_STAGES
+    return all(_stage_recorded_complete(hash_dir, s) for s in stages)
 
 
 def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
@@ -352,13 +421,22 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
 
 
 @contextmanager
-def _stage(processing_summary: Dict[str, Any], name: str):
+def _stage(
+    processing_summary: Dict[str, Any],
+    name: str,
+    *,
+    hash_dir: Optional[Path] = None,
+    input_fingerprint: Optional[Dict[str, Any]] = None,
+):
     """Record per-stage timing into ``stage_timings[]`` and, on exception,
     append a structured failure into ``stage_failures[]``. Re-raises
     so the pipeline-level try/except still catches.
 
-    Pure addition — does not touch the legacy ``processing_steps[]`` /
-    ``errors[]``, which the caller continues to populate explicitly.
+    On successful exit, when ``hash_dir`` is provided, the stage's
+    completion is persisted to ``pipeline_state.json`` (with
+    ``PIPELINE_VERSION`` + ``input_fingerprint``) so the next ``--resume``
+    can decide skip-vs-rerun from a structured signal rather than from
+    file existence.
     """
     started_at = _utcnow_iso()
     t0 = time.monotonic()
@@ -388,3 +466,7 @@ def _stage(processing_summary: Dict[str, Any], name: str):
                 "ended_at": ended_at,
                 "duration_s": duration_s,
             })
+        elif hash_dir is not None:
+            _record_stage_completion(
+                hash_dir, name, input_fingerprint=input_fingerprint,
+            )

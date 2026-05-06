@@ -72,13 +72,16 @@ from pipeline.stages import (  # noqa: F401
     _classify_exception,
     _file_sha256,
     _HugeDocumentError,
+    _load_pipeline_state,
     _pdf_page_count,
     _REASON_CODES,
+    _record_stage_completion,
     _run_quality_gates,
     _safe_load_json,
+    _save_pipeline_state,
     _should_run_stage,
     _stage,
-    _stage_artifacts_present,
+    _stage_recorded_complete,
     _utcnow_iso,
 )
 

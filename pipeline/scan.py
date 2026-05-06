@@ -600,7 +600,7 @@ def run_pdf_processing_pipeline(
     try:
         # Huge-document gate (#35) — skip-and-flag PDFs above max_pages
         # before any expensive stage runs.
-        with _stage(processing_summary, "huge_document_check"):
+        with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir):
             max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 500))
             n_pages = _pdf_page_count(temp_pdf)
             if n_pages is not None:
@@ -615,9 +615,9 @@ def run_pdf_processing_pipeline(
 
         # ── scan_detection ──────────────────────────────────────────
         detection_file = hash_dir / "scan_detection.json"
-        if _should_run_stage("scan_detection", [detection_file],
+        if _should_run_stage("scan_detection", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "scan_detection"):
+            with _stage(processing_summary, "scan_detection", hash_dir=hash_dir):
                 logger.info("Detecting scan type...")
                 detection_result = detect_scan_type(temp_pdf)
                 with open(detection_file, "w") as f:
@@ -630,9 +630,9 @@ def run_pdf_processing_pipeline(
 
         # ── pdf_preparation ─────────────────────────────────────────
         processed_pdf = hash_dir / "processed.pdf"
-        if _should_run_stage("pdf_preparation", [processed_pdf],
+        if _should_run_stage("pdf_preparation", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "pdf_preparation"):
+            with _stage(processing_summary, "pdf_preparation", hash_dir=hash_dir):
                 logger.info("Preparing PDF...")
                 prepare_pdf(temp_pdf, detection_result, processed_pdf)
                 processing_summary["files_created"].append(str(processed_pdf))
@@ -642,9 +642,9 @@ def run_pdf_processing_pipeline(
         text_file = hash_dir / "text.json"
         figures_file = hash_dir / "figures.json"
         docling_doc_file = hash_dir / "docling_doc.json"
-        if _should_run_stage("docling_extraction", [text_file, figures_file],
+        if _should_run_stage("docling_extraction", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "docling_extraction"):
+            with _stage(processing_summary, "docling_extraction", hash_dir=hash_dir):
                 logger.info("Extracting text and figures...")
                 extract_docling_content(
                     processed_pdf,
@@ -664,9 +664,9 @@ def run_pdf_processing_pipeline(
         metadata_file = hash_dir / "metadata.json"
         references_file = hash_dir / "references.json"
         tei_file = hash_dir / "grobid.tei.xml"
-        if _should_run_stage("metadata_extraction", [metadata_file],
+        if _should_run_stage("metadata_extraction", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "metadata_extraction"):
+            with _stage(processing_summary, "metadata_extraction", hash_dir=hash_dir):
                 logger.info("Extracting metadata (Grobid)...")
                 bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
                 extract_metadata(
@@ -687,26 +687,26 @@ def run_pdf_processing_pipeline(
 
         # ── text_chunking ──────────────────────────────────────────
         chunks_file = hash_dir / "chunks.json"
-        if _should_run_stage("text_chunking", [chunks_file],
+        if _should_run_stage("text_chunking", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "text_chunking"):
+            with _stage(processing_summary, "text_chunking", hash_dir=hash_dir):
                 logger.info("Chunking text...")
                 chunk_text(text_file, chunks_output=chunks_file)
                 processing_summary["files_created"].append(str(chunks_file))
                 processing_summary["processing_steps"].append("text_chunking")
 
-        with _stage(processing_summary, "figure_pass25_annotation"):
+        with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
             logger.info("Pass 2.5: annotating figures from captions + text...")
             _pass25_annotate_figures(text_file, figures_file)
             processing_summary["processing_steps"].append("figure_pass25_annotation")
 
         if vision_backend is not None:
-            with _stage(processing_summary, "figure_pass3b_rois"):
+            with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
                 logger.info("Pass 3b: vision-model-driven panel + compound detection...")
                 _pass3b_annotate_rois(figures_file, vision_backend)
                 processing_summary["processing_steps"].append("figure_pass3b_rois")
         elif content_aware_figures:
-            with _stage(processing_summary, "figure_pass3a_rois"):
+            with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
                 logger.info("Pass 3a: OCR-driven panel ROI detection...")
                 _pass3a_annotate_rois(figures_file)
                 processing_summary["processing_steps"].append("figure_pass3a_rois")
@@ -715,7 +715,7 @@ def run_pdf_processing_pipeline(
         # to missing_figures, rename the PNG to range notation. Cheap;
         # worth running whenever 3a or 3b has been run.
         if vision_backend is not None or content_aware_figures:
-            with _stage(processing_summary, "figure_pass3c_resolve"):
+            with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
                 logger.info("Pass 3c: compound figure resolution + file rename...")
                 summary_3c = resolve_compound_figures(figures_file)
                 logger.info(
@@ -727,51 +727,55 @@ def run_pdf_processing_pipeline(
                 )
                 processing_summary["processing_steps"].append("figure_pass3c_resolve")
 
-        with _stage(processing_summary, "figure_crossref"):
+        with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir):
             logger.info("Linking chunks to figures...")
             _crossref_chunks_and_figures(figures_file, chunks_file)
             processing_summary["processing_steps"].append("figure_crossref")
 
         # ── taxa_anatomy_extraction ─────────────────────────────────
-        # Per-stage guard: the expected artifacts depend on which inputs
-        # are configured (taxonomy DB, anatomy lexicon, and any
-        # additional --lexicon CATEGORY:PATH entries from #24). Only
-        # check the artifacts whose stage will actually emit them.
-        expected_taxa_anat: List[Path] = []
-        if taxonomy_db is not None:
-            expected_taxa_anat.append(hash_dir / "taxa.json")
-        if anatomy_lexicon:
-            expected_taxa_anat.append(hash_dir / "anatomy.json")
-        for category in (extra_lexicons or {}):
-            if category == "anatomy":
-                continue
-            expected_taxa_anat.append(hash_dir / f"{category}.json")
-        if expected_taxa_anat and _should_run_stage(
-            "taxa_anatomy_extraction",
-            expected_taxa_anat,
-            resume=resume,
-            processing_summary=processing_summary,
-        ):
-            with _stage(processing_summary, "taxa_anatomy_extraction"):
-                logger.info("Extracting taxa + lexicon mentions...")
-                taxa_anat_files = _extract_taxa_and_anatomy(
-                    chunks_file,
-                    hash_dir,
-                    taxonomy_db,
-                    anatomy_lexicon,
-                    taxonomy_fingerprint=taxonomy_fingerprint,
-                    anatomy_fingerprint=anatomy_fingerprint,
-                    extra_lexicons=extra_lexicons,
-                    extra_fingerprints=extra_fingerprints,
-                )
-                processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
-                if taxa_anat_files:
-                    processing_summary["processing_steps"].append("taxa_anatomy_extraction")
-        elif not expected_taxa_anat:
-            # No taxonomy DB and no lexicon configured — nothing to do.
-            pass
+        # Stage runs only when at least one source (taxonomy DB,
+        # anatomy lexicon, or extra lexicon) is configured. The
+        # input_fingerprint captures every configured source's content
+        # hash, so a lexicon swap forces this stage to re-run on
+        # --resume without needing --re-annotate-stale.
+        run_taxa_anat = (
+            taxonomy_db is not None
+            or bool(anatomy_lexicon)
+            or bool(extra_lexicons)
+        )
+        if run_taxa_anat:
+            taxa_anat_fingerprint: Dict[str, Any] = {}
+            if taxonomy_db is not None and taxonomy_fingerprint is not None:
+                taxa_anat_fingerprint["taxonomy"] = taxonomy_fingerprint
+            if anatomy_lexicon and anatomy_fingerprint is not None:
+                taxa_anat_fingerprint["anatomy"] = anatomy_fingerprint
+            if extra_fingerprints:
+                taxa_anat_fingerprint["extra"] = extra_fingerprints
+            if _should_run_stage(
+                "taxa_anatomy_extraction",
+                hash_dir=hash_dir,
+                resume=resume,
+                processing_summary=processing_summary,
+                expected_fingerprint=taxa_anat_fingerprint,
+            ):
+                with _stage(processing_summary, "taxa_anatomy_extraction",
+                            hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
+                    logger.info("Extracting taxa + lexicon mentions...")
+                    taxa_anat_files = _extract_taxa_and_anatomy(
+                        chunks_file,
+                        hash_dir,
+                        taxonomy_db,
+                        anatomy_lexicon,
+                        taxonomy_fingerprint=taxonomy_fingerprint,
+                        anatomy_fingerprint=anatomy_fingerprint,
+                        extra_lexicons=extra_lexicons,
+                        extra_fingerprints=extra_fingerprints,
+                    )
+                    processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
+                    if taxa_anat_files:
+                        processing_summary["processing_steps"].append("taxa_anatomy_extraction")
 
-        with _stage(processing_summary, "figures_report"):
+        with _stage(processing_summary, "figures_report", hash_dir=hash_dir):
             logger.info("Generating figures report...")
             report_path = generate_figures_report(hash_dir)
             if report_path:
@@ -782,7 +786,7 @@ def run_pdf_processing_pipeline(
         # Run after success so artifacts are populated. A failed gate
         # records a quality_flag in summary.json but does not fail the
         # paper; corpus_status.py (#40) rolls these up for review.
-        with _stage(processing_summary, "quality_gates"):
+        with _stage(processing_summary, "quality_gates", hash_dir=hash_dir):
             qgs = _run_quality_gates(hash_dir)
             processing_summary["quality_flags"] = qgs
             if qgs:
