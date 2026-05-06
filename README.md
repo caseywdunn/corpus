@@ -239,6 +239,18 @@ To remove papers, delete the PDFs from `<input_dir>` and run `python process_cor
 
 The cross-paper databases (bibliography, taxon mentions) rebuild from scratch each time — fast at corpus scale, and the only way they pick up new cross-references.
 
+## Distilling a served bundle
+
+The corpuscle the pipeline emits is the **build bundle**: everything `process_corpus.py` produces, including `processed.pdf`, raw docling dumps, per-page QC visualizations, and per-paper logs. For ~2,000 papers that's ~10 GB. The MCP server doesn't need most of it — only the JSON artifacts it reads at startup, the figure PNGs, and the precompiled indices. [`package_for_serve.py`](package_for_serve.py) distills the build bundle down to a **served bundle** (~3 GB for the same corpus) by copying only whitelisted files, scrubbing absolute paths from JSON values, and writing a versioned `bundle_manifest.json` that the MCP `bundle_info` tool surfaces:
+
+```bash
+python package_for_serve.py <output_dir> <serve_bundle_dir> --version v1.0.0
+```
+
+You only need this when **shipping a corpus to a different host** — a remote MCP server, a colleague's machine, an S3 bucket. For local serving against your own pipeline output (the [Deploying MCP server locally](#deploying-mcp-server-locally) section below), point the server straight at `<output_dir>` and skip distillation entirely.
+
+The full file whitelist and path-scrubbing contract are documented in the [`package_for_serve.py`](package_for_serve.py) module docstring.
+
 ## Deploying MCP server locally
 
 Point your MCP client at a local server. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code; for Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -258,7 +270,7 @@ Restart the client and the corpus tools appear. From there, the [example queries
 
 ## Deploying MCP server remotely
 
-The same `mcp_server.py` speaks SSE over HTTP for remote clients — useful for sharing a corpus with colleagues or running it from a tablet.
+The same `mcp_server.py` speaks SSE over HTTP for remote clients — useful for sharing a corpus with colleagues or running it from a tablet. The remote host serves a [distilled bundle](#distilling-a-served-bundle), not the full build output, so plan to run `package_for_serve.py` on the build host and ship the resulting `<serve_bundle_dir>` (typically via `aws s3 sync`) before pointing the remote server at it. The full AWS runbook is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md); the steps below cover the minimum to bring up an SSE server on any host you already have.
 
 **1. Generate a bearer token.** Use `secrets.token_urlsafe` for a strong URL-safe random string, save to a mode-600 file, never pass it on the CLI (would leak via `ps`):
 
