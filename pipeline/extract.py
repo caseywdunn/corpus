@@ -79,19 +79,18 @@ def extract_docling_content(
             "pages": len(document.pages) if hasattr(document, "pages") else None,
         }
     except ImportError as e:
-        logger.warning("Docling not available (%s), will fall back for figures", e)
+        logger.error("Docling not available (%s); cannot extract text", e)
+        raise
     except Exception as e:
-        logger.warning("Docling extraction failed (%s), will fall back for figures", e)
+        logger.error("Docling extraction failed (%s); cannot extract text", e)
+        raise
 
-    # If we couldn't get text via docling, write a placeholder text file
-    if text_content is None:
-        text_content = {
-            "title": pdf_path.stem,
-            "text": f"# {pdf_path.stem}\n\n[Text extraction unavailable — see logs]",
-            "pages": None,
-        }
-
-    # Save text content (from docling or placeholder)
+    # Save text content (docling succeeded — text_content is populated).
+    # No placeholder fallback: a paper with no extracted text would be
+    # embedded and served as fake content. The stage raises above so
+    # _stage records a stage_failure and the outer pipeline marks
+    # status=error; --resume retries cleanly because text.json isn't
+    # written.
     with open(text_output, "w", encoding="utf-8") as f:
         json.dump(text_content, f, indent=2, ensure_ascii=False)
 
