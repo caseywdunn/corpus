@@ -16,8 +16,12 @@ Files in the served-bundle whitelist (the contract):
 
   Per-paper (``documents/<HASH>/``):
     summary.json, metadata.json, references.json,
+    intext_citations.json,
     text.json, chunks.json, figures.json,
-    taxa.json, anatomy.json,
+    taxa.json,
+    <category>.json                  (one per category in --lexicon —
+                                      anatomy, biogeography, methods, …
+                                      — discovered at copy time)
     figures/*.png                    (all extracted figure images)
 
   Top-level (corpuscle layout — flat at the bundle root):
@@ -76,8 +80,34 @@ PER_PAPER_FILES = (
     "chunks.json",
     "figures.json",
     "taxa.json",
-    "anatomy.json",
 )
+
+
+def _per_paper_lexicon_outputs(hash_dir: Path) -> List[str]:
+    """Return the filenames of every lexicon-output ``<category>.json``
+    in ``hash_dir``.
+
+    The pipeline writes one ``<category>.json`` per category configured
+    via ``--lexicon`` (anatomy, biogeography, …). The set is corpus-
+    specific, so the served-bundle whitelist has to be discovered at
+    copy time rather than hardcoded. Detection: any ``*.json`` whose
+    root carries a ``category`` field — exactly what
+    ``taxa.extract_lexicon_mentions`` stamps.
+    """
+    static = set(PER_PAPER_FILES) | {"scan_detection.json", "docling_doc.json",
+                                     "pipeline_state.json"}
+    out: List[str] = []
+    for child in hash_dir.glob("*.json"):
+        if child.name in static:
+            continue
+        try:
+            with child.open(encoding="utf-8") as f:
+                payload = json.load(f)
+        except Exception:
+            continue
+        if isinstance(payload, dict) and "category" in payload:
+            out.append(child.name)
+    return out
 
 REPO_ROOT = Path(__file__).resolve().parent
 
@@ -395,7 +425,8 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         n_papers += 1
         dest_hash_dir = serve_dir / "documents" / hash_dir.name
 
-        for fname in PER_PAPER_FILES:
+        per_paper = list(PER_PAPER_FILES) + _per_paper_lexicon_outputs(hash_dir)
+        for fname in per_paper:
             src = hash_dir / fname
             dst = dest_hash_dir / fname
             bw = _copy_file(src, dst, dry_run)
@@ -434,8 +465,8 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     # here are expected; missing files emit a warning so the operator
     # notices before deploy. The earlier silent-skip behavior let v0.2
     # ship without biblio_authority.sqlite and taxon_mentions.sqlite.
-    # The anatomy lexicon is not bundled — anatomy extraction happens
-    # at process time and lands in each paper's anatomy.json.
+    # The lexicon YAML is not bundled — extraction happens at process
+    # time and lands in each paper's <category>.json artifacts.
     for fname in ("taxonomy.sqlite", "biblio_authority.sqlite",
                   "taxon_mentions.sqlite", "instructions.md"):
         src = output_dir / fname
