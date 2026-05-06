@@ -701,11 +701,11 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
 
 
 # In-memory memoization of BHL search results for the current build run.
-# Key is the query string; value is (results, error). Siphonophore lit
-# is author-heavy (Haeckel 1888, Totton 1954, Lesson 1843) and the same
-# (author, year) appears across many cited references with slightly
-# different title formatting — without this, stage 2 does the same
-# broad query dozens of times.
+# Key is the query string; value is (results, error). Historical
+# taxonomic literature is author-heavy (the same monograph cited
+# under many slight title variants), so the same (author, year) query
+# can recur dozens of times across cited references — without this
+# cache, stage 2 would re-issue the same broad BHL query each time.
 _BHL_QUERY_CACHE: Dict[str, Tuple[Optional[list], Optional[str]]] = {}
 
 

@@ -16,7 +16,7 @@ case "$OSTYPE" in
         # set this so both can coexist in one process.
         export KMP_DUPLICATE_LIB_OK="${KMP_DUPLICATE_LIB_OK:-TRUE}"
         ;;
-    linux*)  CORPUS_PY="${CORPUS_PY:-/home/cwd7/.conda/envs/corpus/bin/python}" ;;
+    linux*)  CORPUS_PY="${CORPUS_PY:-${HOME}/.conda/envs/corpus/bin/python}" ;;
     *)       echo "run_mcp_server.sh: unknown OSTYPE=$OSTYPE" >&2; exit 1 ;;
 esac
 

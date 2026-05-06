@@ -26,7 +26,7 @@ The output is a per-paper artifact tree plus cross-paper databases. You query it
 - *"List every valid* Apolemia *species and for each list the papers that discuss them."*
 - *"Show the bibliography of Pugh 1997 and mark which cited works are also in the corpus."*
 - *"Give me every figure showing nectophore morphology in* Nanomia bijuga *."*
-- *"What are the most-cited siphonophore papers that aren't currently in the corpus?"*
+- *"What are the most-cited papers that aren't currently in the corpus?"*
 - *"Summarize what the corpus says about pneumatophore structure."*
 - *"Translate the diagnosis of* Forskalia edwardsii *from Haeckel 1888 (German) into English."*
 

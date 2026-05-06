@@ -203,7 +203,9 @@ def get_taxon_mentions(
                 "mention_text": r["mention_text"],
                 "matched_name": r["matched_name"],
                 "accepted_name": r["accepted_name"],
-                "rank": r["rank"],
+                # SQLite column is ``taxon_rank`` (build_taxon_mentions.py);
+                # output API key stays ``rank`` for client compatibility.
+                "rank": r["taxon_rank"],
                 "name_type": r["name_type"],
                 "method": r["method"],
             })

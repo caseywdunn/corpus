@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 #
 # Ordered list — first match wins. Patterns are case-insensitive and cover
 # English, German, French, Russian, plus the taxonomy-paper conventions
-# common in our siphonophore corpus (Description / Systematics).
+# common in systematic literature (Description / Systematics).
 _SECTION_PATTERNS = [
     ("abstract", r"\babstract\b|\bsummary\b|\bzusammenfassung\b|\br[ée]sum[ée]\b|резюме|сводка"),
     ("introduction", r"\bintroduction\b|\bвведение\b|\beinleitung\b"),

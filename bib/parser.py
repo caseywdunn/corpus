@@ -6,10 +6,11 @@ field matches an input PDF. References inside each PDF are still extracted
 by Grobid; only the bibliographic *header* metadata (title, authors, year,
 journal, DOI, abstract) is overridden.
 
-The parser is intentionally minimal — it handles the subset of BibTeX that
-``siphonophores.bib`` (machine-generated) emits: ``@type{key, field = {value},
-...}`` with balanced-brace values. It is not a full bibtex parser; entries
-that use ``"..."`` quoting or ``@string`` macros are best-effort.
+The parser is intentionally minimal — it handles the subset of BibTeX
+that machine-generated bibliographies emit: ``@type{key, field =
+{value}, ...}`` with balanced-brace values. It is not a full bibtex
+parser; entries that use ``"..."`` quoting or ``@string`` macros are
+best-effort.
 """
 
 from __future__ import annotations
@@ -227,8 +228,9 @@ class BibIndex:
             if not fname:
                 continue
             # ``file`` can be a list like ``Foo.pdf;Bar.pdf`` in some bibtex
-            # dialects; siphonophores.bib uses a single name, but split on
-            # ``;`` and ``,`` defensively so we don't miss either side.
+            # dialects; machine-generated bibs typically write a single
+            # name, but split on ``;`` and ``,`` defensively so we don't
+            # miss either side.
             for part in re.split(r"[;,]", fname):
                 key = Path(part.strip()).name.lower()
                 if not key:

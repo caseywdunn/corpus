@@ -31,22 +31,23 @@ from . import stamp_artifact
 logger = logging.getLogger(__name__)
 
 
-# Years plausible for a siphonophore paper: 17xx (earliest Linnaean works) to
-# the current decade. Tighter than a generic `\d{4}` so e.g. a trailing
-# "20" in a specimen ID isn't picked up. Lookarounds exclude matches that
-# are part of a longer digit run (e.g., "12005" shouldn't match 2005).
+# Years plausible for a published scientific paper: 17xx (earliest
+# Linnaean works) to the current decade. Tighter than a generic `\d{4}`
+# so e.g. a trailing "20" in a specimen ID isn't picked up. Lookarounds
+# exclude matches that are part of a longer digit run (e.g., "12005"
+# shouldn't match 2005).
 _FILENAME_YEAR_RE = re.compile(r"(?<!\d)(17\d{2}|18\d{2}|19\d{2}|20[0-4]\d)(?!\d)")
 
 
 def _year_from_filename(name: str) -> Optional[int]:
     """Best-effort pub-year extraction from a PDF filename.
 
-    Matches the first 4-digit year in the range 1700–2049, which covers the
-    historical siphonophore literature without false-positiving on generic
-    numbers (ISSNs, specimen counts, etc.). Returns None if no match. The
-    Pugh-curated library uses an "Author(s)YYYY" convention almost
-    universally, so this recovers years for the majority of the corpus where
-    Grobid's header parser emits an empty ``<date/>``.
+    Matches the first 4-digit year in the range 1700–2049, covering
+    historical scientific literature without false-positiving on
+    generic numbers (ISSNs, specimen counts, etc.). Returns None if no
+    match. Useful when the input library uses an "Author(s)YYYY"
+    naming convention and Grobid's header parser emits an empty
+    ``<date/>``.
     """
     if not name:
         return None

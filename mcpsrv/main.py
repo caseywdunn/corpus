@@ -58,8 +58,8 @@ def main() -> int:
         help="Markdown file whose contents are returned to MCP clients in "
              "the InitializeResult.instructions field, so well-behaved "
              "clients (Claude Desktop, Claude Code) inject it into the LLM's "
-             "context at session start.  Use it for per-corpus nudges — e.g. "
-             "'Velella is not a siphonophore'.  "
+             "context at session start.  Use it for per-corpus nudges that "
+             "no taxonomy or lexicon entry can express. "
              "Default: <output_dir>/instructions.md if it exists.",
     )
     parser.add_argument(
@@ -94,7 +94,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--name", default=None,
-        help="Server name reported to MCP clients (e.g. corpus:siphonophores). "
+        help="Server name reported to MCP clients (e.g. corpus:my_group). "
              "Default: 'corpus:<basename of output_dir>'. Lets clients tell "
              "multiple corpuscle deployments apart in their server list.",
     )

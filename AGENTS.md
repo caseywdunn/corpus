@@ -4,7 +4,7 @@ Orientation for AI coding agents working in this repository.
 
 ## Purpose
 
-A workflow for interrogating a corpus of scientific literature PDFs, spanning both scanned/old and born-digital papers. Target use cases: searching, citation analysis, and collecting anatomical figures of the same species across different papers (focused on siphonophore literature, but corpus-agnostic by design — the siphonophore-specific data lives in the corpuscle).
+A workflow for interrogating a corpus of scientific literature PDFs, spanning both scanned/old and born-digital papers. Target use cases: searching, citation analysis, and collecting figures of the same species across different papers. Corpus-agnostic by design — the group-specific data (taxonomy snapshot, lexicon, BibTeX, instructions) lives in the per-instance corpuscle directory; the lab's reference deployment is a siphonophore corpus, but every other group plugs into the same machinery.
 
 ## Documentation map
 
