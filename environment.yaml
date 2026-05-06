@@ -26,10 +26,31 @@ dependencies:
   - pip
 
   # PDF + OCR toolchain (native side)
-  - tesseract  # English data is bundled; additional languages installed separately (see README)
+  - tesseract  # English data ships with the base package; per-language packs below.
   - ghostscript
   - pngquant  # ocrmypdf optional helper; substantial size savings on PDFs with many embedded color images
   - pymupdf
+
+  # Tesseract language data — the default OCR fallback set (see
+  # _DEFAULT_CONFIG.ocr.ocr_languages_default). Bundled here so a fresh
+  # conda env covers the major taxonomic-literature languages without
+  # requiring a manual `conda install`. Total size <100 MB.
+  - tesseract-data-deu       # German
+  - tesseract-data-fra       # French
+  - tesseract-data-rus       # Russian
+  - tesseract-data-lat       # Latin
+  - tesseract-data-spa       # Spanish (#46)
+  - tesseract-data-por       # Portuguese (#46)
+  - tesseract-data-chi_sim   # Simplified Chinese (#46)
+  - tesseract-data-chi_tra   # Traditional Chinese (#46)
+  - tesseract-data-jpn       # Japanese (#46)
+  - tesseract-data-ell       # Modern Greek (#46)
+  - tesseract-data-kor       # Korean (#46)
+  - tesseract-data-grc       # Ancient Greek (#46) — opt-in; not in
+                             # default fallback union, useful only on
+                             # classical natural-history sources.
+  # 19th-c. German Fraktur (deu_latf) is not packaged on conda-forge;
+  # see dev_docs/INSTALL.md for the manual install.
 
   # Config, data, scientific
   - numpy

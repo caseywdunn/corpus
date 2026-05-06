@@ -25,6 +25,19 @@ ocr:
     - fra
     - rus
     - lat
+    # Broader taxonomic-literature coverage (#46). The `tesseract-data-*`
+    # packs for these ship via environment.yaml.
+    - spa         # Spanish
+    - por         # Portuguese
+    - chi_sim     # Simplified Chinese
+    - chi_tra     # Traditional Chinese
+    - jpn         # Japanese
+    - ell         # Modern Greek
+    - kor         # Korean
+    # `grc` (Ancient Greek) is installed but intentionally excluded from
+    # the default fallback union — useful only for classical natural-
+    # history sources, and noise on everything else. Add it here to opt
+    # in for a corpus that needs it.
   # Gibberish-score threshold above which a dense text layer is treated
   # as corrupt (needing --force-ocr). See _gibberish_score in
   # process_corpus.py.

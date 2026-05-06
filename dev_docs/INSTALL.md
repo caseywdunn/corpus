@@ -18,14 +18,15 @@ On Bouchet, `module avail jbig2enc` will tell you whether a module is available;
 
 ## Additional OCR language packs
 
-The base `tesseract` install includes only English. For a multilingual / historical corpus, add the language data you need:
+`environment.yaml` already pulls in the Tesseract language packs that match the default fallback set in `config.yaml` (`eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`) plus `grc` (Ancient Greek, opt-in). A fresh `conda env create -f environment.yaml` covers all of them; no extra install is required for the supported languages.
+
+To add a language outside that set, install the matching `tesseract-data-<code>` pack from conda-forge — the ISO-to-Tesseract map in [pipeline/scan.py](../pipeline/scan.py) covers ~40 languages:
 
 ```bash
-# Modern European languages + Latin
-conda install -c conda-forge tesseract-data-deu tesseract-data-fra tesseract-data-rus tesseract-data-lat
+conda install -c conda-forge tesseract-data-<code>
 ```
 
-**19th-century German Fraktur** (e.g., Haeckel, Schneider) is not on conda-forge. Download `deu_latf.traineddata` from the Tesseract project and drop it into the env's `tessdata` directory:
+**19th-century German Fraktur** (e.g., Haeckel, Schneider) is *not* packaged on conda-forge. Download `deu_latf.traineddata` from the Tesseract project and drop it into the env's `tessdata` directory:
 
 ```bash
 TESSDATA="$CONDA_PREFIX/share/tessdata"

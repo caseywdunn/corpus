@@ -75,7 +75,25 @@ _DEFAULT_CONFIG = {
         # Used when language detection fails or the doc has a broken
         # text layer. Tesseract combines languages gracefully though
         # slowly; override in config.yaml to narrow for speed.
-        "ocr_languages_default": ["eng", "deu", "deu_latf", "fra", "rus", "lat"],
+        "ocr_languages_default": [
+            "eng",
+            "deu",
+            "deu_latf",
+            "fra",
+            "rus",
+            "lat",
+            # #46 — broader taxonomic-literature coverage
+            "spa",
+            "por",
+            "chi_sim",
+            "chi_tra",
+            "jpn",
+            "ell",
+            "kor",
+            # `grc` (Ancient Greek) is installed by environment.yaml but
+            # left out of the default fallback union: low signal for
+            # living taxonomy + adds noise to multi-pack OCR runs.
+        ],
         # Gibberish-score threshold for flagging a broken text layer.
         # 0.5 reliably catches the Cyrillic-as-Latin-1 case without
         # false-positiving on reference-heavy papers.
