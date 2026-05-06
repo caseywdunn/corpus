@@ -228,9 +228,13 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     Each gate is informational. Operators decide what to do with flagged
     papers via ``corpus_status.py`` (#40); nothing is rejected here.
     """
-    # _gibberish_score is imported lazily to avoid pipeline.scan ↔
-    # pipeline.stages module-load order coupling.
-    from .scan import _gibberish_score
+    # _gibberish_score lives in process_corpus.py until #45 extracts
+    # the scan-detection stage into pipeline.scan. Lazy import so
+    # this module's load order doesn't couple to scan.
+    try:
+        from .scan import _gibberish_score  # type: ignore
+    except ImportError:
+        from process_corpus import _gibberish_score  # type: ignore
 
     cfg = CONFIG.get("quality_gates", {})
     flags: List[Dict[str, Any]] = []

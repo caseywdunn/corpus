@@ -52,514 +52,50 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Section-class normalizer (Phase B)
+# Pipeline foundations (#42 / #44 partial split)
 # ---------------------------------------------------------------------------
-
-# Ordered list — first match wins. Patterns are case-insensitive and cover
-# English, German, French, Russian, plus the taxonomy-paper conventions
-# common in our siphonophore corpus (Description / Systematics).
-_SECTION_PATTERNS = [
-    ("abstract", r"\babstract\b|\bsummary\b|\bzusammenfassung\b|\br[ée]sum[ée]\b|резюме|сводка"),
-    ("introduction", r"\bintroduction\b|\bвведение\b|\beinleitung\b"),
-    ("methods", r"materials?\s+and\s+methods|\bmethods?\b|\bmethodology\b|study\s+area|материалы\s+и\s+методы|m[ée]thodes"),
-    ("results", r"\bresults?\b|\bр[еé]зультаты\b|\bergebnisse\b|\br[ée]sultats\b"),
-    ("description", r"\bdescription\b|\bsystematics?\b|\btaxonomy\b|\bsystematic\s+account\b|\bdiagnosis\b|описание"),
-    ("discussion", r"\bdiscussion\b|обсуждение|\bdiskussion\b"),
-    ("conclusion", r"\bconclusions?\b|выводы|\bschlussfolgerung"),
-    ("acknowledgements", r"acknowledg(?:e?ment)s?|благодарности|danksagung|remerciements"),
-    ("references", r"\breferences?\b|\bbibliograph|\bliterature\s+cited\b|литература"),
-    ("appendix", r"\bappendix\b|приложение|anhang"),
-]
-
-
-def classify_section(headings: Optional[List[str]]) -> Optional[str]:
-    """Map a chunk's heading trail to a canonical section class.
-
-    ``headings`` is the list of headings provided by docling's
-    HybridChunker — outermost first, nearest (most specific) last. We
-    inspect the most specific heading first, then walk outward, and
-    return the first canonical class that any heading matches. Returns
-    None if no heading matches a known pattern.
-    """
-    if not headings:
-        return None
-    for h in reversed(headings):
-        if not h:
-            continue
-        hlow = h.lower()
-        for cls, pat in _SECTION_PATTERNS:
-            if re.search(pat, hlow):
-                return cls
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Config + logging helpers (Phase A)
-# ---------------------------------------------------------------------------
-
-# Defaults used if config.yaml is missing or a key is absent.
-_DEFAULT_CONFIG = {
-    "ocr": {
-        "optimize_level": 2,
-        # Used when language detection fails or the doc has a broken
-        # text layer. Tesseract combines languages gracefully though
-        # slowly; override in config.yaml to narrow for speed.
-        "ocr_languages_default": ["eng", "deu", "deu_latf", "fra", "rus", "lat"],
-        # Gibberish-score threshold for flagging a broken text layer.
-        # 0.5 reliably catches the Cyrillic-as-Latin-1 case without
-        # false-positiving on reference-heavy papers.
-        "gibberish_threshold": 0.5,
-    },
-    "chunking": {
-        "max_tokens": 8191,
-    },
-    # Per-stage wallclock caps in seconds (#34). Hard-enforced where
-    # technically feasible (subprocess.run on ocrmypdf; GrobidClient
-    # request timeout). Stages without a hard-cap mechanism still record
-    # timing in summary.json; the value is informational.
-    "stage_timeouts": {
-        "ocr": 1800,         # 30 min — long monographs can run scary long
-        "grobid": 300,       # 5 min — enforced by GrobidClient default
-        "docling": 600,      # 10 min — informational only (in-process)
-        "vision_pass": 600,  # 10 min — informational only
-    },
-    # Huge-document gate (#35). PDFs above max_pages skip the pipeline
-    # with a structured too_large failure rather than burning hours of
-    # OCR / docling on something that may not even fit in memory. The
-    # Haeckel 1888 *Challenger Siphonophorae* report (~600 pages of
-    # plates) is the canary case. Chunked-OCR is an open follow-up;
-    # the v0.2 implementation is skip-and-flag.
-    "huge_document": {
-        "max_pages": 500,
-    },
-    # Silent-failure quality gates (#36). Each threshold is conservative
-    # by default; tighten in config.yaml for stricter corpora. A gate
-    # produces a flag in summary.json["quality_flags"]; nothing is
-    # rejected automatically — operators decide what to do with flagged
-    # papers using corpus_status.py (#40).
-    "quality_gates": {
-        "empty_text_min_chars": 500,
-        "min_chars_per_page": 200,
-        "max_gibberish_score": 0.5,
-        "zero_refs_min_pages": 5,
-        "min_median_chunk_chars": 50,
-        "min_figure_mean_intensity": 10,
-        "max_figures_sampled": 50,
-    },
-}
-
-
-def _deep_merge(base: dict, overlay: dict) -> dict:
-    """Recursively merge overlay into a copy of base. Overlay values win."""
-    out = dict(base)
-    for k, v in (overlay or {}).items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
-
-
-def load_config(config_path: Optional[Path] = None) -> dict:
-    """Load config.yaml (if present) and merge it over the built-in defaults.
-
-    Missing file is not an error — defaults are returned. Missing keys fall
-    back to defaults. A malformed YAML is an error (loud failure).
-    """
-    if config_path is None:
-        config_path = Path(__file__).parent / "config.yaml"
-    if not config_path.exists():
-        logger.info("No config.yaml at %s; using built-in defaults.", config_path)
-        return dict(_DEFAULT_CONFIG)
-    try:
-        import yaml
-    except ImportError as e:
-        raise RuntimeError(
-            "pyyaml is required to read config.yaml; pip install pyyaml"
-        ) from e
-    with open(config_path, "r", encoding="utf-8") as f:
-        overlay = yaml.safe_load(f) or {}
-    merged = _deep_merge(_DEFAULT_CONFIG, overlay)
-    logger.info("Loaded config from %s", config_path)
-    return merged
-
-
-# Module-level config; populated by main(), also safe-loaded on import with
-# defaults so helper functions can run outside main() (e.g., in tests).
-CONFIG: dict = dict(_DEFAULT_CONFIG)
-
-
-# ---------------------------------------------------------------------------
-# Per-stage timing + structured failures (#34)
-# ---------------------------------------------------------------------------
-
-# Reason codes recorded in stage_failures[]. The set is closed: any
-# unmapped exception falls through to "crash". When extending, also
-# update tools that group/aggregate failures (corpus_status.py, #40).
-_REASON_CODES = (
-    "timeout",                # wallclock cap exceeded
-    "crash",                  # unhandled exception, subprocess died
-    "external_unavailable",   # Grobid / BHL / CrossRef / OpenAlex non-200
-    "unsupported_format",     # encrypted, password-protected, etc.
-    "corrupted",              # PDF parse error
-    "too_large",              # exceeds huge_document.max_pages (#35)
-    "quality_gate",           # failed a downstream sanity check (#36)
+#
+# Cross-cutting infrastructure (config, logging, stage runner, failures,
+# quality gates, resume helpers, hashing/orphan/summary I/O) lives in
+# the ``pipeline/`` package. Imported here so existing references in
+# the rest of this file keep working unchanged. Re-exported at the
+# module level so callers that do ``from process_corpus import …``
+# (tests, downstream tools) keep working during the deprecation
+# window. Per-stage extraction is open as #45.
+from pipeline.config import (
+    _DEFAULT_CONFIG,
+    _deep_merge,
+    classify_section,
+    load_config,
 )
-
-
-class _HugeDocumentError(Exception):
-    """Raised by the huge-document gate (#35) when a PDF's page count
-    exceeds ``CONFIG['huge_document']['max_pages']``.
-
-    Caught by the pipeline's outer try/except like any other stage
-    error; ``_classify_exception`` maps it to ``reason_code=too_large``
-    so corpus_status.py can group these separately from real crashes.
-    """
-
-
-def _pdf_page_count(pdf_path: Path) -> Optional[int]:
-    """Return the page count of ``pdf_path`` via PyMuPDF metadata.
-
-    Cheap — opens the document but does not render pages. Returns
-    None if the file can't be read; the gate then lets the rest of
-    the pipeline handle it (a corrupted PDF will fail later with the
-    appropriate reason_code).
-    """
-    try:
-        import fitz  # type: ignore
-    except ImportError:
-        return None
-    try:
-        with fitz.open(str(pdf_path)) as doc:
-            return int(doc.page_count)
-    except Exception as e:
-        logger.warning("Could not read page count from %s: %s", pdf_path, e)
-        return None
-
-
-def _utcnow_iso() -> str:
-    """UTC ISO-8601 timestamp with second precision (no microseconds)."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _classify_exception(e: BaseException) -> Tuple[str, str]:
-    """Map an exception to ``(reason_code, short_detail)`` for stage_failures[].
-
-    Conservative — anything not specifically recognized falls through
-    to ``crash`` rather than being silently mis-categorized.
-    """
-    name = type(e).__name__
-    if isinstance(e, _HugeDocumentError):
-        return "too_large", str(e)
-    if isinstance(e, subprocess.TimeoutExpired):
-        return "timeout", f"{name}: command timed out after {e.timeout}s"
-    # Grobid availability errors are imported lazily — avoid circular import
-    # when grobid_client doesn't exist (e.g., in unit tests).
-    try:
-        from grobid_client import GrobidUnavailableError  # type: ignore
-        if isinstance(e, GrobidUnavailableError):
-            return "external_unavailable", f"{name}: {e}"
-    except ImportError:
-        pass
-    try:
-        import requests
-        if isinstance(e, (requests.ConnectionError, requests.Timeout, requests.HTTPError)):
-            return "external_unavailable", f"{name}: {e}"
-    except ImportError:
-        pass
-    msg = str(e).lower()
-    if "encrypted" in msg or "password" in msg:
-        return "unsupported_format", f"{name}: {e}"
-    if "corrupt" in msg or "invalid pdf" in msg or "syntax error" in msg:
-        return "corrupted", f"{name}: {e}"
-    return "crash", f"{name}: {e}"
-
-
-def _file_sha256(path: Path) -> str:
-    """Streaming SHA-256 of ``path``. Used by #29 to fingerprint inputs
-    (taxonomy.sqlite, anatomy_lexicon.yaml) so per-paper annotation
-    artifacts can record the exact input version they were built from.
-
-    Streamed in 64 KB chunks — taxonomy.sqlite at corpus scale is tens
-    of MB, well within scope for in-process hashing during startup but
-    not something to load into memory whole.
-    """
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for buf in iter(lambda: f.read(64 * 1024), b""):
-            h.update(buf)
-    return h.hexdigest()
-
-
-def _safe_load_json(path: Path) -> Any:
-    """Load JSON; return {} when missing or malformed.
-
-    Used by quality gates so a missing/broken artifact short-circuits
-    individual checks rather than crashing the gate runner.
-    """
-    try:
-        if path.exists() and path.stat().st_size > 0:
-            with path.open(encoding="utf-8") as f:
-                return json.load(f)
-    except Exception:
-        return {}
-    return {}
-
-
-# ---------------------------------------------------------------------------
-# Per-stage resume (#28)
-# ---------------------------------------------------------------------------
-#
-# A stage is considered "complete" if its output artifact exists and is
-# nonzero. Per-stage resume makes "delete the artifact, re-run with
-# --resume" the workflow for selective redo: the deleted artifact's
-# stage runs, every other stage skips (since its artifact is still
-# present), and Docling — the expensive bottleneck — is not re-paid
-# unless text.json or figures.json is actually missing.
-#
-# summary.json remains the nuclear option per the issue: deleting it
-# forces full reprocessing of the document.
-
-
-def _stage_artifacts_present(paths: Iterable[Path]) -> bool:
-    """All artifacts exist and are nonzero. Empty iterable → True."""
-    paths = list(paths)
-    if not paths:
-        return True
-    return all(p.exists() and p.stat().st_size > 0 for p in paths)
-
-
-def _should_run_stage(
-    stage_name: str,
-    artifacts: List[Path],
-    *,
-    resume: bool,
-    processing_summary: Dict[str, Any],
-) -> bool:
-    """Return True if the stage should run. When False, record a skip
-    on processing_summary['skipped_stages'] and log it.
-    """
-    if not resume:
-        return True
-    if not _stage_artifacts_present(artifacts):
-        return True
-    logger.info("%s: skipping (artifacts present)", stage_name)
-    processing_summary.setdefault("skipped_stages", []).append(stage_name)
-    return False
-
-
-def _all_stage_artifacts_complete(
-    hash_dir: Path,
-    *,
-    expect_taxa: bool = False,
-    expect_anatomy: bool = False,
-) -> bool:
-    """Return True if every per-stage artifact for ``hash_dir`` is present.
-
-    Used by the outer --resume short-circuit: if every artifact is on
-    disk, skip the paper entirely (fast path); otherwise fall through to
-    the pipeline and let per-stage guards run only the missing stages.
-
-    ``expect_taxa`` / ``expect_anatomy`` reflect whether the run is
-    configured to produce those artifacts (taxonomy DB / anatomy lexicon
-    available); set False to relax the check for runs that legitimately
-    skip them.
-    """
-    required = [
-        hash_dir / "scan_detection.json",
-        hash_dir / "processed.pdf",
-        hash_dir / "text.json",
-        hash_dir / "figures.json",
-        hash_dir / "metadata.json",
-        hash_dir / "chunks.json",
-    ]
-    if expect_taxa:
-        required.append(hash_dir / "taxa.json")
-    if expect_anatomy:
-        required.append(hash_dir / "anatomy.json")
-    return _stage_artifacts_present(required)
-
-
-def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
-    """Cheap silent-failure detectors against the produced artifacts (#36).
-
-    Returns a list of ``{gate, severity, detail, metric}`` records — one
-    per failed gate. Empty when everything looks clean. Read-only.
-
-    Each gate is informational. Operators decide what to do with flagged
-    papers via ``corpus_status.py`` (#40); nothing is rejected here.
-    """
-    cfg = CONFIG.get("quality_gates", {})
-    flags: List[Dict[str, Any]] = []
-
-    text = _safe_load_json(hash_dir / "text.json")
-    chunks = _safe_load_json(hash_dir / "chunks.json")
-    figures = _safe_load_json(hash_dir / "figures.json")
-    refs = _safe_load_json(hash_dir / "references.json")
-    scan = _safe_load_json(hash_dir / "scan_detection.json")
-
-    body = (text.get("text") or "") if isinstance(text, dict) else ""
-    pages = int(text.get("pages") or 0) if isinstance(text, dict) else 0
-    chunk_list = chunks.get("chunks") or [] if isinstance(chunks, dict) else []
-    fig_list = figures.get("figures") or [] if isinstance(figures, dict) else []
-    ref_count = int(refs.get("total_references") or 0) if isinstance(refs, dict) else 0
-    needs_ocr = bool(scan.get("needs_ocr")) if isinstance(scan, dict) else False
-
-    # empty_text — extracted text is implausibly short
-    min_chars = int(cfg.get("empty_text_min_chars", 500))
-    if len(body) < min_chars:
-        flags.append({
-            "gate": "empty_text",
-            "severity": "error",
-            "detail": f"text.json body has {len(body)} chars (min: {min_chars})",
-            "metric": len(body),
-        })
-
-    # low_text_density — text/page ratio below threshold
-    min_chars_per_page = int(cfg.get("min_chars_per_page", 200))
-    if pages > 0:
-        density = len(body) / pages
-        if density < min_chars_per_page:
-            flags.append({
-                "gate": "low_text_density",
-                "severity": "warn",
-                "detail": f"{density:.0f} chars/page over {pages} pages (min: {min_chars_per_page})",
-                "metric": round(density, 1),
-            })
-
-    # gibberish_after_ocr — OCR'd papers whose final extracted text
-    # is still gibberish (silent-failure mode)
-    max_gibberish = float(cfg.get("max_gibberish_score", 0.5))
-    if needs_ocr and body:
-        score = _gibberish_score(body[:50000])  # cap sample for speed
-        if score > max_gibberish:
-            flags.append({
-                "gate": "gibberish_after_ocr",
-                "severity": "error",
-                "detail": f"gibberish_score={score:.2f} on extracted text (max: {max_gibberish})",
-                "metric": round(score, 3),
-            })
-
-    # zero_references_unexpected — multi-page paper with no references
-    min_pages_for_refs = int(cfg.get("zero_refs_min_pages", 5))
-    if pages >= min_pages_for_refs and ref_count == 0:
-        flags.append({
-            "gate": "zero_references_unexpected",
-            "severity": "warn",
-            "detail": f"{pages} pages but references.json is empty",
-            "metric": pages,
-        })
-
-    # single_token_chunks — extraction collapsed; median chunk too short
-    min_median_chars = int(cfg.get("min_median_chunk_chars", 50))
-    if chunk_list:
-        lengths = sorted(len(c.get("text") or "") for c in chunk_list if isinstance(c, dict))
-        if lengths:
-            median = lengths[len(lengths) // 2]
-            if median < min_median_chars:
-                flags.append({
-                    "gate": "single_token_chunks",
-                    "severity": "warn",
-                    "detail": f"median chunk length {median} chars over {len(chunk_list)} chunks (min: {min_median_chars})",
-                    "metric": median,
-                })
-
-    # all_black_figures — extraction artifact where most figures are empty
-    if fig_list:
-        try:
-            from PIL import Image, ImageStat
-        except ImportError:
-            Image = None  # type: ignore
-        if Image is not None:
-            mean_threshold = float(cfg.get("min_figure_mean_intensity", 10))
-            max_sampled = int(cfg.get("max_figures_sampled", 50))
-            n_black = 0
-            n_checked = 0
-            for fig in fig_list[:max_sampled]:
-                if not isinstance(fig, dict):
-                    continue
-                fname = fig.get("filename")
-                if not fname:
-                    continue
-                fpath = hash_dir / "figures" / fname
-                if not fpath.exists():
-                    continue
-                try:
-                    with Image.open(fpath) as im:
-                        gray = im.convert("L")
-                        mean = ImageStat.Stat(gray).mean[0]
-                except Exception:
-                    continue
-                n_checked += 1
-                if mean < mean_threshold:
-                    n_black += 1
-            if n_checked > 0 and n_black / n_checked > 0.5:
-                flags.append({
-                    "gate": "all_black_figures",
-                    "severity": "warn",
-                    "detail": f"{n_black}/{n_checked} figures have mean intensity < {mean_threshold}",
-                    "metric": n_black,
-                })
-
-    return flags
-
-
-@contextmanager
-def _stage(processing_summary: Dict[str, Any], name: str):
-    """Record per-stage timing into ``stage_timings[]`` and, on exception,
-    append a structured failure into ``stage_failures[]``. Re-raises
-    so the pipeline-level try/except still catches.
-
-    Pure addition — does not touch the legacy ``processing_steps[]`` /
-    ``errors[]``, which the caller continues to populate explicitly.
-    """
-    started_at = _utcnow_iso()
-    t0 = time.monotonic()
-    err: Optional[BaseException] = None
-    try:
-        yield
-    except Exception as e:
-        err = e
-        raise
-    finally:
-        ended_at = _utcnow_iso()
-        duration_s = round(time.monotonic() - t0, 3)
-        processing_summary.setdefault("stage_timings", []).append({
-            "stage": name,
-            "started_at": started_at,
-            "ended_at": ended_at,
-            "duration_s": duration_s,
-            "ok": err is None,
-        })
-        if err is not None:
-            reason_code, detail = _classify_exception(err)
-            processing_summary.setdefault("stage_failures", []).append({
-                "stage": name,
-                "reason_code": reason_code,
-                "reason_detail": detail[:500],
-                "started_at": started_at,
-                "ended_at": ended_at,
-                "duration_s": duration_s,
-            })
-
-
-def setup_root_logging(level: int = logging.INFO) -> None:
-    """Configure the root logger with a single stderr stream handler.
-
-    Per-PDF file handlers are added/removed around each document by
-    ``per_pdf_file_log``; they coexist with this stream handler so output
-    appears both on the terminal and in the per-paper pipeline.log.
-    """
-    root = logging.getLogger()
-    root.setLevel(level)
-    # Avoid duplicate stream handlers if called twice.
-    for h in root.handlers:
-        if isinstance(h, logging.StreamHandler) and getattr(h, "_corpus_stream", False):
-            return
-    sh = logging.StreamHandler()
-    sh.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-    sh._corpus_stream = True  # marker so we don't re-add on repeated calls
-    root.addHandler(sh)
+from pipeline import config as _pipeline_config
+from pipeline.config import CONFIG  # mutable module-level singleton
+from pipeline.log import per_pdf_file_log, setup_root_logging
+from pipeline.stages import (
+    _all_stage_artifacts_complete,
+    _classify_exception,
+    _file_sha256,
+    _HugeDocumentError,
+    _pdf_page_count,
+    _REASON_CODES,
+    _run_quality_gates,
+    _safe_load_json,
+    _should_run_stage,
+    _stage,
+    _stage_artifacts_present,
+    _utcnow_iso,
+)
+from pipeline.io import (
+    HASH_PREFIX_LEN,
+    _verify_or_raise_collision,
+    audit_orphans,
+    calculate_pdf_hash,
+    create_output_structure,
+    create_summary_json,
+    find_all_pdfs,
+    get_relative_paths,
+    short_hash,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -972,26 +508,6 @@ def _compose_ocr_langs(
     return chosen
 
 
-@contextmanager
-def per_pdf_file_log(hash_dir: Path):
-    """Attach a FileHandler writing to ``<hash_dir>/pipeline.log`` for the
-    duration of the context. All ``logging`` calls made inside the block are
-    captured to that file in addition to the root stream handler.
-    """
-    hash_dir.mkdir(parents=True, exist_ok=True)
-    log_path = hash_dir / "pipeline.log"
-    fh = logging.FileHandler(log_path, mode="w", encoding="utf-8")
-    fh.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-    )
-    root = logging.getLogger()
-    root.addHandler(fh)
-    try:
-        yield log_path
-    finally:
-        root.removeHandler(fh)
-        fh.close()
-
 
 _MAX_VIZ_PAGES = 200
 _MAX_VIZ_WIDTH = 1600  # px — downscale wider renders to limit memory
@@ -1101,148 +617,6 @@ def create_cell_visualizations(
     except Exception as e:
         logger.warning("Could not create visualizations: %s", e)
 
-
-HASH_PREFIX_LEN = 12  # 48 bits; collision-safe up to ~1e7 documents
-
-
-def calculate_pdf_hash(pdf_path: Path) -> str:
-    """Calculate the full SHA-256 hex digest of a PDF file.
-
-    The per-document directory uses a 12-char lowercase prefix of this digest
-    (see :data:`HASH_PREFIX_LEN`); the full digest is recorded in each
-    ``summary.json`` so we can verify on resume that a re-encountered prefix
-    really identifies the same PDF (rather than a hash-prefix collision).
-    """
-    hasher = hashlib.sha256()
-    with open(pdf_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
-
-def short_hash(full_hash: str) -> str:
-    """Return the 12-char lowercase prefix used as the per-document dir name."""
-    return full_hash[:HASH_PREFIX_LEN].lower()
-
-
-def find_all_pdfs(input_dir: Path) -> Dict[str, List[Path]]:
-    """Recursively find all PDFs under ``input_dir`` and group by full SHA-256.
-
-    Returns a dict mapping full hex digest → list of paths that share it
-    (duplicates). The caller derives the short directory name via
-    :func:`short_hash`.
-    """
-    pdf_map: Dict[str, List[Path]] = {}
-    for pdf_path in input_dir.rglob("*.pdf"):
-        if not pdf_path.is_file():
-            continue
-        try:
-            full_hash = calculate_pdf_hash(pdf_path)
-            pdf_map.setdefault(full_hash, []).append(pdf_path)
-        except Exception as e:
-            logger.warning("Could not hash %s: %s", pdf_path, e)
-    return pdf_map
-
-
-def audit_orphans(input_dir: Path, output_dir: Path) -> int:
-    """Read-only orphan audit (#31). Returns count of orphans found.
-
-    Two orphan classes:
-
-    1. Document orphans — ``documents/<HASH>/`` whose hash is no longer
-       present in the input set.
-    2. Vector-index orphans — LanceDB rows whose ``hash`` column has
-       no corresponding ``documents/<HASH>/`` directory (which implies
-       the document was deleted but its embeddings linger).
-
-    Re-hashes input PDFs to make the check path-independent — moving or
-    renaming the input dir does not produce false orphans.
-    """
-    documents_dir = output_dir / "documents"
-    if not documents_dir.is_dir():
-        logger.error("No documents/ directory at %s", documents_dir)
-        return 0
-
-    logger.info("Hashing input PDFs under %s …", input_dir)
-    input_pdf_map = find_all_pdfs(input_dir)
-    input_hashes = {short_hash(h) for h in input_pdf_map}
-    logger.info("Found %d unique input PDFs", len(input_hashes))
-
-    doc_hashes = {p.name for p in sorted(documents_dir.iterdir()) if p.is_dir()}
-    logger.info("Found %d hash directories under documents/", len(doc_hashes))
-
-    document_orphans = sorted(doc_hashes - input_hashes)
-    print()
-    print(f"=== Document orphans ({len(document_orphans)}) ===")
-    print("(hash directories whose source PDF is no longer in the input set)")
-    if not document_orphans:
-        print("  (none)")
-    else:
-        for h in document_orphans:
-            summary_file = documents_dir / h / "summary.json"
-            last_known = ""
-            if summary_file.exists():
-                try:
-                    with summary_file.open() as f:
-                        s = json.load(f)
-                    rels = s.get("relative_paths") or []
-                    if rels:
-                        last_known = f"  (last known: {rels[0]}"
-                        if len(rels) > 1:
-                            last_known += f" + {len(rels) - 1} more"
-                        last_known += ")"
-                except Exception:
-                    pass
-            print(f"  {h}{last_known}")
-
-    vector_orphans: List[str] = []
-    vector_db_path = output_dir / "vector_db"
-    if vector_db_path.is_dir():
-        try:
-            import lancedb  # type: ignore
-            db = lancedb.connect(str(vector_db_path))
-            if "document_chunks" in db.table_names():
-                table = db.open_table("document_chunks")
-                hashes_in_table = {
-                    row["hash"]
-                    for row in table.search().select(["hash"]).limit(10**9).to_list()
-                    if row.get("hash")
-                }
-                vector_orphans = sorted(hashes_in_table - doc_hashes)
-        except ImportError:
-            logger.info("lancedb not importable; skipping vector-index audit")
-        except Exception as e:
-            logger.warning("Could not audit LanceDB: %s", e)
-
-    print()
-    print(f"=== Vector-index orphans ({len(vector_orphans)}) ===")
-    print("(LanceDB hashes with no documents/<HASH>/ directory)")
-    if not vector_orphans:
-        print("  (none)")
-    else:
-        for h in vector_orphans:
-            print(f"  {h}")
-
-    total = len(document_orphans) + len(vector_orphans)
-    print()
-    print(f"Total orphans: {total}. Audit is read-only — nothing was deleted.")
-    return total
-
-
-def create_output_structure(output_dir: Path):
-    """Create the output directory structure."""
-    documents_dir = output_dir / "documents"
-    vector_db_dir = output_dir / "vector_db"
-    
-    documents_dir.mkdir(parents=True, exist_ok=True)
-    vector_db_dir.mkdir(parents=True, exist_ok=True)
-    
-    return documents_dir, vector_db_dir
-
-
-def get_relative_paths(pdf_paths: List[Path], input_dir: Path) -> List[str]:
-    """Get relative paths of PDFs from input directory."""
-    return [str(path.relative_to(input_dir)) for path in pdf_paths]
 
 
 def run_pdf_processing_pipeline(
@@ -2536,38 +1910,6 @@ def ingest_to_vector_db(chunks_file: Path, vector_db_dir: Path, pdf_hash: str):
         }, f, indent=2)
 
 
-def create_summary_json(
-    pdf_hash_full: str,
-    pdf_paths: List[Path],
-    input_dir: Path,
-    hash_dir: Path,
-    processing_summary: Dict,
-):
-    """Write ``summary.json`` for one document.
-
-    Records both the short directory prefix and the full SHA-256 so that
-    ``--resume`` can verify that a re-encountered prefix refers to the same
-    PDF (not a hash-prefix collision).
-    """
-    relative_paths = get_relative_paths(pdf_paths, input_dir)
-
-    summary = {
-        "pdf_hash": short_hash(pdf_hash_full),
-        "pdf_hash_full": pdf_hash_full,
-        "hash_algorithm": "sha256",
-        "input_dir": str(input_dir),
-        "relative_paths": relative_paths,
-        "total_copies_found": len(pdf_paths),
-        "processing_summary": processing_summary,
-        "output_directory": str(hash_dir),
-    }
-
-    summary_file = hash_dir / "summary.json"
-    with open(summary_file, "w") as f:
-        json.dump(summary, f, indent=2)
-
-    return summary_file
-
 
 def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
     """Pass 2.5 — caption-based panel parsing + missing-figures scan.
@@ -2881,39 +2223,6 @@ def _extract_taxa_and_anatomy(
     return out
 
 
-def _verify_or_raise_collision(hash_dir: Path, pdf_hash_full: str) -> Optional[bool]:
-    """If ``hash_dir/summary.json`` exists, verify its recorded full hash
-    matches ``pdf_hash_full``. Returns True if it matches (resume-safe), False
-    if no summary is present (fresh dir), and raises ``RuntimeError`` on a
-    real hash-prefix collision.
-    """
-    summary_file = hash_dir / "summary.json"
-    if not summary_file.exists():
-        return False
-    try:
-        with open(summary_file, "r") as f:
-            existing = json.load(f)
-    except Exception as e:
-        logger.warning("Could not read %s (%s); treating as incomplete", summary_file, e)
-        return False
-    existing_full = existing.get("pdf_hash_full")
-    if existing_full is None:
-        # Legacy summary from before we recorded full hashes. Trust it but warn.
-        logger.warning(
-            "Existing summary at %s has no pdf_hash_full; cannot verify "
-            "against prefix collision. Treating as a match.",
-            summary_file,
-        )
-        return True
-    if existing_full != pdf_hash_full:
-        raise RuntimeError(
-            f"Hash-prefix collision detected at {hash_dir}: "
-            f"existing summary records full hash {existing_full!r} but this "
-            f"PDF hashes to {pdf_hash_full!r}. Increase HASH_PREFIX_LEN or "
-            f"investigate duplicate inputs."
-        )
-    return True
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -3053,8 +2362,14 @@ def main():
         from external import set_strict_network
         set_strict_network(True)
 
-    global CONFIG
-    CONFIG = load_config(args.config)
+    # Mutate the pipeline.config singleton in place so all readers
+    # (per-stage modules, quality_gates, etc.) see the loaded values.
+    # Reassignment via ``global CONFIG = ...`` would only rebind the
+    # local re-export — the canonical dict in pipeline.config would
+    # stay at defaults.
+    loaded = load_config(args.config)
+    _pipeline_config.CONFIG.clear()
+    _pipeline_config.CONFIG.update(loaded)
 
     input_dir = args.input_dir.resolve()
     output_dir = args.output_dir.resolve()
