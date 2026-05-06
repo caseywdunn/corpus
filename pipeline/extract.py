@@ -21,6 +21,7 @@ from figures import (
     parse_figure_number,
 )
 
+from . import stamp_artifact
 from .scan import create_cell_visualizations
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ def extract_docling_content(
     # status=error; --resume retries cleanly because text.json isn't
     # written.
     with open(text_output, "w", encoding="utf-8") as f:
-        json.dump(text_content, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(text_content), f, indent=2, ensure_ascii=False)
 
     # Persist the structured DoclingDocument so chunking can reload it
     # without re-parsing the PDF. This separation keeps each pipeline step
@@ -360,7 +361,7 @@ def extract_docling_content(
         "total_figures": len(figures_data),
     }
     with open(figures_output, "w", encoding="utf-8") as f:
-        json.dump(figures_info, f, indent=2)
+        json.dump(stamp_artifact(figures_info), f, indent=2)
 
     # Extract figure bboxes from the docling document before releasing it,
     # so the (large) document object can be garbage-collected before the

@@ -189,8 +189,8 @@ def get_chunks_for_topic(
     Returns the top-``k`` chunks most similar to ``query`` by cosine
     similarity. Use this for "how is X discussed in the corpus" style
     questions (PLAN.md §8 Q6, Q8) where the match criterion is
-    semantic, not a literal taxon or anatomy term — for those use
-    ``get_chunks_for_taxon`` / ``get_figures_for_anatomy`` instead,
+    semantic, not a literal taxon or lexicon term — for those use
+    ``get_chunks_for_taxon`` / ``get_figures_for_lexicon_term`` instead,
     which return exhaustive matches.
 
     Pass ``paper_hash`` to constrain the search to a single paper.

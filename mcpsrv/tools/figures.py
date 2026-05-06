@@ -1,8 +1,9 @@
 """Figure-keyed MCP tools.
 
-Surfaces: get_figures_for_taxon, get_figures_for_anatomy, get_figure,
-list_figure_rois, get_figure_roi_image, get_figure_image. The image-
-returning tools wrap PIL crops in FastMCP's ``Image`` content type.
+Surfaces: get_figures_for_taxon, get_figures_for_lexicon_term,
+get_figure, list_figure_rois, get_figure_roi_image, get_figure_image.
+The image-returning tools wrap PIL crops in FastMCP's ``Image``
+content type.
 """
 from __future__ import annotations
 
@@ -82,29 +83,34 @@ def get_figures_for_taxon(
 
 
 @mcp.tool()
-def get_figures_for_anatomy(
-    anatomy_term: str,
+def get_figures_for_lexicon_term(
+    category: str,
+    term: str,
     paper_hash: Optional[str] = None,
     limit: int = 50,
     include_all: bool = False,
 ) -> List[Dict]:
-    """Figures whose captions mention an anatomy term.
+    """Figures whose captions mention a lexicon term.
 
-    Takes the canonical anatomy term or any of its configured synonyms
-    / translations (defined under the ``anatomy:`` key of the
-    user-supplied ``--lexicon`` YAML at process time; see
-    ``demo/lexicon.yaml`` for an example). Matches the
-    term case-insensitively in figure captions and returns the figure
-    records with image paths and caption text, ranked by number of
-    occurrences in the caption.
+    ``category`` selects which section of the user-supplied
+    ``--lexicon`` YAML the term belongs to (``anatomy``,
+    ``biogeography``, …). The matcher is a case-insensitive substring
+    search over figure caption text — pass the canonical term name or
+    any of the synonyms / translations declared under that category in
+    the YAML (see ``demo/lexicon.yaml`` for an example). Returns figure
+    records with image paths and caption text, ranked by occurrence
+    count in the caption.
 
     By default only real figures and plates are returned; pass
     ``include_all=True`` to include the review bucket.
     """
     idx = _need_index()
-    term_low = (anatomy_term or "").strip().lower()
+    term_low = (term or "").strip().lower()
     if not term_low:
         return []
+    # ``category`` is currently used for documentation + future filtering
+    # by lexicon-membership. The match itself is caption-text search.
+    _ = category
     target_hashes = (
         [paper_hash] if paper_hash else list(idx.papers.keys())
     )

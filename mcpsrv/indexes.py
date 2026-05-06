@@ -1,7 +1,7 @@
 """SQLite + LanceDB wrappers and the corpus-wide in-memory index.
 
 * :class:`CorpusIndex` — built once at startup by :func:`mcpsrv.main.main`.
-  Holds per-paper headers + reverse indexes for taxon/anatomy/author
+  Holds per-paper headers + reverse indexes for taxon/lexicon/author
   lookup so tool calls don't re-scan the documents tree.
 * :class:`TaxonMentionDB` — read-only wrapper over
   ``taxon_mentions.sqlite`` (built by ``build_taxon_mentions.py``).
@@ -68,8 +68,16 @@ class CorpusIndex:
         # Reverse indexes — all point to a list of paper hashes.
         self.taxon_to_papers: Dict[str, List[str]] = defaultdict(list)
         self.taxon_mention_counts: Dict[str, Dict[str, int]] = defaultdict(dict)
-        self.anatomy_to_papers: Dict[str, List[str]] = defaultdict(list)
-        self.anatomy_mention_counts: Dict[str, Dict[str, int]] = defaultdict(dict)
+        # Lexicon reverse indexes are nested by category so a future
+        # `--lexicon` with anatomy + biogeography + methods produces three
+        # independent term spaces. ``lexicon_to_papers["anatomy"][term]``
+        # is the list of paper hashes whose anatomy.json mentions term.
+        self.lexicon_to_papers: Dict[str, Dict[str, List[str]]] = defaultdict(
+            lambda: defaultdict(list),
+        )
+        self.lexicon_mention_counts: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
+            lambda: defaultdict(dict),
+        )
         self.author_to_papers: Dict[str, List[str]] = defaultdict(list)
         # accepted_taxon_id → accepted name (for display when we only
         # have IDs from the reverse index).
@@ -141,15 +149,33 @@ class CorpusIndex:
             )
 
         count = 0
+        # Files at the per-paper root that aren't lexicon outputs. Anything
+        # else with a top-level ``category`` field is treated as one.
+        non_lexicon_files = {
+            "summary.json", "metadata.json", "references.json",
+            "taxa.json", "figures.json", "chunks.json",
+            "scan_detection.json", "docling_doc.json",
+            "intext_citations.json", "pipeline_state.json",
+        }
         for hash_dir in sorted(self.documents_dir.iterdir()):
             if not hash_dir.is_dir():
                 continue
             summary = _load_json(hash_dir / "summary.json", default={}) or {}
             metadata = _load_json(hash_dir / "metadata.json", default={}) or {}
             taxa = _load_json(hash_dir / "taxa.json", default={"taxa": []}) or {}
-            anatomy = _load_json(hash_dir / "anatomy.json", default={"terms": []}) or {}
             figures = _load_json(hash_dir / "figures.json", default={"figures": []}) or {}
             chunks = _load_json(hash_dir / "chunks.json", default={"chunks": []}) or {}
+
+            # Discover lexicon artifacts dynamically. Any *.json in the
+            # paper dir with a top-level ``category`` field is one (this is
+            # exactly what taxa.extract_lexicon_mentions stamps).
+            lexicons_for_paper: Dict[str, Dict] = {}
+            for child in hash_dir.glob("*.json"):
+                if child.name in non_lexicon_files:
+                    continue
+                payload = _load_json(child, default=None)
+                if isinstance(payload, dict) and "category" in payload:
+                    lexicons_for_paper[payload["category"]] = payload
 
             paper_hash = hash_dir.name
             self.papers[paper_hash] = {
@@ -168,7 +194,10 @@ class CorpusIndex:
                 "n_chunks": chunks.get("total_chunks", len(chunks.get("chunks", []) or [])),
                 "n_figures": figures.get("total_figures", len(figures.get("figures", []) or [])),
                 "n_taxa": taxa.get("unique_taxa", 0),
-                "n_anatomy_terms": anatomy.get("unique_terms", 0),
+                "n_lexicon_terms": {
+                    cat: payload.get("unique_terms", 0)
+                    for cat, payload in lexicons_for_paper.items()
+                },
                 "scan_file_type": (
                     _load_json(hash_dir / "scan_detection.json", default={}) or {}
                 ).get("file_type"),
@@ -187,12 +216,15 @@ class CorpusIndex:
                     "rank": t.get("rank"),
                 })
 
-            for term in anatomy.get("terms", []) or []:
-                canonical = term.get("canonical")
-                if not canonical:
-                    continue
-                self.anatomy_to_papers[canonical].append(paper_hash)
-                self.anatomy_mention_counts[canonical][paper_hash] = term.get("mention_count", 0)
+            for category, payload in lexicons_for_paper.items():
+                for term in payload.get("terms", []) or []:
+                    canonical = term.get("canonical")
+                    if not canonical:
+                        continue
+                    self.lexicon_to_papers[category][canonical].append(paper_hash)
+                    self.lexicon_mention_counts[category][canonical][paper_hash] = (
+                        term.get("mention_count", 0)
+                    )
 
             for author in metadata.get("authors", []) or []:
                 surname = (author.get("surname") or "").strip().lower()
@@ -201,10 +233,13 @@ class CorpusIndex:
 
             count += 1
 
+        n_lexicon_terms = sum(len(by_term) for by_term in self.lexicon_to_papers.values())
         logger.info(
-            "Index built: %d papers, %d taxa, %d anatomy terms, %d authors",
+            "Index built: %d papers, %d taxa, %d lexicon term(s) across %d "
+            "categor(ies), %d authors",
             count, len(self.taxon_to_papers),
-            len(self.anatomy_to_papers), len(self.author_to_papers),
+            n_lexicon_terms, len(self.lexicon_to_papers),
+            len(self.author_to_papers),
         )
         return count
 

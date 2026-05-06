@@ -29,6 +29,8 @@ from figures import (
     parse_panels_from_caption,
 )
 
+from . import stamp_artifact
+
 logger = logging.getLogger(__name__)
 
 
@@ -83,7 +85,7 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
     figures_data["total_missing_figures"] = len(missing)
 
     with figures_file.open("w", encoding="utf-8") as f:
-        json.dump(figures_data, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(figures_data), f, indent=2, ensure_ascii=False)
 
     # Small per-doc summary in the pipeline log — useful for spotting
     # when the corpus has extractions-vs-text gaps that need attention.
@@ -143,7 +145,7 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
         else:
             n_skipped += 1
     with figures_file.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(data), f, indent=2, ensure_ascii=False)
     logger.info(
         "Pass 3a: %d completed, %d partial, %d no-labels, %d skipped",
         n_ok, n_partial, n_none, n_skipped,
@@ -204,7 +206,7 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         else:
             n_skipped += 1
     with figures_file.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(data), f, indent=2, ensure_ascii=False)
     logger.info(
         "Pass 3b: %d completed, %d partial, %d no-labels, %d compound, "
         "%d skipped, %d backend-failed",
@@ -245,9 +247,9 @@ def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
     chunks_data["chunks"] = chunks
     figures_data["figures"] = figures
     with figures_file.open("w", encoding="utf-8") as f:
-        json.dump(figures_data, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(figures_data), f, indent=2, ensure_ascii=False)
     with chunks_file.open("w", encoding="utf-8") as f:
-        json.dump(chunks_data, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(chunks_data), f, indent=2, ensure_ascii=False)
 
     # Log a small summary so pipeline.log captures the link density.
     linked_figs = sum(1 for fig in figures if fig.get("referenced_in_chunks"))

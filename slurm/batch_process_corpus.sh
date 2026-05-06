@@ -73,19 +73,21 @@ if ! curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1; then
     echo "WARNING: Grobid not reachable at $GROBID_URL — metadata will use fallback"
 fi
 
-# ── Taxonomy + anatomy lexicon (if available) ────────────────────────
-# Built by ingest_taxonomy.py (any DwC source — WoRMS, GBIF, iNaturalist,
-# or a curated CSV). Optional; pipeline degrades gracefully if absent.
+# ── Taxonomy + lexicon (if available) ────────────────────────────────
+# Taxonomy: built by ingest_taxonomy.py (any DwC source — WoRMS, GBIF,
+# iNaturalist, or a curated CSV). Optional; pipeline degrades gracefully
+# if absent. Lexicon: a single multi-category YAML; top-level keys are
+# categories (anatomy, biogeography, …). See demo/lexicon.yaml.
 TAXONOMY_FLAG=""
 if [ -f "$OUTPUT_DIR/taxonomy.sqlite" ]; then
     TAXONOMY_FLAG="--taxonomy-db $OUTPUT_DIR/taxonomy.sqlite"
 fi
 
-ANATOMY_FLAG=""
-if [ -f "${ANATOMY_LEXICON:-}" ]; then
-    ANATOMY_FLAG="--anatomy-lexicon $ANATOMY_LEXICON"
-elif [ -f "$OUTPUT_DIR/anatomy_lexicon.yaml" ]; then
-    ANATOMY_FLAG="--anatomy-lexicon $OUTPUT_DIR/anatomy_lexicon.yaml"
+LEXICON_FLAG=""
+if [ -f "${LEXICON:-}" ]; then
+    LEXICON_FLAG="--lexicon $LEXICON"
+elif [ -f "$OUTPUT_DIR/lexicon.yaml" ]; then
+    LEXICON_FLAG="--lexicon $OUTPUT_DIR/lexicon.yaml"
 fi
 
 BIB_FLAG=""
@@ -111,7 +113,7 @@ python process_corpus.py \
     --resume \
     --grobid-url "$GROBID_URL" \
     $TAXONOMY_FLAG \
-    $ANATOMY_FLAG \
+    $LEXICON_FLAG \
     $BIB_FLAG \
     $BATCH_ARGS
 

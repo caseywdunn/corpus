@@ -183,9 +183,14 @@ def _load_pipeline_state(hash_dir: Path) -> Dict[str, Any]:
 
 def _save_pipeline_state(hash_dir: Path, state: Dict[str, Any]) -> None:
     """Atomically persist pipeline_state.json (tmp + rename)."""
+    from . import stamp_artifact
+
     path = hash_dir / PIPELINE_STATE_FILE
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    tmp.write_text(
+        json.dumps(stamp_artifact(state), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
     tmp.replace(path)
 
 
@@ -281,7 +286,7 @@ def _all_stage_artifacts_complete(
     Used by the outer --resume short-circuit. ``expected_stages``
     defaults to ``_CORE_STAGES``; callers extend it with optional
     stages whose presence depends on configured inputs (e.g.
-    ``"taxa_anatomy_extraction"`` when a taxonomy DB or lexicon is
+    ``"taxa_and_lexicon_extraction"`` when a taxonomy DB or lexicon is
     configured).
     """
     stages = tuple(expected_stages) if expected_stages is not None else _CORE_STAGES

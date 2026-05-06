@@ -150,7 +150,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--no-taxa", action="store_true",
-        help="Skip taxon + anatomy extraction (passed to process_corpus.py).",
+        help="Skip the taxa_and_lexicon_extraction stage entirely "
+             "(taxon mentions and every --lexicon category; passed to "
+             "process_corpus.py).",
     )
     parser.add_argument(
         "--no-grobid", action="store_true",

@@ -31,3 +31,34 @@ keep working during the deprecation window.
 # manifests, MCP bundle_info, etc.) — the release ritual bumps that
 # constant, and per-paper artifacts are invalidated on the same cadence.
 from version import __version__ as PIPELINE_VERSION  # noqa: E402,F401
+
+
+# Per-artifact schema version. Bumped only when an artifact's on-disk
+# JSON shape changes in a backwards-incompatible way. Independent of
+# PIPELINE_VERSION (which moves on every release whether or not the
+# schema changes). Tools that read artifacts can refuse — or migrate —
+# unknown values rather than silently mis-parsing old files.
+ARTIFACT_SCHEMA_VERSION = 1
+
+
+def stamp_artifact(payload: dict, *, schema_version: int = ARTIFACT_SCHEMA_VERSION) -> dict:
+    """Prepend ``schema_version`` + ``pipeline_version`` to a per-paper
+    artifact payload before writing. The version fields appear first in
+    the resulting JSON, so a reader can dispatch on them before
+    consuming the rest.
+
+    Idempotent: a payload that already carries ``schema_version`` /
+    ``pipeline_version`` from a prior write has those overwritten with
+    the current values, so a stage that reads-modifies-writes an
+    artifact bumps its stamp to whatever code is producing the new
+    version. The caller's payload is not mutated.
+    """
+    out = {
+        "schema_version": schema_version,
+        "pipeline_version": PIPELINE_VERSION,
+    }
+    for k, v in payload.items():
+        if k in ("schema_version", "pipeline_version"):
+            continue
+        out[k] = v
+    return out

@@ -117,7 +117,7 @@ itself if you change one.
 - [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`.
 - [tests/](tests/) — one file per subsystem.
 - Per-instance data (SQLites, embeddings, per-paper artifacts) lives inside the user's *corpuscle* directory — passed as the first positional arg to every CLI — not under the repo root. See the [corpuscle layout](README.md#corpuscle-layout) in README.md. The repo no longer ships a `resources/` directory.
-- [demo/](demo/) — small bundle for smoke-testing the pipeline: 11 siphonophore PDFs, a matching `siphonophores.bib`, and an example `anatomy_lexicon.yaml`. The lexicon is treated as user input, parallel to `--bib` — not part of the tool.
+- [demo/](demo/) — small bundle for smoke-testing the pipeline: 11 siphonophore PDFs, a matching `siphonophores.bib`, and an example multi-category `lexicon.yaml`. The lexicon is treated as user input, parallel to `--bib` — not part of the tool.
 
 ## Dependencies — two files, on purpose
 

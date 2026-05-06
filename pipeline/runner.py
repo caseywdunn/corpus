@@ -4,7 +4,7 @@
 copies it into a temp dir, runs the huge-document gate, then walks
 through scan_detection, pdf_preparation, docling_extraction,
 metadata_extraction, text_chunking, the Pass 2.5/3a/3b/3c figure
-passes, figure_crossref, taxa_anatomy_extraction, figures_report,
+passes, figure_crossref, taxa_and_lexicon_extraction, figures_report,
 and quality_gates. Each stage is wrapped in :func:`_stage` so timing
 and structured failures land on processing_summary.
 
@@ -27,7 +27,8 @@ from figures import generate_figures_report, resolve_compound_figures
 from grobid_client import GrobidClient
 from taxa import TaxonomyDB
 
-from .annotate import _extract_taxa_and_anatomy
+from . import stamp_artifact
+from .annotate import _extract_taxa_and_lexicons
 from .chunking import chunk_text
 from .config import CONFIG
 from .extract import extract_docling_content
@@ -117,7 +118,7 @@ def run_pdf_processing_pipeline(
                 logger.info("Detecting scan type...")
                 detection_result = detect_scan_type(temp_pdf)
                 with open(detection_file, "w") as f:
-                    json.dump(detection_result, f, indent=2)
+                    json.dump(stamp_artifact(detection_result), f, indent=2)
                 processing_summary["files_created"].append(str(detection_file))
                 processing_summary["processing_steps"].append("scan_detection")
         else:
@@ -228,7 +229,7 @@ def run_pdf_processing_pipeline(
             _crossref_chunks_and_figures(figures_file, chunks_file)
             processing_summary["processing_steps"].append("figure_crossref")
 
-        # ── taxa_anatomy_extraction ─────────────────────────────────
+        # ── taxa_and_lexicon_extraction ─────────────────────────────────
         # Stage runs only when a taxonomy DB or at least one lexicon
         # category is configured. The input_fingerprint captures the
         # taxonomy + per-category content hashes, so editing one
@@ -241,16 +242,16 @@ def run_pdf_processing_pipeline(
             if lexicon_fingerprints:
                 taxa_anat_fingerprint["lexicons"] = lexicon_fingerprints
             if _should_run_stage(
-                "taxa_anatomy_extraction",
+                "taxa_and_lexicon_extraction",
                 hash_dir=hash_dir,
                 resume=resume,
                 processing_summary=processing_summary,
                 expected_fingerprint=taxa_anat_fingerprint,
             ):
-                with _stage(processing_summary, "taxa_anatomy_extraction",
+                with _stage(processing_summary, "taxa_and_lexicon_extraction",
                             hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
                     logger.info("Extracting taxa + lexicon mentions...")
-                    taxa_anat_files = _extract_taxa_and_anatomy(
+                    taxa_anat_files = _extract_taxa_and_lexicons(
                         chunks_file,
                         hash_dir,
                         taxonomy_db,
@@ -260,7 +261,7 @@ def run_pdf_processing_pipeline(
                     )
                     processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
                     if taxa_anat_files:
-                        processing_summary["processing_steps"].append("taxa_anatomy_extraction")
+                        processing_summary["processing_steps"].append("taxa_and_lexicon_extraction")
 
         with _stage(processing_summary, "figures_report", hash_dir=hash_dir):
             logger.info("Generating figures report...")

@@ -147,12 +147,12 @@ def test_extract_lexicon_mentions_no_category_when_unset():
 
 
 # ---------------------------------------------------------------------------
-# _extract_taxa_and_anatomy with the new lexicons param
+# _extract_taxa_and_lexicons with the new lexicons param
 # ---------------------------------------------------------------------------
 
 
 def test_extract_writes_one_json_per_category(tmp_path):
-    from process_corpus import _extract_taxa_and_anatomy
+    from process_corpus import _extract_taxa_and_lexicons
 
     hd = tmp_path / "abc"
     hd.mkdir()
@@ -171,7 +171,7 @@ def test_extract_writes_one_json_per_category(tmp_path):
             "pelagic": {"synonyms": [], "translations": {}, "description": ""},
         },
     }
-    out = _extract_taxa_and_anatomy(
+    out = _extract_taxa_and_lexicons(
         chunks_file=hd / "chunks.json",
         hash_dir=hd,
         taxonomy_db=None,
@@ -190,13 +190,13 @@ def test_extract_writes_one_json_per_category(tmp_path):
 
 def test_extract_skips_empty_category(tmp_path):
     """An empty section is silently skipped — no <category>.json written."""
-    from process_corpus import _extract_taxa_and_anatomy
+    from process_corpus import _extract_taxa_and_lexicons
 
     hd = tmp_path / "abc"
     hd.mkdir()
     (hd / "chunks.json").write_text(json.dumps({"chunks": []}))
 
-    out = _extract_taxa_and_anatomy(
+    out = _extract_taxa_and_lexicons(
         chunks_file=hd / "chunks.json",
         hash_dir=hd,
         taxonomy_db=None,
@@ -209,14 +209,14 @@ def test_extract_skips_empty_category(tmp_path):
 
 
 def test_fingerprint_stamped_per_category(tmp_path):
-    from process_corpus import _extract_taxa_and_anatomy
+    from process_corpus import _extract_taxa_and_lexicons
 
     hd = tmp_path / "abc"
     hd.mkdir()
     (hd / "chunks.json").write_text(json.dumps({"chunks": []}))
 
     fp = {"path": "/x/lex.yaml", "sha256": "deadbeef" * 8, "size": 100}
-    _extract_taxa_and_anatomy(
+    _extract_taxa_and_lexicons(
         chunks_file=hd / "chunks.json",
         hash_dir=hd,
         taxonomy_db=None,

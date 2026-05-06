@@ -51,7 +51,7 @@ def list_papers(
     Filter by year range with ``year_from`` / ``year_to`` (inclusive).
     Returns at most ``limit`` rows (default: all papers). One row per
     paper with: hash, title, year, first author surname, counts of
-    chunks, figures, taxa, anatomy terms.
+    chunks, figures, taxa, and lexicon terms (per category).
     """
     idx = _need_index()
     rows: List[Dict] = []
@@ -76,26 +76,42 @@ def list_papers(
             "n_chunks": p.get("n_chunks", 0),
             "n_figures": p.get("n_figures", 0),
             "n_taxa": p.get("n_taxa", 0),
-            "n_anatomy_terms": p.get("n_anatomy_terms", 0),
+            "n_lexicon_terms": p.get("n_lexicon_terms") or {},
             "scan_file_type": p.get("scan_file_type"),
         })
     return rows if limit is None else rows[: int(limit)]
 
 
+_NON_LEXICON_FILES = {
+    "summary.json", "metadata.json", "references.json",
+    "taxa.json", "figures.json", "chunks.json",
+    "scan_detection.json", "docling_doc.json",
+    "intext_citations.json", "pipeline_state.json",
+}
+
+
 @mcp.tool()
 def get_paper(paper_hash: str) -> Dict:
     """Full metadata for one paper: title, authors, year, abstract, DOI,
-    plus top-10 taxa and top anatomy terms."""
+    plus top-10 taxa and the top-10 terms in each configured lexicon
+    category (anatomy, biogeography, …) found on this paper."""
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         return {"error": f"no such paper_hash: {paper_hash}"}
-    taxa = _load_json(Path(p["hash_dir"]) / "taxa.json", default={}) or {}
-    anat = _load_json(Path(p["hash_dir"]) / "anatomy.json", default={}) or {}
+    hash_dir = Path(p["hash_dir"])
+    taxa = _load_json(hash_dir / "taxa.json", default={}) or {}
+    top_lexicon_terms: Dict[str, list] = {}
+    for child in hash_dir.glob("*.json"):
+        if child.name in _NON_LEXICON_FILES:
+            continue
+        payload = _load_json(child, default=None)
+        if isinstance(payload, dict) and "category" in payload:
+            top_lexicon_terms[payload["category"]] = (payload.get("terms") or [])[:10]
     return {
         **{k: v for k, v in p.items() if k != "hash_dir"},
         "top_taxa": (taxa.get("taxa") or [])[:10],
-        "top_anatomy": (anat.get("terms") or [])[:10],
+        "top_lexicon_terms": top_lexicon_terms,
     }
 
 @mcp.tool()

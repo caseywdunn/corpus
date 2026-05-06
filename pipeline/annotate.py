@@ -16,10 +16,12 @@ from typing import Any, Dict, List, Optional
 
 from taxa import TaxonomyDB, extract_lexicon_mentions, extract_taxon_mentions
 
+from . import stamp_artifact
+
 logger = logging.getLogger(__name__)
 
 
-def _extract_taxa_and_anatomy(
+def _extract_taxa_and_lexicons(
     chunks_file: Path,
     hash_dir: Path,
     taxonomy_db: Optional[TaxonomyDB],
@@ -59,7 +61,7 @@ def _extract_taxa_and_anatomy(
             taxa_res["input_fingerprint"] = taxonomy_fingerprint
         taxa_file = hash_dir / "taxa.json"
         with taxa_file.open("w", encoding="utf-8") as f:
-            json.dump(taxa_res, f, indent=2, ensure_ascii=False)
+            json.dump(stamp_artifact(taxa_res), f, indent=2, ensure_ascii=False)
         out.append(taxa_file)
         logger.info(
             "Taxon mentions: %d (unique taxa: %d)",
@@ -81,7 +83,7 @@ def _extract_taxa_and_anatomy(
             res["input_fingerprint"] = fp
         out_file = hash_dir / f"{category}.json"
         with out_file.open("w", encoding="utf-8") as f:
-            json.dump(res, f, indent=2, ensure_ascii=False)
+            json.dump(stamp_artifact(res), f, indent=2, ensure_ascii=False)
         out.append(out_file)
         logger.info(
             "%s mentions: %d (unique terms: %d)",

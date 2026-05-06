@@ -24,7 +24,7 @@ from grobid_client import GrobidClient
 from taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 
 from . import config as _pipeline_config
-from .annotate import _extract_taxa_and_anatomy
+from .annotate import _extract_taxa_and_lexicons
 from .chunking import ingest_to_vector_db
 from .config import CONFIG, load_config
 from .figure_passes import _pass3b_annotate_rois
@@ -56,7 +56,7 @@ def _expected_stages_for_run(
 
     Always includes the core stages (scan_detection, pdf_preparation,
     docling_extraction, metadata_extraction, text_chunking).
-    ``taxa_anatomy_extraction`` is added when a taxonomy DB or any
+    ``taxa_and_lexicon_extraction`` is added when a taxonomy DB or any
     lexicon category is configured.
     """
     stages = [
@@ -67,7 +67,7 @@ def _expected_stages_for_run(
         "text_chunking",
     ]
     if taxonomy_db is not None or lexicons:
-        stages.append("taxa_anatomy_extraction")
+        stages.append("taxa_and_lexicon_extraction")
     return stages
 
 
@@ -121,7 +121,8 @@ def main():
     parser.add_argument(
         "--no-taxa",
         action="store_true",
-        help="Skip taxon + anatomy extraction",
+        help="Skip the taxa_and_lexicon_extraction stage entirely "
+             "(taxon mentions and every --lexicon category).",
     )
     parser.add_argument(
         "--content-aware-figures",

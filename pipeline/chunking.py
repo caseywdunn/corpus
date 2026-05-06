@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
+from . import stamp_artifact
 from .config import CONFIG, classify_section
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ def chunk_text(
     }
 
     with open(chunks_output, "w", encoding="utf-8") as f:
-        json.dump(chunks_data, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(chunks_data), f, indent=2, ensure_ascii=False)
 
 
 def ingest_to_vector_db(chunks_file: Path, vector_db_dir: Path, pdf_hash: str):
@@ -124,9 +125,9 @@ def ingest_to_vector_db(chunks_file: Path, vector_db_dir: Path, pdf_hash: str):
     ingestion_marker = vector_db_dir / f"{pdf_hash}_embedded.done"
     
     with open(ingestion_marker, 'w') as f:
-        json.dump({
+        json.dump(stamp_artifact({
             "pdf_hash": pdf_hash,
             "chunks_file": str(chunks_file),
             "ingestion_timestamp": str(Path(chunks_file).stat().st_mtime),
-            "status": "completed"
-        }, f, indent=2)
+            "status": "completed",
+        }), f, indent=2)

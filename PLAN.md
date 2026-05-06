@@ -133,9 +133,10 @@ fast and obviously-correct.
   and post-pipeline scripts in dependency order with `--resume`.
   Makes "add papers and update everything" a one-liner.
 - [#33](https://github.com/caseywdunn/corpus/issues/33) — **Lexicon
-  round-trip.** Mirrors #26 (bibliography round-trip) for the anatomy
-  lexicon: edit `anatomy_lexicon.yaml`, re-annotate only stale
-  papers. Depends on #29 + #28.
+  round-trip.** Edit `lexicon.yaml` (multi-category, top-level keys
+  `anatomy:` / `biogeography:` / …) and re-annotate only the affected
+  categories on the next `--resume`. Subsumed by per-stage resume +
+  per-category fingerprints in `pipeline_state.json` (#28 / #29).
 
 ### Robustness + observability
 

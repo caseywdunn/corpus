@@ -32,10 +32,10 @@ def test_record_creates_pipeline_state_file(tmp_path):
 
 def test_record_captures_pipeline_version_and_fingerprint(tmp_path):
     fp = {"taxonomy": {"sha256": "abc"}}
-    _record_stage_completion(tmp_path, "taxa_anatomy_extraction",
+    _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction",
                              input_fingerprint=fp)
     state = json.loads((tmp_path / "pipeline_state.json").read_text())
-    rec = state["stages"]["taxa_anatomy_extraction"]
+    rec = state["stages"]["taxa_and_lexicon_extraction"]
     assert rec["pipeline_version"] == PIPELINE_VERSION
     assert rec["input_fingerprint"] == fp
     assert rec["completed_at"]
@@ -91,20 +91,20 @@ def test_recorded_complete_false_when_pipeline_version_mismatch(tmp_path):
 
 
 def test_recorded_complete_false_on_fingerprint_mismatch(tmp_path):
-    _record_stage_completion(tmp_path, "taxa_anatomy_extraction",
+    _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction",
                              input_fingerprint={"taxonomy": {"sha256": "old"}})
     assert not _stage_recorded_complete(
-        tmp_path, "taxa_anatomy_extraction",
+        tmp_path, "taxa_and_lexicon_extraction",
         expected_fingerprint={"taxonomy": {"sha256": "new"}},
     )
 
 
 def test_recorded_complete_true_when_fingerprint_matches(tmp_path):
     fp = {"anatomy": {"sha256": "abc"}}
-    _record_stage_completion(tmp_path, "taxa_anatomy_extraction",
+    _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction",
                              input_fingerprint=fp)
     assert _stage_recorded_complete(
-        tmp_path, "taxa_anatomy_extraction", expected_fingerprint=fp,
+        tmp_path, "taxa_and_lexicon_extraction", expected_fingerprint=fp,
     )
 
 
@@ -145,11 +145,11 @@ def test_should_skip_when_resume_on_and_recorded(tmp_path):
 
 def test_should_run_on_fingerprint_drift(tmp_path):
     """Lexicon swap forces re-run even with --resume + matching version."""
-    _record_stage_completion(tmp_path, "taxa_anatomy_extraction",
+    _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction",
                              input_fingerprint={"anatomy": {"sha256": "old"}})
     ps = {}
     assert _should_run_stage(
-        "taxa_anatomy_extraction", hash_dir=tmp_path,
+        "taxa_and_lexicon_extraction", hash_dir=tmp_path,
         resume=True, processing_summary=ps,
         expected_fingerprint={"anatomy": {"sha256": "new"}},
     )
@@ -191,10 +191,10 @@ def test_stage_does_not_record_on_failure(tmp_path):
 def test_stage_records_input_fingerprint(tmp_path):
     ps = {"stage_timings": [], "stage_failures": []}
     fp = {"taxonomy": {"sha256": "xyz"}}
-    with _stage(ps, "taxa_anatomy_extraction", hash_dir=tmp_path,
+    with _stage(ps, "taxa_and_lexicon_extraction", hash_dir=tmp_path,
                 input_fingerprint=fp):
         pass
-    rec = _load_pipeline_state(tmp_path)["stages"]["taxa_anatomy_extraction"]
+    rec = _load_pipeline_state(tmp_path)["stages"]["taxa_and_lexicon_extraction"]
     assert rec["input_fingerprint"] == fp
 
 
@@ -219,19 +219,19 @@ def test_all_complete_when_core_recorded(tmp_path):
 
 def test_all_complete_taxa_required_recorded(tmp_path):
     _record_all_core(tmp_path)
-    _record_stage_completion(tmp_path, "taxa_anatomy_extraction")
+    _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction")
     assert _all_stage_artifacts_complete(
         tmp_path,
-        expected_stages=list(_CORE) + ["taxa_anatomy_extraction"],
+        expected_stages=list(_CORE) + ["taxa_and_lexicon_extraction"],
     )
 
 
 def test_all_complete_taxa_required_missing(tmp_path):
     _record_all_core(tmp_path)
-    # taxa_anatomy_extraction not recorded
+    # taxa_and_lexicon_extraction not recorded
     assert not _all_stage_artifacts_complete(
         tmp_path,
-        expected_stages=list(_CORE) + ["taxa_anatomy_extraction"],
+        expected_stages=list(_CORE) + ["taxa_and_lexicon_extraction"],
     )
 
 

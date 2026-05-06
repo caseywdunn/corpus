@@ -8,7 +8,7 @@ invocations from MCP clients, SLURM batch scripts, and the
 
 Backwards-compat re-exports: every public + private name that used
 to live at module level is re-exported here so ``from process_corpus
-import _stage`` / ``import _extract_taxa_and_anatomy`` /
+import _stage`` / ``import _extract_taxa_and_lexicons`` /
 ``import calculate_pdf_hash`` (etc.) keeps working in test code that
 predates the split. The deprecation window for these re-exports
 extends until the test suite has migrated to ``from pipeline import …``.
@@ -19,7 +19,7 @@ import sys
 
 # Re-exports — public surface used by tests + downstream tools
 from pipeline import config as _pipeline_config  # noqa: F401
-from pipeline.annotate import _extract_taxa_and_anatomy  # noqa: F401
+from pipeline.annotate import _extract_taxa_and_lexicons  # noqa: F401
 from pipeline.chunking import chunk_text, ingest_to_vector_db  # noqa: F401
 from pipeline.config import (  # noqa: F401
     _DEFAULT_CONFIG,

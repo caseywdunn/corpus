@@ -4,12 +4,14 @@
 # built-in _DEFAULT_CONFIG; anything missing falls through to the defaults.
 # CLI flags on individual tools override config values in turn.
 #
-# The taxonomy and anatomy lexicon pointed at below are the current
-# siphonophore-flavored defaults. To apply the pipeline to a different
-# group: (a) regenerate resources/taxonomy.sqlite via
-# `python ingest_taxonomy.py --source <dwc|dwca|worms> ... --root-id <ID>`,
-# (b) swap resources/anatomy_lexicon.yaml for a lexicon relevant to your
-# group. Everything else in the pipeline is taxon-agnostic.
+# Inputs the pipeline reads at run time — the taxonomy SQLite and the
+# multi-category lexicon YAML — are passed via CLI flags
+# (--taxonomy-db, --lexicon) rather than declared here. To apply the
+# pipeline to a different group: (a) regenerate the taxonomy via
+# `python ingest_taxonomy.py <output_dir> --source <dwc|dwca|worms> ... --root-id <ID>`,
+# (b) point --lexicon at a YAML whose top-level keys are the categories
+# you want extracted (anatomy, biogeography, …). Everything else in the
+# pipeline is taxon-agnostic.
 
 # OCR settings used by process_corpus.py.
 ocr:
@@ -82,11 +84,3 @@ quality_gates:
   min_figure_mean_intensity: 10       # >50% of figures dimmer than this → "all_black_figures"
   max_figures_sampled: 50             # cap PIL load cost on figure-heavy papers
 
-# Cross-paper resources pointed at by the pipeline. These paths are
-# resolved relative to the repo root.
-resources:
-  # Darwin Core taxonomy snapshot (built by ingest_taxonomy.py from any
-  # DwC-publishing source: WoRMS, GBIF, iNaturalist, ITIS, or a curated
-  # CSV). Empty value disables taxon mention extraction.
-  taxonomy_db: "resources/taxonomy.sqlite"
-  anatomy_lexicon: "resources/anatomy_lexicon.yaml"

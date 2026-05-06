@@ -26,6 +26,8 @@ from grobid_client import (
     parse_tei_references,
 )
 
+from . import stamp_artifact
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,11 +84,11 @@ def _write_placeholder_metadata(
         "extraction_method": "placeholder",
     }
     with open(metadata_output, "w", encoding="utf-8") as f:
-        json.dump(placeholder, f, indent=2, ensure_ascii=False)
+        json.dump(stamp_artifact(placeholder), f, indent=2, ensure_ascii=False)
     with open(references_output, "w", encoding="utf-8") as f:
-        json.dump({"references": [], "total_references": 0}, f, indent=2)
+        json.dump(stamp_artifact({"references": [], "total_references": 0}), f, indent=2)
     with open(metadata_output.parent / "intext_citations.json", "w", encoding="utf-8") as f:
-        json.dump({"paragraphs": [], "citations": []}, f, indent=2)
+        json.dump(stamp_artifact({"paragraphs": [], "citations": []}), f, indent=2)
 
 
 def extract_metadata(
@@ -230,16 +232,18 @@ def extract_metadata(
     # (which may be empty if Grobid was unavailable). Otherwise placeholder.
     if header is not None:
         with open(metadata_output, "w", encoding="utf-8") as f:
-            json.dump(header, f, indent=2, ensure_ascii=False)
+            json.dump(stamp_artifact(header), f, indent=2, ensure_ascii=False)
         with open(references_output, "w", encoding="utf-8") as f:
             json.dump(
-                {"references": refs, "total_references": len(refs)},
+                stamp_artifact(
+                    {"references": refs, "total_references": len(refs)},
+                ),
                 f,
                 indent=2,
                 ensure_ascii=False,
             )
         with open(hash_dir / "intext_citations.json", "w", encoding="utf-8") as f:
-            json.dump(intext, f, indent=2, ensure_ascii=False)
+            json.dump(stamp_artifact(intext), f, indent=2, ensure_ascii=False)
         logger.info(
             "Wrote metadata (method=%s, %d authors), %d references (parsed=%s), %d in-text citations",
             header.get("extraction_method"),

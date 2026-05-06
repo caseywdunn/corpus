@@ -19,6 +19,8 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from . import stamp_artifact
+
 logger = logging.getLogger(__name__)
 
 
@@ -192,7 +194,7 @@ def create_summary_json(
 
     summary_file = hash_dir / "summary.json"
     with open(summary_file, "w") as f:
-        json.dump(summary, f, indent=2)
+        json.dump(stamp_artifact(summary), f, indent=2)
 
     return summary_file
 

@@ -56,7 +56,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | Tool | Returns |
 | --- | --- |
 | `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. |
-| `get_figures_for_anatomy` | Figures whose captions mention an anatomy term. |
+| `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). |
 | `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references. |
 | `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. |
 | `list_figure_rois` | Per-panel / per-subfigure ROIs annotated on a figure. |
