@@ -60,14 +60,14 @@ def _pdf_page_count(pdf_path: Path) -> Optional[int]:
     """Return the page count of ``pdf_path`` via PyMuPDF metadata.
 
     Cheap — opens the document but does not render pages. Returns
-    None if the file can't be read; the gate then lets the rest of
-    the pipeline handle it (a corrupted PDF will fail later with the
-    appropriate reason_code).
+    None if the file can't be read (a corrupted PDF will fail later
+    with the appropriate reason_code).
+
+    PyMuPDF is a hard dependency (requirements.txt) — its absence
+    raises ImportError so the huge-document gate fails as a stage
+    error rather than silently bypassing.
     """
-    try:
-        import fitz  # type: ignore
-    except ImportError:
-        return None
+    import fitz  # type: ignore
     try:
         with fitz.open(str(pdf_path)) as doc:
             return int(doc.page_count)
