@@ -54,21 +54,11 @@ def translate_chunk(
     target_language: str = "en",
     model: str = "claude-haiku-4-5-20251001",
 ) -> Dict:
-    """Translate one chunk to the target language (default English), via
-    the Anthropic Claude API.
-
-    On-demand — nothing is translated at ingest time (dev_docs/PLAN.md §3 decision).
-    Results are cached at ``<hash_dir>/translated_{target_language}.json``
-    keyed by ``chunk_id`` so repeated calls are free.
-
-    Returns the original text, the translation, the source language
-    reported by ``scan_detection.json``, and whether the result was
-    cached or freshly generated.
-
-    Returns ``{error: …}`` if ``ANTHROPIC_API_KEY`` isn't set or the
-    Anthropic SDK isn't installed. If the chunk is already in the target
-    language (matching ``scan_detection.detected_language``) the original
-    text is returned with ``translation_needed: False``.
+    """Translate one chunk to the target language (default English) via
+    the Anthropic Claude API. Cached server-side per chunk so repeats
+    are free. If the chunk is already in the target language, returns
+    the original with ``translation_needed: False``. Requires
+    ``ANTHROPIC_API_KEY``.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)

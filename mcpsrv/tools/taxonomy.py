@@ -99,16 +99,16 @@ def get_papers_for_taxon(
 def get_chunks_for_taxon(
     taxon_name: str,
     paper_hash: Optional[str] = None,
-    limit: int = 200,
+    limit: int = 50,
     offset: int = 0,
 ) -> List[Dict]:
     """Every chunk that mentions the taxon (resolved through synonymy).
 
-    By default scans the whole corpus. Restrict to a single paper with
-    ``paper_hash``. Results include the full chunk text so the LLM can
-    synthesize directly — don't lower ``limit`` unless you know the
-    query's answer fits in fewer chunks; enumerative queries (§8 Q2,
-    monographic review of a genus) need the full set.
+    By default scans the whole corpus and returns the first 50 chunks
+    with full text. Restrict to a single paper with ``paper_hash``, or
+    paginate via ``offset`` / ``limit`` for enumerative queries
+    (monographic reviews of a genus). Each chunk is roughly 100–200
+    tokens, so a 50-chunk response is ~5–10k tokens.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:

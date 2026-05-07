@@ -74,7 +74,9 @@ def get_figures_for_taxon(
                 "page": f.get("page"),
                 "caption_text": f.get("caption_text") or f.get("caption"),
                 "figure_number": f.get("figure_number"),
-                "image_path": str(Path(p["hash_dir"]) / "figures" / (f.get("filename") or "")),
+                # Relative to the corpuscle's documents/ dir.
+                # Call get_figure_image to fetch bytes.
+                "image_path": f"{h}/figures/{f.get('filename') or ''}",
                 "caption_has_taxon": caption_hit,
                 "score": (100 if caption_hit else 0) + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             })
@@ -90,19 +92,14 @@ def get_figures_for_lexicon_term(
     limit: int = 50,
     include_all: bool = False,
 ) -> List[Dict]:
-    """Figures whose captions mention a lexicon term.
+    """Figures whose captions mention a lexicon term, ranked by
+    caption occurrence count.
 
-    ``category`` selects which section of the user-supplied
-    ``--lexicon`` YAML the term belongs to (``anatomy``,
-    ``biogeography``, …). The matcher is a case-insensitive substring
-    search over figure caption text — pass the canonical term name or
-    any of the synonyms / translations declared under that category in
-    the YAML (see ``demo/lexicon.yaml`` for an example). Returns figure
-    records with image paths and caption text, ranked by occurrence
-    count in the caption.
-
-    By default only real figures and plates are returned; pass
-    ``include_all=True`` to include the review bucket.
+    ``category`` is a top-level key in the corpus's lexicon
+    (``anatomy``, ``biogeography``, …). ``term`` is matched
+    case-insensitively as a substring; pass the canonical name or any
+    declared synonym/translation. Returns real figures + plates by
+    default; ``include_all=True`` includes the review bucket.
     """
     idx = _need_index()
     term_low = (term or "").strip().lower()
@@ -136,7 +133,9 @@ def get_figures_for_lexicon_term(
                 "page": f.get("page"),
                 "figure_number": f.get("figure_number"),
                 "caption_text": caption,
-                "image_path": str(Path(p["hash_dir"]) / "figures" / (f.get("filename") or "")),
+                # Relative to the corpuscle's documents/ dir.
+                # Call get_figure_image to fetch bytes.
+                "image_path": f"{h}/figures/{f.get('filename') or ''}",
                 "match_count": occ,
             })
     rows.sort(key=lambda r: -r["match_count"])
@@ -159,9 +158,8 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
                 **f,
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
-                "image_path": str(
-                    Path(p["hash_dir"]) / "figures" / (f.get("filename") or "")
-                ),
+                # Relative to the corpuscle's documents/ dir.
+                "image_path": f"{paper_hash}/figures/{f.get('filename') or ''}",
             }
     return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
 
@@ -252,7 +250,8 @@ def get_figure_roi_image(
             "figure_id": figure_id,
             "label": label,
             "crop": False,
-            "image_path": str(whole_image),
+            # Relative to the corpuscle's documents/ dir.
+            "image_path": f"{paper_hash}/figures/{whole_image.name}",
             "caption_text": caption_text,
             "description_from_caption": description_from_caption,
             "reason": "no_pixel_roi — Pass 3a didn't locate this label in the image",
@@ -282,7 +281,8 @@ def get_figure_roi_image(
         "figure_id": figure_id,
         "label": label,
         "crop": True,
-        "image_path": str(crop_path),
+        # Relative to the corpuscle's documents/ dir.
+        "image_path": f"{paper_hash}/figures/crops/{crop_path.name}",
         "roi_px": roi_entry.get("roi_px"),
         "ocr_confidence": roi_entry.get("ocr_confidence"),
         "caption_text": caption_text,
@@ -298,19 +298,11 @@ def get_figure_image(
 ) -> Image:
     """Return a figure (or panel crop) as inline PNG bytes.
 
-    Companion to ``get_figure`` and ``get_figure_roi_image``: those tools
-    return server-side filesystem paths, which only resolve on hosts that
-    have the bundle locally.  This tool returns the actual PNG bytes via
-    FastMCP's ``Image`` content type so MCP clients (LLM agents, web
-    UIs, etc.) can display or save figures without out-of-band access
-    to ``/srv/corpus/...``.
-
-    Without ``label`` the whole figure is returned.  With ``label`` the
-    panel crop is returned (same on-disk cache as ``get_figure_roi_image``:
-    cropped on first ask, served from cache thereafter).  If the
-    requested panel label has no pixel ROI, the whole figure is returned
-    instead; ``get_figure_roi_image`` reports the fallback explicitly in
-    its metadata response and pairs well with this tool.
+    Use this when you need the image content itself; ``get_figure`` and
+    ``get_figure_roi_image`` return paths plus metadata. Without
+    ``label`` returns the whole figure. With ``label`` returns the
+    panel crop, falling back to the whole figure when no pixel ROI was
+    detected.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
