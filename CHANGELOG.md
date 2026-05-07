@@ -7,15 +7,259 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-07
+
+A hardening + iteration release. v0.2 closes out v0.1's deferred items
+(vision pass at corpus scale, expanded lexicon + taxonomy support,
+Bouchet batch-script fixes), adds a real update lifecycle (per-stage
+resume, input fingerprints, `update_corpus.py` orchestrator), and lays
+in a robustness + observability layer (structured `stage_failures[]`,
+silent-failure quality gates, `corpus_status` rollup, network circuit
+breakers). Geographic extraction
+([#13](https://github.com/caseywdunn/corpus/issues/13)) and trait
+extraction ([#14](https://github.com/caseywdunn/corpus/issues/14)) are
+pushed to later releases.
+
+### Added
+
+#### Update lifecycle
+
+- **`update_corpus.py` orchestrator**
+  ([#32](https://github.com/caseywdunn/corpus/issues/32)) — one command
+  runs the pipeline + every post-pipeline script in dependency order
+  with `--resume`. Forwards the full Stage 1 flag surface so callers
+  don't lose pipeline knobs. Makes "add papers and update everything"
+  a one-liner.
+- **Granular per-stage resume**
+  ([#28](https://github.com/caseywdunn/corpus/issues/28)) — replaces
+  the all-or-nothing `summary.json` completion marker with per-stage
+  status tracked in `pipeline_state.json`. Stages whose artifact is
+  already present and whose inputs haven't drifted are skipped on
+  `--resume`.
+- **Input fingerprints on annotation artifacts**
+  ([#29](https://github.com/caseywdunn/corpus/issues/29)) —
+  `lexicon_sha256` and `taxonomy_snapshot_date` are stamped into
+  `chunks.json` / `taxa.json` / `anatomy.json` so staleness is
+  detectable without re-reading the source files.
+- **`--re-annotate-stale` flag**
+  ([#33](https://github.com/caseywdunn/corpus/issues/33)) — re-runs
+  only the lexicon categories whose fingerprint changed. Subsumed
+  by per-stage resume + per-category fingerprints.
+- **Idempotency contracts on post-pipeline scripts**
+  ([#30](https://github.com/caseywdunn/corpus/issues/30)) —
+  `build_biblio_authority`, `build_taxon_mentions`,
+  `backfill_intext_citations`, and `reconcile_corpus_to_biblio`
+  audited + tested for re-run safety.
+- **`--audit-orphans`**
+  ([#31](https://github.com/caseywdunn/corpus/issues/31)) —
+  read-only listing of `documents/<HASH>/` directories (and LanceDB
+  rows) whose source PDF is no longer in the input set. Deletion
+  stays manual.
+
+#### Robustness + observability
+
+- **Structured `stage_failures[]` + per-stage timing**
+  ([#34](https://github.com/caseywdunn/corpus/issues/34)) — reason
+  codes (`timeout`, `crash`, `external_unavailable`,
+  `unsupported_format`, `corrupted`, `quality_gate`) replace v0.1's
+  free-text `errors[]`. Every downstream tool reads from the new
+  schema.
+- **Silent-failure quality gates**
+  ([#36](https://github.com/caseywdunn/corpus/issues/36)) — flag
+  empty text layers, gibberish OCR output, all-black figures,
+  zero-reference papers, and collapsed-extraction chunks. Surfaces
+  what v0.1 was happily writing without complaint.
+- **`corpus_status`**
+  ([#40](https://github.com/caseywdunn/corpus/issues/40)) — single
+  command rolls up stage completion, failure breakdown by reason,
+  quality flags, and staleness across the whole build. Dashboard
+  for everything else in this section and the update lifecycle.
+- **Huge-document hard cap**
+  ([#35](https://github.com/caseywdunn/corpus/issues/35)) —
+  page-count gate with a structured `too_large` flag for monographs
+  that would blow past reasonable wallclock. Haeckel 1888
+  *Challenger Siphonophorae* is the canary.
+- **External-service flakiness layer**
+  ([#37](https://github.com/caseywdunn/corpus/issues/37)) — shared
+  retry + backoff + circuit breaker + cache for Grobid, BHL,
+  CrossRef, OpenAlex via `pipeline/external.py`. `STRICT_NETWORK`
+  env var fails-fast for release builds.
+- **Standardized `--dry-run`**
+  ([#41](https://github.com/caseywdunn/corpus/issues/41)) — across
+  all pipeline + post-pipeline CLIs, replacing the prior 4-of-10
+  inconsistent state.
+
+#### Vision + figures
+
+- **SLURM array support for the vision pass**
+  ([#27](https://github.com/caseywdunn/corpus/issues/27)) —
+  `batch_pass3b.sh` now parallelizes the same way
+  `batch_pipeline.sh` does. Prerequisite for running Pass 3b
+  (Qwen2.5-VL-7B) at corpus scale
+  ([#11](https://github.com/caseywdunn/corpus/issues/11)).
+- **Archaic plate prefixes + Roman-numeral support** in figure
+  extraction ([#16](https://github.com/caseywdunn/corpus/issues/16))
+  — recovers figure numbers from 19th-c. and early-20th-c. caption
+  conventions (`Tab. III.`, `Pl. XII.`) the v0.1 heuristics didn't
+  match.
+
+#### Indices + features
+
+- **BibTeX round-trip curation**
+  ([#26](https://github.com/caseywdunn/corpus/issues/26)) —
+  `bib_export` serializes `biblio_authority.sqlite` to BibTeX;
+  `bib_import` brings hand edits back into the authority database.
+  Closes the loop on user curation of corpus bibliography.
+- **Multi-category lexicons**
+  ([#24](https://github.com/caseywdunn/corpus/issues/24)) —
+  `--lexicon CATEGORY:PATH` accepts any number of YAML files
+  (anatomy, biogeography, …); top-level keys define categories.
+  Annotations carry a `category` field so per-category resume works.
+- **Plant-source taxonomy support**
+  ([#23](https://github.com/caseywdunn/corpus/issues/23)) —
+  `ingest_taxonomy.py` accepts non-WoRMS Darwin Core archives,
+  including `taxa.tsv` Taxon-core layouts
+  ([#22](https://github.com/caseywdunn/corpus/issues/22)).
+- **Expanded default Tesseract language pack coverage**
+  ([#46](https://github.com/caseywdunn/corpus/issues/46)) — the OCR
+  fallback union covers more 19th-c. European scripts.
+
+#### MCP server
+
+- **Corpuscle-aware server name**
+  ([#17](https://github.com/caseywdunn/corpus/issues/17)) — the
+  deployed MCP server identifies itself as `corpus:<corpuscle>`
+  rather than the bare `corpus`, with `__version__` from
+  `pipeline/version.py` surfaced via `bundle_info`.
+- **Inline figure bytes from `get_figure_image`** — returns PNG
+  content directly so MCP clients don't need filesystem access to
+  the bundle.
+
+#### Internal
+
+- **`pipeline/` package**
+  ([#42](https://github.com/caseywdunn/corpus/issues/42),
+  [#44](https://github.com/caseywdunn/corpus/issues/44),
+  [#45](https://github.com/caseywdunn/corpus/issues/45)) — the
+  ~1700-line `process_corpus.py` is split into focused submodules
+  (`pipeline.annotate`, `pipeline.chunking`, `pipeline.metadata`,
+  `pipeline.figure_passes`, `pipeline.scan`, `pipeline.extract`,
+  `pipeline.runner`, `pipeline.main`). `process_corpus.py` is now a
+  thin CLI shim. No behavior change.
+- **`mcpsrv/` package**
+  ([#15](https://github.com/caseywdunn/corpus/issues/15)) — the
+  ~2050-line `mcp_server.py` is split per concern (papers /
+  taxonomy / bibliography / figures / transports). No behavior
+  change.
+- **`bib/` package**
+  ([#43](https://github.com/caseywdunn/corpus/issues/43)) — bundles
+  `bib_metadata`, `bib_export`, and `bib_import` into a single
+  namespace.
+- **Single-source `__version__`** in `pipeline/version.py`, stamped
+  into bundle manifests + MCP `bundle_info`. `main` / `dev` / `vN`
+  branching model adopted; `dev` carries a PEP 440 pre-release
+  suffix (`0.2.0.dev0` → `0.2.0`).
+- **`schema_version` field** on persistent artifacts so future
+  schema changes can be detected without parsing.
+- **`pngquant` added** to the build environment
+  ([#25](https://github.com/caseywdunn/corpus/issues/25)) so
+  bundled PNGs ship pre-compressed.
+
 ### Changed
 
-- **Repo layout cleanup.** Library modules `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py`, and `version.py` moved from the repo root into the `pipeline/` package — they were never run directly, only imported. Import sites: `from figures import …` → `from pipeline.figures import …` (and likewise for the other six). The repo root now holds only user-facing CLI entry points.
-- **One-off utilities relocated.** `dedup_ghost_works.py` and `unify_doi_corpus_key.py` moved to `tools/`.
-- **PLAN.md moved** to `dev_docs/PLAN.md` alongside the other dev_docs.
+- **Repo layout cleanup.** Library modules `figures.py`, `taxa.py`,
+  `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py`,
+  and `version.py` moved from the repo root into the `pipeline/`
+  package — they were never run directly, only imported. Import
+  sites: `from figures import …` → `from pipeline.figures import …`
+  (and likewise for the other six). One-off utilities
+  (`dedup_ghost_works.py`, `unify_doi_corpus_key.py`) moved to
+  `tools/`. `PLAN.md` moved to `dev_docs/`. The repo root now holds
+  only user-facing CLI entry points.
+- **Anatomy-only naming scrubbed throughout.** The lexicon system
+  is no longer hard-coded to anatomy; field and file names use
+  `lexicon` / `category` instead. Documentation refreshed in lock
+  step.
+- **`CLAUDE.md` → `AGENTS.md`** — generic agent-guidance filename
+  for compatibility with non-Claude assistants.
+- **MCP hot paths trimmed for token cost** — `list_papers` row
+  shape reduced; previously unbounded MCP list returns are now
+  bounded.
+- **Per-PDF subprocess gated by platform**
+  ([#18](https://github.com/caseywdunn/corpus/issues/18)) — the
+  docling subprocess wrapper, originally added to contain a Linux
+  segfault, no longer runs on macOS where it was pure overhead.
+
+### Fixed
+
+- **Bouchet batch scripts**
+  ([#20](https://github.com/caseywdunn/corpus/issues/20),
+  [#21](https://github.com/caseywdunn/corpus/issues/21)) —
+  native-library load problems, CUDA / torch wheel selection, and a
+  fail-loud preflight so configuration drift surfaces before the
+  array launches instead of after each task fails individually.
+- **`deploy/stack.yaml`**
+  ([#6](https://github.com/caseywdunn/corpus/issues/6)) — removed
+  stale default-VPC assumptions that broke deploys on accounts
+  without a default VPC.
+- **Docling extraction fails loudly** instead of writing placeholder
+  text when the parser produces nothing usable.
+- **Missing PyMuPDF surfaces as a stage failure** instead of a
+  silent skip.
+- **`--skip-pipeline` rejected with `--re-annotate-stale`** —
+  previously these silently combined into a no-op.
+- **`rapidfuzz` required at import** in `unify_doi_corpus_key` and
+  `dedup_ghost_works` — failure surfaces at startup, not partway
+  through a run.
+- **`ingest_to_vector_db` import** wired into `pipeline.main` — was
+  silently dropped during the package extraction.
+- **`package_for_serve` discovers lexicon outputs dynamically** —
+  no more hardcoded list that drifted from the multi-category
+  lexicon work; also bundles `instructions.md` and warns on missing
+  top-level files.
+- **Three issues filed during release validation**
+  ([#47](https://github.com/caseywdunn/corpus/issues/47),
+  [#48](https://github.com/caseywdunn/corpus/issues/48),
+  [#49](https://github.com/caseywdunn/corpus/issues/49)) — path
+  handling, cross-paper leakage in a query path, and an incorrect
+  rank field. Closed before release.
 
 ### Removed
 
-- **`bib_metadata.py` shim** — the deprecated re-export shim is removed. Migrate any leftover `from bib_metadata import …` imports to `from bib import …` (or `from bib.parser import …` for private helpers).
+- **`bib_metadata.py` shim** — the deprecated re-export shim is
+  removed. Migrate any leftover `from bib_metadata import …`
+  imports to `from bib import …` (or `from bib.parser import …`
+  for private helpers).
+
+### Deferred / known limitations
+
+- **Streamable HTTP transport with OAuth**
+  ([#5](https://github.com/caseywdunn/corpus/issues/5)) — deferred
+  indefinitely. SSE + bearer-token works for the ~20-collaborator
+  deploy target; revisit only if wider distribution materializes
+  or MCP clients drop SSE support.
+- **`deu_latf` Fraktur Tesseract pack**
+  ([#9](https://github.com/caseywdunn/corpus/issues/9)) — must be
+  installed manually (see [`dev_docs/INSTALL.md`](dev_docs/INSTALL.md))
+  before reprocessing 19th-c. German scans (Goldfuss 1820,
+  Pagenstecher 1869, Brandt 1837, Dönitz 1871). Carried over from
+  v0.1.
+- **Geographic mention layer**
+  ([#13](https://github.com/caseywdunn/corpus/issues/13)) — pushed
+  to v2.0+; the mention-layer surface is likely to be reworked at
+  the major-version boundary.
+- **Trait extraction + identification keys**
+  ([#14](https://github.com/caseywdunn/corpus/issues/14)) — v0.3
+  candidate. Substantial enough to warrant its own plan section
+  when picked up.
+- **Embedding model migration path**
+  ([#38](https://github.com/caseywdunn/corpus/issues/38)) —
+  design-only for v0.2; implement when a model swap is actually
+  needed (BGE-M3 v2 or a different family).
+- **MCP server lazy index loading**
+  ([#39](https://github.com/caseywdunn/corpus/issues/39)) —
+  premature at 1.8K papers; documented as a known scaling cliff
+  for 10K+ corpuses.
 
 ## [0.1.0] - 2026-05-01
 
