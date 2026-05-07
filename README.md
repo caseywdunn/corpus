@@ -149,7 +149,7 @@ OCR is the only stage where language matters. Each scanned PDF gets its language
 
 **What ships by default.** `environment.yaml` installs `tesseract` plus the language packs that back the default fallback set in `config.yaml` (`ocr.ocr_languages_default`): `eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`. The conda env also pulls down `grc` (Ancient Greek), but it's intentionally left out of the default fallback union — opt in via `config.yaml` if you have classical sources.
 
-19th-century German Fraktur (`deu_latf`) is part of the default fallback set but isn't packaged on conda-forge; the manual `traineddata` download is in [dev_docs/INSTALL.md](dev_docs/INSTALL.md#additional-ocr-language-packs).
+**One manual step required.** 19th-century German Fraktur (`deu_latf`) is part of the default fallback set but isn't packaged on conda-forge, so it has to be downloaded into the conda env's `tessdata` directory by hand after the env is built. Without it, scanned 19th-c. German papers (Goldfuss 1820, Brandt 1837, Pagenstecher 1869, Dönitz 1871, …) OCR to whitespace. Steps in [dev_docs/INSTALL.md](dev_docs/INSTALL.md#additional-ocr-language-packs).
 
 **How to tell if you need more packs.** After a Stage 1 run, `<output_dir>/documents/<HASH>/scan_detection.json` records the detected language for each scanned PDF. Skim those to see what languages your corpus actually contains. If a language is detected but no matching pack is installed, OCR silently falls back to the union of installed packs (English is always appended last) — extraction still succeeds, but accuracy on that paper drops. Adding more languages than you need is safe but slows OCR, so trim `ocr.ocr_languages_default` for a known-narrow corpus.
 
