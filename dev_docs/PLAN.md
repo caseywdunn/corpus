@@ -38,7 +38,7 @@ architectural lifts:
    parallel one.
 4. **Slot in anywhere** — #11 + #27 (vision at corpus scale), #15
    (mcp_server refactor), batch-script cleanup (#20, #21), feature
-   work (#5, #23, #24, #26), #12, #16, #17. Independent enough to
+   work (#23, #24, #26), #12, #16, #17. Independent enough to
    land in any session.
 
 The thematic groupings below remain useful reference; read this list
@@ -87,11 +87,6 @@ when planning a session.
 
 ### Indices + features
 
-- [#5](https://github.com/caseywdunn/corpus/issues/5) — **Streamable
-  HTTP transport with OAuth**, replacing the SSE-with-bearer-token
-  transport that v0.1 ships. Streamable HTTP is the current MCP
-  standard; bearer-token auth is fine for ~20 collaborators but not
-  for wider distribution.
 - [#26](https://github.com/caseywdunn/corpus/issues/26) — Round-trip
   bibliography: MCP export + shell import.
 - [#23](https://github.com/caseywdunn/corpus/issues/23) — Expand
@@ -227,6 +222,11 @@ reintroduces one for the next target.
 - [#39](https://github.com/caseywdunn/corpus/issues/39) — MCP server
   lazy index loading. Premature at 1.8K papers; document as a known
   scaling cliff and revisit when a corpuscle pushes 10K+.
+- [#5](https://github.com/caseywdunn/corpus/issues/5) — Streamable
+  HTTP transport with OAuth. Deferred indefinitely. SSE +
+  bearer-token works for the ~20-collaborator deploy target; revisit
+  only if wider distribution actually materializes or if MCP clients
+  drop SSE support.
 - Multi-region failover, autoscaling, or blue/green deploys for the
   AWS served bundle. Single-instance is fine until it isn't.
 - Authentication beyond bearer tokens / OAuth (Cognito, institutional

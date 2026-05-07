@@ -365,7 +365,7 @@ All seven checks should pass locally before you move to a real server. The deplo
   }
   ```
 
-For a cleaner Custom Connectors experience in the future, the server would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery. That's a post-deploy item, tracked against the AWS rollout.
+A cleaner Custom Connectors experience would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery, but this is deferred indefinitely — SSE + bearer token works for the ~20-collaborator deploy target.
 
 ## Additional documentation and resources
 
