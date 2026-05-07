@@ -69,7 +69,7 @@ stage_timeouts:
 # (~600 pages of plates) is the canary case. To process such a paper:
 # pre-split it, or raise this threshold knowing OCR may take hours.
 huge_document:
-  max_pages: 500
+  max_pages: 5000
 
 # Silent-failure quality gates (#36). Each threshold is conservative
 # by default; tighten for stricter corpora. A failed gate emits a
