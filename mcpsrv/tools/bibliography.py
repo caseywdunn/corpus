@@ -17,25 +17,25 @@ from ..app import _load_json, _need_index, mcp
 def get_bibliography(
     paper_hash: str,
     resolved: bool = False,
+    limit: int = 50,
+    offset: int = 0,
 ) -> List[Dict]:
-    """Parsed references for one paper (from Grobid TEI).
+    """Parsed references for one paper (from Grobid TEI). Defaults to
+    50 references; paginate via ``offset``.
 
     With ``resolved=True``, each reference is enriched with its
     bibliographic authority record: ``work_id``, ``in_corpus``,
-    ``corpus_hash`` (if in corpus), and ``cited_by_count`` (how many
-    corpus papers cite this work). This turns a flat list into a
-    navigable bibliography — click through to a cited work that's also
-    in the corpus via ``get_paper(corpus_hash)``.
-
-    Requires the bibliographic authority database; falls back to
-    unresolved output if unavailable.
+    ``corpus_hash`` (if in corpus), and ``cited_by_count``. Click
+    through to a cited work via ``get_paper(corpus_hash)``. Requires
+    the bibliographic authority database; falls back to unresolved
+    output if unavailable.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         return [{"error": f"no such paper_hash: {paper_hash}"}]
     refs = _load_json(Path(p["hash_dir"]) / "references.json", default={}) or {}
-    ref_list = refs.get("references", []) or []
+    ref_list = (refs.get("references", []) or [])[offset: offset + int(limit)]
     if not resolved or idx.biblio_db is None:
         return ref_list
 
@@ -64,28 +64,23 @@ def get_bibliography(
 
 
 @mcp.tool()
-def get_intext_citations(paper_hash: str) -> Dict:
-    """In-text citations parsed from this paper's body (issue #7).
+def get_intext_citations(
+    paper_hash: str,
+    limit: int = 100,
+    offset: int = 0,
+) -> Dict:
+    """In-text citations parsed from this paper's body.
 
-    Returns the deduplicated paragraphs from the paper plus a list of
-    citation records, one per ``<ref type="bibr">`` Grobid found in the
-    body.  Each record has:
+    Returns ``{paragraphs, citations, total_paragraphs,
+    total_citations}``. Each citation record carries
+    ``target_xml_id`` (links to ``get_bibliography(xml_id=...)``;
+    ``None`` for unresolved), ``surface`` (the cited text), the
+    enclosing ``section`` heading, and ``para_index`` into
+    ``paragraphs``. Defaults to the first 100 of each list;
+    paginate via ``offset``.
 
-    * ``target_xml_id`` — ``"#b5"``-style ID into ``get_bibliography``'s
-      ``xml_id`` field.  ``None`` for unresolved citations (Grobid
-      couldn't match the surface text to a bibliography entry; ~40% of
-      cases corpus-wide).  Surface text is preserved either way.
-    * ``surface`` — original text from the TEI ref element
-      (e.g. ``"Furnestin, 1960"``).
-    * ``section`` — text of the nearest enclosing section heading.
-    * ``para_index`` — index into the returned ``paragraphs`` list.
-
-    The paragraphs list is the actual passages where the citations
-    appear — useful for "show me where this paper cites X" lookups.
-
-    Returns ``{"error": ...}`` if the paper isn't in the corpus or its
-    intext_citations.json is missing (papers processed before issue #7
-    landed; backfill with ``backfill_intext_citations.py``).
+    Returns ``{"error": ...}`` if intext_citations.json is missing
+    (backfill with ``backfill_intext_citations.py``).
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
@@ -97,7 +92,14 @@ def get_intext_citations(paper_hash: str) -> Dict:
             "error": "intext_citations.json missing — backfill with "
                      "`python backfill_intext_citations.py <output_dir>`",
         }
-    return data
+    paragraphs = data.get("paragraphs") or []
+    citations = data.get("citations") or []
+    return {
+        "paragraphs": paragraphs[offset: offset + int(limit)],
+        "citations": citations[offset: offset + int(limit)],
+        "total_paragraphs": len(paragraphs),
+        "total_citations": len(citations),
+    }
 
 
 @mcp.tool()

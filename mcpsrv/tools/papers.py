@@ -10,18 +10,10 @@ from ..app import _load_json, _need_index, mcp
 
 @mcp.tool()
 def bundle_info() -> Dict:
-    """Return metadata about the served bundle the server is backed by.
-
-    For bundles produced by ``package_for_serve.py`` this reports the
-    version string, creation timestamp, pipeline git SHA, embedding
-    model + dim, paper / chunk / figure counts, and whether PDFs were
-    included.  Clients can call this on startup to detect stale
-    endpoints ("I queried against v1.0.0 but the server now reports
-    v1.1.0") and to cite a corpus version in downstream work.
-
-    For local build outputs (no ``bundle_manifest.json`` at the root),
-    returns ``{"bundle_version": null}`` — the server still works but
-    there is no stable identifier for what it's serving.
+    """Server identity + bundle metadata: version, creation
+    timestamp, pipeline SHA, embedding model, paper/chunk/figure
+    counts. Returns ``bundle_version: null`` when the server is
+    backed by a local build output rather than a packaged bundle.
     """
     idx = _need_index()
     if idx.bundle_manifest is None:
@@ -44,14 +36,17 @@ def bundle_info() -> Dict:
 def list_papers(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
-    limit: Optional[int] = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> List[Dict]:
-    """List every paper in the corpus with bibliographic + annotation counts.
+    """List papers in the corpus, ordered by year. One row per paper:
+    hash, title, year, first author, counts of chunks/figures/taxa
+    plus per-category lexicon-term counts.
 
     Filter by year range with ``year_from`` / ``year_to`` (inclusive).
-    Returns at most ``limit`` rows (default: all papers). One row per
-    paper with: hash, title, year, first author surname, counts of
-    chunks, figures, taxa, and lexicon terms (per category).
+    Defaults to 100 rows; paginate via ``offset``. Call
+    ``get_paper(hash)`` for full metadata (authors, abstract, DOI,
+    filename, top taxa, top lexicon terms).
     """
     idx = _need_index()
     rows: List[Dict] = []
@@ -69,17 +64,13 @@ def list_papers(
             "hash": h,
             "title": p.get("title"),
             "year": year,
-            "year_source": p.get("year_source"),
             "first_author": first_author,
-            "n_authors": len(p.get("authors", []) or []),
-            "filename": p.get("filename"),
             "n_chunks": p.get("n_chunks", 0),
             "n_figures": p.get("n_figures", 0),
             "n_taxa": p.get("n_taxa", 0),
             "n_lexicon_terms": p.get("n_lexicon_terms") or {},
-            "scan_file_type": p.get("scan_file_type"),
         })
-    return rows if limit is None else rows[: int(limit)]
+    return rows[offset: offset + int(limit)]
 
 
 _NON_LEXICON_FILES = {
