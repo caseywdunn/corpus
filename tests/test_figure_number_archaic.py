@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from figures import _roman_to_int, parse_figure_number
+from pipeline.figures import _roman_to_int, parse_figure_number
 
 
 # ---------------------------------------------------------------------------

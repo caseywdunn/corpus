@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Repo layout cleanup.** Library modules `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py`, and `version.py` moved from the repo root into the `pipeline/` package — they were never run directly, only imported. Import sites: `from figures import …` → `from pipeline.figures import …` (and likewise for the other six). The repo root now holds only user-facing CLI entry points.
+- **One-off utilities relocated.** `dedup_ghost_works.py` and `unify_doi_corpus_key.py` moved to `tools/`.
+- **PLAN.md moved** to `dev_docs/PLAN.md` alongside the other dev_docs.
+
+### Removed
+
+- **`bib_metadata.py` shim** — the deprecated re-export shim is removed. Migrate any leftover `from bib_metadata import …` imports to `from bib import …` (or `from bib.parser import …` for private helpers).
+
 ## [0.1.0] - 2026-05-01
 
 First tagged release. The pipeline ingests a corpus of scientific-literature
@@ -209,6 +221,6 @@ late-18th-century printed monographs through born-digital 2025 articles.
   (compound-figure split) and the bulk of the 6,841 pre-existing
   `missing_figures[]` records are unresolved. Tracked in
   [#11](https://github.com/caseywdunn/corpus/issues/11) for v0.1.x.
-- **Geographic extraction** (§12 Layer 3 in PLAN.md) — not yet implemented.
+- **Geographic extraction** (§12 Layer 3 in dev_docs/PLAN.md) — not yet implemented.
   Tracked in [#13](https://github.com/caseywdunn/corpus/issues/13).
   

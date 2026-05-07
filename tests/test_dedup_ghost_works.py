@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_PATH = REPO_ROOT / "dedup_ghost_works.py"
+SCRIPT_PATH = REPO_ROOT / "tools" / "dedup_ghost_works.py"
 
 _spec = importlib.util.spec_from_file_location("dedup_ghost_works", SCRIPT_PATH)
 dedup = importlib.util.module_from_spec(_spec)

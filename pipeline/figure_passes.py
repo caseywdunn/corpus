@@ -19,7 +19,8 @@ import json
 import logging
 from pathlib import Path
 
-from figures import (
+from . import stamp_artifact
+from .figures import (
     detect_figure_rois,
     detect_figure_rois_via_vision,
     detect_missing_figures,
@@ -28,8 +29,6 @@ from figures import (
     parse_figure_number,
     parse_panels_from_caption,
 )
-
-from . import stamp_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +104,8 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
     images we opened. Skips figures with no multi-panel caption (no
     point paying OCR cost on single-panel figures).
 
-    OCR reliability on line-art scientific figures varies a lot — PLAN.md
-    §9 calls out vision-LLM fallback as Pass 3b for cases Pass 3a
+    OCR reliability on line-art scientific figures varies a lot —
+    dev_docs/PLAN.md §9 calls out vision-LLM fallback as Pass 3b for cases Pass 3a
     can't resolve. For now, figures where OCR finds no labels keep
     ``pass3_status = "no_labels_found"`` and no ROIs; downstream tools
     should fall back to whole-image retrieval + caption description.

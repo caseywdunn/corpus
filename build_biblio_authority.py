@@ -57,7 +57,7 @@ try:
 except ImportError:
     _HAS_BHL_DEPS = False
 
-from external import (
+from pipeline.external import (
     CircuitBreaker,
     CircuitOpenError,
     is_transient,
@@ -1106,7 +1106,7 @@ def main() -> int:
     )
 
     if args.strict_network:
-        from external import set_strict_network
+        from pipeline.external import set_strict_network
         set_strict_network(True)
 
     if args.output is None:

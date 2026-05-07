@@ -17,7 +17,7 @@ from .indexes import BiblioAuthority, CorpusIndex, TaxonMentionDB
 from . import tools as _tools  # noqa: F401  (registers @mcp.tool() decorators)
 from .transport import _load_auth_token, _run_sse
 
-from taxa import TaxonomyDB
+from pipeline.taxa import TaxonomyDB
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def main() -> int:
         help="MCP transport. stdio (default) is for local MCP clients "
              "that launch this process themselves (Claude Desktop, Claude "
              "Code, Cursor). sse serves over HTTP/Server-Sent-Events for "
-             "remote deployments (PLAN.md §10).",
+             "remote deployments (dev_docs/PLAN.md §10).",
     )
     parser.add_argument(
         "--host", default="127.0.0.1",

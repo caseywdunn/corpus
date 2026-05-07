@@ -27,10 +27,10 @@ keep working during the deprecation window.
 # PIPELINE_VERSION is the value recorded in pipeline_state.json on every
 # successful stage. A mismatch on --resume forces the affected stage to
 # re-run, so artifacts are never reused across releases. Sourced from
-# version.py (the single source of truth that also stamps bundle
+# pipeline/version.py (the single source of truth that also stamps bundle
 # manifests, MCP bundle_info, etc.) — the release ritual bumps that
 # constant, and per-paper artifacts are invalidated on the same cadence.
-from version import __version__ as PIPELINE_VERSION  # noqa: E402,F401
+from .version import __version__ as PIPELINE_VERSION  # noqa: E402,F401
 
 
 # Per-artifact schema version. Bumped only when an artifact's on-disk

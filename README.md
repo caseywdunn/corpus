@@ -333,7 +333,7 @@ Clients send `Authorization: Bearer <token>` on every request. Without `--auth-t
 python tools/smoke_test_sse.py output
 ```
 
-All seven checks should pass locally before you move to a real server. The deployment pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) and [PLAN.md §10](PLAN.md).
+All seven checks should pass locally before you move to a real server. The deployment pattern (EC2 + ALB + CloudFront, bundle pulled from S3) is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) and [dev_docs/PLAN.md §10](dev_docs/PLAN.md).
 
 **4. Connect a client.** Remote-MCP support exists natively in Claude Desktop, claude.ai web, and Claude Code. The paths differ in friction and in which transport + auth they target. Recommended in order:
 
@@ -378,7 +378,7 @@ For a cleaner Custom Connectors experience in the future, the server would add a
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [dev_docs/INSTALL.md](dev_docs/INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
-- [PLAN.md](PLAN.md) — roadmap and design decisions
+- [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 
 External:
 

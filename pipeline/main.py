@@ -20,14 +20,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from bib import BibIndex
-from grobid_client import GrobidClient
-from taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_lexicons
 from .chunking import ingest_to_vector_db
 from .config import CONFIG, load_config
 from .figure_passes import _pass3b_annotate_rois
+from .grobid_client import GrobidClient
 from .io import (
     HASH_PREFIX_LEN,
     _verify_or_raise_collision,
@@ -39,6 +38,7 @@ from .io import (
 )
 from .log import per_pdf_file_log, setup_root_logging
 from .runner import run_pdf_processing_pipeline
+from .taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 from .stages import (
     _all_stage_artifacts_complete,
     _file_sha256,
@@ -129,7 +129,7 @@ def main():
         action="store_true",
         help="Run Pass 3a — OCR-driven panel/figure ROI detection on multi-panel "
              "figures (adds ~1-2 s per figure with caption panels; opt-in because "
-             "OCR reliability on line-art figures is mixed; see PLAN.md §9)",
+             "OCR reliability on line-art figures is mixed; see dev_docs/PLAN.md §9)",
     )
     parser.add_argument(
         "--vision-backend",
@@ -198,7 +198,7 @@ def main():
     setup_root_logging()
 
     if args.strict_network:
-        from external import set_strict_network
+        from .external import set_strict_network
         set_strict_network(True)
 
     # Mutate the pipeline.config singleton in place so all readers
@@ -321,7 +321,7 @@ def main():
     vision_backend = None
     if args.vision_backend:
         try:
-            from vision import get_vision_backend
+            from .vision import get_vision_backend
             kwargs = {}
             if args.vision_model:
                 kwargs["model"] = args.vision_model

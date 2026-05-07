@@ -7,7 +7,7 @@ defined declaratively in [deploy/stack.yaml](../deploy/stack.yaml)
 
 ## Architecture
 
-Deliberately boring, per PLAN.md §10, scaled to ~20 collaborators:
+Deliberately boring, per dev_docs/PLAN.md §10, scaled to ~20 collaborators:
 
 - **EC2 `t3.large`** on the default VPC, Ubuntu 24.04 LTS, Elastic IP.
 - **nginx** on the instance terminates TLS via Let's Encrypt, reverse-

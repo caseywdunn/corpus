@@ -21,8 +21,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from taxa import TaxonomyDB
-from embeddings import EmbeddingBackend, EmbeddingError, get_embedder
+from pipeline.taxa import TaxonomyDB
+from pipeline.embeddings import EmbeddingBackend, EmbeddingError, get_embedder
 
 from .app import _load_json
 
@@ -61,7 +61,7 @@ class CorpusIndex:
 
         # Per-paper header, keyed on the 12-char short hash (directory name).
         self.papers: Dict[str, Dict] = {}
-        # Bundle manifest (PLAN.md §10) if this is a served bundle.  None
+        # Bundle manifest (dev_docs/PLAN.md §10) if this is a served bundle.  None
         # for build outputs — bundle_info surfaces this distinction so
         # clients can tell a local dev run from a versioned deploy.
         self.bundle_manifest: Optional[Dict] = None
@@ -135,7 +135,7 @@ class CorpusIndex:
                 f"Point the server at a processed corpus output directory."
             )
 
-        # PLAN.md §10: served bundles ship a bundle_manifest.json at the
+        # dev_docs/PLAN.md §10: served bundles ship a bundle_manifest.json at the
         # root of the output dir.  Build outputs don't.  Read on startup
         # so bundle_info can report it without re-opening files.
         self.bundle_manifest = _load_json(

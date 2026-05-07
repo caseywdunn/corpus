@@ -19,7 +19,7 @@ centralizes:
 
 Usage:
 
-    from external import retry_with_backoff, CircuitBreaker, is_transient
+    from pipeline.external import retry_with_backoff, CircuitBreaker, is_transient
 
     breaker = CircuitBreaker("grobid", threshold=10, cooldown_s=300)
 

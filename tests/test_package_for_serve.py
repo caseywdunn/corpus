@@ -181,7 +181,7 @@ def test_package_raises_when_documents_missing(tmp_path: Path):
         )
 
 
-# ── Path scrubbing (PLAN.md §10) ────────────────────────────────────
+# ── Path scrubbing (dev_docs/PLAN.md §10) ────────────────────────────────────
 
 def _make_output_with_absolute_paths(root: Path) -> Path:
     """Build an output/ tree whose summary.json and figures.json carry the

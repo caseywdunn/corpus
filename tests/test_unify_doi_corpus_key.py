@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_PATH = REPO_ROOT / "unify_doi_corpus_key.py"
+SCRIPT_PATH = REPO_ROOT / "tools" / "unify_doi_corpus_key.py"
 
 _spec = importlib.util.spec_from_file_location("unify_doi_corpus_key", SCRIPT_PATH)
 unify_mod = importlib.util.module_from_spec(_spec)

@@ -14,9 +14,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from taxa import TaxonomyDB, extract_lexicon_mentions, extract_taxon_mentions
-
 from . import stamp_artifact
+from .taxa import TaxonomyDB, extract_lexicon_mentions, extract_taxon_mentions
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ The top-level entry-point scripts are thin shims; the implementation is grouped 
 
 | Package | Role |
 |---|---|
-| `pipeline/` | Stage 1 + Pass 3b/3c orchestrator. Split into `scan.py` (OCR), `extract.py` (docling), `metadata.py` (Grobid + bib), `chunking.py`, `annotate.py` (taxa + lexicons), `figure_passes.py`, `runner.py` (per-paper orchestrator), `main.py` (CLI), and supporting `config.py` / `io.py` / `log.py` / `stages.py`. |
+| `pipeline/` | Stage 1 + Pass 3b/3c orchestrator and shared library modules. Split into `scan.py` (OCR), `extract.py` (docling), `metadata.py` (Grobid + bib), `chunking.py`, `annotate.py` (taxa + lexicons), `figure_passes.py`, `runner.py` (per-paper orchestrator), `main.py` (CLI), and supporting `config.py` / `io.py` / `log.py` / `stages.py`. Shared library modules: `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py`, `version.py`. |
 | `mcpsrv/` | MCP server. `app.py` defines the FastMCP instance; `tools/{papers,taxonomy,bibliography,figures,chunks}.py` register the 27 `@mcp.tool()` decorated functions; `transport.py` handles stdio + SSE; `indexes.py` is the eager in-memory index. |
 | `bib/` | BibTeX import / export round-trip plus shared metadata helpers (`parser.py`, `importer.py`, `export.py`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
@@ -95,7 +95,7 @@ Figure extraction is a multi-pass process designed for historical taxonomic lite
 
 1. **Docling extraction**: `document.pictures` with provenance (page, bbox). Each figure is classified by a transformer model (`DocumentFigureClassifier-v2.5`) into content types.
 2. **Caption extraction**: Two-path approach -- first tries docling's structural caption links, then falls back to a proximity heuristic that considers same-page and facing-page text items (important for historical plate monographs where caption pages face plate pages).
-3. **Figure classification** (`figures.py:classify_figure`): Categorizes each extracted region as `furniture` (headers, page numbers), `plate_label` (standalone "Plate N" text), `figure` (captioned, numbered, reasonable size), or `unclassified`.
+3. **Figure classification** (`pipeline/figures.py:classify_figure`): Categorizes each extracted region as `furniture` (headers, page numbers), `plate_label` (standalone "Plate N" text), `figure` (captioned, numbered, reasonable size), or `unclassified`.
 4. **Figure-number parsing**: Multilingual regex (`_FIGURE_PREFIX`) covers Figure, Abb./Abbildung, Plate, Pl., image, illustration, and their abbreviations in English, German, French, Russian, Spanish, and Italian.
 5. **PyMuPDF fallback**: When docling finds no savable figures, raw `page.get_images()` extracts embedded images with basic metadata.
 6. **Deduplication**: Perceptual hashing (average hash) merges near-duplicate extractions from the two paths.
@@ -149,12 +149,16 @@ Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM 
 | `update_corpus.py` | Orchestrator that runs pipeline + post-pipeline scripts in dependency order |
 | `corpus_status.py` | Single-command rollup of stage completion, quality flags, staleness |
 | `embed_chunks.py` | Stage 2 embedding (BGE-M3 → LanceDB) |
-| `figures.py` | Figure extraction, classification, caption parsing, chunk-figure linking |
-| `vision.py` | Vision-LLM backends (local Qwen2.5-VL, Claude API) |
+| `pipeline/figures.py` | Figure extraction, classification, caption parsing, chunk-figure linking |
+| `pipeline/vision.py` | Vision-LLM backends (local Qwen2.5-VL, Claude API) |
+| `pipeline/taxa.py` | Taxonomy DB access, taxon-mention extraction, lexicon loaders |
+| `pipeline/grobid_client.py` | Grobid TEI parsing for headers, references, in-text citations |
+| `pipeline/embeddings.py` | BGE-M3 embedding backends (local, HF, etc.) |
+| `pipeline/external.py` | Shared retry + circuit breaker + `--strict-network` mode |
+| `pipeline/version.py` | Single-source `__version__` stamped into every artifact |
 | `mcpsrv/` | MCP server implementation (FastMCP, eager index, stdio + SSE transports) |
 | `mcp_server.py` | Thin CLI shim into `mcpsrv.main` |
 | `bib/` | BibTeX parser, importer, exporter (round-trip curation) |
-| `external.py` | Shared retry + circuit breaker + `--strict-network` mode |
 | `config.yaml` | Pipeline configuration (loaded by `pipeline.config.load_config`) |
 | `slurm/batch_pipeline.sh` | SLURM orchestrator: chains Grobid, Stage 1 array, cleanup, Pass 3b, Embed |
 | `slurm/batch_process_corpus.sh` | SLURM Stage 1 batch script (supports job arrays) |

@@ -11,7 +11,7 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 - [README.md](README.md) — installation, usage, MCP server setup, examples
 - [CONTRIBUTING.md](CONTRIBUTING.md) — branching model, release ritual, version bumps
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release
-- [PLAN.md](PLAN.md) — roadmap and design decisions for the active version
+- [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface (27 tools)
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
@@ -47,7 +47,7 @@ python mcp_server.py <output_dir>
 
 | Path | Role |
 | --- | --- |
-| `pipeline/` | Stage 1 + Pass 3b/3c orchestrator. CLI in `pipeline/main.py`; per-stage modules: `scan.py`, `extract.py`, `metadata.py`, `chunking.py`, `annotate.py`, `figure_passes.py`, `runner.py`. |
+| `pipeline/` | Stage 1 + Pass 3b/3c orchestrator and shared library modules. CLI in `pipeline/main.py`; per-stage modules: `scan.py`, `extract.py`, `metadata.py`, `chunking.py`, `annotate.py`, `figure_passes.py`, `runner.py`. Library modules: `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py`, `version.py`. |
 | `mcpsrv/` | MCP server. FastMCP `app.py` + 27 tools in `tools/{papers,taxonomy,bibliography,figures,chunks}.py`. |
 | `bib/` | BibTeX parser, importer, exporter (round-trip curation). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
@@ -66,5 +66,5 @@ python mcp_server.py <output_dir>
 - Annotation artifacts (`taxa.json` plus one `<category>.json` per category in the `--lexicon` YAML) stamp an `input_fingerprint`; per-stage resume detects mismatch and re-runs the annotation pass automatically.
 - Pipeline failures land in structured `summary.json["stage_failures"]` with reason codes (`timeout`, `crash`, `external_unavailable`, `unsupported_format`, `corrupted`, `quality_gate`, `too_large`); silent-failure quality gates emit `quality_flags`. Free-text `errors[]` is being phased out.
 - `config.yaml` is loaded by `pipeline.config.load_config`; CLI flags override config values, which override built-in defaults.
-- External calls (Grobid, BHL, CrossRef, OpenAlex) flow through `external.py` for shared retry + backoff + circuit breaker. `--strict-network` aborts on the first transient failure for release builds.
-- `__version__` in `version.py` is the single source of truth; CONTRIBUTING.md covers the branching model.
+- External calls (Grobid, BHL, CrossRef, OpenAlex) flow through `pipeline/external.py` for shared retry + backoff + circuit breaker. `--strict-network` aborts on the first transient failure for release builds.
+- `__version__` in `pipeline/version.py` is the single source of truth; CONTRIBUTING.md covers the branching model.

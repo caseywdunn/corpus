@@ -1,12 +1,12 @@
 """Vision-model backends for Pass 3b figure panel / sub-figure detection.
 
-PLAN.md §9. Pass 3a (Tesseract OCR in figures.py) has low recall on
+dev_docs/PLAN.md §9. Pass 3a (Tesseract OCR in pipeline/figures.py) has low recall on
 line-art scientific figures — around 20–40% of panels on the demo set.
 Pass 3b escalates to a vision-language model that can read embedded
 labels (``A``, ``B``, ``C``) and detect compound figures (``Fig. 3`` +
 ``Fig. 4`` in one image) much more reliably.
 
-Backend abstraction mirrors ``embeddings.py``:
+Backend abstraction mirrors ``pipeline.embeddings``:
 
 * :class:`ClaudeVisionBackend` — Anthropic Claude via the official SDK.
   Network-dependent, pennies per figure at Haiku. The right choice for
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 #     "source": "vision:claude-haiku-4-5" | "vision:qwen2.5-vl-7b",
 #   }
 #
-# Pass 3b in figures.py reconciles these with panels_from_caption so the
+# Pass 3b in pipeline/figures.py reconciles these with panels_from_caption so the
 # final figures.json entry looks the same whether Pass 3a or Pass 3b
 # populated it.
 
@@ -376,7 +376,7 @@ class LocalVLMBackend(VisionBackend):
     required. On an H200, per-figure inference is ~1–3 s.
 
     Device selection follows the same ``CORPUS_DEVICE`` convention as
-    ``embeddings.py``. The default is auto-detect (cuda → mps → cpu).
+    ``pipeline.embeddings``. The default is auto-detect (cuda → mps → cpu).
 
     ``max_pixels`` controls the maximum image resolution fed to the
     model. Qwen2.5-VL resizes internally (min/max pixel budget), but
@@ -404,7 +404,7 @@ class LocalVLMBackend(VisionBackend):
             self._device = device
         else:
             try:
-                from embeddings import detect_device
+                from .embeddings import detect_device
                 self._device = detect_device()
             except ImportError:
                 self._device = self._probe_device()

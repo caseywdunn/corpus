@@ -15,13 +15,12 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from figures import (
+from . import stamp_artifact
+from .figures import (
     detect_missing_figures,
     extract_caption_info,
     parse_figure_number,
 )
-
-from . import stamp_artifact
 from .scan import create_cell_visualizations
 
 logger = logging.getLogger(__name__)
@@ -117,7 +116,7 @@ def extract_docling_content(
                 "figure_id": figure_id,
                 "filename": figure_path.name,
                 "file_path": str(figure_path),
-                "caption_text": caption or "",  # canonical; see PLAN.md §3
+                "caption_text": caption or "",  # canonical; see dev_docs/PLAN.md §3
             }
             entry.update(meta or {})
             figures_data.append(entry)
@@ -148,7 +147,7 @@ def extract_docling_content(
                 logger.warning("Could not serialize docling bbox: %s", e)
         return meta
 
-    # Two-pass docling figure extraction (Phase D.2 — see PLAN.md).
+    # Two-pass docling figure extraction (Phase D.2 — see dev_docs/PLAN.md).
     #
     # Pass 1: gather every docling Picture's image + bbox + caption in
     # memory. We don't write images to disk yet — the filename policy
@@ -164,7 +163,7 @@ def extract_docling_content(
     # and the MCP tools can default to real figures by filtering on
     # figure_type.
     if document is not None and hasattr(document, "pictures"):
-        from figures import (
+        from .figures import (
             classify_figure,
             dedupe_figures,
             compose_figure_filename,
@@ -282,7 +281,7 @@ def extract_docling_content(
         )
     elif len(figures_data) == 0:
         try:
-            from figures import classify_figure
+            from .figures import classify_figure
             import fitz  # PyMuPDF
             doc = fitz.open(str(pdf_path))
             for page_num in range(len(doc)):

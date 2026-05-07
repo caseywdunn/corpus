@@ -23,9 +23,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from bib import BibIndex
-from figures import generate_figures_report, resolve_compound_figures
-from grobid_client import GrobidClient
-from taxa import TaxonomyDB
 
 from . import stamp_artifact
 from .annotate import _extract_taxa_and_lexicons
@@ -38,8 +35,11 @@ from .figure_passes import (
     _pass3a_annotate_rois,
     _pass3b_annotate_rois,
 )
+from .figures import generate_figures_report, resolve_compound_figures
+from .grobid_client import GrobidClient
 from .metadata import extract_metadata
 from .scan import detect_scan_type, prepare_pdf
+from .taxa import TaxonomyDB
 from .stages import (
     _HugeDocumentError,
     _pdf_page_count,

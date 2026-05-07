@@ -57,7 +57,7 @@ def translate_chunk(
     """Translate one chunk to the target language (default English), via
     the Anthropic Claude API.
 
-    On-demand — nothing is translated at ingest time (PLAN.md §3 decision).
+    On-demand — nothing is translated at ingest time (dev_docs/PLAN.md §3 decision).
     Results are cached at ``<hash_dir>/translated_{target_language}.json``
     keyed by ``chunk_id`` so repeated calls are free.
 
@@ -188,7 +188,7 @@ def get_chunks_for_topic(
 
     Returns the top-``k`` chunks most similar to ``query`` by cosine
     similarity. Use this for "how is X discussed in the corpus" style
-    questions (PLAN.md §8 Q6, Q8) where the match criterion is
+    questions (dev_docs/PLAN.md §8 Q6, Q8) where the match criterion is
     semantic, not a literal taxon or lexicon term — for those use
     ``get_chunks_for_taxon`` / ``get_figures_for_lexicon_term`` instead,
     which return exhaustive matches.

@@ -18,15 +18,15 @@ from pathlib import Path
 from typing import Optional
 
 from bib import bib_entry_to_metadata
-from grobid_client import (
+
+from . import stamp_artifact
+from .grobid_client import (
     GrobidClient,
     GrobidUnavailableError,
     parse_tei_header,
     parse_tei_intext_citations,
     parse_tei_references,
 )
-
-from . import stamp_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ def extract_metadata(
         A live :class:`GrobidClient`, or None to skip Grobid entirely
         (placeholder-only mode).
     bib_entry:
-        Parsed BibTeX entry from :class:`bib_metadata.BibIndex`. When
+        Parsed BibTeX entry from :class:`bib.BibIndex`. When
         present, overrides Grobid's header parse for this document.
     """
     hash_dir = metadata_output.parent

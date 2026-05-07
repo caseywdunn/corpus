@@ -28,7 +28,7 @@ from typing import List, Optional
 import requests
 from lxml import etree
 
-from external import (
+from .external import (
     CircuitBreaker,
     CircuitOpenError,
     is_transient,

@@ -5,7 +5,7 @@ Reads existing per-paper artifacts only — no re-extraction needed. Walks
 ``<corpuscle>/documents/*/taxa.json`` and rolls up every mention into a
 single SQLite database at ``<corpuscle>/taxon_mentions.sqlite``.
 
-This is §12 Layer 2 from PLAN.md: a cross-paper mention table that enables
+This is §12 Layer 2 from dev_docs/PLAN.md: a cross-paper mention table that enables
 span-level taxon queries and (later) taxon × locality joins with Layer 3.
 
 The per-paper taxa.json files remain the source of truth — this database

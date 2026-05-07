@@ -77,7 +77,7 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
 
 ### Releasing
 
-1. On `dev`, set `__version__` in [version.py](version.py) to the release
+1. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
    string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
    for it. Commit.
 2. Merge `dev` → `main`, push.
@@ -91,7 +91,7 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
 
 ### Versioning
 
-[version.py](version.py) is the single source of truth for the code
+[pipeline/version.py](pipeline/version.py) is the single source of truth for the code
 version. It is imported by `mcp_server.py` (surfaced via the
 `bundle_info` tool) and `package_for_serve.py` (default for
 `--version`, stamped into `bundle_manifest.json`), and gets paired with
@@ -110,11 +110,12 @@ itself if you change one.
 
 ## Layout conventions
 
-- Code at the repo root is either a library module imported by the pipeline (`embeddings.py`, `external.py`, `figures.py`, `grobid_client.py`, `taxa.py`, `vision.py`) or a CLI entry point the user runs directly (`process_corpus.py`, `embed_chunks.py`, `mcp_server.py`, `build_biblio_authority.py`, `build_taxon_mentions.py`, `ingest_taxonomy.py`, `reconcile_corpus_to_biblio.py`, `corpus_status.py`, `update_corpus.py`, `backfill_intext_citations.py`, `package_for_serve.py`, `bib_export.py`, `bib_import.py`).
-- [bib/](bib/) — bibliographic round-trip package: `parser.py` (BibTeX parser, `BibIndex`), `export.py` (DB → BibTeX), `importer.py` (BibTeX → DB). Exposed as a single namespace via `from bib import …`. The root `bib_export.py` / `bib_import.py` are thin CLI shims; `bib_metadata.py` at root is a backwards-compat re-export shim slated for removal.
+- Code at the repo root is exclusively CLI entry points the user runs directly: `update_corpus.py` (the orchestrator), `process_corpus.py`, `embed_chunks.py`, `mcp_server.py`, `build_biblio_authority.py`, `build_taxon_mentions.py`, `ingest_taxonomy.py`, `reconcile_corpus_to_biblio.py`, `corpus_status.py`, `backfill_intext_citations.py`, `package_for_serve.py`, `bib_export.py`, `bib_import.py`. Library modules imported by these scripts live in `pipeline/` (the pipeline package).
+- [pipeline/](pipeline/) — Stage 1 + Pass 3b/3c orchestrator and supporting library modules. Submodules: `scan.py` (OCR), `extract.py` (docling), `metadata.py` (Grobid + bib), `chunking.py`, `annotate.py` (taxa + lexicons), `figure_passes.py`, `runner.py` (per-paper orchestrator), `main.py` (CLI), `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py` (shared retry / circuit breaker), `version.py` (single-source `__version__`), and supporting `config.py` / `io.py` / `log.py` / `stages.py`.
+- [bib/](bib/) — bibliographic round-trip package: `parser.py` (BibTeX parser, `BibIndex`), `export.py` (DB → BibTeX), `importer.py` (BibTeX → DB). Exposed as a single namespace via `from bib import …`. The root `bib_export.py` / `bib_import.py` are thin CLI shims.
 - [mcpsrv/](mcpsrv/) — MCP server package: `app.py` (FastMCP instance + index accessor), `indexes.py` (`CorpusIndex` / `TaxonMentionDB` / `BiblioAuthority`), `tools/` (papers / taxonomy / figures / chunks / bibliography), `transport.py` (bearer auth + SSE), `main.py` (argparse + dispatch). Adding a new MCP tool: extend the appropriate `mcpsrv/tools/<concern>.py` module and import it from `mcpsrv/tools/__init__.py` so the `@mcp.tool()` decorator registers at startup. The root `mcp_server.py` is a thin CLI shim.
 - [slurm/](slurm/) — SLURM batch scripts for Bouchet; documented in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
-- [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`.
+- [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`, one-off maintenance scripts (`dedup_ghost_works.py`, `unify_doi_corpus_key.py`).
 - [tests/](tests/) — one file per subsystem.
 - Per-instance data (SQLites, embeddings, per-paper artifacts) lives inside the user's *corpuscle* directory — passed as the first positional arg to every CLI — not under the repo root. See the [corpuscle layout](README.md#corpuscle-layout) in README.md. The repo no longer ships a `resources/` directory.
 - [demo/](demo/) — small bundle for smoke-testing the pipeline: 11 siphonophore PDFs, a matching `siphonophores.bib`, and an example multi-category `lexicon.yaml`. The lexicon is treated as user input, parallel to `--bib` — not part of the tool.
@@ -130,4 +131,4 @@ Two install manifests live at the repo root:
 
 ## Reporting bugs + proposing changes
 
-Open a GitHub issue with enough context to reproduce: paper hashes, exact commands, the output tree you're running against. For design changes, link or quote the relevant [PLAN.md](PLAN.md) section.
+Open a GitHub issue with enough context to reproduce: paper hashes, exact commands, the output tree you're running against. For design changes, link or quote the relevant [dev_docs/PLAN.md](dev_docs/PLAN.md) section.

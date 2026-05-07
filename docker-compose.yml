@@ -14,7 +14,7 @@
 # On Bouchet / YCRC, Singularity converts the same image:
 #     singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
 #     singularity run --bind $HOME grobid.sif  (with port forwarding)
-# See PLAN.md for HPC deployment notes.
+# See dev_docs/PLAN.md for HPC deployment notes.
 
 services:
   grobid:

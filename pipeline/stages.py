@@ -99,7 +99,7 @@ def _classify_exception(e: BaseException) -> Tuple[str, str]:
     # Grobid availability errors are imported lazily — avoid circular import
     # when grobid_client doesn't exist (e.g., in unit tests).
     try:
-        from grobid_client import GrobidUnavailableError  # type: ignore
+        from .grobid_client import GrobidUnavailableError  # type: ignore
         if isinstance(e, GrobidUnavailableError):
             return "external_unavailable", f"{name}: {e}"
     except ImportError:

@@ -1,7 +1,7 @@
 """Taxon + anatomy mention extraction over a Darwin Core taxonomy snapshot
 and the anatomy lexicon.
 
-See PLAN.md §3 ("Corpus-level inputs") and §4 ("Taxonomic mention
+See dev_docs/PLAN.md §3 ("Corpus-level inputs") and §4 ("Taxonomic mention
 extraction + resolution").
 
 Two concerns:

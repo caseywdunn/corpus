@@ -10,10 +10,10 @@ robustness + quality gates against silent-failure modes, and a
 v2.0+ (see §4).
 
 This document is scoped to v0.2 work. Architectural background and
-pipeline internals live in [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md);
-per-feature history in [CHANGELOG.md](CHANGELOG.md); HPC operations in
-[dev_docs/BOUCHET.md](dev_docs/BOUCHET.md); deployment in
-[dev_docs/DEPLOY.md](dev_docs/DEPLOY.md). Open work is tracked in
+pipeline internals live in [OVERVIEW.md](OVERVIEW.md);
+per-feature history in [CHANGELOG.md](../CHANGELOG.md); HPC operations in
+[BOUCHET.md](BOUCHET.md); deployment in
+[DEPLOY.md](DEPLOY.md). Open work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues); the
 v0.2-scoped subset is listed below.
 
@@ -57,7 +57,7 @@ when planning a session.
   mention positions when caption parsing fails.
 - [#17](https://github.com/caseywdunn/corpus/issues/17) — MCP server
   identity. Partially addressed in v0.2-dev: `__version__` from
-  [version.py](version.py) now surfaces via the `bundle_info` tool.
+  [pipeline/version.py](../pipeline/version.py) now surfaces via the `bundle_info` tool.
   Remaining: server name should be corpuscle-aware (e.g.,
   `corpus:siphonophores` rather than `corpus`).
 - [#6](https://github.com/caseywdunn/corpus/issues/6) — `deploy/stack.yaml`
@@ -202,9 +202,9 @@ deferred post-v0.2 ([#14](https://github.com/caseywdunn/corpus/issues/14)).
 
 ## 3. Versioning + release ritual
 
-`__version__` in [version.py](version.py) is the single source of
+`__version__` in [pipeline/version.py](../pipeline/version.py) is the single source of
 truth and is stamped into every persistent artifact (bundle manifest,
-MCP `bundle_info`). [CONTRIBUTING.md](CONTRIBUTING.md) covers the
+MCP `bundle_info`). [CONTRIBUTING.md](../CONTRIBUTING.md) covers the
 branching model and release ritual; the short version: `dev` carries
 a PEP 440 pre-release suffix (`0.2.0.dev0` → `0.2.0a1` → `0.2.0`),
 the release commit drops the suffix, the next commit on `dev`

@@ -1,4 +1,4 @@
-# Domain lexicon used by taxa.py for NER-by-lookup.
+# Domain lexicon used by pipeline/taxa.py for NER-by-lookup.
 #
 # Top-level keys are categories. Each category maps canonical terms to
 # their synonyms / translations / description. Add categories as needed

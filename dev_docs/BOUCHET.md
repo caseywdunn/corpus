@@ -223,7 +223,7 @@ cat "$BOUCHET_PROJECT/serve_bundle/bundle_manifest.json"
 
 The bundle is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](DEPLOY.md) §6.
 
-## Partition reference (from PLAN.md §7)
+## Partition reference (from dev_docs/PLAN.md §7)
 
 | Stage | Script | Partition | GPU? | Walltime |
 |---|---|---|---|---|

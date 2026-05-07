@@ -5,7 +5,7 @@ Description: >
   pull bundles from S3.  TLS termination happens on the instance via
   nginx + Let's Encrypt (see deploy/nginx.conf + DEPLOY.md).
 
-  This is the "deliberately boring" path from PLAN.md §10 scaled to
+  This is the "deliberately boring" path from dev_docs/PLAN.md §10 scaled to
   ~20 collaborators - no ALB, no CloudFront, no Route 53 dependency.
   Upgrade to those components later if WAF rate-limiting or
   multi-instance scale becomes real.

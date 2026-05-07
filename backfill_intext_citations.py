@@ -24,7 +24,7 @@ import logging
 import sys
 from pathlib import Path
 
-from grobid_client import parse_tei_intext_citations
+from pipeline.grobid_client import parse_tei_intext_citations
 
 logger = logging.getLogger("backfill_intext")
 

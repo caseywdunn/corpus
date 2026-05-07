@@ -34,7 +34,7 @@ from lancedb.pydantic import LanceModel, Vector
 from dotenv import load_dotenv
 load_dotenv()
 
-from embeddings import EmbeddingBackend, EmbeddingError, get_embedder
+from pipeline.embeddings import EmbeddingBackend, EmbeddingError, get_embedder
 
 logger = logging.getLogger(__name__)
 

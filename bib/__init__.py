@@ -2,16 +2,14 @@
 
 Three sibling modules that already share state, now grouped:
 
-  bib.parser    — BibTeX parser + BibIndex (formerly ``bib_metadata.py``).
+  bib.parser    — BibTeX parser + BibIndex.
   bib.export    — biblio_authority.sqlite → BibTeX (formerly ``bib_export.py``).
   bib.importer  — hand-edited BibTeX → biblio_authority.sqlite
                   (formerly ``bib_import.py``; the file is named ``importer``
                   rather than ``import`` to avoid shadowing the keyword).
 
 Top-level CLIs (``bib_export.py``, ``bib_import.py``) stay at the repo
-root as thin ``__main__`` shims that delegate here. The legacy
-``bib_metadata`` module is kept as a re-export shim during a
-deprecation window — rip out when no caller imports it directly.
+root as thin ``__main__`` shims that delegate here.
 """
 from .parser import (
     BibIndex,

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from grobid_client import parse_tei_intext_citations
+from pipeline.grobid_client import parse_tei_intext_citations
 
 
 def _wrap(body_xml: str) -> str:

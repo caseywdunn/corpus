@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Distill a Bouchet build bundle into a served bundle for AWS.
 
-PLAN.md §10 separates the "build bundle" (everything `process_corpus.py`
+dev_docs/PLAN.md §10 separates the "build bundle" (everything `process_corpus.py`
 emits — includes processed.pdf, raw docling dumps, QC visualizations,
 per-paper logs) from the "served bundle" (just what MCP tools read
 plus the precompiled indices).  For 2000 papers the served bundle is
@@ -57,7 +57,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from version import __version__
+from pipeline.version import __version__
 
 logger = logging.getLogger("package_for_serve")
 
@@ -251,7 +251,7 @@ def _iso_now() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-# ── Path scrubbing (PLAN.md §10) ────────────────────────────────────
+# ── Path scrubbing (dev_docs/PLAN.md §10) ────────────────────────────────────
 #
 # `process_corpus.py` writes summary.json with absolute Bouchet paths in
 # input_dir / output_directory / processing_summary.original_pdf /

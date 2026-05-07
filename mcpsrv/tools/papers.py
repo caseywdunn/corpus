@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from version import __version__
+from pipeline.version import __version__
 from ..app import _load_json, _need_index, mcp
 
 
@@ -130,6 +130,6 @@ def get_chunk(paper_hash: str, chunk_id: str) -> Dict:
 
 
 # ---------------------------------------------------------------------------
-# HTTP transport + bearer-token auth (PLAN.md §10)
+# HTTP transport + bearer-token auth (dev_docs/PLAN.md §10)
 # ---------------------------------------------------------------------------
 

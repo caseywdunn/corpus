@@ -6,8 +6,7 @@ import time
 import pytest
 import requests
 
-import external
-from external import (
+from pipeline.external import (
     CircuitBreaker,
     CircuitOpenError,
     is_transient,

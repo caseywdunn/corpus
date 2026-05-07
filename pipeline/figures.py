@@ -1,7 +1,7 @@
 """Figure + caption joint-object utilities and the figures_report.html
 generator.
 
-Phase D (see PLAN.md §3 "Figure+caption as a first-class object"). Three
+Phase D (see dev_docs/PLAN.md §3 "Figure+caption as a first-class object"). Three
 concerns live here:
 
 1. :func:`extract_caption_info` — pull caption text, page, and bbox for a
@@ -101,7 +101,7 @@ def _roman_to_int(token: str) -> Optional[int]:
 
 
 # ---------------------------------------------------------------------------
-# Caption → panel parsing (Pass 2.5, PLAN.md §9)
+# Caption → panel parsing (Pass 2.5, dev_docs/PLAN.md §9)
 # ---------------------------------------------------------------------------
 
 # Strips the leading "Fig. N" / "Figure N" / "Plate N" etc. from a caption
@@ -753,7 +753,7 @@ def extract_caption_info(picture, document) -> Dict:
 
 
 # ---------------------------------------------------------------------------
-# Pass 3a: OCR-based panel / embedded-figure ROI detection (PLAN.md §9)
+# Pass 3a: OCR-based panel / embedded-figure ROI detection (dev_docs/PLAN.md §9)
 # ---------------------------------------------------------------------------
 
 # Single capital letter used as a panel label, tolerates optional wrapping
@@ -964,7 +964,7 @@ def detect_figure_rois_via_vision(
 
     The backend argument is a :class:`vision.VisionBackend` (typically
     ``ClaudeVisionBackend`` during development, ``LocalVLMBackend`` in
-    production on Bouchet). See ``vision.py`` for the contract.
+    production on Bouchet). See ``pipeline.vision`` for the contract.
 
     Returns the same result shape as Pass 3a (so the pipeline step can
     write back into figures.json without branching): ``{rois: [...],

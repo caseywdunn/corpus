@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from taxa import (
+from pipeline.taxa import (
     extract_lexicon_mentions,
     lexicon_fingerprints,
     load_lexicon,
