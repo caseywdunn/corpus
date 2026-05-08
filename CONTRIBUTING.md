@@ -116,9 +116,19 @@ itself if you change one.
 - [mcpsrv/](mcpsrv/) — MCP server package: `app.py` (FastMCP instance + index accessor), `indexes.py` (`CorpusIndex` / `TaxonMentionDB` / `BiblioAuthority`), `tools/` (papers / taxonomy / figures / chunks / bibliography), `transport.py` (bearer auth + SSE), `main.py` (argparse + dispatch). Adding a new MCP tool: extend the appropriate `mcpsrv/tools/<concern>.py` module and import it from `mcpsrv/tools/__init__.py` so the `@mcp.tool()` decorator registers at startup. The root `mcp_server.py` is a thin CLI shim.
 - [slurm/](slurm/) — SLURM batch scripts for Bouchet; documented in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`, one-off maintenance scripts (`dedup_ghost_works.py`, `unify_doi_corpus_key.py`).
+- [templates/](templates/) — copy-and-customize starters that operators use, not pipeline inputs. Currently just the optional corpuscle-specific `instructions.md` scaffold; see [Editing client-side instructions](#editing-client-side-instructions) below.
 - [tests/](tests/) — one file per subsystem.
 - Per-instance data (SQLites, embeddings, per-paper artifacts) lives inside the user's *corpuscle* directory — passed as the first positional arg to every CLI — not under the repo root. See the [corpuscle layout](README.md#corpuscle-layout) in README.md. The repo no longer ships a `resources/` directory.
 - [demo/](demo/) — small bundle for smoke-testing the pipeline: 11 siphonophore PDFs, a matching `siphonophores.bib`, and an example multi-category `lexicon.yaml`. The lexicon is treated as user input, parallel to `--bib` — not part of the tool.
+
+## Editing client-side instructions
+
+The MCP server returns a markdown blob to clients in `InitializeResult.instructions`, which well-behaved clients (Claude Desktop, Claude Code) inject into the LLM context at the start of every chat session. There are two layers, joined at server startup:
+
+- **Defaults** — [mcpsrv/default_instructions.md](mcpsrv/default_instructions.md). Ships with the server code and is always served. Edit here for guidance that applies to *any* corpus (defer to the corpus taxonomy / bibliography, preserve historical terminology, etc.). No operator action needed for this to reach clients.
+- **Per-corpuscle** — `<corpuscle>/instructions.md` (optional). Edit here for nudges specific to one corpus: a one-paragraph description of what it covers, common misconceptions to correct, domain-specific terminology cautions. Operators copy [templates/instructions.md](templates/instructions.md) as a starting scaffold. The server prepends this file to the defaults so corpus-specific guidance lands first.
+
+Both files are paid for in tokens on every client session — keep additions terse and high-leverage. Test by restarting the MCP server (`python mcp_server.py <output_dir>`) and inspecting the `InitializeResult.instructions` payload, or by starting a session in any client.
 
 ## Dependencies — two files, on purpose
 

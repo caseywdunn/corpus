@@ -55,11 +55,12 @@ def main() -> int:
         "--instructions",
         type=Path,
         default=None,
-        help="Markdown file whose contents are returned to MCP clients in "
-             "the InitializeResult.instructions field, so well-behaved "
-             "clients (Claude Desktop, Claude Code) inject it into the LLM's "
-             "context at session start.  Use it for per-corpus nudges that "
-             "no taxonomy or lexicon entry can express. "
+        help="Optional markdown file with corpuscle-specific nudges, "
+             "prepended to the server's packaged defaults "
+             "(mcpsrv/default_instructions.md). The combined text is "
+             "returned to MCP clients in InitializeResult.instructions, "
+             "which well-behaved clients (Claude Desktop, Claude Code) "
+             "inject into the LLM's context at session start. "
              "Default: <output_dir>/instructions.md if it exists.",
     )
     parser.add_argument(
@@ -116,25 +117,39 @@ def main() -> int:
     mcp._mcp_server.name = server_name
     logger.info("MCP server name: %s", server_name)
 
-    # Optional per-corpus instructions surfaced to clients in
-    # InitializeResult.instructions.  FastMCP exposes ``instructions`` as
-    # a read-only property backed by ``_mcp_server.instructions``; that
-    # backing attribute is plain mutable state on the lower-level Server,
-    # so setting it here (after the module-level FastMCP is constructed)
-    # takes effect on the next ``initialize`` call.
-    instructions_path = args.instructions or (args.output_dir / "instructions.md")
-    if instructions_path.exists():
+    # MCP instructions surfaced to clients in InitializeResult.instructions.
+    # Always serve a packaged default (mcpsrv/default_instructions.md);
+    # if a corpuscle-specific instructions.md is present, prepend it so
+    # corpus-specific nudges land before the universal defaults.
+    # FastMCP exposes ``instructions`` as a read-only property backed by
+    # ``_mcp_server.instructions``; that backing attribute is plain
+    # mutable state, so setting it here takes effect on the next
+    # ``initialize`` call.
+    parts: list[str] = []
+    corpuscle_instructions = args.instructions or (args.output_dir / "instructions.md")
+    if corpuscle_instructions.exists():
         try:
-            text = instructions_path.read_text(encoding="utf-8").strip()
-            mcp._mcp_server.instructions = text
-            logger.info(
-                "Loaded MCP instructions from %s (%d chars)",
-                instructions_path, len(text),
-            )
+            parts.append(corpuscle_instructions.read_text(encoding="utf-8").strip())
         except Exception as e:
             logger.warning(
-                "Could not read instructions %s: %s", instructions_path, e,
+                "Could not read corpuscle instructions %s: %s",
+                corpuscle_instructions, e,
             )
+    default_instructions = Path(__file__).parent / "default_instructions.md"
+    try:
+        parts.append(default_instructions.read_text(encoding="utf-8").strip())
+    except Exception as e:
+        logger.warning(
+            "Could not read default instructions %s: %s",
+            default_instructions, e,
+        )
+    if parts:
+        text = "\n\n".join(p for p in parts if p)
+        mcp._mcp_server.instructions = text
+        logger.info(
+            "Loaded MCP instructions (%d chars from %d source%s)",
+            len(text), len(parts), "" if len(parts) == 1 else "s",
+        )
 
     taxonomy_path = args.taxonomy_db or (args.output_dir / "taxonomy.sqlite")
     taxonomy: Optional[TaxonomyDB] = None
