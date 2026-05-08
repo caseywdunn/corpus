@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`/healthz` liveness probe** on the SSE transport. Returns `200 ok`
+  without requiring the bearer token — mounted ahead of the auth
+  middleware in `mcpsrv.transport._HealthzASGI` so uptime monitors and
+  reverse-proxy readiness checks don't need the shared secret. Exposed
+  through `deploy/nginx.conf` as `location = /healthz`.
+
+### Fixed
+
+- **README §"Deploying MCP server remotely"** referenced an EC2 + ALB +
+  CloudFront pattern that doesn't match the actual `deploy/stack.yaml`
+  (single EC2 + nginx + Let's Encrypt). Corrected.
+
 ## [0.2.0] - 2026-05-07
 
 A hardening + iteration release. v0.2 closes out v0.1's deferred items

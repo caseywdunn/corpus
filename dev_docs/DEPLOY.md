@@ -235,7 +235,11 @@ sudo systemctl status corpus-mcp
 From your laptop:
 
 ```bash
-# Unauth should be 401
+# Liveness probe — no auth needed, just "is the process up?"
+curl -s https://corpus.example.edu/healthz
+# → ok
+
+# Unauth on /sse should be 401
 curl -s -o /dev/null -w '%{http_code}\n' https://corpus.example.edu/sse
 # → 401
 
@@ -300,6 +304,8 @@ sudo journalctl -u corpus-mcp -f           # live server logs
 sudo journalctl -u nginx -f                # reverse-proxy logs
 sudo systemctl status corpus-mcp           # status + last few lines
 sudo ss -ltnp | grep -E '8080|443'         # confirm listeners
+curl -sS https://localhost/healthz --resolve localhost:443:127.0.0.1 -k
+                                            # liveness probe (no auth)
 curl -sS -H "Authorization: Bearer $(sudo cat /etc/corpus/mcp.token)" \
     -N https://localhost/sse --resolve localhost:443:127.0.0.1 -k
 ```

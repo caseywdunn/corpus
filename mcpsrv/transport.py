@@ -20,6 +20,36 @@ from .app import mcp
 logger = logging.getLogger(__name__)
 
 
+class _HealthzASGI:
+    """ASGI middleware: short-circuit ``GET /healthz`` with a plain
+    200, delegate everything else.
+
+    Mounted *outside* :class:`_BearerAuthASGI` so the probe is reachable
+    without a bearer token.  ``/healthz`` reveals only that the process
+    is up, which is already inferable from a successful TCP connect,
+    and uptime monitors / nginx readiness probes should not need the
+    shared secret.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if (
+            scope.get("type") == "http"
+            and scope.get("method") == "GET"
+            and scope.get("path") == "/healthz"
+        ):
+            await send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"text/plain; charset=utf-8")],
+            })
+            await send({"type": "http.response.body", "body": b"ok\n"})
+            return
+        await self.app(scope, receive, send)
+
+
 class _BearerAuthASGI:
     """ASGI middleware: 401 unless ``Authorization: Bearer <token>`` matches.
 
@@ -107,7 +137,9 @@ def _run_sse(host: str, port: int, token: Optional[str]) -> None:
             "before exposing this beyond localhost. ***",
             host, port,
         )
-    logger.info("Serving SSE on http://%s:%d", host, port)
+    # Healthz wraps the auth layer so probes don't need the bearer token.
+    app = _HealthzASGI(app)
+    logger.info("Serving SSE on http://%s:%d (healthz: GET /healthz)", host, port)
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
