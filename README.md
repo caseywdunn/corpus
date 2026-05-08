@@ -8,7 +8,7 @@ A workflow for turning a collection of scientific-literature PDFs — spanning b
 
 We are preparing a manuscript that presents corpus. In the mean time, please cite corpus as:
 
-> Dunn, C. W., Zapata, F., & Church, S. H. (2026). Corpus: Model Context Protocol (MCP) server for taxonomic literature. <https://doi.org/10.5281/zenodo.19964909>
+> Dunn, C. W., Manko, M. K., Zapata, F., & Church, S. H. (2026). Corpus: Model Context Protocol (MCP) server for taxonomic literature. <https://doi.org/10.5281/zenodo.19964909>
 
 ## What corpus does
 
