@@ -41,6 +41,7 @@ from .runner import run_pdf_processing_pipeline
 from .taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 from .stages import (
     _all_stage_artifacts_complete,
+    _expected_fingerprints_for_run,
     _file_sha256,
 )
 
@@ -408,6 +409,10 @@ def main():
             taxonomy_db=taxonomy_db,
             lexicons=lexicons,
         )
+        expected_fingerprints = _expected_fingerprints_for_run(
+            taxonomy_fingerprint=taxonomy_fingerprint,
+            lexicon_fingerprints=lex_fingerprints,
+        )
         completed_in_scope = sum(
             1
             for h in pdf_map
@@ -415,6 +420,7 @@ def main():
             and _all_stage_artifacts_complete(
                 documents_dir / short_hash(h),
                 expected_stages=expected_stages,
+                expected_fingerprints=expected_fingerprints,
             )
         )
         if completed_in_scope:
@@ -430,13 +436,19 @@ def main():
             taxonomy_db=taxonomy_db,
             lexicons=lexicons,
         )
+        expected_fingerprints = _expected_fingerprints_for_run(
+            taxonomy_fingerprint=taxonomy_fingerprint,
+            lexicon_fingerprints=lex_fingerprints,
+        )
         for h in pdf_map:
             hd = documents_dir / short_hash(h)
             if not args.resume:
                 n_would_full += 1
                 continue
             if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
-                hd, expected_stages=expected_stages,
+                hd,
+                expected_stages=expected_stages,
+                expected_fingerprints=expected_fingerprints,
             ):
                 n_would_skip += 1
             elif (hd / "summary.json").exists():
@@ -487,22 +499,28 @@ def main():
                                 "Pass 3b refresh failed on %s: %s", pdf_hash, e
                             )
                     continue
-                # Per-stage resume (#28): if every required stage is
-                # recorded as complete in pipeline_state.json under the
-                # current PIPELINE_VERSION, skip the whole paper (fast
-                # path). Otherwise fall through — run_pdf_processing_pipeline
-                # runs only the stages that aren't recorded complete.
+                # Per-stage resume (#28, #56): if every required stage
+                # is recorded as complete in pipeline_state.json under
+                # the current PIPELINE_VERSION *and* the matching
+                # input_fingerprint (taxonomy + lexicons), skip the whole
+                # paper (fast path). Otherwise fall through —
+                # run_pdf_processing_pipeline runs only the stages that
+                # aren't recorded complete or whose fingerprint is stale.
                 if _all_stage_artifacts_complete(
                     hash_dir,
                     expected_stages=_expected_stages_for_run(
                         taxonomy_db=taxonomy_db,
                         lexicons=lexicons,
                     ),
+                    expected_fingerprints=_expected_fingerprints_for_run(
+                        taxonomy_fingerprint=taxonomy_fingerprint,
+                        lexicon_fingerprints=lex_fingerprints,
+                    ),
                 ):
                     logger.info("Skipping %s (all stages complete)", pdf_hash)
                     continue
                 logger.info(
-                    "Resuming %s (re-running missing stages only)", pdf_hash
+                    "Resuming %s (re-running missing or stale stages only)", pdf_hash
                 )
 
             hash_dir.mkdir(exist_ok=True)

@@ -42,6 +42,7 @@ from .scan import detect_scan_type, prepare_pdf
 from .taxa import TaxonomyDB
 from .stages import (
     _HugeDocumentError,
+    _expected_fingerprints_for_run,
     _pdf_page_count,
     _run_quality_gates,
     _should_run_stage,
@@ -236,11 +237,13 @@ def run_pdf_processing_pipeline(
         # lexicon section forces this stage to re-run on --resume.
         run_taxa_anat = taxonomy_db is not None or bool(lexicons)
         if run_taxa_anat:
-            taxa_anat_fingerprint: Dict[str, Any] = {}
-            if taxonomy_db is not None and taxonomy_fingerprint is not None:
-                taxa_anat_fingerprint["taxonomy"] = taxonomy_fingerprint
-            if lexicon_fingerprints:
-                taxa_anat_fingerprint["lexicons"] = lexicon_fingerprints
+            # Build via the shared helper (#56) so the outer per-doc
+            # gate in main.py and this inner per-stage gate stay in
+            # lockstep — same dict shape, same staleness semantics.
+            taxa_anat_fingerprint = _expected_fingerprints_for_run(
+                taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
+                lexicon_fingerprints=lexicon_fingerprints,
+            ).get("taxa_and_lexicon_extraction", {})
             if _should_run_stage(
                 "taxa_and_lexicon_extraction",
                 hash_dir=hash_dir,

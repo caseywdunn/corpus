@@ -17,6 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`--resume` outer fast-path ignored `input_fingerprint`, so editing
+  a lexicon or taxonomy never invalidated already-recorded stages**
+  ([#56](https://github.com/caseywdunn/corpus/issues/56)). The per-doc
+  fast-path skip in `pipeline.main` called
+  `_all_stage_artifacts_complete` without forwarding the live
+  taxonomy/lexicon fingerprints, so a doc whose
+  `taxa_and_lexicon_extraction` stage was recorded under (e.g.) a
+  taxonomy-only fingerprint was silently skipped on a re-run that
+  loaded a real lexicon — even though the inner per-stage gate would
+  have correctly flagged it stale, that gate was unreachable. Effective
+  result: the only way to force a lexicon refresh was bumping
+  `PIPELINE_VERSION`. Production occurrence: 12,669 docs in job
+  `11108546` carried a fingerprint without `lexicons` because the
+  source YAML had loaded as `{}`; the resume run silently passed over
+  all of them. Fixed by adding `expected_fingerprints` to
+  `_all_stage_artifacts_complete` and a shared
+  `_expected_fingerprints_for_run` helper that both `main.py`'s outer
+  gate and `runner.py`'s inner gate now use, keeping the two staleness
+  notions in lockstep. Regression tests in `test_per_stage_resume.py`.
 - **Stage 1 SLURM array tasks could process the same PDF concurrently
   and corrupt per-doc state files**
   ([#55](https://github.com/caseywdunn/corpus/issues/55)). The

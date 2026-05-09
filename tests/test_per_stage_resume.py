@@ -259,3 +259,120 @@ def test_all_complete_false_when_pipeline_version_drifts(tmp_path):
     }
     (tmp_path / "pipeline_state.json").write_text(json.dumps(state))
     assert not _all_stage_artifacts_complete(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Fingerprint-aware outer gate (#56)
+# ---------------------------------------------------------------------------
+
+
+from pipeline.stages import _expected_fingerprints_for_run  # noqa: E402
+
+
+_TAXA_LEX = list(_CORE) + ["taxa_and_lexicon_extraction"]
+
+
+def test_expected_fingerprints_empty_when_neither_input_configured():
+    fps = _expected_fingerprints_for_run()
+    assert fps == {}
+
+
+def test_expected_fingerprints_taxonomy_only():
+    fps = _expected_fingerprints_for_run(taxonomy_fingerprint={"sha256": "abc"})
+    assert fps == {"taxa_and_lexicon_extraction": {"taxonomy": {"sha256": "abc"}}}
+
+
+def test_expected_fingerprints_lexicons_only():
+    fps = _expected_fingerprints_for_run(
+        lexicon_fingerprints={"anatomy": {"sha256": "deadbeef"}},
+    )
+    assert fps == {
+        "taxa_and_lexicon_extraction": {
+            "lexicons": {"anatomy": {"sha256": "deadbeef"}},
+        }
+    }
+
+
+def test_expected_fingerprints_both_inputs():
+    fps = _expected_fingerprints_for_run(
+        taxonomy_fingerprint={"sha256": "abc"},
+        lexicon_fingerprints={"anatomy": {"sha256": "def"}},
+    )
+    assert fps == {
+        "taxa_and_lexicon_extraction": {
+            "taxonomy": {"sha256": "abc"},
+            "lexicons": {"anatomy": {"sha256": "def"}},
+        }
+    }
+
+
+def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):
+    """The exact production bug Sam reported in #56:
+
+    A doc completed cleanly under taxonomy-only fingerprint
+    (lexicon was malformed and loaded as {}). On the next run the
+    lexicon YAML is fixed and contributes a real fingerprint. The
+    outer fast-path gate must see the recorded fingerprint as stale
+    and let the doc through to the per-stage runner — not silently
+    skip it because the stage record exists at the right version.
+    """
+    _record_all_core(tmp_path)
+    # Recorded fingerprint: taxonomy only (the v0 buggy run).
+    recorded_fp = {"taxonomy": {"sha256": "tax_v1"}}
+    _record_stage_completion(
+        tmp_path,
+        "taxa_and_lexicon_extraction",
+        input_fingerprint=recorded_fp,
+    )
+
+    # Live fingerprint includes the now-fixed lexicon.
+    live_fps = _expected_fingerprints_for_run(
+        taxonomy_fingerprint={"sha256": "tax_v1"},
+        lexicon_fingerprints={"drosophilidae": {"sha256": "lex_v1"}},
+    )
+
+    # Without the fingerprint argument (pre-fix): would return True
+    # → the bug. Sanity-check that pre-fix behavior:
+    assert _all_stage_artifacts_complete(
+        tmp_path, expected_stages=_TAXA_LEX,
+    )
+    # With the fingerprint argument (post-fix): returns False so the
+    # outer gate doesn't skip the doc.
+    assert not _all_stage_artifacts_complete(
+        tmp_path,
+        expected_stages=_TAXA_LEX,
+        expected_fingerprints=live_fps,
+    )
+
+
+def test_outer_gate_returns_true_when_fingerprint_matches(tmp_path):
+    """The mirror image: doc was recorded under the same fingerprint
+    we're looking at now → fast-path skip is safe."""
+    _record_all_core(tmp_path)
+    fp = {
+        "taxonomy": {"sha256": "tax_v1"},
+        "lexicons": {"drosophilidae": {"sha256": "lex_v1"}},
+    }
+    _record_stage_completion(
+        tmp_path, "taxa_and_lexicon_extraction", input_fingerprint=fp,
+    )
+    assert _all_stage_artifacts_complete(
+        tmp_path,
+        expected_stages=_TAXA_LEX,
+        expected_fingerprints={"taxa_and_lexicon_extraction": fp},
+    )
+
+
+def test_outer_gate_unaffected_when_no_fingerprint_supplied_for_stage(tmp_path):
+    """Backward compatibility: if the caller doesn't supply a
+    fingerprint for a stage, that stage is gated only on version
+    (the prior behavior)."""
+    _record_all_core(tmp_path)
+    _record_stage_completion(
+        tmp_path, "taxa_and_lexicon_extraction",
+        input_fingerprint={"anything": "at all"},
+    )
+    # No fingerprint → matches regardless of recorded payload.
+    assert _all_stage_artifacts_complete(
+        tmp_path, expected_stages=_TAXA_LEX,
+    )

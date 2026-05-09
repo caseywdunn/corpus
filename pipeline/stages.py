@@ -289,18 +289,63 @@ def _all_stage_artifacts_complete(
     hash_dir: Path,
     *,
     expected_stages: Optional[Iterable[str]] = None,
+    expected_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> bool:
     """Return True iff every required stage is recorded as complete in
-    pipeline_state.json under the current PIPELINE_VERSION.
+    pipeline_state.json under the current PIPELINE_VERSION *and* (when
+    applicable) under the matching ``input_fingerprint``.
 
     Used by the outer --resume short-circuit. ``expected_stages``
     defaults to ``_CORE_STAGES``; callers extend it with optional
     stages whose presence depends on configured inputs (e.g.
     ``"taxa_and_lexicon_extraction"`` when a taxonomy DB or lexicon is
     configured).
+
+    ``expected_fingerprints`` (#56) is ``{stage_name: fingerprint}`` —
+    forwarded to :func:`_stage_recorded_complete` per stage so the
+    outer gate matches the inner per-stage gate's staleness logic.
+    Without this, editing a lexicon never invalidated already-recorded
+    stages: the outer gate dropped the doc before the inner gate could
+    spot the fingerprint mismatch. Build the mapping with
+    :func:`_expected_fingerprints_for_run` so all call sites stay in
+    lockstep with what the runner records.
     """
     stages = tuple(expected_stages) if expected_stages is not None else _CORE_STAGES
-    return all(_stage_recorded_complete(hash_dir, s) for s in stages)
+    fps = expected_fingerprints or {}
+    return all(
+        _stage_recorded_complete(hash_dir, s, expected_fingerprint=fps.get(s))
+        for s in stages
+    )
+
+
+def _expected_fingerprints_for_run(
+    *,
+    taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
+    lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Build the ``{stage_name: input_fingerprint}`` map both resume
+    gates need (#56).
+
+    Currently only ``taxa_and_lexicon_extraction`` consumes a
+    fingerprint — its value mirrors the dict the runner persists in
+    :func:`_record_stage_completion`: ``{"taxonomy": ..., "lexicons":
+    ...}`` with whichever keys are in scope this run. Other stages
+    take no fingerprint and don't appear in the returned map.
+
+    Both ``main.py``'s outer fast-path and ``runner.py``'s per-stage
+    gate must call this so they agree on what "stale" means; otherwise
+    a doc whose stage was recorded under a now-edited lexicon will be
+    silently skipped by whichever side forgets the fingerprint.
+    """
+    fps: Dict[str, Dict[str, Any]] = {}
+    taxa_lex_fp: Dict[str, Any] = {}
+    if taxonomy_fingerprint is not None:
+        taxa_lex_fp["taxonomy"] = taxonomy_fingerprint
+    if lexicon_fingerprints:
+        taxa_lex_fp["lexicons"] = lexicon_fingerprints
+    if taxa_lex_fp:
+        fps["taxa_and_lexicon_extraction"] = taxa_lex_fp
+    return fps
 
 
 def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
