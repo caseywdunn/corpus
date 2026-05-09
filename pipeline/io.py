@@ -16,6 +16,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -192,9 +194,17 @@ def create_summary_json(
         "output_directory": str(hash_dir),
     }
 
+    # Atomic write via per-writer tmp + rename. Per-writer tmp name
+    # (``.tmp.<pid>.<ns>``) keeps two concurrent writers in the same
+    # hash_dir from corrupting each other's payload — see #55. Without
+    # the rename, a reader hitting the partial write also saw garbage.
     summary_file = hash_dir / "summary.json"
-    with open(summary_file, "w") as f:
+    tmp = summary_file.with_suffix(
+        f"{summary_file.suffix}.tmp.{os.getpid()}.{time.monotonic_ns()}"
+    )
+    with open(tmp, "w") as f:
         json.dump(stamp_artifact(summary), f, indent=2)
+    tmp.replace(summary_file)
 
     return summary_file
 

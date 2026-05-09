@@ -17,6 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Stage 1 SLURM array tasks could process the same PDF concurrently
+  and corrupt per-doc state files**
+  ([#55](https://github.com/caseywdunn/corpus/issues/55)). The
+  pre-resume filter at the top of `pipeline.main.main()` ran *before*
+  batch slicing, so each array task's slice depended on disk state at
+  task-start time. Tasks starting later saw fewer remaining hashes;
+  their slice indices then landed on different members of the list,
+  producing overlapping batches. The two writers raced on a shared
+  `pipeline_state.json.tmp` filename, leaving either an interleaved-
+  bytes payload (31 corrupted summaries in the production run that
+  surfaced this) or a `FileNotFoundError` on the rename. Fixed by
+  slicing on the unfiltered hash list (`_slice_hashes_for_batch` in
+  `pipeline.main`); resume skipping is now done per-doc inside the
+  loop. Belt-and-braces: `_save_pipeline_state` and
+  `create_summary_json` now use per-writer tmp filenames
+  (`.tmp.<pid>.<ns>`), so any future regression that re-introduces
+  concurrent writers on the same hash gets last-write-wins atomicity
+  instead of corruption. Regression test in
+  `tests/test_batch_slicing.py`.
 - **README §"Deploying MCP server remotely"** referenced an EC2 + ALB +
   CloudFront pattern that doesn't match the actual `deploy/stack.yaml`
   (single EC2 + nginx + Let's Encrypt). Corrected.

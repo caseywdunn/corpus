@@ -47,6 +47,36 @@ from .stages import (
 logger = logging.getLogger(__name__)
 
 
+def _slice_hashes_for_batch(
+    pdf_map: Dict[str, List[Path]],
+    batch_index: int,
+    batch_size: int,
+) -> tuple[List[str], int, int]:
+    """Deterministic batch slice over the sorted hash list (#55).
+
+    The slice is computed on the *unfiltered* hash list. ``find_all_pdfs``
+    output depends only on the input directory contents, so every SLURM
+    array task — regardless of when it happens to start — produces the
+    same sorted hash order and therefore disjoint slices.
+
+    Resume-skip happens per-doc inside the main loop, after slicing.
+    Pre-filtering completed hashes before slicing (the prior behavior)
+    made the slice depend on disk state at task-start time, which
+    differs across array tasks: tasks starting later see fewer remaining
+    hashes, so their slice indices land on different members of the
+    list. That produced overlapping batches that raced on the same
+    summary.json / pipeline_state.json files.
+
+    Returns ``(batch_hashes, total_hashes, total_batches)``.
+    """
+    all_hashes = sorted(pdf_map.keys())
+    total = len(all_hashes)
+    total_batches = -(-total // batch_size) if total else 0
+    start = batch_index * batch_size
+    end = start + batch_size
+    return all_hashes[start:end], total, total_batches
+
+
 def _expected_stages_for_run(
     *,
     taxonomy_db: Any,
@@ -343,51 +373,22 @@ def main():
     logger.info("Found %d PDF file(s)", sum(len(paths) for paths in pdf_map.values()))
     logger.info("Unique PDFs (by hash): %d", len(pdf_map))
 
-    # ── Pre-filter completed documents before batch slicing ─────────
-    # When --resume is active and we're batching, remove fully-completed
-    # hashes *before* dividing into batches. A hash is fully complete iff
-    # summary.json exists AND every per-stage artifact is on disk (#28);
-    # otherwise it has missing stages and the inner per-stage guards will
-    # only re-run those.
-    #
-    # Exception: --refresh-vision (#27) explicitly targets the
-    # already-completed population (it re-runs Pass 3b on existing
-    # figures.json files). Skipping the pre-filter for that case
-    # preserves the work-set so array tasks aren't silently emptied.
-    if args.resume and args.batch_index is not None and not args.refresh_vision:
-        expected_stages = _expected_stages_for_run(
-            taxonomy_db=taxonomy_db,
-            lexicons=lexicons,
-        )
-        before = len(pdf_map)
-        kept = {}
-        for h, paths in pdf_map.items():
-            hd = documents_dir / short_hash(h)
-            if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
-                hd, expected_stages=expected_stages,
-            ):
-                continue
-            kept[h] = paths
-        pdf_map = kept
-        skipped = before - len(pdf_map)
-        if skipped:
-            logger.info(
-                "Resume: filtered out %d fully-completed documents "
-                "(%d remaining to process)", skipped, len(pdf_map),
-            )
-
     # ── Batch slicing (for SLURM job arrays) ────────────────────────
+    # Slice BEFORE applying the resume filter (#55). The slice has to be
+    # computed on the unfiltered hash list so every array task produces
+    # the same partition regardless of when it starts; otherwise tasks
+    # starting later see a shorter list and their slice indices shift,
+    # producing overlapping batches that race on per-doc writes.
+    # Resume skipping happens per-doc inside the main loop.
     if args.batch_index is not None:
-        all_hashes = sorted(pdf_map.keys())
-        total = len(all_hashes)
-        total_batches = -(-total // args.batch_size)  # ceiling division
-        start = args.batch_index * args.batch_size
-        end = start + args.batch_size
-        batch_hashes = all_hashes[start:end]
+        batch_hashes, total, total_batches = _slice_hashes_for_batch(
+            pdf_map, args.batch_index, args.batch_size,
+        )
         logger.info(
             "Batch %d/%d: processing hashes %d–%d (%d of %d total)",
-            args.batch_index, total_batches - 1,
-            start, min(end, total) - 1,
+            args.batch_index, max(total_batches - 1, 0),
+            args.batch_index * args.batch_size,
+            min(args.batch_index * args.batch_size + args.batch_size, total) - 1,
             len(batch_hashes), total,
         )
         if not batch_hashes:
@@ -397,6 +398,31 @@ def main():
             )
             sys.exit(0)
         pdf_map = {h: pdf_map[h] for h in batch_hashes}
+
+    # Log resume coverage for the (now sliced) work set so ops can see
+    # how much of this batch will short-circuit on the per-doc guards.
+    # Skipped when --refresh-vision targets the already-completed
+    # population on purpose.
+    if args.resume and not args.refresh_vision:
+        expected_stages = _expected_stages_for_run(
+            taxonomy_db=taxonomy_db,
+            lexicons=lexicons,
+        )
+        completed_in_scope = sum(
+            1
+            for h in pdf_map
+            if (documents_dir / short_hash(h) / "summary.json").exists()
+            and _all_stage_artifacts_complete(
+                documents_dir / short_hash(h),
+                expected_stages=expected_stages,
+            )
+        )
+        if completed_in_scope:
+            logger.info(
+                "Resume: %d of %d documents in scope are already complete "
+                "(per-doc guards will skip them)",
+                completed_in_scope, len(pdf_map),
+            )
 
     if args.dry_run:
         n_would_full = n_would_partial = n_would_skip = 0

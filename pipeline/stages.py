@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import subprocess
 import time
 from contextlib import contextmanager
@@ -182,11 +183,20 @@ def _load_pipeline_state(hash_dir: Path) -> Dict[str, Any]:
 
 
 def _save_pipeline_state(hash_dir: Path, state: Dict[str, Any]) -> None:
-    """Atomically persist pipeline_state.json (tmp + rename)."""
+    """Atomically persist pipeline_state.json (per-writer tmp + rename).
+
+    Per-writer tmp filename (``.tmp.<pid>.<ns>``) is belt-and-braces
+    against the shared-tmp corruption pattern from #55: if two array
+    tasks ever again end up writing the same hash directory in
+    parallel, their tmp files don't collide and the atomic rename
+    leaves a clean payload from one writer or the other (last write
+    wins; never an interleaved-bytes corruption or a missing-tmp
+    rename failure).
+    """
     from . import stamp_artifact
 
     path = hash_dir / PIPELINE_STATE_FILE
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp = path.with_suffix(f"{path.suffix}.tmp.{os.getpid()}.{time.monotonic_ns()}")
     tmp.write_text(
         json.dumps(stamp_artifact(state), indent=2, sort_keys=True),
         encoding="utf-8",
