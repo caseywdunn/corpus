@@ -5,72 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-
-- **`/healthz` liveness probe** on the SSE transport. Returns `200 ok`
-  without requiring the bearer token — mounted ahead of the auth
-  middleware in `mcpsrv.transport._HealthzASGI` so uptime monitors and
-  reverse-proxy readiness checks don't need the shared secret. Exposed
-  through `deploy/nginx.conf` as `location = /healthz`.
-
-### Fixed
-
-- **`--resume` outer fast-path ignored `input_fingerprint`, so editing
-  a lexicon or taxonomy never invalidated already-recorded stages**
-  ([#56](https://github.com/caseywdunn/corpus/issues/56)). The per-doc
-  fast-path skip in `pipeline.main` called
-  `_all_stage_artifacts_complete` without forwarding the live
-  taxonomy/lexicon fingerprints, so a doc whose
-  `taxa_and_lexicon_extraction` stage was recorded under (e.g.) a
-  taxonomy-only fingerprint was silently skipped on a re-run that
-  loaded a real lexicon — even though the inner per-stage gate would
-  have correctly flagged it stale, that gate was unreachable. Effective
-  result: the only way to force a lexicon refresh was bumping
-  `PIPELINE_VERSION`. Production occurrence: 12,669 docs in job
-  `11108546` carried a fingerprint without `lexicons` because the
-  source YAML had loaded as `{}`; the resume run silently passed over
-  all of them. Fixed by adding `expected_fingerprints` to
-  `_all_stage_artifacts_complete` and a shared
-  `_expected_fingerprints_for_run` helper that both `main.py`'s outer
-  gate and `runner.py`'s inner gate now use, keeping the two staleness
-  notions in lockstep. Regression tests in `test_per_stage_resume.py`.
-- **Stage 1 SLURM array tasks could process the same PDF concurrently
-  and corrupt per-doc state files**
-  ([#55](https://github.com/caseywdunn/corpus/issues/55)). The
-  pre-resume filter at the top of `pipeline.main.main()` ran *before*
-  batch slicing, so each array task's slice depended on disk state at
-  task-start time. Tasks starting later saw fewer remaining hashes;
-  their slice indices then landed on different members of the list,
-  producing overlapping batches. The two writers raced on a shared
-  `pipeline_state.json.tmp` filename, leaving either an interleaved-
-  bytes payload (31 corrupted summaries in the production run that
-  surfaced this) or a `FileNotFoundError` on the rename. Fixed by
-  slicing on the unfiltered hash list (`_slice_hashes_for_batch` in
-  `pipeline.main`); resume skipping is now done per-doc inside the
-  loop. Belt-and-braces: `_save_pipeline_state` and
-  `create_summary_json` now use per-writer tmp filenames
-  (`.tmp.<pid>.<ns>`), so any future regression that re-introduces
-  concurrent writers on the same hash gets last-write-wins atomicity
-  instead of corruption. Regression test in
-  `tests/test_batch_slicing.py`.
-- **README §"Deploying MCP server remotely"** referenced an EC2 + ALB +
-  CloudFront pattern that doesn't match the actual `deploy/stack.yaml`
-  (single EC2 + nginx + Let's Encrypt). Corrected.
-- **`environment.yaml` references to `tesseract-data-<code>` packages**
-  ([#52](https://github.com/caseywdunn/corpus/issues/52)) — the 12
-  per-language entries added in v0.2.0 (#46) listed package names that
-  don't exist on conda-forge, so a fresh `conda env create` failed with
-  `PackagesNotFoundError`. Existing dev envs survived because
-  incremental updates silently skipped the missing packages. Replaced
-  with a new `tools/install_tessdata.sh` helper that downloads the
-  default fallback set (deu, fra, rus, lat, spa, por, chi_sim, chi_tra,
-  jpn, ell, kor, grc, deu_latf) directly from `tessdata_best`.
-  Idempotent; takes a custom language list as positional args; honors
-  `TESSDATA_DIR` for non-conda installs.
-
-## [0.2.0] - 2026-05-07
+## [0.2.0] - 2026-05-08
 
 A hardening + iteration release. v0.2 closes out v0.1's deferred items
 (vision pass at corpus scale, expanded lexicon + taxonomy support,
@@ -78,10 +13,21 @@ Bouchet batch-script fixes), adds a real update lifecycle (per-stage
 resume, input fingerprints, `update_corpus.py` orchestrator), and lays
 in a robustness + observability layer (structured `stage_failures[]`,
 silent-failure quality gates, `corpus_status` rollup, network circuit
-breakers). Geographic extraction
+breakers). Three substantive bugs surfaced during release validation
+and ship in this version: a SLURM-array slicing race that corrupted
+per-doc state files
+([#55](https://github.com/caseywdunn/corpus/issues/55)), an
+`input_fingerprint` gap that silently skipped lexicon refreshes on
+`--resume` ([#56](https://github.com/caseywdunn/corpus/issues/56)),
+and a broken `tesseract-data-*` block in `environment.yaml` that
+broke fresh installs
+([#52](https://github.com/caseywdunn/corpus/issues/52)). The deploy
+stack also moved from single-EC2 + Let's Encrypt to a shared ALB +
+ACM pattern that supports multiple organism corpuscles on one
+hostname-routed load balancer. Geographic extraction
 ([#13](https://github.com/caseywdunn/corpus/issues/13)) and trait
-extraction ([#14](https://github.com/caseywdunn/corpus/issues/14)) are
-pushed to later releases.
+extraction ([#14](https://github.com/caseywdunn/corpus/issues/14))
+are pushed to later releases.
 
 ### Added
 
@@ -197,6 +143,21 @@ pushed to later releases.
 - **Inline figure bytes from `get_figure_image`** — returns PNG
   content directly so MCP clients don't need filesystem access to
   the bundle.
+- **Two-layer client-side instructions.** The
+  `InitializeResult.instructions` blob now joins a packaged default
+  ([`mcpsrv/default_instructions.md`](mcpsrv/default_instructions.md))
+  with an optional per-corpuscle override prepended on top. Default
+  guidance (defer to corpus taxonomy + bibliography, preserve
+  historical terminology) ships with the server and reaches every
+  client with no operator action; corpus-specific nudges land first
+  via `<corpuscle>/instructions.md` when present.
+  [`templates/instructions.md`](templates/instructions.md) is the
+  starting scaffold for the corpuscle layer.
+- **`/healthz` liveness probe** on the SSE transport. Returns
+  `200 ok` without requiring the bearer token — mounted ahead of
+  the auth middleware in `mcpsrv.transport._HealthzASGI` so uptime
+  monitors and reverse-proxy readiness checks don't need the shared
+  secret. Exposed through `deploy/nginx.conf` as `location = /healthz`.
 
 #### Internal
 
@@ -252,6 +213,25 @@ pushed to later releases.
   ([#18](https://github.com/caseywdunn/corpus/issues/18)) — the
   docling subprocess wrapper, originally added to contain a Linux
   segfault, no longer runs on macOS where it was pure overhead.
+- **Deploy architecture: ALB + ACM, multi-organism support.** Was
+  single-EC2 + nginx + Let's Encrypt; now each EC2 sits behind a
+  shared Application Load Balancer (`siphonophores-mcp-alb`) that
+  terminates TLS with an ACM wildcard cert. nginx on the instance
+  drops to plain `:80` (no certbot, no TLS). Adds a default
+  `/health` endpoint nginx serves directly for ALB target-group
+  health checks (separate from the `/healthz` MCP probe under
+  bearer auth). One listener rule per organism (host-header match
+  → target group), so adding `cnidaria.siphonophores.org` etc. is
+  a target-group + listener-rule + DNS CNAME, no new TLS infra.
+  CloudFormation `BucketName` parameter now optional via a new
+  `CreateBucket` flag so re-deploys can attach to an existing
+  bundle bucket. Full runbook rewritten: [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md).
+- **`INSTALL.md` promoted to repo root.** Moved from `dev_docs/`
+  since the content (jbig2enc, OCR language packs, Grobid, pip
+  fallback) is user-facing and belongs alongside README,
+  CONTRIBUTING, and CHANGELOG. `dev_docs/` keeps its
+  maintainer-only docs (PLAN, DEPLOY, BOUCHET, MCP_TOOLS, TESTING,
+  OVERVIEW). All cross-references updated.
 
 ### Fixed
 
@@ -286,6 +266,61 @@ pushed to later releases.
   [#49](https://github.com/caseywdunn/corpus/issues/49)) — path
   handling, cross-paper leakage in a query path, and an incorrect
   rank field. Closed before release.
+- **Stage 1 SLURM array tasks could process the same PDF
+  concurrently and corrupt per-doc state files**
+  ([#55](https://github.com/caseywdunn/corpus/issues/55)). The
+  pre-resume filter at the top of `pipeline.main.main()` ran
+  *before* batch slicing, so each array task's slice depended on
+  disk state at task-start time. Tasks starting later saw fewer
+  remaining hashes; their slice indices then landed on different
+  members of the list, producing overlapping batches. The two
+  writers raced on a shared `pipeline_state.json.tmp` filename,
+  leaving either an interleaved-bytes payload (31 corrupted
+  summaries in the production run that surfaced this) or a
+  `FileNotFoundError` on the rename. Fixed by slicing on the
+  unfiltered hash list (`_slice_hashes_for_batch` in
+  `pipeline.main`); resume skipping is now done per-doc inside the
+  loop. Belt-and-braces: `_save_pipeline_state` and
+  `create_summary_json` now use per-writer tmp filenames
+  (`.tmp.<pid>.<ns>`) so any future regression that re-introduces
+  concurrent writers on the same hash gets last-write-wins
+  atomicity instead of corruption. Regression tests in
+  `tests/test_batch_slicing.py`.
+- **`--resume` outer fast-path ignored `input_fingerprint`, so
+  editing a lexicon or taxonomy never invalidated already-recorded
+  stages** ([#56](https://github.com/caseywdunn/corpus/issues/56)).
+  The per-doc fast-path skip in `pipeline.main` called
+  `_all_stage_artifacts_complete` without forwarding the live
+  taxonomy/lexicon fingerprints, so a doc whose
+  `taxa_and_lexicon_extraction` stage was recorded under (e.g.) a
+  taxonomy-only fingerprint was silently skipped on a re-run that
+  loaded a real lexicon — even though the inner per-stage gate
+  would have correctly flagged it stale, that gate was unreachable.
+  Effective result: the only way to force a lexicon refresh was
+  bumping `PIPELINE_VERSION`. Production occurrence: 12,669 docs
+  in job `11108546` carried a fingerprint without `lexicons`
+  because the source YAML had loaded as `{}`; the resume run
+  silently passed over all of them. Fixed by adding
+  `expected_fingerprints` to `_all_stage_artifacts_complete` and a
+  shared `_expected_fingerprints_for_run` helper that both
+  `main.py`'s outer gate and `runner.py`'s inner gate now use,
+  keeping the two staleness notions in lockstep. Regression tests
+  in `test_per_stage_resume.py`.
+- **`environment.yaml` references to `tesseract-data-<code>`
+  packages** ([#52](https://github.com/caseywdunn/corpus/issues/52),
+  closes [#9](https://github.com/caseywdunn/corpus/issues/9)) —
+  the 12 per-language entries added in #46 listed package names
+  that don't exist on conda-forge, so a fresh `conda env create`
+  failed with `PackagesNotFoundError`. Existing dev envs survived
+  because incremental updates silently skipped the missing
+  packages. Replaced with a new
+  [`tools/install_tessdata.sh`](tools/install_tessdata.sh) helper
+  that downloads the default fallback set (deu, fra, rus, lat,
+  spa, por, chi_sim, chi_tra, jpn, ell, kor, grc, deu_latf)
+  directly from `tessdata_best`. Idempotent; takes a custom
+  language list as positional args; honors `TESSDATA_DIR` for
+  non-conda installs. Subsumes the v0.1 deu_latf-on-Bouchet manual
+  install (#9) — `deu_latf` is now part of the default download.
 
 ### Removed
 
@@ -301,12 +336,6 @@ pushed to later releases.
   indefinitely. SSE + bearer-token works for the ~20-collaborator
   deploy target; revisit only if wider distribution materializes
   or MCP clients drop SSE support.
-- **`deu_latf` Fraktur Tesseract pack**
-  ([#9](https://github.com/caseywdunn/corpus/issues/9)) — must be
-  installed manually (see [`INSTALL.md`](INSTALL.md))
-  before reprocessing 19th-c. German scans (Goldfuss 1820,
-  Pagenstecher 1869, Brandt 1837, Dönitz 1871). Carried over from
-  v0.1.
 - **Geographic mention layer**
   ([#13](https://github.com/caseywdunn/corpus/issues/13)) — pushed
   to v2.0+; the mention-layer surface is likely to be reworked at
