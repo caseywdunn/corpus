@@ -18,6 +18,16 @@ Parameters:
       Must be lowercase, no underscores, e.g. "corpus-bundles-dunn".
     AllowedPattern: '[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]'
 
+  CreateBucket:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >
+      Set to 'false' when the S3 bucket already exists (e.g. owned by a
+      previous stack that is still live while you stand up a replacement
+      EC2).  The IAM role always gets read access to BucketName regardless
+      of this setting.  Default 'true' creates and manages the bucket.
+
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: >
@@ -71,12 +81,20 @@ Parameters:
               Name=map-public-ip-on-launch,Values=true \\
               --query 'Subnets[0].SubnetId' --output text
 
+Conditions:
+  ShouldCreateBucket: !Equals [!Ref CreateBucket, 'true']
+
 Resources:
 
   # ── S3 bucket for versioned bundles ────────────────────────────────
+  # Only created when CreateBucket=true (the default for new organisms).
+  # Pass CreateBucket=false when the bucket already exists in another
+  # stack (e.g. when standing up a replacement EC2 while the old one is
+  # still live).  The IAM policy below always grants access by name.
 
   BundleBucket:
     Type: AWS::S3::Bucket
+    Condition: ShouldCreateBucket
     DeletionPolicy: Retain   # don't nuke history on stack delete
     UpdateReplacePolicy: Retain
     Properties:
@@ -112,8 +130,8 @@ Resources:
               - Effect: Allow
                 Action: [s3:GetObject, s3:ListBucket]
                 Resource:
-                  - !GetAtt BundleBucket.Arn
-                  - !Sub '${BundleBucket.Arn}/*'
+                  - !Sub 'arn:aws:s3:::${BucketName}'
+                  - !Sub 'arn:aws:s3:::${BucketName}/*'
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -226,7 +244,7 @@ Resources:
 Outputs:
   BucketName:
     Description: S3 bucket for serve bundles
-    Value: !Ref BundleBucket
+    Value: !Ref BucketName
 
   InstanceId:
     Description: EC2 instance id
