@@ -140,31 +140,48 @@ Only then submit the three production jobs against the full input.
 
 The pipeline orchestrator (`slurm/batch_pipeline.sh`) handles Grobid startup, Stage 1 job-array submission, Grobid cleanup, and Pass 3b + Embed chaining automatically.
 
+The orchestrator parallelizes both Stage 1 (CPU) and Pass 3b (GPU)
+independently. Stage 1 dominates wallclock for typical corpora; Pass 3b
+is the long pole only when many figures need vision-LLM ROI detection.
+
+| Knob | Stage | Default | What it controls |
+|---|---|---|---|
+| `NUM_BATCHES` | Stage 1 | `1` | Parallel CPU array tasks |
+| `BATCH_SIZE` | Stage 1 | `256` | PDFs per Stage 1 task |
+| `NUM_PASS3B_BATCHES` | Pass 3b | `1` | Parallel GPU array tasks |
+| `PASS3B_BATCH_SIZE` | Pass 3b | `256` | Papers per Pass 3b task |
+
 ```bash
 # Full pipeline with parallel Stage 1 batches of 256 PDFs each.
 # Adjust NUM_BATCHES = ceil(total_unique_pdfs / 256).
 NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 
-# Custom batch size:
+# Custom Stage 1 batch size:
 NUM_BATCHES=4 BATCH_SIZE=512 bash slurm/batch_pipeline.sh
+
+# Parallelize Pass 3b too — useful when figure-heavy corpora make the
+# vision pass the long pole. NUM_PASS3B_BATCHES = ceil(total_papers /
+# PASS3B_BATCH_SIZE). gpu_h200 partition has limited slots, so check
+# `sinfo -p gpu_h200` before fanning out aggressively.
+NUM_BATCHES=8 NUM_PASS3B_BATCHES=4 bash slurm/batch_pipeline.sh
 ```
 
 The orchestrator:
 1. Starts Grobid as a SLURM job, waits for it to be alive
 2. Submits Stage 1 as a job array (`--array=0-N`), each task processing a deterministic slice of the sorted hash list
 3. Schedules Grobid cleanup after Stage 1 completes (runs regardless of success/failure)
-4. Queues Pass 3b (GPU) and Embed (GPU) with `afterok` dependency on the full array
+4. Queues Pass 3b (GPU array) and Embed (GPU) with `afterok` dependency on the full Stage 1 array
 
 For manual submission without the orchestrator:
 
 ```bash
 sbatch --array=0-7 slurm/batch_process_corpus.sh
 # After all array tasks complete:
-sbatch slurm/batch_pass3b.sh
+sbatch --array=0-3 slurm/batch_pass3b.sh   # parallel; or omit --array for single-task
 sbatch slurm/batch_embed.sh
 ```
 
-`--resume` in every script means restarts are cheap — re-queuing picks up where the previous run left off. Without `NUM_BATCHES` (or set to 1), the pipeline runs as a single job for small corpora.
+`--resume` in every script means restarts are cheap — re-queuing picks up where the previous run left off. Without `NUM_BATCHES` / `NUM_PASS3B_BATCHES` (or set to 1), the corresponding stage runs as a single job, which is usually right for small corpora.
 
 ## Post-pipeline cross-paper databases
 
