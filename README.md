@@ -2,8 +2,6 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19964909.svg)](https://doi.org/10.5281/zenodo.19964909)
 
-A workflow for turning a collection of scientific-literature PDFs — spanning born-digital papers and centuries-old scans in multiple languages — into a queryable knowledge base exposed over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), so AI agents can interrogate and synthesize the literature directly. The primary target is taxonomic literature.
-
 ## Citing corpus
 
 We are preparing a manuscript that presents corpus. In the mean time, please cite corpus as:
@@ -12,7 +10,15 @@ We are preparing a manuscript that presents corpus. In the mean time, please cit
 
 ## What corpus does
 
-corpus reads a folder of PDFs and produces a knowledge base built around: **taxa, figures, bibliographies, and the cross-paper relationships between them**. It handles several tasks:
+Think of corpus as an interface between a body of scientific literature and a Large Language Model (LLM) like Claude (Anthropic). LLMs absorb broad knowledge during training but lack granular detail on specific scientific topics. Corpus supplies that detail from a literature collection of your choice, so the model can answer questions grounded in the papers themselves rather than its training data alone.
+
+The workflow turns a folder of PDFs — born-digital articles alongside centuries-old scans in multiple languages — into a queryable knowledge base, exposed over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). MCP is the open standard that LLM clients (Claude Desktop, Claude Code, claude.ai web, Cursor) use to reach external data. The primary target is taxonomic literature.
+
+Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on Yale's HPC cluster and host public servers on Amazon Web Services (AWS), but those are our choices; any machine with Python and adequate disk will do.
+
+### Implementation
+
+Corpus reads a folder of PDFs and produces a knowledge base built around: **taxa, figures, bibliographies, and the cross-paper relationships between them**. It handles several tasks:
 
 - **OCR for old scans** — including 19th-century German Fraktur and other historical typefaces, with per-paper language detection.
 - **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then vision-LLM-tagged for taxonomy and anatomy.
@@ -103,7 +109,7 @@ Override the default location with `--instructions <path>` when starting the MCP
 - **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking, annotation) is CPU-bound and parallelizes well across PDFs. Stage 2 (BGE-M3 embeddings) and the optional vision pass (Qwen2.5-VL-7B figure tagging) are GPU-accelerated; embeddings still run on CPU but slowly, and the local vision backend needs a GPU to be usable. A Claude API vision backend is also available — costs API credits but runs anywhere.
 - **Scale.** A few dozen PDFs run on a laptop in a couple of hours. A few thousand benefit from an HPC cluster — we use Yale's Bouchet, runbook in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
-- **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 + nginx + Let's Encrypt), but any host with Python and an open port works. See [Deploying MCP server remotely](#deploying-mcp-server-remotely) below.
+- **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 instances behind a shared Application Load Balancer), but any host with Python and an open port works. See [Deploying MCP server remotely](#deploying-mcp-server-remotely) below.
 
 ## Corpuscle layout
 
@@ -118,12 +124,13 @@ A *corpuscle* is the on-disk container for one corpus instance — siphonophores
 └── taxon_mentions.sqlite     # cross-paper taxon index
 ```
 
-Two cross-paper layers are built from the per-paper artifacts and are independently rebuildable without re-running OCR or extraction:
+Three cross-paper layers are rebuildable independently of the per-paper artifacts (no re-running OCR or extraction):
 
 | Layer | File | Built by |
 | --- | --- | --- |
 | **Taxonomy** — Darwin Core snapshot with synonymy | `taxonomy.sqlite` | `ingest_taxonomy.py` (sources: `dwc` / `dwca` / `worms`) |
 | **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `build_biblio_authority.py` + `reconcile_corpus_to_biblio.py` |
+| **Taxon mentions** — cross-paper taxon-to-paper index | `taxon_mentions.sqlite` | `build_taxon_mentions.py` |
 
 Every CLI takes the corpuscle root as its first positional argument and resolves all per-instance files from there. Run two corpora side-by-side by giving each its own corpuscle directory; they don't share state.
 
@@ -339,7 +346,7 @@ Clients send `Authorization: Bearer <token>` on every request. Without `--auth-t
 python tools/smoke_test_sse.py output
 ```
 
-All seven checks should pass locally before you move to a real server. The deployment pattern (EC2 + nginx + Let's Encrypt, bundle pulled from S3) is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) and [dev_docs/PLAN.md §10](dev_docs/PLAN.md).
+All seven checks should pass locally before you move to a real server. The deployment pattern (one EC2 per corpuscle behind a shared ALB, bundle pulled from S3) is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) and [dev_docs/PLAN.md §10](dev_docs/PLAN.md).
 
 **4. Connect a client.** Remote-MCP support exists natively in Claude Desktop, claude.ai web, and Claude Code. The paths differ in friction and in which transport + auth they target. Recommended in order:
 
