@@ -1,14 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Corpus MCP server deploy: one EC2 instance with an Elastic IP, an S3
-  bucket for versioned bundles, and an IAM role letting the instance
-  pull bundles from S3.  TLS termination happens on the instance via
-  nginx + Let's Encrypt (see deploy/nginx.conf + DEPLOY.md).
+  Corpus MCP server deploy: one EC2 instance, an S3 bucket for versioned
+  bundles, and an IAM role letting the instance pull bundles from S3.
 
-  This is the "deliberately boring" path from dev_docs/PLAN.md §10 scaled to
-  ~20 collaborators - no ALB, no CloudFront, no Route 53 dependency.
-  Upgrade to those components later if WAF rate-limiting or
-  multi-instance scale becomes real.
+  TLS terminates at an AWS ALB (*.siphonophores.org ACM cert); this EC2
+  only listens on :80.  See deploy/nginx.conf and DEPLOY.md for the ALB
+  setup (security groups, target group, listener rules, idle-timeout).
+
+  One template per organism EC2 — each gets its own stack, its own S3
+  bucket, and is registered into a shared target group on the ALB.
 
 Parameters:
   BucketName:
@@ -129,22 +129,22 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref VpcId
-      GroupDescription: corpus-mcp - SSH from operator, HTTP/HTTPS from world
+      # TODO: after creating the ALB and its security group (mcp-alb-sg),
+      # restrict the port-80 rule to allow only from mcp-alb-sg instead of
+      # 0.0.0.0/0.  This can be done in the console by editing this SG's
+      # inbound rules: remove the 0.0.0.0/0 CIDR rule and add a source-SG
+      # rule referencing mcp-alb-sg.
+      GroupDescription: corpus-mcp - SSH from operator, HTTP from ALB
       SecurityGroupIngress:
         - Description: SSH from operator
           IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: !Ref SSHAllowCIDR
-        - Description: HTTP - for certbot http-01 + 301 redirect to HTTPS
+        - Description: HTTP from ALB (restrict to mcp-alb-sg after ALB is created)
           IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - Description: HTTPS - nginx terminates TLS
-          IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
           CidrIp: 0.0.0.0/0
 
   # ── EC2 instance + Elastic IP ──────────────────────────────────────
@@ -201,7 +201,7 @@ Resources:
           apt-get update -y
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
               python3.12 python3.12-venv python3-pip \
-              git nginx certbot python3-certbot-nginx \
+              git nginx \
               ca-certificates curl unzip
 
           # AWS CLI v2 - Ubuntu 24.04 dropped the 'awscli' apt package

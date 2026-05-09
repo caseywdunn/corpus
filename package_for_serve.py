@@ -332,6 +332,32 @@ def _scrub_summary(serve_path: Path, output_root: Path) -> bool:
     return changed
 
 
+def _scrub_taxa(serve_path: Path) -> bool:
+    """Rewrite the absolute-path field in a copied taxa.json.
+
+    ``input_fingerprint.path`` records the build-host path to
+    taxonomy.sqlite (e.g. /nfs/roberts/…/taxonomy.sqlite). That path
+    is not meaningful on the serve host; replace it with the basename
+    so the portability audit passes while preserving the other
+    fingerprint fields (sha256, size) for cache-invalidation checks.
+
+    Returns True if any change was made.
+    """
+    try:
+        data = json.loads(serve_path.read_text())
+    except Exception:
+        return False
+    fp = data.get("input_fingerprint")
+    if not isinstance(fp, dict):
+        return False
+    p = fp.get("path")
+    if not isinstance(p, str) or not Path(p).is_absolute():
+        return False
+    fp["path"] = Path(p).name
+    serve_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    return True
+
+
 def _scrub_figures(serve_path: Path, output_root: Path) -> bool:
     """Rewrite absolute-path fields in a copied figures.json.
 
@@ -493,6 +519,8 @@ def package(output_dir: Path, serve_dir: Path, version: str,
             if _scrub_summary(hash_dir / "summary.json", output_dir):
                 n_scrubbed += 1
             if _scrub_figures(hash_dir / "figures.json", output_dir):
+                n_scrubbed += 1
+            if _scrub_taxa(hash_dir / "taxa.json"):
                 n_scrubbed += 1
         offenders = _audit_no_absolute_paths(serve_dir)
         if offenders:
