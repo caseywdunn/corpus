@@ -1,6 +1,6 @@
 # Installation notes
 
-The one-command conda install in the [README](../README.md) covers most setups. The additions below are needed only for specific OCR or deployment scenarios.
+The one-command conda install in the [README](README.md) covers most setups. The additions below are needed only for specific OCR or deployment scenarios.
 
 ## Higher OCR compression: jbig2enc
 
@@ -20,7 +20,7 @@ On Bouchet, `module avail jbig2enc` will tell you whether a module is available;
 
 The conda-forge `tesseract` package ships only the English LSTM model. Every other language pack — including 19th-century German Fraktur (`deu_latf`) — has to be dropped into `$CONDA_PREFIX/share/tessdata/` as a `<code>.traineddata` file from the [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo. There is no `tesseract-data-<code>` package on conda-forge; older versions of `environment.yaml` referenced packages by that name and silently failed to install on a fresh env (issue [#52](https://github.com/caseywdunn/corpus/issues/52)).
 
-[`tools/install_tessdata.sh`](../tools/install_tessdata.sh) automates the download for the default fallback set in `config.yaml` (`eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`, `grc`, plus `deu_latf` for 19th-c. German):
+[`tools/install_tessdata.sh`](tools/install_tessdata.sh) automates the download for the default fallback set in `config.yaml` (`eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`, `grc`, plus `deu_latf` for 19th-c. German):
 
 ```bash
 conda activate corpus
@@ -29,7 +29,7 @@ bash tools/install_tessdata.sh
 
 The script is idempotent — re-running skips packs that already exist.
 
-To add a language outside the default set, pass its [ISO-to-Tesseract code](../pipeline/scan.py) explicitly:
+To add a language outside the default set, pass its [ISO-to-Tesseract code](pipeline/scan.py) explicitly:
 
 ```bash
 bash tools/install_tessdata.sh ara hin tha

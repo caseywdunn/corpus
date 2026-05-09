@@ -141,7 +141,7 @@ docker compose up -d grobid
 curl http://localhost:8070/api/isalive   # should print "true"
 ```
 
-After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [dev_docs/INSTALL.md](dev_docs/INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
+After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [INSTALL.md](INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
 
 ## Language support
 
@@ -382,7 +382,7 @@ A cleaner Custom Connectors experience would add a **Streamable HTTP** transport
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
 - [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
-- [dev_docs/INSTALL.md](dev_docs/INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
+- [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 

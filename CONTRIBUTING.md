@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for the interest. Everything below assumes the `corpus` conda environment is active — see the [README](README.md) and [dev_docs/INSTALL.md](dev_docs/INSTALL.md).
+Thanks for the interest. Everything below assumes the `corpus` conda environment is active — see the [README](README.md) and [INSTALL.md](INSTALL.md).
 
 ## Tests
 

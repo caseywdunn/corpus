@@ -14,7 +14,7 @@
 # package ships only English LSTM data).  After creating the env, run
 # `bash tools/install_tessdata.sh` to drop the default fallback set
 # (deu, fra, rus, lat, spa, por, chi_sim, chi_tra, jpn, ell, kor, grc,
-# deu_latf) into $CONDA_PREFIX/share/tessdata.  See dev_docs/INSTALL.md.
+# deu_latf) into $CONDA_PREFIX/share/tessdata.  See INSTALL.md.
 #
 # On HPC (Bouchet / YCRC) the same file works after `module load miniconda`.
 

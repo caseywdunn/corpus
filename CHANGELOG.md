@@ -303,7 +303,7 @@ pushed to later releases.
   or MCP clients drop SSE support.
 - **`deu_latf` Fraktur Tesseract pack**
   ([#9](https://github.com/caseywdunn/corpus/issues/9)) — must be
-  installed manually (see [`dev_docs/INSTALL.md`](dev_docs/INSTALL.md))
+  installed manually (see [`INSTALL.md`](INSTALL.md))
   before reprocessing 19th-c. German scans (Goldfuss 1820,
   Pagenstecher 1869, Brandt 1837, Dönitz 1871). Carried over from
   v0.1.

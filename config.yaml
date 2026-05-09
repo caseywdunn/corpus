@@ -23,7 +23,7 @@ ocr:
   ocr_languages_default:
     - eng
     - deu
-    - deu_latf    # 19th-c. German Fraktur (manual install; see dev_docs/INSTALL.md)
+    - deu_latf    # 19th-c. German Fraktur (manual install; see INSTALL.md)
     - fra
     - rus
     - lat

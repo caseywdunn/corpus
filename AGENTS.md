@@ -17,7 +17,7 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
 - [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
-- [dev_docs/INSTALL.md](dev_docs/INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
+- [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
 
 ## Quick reference
 
