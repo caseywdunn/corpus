@@ -16,22 +16,30 @@ sudo apt-get install jbig2enc
 
 On Bouchet, `module avail jbig2enc` will tell you whether a module is available; if not, skip — `ocrmypdf` falls back gracefully.
 
-## Additional OCR language packs
+## OCR language packs
 
-`environment.yaml` already pulls in the Tesseract language packs that match the default fallback set in `config.yaml` (`eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`) plus `grc` (Ancient Greek, opt-in). A fresh `conda env create -f environment.yaml` covers all of them; no extra install is required for the supported languages.
+The conda-forge `tesseract` package ships only the English LSTM model. Every other language pack — including 19th-century German Fraktur (`deu_latf`) — has to be dropped into `$CONDA_PREFIX/share/tessdata/` as a `<code>.traineddata` file from the [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo. There is no `tesseract-data-<code>` package on conda-forge; older versions of `environment.yaml` referenced packages by that name and silently failed to install on a fresh env (issue [#52](https://github.com/caseywdunn/corpus/issues/52)).
 
-To add a language outside that set, install the matching `tesseract-data-<code>` pack from conda-forge — the ISO-to-Tesseract map in [pipeline/scan.py](../pipeline/scan.py) covers ~40 languages:
+[`tools/install_tessdata.sh`](../tools/install_tessdata.sh) automates the download for the default fallback set in `config.yaml` (`eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`, `grc`, plus `deu_latf` for 19th-c. German):
 
 ```bash
-conda install -c conda-forge tesseract-data-<code>
+conda activate corpus
+bash tools/install_tessdata.sh
 ```
 
-**19th-century German Fraktur** (e.g., Haeckel, Schneider) is *not* packaged on conda-forge. Download `deu_latf.traineddata` from the Tesseract project and drop it into the env's `tessdata` directory:
+The script is idempotent — re-running skips packs that already exist.
+
+To add a language outside the default set, pass its [ISO-to-Tesseract code](../pipeline/scan.py) explicitly:
 
 ```bash
-TESSDATA="$CONDA_PREFIX/share/tessdata"
-curl -L -o "$TESSDATA/deu_latf.traineddata" \
-  https://github.com/tesseract-ocr/tessdata_best/raw/main/deu_latf.traineddata
+bash tools/install_tessdata.sh ara hin tha
+```
+
+For non-conda installs (`pip install -r requirements.txt` + a system-installed tesseract), point the script at your tessdata directory directly:
+
+```bash
+TESSDATA_DIR=/usr/local/share/tessdata bash tools/install_tessdata.sh
+# Debian/Ubuntu typically: /usr/share/tesseract-ocr/<version>/tessdata
 ```
 
 ## Grobid on Bouchet

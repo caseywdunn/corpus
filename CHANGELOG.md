@@ -20,6 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **README §"Deploying MCP server remotely"** referenced an EC2 + ALB +
   CloudFront pattern that doesn't match the actual `deploy/stack.yaml`
   (single EC2 + nginx + Let's Encrypt). Corrected.
+- **`environment.yaml` references to `tesseract-data-<code>` packages**
+  ([#52](https://github.com/caseywdunn/corpus/issues/52)) — the 12
+  per-language entries added in v0.2.0 (#46) listed package names that
+  don't exist on conda-forge, so a fresh `conda env create` failed with
+  `PackagesNotFoundError`. Existing dev envs survived because
+  incremental updates silently skipped the missing packages. Replaced
+  with a new `tools/install_tessdata.sh` helper that downloads the
+  default fallback set (deu, fra, rus, lat, spa, por, chi_sim, chi_tra,
+  jpn, ell, kor, grc, deu_latf) directly from `tessdata_best`.
+  Idempotent; takes a custom language list as positional args; honors
+  `TESSDATA_DIR` for non-conda installs.
 
 ## [0.2.0] - 2026-05-07
 

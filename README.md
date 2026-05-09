@@ -141,19 +141,25 @@ docker compose up -d grobid
 curl http://localhost:8070/api/isalive   # should print "true"
 ```
 
-Platform-specific OCR extras (Fraktur for 19th-century German, additional `pngquant`/`jbig2enc` compression) are covered in [dev_docs/INSTALL.md](dev_docs/INSTALL.md).
+After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [dev_docs/INSTALL.md](dev_docs/INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
 
 ## Language support
 
 OCR is the only stage where language matters. Each scanned PDF gets its language detected automatically (`langdetect` on the first few pages of extracted text), and the result is routed to a matching [Tesseract](https://github.com/tesseract-ocr/tesseract) language pack — a `<code>.traineddata` file that teaches Tesseract to recognize a particular language or script. Born-digital PDFs with a clean text layer skip OCR entirely, so packs only matter for scans.
 
-**What ships by default.** `environment.yaml` installs `tesseract` plus the language packs that back the default fallback set in `config.yaml` (`ocr.ocr_languages_default`): `eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`. The conda env also pulls down `grc` (Ancient Greek), but it's intentionally left out of the default fallback union — opt in via `config.yaml` if you have classical sources.
+**What ships by default.** The conda-forge `tesseract` package ships only the English LSTM model. The default fallback set in `config.yaml` (`ocr.ocr_languages_default`: `eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`) plus `grc` (Ancient Greek, opt-in) and `deu_latf` (19th-c. German Fraktur) are installed by running [`tools/install_tessdata.sh`](tools/install_tessdata.sh) after `conda env create` — it drops the matching `<code>.traineddata` files into `$CONDA_PREFIX/share/tessdata/` directly from the official [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo. None of the per-language packs are on conda-forge.
 
-**One manual step required.** 19th-century German Fraktur (`deu_latf`) is part of the default fallback set but isn't packaged on conda-forge, so it has to be downloaded into the conda env's `tessdata` directory by hand after the env is built. Without it, scanned 19th-c. German papers (Goldfuss 1820, Brandt 1837, Pagenstecher 1869, Dönitz 1871, …) OCR to whitespace. Steps in [dev_docs/INSTALL.md](dev_docs/INSTALL.md#additional-ocr-language-packs).
+**Without `deu_latf`,** scanned 19th-c. German papers (Goldfuss 1820, Brandt 1837, Pagenstecher 1869, Dönitz 1871, …) OCR to whitespace. The default install bundles it, so no separate step is needed unless you trimmed the language list.
 
 **How to tell if you need more packs.** After a Stage 1 run, `<output_dir>/documents/<HASH>/scan_detection.json` records the detected language for each scanned PDF. Skim those to see what languages your corpus actually contains. If a language is detected but no matching pack is installed, OCR silently falls back to the union of installed packs (English is always appended last) — extraction still succeeds, but accuracy on that paper drops. Adding more languages than you need is safe but slows OCR, so trim `ocr.ocr_languages_default` for a known-narrow corpus.
 
-**Adding a language outside the default set.** The full ISO-to-Tesseract map covers ~40 languages including CJK, Cyrillic, Greek, Arabic, and Indic scripts — see `_ISO_TO_TESSERACT` in [pipeline/scan.py](pipeline/scan.py). Install the matching `tesseract-data-<code>` pack from conda-forge and the detector will pick it up on the next run. To make it part of the fallback set tried when detection is uncertain, add the code to `ocr.ocr_languages_default` in `config.yaml`.
+**Adding a language outside the default set.** The full ISO-to-Tesseract map covers ~40 languages including CJK, Cyrillic, Greek, Arabic, and Indic scripts — see `_ISO_TO_TESSERACT` in [pipeline/scan.py](pipeline/scan.py). Pass the codes to the installer to grab the matching packs:
+
+```bash
+bash tools/install_tessdata.sh ara hin tha
+```
+
+To make a new language part of the fallback set tried when detection is uncertain, add its code to `ocr.ocr_languages_default` in `config.yaml`.
 
 **Everything past OCR is language-agnostic.** The [BGE-M3](https://huggingface.co/BAAI/bge-m3) embedding model is multilingual (trained on 100+ languages) and built for cross-lingual retrieval — a question in English finds passages in German, Latin, French, and so on. Grobid metadata extraction works across European languages, and the vision LLM that tags figures reads labels in whatever script is on the plate. So once OCR succeeds, no further language configuration is needed.
 
