@@ -1,237 +1,360 @@
-# PLAN.md — Corpus pipeline (v0.2)
+# PLAN.md — Corpus pipeline (v0.3)
 
-v0.1 (2026-05-01) shipped the full extraction → annotation → indexing →
-MCP-serving stack on a ~1,800-paper siphonophore corpus. v0.2 hardens
-v0.1's rough edges and fills in the deferred items: vision pass at
-corpus scale, expanded taxonomy + lexicon coverage, a Streamable-HTTP
-transport with OAuth, batch-script cleanup, granular per-stage resume,
-robustness + quality gates against silent-failure modes, and a
-`corpus_status` view of the build. Geographic extraction is pushed to
-v2.0+ (see §4).
+v0.1 (2026-05-01) shipped the full extraction → annotation → indexing
+→ MCP-serving stack. v0.2 (2026-05-08) hardened internals: per-stage
+resume, input fingerprints, structured failure schema, quality gates,
+and an ALB-fronted multi-organism deploy.
 
-This document is scoped to v0.2 work. Architectural background and
-pipeline internals live in [OVERVIEW.md](OVERVIEW.md);
-per-feature history in [CHANGELOG.md](../CHANGELOG.md); HPC operations in
-[BOUCHET.md](BOUCHET.md); deployment in
-[DEPLOY.md](DEPLOY.md). Open work is tracked in
+**v0.3 is about the user surface.** The pipeline today is internally
+correct but operationally wide: thirteen CLI entry points at the repo
+root, an opt-in `--resume` flag everywhere, manual orchestration of
+cross-paper databases, taxonomy ingest separate from the main
+pipeline, and per-corpuscle inputs (PDF dir, bib path, lexicon path,
+taxonomy source) carried as long command lines. v0.3 collapses that
+surface to **one CLI, one config file per corpuscle, one clone per
+corpuscle, automatic database management, and capability-aware
+defaults**. The framing of v0.2 was "we built the right machine";
+v0.3 is "we make the machine usable by someone who isn't us."
+
+This document is scoped to v0.3 work. Architectural background and
+pipeline internals live in [OVERVIEW.md](OVERVIEW.md); per-feature
+history in [CHANGELOG.md](../CHANGELOG.md); HPC operations in
+[BOUCHET.md](BOUCHET.md); deployment in [DEPLOY.md](DEPLOY.md). Open
+work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues); the
-v0.2-scoped subset is listed below.
+v0.3-scoped subset is listed below.
 
-## 1. v0.2 punch list
+## 1. v0.3 punch list
 
-### Implementation order
+### One CLI, one corpuscle per clone
 
-Items below are grouped thematically, but implemented in this order so
-data shapes land before consumers and small wins land before
-architectural lifts:
+The unifying simplification: a clone of corpus *is* a corpuscle. The
+inputs and per-instance settings for that corpuscle live in
+`config.yaml` at the clone root. Multiple corpora = multiple clones,
+each with its own config and output. Stage 1, Stage 2, post-pipeline
+cross-paper databases, and bundle distillation all run from one
+entry point.
 
-1. **Quick wins** — #6, #22, #25, #31, #41. Small fixes, a read-only
-   audit, and `--dry-run` flags. Low risk; lands first to build
-   momentum.
-2. **Robustness layer** — #34 → #36 → #40, then #35, #37. Structured
-   `stage_failures[]`, quality gates, `corpus_status.py`. Establishes
-   the failure / status data model before anything restructures the
-   pipeline.
-3. **Update lifecycle** — #28 → #29, then #30, #32, #33. Granular
-   per-stage resume + input fingerprints. #34's structured-failure
-   schema lands first so #28 inherits it instead of inventing a
-   parallel one.
-4. **Slot in anywhere** — #11 + #27 (vision at corpus scale), #15
-   (mcp_server refactor), batch-script cleanup (#20, #21), feature
-   work (#23, #24, #26), #12, #16, #17. Independent enough to
-   land in any session.
+- **Single user-facing CLI: `process_corpus.py`.** Subsumes today's
+  `update_corpus.py`, `process_corpus.py`, `embed_chunks.py`,
+  `build_biblio_authority.py`, `build_taxon_mentions.py`,
+  `backfill_intext_citations.py`, `reconcile_corpus_to_biblio.py`,
+  `ingest_taxonomy.py`, and `package_for_serve.py` into one
+  invocation. Those nine current root-level scripts become internal
+  modules — kept importable for tests and ad-hoc debugging, dropped
+  as user-facing CLIs. `bib_export.py` and `bib_import.py` stay
+  user-facing; they're intentionally separate from the pipeline
+  lifecycle (operators run them between or before pipeline runs).
+- **Implicit resume.** Drop the `--resume` flag. The pipeline is
+  always idempotent: re-runs do only the work whose inputs have
+  changed (per-stage state, content fingerprints, PDF set diff —
+  all infrastructure already in place from v0.2). Explicit
+  `--force-rebuild` (and per-stage `--force-rebuild-<stage>`)
+  covers the rare clean-rebuild case.
+- **Strict `--dry-run`.** Prints the plan — what would run, what
+  would skip, what would be deleted — without touching disk. Today's
+  per-stage `--dry-run` (#41) honors this stage by stage; under the
+  unified entry point, audit every write path so the dry-run
+  guarantee holds across all stages, post-pipeline scripts, and the
+  bundle distillation step.
+- **`--check` capability pre-flight.** Distinct from `--dry-run`
+  (which prints the *plan*). `--check` validates `config.yaml`,
+  probes GPU availability, pings the configured Grobid endpoint,
+  checks `ANTHROPIC_API_KEY` presence when the vision backend is
+  `claude`, sanity-checks output disk space, and prints a
+  green/yellow/red report. Cheap to write once the config-driven
+  CLI exists, and saves long debug sessions on Bouchet when
+  something is misconfigured before SLURM kicks off.
+- **Success summary + next-step pointer.** On clean completion,
+  `process_corpus.py` prints a scannable end-to-end report and the
+  command to launch a local MCP server against the new corpuscle.
+  The report shape is the one specified in
+  [#57](https://github.com/caseywdunn/corpus/issues/57): per-stage
+  pass rate (with terminal bars), lexicon coverage per category
+  with fingerprint match (denominator = all papers, breakdown into
+  `ok` / `stale` / `missing`), cross-paper artifact presence
+  (`taxonomy.sqlite`, `biblio_authority.sqlite`,
+  `taxon_mentions.sqlite`, `vector_db/lancedb` ✓/✗), and a flat
+  tally of `stage_failures.reason_code × stage` and
+  `quality_flags.gate`. The reference script in #57 is the
+  starting point. Surface it as `corpus_status --report` (or
+  equivalent) so the same view runs at any time, not only on
+  completion. Closes [#57](https://github.com/caseywdunn/corpus/issues/57).
+- **Bundle distillation in line.** The unified CLI runs through
+  `package_for_serve.py` so a successful run produces a ready-to-ship
+  served bundle alongside the build bundle. `--no-bundle` for users
+  who only want the build artifacts.
+- **`mcp_server.py` reads `config.yaml` too.** Single source of
+  truth across pipeline + serve. Today's launch is
+  `python mcp_server.py /path/to/output [--auth-token-file ...]
+  [--instructions ...]`; under v0.3 it becomes `python mcp_server.py`
+  with bundle path, instructions, and bearer-token file resolved
+  from the same `config.yaml` that drove the pipeline. `--config
+  /path/to/other/config.yaml` for non-default location.
+- **`bib_export.py` / `bib_import.py` work before first
+  `process_corpus.py` run.** Today `bib_import` writes into
+  `biblio_authority.sqlite`, which only exists after the pipeline
+  has run. Under v0.3, `bib_import` either creates an empty
+  authority DB and stages the edits, or persists the edits to a
+  sidecar file the next pipeline build picks up — the design call
+  is part of the issue. Either way, the operator can curate the
+  bibliography ahead of the first run, and the curation lands on
+  the resulting authority DB without a second `bib_import` step.
 
-The thematic groupings below remain useful reference; read this list
-when planning a session.
+### Per-corpuscle `config.yaml`
 
-### Hardening — close out v0.1 rough edges
+The current `config.yaml` mixes system-wide tuning (OCR language
+packs, quality-gate thresholds) with no corpuscle-specific surface;
+all per-corpuscle inputs are CLI flags. v0.3 turns `config.yaml`
+into the single source of truth for *this* corpuscle's inputs and
+settings, gitignored on the operator side.
 
-- [#9](https://github.com/caseywdunn/corpus/issues/9) — Install
-  `deu_latf` Fraktur pack on Bouchet. ~6–8 19th-c. German scans
-  (Goldfuss 1820, Pagenstecher 1869, Brandt 1837, Dönitz 1871, …)
-  currently OCR to whitespace; reprocess them after the pack lands.
-- [#16](https://github.com/caseywdunn/corpus/issues/16) — Figure-number
-  extraction on old/scanned papers. ~538/1787 papers have `Fig. N`
-  mentions in body text but no extracted figure number. Improve
-  `parse_figure_number` heuristics or fall back to running-text
-  mention positions when caption parsing fails.
-- [#17](https://github.com/caseywdunn/corpus/issues/17) — MCP server
-  identity. Partially addressed in v0.2-dev: `__version__` from
-  [pipeline/version.py](../pipeline/version.py) now surfaces via the `bundle_info` tool.
-  Remaining: server name should be corpuscle-aware (e.g.,
-  `corpus:siphonophores` rather than `corpus`).
-- [#6](https://github.com/caseywdunn/corpus/issues/6) — `deploy/stack.yaml`
-  default-VPC assumption. Fails on accounts without a default VPC;
-  parameterize or pre-flight.
-- [#22](https://github.com/caseywdunn/corpus/issues/22) —
-  `ingest_taxonomy.py` DwC field-name fix (`taxon` vs. `taxa`).
-- [#25](https://github.com/caseywdunn/corpus/issues/25) — `pngquant`
-  missing from `environment.yaml`.
-- Bouchet batch-script cleanup
-  ([#20](https://github.com/caseywdunn/corpus/issues/20),
-  [#21](https://github.com/caseywdunn/corpus/issues/21)) —
-  library-load problems across batch scripts, CUDA / torch fixes.
+- **`config.template.yaml` tracked; `config.yaml` gitignored.**
+  First-run check: if `config.yaml` is absent, `process_corpus.py`
+  errors with `copy config.template.yaml to config.yaml and edit
+  the input paths`. No silent auto-create — users should make a
+  deliberate choice about where their PDFs / bib / lexicon live.
+- **Move per-corpuscle inputs into config.** Today's CLI flags
+  fold in:
+  - `input_pdfs:` (replaces the positional input arg)
+  - `output_dir:` (defaults to `./output`)
+  - `bib:` (replaces `--bib`)
+  - `lexicon:` (replaces `--lexicon`)
+  - `taxonomy:` block — `source: worms | dwc | dwca`,
+    `root_id:` (for WoRMS), `path:` (for local DwC archives)
+  - `vision:` block — `backend: local | claude | none`,
+    `model:` overrides
+  - `grobid:` block — `url:`, optional `disable: true`
+- **Drift detection.** Hash the resolved config (input paths +
+  per-input content SHA) into a corpuscle-side state file. A
+  mismatch on the next run logs which keys drifted and which stages
+  it invalidates, so an operator can see *why* a re-run is doing
+  more than they expected.
+- **Demo corpuscle config story.** `demo/` is in the same repo as
+  the corpus code, so it can't be a corpuscle clone of its own.
+  Two reasonable paths: ship a `demo/config.yaml` that
+  `process_corpus.py --demo` short-circuits to (avoids polluting
+  the operator's clone-root `config.yaml`); or ship
+  `demo/config.template.yaml` and a `demo/run.sh` that copies it.
+  Pick during the unified-CLI design.
+- **Tests adapt to one-corpuscle-per-clone.** `CORPUS_OUTPUT_DIR`
+  env var still works but defaults to `./output` (the canonical
+  per-clone corpuscle root). The fixture-fallback logic in
+  `tests/conftest.py` is already close; tighten the precedence so
+  a missing env var resolves to `./output` rather than the
+  legacy `output/` ambiguity.
 
-### Vision + figures
+### Auto-build, auto-detect, auto-clean
 
-- [#11](https://github.com/caseywdunn/corpus/issues/11) — **Vision pass
-  at corpus scale.** Pipeline is wired (`batch_pass3b.sh`,
-  Qwen2.5-VL-7B local backend, Claude remote backend) and tested on
-  the demo set; v0.1 didn't run it on the full corpus. Resolves the
-  bulk of the 6,841 pre-existing `missing_figures[]` records and the
-  compound-figure splits (Pass 3c).
-- [#27](https://github.com/caseywdunn/corpus/issues/27) — Add SLURM
-  array processing to `batch_pass3b.sh` so it parallelizes the same
-  way `batch_pipeline.sh` does. Prerequisite for #11 at any reasonable
-  wallclock.
+Today's pipeline fails open: configure a taxonomy source but skip
+`ingest_taxonomy.py` and the resulting MCP server returns "DB not
+loaded" for every taxonomy query, with no easy way to find out
+why. v0.3 closes that gap by making the unified entry point
+inspect the config and act.
 
-### Indices + features
+- **Auto-build cross-paper databases.** If `taxonomy:` is configured
+  in `config.yaml` but `taxonomy.sqlite` doesn't exist, build it.
+  Same for `biblio_authority.sqlite` and `taxon_mentions.sqlite`.
+  Hash the input source for each (bib SHA-256, taxonomy snapshot
+  SHA-256, lexicon SHA-256) into the corpuscle-side state; rebuild
+  the database when the input hash changes. `--force-rebuild` and
+  per-database `--force-rebuild-<db>` flags cover the ops escape.
+  `bibliography:` block in `config.yaml` carries `enrich_bhl: false`
+  by default — slow, rate-limited, network-dependent, opt-in via
+  config or `--enrich-bhl` CLI override.
+- **Vision pass: opt-out, capability-aware.** Run the vision pass
+  by default. If the configured backend isn't usable on this host
+  (no GPU for `local`, no `ANTHROPIC_API_KEY` for `claude`), skip
+  with a clear log message and a one-line nudge for what to do
+  about it. `--no-vision` for explicit skip. Closes the long tail
+  of [#11](https://github.com/caseywdunn/corpus/issues/11) for the
+  default-config path.
+- **Orphan cleanup is the default.** If a PDF disappears from the
+  configured input dir, its `documents/<HASH>/` directory and
+  matching LanceDB rows are deleted on the next run. Today's
+  `--audit-orphans` (#31) is read-only; v0.3 makes deletion the
+  default, with `--no-prune` for the read-only mode and a safety
+  rail (refuse to prune if more than N% of documents would be
+  affected — likely a config mistake or unmounted volume) gated
+  behind `--force-prune`.
 
-- [#26](https://github.com/caseywdunn/corpus/issues/26) — Round-trip
-  bibliography: MCP export + shell import.
-- [#23](https://github.com/caseywdunn/corpus/issues/23) — Expand
-  taxonomy ingest beyond marine taxa (currently WoRMS-shaped
-  assumptions); plant DwC archives as the test case.
-- [#24](https://github.com/caseywdunn/corpus/issues/24) — Expand
-  anatomy lexicon.
+### Long-run resilience
 
-### Update lifecycle — make re-runs cheap and correct
+A real corpus runs for hours. v0.2's `update_corpus.py` chains the
+post-pipeline cross-paper builds as a foreground subprocess loop —
+fine for the demo, fragile when a laptop closes or an SSH session
+drops mid-run. v0.3's unified CLI keeps the same shape; the
+fragility is the same. The fix is operational, not structural: a
+SLURM analogue that chains the cross-paper tail, and a documented
+detached-run path for laptop runs.
 
-The user-curatable inputs (anatomy lexicon, taxonomy snapshot, bib
-file, input PDF set) all change between runs. v0.1 has no incremental
-path for any of them: the only safe response to a lexicon edit or a
-taxonomy bump is "rebuild every paper from Docling onward." This
-section makes update flows first-class so iteration on inputs is
-fast and obviously-correct.
+- **`slurm/batch_finalize.sh` for the cross-paper tail.** Today's
+  `slurm/batch_pipeline.sh` chains Grobid → Stage 1 → Pass 3b +
+  Embed and stops; the four cross-paper builds run on the login
+  node manually after the array completes. Under v0.3 the unified
+  CLI's finalize phase lands in `batch_finalize.sh`, chained
+  `--dependency=afterok:` on the embed job. Single CPU job, no
+  GPU. Mirrors the existing `slurm/batch_pipeline.sh` ergonomics
+  and accepts the same opt-in env vars (`ENRICH_BHL=1`,
+  `SERVE_BUNDLE_DIR=...`).
+- **Documented detached-run recipe for laptops.** A
+  `nohup` / `tmux` recipe in the README under "First time run"
+  so detaching is the documented path, not a workaround
+  ([#57](https://github.com/caseywdunn/corpus/issues/57) ask 1).
 
-- [#28](https://github.com/caseywdunn/corpus/issues/28) — **Granular
-  per-stage resume.** Linchpin of the rest of this section. Replaces
-  the all-or-nothing `summary.json` completion marker with per-stage
-  status and renames the numbered passes to describe-what-they-do
-  (`extract.py`, `parse_metadata.py`, …). Touches every batch script
-  and the resume logic.
-- [#29](https://github.com/caseywdunn/corpus/issues/29) — **Input
-  fingerprints on annotation artifacts.** Stamp `lexicon_sha256` /
-  `taxonomy_snapshot_date` into `chunks.json` / `taxa.json` /
-  `anatomy.json`. Without this there is no signal for which papers'
-  annotations are stale.
-- [#30](https://github.com/caseywdunn/corpus/issues/30) — **Idempotency
-  audit + tests** for the four post-pipeline scripts
-  (`build_biblio_authority.py`, `build_taxon_mentions.py`,
-  `backfill_intext_citations.py`, `reconcile_corpus_to_biblio.py`).
-- [#31](https://github.com/caseywdunn/corpus/issues/31) — **Orphan
-  detection.** `--audit-orphans` lists `documents/<HASH>/` (and
-  LanceDB rows) whose source PDF is no longer in the input set.
-  Read-only; deletion stays manual.
-- [#32](https://github.com/caseywdunn/corpus/issues/32) —
-  **`update_corpus.py` wrapper.** One command that runs the pipeline
-  and post-pipeline scripts in dependency order with `--resume`.
-  Makes "add papers and update everything" a one-liner.
-- [#33](https://github.com/caseywdunn/corpus/issues/33) — **Lexicon
-  round-trip.** Edit `lexicon.yaml` (multi-category, top-level keys
-  `anatomy:` / `biogeography:` / …) and re-annotate only the affected
-  categories on the next `--resume`. Subsumed by per-stage resume +
-  per-category fingerprints in `pipeline_state.json` (#28 / #29).
+### Curation surface — what ships, what's reusable
 
-### Robustness + observability
+`package_for_serve.py` whitelist-copies every paper with a complete
+`summary.json` into the served bundle, with no operator control over
+exclusions and no per-figure rights metadata for downstream reuse.
+v0.3 closes both gaps so operators can shape what's exposed and
+clients (especially manuscript-authoring agents) can know what's
+safe to embed.
 
-The pipeline is resilient (it doesn't crash on bad inputs) but it
-isn't *diagnosable* — failures are free-text strings in `errors[]`,
-silent-failure modes (gibberish OCR, empty extractions) ship without
-a flag, and there's no single command to ask "what's the state of
-this build." This section closes those gaps.
+- [#54](https://github.com/caseywdunn/corpus/issues/54) — **PDF QC
+  workflow: skip flag, content-vs-technical gates, worst-first
+  triage.** A `serve = false` BibTeX field (curated via the #26
+  round-trip) propagates to `works.serve` in
+  `biblio_authority.sqlite`; `package_for_serve.py` honors it as
+  the only deploy-time exclusion gate. The pipeline runs
+  unchanged so excluded papers stay in `corpus_status` rollups
+  for comparison against new candidates. New `corpus_status`
+  flags — `--sort-by <metric> --tail N`, `--propose-skips`,
+  `--skipped`, `--re-process-flagged <gate>` — give operators a
+  worst-first triage list. Adds a small set of QC metrics
+  (language coverage, citation resolution rate, page-text
+  histogram, dictionary hit rate, figure-to-page ratio,
+  head/foot pollution score, Grobid header confidence) with
+  matching `quality_flags` gates. Implementation order in the
+  issue.
+- [#51](https://github.com/caseywdunn/corpus/issues/51) — **Figure
+  licensing + publishable gate.** `license` / `licenseurl` BibTeX
+  fields (SPDX short identifiers + a small custom vocabulary:
+  `public-domain`, `all-rights-reserved`,
+  `publisher-permission`, `unknown`) propagate through the
+  authority DB into per-figure metadata. A `publishable` boolean
+  is derived at build time from license + age cutoff (default
+  `pd_cutoff_years=95`, US-specific, configurable per corpuscle).
+  `get_figure_image` refuses to return image bytes when
+  `publishable=false`, with the reason in an error field;
+  `--allow-unpublishable` MCP server flag covers local-only
+  rights-holder cases. Both raw fields and the derived flag are
+  exposed so clients with non-default jurisdictions / use cases
+  can re-derive. Adds a `dev_docs/LICENSING.md` documenting the
+  policy and known limitations (reprint chains, museum-photo
+  copyright, etc.). Implementation order in the issue;
+  orthogonal to #54 (skip gate is "appears in MCP at all";
+  publishable gate is "image is reusable in derived
+  publication").
 
-- [#34](https://github.com/caseywdunn/corpus/issues/34) — **Per-stage
-  wallclock caps + structured `stage_failures[]`** with reason codes
-  (`timeout`, `crash`, `external_unavailable`, `unsupported_format`,
-  `corrupted`, `quality_gate`). Replaces free-text `errors[]`.
-- [#35](https://github.com/caseywdunn/corpus/issues/35) — **Huge-document
-  path.** Page-count gate + chunked OCR for 500+ page monographs
-  (Haeckel 1888 *Challenger Siphonophorae* is the canary).
-- [#36](https://github.com/caseywdunn/corpus/issues/36) — **Quality
-  gates** that catch silent failures: empty text, gibberish OCR
-  output, all-black figures, suspicious zero-reference papers,
-  collapsed-extraction chunks.
-- [#37](https://github.com/caseywdunn/corpus/issues/37) — **External-service
-  flakiness.** Standardized retry + backoff + caching for Grobid,
-  BHL, CrossRef, OpenAlex; circuit breakers; `--strict-network` for
-  release builds.
-- [#40](https://github.com/caseywdunn/corpus/issues/40) —
-  **`corpus_status.py`.** Single command that reports stage
-  completion, failure breakdown by reason, quality flags, and
-  staleness. The dashboard for everything else in this section and
-  in §1 Update lifecycle.
-- [#41](https://github.com/caseywdunn/corpus/issues/41) —
-  **Standardize `--dry-run`** across all pipeline + post-pipeline
-  CLIs. Currently inconsistent (4 of 10 scripts have it).
+### Documentation surface
 
-### Internal
+The README drifts long because operator material (remote deploy,
+on-host setup) lives next to user-onboarding material (install,
+demo walkthrough). v0.3 splits them, and rolls the surface
+collapse from §1 ("One CLI, one corpuscle per clone") through into
+the docs.
 
-- [#15](https://github.com/caseywdunn/corpus/issues/15) — Refactor
-  `mcp_server.py`. The 2050-line single file has outgrown a single
-  module; split per-concern (papers / taxonomy / bibliography /
-  figures / transports). No behavior change.
-- [#12](https://github.com/caseywdunn/corpus/issues/12) — Stage 2
-  parallelism. `batch_embed.sh` already parallelizes; assess whether
-  further work is needed (per-document chunking concurrency, BGE-M3
-  batch sizing).
+- **DEPLOY.md → repo root.** Sits alongside INSTALL.md (already
+  at root post-v0.2) and CONTRIBUTING.md as the operator-facing
+  top-level docs. `dev_docs/` keeps maintainer-only docs (PLAN,
+  BOUCHET, MCP_TOOLS, TESTING, OVERVIEW).
+- **Migrate "Deploying MCP server remotely" out of README.md.**
+  The ~60-line block at README §"Deploying MCP server remotely"
+  (bearer-token generation, SSE startup, smoke test, three-way
+  client-config matrix) belongs in `DEPLOY.md` next to the AWS
+  runbook. README keeps a short pointer + "Deploying MCP server
+  locally" (which is the path most users actually take).
+- **README walkthrough slim-down** post-unified-CLI. The "First
+  time run" / "Adding and updating documents" / "Vision pass"
+  sections each collapse to 1-3 lines once `process_corpus.py`
+  is the only entry point and resume is implicit. Rewrite them
+  once the CLI work lands so the README stops describing CLIs
+  that no longer exist.
+
+### Operator clarity
+
+- [#47](https://github.com/caseywdunn/corpus/issues/47) — **MCP
+  server failures should be self-diagnosing.** Today's startup
+  errors send operators to the systemd journal + nginx logs.
+  Surface the most common failure modes (missing bundle, stale
+  token, port already in use, missing cross-paper DB, wrong
+  bundle layout) with actionable messages at startup, and add
+  `mcp_server.py --check` for a pre-flight that exits with a
+  diagnosis without binding the port.
+
+### Quick wins
+
+- [#50](https://github.com/caseywdunn/corpus/issues/50) — `pandoc`
+  in `environment.yaml`.
+
+### Carryover
+
+- [#11](https://github.com/caseywdunn/corpus/issues/11) — Vision
+  pass at corpus scale. Mostly addressed by the opt-out + capability
+  detection above; remaining work is verifying a full-corpus run
+  end-to-end on Bouchet after the unified CLI lands.
+- [#16](https://github.com/caseywdunn/corpus/issues/16) — Figure-
+  number extraction on old/scanned papers. Carried from v0.2;
+  ~538 of 1,787 papers have unparsed figure numbers. Modest
+  heuristic work, fits the v0.3 cycle if there's room.
 
 ## 2. Target queries (evergreen reference)
 
 The eight target query patterns the corpus is designed to serve.
 Generic shapes; concrete instantiations live in the corpuscle's
-`instructions.md`. v0.1 made Q2, Q5–Q7 fully answerable; Q1, Q4, Q8
-remain partial pending v0.2 work; Q3 is gated on trait extraction
-deferred post-v0.2 ([#14](https://github.com/caseywdunn/corpus/issues/14)).
+`instructions.md`. v0.2 made Q4 + Q8 fully answerable once the
+vision-tagged figures land at corpus scale (still pending — see
+[#11](https://github.com/caseywdunn/corpus/issues/11) under
+Carryover); Q3 remains gated on trait extraction
+([#14](https://github.com/caseywdunn/corpus/issues/14), v0.4
+candidate).
 
-| # | Pattern | Status after v0.1 |
+| # | Pattern | Status after v0.2 |
 | --- | --- | --- |
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer (#13, deferred to v2.0+) |
 | Q2 | "Compose a monographic review of `<genus>`." | Indices in place; synthesis recipe not yet scoped |
-| Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred (#14, post-v0.2) |
-| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Needs vision pass at corpus scale (#11) |
+| Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred (#14, v0.4 candidate) |
+| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Vision pass in default config in v0.3; full-corpus run pending #11 |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |
 | Q6 | "Summarize `<topic>` across the corpus." | Indices in place |
 | Q7 | "Plot species described per decade." | Indices in place |
-| Q8 | "Summarize what is known about `<anatomy>`." | Needs vision-pass figure tagging at corpus scale (#11) |
+| Q8 | "Summarize what is known about `<anatomy>`." | Vision pass in default config in v0.3; full-corpus run pending #11 |
 
 ## 3. Versioning + release ritual
 
-`__version__` in [pipeline/version.py](../pipeline/version.py) is the single source of
-truth and is stamped into every persistent artifact (bundle manifest,
-MCP `bundle_info`). [CONTRIBUTING.md](../CONTRIBUTING.md) covers the
-branching model and release ritual; the short version: `dev` carries
-a PEP 440 pre-release suffix (`0.2.0.dev0` → `0.2.0a1` → `0.2.0`),
-the release commit drops the suffix, the next commit on `dev`
-reintroduces one for the next target.
+`__version__` in [pipeline/version.py](../pipeline/version.py) is the
+single source of truth and is stamped into every persistent artifact
+(bundle manifest, MCP `bundle_info`).
+[CONTRIBUTING.md](../CONTRIBUTING.md) covers the branching model and
+release ritual; the short version: `dev` carries a PEP 440 pre-release
+suffix (`0.3.0.dev0` → `0.3.0a1` → `0.3.0`), the release commit drops
+the suffix, the next commit on `dev` reintroduces one for the next
+target.
 
-## 4. Out of scope for v0.2
+## 4. Out of scope for v0.3
 
-- [#13](https://github.com/caseywdunn/corpus/issues/13) — Geographic
-  mention layer (NER + GeoNames + locality table; the third layer in
-  the `*_mentions` family alongside biblio + taxon). Deferred to
-  v2.0+; the mention-layer surface is likely to be reworked at the
-  major-version boundary.
 - [#14](https://github.com/caseywdunn/corpus/issues/14) — Trait
   extraction + identification keys (Q3). Substantial enough to
-  warrant its own plan section when picked up; v0.3 candidate.
+  warrant its own plan section when picked up; v0.4 candidate.
+- [#13](https://github.com/caseywdunn/corpus/issues/13) — Geographic
+  mention layer. Deferred to v2.0+; the mention-layer surface is
+  likely to be reworked at the major-version boundary.
 - [#38](https://github.com/caseywdunn/corpus/issues/38) — Embedding
-  model migration path (versioned LanceDB tables + dual-read).
-  Design-only for v0.2; implement when a model swap is actually
-  needed (BGE-M3 v2 or a switch to a different family).
+  model migration path. Design-only; implement when a model swap is
+  actually needed (BGE-M3 v2 or a switch to a different family).
 - [#39](https://github.com/caseywdunn/corpus/issues/39) — MCP server
-  lazy index loading. Premature at 1.8K papers; document as a known
-  scaling cliff and revisit when a corpuscle pushes 10K+.
+  lazy index loading. Premature at 1.8K papers; documented as a
+  known scaling cliff; revisit when a corpuscle pushes 10K+.
 - [#5](https://github.com/caseywdunn/corpus/issues/5) — Streamable
   HTTP transport with OAuth. Deferred indefinitely. SSE +
-  bearer-token works for the ~20-collaborator deploy target; revisit
-  only if wider distribution actually materializes or if MCP clients
-  drop SSE support.
+  bearer-token works for the ~20-collaborator deploy target.
 - Multi-region failover, autoscaling, or blue/green deploys for the
-  AWS served bundle. Single-instance is fine until it isn't.
-- Authentication beyond bearer tokens / OAuth (Cognito, institutional
-  SSO).
+  AWS served bundle. Single-instance per corpuscle is fine until
+  it isn't.
+- Authentication beyond bearer tokens / OAuth (Cognito,
+  institutional SSO).
 - Mirror to Cloudflare R2 / Backblaze B2 for cost. Defer until S3
   egress shows up on a bill.
-- A thin HTML/web UI on top of the MCP server. Out of scope until the
-  MCP-only experience has actual non-Claude-Desktop users.
+- A thin HTML/web UI on top of the MCP server. Out of scope until
+  the MCP-only experience has actual non-Claude-Desktop users.
