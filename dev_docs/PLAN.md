@@ -45,7 +45,7 @@ the same installed binary — no duplicated source trees drifting
 out of sync. Stage 1, Stage 2, post-pipeline cross-paper
 databases, and bundle distillation all run from one entry point.
 
-- [ ] **Single user-facing CLI: `corpus`.**
+- [x] **Single user-facing CLI: `corpus`.**
   ([#60](https://github.com/caseywdunn/corpus/issues/60))
   All operator interactions
   go through one binary, exposed as a setuptools entry point so
@@ -90,7 +90,7 @@ databases, and bundle distillation all run from one entry point.
   (kept importable for tests and ad-hoc debugging, dropped as a
   user-facing CLI). The repo root ends up with one operator
   binary and zero ambiguity about which script does what.
-- [ ] **v0.2 → v0.3 is a clean break.**
+- [x] **v0.2 → v0.3 is a clean break.**
   ([#60](https://github.com/caseywdunn/corpus/issues/60))
   No migration tool, no thin
   shims printing "use `corpus run` instead" — the old
@@ -143,10 +143,9 @@ databases, and bundle distillation all run from one entry point.
   `setuptools-scm` (overkill for a one-developer-plus-
   collaborators project; produces gnarly `0.3.0.dev12+gabcd123`
   strings on untagged commits).
-- [ ] **Global `--config` option, pre-verb (git-style).**
+- [x] **Global `--config` option, pre-verb (git-style).**
   ([#60](https://github.com/caseywdunn/corpus/issues/60); short
-  alias `-c` and `CORPUS_CONFIG` env var on
-  [#61](https://github.com/caseywdunn/corpus/issues/61))
+  alias `-c` and `CORPUS_CONFIG` env var landed early under #60)
   All
   subcommands resolve their config the same way: `corpus
   --config <path> <verb> [args]`. Default is `./config.yaml`
@@ -180,7 +179,7 @@ databases, and bundle distillation all run from one entry point.
   with no extra code. ~1.5 MB install dep; small relative to the
   torch + transformers footprint, and `rich` is already in the
   transitive dep tree via the `mcp` and `anthropic` SDKs.
-- [ ] **Implicit resume on `corpus run`.**
+- [x] **Implicit resume on `corpus run`.**
   ([#60](https://github.com/caseywdunn/corpus/issues/60))
   Drop the `--resume` flag.
   The pipeline is always idempotent: re-runs do only the work
@@ -327,7 +326,7 @@ settings — one file per corpuscle directory, separate from the
 installed code. All tracked under
 [#59](https://github.com/caseywdunn/corpus/issues/59).
 
-- [ ] **`config.template.yaml` ships inside the installed `corpus`
+- [x] **`config.template.yaml` ships inside the installed `corpus`
   package; `config.yaml` is per-corpuscle.** First-run check: if
   `corpus run` finds no `config.yaml` in cwd (and `--config`
   isn't set), it errors with `no config.yaml in cwd; run "corpus
@@ -339,7 +338,7 @@ installed code. All tracked under
   corpuscle directory might be its own repo, in which case
   committing `config.yaml` is the operator's choice, not the
   tool's.)
-- [ ] **Move per-corpuscle inputs into config.** Today's CLI flags
+- [x] **Move per-corpuscle inputs into config.** Today's CLI flags
   fold in:
   - `input_pdfs:` (replaces the positional input arg)
   - `output_dir:` (defaults to `./output`)
@@ -361,7 +360,7 @@ installed code. All tracked under
   mismatch on the next run logs which keys drifted and which stages
   it invalidates, so an operator can see *why* a re-run is doing
   more than they expected.
-- [ ] **Demo is a regular corpuscle.** `demo/` is just a corpuscle
+- [x] **Demo is a regular corpuscle.** `demo/` is just a corpuscle
   directory that happens to be tracked in the corpus source repo:
   it has its own `config.yaml`, `lexicon.yaml`,
   `siphonophores.bib`, `instructions.md`, and the 11 PDFs.
@@ -372,7 +371,7 @@ installed code. All tracked under
   `demo/output/` lands in `.gitignore` so the source repo stays
   clean. Doubles as the smoke-test fixture (see Tests bullet
   below).
-- [ ] **Tests pin the demo corpuscle as fixture.** `CORPUS_OUTPUT_DIR`
+- [x] **Tests pin the demo corpuscle as fixture.** `CORPUS_OUTPUT_DIR`
   env var still works as the explicit override; default fixture
   resolves to `demo/output/` after a clean `corpus run` against
   `demo/`. The fixture-fallback logic in `tests/conftest.py` is
