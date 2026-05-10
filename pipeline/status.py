@@ -33,9 +33,51 @@ import hashlib
 import json
 import logging
 import sys
+import textwrap
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+
+# Human-readable explainer per quality gate (#36). The gate ids and
+# their semantics live in pipeline/stages.py::_run_quality_gates; this
+# dict is just operator-facing prose for `corpus status --report`.
+# Keep in sync manually when a new gate is added there.
+_GATE_INFO: Dict[str, Tuple[str, str]] = {
+    "empty_text": (
+        "error",
+        "Extracted body text is implausibly short. Usually a failed "
+        "OCR pass on a scanned PDF, or a corrupted source file.",
+    ),
+    "low_text_density": (
+        "warn",
+        "Characters-per-page below threshold. Common on figure-heavy "
+        "papers; sometimes a partial text extraction.",
+    ),
+    "gibberish_after_ocr": (
+        "error",
+        "OCR ran but the result still scores as gibberish. Usually a "
+        "missing Tesseract language pack (e.g. deu_latf for 19th-c. "
+        "German Fraktur). Install the pack and rerun.",
+    ),
+    "zero_references_unexpected": (
+        "warn",
+        "Multi-page paper with an empty references.json. Almost always "
+        "Grobid missing the bibliography on an uncommon layout — not "
+        "a real defect in the paper. Safe to ignore unless cross-paper "
+        "citation linking matters for this corpus.",
+    ),
+    "single_token_chunks": (
+        "warn",
+        "Median chunk length is below threshold — chunking collapsed, "
+        "usually because text extraction returned mostly whitespace.",
+    ),
+    "all_black_figures": (
+        "warn",
+        "Most sampled figures have near-zero mean intensity — a Docling "
+        "extraction artifact, not content of the paper.",
+    ),
+}
 
 logger = logging.getLogger("corpus_status")
 
@@ -214,9 +256,20 @@ def render_text(rollup: Dict[str, Any]) -> str:
     n_qf_papers = len(rollup["papers_with_quality_flags"])
     if qf:
         n_qf_total = sum(qf.values())
-        out.append(f"Quality flags ({n_qf_papers} papers, {n_qf_total} flags):")
+        out.append(
+            f"Quality flags ({n_qf_papers} paper{'s' if n_qf_papers != 1 else ''}, "
+            f"{n_qf_total} flag{'s' if n_qf_total != 1 else ''}) — "
+            "informational; nothing is rejected."
+        )
+        out.append("List affected papers with:  corpus status --filter-gate <name>")
+        out.append("")
         for gate, count in qf.most_common():
-            out.append(f"  {gate:<32s} {count:>5d}")
+            sev, desc = _GATE_INFO.get(gate, ("?", ""))
+            papers_word = "paper" if count == 1 else "papers"
+            out.append(f"  {gate}  ({count} {papers_word}, severity={sev})")
+            if desc:
+                for line in textwrap.wrap(desc, width=70):
+                    out.append(f"      {line}")
     else:
         out.append("Quality flags: none recorded.")
     out.append("")
