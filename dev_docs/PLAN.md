@@ -538,11 +538,12 @@ the docs. All tracked under
 
 ### Carryover
 
-- [ ] [#11](https://github.com/caseywdunn/corpus/issues/11) — Vision
-  pass at corpus scale. Mostly addressed by the opt-out + capability
-  detection above ([#65](https://github.com/caseywdunn/corpus/issues/65));
-  remaining work is verifying a full-corpus run
-  end-to-end on Bouchet after the unified CLI lands.
+- [x] [#11](https://github.com/caseywdunn/corpus/issues/11) — Vision
+  pass at corpus scale. Closed as carried-out-in-code via
+  ([#65](https://github.com/caseywdunn/corpus/issues/65)) — capability
+  detection invokes Pass 3b automatically on hosts that can run it.
+  Pending: operational corpus-scale run + figure-coverage audit on
+  Bouchet against the v0.3 build (release-validation, not coding).
 - [ ] [#16](https://github.com/caseywdunn/corpus/issues/16) — Figure-
   number extraction on old/scanned papers. Carried from v0.2;
   ~538 of 1,787 papers have unparsed figure numbers. Modest
