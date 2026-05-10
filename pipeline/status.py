@@ -293,6 +293,153 @@ def filtered_hashes(
 
 
 # ---------------------------------------------------------------------------
+# #54 — worst-first triage workflow
+# ---------------------------------------------------------------------------
+
+
+def quality_flag_counts_per_paper(rollup: Dict[str, Any]) -> Counter:
+    """Return ``{paper_hash: n_quality_flags}`` from the rollup.
+
+    Backs ``--sort-by quality_flag_count --tail N`` (#54).
+    """
+    counts: Counter = Counter()
+    for gate, hs in rollup["papers_by_gate"].items():
+        for h in hs:
+            counts[h] += 1
+    return counts
+
+
+def stage_failure_counts_per_paper(rollup: Dict[str, Any]) -> Counter:
+    """Return ``{paper_hash: n_stage_failures}`` from the rollup."""
+    counts: Counter = Counter()
+    for (reason, stage), hs in rollup["papers_by_reason_stage"].items():
+        for h in hs:
+            counts[h] += 1
+    return counts
+
+
+def render_worst_first(
+    rollup: Dict[str, Any],
+    metric: str,
+    tail: int,
+) -> str:
+    """Worst-N papers by ``metric``. Used by ``corpus status --sort-by …
+    --tail N`` (#54)."""
+    if metric == "quality_flag_count":
+        per_paper = quality_flag_counts_per_paper(rollup)
+        label = "quality flags"
+    elif metric == "stage_failure_count":
+        per_paper = stage_failure_counts_per_paper(rollup)
+        label = "stage failures"
+    else:
+        return (
+            f"unknown --sort-by metric: {metric!r}. Supported: "
+            "quality_flag_count, stage_failure_count. Per-paper QC metrics "
+            "(citation_resolution_rate, dictionary_hit_rate, …) deferred "
+            "to follow-up; the gate count is the available proxy."
+        )
+    if not per_paper:
+        return f"no papers carry {label}; nothing to triage."
+    out: List[str] = [
+        f"Worst {tail} paper(s) by {label}:",
+    ]
+    for h, n in per_paper.most_common(tail):
+        out.append(f"  {h}  {n} {label}")
+    return "\n".join(out)
+
+
+def render_propose_skips(
+    rollup: Dict[str, Any],
+    output_dir: Path,
+    min_flags: int = 2,
+) -> str:
+    """Papers flagged by ≥ ``min_flags`` quality gates that aren't yet
+    ``works.serve = 0``. BibTeX-paste-ready output (#54)."""
+    counts = quality_flag_counts_per_paper(rollup)
+    biblio = output_dir / "biblio_authority.sqlite"
+    skipped = _load_skipped_hashes(biblio)
+    candidates = [
+        (h, n) for h, n in counts.most_common() if n >= min_flags and h not in skipped
+    ]
+    if not candidates:
+        return (
+            f"no propose-skip candidates "
+            f"(threshold: ≥{min_flags} quality flags, not already serve=0)."
+        )
+    out = [
+        f"Propose-skip candidates (≥{min_flags} quality flags, not yet serve=0):",
+        "",
+        "% paste these `serve = {false}` lines into the matching BibTeX",
+        "% entries; `corpus bib import` will write them to works.serve.",
+        "",
+    ]
+    for h, n in candidates:
+        gates_for_h = [g for g, hs in rollup["papers_by_gate"].items() if h in hs]
+        out.append(f"  % {h}  {n} flags: {', '.join(sorted(gates_for_h))}")
+        out.append(f"  serve = {{false}},")
+        out.append("")
+    return "\n".join(out)
+
+
+def render_skipped(output_dir: Path) -> str:
+    """Currently excluded papers + their reasons, grouped by reason (#54)."""
+    biblio = output_dir / "biblio_authority.sqlite"
+    if not biblio.is_file():
+        return f"no biblio_authority.sqlite at {biblio}; can't list skipped papers."
+    import sqlite3 as _sql
+    try:
+        conn = _sql.connect(f"file:{biblio}?mode=ro", uri=True)
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(works)")}
+            if "serve" not in cols:
+                return ("biblio_authority.sqlite predates v0.3 — works.serve "
+                        "column missing. Re-run `corpus run` to migrate.")
+            rows = conn.execute(
+                "SELECT corpus_hash, COALESCE(serve_reason, '(no reason)'), title "
+                "FROM works WHERE serve = 0 AND corpus_hash IS NOT NULL "
+                "ORDER BY serve_reason, corpus_hash"
+            ).fetchall()
+        finally:
+            conn.close()
+    except _sql.Error as e:
+        return f"could not read biblio_authority.sqlite: {e}"
+    if not rows:
+        return "no papers currently flagged works.serve = 0."
+    grouped: Dict[str, List[tuple]] = defaultdict(list)
+    for h, reason, title in rows:
+        grouped[reason].append((h, title or "(no title)"))
+    out = [f"Skipped papers ({len(rows)} total, grouped by reason):"]
+    for reason in sorted(grouped):
+        out.append(f"\n  [{reason}] ({len(grouped[reason])})")
+        for h, title in grouped[reason]:
+            out.append(f"    {h}  {title[:80]}")
+    return "\n".join(out)
+
+
+def _load_skipped_hashes(biblio_path: Path) -> set:
+    """Mirror of mcpsrv.bundle._load_skipped_hashes; kept here so the
+    status report doesn't depend on the mcpsrv package."""
+    if not biblio_path.is_file():
+        return set()
+    import sqlite3 as _sql
+    try:
+        conn = _sql.connect(f"file:{biblio_path}?mode=ro", uri=True)
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(works)")}
+            if "serve" not in cols:
+                return set()
+            rows = conn.execute(
+                "SELECT corpus_hash FROM works "
+                "WHERE serve = 0 AND corpus_hash IS NOT NULL"
+            ).fetchall()
+            return {r[0] for r in rows}
+        finally:
+            conn.close()
+    except _sql.Error:
+        return set()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -315,6 +462,34 @@ def main() -> int:
         help="Print the full report (default rollup + cross-paper artifact "
              "presence) — also written to <output_dir>/run.log on `corpus run` "
              "completion. (#57)",
+    )
+    # #54 — worst-first triage workflow.
+    parser.add_argument(
+        "--sort-by", default=None,
+        choices=["quality_flag_count", "stage_failure_count"],
+        help="Worst-N papers by metric. Pair with --tail. Per-paper QC "
+             "metrics (citation_resolution_rate, dictionary_hit_rate, …) "
+             "land in a #54 follow-up; gate counts are the proxy for now.",
+    )
+    parser.add_argument(
+        "--tail", type=int, default=20,
+        help="With --sort-by, return the N worst papers (default 20).",
+    )
+    parser.add_argument(
+        "--propose-skips", action="store_true",
+        help="Papers flagged by ≥ N quality gates that aren't yet "
+             "works.serve = 0 (--min-flags, default 2). BibTeX-paste-ready. "
+             "(#54)",
+    )
+    parser.add_argument(
+        "--min-flags", type=int, default=2,
+        help="Threshold for --propose-skips (default 2).",
+    )
+    parser.add_argument(
+        "--skipped", action="store_true",
+        help="Currently excluded papers (works.serve = 0), grouped by "
+             "serve_reason. Useful for comparing new candidates against "
+             "precedent. (#54)",
     )
     parser.add_argument(
         "--list-hashes", action="store_true",
@@ -360,6 +535,17 @@ def main() -> int:
             filter_gate=args.filter_gate,
         ):
             print(h)
+        return 0
+
+    # #54 — triage modes short-circuit the default rollup output.
+    if args.sort_by:
+        print(render_worst_first(rollup, args.sort_by, args.tail))
+        return 0
+    if args.propose_skips:
+        print(render_propose_skips(rollup, args.output_dir, args.min_flags))
+        return 0
+    if args.skipped:
+        print(render_skipped(args.output_dir))
         return 0
 
     if args.json:

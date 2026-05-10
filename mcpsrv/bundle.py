@@ -251,6 +251,31 @@ def _iso_now() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _load_skipped_hashes(biblio_path: Path) -> set:
+    """Return the set of corpus_hash values whose works.serve = 0 (#54).
+
+    Empty set if biblio_authority.sqlite is missing, lacks the v0.3
+    serve column, or contains no skipped works. Read-only.
+    """
+    if not biblio_path.is_file():
+        return set()
+    try:
+        conn = sqlite3.connect(f"file:{biblio_path}?mode=ro", uri=True)
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(works)")}
+            if "serve" not in cols:
+                return set()
+            rows = conn.execute(
+                "SELECT corpus_hash FROM works "
+                "WHERE serve = 0 AND corpus_hash IS NOT NULL"
+            ).fetchall()
+            return {r[0] for r in rows}
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return set()
+
+
 def _citation_for_manifest() -> Optional[dict]:
     """Read CITATION.cff at repo root + return the resolved preferred citation
     so it can be stamped into bundle_manifest.json (#61). Returns None if
@@ -467,12 +492,27 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     if not dry_run:
         serve_dir.mkdir(parents=True, exist_ok=True)
 
+    # #54 — load the set of hashes flagged works.serve = 0 in
+    # biblio_authority.sqlite. These papers stay in the build bundle
+    # (operators can still see them in `corpus status`) but get
+    # excluded from the served bundle the MCP server reads.
+    skipped_hashes = _load_skipped_hashes(output_dir / "biblio_authority.sqlite")
+    if skipped_hashes:
+        logger.info(
+            "Skip flag: %d paper(s) marked works.serve = 0 will be "
+            "excluded from the served bundle (#54)", len(skipped_hashes),
+        )
+
     # Per-paper files + figures/
     n_papers = 0
+    n_skipped = 0
     n_files = 0
     total_bytes = 0
     for hash_dir in sorted(documents_dir.iterdir()):
         if not hash_dir.is_dir():
+            continue
+        if hash_dir.name in skipped_hashes:
+            n_skipped += 1
             continue
         n_papers += 1
         dest_hash_dir = serve_dir / "documents" / hash_dir.name
@@ -504,6 +544,12 @@ def package(output_dir: Path, serve_dir: Path, version: str,
 
         if n_papers % 200 == 0:
             logger.info("Copied %d papers, %d files so far", n_papers, n_files)
+
+    if n_skipped:
+        logger.info(
+            "Excluded %d paper(s) from the served bundle "
+            "(works.serve = 0; #54)", n_skipped,
+        )
 
     # LanceDB — directory tree
     vdb_src = output_dir / "vector_db" / "lancedb"

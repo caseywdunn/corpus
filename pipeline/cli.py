@@ -144,6 +144,45 @@ def _cmd_init(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _invalidate_flagged(
+    cfg: CorpuscleConfig,
+    config_path: Path,
+    gate: str,
+) -> None:
+    """Delete pipeline_state.json for every paper carrying ``gate`` (#54).
+
+    Per-stage resume re-runs whichever stages no longer have a state
+    record, so removing the file forces a full re-extraction. We don't
+    touch any other artifact — figures.json, summary.json, etc. stay so
+    the operator can compare before/after.
+    """
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    documents_dir = output_dir / "documents"
+    if not documents_dir.is_dir():
+        return
+    from .status import aggregate
+    rollup = aggregate(documents_dir)
+    hashes = rollup["papers_by_gate"].get(gate, set())
+    if not hashes:
+        print_status(
+            f"--re-process-flagged: no papers carry gate {gate!r}; "
+            f"nothing to invalidate.",
+            status="warn",
+        )
+        return
+    n = 0
+    for h in hashes:
+        state_path = documents_dir / h / "pipeline_state.json"
+        if state_path.exists():
+            state_path.unlink()
+            n += 1
+    print_status(
+        f"--re-process-flagged {gate!r}: invalidated pipeline_state.json "
+        f"for {n} paper(s); they will re-extract on this run.",
+        status="info",
+    )
+
+
 def _prune_orphans(
     cfg: CorpuscleConfig,
     config_path: Path,
@@ -291,6 +330,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
     rc = _prune_orphans(cfg, config_path, args)
     if rc != EXIT_OK:
         return rc
+
+    # #54: --re-process-flagged invalidates pipeline_state.json for every
+    # paper carrying the named quality_flag, so the per-stage resume
+    # logic re-extracts them on the upcoming run.
+    if args.re_process_flagged:
+        _invalidate_flagged(cfg, config_path, args.re_process_flagged)
 
     sub_argv = _build_orchestrator_argv(cfg, config_path, args)
     cmd = [sys.executable, "-m", "pipeline.orchestrator", *sub_argv]
@@ -805,8 +850,15 @@ def _build_parser() -> argparse.ArgumentParser:
                        "instead (matches #31 behavior). #66")
     run_p.add_argument("--force-prune", action="store_true",
                        help="Bypass the safety rail (#66) that refuses to "
-                       "prune when more than 25% of hash dirs would be "
+                       "prune when more than 25%% of hash dirs would be "
                        "removed (likely a config mistake or unmounted volume).")
+    run_p.add_argument("--re-process-flagged", default=None, metavar="GATE",
+                       help="Clear pipeline_state.json for every paper "
+                       "carrying this quality_flag (e.g. gibberish_after_ocr, "
+                       "empty_text), then run the pipeline. After the "
+                       "operator fixes the root cause (installs a language "
+                       "pack, etc.), this re-extracts just the affected "
+                       "papers without touching the rest. (#54)")
     run_p.add_argument("--enrich-bhl", action="store_true",
                        help="Enrich pre-DOI references against the Biodiversity "
                        "Heritage Library (slow, rate-limited; #64)")
