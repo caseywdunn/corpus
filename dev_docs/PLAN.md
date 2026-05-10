@@ -35,71 +35,97 @@ each with its own config and output. Stage 1, Stage 2, post-pipeline
 cross-paper databases, and bundle distillation all run from one
 entry point.
 
-- **Single user-facing CLI: `process_corpus.py`.** Subsumes today's
-  `update_corpus.py`, `process_corpus.py`, `embed_chunks.py`,
-  `build_biblio_authority.py`, `build_taxon_mentions.py`,
-  `backfill_intext_citations.py`, `reconcile_corpus_to_biblio.py`,
-  `ingest_taxonomy.py`, and `package_for_serve.py` into one
-  invocation. Those nine current root-level scripts become internal
-  modules — kept importable for tests and ad-hoc debugging, dropped
-  as user-facing CLIs. `bib_export.py` and `bib_import.py` stay
-  user-facing; they're intentionally separate from the pipeline
-  lifecycle (operators run them between or before pipeline runs).
-- **Implicit resume.** Drop the `--resume` flag. The pipeline is
-  always idempotent: re-runs do only the work whose inputs have
-  changed (per-stage state, content fingerprints, PDF set diff —
-  all infrastructure already in place from v0.2). Explicit
-  `--force-rebuild` (and per-stage `--force-rebuild-<stage>`)
-  covers the rare clean-rebuild case.
-- **Strict `--dry-run`.** Prints the plan — what would run, what
-  would skip, what would be deleted — without touching disk. Today's
-  per-stage `--dry-run` (#41) honors this stage by stage; under the
-  unified entry point, audit every write path so the dry-run
-  guarantee holds across all stages, post-pipeline scripts, and the
-  bundle distillation step.
-- **`--check` capability pre-flight.** Distinct from `--dry-run`
-  (which prints the *plan*). `--check` validates `config.yaml`,
-  probes GPU availability, pings the configured Grobid endpoint,
-  checks `ANTHROPIC_API_KEY` presence when the vision backend is
+- **Single user-facing CLI: `corpus`.** All operator interactions
+  go through one binary, exposed as a setuptools entry point so
+  the invocation is just `corpus <verb>`, not `python corpus.py`.
+  Subcommand structure follows the cargo / git / gh / kubectl
+  pattern — one tool, several verbs:
+  - `corpus run` — the pipeline. Subsumes today's
+    `update_corpus.py`, `process_corpus.py`, `embed_chunks.py`,
+    `build_biblio_authority.py`, `build_taxon_mentions.py`,
+    `backfill_intext_citations.py`,
+    `reconcile_corpus_to_biblio.py`, `ingest_taxonomy.py`, and
+    `package_for_serve.py`. Carries `--dry-run`,
+    `--force-rebuild` / `--force-rebuild-<stage>`, `--no-vision`,
+    `--no-bundle`, `--no-prune` / `--force-prune`, `--enrich-bhl`.
+  - `corpus check` — environment + config pre-flight (detail
+    below). Distinct from `corpus run --dry-run` (which prints the
+    *plan*); answers "can the next run actually succeed on this
+    host?" without consulting the output tree.
+  - `corpus status` — coverage + error report against the built
+    corpuscle (detail below). Carries the
+    [#54](https://github.com/caseywdunn/corpus/issues/54)
+    triage flags (`--sort-by`, `--tail`, `--propose-skips`,
+    `--skipped`, `--re-process-flagged`) and the
+    [#57](https://github.com/caseywdunn/corpus/issues/57)
+    `--report` view.
+  - `corpus serve` — replaces today's `mcp_server.py`. Reads the
+    same `config.yaml` for bundle path, instructions, and
+    bearer-token file; `--config /path/to/other.yaml` for the
+    non-default location.
+  - `corpus bib export` / `corpus bib import` — replace today's
+    `bib_export.py` / `bib_import.py`. Independently invocable;
+    operators still run them between or before `corpus run`
+    (including before the first run, see below).
+  - `corpus init` (optional convenience) — scaffolds `config.yaml`
+    from `config.template.yaml` after a fresh clone. The plain
+    `cp config.template.yaml config.yaml` recipe stays valid; this
+    is just a discoverable shortcut.
+
+  Every current root-level Python script is either renamed,
+  absorbed as a subcommand, or demoted to an internal module
+  (kept importable for tests and ad-hoc debugging, dropped as a
+  user-facing CLI). The repo root ends up with one operator
+  binary and zero ambiguity about which script does what.
+- **Implicit resume on `corpus run`.** Drop the `--resume` flag.
+  The pipeline is always idempotent: re-runs do only the work
+  whose inputs have changed (per-stage state, content
+  fingerprints, PDF set diff — all infrastructure already in
+  place from v0.2). Explicit `--force-rebuild` (and per-stage
+  `--force-rebuild-<stage>`) covers the rare clean-rebuild case.
+- **Strict `corpus run --dry-run`.** Prints the plan — what would
+  run, what would skip, what would be deleted — without touching
+  disk. Today's per-stage `--dry-run` (#41) honors this stage by
+  stage; under `corpus run`, audit every write path so the
+  dry-run guarantee holds across all stages, post-pipeline
+  scripts, and the bundle distillation step.
+- **`corpus check` detail.** Validates `config.yaml`, probes GPU
+  availability, pings the configured Grobid endpoint, checks
+  `ANTHROPIC_API_KEY` presence when the vision backend is
   `claude`, sanity-checks output disk space, and prints a
   green/yellow/red report. Cheap to write once the config-driven
   CLI exists, and saves long debug sessions on Bouchet when
-  something is misconfigured before SLURM kicks off.
+  something is misconfigured before SLURM kicks off. Doesn't read
+  the output tree — distinct from `corpus status` (postmortem
+  against a built corpuscle).
 - **Success summary + next-step pointer.** On clean completion,
-  `process_corpus.py` prints a scannable end-to-end report and the
-  command to launch a local MCP server against the new corpuscle.
-  The report shape is the one specified in
+  `corpus run` prints the same scannable report `corpus status
+  --report` produces, plus the `corpus serve` command to launch a
+  local MCP server against the new corpuscle. The report shape is
+  the one specified in
   [#57](https://github.com/caseywdunn/corpus/issues/57): per-stage
   pass rate (with terminal bars), lexicon coverage per category
-  with fingerprint match (denominator = all papers, breakdown into
-  `ok` / `stale` / `missing`), cross-paper artifact presence
+  with fingerprint match (denominator = all papers, breakdown
+  into `ok` / `stale` / `missing`), cross-paper artifact presence
   (`taxonomy.sqlite`, `biblio_authority.sqlite`,
   `taxon_mentions.sqlite`, `vector_db/lancedb` ✓/✗), and a flat
   tally of `stage_failures.reason_code × stage` and
   `quality_flags.gate`. The reference script in #57 is the
-  starting point. Surface it as `corpus_status --report` (or
-  equivalent) so the same view runs at any time, not only on
-  completion. Closes [#57](https://github.com/caseywdunn/corpus/issues/57).
-- **Bundle distillation in line.** The unified CLI runs through
-  `package_for_serve.py` so a successful run produces a ready-to-ship
-  served bundle alongside the build bundle. `--no-bundle` for users
-  who only want the build artifacts.
-- **`mcp_server.py` reads `config.yaml` too.** Single source of
-  truth across pipeline + serve. Today's launch is
-  `python mcp_server.py /path/to/output [--auth-token-file ...]
-  [--instructions ...]`; under v0.3 it becomes `python mcp_server.py`
-  with bundle path, instructions, and bearer-token file resolved
-  from the same `config.yaml` that drove the pipeline. `--config
-  /path/to/other/config.yaml` for non-default location.
-- **`bib_export.py` / `bib_import.py` work before first
-  `process_corpus.py` run.** Today `bib_import` writes into
+  starting point. Closes [#57](https://github.com/caseywdunn/corpus/issues/57).
+- **Bundle distillation in line.** `corpus run` walks
+  `package_for_serve.py` so a successful run produces a
+  ready-to-ship served bundle alongside the build bundle.
+  `--no-bundle` for users who only want the build artifacts.
+- **`corpus bib export` / `corpus bib import` work before first
+  `corpus run`.** Today `bib_import` writes into
   `biblio_authority.sqlite`, which only exists after the pipeline
-  has run. Under v0.3, `bib_import` either creates an empty
-  authority DB and stages the edits, or persists the edits to a
-  sidecar file the next pipeline build picks up — the design call
-  is part of the issue. Either way, the operator can curate the
-  bibliography ahead of the first run, and the curation lands on
-  the resulting authority DB without a second `bib_import` step.
+  has run. Under v0.3, `corpus bib import` either creates an
+  empty authority DB and stages the edits, or persists the edits
+  to a sidecar file the next `corpus run` picks up — the design
+  call is part of the issue. Either way, the operator can curate
+  the bibliography ahead of the first run, and the curation lands
+  on the resulting authority DB without a second
+  `corpus bib import` step.
 
 ### Per-corpuscle `config.yaml`
 
@@ -110,10 +136,11 @@ into the single source of truth for *this* corpuscle's inputs and
 settings, gitignored on the operator side.
 
 - **`config.template.yaml` tracked; `config.yaml` gitignored.**
-  First-run check: if `config.yaml` is absent, `process_corpus.py`
+  First-run check: if `config.yaml` is absent, `corpus run`
   errors with `copy config.template.yaml to config.yaml and edit
-  the input paths`. No silent auto-create — users should make a
-  deliberate choice about where their PDFs / bib / lexicon live.
+  the input paths` (or run `corpus init`). No silent auto-create
+  — users should make a deliberate choice about where their PDFs
+  / bib / lexicon live.
 - **Move per-corpuscle inputs into config.** Today's CLI flags
   fold in:
   - `input_pdfs:` (replaces the positional input arg)
@@ -133,8 +160,8 @@ settings, gitignored on the operator side.
 - **Demo corpuscle config story.** `demo/` is in the same repo as
   the corpus code, so it can't be a corpuscle clone of its own.
   Two reasonable paths: ship a `demo/config.yaml` that
-  `process_corpus.py --demo` short-circuits to (avoids polluting
-  the operator's clone-root `config.yaml`); or ship
+  `corpus run --demo` short-circuits to (avoids polluting the
+  operator's clone-root `config.yaml`); or ship
   `demo/config.template.yaml` and a `demo/run.sh` that copies it.
   Pick during the unified-CLI design.
 - **Tests adapt to one-corpuscle-per-clone.** `CORPUS_OUTPUT_DIR`
@@ -191,12 +218,12 @@ detached-run path for laptop runs.
 - **`slurm/batch_finalize.sh` for the cross-paper tail.** Today's
   `slurm/batch_pipeline.sh` chains Grobid → Stage 1 → Pass 3b +
   Embed and stops; the four cross-paper builds run on the login
-  node manually after the array completes. Under v0.3 the unified
-  CLI's finalize phase lands in `batch_finalize.sh`, chained
-  `--dependency=afterok:` on the embed job. Single CPU job, no
-  GPU. Mirrors the existing `slurm/batch_pipeline.sh` ergonomics
-  and accepts the same opt-in env vars (`ENRICH_BHL=1`,
-  `SERVE_BUNDLE_DIR=...`).
+  node manually after the array completes. Under v0.3 the
+  finalize phase of `corpus run` lands in `batch_finalize.sh`,
+  chained `--dependency=afterok:` on the embed job. Single CPU
+  job, no GPU. Mirrors the existing `slurm/batch_pipeline.sh`
+  ergonomics and accepts the same opt-in env vars
+  (`ENRICH_BHL=1`, `SERVE_BUNDLE_DIR=...`).
 - **Documented detached-run recipe for laptops.** A
   `nohup` / `tmux` recipe in the README under "First time run"
   so detaching is the documented path, not a workaround
@@ -217,8 +244,8 @@ safe to embed.
   round-trip) propagates to `works.serve` in
   `biblio_authority.sqlite`; `package_for_serve.py` honors it as
   the only deploy-time exclusion gate. The pipeline runs
-  unchanged so excluded papers stay in `corpus_status` rollups
-  for comparison against new candidates. New `corpus_status`
+  unchanged so excluded papers stay in `corpus status` rollups
+  for comparison against new candidates. New `corpus status`
   flags — `--sort-by <metric> --tail N`, `--propose-skips`,
   `--skipped`, `--re-process-flagged <gate>` — give operators a
   worst-first triage list. Adds a small set of QC metrics
@@ -267,10 +294,10 @@ the docs.
   locally" (which is the path most users actually take).
 - **README walkthrough slim-down** post-unified-CLI. The "First
   time run" / "Adding and updating documents" / "Vision pass"
-  sections each collapse to 1-3 lines once `process_corpus.py`
-  is the only entry point and resume is implicit. Rewrite them
-  once the CLI work lands so the README stops describing CLIs
-  that no longer exist.
+  sections each collapse to 1-3 lines once `corpus run` is the
+  only entry point and resume is implicit. Rewrite them once the
+  CLI work lands so the README stops describing scripts that no
+  longer exist.
 
 ### Operator clarity
 
@@ -280,8 +307,11 @@ the docs.
   Surface the most common failure modes (missing bundle, stale
   token, port already in use, missing cross-paper DB, wrong
   bundle layout) with actionable messages at startup, and add
-  `mcp_server.py --check` for a pre-flight that exits with a
-  diagnosis without binding the port.
+  `corpus serve --check` for a pre-flight that exits with a
+  diagnosis without binding the port. (Distinct from the
+  pipeline-side `corpus check`: this one validates the
+  serve-time surface — bundle present, token readable, port
+  free, cross-paper DBs loadable.)
 
 ### Quick wins
 
