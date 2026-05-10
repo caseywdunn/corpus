@@ -182,6 +182,12 @@ def render_text(rollup: Dict[str, Any]) -> str:
     stages = rollup["stages"]
     if stages:
         out.append("Stages (success / total):")
+        # Scale bar — pads to the bar column (56 chars: 2 indent + 28 stage +
+        # 1 space + 5 ok + " / " + 5 total + 2 spaces + 8 pct + 2 spaces).
+        # Bar width below is 30, so 0% / 50% / 100% sit at cols 0 / 14 / 29.
+        bar_pad = " " * 56
+        out.append(bar_pad + "0%" + " " * 12 + "50%" + " " * 9 + "100%")
+        out.append(bar_pad + "┌" + "─" * 14 + "┬" + "─" * 13 + "┐")
         # Order: by total desc, then alpha
         for stage, row in sorted(stages.items(), key=lambda kv: (-kv[1]["total"], kv[0])):
             ok, total = row["ok"], row["total"]
