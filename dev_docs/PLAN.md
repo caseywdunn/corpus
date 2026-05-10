@@ -198,7 +198,7 @@ databases, and bundle distillation all run from one entry point.
   stage; under `corpus run`, audit every write path so the
   dry-run guarantee holds across all stages, post-pipeline
   scripts, and the bundle distillation step.
-- [ ] **`corpus check` detail.**
+- [x] **`corpus check` detail.**
   ([#62](https://github.com/caseywdunn/corpus/issues/62))
   Validates `config.yaml` against a
   pydantic schema (field-level errors point at the exact key and
@@ -265,11 +265,11 @@ None of them are deep architectural decisions; their absence
 just makes the tool feel rough. All tracked under
 [#61](https://github.com/caseywdunn/corpus/issues/61).
 
-- [ ] **`corpus --version` / `-V`** prints the package version (from
+- [x] **`corpus --version` / `-V`** prints the package version (from
   `pipeline.version.__version__`), and the git SHA when the
   current install was sourced from a development clone. Matches
   every other CLI on the system.
-- [ ] **`corpus --cite`** prints the citation. Default is a one-line
+- [x] **`corpus --cite`** prints the citation. Default is a one-line
   plain-text rendering for the README / email use case;
   `corpus --cite=bibtex` emits a paste-ready BibTeX entry (so
   `corpus --cite=bibtex >> refs.bib` just works). Source of
@@ -282,31 +282,31 @@ just makes the tool feel rough. All tracked under
   can cite the tool that gave them the literature without the
   user having to dig for it. Single source, three surfaces
   (CLI, GitHub, MCP), zero drift.
-- [ ] **`corpus completion bash|zsh|fish`** generates a shell
+- [x] **`corpus completion bash|zsh|fish`** generates a shell
   completion script the operator sources from their dotfiles.
   Matches `gh`, `kubectl`, `cargo`, `aws`, `docker`. Operators
   tab-complete subcommand names + `--config` paths constantly;
   absence is a sharp edge.
-- [ ] **`CORPUS_CONFIG` env var** as an alternative to
+- [x] **`CORPUS_CONFIG` env var** as an alternative to
   `--config PATH`. Matches `KUBECONFIG`, `AWS_PROFILE`,
   `RUSTUP_HOME`. Useful in CI / SLURM scripts where exporting
   once at the top is cleaner than threading the flag through
   every invocation. Precedence: `--config` flag > env var >
   `./config.yaml` in cwd.
-- [ ] **`-c` short alias for `--config`.** Small, but a real
+- [x] **`-c` short alias for `--config`.** Small, but a real
   ergonomic ask once an operator types it ten times a day.
-- [ ] **Defined exit codes.** `0` success, `1` generic failure, `2`
+- [x] **Defined exit codes.** `0` success, `1` generic failure, `2`
   config error (missing/invalid `config.yaml`, schema mismatch,
   unresolvable input path), `3` precondition not met (`corpus
   check` fail, missing bundle, port in use). Lets CI and SLURM
   `--dependency=afterok:` chains branch on the *kind* of failure
   rather than just success/failure.
-- [ ] **Verbosity levels.** `-v` / `-vv` raise the log threshold
+- [x] **Verbosity levels.** `-v` / `-vv` raise the log threshold
   (INFO → DEBUG → all child loggers chatty); `-q` / `--quiet`
   drops it to WARNING. Replaces today's boolean `--verbose`.
   SLURM `.out` capture often wants `-q`; debugging operators
   want `-vv`.
-- [ ] **Path resolution.** Relative paths in `config.yaml`
+- [x] **Path resolution.** Relative paths in `config.yaml`
   (`input_pdfs:`, `bib:`, `lexicon:`, `output_dir:`,
   `taxonomy.path:`) resolve against the directory containing the
   config file, not cwd. Means `cd demo && corpus run` and

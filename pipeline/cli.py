@@ -280,14 +280,152 @@ def _cmd_bib_import(args: argparse.Namespace) -> int:
 
 
 def _cmd_check(args: argparse.Namespace) -> int:
-    print_status(
-        "corpus check is not yet implemented (#62). For now: validate "
-        "config.yaml manually with `python -c \"import yaml; "
-        "from pipeline.config_schema import validate_config; "
-        "validate_config(yaml.safe_load(open('config.yaml')))\"`.",
-        status="warn",
-    )
-    return 0
+    """Environment + config pre-flight (#62).
+
+    Distinct from ``corpus run --dry-run`` (which prints the *plan*)
+    and ``corpus status`` (postmortem against a built corpuscle):
+    answers "can the next run actually succeed on this host?" without
+    consulting the output tree.
+
+    Exit codes (per #61): 0 on green, 2 on config-error, 3 on
+    environment-precondition failure.
+    """
+    config_path = _resolve_config_path(args.config)
+    failures: List[str] = []  # precondition (exit 3)
+    config_failures: List[str] = []  # config (exit 2)
+
+    # 1. config.yaml resolution + schema validation
+    if config_path is None:
+        print_status(
+            "no config.yaml in cwd; pass --config PATH or run `corpus init`",
+            status="fail",
+        )
+        return EXIT_CONFIG_ERROR
+    if not config_path.exists():
+        print_status(f"config not found: {config_path}", status="fail")
+        return EXIT_CONFIG_ERROR
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        cfg = validate_config(raw)
+        print_status(f"config.yaml valid ({config_path})", status="ok")
+    except ValidationError as e:
+        print_status(f"config error in {config_path}", status="fail")
+        for err in e.errors():
+            loc = ".".join(str(x) for x in err["loc"])
+            print(f"  {loc}: {err['msg']}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+
+    # 2. GPU availability
+    gpu = _detect_accelerator()
+    if gpu == "cuda":
+        print_status("GPU: CUDA available", status="ok")
+    elif gpu == "mps":
+        print_status("GPU: MPS available (Apple Silicon)", status="ok")
+    else:
+        # CPU-only is OK for non-vision/non-embedding stages, but warn
+        # if the config requests a `local` vision backend.
+        if cfg.vision.backend == "local":
+            failures.append(
+                "vision.backend=local but no CUDA/MPS detected; switch to "
+                "`vision.backend: claude` (and export ANTHROPIC_API_KEY) or "
+                "`vision.backend: none`"
+            )
+            print_status("GPU: none (vision backend `local` will fail)", status="fail")
+        else:
+            print_status("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
+
+    # 3. Anthropic API key when vision.backend == claude
+    if cfg.vision.backend == "claude":
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            print_status("ANTHROPIC_API_KEY: set", status="ok")
+        else:
+            failures.append(
+                "vision.backend=claude but ANTHROPIC_API_KEY is unset"
+            )
+            print_status("ANTHROPIC_API_KEY: missing", status="fail")
+
+    # 4. Grobid reachability
+    if cfg.grobid.disable:
+        print_status(f"Grobid: disabled in config (header metadata will use --bib only)", status="warn")
+    else:
+        ok, detail = _ping_grobid(cfg.grobid.url)
+        if ok:
+            print_status(f"Grobid: reachable at {cfg.grobid.url}", status="ok")
+        else:
+            failures.append(
+                f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
+                "Start it with: docker compose up -d grobid"
+            )
+            print_status(f"Grobid: unreachable at {cfg.grobid.url} ({detail})", status="fail")
+
+    # 5. Output disk space (warn if < 5 GB free)
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    free_gb = _free_disk_gb(output_dir)
+    if free_gb is None:
+        print_status(f"output_dir disk: cannot stat {output_dir}", status="warn")
+    elif free_gb < 5:
+        print_status(f"output_dir disk: {free_gb:.1f} GB free (low — recommend ≥ 20 GB for a real corpus)", status="warn")
+    else:
+        print_status(f"output_dir disk: {free_gb:.1f} GB free", status="ok")
+
+    # 6. input_pdfs reachable
+    if cfg.input_pdfs is None:
+        print_status("input_pdfs: not set (required for `corpus run`)", status="warn")
+    else:
+        input_dir = _resolve_against(config_path, cfg.input_pdfs)
+        if input_dir.exists():
+            n_pdfs = len(list(input_dir.rglob("*.pdf"))) if input_dir.is_dir() else 0
+            print_status(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
+        else:
+            failures.append(f"input_pdfs path does not exist: {input_dir}")
+            print_status(f"input_pdfs: {input_dir} not found", status="fail")
+
+    if failures:
+        print()
+        print_status(f"{len(failures)} precondition(s) failed:", status="fail")
+        for f in failures:
+            print(f"  - {f}")
+        return EXIT_PRECONDITION
+    print()
+    print_status("ready: `corpus run` should succeed on this host.", status="ok")
+    return EXIT_OK
+
+
+def _detect_accelerator() -> Optional[str]:
+    """Return 'cuda', 'mps', or None. Uses torch if importable; otherwise None."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
+    except Exception:
+        pass
+    return None
+
+
+def _ping_grobid(url: str) -> tuple[bool, str]:
+    """Probe Grobid's /api/isalive endpoint with a 2s timeout."""
+    try:
+        import requests
+        r = requests.get(url.rstrip("/") + "/api/isalive", timeout=2)
+        if r.status_code == 200 and r.text.strip().lower() == "true":
+            return True, "alive"
+        return False, f"HTTP {r.status_code}: {r.text[:40]}"
+    except Exception as e:
+        return False, type(e).__name__
+
+
+def _free_disk_gb(path: Path) -> Optional[float]:
+    """Free disk-space for the partition holding ``path`` (creates parents if missing)."""
+    try:
+        # Walk up to the first existing parent if the path itself is missing.
+        p = path
+        while not p.exists() and p != p.parent:
+            p = p.parent
+        return shutil.disk_usage(p).free / (1024 ** 3)
+    except Exception:
+        return None
 
 
 _BASH_COMPLETION = """\
@@ -594,10 +732,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     bib_p.set_defaults(func=lambda a: (bib_p.print_help() or 2))
 
-    # --- check (stub) ---
+    # --- check (#62) ---
     check_p = sub.add_parser(
         "check",
-        help="Environment + config pre-flight (stub, #62)",
+        help="Environment + config pre-flight: validates config.yaml + "
+        "probes GPU / Grobid / ANTHROPIC_API_KEY / disk space.",
     )
     check_p.set_defaults(func=_cmd_check)
 
