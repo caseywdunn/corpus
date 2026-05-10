@@ -1,4 +1,5 @@
-"""Unit tests for build_biblio_authority.py reference-resolution cascade.
+"""Unit tests for the biblio-authority reference-resolution cascade
+(formerly ``build_biblio_authority.py``; now ``bib.authority`` per #60).
 
 Covers the behavior introduced to fix GH issue #2: the cascade must not
 route a titled reference onto the only (surname, year) candidate when
@@ -8,7 +9,6 @@ via alias (one bad decision must not amplify into many).
 
 from __future__ import annotations
 
-import importlib.util
 import sqlite3
 import sys
 import time
@@ -16,13 +16,8 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_PATH = REPO_ROOT / "build_biblio_authority.py"
-
-_spec = importlib.util.spec_from_file_location("build_biblio_authority", SCRIPT_PATH)
-biblio = importlib.util.module_from_spec(_spec)
-sys.modules["build_biblio_authority"] = biblio
-_spec.loader.exec_module(biblio)
+from bib import authority as biblio
+sys.modules["build_biblio_authority"] = biblio  # legacy name
 
 
 @pytest.fixture

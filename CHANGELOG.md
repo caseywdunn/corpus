@@ -7,8 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **The 13 root-level Python scripts are gone.** `process_corpus.py`,
+  `update_corpus.py`, `embed_chunks.py`, `mcp_server.py`,
+  `corpus_status.py`, `build_biblio_authority.py`,
+  `build_taxon_mentions.py`, `backfill_intext_citations.py`,
+  `reconcile_corpus_to_biblio.py`, `ingest_taxonomy.py`,
+  `package_for_serve.py`, `bib_export.py`, and `bib_import.py` are
+  deleted in v0.3 ([#60](https://github.com/caseywdunn/corpus/issues/60)).
+  Their logic now lives as private modules under `pipeline/`, `bib/`,
+  or `mcpsrv/` (e.g. `pipeline.embed`, `pipeline.status`,
+  `pipeline.taxonomy_ingest`, `bib.authority`, `bib.reconcile`,
+  `mcpsrv.bundle`). Operator-facing entry point is the unified
+  `corpus` binary (`corpus run`, `corpus status`, `corpus serve`,
+  `corpus bib export|import`, `corpus init`).
+- **The `--resume` flag is gone.** `corpus run` is always idempotent;
+  re-runs only do work whose inputs have changed (per-stage state +
+  fingerprints from v0.2). Use `--force-rebuild` for the rare
+  clean-rebuild case
+  ([#60](https://github.com/caseywdunn/corpus/issues/60)).
+- **The repo-root `config.yaml` is gone.** Per-corpuscle
+  `config.yaml` (scaffolded by `corpus init`) is now the single
+  source of truth for *this* corpuscle's inputs + system tuning;
+  built-in defaults backstop missing keys
+  ([#59](https://github.com/caseywdunn/corpus/issues/59)).
+- **Operators upgrading from v0.2 must rebuild their corpuscles
+  from scratch.** No migration tool, no thin shims. Recipe:
+  `pip install -e .` (or `pip install git+...@v0.3.0`),
+  `cd <corpuscle>`, `corpus init && $EDITOR config.yaml`,
+  `corpus run`.
+
 ### Added
 
+- **Unified `corpus` CLI**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60)) — one
+  binary, cargo/git/gh/kubectl-style verbs (`run`, `status`,
+  `serve`, `init`, `bib export|import`, plus stubs for `check` (#62)
+  and `completion` (#61)). Global `--config` / `-c PATH` (env:
+  `CORPUS_CONFIG`) is git-style pre-verb. The new `corpus run`
+  reads the per-corpuscle config, validates against the
+  pydantic schema (#59), resolves relative paths against the
+  config file's parent (#61), and dispatches the existing
+  orchestrator with implicit resume.
+- **Per-corpuscle pydantic config schema + bundled template + `corpus init`**
+  ([#59](https://github.com/caseywdunn/corpus/issues/59)) — see
+  earlier entry; full `config.yaml` surface (input_pdfs,
+  output_dir, bib, lexicon, taxonomy, vision, grobid, bibliography,
+  licensing) plus carried-over OCR / chunking / quality-gate blocks.
+  Field-level validation errors point at the exact key + value.
+- **Shared rich console layer**
+  ([#63](https://github.com/caseywdunn/corpus/issues/63)) — single
+  `pipeline/console.py` Console; emoji status symbols + braille
+  spinners + bars on TTY, clean ASCII fallback on SLURM `.out` /
+  CI logs / journalctl. Diagnostic logging stays plain text.
 - **`pyproject.toml` + `corpus` console_scripts entry point**
   ([#58](https://github.com/caseywdunn/corpus/issues/58)) — project
   becomes pip-installable; `corpus` lands on PATH via

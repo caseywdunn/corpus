@@ -103,7 +103,7 @@ databases, and bundle distillation all run from one entry point.
   subsection enumerating the dropped/renamed CLIs and the
   dropped `--resume` flag so operators see the change before
   they `git pull`.
-- [ ] **Packaging: `pyproject.toml` + `corpus` console_scripts entry
+- [x] **Packaging: `pyproject.toml` + `corpus` console_scripts entry
   point.**
   ([#58](https://github.com/caseywdunn/corpus/issues/58))
   A minimal `pyproject.toml` at the repo root
@@ -122,7 +122,7 @@ databases, and bundle distillation all run from one entry point.
   global `pipeline` / `mcpsrv` / `bib` namespace pollution is
   annoying but contained). Defer all three until there's an
   audience that isn't cloning.
-- [ ] **Version handling: single source in `pipeline/version.py`,
+- [x] **Version handling: single source in `pipeline/version.py`,
   `pyproject.toml` reads it dynamically.**
   ([#58](https://github.com/caseywdunn/corpus/issues/58))
   Once `pyproject.toml`

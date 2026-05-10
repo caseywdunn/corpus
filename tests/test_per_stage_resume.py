@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 from pipeline import PIPELINE_VERSION
-from process_corpus import (
+from pipeline.stages import (
     _all_stage_artifacts_complete,
     _load_pipeline_state,
     _record_stage_completion,

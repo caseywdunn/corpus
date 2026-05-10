@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from build_taxon_mentions import create_schema
+from pipeline.taxon_mentions import create_schema
 from mcpsrv.indexes import TaxonMentionDB
 
 

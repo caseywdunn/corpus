@@ -84,12 +84,17 @@ def test_pipeline_io_surface():
     assert short_hash("a" * 64) == "a" * 12
 
 
-def test_process_corpus_still_works():
-    """The legacy module-level names that tests already depend on
-    should keep working — process_corpus.py is unchanged in this PR.
+def test_pipeline_main_still_importable():
+    """Post-v0.3 (#60), root-level ``process_corpus.py`` is gone; the
+    pipeline entry points all live under ``pipeline.*``. Confirm the
+    moved equivalents are importable + callable.
     """
-    import process_corpus  # noqa
-    assert callable(process_corpus.load_config)
-    assert callable(process_corpus.classify_section)
-    assert callable(process_corpus._stage)
-    assert callable(process_corpus.calculate_pdf_hash)
+    from pipeline import main as pipeline_main
+    from pipeline.config import classify_section, load_config
+    from pipeline.io import calculate_pdf_hash
+    from pipeline.runner import _stage
+    assert callable(load_config)
+    assert callable(classify_section)
+    assert callable(_stage)
+    assert callable(calculate_pdf_hash)
+    assert callable(pipeline_main.main)

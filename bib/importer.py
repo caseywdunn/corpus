@@ -375,7 +375,7 @@ def main() -> int:
     db_path = args.db or (args.output_dir / "biblio_authority.sqlite")
     if not db_path.exists():
         logger.error("biblio_authority.sqlite not found at %s. "
-                     "Run build_biblio_authority.py first.", db_path)
+                     "Run `corpus run` (or `python -m bib.authority`) first.", db_path)
         return 1
     if not args.bib_file.exists():
         logger.error("BibTeX file %s not found", args.bib_file)

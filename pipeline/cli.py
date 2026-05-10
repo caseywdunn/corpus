@@ -1,18 +1,41 @@
-"""`corpus` CLI entry point (#58 packaging, #59 init, #60 router).
+"""`corpus` CLI entry point.
 
-Currently dispatches `corpus init` (#59) and prints help / version.
-The remaining verbs (`run`, `check`, `status`, `serve`, `bib`,
-`completion`) land across #60–#62. This file grows as those issues
-close; the dispatch table is the only thing that changes.
+Subcommand router for v0.3 (#60). Replaces the 13 root-level
+scripts that v0.2 shipped. Subcommands:
+
+  corpus init                  scaffold config.yaml in cwd (#59)
+  corpus run                   full pipeline + post-pipeline + bundle
+  corpus status                build-state rollup + report (#57)
+  corpus serve                 MCP server
+  corpus bib export|import     BibTeX round-trip
+  corpus check                 environment + config pre-flight (stub, #62)
+  corpus completion <shell>    shell completion script (stub, #61)
+
+Global options:
+  --config, -c PATH            override the per-corpuscle config.yaml
+                               (env: CORPUS_CONFIG; #61 polish)
+  --version, -V                package version
+
+Each non-trivial verb dispatches via ``python -m <module>`` to the
+moved private modules (pipeline.orchestrator, pipeline.status,
+mcpsrv.main, etc.). The repo root has zero Python files in v0.3 —
+the unified ``corpus`` binary is the only operator entry point.
 """
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
+import subprocess
 import sys
 from importlib import resources
 from pathlib import Path
+from typing import List, Optional
 
+import yaml
+
+from .config_schema import CorpuscleConfig, ValidationError, validate_config
+from .console import console, print_status
 from .version import __version__
 
 
@@ -20,8 +43,65 @@ _TEMPLATE_PACKAGE = "pipeline"
 _TEMPLATE_NAME = "config.template.yaml"
 
 
+# ---------------------------------------------------------------------------
+# Config-resolution helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_config_path(flag_value: Optional[Path]) -> Optional[Path]:
+    """Resolve which config.yaml to load.
+
+    Precedence (#61): --config flag > $CORPUS_CONFIG env var > ./config.yaml.
+    Returns None if no config file is found anywhere; the caller decides
+    whether that's an error (corpus run errors; corpus init doesn't).
+    """
+    if flag_value is not None:
+        return flag_value
+    env = os.environ.get("CORPUS_CONFIG")
+    if env:
+        return Path(env)
+    default = Path.cwd() / "config.yaml"
+    if default.exists():
+        return default
+    return None
+
+
+def _load_validated(config_path: Path) -> CorpuscleConfig:
+    """Load config.yaml + validate against :class:`CorpuscleConfig`.
+
+    Field-level errors print one line per failing key + bail with exit
+    code 2 (config error, per #61 exit-code convention).
+    """
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    try:
+        return validate_config(raw)
+    except ValidationError as e:
+        print_status(f"config error in {config_path}", status="fail")
+        for err in e.errors():
+            loc = ".".join(str(x) for x in err["loc"])
+            print(f"  {loc}: {err['msg']}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _resolve_against(config_path: Path, value: Optional[Path]) -> Optional[Path]:
+    """Resolve a path field in config.yaml against the config file's parent (#61).
+
+    So `cd demo && corpus run` and `corpus --config demo/config.yaml run`
+    from anywhere give identical results.
+    """
+    if value is None:
+        return None
+    if value.is_absolute():
+        return value
+    return (config_path.parent / value).resolve()
+
+
+# ---------------------------------------------------------------------------
+# `corpus init`  (#59)
+# ---------------------------------------------------------------------------
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
-    """Scaffold a fresh ``config.yaml`` in cwd from the bundled template (#59)."""
     target = Path(args.path) if args.path else Path.cwd() / "config.yaml"
     if target.exists() and not args.force:
         print(
@@ -35,8 +115,174 @@ def _cmd_init(args: argparse.Namespace) -> int:
         shutil.copy(src_path, target)
     print(f"wrote {target}")
     print("Edit the input paths (input_pdfs, taxonomy, optional bib + lexicon)")
-    print("then run `corpus run` (lands in #60).")
+    print("then run `corpus run`.")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# `corpus run`  (#60)
+# ---------------------------------------------------------------------------
+
+
+def _build_orchestrator_argv(
+    cfg: CorpuscleConfig,
+    config_path: Path,
+    args: argparse.Namespace,
+) -> List[str]:
+    """Translate validated config + CLI flags → orchestrator argv."""
+    if cfg.input_pdfs is None:
+        print_status(
+            "config error: `input_pdfs` is required in config.yaml for `corpus run`",
+            status="fail",
+        )
+        sys.exit(2)
+    input_dir = _resolve_against(config_path, cfg.input_pdfs)
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+
+    sub_argv: List[str] = [str(input_dir), str(output_dir)]
+
+    # Forward the per-corpuscle config so pipeline.main + downstream
+    # steps read system tuning (ocr, chunking, stage_timeouts, ...)
+    # from the same file the corpus router validated.
+    sub_argv += ["--config", str(config_path)]
+
+    # Implicit resume per #60. Operators opt out with --force-rebuild.
+    if not args.force_rebuild:
+        sub_argv.append("--resume")
+    if args.dry_run:
+        sub_argv.append("--dry-run")
+
+    bib = _resolve_against(config_path, cfg.bib)
+    if bib is not None:
+        sub_argv += ["--bib", str(bib)]
+    lexicon = _resolve_against(config_path, cfg.lexicon)
+    if lexicon is not None:
+        sub_argv += ["--lexicon", str(lexicon)]
+
+    if cfg.grobid.disable:
+        sub_argv.append("--no-grobid")
+    if cfg.grobid.url:
+        sub_argv += ["--grobid-url", cfg.grobid.url]
+
+    # Vision pass: opt-out via --no-vision flag or vision.backend=none.
+    # #65 adds capability detection to skip gracefully when the backend
+    # isn't usable on this host.
+    if not args.no_vision and cfg.vision.backend != "none":
+        sub_argv += ["--vision-backend", cfg.vision.backend]
+        if cfg.vision.model:
+            sub_argv += ["--vision-model", cfg.vision.model]
+    return sub_argv
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    config_path = _resolve_config_path(args.config)
+    if config_path is None:
+        print(
+            "corpus run: no config.yaml in cwd; run `corpus init` to scaffold one, "
+            "or pass --config PATH",
+            file=sys.stderr,
+        )
+        return 2
+    if not config_path.exists():
+        print_status(f"config not found: {config_path}", status="fail")
+        return 2
+    cfg = _load_validated(config_path)
+
+    sub_argv = _build_orchestrator_argv(cfg, config_path, args)
+    cmd = [sys.executable, "-m", "pipeline.orchestrator", *sub_argv]
+    print_status(f"corpus run → {' '.join(cmd)}", status="info")
+    rc = subprocess.run(cmd).returncode
+    if rc != 0:
+        return rc
+
+    # Success summary + bundle distillation are deferred to follow-up
+    # work on #60 (run.log writer + invoking mcpsrv.bundle in line).
+    # Status report and bundle remain explicit subcommands until then.
+    print_status(
+        "run complete. Try `corpus status` and `corpus serve` next.",
+        status="ok",
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# `corpus status`  /  `corpus serve`  /  `corpus bib …`  (#60 passthroughs)
+# ---------------------------------------------------------------------------
+
+
+def _passthrough(module: str, extra_argv: List[str]) -> int:
+    """Spawn ``python -m <module> <extra_argv...>`` and return its exit code."""
+    cmd = [sys.executable, "-m", module, *extra_argv]
+    return subprocess.run(cmd).returncode
+
+
+def _cmd_status(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("pipeline.status", [str(output_dir), *args.passthrough])
+
+
+def _resolve_output_dir(args: argparse.Namespace) -> Path:
+    """Pick output_dir for a verb that needs it: --output-dir flag wins; else
+    pull from the resolved config.yaml's `output_dir`.
+    """
+    if args.output_dir is not None:
+        return args.output_dir
+    config_path = _resolve_config_path(args.config)
+    if config_path is None or not config_path.exists():
+        print_status(
+            "no --output-dir and no config.yaml found; pass --output-dir PATH "
+            "or `cd <corpuscle>`",
+            status="fail",
+        )
+        sys.exit(2)
+    cfg = _load_validated(config_path)
+    return _resolve_against(config_path, cfg.output_dir)
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("mcpsrv.main", [str(output_dir), *args.passthrough])
+
+
+def _cmd_bib_export(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("bib.export", [str(output_dir), *args.passthrough])
+
+
+def _cmd_bib_import(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("bib.importer", [str(output_dir), *args.passthrough])
+
+
+# ---------------------------------------------------------------------------
+# `corpus check`  (#62 stub)  /  `corpus completion`  (#61 stub)
+# ---------------------------------------------------------------------------
+
+
+def _cmd_check(args: argparse.Namespace) -> int:
+    print_status(
+        "corpus check is not yet implemented (#62). For now: validate "
+        "config.yaml manually with `python -c \"import yaml; "
+        "from pipeline.config_schema import validate_config; "
+        "validate_config(yaml.safe_load(open('config.yaml')))\"`.",
+        status="warn",
+    )
+    return 0
+
+
+def _cmd_completion(args: argparse.Namespace) -> int:
+    print_status(
+        f"corpus completion {args.shell} is not yet implemented (#61). "
+        "Install argcomplete and run `eval \"$(register-python-argcomplete corpus)\"` "
+        "as a workaround until then.",
+        status="warn",
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Parser construction
+# ---------------------------------------------------------------------------
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -44,35 +290,116 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="corpus",
         description="MCP server for taxonomic literature corpora.",
     )
-    p.add_argument("-V", "--version", action="version", version=f"corpus {__version__}")
+    p.add_argument(
+        "-V", "--version", action="version", version=f"corpus {__version__}"
+    )
+    # Global --config (pre-verb, git/cargo/kubectl style; #60 + #61).
+    p.add_argument(
+        "-c", "--config",
+        type=Path,
+        default=None,
+        help="Path to config.yaml. Default: $CORPUS_CONFIG, else "
+             "./config.yaml in cwd.",
+    )
+
     sub = p.add_subparsers(dest="command", metavar="<command>")
 
+    # --- init ---
     init_p = sub.add_parser(
         "init",
         help="Scaffold config.yaml in cwd from the bundled template",
     )
-    init_p.add_argument(
-        "--path",
-        type=Path,
-        default=None,
-        help="Where to write the config (default: ./config.yaml in cwd)",
-    )
-    init_p.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite an existing config.yaml",
-    )
+    init_p.add_argument("--path", type=Path, default=None)
+    init_p.add_argument("--force", action="store_true")
     init_p.set_defaults(func=_cmd_init)
+
+    # --- run ---
+    run_p = sub.add_parser(
+        "run",
+        help="Full pipeline: extract → embed → cross-paper builds → bundle",
+    )
+    run_p.add_argument("--dry-run", action="store_true",
+                       help="Plan only — no artifacts written")
+    run_p.add_argument("--force-rebuild", action="store_true",
+                       help="Disable implicit resume; re-run every stage")
+    run_p.add_argument("--no-vision", action="store_true",
+                       help="Skip the vision pass (Pass 3b)")
+    run_p.add_argument("--no-bundle", action="store_true",
+                       help="Skip the served-bundle distillation step "
+                       "(deferred follow-up on #60)")
+    run_p.add_argument("--enrich-bhl", action="store_true",
+                       help="Enrich pre-DOI references against the Biodiversity "
+                       "Heritage Library (slow, rate-limited; #64)")
+    run_p.set_defaults(func=_cmd_run)
+
+    # --- status ---
+    status_p = sub.add_parser(
+        "status",
+        help="Build-state rollup + report (#57). Extra flags forwarded "
+        "to pipeline.status (--report, --json, --sort-by, etc.).",
+    )
+    status_p.add_argument(
+        "--output-dir", type=Path, default=None,
+        help="Override the corpuscle output dir from config.yaml.",
+    )
+    status_p.set_defaults(func=_cmd_status)
+
+    # --- serve ---
+    serve_p = sub.add_parser(
+        "serve",
+        help="MCP server. Extra flags forwarded to mcpsrv.main "
+        "(--transport, --host, --port, --auth-token-file, etc.).",
+    )
+    serve_p.add_argument("--output-dir", type=Path, default=None)
+    serve_p.set_defaults(func=_cmd_serve)
+
+    # --- bib (export | import) ---
+    bib_p = sub.add_parser("bib", help="BibTeX round-trip")
+    bib_sub = bib_p.add_subparsers(dest="bib_command", metavar="{export,import}")
+
+    bib_export_p = bib_sub.add_parser("export")
+    bib_export_p.add_argument("--output-dir", type=Path, default=None)
+    bib_export_p.set_defaults(func=_cmd_bib_export)
+
+    bib_import_p = bib_sub.add_parser("import")
+    bib_import_p.add_argument("--output-dir", type=Path, default=None)
+    bib_import_p.set_defaults(func=_cmd_bib_import)
+
+    bib_p.set_defaults(func=lambda a: (bib_p.print_help() or 2))
+
+    # --- check (stub) ---
+    check_p = sub.add_parser(
+        "check",
+        help="Environment + config pre-flight (stub, #62)",
+    )
+    check_p.set_defaults(func=_cmd_check)
+
+    # --- completion (stub) ---
+    comp_p = sub.add_parser(
+        "completion",
+        help="Generate a shell completion script (stub, #61)",
+    )
+    comp_p.add_argument("shell", choices=["bash", "zsh", "fish"])
+    comp_p.set_defaults(func=_cmd_completion)
 
     return p
 
 
-def main(argv: list[str] | None = None) -> int:
+_PASSTHROUGH_VERBS = {"status", "serve", "bib"}
+
+
+def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    # Use parse_known_args so passthrough subcommands (status, serve,
+    # bib) can forward flags like --transport, --report, --json to the
+    # downstream module without argparse rejecting them as unrecognized.
+    args, extras = parser.parse_known_args(argv)
     if not args.command:
         parser.print_help()
         return 0
+    if extras and args.command not in _PASSTHROUGH_VERBS:
+        parser.error(f"unrecognized arguments: {' '.join(extras)}")
+    args.passthrough = extras
     return args.func(args)
 
 

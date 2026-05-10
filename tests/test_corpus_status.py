@@ -1,4 +1,8 @@
-"""Unit tests for corpus_status aggregation + filtering (#40)."""
+"""Unit tests for corpus status aggregation + filtering (#40).
+
+The module moved from root-level ``corpus_status.py`` to
+``pipeline.status`` per #60.
+"""
 from __future__ import annotations
 
 import json
@@ -6,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from corpus_status import aggregate, filtered_hashes, render_text
+from pipeline.status import aggregate, filtered_hashes, render_text
 
 
 def _write_summary(documents_dir: Path, h: str, processing_summary: dict) -> None:

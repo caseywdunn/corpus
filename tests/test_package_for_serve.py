@@ -1,8 +1,8 @@
-"""Unit + integration tests for package_for_serve.py."""
+"""Unit + integration tests for the bundle distillation logic
+(formerly ``package_for_serve.py``; now ``mcpsrv.bundle`` per #60)."""
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import sys
 import time
@@ -10,13 +10,8 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "package_for_serve.py"
-
-_spec = importlib.util.spec_from_file_location("package_for_serve", SCRIPT)
-pkg = importlib.util.module_from_spec(_spec)
-sys.modules["package_for_serve"] = pkg
-_spec.loader.exec_module(pkg)
+from mcpsrv import bundle as pkg
+sys.modules["package_for_serve"] = pkg  # legacy name some tests reference
 
 
 # ── _should_copy: mtime-based skip ──────────────────────────────────

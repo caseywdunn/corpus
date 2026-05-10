@@ -53,14 +53,18 @@ REPO_ROOT = Path(__file__).resolve().parent
 
 @dataclass
 class Step:
-    """One subprocess invocation in the dependency chain."""
+    """One subprocess invocation in the dependency chain.
+
+    ``module`` is a dotted module path invoked via ``python -m``
+    (the v0.3 packaging — root-level scripts are gone per #60).
+    """
     name: str
-    script: str
+    module: str
     description: str
 
     def argv(self, args: argparse.Namespace) -> List[str]:
         """Build the argv for this step from CLI args."""
-        cmd = [sys.executable, str(REPO_ROOT / self.script)]
+        cmd = [sys.executable, "-m", self.module]
         if self.name == "extract":
             cmd += [str(args.input_dir), str(args.output_dir)]
             if args.resume:
@@ -110,17 +114,17 @@ class Step:
 
 # Ordered. Names are stable identifiers for --from.
 STEPS: List[Step] = [
-    Step("extract",         "process_corpus.py",
+    Step("extract",         "pipeline.main",
          "Stage 1: extraction, OCR, docling, metadata, chunking, annotation"),
-    Step("embed",           "embed_chunks.py",
+    Step("embed",           "pipeline.embed",
          "Stage 2: BGE-M3 embeddings → LanceDB"),
-    Step("build_biblio",    "build_biblio_authority.py",
+    Step("build_biblio",    "bib.authority",
          "Bibliographic authority DB"),
-    Step("build_taxa",      "build_taxon_mentions.py",
+    Step("build_taxa",      "pipeline.taxon_mentions",
          "Taxon mention rollup"),
-    Step("backfill_intext", "backfill_intext_citations.py",
+    Step("backfill_intext", "pipeline.intext_citations",
          "TEI body → intext_citations.json"),
-    Step("reconcile",       "reconcile_corpus_to_biblio.py",
+    Step("reconcile",       "bib.reconcile",
          "Merge ghost cited-references onto corpus papers"),
 ]
 

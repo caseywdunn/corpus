@@ -448,7 +448,7 @@ def main() -> int:
         args.db = args.output_dir / "biblio_authority.sqlite"
 
     if not args.db.exists():
-        logger.error("DB not found: %s. Run build_biblio_authority.py first.", args.db)
+        logger.error("DB not found: %s. Run `corpus run` (or `python -m bib.authority`) first.", args.db)
         return 1
     if not args.output_dir.is_dir():
         logger.error("Output dir not found: %s", args.output_dir)

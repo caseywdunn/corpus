@@ -77,7 +77,7 @@ class TaxonomyDB:
         if not self.db_path.exists():
             raise FileNotFoundError(
                 f"Taxonomy SQLite not found at {self.db_path}. "
-                f"Build it with: python ingest_taxonomy.py --source <dwc|dwca|worms> ..."
+                f"Build it with: python -m pipeline.taxonomy_ingest --source <dwc|dwca|worms> ..."
             )
         # uri=... read-only for safety; no writer process should touch
         # the snapshot during pipeline runs.

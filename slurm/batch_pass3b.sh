@@ -90,8 +90,8 @@ PY_ARGS=(
     --vision-backend local
     "${BATCH_ARGS[@]}"
 )
-echo "python args: process_corpus.py ${PY_ARGS[*]}"
+echo "python args: -m pipeline.main ${PY_ARGS[*]}"
 
-python process_corpus.py "${PY_ARGS[@]}"
+python -m pipeline.main "${PY_ARGS[@]}"
 
 echo "Pass 3b + 3c completed at $(date)"

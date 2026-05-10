@@ -136,7 +136,7 @@ def main():
         default=None,
         help="Path to Darwin Core taxonomy SQLite "
              "(default: <output_dir>/taxonomy.sqlite). "
-             "Build with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
+             "Build with: python -m pipeline.taxonomy_ingest --source <dwc|dwca|worms> ...",
     )
     parser.add_argument(
         "--lexicon",
@@ -600,3 +600,6 @@ def main():
     logger.info("  Documents: %s", documents_dir)
     logger.info("  Vector DB: %s", vector_db_dir)
 
+
+if __name__ == "__main__":
+    main()
