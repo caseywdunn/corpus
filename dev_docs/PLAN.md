@@ -82,6 +82,17 @@ databases, and bundle distillation all run from one entry point.
   (kept importable for tests and ad-hoc debugging, dropped as a
   user-facing CLI). The repo root ends up with one operator
   binary and zero ambiguity about which script does what.
+- **v0.2 → v0.3 is a clean break.** No migration tool, no thin
+  shims printing "use `corpus run` instead" — the old
+  root-level CLIs (`process_corpus.py`, `update_corpus.py`,
+  `embed_chunks.py`, `mcp_server.py`, etc.) are simply gone.
+  Operators upgrading from v0.2 rebuild their corpuscles from
+  scratch under the new `config.yaml`-driven flow:
+  `corpus init && $EDITOR config.yaml && corpus run`. The v0.3
+  CHANGELOG entry needs an explicit `### Breaking changes`
+  subsection enumerating the dropped/renamed CLIs and the
+  dropped `--resume` flag so operators see the change before
+  they `git pull`.
 - **Packaging: `pyproject.toml` + `corpus` console_scripts entry
   point.** A minimal `pyproject.toml` at the repo root
   (setuptools backend — boring, well-understood, no lock-file
@@ -195,8 +206,11 @@ databases, and bundle distillation all run from one entry point.
   `<output_dir>/run.log` (one line of JSON per finished run plus
   a human-readable rendering) so operators reconstructing a run
   three weeks later don't have to scroll back through SLURM
-  `.out` files or `journalctl`. Closes
-  [#57](https://github.com/caseywdunn/corpus/issues/57).
+  `.out` files or `journalctl`. Complements the existing
+  per-paper `documents/<HASH>/pipeline.log` (detailed per-stage
+  trace, overwritten on each re-run): `run.log` is the summary
+  *across* runs, `pipeline.log` is the detail *within* one run.
+  Closes [#57](https://github.com/caseywdunn/corpus/issues/57).
 - **Bundle distillation in line.** `corpus run` walks
   `package_for_serve.py` so a successful run produces a
   ready-to-ship served bundle alongside the build bundle.
@@ -301,6 +315,12 @@ installed code.
   - `vision:` block — `backend: local | claude | none`,
     `model:` overrides
   - `grobid:` block — `url:`, optional `disable: true`
+  - `bibliography:` block — `enrich_bhl: false` (default; opt-in
+    to BHL enrichment per the auto-build bullet below)
+  - `licensing:` block — `pd_cutoff_years: 95` (default;
+    US-specific public-domain cutoff per
+    [#51](https://github.com/caseywdunn/corpus/issues/51));
+    other policy fields land as the #51 design lands
 - **Drift detection.** Hash the resolved config (input paths +
   per-input content SHA) into a corpuscle-side state file. A
   mismatch on the next run logs which keys drifted and which stages
@@ -515,6 +535,13 @@ release ritual; the short version: `dev` carries a PEP 440 pre-release
 suffix (`0.3.0.dev0` → `0.3.0a1` → `0.3.0`), the release commit drops
 the suffix, the next commit on `dev` reintroduces one for the next
 target.
+
+**v0.3 release note:** this cycle is a breaking-change release
+(see §1 "v0.2 → v0.3 is a clean break" bullet). The CHANGELOG
+entry must lead with an explicit `### Breaking changes`
+subsection enumerating the dropped/renamed CLIs and the dropped
+`--resume` flag; operators upgrading from v0.2 must rebuild
+their corpuscles from scratch.
 
 ## 4. Out of scope for v0.3
 
