@@ -253,6 +253,42 @@ def apply_entry(
 # ---------------------------------------------------------------------------
 
 
+# #67: sidecar path for `corpus bib import` invoked before the first
+# `corpus run`. Picked up at the end of bib.authority.main() so the
+# operator can curate ahead of the first build.
+PENDING_SIDECAR = ".pending_bib_import.bib"
+
+
+def stage_pending_bib(output_dir: Path, bib_path: Path) -> Path:
+    """Copy ``bib_path`` to ``<output_dir>/.pending_bib_import.bib`` so
+    the next ``corpus run`` (specifically bib.authority's tail) applies
+    it automatically. Used by `corpus bib import` when the authority DB
+    doesn't exist yet (#67)."""
+    import shutil
+    output_dir.mkdir(parents=True, exist_ok=True)
+    dst = output_dir / PENDING_SIDECAR
+    shutil.copy(bib_path, dst)
+    return dst
+
+
+def apply_pending_bib(output_dir: Path, db_path: Path) -> Optional[Dict[str, int]]:
+    """If a sidecar from #67 is present, apply it against ``db_path`` and
+    remove it. Returns the import counters if a sidecar was applied,
+    None otherwise.
+    """
+    sidecar = output_dir / PENDING_SIDECAR
+    if not sidecar.exists():
+        return None
+    if not db_path.exists():
+        return None  # nothing to apply against; defer to a later run
+    logger.info("Applying staged bib overrides from %s (#67)", sidecar)
+    counters = import_bibtex(db_path, sidecar, dry_run=False)
+    sidecar.unlink()
+    logger.info("Removed sidecar %s after applying %d update(s)",
+                sidecar, counters.get("changed", 0))
+    return counters
+
+
 def import_bibtex(
     db_path: Path,
     bib_path: Path,
@@ -372,14 +408,30 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    db_path = args.db or (args.output_dir / "biblio_authority.sqlite")
-    if not db_path.exists():
-        logger.error("biblio_authority.sqlite not found at %s. "
-                     "Run `corpus run` (or `python -m bib.authority`) first.", db_path)
-        return 1
     if not args.bib_file.exists():
         logger.error("BibTeX file %s not found", args.bib_file)
         return 1
+
+    db_path = args.db or (args.output_dir / "biblio_authority.sqlite")
+    if not db_path.exists():
+        # #67: stage for the next `corpus run` rather than erroring,
+        # so operators can curate the bibliography ahead of the first
+        # build. The sidecar gets picked up + removed at the tail of
+        # bib.authority.main().
+        if args.dry_run:
+            logger.info(
+                "biblio_authority.sqlite does not exist yet; would stage "
+                "%s for application on the next `corpus run` (dry-run, "
+                "no copy made).", args.bib_file,
+            )
+            return 0
+        sidecar = stage_pending_bib(args.output_dir, args.bib_file)
+        logger.info(
+            "biblio_authority.sqlite does not exist yet; staged %s → %s. "
+            "It will be applied automatically on the next `corpus run`.",
+            args.bib_file, sidecar,
+        )
+        return 0
 
     counters = import_bibtex(db_path, args.bib_file, dry_run=args.dry_run)
 

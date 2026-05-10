@@ -245,7 +245,7 @@ databases, and bundle distillation all run from one entry point.
   `package_for_serve.py` so a successful run produces a
   ready-to-ship served bundle alongside the build bundle.
   `--no-bundle` for users who only want the build artifacts.
-- [ ] **`corpus bib export` / `corpus bib import` work before first
+- [x] **`corpus bib export` / `corpus bib import` work before first
   `corpus run`.**
   ([#67](https://github.com/caseywdunn/corpus/issues/67))
   Today `bib_import` writes into

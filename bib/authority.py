@@ -1263,9 +1263,27 @@ def main() -> int:
             ("total_citations", str(stats["citations"])),
         )
         conn.commit()
-        return 0
+        rc = 0
     finally:
         conn.close()
+
+    # #67: apply any sidecar staged by `corpus bib import` before the
+    # first `corpus run`. Closing + reopening the connection keeps the
+    # transaction boundaries clean.
+    try:
+        from .importer import apply_pending_bib
+        applied = apply_pending_bib(args.output_dir, db_path)
+        if applied is not None:
+            logger.info(
+                "Applied staged bib overrides: %d updated, %d no-change, %d no-match",
+                applied.get("changed", 0),
+                applied.get("no_changes", 0),
+                applied.get("no_match", 0),
+            )
+    except Exception as e:
+        logger.warning("Could not apply staged bib overrides: %s", e)
+
+    return rc
 
 
 if __name__ == "__main__":
