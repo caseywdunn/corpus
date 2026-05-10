@@ -122,6 +122,8 @@ def prune_orphans(
             n_doc_pruned += 1
 
         # 2. Drop LanceDB rows whose hash is no longer in doc_hashes.
+        # Schema: pipeline/embed.py:ChunkMetadata stores the hash as
+        # ``metadata.pdf_hash`` (nested), not a flat ``hash`` column.
         vector_db_path = output_dir / "vector_db"
         if vector_db_path.is_dir():
             try:
@@ -131,16 +133,14 @@ def prune_orphans(
                     table = db.open_table("document_chunks")
                     surviving_hashes = doc_hashes - set(doc_orphans)
                     if surviving_hashes:
-                        before = len(table.search().select(["hash"]).limit(10**9).to_list())
+                        before = table.count_rows()
                         in_clause = ", ".join(f"'{h}'" for h in surviving_hashes)
-                        table.delete(f"hash NOT IN ({in_clause})")
-                        after = len(table.search().select(["hash"]).limit(10**9).to_list())
-                        n_vec_pruned = before - after
+                        table.delete(f"metadata.pdf_hash NOT IN ({in_clause})")
+                        n_vec_pruned = before - table.count_rows()
                     else:
                         # No surviving docs — drop the whole table.
-                        before = len(table.search().select(["hash"]).limit(10**9).to_list())
+                        n_vec_pruned = table.count_rows()
                         db.drop_table("document_chunks")
-                        n_vec_pruned = before
             except ImportError:
                 logger.info("lancedb not importable; skipping vector-index prune")
             except Exception as e:
@@ -215,10 +215,14 @@ def audit_orphans(input_dir: Path, output_dir: Path) -> int:
             db = lancedb.connect(str(vector_db_path))
             if "document_chunks" in db.table_names():
                 table = db.open_table("document_chunks")
+                # Schema: pipeline/embed.py:ChunkMetadata stores the
+                # hash as ``metadata.pdf_hash`` (nested), not a flat
+                # ``hash`` column. select(["metadata"]) returns the
+                # whole nested struct.
                 hashes_in_table = {
-                    row["hash"]
-                    for row in table.search().select(["hash"]).limit(10**9).to_list()
-                    if row.get("hash")
+                    (row.get("metadata") or {}).get("pdf_hash")
+                    for row in table.search().select(["metadata"]).limit(10**9).to_list()
+                    if (row.get("metadata") or {}).get("pdf_hash")
                 }
                 vector_orphans = sorted(hashes_in_table - doc_hashes)
         except ImportError:

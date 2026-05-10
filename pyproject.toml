@@ -60,4 +60,4 @@ exclude = ["tests*", "deploy*", "tools*", "slurm*", "demo*", "templates*", "dev_
 
 [tool.setuptools.package-data]
 mcpsrv = ["default_instructions.md"]
-pipeline = ["config.template.yaml"]
+pipeline = ["config.template.yaml", "CITATION.cff"]

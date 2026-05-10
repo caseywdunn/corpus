@@ -703,7 +703,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
             "vendor_marker": matched,
         })
 
-    threshold = float(CONFIG.get("ocr", {}).get("gibberish_threshold", 0.5))
+    threshold = float(CONFIG.get("ocr", {}).get("gibberish_threshold", 0.65))
 
     # --- Cheap gibberish path ---
     # High gibberish score is a direct signal the text layer is corrupt,

@@ -95,9 +95,13 @@ _DEFAULT_CONFIG = {
             # living taxonomy + adds noise to multi-pack OCR runs.
         ],
         # Gibberish-score threshold for flagging a broken text layer.
-        # 0.5 reliably catches the Cyrillic-as-Latin-1 case without
-        # false-positiving on reference-heavy papers.
-        "gibberish_threshold": 0.5,
+        # Raised from 0.5 → 0.65 to avoid the MilosMaley2005 false
+        # positive (langdetect misfire as Swahili). Documents with
+        # truly corrupt text (Cyrillic mojibake etc.) are still caught
+        # by the visual_script_mismatch path before reaching this
+        # threshold. Must stay in sync with config_schema.OcrConfig
+        # default + the bundled config.template.yaml.
+        "gibberish_threshold": 0.65,
     },
     "chunking": {
         "max_tokens": 8191,
@@ -117,9 +121,13 @@ _DEFAULT_CONFIG = {
     # OCR / docling on something that may not even fit in memory. The
     # Haeckel 1888 *Challenger Siphonophorae* report (~600 pages of
     # plates) is the canary case. Chunked-OCR is an open follow-up;
-    # the v0.2 implementation is skip-and-flag.
+    # the v0.2 implementation is skip-and-flag. Default raised from
+    # 500 → 5000 in v0.3 — the 500 default was a v0.2 placeholder
+    # that excluded too many real long-form monographs. Must stay in
+    # sync with config_schema.HugeDocumentConfig + the bundled
+    # config.template.yaml.
     "huge_document": {
-        "max_pages": 500,
+        "max_pages": 5000,
     },
     # Silent-failure quality gates (#36). Each threshold is conservative
     # by default; tighten in config.yaml for stricter corpora. A gate

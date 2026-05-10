@@ -176,9 +176,10 @@ class CorpuscleConfig(BaseModel):
     # Per-corpuscle inputs (new in v0.3).
     input_pdfs: Optional[Path] = Field(
         default=None,
-        description="Directory or glob of PDFs to process. "
+        description="Directory of PDFs to process (recursively walked). "
         "Required for `corpus run`; resolved relative to this config "
-        "file's directory (#61 path resolution).",
+        "file's directory (#61 path resolution). Glob expansion is "
+        "not currently supported — point at a directory.",
     )
     output_dir: Path = Field(
         default=Path("./output"),

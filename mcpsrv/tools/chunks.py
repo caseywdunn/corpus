@@ -206,8 +206,15 @@ def get_chunks_for_topic(
     out: List[Dict] = []
     for r in results:
         m = r.get("metadata") or {}
+        h = m.get("pdf_hash")
+        # Defense in depth (#54): served bundles drop LanceDB rows for
+        # skipped papers at distill time, but a build bundle queried
+        # directly might still have them. Filter against idx.papers,
+        # which only contains papers whose per-paper artifacts shipped.
+        if h and h not in idx.papers:
+            continue
         out.append({
-            "paper_hash": m.get("pdf_hash"),
+            "paper_hash": h,
             "paper_title": m.get("title"),
             "paper_year": m.get("year"),
             "chunk_id": m.get("chunk_id"),

@@ -813,18 +813,32 @@ def _version_string() -> str:
 
 
 def _read_citation_cff() -> dict:
-    """Read CITATION.cff from the repo root (editable / git+ install)."""
+    """Read CITATION.cff. The canonical copy at the repo root is shipped
+    via package_data into ``pipeline/CITATION.cff`` so wheel installs
+    (`pip install git+...@vX.Y.Z`) can find it via importlib.resources.
+    Falls back to the repo-root copy for editable installs that
+    haven't been re-installed since CITATION.cff was added.
+    """
+    # Packaged copy first (works for both editable and wheel installs).
+    try:
+        src = resources.files(_TEMPLATE_PACKAGE).joinpath("CITATION.cff")
+        with resources.as_file(src) as cff_path:
+            if cff_path.exists():
+                return yaml.safe_load(cff_path.read_text(encoding="utf-8"))
+    except (ModuleNotFoundError, FileNotFoundError):
+        pass
+    # Fallback: repo root (editable install pre-dating the package_data move).
     repo_root = Path(__file__).resolve().parent.parent
     cff_path = repo_root / "CITATION.cff"
-    if not cff_path.exists():
-        print_status(
-            f"CITATION.cff not found at {cff_path}. Available only in "
-            "editable / git+ installs of corpus until PyPI publishing "
-            "lands (PLAN §1).",
-            status="fail",
-        )
-        sys.exit(EXIT_GENERIC)
-    return yaml.safe_load(cff_path.read_text(encoding="utf-8"))
+    if cff_path.exists():
+        return yaml.safe_load(cff_path.read_text(encoding="utf-8"))
+    print_status(
+        f"CITATION.cff not found in package data or at {cff_path}. "
+        "Re-install with `pip install -e .` (or `pip install git+...`) "
+        "to pick up the packaged copy.",
+        status="fail",
+    )
+    sys.exit(EXIT_GENERIC)
 
 
 def _format_citation_plain(cff: dict) -> str:
@@ -1064,6 +1078,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         return EXIT_OK
     if extras and args.command not in _PASSTHROUGH_VERBS:
         parser.error(f"unrecognized arguments: {' '.join(extras)}")
+    # Strip a leading `--` separator if present. Operators following the
+    # documented `corpus serve --output-dir <bundle> -- --transport sse ...`
+    # form would otherwise forward the literal `--` to the downstream
+    # argparse, which interprets it as end-of-options and demotes
+    # subsequent flags to positional args (which then fail).
+    if extras and extras[0] == "--":
+        extras = extras[1:]
     args.passthrough = extras
     _setup_logging(args)
     return args.func(args)

@@ -99,7 +99,7 @@ def run_pdf_processing_pipeline(
         # Huge-document gate (#35) — skip-and-flag PDFs above max_pages
         # before any expensive stage runs.
         with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir):
-            max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 500))
+            max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 5000))
             n_pages = _pdf_page_count(temp_pdf)
             if n_pages is not None:
                 processing_summary["page_count"] = n_pages

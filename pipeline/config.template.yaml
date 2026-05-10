@@ -13,7 +13,8 @@
 # Per-corpuscle inputs
 # ---------------------------------------------------------------------------
 
-# Directory or glob of PDFs to process.
+# Directory of PDFs to process (recursively walked). Glob expansion
+# is not supported — point at a directory.
 input_pdfs: ./pdfs
 
 # Per-corpuscle artifact tree (per-paper directories, cross-paper
