@@ -26,6 +26,12 @@ v0.3-scoped subset is listed below.
 
 ## 1. v0.3 punch list
 
+Tracked under the
+[v0.3.0 milestone](https://github.com/caseywdunn/corpus/milestone/1).
+Checkbox status below mirrors per-issue acceptance criteria; tick a
+box here when its issue closes so the scannable progress lives in
+one file.
+
 ### One CLI, code installed once
 
 The unifying simplification: install `corpus` once
@@ -39,7 +45,9 @@ the same installed binary — no duplicated source trees drifting
 out of sync. Stage 1, Stage 2, post-pipeline cross-paper
 databases, and bundle distillation all run from one entry point.
 
-- **Single user-facing CLI: `corpus`.** All operator interactions
+- [ ] **Single user-facing CLI: `corpus`.**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60))
+  All operator interactions
   go through one binary, exposed as a setuptools entry point so
   the invocation is just `corpus <verb>`, not `python corpus.py`.
   Subcommand structure follows the cargo / git / gh / kubectl
@@ -82,7 +90,9 @@ databases, and bundle distillation all run from one entry point.
   (kept importable for tests and ad-hoc debugging, dropped as a
   user-facing CLI). The repo root ends up with one operator
   binary and zero ambiguity about which script does what.
-- **v0.2 → v0.3 is a clean break.** No migration tool, no thin
+- [ ] **v0.2 → v0.3 is a clean break.**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60))
+  No migration tool, no thin
   shims printing "use `corpus run` instead" — the old
   root-level CLIs (`process_corpus.py`, `update_corpus.py`,
   `embed_chunks.py`, `mcp_server.py`, etc.) are simply gone.
@@ -93,8 +103,10 @@ databases, and bundle distillation all run from one entry point.
   subsection enumerating the dropped/renamed CLIs and the
   dropped `--resume` flag so operators see the change before
   they `git pull`.
-- **Packaging: `pyproject.toml` + `corpus` console_scripts entry
-  point.** A minimal `pyproject.toml` at the repo root
+- [ ] **Packaging: `pyproject.toml` + `corpus` console_scripts entry
+  point.**
+  ([#58](https://github.com/caseywdunn/corpus/issues/58))
+  A minimal `pyproject.toml` at the repo root
   (setuptools backend — boring, well-understood, no lock-file
   churn) makes the project pip-installable; `corpus` lands on
   PATH via `[project.scripts]` after `pip install -e .`
@@ -110,8 +122,10 @@ databases, and bundle distillation all run from one entry point.
   global `pipeline` / `mcpsrv` / `bib` namespace pollution is
   annoying but contained). Defer all three until there's an
   audience that isn't cloning.
-- **Version handling: single source in `pipeline/version.py`,
-  `pyproject.toml` reads it dynamically.** Once `pyproject.toml`
+- [ ] **Version handling: single source in `pipeline/version.py`,
+  `pyproject.toml` reads it dynamically.**
+  ([#58](https://github.com/caseywdunn/corpus/issues/58))
+  Once `pyproject.toml`
   exists there are two version surfaces (Python imports +
   package metadata) that must not drift. Pattern: keep
   `pipeline/version.py` as the source of truth (existing
@@ -129,7 +143,11 @@ databases, and bundle distillation all run from one entry point.
   `setuptools-scm` (overkill for a one-developer-plus-
   collaborators project; produces gnarly `0.3.0.dev12+gabcd123`
   strings on untagged commits).
-- **Global `--config` option, pre-verb (git-style).** All
+- [ ] **Global `--config` option, pre-verb (git-style).**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60); short
+  alias `-c` and `CORPUS_CONFIG` env var on
+  [#61](https://github.com/caseywdunn/corpus/issues/61))
+  All
   subcommands resolve their config the same way: `corpus
   --config <path> <verb> [args]`. Default is `./config.yaml`
   relative to cwd, which is what the corpuscle-as-directory
@@ -139,7 +157,9 @@ databases, and bundle distillation all run from one entry point.
   `corpus --config demo/config.yaml run` rather than a special
   `--demo` flag). Discoverable via `corpus --help` rather than
   scattered across each subcommand's flag set.
-- **Operator UX: shared `rich` console layer.** A single
+- [ ] **Operator UX: shared `rich` console layer.**
+  ([#63](https://github.com/caseywdunn/corpus/issues/63))
+  A single
   `pipeline/console.py` Console instance backs every `corpus`
   subcommand. Emoji status symbols (✓/✗/⚠ with ASCII fallback),
   braille spinners on stages without a known total, and progress
@@ -160,7 +180,9 @@ databases, and bundle distillation all run from one entry point.
   with no extra code. ~1.5 MB install dep; small relative to the
   torch + transformers footprint, and `rich` is already in the
   transitive dep tree via the `mcp` and `anthropic` SDKs.
-- **Implicit resume on `corpus run`.** Drop the `--resume` flag.
+- [ ] **Implicit resume on `corpus run`.**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60))
+  Drop the `--resume` flag.
   The pipeline is always idempotent: re-runs do only the work
   whose inputs have changed (per-stage state, content
   fingerprints, PDF set diff — all infrastructure already in
@@ -169,13 +191,17 @@ databases, and bundle distillation all run from one entry point.
   Ctrl-C mid-run is part of this contract: per-stage state is
   flushed atomically as each stage completes (per #55), so the
   next `corpus run` picks up exactly where the previous left off.
-- **Strict `corpus run --dry-run`.** Prints the plan — what would
+- [ ] **Strict `corpus run --dry-run`.**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60))
+  Prints the plan — what would
   run, what would skip, what would be deleted — without touching
   disk. Today's per-stage `--dry-run` (#41) honors this stage by
   stage; under `corpus run`, audit every write path so the
   dry-run guarantee holds across all stages, post-pipeline
   scripts, and the bundle distillation step.
-- **`corpus check` detail.** Validates `config.yaml` against a
+- [ ] **`corpus check` detail.**
+  ([#62](https://github.com/caseywdunn/corpus/issues/62))
+  Validates `config.yaml` against a
   pydantic schema (field-level errors point at the exact key and
   value — `vision.backend must be one of {local, claude, none},
   got 'claud'`), probes GPU availability, pings the configured
@@ -189,7 +215,10 @@ databases, and bundle distillation all run from one entry point.
   misconfigured before SLURM kicks off. Doesn't read the output
   tree — distinct from `corpus status` (postmortem against a
   built corpuscle).
-- **Success summary + next-step pointer.** On clean completion,
+- [ ] **Success summary + next-step pointer.**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60); closes the
+  report half of [#57](https://github.com/caseywdunn/corpus/issues/57))
+  On clean completion,
   `corpus run` prints the same scannable report `corpus status
   --report` produces, plus the `corpus serve` command to launch a
   local MCP server against the new corpuscle. The report shape is
@@ -211,12 +240,16 @@ databases, and bundle distillation all run from one entry point.
   trace, overwritten on each re-run): `run.log` is the summary
   *across* runs, `pipeline.log` is the detail *within* one run.
   Closes [#57](https://github.com/caseywdunn/corpus/issues/57).
-- **Bundle distillation in line.** `corpus run` walks
+- [ ] **Bundle distillation in line.**
+  ([#60](https://github.com/caseywdunn/corpus/issues/60))
+  `corpus run` walks
   `package_for_serve.py` so a successful run produces a
   ready-to-ship served bundle alongside the build bundle.
   `--no-bundle` for users who only want the build artifacts.
-- **`corpus bib export` / `corpus bib import` work before first
-  `corpus run`.** Today `bib_import` writes into
+- [ ] **`corpus bib export` / `corpus bib import` work before first
+  `corpus run`.**
+  ([#67](https://github.com/caseywdunn/corpus/issues/67))
+  Today `bib_import` writes into
   `biblio_authority.sqlite`, which only exists after the pipeline
   has run. Under v0.3, `corpus bib import` either creates an
   empty authority DB and stages the edits, or persists the edits
@@ -230,13 +263,14 @@ databases, and bundle distillation all run from one entry point.
 
 The universal-CLI affordances every operator looks for first.
 None of them are deep architectural decisions; their absence
-just makes the tool feel rough.
+just makes the tool feel rough. All tracked under
+[#61](https://github.com/caseywdunn/corpus/issues/61).
 
-- **`corpus --version` / `-V`** prints the package version (from
+- [ ] **`corpus --version` / `-V`** prints the package version (from
   `pipeline.version.__version__`), and the git SHA when the
   current install was sourced from a development clone. Matches
   every other CLI on the system.
-- **`corpus --cite`** prints the citation. Default is a one-line
+- [ ] **`corpus --cite`** prints the citation. Default is a one-line
   plain-text rendering for the README / email use case;
   `corpus --cite=bibtex` emits a paste-ready BibTeX entry (so
   `corpus --cite=bibtex >> refs.bib` just works). Source of
@@ -249,31 +283,31 @@ just makes the tool feel rough.
   can cite the tool that gave them the literature without the
   user having to dig for it. Single source, three surfaces
   (CLI, GitHub, MCP), zero drift.
-- **`corpus completion bash|zsh|fish`** generates a shell
+- [ ] **`corpus completion bash|zsh|fish`** generates a shell
   completion script the operator sources from their dotfiles.
   Matches `gh`, `kubectl`, `cargo`, `aws`, `docker`. Operators
   tab-complete subcommand names + `--config` paths constantly;
   absence is a sharp edge.
-- **`CORPUS_CONFIG` env var** as an alternative to
+- [ ] **`CORPUS_CONFIG` env var** as an alternative to
   `--config PATH`. Matches `KUBECONFIG`, `AWS_PROFILE`,
   `RUSTUP_HOME`. Useful in CI / SLURM scripts where exporting
   once at the top is cleaner than threading the flag through
   every invocation. Precedence: `--config` flag > env var >
   `./config.yaml` in cwd.
-- **`-c` short alias for `--config`.** Small, but a real
+- [ ] **`-c` short alias for `--config`.** Small, but a real
   ergonomic ask once an operator types it ten times a day.
-- **Defined exit codes.** `0` success, `1` generic failure, `2`
+- [ ] **Defined exit codes.** `0` success, `1` generic failure, `2`
   config error (missing/invalid `config.yaml`, schema mismatch,
   unresolvable input path), `3` precondition not met (`corpus
   check` fail, missing bundle, port in use). Lets CI and SLURM
   `--dependency=afterok:` chains branch on the *kind* of failure
   rather than just success/failure.
-- **Verbosity levels.** `-v` / `-vv` raise the log threshold
+- [ ] **Verbosity levels.** `-v` / `-vv` raise the log threshold
   (INFO → DEBUG → all child loggers chatty); `-q` / `--quiet`
   drops it to WARNING. Replaces today's boolean `--verbose`.
   SLURM `.out` capture often wants `-q`; debugging operators
   want `-vv`.
-- **Path resolution.** Relative paths in `config.yaml`
+- [ ] **Path resolution.** Relative paths in `config.yaml`
   (`input_pdfs:`, `bib:`, `lexicon:`, `output_dir:`,
   `taxonomy.path:`) resolve against the directory containing the
   config file, not cwd. Means `cd demo && corpus run` and
@@ -290,9 +324,10 @@ packs, quality-gate thresholds) with no corpuscle-specific surface;
 all per-corpuscle inputs are CLI flags. v0.3 turns `config.yaml`
 into the single source of truth for *this* corpuscle's inputs and
 settings — one file per corpuscle directory, separate from the
-installed code.
+installed code. All tracked under
+[#59](https://github.com/caseywdunn/corpus/issues/59).
 
-- **`config.template.yaml` ships inside the installed `corpus`
+- [ ] **`config.template.yaml` ships inside the installed `corpus`
   package; `config.yaml` is per-corpuscle.** First-run check: if
   `corpus run` finds no `config.yaml` in cwd (and `--config`
   isn't set), it errors with `no config.yaml in cwd; run "corpus
@@ -304,7 +339,7 @@ installed code.
   corpuscle directory might be its own repo, in which case
   committing `config.yaml` is the operator's choice, not the
   tool's.)
-- **Move per-corpuscle inputs into config.** Today's CLI flags
+- [ ] **Move per-corpuscle inputs into config.** Today's CLI flags
   fold in:
   - `input_pdfs:` (replaces the positional input arg)
   - `output_dir:` (defaults to `./output`)
@@ -321,12 +356,12 @@ installed code.
     US-specific public-domain cutoff per
     [#51](https://github.com/caseywdunn/corpus/issues/51));
     other policy fields land as the #51 design lands
-- **Drift detection.** Hash the resolved config (input paths +
+- [ ] **Drift detection.** Hash the resolved config (input paths +
   per-input content SHA) into a corpuscle-side state file. A
   mismatch on the next run logs which keys drifted and which stages
   it invalidates, so an operator can see *why* a re-run is doing
   more than they expected.
-- **Demo is a regular corpuscle.** `demo/` is just a corpuscle
+- [ ] **Demo is a regular corpuscle.** `demo/` is just a corpuscle
   directory that happens to be tracked in the corpus source repo:
   it has its own `config.yaml`, `lexicon.yaml`,
   `siphonophores.bib`, `instructions.md`, and the 11 PDFs.
@@ -337,7 +372,7 @@ installed code.
   `demo/output/` lands in `.gitignore` so the source repo stays
   clean. Doubles as the smoke-test fixture (see Tests bullet
   below).
-- **Tests pin the demo corpuscle as fixture.** `CORPUS_OUTPUT_DIR`
+- [ ] **Tests pin the demo corpuscle as fixture.** `CORPUS_OUTPUT_DIR`
   env var still works as the explicit override; default fixture
   resolves to `demo/output/` after a clean `corpus run` against
   `demo/`. The fixture-fallback logic in `tests/conftest.py` is
@@ -353,7 +388,9 @@ loaded" for every taxonomy query, with no easy way to find out
 why. v0.3 closes that gap by making the unified entry point
 inspect the config and act.
 
-- **Auto-build cross-paper databases.** If `taxonomy:` is configured
+- [ ] **Auto-build cross-paper databases.**
+  ([#64](https://github.com/caseywdunn/corpus/issues/64))
+  If `taxonomy:` is configured
   in `config.yaml` but `taxonomy.sqlite` doesn't exist, build it.
   Same for `biblio_authority.sqlite` and `taxon_mentions.sqlite`.
   Hash the input source for each (bib SHA-256, taxonomy snapshot
@@ -363,14 +400,19 @@ inspect the config and act.
   `bibliography:` block in `config.yaml` carries `enrich_bhl: false`
   by default — slow, rate-limited, network-dependent, opt-in via
   config or `--enrich-bhl` CLI override.
-- **Vision pass: opt-out, capability-aware.** Run the vision pass
+- [ ] **Vision pass: opt-out, capability-aware.**
+  ([#65](https://github.com/caseywdunn/corpus/issues/65))
+  Run the vision pass
   by default. If the configured backend isn't usable on this host
   (no GPU for `local`, no `ANTHROPIC_API_KEY` for `claude`), skip
   with a clear log message and a one-line nudge for what to do
   about it. `--no-vision` for explicit skip. Closes the long tail
   of [#11](https://github.com/caseywdunn/corpus/issues/11) for the
   default-config path.
-- **Orphan cleanup is the default.** If a PDF disappears from the
+- [ ] **Orphan cleanup is the default.**
+  ([#66](https://github.com/caseywdunn/corpus/issues/66); extends
+  [#31](https://github.com/caseywdunn/corpus/issues/31))
+  If a PDF disappears from the
   configured input dir, its `documents/<HASH>/` directory and
   matching LanceDB rows are deleted on the next run. Today's
   `--audit-orphans` (#31) is read-only; v0.3 makes deletion the
@@ -389,7 +431,9 @@ fragility is the same. The fix is operational, not structural: a
 SLURM analogue that chains the cross-paper tail, and a documented
 detached-run path for laptop runs.
 
-- **`slurm/batch_finalize.sh` for the cross-paper tail.** Today's
+- [ ] **`slurm/batch_finalize.sh` for the cross-paper tail.**
+  ([#57](https://github.com/caseywdunn/corpus/issues/57))
+  Today's
   `slurm/batch_pipeline.sh` chains Grobid → Stage 1 → Pass 3b +
   Embed and stops; the four cross-paper builds run on the login
   node manually after the array completes. Under v0.3 the
@@ -398,10 +442,10 @@ detached-run path for laptop runs.
   job, no GPU. Mirrors the existing `slurm/batch_pipeline.sh`
   ergonomics and accepts the same opt-in env vars
   (`ENRICH_BHL=1`, `SERVE_BUNDLE_DIR=...`).
-- **Documented detached-run recipe for laptops.** A
-  `nohup` / `tmux` recipe in the README under "First time run"
-  so detaching is the documented path, not a workaround
-  ([#57](https://github.com/caseywdunn/corpus/issues/57) ask 1).
+- [ ] **Documented detached-run recipe for laptops.**
+  ([#57](https://github.com/caseywdunn/corpus/issues/57))
+  A `nohup` / `tmux` recipe in the README under "First time run"
+  so detaching is the documented path, not a workaround.
 
 ### Curation surface — what ships, what's reusable
 
@@ -412,7 +456,7 @@ v0.3 closes both gaps so operators can shape what's exposed and
 clients (especially manuscript-authoring agents) can know what's
 safe to embed.
 
-- [#54](https://github.com/caseywdunn/corpus/issues/54) — **PDF QC
+- [ ] [#54](https://github.com/caseywdunn/corpus/issues/54) — **PDF QC
   workflow: skip flag, content-vs-technical gates, worst-first
   triage.** A `serve = false` BibTeX field (curated via the #26
   round-trip) propagates to `works.serve` in
@@ -428,7 +472,7 @@ safe to embed.
   head/foot pollution score, Grobid header confidence) with
   matching `quality_flags` gates. Implementation order in the
   issue.
-- [#51](https://github.com/caseywdunn/corpus/issues/51) — **Figure
+- [ ] [#51](https://github.com/caseywdunn/corpus/issues/51) — **Figure
   licensing + publishable gate.** `license` / `licenseurl` BibTeX
   fields (SPDX short identifiers + a small custom vocabulary:
   `public-domain`, `all-rights-reserved`,
@@ -454,19 +498,20 @@ The README drifts long because operator material (remote deploy,
 on-host setup) lives next to user-onboarding material (install,
 demo walkthrough). v0.3 splits them, and rolls the surface
 collapse from §1 ("One CLI, code installed once") through into
-the docs.
+the docs. All tracked under
+[#68](https://github.com/caseywdunn/corpus/issues/68).
 
-- **DEPLOY.md → repo root.** Sits alongside INSTALL.md (already
+- [ ] **DEPLOY.md → repo root.** Sits alongside INSTALL.md (already
   at root post-v0.2) and CONTRIBUTING.md as the operator-facing
   top-level docs. `dev_docs/` keeps maintainer-only docs (PLAN,
   BOUCHET, MCP_TOOLS, TESTING, OVERVIEW).
-- **Migrate "Deploying MCP server remotely" out of README.md.**
+- [ ] **Migrate "Deploying MCP server remotely" out of README.md.**
   The ~60-line block at README §"Deploying MCP server remotely"
   (bearer-token generation, SSE startup, smoke test, three-way
   client-config matrix) belongs in `DEPLOY.md` next to the AWS
   runbook. README keeps a short pointer + "Deploying MCP server
   locally" (which is the path most users actually take).
-- **README walkthrough slim-down** post-unified-CLI. The "First
+- [ ] **README walkthrough slim-down** post-unified-CLI. The "First
   time run" / "Adding and updating documents" / "Vision pass"
   sections each collapse to 1-3 lines once `corpus run` is the
   only entry point and resume is implicit. Rewrite them once the
@@ -475,7 +520,7 @@ the docs.
 
 ### Operator clarity
 
-- [#47](https://github.com/caseywdunn/corpus/issues/47) — **MCP
+- [ ] [#47](https://github.com/caseywdunn/corpus/issues/47) — **MCP
   server failures should be self-diagnosing.** Today's startup
   errors send operators to the systemd journal + nginx logs.
   Surface the most common failure modes (missing bundle, stale
@@ -489,16 +534,17 @@ the docs.
 
 ### Quick wins
 
-- [#50](https://github.com/caseywdunn/corpus/issues/50) — `pandoc`
+- [ ] [#50](https://github.com/caseywdunn/corpus/issues/50) — `pandoc`
   in `environment.yaml`.
 
 ### Carryover
 
-- [#11](https://github.com/caseywdunn/corpus/issues/11) — Vision
+- [ ] [#11](https://github.com/caseywdunn/corpus/issues/11) — Vision
   pass at corpus scale. Mostly addressed by the opt-out + capability
-  detection above; remaining work is verifying a full-corpus run
+  detection above ([#65](https://github.com/caseywdunn/corpus/issues/65));
+  remaining work is verifying a full-corpus run
   end-to-end on Bouchet after the unified CLI lands.
-- [#16](https://github.com/caseywdunn/corpus/issues/16) — Figure-
+- [ ] [#16](https://github.com/caseywdunn/corpus/issues/16) — Figure-
   number extraction on old/scanned papers. Carried from v0.2;
   ~538 of 1,787 papers have unparsed figure numbers. Modest
   heuristic work, fits the v0.3 cycle if there's room.
