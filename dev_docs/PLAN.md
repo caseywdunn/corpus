@@ -77,6 +77,27 @@ entry point.
   (kept importable for tests and ad-hoc debugging, dropped as a
   user-facing CLI). The repo root ends up with one operator
   binary and zero ambiguity about which script does what.
+- **Operator UX: shared `rich` console layer.** A single
+  `pipeline/console.py` Console instance backs every `corpus`
+  subcommand. Emoji status symbols (✓/✗/⚠ with ASCII fallback),
+  braille spinners on stages without a known total, and progress
+  bars on stages where it is (per-paper Stage 1, embed batches,
+  the finalize tail). `console.is_terminal` gates everything: a
+  TTY operator gets the rich rendering, while SLURM `.out`
+  capture, CI logs, and `journalctl` readers see clean ASCII —
+  uniform call sites, no per-site `if tty:` branches. Pattern
+  matches sharkmer's `indicatif` usage: one `show_progress` bool,
+  hidden Progress when not a TTY. Critically, the diagnostic
+  `logging` stream stays plain text — rich is the operator-facing
+  layer (interactive run, success summary), not the structured
+  event log that lands in journals and grep pipelines. The
+  [#57](https://github.com/caseywdunn/corpus/issues/57) report is
+  the most visible payoff: rich's `Table` + colored ✓/✗ + bars
+  render the per-stage / lexicon-coverage / artifact-presence
+  sections natively, and degrade to plain text in SLURM `.out`
+  with no extra code. ~1.5 MB install dep; small relative to the
+  torch + transformers footprint, and `rich` is already in the
+  transitive dep tree via the `mcp` and `anthropic` SDKs.
 - **Implicit resume on `corpus run`.** Drop the `--resume` flag.
   The pipeline is always idempotent: re-runs do only the work
   whose inputs have changed (per-stage state, content
