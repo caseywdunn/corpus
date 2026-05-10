@@ -441,8 +441,8 @@ detached-run path for laptop runs.
   job, no GPU. Mirrors the existing `slurm/batch_pipeline.sh`
   ergonomics and accepts the same opt-in env vars
   (`ENRICH_BHL=1`, `SERVE_BUNDLE_DIR=...`).
-- [ ] **Documented detached-run recipe for laptops.**
-  ([#57](https://github.com/caseywdunn/corpus/issues/57))
+- [x] **Documented detached-run recipe for laptops.**
+  ([#57](https://github.com/caseywdunn/corpus/issues/57); landed under #68)
   A `nohup` / `tmux` recipe in the README under "First time run"
   so detaching is the documented path, not a workaround.
 
@@ -500,17 +500,17 @@ collapse from §1 ("One CLI, code installed once") through into
 the docs. All tracked under
 [#68](https://github.com/caseywdunn/corpus/issues/68).
 
-- [ ] **DEPLOY.md → repo root.** Sits alongside INSTALL.md (already
+- [x] **DEPLOY.md → repo root.** Sits alongside INSTALL.md (already
   at root post-v0.2) and CONTRIBUTING.md as the operator-facing
   top-level docs. `dev_docs/` keeps maintainer-only docs (PLAN,
   BOUCHET, MCP_TOOLS, TESTING, OVERVIEW).
-- [ ] **Migrate "Deploying MCP server remotely" out of README.md.**
+- [x] **Migrate "Deploying MCP server remotely" out of README.md.**
   The ~60-line block at README §"Deploying MCP server remotely"
   (bearer-token generation, SSE startup, smoke test, three-way
   client-config matrix) belongs in `DEPLOY.md` next to the AWS
   runbook. README keeps a short pointer + "Deploying MCP server
   locally" (which is the path most users actually take).
-- [ ] **README walkthrough slim-down** post-unified-CLI. The "First
+- [x] **README walkthrough slim-down** post-unified-CLI. The "First
   time run" / "Adding and updating documents" / "Vision pass"
   sections each collapse to 1-3 lines once `corpus run` is the
   only entry point and resume is implicit. Rewrite them once the

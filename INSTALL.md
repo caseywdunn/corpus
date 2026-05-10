@@ -49,7 +49,7 @@ Grobid runs as a Docker service locally. On an HPC cluster without Docker, [Sing
 ```bash
 singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
 singularity run --bind $HOME grobid.sif &
-python process_corpus.py <input> <output> --grobid-url http://localhost:8070
+corpus run    # config.yaml in cwd points at <input> + sets grobid.url
 ```
 
 ## Pip-only fallback

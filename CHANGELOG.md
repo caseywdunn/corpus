@@ -79,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [INSTALL.md](INSTALL.md) and [README.md](README.md) install
   snippets now use `pip install -e .` after `conda env create`.
-  [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) §"On-host setup" likewise
+  [DEPLOY.md](DEPLOY.md) §"On-host setup" likewise
   swaps `pip install -r requirements.txt` for `pip install -e <repo>`.
   `requirements.txt` is retained for the AWS deploy parity per
   [CONTRIBUTING.md](CONTRIBUTING.md) §"Dependencies — two files, on
@@ -305,7 +305,7 @@ are pushed to later releases.
   a target-group + listener-rule + DNS CNAME, no new TLS infra.
   CloudFormation `BucketName` parameter now optional via a new
   `CreateBucket` flag so re-deploys can attach to an existing
-  bundle bucket. Full runbook rewritten: [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md).
+  bundle bucket. Full runbook rewritten: [DEPLOY.md](DEPLOY.md).
 - **`INSTALL.md` promoted to repo root.** Moved from `dev_docs/`
   since the content (jbig2enc, OCR language packs, Grobid, pip
   fallback) is user-facing and belongs alongside README,
@@ -554,7 +554,7 @@ late-18th-century printed monographs through born-digital 2025 articles.
   [`dev_docs/TESTING.md`](dev_docs/TESTING.md).
 - **AWS deployment runbook** — `deploy/stack.yaml` (CloudFormation),
   `deploy/nginx.conf`, systemd unit, `update.sh`, and a CLI-only runbook in
-  [`dev_docs/DEPLOY.md`](dev_docs/DEPLOY.md). Two-bundle model: build bundle
+  [`DEPLOY.md`](DEPLOY.md). Two-bundle model: build bundle
   (Bouchet, ~10 GB) vs. served bundle (S3, ~3 GB). `package_for_serve.py`
   walks `documents/<HASH>/`, copies whitelisted files only, and writes a
   versioned `bundle_manifest.json`.
