@@ -46,6 +46,7 @@ dependencies:
   - requests
   - rapidfuzz  # fuzzy title matching in biblio-authority builder
   - lxml  # TEI-XML parsing (Grobid output)
+  - rich  # operator-facing CLI rendering (#63); also transitive via mcp + anthropic
 
   # Notebook / interactive dev
   - ipykernel

@@ -23,6 +23,7 @@ dependencies = [
     "matplotlib",
     "rapidfuzz>=2.0",
     "lxml",
+    "rich",
     "mcp",
     "uvicorn",
     "lancedb",
