@@ -70,18 +70,38 @@ Matching is on the basename (case-insensitive), so the `file` value can be a bar
 
 ### External taxonomic data (optional)
 
-The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution. By default it builds from a Darwin Core Archive of your choice — for siphonophores we use the [WoRMS](https://www.marinespecies.org/) export. Other groups: pull a DwC-A from the relevant authority ([GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/)) and ingest into your corpuscle:
+The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution — the layer that lets a question about *Apolemia uvaria* find papers that only ever wrote *Stephanomia uvaria*. It's built once on the first `corpus run` from whichever source you point at; subsequent runs reuse the cached SQLite unless you pass `--force-rebuild-taxonomy`.
+
+The `taxonomy:` block in `config.yaml` picks the source. The bundled template ships it commented out — opt in by uncommenting and choosing one of:
 
 ```yaml
-# in your corpuscle's config.yaml — auto-built into <output_dir>/taxonomy.sqlite
+# WoRMS — marine groups. Fetches an AphiaID subtree from the World
+# Register of Marine Species. Look up your group at marinespecies.org.
+taxonomy:
+  source: worms
+  root_id: 1267       # Siphonophorae (example)
+
+# Darwin Core Archive — non-marine groups. Pull a DwC-A .zip from
+# GBIF / ITIS / Catalogue of Life and point at it locally.
 taxonomy:
   source: dwca
   path: ./dwca.zip
+
+# Darwin Core directory — rare, an already-unzipped DwC tree.
+taxonomy:
+  source: dwc
+  path: ./dwc/
 ```
 
-Or invoke the module directly: `python -m pipeline.taxonomy_ingest <output_dir> --source dwca --input path/to/dwca.zip`.
+| Source | What it is | When to use |
+| --- | --- | --- |
+| `worms` | [WoRMS](https://www.marinespecies.org/) subtree fetched by AphiaID | Marine taxa (siphonophores, copepods, fish, ...) |
+| `dwca` | [Darwin Core Archive](https://dwc.tdwg.org/text/) `.zip` from [GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/) | Anything else; the broad default |
+| `dwc` | Directory of Darwin Core `.tsv` files | An already-unzipped DwC tree |
 
-Without external taxonomy the pipeline still extracts taxon mentions from text — you lose the synonymy graph that links historical names to current valid names.
+Or invoke the ingester directly without `corpus run`: `python -m pipeline.taxonomy_ingest <output_dir> --source dwca --input path/to/dwca.zip`.
+
+**Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path.
 
 ### Lexicons (optional)
 
@@ -160,6 +180,8 @@ metadata version stays in sync with `pipeline/version.py` so
 never drift.
 
 Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
+
+**Docker is a prerequisite.** Install it from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS) before the commands below. On HPC hosts without Docker, [Apptainer](https://apptainer.org/) can pull the same Grobid image — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
 
 ```bash
 docker compose up -d grobid              # start in background; persists across runs

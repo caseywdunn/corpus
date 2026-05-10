@@ -32,11 +32,27 @@ output_dir: ./output
 # lexicon: ./lexicon.yaml
 
 # External taxonomy snapshot. Auto-built into <output_dir>/taxonomy.sqlite
-# on the first `corpus run`. Choose one source:
-taxonomy:
-  source: worms     # one of: worms, dwc, dwca
-  root_id: 1267     # WoRMS AphiaID for the subtree root (Siphonophorae = 1267)
-  # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
+# on the first `corpus run`. Three sources to pick from:
+#
+#   worms — fetch a WoRMS (World Register of Marine Species) subtree by
+#           AphiaID. Best for marine groups. Set `source: worms` and
+#           `root_id: <AphiaID>` (e.g. 1267 for Siphonophorae; look your
+#           group up at https://www.marinespecies.org/).
+#
+#   dwca  — ingest a Darwin Core Archive .zip pulled from GBIF, ITIS, or
+#           Catalogue of Life. Set `source: dwca` and `path: <zip>`.
+#           Right answer for non-marine groups.
+#
+#   dwc   — ingest an unzipped Darwin Core directory (rare; use dwca
+#           unless you already have a tree of .tsv files on disk).
+#
+# Leave the block commented out (default) to skip the synonymy graph
+# entirely — the pipeline still extracts taxon mentions from text, you
+# only lose the link from historical names to current valid names.
+# taxonomy:
+#   source: worms
+#   root_id: 1267                 # Siphonophorae (example)
+#   # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
 
 # Vision pass (Pass 3b — figure annotation by a vision LLM).
 vision:

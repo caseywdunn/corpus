@@ -453,10 +453,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
             # Don't propagate — the build bundle is valid; bundle is a
             # ship-to-host convenience.
 
-    print_status(
-        "run complete. Try `corpus status --report` and `corpus serve` next.",
-        status="ok",
-    )
+    if args.dry_run:
+        print_status(
+            "dry-run complete. No artifacts written — re-run without "
+            "`--dry-run` to execute the plan above.",
+            status="ok",
+        )
+    else:
+        print_status(
+            "run complete. Try `corpus status --report` and `corpus serve` next.",
+            status="ok",
+        )
     return EXIT_OK
 
 
