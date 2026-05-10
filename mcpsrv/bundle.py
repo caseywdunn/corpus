@@ -251,6 +251,32 @@ def _iso_now() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _citation_for_manifest() -> Optional[dict]:
+    """Read CITATION.cff at repo root + return the resolved preferred citation
+    so it can be stamped into bundle_manifest.json (#61). Returns None if
+    CITATION.cff is missing (e.g. PyPI install once that path opens up)."""
+    repo_root = Path(__file__).resolve().parent.parent
+    cff_path = repo_root / "CITATION.cff"
+    if not cff_path.exists():
+        return None
+    try:
+        import yaml
+        cff = yaml.safe_load(cff_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+    pref = cff.get("preferred-citation") or cff
+    return {
+        "title": pref.get("title"),
+        "year": pref.get("year"),
+        "doi": pref.get("doi"),
+        "url": pref.get("url"),
+        "authors": [
+            {"family-names": a.get("family-names"), "given-names": a.get("given-names")}
+            for a in (pref.get("authors") or [])
+        ],
+    }
+
+
 # ── Path scrubbing (dev_docs/PLAN.md §10) ────────────────────────────────────
 #
 # `process_corpus.py` writes summary.json with absolute Bouchet paths in
@@ -549,6 +575,11 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         "figure_count": fig_count,
         "chunk_count": chunk_count,
         "includes_pdfs": include_pdfs,
+        # #61: stamp the resolved citation alongside version + git_sha so
+        # downstream LLM clients (via the MCP `bundle_info` tool) can
+        # cite the tool that gave them the literature without the user
+        # having to dig for it. Single source: CITATION.cff at repo root.
+        "citation": _citation_for_manifest(),
     }
     manifest_path = serve_dir / "bundle_manifest.json"
     if not dry_run:
