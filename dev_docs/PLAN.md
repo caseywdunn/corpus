@@ -222,6 +222,19 @@ just makes the tool feel rough.
   `pipeline.version.__version__`), and the git SHA when the
   current install was sourced from a development clone. Matches
   every other CLI on the system.
+- **`corpus --cite`** prints the citation. Default is a one-line
+  plain-text rendering for the README / email use case;
+  `corpus --cite=bibtex` emits a paste-ready BibTeX entry (so
+  `corpus --cite=bibtex >> refs.bib` just works). Source of
+  truth is a new `CITATION.cff` at the repo root — GitHub's
+  standard citation-file format, which also gives the GitHub
+  page a "Cite this repository" button automatically. The
+  resolved citation is stamped into `bundle_manifest.json`
+  alongside `bundle_version` / `pipeline_git_sha` and surfaced
+  through the MCP `bundle_info` tool, so downstream LLM clients
+  can cite the tool that gave them the literature without the
+  user having to dig for it. Single source, three surfaces
+  (CLI, GitHub, MCP), zero drift.
 - **`corpus completion bash|zsh|fish`** generates a shell
   completion script the operator sources from their dotfiles.
   Matches `gh`, `kubectl`, `cargo`, `aws`, `docker`. Operators
