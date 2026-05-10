@@ -3,14 +3,22 @@
 Imports :mod:`mcpsrv.tools` for its side effects (decorator
 registration). Don't remove that import even though it looks unused —
 removing it deletes every tool from the running surface.
+
+#47: ``--check`` runs a serve-time pre-flight (bundle present, token
+readable, port free, cross-paper DBs loadable) and exits without
+binding the port. Distinct from the pipeline-side ``corpus check``
+(#62), which validates the *next-run* surface; this one validates
+the *next-serve* surface.
 """
 from __future__ import annotations
 
 import argparse
 import logging
+import socket
+import sqlite3
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from .app import _load_json, mcp, set_index
 from .indexes import BiblioAuthority, CorpusIndex, TaxonMentionDB
@@ -20,6 +28,14 @@ from .transport import _load_auth_token, _run_sse
 from pipeline.taxa import TaxonomyDB
 
 logger = logging.getLogger(__name__)
+
+
+# Re-exported here so external callers can import without pulling all
+# of pipeline.cli; these mirror the v0.3 exit-code convention (#61).
+EXIT_OK = 0
+EXIT_GENERIC = 1
+EXIT_CONFIG_ERROR = 2
+EXIT_PRECONDITION = 3
 
 
 def main() -> int:
@@ -99,8 +115,17 @@ def main() -> int:
              "Default: 'corpus:<basename of output_dir>'. Lets clients tell "
              "multiple corpuscle deployments apart in their server list.",
     )
+    parser.add_argument(
+        "--check", action="store_true",
+        help="Run a serve-time pre-flight (bundle present, token readable, "
+             "port free, cross-paper DBs loadable) and exit without binding "
+             "the port. Exits 0 on green, 3 on precondition failure. (#47)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
+
+    if args.check:
+        return _serve_check(args)
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -227,6 +252,196 @@ def main() -> int:
     else:  # argparse's choices= should prevent this
         raise ValueError(f"unknown transport: {args.transport!r}")
     return 0
+
+
+def _serve_check(args: argparse.Namespace) -> int:
+    """Serve-time pre-flight (#47).
+
+    Distinct from the pipeline-side ``corpus check`` (#62): this one
+    validates the surface needed to *serve* the bundle — bundle layout,
+    cross-paper DBs loadable, auth token readable, port free. Doesn't
+    bind the port; doesn't load any heavy index. Returns ``EXIT_OK`` on
+    green, ``EXIT_PRECONDITION`` on any failure.
+    """
+    # Local import to avoid the heavy console/rich pull-in when the
+    # mcpsrv package is imported for non-CLI use.
+    from pipeline.console import print_status
+
+    failures: List[str] = []
+
+    # 1. Bundle layout (output_dir + documents/ + at least one summary.json)
+    if not args.output_dir.exists():
+        print_status(f"output_dir not found: {args.output_dir}", status="fail")
+        failures.append(f"output_dir does not exist: {args.output_dir}")
+    else:
+        documents_dir = args.output_dir / "documents"
+        if not documents_dir.is_dir():
+            print_status(
+                f"documents/ subdir missing under {args.output_dir} — not a "
+                "corpus output tree (or bundle layout is wrong)",
+                status="fail",
+            )
+            failures.append("missing documents/")
+        else:
+            n_docs = sum(1 for p in documents_dir.iterdir() if p.is_dir())
+            n_with_summary = sum(
+                1 for p in documents_dir.iterdir()
+                if p.is_dir() and (p / "summary.json").is_file()
+            )
+            if n_docs == 0:
+                print_status("documents/ is empty (no per-paper subdirs)",
+                             status="warn")
+            elif n_with_summary == 0:
+                print_status(
+                    f"documents/ has {n_docs} hash dirs but none carry "
+                    "summary.json — bundle distillation may be incomplete",
+                    status="fail",
+                )
+                failures.append("no summary.json found")
+            else:
+                print_status(
+                    f"bundle: {n_docs} hash dirs ({n_with_summary} with summary.json)",
+                    status="ok",
+                )
+
+        manifest = args.output_dir / "bundle_manifest.json"
+        if manifest.is_file():
+            print_status(f"bundle_manifest.json present", status="ok")
+        else:
+            # Local builds typically lack a manifest; that's OK.
+            print_status(
+                "bundle_manifest.json absent — fine for local builds; "
+                "produce one with `python -m mcpsrv.bundle <output> "
+                "<serve_dir> --version vX.Y.Z` for remote serving",
+                status="warn",
+            )
+
+    # 2. Cross-paper DBs loadable
+    for label, override, default_name in [
+        ("taxonomy", args.taxonomy_db, "taxonomy.sqlite"),
+        ("biblio_authority", args.biblio_sqlite, "biblio_authority.sqlite"),
+        ("taxon_mentions", args.taxon_mention_sqlite, "taxon_mentions.sqlite"),
+    ]:
+        path = override or (args.output_dir / default_name)
+        if not path.exists():
+            print_status(
+                f"{label}: not present at {path} — affected MCP tools "
+                "will return errors at query time",
+                status="warn",
+            )
+            continue
+        try:
+            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            try:
+                conn.execute("SELECT 1").fetchone()
+            finally:
+                conn.close()
+            print_status(f"{label}: loadable ({path.name})", status="ok")
+        except sqlite3.Error as e:
+            print_status(
+                f"{label}: file present but unreadable as SQLite ({path}): {e}",
+                status="fail",
+            )
+            failures.append(f"{label} unreadable")
+
+    # 3. Vector DB
+    vector_db = args.output_dir / "vector_db" / "lancedb"
+    if vector_db.is_dir():
+        print_status(f"vector_db/lancedb: present", status="ok")
+    else:
+        print_status(
+            "vector_db/lancedb: absent — semantic-search tools will return "
+            "an error. Re-run `corpus run` after `pipeline.embed` populates it.",
+            status="warn",
+        )
+
+    # 4. Instructions readable (if specified or default exists)
+    instructions = args.instructions or (args.output_dir / "instructions.md")
+    if instructions.is_file():
+        try:
+            instructions.read_text(encoding="utf-8")
+            print_status(
+                f"instructions: readable ({instructions.name})", status="ok",
+            )
+        except OSError as e:
+            print_status(
+                f"instructions: file at {instructions} unreadable ({e})",
+                status="fail",
+            )
+            failures.append("instructions unreadable")
+
+    # 5. Auth token (only when explicitly requested)
+    import os
+    requested_auth = args.auth_token_file is not None or os.environ.get("CORPUS_MCP_TOKEN")
+    if args.auth_token_file is not None:
+        if not args.auth_token_file.exists():
+            print_status(
+                f"auth-token-file: {args.auth_token_file} not found",
+                status="fail",
+            )
+            failures.append("auth-token-file missing")
+        else:
+            try:
+                tok = args.auth_token_file.read_text().strip()
+                if not tok:
+                    print_status(
+                        f"auth-token-file: {args.auth_token_file} is empty",
+                        status="fail",
+                    )
+                    failures.append("auth-token-file empty")
+                else:
+                    print_status(
+                        f"auth-token-file: readable ({len(tok)} chars)",
+                        status="ok",
+                    )
+            except OSError as e:
+                print_status(
+                    f"auth-token-file: unreadable ({e})", status="fail",
+                )
+                failures.append("auth-token-file unreadable")
+    elif args.transport == "sse" and not requested_auth:
+        print_status(
+            "auth: no --auth-token-file and CORPUS_MCP_TOKEN unset — "
+            "server will run open. Fine for localhost; never safe for "
+            "public-facing deploys.",
+            status="warn",
+        )
+
+    # 6. Port free (only when --transport sse)
+    if args.transport == "sse":
+        if _port_in_use(args.host, args.port):
+            print_status(
+                f"port: {args.host}:{args.port} already in use. "
+                f"Check `lsof -i :{args.port}` (or `ss -ltnp 'sport = :{args.port}'`) "
+                f"and either stop the conflicting process or pass "
+                f"a different `--port`.",
+                status="fail",
+            )
+            failures.append(f"port {args.port} in use")
+        else:
+            print_status(f"port: {args.host}:{args.port} free", status="ok")
+
+    print()
+    if failures:
+        print_status(
+            f"{len(failures)} precondition(s) failed:", status="fail",
+        )
+        for f in failures:
+            print(f"  - {f}")
+        return EXIT_PRECONDITION
+    print_status("ready: `corpus serve` should start cleanly.", status="ok")
+    return EXIT_OK
+
+
+def _port_in_use(host: str, port: int) -> bool:
+    """Probe whether ``host:port`` is bindable. Returns True on EADDRINUSE."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind((host, port))
+        return False
+    except OSError:
+        return True
 
 
 if __name__ == "__main__":

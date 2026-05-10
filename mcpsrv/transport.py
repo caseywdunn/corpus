@@ -140,7 +140,21 @@ def _run_sse(host: str, port: int, token: Optional[str]) -> None:
     # Healthz wraps the auth layer so probes don't need the bearer token.
     app = _HealthzASGI(app)
     logger.info("Serving SSE on http://%s:%d (healthz: GET /healthz)", host, port)
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    try:
+        uvicorn.run(app, host=host, port=port, log_level="info")
+    except OSError as e:
+        # #47: surface common startup failures with actionable messages
+        # rather than letting uvicorn's traceback bubble up.
+        if e.errno in (48, 98):  # EADDRINUSE on macOS / Linux
+            logger.error(
+                "port %s:%d already in use. Check `lsof -i :%d` (or "
+                "`ss -ltnp 'sport = :%d'`) and either stop the conflicting "
+                "process or pass a different --port. Run `corpus serve --check` "
+                "to pre-flight before binding.",
+                host, port, port, port,
+            )
+            raise SystemExit(3) from e
+        raise
 
 
 # ---------------------------------------------------------------------------

@@ -519,7 +519,7 @@ the docs. All tracked under
 
 ### Operator clarity
 
-- [ ] [#47](https://github.com/caseywdunn/corpus/issues/47) — **MCP
+- [x] [#47](https://github.com/caseywdunn/corpus/issues/47) — **MCP
   server failures should be self-diagnosing.** Today's startup
   errors send operators to the systemd journal + nginx logs.
   Surface the most common failure modes (missing bundle, stale
