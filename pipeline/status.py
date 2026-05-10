@@ -157,6 +157,21 @@ def _bar(n: int, total: int, width: int = 30) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
+def render_artifacts(output_dir: Path) -> str:
+    """Cross-paper artifact presence section for `--report` (#57).
+
+    Lists the four corpus-level outputs and ✓/✗ for each. The MCP
+    server can run with any subset present; missing ones surface here.
+    """
+    out: List[str] = ["Cross-paper artifacts:"]
+    for rel in ("biblio_authority.sqlite", "taxon_mentions.sqlite",
+                "taxonomy.sqlite", "vector_db/lancedb"):
+        p = output_dir / rel
+        mark = "✓" if p.exists() else "✗"
+        out.append(f"  {mark} {rel}")
+    return "\n".join(out) + "\n"
+
+
 def render_text(rollup: Dict[str, Any]) -> str:
     out: List[str] = []
     n_total = rollup["total_documents"]
@@ -296,6 +311,12 @@ def main() -> int:
         help="Emit the rollup as JSON instead of the text report.",
     )
     parser.add_argument(
+        "--report", action="store_true",
+        help="Print the full report (default rollup + cross-paper artifact "
+             "presence) — also written to <output_dir>/run.log on `corpus run` "
+             "completion. (#57)",
+    )
+    parser.add_argument(
         "--list-hashes", action="store_true",
         help="Print one hash per line for papers matching --filter-* "
              "(suitable for `xargs`). Combine filters to narrow.",
@@ -345,6 +366,9 @@ def main() -> int:
         print(render_json(rollup))
     else:
         print(render_text(rollup))
+        if args.report:
+            print()
+            print(render_artifacts(args.output_dir))
     return 0
 
 

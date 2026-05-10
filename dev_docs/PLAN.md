@@ -430,7 +430,7 @@ fragility is the same. The fix is operational, not structural: a
 SLURM analogue that chains the cross-paper tail, and a documented
 detached-run path for laptop runs.
 
-- [ ] **`slurm/batch_finalize.sh` for the cross-paper tail.**
+- [x] **`slurm/batch_finalize.sh` for the cross-paper tail.**
   ([#57](https://github.com/caseywdunn/corpus/issues/57))
   Today's
   `slurm/batch_pipeline.sh` chains Grobid → Stage 1 → Pass 3b +
