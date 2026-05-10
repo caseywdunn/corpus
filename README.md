@@ -139,7 +139,14 @@ Every CLI takes the corpuscle root as its first positional argument and resolves
 ```bash
 conda env create -f environment.yaml
 conda activate corpus
+pip install -e .
 ```
+
+`pip install -e .` puts the `corpus` binary on PATH (via the
+`[project.scripts]` entry point in `pyproject.toml`); the package
+metadata version stays in sync with `pipeline/version.py` so
+`pip show corpus`, `corpus --version`, and the bundle manifest
+never drift.
 
 Grobid runs as a separate service:
 

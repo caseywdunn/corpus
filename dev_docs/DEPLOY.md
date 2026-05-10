@@ -183,7 +183,7 @@ cloud-init status --wait    # must print 'status: done'
 # Repo + Python venv
 sudo git clone -b dev https://github.com/caseywdunn/corpus.git /srv/corpus/repo
 sudo python3.12 -m venv /srv/corpus/venv
-sudo /srv/corpus/venv/bin/pip install -r /srv/corpus/repo/requirements.txt
+sudo /srv/corpus/venv/bin/pip install -e /srv/corpus/repo
 sudo chown -R corpus:corpus /srv/corpus
 
 # Bearer token

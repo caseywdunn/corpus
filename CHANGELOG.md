@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`pyproject.toml` + `corpus` console_scripts entry point**
+  ([#58](https://github.com/caseywdunn/corpus/issues/58)) — project
+  becomes pip-installable; `corpus` lands on PATH via
+  `[project.scripts]` after `pip install -e .` (development) or
+  `pip install git+https://github.com/caseywdunn/corpus.git@vX.Y.Z`
+  (deploys). Package version resolves from
+  `pipeline.version.__version__` via
+  `[tool.setuptools.dynamic]`, so `pip show corpus`,
+  `corpus --version`, and the bundle manifest never drift. The
+  unified subcommand surface (run, check, status, serve, init, bib,
+  completion) lands across the rest of v0.3
+  ([#60](https://github.com/caseywdunn/corpus/issues/60) and
+  siblings); this entry covers packaging only.
+
+### Changed
+
+- [INSTALL.md](INSTALL.md) and [README.md](README.md) install
+  snippets now use `pip install -e .` after `conda env create`.
+  [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) §"On-host setup" likewise
+  swaps `pip install -r requirements.txt` for `pip install -e <repo>`.
+  `requirements.txt` is retained for the AWS deploy parity per
+  [CONTRIBUTING.md](CONTRIBUTING.md) §"Dependencies — two files, on
+  purpose"; both manifests must stay in sync.
+
 ## [0.2.0] - 2026-05-08
 
 A hardening + iteration release. v0.2 closes out v0.1's deferred items
