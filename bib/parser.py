@@ -197,6 +197,18 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
         m = _YEAR_RE.search(yr)
         if m:
             year = int(m.group(1))
+    # #51 + #54 — propagate license / skip metadata into metadata.json
+    # so bib.authority can write it to the works.* columns.
+    license_v = _strip_outer_braces(entry.get("license", ""))
+    license_url = _strip_outer_braces(entry.get("licenseurl", ""))
+    serve_raw = _strip_outer_braces(entry.get("serve", "")).strip().lower()
+    serve_v: Optional[int] = None
+    if serve_raw in {"0", "false", "no"}:
+        serve_v = 0
+    elif serve_raw in {"1", "true", "yes"}:
+        serve_v = 1
+    serve_reason = _strip_outer_braces(entry.get("servereason", ""))
+
     return {
         "filename": filename,
         "title": _strip_outer_braces(entry.get("title", "")),
@@ -206,6 +218,10 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
         "journal": _strip_outer_braces(entry.get("journal", "")),
         "doi": _strip_outer_braces(entry.get("doi", "")),
         "abstract": _strip_outer_braces(entry.get("abstract", "")),
+        "license": license_v or None,
+        "license_url": license_url or None,
+        "serve": serve_v,
+        "serve_reason": serve_reason or None,
         "extraction_method": "bib",
         "bib_key": entry.get("_key", ""),
     }

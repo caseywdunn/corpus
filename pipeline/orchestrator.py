@@ -117,6 +117,10 @@ class Step:
                 cmd.append("--rebuild")
             if args.enrich_bhl:
                 cmd.append("--enrich-bhl")
+            if args.config:
+                # #51 — bib.authority reads `licensing.pd_cutoff_years`
+                # from the per-corpuscle config for publishable derivation.
+                cmd += ["--config", str(args.config)]
         elif self.name == "build_taxa":
             cmd += [str(args.output_dir)]
             if args.dry_run:

@@ -4,6 +4,14 @@ Surfaces: get_figures_for_taxon, get_figures_for_lexicon_term,
 get_figure, list_figure_rois, get_figure_roi_image, get_figure_image.
 The image-returning tools wrap PIL crops in FastMCP's ``Image``
 content type.
+
+#51 — figure licensing. Each figure inherits license metadata from
+its parent work (looked up at tool-call time from biblio_authority).
+``get_figure_image`` refuses image bytes when ``publishable=false``,
+returning a ValueError with the reason; clients with non-default
+jurisdictions can read the raw license fields and re-derive.
+``mcpsrv.main --allow-unpublishable`` bypasses for local rights-holder
+cases.
 """
 from __future__ import annotations
 
@@ -18,6 +26,75 @@ from ..app import _load_json, _need_index, mcp
 # Restricted to the figure types that get returned by get_figures_for_*.
 # Excludes graphical_element, plate_label, furniture, etc.
 _REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
+
+
+def _license_metadata_for_paper(paper_hash: str) -> Dict:
+    """Look up license + publishable + attribution for a paper (#51).
+
+    Returns ``{license, license_url, license_source, publishable,
+    attribution}`` — all keys present even when the authority DB has
+    no entry (everything falls back to ``unknown`` / ``False`` so
+    clients see a consistent shape).
+    """
+    idx = _need_index()
+    work = None
+    if idx.biblio_db is not None:
+        try:
+            work = idx.biblio_db.get_work_by_corpus_hash(paper_hash)
+        except Exception:
+            work = None
+    if not work:
+        return {
+            "license": None,
+            "license_url": None,
+            "license_source": "unknown",
+            "publishable": False,
+            "attribution": None,
+        }
+    return {
+        "license": work.get("license"),
+        "license_url": work.get("license_url"),
+        "license_source": work.get("license_source") or "unknown",
+        "publishable": bool(work.get("publishable")),
+        "attribution": _attribution_string(work),
+    }
+
+
+def _attribution_string(work: Dict) -> Optional[str]:
+    """Server-computed canonical attribution: ``Author Year. Title. doi:X``.
+
+    Cheap to compute; clients can ignore it and re-derive from the raw
+    fields if their citation style differs.
+    """
+    title = (work.get("title") or "").strip()
+    year = work.get("year")
+    doi = (work.get("doi") or "").strip()
+    work_id = work.get("work_id")
+    idx = _need_index()
+    authors_str = ""
+    if idx.biblio_db is not None and work_id:
+        try:
+            authors = idx.biblio_db.get_authors(work_id)
+        except Exception:
+            authors = []
+        if authors:
+            surnames = [a["surname"] for a in authors if a.get("surname")]
+            if len(surnames) > 2:
+                authors_str = f"{surnames[0]} et al."
+            elif len(surnames) == 2:
+                authors_str = f"{surnames[0]} & {surnames[1]}"
+            elif len(surnames) == 1:
+                authors_str = surnames[0]
+    parts = []
+    if authors_str:
+        parts.append(authors_str)
+    if year is not None:
+        parts.append(f"({year})")
+    if title:
+        parts.append(title.rstrip(".") + ".")
+    if doi:
+        parts.append(f"doi:{doi}")
+    return " ".join(parts) or None
 
 
 @mcp.tool()
@@ -146,7 +223,8 @@ def get_figures_for_lexicon_term(
 @mcp.tool()
 def get_figure(paper_hash: str, figure_id: str) -> Dict:
     """One figure's full record: caption, page, bbox, image path,
-    cross-references."""
+    cross-references, plus license + publishable + attribution (#51)
+    inherited from the parent work."""
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
@@ -160,6 +238,8 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
                 "paper_title": p.get("title"),
                 # Relative to the corpuscle's documents/ dir.
                 "image_path": f"{paper_hash}/figures/{f.get('filename') or ''}",
+                # #51 — license metadata inherited from the parent work.
+                **_license_metadata_for_paper(paper_hash),
             }
     return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
 
@@ -303,11 +383,36 @@ def get_figure_image(
     ``label`` returns the whole figure. With ``label`` returns the
     panel crop, falling back to the whole figure when no pixel ROI was
     detected.
+
+    #51: refuses to return image bytes when the parent work's
+    ``publishable`` flag is false (license forbids reuse, or unknown
+    license, or work is too recent for the configured PD cutoff).
+    Override at server start with ``mcpsrv.main --allow-unpublishable``
+    for local-only rights-holder cases. The raw license fields are
+    always exposed via ``get_figure``, so clients with non-default
+    jurisdictions can re-derive.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         raise ValueError(f"no such paper_hash: {paper_hash}")
+
+    # #51 — publishable gate. Server-level allow override carried on the
+    # CorpusIndex. Refuses with a structured ValueError so clients
+    # can branch on the message.
+    if not getattr(idx, "allow_unpublishable", False):
+        lic = _license_metadata_for_paper(paper_hash)
+        if not lic["publishable"]:
+            license_v = lic.get("license") or "unknown"
+            raise ValueError(
+                f"figure not publishable: license={license_v!r} "
+                f"(source={lic['license_source']!r}). The image is not "
+                f"returned to avoid downstream copyright issues. Read "
+                f"get_figure({paper_hash!r}, {figure_id!r}) for the raw "
+                f"license fields if your jurisdiction / use case differs, "
+                f"or restart the server with --allow-unpublishable for "
+                f"local rights-holder cases."
+            )
 
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}

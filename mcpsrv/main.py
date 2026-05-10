@@ -121,6 +121,13 @@ def main() -> int:
              "port free, cross-paper DBs loadable) and exit without binding "
              "the port. Exits 0 on green, 3 on precondition failure. (#47)",
     )
+    parser.add_argument(
+        "--allow-unpublishable", action="store_true",
+        help="Bypass the #51 publishable gate on get_figure_image — return "
+             "image bytes regardless of license / age. Use only for local "
+             "rights-holder cases (you own the figures, or you're operating "
+             "under fair use). Never set on a public-facing deploy.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -240,6 +247,15 @@ def main() -> int:
         taxon_mention_db=taxon_mention_db,
         embedding_model=args.embedding_model,
     )
+    # #51 — server-level allow-unpublishable override; carried on the
+    # index since that's what every figure tool already has access to.
+    index.allow_unpublishable = bool(args.allow_unpublishable)
+    if index.allow_unpublishable:
+        logger.warning(
+            "*** --allow-unpublishable enabled: get_figure_image returns "
+            "bytes regardless of license. Use only for local rights-holder "
+            "cases; never on a public-facing deploy. ***",
+        )
     n = index.load()
     set_index(index)
     logger.info("Serving corpus: %s (%d papers)", args.output_dir, n)
