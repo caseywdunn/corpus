@@ -61,8 +61,7 @@ entry point.
     `--report` view.
   - `corpus serve` — replaces today's `mcp_server.py`. Reads the
     same `config.yaml` for bundle path, instructions, and
-    bearer-token file; `--config /path/to/other.yaml` for the
-    non-default location.
+    bearer-token file.
   - `corpus bib export` / `corpus bib import` — replace today's
     `bib_export.py` / `bib_import.py`. Independently invocable;
     operators still run them between or before `corpus run`
@@ -77,6 +76,16 @@ entry point.
   (kept importable for tests and ad-hoc debugging, dropped as a
   user-facing CLI). The repo root ends up with one operator
   binary and zero ambiguity about which script does what.
+- **Global `--config` option, pre-verb (git-style).** All
+  subcommands resolve their config the same way: `corpus
+  --config <path> <verb> [args]`. Default is `./config.yaml`
+  relative to cwd, which is what the "one corpuscle per clone"
+  model wants ninety-five percent of the time; `--config` is the
+  documented escape hatch for scripts that don't `cd` first,
+  multi-config experiments, and the demo (which becomes plain
+  `corpus --config demo/config.yaml run` rather than a special
+  `--demo` flag). Discoverable via `corpus --help` rather than
+  scattered across each subcommand's flag set.
 - **Operator UX: shared `rich` console layer.** A single
   `pipeline/console.py` Console instance backs every `corpus`
   subcommand. Emoji status symbols (✓/✗/⚠ with ASCII fallback),
@@ -180,11 +189,10 @@ settings, gitignored on the operator side.
   more than they expected.
 - **Demo corpuscle config story.** `demo/` is in the same repo as
   the corpus code, so it can't be a corpuscle clone of its own.
-  Two reasonable paths: ship a `demo/config.yaml` that
-  `corpus run --demo` short-circuits to (avoids polluting the
-  operator's clone-root `config.yaml`); or ship
-  `demo/config.template.yaml` and a `demo/run.sh` that copies it.
-  Pick during the unified-CLI design.
+  Ship a tracked `demo/config.yaml` and run it via the global
+  `--config` escape hatch: `corpus --config demo/config.yaml run`.
+  No `--demo` flag, no `run.sh` wrapper, no copy-into-clone-root
+  step that risks polluting the operator's real `config.yaml`.
 - **Tests adapt to one-corpuscle-per-clone.** `CORPUS_OUTPUT_DIR`
   env var still works but defaults to `./output` (the canonical
   per-clone corpuscle root). The fixture-fallback logic in
