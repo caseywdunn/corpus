@@ -60,9 +60,10 @@ databases, and bundle distillation all run from one entry point.
     corpuscle (detail below). Carries the
     [#54](https://github.com/caseywdunn/corpus/issues/54)
     triage flags (`--sort-by`, `--tail`, `--propose-skips`,
-    `--skipped`, `--re-process-flagged`) and the
+    `--skipped`, `--re-process-flagged`), the
     [#57](https://github.com/caseywdunn/corpus/issues/57)
-    `--report` view.
+    `--report` view, and `--json` for scriptable consumption
+    (CI / dashboards want structured; rich text is for humans).
   - `corpus serve` — replaces today's `mcp_server.py`. Reads the
     same `config.yaml` for bundle path, instructions, and
     bearer-token file.
@@ -82,9 +83,11 @@ databases, and bundle distillation all run from one entry point.
   user-facing CLI). The repo root ends up with one operator
   binary and zero ambiguity about which script does what.
 - **Packaging: `pyproject.toml` + `corpus` console_scripts entry
-  point.** A minimal `pyproject.toml` at the repo root makes the
-  project pip-installable; `corpus` lands on PATH via
-  `[project.scripts]` after `pip install -e .` (development) or
+  point.** A minimal `pyproject.toml` at the repo root
+  (setuptools backend — boring, well-understood, no lock-file
+  churn) makes the project pip-installable; `corpus` lands on
+  PATH via `[project.scripts]` after `pip install -e .`
+  (development) or
   `pip install git+https://github.com/caseywdunn/corpus.git@v0.3.0`
   (AWS deploy, replacing today's `git clone &&
   pip install -r requirements.txt`). Existing `pipeline/`,
@@ -133,21 +136,29 @@ databases, and bundle distillation all run from one entry point.
   fingerprints, PDF set diff — all infrastructure already in
   place from v0.2). Explicit `--force-rebuild` (and per-stage
   `--force-rebuild-<stage>`) covers the rare clean-rebuild case.
+  Ctrl-C mid-run is part of this contract: per-stage state is
+  flushed atomically as each stage completes (per #55), so the
+  next `corpus run` picks up exactly where the previous left off.
 - **Strict `corpus run --dry-run`.** Prints the plan — what would
   run, what would skip, what would be deleted — without touching
   disk. Today's per-stage `--dry-run` (#41) honors this stage by
   stage; under `corpus run`, audit every write path so the
   dry-run guarantee holds across all stages, post-pipeline
   scripts, and the bundle distillation step.
-- **`corpus check` detail.** Validates `config.yaml`, probes GPU
-  availability, pings the configured Grobid endpoint, checks
-  `ANTHROPIC_API_KEY` presence when the vision backend is
-  `claude`, sanity-checks output disk space, and prints a
-  green/yellow/red report. Cheap to write once the config-driven
-  CLI exists, and saves long debug sessions on Bouchet when
-  something is misconfigured before SLURM kicks off. Doesn't read
-  the output tree — distinct from `corpus status` (postmortem
-  against a built corpuscle).
+- **`corpus check` detail.** Validates `config.yaml` against a
+  pydantic schema (field-level errors point at the exact key and
+  value — `vision.backend must be one of {local, claude, none},
+  got 'claud'`), probes GPU availability, pings the configured
+  Grobid endpoint, checks `ANTHROPIC_API_KEY` presence when the
+  vision backend is `claude`, sanity-checks output disk space,
+  and prints a green/yellow/red report. The same pydantic schema
+  is loaded by every other subcommand at startup, so config
+  errors surface uniformly, not as a `KeyError` halfway through a
+  Stage 1 run. Cheap to write once the config-driven CLI exists,
+  and saves long debug sessions on Bouchet when something is
+  misconfigured before SLURM kicks off. Doesn't read the output
+  tree — distinct from `corpus status` (postmortem against a
+  built corpuscle).
 - **Success summary + next-step pointer.** On clean completion,
   `corpus run` prints the same scannable report `corpus status
   --report` produces, plus the `corpus serve` command to launch a
@@ -161,7 +172,12 @@ databases, and bundle distillation all run from one entry point.
   `taxon_mentions.sqlite`, `vector_db/lancedb` ✓/✗), and a flat
   tally of `stage_failures.reason_code × stage` and
   `quality_flags.gate`. The reference script in #57 is the
-  starting point. Closes [#57](https://github.com/caseywdunn/corpus/issues/57).
+  starting point. The same payload is also written to
+  `<output_dir>/run.log` (one line of JSON per finished run plus
+  a human-readable rendering) so operators reconstructing a run
+  three weeks later don't have to scroll back through SLURM
+  `.out` files or `journalctl`. Closes
+  [#57](https://github.com/caseywdunn/corpus/issues/57).
 - **Bundle distillation in line.** `corpus run` walks
   `package_for_serve.py` so a successful run produces a
   ready-to-ship served bundle alongside the build bundle.
@@ -176,6 +192,50 @@ databases, and bundle distillation all run from one entry point.
   the bibliography ahead of the first run, and the curation lands
   on the resulting authority DB without a second
   `corpus bib import` step.
+
+### CLI conventions
+
+The universal-CLI affordances every operator looks for first.
+None of them are deep architectural decisions; their absence
+just makes the tool feel rough.
+
+- **`corpus --version` / `-V`** prints the package version (from
+  `pipeline.version.__version__`), and the git SHA when the
+  current install was sourced from a development clone. Matches
+  every other CLI on the system.
+- **`corpus completion bash|zsh|fish`** generates a shell
+  completion script the operator sources from their dotfiles.
+  Matches `gh`, `kubectl`, `cargo`, `aws`, `docker`. Operators
+  tab-complete subcommand names + `--config` paths constantly;
+  absence is a sharp edge.
+- **`CORPUS_CONFIG` env var** as an alternative to
+  `--config PATH`. Matches `KUBECONFIG`, `AWS_PROFILE`,
+  `RUSTUP_HOME`. Useful in CI / SLURM scripts where exporting
+  once at the top is cleaner than threading the flag through
+  every invocation. Precedence: `--config` flag > env var >
+  `./config.yaml` in cwd.
+- **`-c` short alias for `--config`.** Small, but a real
+  ergonomic ask once an operator types it ten times a day.
+- **Defined exit codes.** `0` success, `1` generic failure, `2`
+  config error (missing/invalid `config.yaml`, schema mismatch,
+  unresolvable input path), `3` precondition not met (`corpus
+  check` fail, missing bundle, port in use). Lets CI and SLURM
+  `--dependency=afterok:` chains branch on the *kind* of failure
+  rather than just success/failure.
+- **Verbosity levels.** `-v` / `-vv` raise the log threshold
+  (INFO → DEBUG → all child loggers chatty); `-q` / `--quiet`
+  drops it to WARNING. Replaces today's boolean `--verbose`.
+  SLURM `.out` capture often wants `-q`; debugging operators
+  want `-vv`.
+- **Path resolution.** Relative paths in `config.yaml`
+  (`input_pdfs:`, `bib:`, `lexicon:`, `output_dir:`,
+  `taxonomy.path:`) resolve against the directory containing the
+  config file, not cwd. Means `cd demo && corpus run` and
+  `corpus --config demo/config.yaml run` from anywhere give
+  identical results — the demo's `input_pdfs: ./*.pdf` always
+  finds `demo/<files>.pdf`. cwd matters only for "where does
+  `corpus` find `config.yaml` when `--config` and
+  `CORPUS_CONFIG` are both absent."
 
 ### Per-corpuscle `config.yaml`
 
