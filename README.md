@@ -97,9 +97,9 @@ biogeography:
     synonyms: [open water]
 ```
 
-Pass the file with `--lexicon path/to/lexicon.yaml`. Each category emits its own `<hash>/<category>.json` artifact. Per-category content is fingerprinted independently, so editing a single section only invalidates that category's annotations on `--resume` — the rest stay cached.
+Set `lexicon: ./lexicon.yaml` in your corpuscle's `config.yaml`. Each category emits its own `<hash>/<category>.json` artifact. Per-category content is fingerprinted independently, so editing a single section only invalidates that category's annotations on the next `corpus run` — the rest stay cached (implicit resume; #60 dropped the `--resume` flag).
 
-Without `--lexicon`, lexicon extraction is skipped entirely. Like `--bib`, the lexicon is an input you maintain alongside your literature, not something the tool ships.
+Without a `lexicon:` entry, lexicon extraction is skipped entirely. Like `bib:`, the lexicon is an input you maintain alongside your literature, not something the tool ships.
 
 ### Instructions for the LLM (optional)
 

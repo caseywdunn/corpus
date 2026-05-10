@@ -156,7 +156,7 @@ databases, and bundle distillation all run from one entry point.
   `corpus --config demo/config.yaml run` rather than a special
   `--demo` flag). Discoverable via `corpus --help` rather than
   scattered across each subcommand's flag set.
-- [ ] **Operator UX: shared `rich` console layer.**
+- [x] **Operator UX: shared `rich` console layer.**
   ([#63](https://github.com/caseywdunn/corpus/issues/63))
   A single
   `pipeline/console.py` Console instance backs every `corpus`
@@ -239,7 +239,7 @@ databases, and bundle distillation all run from one entry point.
   trace, overwritten on each re-run): `run.log` is the summary
   *across* runs, `pipeline.log` is the detail *within* one run.
   Closes [#57](https://github.com/caseywdunn/corpus/issues/57).
-- [ ] **Bundle distillation in line.**
+- [x] **Bundle distillation in line.**
   ([#60](https://github.com/caseywdunn/corpus/issues/60))
   `corpus run` walks
   `package_for_serve.py` so a successful run produces a
@@ -455,7 +455,7 @@ v0.3 closes both gaps so operators can shape what's exposed and
 clients (especially manuscript-authoring agents) can know what's
 safe to embed.
 
-- [ ] [#54](https://github.com/caseywdunn/corpus/issues/54) — **PDF QC
+- [x] [#54](https://github.com/caseywdunn/corpus/issues/54) — **PDF QC
   workflow: skip flag, content-vs-technical gates, worst-first
   triage.** A `serve = false` BibTeX field (curated via the #26
   round-trip) propagates to `works.serve` in
@@ -471,7 +471,7 @@ safe to embed.
   head/foot pollution score, Grobid header confidence) with
   matching `quality_flags` gates. Implementation order in the
   issue.
-- [ ] [#51](https://github.com/caseywdunn/corpus/issues/51) — **Figure
+- [x] [#51](https://github.com/caseywdunn/corpus/issues/51) — **Figure
   licensing + publishable gate.** `license` / `licenseurl` BibTeX
   fields (SPDX short identifiers + a small custom vocabulary:
   `public-domain`, `all-rights-reserved`,

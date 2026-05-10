@@ -55,7 +55,7 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 
 ## Implementation notes for contributors
 
-- Each unique PDF is identified by the first 12 hex chars of its SHA-256. All artifacts live under `<output_dir>/documents/<HASH>/`. Per-paper `pipeline_state.json` records each stage's `pipeline_version` + `input_fingerprint`; on `--resume` a stage re-runs iff its record is missing or disagrees with the current input. A lexicon edit only re-runs the annotation pass.
+- Each unique PDF is identified by the first 12 hex chars of its SHA-256. All artifacts live under `<output_dir>/documents/<HASH>/`. Per-paper `pipeline_state.json` records each stage's `pipeline_version` + `input_fingerprint`; `corpus run` re-runs whichever stages' record is missing or disagrees with the current input (implicit resume per #60; the v0.2 `--resume` flag is gone). A lexicon edit only re-runs the annotation pass.
 - Stage 1 (`pipeline.main`) is CPU-only: scan detection, OCR, docling extraction, Grobid metadata, chunking, annotation. Stage 2 (`pipeline.embed`) is GPU: BGE-M3 embeddings into LanceDB. Pass 3b (vision LLM) is opt-in via `vision.backend: {claude, local}` in `config.yaml`.
 - Figure extraction has a fallback chain: docling pictures first, then raw PyMuPDF `page.get_images()`. Only figures that land on disk are recorded in `figures.json`.
 - Visualizations overlay text-cell boxes (red) and figure bboxes (yellow/orange). Coordinates are Y-flipped from docling's bottom-left origin to PIL's top-left.
