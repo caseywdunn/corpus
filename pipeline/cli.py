@@ -144,6 +144,77 @@ def _cmd_init(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _run_preconditions(
+    cfg: CorpuscleConfig,
+    config_path: Path,
+    args: argparse.Namespace,
+) -> int:
+    """Fail-fast check before invoking the orchestrator.
+
+    Two cliffs we surface here rather than letting the run silently
+    degrade:
+      - Grobid unreachable (when not disabled): every paper would get
+        placeholder metadata, biblio_authority would be empty, hours of
+        OCR/embed wasted on a useless bibliography pass.
+      - input_pdfs path missing or empty: corpus run would happily
+        complete in zero seconds with no work done.
+
+    Returns ``EXIT_PRECONDITION`` on failure, ``EXIT_OK`` otherwise.
+    Operators who know what they're doing pass ``--skip-checks``.
+    """
+    failures: List[str] = []
+
+    # 1. input_pdfs reachable + non-empty
+    if cfg.input_pdfs is None:
+        failures.append(
+            "config.yaml has no `input_pdfs:` set; nothing to process. "
+            "Edit the config or pass --skip-checks to override."
+        )
+    else:
+        input_dir = _resolve_against(config_path, cfg.input_pdfs)
+        if not input_dir.exists():
+            failures.append(
+                f"input_pdfs path does not exist: {input_dir}. "
+                f"Check the path in {config_path} or pass --skip-checks."
+            )
+        elif input_dir.is_dir():
+            n_pdfs = sum(1 for _ in input_dir.rglob("*.pdf"))
+            if n_pdfs == 0:
+                failures.append(
+                    f"input_pdfs path has zero PDFs under {input_dir}. "
+                    "Drop PDFs in or pass --skip-checks to run anyway."
+                )
+
+    # 2. Grobid reachable (unless disabled). Skipping Grobid yields
+    # working OCR + embedding + chunking but a bibliography graph that
+    # can't link cited references to corpus papers. The deliberate-skip
+    # path is `grobid.disable: true` in config; that opts out of the
+    # check entirely.
+    if not cfg.grobid.disable:
+        ok, detail = _ping_grobid(cfg.grobid.url)
+        if not ok:
+            failures.append(
+                f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
+                "Start it with `docker compose up -d grobid` (it persists "
+                "across runs). To deliberately run without metadata "
+                "extraction, set `grobid: {disable: true}` in config.yaml. "
+                "To bypass this check just for this run, pass --skip-checks."
+            )
+
+    if failures:
+        for f in failures:
+            print_status(f, status="fail")
+        print()
+        print_status(
+            f"{len(failures)} precondition(s) failed before the orchestrator "
+            "started. No compute was spent on this run. See "
+            "`corpus check` for the full pre-flight surface.",
+            status="fail",
+        )
+        return EXIT_PRECONDITION
+    return EXIT_OK
+
+
 def _invalidate_flagged(
     cfg: CorpuscleConfig,
     config_path: Path,
@@ -323,6 +394,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print_status(f"config not found: {config_path}", status="fail")
         return EXIT_CONFIG_ERROR
     cfg = _load_validated(config_path)
+
+    # Fail-fast preconditions: catch the two ergonomic cliffs that would
+    # otherwise burn hours of compute (Grobid unreachable → placeholder
+    # metadata across the whole bibliography pass; input_pdfs missing →
+    # silent zero-paper run). The vision/ANTHROPIC_API_KEY paths are
+    # warn-and-skip (#65) — graceful degradation, not a fail-fast case.
+    if not args.skip_checks:
+        rc = _run_preconditions(cfg, config_path, args)
+        if rc != EXIT_OK:
+            return rc
 
     # #66: orphan cleanup runs *before* the extract step so subsequent
     # stages don't consume the orphan hashes. Default = prune; --no-prune
@@ -901,6 +982,11 @@ def _build_parser() -> argparse.ArgumentParser:
                        "operator fixes the root cause (installs a language "
                        "pack, etc.), this re-extracts just the affected "
                        "papers without touching the rest. (#54)")
+    run_p.add_argument("--skip-checks", action="store_true",
+                       help="Bypass the fail-fast preconditions (Grobid "
+                       "reachability + input_pdfs presence). Use when you "
+                       "know what you're doing — for example, running a "
+                       "vision-only refresh on an existing build.")
     run_p.add_argument("--enrich-bhl", action="store_true",
                        help="Enrich pre-DOI references against the Biodiversity "
                        "Heritage Library (slow, rate-limited; #64)")
