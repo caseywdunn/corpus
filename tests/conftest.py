@@ -16,18 +16,23 @@ REPO_ROOT = Path(__file__).parent.parent
 DEMO_DIR = REPO_ROOT / "demo"
 GROUND_TRUTH_DIR = Path(__file__).parent / "ground_truth"
 
-# Default output location — override with CORPUS_OUTPUT_DIR env var
-_DEFAULT_OUTPUT = Path("/nfs/roberts/project/pi_cwd7/cwd7/output")
+# Default output location for the test fixture. Precedence (#59):
+#   1. CORPUS_OUTPUT_DIR env var (explicit override; used in CI / Bouchet)
+#   2. REPO_ROOT/demo/output  — the demo corpuscle's output, populated
+#      by `corpus run` against demo/. This is the canonical dev-machine
+#      fixture path post-v0.3 (the "demo as regular corpuscle" model).
+#   3. Bouchet NFS lab share — final fallback for runs on the cluster.
+_BOUCHET_FALLBACK = Path("/nfs/roberts/project/pi_cwd7/cwd7/output")
 
 
 def _output_dir():
     override = os.environ.get("CORPUS_OUTPUT_DIR")
     if override:
         return Path(override)
-    repo_output = REPO_ROOT / "output"
-    if repo_output.is_dir():
-        return repo_output
-    return _DEFAULT_OUTPUT
+    demo_output = DEMO_DIR / "output"
+    if demo_output.is_dir():
+        return demo_output
+    return _BOUCHET_FALLBACK
 
 
 _HASH_MAP = None
