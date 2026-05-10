@@ -533,7 +533,7 @@ the docs. All tracked under
 
 ### Quick wins
 
-- [ ] [#50](https://github.com/caseywdunn/corpus/issues/50) — `pandoc`
+- [x] [#50](https://github.com/caseywdunn/corpus/issues/50) — `pandoc`
   in `environment.yaml`.
 
 ### Carryover

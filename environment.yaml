@@ -35,6 +35,7 @@ dependencies:
   - ghostscript
   - pngquant  # ocrmypdf optional helper; substantial size savings on PDFs with many embedded color images
   - pymupdf
+  - pandoc    # md → pdf for write-up workflows initiated by Claude (#50)
 
   # Config, data, scientific
   - numpy
