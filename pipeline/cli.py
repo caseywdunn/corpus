@@ -184,13 +184,20 @@ def _build_orchestrator_argv(
     if cfg.grobid.url:
         sub_argv += ["--grobid-url", cfg.grobid.url]
 
-    # Vision pass: opt-out via --no-vision flag or vision.backend=none.
-    # #65 adds capability detection to skip gracefully when the backend
-    # isn't usable on this host.
+    # Vision pass (#65): opt-out via --no-vision flag, vision.backend=none,
+    # OR capability detection — skip gracefully (with a one-line nudge)
+    # when the configured backend isn't usable on this host.
     if not args.no_vision and cfg.vision.backend != "none":
-        sub_argv += ["--vision-backend", cfg.vision.backend]
-        if cfg.vision.model:
-            sub_argv += ["--vision-model", cfg.vision.model]
+        skip_reason = _vision_skip_reason(cfg.vision.backend)
+        if skip_reason is not None:
+            print_status(
+                f"vision pass skipped: {skip_reason}",
+                status="warn",
+            )
+        else:
+            sub_argv += ["--vision-backend", cfg.vision.backend]
+            if cfg.vision.model:
+                sub_argv += ["--vision-model", cfg.vision.model]
 
     # #64: auto-build cross-paper databases.
     if cfg.taxonomy.source is not None:
@@ -341,27 +348,18 @@ def _cmd_check(args: argparse.Namespace) -> int:
     elif gpu == "mps":
         print_status("GPU: MPS available (Apple Silicon)", status="ok")
     else:
-        # CPU-only is OK for non-vision/non-embedding stages, but warn
-        # if the config requests a `local` vision backend.
-        if cfg.vision.backend == "local":
-            failures.append(
-                "vision.backend=local but no CUDA/MPS detected; switch to "
-                "`vision.backend: claude` (and export ANTHROPIC_API_KEY) or "
-                "`vision.backend: none`"
-            )
-            print_status("GPU: none (vision backend `local` will fail)", status="fail")
-        else:
-            print_status("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
+        print_status("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
 
-    # 3. Anthropic API key when vision.backend == claude
-    if cfg.vision.backend == "claude":
-        if os.environ.get("ANTHROPIC_API_KEY"):
-            print_status("ANTHROPIC_API_KEY: set", status="ok")
-        else:
-            failures.append(
-                "vision.backend=claude but ANTHROPIC_API_KEY is unset"
-            )
-            print_status("ANTHROPIC_API_KEY: missing", status="fail")
+    # 3. Vision backend usability — under #65 a missing capability is
+    # a warn (the pass auto-skips at run time with the same message),
+    # not a hard precondition failure.
+    vision_skip = _vision_skip_reason(cfg.vision.backend)
+    if cfg.vision.backend == "none":
+        print_status("Vision pass: disabled in config", status="warn")
+    elif vision_skip is None:
+        print_status(f"Vision pass: backend `{cfg.vision.backend}` ready", status="ok")
+    else:
+        print_status(f"Vision pass: would skip — {vision_skip}", status="warn")
 
     # 4. Grobid reachability
     if cfg.grobid.disable:
@@ -420,6 +418,33 @@ def _detect_accelerator() -> Optional[str]:
             return "mps"
     except Exception:
         pass
+    return None
+
+
+def _vision_skip_reason(backend: str) -> Optional[str]:
+    """Return a human-readable reason to skip the vision pass on this host
+    given the configured ``backend``, or None if the backend is usable.
+
+    #65 — capability-aware skip. Gracefully avoids loading a multi-GB
+    open-weights model on a CPU-only host or hitting the Anthropic API
+    without credentials, both of which hard-fail Pass 3b deep into the
+    pipeline today.
+    """
+    if backend == "local":
+        if _detect_accelerator() is None:
+            return (
+                "vision.backend=local but no CUDA/MPS detected on this host. "
+                "Either set `vision.backend: claude` (and export "
+                "ANTHROPIC_API_KEY) or `vision.backend: none`, or run on a "
+                "GPU host."
+            )
+    elif backend == "claude":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return (
+                "vision.backend=claude but ANTHROPIC_API_KEY is unset. "
+                "Either export ANTHROPIC_API_KEY, or set "
+                "`vision.backend: local` / `vision.backend: none`."
+            )
     return None
 
 

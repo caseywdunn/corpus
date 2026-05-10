@@ -399,7 +399,7 @@ inspect the config and act.
   `bibliography:` block in `config.yaml` carries `enrich_bhl: false`
   by default — slow, rate-limited, network-dependent, opt-in via
   config or `--enrich-bhl` CLI override.
-- [ ] **Vision pass: opt-out, capability-aware.**
+- [x] **Vision pass: opt-out, capability-aware.**
   ([#65](https://github.com/caseywdunn/corpus/issues/65))
   Run the vision pass
   by default. If the configured backend isn't usable on this host
