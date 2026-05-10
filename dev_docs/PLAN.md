@@ -387,7 +387,7 @@ loaded" for every taxonomy query, with no easy way to find out
 why. v0.3 closes that gap by making the unified entry point
 inspect the config and act.
 
-- [ ] **Auto-build cross-paper databases.**
+- [x] **Auto-build cross-paper databases.**
   ([#64](https://github.com/caseywdunn/corpus/issues/64))
   If `taxonomy:` is configured
   in `config.yaml` but `taxonomy.sqlite` doesn't exist, build it.

@@ -321,7 +321,7 @@ def main():
         else:
             logger.warning(
                 "Taxonomy snapshot %s not found — taxon extraction skipped. "
-                "Build it with: python ingest_taxonomy.py %s --source <dwc|dwca|worms> ...",
+                "Build it with: python -m pipeline.taxonomy_ingest %s --source <dwc|dwca|worms> ...",
                 taxonomy_path, args.output_dir,
             )
 

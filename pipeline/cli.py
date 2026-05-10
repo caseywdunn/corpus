@@ -191,6 +191,25 @@ def _build_orchestrator_argv(
         sub_argv += ["--vision-backend", cfg.vision.backend]
         if cfg.vision.model:
             sub_argv += ["--vision-model", cfg.vision.model]
+
+    # #64: auto-build cross-paper databases.
+    if cfg.taxonomy.source is not None:
+        sub_argv += ["--taxonomy-source", cfg.taxonomy.source]
+        if cfg.taxonomy.root_id is not None:
+            sub_argv += ["--taxonomy-root-id", str(cfg.taxonomy.root_id)]
+        if cfg.taxonomy.path is not None:
+            tx_path = _resolve_against(config_path, cfg.taxonomy.path)
+            sub_argv += ["--taxonomy-path", str(tx_path)]
+    if args.enrich_bhl or cfg.bibliography.enrich_bhl:
+        sub_argv.append("--enrich-bhl")
+    if args.force_rebuild:
+        sub_argv.append("--force-rebuild")
+    if args.force_rebuild_taxonomy:
+        sub_argv.append("--force-rebuild-taxonomy")
+    if args.force_rebuild_biblio:
+        sub_argv.append("--force-rebuild-biblio")
+    if args.force_rebuild_taxon_mentions:
+        sub_argv.append("--force-rebuild-taxon-mentions")
     return sub_argv
 
 
@@ -686,7 +705,13 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--dry-run", action="store_true",
                        help="Plan only — no artifacts written")
     run_p.add_argument("--force-rebuild", action="store_true",
-                       help="Disable implicit resume; re-run every stage")
+                       help="Rebuild every cross-paper DB (#64)")
+    run_p.add_argument("--force-rebuild-taxonomy", action="store_true",
+                       help="Rebuild only taxonomy.sqlite (#64)")
+    run_p.add_argument("--force-rebuild-biblio", action="store_true",
+                       help="Rebuild only biblio_authority.sqlite (#64)")
+    run_p.add_argument("--force-rebuild-taxon-mentions", action="store_true",
+                       help="Rebuild only taxon_mentions.sqlite (#64)")
     run_p.add_argument("--no-vision", action="store_true",
                        help="Skip the vision pass (Pass 3b)")
     run_p.add_argument("--no-bundle", action="store_true",

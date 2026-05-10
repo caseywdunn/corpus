@@ -35,7 +35,7 @@ def main() -> int:
         default=None,
         help="Override path to the Darwin Core taxonomy SQLite "
              "(default: <output_dir>/taxonomy.sqlite). "
-             "Build with: python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
+             "Build with: python -m pipeline.taxonomy_ingest --source <dwc|dwca|worms> ...",
     )
     parser.add_argument(
         "--biblio-sqlite",
@@ -164,7 +164,7 @@ def main() -> int:
         logger.warning(
             "Taxonomy snapshot not found at %s — search_taxon and taxon tools "
             "will return an error. Build it: "
-            "python ingest_taxonomy.py --source <dwc|dwca|worms> ...",
+            "python -m pipeline.taxonomy_ingest --source <dwc|dwca|worms> ...",
             taxonomy_path,
         )
 
