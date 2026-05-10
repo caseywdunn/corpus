@@ -470,7 +470,8 @@ def main():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
 
-        for pdf_hash_full, pdf_paths in pdf_map.items():
+        paper_total = len(pdf_map)
+        for paper_idx, (pdf_hash_full, pdf_paths) in enumerate(pdf_map.items(), start=1):
             pdf_hash = short_hash(pdf_hash_full)
             hash_dir = documents_dir / pdf_hash
 
@@ -486,10 +487,16 @@ def main():
                     figures_file = hash_dir / "figures.json"
                     if not figures_file.exists():
                         logger.info(
-                            "Skipping %s for vision refresh (no figures.json)", pdf_hash
+                            "[%d/%d] %s — skipping vision refresh (no figures.json; hash %s)",
+                            paper_idx, paper_total,
+                            pdf_paths[0].name, pdf_hash,
                         )
                         continue
-                    logger.info("Refreshing Pass 3b on %s", pdf_hash)
+                    logger.info(
+                        "[%d/%d] %s — refreshing Pass 3b (hash %s)",
+                        paper_idx, paper_total,
+                        pdf_paths[0].name, pdf_hash,
+                    )
                     with per_pdf_file_log(hash_dir) as log_path:
                         logger.info("pipeline.log: %s (refresh-vision)", log_path)
                         try:
@@ -517,10 +524,16 @@ def main():
                         lexicon_fingerprints=lex_fingerprints,
                     ),
                 ):
-                    logger.info("Skipping %s (all stages complete)", pdf_hash)
+                    logger.info(
+                        "[%d/%d] %s — skipping (all stages complete; hash %s)",
+                        paper_idx, paper_total,
+                        pdf_paths[0].name, pdf_hash,
+                    )
                     continue
                 logger.info(
-                    "Resuming %s (re-running missing or stale stages only)", pdf_hash
+                    "[%d/%d] %s — resuming (re-running missing or stale stages; hash %s)",
+                    paper_idx, paper_total,
+                    pdf_paths[0].name, pdf_hash,
                 )
 
             hash_dir.mkdir(exist_ok=True)
@@ -528,10 +541,17 @@ def main():
             # Use the first copy for processing (they're all identical by hash)
             primary_pdf = pdf_paths[0]
 
+            sep = "─" * 72
+            logger.info(sep)
             logger.info(
-                "Processing PDF hash %s (%d copies); primary file: %s",
-                pdf_hash, len(pdf_paths), primary_pdf.relative_to(input_dir),
+                "[%d/%d] %s  (hash %s, %d cop%s)",
+                paper_idx, paper_total,
+                primary_pdf.relative_to(input_dir),
+                pdf_hash,
+                len(pdf_paths),
+                "y" if len(pdf_paths) == 1 else "ies",
             )
+            logger.info(sep)
             if len(pdf_paths) > 1:
                 for path in pdf_paths[1:]:
                     logger.info("  additional copy: %s", path.relative_to(input_dir))
