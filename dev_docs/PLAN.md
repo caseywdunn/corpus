@@ -408,7 +408,7 @@ inspect the config and act.
   about it. `--no-vision` for explicit skip. Closes the long tail
   of [#11](https://github.com/caseywdunn/corpus/issues/11) for the
   default-config path.
-- [ ] **Orphan cleanup is the default.**
+- [x] **Orphan cleanup is the default.**
   ([#66](https://github.com/caseywdunn/corpus/issues/66); extends
   [#31](https://github.com/caseywdunn/corpus/issues/31))
   If a PDF disappears from the

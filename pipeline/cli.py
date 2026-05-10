@@ -144,6 +144,57 @@ def _cmd_init(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _prune_orphans(
+    cfg: CorpuscleConfig,
+    config_path: Path,
+    args: argparse.Namespace,
+) -> int:
+    """Run #66's orphan cleanup before dispatching to the orchestrator."""
+    if cfg.input_pdfs is None:
+        return EXIT_OK  # nothing to compare against; let extract handle it
+    input_dir = _resolve_against(config_path, cfg.input_pdfs)
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    if not (output_dir / "documents").is_dir():
+        return EXIT_OK  # fresh corpuscle — nothing to prune
+
+    from .io import audit_orphans, prune_orphans
+
+    if args.no_prune:
+        # Read-only audit (matches #31 behavior).
+        n = audit_orphans(input_dir, output_dir)
+        print_status(f"--no-prune: audit reported {n} orphan(s)", status="info")
+        return EXIT_OK
+
+    try:
+        result = prune_orphans(
+            input_dir,
+            output_dir,
+            dry_run=args.dry_run,
+            force=args.force_prune,
+        )
+    except RuntimeError as e:
+        print_status(str(e), status="fail")
+        return EXIT_PRECONDITION
+
+    if args.dry_run:
+        if result["doc_pruned"]:
+            print_status(
+                f"dry-run: would prune {result['doc_pruned']} of "
+                f"{result['doc_total']} hash dir(s) + LanceDB rows",
+                status="warn",
+            )
+        else:
+            print_status("dry-run: no orphans to prune", status="ok")
+    else:
+        if result["doc_pruned"]:
+            print_status(
+                f"pruned {result['doc_pruned']} of {result['doc_total']} "
+                f"orphan hash dir(s) + {result['vec_pruned']} LanceDB row(s)",
+                status="warn",
+            )
+    return EXIT_OK
+
+
 def _build_orchestrator_argv(
     cfg: CorpuscleConfig,
     config_path: Path,
@@ -228,11 +279,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
             "or pass --config PATH",
             file=sys.stderr,
         )
-        return 2
+        return EXIT_CONFIG_ERROR
     if not config_path.exists():
         print_status(f"config not found: {config_path}", status="fail")
-        return 2
+        return EXIT_CONFIG_ERROR
     cfg = _load_validated(config_path)
+
+    # #66: orphan cleanup runs *before* the extract step so subsequent
+    # stages don't consume the orphan hashes. Default = prune; --no-prune
+    # = read-only audit only; --force-prune bypasses the safety rail.
+    rc = _prune_orphans(cfg, config_path, args)
+    if rc != EXIT_OK:
+        return rc
 
     sub_argv = _build_orchestrator_argv(cfg, config_path, args)
     cmd = [sys.executable, "-m", "pipeline.orchestrator", *sub_argv]
@@ -742,6 +800,13 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--no-bundle", action="store_true",
                        help="Skip the served-bundle distillation step "
                        "(deferred follow-up on #60)")
+    run_p.add_argument("--no-prune", action="store_true",
+                       help="Skip orphan cleanup; run a read-only audit "
+                       "instead (matches #31 behavior). #66")
+    run_p.add_argument("--force-prune", action="store_true",
+                       help="Bypass the safety rail (#66) that refuses to "
+                       "prune when more than 25% of hash dirs would be "
+                       "removed (likely a config mistake or unmounted volume).")
     run_p.add_argument("--enrich-bhl", action="store_true",
                        help="Enrich pre-DOI references against the Biodiversity "
                        "Heritage Library (slow, rate-limited; #64)")
