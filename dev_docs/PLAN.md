@@ -99,6 +99,25 @@ databases, and bundle distillation all run from one entry point.
   global `pipeline` / `mcpsrv` / `bib` namespace pollution is
   annoying but contained). Defer all three until there's an
   audience that isn't cloning.
+- **Version handling: single source in `pipeline/version.py`,
+  `pyproject.toml` reads it dynamically.** Once `pyproject.toml`
+  exists there are two version surfaces (Python imports +
+  package metadata) that must not drift. Pattern: keep
+  `pipeline/version.py` as the source of truth (existing
+  imports + bundle-manifest stamping unchanged), and have
+  `pyproject.toml` resolve the package version from it via
+  `[tool.setuptools.dynamic] version = {attr =
+  "pipeline.version.__version__"}`. Release ritual in
+  [CONTRIBUTING.md](../CONTRIBUTING.md) §Releasing stays exactly
+  as-is — bump the `.py` file, commit, tag, push — and `pip
+  show corpus`, `corpus --version`, and the bundle manifest all
+  agree without a second bump step. Rejected alternatives:
+  reading the package version via `importlib.metadata` at
+  runtime (breaks on uninstalled source trees, brittle for
+  `python -m pytest` without `pip install -e .` first) and
+  `setuptools-scm` (overkill for a one-developer-plus-
+  collaborators project; produces gnarly `0.3.0.dev12+gabcd123`
+  strings on untagged commits).
 - **Global `--config` option, pre-verb (git-style).** All
   subcommands resolve their config the same way: `corpus
   --config <path> <verb> [args]`. Default is `./config.yaml`
