@@ -79,7 +79,7 @@ The `taxonomy:` block in `config.yaml` picks the source. The bundled template sh
 # Register of Marine Species. Look up your group at marinespecies.org.
 taxonomy:
   source: worms
-  root_id: 1267       # Siphonophorae (example)
+  root_id: 1371       # Siphonophorae order (example)
 
 # Darwin Core Archive — non-marine groups. Pull a DwC-A .zip from
 # GBIF / ITIS / Catalogue of Life and point at it locally.

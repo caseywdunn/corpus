@@ -32,9 +32,11 @@ def test_bundled_template_validates():
     template = REPO_ROOT / "pipeline" / "config.template.yaml"
     raw = yaml.safe_load(template.read_text(encoding="utf-8"))
     cfg = validate_config(raw)
-    # Template ships with WoRMS taxonomy and demo-friendly defaults.
-    assert cfg.taxonomy.source == "worms"
-    assert cfg.taxonomy.root_id == 1267
+    # Template ships with the taxonomy block commented out so a fresh
+    # `corpus init` doesn't lock new users into a Siphonophorae walk.
+    # Operators uncomment and pick a source (worms / dwca / dwc).
+    assert cfg.taxonomy.source is None
+    assert cfg.taxonomy.root_id is None
 
 
 def test_demo_config_validates():

@@ -16,11 +16,11 @@ bib: ./siphonophores.bib
 
 lexicon: ./lexicon.yaml
 
-# WoRMS Aphia ID 1267 = Siphonophorae. Auto-built into
+# WoRMS Aphia ID 1371 = Siphonophorae (order). Auto-built into
 # ./output/taxonomy.sqlite on the first `corpus run` (#64).
 taxonomy:
   source: worms
-  root_id: 1267
+  root_id: 1371
 
 # Demo runs with the vision pass off so it works on any host without
 # CUDA / MPS / ANTHROPIC_API_KEY. Set backend to `local` or `claude`

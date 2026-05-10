@@ -36,8 +36,8 @@ output_dir: ./output
 #
 #   worms — fetch a WoRMS (World Register of Marine Species) subtree by
 #           AphiaID. Best for marine groups. Set `source: worms` and
-#           `root_id: <AphiaID>` (e.g. 1267 for Siphonophorae; look your
-#           group up at https://www.marinespecies.org/).
+#           `root_id: <AphiaID>` (e.g. 1371 for the order Siphonophorae;
+#           look your group up at https://www.marinespecies.org/).
 #
 #   dwca  — ingest a Darwin Core Archive .zip pulled from GBIF, ITIS, or
 #           Catalogue of Life. Set `source: dwca` and `path: <zip>`.
@@ -51,7 +51,7 @@ output_dir: ./output
 # only lose the link from historical names to current valid names.
 # taxonomy:
 #   source: worms
-#   root_id: 1267                 # Siphonophorae (example)
+#   root_id: 1371                 # Siphonophorae order (example)
 #   # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
 
 # Vision pass (Pass 3b — figure annotation by a vision LLM).
