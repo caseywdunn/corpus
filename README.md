@@ -127,7 +127,12 @@ A *corpuscle* is the on-disk container for one corpus instance — siphonophores
 ├── vector_db/lancedb/        # embeddings index
 ├── taxonomy.sqlite           # Darwin Core snapshot, built by `pipeline.taxonomy_ingest`
 ├── biblio_authority.sqlite   # deduplicated works + citation graph
-└── taxon_mentions.sqlite     # cross-paper taxon index
+├── taxon_mentions.sqlite     # cross-paper taxon index
+└── _serve/                   # distilled served bundle (#60); contains
+                              # bundle_manifest.json + a whitelisted subset
+                              # of the above. Pass to `corpus serve --output-dir`
+                              # for ship-to-host workflows. Skip with
+                              # `corpus run --no-bundle`.
 ```
 
 Three cross-paper layers are rebuildable independently of the per-paper artifacts (no re-running OCR or extraction):
@@ -154,12 +159,15 @@ metadata version stays in sync with `pipeline/version.py` so
 `pip show corpus`, `corpus --version`, and the bundle manifest
 never drift.
 
-Grobid runs as a separate service:
+Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
 
 ```bash
-docker compose up -d grobid
+docker compose up -d grobid              # start in background; persists across runs
 curl http://localhost:8070/api/isalive   # should print "true"
+corpus check                             # confirms grobid + GPU + config + disk
 ```
+
+On Bouchet, the SLURM chain handles Grobid automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 
 After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [INSTALL.md](INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
 

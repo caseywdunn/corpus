@@ -344,14 +344,54 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if rc != 0:
         return rc
 
-    # Success summary + bundle distillation are deferred to follow-up
-    # work on #60 (run.log writer + invoking mcpsrv.bundle in line).
-    # Status report and bundle remain explicit subcommands until then.
+    # #60 — bundle distillation in line. Produce a ready-to-ship served
+    # bundle alongside the build bundle unless --no-bundle. The served
+    # bundle lands at `<output_dir>/_serve/` and is the directory remote
+    # deploys (DEPLOY.md) ship to S3 / EC2.
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    if args.no_bundle:
+        print_status(
+            "skipping served-bundle distillation (--no-bundle)",
+            status="info",
+        )
+    elif args.dry_run:
+        print_status(
+            f"dry-run: would distill served bundle into {output_dir / '_serve'}",
+            status="info",
+        )
+    else:
+        rc = _distill_bundle(output_dir)
+        if rc != 0:
+            print_status(
+                f"served-bundle distillation failed (exit {rc}); the build "
+                "bundle is intact but no served bundle was produced. Re-run "
+                "`python -m mcpsrv.bundle <output_dir> <serve_dir> "
+                "--version vX.Y.Z` to retry, or pass --no-bundle to skip.",
+                status="warn",
+            )
+            # Don't propagate — the build bundle is valid; bundle is a
+            # ship-to-host convenience.
+
     print_status(
-        "run complete. Try `corpus status` and `corpus serve` next.",
+        "run complete. Try `corpus status --report` and `corpus serve` next.",
         status="ok",
     )
-    return 0
+    return EXIT_OK
+
+
+def _distill_bundle(output_dir: Path) -> int:
+    """Invoke mcpsrv.bundle to produce <output_dir>/_serve/ (#60)."""
+    serve_dir = output_dir / "_serve"
+    cmd = [
+        sys.executable, "-m", "mcpsrv.bundle",
+        str(output_dir), str(serve_dir),
+        "--version", __version__,
+    ]
+    print_status(
+        f"distilling served bundle → {serve_dir} (v{__version__})",
+        status="info",
+    )
+    return subprocess.run(cmd).returncode
 
 
 # ---------------------------------------------------------------------------
@@ -843,8 +883,10 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--no-vision", action="store_true",
                        help="Skip the vision pass (Pass 3b)")
     run_p.add_argument("--no-bundle", action="store_true",
-                       help="Skip the served-bundle distillation step "
-                       "(deferred follow-up on #60)")
+                       help="Skip the served-bundle distillation step. "
+                       "Build artifacts in `<output_dir>/` are unaffected; "
+                       "only the `<output_dir>/_serve/` distillation is "
+                       "skipped. (#60)")
     run_p.add_argument("--no-prune", action="store_true",
                        help="Skip orphan cleanup; run a read-only audit "
                        "instead (matches #31 behavior). #66")
