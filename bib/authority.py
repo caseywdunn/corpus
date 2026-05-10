@@ -217,9 +217,30 @@ def create_schema(conn: sqlite3.Connection) -> None:
             in_corpus      INTEGER NOT NULL DEFAULT 0,
             source         TEXT NOT NULL,
             confidence     REAL DEFAULT 1.0,
+            -- #51 — figure licensing + publishable gate.
+            -- license: SPDX short identifier or one of the small custom
+            --          vocabulary (public-domain, all-rights-reserved,
+            --          publisher-permission, unknown).
+            -- license_source: 'bibtex' | 'age_based_pd' | 'unknown'.
+            -- publishable: derived at build time from license + age cutoff
+            --              (default `licensing.pd_cutoff_years: 95`).
+            license        TEXT,
+            license_url    TEXT,
+            license_source TEXT,
+            publishable    INTEGER,
+            -- #54 — PDF QC skip flag. serve=0 means package_for_serve
+            -- excludes the paper from the served bundle; serve_reason
+            -- is a short tag from the closed vocab in dev_docs/QC.md.
+            serve          INTEGER NOT NULL DEFAULT 1,
+            serve_reason   TEXT,
             created_at     REAL NOT NULL,
             updated_at     REAL NOT NULL
         );
+
+        -- v0.3 schema migration helpers (#51 + #54). The CREATE TABLE IF
+        -- NOT EXISTS above is a no-op when the table already exists, so
+        -- existing biblio_authority.sqlite files miss the new columns.
+        -- The Python wrapper below adds them with ALTER TABLE.
 
         CREATE TABLE IF NOT EXISTS work_authors (
             work_id            TEXT NOT NULL REFERENCES works(work_id),
@@ -276,12 +297,36 @@ def create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_works_corpus_hash ON works(corpus_hash) WHERE corpus_hash IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_works_year ON works(year);
         CREATE INDEX IF NOT EXISTS idx_works_in_corpus ON works(in_corpus);
+        CREATE INDEX IF NOT EXISTS idx_works_publishable ON works(publishable);
+        CREATE INDEX IF NOT EXISTS idx_works_serve ON works(serve);
         CREATE INDEX IF NOT EXISTS idx_work_authors_surname ON work_authors(surname_normalized);
         CREATE INDEX IF NOT EXISTS idx_citations_cited ON citations(cited_work_id);
         CREATE INDEX IF NOT EXISTS idx_citations_citing ON citations(citing_work_id);
         CREATE INDEX IF NOT EXISTS idx_taxon_work_links_work ON taxon_work_links(work_id);
     """)
+    _migrate_works_columns(conn)
     conn.commit()
+
+
+# v0.3 column additions (#51 + #54). ALTER TABLE ADD COLUMN is a no-op on
+# new DBs (CREATE TABLE above already declared the columns) and a one-time
+# migration on existing v0.2 DBs.
+_V03_WORKS_COLUMNS = [
+    ("license",        "TEXT"),
+    ("license_url",    "TEXT"),
+    ("license_source", "TEXT"),
+    ("publishable",    "INTEGER"),
+    ("serve",          "INTEGER NOT NULL DEFAULT 1"),
+    ("serve_reason",   "TEXT"),
+]
+
+
+def _migrate_works_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent ALTER TABLE for the v0.3 works.* additions."""
+    have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
+    for name, decl in _V03_WORKS_COLUMNS:
+        if name not in have:
+            conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
 
 # ── Work insertion helpers ───────────────────────────────────────────
