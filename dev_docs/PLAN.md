@@ -11,8 +11,8 @@ root, an opt-in `--resume` flag everywhere, manual orchestration of
 cross-paper databases, taxonomy ingest separate from the main
 pipeline, and per-corpuscle inputs (PDF dir, bib path, lexicon path,
 taxonomy source) carried as long command lines. v0.3 collapses that
-surface to **one CLI, one config file per corpuscle, one clone per
-corpuscle, automatic database management, and capability-aware
+surface to **one CLI installed once, a `config.yaml` per corpuscle
+directory, automatic database management, and capability-aware
 defaults**. The framing of v0.2 was "we built the right machine";
 v0.3 is "we make the machine usable by someone who isn't us."
 
@@ -26,14 +26,18 @@ v0.3-scoped subset is listed below.
 
 ## 1. v0.3 punch list
 
-### One CLI, one corpuscle per clone
+### One CLI, code installed once
 
-The unifying simplification: a clone of corpus *is* a corpuscle. The
-inputs and per-instance settings for that corpuscle live in
-`config.yaml` at the clone root. Multiple corpora = multiple clones,
-each with its own config and output. Stage 1, Stage 2, post-pipeline
-cross-paper databases, and bundle distillation all run from one
-entry point.
+The unifying simplification: install `corpus` once
+(`pip install -e .` from the source clone for development, or
+`pip install git+https://github.com/caseywdunn/corpus.git@vX.Y.Z`
+for deploys), then operate on any number of corpuscle directories.
+A corpuscle is just a directory containing `config.yaml`; `corpus`
+reads it from cwd by default and from `--config <path>` otherwise.
+Multiple corpora = multiple corpuscle directories, all served by
+the same installed binary — no duplicated source trees drifting
+out of sync. Stage 1, Stage 2, post-pipeline cross-paper
+databases, and bundle distillation all run from one entry point.
 
 - **Single user-facing CLI: `corpus`.** All operator interactions
   go through one binary, exposed as a setuptools entry point so
@@ -66,20 +70,36 @@ entry point.
     `bib_export.py` / `bib_import.py`. Independently invocable;
     operators still run them between or before `corpus run`
     (including before the first run, see below).
-  - `corpus init` (optional convenience) — scaffolds `config.yaml`
-    from `config.template.yaml` after a fresh clone. The plain
-    `cp config.template.yaml config.yaml` recipe stays valid; this
-    is just a discoverable shortcut.
+  - `corpus init` — scaffolds `config.yaml` in cwd from the
+    bundled template (which ships inside the installed `corpus`
+    package, not in the corpuscle directory). The discoverable
+    on-ramp for a new corpuscle: `mkdir my-corpus && cd my-corpus
+    && corpus init && $EDITOR config.yaml`.
 
   Every current root-level Python script is either renamed,
   absorbed as a subcommand, or demoted to an internal module
   (kept importable for tests and ad-hoc debugging, dropped as a
   user-facing CLI). The repo root ends up with one operator
   binary and zero ambiguity about which script does what.
+- **Packaging: `pyproject.toml` + `corpus` console_scripts entry
+  point.** A minimal `pyproject.toml` at the repo root makes the
+  project pip-installable; `corpus` lands on PATH via
+  `[project.scripts]` after `pip install -e .` (development) or
+  `pip install git+https://github.com/caseywdunn/corpus.git@v0.3.0`
+  (AWS deploy, replacing today's `git clone &&
+  pip install -r requirements.txt`). Existing `pipeline/`,
+  `mcpsrv/`, and `bib/` packages stay where they are. Out of
+  scope for v0.3: PyPI publishing (the name `corpus` is taken;
+  would need a different distribution name and a real
+  release-artifact policy), conda-forge, and a `src/corpus/`
+  namespace restructure (nice-to-have but not blocking — the
+  global `pipeline` / `mcpsrv` / `bib` namespace pollution is
+  annoying but contained). Defer all three until there's an
+  audience that isn't cloning.
 - **Global `--config` option, pre-verb (git-style).** All
   subcommands resolve their config the same way: `corpus
   --config <path> <verb> [args]`. Default is `./config.yaml`
-  relative to cwd, which is what the "one corpuscle per clone"
+  relative to cwd, which is what the corpuscle-as-directory
   model wants ninety-five percent of the time; `--config` is the
   documented escape hatch for scripts that don't `cd` first,
   multi-config experiments, and the demo (which becomes plain
@@ -163,14 +183,21 @@ The current `config.yaml` mixes system-wide tuning (OCR language
 packs, quality-gate thresholds) with no corpuscle-specific surface;
 all per-corpuscle inputs are CLI flags. v0.3 turns `config.yaml`
 into the single source of truth for *this* corpuscle's inputs and
-settings, gitignored on the operator side.
+settings — one file per corpuscle directory, separate from the
+installed code.
 
-- **`config.template.yaml` tracked; `config.yaml` gitignored.**
-  First-run check: if `config.yaml` is absent, `corpus run`
-  errors with `copy config.template.yaml to config.yaml and edit
-  the input paths` (or run `corpus init`). No silent auto-create
-  — users should make a deliberate choice about where their PDFs
-  / bib / lexicon live.
+- **`config.template.yaml` ships inside the installed `corpus`
+  package; `config.yaml` is per-corpuscle.** First-run check: if
+  `corpus run` finds no `config.yaml` in cwd (and `--config`
+  isn't set), it errors with `no config.yaml in cwd; run "corpus
+  init" to scaffold one, or pass --config PATH`. `corpus init`
+  copies the bundled template into cwd, after which the operator
+  edits the input paths. No silent auto-create — operators should
+  make a deliberate choice about where their PDFs / bib / lexicon
+  live. (`config.yaml` may or may not be tracked in git: the
+  corpuscle directory might be its own repo, in which case
+  committing `config.yaml` is the operator's choice, not the
+  tool's.)
 - **Move per-corpuscle inputs into config.** Today's CLI flags
   fold in:
   - `input_pdfs:` (replaces the positional input arg)
@@ -187,17 +214,23 @@ settings, gitignored on the operator side.
   mismatch on the next run logs which keys drifted and which stages
   it invalidates, so an operator can see *why* a re-run is doing
   more than they expected.
-- **Demo corpuscle config story.** `demo/` is in the same repo as
-  the corpus code, so it can't be a corpuscle clone of its own.
-  Ship a tracked `demo/config.yaml` and run it via the global
-  `--config` escape hatch: `corpus --config demo/config.yaml run`.
-  No `--demo` flag, no `run.sh` wrapper, no copy-into-clone-root
-  step that risks polluting the operator's real `config.yaml`.
-- **Tests adapt to one-corpuscle-per-clone.** `CORPUS_OUTPUT_DIR`
-  env var still works but defaults to `./output` (the canonical
-  per-clone corpuscle root). The fixture-fallback logic in
-  `tests/conftest.py` is already close; tighten the precedence so
-  a missing env var resolves to `./output` rather than the
+- **Demo is a regular corpuscle.** `demo/` is just a corpuscle
+  directory that happens to be tracked in the corpus source repo:
+  it has its own `config.yaml`, `lexicon.yaml`,
+  `siphonophores.bib`, `instructions.md`, and the 11 PDFs.
+  Running the demo is identical to running any other corpuscle:
+  `cd demo && corpus run`. (Or `corpus --config demo/config.yaml
+  run` from anywhere, but `cd` is the documented path so the
+  demo experience matches the real-corpus experience.)
+  `demo/output/` lands in `.gitignore` so the source repo stays
+  clean. Doubles as the smoke-test fixture (see Tests bullet
+  below).
+- **Tests pin the demo corpuscle as fixture.** `CORPUS_OUTPUT_DIR`
+  env var still works as the explicit override; default fixture
+  resolves to `demo/output/` after a clean `corpus run` against
+  `demo/`. The fixture-fallback logic in `tests/conftest.py` is
+  already close; tighten the precedence so a missing env var
+  resolves deterministically to the demo output rather than the
   legacy `output/` ambiguity.
 
 ### Auto-build, auto-detect, auto-clean
@@ -308,7 +341,7 @@ safe to embed.
 The README drifts long because operator material (remote deploy,
 on-host setup) lives next to user-onboarding material (install,
 demo walkthrough). v0.3 splits them, and rolls the surface
-collapse from §1 ("One CLI, one corpuscle per clone") through into
+collapse from §1 ("One CLI, code installed once") through into
 the docs.
 
 - **DEPLOY.md → repo root.** Sits alongside INSTALL.md (already
