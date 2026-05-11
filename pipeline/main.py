@@ -17,7 +17,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from bib import BibIndex
 
@@ -431,7 +431,9 @@ def main():
             )
 
     if args.dry_run:
-        n_would_full = n_would_partial = n_would_skip = 0
+        would_full: List[Tuple[str, str]] = []     # (filename, short_hash)
+        would_partial: List[Tuple[str, str]] = []
+        would_skip: List[Tuple[str, str]] = []
         expected_stages = _expected_stages_for_run(
             taxonomy_db=taxonomy_db,
             lexicons=lexicons,
@@ -440,31 +442,53 @@ def main():
             taxonomy_fingerprint=taxonomy_fingerprint,
             lexicon_fingerprints=lex_fingerprints,
         )
-        for h in pdf_map:
-            hd = documents_dir / short_hash(h)
+        for h, paths in pdf_map.items():
+            sh = short_hash(h)
+            hd = documents_dir / sh
+            # Use the first PDF path's basename as the human-readable label;
+            # in the rare multi-copy case the others are dedup-equivalent.
+            label = paths[0].name
+            entry = (label, sh)
             if not args.resume:
-                n_would_full += 1
+                would_full.append(entry)
                 continue
             if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
                 hd,
                 expected_stages=expected_stages,
                 expected_fingerprints=expected_fingerprints,
             ):
-                n_would_skip += 1
+                would_skip.append(entry)
             elif (hd / "summary.json").exists():
                 # Partial — per-stage guards will run only the missing stages
-                n_would_partial += 1
+                would_partial.append(entry)
             else:
-                n_would_full += 1
+                would_full.append(entry)
         logger.info(
             "Dry-run: %d unique PDF(s) in scope; would full-process %d, "
             "partial-process %d, skip %d (--resume = %s). Vision backend: %s. "
             "Grobid: %s. No files written.",
-            len(pdf_map), n_would_full, n_would_partial, n_would_skip,
+            len(pdf_map),
+            len(would_full), len(would_partial), len(would_skip),
             "on" if args.resume else "off",
             args.vision_backend or "off",
             "off (--no-grobid or empty URL)" if (args.no_grobid or not args.grobid_url) else args.grobid_url,
         )
+        # Print per-paper buckets so the operator can see exactly which
+        # files would be touched. Cap each bucket at 20 entries to keep
+        # large-corpus output bounded; sort alphabetically by filename
+        # for stable, scan-friendly output.
+        def _emit_bucket(label: str, entries: List[Tuple[str, str]]) -> None:
+            if not entries:
+                return
+            logger.info("  %s (%d):", label, len(entries))
+            cap = 20
+            for fn, sh in sorted(entries)[:cap]:
+                logger.info("    %s  (%s)", fn, sh)
+            if len(entries) > cap:
+                logger.info("    ... and %d more", len(entries) - cap)
+        _emit_bucket("would full-process", would_full)
+        _emit_bucket("would partial-process", would_partial)
+        _emit_bucket("would skip", would_skip)
         return
 
     with tempfile.TemporaryDirectory() as temp_dir:
