@@ -270,6 +270,124 @@ def main() -> int:
     return 0
 
 
+def _check_one_bundle(
+    label: str,
+    path: Path,
+    args: argparse.Namespace,
+    failures: List[str],
+) -> None:
+    """Validate one bundle directory (build or distilled). Each line is
+    prefixed with ``[<label>]`` so the dual-bundle output stays
+    attributable when both checks fire.
+
+    ``label`` is the human-readable bundle name; ``"distilled bundle"``
+    triggers manifest-required semantics, anything else (typically
+    ``"build bundle"``) treats the top-level manifest as expected-absent.
+    """
+    from pipeline.console import print_status
+
+    is_distilled = label == "distilled bundle"
+
+    # documents/ — presence + summary.json count
+    documents_dir = path / "documents"
+    if not documents_dir.is_dir():
+        print_status(
+            f"[{label}] documents/ subdir missing under {path}",
+            status="fail",
+        )
+        failures.append(f"[{label}] missing documents/")
+    else:
+        n_docs = sum(1 for p in documents_dir.iterdir() if p.is_dir())
+        n_with_summary = sum(
+            1 for p in documents_dir.iterdir()
+            if p.is_dir() and (p / "summary.json").is_file()
+        )
+        if n_docs == 0:
+            print_status(
+                f"[{label}] documents/ is empty (no per-paper subdirs)",
+                status="warn",
+            )
+        elif n_with_summary == 0:
+            print_status(
+                f"[{label}] documents/ has {n_docs} hash dirs but none "
+                "carry summary.json — bundle layout broken",
+                status="fail",
+            )
+            failures.append(f"[{label}] no summary.json")
+        else:
+            print_status(
+                f"[{label}] {n_docs} hash dirs "
+                f"({n_with_summary} with summary.json)",
+                status="ok",
+            )
+
+    # bundle_manifest.json — required for distilled, not for build
+    manifest = path / "bundle_manifest.json"
+    if is_distilled:
+        if manifest.is_file():
+            print_status(
+                f"[{label}] bundle_manifest.json present",
+                status="ok",
+            )
+        else:
+            print_status(
+                f"[{label}] bundle_manifest.json missing — distillation "
+                "incomplete. Re-run `corpus run` (it produces _serve/ "
+                "automatically) or `python -m mcpsrv.bundle <output> "
+                "<serve_dir> --version vX.Y.Z`",
+                status="warn",
+            )
+
+    # Cross-paper DBs loadable. Per-component overrides apply only to
+    # the build (primary) bundle, since ``args`` carries a single
+    # override path each — the distilled bundle always uses the default
+    # filename relative to its own root.
+    for db_label, override, default_name in [
+        ("taxonomy", args.taxonomy_db, "taxonomy.sqlite"),
+        ("biblio_authority", args.biblio_sqlite, "biblio_authority.sqlite"),
+        ("taxon_mentions", args.taxon_mention_sqlite, "taxon_mentions.sqlite"),
+    ]:
+        if override is not None and not is_distilled:
+            db_path = override
+        else:
+            db_path = path / default_name
+        if not db_path.exists():
+            print_status(
+                f"[{label}] {db_label}: not present at {db_path} — "
+                "affected MCP tools will return errors at query time",
+                status="warn",
+            )
+            continue
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            try:
+                conn.execute("SELECT 1").fetchone()
+            finally:
+                conn.close()
+            print_status(
+                f"[{label}] {db_label}: loadable ({db_path.name})",
+                status="ok",
+            )
+        except sqlite3.Error as e:
+            print_status(
+                f"[{label}] {db_label}: file present but unreadable as "
+                f"SQLite ({db_path}): {e}",
+                status="fail",
+            )
+            failures.append(f"[{label}] {db_label} unreadable")
+
+    # Vector DB
+    vector_db = path / "vector_db" / "lancedb"
+    if vector_db.is_dir():
+        print_status(f"[{label}] vector_db/lancedb: present", status="ok")
+    else:
+        print_status(
+            f"[{label}] vector_db/lancedb: absent — semantic-search "
+            "tools will return an error",
+            status="warn",
+        )
+
+
 def _serve_check(args: argparse.Namespace) -> int:
     """Serve-time pre-flight (#47).
 
@@ -285,109 +403,42 @@ def _serve_check(args: argparse.Namespace) -> int:
 
     failures: List[str] = []
 
-    # 1. Bundle layout (output_dir + documents/ + at least one summary.json)
+    # 1. Bundle layout — `corpus run` produces two bundles: the build
+    # bundle at <output_dir>/ (everything `corpus run` writes) and the
+    # distilled bundle at <output_dir>/_serve/ (subset shipped to remote
+    # hosts; carries bundle_manifest.json). Validate whichever ones
+    # exist, and tell the user when one is missing.
     if not args.output_dir.exists():
         print_status(f"output_dir not found: {args.output_dir}", status="fail")
         failures.append(f"output_dir does not exist: {args.output_dir}")
     else:
-        documents_dir = args.output_dir / "documents"
-        if not documents_dir.is_dir():
-            print_status(
-                f"documents/ subdir missing under {args.output_dir} — not a "
-                "corpus output tree (or bundle layout is wrong)",
-                status="fail",
-            )
-            failures.append("missing documents/")
+        build_dir = args.output_dir
+        serve_dir = build_dir / "_serve"
+
+        # Heuristic: if the user pointed straight at a distilled bundle
+        # (basename `_serve` or a top-level manifest exists), there is
+        # no nested `_serve/` to also check; treat as single-bundle.
+        is_already_serve = (
+            build_dir.name == "_serve"
+            or (build_dir / "bundle_manifest.json").is_file()
+        )
+
+        if is_already_serve:
+            _check_one_bundle("distilled bundle", build_dir, args, failures)
         else:
-            n_docs = sum(1 for p in documents_dir.iterdir() if p.is_dir())
-            n_with_summary = sum(
-                1 for p in documents_dir.iterdir()
-                if p.is_dir() and (p / "summary.json").is_file()
-            )
-            if n_docs == 0:
-                print_status("documents/ is empty (no per-paper subdirs)",
-                             status="warn")
-            elif n_with_summary == 0:
-                print_status(
-                    f"documents/ has {n_docs} hash dirs but none carry "
-                    "summary.json — bundle distillation may be incomplete",
-                    status="fail",
-                )
-                failures.append("no summary.json found")
+            _check_one_bundle("build bundle", build_dir, args, failures)
+            if serve_dir.is_dir():
+                _check_one_bundle("distilled bundle", serve_dir, args, failures)
             else:
                 print_status(
-                    f"bundle: {n_docs} hash dirs ({n_with_summary} with summary.json)",
-                    status="ok",
+                    "distilled bundle (./_serve/) not found — local serving "
+                    "works off the build bundle, but remote deploys ship the "
+                    "_serve/ tree. `corpus run` produces both; re-run if the "
+                    "missing _serve is unexpected, or build it manually with "
+                    "`python -m mcpsrv.bundle <output> <serve_dir> "
+                    "--version vX.Y.Z`.",
+                    status="warn",
                 )
-
-        manifest = args.output_dir / "bundle_manifest.json"
-        serve_manifest = args.output_dir / "_serve" / "bundle_manifest.json"
-        if manifest.is_file():
-            # The output_dir we were pointed at is itself a distilled
-            # served bundle (e.g. shipped from another host).
-            print_status(
-                "bundle_manifest.json present — serving a distilled bundle",
-                status="ok",
-            )
-        elif serve_manifest.is_file():
-            # We are serving the build bundle, but `corpus run` did
-            # also produce a distilled bundle next to it. Both options
-            # are valid; this is the expected local-build state.
-            print_status(
-                "build bundle has no top-level manifest (expected); a "
-                "distilled bundle is also available at ./_serve/ "
-                "(for shipping the corpus to a different host)",
-                status="ok",
-            )
-        else:
-            # No manifest anywhere — `corpus run` either skipped or
-            # failed the distillation step.
-            print_status(
-                "no bundle_manifest.json here and no ./_serve/ distilled "
-                "bundle either — `corpus run` should have produced one. "
-                "Re-run, or distill manually with `python -m mcpsrv.bundle "
-                "<output> <serve_dir> --version vX.Y.Z`",
-                status="warn",
-            )
-
-    # 2. Cross-paper DBs loadable
-    for label, override, default_name in [
-        ("taxonomy", args.taxonomy_db, "taxonomy.sqlite"),
-        ("biblio_authority", args.biblio_sqlite, "biblio_authority.sqlite"),
-        ("taxon_mentions", args.taxon_mention_sqlite, "taxon_mentions.sqlite"),
-    ]:
-        path = override or (args.output_dir / default_name)
-        if not path.exists():
-            print_status(
-                f"{label}: not present at {path} — affected MCP tools "
-                "will return errors at query time",
-                status="warn",
-            )
-            continue
-        try:
-            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-            try:
-                conn.execute("SELECT 1").fetchone()
-            finally:
-                conn.close()
-            print_status(f"{label}: loadable ({path.name})", status="ok")
-        except sqlite3.Error as e:
-            print_status(
-                f"{label}: file present but unreadable as SQLite ({path}): {e}",
-                status="fail",
-            )
-            failures.append(f"{label} unreadable")
-
-    # 3. Vector DB
-    vector_db = args.output_dir / "vector_db" / "lancedb"
-    if vector_db.is_dir():
-        print_status(f"vector_db/lancedb: present", status="ok")
-    else:
-        print_status(
-            "vector_db/lancedb: absent — semantic-search tools will return "
-            "an error. Re-run `corpus run` after `pipeline.embed` populates it.",
-            status="warn",
-        )
 
     # 4. Instructions readable (if specified or default exists)
     instructions = args.instructions or (args.output_dir / "instructions.md")
