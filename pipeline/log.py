@@ -44,7 +44,12 @@ def setup_root_logging(level: int | None = None) -> None:
         if isinstance(h, logging.StreamHandler) and getattr(h, "_corpus_stream", False):
             return
     sh = logging.StreamHandler()
-    sh.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    # Match the format used by every other pipeline.* entry point's
+    # basicConfig (orchestrator, taxonomy_ingest, embed, ...) so log
+    # output is consistent across parent CLI and subprocess.
+    sh.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
     sh._corpus_stream = True  # marker so we don't re-add on repeated calls
     root.addHandler(sh)
 
