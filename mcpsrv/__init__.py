@@ -12,6 +12,17 @@ implementation is split per-concern across submodules:
 * :mod:`mcpsrv.transport` — bearer-auth ASGI middleware + SSE runner
 * :mod:`mcpsrv.main` — argparse + index construction + transport dispatch
 """
-from .main import main
+# Honor CORPUS_LOG_LEVEL env var before any submodule's basicConfig
+# runs (see pipeline/__init__.py for the rationale).
+import logging as _logging  # noqa: E402
+import os as _os  # noqa: E402
+_log_level = _os.environ.get("CORPUS_LOG_LEVEL", "").upper()
+if _log_level in {"WARNING", "INFO", "DEBUG"}:
+    _logging.basicConfig(
+        level=getattr(_logging, _log_level),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
+from .main import main  # noqa: E402
 
 __all__ = ["main"]

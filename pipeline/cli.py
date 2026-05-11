@@ -901,19 +901,31 @@ def _print_citation(fmt: str) -> int:
 
 
 def _setup_logging(args: argparse.Namespace) -> None:
-    """Wire root logging from -v/-vv/-q (#61)."""
+    """Wire root logging from -v/-vv/-q.
+
+    Also exports CORPUS_LOG_LEVEL into the environment so subprocesses
+    (orchestrator + downstream modules, mcpsrv, bib) honor the same
+    threshold via each package's __init__.py — without this, `-q`
+    quiets only this CLI process and not the subprocess tree it spawns.
+    """
     if args.quiet:
         level = logging.WARNING
+        env_level = "WARNING"
     elif args.verbose >= 2:
         level = logging.DEBUG
+        env_level = "DEBUG"
     elif args.verbose == 1:
         level = logging.INFO
+        env_level = "INFO"
     else:
         level = logging.WARNING
+        env_level = None  # leave subprocesses at their existing default
     logging.basicConfig(
         level=level,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    if env_level is not None:
+        os.environ["CORPUS_LOG_LEVEL"] = env_level
 
 
 def _build_parser() -> argparse.ArgumentParser:

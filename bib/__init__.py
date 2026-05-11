@@ -11,13 +11,24 @@ Three sibling modules that already share state, now grouped:
 Top-level CLIs (``bib_export.py``, ``bib_import.py``) stay at the repo
 root as thin ``__main__`` shims that delegate here.
 """
-from .parser import (
+# Honor CORPUS_LOG_LEVEL env var before any submodule's basicConfig
+# runs (see pipeline/__init__.py for the rationale).
+import logging as _logging  # noqa: E402
+import os as _os  # noqa: E402
+_log_level = _os.environ.get("CORPUS_LOG_LEVEL", "").upper()
+if _log_level in {"WARNING", "INFO", "DEBUG"}:
+    _logging.basicConfig(
+        level=getattr(_logging, _log_level),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
+from .parser import (  # noqa: E402
     BibIndex,
     bib_entry_to_metadata,
     parse_bibtex,
 )
-from .export import export_bibtex
-from .importer import import_bibtex
+from .export import export_bibtex  # noqa: E402
+from .importer import import_bibtex  # noqa: E402
 
 __all__ = [
     "BibIndex",

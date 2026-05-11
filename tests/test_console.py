@@ -9,6 +9,7 @@ sufficient for visual verification of that path.
 from __future__ import annotations
 
 import io
+import logging
 from contextlib import redirect_stdout
 
 from pipeline import console as console_mod
@@ -21,6 +22,10 @@ def test_console_is_not_terminal_under_pytest():
 
 
 def test_print_status_ascii_fallback_uses_bracket_tags():
+    # print_status gates `ok`/`info` on the root logger level (so
+    # `corpus -q` suppresses progress chatter), so set INFO here to
+    # exercise all four sigils.
+    logging.getLogger().setLevel(logging.INFO)
     buf = io.StringIO()
     with redirect_stdout(buf):
         print_status("packaging done", status="ok")
@@ -33,6 +38,25 @@ def test_print_status_ascii_fallback_uses_bracket_tags():
     assert "[warn] vision skipped" in out
     assert "[fail] config error" in out
     assert "[info] starting embed batch" in out
+
+
+def test_print_status_suppresses_info_and_ok_when_root_level_is_warning():
+    """Mirrors the `corpus -q` UX: quiet mode (root level = WARNING)
+    drops ok/info chatter while still surfacing warn/fail."""
+    logging.getLogger().setLevel(logging.WARNING)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        print_status("packaging done", status="ok")
+        print_status("starting embed batch", status="info")
+        print_status("vision skipped", status="warn")
+        print_status("config error", status="fail")
+    out = buf.getvalue()
+    assert "packaging done" not in out
+    assert "starting embed batch" not in out
+    assert "[warn] vision skipped" in out
+    assert "[fail] config error" in out
+    # Restore for the rest of the suite.
+    logging.getLogger().setLevel(logging.INFO)
 
 
 def test_progress_disabled_off_tty_completes_cleanly():

@@ -16,6 +16,7 @@ bool, hidden Progress when not a TTY.
 """
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from typing import Iterator, Literal, Optional
 
@@ -53,6 +54,14 @@ _STATUS_STYLE = {
 }
 
 
+_STATUS_THRESHOLD = {
+    "ok": logging.INFO,
+    "info": logging.INFO,
+    "warn": logging.WARNING,
+    "fail": logging.ERROR,
+}
+
+
 def print_status(message: str, status: _Status = "info") -> None:
     """Print ``message`` prefixed with the configured status symbol.
 
@@ -62,8 +71,17 @@ def print_status(message: str, status: _Status = "info") -> None:
     brackets in the body (e.g. ``[build bundle] ...``) are escaped
     before being handed to rich so they aren't interpreted as markup
     tags and silently dropped from terminal output.
+
+    Respects the root logger's effective level: an ``info``/``ok``
+    line is suppressed when the root level is WARNING or above
+    (so ``corpus -q ...`` doesn't print the CLI's own progress
+    chatter), while ``warn``/``fail`` lines always fire.
     """
     from rich.markup import escape as _rich_escape
+
+    threshold = _STATUS_THRESHOLD[status]
+    if logging.getLogger().getEffectiveLevel() > threshold:
+        return
 
     sym = _symbol(status)
     if console.is_terminal:
