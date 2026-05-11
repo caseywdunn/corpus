@@ -919,7 +919,15 @@ def _setup_logging(args: argparse.Namespace) -> None:
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="corpus",
-        description="MCP server for taxonomic literature corpora.",
+        description=(
+            "Top-level orchestrator for a corpus instance — a 'corpuscle' "
+            "assembled from a folder of scientific PDFs. Scaffolds the "
+            "corpuscle's config, runs the full extraction + embedding + "
+            "cross-paper pipeline, and serves the result as a Model Context "
+            "Protocol (MCP) server that LLM clients (Claude Desktop, Claude "
+            "Code, claude.ai, Cursor) can query. "
+            "Run `corpus <command> --help` for details on any subcommand."
+        ),
     )
     # --version (#58 + #61): includes git SHA on dev clones.
     p.add_argument(
@@ -962,6 +970,14 @@ def _build_parser() -> argparse.ArgumentParser:
     init_p = sub.add_parser(
         "init",
         help="Scaffold config.yaml in cwd from the bundled template",
+        description=(
+            "Scaffold config.yaml in the current directory from the "
+            "bundled template. Run once per new corpuscle, then edit the "
+            "file to point at your PDFs, optional BibTeX, optional "
+            "lexicon, and a taxonomy source (WoRMS / DwC-A). After that, "
+            "`corpus check` validates the config and `corpus run` executes "
+            "the pipeline."
+        ),
     )
     init_p.add_argument("--path", type=Path, default=None)
     init_p.add_argument("--force", action="store_true")
@@ -971,6 +987,16 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p = sub.add_parser(
         "run",
         help="Full pipeline: extract → embed → cross-paper builds → bundle",
+        description=(
+            "Run the full corpus build pipeline end-to-end against the "
+            "PDFs in `input_pdfs`. Stages: per-paper extraction (OCR if "
+            "needed, docling layout, Grobid metadata, chunking, taxa + "
+            "lexicon tagging) → BGE-M3 embeddings into LanceDB → cross-"
+            "paper bibliography reconciliation + taxon-mention rollup → "
+            "distillation of a served bundle at <output_dir>/_serve/. "
+            "Idempotent: a re-run only re-processes papers whose inputs "
+            "have changed."
+        ),
     )
     run_p.add_argument("--dry-run", action="store_true",
                        help="Plan only — no artifacts written")
@@ -1016,8 +1042,26 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- status ---
     status_p = sub.add_parser(
         "status",
-        help="Build-state rollup + report (#57). Extra flags forwarded "
-        "to pipeline.status (--report, --json, --sort-by, etc.).",
+        help="Postmortem report on the build state of a corpuscle.",
+        description=(
+            "Read-only postmortem of a built corpuscle: stage success "
+            "rates, per-paper failures grouped by reason code, quality-"
+            "flag rollup, cross-paper artifact presence (taxonomy / "
+            "biblio / taxon-mentions SQLite), and triage modes. Reads "
+            "<output_dir>/documents/*/summary.json and cross-paper "
+            "SQLite; writes nothing."
+        ),
+        epilog=(
+            "Forwarded flags (see `python -m pipeline.status --help`):\n"
+            "  --report               full text report (default rollup is short)\n"
+            "  --json                 emit the rollup as JSON\n"
+            "  --sort-by <metric>     worst-N papers; pair with --tail\n"
+            "  --propose-skips        BibTeX-ready `serve = {false}` candidates\n"
+            "  --skipped              currently-excluded papers, grouped by reason\n"
+            "  --list-hashes          one short hash per line (xargs-friendly)\n"
+            "  --filter-{stage,reason,gate} <name>   narrow the set"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     status_p.add_argument(
         "--output-dir", type=Path, default=None,
@@ -1028,21 +1072,77 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- serve ---
     serve_p = sub.add_parser(
         "serve",
-        help="MCP server. Extra flags forwarded to mcpsrv.main "
-        "(--transport, --host, --port, --auth-token-file, etc.).",
+        help="Serve the built corpus as a Model Context Protocol server.",
+        description=(
+            "Serve the built corpuscle as a Model Context Protocol (MCP) "
+            "server. Default transport is stdio — meant for an MCP "
+            "client (Claude Desktop, Claude Code, Cursor) that launches "
+            "this process itself. For remote deploys or manual curl "
+            "testing, pass `--transport sse --host <ip> --port <port> "
+            "--auth-token-file <file>`. The server reads the build "
+            "bundle at `output_dir` (from config.yaml) by default; point "
+            "at `<output_dir>/_serve/` to serve a distilled bundle "
+            "directly."
+        ),
+        epilog=(
+            "Forwarded flags (see `python -m mcpsrv.main --help`):\n"
+            "  --transport {stdio,sse}        default: stdio\n"
+            "  --host <ip>                    SSE bind address; default 127.0.0.1\n"
+            "  --port <n>                     SSE bind port; default 8080\n"
+            "  --auth-token-file <path>       bearer token (required for SSE)\n"
+            "  --instructions <path>          override the per-corpuscle nudges\n"
+            "  --taxonomy-db / --biblio-sqlite / --taxon-mention-sqlite <path>\n"
+            "                                 per-component DB overrides\n"
+            "  --check                        non-binding pre-flight + exit\n"
+            "  --name <id>                    server name reported to MCP clients\n"
+            "  --allow-unpublishable          bypass figure-licensing gate"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     serve_p.add_argument("--output-dir", type=Path, default=None)
     serve_p.set_defaults(func=_cmd_serve)
 
     # --- bib (export | import) ---
-    bib_p = sub.add_parser("bib", help="BibTeX round-trip")
+    bib_p = sub.add_parser(
+        "bib",
+        help="Export / import the corpus bibliography for hand curation.",
+        description=(
+            "Round-trip the corpus bibliography through BibTeX so you "
+            "can curate it in your editor of choice. `corpus bib export` "
+            "writes the current `biblio_authority.sqlite` to a `.bib` "
+            "file with stable `corpus_hash` keys; edit titles, authors, "
+            "years, or the `serve = {false}` skip flag as you would any "
+            "BibTeX file; `corpus bib import` reads the edits back into "
+            "the authority DB. Use this to iteratively refine "
+            "bibliographic metadata when Grobid mis-parses an unusual "
+            "layout."
+        ),
+    )
     bib_sub = bib_p.add_subparsers(dest="bib_command", metavar="{export,import}")
 
-    bib_export_p = bib_sub.add_parser("export")
+    bib_export_p = bib_sub.add_parser(
+        "export",
+        help="Dump biblio_authority.sqlite to a .bib file.",
+        description=(
+            "Dump the current `biblio_authority.sqlite` to a BibTeX file. "
+            "Forwards to `python -m bib.export`; pass `-o <path>` to "
+            "choose the output file (default: stdout)."
+        ),
+    )
     bib_export_p.add_argument("--output-dir", type=Path, default=None)
     bib_export_p.set_defaults(func=_cmd_bib_export)
 
-    bib_import_p = bib_sub.add_parser("import")
+    bib_import_p = bib_sub.add_parser(
+        "import",
+        help="Re-apply hand-edited BibTeX entries back into the authority DB.",
+        description=(
+            "Read a hand-curated BibTeX file and apply the edits back "
+            "into `biblio_authority.sqlite`. Matches entries by their "
+            "`corpus_hash` field (DOI as a fallback) so renamed entries "
+            "and re-builds don't break the round-trip. Pass the .bib "
+            "file as the first positional argument."
+        ),
+    )
     bib_import_p.add_argument("--output-dir", type=Path, default=None)
     bib_import_p.set_defaults(func=_cmd_bib_import)
 
@@ -1051,17 +1151,32 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- check (#62) ---
     check_p = sub.add_parser(
         "check",
-        help="Environment + config pre-flight: validates config.yaml + "
-        "probes GPU / Grobid / ANTHROPIC_API_KEY / disk space.",
+        help="Pre-flight: can this host run `corpus run` successfully?",
+        description=(
+            "Pre-flight check: does this host have what `corpus run` "
+            "will need? Validates config.yaml against the schema, "
+            "probes for Grobid reachability, GPU/MPS availability, "
+            "ANTHROPIC_API_KEY presence, and disk space. Exits 0 on "
+            "green, 2 on config error, 3 on environment precondition "
+            "failure. Distinct from `corpus serve --check` (which is a "
+            "serve-time bundle pre-flight) and `corpus run --dry-run` "
+            "(which prints the work plan)."
+        ),
     )
     check_p.set_defaults(func=_cmd_check)
 
     # --- completion (#61) ---
     comp_p = sub.add_parser(
         "completion",
-        help="Generate a shell completion script — pipe into your dotfiles "
-        "(e.g. `corpus completion bash > ~/.local/share/corpus.bash; "
-        "echo 'source ~/.local/share/corpus.bash' >> ~/.bashrc`)",
+        help="Emit a shell-completion script for bash/zsh/fish.",
+        description=(
+            "Emit a shell-completion script to stdout for the given "
+            "shell. Pipe it into your dotfiles for tab-completion of "
+            "corpus subcommands and their options. Example:\n\n"
+            "  corpus completion bash > ~/.local/share/corpus.bash\n"
+            "  echo 'source ~/.local/share/corpus.bash' >> ~/.bashrc"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     comp_p.add_argument("shell", choices=["bash", "zsh", "fish"])
     comp_p.set_defaults(func=_cmd_completion)
