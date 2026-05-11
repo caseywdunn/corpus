@@ -89,6 +89,53 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
    `"0.3.0.dev0"` — PEP 440 suffix) and open a new `## [Unreleased]`
    section in `CHANGELOG.md`.
 
+Worked example — releasing `vX.Y.Z` end-to-end from the shell. Run
+each block separately and read the output; don't paste end-to-end.
+
+```bash
+# Pre-flight: tests green and the smoke walkthrough still works.
+python -m pytest tests/ -q
+corpus --version           # confirm `pip install -e .` is current
+# (optionally) re-run dev_docs/clean_install_walkthrough.sh against a
+# scratch corpus to catch CLI-affecting regressions.
+
+# 1. On dev, bump version + date the CHANGELOG entry.
+git checkout dev && git pull --ff-only
+$EDITOR pipeline/version.py    # "X.Y.Z.devN"  → "X.Y.Z"
+$EDITOR CHANGELOG.md           # "## [Unreleased]" → "## [X.Y.Z] - YYYY-MM-DD"
+git add pipeline/version.py CHANGELOG.md
+git commit -m "release: vX.Y.Z"
+git push origin dev
+
+# 2. Merge dev → main (no fast-forward so the merge commit marks the release).
+git checkout main && git pull --ff-only
+git merge --no-ff dev -m "Release vX.Y.Z"
+git push origin main
+
+# 3. Tag from main; the tag name MUST match __version__ modulo the leading `v`.
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+
+# 4. Publish the GitHub release. --notes-from-tag would dump the tag
+#    annotation; we want the CHANGELOG section instead. Use --notes-file
+#    pointed at a temp file you extracted from CHANGELOG.md.
+awk '/^## \[X\.Y\.Z\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > /tmp/notes.md
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/notes.md
+
+# 5. New major only — create the v(N-1) maintenance branch from the
+#    previous major's tag so post-release fixes have a home (#48).
+#    Skip for minor/patch bumps within an existing major.
+# git checkout v0.last && git checkout -b v0 && git push origin v0
+
+# 6. Back on dev, open the next pre-release.
+git checkout dev
+$EDITOR pipeline/version.py   # bump to "X.Y+1.0.dev0" (or major+1)
+$EDITOR CHANGELOG.md          # insert a fresh "## [Unreleased]" block
+git add pipeline/version.py CHANGELOG.md
+git commit -m "post-release: bump dev to X.Y+1.0.dev0"
+git push origin dev
+```
+
 ### Versioning
 
 [pipeline/version.py](pipeline/version.py) is the single source of truth for the code

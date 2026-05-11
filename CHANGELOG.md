@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-05-11
 
 ### Breaking changes
 
@@ -84,6 +84,144 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `requirements.txt` is retained for the AWS deploy parity per
   [CONTRIBUTING.md](CONTRIBUTING.md) §"Dependencies — two files, on
   purpose"; both manifests must stay in sync.
+
+#### UX polish from the clean-install walkthrough
+
+A second pass over operator-facing output, surfaced by running
+[dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh)
+on a fresh EC2 box from zero PDFs to a serving MCP endpoint. Each
+change below traces back to a confusing moment in that exercise.
+
+- **Per-paper roadsigns in `corpus run` output.** Banner block at
+  the top of each paper (`[N/M] Filename.pdf (shorthash)`); every
+  per-stage line inside `pipeline.runner` is prefixed with the same
+  `[<stem>]` tag via a `LoggerAdapter`. Docling's per-document
+  banners (`Processing document processed.pdf` /
+  `Finished converting document processed.pdf in N sec`) get the
+  same `[Filename.pdf (shorthash)]` annotation via a scoped
+  `logging.Filter`, since every PDF is staged under the literal
+  `processed.pdf` name before docling sees it.
+- **Unified `Filename.pdf (shorthash)` convention.** Every operator-
+  facing site that pairs a paper's filename with its hash now uses
+  the same single-space `(...)` form: `corpus run` banners,
+  `corpus status --sort-by`, `corpus status --propose-skips`, the
+  dry-run bucket lists. The `hash X` / `[for X, hash Y]` variants
+  are gone.
+- **`corpus run --dry-run` names which papers fall in each bucket.**
+  Three buckets — `would full-process`, `would partial-process`,
+  `would skip` — each lists its members (capped at 20 per bucket
+  with `... and N more`). Operators on a 200-paper refresh can
+  now confirm the delta before committing CPU.
+- **`corpus run --dry-run` ends with a dry-run-aware success line.**
+  No more "run complete. Try `corpus serve` next." after a plan-
+  only invocation that wrote nothing.
+- **`corpus status --report` legibility.** Stage-completion bars now
+  carry a `0% / 50% / 100%` scale axis above them, so a wall of
+  100% bars actually reads as 100%. Quality flags get a per-gate
+  explainer (one paragraph of operator-facing prose pulled from a
+  module-level `_GATE_INFO` dict) plus severity and a follow-up
+  command (`corpus status --filter-gate <name>`); the old output
+  was just `<gate_id>  <count>`. Affected papers in `--sort-by` /
+  `--propose-skips` outputs are surfaced by filename, not bare hash.
+- **`corpus serve --check` validates both bundles.** Refactored
+  into `_check_one_bundle(label, path, ...)` and dispatched twice
+  when both `<output_dir>/` (build) and `<output_dir>/_serve/`
+  (distilled) exist. Each line is prefixed `[build bundle]` /
+  `[distilled bundle]` so the operator can attribute a failure
+  to the right tree. Missing `_serve/` is now an explicit warn line
+  instead of a silent gap. The `bundle_manifest.json` check now
+  varies by bundle type (required-for-distilled, expected-absent-
+  for-build) instead of the previous one-size-fits-all warning that
+  fired on every healthy local build.
+- **`corpus --help` and per-verb help.** Each subcommand parser now
+  has an operator-facing `description=` paragraph; the passthrough
+  verbs (`status`, `serve`) also have `epilog=` blocks that list the
+  forwarded flags (`--transport`, `--port`, `--auth-token-file`,
+  `--report`, `--json`, `--sort-by`, …) — argparse can't introspect
+  the downstream module, so they used to be invisible from `--help`.
+- **`corpus -q` quiets the whole subprocess tree.** Previously,
+  `-q` set the parent CLI's log level to WARNING but the actual
+  chatter came from `pipeline.orchestrator` and its sub-
+  subprocesses, each of which configured its own logger at INFO.
+  Verbosity now propagates via a `CORPUS_LOG_LEVEL` env var that
+  every package `__init__.py` honors at import time
+  (`logging.basicConfig` is a no-op after the first call, so
+  configuring at package-import-time wins before any module's own
+  setup runs — no per-module refactor needed). `print_status` also
+  gates `ok`/`info` lines on the root logger level, so quiet mode
+  silences the CLI's own progress sigils too. Result on a 12-paper
+  exercise: `corpus -q run --dry-run` now produces 1 log line
+  instead of ~30.
+- **`taxonomy_ingest` no longer looks hung.** The WoRMS walker
+  now logs every 25 records with a running rate (`worms: 250
+  records walked (2.3/s)`), and the opener flags the rate-limit
+  + expected duration (`large subtrees can take 10+ minutes`)
+  instead of emitting a single "Walking WoRMS from AphiaID X ..."
+  line and blocking for minutes with no further output.
+- **`corpus status --report` quality-flag follow-up.** Affected
+  papers can be listed with the printed-inline
+  `corpus status --filter-gate <name>` command.
+- **Log format unified.** Three modules
+  (`pipeline/log.py::setup_root_logging`, `pipeline/embed.py`,
+  `pipeline/status.py`) had drifted from
+  `%(asctime)s %(levelname)s %(name)s: %(message)s` to a
+  timestampless variant, so subprocess output lost its timestamps
+  partway through a single `corpus run`. All sites now consistent.
+- **`print_status` escapes rich markup in caller messages.**
+  Labels like `[build bundle]` were silently dropped on a TTY
+  because `rich` interpreted them as style tags; now escaped via
+  `rich.markup.escape()`. The off-TTY (plain `print()`) branch
+  was already safe.
+- **`config.template.yaml` taxonomy block ships commented out.**
+  A new corpuscle from `corpus init` no longer hard-codes the
+  Siphonophorae example as the default `taxonomy.source` /
+  `root_id`; the operator uncomments and picks. The README's
+  taxonomy section was expanded with a per-source comparison
+  table (`worms` / `dwca` / `dwc`) and the worked example was
+  demoted to a code-comment example.
+- **Docker called out as a prerequisite in the README.**
+  Linked the official install docs + the `apt install docker.io`
+  one-liner; the prior copy went straight into
+  `docker compose up -d grobid` with no setup advice.
+- **`corpus bib export/import` and `corpus serve` no longer print
+  a `runpy` warning.** `bib/__init__.py` and `mcpsrv/__init__.py`
+  used to eagerly import their `__main__`-runnable submodules,
+  which trips a runpy warning when those modules are then invoked
+  as `python -m bib.export` / `python -m mcpsrv.main`. Switched
+  the at-risk imports to lazy module-level `__getattr__`.
+- **Filenames alongside hashes throughout.** A new
+  `filename_by_hash` map in the `corpus status` rollup, plus
+  `_label_for_paper()` helper, surfaces the original filename
+  next to the short hash in every human-readable rendering.
+  `--list-hashes` stays bare (it's the xargs-friendly programmatic
+  interface).
+
+### Fixed
+
+- **WoRMS AphiaID 1267 was Cnidaria, not Siphonophorae.** The
+  README, demo config, and config template all asserted that
+  `root_id: 1267` was the order Siphonophorae. It is the phylum
+  Cnidaria. Anyone running the demo or copying the example was
+  kicking off a BFS walk of all of Cnidaria (~25k+ taxa, ~8–10
+  hours at the 0.3s WoRMS rate-limit) instead of Siphonophorae
+  (~700–1000 taxa, ~10–15 min). Real AphiaID is `1371`; verified
+  against the WoRMS REST API.
+- **lancedb `Connection.table_names()` deprecation.** Swept six
+  call sites (`pipeline/embed.py`, `pipeline/io.py`,
+  `mcpsrv/bundle.py`, `mcpsrv/indexes.py`) to `list_tables()`.
+  Verified with `-W error::DeprecationWarning` on the embed /
+  bundle / indexes / io test suites.
+
+### Added
+
+- **[dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh)** —
+  copy-paste UX walkthrough: fresh conda env → editable install →
+  tessdata + grobid → `corpus init` → run → status → SSE serve
+  smoke-test with bearer auth → add more PDFs → re-run idempotently
+  → tour `--help` / `--cite` / `--version` / every `--dry-run`
+  variant / `bib export-import` / `completion` / the underlying
+  `python -m` entries. Reference for re-running after CLI-
+  affecting changes.
 
 ## [0.2.0] - 2026-05-08
 
