@@ -321,14 +321,32 @@ def _serve_check(args: argparse.Namespace) -> int:
                 )
 
         manifest = args.output_dir / "bundle_manifest.json"
+        serve_manifest = args.output_dir / "_serve" / "bundle_manifest.json"
         if manifest.is_file():
-            print_status(f"bundle_manifest.json present", status="ok")
-        else:
-            # Local builds typically lack a manifest; that's OK.
+            # The output_dir we were pointed at is itself a distilled
+            # served bundle (e.g. shipped from another host).
             print_status(
-                "bundle_manifest.json absent — fine for local builds; "
-                "produce one with `python -m mcpsrv.bundle <output> "
-                "<serve_dir> --version vX.Y.Z` for remote serving",
+                "bundle_manifest.json present — serving a distilled bundle",
+                status="ok",
+            )
+        elif serve_manifest.is_file():
+            # We are serving the build bundle, but `corpus run` did
+            # also produce a distilled bundle next to it. Both options
+            # are valid; this is the expected local-build state.
+            print_status(
+                "build bundle has no top-level manifest (expected); a "
+                "distilled bundle is also available at ./_serve/ "
+                "(for shipping the corpus to a different host)",
+                status="ok",
+            )
+        else:
+            # No manifest anywhere — `corpus run` either skipped or
+            # failed the distillation step.
+            print_status(
+                "no bundle_manifest.json here and no ./_serve/ distilled "
+                "bundle either — `corpus run` should have produced one. "
+                "Re-run, or distill manually with `python -m mcpsrv.bundle "
+                "<output> <serve_dir> --version vX.Y.Z`",
                 status="warn",
             )
 
