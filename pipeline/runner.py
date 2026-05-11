@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -61,6 +62,60 @@ class _PaperLogAdapter(logging.LoggerAdapter):
 
     def process(self, msg, kwargs):
         return f"[{self.extra['pdf']}] {msg}", kwargs
+
+
+@contextmanager
+def _docling_log_context(pdf_name: str, short_hash: str):
+    """Annotate docling's per-document banner lines with the paper they
+    refer to.
+
+    Every PDF is staged under ``<hash_dir>/processed.pdf`` before being
+    handed to docling, so docling logs identical
+    ``Processing document processed.pdf`` /
+    ``Finished converting document processed.pdf in N sec``
+    lines for every paper in a batch. When ten of those interleave with
+    docling's model-loading chatter, operators can't tell which paper
+    each pertains to.
+
+    Install a record-mutating filter on every root handler for the
+    duration of the docling call; remove it on exit. We only mutate
+    records whose formatted message contains the literal banner —
+    docling's generic chatter (model downloads, factory initialization)
+    is untouched.
+    """
+    annotation = f"  [for {pdf_name}.pdf, hash {short_hash}]"
+
+    class _Filter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            try:
+                msg = record.getMessage()
+            except Exception:
+                return True
+            if (
+                "Processing document processed.pdf" in msg
+                or "Finished converting document processed.pdf" in msg
+            ):
+                # Lock in the already-substituted message and append the
+                # annotation; clearing args prevents the handler from
+                # re-applying %-formatting on the now-literal string.
+                record.msg = msg + annotation
+                record.args = ()
+            return True
+
+    filt = _Filter()
+    # Attach to root-level handlers: docling's submodule records
+    # propagate up through the root logger, and handlers there run
+    # their .filter() on every record they receive (including
+    # propagated ones). Logger-level filters wouldn't suffice — those
+    # only fire for records originated at that logger.
+    handlers = list(logging.getLogger().handlers)
+    for h in handlers:
+        h.addFilter(filt)
+    try:
+        yield
+    finally:
+        for h in handlers:
+            h.removeFilter(filt)
 
 
 def run_pdf_processing_pipeline(
@@ -155,15 +210,16 @@ def run_pdf_processing_pipeline(
                              resume=resume, processing_summary=processing_summary):
             with _stage(processing_summary, "docling_extraction", hash_dir=hash_dir):
                 plog.info("Extracting text and figures...")
-                extract_docling_content(
-                    processed_pdf,
-                    text_file,
-                    figures_file,
-                    figures_dir,
-                    visualizations_dir,
-                    docling_doc_output=docling_doc_file,
-                    scan_file_type=detection_result.get("file_type"),
-                )
+                with _docling_log_context(pdf_name, hash_dir.name):
+                    extract_docling_content(
+                        processed_pdf,
+                        text_file,
+                        figures_file,
+                        figures_dir,
+                        visualizations_dir,
+                        docling_doc_output=docling_doc_file,
+                        scan_file_type=detection_result.get("file_type"),
+                    )
                 processing_summary["files_created"].extend([str(text_file), str(figures_file)])
                 if docling_doc_file.exists():
                     processing_summary["files_created"].append(str(docling_doc_file))
