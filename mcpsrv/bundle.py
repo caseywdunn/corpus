@@ -268,7 +268,7 @@ def _drop_chunks_for_hashes(vdb_path: Path, hashes: set) -> int:
         return 0
     try:
         db = lancedb.connect(str(vdb_path))
-        if "document_chunks" not in db.table_names():
+        if "document_chunks" not in db.list_tables():
             return 0
         table = db.open_table("document_chunks")
         # The schema's hash column is nested as ``metadata.pdf_hash``

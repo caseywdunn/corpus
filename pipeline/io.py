@@ -129,7 +129,7 @@ def prune_orphans(
             try:
                 import lancedb  # type: ignore
                 db = lancedb.connect(str(vector_db_path))
-                if "document_chunks" in db.table_names():
+                if "document_chunks" in db.list_tables():
                     table = db.open_table("document_chunks")
                     surviving_hashes = doc_hashes - set(doc_orphans)
                     if surviving_hashes:
@@ -213,7 +213,7 @@ def audit_orphans(input_dir: Path, output_dir: Path) -> int:
         try:
             import lancedb  # type: ignore
             db = lancedb.connect(str(vector_db_path))
-            if "document_chunks" in db.table_names():
+            if "document_chunks" in db.list_tables():
                 table = db.open_table("document_chunks")
                 # Schema: pipeline/embed.py:ChunkMetadata stores the
                 # hash as ``metadata.pdf_hash`` (nested), not a flat
