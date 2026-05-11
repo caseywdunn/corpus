@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (carried from 0.3.1)
+
+- See the `## [0.3.1] - 2026-05-11` section below for the
+  `get_figure_url` fix (cherry-picked into dev so the v0.4 cycle
+  inherits it).
+
+## [0.3.1] - 2026-05-11
+
+### Fixed
+
+- **MCP figure-byte regression from v0.1 — figures now embeddable
+  into operator-generated PDFs again**
+  ([#69](https://github.com/caseywdunn/corpus/issues/69)).
+  `get_figure_image` (introduced in v0.2.0) returns bytes through
+  the MCP SDK's `Image()` content channel, which clients render
+  inline for the human reader but do *not* expose to the model as
+  raw or base64 bytes the model can re-emit through `Write`/`Bash`.
+  v0.2 also scrubbed `get_figure`'s `image_path` from absolute →
+  relative-to-`documents/`, removing the v0.1 fallback (local stdio
+  clients used to `Read` the absolute path directly). Net effect:
+  no operator-side path to materialize a figure PNG on disk for
+  pandoc / LaTeX / PDF assembly.
+
+  Adds **`get_figure_url`**, a sibling tool that returns an HTTP URL
+  the caller fetches via `Bash: curl -H "$auth_header" -o
+  /tmp/fig.png "$url"`. Bytes flow over HTTP outside the MCP
+  JSON-RPC channel, so they don't burn context tokens regardless of
+  figure size (~50 tokens per response vs. ~700K for a 2 MB
+  base64-encoded scan). Same shape on local stdio and SSE/AWS
+  deploys.
+
+  - **SSE mode**: route mounts alongside `/sse` on the same
+    uvicorn endpoint, gated by the existing bearer-token middleware.
+  - **stdio mode**: a daemon-thread uvicorn side-car binds an
+    ephemeral 127.0.0.1 port at startup and mints a one-shot
+    bearer token. The `get_figure_url` tool returns
+    `{url, auth_header, mime_type, publishable, license,
+    license_source, fetch_hint}`.
+  - **#51 publishable gate** is honored identically to
+    `get_figure_image` — refuses URLs for unpublishable figures
+    unless the server is started with `--allow-unpublishable`.
+  - `get_figure` and `get_figure_image` are unchanged; the new tool
+    is purely additive.
+
 ## [0.3.0] - 2026-05-11
 
 ### Breaking changes
