@@ -83,7 +83,7 @@ def _docling_log_context(pdf_name: str, short_hash: str):
     docling's generic chatter (model downloads, factory initialization)
     is untouched.
     """
-    annotation = f"  [for {pdf_name}.pdf, hash {short_hash}]"
+    annotation = f"  [{pdf_name}.pdf ({short_hash})]"
 
     class _Filter(logging.Filter):
         def filter(self, record: logging.LogRecord) -> bool:

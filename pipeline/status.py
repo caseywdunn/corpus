@@ -384,12 +384,13 @@ def stage_failure_counts_per_paper(rollup: Dict[str, Any]) -> Counter:
 
 
 def _label_for_paper(rollup: Dict[str, Any], h: str) -> str:
-    """Human-readable ``<filename>  (<hash>)`` label for an operator-facing
-    line. Falls back to bare ``<hash>`` when summary.json was missing the
-    ``original_pdf`` field (legacy artifacts).
+    """Human-readable ``<filename> (<hash>)`` label for an operator-facing
+    line. The repo-wide convention: single space, hash in parens, no
+    "hash" keyword inside.  Falls back to bare ``<hash>`` when
+    summary.json was missing the ``original_pdf`` field (legacy artifacts).
     """
     fn = rollup.get("filename_by_hash", {}).get(h)
-    return f"{fn}  ({h})" if fn else h
+    return f"{fn} ({h})" if fn else h
 
 
 def render_worst_first(
@@ -418,7 +419,7 @@ def render_worst_first(
         f"Worst {tail} paper(s) by {label}:",
     ]
     for h, n in per_paper.most_common(tail):
-        out.append(f"  {n} {label:<14s}  {_label_for_paper(rollup, h)}")
+        out.append(f"  {n} {label:<14s} {_label_for_paper(rollup, h)}")
     return "\n".join(out)
 
 
@@ -449,7 +450,7 @@ def render_propose_skips(
     ]
     for h, n in candidates:
         gates_for_h = [g for g, hs in rollup["papers_by_gate"].items() if h in hs]
-        out.append(f"  % {_label_for_paper(rollup, h)}  —  {n} flags: {', '.join(sorted(gates_for_h))}")
+        out.append(f"  % {_label_for_paper(rollup, h)} — {n} flags: {', '.join(sorted(gates_for_h))}")
         out.append(f"  serve = {{false}},")
         out.append("")
     return "\n".join(out)

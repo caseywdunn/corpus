@@ -483,7 +483,7 @@ def main():
             logger.info("  %s (%d):", label, len(entries))
             cap = 20
             for fn, sh in sorted(entries)[:cap]:
-                logger.info("    %s  (%s)", fn, sh)
+                logger.info("    %s (%s)", fn, sh)
             if len(entries) > cap:
                 logger.info("    ... and %d more", len(entries) - cap)
         _emit_bucket("would full-process", would_full)
@@ -511,13 +511,13 @@ def main():
                     figures_file = hash_dir / "figures.json"
                     if not figures_file.exists():
                         logger.info(
-                            "[%d/%d] %s — skipping vision refresh (no figures.json; hash %s)",
+                            "[%d/%d] %s (%s) — skipping vision refresh (no figures.json)",
                             paper_idx, paper_total,
                             pdf_paths[0].name, pdf_hash,
                         )
                         continue
                     logger.info(
-                        "[%d/%d] %s — refreshing Pass 3b (hash %s)",
+                        "[%d/%d] %s (%s) — refreshing Pass 3b",
                         paper_idx, paper_total,
                         pdf_paths[0].name, pdf_hash,
                     )
@@ -549,13 +549,13 @@ def main():
                     ),
                 ):
                     logger.info(
-                        "[%d/%d] %s — skipping (all stages complete; hash %s)",
+                        "[%d/%d] %s (%s) — skipping (all stages complete)",
                         paper_idx, paper_total,
                         pdf_paths[0].name, pdf_hash,
                     )
                     continue
                 logger.info(
-                    "[%d/%d] %s — resuming (re-running missing or stale stages; hash %s)",
+                    "[%d/%d] %s (%s) — resuming (re-running missing or stale stages)",
                     paper_idx, paper_total,
                     pdf_paths[0].name, pdf_hash,
                 )
@@ -568,12 +568,11 @@ def main():
             sep = "─" * 72
             logger.info(sep)
             logger.info(
-                "[%d/%d] %s  (hash %s, %d cop%s)",
+                "[%d/%d] %s (%s)%s",
                 paper_idx, paper_total,
                 primary_pdf.relative_to(input_dir),
                 pdf_hash,
-                len(pdf_paths),
-                "y" if len(pdf_paths) == 1 else "ies",
+                "" if len(pdf_paths) == 1 else f" — {len(pdf_paths)} copies",
             )
             logger.info(sep)
             if len(pdf_paths) > 1:
