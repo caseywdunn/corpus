@@ -1,0 +1,38 @@
+# Demo corpuscle config (#59).
+#
+# Per the v0.3 "demo as regular corpuscle" model: this directory is
+# self-contained — 11 PDFs, siphonophores.bib, lexicon.yaml,
+# instructions.md, and this config. Running the demo is identical to
+# running any other corpuscle: `cd demo && corpus run` (lands #60).
+#
+# Output goes to demo/output/ (covered by .gitignore's `output*/`
+# pattern; no separate .gitignore needed).
+
+input_pdfs: .
+
+output_dir: ./output
+
+bib: ./siphonophores.bib
+
+lexicon: ./lexicon.yaml
+
+# WoRMS Aphia ID 1371 = Siphonophorae (order). Auto-built into
+# ./output/taxonomy.sqlite on the first `corpus run` (#64).
+taxonomy:
+  source: worms
+  root_id: 1371
+
+# Demo runs with the vision pass off so it works on any host without
+# CUDA / MPS / ANTHROPIC_API_KEY. Set backend to `local` or `claude`
+# (and add ANTHROPIC_API_KEY for the latter) when validating Pass 3b.
+vision:
+  backend: none
+
+grobid:
+  url: http://localhost:8070
+
+bibliography:
+  enrich_bhl: false
+
+licensing:
+  pd_cutoff_years: 95

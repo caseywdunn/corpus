@@ -114,7 +114,11 @@ def _make_min_db(path: Path) -> None:
             work_id TEXT PRIMARY KEY, guid_type TEXT, title TEXT, year INTEGER,
             journal TEXT, doi TEXT, bhl_item_id TEXT, bhl_part_id TEXT,
             openalex_id TEXT, corpus_hash TEXT, in_corpus INTEGER NOT NULL DEFAULT 0,
-            source TEXT, confidence REAL, created_at REAL, updated_at REAL
+            source TEXT, confidence REAL,
+            license TEXT, license_url TEXT, license_source TEXT,
+            publishable INTEGER,
+            serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
+            created_at REAL, updated_at REAL
         );
         CREATE TABLE work_authors (
             work_id TEXT, position INTEGER, surname TEXT, surname_normalized TEXT,

@@ -33,17 +33,19 @@ import pytest
 # Discovery and loading
 # ---------------------------------------------------------------------------
 
-_DEFAULT_OUTPUT = Path("/nfs/roberts/project/pi_cwd7/cwd7/output")
+# Default output location for the corpus-wide tests. Precedence
+# matches tests/conftest.py — see #59.
+_BOUCHET_FALLBACK = Path("/nfs/roberts/project/pi_cwd7/cwd7/output")
 
 
 def _output_dir():
     override = os.environ.get("CORPUS_OUTPUT_DIR")
     if override:
         return Path(override)
-    repo_output = Path(__file__).parent.parent / "output"
-    if repo_output.is_dir():
-        return repo_output
-    return _DEFAULT_OUTPUT
+    demo_output = Path(__file__).parent.parent / "demo" / "output"
+    if demo_output.is_dir():
+        return demo_output
+    return _BOUCHET_FALLBACK
 
 
 def _discover_documents():

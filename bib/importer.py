@@ -118,13 +118,34 @@ def find_matching_work_id(
 
 # Fields the import touches on the ``works`` row. Author updates go via
 # work_authors. Non-listed BibTeX fields (e.g. abstract, volume) are
-# silently dropped — out of scope for v0.2 import.
-_WORK_FIELDS = ("title", "year", "journal", "doi")
+# silently dropped.
+#
+# v0.3 (#51 + #54) adds round-trip support for license / licenseurl /
+# serve / servereason. The BibTeX field name → works column map covers
+# the rename: e.g. ``licenseurl`` (BibTeX flat) → ``license_url`` (SQL).
+_WORK_FIELDS = (
+    "title", "year", "journal", "doi",
+    "license", "license_url", "serve", "serve_reason",
+)
+_BIBTEX_TO_WORKS = {
+    "licenseurl":   "license_url",   # #51 — flat BibTeX → snake_case SQL
+    "servereason":  "serve_reason",  # #54
+}
+_WORKS_TO_BIBTEX = {v: k for k, v in _BIBTEX_TO_WORKS.items()}
 
 
 def _entry_value(entry: Dict, field: str) -> Optional[str]:
-    """Pull a field from a parsed entry, with brace stripping."""
+    """Pull a field from a parsed entry, with brace stripping.
+
+    Resolves the BibTeX → works column rename (#51 + #54): callers ask
+    for the works-column name (``license_url``, ``serve_reason``); we
+    look first under the snake_case key, fall back to the flat BibTeX
+    name (``licenseurl``, ``servereason``).
+    """
+    bib_key = _WORKS_TO_BIBTEX.get(field, field)
     raw = entry.get(field)
+    if raw is None or raw == "":
+        raw = entry.get(bib_key)
     if raw is None or raw == "":
         return None
     return _strip_outer_braces(str(raw))
@@ -141,18 +162,22 @@ def diff_entry_against_work(
     value equals the DB value are excluded — the diff is what would
     *actually* change.
     """
+    cols = ", ".join(_WORK_FIELDS)
     cur = conn.execute(
-        "SELECT title, year, journal, doi FROM works WHERE work_id = ?",
+        f"SELECT {cols} FROM works WHERE work_id = ?",
         (work_id,),
     ).fetchone()
     if cur is None:
         return {}
-    db_values: Dict[str, Optional[str]] = {
-        "title": cur[0],
-        "year": str(cur[1]) if cur[1] is not None else None,
-        "journal": cur[2],
-        "doi": cur[3],
-    }
+    db_values: Dict[str, Optional[str]] = {}
+    for i, field in enumerate(_WORK_FIELDS):
+        v = cur[i]
+        if v is None:
+            db_values[field] = None
+        elif field in {"year", "serve"}:
+            db_values[field] = str(v)
+        else:
+            db_values[field] = v
 
     changes: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
     for field in _WORK_FIELDS:
@@ -166,6 +191,9 @@ def diff_entry_against_work(
                     continue
             except ValueError:
                 pass
+        if field == "serve":
+            # Normalize {true, 1, yes} vs {false, 0, no}
+            new_val = "1" if new_val.strip().lower() in {"1", "true", "yes"} else "0"
         if new_val != (db_values[field] or ""):
             changes[field] = (db_values[field], new_val)
 
@@ -197,7 +225,7 @@ def apply_entry(
     Authors are replaced wholesale (delete + reinsert) when the entry's
     author field differs from the DB's. Caller commits the transaction.
     """
-    from build_biblio_authority import normalize_for_key
+    from .authority import normalize_for_key
 
     changes = diff_entry_against_work(conn, work_id, entry)
     if not changes:
@@ -217,6 +245,8 @@ def apply_entry(
                 params.append(None)
         elif field == "doi":
             params.append(_normalize_doi(new_val) if new_val else None)
+        elif field == "serve":
+            params.append(int(new_val))
         else:
             params.append(new_val)
         sets.append(f"{field} = ?")
@@ -251,6 +281,42 @@ def apply_entry(
 # ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
+
+
+# #67: sidecar path for `corpus bib import` invoked before the first
+# `corpus run`. Picked up at the end of bib.authority.main() so the
+# operator can curate ahead of the first build.
+PENDING_SIDECAR = ".pending_bib_import.bib"
+
+
+def stage_pending_bib(output_dir: Path, bib_path: Path) -> Path:
+    """Copy ``bib_path`` to ``<output_dir>/.pending_bib_import.bib`` so
+    the next ``corpus run`` (specifically bib.authority's tail) applies
+    it automatically. Used by `corpus bib import` when the authority DB
+    doesn't exist yet (#67)."""
+    import shutil
+    output_dir.mkdir(parents=True, exist_ok=True)
+    dst = output_dir / PENDING_SIDECAR
+    shutil.copy(bib_path, dst)
+    return dst
+
+
+def apply_pending_bib(output_dir: Path, db_path: Path) -> Optional[Dict[str, int]]:
+    """If a sidecar from #67 is present, apply it against ``db_path`` and
+    remove it. Returns the import counters if a sidecar was applied,
+    None otherwise.
+    """
+    sidecar = output_dir / PENDING_SIDECAR
+    if not sidecar.exists():
+        return None
+    if not db_path.exists():
+        return None  # nothing to apply against; defer to a later run
+    logger.info("Applying staged bib overrides from %s (#67)", sidecar)
+    counters = import_bibtex(db_path, sidecar, dry_run=False)
+    sidecar.unlink()
+    logger.info("Removed sidecar %s after applying %d update(s)",
+                sidecar, counters.get("changed", 0))
+    return counters
 
 
 def import_bibtex(
@@ -372,14 +438,30 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    db_path = args.db or (args.output_dir / "biblio_authority.sqlite")
-    if not db_path.exists():
-        logger.error("biblio_authority.sqlite not found at %s. "
-                     "Run build_biblio_authority.py first.", db_path)
-        return 1
     if not args.bib_file.exists():
         logger.error("BibTeX file %s not found", args.bib_file)
         return 1
+
+    db_path = args.db or (args.output_dir / "biblio_authority.sqlite")
+    if not db_path.exists():
+        # #67: stage for the next `corpus run` rather than erroring,
+        # so operators can curate the bibliography ahead of the first
+        # build. The sidecar gets picked up + removed at the tail of
+        # bib.authority.main().
+        if args.dry_run:
+            logger.info(
+                "biblio_authority.sqlite does not exist yet; would stage "
+                "%s for application on the next `corpus run` (dry-run, "
+                "no copy made).", args.bib_file,
+            )
+            return 0
+        sidecar = stage_pending_bib(args.output_dir, args.bib_file)
+        logger.info(
+            "biblio_authority.sqlite does not exist yet; staged %s → %s. "
+            "It will be applied automatically on the next `corpus run`.",
+            args.bib_file, sidecar,
+        )
+        return 0
 
     counters = import_bibtex(db_path, args.bib_file, dry_run=args.dry_run)
 

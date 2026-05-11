@@ -29,8 +29,8 @@ python -m pytest tests/test_biblio_cascade.py -v
 ### What to run before opening a PR
 
 - The structural test command above must pass (61 tests, sub-second).
-- If you touch the pipeline, run at least one end-to-end on the demo papers (`python process_corpus.py demo demo_output`) and verify the affected ground-truth YAMLs still match.
-- If you touch the MCP server surface, exercise the relevant tools against `demo_output/`.
+- If you touch the pipeline, run at least one end-to-end on the demo papers (`cd demo && corpus run`) and verify the affected ground-truth YAMLs still match.
+- If you touch the MCP server surface, exercise the relevant tools against `demo/output/` (`cd demo && corpus serve`).
 
 ## Commit style
 
@@ -89,14 +89,62 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
    `"0.3.0.dev0"` — PEP 440 suffix) and open a new `## [Unreleased]`
    section in `CHANGELOG.md`.
 
+Worked example — releasing `vX.Y.Z` end-to-end from the shell. Run
+each block separately and read the output; don't paste end-to-end.
+
+```bash
+# Pre-flight: tests green and the smoke walkthrough still works.
+python -m pytest tests/ -q
+corpus --version           # confirm `pip install -e .` is current
+# (optionally) re-run dev_docs/clean_install_walkthrough.sh against a
+# scratch corpus to catch CLI-affecting regressions.
+
+# 1. On dev, bump version + date the CHANGELOG entry.
+git checkout dev && git pull --ff-only
+$EDITOR pipeline/version.py    # "X.Y.Z.devN"  → "X.Y.Z"
+$EDITOR CHANGELOG.md           # "## [Unreleased]" → "## [X.Y.Z] - YYYY-MM-DD"
+git add pipeline/version.py CHANGELOG.md
+git commit -m "release: vX.Y.Z"
+git push origin dev
+
+# 2. Merge dev → main (no fast-forward so the merge commit marks the release).
+git checkout main && git pull --ff-only
+git merge --no-ff dev -m "Release vX.Y.Z"
+git push origin main
+
+# 3. Tag from main; the tag name MUST match __version__ modulo the leading `v`.
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+
+# 4. Publish the GitHub release. --notes-from-tag would dump the tag
+#    annotation; we want the CHANGELOG section instead. Use --notes-file
+#    pointed at a temp file you extracted from CHANGELOG.md.
+awk '/^## \[X\.Y\.Z\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > /tmp/notes.md
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/notes.md
+
+# 5. New major only — create the v(N-1) maintenance branch from the
+#    previous major's tag so post-release fixes have a home (#48).
+#    Skip for minor/patch bumps within an existing major.
+# git checkout v0.last && git checkout -b v0 && git push origin v0
+
+# 6. Back on dev, open the next pre-release.
+git checkout dev
+$EDITOR pipeline/version.py   # bump to "X.Y+1.0.dev0" (or major+1)
+$EDITOR CHANGELOG.md          # insert a fresh "## [Unreleased]" block
+git add pipeline/version.py CHANGELOG.md
+git commit -m "post-release: bump dev to X.Y+1.0.dev0"
+git push origin dev
+```
+
 ### Versioning
 
 [pipeline/version.py](pipeline/version.py) is the single source of truth for the code
-version. It is imported by `mcp_server.py` (surfaced via the
-`bundle_info` tool) and `package_for_serve.py` (default for
-`--version`, stamped into `bundle_manifest.json`), and gets paired with
-the git HEAD SHA on every artifact. So any output tree carries the
-exact code that produced it.
+version. It is read dynamically by `pyproject.toml` (so `pip show
+corpus`, `corpus --version`, and the bundle manifest never drift),
+imported by `mcpsrv` (surfaced via the `bundle_info` tool) and
+`mcpsrv.bundle` (default for `--version`, stamped into
+`bundle_manifest.json`), and gets paired with the git HEAD SHA on every
+artifact. So any output tree carries the exact code that produced it.
 
 Between releases, `dev` carries a PEP 440 pre-release suffix
 (`0.3.0.dev0`, `0.3.0a1`, `0.3.0rc1`). The release commit drops the
@@ -110,10 +158,10 @@ itself if you change one.
 
 ## Layout conventions
 
-- Code at the repo root is exclusively CLI entry points the user runs directly: `update_corpus.py` (the orchestrator), `process_corpus.py`, `embed_chunks.py`, `mcp_server.py`, `build_biblio_authority.py`, `build_taxon_mentions.py`, `ingest_taxonomy.py`, `reconcile_corpus_to_biblio.py`, `corpus_status.py`, `backfill_intext_citations.py`, `package_for_serve.py`, `bib_export.py`, `bib_import.py`. Library modules imported by these scripts live in `pipeline/` (the pipeline package).
-- [pipeline/](pipeline/) — Stage 1 + Pass 3b/3c orchestrator and supporting library modules. Submodules: `scan.py` (OCR), `extract.py` (docling), `metadata.py` (Grobid + bib), `chunking.py`, `annotate.py` (taxa + lexicons), `figure_passes.py`, `runner.py` (per-paper orchestrator), `main.py` (CLI), `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py` (shared retry / circuit breaker), `version.py` (single-source `__version__`), and supporting `config.py` / `io.py` / `log.py` / `stages.py`.
-- [bib/](bib/) — bibliographic round-trip package: `parser.py` (BibTeX parser, `BibIndex`), `export.py` (DB → BibTeX), `importer.py` (BibTeX → DB). Exposed as a single namespace via `from bib import …`. The root `bib_export.py` / `bib_import.py` are thin CLI shims.
-- [mcpsrv/](mcpsrv/) — MCP server package: `app.py` (FastMCP instance + index accessor), `indexes.py` (`CorpusIndex` / `TaxonMentionDB` / `BiblioAuthority`), `tools/` (papers / taxonomy / figures / chunks / bibliography), `transport.py` (bearer auth + SSE), `main.py` (argparse + dispatch). Adding a new MCP tool: extend the appropriate `mcpsrv/tools/<concern>.py` module and import it from `mcpsrv/tools/__init__.py` so the `@mcp.tool()` decorator registers at startup. The root `mcp_server.py` is a thin CLI shim.
+- The repo root has **zero Python files** (post-v0.3 / #60). The unified `corpus` binary is the only operator-facing entry point; it lands on PATH via `[project.scripts]` after `pip install -e .` from `pyproject.toml`. The CLI router lives at [pipeline/cli.py](pipeline/cli.py); subcommands dispatch via `python -m <module>` to private modules under `pipeline/`, `bib/`, or `mcpsrv/`.
+- [pipeline/](pipeline/) — top-level CLI router (`cli.py` → the `corpus` binary), Stage 1 + Pass 3b/3c orchestrator (`main.py`, `orchestrator.py`), post-pipeline modules (`embed.py`, `taxon_mentions.py`, `intext_citations.py`, `taxonomy_ingest.py`, `status.py`), pydantic config schema + bundled template (`config_schema.py`, `config.template.yaml`), shared rich console layer (`console.py`), and supporting library modules: `scan.py` (OCR), `extract.py` (docling), `metadata.py` (Grobid + bib), `chunking.py`, `annotate.py` (taxa + lexicons), `figure_passes.py`, `runner.py` (per-paper orchestrator), `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py` (shared retry / circuit breaker), `version.py` (single-source `__version__`), `config.py` / `io.py` / `log.py` / `stages.py`.
+- [bib/](bib/) — bibliographic round-trip + biblio authority + reconcile: `parser.py` (BibTeX parser + `BibIndex`), `export.py` (DB → BibTeX), `importer.py` (BibTeX → DB; sidecar staging for #67), `authority.py` (the build), `reconcile.py` (ghost merge). Exposed as a single namespace via `from bib import …`.
+- [mcpsrv/](mcpsrv/) — MCP server package: `app.py` (FastMCP instance + index accessor), `indexes.py` (`CorpusIndex` / `TaxonMentionDB` / `BiblioAuthority`), `tools/` (papers / taxonomy / figures / chunks / bibliography), `transport.py` (bearer auth + SSE), `main.py` (argparse + dispatch), `bundle.py` (built-bundle → served-bundle distillation). Adding a new MCP tool: extend the appropriate `mcpsrv/tools/<concern>.py` module and import it from `mcpsrv/tools/__init__.py` so the `@mcp.tool()` decorator registers at startup.
 - [slurm/](slurm/) — SLURM batch scripts for Bouchet; documented in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`, one-off maintenance scripts (`dedup_ghost_works.py`, `unify_doi_corpus_key.py`).
 - [templates/](templates/) — copy-and-customize starters that operators use, not pipeline inputs. Currently just the optional corpuscle-specific `instructions.md` scaffold; see [Editing client-side instructions](#editing-client-side-instructions) below.
@@ -128,14 +176,14 @@ The MCP server returns a markdown blob to clients in `InitializeResult.instructi
 - **Defaults** — [mcpsrv/default_instructions.md](mcpsrv/default_instructions.md). Ships with the server code and is always served. Edit here for guidance that applies to *any* corpus (defer to the corpus taxonomy / bibliography, preserve historical terminology, etc.). No operator action needed for this to reach clients.
 - **Per-corpuscle** — `<corpuscle>/instructions.md` (optional). Edit here for nudges specific to one corpus: a one-paragraph description of what it covers, common misconceptions to correct, domain-specific terminology cautions. Operators copy [templates/instructions.md](templates/instructions.md) as a starting scaffold. The server prepends this file to the defaults so corpus-specific guidance lands first.
 
-Both files are paid for in tokens on every client session — keep additions terse and high-leverage. Test by restarting the MCP server (`python mcp_server.py <output_dir>`) and inspecting the `InitializeResult.instructions` payload, or by starting a session in any client.
+Both files are paid for in tokens on every client session — keep additions terse and high-leverage. Test by restarting the MCP server (`corpus serve --output-dir <output_dir>`) and inspecting the `InitializeResult.instructions` payload, or by starting a session in any client.
 
 ## Dependencies — two files, on purpose
 
 Two install manifests live at the repo root:
 
 - [environment.yaml](environment.yaml) — conda env used on dev laptops and on Bouchet (YCRC). Pulls native binaries (`tesseract`, `ghostscript`) and the heavier Python deps with bundled C libs (`pymupdf`, `lxml`) from conda-forge in one shot, alongside the rest of the Python deps. This is the path most contributors hit.
-- [requirements.txt](requirements.txt) — plain pip requirements used by the AWS deploy target ([dev_docs/DEPLOY.md §5](dev_docs/DEPLOY.md)), which builds a stock `python3.12 -m venv` on Ubuntu and has no conda. Native bins come from `apt`; only Python deps come from this file.
+- [requirements.txt](requirements.txt) — plain pip requirements used by the AWS deploy target ([DEPLOY.md §5](DEPLOY.md)), which builds a stock `python3.12 -m venv` on Ubuntu and has no conda. Native bins come from `apt`; only Python deps come from this file.
 
 **They must stay in sync.** If you add a Python dependency, add it to *both* — to `environment.yaml` (in the conda block when there's a good conda-forge build, otherwise in the `pip:` section) and to `requirements.txt`. The only entries that legitimately appear in `environment.yaml` alone are native binaries that come from `apt` on the AWS host (`tesseract`, `ghostscript`).
 

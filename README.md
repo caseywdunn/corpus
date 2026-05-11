@@ -25,7 +25,7 @@ Corpus reads a folder of PDFs and produces a knowledge base built around: **taxa
 - **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton 1965" is one entity even when twenty papers cite it differently.
 - **Taxonomy linking** — every species mention is matched against a Darwin Core taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
 
-The output is a per-paper artifact tree plus cross-paper databases. You query it through an **MCP server** ([mcp_server.py](mcp_server.py)) that any [MCP](https://modelcontextprotocol.io/) client (Claude Desktop, Claude Code, claude.ai web) can connect to — so "show me every figure of *Nanomia bijuga* nectophores in the corpus" becomes something you ask in chat instead of grep across a hard drive. The server is a read-only view over the per-paper artifacts, so re-running the pipeline is the only way new data reaches the tools.
+The output is a per-paper artifact tree plus cross-paper databases. You query it through an **MCP server** (`corpus serve`, backed by [mcpsrv/](mcpsrv/)) that any [MCP](https://modelcontextprotocol.io/) client (Claude Desktop, Claude Code, claude.ai web) can connect to — so "show me every figure of *Nanomia bijuga* nectophores in the corpus" becomes something you ask in chat instead of grep across a hard drive. The server is a read-only view over the per-paper artifacts, so re-running the pipeline is the only way new data reaches the tools.
 
 ### Example uses
 
@@ -61,21 +61,47 @@ Grobid extracts metadata (authors, title, year, journal) from each PDF's header,
 }
 ```
 
-```bash
-python process_corpus.py <input_dir> <output_dir> --bib references.bib --resume
+```yaml
+# in your corpuscle's config.yaml
+bib: ./references.bib
 ```
 
 Matching is on the basename (case-insensitive), so the `file` value can be a bare filename or a full path. This is the cleanest way to get accurate per-paper metadata where you've already curated references for your own writing.
 
 ### External taxonomic data (optional)
 
-The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution. By default it builds from a Darwin Core Archive of your choice — for siphonophores we use the [WoRMS](https://www.marinespecies.org/) export. Other groups: pull a DwC-A from the relevant authority ([GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/)) and ingest into your corpuscle:
+The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution — the layer that lets a question about *Apolemia uvaria* find papers that only ever wrote *Stephanomia uvaria*. It's built once on the first `corpus run` from whichever source you point at; subsequent runs reuse the cached SQLite unless you pass `--force-rebuild-taxonomy`.
 
-```bash
-python ingest_taxonomy.py <output_dir> --source dwca --input path/to/dwca.zip
+The `taxonomy:` block in `config.yaml` picks the source. The bundled template ships it commented out — opt in by uncommenting and choosing one of:
+
+```yaml
+# WoRMS — marine groups. Fetches an AphiaID subtree from the World
+# Register of Marine Species. Look up your group at marinespecies.org.
+taxonomy:
+  source: worms
+  root_id: 1371       # Siphonophorae order (example)
+
+# Darwin Core Archive — non-marine groups. Pull a DwC-A .zip from
+# GBIF / ITIS / Catalogue of Life and point at it locally.
+taxonomy:
+  source: dwca
+  path: ./dwca.zip
+
+# Darwin Core directory — rare, an already-unzipped DwC tree.
+taxonomy:
+  source: dwc
+  path: ./dwc/
 ```
 
-Without external taxonomy the pipeline still extracts taxon mentions from text — you lose the synonymy graph that links historical names to current valid names.
+| Source | What it is | When to use |
+| --- | --- | --- |
+| `worms` | [WoRMS](https://www.marinespecies.org/) subtree fetched by AphiaID | Marine taxa (siphonophores, copepods, fish, ...) |
+| `dwca` | [Darwin Core Archive](https://dwc.tdwg.org/text/) `.zip` from [GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/) | Anything else; the broad default |
+| `dwc` | Directory of Darwin Core `.tsv` files | An already-unzipped DwC tree |
+
+Or invoke the ingester directly without `corpus run`: `python -m pipeline.taxonomy_ingest <output_dir> --source dwca --input path/to/dwca.zip`.
+
+**Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path.
 
 ### Lexicons (optional)
 
@@ -91,9 +117,9 @@ biogeography:
     synonyms: [open water]
 ```
 
-Pass the file with `--lexicon path/to/lexicon.yaml`. Each category emits its own `<hash>/<category>.json` artifact. Per-category content is fingerprinted independently, so editing a single section only invalidates that category's annotations on `--resume` — the rest stay cached.
+Set `lexicon: ./lexicon.yaml` in your corpuscle's `config.yaml`. Each category emits its own `<hash>/<category>.json` artifact. Per-category content is fingerprinted independently, so editing a single section only invalidates that category's annotations on the next `corpus run` — the rest stay cached (implicit resume; #60 dropped the `--resume` flag).
 
-Without `--lexicon`, lexicon extraction is skipped entirely. Like `--bib`, the lexicon is an input you maintain alongside your literature, not something the tool ships.
+Without a `lexicon:` entry, lexicon extraction is skipped entirely. Like `bib:`, the lexicon is an input you maintain alongside your literature, not something the tool ships.
 
 ### Instructions for the LLM (optional)
 
@@ -119,18 +145,23 @@ A *corpuscle* is the on-disk container for one corpus instance — siphonophores
 <corpuscle>/
 ├── documents/<HASH>/         # per-paper artifacts (text, chunks, figures, taxa, anatomy, …)
 ├── vector_db/lancedb/        # embeddings index
-├── taxonomy.sqlite           # Darwin Core snapshot, built by ingest_taxonomy.py
+├── taxonomy.sqlite           # Darwin Core snapshot, built by `pipeline.taxonomy_ingest`
 ├── biblio_authority.sqlite   # deduplicated works + citation graph
-└── taxon_mentions.sqlite     # cross-paper taxon index
+├── taxon_mentions.sqlite     # cross-paper taxon index
+└── _serve/                   # distilled served bundle (#60); contains
+                              # bundle_manifest.json + a whitelisted subset
+                              # of the above. Pass to `corpus serve --output-dir`
+                              # for ship-to-host workflows. Skip with
+                              # `corpus run --no-bundle`.
 ```
 
 Three cross-paper layers are rebuildable independently of the per-paper artifacts (no re-running OCR or extraction):
 
 | Layer | File | Built by |
 | --- | --- | --- |
-| **Taxonomy** — Darwin Core snapshot with synonymy | `taxonomy.sqlite` | `ingest_taxonomy.py` (sources: `dwc` / `dwca` / `worms`) |
-| **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `build_biblio_authority.py` + `reconcile_corpus_to_biblio.py` |
-| **Taxon mentions** — cross-paper taxon-to-paper index | `taxon_mentions.sqlite` | `build_taxon_mentions.py` |
+| **Taxonomy** — Darwin Core snapshot with synonymy | `taxonomy.sqlite` | `pipeline.taxonomy_ingest` (sources: `dwc` / `dwca` / `worms`) |
+| **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `bib.authority` + `bib.reconcile` |
+| **Taxon mentions** — cross-paper taxon-to-paper index | `taxon_mentions.sqlite` | `pipeline.taxon_mentions` |
 
 Every CLI takes the corpuscle root as its first positional argument and resolves all per-instance files from there. Run two corpora side-by-side by giving each its own corpuscle directory; they don't share state.
 
@@ -139,14 +170,26 @@ Every CLI takes the corpuscle root as its first positional argument and resolves
 ```bash
 conda env create -f environment.yaml
 conda activate corpus
+pip install -e .
 ```
 
-Grobid runs as a separate service:
+`pip install -e .` puts the `corpus` binary on PATH (via the
+`[project.scripts]` entry point in `pyproject.toml`); the package
+metadata version stays in sync with `pipeline/version.py` so
+`pip show corpus`, `corpus --version`, and the bundle manifest
+never drift.
+
+Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
+
+**Docker is a prerequisite.** Install it from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS) before the commands below. On HPC hosts without Docker, [Apptainer](https://apptainer.org/) can pull the same Grobid image — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
 
 ```bash
-docker compose up -d grobid
+docker compose up -d grobid              # start in background; persists across runs
 curl http://localhost:8070/api/isalive   # should print "true"
+corpus check                             # confirms grobid + GPU + config + disk
 ```
+
+On Bouchet, the SLURM chain handles Grobid automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 
 After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [INSTALL.md](INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
 
@@ -172,146 +215,96 @@ To make a new language part of the fallback set tried when detection is uncertai
 
 ## Try it on the demo corpus
 
-The repo ships with 11 siphonophore PDFs, a matching BibTeX, and an example anatomy lexicon under [demo/](demo/). Running the whole pipeline against them takes a few minutes on a laptop, with two uses:
-
-- **First-run smoke test** — confirm your install works before processing your own corpus.
-- **Regression check on top of a real corpus** — `output_demo/` is its own corpuscle, so it lives alongside (and never clobbers) your production corpuscle.
+The repo ships [demo/](demo/) — a regular corpuscle (11 siphonophore PDFs, `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, and a `config.yaml` already pointing at all of it). One command runs the full pipeline + cross-paper builds + bundle:
 
 ```bash
-# Build a small WoRMS taxonomy snapshot into the demo corpuscle.  Skip
-# this step if you only want to smoke-test stages 1 + 2.
-python ingest_taxonomy.py output_demo --source worms --root-id 1371
-
-# update_corpus.py runs the pipeline + post-pipeline scripts in
-# dependency order — equivalent to chaining process_corpus.py,
-# embed_chunks.py, build_biblio_authority.py,
-# build_taxon_mentions.py, backfill_intext_citations.py, and
-# reconcile_corpus_to_biblio.py with --resume throughout.
-python update_corpus.py demo output_demo \
-    --bib demo/siphonophores.bib \
-    --lexicon demo/lexicon.yaml \
-    --resume
+cd demo && corpus run
 ```
 
-Every cross-paper SQLite lands inside `output_demo/` automatically — no override flags needed.
+Output lands in `demo/output/` (gitignored). Re-run anytime — `corpus run` is always idempotent.
 
 ## First time run
 
-The work divides into two stages, best run on different hardware. Stage 1 is CPU-heavy and embarrassingly parallel; Stage 2 wants a GPU. Each unique PDF is identified by the first 12 hex chars of its SHA-256, and all artifacts live under `<output_dir>/documents/<HASH>/`.
-
-The fastest path is `update_corpus.py`, which runs the pipeline and the four post-pipeline scripts in dependency order with `--resume` throughout — see [update_corpus.py](update_corpus.py) for the full list of steps:
-
 ```bash
-python update_corpus.py <input_dir> <output_dir> --resume
+mkdir my-corpus && cd my-corpus
+corpus init                # scaffold config.yaml from the bundled template
+$EDITOR config.yaml        # set input_pdfs, taxonomy, optional bib + lexicon
+corpus check               # pre-flight: validates config + probes Grobid/GPU/disk
+corpus run                 # full pipeline + post-pipeline + bundle, hands-off
+corpus status --report     # stage pass-rates + cross-paper artifact ✓/✗
+corpus serve               # local MCP server against the freshly built bundle
 ```
 
-Run-by-run, that command is equivalent to:
+The work divides into two stages, best run on different hardware: Stage 1 is CPU-heavy and embarrassingly parallel; Stage 2 wants a GPU. Each unique PDF is identified by the first 12 hex chars of its SHA-256, and all artifacts live under `<output_dir>/documents/<HASH>/`. `corpus run` is always idempotent — re-runs only do work whose inputs have changed (per-stage state + content fingerprints from v0.2). `--force-rebuild` covers the rare clean-rebuild case.
 
-```bash
-# Stage 1 — OCR, docling, Grobid, chunking, annotation (CPU, parallelizable)
-python process_corpus.py <input_dir> <output_dir> --resume
-
-# Stage 2 — embeddings (GPU helpful, not required)
-python embed_chunks.py <output_dir> --resume
-
-# Cross-paper databases (fast — minutes at corpus scale)
-python build_biblio_authority.py <output_dir>
-python build_taxon_mentions.py <output_dir>
-python backfill_intext_citations.py <output_dir>
-python reconcile_corpus_to_biblio.py <output_dir>
-```
-
-`--resume` skips work whose artifact is already on disk — per-stage inside Stage 1 (so a lexicon edit only re-runs the annotation pass, not Docling) and per-paper across Stage 2. For large corpora, run stage 1 on a cluster — the SLURM one-liner on Bouchet is:
+For large corpora on Bouchet, the SLURM chain (Stage 1 + embed + finalize) is one line:
 
 ```bash
 NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 ```
 
-To enrich pre-DOI references against the Biodiversity Heritage Library, add `--enrich-bhl` to the bibliography step (needs `BHL_API_KEY`, rate-limited at hours not minutes):
+For long laptop runs that outlast a single SSH session, detach with either tool:
 
 ```bash
-python build_biblio_authority.py <output_dir> --enrich-bhl
-```
-
-After a run, [`corpus_status.py`](corpus_status.py) reports stage completion, quality flags, and which papers have stale annotations relative to the current lexicon / taxonomy snapshot:
-
-```bash
-python corpus_status.py <output_dir>
+nohup corpus run > run.log 2>&1 &     # background; tail run.log to follow
+# or
+tmux new-session -s corpus 'corpus run; bash'   # detach with C-b d
 ```
 
 ## Vision pass (optional)
 
-The default pipeline extracts figures with their captions and bounding boxes but doesn't open the images. **Pass 3b** runs a vision-language model over each extracted figure to detect multi-panel structure, recover compound-figure splits, and tag panels with ROI bounding boxes. It's a separate, opt-in pass because it's expensive — GPU minutes per paper for a local model, or API tokens for the remote backend.
+Set `vision.backend: local` (needs CUDA/MPS) or `vision.backend: claude` (needs `ANTHROPIC_API_KEY`) in `config.yaml` and `corpus run` picks it up automatically. If the backend isn't usable on the host, the pass skips gracefully with a one-line nudge — Pass 3b never hard-fails deep into the run because of a missing GPU or missing key. `--no-vision` is the explicit-skip flag for a config that requests it.
 
-```bash
-# Local backend — needs a CUDA or MPS GPU; uses Qwen2.5-VL-7B-Instruct
-python process_corpus.py <input_dir> <output_dir> --resume --vision-backend local
-
-# Remote backend — needs ANTHROPIC_API_KEY; runs anywhere
-python process_corpus.py <input_dir> <output_dir> --resume --vision-backend claude
-```
-
-`--refresh-vision` re-runs only Pass 3b on hashes that already have a `summary.json`, so you can layer vision over an existing corpus without re-doing OCR / Docling / Grobid. On Bouchet, [slurm/batch_pass3b.sh](slurm/batch_pass3b.sh) does the same job as a SLURM array on `gpu_h200` — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
+On Bouchet, the SLURM chain (`slurm/batch_pipeline.sh`) runs Pass 3b on `gpu_h200` automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 
 ## Adding and updating documents
 
-Drop new PDFs into `<input_dir>` and re-run `update_corpus.py`. `--resume` recognizes existing artifacts by SHA-256 hash, so only new or changed PDFs are reprocessed:
+Drop new PDFs into the configured `input_pdfs:` directory and re-run `corpus run`. Implicit resume only re-processes what changed; orphan PDFs (removed from the input set) get their `documents/<HASH>/` and matching LanceDB rows pruned by default, with a 25%-safety-rail (override with `--force-prune`; opt out entirely with `--no-prune`).
 
-```bash
-python update_corpus.py <input_dir> <output_dir> --resume
-```
-
-When the lexicon or taxonomy snapshot changes (not the PDFs), just re-run with `--resume`. Each per-paper `pipeline_state.json` records the input fingerprint of every stage; a mismatch forces only the affected stage to re-run, so editing one lexicon section regenerates that category's annotations and leaves everything else cached:
-
-```bash
-python update_corpus.py <input_dir> <output_dir> --resume \
-    --lexicon path/to/lexicon.yaml
-```
-
-To remove papers, delete the PDFs from `<input_dir>` and run `python process_corpus.py <input_dir> <output_dir> --audit-orphans` for a read-only listing of `documents/<HASH>/` directories whose source PDF is gone (deletion stays manual).
-
-The cross-paper databases (bibliography, taxon mentions) rebuild from scratch each time — fast at corpus scale, and the only way they pick up new cross-references.
+Lexicon / taxonomy edits need no extra flag — fingerprints land in `<hash>/<category>.json` and the affected category re-annotates on the next run.
 
 ## Curating bibliographic metadata
 
-Grobid will mis-parse some references — wrong year on a 19th-c. monograph, scrambled author list, dropped subtitle. Rather than hand-editing per-paper `metadata.json` files (which get clobbered on the next pipeline run), corpus supports a **BibTeX round-trip** against `biblio_authority.sqlite`:
+Grobid mis-parses some references. Round-trip via BibTeX:
 
 ```bash
-# Export the authority database as BibTeX
-python bib_export.py <output_dir> -o my_corpus.bib
-
-# Hand-edit my_corpus.bib (fix titles, years, authors, …)
-
-# Apply the edits back into the authority DB
-python bib_import.py <output_dir> my_corpus.bib
+corpus bib export -o my_corpus.bib   # current biblio_authority → BibTeX
+$EDITOR my_corpus.bib                # fix titles, years, authors
+corpus bib import my_corpus.bib      # apply edits back
 ```
 
-Each entry carries a stable `corpus_hash` field that bib_import uses to match edits back to the right `works` row, with DOI as a fallback. The `.bib` is the source of truth for user edits — preserve it across pipeline rebuilds and re-run `bib_import.py` afterward to re-apply your curation. Hand-edited entries override Grobid-derived metadata in every MCP tool that reads from the authority DB.
+`corpus bib import` works *before* the first `corpus run` too — it stages the edits to a sidecar that's applied automatically when biblio_authority.sqlite first gets built.
+
+Each entry carries a stable `corpus_hash` field that bib_import uses to match edits back to the right `works` row, with DOI as a fallback. The `.bib` is the source of truth for user edits — preserve it across pipeline rebuilds and re-run `bib.importer` afterward to re-apply your curation. Hand-edited entries override Grobid-derived metadata in every MCP tool that reads from the authority DB.
 
 `--bib` (the input flag described in [Bibliographic data for pdfs](#bibliographic-data-for-pdfs-optional)) and the round-trip above are independent: the input flag overrides Grobid's per-paper header from a curated BibTeX *before* the authority DB is built; the round-trip edits the authority DB *after*. Use whichever fits where you already maintain the metadata.
 
 ## Distilling a served bundle
 
-The corpuscle the pipeline emits is the **build bundle**: everything `process_corpus.py` produces, including `processed.pdf`, raw docling dumps, per-page QC visualizations, and per-paper logs. For ~2,000 papers that's ~10 GB. The MCP server doesn't need most of it — only the JSON artifacts it reads at startup, the figure PNGs, and the precompiled indices. [`package_for_serve.py`](package_for_serve.py) distills the build bundle down to a **served bundle** (~3 GB for the same corpus) by copying only whitelisted files, scrubbing absolute paths from JSON values, and writing a versioned `bundle_manifest.json` that the MCP `bundle_info` tool surfaces:
+The corpuscle the pipeline emits is the **build bundle**: everything `pipeline.main` produces, including `processed.pdf`, raw docling dumps, per-page QC visualizations, and per-paper logs. For ~2,000 papers that's ~10 GB. The MCP server doesn't need most of it — only the JSON artifacts it reads at startup, the figure PNGs, and the precompiled indices. [`mcpsrv.bundle`](mcpsrv/bundle.py) distills the build bundle down to a **served bundle** (~3 GB for the same corpus) by copying only whitelisted files, scrubbing absolute paths from JSON values, and writing a versioned `bundle_manifest.json` that the MCP `bundle_info` tool surfaces:
 
 ```bash
-python package_for_serve.py <output_dir> <serve_bundle_dir> --version v1.0.0
+python -m mcpsrv.bundle <output_dir> <serve_bundle_dir> --version v1.0.0
 ```
 
 You only need this when **shipping a corpus to a different host** — a remote MCP server, a colleague's machine, an S3 bucket. For local serving against your own pipeline output (the [Deploying MCP server locally](#deploying-mcp-server-locally) section below), point the server straight at `<output_dir>` and skip distillation entirely.
 
-The full file whitelist and path-scrubbing contract are documented in the [`package_for_serve.py`](package_for_serve.py) module docstring.
+The full file whitelist and path-scrubbing contract are documented in the [`mcpsrv.bundle`](mcpsrv/bundle.py) module docstring.
 
 ## Deploying MCP server locally
 
-Point your MCP client at a local server. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code; for Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+```bash
+corpus serve   # reads bundle path from config.yaml's output_dir
+```
+
+Point your MCP client at this. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code; for Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "corpus": {
-      "command": "/opt/anaconda3/envs/corpus/bin/python",
-      "args": ["/path/to/corpus/mcp_server.py", "/path/to/output"]
+      "command": "/opt/anaconda3/envs/corpus/bin/corpus",
+      "args": ["serve", "--output-dir", "/path/to/output"]
     }
   }
 }
@@ -321,64 +314,7 @@ Restart the client and the corpus tools appear. From there, the [example queries
 
 ## Deploying MCP server remotely
 
-The same `mcp_server.py` speaks SSE over HTTP for remote clients — useful for sharing a corpus with colleagues or running it from a tablet. The remote host serves a [distilled bundle](#distilling-a-served-bundle), not the full build output, so plan to run `package_for_serve.py` on the build host and ship the resulting `<serve_bundle_dir>` (typically via `aws s3 sync`) before pointing the remote server at it. The full AWS runbook is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md); the steps below cover the minimum to bring up an SSE server on any host you already have.
-
-**1. Generate a bearer token.** Use `secrets.token_urlsafe` for a strong URL-safe random string, save to a mode-600 file, never pass it on the CLI (would leak via `ps`):
-
-```bash
-python -c 'import secrets; print(secrets.token_urlsafe(32))' > ~/corpus-mcp.token
-chmod 600 ~/corpus-mcp.token
-```
-
-**2. Start the server over SSE.** `output` is your pipeline output directory — replace with an absolute path if running from elsewhere:
-
-```bash
-python mcp_server.py output \
-    --transport sse --host 127.0.0.1 --port 8080 \
-    --auth-token-file ~/corpus-mcp.token
-```
-
-Clients send `Authorization: Bearer <token>` on every request. Without `--auth-token-file` or `CORPUS_MCP_TOKEN` the server runs open and logs a loud warning — fine for localhost experiments, never safe for public-facing deploys.
-
-**3. Smoke-test before exposing to anyone else.** [tools/smoke_test_sse.py](tools/smoke_test_sse.py) launches its own server on a free port, generates its own token, and drives the full stack — 401 without auth, 200 with auth, MCP `initialize` → `list_tools` → `bundle_info` → `list_papers`:
-
-```bash
-python tools/smoke_test_sse.py output
-```
-
-All seven checks should pass locally before you move to a real server. The deployment pattern (one EC2 per corpuscle behind a shared ALB, bundle pulled from S3) is in [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) and [dev_docs/PLAN.md §10](dev_docs/PLAN.md).
-
-**4. Connect a client.** Remote-MCP support exists natively in Claude Desktop, claude.ai web, and Claude Code. The paths differ in friction and in which transport + auth they target. Recommended in order:
-
-- **Claude Code (CLI)** — tested and working against our server:
-
-  ```bash
-  claude mcp add corpus-remote http://127.0.0.1:18080/sse \
-      --transport sse \
-      --scope user \
-      --header "Authorization: Bearer $(cat ~/corpus-mcp.token)"
-  ```
-
-  Use `--scope project` to tie to one repo, `claude mcp remove corpus-remote --scope user` to undo. `/mcp` in any session lists connected servers and their tools.
-
-- **Claude Desktop / claude.ai web (Custom Connectors UI)** — Settings → Connectors → "Add custom connector", paste the URL. Available on Free / Pro / Max / Team / Enterprise plans ([Anthropic docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)). **Caveat:** Custom Connectors target the **Streamable HTTP** transport with OAuth-style auth, while our server speaks **SSE** with a static bearer token. Whether the UI accepts our URL depends on how strict the client is — worth trying. If it rejects the SSE endpoint, fall back to the bridge below.
-
-- **Claude Desktop fallback — mcp-remote bridge.** Edit `~/Library/Application Support/Claude/claude_desktop_config.json` to launch [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a stdio subprocess that bridges to the SSE endpoint:
-
-  ```json
-  {
-    "mcpServers": {
-      "corpus-remote": {
-        "command": "/opt/homebrew/bin/npx",
-        "args": ["-y", "mcp-remote",
-                 "http://127.0.0.1:18080/sse",
-                 "--header", "Authorization: Bearer <token>"]
-      }
-    }
-  }
-  ```
-
-A cleaner Custom Connectors experience would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery, but this is deferred indefinitely — SSE + bearer token works for the ~20-collaborator deploy target.
+For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE startup, smoke-test, three-way client-config matrix (Claude Code, Custom Connectors UI, mcp-remote bridge), full EC2 + ALB + S3 runbook — see [DEPLOY.md](DEPLOY.md). One-liner version: `corpus serve --output-dir <bundle> -- --transport sse --host 127.0.0.1 --port 8080 --auth-token-file <token-file>`.
 
 ## Additional documentation and resources
 
@@ -387,11 +323,12 @@ A cleaner Custom Connectors experience would add a **Streamable HTTP** transport
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
-- [dev_docs/DEPLOY.md](dev_docs/DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
+- [DEPLOY.md](DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
+- [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
 
 External:
 

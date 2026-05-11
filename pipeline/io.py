@@ -68,6 +68,94 @@ def find_all_pdfs(input_dir: Path) -> Dict[str, List[Path]]:
     return pdf_map
 
 
+def prune_orphans(
+    input_dir: Path,
+    output_dir: Path,
+    *,
+    dry_run: bool = False,
+    force: bool = False,
+    safety_pct: float = 0.25,
+) -> dict:
+    """Delete orphaned ``documents/<HASH>/`` dirs + LanceDB rows (#66).
+
+    An orphan is a hash directory whose source PDF is no longer in the
+    configured input set, or a vector-index row whose hash no longer
+    has a backing dir.
+
+    Safety rail: refuses to prune when more than ``safety_pct`` of the
+    hash directories would be removed (likely a config mistake or
+    unmounted volume). ``force=True`` bypasses the rail.
+
+    Returns a dict ``{doc_pruned, vec_pruned, doc_total, would_remove}``.
+    With ``dry_run=True`` nothing is removed; the same dict reports the
+    counts that *would* have been removed.
+    """
+    documents_dir = output_dir / "documents"
+    if not documents_dir.is_dir():
+        return {"doc_pruned": 0, "vec_pruned": 0, "doc_total": 0, "would_remove": []}
+
+    input_pdf_map = find_all_pdfs(input_dir)
+    input_hashes = {short_hash(h) for h in input_pdf_map}
+    doc_hashes = {p.name for p in sorted(documents_dir.iterdir()) if p.is_dir()}
+    doc_orphans = sorted(doc_hashes - input_hashes)
+    doc_total = len(doc_hashes)
+
+    # Safety rail
+    if doc_total > 0 and not force:
+        pct = len(doc_orphans) / doc_total
+        if pct > safety_pct:
+            raise RuntimeError(
+                f"orphan-prune safety rail: {len(doc_orphans)} of {doc_total} "
+                f"hash dirs ({pct:.0%}) would be removed (threshold "
+                f"{safety_pct:.0%}). Likely a config mistake or unmounted "
+                f"volume. Re-run with --force-prune to override."
+            )
+
+    n_vec_pruned = 0
+    n_doc_pruned = 0
+    if not dry_run:
+        # 1. Remove document directories (recursive — chunks.json,
+        #    figures/, summary.json, all of it).
+        import shutil
+        for h in doc_orphans:
+            shutil.rmtree(documents_dir / h, ignore_errors=False)
+            n_doc_pruned += 1
+
+        # 2. Drop LanceDB rows whose hash is no longer in doc_hashes.
+        # Schema: pipeline/embed.py:ChunkMetadata stores the hash as
+        # ``metadata.pdf_hash`` (nested), not a flat ``hash`` column.
+        vector_db_path = output_dir / "vector_db"
+        if vector_db_path.is_dir():
+            try:
+                import lancedb  # type: ignore
+                db = lancedb.connect(str(vector_db_path))
+                if "document_chunks" in db.list_tables():
+                    table = db.open_table("document_chunks")
+                    surviving_hashes = doc_hashes - set(doc_orphans)
+                    if surviving_hashes:
+                        before = table.count_rows()
+                        in_clause = ", ".join(f"'{h}'" for h in surviving_hashes)
+                        table.delete(f"metadata.pdf_hash NOT IN ({in_clause})")
+                        n_vec_pruned = before - table.count_rows()
+                    else:
+                        # No surviving docs — drop the whole table.
+                        n_vec_pruned = table.count_rows()
+                        db.drop_table("document_chunks")
+            except ImportError:
+                logger.info("lancedb not importable; skipping vector-index prune")
+            except Exception as e:
+                logger.warning("Could not prune LanceDB: %s", e)
+    else:
+        n_doc_pruned = len(doc_orphans)
+
+    return {
+        "doc_pruned": n_doc_pruned,
+        "vec_pruned": n_vec_pruned,
+        "doc_total": doc_total,
+        "would_remove": doc_orphans,
+    }
+
+
 def audit_orphans(input_dir: Path, output_dir: Path) -> int:
     """Read-only orphan audit (#31). Returns count of orphans found.
 
@@ -125,12 +213,16 @@ def audit_orphans(input_dir: Path, output_dir: Path) -> int:
         try:
             import lancedb  # type: ignore
             db = lancedb.connect(str(vector_db_path))
-            if "document_chunks" in db.table_names():
+            if "document_chunks" in db.list_tables():
                 table = db.open_table("document_chunks")
+                # Schema: pipeline/embed.py:ChunkMetadata stores the
+                # hash as ``metadata.pdf_hash`` (nested), not a flat
+                # ``hash`` column. select(["metadata"]) returns the
+                # whole nested struct.
                 hashes_in_table = {
-                    row["hash"]
-                    for row in table.search().select(["hash"]).limit(10**9).to_list()
-                    if row.get("hash")
+                    (row.get("metadata") or {}).get("pdf_hash")
+                    for row in table.search().select(["metadata"]).limit(10**9).to_list()
+                    if (row.get("metadata") or {}).get("pdf_hash")
                 }
                 vector_orphans = sorted(hashes_in_table - doc_hashes)
         except ImportError:

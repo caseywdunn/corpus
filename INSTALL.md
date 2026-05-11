@@ -49,16 +49,20 @@ Grobid runs as a Docker service locally. On an HPC cluster without Docker, [Sing
 ```bash
 singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
 singularity run --bind $HOME grobid.sif &
-python process_corpus.py <input> <output> --grobid-url http://localhost:8070
+corpus run    # config.yaml in cwd points at <input> + sets grobid.url
 ```
 
 ## Pip-only fallback
 
-If you can't use conda, `requirements.txt` still works but you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc` on macOS, or `apt-get install` the equivalents on Debian/Ubuntu):
+If you can't use conda, you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc` on macOS, or `apt-get install` the equivalents on Debian/Ubuntu) and then:
 
 ```bash
-pip install -r requirements.txt
+pip install -e .          # development clone
+# or for a deploy host pinning a release:
+pip install git+https://github.com/caseywdunn/corpus.git@v0.3.0
 ```
+
+`requirements.txt` is retained for the AWS deploy path (which builds a stock `python3.12 -m venv` and pre-existed `pyproject.toml`); both manifests must stay in sync per [CONTRIBUTING.md](CONTRIBUTING.md#dependencies--two-files-on-purpose).
 
 ## Updating an existing environment
 

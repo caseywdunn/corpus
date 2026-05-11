@@ -251,6 +251,103 @@ def _iso_now() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _drop_chunks_for_hashes(vdb_path: Path, hashes: set) -> int:
+    """Delete LanceDB rows whose ``metadata.pdf_hash`` is in ``hashes``.
+
+    Returns the number of rows deleted. Used during distillation to
+    keep skipped papers (#54) from leaking through semantic search.
+    Falls back gracefully when lancedb isn't importable or the table
+    doesn't exist.
+    """
+    if not hashes:
+        return 0
+    try:
+        import lancedb  # type: ignore
+    except ImportError:
+        logger.info("lancedb not importable; skipping LanceDB filter")
+        return 0
+    try:
+        db = lancedb.connect(str(vdb_path))
+        if "document_chunks" not in db.list_tables():
+            return 0
+        table = db.open_table("document_chunks")
+        # The schema's hash column is nested as ``metadata.pdf_hash``
+        # (see pipeline/embed.py:ChunkMetadata).
+        before = table.count_rows()
+        in_clause = ", ".join(f"'{h}'" for h in hashes)
+        table.delete(f"metadata.pdf_hash IN ({in_clause})")
+        return before - table.count_rows()
+    except Exception as e:
+        logger.warning("Could not filter LanceDB by skipped hashes: %s", e)
+        return 0
+
+
+def _load_skipped_hashes(biblio_path: Path) -> set:
+    """Return the set of corpus_hash values whose works.serve = 0 (#54).
+
+    Empty set if biblio_authority.sqlite is missing, lacks the v0.3
+    serve column, or contains no skipped works. Read-only.
+    """
+    if not biblio_path.is_file():
+        return set()
+    try:
+        conn = sqlite3.connect(f"file:{biblio_path}?mode=ro", uri=True)
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(works)")}
+            if "serve" not in cols:
+                return set()
+            rows = conn.execute(
+                "SELECT corpus_hash FROM works "
+                "WHERE serve = 0 AND corpus_hash IS NOT NULL"
+            ).fetchall()
+            return {r[0] for r in rows}
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return set()
+
+
+def _citation_for_manifest() -> Optional[dict]:
+    """Read CITATION.cff (packaged into pipeline/CITATION.cff via
+    package_data; falls back to repo root for editable installs that
+    pre-date the package_data move) + return the resolved preferred
+    citation so it can be stamped into bundle_manifest.json (#61).
+    Returns None if CITATION.cff is missing.
+    """
+    cff = None
+    try:
+        from importlib import resources
+        import yaml
+        src = resources.files("pipeline").joinpath("CITATION.cff")
+        with resources.as_file(src) as cff_path:
+            if cff_path.exists():
+                cff = yaml.safe_load(cff_path.read_text(encoding="utf-8")) or {}
+    except (ModuleNotFoundError, FileNotFoundError, Exception):
+        cff = None
+    if cff is None:
+        # Editable-install fallback.
+        repo_root = Path(__file__).resolve().parent.parent
+        cff_path = repo_root / "CITATION.cff"
+        if not cff_path.exists():
+            return None
+        try:
+            import yaml
+            cff = yaml.safe_load(cff_path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            return None
+    pref = cff.get("preferred-citation") or cff
+    return {
+        "title": pref.get("title"),
+        "year": pref.get("year"),
+        "doi": pref.get("doi"),
+        "url": pref.get("url"),
+        "authors": [
+            {"family-names": a.get("family-names"), "given-names": a.get("given-names")}
+            for a in (pref.get("authors") or [])
+        ],
+    }
+
+
 # ── Path scrubbing (dev_docs/PLAN.md §10) ────────────────────────────────────
 #
 # `process_corpus.py` writes summary.json with absolute Bouchet paths in
@@ -441,12 +538,47 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     if not dry_run:
         serve_dir.mkdir(parents=True, exist_ok=True)
 
+    # #54 — load the set of hashes flagged works.serve = 0 in
+    # biblio_authority.sqlite. These papers stay in the build bundle
+    # (operators can still see them in `corpus status`) but get
+    # excluded from the served bundle the MCP server reads.
+    skipped_hashes = _load_skipped_hashes(output_dir / "biblio_authority.sqlite")
+    if skipped_hashes:
+        logger.info(
+            "Skip flag: %d paper(s) marked works.serve = 0 will be "
+            "excluded from the served bundle (#54)", len(skipped_hashes),
+        )
+
+    # #54 follow-up: re-distillation must prune any per-paper directory
+    # that was copied previously but is now in skipped_hashes. Without
+    # this, flipping `serve = false` and re-running `corpus run` would
+    # leave the prior copy in serve_dir.
+    if skipped_hashes and not dry_run:
+        serve_documents_dir = serve_dir / "documents"
+        if serve_documents_dir.is_dir():
+            n_pruned = 0
+            import shutil
+            for h in skipped_hashes:
+                stale = serve_documents_dir / h
+                if stale.is_dir():
+                    shutil.rmtree(stale)
+                    n_pruned += 1
+            if n_pruned:
+                logger.info(
+                    "Pruned %d stale per-paper dir(s) from serve_dir "
+                    "(now flagged works.serve = 0; #54)", n_pruned,
+                )
+
     # Per-paper files + figures/
     n_papers = 0
+    n_skipped = 0
     n_files = 0
     total_bytes = 0
     for hash_dir in sorted(documents_dir.iterdir()):
         if not hash_dir.is_dir():
+            continue
+        if hash_dir.name in skipped_hashes:
+            n_skipped += 1
             continue
         n_papers += 1
         dest_hash_dir = serve_dir / "documents" / hash_dir.name
@@ -479,12 +611,30 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         if n_papers % 200 == 0:
             logger.info("Copied %d papers, %d files so far", n_papers, n_files)
 
+    if n_skipped:
+        logger.info(
+            "Excluded %d paper(s) from the served bundle "
+            "(works.serve = 0; #54)", n_skipped,
+        )
+
     # LanceDB — directory tree
     vdb_src = output_dir / "vector_db" / "lancedb"
     vdb_dst = serve_dir / "vector_db" / "lancedb"
     nf, nb = _copy_tree(vdb_src, vdb_dst, dry_run)
     n_files += nf
     total_bytes += nb
+
+    # #54 follow-up: filter LanceDB to drop chunks for skipped papers.
+    # Without this, get_chunks_for_topic semantic search would still
+    # surface excluded papers even though their per-paper directories
+    # are gone.
+    if skipped_hashes and not dry_run and vdb_dst.is_dir():
+        n_dropped = _drop_chunks_for_hashes(vdb_dst, skipped_hashes)
+        if n_dropped:
+            logger.info(
+                "Dropped %d LanceDB chunk(s) for skipped papers (#54)",
+                n_dropped,
+            )
 
     # Top-level corpuscle files — flat at the root of the output dir
     # alongside documents/, mirrored into the bundle root. All entries
@@ -549,6 +699,11 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         "figure_count": fig_count,
         "chunk_count": chunk_count,
         "includes_pdfs": include_pdfs,
+        # #61: stamp the resolved citation alongside version + git_sha so
+        # downstream LLM clients (via the MCP `bundle_info` tool) can
+        # cite the tool that gave them the literature without the user
+        # having to dig for it. Single source: CITATION.cff at repo root.
+        "citation": _citation_for_manifest(),
     }
     manifest_path = serve_dir / "bundle_manifest.json"
     if not dry_run:

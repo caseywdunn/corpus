@@ -152,7 +152,7 @@ def test_extract_lexicon_mentions_no_category_when_unset():
 
 
 def test_extract_writes_one_json_per_category(tmp_path):
-    from process_corpus import _extract_taxa_and_lexicons
+    from pipeline.annotate import _extract_taxa_and_lexicons
 
     hd = tmp_path / "abc"
     hd.mkdir()
@@ -190,7 +190,7 @@ def test_extract_writes_one_json_per_category(tmp_path):
 
 def test_extract_skips_empty_category(tmp_path):
     """An empty section is silently skipped — no <category>.json written."""
-    from process_corpus import _extract_taxa_and_lexicons
+    from pipeline.annotate import _extract_taxa_and_lexicons
 
     hd = tmp_path / "abc"
     hd.mkdir()
@@ -209,7 +209,7 @@ def test_extract_skips_empty_category(tmp_path):
 
 
 def test_fingerprint_stamped_per_category(tmp_path):
-    from process_corpus import _extract_taxa_and_lexicons
+    from pipeline.annotate import _extract_taxa_and_lexicons
 
     hd = tmp_path / "abc"
     hd.mkdir()

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-import process_corpus
-from process_corpus import _run_quality_gates
+from pipeline import stages as process_corpus
+from pipeline.stages import _run_quality_gates
 
 
 @pytest.fixture

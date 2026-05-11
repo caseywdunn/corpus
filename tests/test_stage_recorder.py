@@ -6,7 +6,7 @@ import subprocess
 import pytest
 import requests
 
-from process_corpus import (
+from pipeline.stages import (
     _HugeDocumentError,
     _classify_exception,
     _pdf_page_count,

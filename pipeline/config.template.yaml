@@ -1,0 +1,120 @@
+# corpus config.yaml — per-corpuscle settings
+#
+# Copied here by `corpus init`. Edit the input paths for your corpus,
+# leave the system tuning blocks alone unless you have a reason.
+# Schema: pipeline/config_schema.py (CorpuscleConfig).
+#
+# Path resolution: relative paths resolve against the directory
+# containing this file (not cwd). So `cd <corpuscle> && corpus run`
+# and `corpus --config <corpuscle>/config.yaml run` from anywhere
+# give identical results.
+
+# ---------------------------------------------------------------------------
+# Per-corpuscle inputs
+# ---------------------------------------------------------------------------
+
+# Directory of PDFs to process (recursively walked). Glob expansion
+# is not supported — point at a directory.
+input_pdfs: ./pdfs
+
+# Per-corpuscle artifact tree (per-paper directories, cross-paper
+# SQLite DBs, LanceDB index). Defaults to ./output if omitted.
+output_dir: ./output
+
+# Curated BibTeX file. Records whose `file = {Foo.pdf}` field matches
+# an input PDF override Grobid for header metadata. Comment out to
+# rely on Grobid's parse for every paper.
+# bib: ./references.bib
+
+# Multi-category lexicon YAML (anatomy, biogeography, ...). Each
+# top-level key emits its own <hash>/<category>.json artifact.
+# Comment out to skip lexicon annotation entirely.
+# lexicon: ./lexicon.yaml
+
+# External taxonomy snapshot. Auto-built into <output_dir>/taxonomy.sqlite
+# on the first `corpus run`. Three sources to pick from:
+#
+#   worms — fetch a WoRMS (World Register of Marine Species) subtree by
+#           AphiaID. Best for marine groups. Set `source: worms` and
+#           `root_id: <AphiaID>` (e.g. 1371 for the order Siphonophorae;
+#           look your group up at https://www.marinespecies.org/).
+#
+#   dwca  — ingest a Darwin Core Archive .zip pulled from GBIF, ITIS, or
+#           Catalogue of Life. Set `source: dwca` and `path: <zip>`.
+#           Right answer for non-marine groups.
+#
+#   dwc   — ingest an unzipped Darwin Core directory (rare; use dwca
+#           unless you already have a tree of .tsv files on disk).
+#
+# Leave the block commented out (default) to skip the synonymy graph
+# entirely — the pipeline still extracts taxon mentions from text, you
+# only lose the link from historical names to current valid names.
+# taxonomy:
+#   source: worms
+#   root_id: 1371                 # Siphonophorae order (example)
+#   # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
+
+# Vision pass (Pass 3b — figure annotation by a vision LLM).
+vision:
+  backend: none     # one of: local (open-weights VLM on CUDA/MPS),
+                    #         claude (Anthropic API; needs ANTHROPIC_API_KEY),
+                    #         none (skip entirely)
+  # model: claude-sonnet-4-6-20251001   # optional override
+
+# Grobid (PDF metadata + reference parsing). Runs as a Docker service;
+# see README §Grobid.
+grobid:
+  url: http://localhost:8070
+  # disable: true   # skip Grobid even if reachable
+
+# Bibliography-build options.
+bibliography:
+  enrich_bhl: false   # opt-in BHL enrichment (slow, rate-limited)
+
+# Figure-licensing policy (#51).
+licensing:
+  pd_cutoff_years: 95   # US copyright public-domain rule; configurable
+
+# ---------------------------------------------------------------------------
+# System tuning — leave unless you have a reason
+# ---------------------------------------------------------------------------
+
+ocr:
+  optimize_level: 2
+  # Tesseract traineddata codes used when language detection fails.
+  ocr_languages_default:
+    - eng
+    - deu
+    - deu_latf    # 19th-c. German Fraktur
+    - fra
+    - rus
+    - lat
+    - spa
+    - por
+    - chi_sim
+    - chi_tra
+    - jpn
+    - ell
+    - kor
+  gibberish_threshold: 0.65
+
+chunking:
+  max_tokens: 8191
+
+stage_timeouts:
+  ocr: 1800
+  grobid: 300
+  docling: 600
+  vision_pass: 600
+
+huge_document:
+  max_pages: 5000
+
+quality_gates:
+  empty_text_min_chars: 500
+  min_chars_per_page: 200
+  max_gibberish_score: 0.5
+  zero_refs_min_pages: 5
+  min_median_chunk_chars: 50
+  min_figure_mean_intensity: 10
+  max_figures_sampled: 50

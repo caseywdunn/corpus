@@ -35,6 +35,7 @@ dependencies:
   - ghostscript
   - pngquant  # ocrmypdf optional helper; substantial size savings on PDFs with many embedded color images
   - pymupdf
+  - pandoc    # md → pdf for write-up workflows initiated by Claude (#50)
 
   # Config, data, scientific
   - numpy
@@ -46,6 +47,7 @@ dependencies:
   - requests
   - rapidfuzz  # fuzzy title matching in biblio-authority builder
   - lxml  # TEI-XML parsing (Grobid output)
+  - rich  # operator-facing CLI rendering (#63); also transitive via mcp + anthropic
 
   # Notebook / interactive dev
   - ipykernel

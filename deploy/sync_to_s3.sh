@@ -55,10 +55,10 @@ echo "  input:  $OUTPUT_DIR"
 echo "  bundle: $BUNDLE_DIR"
 echo "  version: $VERSION"
 # shellcheck disable=SC2086
-python "$REPO_DIR/package_for_serve.py" \
+(cd "$REPO_DIR" && python -m mcpsrv.bundle \
     "$OUTPUT_DIR" "$BUNDLE_DIR" \
     --version "$VERSION" \
-    $EXTRA_FLAGS
+    $EXTRA_FLAGS)
 
 echo
 echo "── Upload ─────────────────────────────────────────────────────"

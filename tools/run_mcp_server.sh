@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Wrapper that picks the right corpus-env Python for this host and execs
-# mcp_server.py. Invoked from .mcp.json so the same committed config works
-# on a local Mac and on Bouchet.
+# the MCP server (`corpus serve`). Invoked from .mcp.json so the same
+# committed config works on a local Mac and on Bouchet.
 
 set -e
 
@@ -26,7 +26,7 @@ if [[ ! -x "$CORPUS_PY" ]]; then
     exit 1
 fi
 
-OUTPUT_DIR="${CORPUS_OUTPUT_DIR:-$REPO_DIR/output}"
+OUTPUT_DIR="${CORPUS_OUTPUT_DIR:-$REPO_DIR/demo/output}"
 
 cd "$REPO_DIR"
-exec "$CORPUS_PY" mcp_server.py "$OUTPUT_DIR"
+exec "$CORPUS_PY" -m mcpsrv.main "$OUTPUT_DIR"

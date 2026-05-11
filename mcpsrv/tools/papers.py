@@ -23,7 +23,8 @@ def bundle_info() -> Dict:
             "bundle_version": None,
             "note": "no bundle_manifest.json — this server is backed "
                     "by a local build output, not a versioned served "
-                    "bundle.  run package_for_serve.py to produce one.",
+                    "bundle.  run `python -m mcpsrv.bundle <output_dir> "
+                    "<serve_dir> --version vX.Y.Z` to produce one.",
         }
     return {
         "server_name": mcp._mcp_server.name,

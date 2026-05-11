@@ -26,10 +26,27 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # ---------------------------------------------------------------------------
 
 
-def _run(*argv: str) -> subprocess.CompletedProcess:
-    """Invoke a CLI as a subprocess. Captures output for assertion."""
+# v0.3 (#60) clean break: root-level scripts moved into packages.
+# Map the legacy script-name strings the tests use to the new module paths.
+_SCRIPT_TO_MODULE = {
+    "backfill_intext_citations.py": "pipeline.intext_citations",
+    "build_taxon_mentions.py":      "pipeline.taxon_mentions",
+    "build_biblio_authority.py":    "bib.authority",
+    "reconcile_corpus_to_biblio.py": "bib.reconcile",
+}
+
+
+def _run(script: str, *argv: str) -> subprocess.CompletedProcess:
+    """Invoke a moved CLI as ``python -m <module>``.
+
+    Tests still pass the legacy script-name string for readability;
+    the helper translates to the post-#60 module path.
+    """
+    module = _SCRIPT_TO_MODULE.get(script)
+    if module is None:
+        raise KeyError(f"no module mapping for legacy script {script!r}")
     return subprocess.run(
-        [sys.executable, *argv],
+        [sys.executable, "-m", module, *argv],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

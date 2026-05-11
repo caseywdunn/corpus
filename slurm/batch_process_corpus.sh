@@ -108,7 +108,7 @@ echo "Starting Stage 1 processing at $(date)"
 echo "Input:  $INPUT_DIR"
 echo "Output: $OUTPUT_DIR"
 
-python process_corpus.py \
+python -m pipeline.main \
     "$INPUT_DIR" "$OUTPUT_DIR" \
     --resume \
     --grobid-url "$GROBID_URL" \

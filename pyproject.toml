@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "corpus"
+description = "MCP server for taxonomic literature corpora"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Casey Dunn" }]
+dynamic = ["version"]
+
+# Mirrors requirements.txt — keep in sync per CONTRIBUTING.md
+# §"Dependencies — two files, on purpose". Native binaries
+# (tesseract, ghostscript, pngquant) are install-platform's job.
+dependencies = [
+    "requests",
+    "python-dotenv",
+    "pydantic",
+    "pyyaml",
+    "numpy",
+    "pillow",
+    "matplotlib",
+    "rapidfuzz>=2.0",
+    "lxml",
+    "rich",
+    "mcp",
+    "uvicorn",
+    "lancedb",
+    "sentence-transformers",
+    "torch",
+    "transformers",
+    "anthropic",
+    "docling",
+    "ocrmypdf",
+    "pymupdf",
+    "langdetect",
+    "pytesseract",
+    "qwen-vl-utils",
+    "accelerate",
+    "ipykernel",
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/caseywdunn/corpus"
+Issues = "https://github.com/caseywdunn/corpus/issues"
+Changelog = "https://github.com/caseywdunn/corpus/blob/main/CHANGELOG.md"
+
+[project.scripts]
+corpus = "pipeline.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "pipeline.version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pipeline*", "mcpsrv*", "bib*"]
+exclude = ["tests*", "deploy*", "tools*", "slurm*", "demo*", "templates*", "dev_docs*"]
+
+[tool.setuptools.package-data]
+mcpsrv = ["default_instructions.md"]
+pipeline = ["config.template.yaml", "CITATION.cff"]

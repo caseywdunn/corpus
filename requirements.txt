@@ -18,6 +18,7 @@ pillow
 matplotlib
 rapidfuzz>=2.0
 lxml
+rich  # operator-facing CLI rendering (#63); also transitive via mcp + anthropic
 
 # MCP server + transport deps.  uvicorn is also a transitive dep of
 # mcp today, but we pin it explicitly because mcp_server.py imports it

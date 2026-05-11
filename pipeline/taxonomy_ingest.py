@@ -803,8 +803,21 @@ def main() -> int:
         # into memory because we need the full record set to compute
         # descendant pruning.
         if args.source == "worms":
-            logger.info("Walking WoRMS from AphiaID %s ...", args.root_id)
-            records = list(iter_worms_walk(args.root_id, min_interval=args.min_interval))
+            logger.info(
+                "Walking WoRMS from AphiaID %s (rate-limited at %.2fs per "
+                "request; large subtrees can take 10+ minutes) ...",
+                args.root_id, args.min_interval,
+            )
+            records = []
+            t0 = time.monotonic()
+            for rec in iter_worms_walk(args.root_id, min_interval=args.min_interval):
+                records.append(rec)
+                if len(records) % 25 == 0:
+                    rate = len(records) / max(time.monotonic() - t0, 1e-6)
+                    logger.info(
+                        "worms: %d records walked (%.1f/s)",
+                        len(records), rate,
+                    )
         elif args.source == "dwc":
             logger.info("Reading DwC CSV/TSV %s ...", args.input)
             records = list(iter_dwc_csv(args.input))

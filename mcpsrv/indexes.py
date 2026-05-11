@@ -99,7 +99,7 @@ class CorpusIndex:
             return None, None
         try:
             db = lancedb.connect(str(self.vector_db_dir))
-            if "document_chunks" not in db.table_names():
+            if "document_chunks" not in db.list_tables():
                 return None, None
             table = db.open_table("document_chunks")
         except Exception as e:

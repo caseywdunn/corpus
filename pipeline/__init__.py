@@ -33,6 +33,28 @@ keep working during the deprecation window.
 from .version import __version__ as PIPELINE_VERSION  # noqa: E402,F401
 
 
+# Honor a CORPUS_LOG_LEVEL env var if set. logging.basicConfig is a
+# no-op after the first call, so configuring at package-import time —
+# before any submodule's own basicConfig fires — lets `corpus -q run`
+# quiet the entire subprocess tree (orchestrator → pipeline.main /
+# embed / status / ...) without each module having to plumb -q through
+# its argparse.  When the env var is absent, this block is a no-op and
+# each module's own basicConfig wins as before.
+import logging as _logging  # noqa: E402
+import os as _os  # noqa: E402
+_log_level = _os.environ.get("CORPUS_LOG_LEVEL", "").upper()
+if _log_level in {"WARNING", "INFO", "DEBUG"}:
+    _logging.basicConfig(
+        level=getattr(_logging, _log_level),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    # Stamp the marker that pipeline.log.setup_root_logging looks for
+    # so it doesn't add a second StreamHandler on top of ours.
+    for _h in _logging.getLogger().handlers:
+        if isinstance(_h, _logging.StreamHandler) and not hasattr(_h, "baseFilename"):
+            _h._corpus_stream = True
+
+
 # Per-artifact schema version. Bumped only when an artifact's on-disk
 # JSON shape changes in a backwards-incompatible way. Independent of
 # PIPELINE_VERSION (which moves on every release whether or not the

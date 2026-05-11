@@ -1,4 +1,5 @@
-"""Tests for the update_corpus.py orchestrator (#32)."""
+"""Tests for the orchestrator (#32; moved from ``update_corpus.py`` to
+``pipeline.orchestrator`` per #60)."""
 from __future__ import annotations
 
 import subprocess
@@ -12,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def _run(*argv: str, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, "update_corpus.py", *argv],
+        [sys.executable, "-m", "pipeline.orchestrator", *argv],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

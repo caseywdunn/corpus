@@ -12,9 +12,9 @@ WorkingDirectory=/srv/corpus/repo
 
 # Bundle directory is a symlink updated atomically by deploy/update.sh.
 # Token is in /etc/corpus/ mode 600, owned by root:corpus.
-ExecStart=/srv/corpus/venv/bin/python \
-    /srv/corpus/repo/mcp_server.py \
-    /srv/corpus/bundle \
+ExecStart=/srv/corpus/venv/bin/corpus serve \
+    --output-dir /srv/corpus/bundle \
+    -- \
     --transport sse --host 127.0.0.1 --port 8080 \
     --auth-token-file /etc/corpus/mcp.token
 

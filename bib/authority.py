@@ -217,9 +217,30 @@ def create_schema(conn: sqlite3.Connection) -> None:
             in_corpus      INTEGER NOT NULL DEFAULT 0,
             source         TEXT NOT NULL,
             confidence     REAL DEFAULT 1.0,
+            -- #51 — figure licensing + publishable gate.
+            -- license: SPDX short identifier or one of the small custom
+            --          vocabulary (public-domain, all-rights-reserved,
+            --          publisher-permission, unknown).
+            -- license_source: 'bibtex' | 'age_based_pd' | 'unknown'.
+            -- publishable: derived at build time from license + age cutoff
+            --              (default `licensing.pd_cutoff_years: 95`).
+            license        TEXT,
+            license_url    TEXT,
+            license_source TEXT,
+            publishable    INTEGER,
+            -- #54 — PDF QC skip flag. serve=0 means package_for_serve
+            -- excludes the paper from the served bundle; serve_reason
+            -- is a short tag from the closed vocab in dev_docs/QC.md.
+            serve          INTEGER NOT NULL DEFAULT 1,
+            serve_reason   TEXT,
             created_at     REAL NOT NULL,
             updated_at     REAL NOT NULL
         );
+
+        -- v0.3 schema migration helpers (#51 + #54). The CREATE TABLE IF
+        -- NOT EXISTS above is a no-op when the table already exists, so
+        -- existing biblio_authority.sqlite files miss the new columns.
+        -- The Python wrapper below adds them with ALTER TABLE.
 
         CREATE TABLE IF NOT EXISTS work_authors (
             work_id            TEXT NOT NULL REFERENCES works(work_id),
@@ -276,12 +297,155 @@ def create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_works_corpus_hash ON works(corpus_hash) WHERE corpus_hash IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_works_year ON works(year);
         CREATE INDEX IF NOT EXISTS idx_works_in_corpus ON works(in_corpus);
+        CREATE INDEX IF NOT EXISTS idx_works_publishable ON works(publishable);
+        CREATE INDEX IF NOT EXISTS idx_works_serve ON works(serve);
         CREATE INDEX IF NOT EXISTS idx_work_authors_surname ON work_authors(surname_normalized);
         CREATE INDEX IF NOT EXISTS idx_citations_cited ON citations(cited_work_id);
         CREATE INDEX IF NOT EXISTS idx_citations_citing ON citations(citing_work_id);
         CREATE INDEX IF NOT EXISTS idx_taxon_work_links_work ON taxon_work_links(work_id);
     """)
+    _migrate_works_columns(conn)
     conn.commit()
+
+
+# v0.3 column additions (#51 + #54). ALTER TABLE ADD COLUMN is a no-op on
+# new DBs (CREATE TABLE above already declared the columns) and a one-time
+# migration on existing v0.2 DBs.
+_V03_WORKS_COLUMNS = [
+    ("license",        "TEXT"),
+    ("license_url",    "TEXT"),
+    ("license_source", "TEXT"),
+    ("publishable",    "INTEGER"),
+    ("serve",          "INTEGER NOT NULL DEFAULT 1"),
+    ("serve_reason",   "TEXT"),
+]
+
+
+def _migrate_works_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent ALTER TABLE for the v0.3 works.* additions."""
+    have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
+    for name, decl in _V03_WORKS_COLUMNS:
+        if name not in have:
+            conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
+
+
+# #51 — license vocab. Per dev_docs/LICENSING.md, the value is an SPDX
+# short identifier extended with a small custom vocabulary. The
+# `_PUBLISHABLE_LICENSES` set captures the licenses we treat as
+# reusable in derived publications by default; everything else gets
+# publishable=0 unless the operator overrides.
+_PUBLISHABLE_LICENSES = frozenset({
+    # SPDX (and our own "public-domain" tag)
+    "public-domain", "cc0-1.0",
+    "cc-by-1.0", "cc-by-2.0", "cc-by-2.5", "cc-by-3.0", "cc-by-4.0",
+    "cc-by-sa-3.0", "cc-by-sa-4.0",
+})
+_NON_PUBLISHABLE_LICENSES = frozenset({
+    "all-rights-reserved", "publisher-permission", "unknown",
+})
+
+
+def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) -> None:
+    """Copy bib-derived license + serve fields from metadata.json into works.*."""
+    license_v = meta.get("license")
+    license_url = meta.get("license_url")
+    serve_v = meta.get("serve")
+    serve_reason = meta.get("serve_reason")
+
+    # Build the SET clause only for fields we have a value for.
+    sets, params = [], []
+    if license_v:
+        sets.append("license = ?")
+        params.append(license_v)
+        sets.append("license_source = ?")
+        params.append("bibtex")
+    if license_url:
+        sets.append("license_url = ?")
+        params.append(license_url)
+    if serve_v is not None:
+        sets.append("serve = ?")
+        params.append(int(serve_v))
+    if serve_reason:
+        sets.append("serve_reason = ?")
+        params.append(serve_reason)
+    if sets:
+        params.append(work_id)
+        conn.execute(
+            f"UPDATE works SET {', '.join(sets)} WHERE work_id = ?",
+            params,
+        )
+
+
+def derive_publishable(license_v: Optional[str], year: Optional[int],
+                       pd_cutoff_years: int = 95) -> tuple[Optional[int], str]:
+    """Decide ``publishable`` (0/1/None) and ``license_source`` for a work.
+
+    Logic (per #51):
+      1. Explicit license string wins. SPDX/CC-BY family + ``public-domain``
+         → publishable. ``all-rights-reserved`` / ``publisher-permission`` /
+         ``unknown`` → not publishable.
+      2. No license + a year + year is older than the configured PD cutoff
+         → ``age_based_pd``; publishable.
+      3. Otherwise: source ``unknown``; not publishable (conservative
+         default per the issue body).
+
+    Returns (publishable, license_source). publishable=None means
+    "couldn't decide" (e.g. unrecognized license string).
+    """
+    import datetime as _dt
+    if license_v:
+        norm = license_v.strip().lower()
+        if norm in _PUBLISHABLE_LICENSES:
+            return 1, "bibtex"
+        if norm in _NON_PUBLISHABLE_LICENSES:
+            return 0, "bibtex"
+        # Unrecognized license string — leave publishable null but record source
+        return None, "bibtex"
+    if year is not None:
+        current = _dt.datetime.now().year
+        if (current - int(year)) >= pd_cutoff_years:
+            return 1, "age_based_pd"
+    return 0, "unknown"
+
+
+def _resolve_pd_cutoff_from_config(config_path: Optional[Path]) -> int:
+    """Read ``licensing.pd_cutoff_years`` from the per-corpuscle config
+    or fall back to the schema default (95).
+    """
+    default = 95
+    if config_path is None:
+        return default
+    if not config_path.exists():
+        return default
+    try:
+        import yaml
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        return int((raw.get("licensing") or {}).get("pd_cutoff_years", default))
+    except Exception:
+        return default
+
+
+def apply_publishable_derivation(conn: sqlite3.Connection,
+                                 pd_cutoff_years: int = 95) -> int:
+    """Walk every work, set ``publishable`` + ``license_source`` based on
+    ``license`` + ``year``. Returns count of updated rows.
+
+    Idempotent: run after every build (or when ``licensing.pd_cutoff_years``
+    in config.yaml changes).
+    """
+    rows = list(conn.execute(
+        "SELECT work_id, license, year FROM works"
+    ))
+    n = 0
+    for r in rows:
+        publishable, source = derive_publishable(r[1], r[2], pd_cutoff_years)
+        conn.execute(
+            "UPDATE works SET publishable = ?, license_source = ? WHERE work_id = ?",
+            (publishable, source, r[0]),
+        )
+        n += 1
+    conn.commit()
+    return n
 
 
 # ── Work insertion helpers ───────────────────────────────────────────
@@ -525,6 +689,10 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             if first_surname:
                 alias = make_alias_key(first_surname, year, title or meta.get("filename", ""))
                 insert_alias(conn, alias, work_id)
+            # #51 + #54 — propagate license / skip fields if the bib-derived
+            # metadata.json carries them (bib.parser.bib_entry_to_metadata
+            # surfaces license / licenseurl / serve / servereason).
+            _seed_license_and_serve(conn, work_id, meta)
             count += 1
             batch += 1
             if batch >= 100:
@@ -1097,6 +1265,18 @@ def main() -> int:
         help="Fail fast on the first transient external-service failure "
              "(BHL 5xx, connect error, timeout) instead of retrying.",
     )
+    parser.add_argument(
+        "--pd-cutoff-years", type=int, default=None,
+        help="Public-domain cutoff for the publishable-derivation pass "
+             "(#51). Default: read from config.yaml's `licensing."
+             "pd_cutoff_years`, falling back to 95 (US copyright rule).",
+    )
+    parser.add_argument(
+        "--config", type=Path, default=None,
+        help="Path to per-corpuscle config.yaml. Read for "
+             "`licensing.pd_cutoff_years` (#51). Defaults to "
+             "<output_dir>/../config.yaml if found.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -1262,10 +1442,44 @@ def main() -> int:
             "INSERT OR REPLACE INTO build_meta (key, value) VALUES (?, ?)",
             ("total_citations", str(stats["citations"])),
         )
+
+        # #51 — derive publishable from license + age cutoff. Runs at
+        # the end of every build so the column is always consistent
+        # with the current license values + the configured cutoff.
+        pd_cutoff = args.pd_cutoff_years
+        if pd_cutoff is None:
+            pd_cutoff = _resolve_pd_cutoff_from_config(args.config)
+        n_derived = apply_publishable_derivation(conn, pd_cutoff_years=pd_cutoff)
+        n_publishable = conn.execute(
+            "SELECT COUNT(*) FROM works WHERE publishable = 1"
+        ).fetchone()[0]
+        logger.info(
+            "  Publishable:  %d / %d works (pd_cutoff_years=%d)",
+            n_publishable, n_derived, pd_cutoff,
+        )
+
         conn.commit()
-        return 0
+        rc = 0
     finally:
         conn.close()
+
+    # #67: apply any sidecar staged by `corpus bib import` before the
+    # first `corpus run`. Closing + reopening the connection keeps the
+    # transaction boundaries clean.
+    try:
+        from .importer import apply_pending_bib
+        applied = apply_pending_bib(args.output_dir, db_path)
+        if applied is not None:
+            logger.info(
+                "Applied staged bib overrides: %d updated, %d no-change, %d no-match",
+                applied.get("changed", 0),
+                applied.get("no_changes", 0),
+                applied.get("no_match", 0),
+            )
+    except Exception as e:
+        logger.warning("Could not apply staged bib overrides: %s", e)
+
+    return rc
 
 
 if __name__ == "__main__":

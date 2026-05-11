@@ -33,9 +33,51 @@ import hashlib
 import json
 import logging
 import sys
+import textwrap
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+
+# Human-readable explainer per quality gate (#36). The gate ids and
+# their semantics live in pipeline/stages.py::_run_quality_gates; this
+# dict is just operator-facing prose for `corpus status --report`.
+# Keep in sync manually when a new gate is added there.
+_GATE_INFO: Dict[str, Tuple[str, str]] = {
+    "empty_text": (
+        "error",
+        "Extracted body text is implausibly short. Usually a failed "
+        "OCR pass on a scanned PDF, or a corrupted source file.",
+    ),
+    "low_text_density": (
+        "warn",
+        "Characters-per-page below threshold. Common on figure-heavy "
+        "papers; sometimes a partial text extraction.",
+    ),
+    "gibberish_after_ocr": (
+        "error",
+        "OCR ran but the result still scores as gibberish. Usually a "
+        "missing Tesseract language pack (e.g. deu_latf for 19th-c. "
+        "German Fraktur). Install the pack and rerun.",
+    ),
+    "zero_references_unexpected": (
+        "warn",
+        "Multi-page paper with an empty references.json. Almost always "
+        "Grobid missing the bibliography on an uncommon layout — not "
+        "a real defect in the paper. Safe to ignore unless cross-paper "
+        "citation linking matters for this corpus.",
+    ),
+    "single_token_chunks": (
+        "warn",
+        "Median chunk length is below threshold — chunking collapsed, "
+        "usually because text extraction returned mostly whitespace.",
+    ),
+    "all_black_figures": (
+        "warn",
+        "Most sampled figures have near-zero mean intensity — a Docling "
+        "extraction artifact, not content of the paper.",
+    ),
+}
 
 logger = logging.getLogger("corpus_status")
 
@@ -106,12 +148,18 @@ def aggregate(documents_dir: Path) -> Dict[str, Any]:
         "papers_with_legacy_errors_only": [],
         "papers_with_failures": set(),
         "papers_with_quality_flags": set(),
+        "filename_by_hash": {},     # short hash → original PDF basename
+                                    # (for human-readable rendering; hashes
+                                    # alone are operator-hostile, #87-ish)
     }
 
     for h, summary in _iter_summaries(documents_dir):
         rollup["total_documents"] += 1
         rollup["documents_with_summary"] += 1
         ps = summary.get("processing_summary") or {}
+        orig = ps.get("original_pdf")
+        if orig:
+            rollup["filename_by_hash"][h] = Path(orig).name
 
         timings = ps.get("stage_timings") or []
         failures = ps.get("stage_failures") or []
@@ -157,6 +205,21 @@ def _bar(n: int, total: int, width: int = 30) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
+def render_artifacts(output_dir: Path) -> str:
+    """Cross-paper artifact presence section for `--report` (#57).
+
+    Lists the four corpus-level outputs and ✓/✗ for each. The MCP
+    server can run with any subset present; missing ones surface here.
+    """
+    out: List[str] = ["Cross-paper artifacts:"]
+    for rel in ("biblio_authority.sqlite", "taxon_mentions.sqlite",
+                "taxonomy.sqlite", "vector_db/lancedb"):
+        p = output_dir / rel
+        mark = "✓" if p.exists() else "✗"
+        out.append(f"  {mark} {rel}")
+    return "\n".join(out) + "\n"
+
+
 def render_text(rollup: Dict[str, Any]) -> str:
     out: List[str] = []
     n_total = rollup["total_documents"]
@@ -167,6 +230,12 @@ def render_text(rollup: Dict[str, Any]) -> str:
     stages = rollup["stages"]
     if stages:
         out.append("Stages (success / total):")
+        # Scale bar — pads to the bar column (56 chars: 2 indent + 28 stage +
+        # 1 space + 5 ok + " / " + 5 total + 2 spaces + 8 pct + 2 spaces).
+        # Bar width below is 30, so 0% / 50% / 100% sit at cols 0 / 14 / 29.
+        bar_pad = " " * 56
+        out.append(bar_pad + "0%" + " " * 12 + "50%" + " " * 9 + "100%")
+        out.append(bar_pad + "┌" + "─" * 14 + "┬" + "─" * 13 + "┐")
         # Order: by total desc, then alpha
         for stage, row in sorted(stages.items(), key=lambda kv: (-kv[1]["total"], kv[0])):
             ok, total = row["ok"], row["total"]
@@ -193,9 +262,20 @@ def render_text(rollup: Dict[str, Any]) -> str:
     n_qf_papers = len(rollup["papers_with_quality_flags"])
     if qf:
         n_qf_total = sum(qf.values())
-        out.append(f"Quality flags ({n_qf_papers} papers, {n_qf_total} flags):")
+        out.append(
+            f"Quality flags ({n_qf_papers} paper{'s' if n_qf_papers != 1 else ''}, "
+            f"{n_qf_total} flag{'s' if n_qf_total != 1 else ''}) — "
+            "informational; nothing is rejected."
+        )
+        out.append("List affected papers with:  corpus status --filter-gate <name>")
+        out.append("")
         for gate, count in qf.most_common():
-            out.append(f"  {gate:<32s} {count:>5d}")
+            sev, desc = _GATE_INFO.get(gate, ("?", ""))
+            papers_word = "paper" if count == 1 else "papers"
+            out.append(f"  {gate}  ({count} {papers_word}, severity={sev})")
+            if desc:
+                for line in textwrap.wrap(desc, width=70):
+                    out.append(f"      {line}")
     else:
         out.append("Quality flags: none recorded.")
     out.append("")
@@ -278,6 +358,163 @@ def filtered_hashes(
 
 
 # ---------------------------------------------------------------------------
+# #54 — worst-first triage workflow
+# ---------------------------------------------------------------------------
+
+
+def quality_flag_counts_per_paper(rollup: Dict[str, Any]) -> Counter:
+    """Return ``{paper_hash: n_quality_flags}`` from the rollup.
+
+    Backs ``--sort-by quality_flag_count --tail N`` (#54).
+    """
+    counts: Counter = Counter()
+    for gate, hs in rollup["papers_by_gate"].items():
+        for h in hs:
+            counts[h] += 1
+    return counts
+
+
+def stage_failure_counts_per_paper(rollup: Dict[str, Any]) -> Counter:
+    """Return ``{paper_hash: n_stage_failures}`` from the rollup."""
+    counts: Counter = Counter()
+    for (reason, stage), hs in rollup["papers_by_reason_stage"].items():
+        for h in hs:
+            counts[h] += 1
+    return counts
+
+
+def _label_for_paper(rollup: Dict[str, Any], h: str) -> str:
+    """Human-readable ``<filename> (<hash>)`` label for an operator-facing
+    line. The repo-wide convention: single space, hash in parens, no
+    "hash" keyword inside.  Falls back to bare ``<hash>`` when
+    summary.json was missing the ``original_pdf`` field (legacy artifacts).
+    """
+    fn = rollup.get("filename_by_hash", {}).get(h)
+    return f"{fn} ({h})" if fn else h
+
+
+def render_worst_first(
+    rollup: Dict[str, Any],
+    metric: str,
+    tail: int,
+) -> str:
+    """Worst-N papers by ``metric``. Used by ``corpus status --sort-by …
+    --tail N`` (#54)."""
+    if metric == "quality_flag_count":
+        per_paper = quality_flag_counts_per_paper(rollup)
+        label = "quality flags"
+    elif metric == "stage_failure_count":
+        per_paper = stage_failure_counts_per_paper(rollup)
+        label = "stage failures"
+    else:
+        return (
+            f"unknown --sort-by metric: {metric!r}. Supported: "
+            "quality_flag_count, stage_failure_count. Per-paper QC metrics "
+            "(citation_resolution_rate, dictionary_hit_rate, …) deferred "
+            "to follow-up; the gate count is the available proxy."
+        )
+    if not per_paper:
+        return f"no papers carry {label}; nothing to triage."
+    out: List[str] = [
+        f"Worst {tail} paper(s) by {label}:",
+    ]
+    for h, n in per_paper.most_common(tail):
+        out.append(f"  {n} {label:<14s} {_label_for_paper(rollup, h)}")
+    return "\n".join(out)
+
+
+def render_propose_skips(
+    rollup: Dict[str, Any],
+    output_dir: Path,
+    min_flags: int = 2,
+) -> str:
+    """Papers flagged by ≥ ``min_flags`` quality gates that aren't yet
+    ``works.serve = 0``. BibTeX-paste-ready output (#54)."""
+    counts = quality_flag_counts_per_paper(rollup)
+    biblio = output_dir / "biblio_authority.sqlite"
+    skipped = _load_skipped_hashes(biblio)
+    candidates = [
+        (h, n) for h, n in counts.most_common() if n >= min_flags and h not in skipped
+    ]
+    if not candidates:
+        return (
+            f"no propose-skip candidates "
+            f"(threshold: ≥{min_flags} quality flags, not already serve=0)."
+        )
+    out = [
+        f"Propose-skip candidates (≥{min_flags} quality flags, not yet serve=0):",
+        "",
+        "% paste these `serve = {false}` lines into the matching BibTeX",
+        "% entries; `corpus bib import` will write them to works.serve.",
+        "",
+    ]
+    for h, n in candidates:
+        gates_for_h = [g for g, hs in rollup["papers_by_gate"].items() if h in hs]
+        out.append(f"  % {_label_for_paper(rollup, h)} — {n} flags: {', '.join(sorted(gates_for_h))}")
+        out.append(f"  serve = {{false}},")
+        out.append("")
+    return "\n".join(out)
+
+
+def render_skipped(output_dir: Path) -> str:
+    """Currently excluded papers + their reasons, grouped by reason (#54)."""
+    biblio = output_dir / "biblio_authority.sqlite"
+    if not biblio.is_file():
+        return f"no biblio_authority.sqlite at {biblio}; can't list skipped papers."
+    import sqlite3 as _sql
+    try:
+        conn = _sql.connect(f"file:{biblio}?mode=ro", uri=True)
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(works)")}
+            if "serve" not in cols:
+                return ("biblio_authority.sqlite predates v0.3 — works.serve "
+                        "column missing. Re-run `corpus run` to migrate.")
+            rows = conn.execute(
+                "SELECT corpus_hash, COALESCE(serve_reason, '(no reason)'), title "
+                "FROM works WHERE serve = 0 AND corpus_hash IS NOT NULL "
+                "ORDER BY serve_reason, corpus_hash"
+            ).fetchall()
+        finally:
+            conn.close()
+    except _sql.Error as e:
+        return f"could not read biblio_authority.sqlite: {e}"
+    if not rows:
+        return "no papers currently flagged works.serve = 0."
+    grouped: Dict[str, List[tuple]] = defaultdict(list)
+    for h, reason, title in rows:
+        grouped[reason].append((h, title or "(no title)"))
+    out = [f"Skipped papers ({len(rows)} total, grouped by reason):"]
+    for reason in sorted(grouped):
+        out.append(f"\n  [{reason}] ({len(grouped[reason])})")
+        for h, title in grouped[reason]:
+            out.append(f"    {h}  {title[:80]}")
+    return "\n".join(out)
+
+
+def _load_skipped_hashes(biblio_path: Path) -> set:
+    """Mirror of mcpsrv.bundle._load_skipped_hashes; kept here so the
+    status report doesn't depend on the mcpsrv package."""
+    if not biblio_path.is_file():
+        return set()
+    import sqlite3 as _sql
+    try:
+        conn = _sql.connect(f"file:{biblio_path}?mode=ro", uri=True)
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(works)")}
+            if "serve" not in cols:
+                return set()
+            rows = conn.execute(
+                "SELECT corpus_hash FROM works "
+                "WHERE serve = 0 AND corpus_hash IS NOT NULL"
+            ).fetchall()
+            return {r[0] for r in rows}
+        finally:
+            conn.close()
+    except _sql.Error:
+        return set()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -294,6 +531,40 @@ def main() -> int:
     parser.add_argument(
         "--json", action="store_true",
         help="Emit the rollup as JSON instead of the text report.",
+    )
+    parser.add_argument(
+        "--report", action="store_true",
+        help="Print the full report (default rollup + cross-paper artifact "
+             "presence) — also written to <output_dir>/run.log on `corpus run` "
+             "completion. (#57)",
+    )
+    # #54 — worst-first triage workflow.
+    parser.add_argument(
+        "--sort-by", default=None,
+        choices=["quality_flag_count", "stage_failure_count"],
+        help="Worst-N papers by metric. Pair with --tail. Per-paper QC "
+             "metrics (citation_resolution_rate, dictionary_hit_rate, …) "
+             "land in a #54 follow-up; gate counts are the proxy for now.",
+    )
+    parser.add_argument(
+        "--tail", type=int, default=20,
+        help="With --sort-by, return the N worst papers (default 20).",
+    )
+    parser.add_argument(
+        "--propose-skips", action="store_true",
+        help="Papers flagged by ≥ N quality gates that aren't yet "
+             "works.serve = 0 (--min-flags, default 2). BibTeX-paste-ready. "
+             "(#54)",
+    )
+    parser.add_argument(
+        "--min-flags", type=int, default=2,
+        help="Threshold for --propose-skips (default 2).",
+    )
+    parser.add_argument(
+        "--skipped", action="store_true",
+        help="Currently excluded papers (works.serve = 0), grouped by "
+             "serve_reason. Useful for comparing new candidates against "
+             "precedent. (#54)",
     )
     parser.add_argument(
         "--list-hashes", action="store_true",
@@ -321,7 +592,7 @@ def main() -> int:
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
     documents_dir = args.output_dir / "documents"
@@ -341,10 +612,24 @@ def main() -> int:
             print(h)
         return 0
 
+    # #54 — triage modes short-circuit the default rollup output.
+    if args.sort_by:
+        print(render_worst_first(rollup, args.sort_by, args.tail))
+        return 0
+    if args.propose_skips:
+        print(render_propose_skips(rollup, args.output_dir, args.min_flags))
+        return 0
+    if args.skipped:
+        print(render_skipped(args.output_dir))
+        return 0
+
     if args.json:
         print(render_json(rollup))
     else:
         print(render_text(rollup))
+        if args.report:
+            print()
+            print(render_artifacts(args.output_dir))
     return 0
 
 

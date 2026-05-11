@@ -260,7 +260,7 @@ def main() -> int:
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
     output_dir = args.output_dir.resolve()
@@ -305,11 +305,11 @@ def main() -> int:
     chunk_model = make_chunk_model(embedder.dim)
 
     db = lancedb.connect(str(vector_db_dir / "lancedb"))
-    if args.rebuild and args.table_name in db.table_names():
+    if args.rebuild and args.table_name in db.list_tables():
         logger.warning("Dropping existing table %r per --rebuild", args.table_name)
         db.drop_table(args.table_name)
 
-    if args.table_name in db.table_names():
+    if args.table_name in db.list_tables():
         table = db.open_table(args.table_name)
         # Sanity check: the table on disk has a fixed dim. If the user
         # switched to a different model without --rebuild, fail early.

@@ -46,7 +46,7 @@ echo "Starting embedding pass at $(date)"
 echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'unknown')"
 echo "Output: $OUTPUT_DIR"
 
-python embed_chunks.py \
+python -m pipeline.embed \
     "$OUTPUT_DIR" \
     --resume || {
     EC=$?
@@ -57,7 +57,7 @@ python embed_chunks.py \
     if [ $EC -eq 135 ] || [ $EC -eq 139 ]; then
         echo "WARNING: Bus error during cleanup (exit $EC) — embeddings are complete"
     else
-        echo "ERROR: embed_chunks.py failed with exit code $EC"
+        echo "ERROR: pipeline.embed failed with exit code $EC"
         exit $EC
     fi
 }

@@ -125,6 +125,14 @@ echo "Submitting Embed (GPU)..."
 EMBED_JOB=$(sbatch --parsable --dependency=afterok:"$STAGE1_JOB" "$SCRIPT_DIR/batch_embed.sh")
 echo "  Embed job: $EMBED_JOB"
 
+# Cross-paper finalize (#57): chained on the embed job so the four
+# post-pipeline builds run hands-off after Stage 2 completes.
+echo "Submitting Finalize (cross-paper tail)..."
+FINALIZE_JOB=$(sbatch --parsable \
+    --dependency=afterok:"$EMBED_JOB" \
+    "$SCRIPT_DIR/batch_finalize.sh")
+echo "  Finalize job: $FINALIZE_JOB"
+
 # ── Summary ─────────────────────────────────────────────────────────
 echo ""
 echo "=== Pipeline Submitted ==="
@@ -134,6 +142,7 @@ printf "  %-20s %s\n" "Stage 1:" "$STAGE1_JOB (running now)"
 printf "  %-20s %s\n" "Grobid cancel:" "$CANCEL_JOB (after Stage 1)"
 printf "  %-20s %s\n" "Pass 3b:" "$PASS3B_JOB (after Stage 1)"
 printf "  %-20s %s\n" "Embed:" "$EMBED_JOB (after Stage 1)"
+printf "  %-20s %s\n" "Finalize:" "$FINALIZE_JOB (after Embed; #57)"
 echo ""
 echo "Monitor: squeue --me"
-echo "Cancel all: scancel $GROBID_JOB $STAGE1_JOB $CANCEL_JOB $PASS3B_JOB $EMBED_JOB"
+echo "Cancel all: scancel $GROBID_JOB $STAGE1_JOB $CANCEL_JOB $PASS3B_JOB $EMBED_JOB $FINALIZE_JOB"

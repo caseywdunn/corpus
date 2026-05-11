@@ -1,9 +1,9 @@
 # AWS deployment runbook
 
 End-to-end CLI-only deploy — no AWS console clicks required.  The EC2
-stack is defined in [deploy/stack.yaml](../deploy/stack.yaml) (CloudFormation);
+stack is defined in [deploy/stack.yaml](deploy/stack.yaml) (CloudFormation);
 on-host setup and bundle operations happen via `ssh` + the shell scripts
-in [deploy/](../deploy/).
+in [deploy/](deploy/).
 
 ## Architecture
 
@@ -19,7 +19,7 @@ Client → ALB (TLS, ACM wildcard *.siphonophores.org)
 - **EC2 `t3.large`** on the default VPC, Ubuntu 24.04 LTS.
 - **nginx** on the instance is ALB-aware: no TLS, no certbot.  It serves
   `GET /health` directly (for ALB health checks) and proxies `/sse`,
-  `/messages/`, `/healthz` to `mcp_server.py` on `127.0.0.1:8080`.
+  `/messages/`, `/healthz` to `mcpsrv.main` on `127.0.0.1:8080`.
 - **S3** bucket holds versioned serve bundles; the instance reads from it
   via IAM instance role (no credentials).
 - **DNS** (`siphonophores.org` at DreamHost) — one CNAME per organism
@@ -55,6 +55,69 @@ Layout on the EC2 host:
 /etc/nginx/sites-available/corpus-mcp   reverse-proxy config
 /etc/systemd/system/corpus-mcp.service  unit from deploy/
 ```
+
+---
+
+## Quick remote deploy (any host)
+
+The minimum to bring up an SSE server on any host you already have — no AWS, no CloudFormation. The full AWS runbook starts in §"Prerequisites" below.
+
+**1. Generate a bearer token.** Strong URL-safe random; mode-600 file; never pass on the CLI (would leak via `ps`):
+
+```bash
+python -c 'import secrets; print(secrets.token_urlsafe(32))' > ~/corpus-mcp.token
+chmod 600 ~/corpus-mcp.token
+```
+
+**2. Start the server over SSE.**
+
+```bash
+corpus serve --output-dir <bundle> -- \
+    --transport sse --host 127.0.0.1 --port 8080 \
+    --auth-token-file ~/corpus-mcp.token
+```
+
+Clients send `Authorization: Bearer <token>` on every request. Without `--auth-token-file` or `CORPUS_MCP_TOKEN` the server runs open and logs a loud warning — fine for localhost experiments, never safe for public-facing deploys.
+
+**3. Smoke-test before exposing to anyone else.** [tools/smoke_test_sse.py](tools/smoke_test_sse.py) launches its own server on a free port, generates its own token, and drives the full stack — 401 without auth, 200 with auth, MCP `initialize` → `list_tools` → `bundle_info` → `list_papers`:
+
+```bash
+python tools/smoke_test_sse.py <bundle>
+```
+
+All seven checks should pass locally before you move to a real server.
+
+**4. Connect a client.** Remote-MCP support exists natively in Claude Desktop, claude.ai web, and Claude Code. Recommended in order:
+
+- **Claude Code (CLI)** — tested and working against our server:
+
+  ```bash
+  claude mcp add corpus-remote http://127.0.0.1:18080/sse \
+      --transport sse \
+      --scope user \
+      --header "Authorization: Bearer $(cat ~/corpus-mcp.token)"
+  ```
+
+  Use `--scope project` to tie to one repo, `claude mcp remove corpus-remote --scope user` to undo. `/mcp` in any session lists connected servers and their tools.
+
+- **Claude Desktop / claude.ai web (Custom Connectors UI)** — Settings → Connectors → "Add custom connector", paste the URL. Available on Free / Pro / Max / Team / Enterprise plans ([Anthropic docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)). **Caveat:** Custom Connectors target the **Streamable HTTP** transport with OAuth-style auth, while our server speaks **SSE** with a static bearer token. Whether the UI accepts our URL depends on how strict the client is. If it rejects the SSE endpoint, fall back to the bridge below.
+
+- **Claude Desktop fallback — mcp-remote bridge.** Edit `~/Library/Application Support/Claude/claude_desktop_config.json` to launch [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a stdio subprocess that bridges to the SSE endpoint:
+
+  ```json
+  {
+    "mcpServers": {
+      "corpus-remote": {
+        "command": "/opt/homebrew/bin/npx",
+        "args": ["-y", "mcp-remote",
+                 "http://127.0.0.1:18080/sse",
+                 "--header", "Authorization: Bearer <token>"]
+      }
+    }
+  }
+  ```
+
+A cleaner Custom Connectors experience would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery, but this is deferred indefinitely — SSE + bearer token works for the ~20-collaborator deploy target.
 
 ---
 
@@ -183,7 +246,7 @@ cloud-init status --wait    # must print 'status: done'
 # Repo + Python venv
 sudo git clone -b dev https://github.com/caseywdunn/corpus.git /srv/corpus/repo
 sudo python3.12 -m venv /srv/corpus/venv
-sudo /srv/corpus/venv/bin/pip install -r /srv/corpus/repo/requirements.txt
+sudo /srv/corpus/venv/bin/pip install -e /srv/corpus/repo
 sudo chown -R corpus:corpus /srv/corpus
 
 # Bearer token

@@ -174,7 +174,8 @@ def export_bibtex(
     conn.row_factory = sqlite3.Row
     where = "WHERE in_corpus = 1" if corpus_only else ""
     works_sql = f"""
-        SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus
+        SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus,
+               license, license_url, serve, serve_reason
         FROM works
         {where}
         ORDER BY year, work_id
@@ -222,6 +223,14 @@ def export_bibtex(
             "journal": r["journal"],
             "doi": r["doi"],
             "file": file_field,
+            # #51 — round-trip license metadata so operators can curate
+            # in BibTeX. licenseurl is the flat BibTeX spelling; the
+            # importer maps it back to the snake_case license_url column.
+            "license": r["license"],
+            "licenseurl": r["license_url"],
+            # #54 — round-trip the deploy-time skip flag.
+            "serve": ("false" if (r["serve"] is not None and not r["serve"]) else None),
+            "servereason": r["serve_reason"],
             # corpus_hash is opaque but lets future bib_import match
             # entries back to per-paper artifacts even after a rename.
             "corpus_hash": r["corpus_hash"],
@@ -277,7 +286,7 @@ def main() -> int:
     db_path = args.db or (args.output_dir / "biblio_authority.sqlite")
     if not db_path.exists():
         logger.error("biblio_authority.sqlite not found at %s. "
-                     "Run build_biblio_authority.py first.", db_path)
+                     "Run `corpus run` (or `python -m bib.authority`) first.", db_path)
         return 1
 
     documents_dir = None if args.no_file_field else (args.output_dir / "documents")

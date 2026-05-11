@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -53,6 +54,70 @@ from .stages import (
 logger = logging.getLogger(__name__)
 
 
+class _PaperLogAdapter(logging.LoggerAdapter):
+    """Prepend ``[<pdf_stem>]`` to every record so per-stage progress
+    lines stay attributable inside the per-paper log AND in the noisy
+    multi-paper console stream (where docling/transformers/httpx output
+    drowns out the unprefixed "Chunking text..." line)."""
+
+    def process(self, msg, kwargs):
+        return f"[{self.extra['pdf']}] {msg}", kwargs
+
+
+@contextmanager
+def _docling_log_context(pdf_name: str, short_hash: str):
+    """Annotate docling's per-document banner lines with the paper they
+    refer to.
+
+    Every PDF is staged under ``<hash_dir>/processed.pdf`` before being
+    handed to docling, so docling logs identical
+    ``Processing document processed.pdf`` /
+    ``Finished converting document processed.pdf in N sec``
+    lines for every paper in a batch. When ten of those interleave with
+    docling's model-loading chatter, operators can't tell which paper
+    each pertains to.
+
+    Install a record-mutating filter on every root handler for the
+    duration of the docling call; remove it on exit. We only mutate
+    records whose formatted message contains the literal banner —
+    docling's generic chatter (model downloads, factory initialization)
+    is untouched.
+    """
+    annotation = f"  [{pdf_name}.pdf ({short_hash})]"
+
+    class _Filter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            try:
+                msg = record.getMessage()
+            except Exception:
+                return True
+            if (
+                "Processing document processed.pdf" in msg
+                or "Finished converting document processed.pdf" in msg
+            ):
+                # Lock in the already-substituted message and append the
+                # annotation; clearing args prevents the handler from
+                # re-applying %-formatting on the now-literal string.
+                record.msg = msg + annotation
+                record.args = ()
+            return True
+
+    filt = _Filter()
+    # Attach to root-level handlers: docling's submodule records
+    # propagate up through the root logger, and handlers there run
+    # their .filter() on every record they receive (including
+    # propagated ones). Logger-level filters wouldn't suffice — those
+    # only fire for records originated at that logger.
+    handlers = list(logging.getLogger().handlers)
+    for h in handlers:
+        h.addFilter(filt)
+    try:
+        yield
+    finally:
+        for h in handlers:
+            h.removeFilter(filt)
+
+
 def run_pdf_processing_pipeline(
     pdf_path: Path,
     hash_dir: Path,
@@ -73,6 +138,7 @@ def run_pdf_processing_pipeline(
     ``logging`` calls here are captured to ``<hash_dir>/pipeline.log``.
     """
     pdf_name = pdf_path.stem
+    plog = _PaperLogAdapter(logger, {"pdf": pdf_name})
     temp_pdf = temp_dir / f"{pdf_name}.pdf"
 
     # Copy PDF to temp directory for processing
@@ -99,7 +165,7 @@ def run_pdf_processing_pipeline(
         # Huge-document gate (#35) — skip-and-flag PDFs above max_pages
         # before any expensive stage runs.
         with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir):
-            max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 500))
+            max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 5000))
             n_pages = _pdf_page_count(temp_pdf)
             if n_pages is not None:
                 processing_summary["page_count"] = n_pages
@@ -116,7 +182,7 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("scan_detection", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
             with _stage(processing_summary, "scan_detection", hash_dir=hash_dir):
-                logger.info("Detecting scan type...")
+                plog.info("Detecting scan type...")
                 detection_result = detect_scan_type(temp_pdf)
                 with open(detection_file, "w") as f:
                     json.dump(stamp_artifact(detection_result), f, indent=2)
@@ -131,7 +197,7 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("pdf_preparation", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
             with _stage(processing_summary, "pdf_preparation", hash_dir=hash_dir):
-                logger.info("Preparing PDF...")
+                plog.info("Preparing PDF...")
                 prepare_pdf(temp_pdf, detection_result, processed_pdf)
                 processing_summary["files_created"].append(str(processed_pdf))
                 processing_summary["processing_steps"].append("pdf_preparation")
@@ -143,16 +209,17 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("docling_extraction", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
             with _stage(processing_summary, "docling_extraction", hash_dir=hash_dir):
-                logger.info("Extracting text and figures...")
-                extract_docling_content(
-                    processed_pdf,
-                    text_file,
-                    figures_file,
-                    figures_dir,
-                    visualizations_dir,
-                    docling_doc_output=docling_doc_file,
-                    scan_file_type=detection_result.get("file_type"),
-                )
+                plog.info("Extracting text and figures...")
+                with _docling_log_context(pdf_name, hash_dir.name):
+                    extract_docling_content(
+                        processed_pdf,
+                        text_file,
+                        figures_file,
+                        figures_dir,
+                        visualizations_dir,
+                        docling_doc_output=docling_doc_file,
+                        scan_file_type=detection_result.get("file_type"),
+                    )
                 processing_summary["files_created"].extend([str(text_file), str(figures_file)])
                 if docling_doc_file.exists():
                     processing_summary["files_created"].append(str(docling_doc_file))
@@ -165,7 +232,7 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("metadata_extraction", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
             with _stage(processing_summary, "metadata_extraction", hash_dir=hash_dir):
-                logger.info("Extracting metadata (Grobid)...")
+                plog.info("Extracting metadata (Grobid)...")
                 bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
                 extract_metadata(
                     processed_pdf,
@@ -188,24 +255,24 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("text_chunking", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary):
             with _stage(processing_summary, "text_chunking", hash_dir=hash_dir):
-                logger.info("Chunking text...")
+                plog.info("Chunking text...")
                 chunk_text(text_file, chunks_output=chunks_file)
                 processing_summary["files_created"].append(str(chunks_file))
                 processing_summary["processing_steps"].append("text_chunking")
 
         with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
-            logger.info("Pass 2.5: annotating figures from captions + text...")
+            plog.info("Pass 2.5: annotating figures from captions + text...")
             _pass25_annotate_figures(text_file, figures_file)
             processing_summary["processing_steps"].append("figure_pass25_annotation")
 
         if vision_backend is not None:
             with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
-                logger.info("Pass 3b: vision-model-driven panel + compound detection...")
+                plog.info("Pass 3b: vision-model-driven panel + compound detection...")
                 _pass3b_annotate_rois(figures_file, vision_backend)
                 processing_summary["processing_steps"].append("figure_pass3b_rois")
         elif content_aware_figures:
             with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
-                logger.info("Pass 3a: OCR-driven panel ROI detection...")
+                plog.info("Pass 3a: OCR-driven panel ROI detection...")
                 _pass3a_annotate_rois(figures_file)
                 processing_summary["processing_steps"].append("figure_pass3a_rois")
 
@@ -214,9 +281,9 @@ def run_pdf_processing_pipeline(
         # worth running whenever 3a or 3b has been run.
         if vision_backend is not None or content_aware_figures:
             with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
-                logger.info("Pass 3c: compound figure resolution + file rename...")
+                plog.info("Pass 3c: compound figure resolution + file rename...")
                 summary_3c = resolve_compound_figures(figures_file)
-                logger.info(
+                plog.info(
                     "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
                     summary_3c.get("resolved", 0),
                     summary_3c.get("renamed", 0),
@@ -226,7 +293,7 @@ def run_pdf_processing_pipeline(
                 processing_summary["processing_steps"].append("figure_pass3c_resolve")
 
         with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir):
-            logger.info("Linking chunks to figures...")
+            plog.info("Linking chunks to figures...")
             _crossref_chunks_and_figures(figures_file, chunks_file)
             processing_summary["processing_steps"].append("figure_crossref")
 
@@ -253,7 +320,7 @@ def run_pdf_processing_pipeline(
             ):
                 with _stage(processing_summary, "taxa_and_lexicon_extraction",
                             hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
-                    logger.info("Extracting taxa + lexicon mentions...")
+                    plog.info("Extracting taxa + lexicon mentions...")
                     taxa_anat_files = _extract_taxa_and_lexicons(
                         chunks_file,
                         hash_dir,
@@ -267,7 +334,7 @@ def run_pdf_processing_pipeline(
                         processing_summary["processing_steps"].append("taxa_and_lexicon_extraction")
 
         with _stage(processing_summary, "figures_report", hash_dir=hash_dir):
-            logger.info("Generating figures report...")
+            plog.info("Generating figures report...")
             report_path = generate_figures_report(hash_dir)
             if report_path:
                 processing_summary["files_created"].append(str(report_path))
@@ -281,7 +348,7 @@ def run_pdf_processing_pipeline(
             qgs = _run_quality_gates(hash_dir)
             processing_summary["quality_flags"] = qgs
             if qgs:
-                logger.warning(
+                plog.warning(
                     "Quality gates flagged %d issue(s): %s",
                     len(qgs), ", ".join(g["gate"] for g in qgs),
                 )
@@ -292,7 +359,7 @@ def run_pdf_processing_pipeline(
     except Exception as e:
         processing_summary["status"] = "error"
         processing_summary["errors"].append(str(e))
-        logger.exception("Error processing PDF: %s", e)
+        plog.exception("Error processing PDF: %s", e)
 
     processing_summary["ended_at"] = _utcnow_iso()
     return processing_summary

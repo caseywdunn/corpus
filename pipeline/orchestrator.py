@@ -53,15 +53,27 @@ REPO_ROOT = Path(__file__).resolve().parent
 
 @dataclass
 class Step:
-    """One subprocess invocation in the dependency chain."""
+    """One subprocess invocation in the dependency chain.
+
+    ``module`` is a dotted module path invoked via ``python -m``
+    (the v0.3 packaging — root-level scripts are gone per #60).
+    """
     name: str
-    script: str
+    module: str
     description: str
 
     def argv(self, args: argparse.Namespace) -> List[str]:
         """Build the argv for this step from CLI args."""
-        cmd = [sys.executable, str(REPO_ROOT / self.script)]
-        if self.name == "extract":
+        cmd = [sys.executable, "-m", self.module]
+        if self.name == "ingest_taxonomy":
+            cmd += [str(args.output_dir), "--source", args.taxonomy_source]
+            if args.taxonomy_root_id is not None:
+                cmd += ["--root-id", str(args.taxonomy_root_id)]
+            if args.taxonomy_path is not None:
+                cmd += ["--input", str(args.taxonomy_path)]
+            if args.dry_run:
+                cmd.append("--dry-run")
+        elif self.name == "extract":
             cmd += [str(args.input_dir), str(args.output_dir)]
             if args.resume:
                 cmd.append("--resume")
@@ -97,7 +109,25 @@ class Step:
                 cmd.append("--resume")
             if args.dry_run:
                 cmd.append("--dry-run")
-        elif self.name in ("build_biblio", "build_taxa", "backfill_intext"):
+        elif self.name == "build_biblio":
+            cmd += [str(args.output_dir)]
+            if args.dry_run:
+                cmd.append("--dry-run")
+            if args.force_rebuild_biblio or args.force_rebuild:
+                cmd.append("--rebuild")
+            if args.enrich_bhl:
+                cmd.append("--enrich-bhl")
+            if args.config:
+                # #51 — bib.authority reads `licensing.pd_cutoff_years`
+                # from the per-corpuscle config for publishable derivation.
+                cmd += ["--config", str(args.config)]
+        elif self.name == "build_taxa":
+            cmd += [str(args.output_dir)]
+            if args.dry_run:
+                cmd.append("--dry-run")
+            if args.force_rebuild_taxon_mentions or args.force_rebuild:
+                cmd.append("--rebuild")
+        elif self.name == "backfill_intext":
             cmd += [str(args.output_dir)]
             if args.dry_run:
                 cmd.append("--dry-run")
@@ -110,22 +140,37 @@ class Step:
 
 # Ordered. Names are stable identifiers for --from.
 STEPS: List[Step] = [
-    Step("extract",         "process_corpus.py",
+    Step("ingest_taxonomy", "pipeline.taxonomy_ingest",
+         "Auto-build taxonomy SQLite (#64; conditional on --taxonomy-source)"),
+    Step("extract",         "pipeline.main",
          "Stage 1: extraction, OCR, docling, metadata, chunking, annotation"),
-    Step("embed",           "embed_chunks.py",
+    Step("embed",           "pipeline.embed",
          "Stage 2: BGE-M3 embeddings → LanceDB"),
-    Step("build_biblio",    "build_biblio_authority.py",
+    Step("build_biblio",    "bib.authority",
          "Bibliographic authority DB"),
-    Step("build_taxa",      "build_taxon_mentions.py",
+    Step("build_taxa",      "pipeline.taxon_mentions",
          "Taxon mention rollup"),
-    Step("backfill_intext", "backfill_intext_citations.py",
+    Step("backfill_intext", "pipeline.intext_citations",
          "TEI body → intext_citations.json"),
-    Step("reconcile",       "reconcile_corpus_to_biblio.py",
+    Step("reconcile",       "bib.reconcile",
          "Merge ghost cited-references onto corpus papers"),
 ]
 
 # Steps that depend on Stage 1 outputs only — usable with --skip-pipeline.
 POST_PIPELINE_STEPS = {"build_biblio", "build_taxa", "backfill_intext", "reconcile"}
+
+
+def _should_skip_taxonomy_ingest(args: argparse.Namespace) -> bool:
+    """#64: skip ingest_taxonomy when (a) no source set, or (b) the
+    taxonomy SQLite already exists and the operator hasn't asked for
+    a rebuild via --force-rebuild or --force-rebuild-taxonomy.
+    """
+    if not args.taxonomy_source:
+        return True
+    db = args.output_dir / "taxonomy.sqlite"
+    if db.exists() and not (args.force_rebuild or args.force_rebuild_taxonomy):
+        return True
+    return False
 
 
 def main() -> int:
@@ -211,6 +256,34 @@ def main() -> int:
         choices=[s.name for s in STEPS],
         help="Start from this step (skipping all earlier steps).",
     )
+    # #64 — auto-build cross-paper databases.
+    parser.add_argument(
+        "--taxonomy-source", choices=["worms", "dwc", "dwca"], default=None,
+        help="Source for the taxonomy SQLite (auto-built into "
+             "<output_dir>/taxonomy.sqlite if missing). #64",
+    )
+    parser.add_argument(
+        "--taxonomy-root-id", type=int, default=None,
+        help="WoRMS AphiaID root for --taxonomy-source=worms.",
+    )
+    parser.add_argument(
+        "--taxonomy-path", type=Path, default=None,
+        help="Local DwC archive path for --taxonomy-source in "
+             "{dwc, dwca}.",
+    )
+    parser.add_argument(
+        "--enrich-bhl", action="store_true",
+        help="Enrich pre-DOI references against the Biodiversity "
+             "Heritage Library (slow, rate-limited). #64",
+    )
+    parser.add_argument(
+        "--force-rebuild", action="store_true",
+        help="Rebuild every cross-paper DB (taxonomy, biblio_authority, "
+             "taxon_mentions) regardless of input-hash state. #64",
+    )
+    parser.add_argument("--force-rebuild-taxonomy", action="store_true")
+    parser.add_argument("--force-rebuild-biblio", action="store_true")
+    parser.add_argument("--force-rebuild-taxon-mentions", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -239,6 +312,13 @@ def main() -> int:
     elif args.from_step is not None:
         idx = next(i for i, s in enumerate(STEPS) if s.name == args.from_step)
         selected = STEPS[idx:]
+
+    # #64: drop ingest_taxonomy if we don't need to (re)build the
+    # snapshot — this is the auto-detect part of "auto-build" cross-paper
+    # databases. The other DBs (biblio_authority, taxon_mentions) handle
+    # the same logic via their own --rebuild flags applied per-DB above.
+    if _should_skip_taxonomy_ingest(args):
+        selected = [s for s in selected if s.name != "ingest_taxonomy"]
 
     logger.info("Running %d step(s):", len(selected))
     for s in selected:
