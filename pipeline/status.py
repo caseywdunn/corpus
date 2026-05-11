@@ -148,12 +148,18 @@ def aggregate(documents_dir: Path) -> Dict[str, Any]:
         "papers_with_legacy_errors_only": [],
         "papers_with_failures": set(),
         "papers_with_quality_flags": set(),
+        "filename_by_hash": {},     # short hash → original PDF basename
+                                    # (for human-readable rendering; hashes
+                                    # alone are operator-hostile, #87-ish)
     }
 
     for h, summary in _iter_summaries(documents_dir):
         rollup["total_documents"] += 1
         rollup["documents_with_summary"] += 1
         ps = summary.get("processing_summary") or {}
+        orig = ps.get("original_pdf")
+        if orig:
+            rollup["filename_by_hash"][h] = Path(orig).name
 
         timings = ps.get("stage_timings") or []
         failures = ps.get("stage_failures") or []
@@ -377,6 +383,15 @@ def stage_failure_counts_per_paper(rollup: Dict[str, Any]) -> Counter:
     return counts
 
 
+def _label_for_paper(rollup: Dict[str, Any], h: str) -> str:
+    """Human-readable ``<filename>  (<hash>)`` label for an operator-facing
+    line. Falls back to bare ``<hash>`` when summary.json was missing the
+    ``original_pdf`` field (legacy artifacts).
+    """
+    fn = rollup.get("filename_by_hash", {}).get(h)
+    return f"{fn}  ({h})" if fn else h
+
+
 def render_worst_first(
     rollup: Dict[str, Any],
     metric: str,
@@ -403,7 +418,7 @@ def render_worst_first(
         f"Worst {tail} paper(s) by {label}:",
     ]
     for h, n in per_paper.most_common(tail):
-        out.append(f"  {h}  {n} {label}")
+        out.append(f"  {n} {label:<14s}  {_label_for_paper(rollup, h)}")
     return "\n".join(out)
 
 
@@ -434,7 +449,7 @@ def render_propose_skips(
     ]
     for h, n in candidates:
         gates_for_h = [g for g, hs in rollup["papers_by_gate"].items() if h in hs]
-        out.append(f"  % {h}  {n} flags: {', '.join(sorted(gates_for_h))}")
+        out.append(f"  % {_label_for_paper(rollup, h)}  —  {n} flags: {', '.join(sorted(gates_for_h))}")
         out.append(f"  serve = {{false}},")
         out.append("")
     return "\n".join(out)
