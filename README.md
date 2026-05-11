@@ -328,6 +328,7 @@ For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE star
 - [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
+- [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
 
 External:
 
