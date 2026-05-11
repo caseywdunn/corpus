@@ -455,3 +455,102 @@ def get_figure_image(
     return Image(path=str(crop_path))
 
 
+@mcp.tool()
+def get_figure_url(
+    paper_hash: str,
+    figure_id: str,
+    label: Optional[str] = None,
+) -> Dict:
+    """Return an HTTP URL the caller can ``curl -o`` to land the
+    figure PNG on disk *without* loading its bytes into the model's
+    context window.
+
+    Use this instead of ``get_figure_image`` when you need the file
+    bytes to land in the local filesystem (e.g. for pandoc / LaTeX /
+    PDF assembly). ``get_figure_image`` ships bytes through the MCP
+    image-content channel, which clients render inline for the human
+    reader but do not expose to the model as data the model can
+    re-emit through ``Write``/``Bash``.
+
+    The returned ``url`` is bearer-token-gated by the same secret that
+    guards ``/sse`` (or, on stdio MCP, a one-shot token minted at
+    server start). Fetch with ``curl -H "$auth_header" -o <path>
+    "$url"``; the bytes flow over HTTP outside the MCP JSON-RPC
+    channel so they don't burn context regardless of figure size.
+
+    Without ``label`` returns the whole figure. With ``label`` returns
+    the panel crop if one exists (matching ``get_figure_image``
+    semantics), falling back to the whole figure otherwise.
+
+    Refuses the figure when the parent work's ``publishable`` flag
+    (#51) is false, same policy as ``get_figure_image`` — override at
+    server start with ``--allow-unpublishable``.
+
+    Returns ``{url, auth_header, mime_type, publishable, license,
+    license_source}`` on success, ``{error: ...}`` on failure.
+    """
+    idx = _need_index()
+    base = getattr(idx, "figure_url_base", None)
+    if not base:
+        return {
+            "error": (
+                "figure HTTP route is not available on this server. "
+                "Possible causes: figure side-car failed to bind at "
+                "startup (check server logs), or the server is running "
+                "with an older mcpsrv that predates #69. "
+                "Fall back to get_figure_image."
+            ),
+        }
+
+    p = idx.papers.get(paper_hash)
+    if not p:
+        return {"error": f"no such paper_hash: {paper_hash}"}
+
+    # Verify the figure record exists before handing out a URL — the
+    # HTTP route would 404 anyway, but a JSON error here is cheaper
+    # for the caller and surfaces the issue immediately.
+    figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
+    fig = next(
+        (f for f in figs.get("figures", []) or [] if f.get("figure_id") == figure_id),
+        None,
+    )
+    if fig is None:
+        return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+
+    lic = _license_metadata_for_paper(paper_hash)
+    if not getattr(idx, "allow_unpublishable", False) and not lic.get("publishable"):
+        return {
+            "error": (
+                f"figure not publishable: license={lic.get('license') or 'unknown'!r} "
+                f"(source={lic.get('license_source')!r}). Server refuses to hand out "
+                f"a URL the operator would only get a 403 from. Read "
+                f"get_figure({paper_hash!r}, {figure_id!r}) for the raw license "
+                f"fields, or restart the server with --allow-unpublishable for "
+                f"local rights-holder cases."
+            ),
+            **lic,
+        }
+
+    url = f"{base}/figures/{paper_hash}/{figure_id}"
+    if label:
+        # Single key=value, no urlencoding gymnastics needed — figure_id
+        # / label are constrained to [A-Za-z0-9._-] on the server side.
+        url = f"{url}?label={label}"
+    token = getattr(idx, "figure_auth_token", None)
+    auth_header = f"Authorization: Bearer {token}" if token else None
+
+    return {
+        "url": url,
+        "auth_header": auth_header,
+        "mime_type": "image/png",
+        "publishable": lic.get("publishable"),
+        "license": lic.get("license"),
+        "license_source": lic.get("license_source"),
+        "fetch_hint": (
+            "curl -fsSL -H \"$auth_header\" -o /tmp/fig.png \"$url\""
+            if auth_header
+            else "curl -fsSL -o /tmp/fig.png \"$url\"   # no auth configured"
+        ),
+    }
+
+

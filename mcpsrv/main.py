@@ -261,10 +261,37 @@ def main() -> int:
     logger.info("Serving corpus: %s (%d papers)", args.output_dir, n)
 
     if args.transport == "stdio":
+        # #69 — start the figure HTTP side-car so get_figure_url can
+        # return a working URL on local stdio MCP. Daemon thread; dies
+        # when this process exits.
+        from .transport import start_stdio_figure_server
+        try:
+            fig_host, fig_port, fig_token = start_stdio_figure_server(
+                index, allow_unpublishable=index.allow_unpublishable,
+            )
+            index.figure_url_base = f"http://{fig_host}:{fig_port}"
+            index.figure_auth_token = fig_token
+        except Exception as e:
+            logger.warning(
+                "could not start figure HTTP side-car (%s); get_figure_url "
+                "will return an error but other tools work normally", e,
+            )
+            index.figure_url_base = None
+            index.figure_auth_token = None
         mcp.run()
     elif args.transport == "sse":
         token = _load_auth_token(args.auth_token_file)
-        _run_sse(args.host, args.port, token)
+        # #69 — build a public URL prefix the tool can hand out. We
+        # don't try to be clever about the operator's reverse-proxy
+        # hostname; bind host + bind port is the most we know, and
+        # operators behind nginx/ALB can rewrite client-side.
+        index.figure_url_base = f"http://{args.host}:{args.port}"
+        index.figure_auth_token = token
+        _run_sse(
+            args.host, args.port, token,
+            idx=index,
+            allow_unpublishable=index.allow_unpublishable,
+        )
     else:  # argparse's choices= should prevent this
         raise ValueError(f"unknown transport: {args.transport!r}")
     return 0
