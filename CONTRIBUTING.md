@@ -88,6 +88,11 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
 6. On `dev`, bump `__version__` to the next pre-release (e.g.
    `"0.3.0.dev0"` — PEP 440 suffix) and open a new `## [Unreleased]`
    section in `CHANGELOG.md`.
+7. Clean up [dev_docs/PLAN.md](dev_docs/PLAN.md): tick off items that
+   shipped in this release (or strike them through), prune anything
+   that's no longer the plan, and open a fresh section for the next
+   version's roadmap. The CHANGELOG records what *happened*; PLAN
+   records what's *next* — they shouldn't drift.
 
 Worked example — releasing `vX.Y.Z` end-to-end from the shell. Run
 each block separately and read the output; don't paste end-to-end.
@@ -133,6 +138,13 @@ $EDITOR pipeline/version.py   # bump to "X.Y+1.0.dev0" (or major+1)
 $EDITOR CHANGELOG.md          # insert a fresh "## [Unreleased]" block
 git add pipeline/version.py CHANGELOG.md
 git commit -m "post-release: bump dev to X.Y+1.0.dev0"
+git push origin dev
+
+# 7. Clean up the roadmap: prune shipped items and open the next
+#    version's section.
+$EDITOR dev_docs/PLAN.md
+git add dev_docs/PLAN.md
+git commit -m "plan: clear shipped X.Y.Z items, open X.Y+1.0 planning"
 git push origin dev
 ```
 
