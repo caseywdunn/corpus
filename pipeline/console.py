@@ -57,10 +57,19 @@ def print_status(message: str, status: _Status = "info") -> None:
     """Print ``message`` prefixed with the configured status symbol.
 
     On TTY: colored emoji + styled message. Off TTY: plain ASCII tag.
+
+    ``message`` is treated as literal text in both modes. Square
+    brackets in the body (e.g. ``[build bundle] ...``) are escaped
+    before being handed to rich so they aren't interpreted as markup
+    tags and silently dropped from terminal output.
     """
+    from rich.markup import escape as _rich_escape
+
     sym = _symbol(status)
     if console.is_terminal:
-        console.print(f"[{_STATUS_STYLE[status]}]{sym}[/] {message}")
+        console.print(
+            f"[{_STATUS_STYLE[status]}]{sym}[/] {_rich_escape(message)}"
+        )
     else:
         # `[ok]` etc. would be interpreted as rich markup tags and
         # stripped; print plain.
