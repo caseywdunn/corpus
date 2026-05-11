@@ -190,14 +190,19 @@ databases, and bundle distillation all run from one entry point.
   Ctrl-C mid-run is part of this contract: per-stage state is
   flushed atomically as each stage completes (per #55), so the
   next `corpus run` picks up exactly where the previous left off.
-- [ ] **Strict `corpus run --dry-run`.**
+- [x] **Strict `corpus run --dry-run`.**
   ([#60](https://github.com/caseywdunn/corpus/issues/60))
   Prints the plan — what would
   run, what would skip, what would be deleted — without touching
   disk. Today's per-stage `--dry-run` (#41) honors this stage by
   stage; under `corpus run`, audit every write path so the
   dry-run guarantee holds across all stages, post-pipeline
-  scripts, and the bundle distillation step.
+  scripts, and the bundle distillation step. Every step in the
+  orchestrator (extract / embed / build_biblio / build_taxa /
+  backfill_intext / reconcile / bundle distillation) now emits an
+  explicit "no writes" line on `--dry-run`; the dry-run-aware
+  success summary and per-paper bucket listings landed in the
+  v0.3 UX-polish pass.
 - [x] **`corpus check` detail.**
   ([#62](https://github.com/caseywdunn/corpus/issues/62))
   Validates `config.yaml` against a
@@ -548,6 +553,45 @@ the docs. All tracked under
   number extraction on old/scanned papers. Carried from v0.2;
   ~538 of 1,787 papers have unparsed figure numbers. Modest
   heuristic work, fits the v0.3 cycle if there's room.
+
+### Next cycle candidates
+
+Unshipped at the end of v0.3; not yet scoped to a target version.
+Collected here so they're visible between cycles. Move into a v0.4
+punch list (or later) when the next theme lands; some may be
+dropped on review.
+
+- **Vision pass corpus-scale validation.** Operational run +
+  figure-coverage audit on Bouchet against the tagged v0.3.0
+  build (release-validation, not coding). Restated from the
+  v0.3 Carryover entry above so pending work is consolidated.
+  ([#11](https://github.com/caseywdunn/corpus/issues/11))
+- **Figure-number extraction on old/scanned papers.** ~538 of
+  1,787 papers have unparsed figure numbers; modest heuristic
+  work. Carryover from v0.2 → v0.3 (didn't fit) → next cycle.
+  ([#16](https://github.com/caseywdunn/corpus/issues/16))
+- **Drift detection** (originally scoped to v0.3 under §1
+  "Per-corpuscle `config.yaml`"; unshipped). Hash the resolved
+  config — input paths + per-input content SHA — into a
+  corpuscle-side state file. A mismatch on the next run logs
+  which keys drifted and which stages it invalidates, so an
+  operator can see *why* a re-run is doing more than they
+  expected. No issue yet.
+- **Success summary report on clean `corpus run`** (originally
+  scoped to v0.3 under §1 "One CLI"; half-shipped). The
+  next-step pointer landed (`run complete. Try `corpus status
+  --report` and `corpus serve` next.`). The full `corpus status
+  --report` block emitted on clean completion + a structured
+  JSON line appended to `<output_dir>/run.log` did not. Closes
+  the report-half of #57.
+  ([#57](https://github.com/caseywdunn/corpus/issues/57))
+- **Lexicon YAML loader bug.** A non-mapping-of-mappings lexicon
+  silently degrades to no-op annotation with
+  `WARNING __main__: Could not load lexicon ...: 'list' object
+  has no attribute 'get'`. Surfaced during the v0.3 release-
+  validation walkthrough against `~/repos/siphonophores/lexicon.yaml`.
+  Either tighten the schema check + emit an actionable error, or
+  accept both shapes. No issue yet.
 
 ## 2. Target queries (evergreen reference)
 
