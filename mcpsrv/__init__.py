@@ -23,6 +23,16 @@ if _log_level in {"WARNING", "INFO", "DEBUG"}:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-from .main import main  # noqa: E402
+# Lazy access for `from mcpsrv import main` — eagerly importing
+# `mcpsrv.main` here would put it in sys.modules at package-import time,
+# which trips a runpy warning when `python -m mcpsrv.main` is then run
+# (the corpus `serve` verb does exactly that).
+def __getattr__(name):  # noqa: E402
+    if name == "main":
+        from .main import main
+        globals()["main"] = main
+        return main
+    raise AttributeError(f"module 'mcpsrv' has no attribute {name!r}")
+
 
 __all__ = ["main"]

@@ -27,8 +27,24 @@ from .parser import (  # noqa: E402
     bib_entry_to_metadata,
     parse_bibtex,
 )
-from .export import export_bibtex  # noqa: E402
-from .importer import import_bibtex  # noqa: E402
+
+
+# Lazy access for `from bib import export_bibtex / import_bibtex`. Eager
+# imports would put `bib.export` and `bib.importer` into sys.modules at
+# package-import time, which trips a runpy warning when those modules are
+# then invoked as `python -m bib.export` / `python -m bib.importer` (the
+# corpus `bib export` / `bib import` verbs do exactly that). bib.parser is
+# *not* a `python -m` entry point, so it stays eagerly imported above.
+def __getattr__(name):  # noqa: E402
+    if name == "export_bibtex":
+        from .export import export_bibtex
+        globals()["export_bibtex"] = export_bibtex
+        return export_bibtex
+    if name == "import_bibtex":
+        from .importer import import_bibtex
+        globals()["import_bibtex"] = import_bibtex
+        return import_bibtex
+    raise AttributeError(f"module 'bib' has no attribute {name!r}")
 
 __all__ = [
     "BibIndex",
