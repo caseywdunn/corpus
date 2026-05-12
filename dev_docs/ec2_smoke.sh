@@ -194,8 +194,14 @@ sudo docker rm -f corpus-grobid 2>/dev/null || true
 # CRF-only image is ~7 GB (vs ~32 GB for grobid/grobid:0.8.1) and
 # produces the same REST surface for the demo's 11 PDFs.
 sudo docker pull lfoppiano/grobid:0.8.1 > /tmp/grobid_pull.out 2>&1
+# -XX:-UseContainerSupport: the JVM bundled with lfoppiano/grobid:0.8.1
+# is old enough that its cgroup v2 detector hits a known NPE
+# (CgroupV2Subsystem.getInstance → "anyController is null") on modern
+# Ubuntu AMIs that default to cgroup v2. Disabling container-aware
+# sizing skips the broken codepath; -Xmx/-Xms are already set
+# explicitly so we don't actually need the auto-detection.
 sudo docker run -d --name corpus-grobid -p 8070:8070 \
-    -e JAVA_OPTS='-Xmx4g -Xms1g' \
+    -e JAVA_OPTS='-XX:-UseContainerSupport -Xmx4g -Xms1g' \
     --restart=unless-stopped \
     lfoppiano/grobid:0.8.1 > /dev/null
 
