@@ -429,14 +429,18 @@ def _scrub_summary(serve_path: Path, output_root: Path) -> bool:
     return changed
 
 
-def _scrub_taxa(serve_path: Path) -> bool:
-    """Rewrite the absolute-path field in a copied taxa.json.
+def _scrub_input_fingerprint_path(serve_path: Path) -> bool:
+    """Rewrite the absolute-path field in any per-paper artifact that
+    carries an ``input_fingerprint`` block (taxa.json + every lexicon
+    ``<category>.json`` written by pipeline.annotate).
 
-    ``input_fingerprint.path`` records the build-host path to
-    taxonomy.sqlite (e.g. /nfs/roberts/…/taxonomy.sqlite). That path
-    is not meaningful on the serve host; replace it with the basename
-    so the portability audit passes while preserving the other
-    fingerprint fields (sha256, size) for cache-invalidation checks.
+    ``input_fingerprint.path`` records the build-host path to the source
+    file the artifact was derived from — e.g. taxonomy.sqlite for
+    taxa.json, or lexicon.yaml for anatomy.json / biogeography.json /
+    methods.json (#70). That path is not meaningful on the serve host;
+    replace it with the basename so the portability audit passes while
+    preserving the other fingerprint fields (sha256, size) for
+    cache-invalidation checks.
 
     Returns True if any change was made.
     """
@@ -670,8 +674,12 @@ def package(output_dir: Path, serve_dir: Path, version: str,
                 n_scrubbed += 1
             if _scrub_figures(hash_dir / "figures.json", output_dir):
                 n_scrubbed += 1
-            if _scrub_taxa(hash_dir / "taxa.json"):
-                n_scrubbed += 1
+            # taxa.json + every lexicon <category>.json carry an
+            # input_fingerprint.path → strip absolute prefix (#70).
+            fingerprint_files = ["taxa.json"] + _per_paper_lexicon_outputs(hash_dir)
+            for fname in fingerprint_files:
+                if _scrub_input_fingerprint_path(hash_dir / fname):
+                    n_scrubbed += 1
         offenders = _audit_no_absolute_paths(serve_dir)
         if offenders:
             logger.error("Absolute paths leaked into served bundle:")

@@ -4,11 +4,14 @@
 #     conda env create -f environment.yaml
 #     conda activate corpus
 #
-# Most Python and system tools (tesseract, ghostscript, pymupdf, pngquant)
-# come from conda-forge. ocrmypdf itself is installed via pip — its other
-# optional native helper (jbig2enc) is not packaged on conda-forge for all
-# platforms; ocrmypdf runs fine without it at a lower optimization level.
-# See README.md for jbig2enc system-install instructions.
+# Most Python and system tools (tesseract, ghostscript, pymupdf) come
+# from conda-forge. ocrmypdf itself is installed via pip. Its two
+# optional native helpers — pngquant and jbig2enc — are not on
+# conda-forge for every target platform (notably pngquant is missing
+# from osx-arm64), and ocrmypdf runs fine without them at a lower
+# optimization level. pipeline/scan.py auto-degrades `--optimize`
+# from 2 → 1 when pngquant isn't on PATH and logs a one-line nudge.
+# See INSTALL.md for system-install instructions for both.
 #
 # Tesseract language packs are NOT in conda-forge (the base `tesseract`
 # package ships only English LSTM data).  After creating the env, run
@@ -33,7 +36,11 @@ dependencies:
                # language packs are downloaded by tools/install_tessdata.sh
                # after env creation — none of them are on conda-forge.
   - ghostscript
-  - pngquant  # ocrmypdf optional helper; substantial size savings on PDFs with many embedded color images
+  # pngquant is ocrmypdf's optional helper for color-PNG quantization
+  # (substantial size savings on PDFs with many embedded color images).
+  # NOT installed here: it's missing from osx-arm64 conda-forge, and
+  # the runtime degrades gracefully without it. Install at the system
+  # level if you want the extra compression — see INSTALL.md.
   - pymupdf
   - pandoc    # md → pdf for write-up workflows initiated by Claude (#50)
 

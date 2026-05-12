@@ -2,9 +2,53 @@
 
 The one-command conda install in the [README](README.md) covers most setups. The additions below are needed only for specific OCR or deployment scenarios.
 
-## Higher OCR compression: jbig2enc
+## Supported platforms
 
-`pngquant` ships with the conda environment. `jbig2enc` is the other optional `ocrmypdf` helper and is not packaged on conda-forge for all platforms — install it at the system level for further size savings:
+| Target | Status |
+| --- | --- |
+| **linux-x86_64** (HPC clusters, generic CPU/GPU servers, Bouchet) | Supported |
+| **macOS arm64** (Apple Silicon) | Supported — see [Apple Silicon: use miniforge, not Intel anaconda](#apple-silicon-use-miniforge-not-intel-anaconda) below |
+| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` both require torch ≥ 2.4. The chain is structurally broken. |
+| linux-aarch64 | Untested but expected to work; torch CPU wheels for aarch64 exist from 2.4+, `lancedb` ships manylinux aarch64. No GPU vision backend. |
+
+## Apple Silicon: use miniforge, not Intel anaconda
+
+On an arm64 Mac the corpus environment must be created with an arm64-native conda. The default download from anaconda.com is the **Intel x86_64** build of Anaconda3, which keeps running under Rosetta and traps the install in the unsupported macOS Intel matrix above. Symptoms when this happens: `transformers` silently disables PyTorch, then `docling` model loads abort with `Dynamo is not supported on Python 3.12+`.
+
+[Miniforge](https://github.com/conda-forge/miniforge) ships native arm64 builds. Install it once:
+
+```bash
+# https://github.com/conda-forge/miniforge#install
+curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
+bash Miniforge3-MacOSX-arm64.sh
+# then use the miniforge conda (not /opt/anaconda3) for `conda env create`
+~/miniforge3/bin/conda env create -f environment.yaml
+```
+
+Verify the env is actually arm64 after creation:
+
+```bash
+~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
+# expect: arm64   (NOT x86_64)
+```
+
+`pip install -e .` then puts the `corpus` binary inside `~/miniforge3/envs/corpus/bin/`. Activate the env or call the binary by absolute path — Claude Desktop / VS Code MCP configs that previously pointed at `/opt/anaconda3/envs/corpus/bin/corpus` need to be updated.
+
+## Higher OCR compression: pngquant + jbig2enc
+
+`ocrmypdf` has two optional native helpers, neither of which is available on conda-forge for every platform we target. The runtime auto-degrades when they're missing (`pipeline/scan.py` drops `--optimize` from 2 → 1 when `pngquant` isn't on PATH), so installing them is purely a size-of-output decision.
+
+`pngquant` — needed for color-PNG quantization at `--optimize 2+`. Missing from conda-forge **osx-arm64**, so we install it at the system level on all platforms for consistency:
+
+```bash
+# macOS
+brew install pngquant
+
+# Debian/Ubuntu
+sudo apt-get install pngquant
+```
+
+`jbig2enc` — needed for B/W image compression at the highest optimization level:
 
 ```bash
 # macOS
@@ -14,7 +58,7 @@ brew install jbig2enc
 sudo apt-get install jbig2enc
 ```
 
-On Bouchet, `module avail jbig2enc` will tell you whether a module is available; if not, skip — `ocrmypdf` falls back gracefully.
+On Bouchet, `module avail pngquant jbig2enc` will tell you whether modules are available; if not, skip — `ocrmypdf` falls back gracefully.
 
 ## OCR language packs
 
@@ -54,7 +98,7 @@ corpus run    # config.yaml in cwd points at <input> + sets grobid.url
 
 ## Pip-only fallback
 
-If you can't use conda, you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc` on macOS, or `apt-get install` the equivalents on Debian/Ubuntu) and then:
+If you can't use conda, you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc pandoc` on macOS, or `apt-get install` the equivalents on Debian/Ubuntu) and then:
 
 ```bash
 pip install -e .          # development clone

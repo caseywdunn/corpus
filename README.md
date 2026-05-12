@@ -179,6 +179,28 @@ metadata version stays in sync with `pipeline/version.py` so
 `pip show corpus`, `corpus --version`, and the bundle manifest
 never drift.
 
+### Supported platforms
+
+| Target | Status |
+| --- | --- |
+| **linux-x86_64** | Supported. The reference HPC + deploy target (Bouchet, AWS EC2). |
+| **macOS arm64** (Apple Silicon) | Supported, with two extra constraints — see below. |
+| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` require torch ≥ 2.4, which has no macOS Intel build. |
+| linux-aarch64 | Untested. `torch` CPU wheels for aarch64 exist from 2.4+ and `lancedb` ships manylinux aarch64, so it should work, but we don't routinely test it. No GPU vision backend. |
+
+**On Apple Silicon, two things have to be right:**
+
+1. **Use an arm64-native conda** ([miniforge](https://github.com/conda-forge/miniforge)) to create the corpus env. The default download from anaconda.com is the Intel x86_64 build and keeps running under Rosetta even on an arm64 host — that traps the install in the unsupported macOS Intel matrix above, and `transformers` then silently disables PyTorch. After `conda env create -f environment.yaml`, verify with:
+
+   ```bash
+   ~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
+   # expect: arm64   (NOT x86_64)
+   ```
+
+2. **Grobid still runs under Rosetta.** The official Grobid Docker image (`grobid/grobid:0.8.1`) is `linux/amd64` only. On Apple Silicon, Docker Desktop runs it under x86_64 emulation. Enable **Settings → General → "Use Rosetta for x86_64/amd64 emulation"** in Docker Desktop for the fastest path; without Rosetta, QEMU emulation works but is noticeably slower. Memory budget is the bigger concern — keep the `JAVA_OPTS=-Xmx8g` heap in `docker-compose.yml` only if Docker Desktop has at least 12 GB allocated under **Settings → Resources**, otherwise drop to `-Xmx4g`. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+
+See [INSTALL.md](INSTALL.md#supported-platforms) for the optional OCR helper install (pngquant, jbig2enc) and the pip-only fallback.
+
 Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
 
 **Docker is a prerequisite.** Install it from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS) before the commands below. On HPC hosts without Docker, [Apptainer](https://apptainer.org/) can pull the same Grobid image — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
