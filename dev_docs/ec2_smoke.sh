@@ -101,9 +101,25 @@ elapsed() {
 # ── Phase 1: system tools + Docker ────────────────────────────────
 section "Phase 1 — apt deps + Docker"
 sudo apt-get update -qq
+
+# Required: things the pipeline genuinely can't run without.
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
     git curl ca-certificates build-essential \
-    ghostscript tesseract-ocr pngquant jbig2enc pandoc jq
+    ghostscript tesseract-ocr pandoc jq
+
+# Optional ocrmypdf helpers — runtime degrades gracefully when these
+# are missing (pipeline/scan.py drops --optimize 2→1 when pngquant
+# isn't on PATH; INSTALL.md documents both as system-install extras).
+# Some Ubuntu AMIs don't have `universe` enabled by default, so try
+# best-effort and warn rather than aborting the whole smoke for a
+# helper we already designed around.
+for opt in pngquant jbig2enc; do
+    if sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$opt" 2>/dev/null; then
+        :
+    else
+        note_warn "$opt not available via apt — output PDFs will be larger, but smoke still runs"
+    fi
+done
 
 # Docker via upstream apt repo (more current than Ubuntu's docker.io).
 # Skip if already installed (re-run safety).
