@@ -7,8 +7,11 @@ only LLM-call tool in the surface).
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Dict, List, Optional
+
+from pipeline.embeddings import EmbeddingError
 
 from ..app import _load_json, _need_index, mcp
 
