@@ -13,7 +13,14 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    # Forward reference for _INDEX's type annotation. Circular at
+    # runtime (indexes.py imports from this module via mcp), so
+    # gated behind TYPE_CHECKING — tools/test_no_undefined_names.py
+    # requires the name be importable in some context.
+    from .indexes import CorpusIndex  # noqa: F401
 
 from dotenv import load_dotenv
 load_dotenv()  # Ensure ANTHROPIC_API_KEY etc. are visible to the stdio subprocess

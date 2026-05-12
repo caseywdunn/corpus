@@ -52,3 +52,4 @@ ipykernel
 
 # Test runner
 pytest
+pyflakes  # static-analysis gate for tests/test_no_undefined_names.py

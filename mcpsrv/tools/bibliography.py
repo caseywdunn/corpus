@@ -8,9 +8,12 @@ get_original_description, get_works_by_author.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..app import _load_json, _need_index, mcp
+
+if TYPE_CHECKING:
+    from ..indexes import BiblioAuthority  # noqa: F401  — annotation only
 
 
 @mcp.tool()
