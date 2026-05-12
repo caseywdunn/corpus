@@ -24,7 +24,19 @@ target here when it does.
 
 Step (2) intentionally tears down the existing Bouchet conda env so
 the test catches `environment.yaml` regressions instead of riding on
-months of accumulated state.
+months of accumulated state. If you'd rather keep your working env
+intact, swap `-n corpus` for `-n corpus-smoke` in the recreate step —
+you still get the clean-from-environment.yaml signal without nuking
+the live env.
+
+**Highest-signal alternative for target (2):** run
+[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) on a clean Ubuntu EC2
+instance. Same install path, but from absolutely nothing — no
+pre-existing conda, Docker, or HF cache to ride on. The script also
+emits a programmatic pass/fail summary against every criterion below,
+so the release operator gets a single `exit 0` vs. `exit 1` instead
+of having to eyeball logs. ~20–25 min wall time end-to-end, ~$2–3
+EC2 cost.
 
 ## Success criteria
 
