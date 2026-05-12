@@ -425,11 +425,34 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if rc != 0:
         return rc
 
+    # Shepherd <corpuscle>/instructions.md into <output_dir>/ before
+    # bundle distill. The README documents instructions.md as a
+    # corpuscle-root file (next to config.yaml — the demo follows
+    # that pattern), but every downstream reader (mcpsrv.main's
+    # InitializeResult.instructions, mcpsrv.bundle's served-bundle
+    # whitelist) looks for it under <output_dir>/. Without this
+    # forwarding step the user's instructions never reach the served
+    # bundle — exactly the warning the smoke test surfaced:
+    # `Expected top-level file instructions.md missing from <output_dir>`.
+    # We copy on mtime change, so re-runs are idempotent and edits
+    # propagate.
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    if not args.dry_run and config_path is not None:
+        src_instructions = config_path.parent / "instructions.md"
+        if src_instructions.exists():
+            dst_instructions = output_dir / "instructions.md"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            needs_copy = (
+                not dst_instructions.exists()
+                or src_instructions.stat().st_mtime > dst_instructions.stat().st_mtime
+            )
+            if needs_copy:
+                shutil.copy2(src_instructions, dst_instructions)
+
     # #60 — bundle distillation in line. Produce a ready-to-ship served
     # bundle alongside the build bundle unless --no-bundle. The served
     # bundle lands at `<output_dir>/_serve/` and is the directory remote
     # deploys (DEPLOY.md) ship to S3 / EC2.
-    output_dir = _resolve_against(config_path, cfg.output_dir)
     if args.no_bundle:
         print_status(
             "skipping served-bundle distillation (--no-bundle)",
@@ -633,7 +656,26 @@ def _cmd_check(args: argparse.Namespace) -> int:
     else:
         input_dir = _resolve_against(config_path, cfg.input_pdfs)
         if input_dir.exists():
-            n_pdfs = len(list(input_dir.rglob("*.pdf"))) if input_dir.is_dir() else 0
+            # When input_pdfs is a parent of output_dir (the demo's
+            # `input_pdfs: .` is the canonical case), naive rglob picks
+            # up every output/documents/<HASH>/processed.pdf and reports
+            # twice the real count. Exclude paths under output_dir; the
+            # pipeline already dedupes by SHA-256 so processing is
+            # correct either way, but the operator-facing count must
+            # reflect actual source PDFs.
+            output_resolved = output_dir.resolve() if input_dir.is_dir() else None
+            def _is_under_output(p: Path) -> bool:
+                if output_resolved is None:
+                    return False
+                try:
+                    p.resolve().relative_to(output_resolved)
+                    return True
+                except ValueError:
+                    return False
+            n_pdfs = (
+                sum(1 for p in input_dir.rglob("*.pdf") if not _is_under_output(p))
+                if input_dir.is_dir() else 0
+            )
             pstatus(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
         else:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
