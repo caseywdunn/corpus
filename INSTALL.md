@@ -9,7 +9,7 @@ The one-command conda install in the [README](README.md) covers most setups. The
 | **linux-x86_64** (HPC clusters, generic CPU/GPU servers, Bouchet) | Supported |
 | **macOS arm64** (Apple Silicon) | Supported — see [Apple Silicon: use miniforge, not Intel anaconda](#apple-silicon-use-miniforge-not-intel-anaconda) below |
 | macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` both require torch ≥ 2.4. The chain is structurally broken. |
-| linux-aarch64 | Untested but expected to work; torch CPU wheels for aarch64 exist from 2.4+, `lancedb` ships manylinux aarch64. No GPU vision backend. |
+| linux-aarch64 | Not currently supported. Most wheels exist, but `pymupdf` (among others) isn't on conda-forge linux-aarch64, so `environment.yaml` would need pip-side workarounds. Add as a third target if a real Graviton use case appears. |
 
 ## Apple Silicon: use miniforge, not Intel anaconda
 

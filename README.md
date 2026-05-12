@@ -186,7 +186,7 @@ never drift.
 | **linux-x86_64** | Supported. The reference HPC + deploy target (Bouchet, AWS EC2). |
 | **macOS arm64** (Apple Silicon) | Supported, with two extra constraints — see below. |
 | macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` require torch ≥ 2.4, which has no macOS Intel build. |
-| linux-aarch64 | Untested. `torch` CPU wheels for aarch64 exist from 2.4+ and `lancedb` ships manylinux aarch64, so it should work, but we don't routinely test it. No GPU vision backend. |
+| linux-aarch64 (Graviton, Ampere) | Not currently supported. Wheels exist for most dependencies but we don't test it; add as a third target if a real Graviton use case appears. |
 
 **On Apple Silicon, two things have to be right:**
 
@@ -351,7 +351,7 @@ For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE star
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 - [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
-- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — pre-release platform-portability smoke runbook (macOS arm64, linux-x86_64, linux-arm64 via Docker); references [dev_docs/Dockerfile.smoke](dev_docs/Dockerfile.smoke)
+- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — pre-release platform-portability smoke runbook (macOS arm64 + linux-x86_64 Bouchet, clean env recreate)
 
 External:
 
