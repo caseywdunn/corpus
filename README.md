@@ -211,8 +211,6 @@ curl http://localhost:8070/api/isalive   # should print "true"
 corpus check                             # confirms grobid + GPU + config + disk
 ```
 
-On Bouchet, the SLURM chain handles Grobid automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
-
 After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [INSTALL.md](INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
 
 ## Language support
