@@ -68,12 +68,20 @@ bash tools/install_tessdata.sh
 docker compose up -d grobid                # linux/amd64 image, Rosetta
 curl -fsS http://localhost:8070/api/isalive  # expect: true
 
-cd demo && corpus check && corpus run --no-vision
+cd demo && corpus -v check                 # -v required to see the ok lines
+corpus -v run --no-vision                  # ~25–30 min total wall time on
+                                           # an M-series MacBook; the WoRMS
+                                           # taxonomy ingest is the long
+                                           # pole (~10 min), then extract
+                                           # (~6 min) + embed (~30s) + bundle.
 corpus status --report                     # expect: 11 / 11 done
 jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 11
 
-corpus serve --output-dir output/_serve &
-# point an MCP client at it, call bundle_info, kill the server
+# Round-trip the MCP bundle_info tool against a freshly-served bundle.
+# tools/smoke_test_sse.py spawns its own server on the requested port,
+# initializes the MCP client, and calls bundle_info + list_papers.
+python tools/smoke_test_sse.py demo/output/_serve --port 18080
+# expect: "All layers passed." with bundle_version matching pipeline/version.py
 ```
 
 ## (2) linux-x86_64 — Bouchet (clean env)
@@ -93,9 +101,14 @@ singularity build --force grobid.sif docker://lfoppiano/grobid:0.8.1
 singularity run --bind $HOME grobid.sif &
 curl -fsS http://localhost:8070/api/isalive
 
-cd demo && corpus check && corpus run --no-vision
+cd demo && corpus -v check                 # -v required to see the ok lines
+corpus -v run --no-vision                  # wall time depends on Bouchet
+                                           # load + WoRMS API rate; budget
+                                           # 30–45 min for the demo.
 corpus status --report                     # expect: 11 / 11 done
 jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 11
+python tools/smoke_test_sse.py demo/output/_serve --port 18080
+# expect: "All layers passed."
 ```
 
 The SLURM chain (`slurm/batch_pipeline.sh`) isn't part of this

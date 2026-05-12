@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Smoke-test the MCP server's SSE transport + bearer-token auth.
 
-Runs two layers against a locally-launched mcp_server.py:
+Runs two layers against a locally-launched ``python -m mcpsrv.main``:
 
   Layer 1 — raw HTTP: unauthenticated → 401, wrong-token → 401,
             correct-token → 200 with ``Content-Type: text/event-stream``.
@@ -38,7 +38,10 @@ import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SERVER_PY = REPO_ROOT / "mcp_server.py"
+# v0.3 entry point: the old mcp_server.py root script was removed in
+# the unified-CLI clean break (#60). The server now lives at
+# mcpsrv.main and is run via `python -m mcpsrv.main`.
+SERVER_MODULE = "mcpsrv.main"
 
 
 # ── Tiny TAP-ish reporter ───────────────────────────────────────────
@@ -264,11 +267,11 @@ def main() -> int:
         stderr_log.close()
 
         cmd = [
-            args.server_python, str(SERVER_PY), str(args.output_dir),
+            args.server_python, "-m", SERVER_MODULE, str(args.output_dir),
             "--transport", "sse", "--host", args.host, "--port", str(args.port),
             "--auth-token-file", tok_file.name,
         ]
-        _section("Launching mcp_server.py --transport sse")
+        _section(f"Launching `python -m {SERVER_MODULE}` --transport sse")
         _info(f"cmd: {' '.join(cmd)}")
         _info(f"stderr -> {stderr_log.name}")
 
