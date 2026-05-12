@@ -351,6 +351,7 @@ For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE star
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 - [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
+- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — pre-release platform-portability smoke runbook (macOS arm64, linux-x86_64, linux-arm64 via Docker); references [dev_docs/Dockerfile.smoke](dev_docs/Dockerfile.smoke)
 
 External:
 

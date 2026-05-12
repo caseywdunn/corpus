@@ -1,0 +1,73 @@
+# Dockerfile.smoke — clean-room build environment for the release ritual's
+# platform-portability smoke test (#70 follow-up). NOT a production deploy
+# image; the deploy story is in DEPLOY.md.
+#
+# What this is for:
+#   - Verify environment.yaml + pip install -e . succeed on a fresh OS,
+#     starting from nothing more than miniforge + apt system tools.
+#   - Exercise the demo corpus end-to-end on linux-x86_64 (Bouchet parity)
+#     and linux-arm64 (native arm64 on an Apple Silicon host — fastest
+#     way to validate the third supported target without leaving the
+#     laptop).
+#
+# Built multi-arch with buildx. See dev_docs/PLATFORM_SMOKE.md for the
+# release-ritual runbook this image is consumed from.
+#
+# Build (host arch):
+#   docker build -f dev_docs/Dockerfile.smoke -t corpus-smoke .
+#
+# Build linux/arm64 from an Apple Silicon host (native, no emulation):
+#   docker buildx build --platform=linux/arm64 \
+#       -f dev_docs/Dockerfile.smoke -t corpus-smoke:arm64 --load .
+#
+# Build linux/amd64 from an Apple Silicon host (Rosetta; slower):
+#   docker buildx build --platform=linux/amd64 \
+#       -f dev_docs/Dockerfile.smoke -t corpus-smoke:amd64 --load .
+
+FROM condaforge/miniforge3:latest
+
+# System tools that environment.yaml expects on PATH. pngquant is no
+# longer in the conda env (osx-arm64 gap — see INSTALL.md); apt-get is
+# the canonical Linux source.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ghostscript \
+        tesseract-ocr \
+        pngquant \
+        pandoc \
+        curl \
+        git \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build the corpus conda env from environment.yaml. This is the *whole*
+# install path the README documents; if it breaks here, it breaks for
+# real users. environment.yaml + the pip-only pyproject.toml stay in
+# sync per CONTRIBUTING.md.
+WORKDIR /corpus
+COPY environment.yaml /corpus/environment.yaml
+RUN conda env create -f environment.yaml \
+    && conda clean -afy
+
+# Install corpus itself into the env. Editable so mounting /corpus over
+# the WORKDIR in `docker run` picks up local edits without rebuilding.
+COPY pyproject.toml README.md /corpus/
+COPY pipeline /corpus/pipeline
+COPY mcpsrv /corpus/mcpsrv
+COPY bib /corpus/bib
+COPY tools /corpus/tools
+RUN /opt/conda/envs/corpus/bin/pip install -e . \
+    && /opt/conda/envs/corpus/bin/python -c \
+       "import platform; print('container arch =', platform.machine())"
+
+# Tesseract language packs (English ships with the apt package; the
+# fuller set the README documents lands here so OCR works on the demo's
+# non-English papers — Quoy_Gaimard1827, Schneider1891, etc.). The
+# install_tessdata.sh script picks up TESSDATA_DIR for non-conda hosts.
+ENV TESSDATA_DIR=/usr/share/tesseract-ocr/5/tessdata
+RUN bash /corpus/tools/install_tessdata.sh
+
+# Default to a shell with the corpus env on PATH. docker run --rm -it
+# corpus-smoke drops the operator straight into a usable env.
+ENV PATH=/opt/conda/envs/corpus/bin:$PATH
+SHELL ["/bin/bash", "-c"]
+CMD ["bash"]
