@@ -16,11 +16,18 @@ bib: ./siphonophores.bib
 
 lexicon: ./lexicon.yaml
 
-# WoRMS Aphia ID 1371 = Siphonophorae (order). Auto-built into
-# ./output/taxonomy.sqlite on the first `corpus run` (#64).
+# WoRMS Aphia ID 135334 = Cystonectae (suborder of Siphonophorae).
+# Auto-built into ./output/taxonomy.sqlite on the first `corpus run` (#64).
+# We narrow to a single suborder rather than the full Siphonophorae
+# order (AphiaID 1371, ~1200 records, ~10 min download rate-limited by
+# the WoRMS API) so the demo + platform smoke test exercise the full
+# taxonomy ingest code path in a couple of minutes instead. The
+# pipeline + serve layer are agnostic to subtree size; broader corpora
+# (e.g. all siphonophores) just point root_id at a higher node — see
+# README §"External taxonomic data".
 taxonomy:
   source: worms
-  root_id: 1371
+  root_id: 135334
 
 # Demo runs with the vision pass off so it works on any host without
 # CUDA / MPS / ANTHROPIC_API_KEY. Set backend to `local` or `claude`
