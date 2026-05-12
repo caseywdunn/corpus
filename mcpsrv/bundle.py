@@ -263,12 +263,13 @@ def _drop_chunks_for_hashes(vdb_path: Path, hashes: set) -> int:
         return 0
     try:
         import lancedb  # type: ignore
+        from pipeline.embeddings import lancedb_table_names
     except ImportError:
         logger.info("lancedb not importable; skipping LanceDB filter")
         return 0
     try:
         db = lancedb.connect(str(vdb_path))
-        if "document_chunks" not in db.list_tables():
+        if "document_chunks" not in lancedb_table_names(db):
             return 0
         table = db.open_table("document_chunks")
         # The schema's hash column is nested as ``metadata.pdf_hash``

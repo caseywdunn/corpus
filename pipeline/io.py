@@ -129,7 +129,8 @@ def prune_orphans(
             try:
                 import lancedb  # type: ignore
                 db = lancedb.connect(str(vector_db_path))
-                if "document_chunks" in db.list_tables():
+                from .embeddings import lancedb_table_names
+                if "document_chunks" in lancedb_table_names(db):
                     table = db.open_table("document_chunks")
                     surviving_hashes = doc_hashes - set(doc_orphans)
                     if surviving_hashes:

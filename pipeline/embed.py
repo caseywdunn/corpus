@@ -34,7 +34,12 @@ from lancedb.pydantic import LanceModel, Vector
 from dotenv import load_dotenv
 load_dotenv()
 
-from pipeline.embeddings import EmbeddingBackend, EmbeddingError, get_embedder
+from pipeline.embeddings import (
+    EmbeddingBackend,
+    EmbeddingError,
+    get_embedder,
+    lancedb_table_names,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -305,11 +310,13 @@ def main() -> int:
     chunk_model = make_chunk_model(embedder.dim)
 
     db = lancedb.connect(str(vector_db_dir / "lancedb"))
-    if args.rebuild and args.table_name in db.list_tables():
+    table_names = lancedb_table_names(db)
+    if args.rebuild and args.table_name in table_names:
         logger.warning("Dropping existing table %r per --rebuild", args.table_name)
         db.drop_table(args.table_name)
+        table_names = lancedb_table_names(db)
 
-    if args.table_name in db.list_tables():
+    if args.table_name in table_names:
         table = db.open_table(args.table_name)
         # Sanity check: the table on disk has a fixed dim. If the user
         # switched to a different model without --rebuild, fail early.

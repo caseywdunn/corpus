@@ -22,7 +22,12 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from pipeline.taxa import TaxonomyDB
-from pipeline.embeddings import EmbeddingBackend, EmbeddingError, get_embedder
+from pipeline.embeddings import (
+    EmbeddingBackend,
+    EmbeddingError,
+    get_embedder,
+    lancedb_table_names,
+)
 
 from .app import _load_json
 
@@ -99,7 +104,7 @@ class CorpusIndex:
             return None, None
         try:
             db = lancedb.connect(str(self.vector_db_dir))
-            if "document_chunks" not in db.list_tables():
+            if "document_chunks" not in lancedb_table_names(db):
                 return None, None
             table = db.open_table("document_chunks")
         except Exception as e:
