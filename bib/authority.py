@@ -1468,7 +1468,7 @@ def main() -> int:
     # transaction boundaries clean.
     try:
         from .importer import apply_pending_bib
-        applied = apply_pending_bib(args.output_dir, db_path)
+        applied = apply_pending_bib(args.output_dir, args.output)
         if applied is not None:
             logger.info(
                 "Applied staged bib overrides: %d updated, %d no-change, %d no-match",

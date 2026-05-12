@@ -547,26 +547,37 @@ def _cmd_check(args: argparse.Namespace) -> int:
     Exit codes (per #61): 0 on green, 2 on config-error, 3 on
     environment-precondition failure.
     """
+    # `corpus check` exists to print its findings. The default verbosity
+    # is WARNING (see _setup_logging), which would silently drop every
+    # `ok` line via print_status's level gate — leaving the operator
+    # with just the warnings and a green exit code, unable to tell
+    # what was actually checked. Force every status line in this
+    # function to print regardless of root log level. `corpus -q check`
+    # still works (the gate is bypassed, not the log threshold), since
+    # check's whole purpose is the report.
+    from functools import partial
+    pstatus = partial(print_status, force=True)
+
     config_path = _resolve_config_path(args.config)
     failures: List[str] = []  # precondition (exit 3)
     config_failures: List[str] = []  # config (exit 2)
 
     # 1. config.yaml resolution + schema validation
     if config_path is None:
-        print_status(
+        pstatus(
             "no config.yaml in cwd; pass --config PATH or run `corpus init`",
             status="fail",
         )
         return EXIT_CONFIG_ERROR
     if not config_path.exists():
-        print_status(f"config not found: {config_path}", status="fail")
+        pstatus(f"config not found: {config_path}", status="fail")
         return EXIT_CONFIG_ERROR
     try:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         cfg = validate_config(raw)
-        print_status(f"config.yaml valid ({config_path})", status="ok")
+        pstatus(f"config.yaml valid ({config_path})", status="ok")
     except ValidationError as e:
-        print_status(f"config error in {config_path}", status="fail")
+        pstatus(f"config error in {config_path}", status="fail")
         for err in e.errors():
             loc = ".".join(str(x) for x in err["loc"])
             print(f"  {loc}: {err['msg']}", file=sys.stderr)
@@ -575,67 +586,67 @@ def _cmd_check(args: argparse.Namespace) -> int:
     # 2. GPU availability
     gpu = _detect_accelerator()
     if gpu == "cuda":
-        print_status("GPU: CUDA available", status="ok")
+        pstatus("GPU: CUDA available", status="ok")
     elif gpu == "mps":
-        print_status("GPU: MPS available (Apple Silicon)", status="ok")
+        pstatus("GPU: MPS available (Apple Silicon)", status="ok")
     else:
-        print_status("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
+        pstatus("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
 
     # 3. Vision backend usability — under #65 a missing capability is
     # a warn (the pass auto-skips at run time with the same message),
     # not a hard precondition failure.
     vision_skip = _vision_skip_reason(cfg.vision.backend)
     if cfg.vision.backend == "none":
-        print_status("Vision pass: disabled in config", status="warn")
+        pstatus("Vision pass: disabled in config", status="warn")
     elif vision_skip is None:
-        print_status(f"Vision pass: backend `{cfg.vision.backend}` ready", status="ok")
+        pstatus(f"Vision pass: backend `{cfg.vision.backend}` ready", status="ok")
     else:
-        print_status(f"Vision pass: would skip — {vision_skip}", status="warn")
+        pstatus(f"Vision pass: would skip — {vision_skip}", status="warn")
 
     # 4. Grobid reachability
     if cfg.grobid.disable:
-        print_status(f"Grobid: disabled in config (header metadata will use --bib only)", status="warn")
+        pstatus(f"Grobid: disabled in config (header metadata will use --bib only)", status="warn")
     else:
         ok, detail = _ping_grobid(cfg.grobid.url)
         if ok:
-            print_status(f"Grobid: reachable at {cfg.grobid.url}", status="ok")
+            pstatus(f"Grobid: reachable at {cfg.grobid.url}", status="ok")
         else:
             failures.append(
                 f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
                 "Start it with: docker compose up -d grobid"
             )
-            print_status(f"Grobid: unreachable at {cfg.grobid.url} ({detail})", status="fail")
+            pstatus(f"Grobid: unreachable at {cfg.grobid.url} ({detail})", status="fail")
 
     # 5. Output disk space (warn if < 5 GB free)
     output_dir = _resolve_against(config_path, cfg.output_dir)
     free_gb = _free_disk_gb(output_dir)
     if free_gb is None:
-        print_status(f"output_dir disk: cannot stat {output_dir}", status="warn")
+        pstatus(f"output_dir disk: cannot stat {output_dir}", status="warn")
     elif free_gb < 5:
-        print_status(f"output_dir disk: {free_gb:.1f} GB free (low — recommend ≥ 20 GB for a real corpus)", status="warn")
+        pstatus(f"output_dir disk: {free_gb:.1f} GB free (low — recommend ≥ 20 GB for a real corpus)", status="warn")
     else:
-        print_status(f"output_dir disk: {free_gb:.1f} GB free", status="ok")
+        pstatus(f"output_dir disk: {free_gb:.1f} GB free", status="ok")
 
     # 6. input_pdfs reachable
     if cfg.input_pdfs is None:
-        print_status("input_pdfs: not set (required for `corpus run`)", status="warn")
+        pstatus("input_pdfs: not set (required for `corpus run`)", status="warn")
     else:
         input_dir = _resolve_against(config_path, cfg.input_pdfs)
         if input_dir.exists():
             n_pdfs = len(list(input_dir.rglob("*.pdf"))) if input_dir.is_dir() else 0
-            print_status(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
+            pstatus(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
         else:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
-            print_status(f"input_pdfs: {input_dir} not found", status="fail")
+            pstatus(f"input_pdfs: {input_dir} not found", status="fail")
 
     if failures:
         print()
-        print_status(f"{len(failures)} precondition(s) failed:", status="fail")
+        pstatus(f"{len(failures)} precondition(s) failed:", status="fail")
         for f in failures:
             print(f"  - {f}")
         return EXIT_PRECONDITION
     print()
-    print_status("ready: `corpus run` should succeed on this host.", status="ok")
+    pstatus("ready: `corpus run` should succeed on this host.", status="ok")
     return EXIT_OK
 
 
