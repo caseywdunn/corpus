@@ -46,6 +46,8 @@ jobs:
           # Cache key is hashed from environment.yaml + pyproject.toml; the
           # action handles save/restore via its own cache layer (saves ~5 min/run).
           use-mamba: true
+          # See integration.yml for the rationale on this line.
+          conda-remove-defaults: "true"
 
       - name: Editable install
         run: pip install --quiet -e .

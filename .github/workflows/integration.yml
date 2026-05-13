@@ -75,6 +75,12 @@ jobs:
           activate-environment: corpus
           environment-file: environment.yaml
           use-mamba: true
+          # environment.yaml lists `- nodefaults` to keep the
+          # anaconda.com `defaults` channel out of the solve. The
+          # implicit removal of `defaults` is being deprecated;
+          # this opt-in tells setup-miniconda to do the removal
+          # explicitly instead.
+          conda-remove-defaults: "true"
 
       - name: Cache HuggingFace BGE-M3 model
         uses: actions/cache@v4
@@ -222,6 +228,12 @@ jobs:
           activate-environment: corpus
           environment-file: environment.yaml
           use-mamba: true
+          # environment.yaml lists `- nodefaults` to keep the
+          # anaconda.com `defaults` channel out of the solve. The
+          # implicit removal of `defaults` is being deprecated;
+          # this opt-in tells setup-miniconda to do the removal
+          # explicitly instead.
+          conda-remove-defaults: "true"
 
       - name: Cache HuggingFace BGE-M3 model
         uses: actions/cache@v4
