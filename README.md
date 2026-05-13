@@ -16,7 +16,7 @@ Think of corpus as an interface between a body of scientific literature and a La
 
 The workflow turns a folder of PDFs — born-digital articles alongside centuries-old scans in multiple languages — into a queryable knowledge base, exposed over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). MCP is the open standard that LLM clients (Claude Desktop, Claude Code, claude.ai web, Cursor) use to reach external data. The primary target is taxonomic literature.
 
-Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on Yale's HPC cluster and host public servers on Amazon Web Services (AWS), but those are our choices; any machine with Python and adequate disk will do.
+Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on [Yale's HPC cluster](https://docs.ycrc.yale.edu/clusters/bouchet/) and host public servers on [Amazon Web Services (AWS)](https://aws.amazon.com/).
 
 ### Implementation
 
@@ -24,8 +24,8 @@ Corpus reads a folder of PDFs and produces a knowledge base built around: **taxa
 
 - **OCR for old scans** — including 19th-century German Fraktur and other historical typefaces, with per-paper language detection.
 - **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then vision-LLM-tagged for taxonomy and anatomy.
-- **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton 1965" is one entity even when twenty papers cite it differently.
-- **Taxonomy linking** — every species mention is matched against a Darwin Core taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
+- **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton and Bargmann 1965" is one entity even when twenty papers cite it differently.
+- **Taxonomy linking** — every species mention is matched against a [Darwin Core](https://dwc.tdwg.org/) taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
 
 The output is a per-paper artifact tree plus cross-paper databases. You query it through an **MCP server** (`corpus serve`, backed by [mcpsrv/](mcpsrv/)) that any [MCP](https://modelcontextprotocol.io/) client (Claude Desktop, Claude Code, claude.ai web) can connect to — so "show me every figure of *Nanomia bijuga* nectophores in the corpus" becomes something you ask in chat instead of grep across a hard drive. The server is a read-only view over the per-paper artifacts, so re-running the pipeline is the only way new data reaches the tools.
 
@@ -37,6 +37,7 @@ The output is a per-paper artifact tree plus cross-paper databases. You query it
 - *"What are the most-cited papers that aren't currently in the corpus?"*
 - *"Summarize what the corpus says about pneumatophore structure."*
 - *"Translate the diagnosis of* Forskalia edwardsii *from Haeckel 1888 (German) into English."*
+- *"Write a PDF report with LaTeX showing all nectophore images for* Nanomia*."*
 
 The full tool surface is in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md).
 
@@ -98,7 +99,7 @@ taxonomy:
 | Source | What it is | When to use |
 | --- | --- | --- |
 | `worms` | [WoRMS](https://www.marinespecies.org/) subtree fetched by AphiaID | Marine taxa (siphonophores, copepods, fish, ...) |
-| `dwca` | [Darwin Core Archive](https://dwc.tdwg.org/text/) `.zip` from [GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/) | Anything else; the broad default |
+| `dwca` | [Darwin Core Archive](https://dwc.tdwg.org/text/) `.zip` from [GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/), [World Flora Online](https://zenodo.org/records/18007552) (plants) | Anything else; the broad default |
 | `dwc` | Directory of Darwin Core `.tsv` files | An already-unzipped DwC tree |
 
 Or invoke the ingester directly without `corpus run`: `corpus taxonomy ingest --source dwca --input path/to/dwca.zip` (equivalent to `python -m pipeline.taxonomy_ingest <output_dir>`).
@@ -339,6 +340,17 @@ Restart the client and the corpus tools appear. From there, the [example queries
 ## Deploying MCP server remotely
 
 For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE startup, smoke-test, three-way client-config matrix (Claude Code, Custom Connectors UI, mcp-remote bridge), full EC2 + ALB + S3 runbook — see [DEPLOY.md](DEPLOY.md). One-liner version: `corpus serve --output-dir <bundle> -- --transport sse --host 127.0.0.1 --port 8080 --auth-token-file <token-file>`.
+
+## Using the MCP server
+
+Once your client is configured, open it and confirm the corpus server is connected. Open a [Claude Code](https://claude.com/claude-code) session at the terminal and run `/mcp` — the corpus server should appear in the list along with its tool surface.
+
+**Interactive chat** is the most direct mode. Ask questions like the [example queries](#example-uses) above and get answers streamed back, citing the source papers. This is text-only — figures don't render inline, so corpus content that lives in images (plates, photographs, morphological line drawings) doesn't come along for the ride.
+
+**Reports** are how you reach the rest. Ask the LLM to write a report and it produces a markdown or LaTeX file alongside the chat, which can then be rendered to PDF (Claude Code can call `pandoc` / `pdflatex` directly). Reports can be plain text or pull figures from the corpus by reference, so a morphological-diversity summary with one plate per species is a single prompt away. Other natural fits:
+
+- **Character matrices** compiled from the literature (e.g. "nectophore presence/absence and gastrozooid count for every physonect in the corpus").
+- **Compiled data exports** in CSV, TSV, JSONL, or BibTeX so downstream tools can pick up where chat leaves off.
 
 ## Additional documentation and resources
 
