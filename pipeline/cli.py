@@ -8,6 +8,8 @@ scripts that v0.2 shipped. Subcommands:
   corpus status                build-state rollup + report (#57)
   corpus serve                 MCP server
   corpus bib export|import     BibTeX round-trip
+  corpus taxonomy ingest       build taxonomy.sqlite from WoRMS / DwC-A / DwC
+  corpus taxonomy export       dump taxonomy.sqlite to a Darwin Core Archive
   corpus check                 environment + config pre-flight (stub, #62)
   corpus completion <shell>    shell completion script (#61)
 
@@ -552,6 +554,18 @@ def _cmd_bib_export(args: argparse.Namespace) -> int:
 def _cmd_bib_import(args: argparse.Namespace) -> int:
     output_dir = _resolve_output_dir(args)
     return _passthrough("bib.importer", [str(output_dir), *args.passthrough])
+
+
+def _cmd_taxonomy_export(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("pipeline.taxonomy_export",
+                        [str(output_dir), *args.passthrough])
+
+
+def _cmd_taxonomy_ingest(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("pipeline.taxonomy_ingest",
+                        [str(output_dir), *args.passthrough])
 
 
 # ---------------------------------------------------------------------------
@@ -1213,6 +1227,57 @@ def _build_parser() -> argparse.ArgumentParser:
 
     bib_p.set_defaults(func=lambda a: (bib_p.print_help() or 2))
 
+    # --- taxonomy (export | ingest) ---
+    tax_p = sub.add_parser(
+        "taxonomy",
+        help="Build or share the corpus taxonomy via Darwin Core.",
+        description=(
+            "Round-trip the corpus taxonomy through a Darwin Core "
+            "Archive. `corpus taxonomy ingest` builds "
+            "`taxonomy.sqlite` from a WoRMS subtree, a DwC-A .zip, or "
+            "a directory of Darwin Core .tsv files. `corpus taxonomy "
+            "export` dumps the current `taxonomy.sqlite` back out as "
+            "a DwC-A — useful for sharing a snapshot without forcing "
+            "the recipient to re-walk the WoRMS API, and for "
+            "committing small fixtures into a repo so CI exercises "
+            "the dwca ingest path without external network calls."
+        ),
+    )
+    tax_sub = tax_p.add_subparsers(dest="taxonomy_command",
+                                   metavar="{export,ingest}")
+
+    tax_export_p = tax_sub.add_parser(
+        "export",
+        help="Dump taxonomy.sqlite to a Darwin Core Archive (.zip).",
+        description=(
+            "Dump the current `taxonomy.sqlite` to a DwC-A ZIP "
+            "containing meta.xml + taxon.tsv (and vernacularname.tsv "
+            "when vernacular names are present). Forwards to "
+            "`python -m pipeline.taxonomy_export`; pass `-o <path>` "
+            "to choose the output ZIP (required)."
+        ),
+    )
+    tax_export_p.add_argument("--output-dir", type=Path, default=None)
+    tax_export_p.set_defaults(func=_cmd_taxonomy_export)
+
+    tax_ingest_p = tax_sub.add_parser(
+        "ingest",
+        help="Build taxonomy.sqlite from WoRMS / DwC-A / DwC files.",
+        description=(
+            "Build `taxonomy.sqlite` from one of three sources. "
+            "`--source worms --root-id <AphiaID>` walks the WoRMS REST "
+            "API. `--source dwca --input <path.zip>` ingests a Darwin "
+            "Core Archive (use this with a fixture produced by "
+            "`corpus taxonomy export`). `--source dwc --input "
+            "<Taxon.tsv>` ingests a single DwC Taxon file. Forwards "
+            "to `python -m pipeline.taxonomy_ingest`."
+        ),
+    )
+    tax_ingest_p.add_argument("--output-dir", type=Path, default=None)
+    tax_ingest_p.set_defaults(func=_cmd_taxonomy_ingest)
+
+    tax_p.set_defaults(func=lambda a: (tax_p.print_help() or 2))
+
     # --- check (#62) ---
     check_p = sub.add_parser(
         "check",
@@ -1249,7 +1314,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-_PASSTHROUGH_VERBS = {"status", "serve", "bib"}
+_PASSTHROUGH_VERBS = {"status", "serve", "bib", "taxonomy"}
 
 
 def main(argv: Optional[List[str]] = None) -> int:

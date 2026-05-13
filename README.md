@@ -99,7 +99,9 @@ taxonomy:
 | `dwca` | [Darwin Core Archive](https://dwc.tdwg.org/text/) `.zip` from [GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/) | Anything else; the broad default |
 | `dwc` | Directory of Darwin Core `.tsv` files | An already-unzipped DwC tree |
 
-Or invoke the ingester directly without `corpus run`: `python -m pipeline.taxonomy_ingest <output_dir> --source dwca --input path/to/dwca.zip`.
+Or invoke the ingester directly without `corpus run`: `corpus taxonomy ingest --source dwca --input path/to/dwca.zip` (equivalent to `python -m pipeline.taxonomy_ingest <output_dir>`).
+
+The inverse — dumping a corpus's built taxonomy back out as a DwC-A — is `corpus taxonomy export -o taxonomy.zip`. Use it to share a taxonomy snapshot without forcing the recipient to walk WoRMS again, or to commit a small fixture into a downstream repo so CI exercises the `dwca` ingest path without network calls. The round-trip property: `corpus taxonomy ingest --source dwca --input <export.zip>` recovers the same `taxa` row set as the source SQLite.
 
 **Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path.
 
