@@ -187,12 +187,28 @@ caught two friction points the maintainer-eye missed.
 
 ## 2. Carryover to v0.5
 
-Originally scoped to v0.3, didn't fit in v0.4 either, no fresh
-issue yet for any of them. Carried over so they stay visible.
+Carried over so they stay visible between cycles.
 
+- **Cache-friendly MCP dossier tools**
+  ([#76](https://github.com/caseywdunn/corpus/issues/76)).
+  External-evaluation feedback on token / cache costs: the current
+  `for each X, call get_Y` patterns cost ~1.95 M cache_read tokens
+  on enumerative prompts (e.g. p02 adiastola anatomy), because each
+  `get_chunks_for_taxon` lands ~5–10 k tokens of full text that
+  every subsequent turn re-reads. Proposed fix is a set of
+  pre-aggregated dossier tools (`corpus_summary`, `get_taxon_dossier`,
+  `get_chunks(ids)` drill-down pair, `get_taxon_lexicon_slice`,
+  `lexicon_matrix`, `get_figure_dossier_*`, batched `get_papers`)
+  that return structured indices + IDs + headings, with full text
+  pulled selectively. Worked example on p02 projects ~85 % token /
+  ~92 % cache_read reduction. Substantial — 7–10 days across six
+  tools per the issue's priority order — so a v0.5 topic, not a
+  v0.4 slip. The design lives in #76; v0.4's hardening work doesn't
+  block it (the underlying indexes are all on disk already).
 - **Drift detection.** Hash the resolved config (input paths +
   per-input content SHA) into a corpuscle-side state file so a
-  re-run that's doing more than expected can show *why*.
+  re-run that's doing more than expected can show *why*. Originally
+  scoped to v0.3; carried into v0.4; no issue yet.
 - **Success summary on clean `corpus run`** (half-shipped in v0.3 —
   the next-step pointer landed, the
   [#57](https://github.com/caseywdunn/corpus/issues/57)
@@ -201,7 +217,7 @@ issue yet for any of them. Carried over so they stay visible.
   silently degrades to no-op annotation with
   `WARNING ... 'list' object has no attribute 'get'`. Either
   tighten the schema check + emit an actionable error, or accept
-  both shapes.
+  both shapes. No issue yet.
 - **Figure-number extraction on old/scanned papers**
   ([#16](https://github.com/caseywdunn/corpus/issues/16)).
   ~538 of 1,787 papers have unparsed figure numbers; modest
