@@ -338,6 +338,28 @@ Restart the client and the corpus tools appear. From there, the [example queries
 
 For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE startup, smoke-test, three-way client-config matrix (Claude Code, Custom Connectors UI, mcp-remote bridge), full EC2 + ALB + S3 runbook — see [DEPLOY.md](DEPLOY.md). One-liner version: `corpus serve --output-dir <bundle> -- --transport sse --host 127.0.0.1 --port 8080 --auth-token-file <token-file>`.
 
+## Continuous integration
+
+Five test tiers (#75); the first three run automatically in GitHub Actions, the last two are manual release-time checks.
+
+| Tier | Trigger | Where | What it catches |
+|---|---|---|---|
+| **T0 — lint + unit** | every push, every branch | [`.github/workflows/lint.yml`](.github/workflows/lint.yml) | pyflakes (NameError-class bugs) + ~314 unit tests with no corpus dependency |
+| **T1 — demo build + serve, Linux** | every PR + push to `dev`/`main` | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | `corpus run` on the 4-paper demo against real Grobid + LanceDB, bundle-manifest shape, audit-clean, SSE round-trip, all `corpus_required` parametrized tests |
+| **T2 — demo build + serve, macOS arm64** | every PR + push to `dev`/`main` | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | same as T1 on `macos-15`, with `grobid.disable: true` (Docker Desktop isn't on GHA macOS runners) — catches macOS-specific regressions |
+| **T3 — 4 + 1 resume scenario** | every PR + push to `dev`/`main` | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | [`tests/test_resume_scenario.py`](tests/test_resume_scenario.py) — round-1 build on 4 PDFs, copy [`tests/fixtures/round2_paper/Siebert_etal2011.pdf`](tests/fixtures/round2_paper/) into demo/, re-run, assert `embedded=1, skipped=4, failed=0` (regression check for #71) |
+| **T4 — clean-room EC2** | manual, pre-release | [`dev_docs/ec2_smoke.sh`](dev_docs/ec2_smoke.sh) | full install from absolutely nothing on Ubuntu — catches `environment.yaml` drift that warm GHA caches hide |
+| **T5 — operator walkthrough** | manual, when CLI changes | [`dev_docs/clean_install_walkthrough.sh`](dev_docs/clean_install_walkthrough.sh) | every operator verb interactively (`completion`, `--cite`, `status --report`, full `bib export/import` round-trip) |
+
+Local equivalents:
+
+```bash
+pytest -m "not corpus_required and not resume_scenario"   # T0
+cd demo && corpus run --no-vision                          # T1/T2 corpus build
+pytest -m corpus_required                                  #   then ground-truth assertions
+pytest -m resume_scenario                                  # T3 (needs Grobid + ~2 min)
+```
+
 ## Additional documentation and resources
 
 - [AGENTS.md](AGENTS.md) — orientation for AI coding agents working in the repo
@@ -351,7 +373,7 @@ For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE star
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 - [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
-- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — pre-release platform-portability smoke runbook (macOS arm64 + linux-x86_64 Bouchet, clean env recreate); references [dev_docs/ec2_smoke.sh](dev_docs/ec2_smoke.sh) for the highest-signal clean-room linux validation
+- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — manual fallback / release-time verification (CI tiers T0–T3 in [`.github/workflows/`](.github/workflows/) are the authoritative coverage); references [dev_docs/ec2_smoke.sh](dev_docs/ec2_smoke.sh) for the T4 clean-room linux validation
 
 External:
 

@@ -1,0 +1,66 @@
+# T0 — lint + unit tests (issue #75).
+#
+# Runs on every push to every branch. Goal: catch the cheap bug
+# classes (NameErrors via pyflakes, unit-level regressions) within
+# ~2 min, before they ride a PR into dev or main.
+#
+# What this tier deliberately does NOT exercise:
+#   - corpus_required tests (need a built demo corpus) — T1/T2 in
+#     integration.yml
+#   - the 4+1 resume scenario (needs Grobid + a real LanceDB) — T3
+#     in integration.yml
+#
+# Cold cache (first run, or env change) costs ~4 min for the conda
+# env solve. Warm cache: ~2 min, dominated by pyflakes + test discovery.
+
+name: T0 — lint + unit
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-unit:
+    name: lint + unit (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        # The conda env is activated via setup-miniconda's `activate-environment`.
+        # `bash -el {0}` makes every step a login shell so PATH includes the env.
+        shell: bash -el {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up miniforge + conda env
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: corpus
+          environment-file: environment.yaml
+          # Cache key is hashed from environment.yaml + pyproject.toml; the
+          # action handles save/restore via its own cache layer (saves ~5 min/run).
+          use-mamba: true
+
+      - name: Editable install
+        run: pip install --quiet -e .
+
+      - name: pyflakes gate
+        # tests/test_no_undefined_names.py runs pyflakes against pipeline/,
+        # mcpsrv/, and bib/. Fast-fail signal that the source tree compiles
+        # cleanly before we run the rest of the suite.
+        run: python -m pytest -v tests/test_no_undefined_names.py
+
+      - name: Unit tests (deselect corpus-build markers)
+        # `-m "not corpus_required and not resume_scenario"` excludes the
+        # ~73 ground-truth tests that need a built demo (covered by T1/T2)
+        # and the resume scenario (covered by T3). The remaining ~314 unit
+        # tests don't need a corpus or Grobid.
+        run: |
+          python -m pytest -v --tb=short \
+            -m "not corpus_required and not resume_scenario"

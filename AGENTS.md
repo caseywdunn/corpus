@@ -18,6 +18,7 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 - [DEPLOY.md](DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
+- [.github/workflows/](.github/workflows/) — CI tiers T0 (lint + unit, every push) and T1/T2/T3 (demo build + serve on Linux + macOS, plus 4+1 resume scenario; every PR + push to `dev`/`main`). See the README's "Continuous integration" section for the full tier table.
 
 ## Quick reference
 

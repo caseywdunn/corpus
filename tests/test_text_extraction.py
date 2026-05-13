@@ -2,6 +2,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.corpus_required
+
 
 def test_must_contain(paper_text):
     """Extracted text contains expected domain phrases."""

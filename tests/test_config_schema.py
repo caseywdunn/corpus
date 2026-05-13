@@ -43,7 +43,12 @@ def test_demo_config_validates():
     demo_cfg = REPO_ROOT / "demo" / "config.yaml"
     raw = yaml.safe_load(demo_cfg.read_text(encoding="utf-8"))
     cfg = validate_config(raw)
-    assert cfg.taxonomy.source == "worms"
+    # demo ships the Siphonophorae taxonomy as a pre-built DwC-A
+    # (commit 447437f) so `corpus run` doesn't walk the WoRMS REST API
+    # on every fresh build. Schema must accept the dwca path + a
+    # relative `taxonomy.path`.
+    assert cfg.taxonomy.source == "dwca"
+    assert cfg.taxonomy.path == Path("./taxonomy.zip")
     assert cfg.bib == Path("siphonophores.bib")
     assert cfg.lexicon == Path("lexicon.yaml")
 

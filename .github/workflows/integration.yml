@@ -1,0 +1,304 @@
+# T1 / T2 / T3 — integration tiers (issue #75).
+#
+# Builds the demo corpuscle end-to-end and runs the suite of tests
+# that need a real on-disk corpus + LanceDB index. This is where #71
+# (lancedb 0.30.x list_tables shape) and #70 (bundle distill scrubber
+# coverage) would have been caught hours after landing instead of
+# weeks later in PLATFORM_SMOKE.md.
+#
+# Per the issue body's amendment: dev is the daily-cadence branch
+# in this repo (main is reserved for releases). Triggers cover PRs
+# into either, plus pushes to either — pushes to dev are the primary
+# catch surface, pushes to main double-check at release-merge time.
+#
+# Tier breakdown:
+#   T1 — ubuntu-24.04 + Grobid (Docker). Builds demo, runs corpus_required
+#        tests, then the canonical SSE round-trip smoke.
+#   T2 — macos-15 (arm64) + grobid.disable: true. Same demo build,
+#        same corpus_required tests; Grobid-XML reference parsing is
+#        skipped (Linux T1 covers that path). Docker Desktop on macOS
+#        GHA runners is awkward; this leg's job is to catch macOS-arm64
+#        regressions, not re-test Grobid.
+#   T3 — ubuntu-24.04 + Grobid. Pytest port of clean_install_walkthrough.sh §8
+#        (4 + 1 implicit resume). Runs as a separate tier because the
+#        resume_scenario test does its own demo build twice and can't
+#        share T1's cached output.
+
+name: T1/T2/T3 — integration
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # T1 — Linux integration with Grobid
+  # ─────────────────────────────────────────────────────────────────
+  t1-linux:
+    name: T1 — demo build + serve (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    services:
+      # Grobid for reference + metadata extraction. JAVA_OPTS disables
+      # cgroup-v2 detection (#72 / 40ae330: lfoppiano/grobid:0.8.1's
+      # JVM hits an NPE on cgroup-v2 hosts when container-aware sizing
+      # is on — Ubuntu 24.04 GHA runners default to cgroup v2).
+      grobid:
+        image: lfoppiano/grobid:0.8.1
+        ports:
+          - 8070:8070
+        env:
+          JAVA_OPTS: "-XX:-UseContainerSupport -Xmx4g -Xms1g"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up miniforge + conda env
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: corpus
+          environment-file: environment.yaml
+          use-mamba: true
+
+      - name: Cache HuggingFace BGE-M3 model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--BAAI--bge-m3
+          key: hf-bge-m3-${{ runner.os }}-v1
+          # Single-key cache (no restore-keys): the model artifact is
+          # immutable for a given key, so a partial restore would only
+          # serve a corrupt download.
+
+      - name: Editable install
+        run: pip install --quiet -e .
+
+      - name: Install system tools (ghostscript, tesseract, jq)
+        # ocrmypdf needs ghostscript + tesseract on PATH; jq is used
+        # by the bundle-manifest verification step below.
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            ghostscript tesseract-ocr jq
+          bash tools/install_tessdata.sh
+
+      - name: Wait for Grobid
+        run: |
+          for i in $(seq 1 60); do
+            if [ "$(curl -fsS http://localhost:8070/api/isalive 2>/dev/null)" = "true" ]; then
+              echo "Grobid alive after $((i * 2))s"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Grobid did not become ready within 120s"; exit 1
+
+      - name: corpus check
+        working-directory: demo
+        run: corpus check
+
+      - name: corpus run (no vision) on demo
+        working-directory: demo
+        run: corpus -v run --no-vision 2>&1 | tee /tmp/run.log
+
+      - name: Verify bundle manifest + audit clean
+        working-directory: demo
+        run: |
+          manifest=output/_serve/bundle_manifest.json
+          test -f "$manifest" || { echo "bundle_manifest.json missing"; exit 1; }
+          paper_count=$(jq -r '.paper_count' "$manifest")
+          [ "$paper_count" = "4" ] \
+            || { echo "paper_count=$paper_count (expected 4)"; exit 1; }
+          grep -qE "Path scrub: rewrote [0-9]+ files; audit clean\." /tmp/run.log \
+            || { echo "served-bundle absolute-path audit (#70) did not log 'audit clean'"; exit 1; }
+          test -f output/instructions.md \
+            || { echo "instructions.md not shepherded to output root"; exit 1; }
+          test -f output/_serve/instructions.md \
+            || { echo "instructions.md not in served bundle"; exit 1; }
+
+      - name: Run corpus_required tests against built demo
+        # CORPUS_OUTPUT_DIR is set so tests/conftest.py points the
+        # ground-truth fixtures at this run's output. test_corpus_wide.py
+        # + test_reference_extraction.py + test_figure_extraction.py +
+        # test_text_extraction.py all parametrize over demo PDFs.
+        env:
+          CORPUS_OUTPUT_DIR: ${{ github.workspace }}/demo/output
+        run: python -m pytest -v --tb=short -m "corpus_required"
+
+      - name: MCP / SSE round-trip smoke
+        run: python tools/smoke_test_sse.py demo/output/_serve --port 18080
+
+      - name: Upload run log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t1-run-log
+          path: |
+            /tmp/run.log
+            demo/output/_serve/bundle_manifest.json
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # T2 — macOS arm64 (no Grobid)
+  # ─────────────────────────────────────────────────────────────────
+  t2-macos:
+    name: T2 — demo build + serve (macos-15, no Grobid)
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up miniforge + conda env
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: corpus
+          environment-file: environment.yaml
+          use-mamba: true
+
+      - name: Cache HuggingFace BGE-M3 model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--BAAI--bge-m3
+          key: hf-bge-m3-${{ runner.os }}-v1
+
+      - name: Editable install
+        run: pip install --quiet -e .
+
+      - name: Architecture sanity (arm64)
+        # Guards against the long-tail "tesseract installed under
+        # Rosetta x86_64" failure mode that PLATFORM_SMOKE.md flags.
+        run: |
+          arch=$(python -c "import platform; print(platform.machine())")
+          [ "$arch" = "arm64" ] \
+            || { echo "expected arm64, got $arch"; exit 1; }
+
+      - name: Disable Grobid in demo config
+        # Docker Desktop isn't installed on GHA macOS runners. The
+        # pipeline supports grobid.disable: true — metadata then comes
+        # solely from --bib siphonophores.bib, which is what we want
+        # this leg to validate. Linux T1 still exercises the Grobid path.
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("demo/config.yaml")
+          text = p.read_text()
+          if "disable:" not in text:
+              text = text.replace(
+                  "grobid:\n  url: http://localhost:8070",
+                  "grobid:\n  url: http://localhost:8070\n  disable: true",
+              )
+              p.write_text(text)
+          print(text)
+          PY
+
+      - name: corpus check
+        working-directory: demo
+        run: corpus check
+
+      - name: corpus run (no vision) on demo
+        working-directory: demo
+        run: corpus -v run --no-vision 2>&1 | tee /tmp/run.log
+
+      - name: Verify bundle manifest
+        working-directory: demo
+        run: |
+          manifest=output/_serve/bundle_manifest.json
+          test -f "$manifest" || { echo "bundle_manifest.json missing"; exit 1; }
+          python -c "import json; m=json.load(open('$manifest')); assert m['paper_count']==4, m"
+
+      - name: Run corpus_required tests against built demo
+        env:
+          CORPUS_OUTPUT_DIR: ${{ github.workspace }}/demo/output
+        # Reference / metadata tests assume Grobid; on macOS T2 with
+        # grobid.disable: true, references.json comes from the --bib
+        # path only. Skip the reference-extraction parametrized tests
+        # here; T1 covers the Grobid path.
+        run: |
+          python -m pytest -v --tb=short -m "corpus_required" \
+            --ignore=tests/test_reference_extraction.py
+
+      - name: Upload run log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t2-run-log
+          path: |
+            /tmp/run.log
+            demo/output/_serve/bundle_manifest.json
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # T3 — 4 + 1 resume scenario (Linux + Grobid)
+  # ─────────────────────────────────────────────────────────────────
+  t3-resume:
+    name: T3 — 4+1 resume scenario (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    services:
+      grobid:
+        image: lfoppiano/grobid:0.8.1
+        ports:
+          - 8070:8070
+        env:
+          JAVA_OPTS: "-XX:-UseContainerSupport -Xmx4g -Xms1g"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up miniforge + conda env
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: corpus
+          environment-file: environment.yaml
+          use-mamba: true
+
+      - name: Cache HuggingFace BGE-M3 model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--BAAI--bge-m3
+          key: hf-bge-m3-${{ runner.os }}-v1
+
+      - name: Editable install
+        run: pip install --quiet -e .
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            ghostscript tesseract-ocr
+          bash tools/install_tessdata.sh
+
+      - name: Wait for Grobid
+        run: |
+          for i in $(seq 1 60); do
+            if [ "$(curl -fsS http://localhost:8070/api/isalive 2>/dev/null)" = "true" ]; then
+              echo "Grobid alive after $((i * 2))s"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Grobid did not become ready within 120s"; exit 1
+
+      - name: Resume scenario test
+        run: python -m pytest -v --tb=short -m resume_scenario tests/test_resume_scenario.py

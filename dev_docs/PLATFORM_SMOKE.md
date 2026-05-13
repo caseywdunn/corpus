@@ -1,4 +1,17 @@
-# Platform-portability smoke test
+# Platform-portability smoke test — manual fallback / release-time verification
+
+> **Authoritative coverage now lives in GitHub Actions.** As of #75, T1
+> (Linux + Grobid) and T2 (macOS arm64) in
+> [`.github/workflows/integration.yml`](../.github/workflows/integration.yml)
+> exercise the same demo build on every PR and every push to `dev` / `main`
+> — that's where bundle-audit, manifest-shape, and SSE-round-trip
+> regressions get caught now.
+>
+> This runbook is the manual fallback used at release time (when the CI
+> tiers have already passed but the release operator wants a clean-env
+> recreate signal that `actions/cache@v4` deliberately hides) and the
+> escape hatch for paths that the GHA tiers can't reach: the EC2 clean-
+> room (T4 — [`ec2_smoke.sh`](ec2_smoke.sh)) and bare-metal Bouchet.
 
 Pre-release sanity check that the supported matrix in
 [README.md](../README.md#supported-platforms) actually works
