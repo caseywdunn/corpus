@@ -172,10 +172,20 @@ Every CLI takes the corpuscle root as its first positional argument and resolves
 
 ## Installation
 
+### Prerequisites
+
+- **Docker** — required at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS). On HPC hosts without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
+- **conda** — use [miniforge](https://github.com/conda-forge/miniforge), not anaconda.com's default download. Required on Apple Silicon (the default download is Intel x86_64 and silently traps you in an unsupported Rosetta path; see [Supported platforms](#supported-platforms) below); recommended everywhere else for the smaller install and arm64-native packaging.
+
+### Clone and install
+
 ```bash
+git clone https://github.com/caseywdunn/corpus.git
+cd corpus
 conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
+bash tools/install_tessdata.sh   # Tesseract OCR language packs (see INSTALL.md)
 ```
 
 `pip install -e .` puts the `corpus` binary on PATH (via the
@@ -183,6 +193,8 @@ pip install -e .
 metadata version stays in sync with `pipeline/version.py` so
 `pip show corpus`, `corpus --version`, and the bundle manifest
 never drift.
+
+`tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data; the script downloads the [default fallback language set](#language-support) into `$CONDA_PREFIX/share/tessdata/`. Optional `pngquant` / `jbig2enc` (smaller output PDFs) are covered in [INSTALL.md](INSTALL.md#supported-platforms).
 
 ### Supported platforms
 
@@ -208,15 +220,11 @@ See [INSTALL.md](INSTALL.md#supported-platforms) for the optional OCR helper ins
 
 Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
 
-**Docker is a prerequisite.** Install it from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS) before the commands below. On HPC hosts without Docker, [Apptainer](https://apptainer.org/) can pull the same Grobid image — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
-
 ```bash
 docker compose up -d grobid              # start in background; persists across runs
 curl http://localhost:8070/api/isalive   # should print "true"
 corpus check                             # confirms grobid + GPU + config + disk
 ```
-
-After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [INSTALL.md](INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
 
 ## Language support
 
