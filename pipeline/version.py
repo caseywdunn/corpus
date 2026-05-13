@@ -9,4 +9,4 @@ keeps this in sync with the git tag and CHANGELOG entry. PEP 440
 pre-release suffixes (`.devN`, `aN`, `rcN`) on `dev` between releases.
 """
 
-__version__ = "0.4.0.dev0"
+__version__ = "0.4.0"
