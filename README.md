@@ -237,7 +237,7 @@ To make a new language part of the fallback set tried when detection is uncertai
 
 ## Try it on the demo corpus
 
-The repo ships [demo/](demo/) — a regular corpuscle (11 siphonophore PDFs, `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, and a `config.yaml` already pointing at all of it). One command runs the full pipeline + cross-paper builds + bundle:
+The repo ships [demo/](demo/) — a regular corpuscle (11 siphonophore PDFs, `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
 
 ```bash
 cd demo && corpus run
