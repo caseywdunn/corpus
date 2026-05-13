@@ -34,24 +34,24 @@ python -m pytest tests/test_biblio_cascade.py -v
 
 ### Continuous integration
 
-Five test tiers (#75); the first three run automatically in GitHub Actions, the last two are manual release-time checks.
+Four test tiers (#75); the first two run automatically in GitHub Actions, the last two are manual release-time checks.
 
 | Tier | Trigger | Where | What it catches |
 |---|---|---|---|
 | **T0 — lint + unit** | every push, every branch | [`.github/workflows/lint.yml`](.github/workflows/lint.yml) | pyflakes (NameError-class bugs) + ~314 unit tests with no corpus dependency |
-| **T1 — demo build + serve, Linux** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | `corpus run` on the 4-paper demo against real Grobid + LanceDB, bundle-manifest shape, audit-clean, SSE round-trip, all `corpus_required` parametrized tests |
-| **T2 — demo build + serve, macOS arm64** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | same as T1 on `macos-15`, with `grobid.disable: true` (Docker Desktop isn't on GHA macOS runners) — catches macOS-specific regressions |
-| **T3 — 4 + 1 resume scenario** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | [`tests/test_resume_scenario.py`](tests/test_resume_scenario.py) — round-1 build on 4 PDFs, copy [`tests/fixtures/round2_paper/Siebert_etal2011.pdf`](tests/fixtures/round2_paper/) into demo/, re-run, assert `embedded=1, skipped=4, failed=0` (regression check for #71) |
-| **T4 — clean-room EC2** | manual, pre-release | [`dev_docs/ec2_smoke.sh`](dev_docs/ec2_smoke.sh) | full install from absolutely nothing on Ubuntu — catches `environment.yaml` drift that warm GHA caches hide |
-| **T5 — operator walkthrough** | manual, when CLI changes | [`dev_docs/clean_install_walkthrough.sh`](dev_docs/clean_install_walkthrough.sh) | every operator verb interactively (`completion`, `--cite`, `status --report`, full `bib export/import` round-trip) |
+| **T1 — demo build + serve, Linux** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | `corpus run` on the 4-paper demo against real Grobid + LanceDB, bundle-manifest shape, audit-clean, SSE round-trip, all `corpus_required` parametrized tests, then the 4 + 1 implicit-resume scenario (copy [`tests/fixtures/round2_paper/Siebert_etal2011.pdf`](tests/fixtures/round2_paper/) into `demo/`, re-run, assert `skipped=4, embedded≥1, failed=0` — regression check for #71) |
+| **T2 — demo build + serve, macOS arm64** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | same as T1 on `macos-15`, with `grobid.disable: true` (Docker Desktop isn't on GHA macOS runners) — catches macOS-specific regressions including darwin-specific LanceDB resume behavior |
+| **T3 — clean-room EC2** | manual, pre-release | [`dev_docs/ec2_smoke.sh`](dev_docs/ec2_smoke.sh) | full install from absolutely nothing on Ubuntu — catches `environment.yaml` drift that warm GHA caches hide |
+| **T4 — operator walkthrough** | manual, when CLI changes | [`dev_docs/clean_install_walkthrough.sh`](dev_docs/clean_install_walkthrough.sh) | every operator verb interactively (`completion`, `--cite`, `status --report`, full `bib export/import` round-trip) |
 
 Local equivalents:
 
 ```bash
 pytest -m "not corpus_required and not resume_scenario"   # T0
-cd demo && corpus run --no-vision                          # T1/T2 corpus build
-pytest -m corpus_required                                  #   then ground-truth assertions
-pytest -m resume_scenario                                  # T3 (needs Grobid + ~2 min)
+cd demo && corpus run --no-vision                          # T1/T2 round-1 corpus build
+pytest -m corpus_required                                  #   ground-truth assertions
+cp tests/fixtures/round2_paper/Siebert_etal2011.pdf demo/  # T1/T2 round-2 setup
+cd demo && corpus run --no-vision                          #   resume scenario (needs Grobid + ~2 min)
 ```
 
 ## Commit style

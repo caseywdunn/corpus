@@ -1,10 +1,10 @@
-# T1 / T2 / T3 — integration tiers (issue #75).
+# T1 / T2 — integration tiers (issue #75).
 #
-# Builds the demo corpuscle end-to-end and runs the suite of tests
-# that need a real on-disk corpus + LanceDB index. This is where #71
-# (lancedb 0.30.x list_tables shape) and #70 (bundle distill scrubber
-# coverage) would have been caught hours after landing instead of
-# weeks later in PLATFORM_SMOKE.md.
+# Builds the demo corpuscle end-to-end, runs the corpus_required test
+# suite, then exercises the 4 + 1 implicit-resume scenario inline.
+# This is where #71 (lancedb 0.30.x list_tables shape) and #70 (bundle
+# distill scrubber coverage) would have been caught hours after landing
+# instead of weeks later in PLATFORM_SMOKE.md.
 #
 # Triggers on every push (any branch) plus every PR — main is only
 # touched at release, dev is the daily-cadence branch, and we want
@@ -14,19 +14,23 @@
 # this tier is meant to surface.
 #
 # Tier breakdown:
-#   T1 — ubuntu-24.04 + Grobid (Docker). Builds demo, runs corpus_required
-#        tests, then the canonical SSE round-trip smoke.
-#   T2 — macos-15 (arm64) + grobid.disable: true. Same demo build,
-#        same corpus_required tests; Grobid-XML reference parsing is
-#        skipped (Linux T1 covers that path). Docker Desktop on macOS
-#        GHA runners is awkward; this leg's job is to catch macOS-arm64
-#        regressions, not re-test Grobid.
-#   T3 — ubuntu-24.04 + Grobid. Pytest port of clean_install_walkthrough.sh §8
-#        (4 + 1 implicit resume). Runs as a separate tier because the
-#        resume_scenario test does its own demo build twice and can't
-#        share T1's cached output.
+#   T1 — ubuntu-24.04 + Grobid (Docker). Builds demo (round 1, 4
+#        papers), runs corpus_required tests + SSE round-trip smoke,
+#        then copies the held-back Siebert PDF into demo/ and re-runs
+#        for the round-2 implicit-resume assertion.
+#   T2 — macos-15 (arm64) + grobid.disable: true. Same shape as T1
+#        (round 1 → tests → round 2) but without Grobid; reference-
+#        extraction tests are skipped (Linux T1 covers that path).
+#        Catches macOS-arm64 regressions including platform-specific
+#        resume behavior.
+#
+# T3 (the prior dedicated resume job) was folded into T1+T2 once
+# pipeline/io.py:find_all_pdfs was fixed to exclude output_dir: round 2
+# is now cheap (only the new paper needs work; round-1's 4 cache-hit),
+# so doing it inline saves a whole job and gives both platforms resume
+# coverage.
 
-name: T1/T2/T3 — integration
+name: T1/T2 — integration
 
 on:
   push:
@@ -162,6 +166,29 @@ jobs:
       - name: MCP / SSE round-trip smoke
         run: python tools/smoke_test_sse.py demo/output/_serve --port 18080
 
+      - name: Resume scenario (round 2 — copy Siebert, re-run, assert)
+        # Folded in from the prior dedicated T3 job. Round 1 above
+        # built 4 papers; this adds the 5th from tests/fixtures/round2_paper/
+        # and re-runs. The #71 invariant is `skipped == 4` (round-1's
+        # markers honored) and `embedded >= 1` (the new paper picked up).
+        working-directory: demo
+        run: |
+          cp ../tests/fixtures/round2_paper/Siebert_etal2011.pdf .
+          corpus -v run --no-vision 2>&1 | tee /tmp/round2.log
+
+          tally=$(grep -oE "Done\. embedded=[0-9]+, skipped=[0-9]+, failed=[0-9]+" /tmp/round2.log | tail -1)
+          test -n "$tally" || { echo "embed-stage tally line missing"; exit 1; }
+          echo "round 2 embed tally: $tally"
+          embedded=$(echo "$tally" | grep -oE "embedded=[0-9]+" | cut -d= -f2)
+          skipped=$(echo "$tally" | grep -oE "skipped=[0-9]+" | cut -d= -f2)
+          failed=$(echo "$tally" | grep -oE "failed=[0-9]+" | cut -d= -f2)
+          [ "$skipped" = "4" ] && [ "$embedded" -ge 1 ] && [ "$failed" = "0" ] \
+            || { echo "round 2 tally violates #71 invariant: embedded=$embedded skipped=$skipped failed=$failed (expected skipped=4 embedded>=1 failed=0)"; exit 1; }
+
+          paper_count=$(jq -r '.paper_count' output/_serve/bundle_manifest.json)
+          [ "$paper_count" = "5" ] \
+            || { echo "round 2 paper_count=$paper_count (expected 5)"; exit 1; }
+
       - name: Upload run log on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -169,6 +196,7 @@ jobs:
           name: t1-run-log
           path: |
             /tmp/run.log
+            /tmp/round2.log
             demo/output/_serve/bundle_manifest.json
           if-no-files-found: ignore
 
@@ -261,6 +289,29 @@ jobs:
             --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_title_appears_in_text \
             --deselect tests/test_corpus_wide.py::TestCitationGraph::test_references_match_corpus_papers
 
+      - name: Resume scenario (round 2 — copy Siebert, re-run, assert)
+        # Same inline check as T1 but without Grobid. Exercises the
+        # implicit-resume path on macOS so a darwin-specific LanceDB
+        # persistence regression would surface here.
+        working-directory: demo
+        run: |
+          cp ../tests/fixtures/round2_paper/Siebert_etal2011.pdf .
+          corpus -v run --no-vision 2>&1 | tee /tmp/round2.log
+
+          tally=$(grep -oE "Done\. embedded=[0-9]+, skipped=[0-9]+, failed=[0-9]+" /tmp/round2.log | tail -1)
+          test -n "$tally" || { echo "embed-stage tally line missing"; exit 1; }
+          echo "round 2 embed tally: $tally"
+          embedded=$(echo "$tally" | grep -oE "embedded=[0-9]+" | cut -d= -f2)
+          skipped=$(echo "$tally" | grep -oE "skipped=[0-9]+" | cut -d= -f2)
+          failed=$(echo "$tally" | grep -oE "failed=[0-9]+" | cut -d= -f2)
+          [ "$skipped" = "4" ] && [ "$embedded" -ge 1 ] && [ "$failed" = "0" ] \
+            || { echo "round 2 tally violates #71 invariant: embedded=$embedded skipped=$skipped failed=$failed (expected skipped=4 embedded>=1 failed=0)"; exit 1; }
+
+          paper_count=$(jq -r '.paper_count' output/_serve/bundle_manifest.json 2>/dev/null \
+            || python -c "import json; print(json.load(open('output/_serve/bundle_manifest.json'))['paper_count'])")
+          [ "$paper_count" = "5" ] \
+            || { echo "round 2 paper_count=$paper_count (expected 5)"; exit 1; }
+
       - name: Upload run log on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -268,76 +319,7 @@ jobs:
           name: t2-run-log
           path: |
             /tmp/run.log
+            /tmp/round2.log
             demo/output/_serve/bundle_manifest.json
           if-no-files-found: ignore
 
-  # ─────────────────────────────────────────────────────────────────
-  # T3 — 4 + 1 resume scenario (Linux + Grobid)
-  # ─────────────────────────────────────────────────────────────────
-  t3-resume:
-    name: T3 — 4+1 resume scenario (ubuntu-24.04)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    defaults:
-      run:
-        shell: bash -el {0}
-
-    services:
-      grobid:
-        image: lfoppiano/grobid:0.8.1
-        ports:
-          - 8070:8070
-        env:
-          JAVA_OPTS: "-XX:-UseContainerSupport -Xmx4g -Xms1g"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up miniforge + conda env
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          miniforge-version: latest
-          activate-environment: corpus
-          environment-file: environment.yaml
-          use-mamba: true
-
-      - name: Cache HuggingFace BGE-M3 model
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/huggingface/hub/models--BAAI--bge-m3
-          key: hf-bge-m3-${{ runner.os }}-v1
-
-      - name: Editable install
-        run: pip install --quiet -e .
-
-      - name: Install system tools
-        run: |
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            ghostscript tesseract-ocr
-          bash tools/install_tessdata.sh
-
-      - name: Wait for Grobid
-        # `exit 0` inside this loop conflicts with the EXIT trap that
-        # setup-miniconda's `bash -el {0}` shell installs (conda deactivate
-        # was returning non-zero, propagating an exit-1 to the step even
-        # after "Grobid alive after 2s" printed). Break out of the loop
-        # instead and let the script exit naturally.
-        run: |
-          ready=0
-          for i in $(seq 1 60); do
-            if [ "$(curl -fsS http://localhost:8070/api/isalive 2>/dev/null)" = "true" ]; then
-              echo "Grobid alive after $((i * 2))s"
-              ready=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ready" != "1" ]; then
-            echo "Grobid did not become ready within 120s"
-            exit 1
-          fi
-
-      - name: Resume scenario test
-        run: python -m pytest -v --tb=short -m resume_scenario tests/test_resume_scenario.py

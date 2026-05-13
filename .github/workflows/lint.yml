@@ -7,8 +7,8 @@
 # What this tier deliberately does NOT exercise:
 #   - corpus_required tests (need a built demo corpus) — T1/T2 in
 #     integration.yml
-#   - the 4+1 resume scenario (needs Grobid + a real LanceDB) — T3
-#     in integration.yml
+#   - the 4+1 resume scenario (needs Grobid + a real LanceDB) — folded
+#     into T1/T2 in integration.yml
 #
 # Cold cache (first run, or env change) costs ~4 min for the conda
 # env solve. Warm cache: ~2 min, dominated by pyflakes + test discovery.
@@ -59,8 +59,8 @@ jobs:
       - name: Unit tests (deselect corpus-build markers)
         # `-m "not corpus_required and not resume_scenario"` excludes the
         # ~73 ground-truth tests that need a built demo (covered by T1/T2)
-        # and the resume scenario (covered by T3). The remaining ~314 unit
-        # tests don't need a corpus or Grobid.
+        # and the resume scenario (covered inline by T1/T2). The remaining
+        # ~314 unit tests don't need a corpus or Grobid.
         run: |
           python -m pytest -v --tb=short \
             -m "not corpus_required and not resume_scenario"

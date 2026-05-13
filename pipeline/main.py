@@ -367,9 +367,13 @@ def main():
     # Create output directory structure
     documents_dir, vector_db_dir = create_output_structure(output_dir)
 
-    # Find all PDFs and group by hash
+    # Find all PDFs and group by hash. Exclude anything under output_dir
+    # so re-runs don't re-ingest per-paper processed.pdf artifacts (which
+    # have different SHA-256s than the originals because OCR adds a text
+    # layer) — only matters when input_dir is an ancestor of output_dir
+    # (the demo's `input_pdfs: .` case).
     logger.info("Discovering PDFs...")
-    pdf_map = find_all_pdfs(input_dir)
+    pdf_map = find_all_pdfs(input_dir, exclude_under=output_dir)
 
     logger.info("Found %d PDF file(s)", sum(len(paths) for paths in pdf_map.values()))
     logger.info("Unique PDFs (by hash): %d", len(pdf_map))

@@ -82,29 +82,14 @@ def _load_manifest(output_dir: Path) -> dict:
 
 @pytest.fixture
 def clean_demo_workspace(tmp_path):
-    """Copy demo/ into a tmp_path, move PDFs into a `pdfs/` subdir, and
-    repoint the config — mirrors clean_install_walkthrough.sh §0's
-    layout where input_pdfs is a child of output_dir's parent rather
-    than the parent itself.
+    """Copy demo/ into a tmp_path and yield it; tear down on exit.
 
-    Why not just use the demo's `input_pdfs: .`: pipeline/io.py's
-    find_all_pdfs rglobs the input dir with no output_dir exclusion,
-    so on round 2 it picks up output/documents/<hash>/processed.pdf
-    from round 1 (whose SHA-256 differs from the original PDF because
-    OCR adds a text layer) and treats them as new documents. The
-    demo's `.` layout only works for one-shot runs; the walkthrough
-    uses `./pdfs` precisely so re-runs are clean. Mirror that here.
+    A temp copy keeps the source tree clean (the round-2 PDF would
+    otherwise have to be removed from demo/ after every run) and lets
+    parallel CI matrix legs share the same working directory model.
     """
     workspace = tmp_path / "demo"
     shutil.copytree(DEMO_DIR, workspace, ignore=shutil.ignore_patterns("output"))
-
-    pdfs_dir = workspace / "pdfs"
-    pdfs_dir.mkdir()
-    for pdf in workspace.glob("*.pdf"):
-        pdf.rename(pdfs_dir / pdf.name)
-
-    cfg = workspace / "config.yaml"
-    cfg.write_text(cfg.read_text().replace("input_pdfs: .", "input_pdfs: ./pdfs"))
     yield workspace
 
 
@@ -124,16 +109,15 @@ def clean_demo_workspace(tmp_path):
 def test_resume_scenario(clean_demo_workspace):
     """Round-1 build on 4 papers, round-2 build adds the 5th and skips the rest."""
     workspace = clean_demo_workspace
-    pdfs_dir = workspace / "pdfs"
     output_dir = workspace / "output"
 
     # ── Round 1: 4 papers, cold build. ────────────────────────────
-    initial_pdfs = sorted(p.name for p in pdfs_dir.glob("*.pdf"))
+    initial_pdfs = sorted(p.name for p in workspace.glob("*.pdf"))
     assert len(initial_pdfs) == 4, (
         f"demo/ should ship 4 PDFs; found {len(initial_pdfs)}: {initial_pdfs}"
     )
     assert ROUND2_PDF.name not in initial_pdfs, (
-        "round-2 fixture leaked into pdfs/ — check tests/fixtures/round2_paper/"
+        "round-2 fixture leaked into demo/ — check tests/fixtures/round2_paper/"
     )
 
     r1 = _run_corpus(workspace)
@@ -165,8 +149,8 @@ def test_resume_scenario(clean_demo_workspace):
     )
 
     # ── Round 2: add the held-back paper, re-run. ─────────────────
-    shutil.copy(ROUND2_PDF, pdfs_dir / ROUND2_PDF.name)
-    assert (pdfs_dir / ROUND2_PDF.name).exists()
+    shutil.copy(ROUND2_PDF, workspace / ROUND2_PDF.name)
+    assert (workspace / ROUND2_PDF.name).exists()
 
     r2 = _run_corpus(workspace)
     if r2.returncode != 0:
