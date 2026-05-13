@@ -104,18 +104,28 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
 
 ### Releasing
 
-1. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
+1. **Confirm CI on `dev` is green.** Both T0 and T1/T2 must be ✓ on
+   the latest `dev` commit (`gh run list --branch dev --limit 4`, or
+   the [Actions tab](https://github.com/caseywdunn/corpus/actions)).
+   A red `dev` means the release merge into `main` will be red too —
+   fix the cause before proceeding. The README badges are scoped to
+   `main`, so anything red here gets stamped on the released version.
+2. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
    string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
    for it. Commit.
-2. Merge `dev` → `main`, push.
-3. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`. The tag
+3. Merge `dev` → `main`, push. **Wait for CI on `main` to go green**
+   (`gh run watch`, or poll `gh run list --branch main`) before
+   tagging — once you tag, the version-stamped artifact is fixed; you
+   don't want to be the person who released vX.Y.Z and then immediately
+   tagged vX.Y.Z+1 to fix a CI failure that the merge surfaced.
+4. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`. The tag
    name and `__version__` must match (modulo the `v` prefix).
-4. Create the GitHub release from the tag (CHANGELOG entry as release notes).
-5. Create the `vN` maintenance branch from the tag if this is a new major.
-6. On `dev`, bump `__version__` to the next pre-release (e.g.
+5. Create the GitHub release from the tag (CHANGELOG entry as release notes).
+6. Create the `vN` maintenance branch from the tag if this is a new major.
+7. On `dev`, bump `__version__` to the next pre-release (e.g.
    `"0.3.0.dev0"` — PEP 440 suffix) and open a new `## [Unreleased]`
    section in `CHANGELOG.md`.
-7. Clean up [dev_docs/PLAN.md](dev_docs/PLAN.md): tick off items that
+8. Clean up [dev_docs/PLAN.md](dev_docs/PLAN.md): tick off items that
    shipped in this release (or strike them through), prune anything
    that's no longer the plan, and open a fresh section for the next
    version's roadmap. The CHANGELOG records what *happened*; PLAN
@@ -125,7 +135,10 @@ Worked example — releasing `vX.Y.Z` end-to-end from the shell. Run
 each block separately and read the output; don't paste end-to-end.
 
 ```bash
-# Pre-flight: tests green and the smoke walkthrough still works.
+# Pre-flight A: CI on dev is green (both T0 and T1/T2).
+gh run list --branch dev --limit 4   # expect ✓ on the top two rows
+
+# Pre-flight B: local tests green and the smoke walkthrough still works.
 python -m pytest tests/ -q
 corpus --version           # confirm `pip install -e .` is current
 # (optionally) re-run dev_docs/clean_install_walkthrough.sh against a
@@ -143,6 +156,11 @@ git push origin dev
 git checkout main && git pull --ff-only
 git merge --no-ff dev -m "Release vX.Y.Z"
 git push origin main
+
+# 2a. WAIT FOR CI ON MAIN to be green before tagging — the tag pins
+#     the version-stamped artifact in the bundle manifest, and a red
+#     main badge on the README would persist until the next release.
+gh run watch   # or: gh run list --branch main --limit 4
 
 # 3. Tag from main; the tag name MUST match __version__ modulo the leading `v`.
 git tag -a vX.Y.Z -m "vX.Y.Z"
