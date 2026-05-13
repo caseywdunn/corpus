@@ -5,6 +5,311 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-05-13
+
+### Theme
+
+v0.4 is the **operational hardening** cycle. v0.3 collapsed the CLI
+surface and the per-corpuscle config; v0.4 takes the resulting machine
+through CI it didn't have, a platform-portability pass that fixes the
+silent failure modes external HPC users hit, and the install-onboarding
+papercuts that first-time operators raised.
+
+Three through-lines:
+
+1. **CI tiers** ([#75](https://github.com/caseywdunn/corpus/issues/75)) —
+   GitHub Actions on every push + every PR. T0 (lint + unit) takes ~3 min;
+   T1 (Linux + Grobid) and T2 (macOS arm64) each build the 4 + 1 demo
+   and exercise implicit resume inline (~13 / 9 min). The classes of
+   regression that previously surfaced weeks later in PLATFORM_SMOKE.md
+   now block PRs within ~15 min.
+2. **Silent-failure cleanup on HPC + Apple Silicon** —
+   [#70](https://github.com/caseywdunn/corpus/issues/70),
+   [#71](https://github.com/caseywdunn/corpus/issues/71),
+   [#72](https://github.com/caseywdunn/corpus/issues/72), plus a
+   macOS-specific KMP / Rosetta pass. All four had the same shape:
+   the pipeline kept running but quietly lost output (papers, the
+   served bundle, or the entire resume mechanism).
+3. **Install-onboarding fixes from external testers** —
+   [#73](https://github.com/caseywdunn/corpus/issues/73) (install
+   ordering + config template indentation).
+
+No breaking changes for end users; v0.3.x corpuscles work as-is.
+
+### Added
+
+- **Tiered CI on GitHub Actions**
+  ([#75](https://github.com/caseywdunn/corpus/issues/75)).
+  Two workflows; four functional tiers; both fire on every push and
+  every PR (no branch filter — topic branches get the same signal
+  the daily-cadence `dev` line does).
+  - **T0 — lint + unit** (`.github/workflows/lint.yml`). pyflakes
+    gate via `tests/test_no_undefined_names.py` + the ~314 unit
+    tests that don't need a built corpus. ~3 min wall time.
+  - **T1 — Linux integration** (`.github/workflows/integration.yml`,
+    `ubuntu-24.04`). Grobid as a service container, `corpus run`
+    on the 4-paper demo, bundle-manifest checks, audit-clean check,
+    MCP / SSE round-trip via `tools/smoke_test_sse.py`, then the
+    4 + 1 implicit-resume scenario inline (copy
+    `tests/fixtures/round2_paper/Siebert_etal2011.pdf` into demo/,
+    re-run, assert `skipped == 4 ∧ embedded ≥ 1 ∧ failed == 0` —
+    canonical regression check for #71). ~13 min wall.
+  - **T2 — macOS arm64** (`macos-15`). Same shape as T1 with
+    `grobid.disable: true` (Docker Desktop isn't on GHA macOS
+    runners); reference-extraction tests skipped (Linux T1 covers
+    the Grobid-XML path). Catches macOS-arm64-specific regressions
+    including platform-specific resume behavior. ~9 min wall.
+  - Two manual tiers in dev_docs: T3 clean-room EC2
+    (`dev_docs/ec2_smoke.sh`, ~25 min, pre-release ritual) and T4
+    operator walkthrough (`dev_docs/clean_install_walkthrough.sh`,
+    full CLI surface coverage).
+  - **Pytest markers**: `corpus_required` (~73 ground-truth tests
+    that need a built demo; T0 deselects, T1/T2 select after the
+    build) and `resume_scenario` (the standalone pytest port of
+    the 4 + 1 scenario, kept for local-dev iteration; CI does the
+    equivalent via shell assertions inline rather than running the
+    pytest twice).
+  - **Status badges**: README scoped to `main` (release-state
+    signal users care about); CONTRIBUTING scoped to `dev` (live
+    development-line signal contributors want).
+  - **Release ritual gated on green CI**
+    ([CONTRIBUTING.md](CONTRIBUTING.md)). Two new checkpoints: dev
+    CI green before bumping the version, main CI green before
+    tagging. The dev → main merge is the last point where a regression
+    can be caught before it gets stamped into `bundle_manifest.json`.
+
+- **`corpus taxonomy export | ingest` — DwC-A round-trip**
+  (commit `23448f0`). The reverse of the existing ingest is now a
+  first-class verb: dump a built `taxonomy.sqlite` back out as a
+  Darwin Core Archive `.zip`. Use cases: share a snapshot without
+  forcing the recipient to walk WoRMS again; commit a fixture into
+  a downstream repo so CI exercises the `dwca` ingest path without
+  network calls. Round-trip property:
+  `corpus taxonomy ingest --source dwca --input <export.zip>`
+  recovers the same `taxa` row set as the source SQLite.
+
+- **Demo ships a pre-built Siphonophorae DwC-A** (commit `447437f`).
+  `demo/taxonomy.zip` is the order-level WoRMS snapshot
+  (~1,200 taxa, ~30 KB) baked via the new `corpus taxonomy export`.
+  The demo's `config.yaml` switches to
+  `source: dwca, path: ./taxonomy.zip`. First `corpus run` on the
+  demo ingests the taxonomy from a local file in seconds — no
+  rate-limited WoRMS REST walk. Re-export with the documented
+  `pipeline.taxonomy_ingest` + `corpus taxonomy export` two-step
+  in the demo's `config.yaml` comment block.
+
+- **pyflakes static-analysis gate**
+  (`tests/test_no_undefined_names.py`, commit `721ed5d`). Catches
+  undefined-name (guaranteed runtime `NameError`) findings on the
+  source tree, runs in seconds, gates T0. Surfaced and fixed nine
+  pre-existing missing-imports + bare-typing bugs as part of the
+  initial adoption.
+
+- **EC2 clean-room smoke script** (`dev_docs/ec2_smoke.sh`, commit
+  `4c86104`). One-shot platform-portability check on a fresh Ubuntu
+  EC2 host: apt deps + miniforge + conda env + `pip install -e .`
+  + Grobid via Docker + demo `corpus run` + bundle distillation +
+  SSE round-trip. Exits 0 iff every success criterion in
+  `PLATFORM_SMOKE.md` passes. ~25 min wall, ~$2–3 EC2 cost. The
+  release ritual now runs this as the clean-cache counterpart to
+  GHA's warm-cache T1.
+
+- **Platform-portability smoke runbook**
+  (`dev_docs/PLATFORM_SMOKE.md`, commit `a245d0e`, narrowed in
+  `5da9ff4`). Pre-release manual smoke against macOS arm64 +
+  linux-x86_64 Bouchet with explicit success criteria, mirrored
+  programmatically by `ec2_smoke.sh`. Retitled in v0.4 to "manual
+  fallback / release-time verification" with a banner pointing at
+  the CI tiers as the authoritative coverage.
+
+- **README "Using the MCP server" section.** Covers the
+  text-only-chat vs. report-generation split: chat for exploration,
+  report path (`pandoc` / `pdflatex` for PDFs with figures) for
+  morphological-diversity summaries, character matrices, and CSV /
+  TSV / JSONL / BibTeX exports. New example query: *Write a PDF
+  report with LaTeX showing all nectophore images for* Nanomia.
+
+- **World Flora Online** added to the DwC-A source table in the
+  README, with the Zenodo DOI for the recent snapshot — fills the
+  plant-taxonomy gap left by WoRMS / Catalogue of Life pointers.
+
+### Changed
+
+- **Demo slimmed from 11 → 4 + 1 papers** (commit `d597f1f`).
+  Four papers in `demo/` (born-digital English Dunn-etal-2005,
+  born-digital English Pugh-2001, scanned German Fraktur
+  Schneider-1891, scanned Russian Stepanjants-1970) for the
+  standard build path; one paper (Siebert-etal-2011) held back in
+  `tests/fixtures/round2_paper/` for the 4 + 1 implicit-resume
+  scenario. Round-1 wall time dropped from ~25 min to ~2 min on
+  macOS arm64 (and ~5 min in CI), which is what made the demo
+  viable as a CI fixture in the first place. Still exercises every
+  OCR + extraction code path the 11-paper version did (Fraktur,
+  Cyrillic, born-digital).
+
+- **README Installation section reordered**
+  ([#73](https://github.com/caseywdunn/corpus/issues/73), commit
+  `4e473f0`). New "Prerequisites" subsection up front lists Docker
+  and miniforge before any conda command. New "Clone and install"
+  block leads with `git clone` (previously omitted — operators
+  had to infer they needed to clone the repo before running
+  `conda env create`) and folds in `tools/install_tessdata.sh` as
+  the fourth step. Drops the now-redundant "Docker is a
+  prerequisite" paragraph that previously appeared after the
+  install commands.
+
+- **Config template — explicit indentation note above the
+  `taxonomy:` block** (`pipeline/config.template.yaml`,
+  [#73](https://github.com/caseywdunn/corpus/issues/73)). The
+  2-space nesting tripped beroe's smoke install: stripping the
+  leading `# ` from `#   source: worms` without preserving the
+  2-space indent put `source:` at column 0 and the YAML loader
+  raised "block mapping" at parse time. A new paragraph above the
+  block spells out the indentation contract.
+
+- **CI tier structure documented in CONTRIBUTING, not README**
+  (commits `1cfed8b`, `b67f3c4`). User-facing README keeps the
+  status badges (scoped to `main`); CONTRIBUTING gets the full
+  tier table + local equivalents (right next to "Tests" and "What
+  to run before opening a PR"), plus its own badges scoped to
+  `dev` for the live signal contributors want.
+
+### Fixed
+
+- **`find_all_pdfs` re-ingesting `processed.pdf` from prior runs**
+  ([#75](https://github.com/caseywdunn/corpus/issues/75), commit
+  `5373623`). `pipeline/io.py:find_all_pdfs` did a bare
+  `input_dir.rglob("*.pdf")` with no output-directory exclusion.
+  When `input_pdfs` is an ancestor of `output_dir` (the demo's
+  canonical `input_pdfs: .` with `output_dir: ./output`), every
+  subsequent `corpus run` walked the per-paper
+  `documents/<HASH>/processed.pdf` artifacts. Those have different
+  SHA-256s than the originals because OCR overlays a text layer,
+  so the pipeline counted them as new documents and the corpus
+  doubled on every re-run. New `exclude_under` keyword param
+  plumbed through from `pipeline.main`; `corpus check` already
+  used the equivalent helper. Unit test in
+  `tests/test_find_all_pdfs.py`. T1/T2 CI now exercises round-2
+  against the demo's literal config, so a regression here blocks
+  PRs.
+
+- **LanceDB `list_tables()` return-shape break**
+  ([#71](https://github.com/caseywdunn/corpus/issues/71), commit
+  `f81a4b8`). LanceDB 0.30.x changed `list_tables()` from a list to
+  a generator-like view. The old `args.table_name in table_names`
+  membership check consumed the generator on first read and
+  returned False on the second, so `pipeline.embed` then tried to
+  re-`create_table` the existing table and crashed mid-build.
+  Wrapped in a `lancedb_table_names()` helper that materializes to
+  a list once per stage invocation. `corpus run` against any
+  pre-existing build no longer aborts at embed; implicit resume
+  works again across the LanceDB version bump. Regression check
+  inline in T1/T2.
+
+- **Bundle distillation absolute-path audit on per-category
+  lexicon JSONs** ([#70](https://github.com/caseywdunn/corpus/issues/70),
+  commit `d925cbe`). The §10 audit (no absolute paths in any
+  served artifact) previously only scrubbed `summary.json` /
+  `figures.json` / `taxa.json`. Multi-category lexicons emit one
+  `<hash>/<category>.json` per top-level lexicon category
+  (anatomy, biogeography, methods, …), each carrying the absolute
+  path of the source `lexicon.yaml` in its `input_fingerprint`.
+  Renamed `_scrub_taxa` → `_scrub_input_fingerprint_path` and
+  applied to `taxa.json` plus every per-category JSON via the
+  existing `_per_paper_lexicon_outputs(hash_dir)` helper.
+  Regression test in `test_package_for_serve.py`; CI greps the
+  `Path scrub: rewrote N files; audit clean.` log line.
+
+- **docling crashes on HPC nodes without `g++` in PATH**
+  ([#72](https://github.com/caseywdunn/corpus/issues/72), commit
+  `d925cbe`). `torch._inductor` JIT-compiles certain ops via the
+  system `g++` at runtime when triggered by docling's layout /
+  table code paths. HPC compute nodes typically don't have `g++`
+  on the default PATH unless a GCC module is loaded, so inductor
+  bubbles `OSError: [Errno 14] Bad address: 'g++'` up as a
+  docling crash and the affected paper is silently lost from the
+  build (1 / 11 in the demo on Bouchet; extrapolates badly to
+  production-scale corpora). Verified upstream that `module load
+  GCC` alone doesn't help — Bouchet's GCC exposes `g++` but not
+  `cc1plus`, so inductor still fails. Fixed by setting
+  `TORCH_COMPILE_DISABLE=1` in `pipeline/__init__.py` before any
+  submodule loads torch / docling. Docling doesn't depend on
+  inductor for correctness; the (small) compile-time perf gain
+  only matters for hot tensor ops we don't hit in the pipeline.
+  Operators who want inductor JIT can override with
+  `TORCH_COMPILE_DISABLE=0` in their env.
+
+- **macOS Apple Silicon — duplicate libomp abort at first
+  `import torch`** (commit `d925cbe`). pip-installed torch ships
+  its own `libomp.dylib`, scikit-learn ships another, conda-forge's
+  `llvm-openmp` ships a third. Without an override, the first
+  `import torch` after numpy aborts with the OpenMP duplicate-
+  library message and the whole CLI dies before any user code
+  runs. `pipeline/__init__.py` sets `KMP_DUPLICATE_LIB_OK=TRUE`
+  on darwin (matching what `tools/run_mcp_server.sh` already did
+  for the serve path since v0.2).
+
+- **`instructions.md` shepherded into `output_dir` + served
+  bundle** (commit `a04aff6`). The README and bundled template
+  document `instructions.md` as a corpuscle-root file (next to
+  `config.yaml`), but every downstream reader
+  (`mcpsrv.main`'s `InitializeResult.instructions` default,
+  `mcpsrv.bundle`'s served-bundle whitelist) looks under
+  `<output_dir>/`. Without forwarding, the user's corpus-specific
+  nudges never reached the served bundle. `corpus run` now copies
+  the corpuscle-root `instructions.md` into `output_dir` at the
+  end of the pipeline, alongside the bundle build. Same commit
+  also fixes a separate "stage count off-by-one" in
+  `corpus check`'s ok-line count.
+
+- **`corpus check` silently dropped its own status lines + bib
+  staged-overrides NameError** (commit `3393a48`). The validation
+  pass produced no output until the final summary, so operators
+  couldn't see which checks were passing vs. being silently
+  skipped — and on a non-zero exit, the failure message was the
+  only signal they got. Status lines now stream as each check
+  runs. Same commit: fixed a `NameError` on `db_path` in
+  `bib.authority`'s staged-bib path that surfaced as `Could not
+  apply staged bib overrides: name "db_path" is not defined` on
+  every fresh build (the staged-bib code path had never been
+  exercised — caught by the new pyflakes gate).
+
+- **`mcpsrv/tools/chunks.py` missing imports** (commit `dabde66`).
+  `translate_chunk` referenced `json` (used to format a tool
+  response) and `EmbeddingError` (caught in the embedding-error
+  handler of `get_chunks_for_topic`) without importing either.
+  The test suite never exercised the affected branches; pyflakes
+  caught both during gate adoption.
+
+- **Grobid JDK cgroup-v2 NPE on modern Ubuntu hosts** (commit
+  `40ae330`). `lfoppiano/grobid:0.8.1`'s bundled JVM hits a known
+  NullPointerException in `CgroupV2Subsystem.getInstance` on
+  cgroup-v2 hosts when container-aware sizing is on. Ubuntu 24.04
+  GHA runners default to cgroup v2. The EC2 smoke script and
+  `integration.yml`'s Grobid service set
+  `JAVA_OPTS='-XX:-UseContainerSupport -Xmx4g -Xms1g'` to skip the
+  broken codepath; `-Xmx` / `-Xms` are set explicitly so we don't
+  need the auto-detection that triggers the NPE.
+
+- **`tools/smoke_test_sse.py` repaired for v0.3 CLI** (commit
+  `aea1456`). The SSE round-trip tool referenced the long-removed
+  `mcp_server.py` v0.2 entry point. T1 in the new CI matrix
+  exercises this every push.
+
+- **EC2 smoke: `pngquant` + `jbig2enc` best-effort** (commit
+  `b29aae7`). `ocrmypdf`'s optional native helpers aren't on every
+  Ubuntu AMI's default `universe` channel, but the runtime
+  degrades gracefully without them (`pipeline.scan` drops
+  `--optimize 2 → 1` when `pngquant` isn't on PATH). The smoke
+  script now warns and proceeds rather than aborting the whole
+  run if `apt install` fails for the helpers.
+
+### Carried from 0.3.1
+
+- See the `## [0.3.1] - 2026-05-11` section below for the
+  `get_figure_url` fix (cherry-picked into dev so the v0.4 cycle
+  inherits it).
+
 ## [0.3.1] - 2026-05-11
 
 ### Fixed

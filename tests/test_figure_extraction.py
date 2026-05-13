@@ -4,6 +4,8 @@ import json
 
 import pytest
 
+pytestmark = pytest.mark.corpus_required
+
 
 def test_min_figure_count(paper_figures):
     """Pipeline finds at least the expected number of figures."""

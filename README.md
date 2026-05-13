@@ -1,6 +1,8 @@
 # corpus
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19964909.svg)](https://doi.org/10.5281/zenodo.19964909)
+[![T0 lint + unit](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml?query=branch%3Amain)
+[![T1/T2 integration](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml/badge.svg?branch=main)](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml?query=branch%3Amain)
 
 ## Citing corpus
 
@@ -14,7 +16,7 @@ Think of corpus as an interface between a body of scientific literature and a La
 
 The workflow turns a folder of PDFs — born-digital articles alongside centuries-old scans in multiple languages — into a queryable knowledge base, exposed over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). MCP is the open standard that LLM clients (Claude Desktop, Claude Code, claude.ai web, Cursor) use to reach external data. The primary target is taxonomic literature.
 
-Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on Yale's HPC cluster and host public servers on Amazon Web Services (AWS), but those are our choices; any machine with Python and adequate disk will do.
+Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on [Yale's HPC cluster](https://docs.ycrc.yale.edu/clusters/bouchet/) and host public servers on [Amazon Web Services (AWS)](https://aws.amazon.com/).
 
 ### Implementation
 
@@ -22,8 +24,8 @@ Corpus reads a folder of PDFs and produces a knowledge base built around: **taxa
 
 - **OCR for old scans** — including 19th-century German Fraktur and other historical typefaces, with per-paper language detection.
 - **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then vision-LLM-tagged for taxonomy and anatomy.
-- **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton 1965" is one entity even when twenty papers cite it differently.
-- **Taxonomy linking** — every species mention is matched against a Darwin Core taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
+- **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton and Bargmann 1965" is one entity even when twenty papers cite it differently.
+- **Taxonomy linking** — every species mention is matched against a [Darwin Core](https://dwc.tdwg.org/) taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
 
 The output is a per-paper artifact tree plus cross-paper databases. You query it through an **MCP server** (`corpus serve`, backed by [mcpsrv/](mcpsrv/)) that any [MCP](https://modelcontextprotocol.io/) client (Claude Desktop, Claude Code, claude.ai web) can connect to — so "show me every figure of *Nanomia bijuga* nectophores in the corpus" becomes something you ask in chat instead of grep across a hard drive. The server is a read-only view over the per-paper artifacts, so re-running the pipeline is the only way new data reaches the tools.
 
@@ -35,6 +37,7 @@ The output is a per-paper artifact tree plus cross-paper databases. You query it
 - *"What are the most-cited papers that aren't currently in the corpus?"*
 - *"Summarize what the corpus says about pneumatophore structure."*
 - *"Translate the diagnosis of* Forskalia edwardsii *from Haeckel 1888 (German) into English."*
+- *"Write a PDF report with LaTeX showing all nectophore images for* Nanomia*."*
 
 The full tool surface is in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md).
 
@@ -96,10 +99,12 @@ taxonomy:
 | Source | What it is | When to use |
 | --- | --- | --- |
 | `worms` | [WoRMS](https://www.marinespecies.org/) subtree fetched by AphiaID | Marine taxa (siphonophores, copepods, fish, ...) |
-| `dwca` | [Darwin Core Archive](https://dwc.tdwg.org/text/) `.zip` from [GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/) | Anything else; the broad default |
+| `dwca` | [Darwin Core Archive](https://dwc.tdwg.org/text/) `.zip` from [GBIF](https://www.gbif.org/), [ITIS](https://www.itis.gov/), [Catalogue of Life](https://www.catalogueoflife.org/), [World Flora Online](https://zenodo.org/records/18007552) (plants) | Anything else; the broad default |
 | `dwc` | Directory of Darwin Core `.tsv` files | An already-unzipped DwC tree |
 
-Or invoke the ingester directly without `corpus run`: `python -m pipeline.taxonomy_ingest <output_dir> --source dwca --input path/to/dwca.zip`.
+Or invoke the ingester directly without `corpus run`: `corpus taxonomy ingest --source dwca --input path/to/dwca.zip` (equivalent to `python -m pipeline.taxonomy_ingest <output_dir>`).
+
+The inverse — dumping a corpus's built taxonomy back out as a DwC-A — is `corpus taxonomy export -o taxonomy.zip`. Use it to share a taxonomy snapshot without forcing the recipient to walk WoRMS again, or to commit a small fixture into a downstream repo so CI exercises the `dwca` ingest path without network calls. The round-trip property: `corpus taxonomy ingest --source dwca --input <export.zip>` recovers the same `taxa` row set as the source SQLite.
 
 **Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path.
 
@@ -167,10 +172,20 @@ Every CLI takes the corpuscle root as its first positional argument and resolves
 
 ## Installation
 
+### Prerequisites
+
+- **Docker** — required at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS). On HPC hosts without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
+- **conda** — use [miniforge](https://github.com/conda-forge/miniforge), not anaconda.com's default download. Required on Apple Silicon (the default download is Intel x86_64 and silently traps you in an unsupported Rosetta path; see [Supported platforms](#supported-platforms) below); recommended everywhere else for the smaller install and arm64-native packaging.
+
+### Clone and install
+
 ```bash
+git clone https://github.com/caseywdunn/corpus.git
+cd corpus
 conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
+bash tools/install_tessdata.sh   # Tesseract OCR language packs (see INSTALL.md)
 ```
 
 `pip install -e .` puts the `corpus` binary on PATH (via the
@@ -179,19 +194,37 @@ metadata version stays in sync with `pipeline/version.py` so
 `pip show corpus`, `corpus --version`, and the bundle manifest
 never drift.
 
-Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
+`tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data; the script downloads the [default fallback language set](#language-support) into `$CONDA_PREFIX/share/tessdata/`. Optional `pngquant` / `jbig2enc` (smaller output PDFs) are covered in [INSTALL.md](INSTALL.md#supported-platforms).
 
-**Docker is a prerequisite.** Install it from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS) before the commands below. On HPC hosts without Docker, [Apptainer](https://apptainer.org/) can pull the same Grobid image — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
+### Supported platforms
+
+| Target | Status |
+| --- | --- |
+| **linux-x86_64** | Supported. The reference HPC + deploy target (Bouchet, AWS EC2). |
+| **macOS arm64** (Apple Silicon) | Supported, with two extra constraints — see below. |
+| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` require torch ≥ 2.4, which has no macOS Intel build. |
+| linux-aarch64 (Graviton, Ampere) | Not currently supported. Wheels exist for most dependencies but we don't test it; add as a third target if a real Graviton use case appears. |
+
+**On Apple Silicon, two things have to be right:**
+
+1. **Use an arm64-native conda** ([miniforge](https://github.com/conda-forge/miniforge)) to create the corpus env. The default download from anaconda.com is the Intel x86_64 build and keeps running under Rosetta even on an arm64 host — that traps the install in the unsupported macOS Intel matrix above, and `transformers` then silently disables PyTorch. After `conda env create -f environment.yaml`, verify with:
+
+   ```bash
+   ~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
+   # expect: arm64   (NOT x86_64)
+   ```
+
+2. **Grobid still runs under Rosetta.** The official Grobid Docker image (`grobid/grobid:0.8.1`) is `linux/amd64` only. On Apple Silicon, Docker Desktop runs it under x86_64 emulation. Enable **Settings → General → "Use Rosetta for x86_64/amd64 emulation"** in Docker Desktop for the fastest path; without Rosetta, QEMU emulation works but is noticeably slower. Memory budget is the bigger concern — keep the `JAVA_OPTS=-Xmx8g` heap in `docker-compose.yml` only if Docker Desktop has at least 12 GB allocated under **Settings → Resources**, otherwise drop to `-Xmx4g`. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+
+See [INSTALL.md](INSTALL.md#supported-platforms) for the optional OCR helper install (pngquant, jbig2enc) and the pip-only fallback.
+
+Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
 
 ```bash
 docker compose up -d grobid              # start in background; persists across runs
 curl http://localhost:8070/api/isalive   # should print "true"
 corpus check                             # confirms grobid + GPU + config + disk
 ```
-
-On Bouchet, the SLURM chain handles Grobid automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
-
-After creating the env, run `bash tools/install_tessdata.sh` to download the Tesseract language packs (the conda-forge `tesseract` package ships only English data — see [INSTALL.md](INSTALL.md#ocr-language-packs)). Optional `jbig2enc` compression is covered in the same doc.
 
 ## Language support
 
@@ -215,7 +248,7 @@ To make a new language part of the fallback set tried when detection is uncertai
 
 ## Try it on the demo corpus
 
-The repo ships [demo/](demo/) — a regular corpuscle (11 siphonophore PDFs, `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, and a `config.yaml` already pointing at all of it). One command runs the full pipeline + cross-paper builds + bundle:
+The repo ships [demo/](demo/) — a regular corpuscle: 4 siphonophore PDFs (born-digital English, born-digital English, scanned German Fraktur, and scanned Russian), `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it. A 5th paper sits in [`tests/fixtures/round2_paper/`](tests/fixtures/round2_paper/) — outside the demo's `input_pdfs` scope — held back for the "add a paper and re-run" implicit-resume scenario exercised by [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
 
 ```bash
 cd demo && corpus run
@@ -316,6 +349,17 @@ Restart the client and the corpus tools appear. From there, the [example queries
 
 For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE startup, smoke-test, three-way client-config matrix (Claude Code, Custom Connectors UI, mcp-remote bridge), full EC2 + ALB + S3 runbook — see [DEPLOY.md](DEPLOY.md). One-liner version: `corpus serve --output-dir <bundle> -- --transport sse --host 127.0.0.1 --port 8080 --auth-token-file <token-file>`.
 
+## Using the MCP server
+
+Once your client is configured, open it and confirm the corpus server is connected. Open a [Claude Code](https://claude.com/claude-code) session at the terminal and run `/mcp` — the corpus server should appear in the list along with its tool surface.
+
+**Interactive chat** is the most direct mode. Ask questions like the [example queries](#example-uses) above and get answers streamed back, citing the source papers. This is text-only — figures don't render inline, so corpus content that lives in images (plates, photographs, morphological line drawings) doesn't come along for the ride.
+
+**Reports** are how you reach the rest. Ask the LLM to write a report and it produces a markdown or LaTeX file alongside the chat, which can then be rendered to PDF (Claude Code can call `pandoc` / `pdflatex` directly). Reports can be plain text or pull figures from the corpus by reference, so a morphological-diversity summary with one plate per species is a single prompt away. Other natural fits:
+
+- **Character matrices** compiled from the literature (e.g. "nectophore presence/absence and gastrozooid count for every physonect in the corpus").
+- **Compiled data exports** in CSV, TSV, JSONL, or BibTeX so downstream tools can pick up where chat leaves off.
+
 ## Additional documentation and resources
 
 - [AGENTS.md](AGENTS.md) — orientation for AI coding agents working in the repo
@@ -329,6 +373,7 @@ For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE star
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 - [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
+- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — manual fallback / release-time verification (CI tiers T0–T3 in [`.github/workflows/`](.github/workflows/) are the authoritative coverage); references [dev_docs/ec2_smoke.sh](dev_docs/ec2_smoke.sh) for the T4 clean-room linux validation
 
 External:
 

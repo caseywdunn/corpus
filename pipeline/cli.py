@@ -8,6 +8,8 @@ scripts that v0.2 shipped. Subcommands:
   corpus status                build-state rollup + report (#57)
   corpus serve                 MCP server
   corpus bib export|import     BibTeX round-trip
+  corpus taxonomy ingest       build taxonomy.sqlite from WoRMS / DwC-A / DwC
+  corpus taxonomy export       dump taxonomy.sqlite to a Darwin Core Archive
   corpus check                 environment + config pre-flight (stub, #62)
   corpus completion <shell>    shell completion script (#61)
 
@@ -425,11 +427,34 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if rc != 0:
         return rc
 
+    # Shepherd <corpuscle>/instructions.md into <output_dir>/ before
+    # bundle distill. The README documents instructions.md as a
+    # corpuscle-root file (next to config.yaml — the demo follows
+    # that pattern), but every downstream reader (mcpsrv.main's
+    # InitializeResult.instructions, mcpsrv.bundle's served-bundle
+    # whitelist) looks for it under <output_dir>/. Without this
+    # forwarding step the user's instructions never reach the served
+    # bundle — exactly the warning the smoke test surfaced:
+    # `Expected top-level file instructions.md missing from <output_dir>`.
+    # We copy on mtime change, so re-runs are idempotent and edits
+    # propagate.
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    if not args.dry_run and config_path is not None:
+        src_instructions = config_path.parent / "instructions.md"
+        if src_instructions.exists():
+            dst_instructions = output_dir / "instructions.md"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            needs_copy = (
+                not dst_instructions.exists()
+                or src_instructions.stat().st_mtime > dst_instructions.stat().st_mtime
+            )
+            if needs_copy:
+                shutil.copy2(src_instructions, dst_instructions)
+
     # #60 — bundle distillation in line. Produce a ready-to-ship served
     # bundle alongside the build bundle unless --no-bundle. The served
     # bundle lands at `<output_dir>/_serve/` and is the directory remote
     # deploys (DEPLOY.md) ship to S3 / EC2.
-    output_dir = _resolve_against(config_path, cfg.output_dir)
     if args.no_bundle:
         print_status(
             "skipping served-bundle distillation (--no-bundle)",
@@ -531,6 +556,18 @@ def _cmd_bib_import(args: argparse.Namespace) -> int:
     return _passthrough("bib.importer", [str(output_dir), *args.passthrough])
 
 
+def _cmd_taxonomy_export(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("pipeline.taxonomy_export",
+                        [str(output_dir), *args.passthrough])
+
+
+def _cmd_taxonomy_ingest(args: argparse.Namespace) -> int:
+    output_dir = _resolve_output_dir(args)
+    return _passthrough("pipeline.taxonomy_ingest",
+                        [str(output_dir), *args.passthrough])
+
+
 # ---------------------------------------------------------------------------
 # `corpus check`  (#62 stub)  /  `corpus completion`  (#61 stub)
 # ---------------------------------------------------------------------------
@@ -547,26 +584,37 @@ def _cmd_check(args: argparse.Namespace) -> int:
     Exit codes (per #61): 0 on green, 2 on config-error, 3 on
     environment-precondition failure.
     """
+    # `corpus check` exists to print its findings. The default verbosity
+    # is WARNING (see _setup_logging), which would silently drop every
+    # `ok` line via print_status's level gate — leaving the operator
+    # with just the warnings and a green exit code, unable to tell
+    # what was actually checked. Force every status line in this
+    # function to print regardless of root log level. `corpus -q check`
+    # still works (the gate is bypassed, not the log threshold), since
+    # check's whole purpose is the report.
+    from functools import partial
+    pstatus = partial(print_status, force=True)
+
     config_path = _resolve_config_path(args.config)
     failures: List[str] = []  # precondition (exit 3)
     config_failures: List[str] = []  # config (exit 2)
 
     # 1. config.yaml resolution + schema validation
     if config_path is None:
-        print_status(
+        pstatus(
             "no config.yaml in cwd; pass --config PATH or run `corpus init`",
             status="fail",
         )
         return EXIT_CONFIG_ERROR
     if not config_path.exists():
-        print_status(f"config not found: {config_path}", status="fail")
+        pstatus(f"config not found: {config_path}", status="fail")
         return EXIT_CONFIG_ERROR
     try:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         cfg = validate_config(raw)
-        print_status(f"config.yaml valid ({config_path})", status="ok")
+        pstatus(f"config.yaml valid ({config_path})", status="ok")
     except ValidationError as e:
-        print_status(f"config error in {config_path}", status="fail")
+        pstatus(f"config error in {config_path}", status="fail")
         for err in e.errors():
             loc = ".".join(str(x) for x in err["loc"])
             print(f"  {loc}: {err['msg']}", file=sys.stderr)
@@ -575,67 +623,86 @@ def _cmd_check(args: argparse.Namespace) -> int:
     # 2. GPU availability
     gpu = _detect_accelerator()
     if gpu == "cuda":
-        print_status("GPU: CUDA available", status="ok")
+        pstatus("GPU: CUDA available", status="ok")
     elif gpu == "mps":
-        print_status("GPU: MPS available (Apple Silicon)", status="ok")
+        pstatus("GPU: MPS available (Apple Silicon)", status="ok")
     else:
-        print_status("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
+        pstatus("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
 
     # 3. Vision backend usability — under #65 a missing capability is
     # a warn (the pass auto-skips at run time with the same message),
     # not a hard precondition failure.
     vision_skip = _vision_skip_reason(cfg.vision.backend)
     if cfg.vision.backend == "none":
-        print_status("Vision pass: disabled in config", status="warn")
+        pstatus("Vision pass: disabled in config", status="warn")
     elif vision_skip is None:
-        print_status(f"Vision pass: backend `{cfg.vision.backend}` ready", status="ok")
+        pstatus(f"Vision pass: backend `{cfg.vision.backend}` ready", status="ok")
     else:
-        print_status(f"Vision pass: would skip — {vision_skip}", status="warn")
+        pstatus(f"Vision pass: would skip — {vision_skip}", status="warn")
 
     # 4. Grobid reachability
     if cfg.grobid.disable:
-        print_status(f"Grobid: disabled in config (header metadata will use --bib only)", status="warn")
+        pstatus(f"Grobid: disabled in config (header metadata will use --bib only)", status="warn")
     else:
         ok, detail = _ping_grobid(cfg.grobid.url)
         if ok:
-            print_status(f"Grobid: reachable at {cfg.grobid.url}", status="ok")
+            pstatus(f"Grobid: reachable at {cfg.grobid.url}", status="ok")
         else:
             failures.append(
                 f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
                 "Start it with: docker compose up -d grobid"
             )
-            print_status(f"Grobid: unreachable at {cfg.grobid.url} ({detail})", status="fail")
+            pstatus(f"Grobid: unreachable at {cfg.grobid.url} ({detail})", status="fail")
 
     # 5. Output disk space (warn if < 5 GB free)
     output_dir = _resolve_against(config_path, cfg.output_dir)
     free_gb = _free_disk_gb(output_dir)
     if free_gb is None:
-        print_status(f"output_dir disk: cannot stat {output_dir}", status="warn")
+        pstatus(f"output_dir disk: cannot stat {output_dir}", status="warn")
     elif free_gb < 5:
-        print_status(f"output_dir disk: {free_gb:.1f} GB free (low — recommend ≥ 20 GB for a real corpus)", status="warn")
+        pstatus(f"output_dir disk: {free_gb:.1f} GB free (low — recommend ≥ 20 GB for a real corpus)", status="warn")
     else:
-        print_status(f"output_dir disk: {free_gb:.1f} GB free", status="ok")
+        pstatus(f"output_dir disk: {free_gb:.1f} GB free", status="ok")
 
     # 6. input_pdfs reachable
     if cfg.input_pdfs is None:
-        print_status("input_pdfs: not set (required for `corpus run`)", status="warn")
+        pstatus("input_pdfs: not set (required for `corpus run`)", status="warn")
     else:
         input_dir = _resolve_against(config_path, cfg.input_pdfs)
         if input_dir.exists():
-            n_pdfs = len(list(input_dir.rglob("*.pdf"))) if input_dir.is_dir() else 0
-            print_status(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
+            # When input_pdfs is a parent of output_dir (the demo's
+            # `input_pdfs: .` is the canonical case), naive rglob picks
+            # up every output/documents/<HASH>/processed.pdf and reports
+            # twice the real count. Exclude paths under output_dir; the
+            # pipeline already dedupes by SHA-256 so processing is
+            # correct either way, but the operator-facing count must
+            # reflect actual source PDFs.
+            output_resolved = output_dir.resolve() if input_dir.is_dir() else None
+            def _is_under_output(p: Path) -> bool:
+                if output_resolved is None:
+                    return False
+                try:
+                    p.resolve().relative_to(output_resolved)
+                    return True
+                except ValueError:
+                    return False
+            n_pdfs = (
+                sum(1 for p in input_dir.rglob("*.pdf") if not _is_under_output(p))
+                if input_dir.is_dir() else 0
+            )
+            pstatus(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
         else:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
-            print_status(f"input_pdfs: {input_dir} not found", status="fail")
+            pstatus(f"input_pdfs: {input_dir} not found", status="fail")
 
     if failures:
         print()
-        print_status(f"{len(failures)} precondition(s) failed:", status="fail")
+        pstatus(f"{len(failures)} precondition(s) failed:", status="fail")
         for f in failures:
             print(f"  - {f}")
         return EXIT_PRECONDITION
     print()
-    print_status("ready: `corpus run` should succeed on this host.", status="ok")
+    pstatus("ready: `corpus run` should succeed on this host.", status="ok")
     return EXIT_OK
 
 
@@ -1160,6 +1227,57 @@ def _build_parser() -> argparse.ArgumentParser:
 
     bib_p.set_defaults(func=lambda a: (bib_p.print_help() or 2))
 
+    # --- taxonomy (export | ingest) ---
+    tax_p = sub.add_parser(
+        "taxonomy",
+        help="Build or share the corpus taxonomy via Darwin Core.",
+        description=(
+            "Round-trip the corpus taxonomy through a Darwin Core "
+            "Archive. `corpus taxonomy ingest` builds "
+            "`taxonomy.sqlite` from a WoRMS subtree, a DwC-A .zip, or "
+            "a directory of Darwin Core .tsv files. `corpus taxonomy "
+            "export` dumps the current `taxonomy.sqlite` back out as "
+            "a DwC-A — useful for sharing a snapshot without forcing "
+            "the recipient to re-walk the WoRMS API, and for "
+            "committing small fixtures into a repo so CI exercises "
+            "the dwca ingest path without external network calls."
+        ),
+    )
+    tax_sub = tax_p.add_subparsers(dest="taxonomy_command",
+                                   metavar="{export,ingest}")
+
+    tax_export_p = tax_sub.add_parser(
+        "export",
+        help="Dump taxonomy.sqlite to a Darwin Core Archive (.zip).",
+        description=(
+            "Dump the current `taxonomy.sqlite` to a DwC-A ZIP "
+            "containing meta.xml + taxon.tsv (and vernacularname.tsv "
+            "when vernacular names are present). Forwards to "
+            "`python -m pipeline.taxonomy_export`; pass `-o <path>` "
+            "to choose the output ZIP (required)."
+        ),
+    )
+    tax_export_p.add_argument("--output-dir", type=Path, default=None)
+    tax_export_p.set_defaults(func=_cmd_taxonomy_export)
+
+    tax_ingest_p = tax_sub.add_parser(
+        "ingest",
+        help="Build taxonomy.sqlite from WoRMS / DwC-A / DwC files.",
+        description=(
+            "Build `taxonomy.sqlite` from one of three sources. "
+            "`--source worms --root-id <AphiaID>` walks the WoRMS REST "
+            "API. `--source dwca --input <path.zip>` ingests a Darwin "
+            "Core Archive (use this with a fixture produced by "
+            "`corpus taxonomy export`). `--source dwc --input "
+            "<Taxon.tsv>` ingests a single DwC Taxon file. Forwards "
+            "to `python -m pipeline.taxonomy_ingest`."
+        ),
+    )
+    tax_ingest_p.add_argument("--output-dir", type=Path, default=None)
+    tax_ingest_p.set_defaults(func=_cmd_taxonomy_ingest)
+
+    tax_p.set_defaults(func=lambda a: (tax_p.print_help() or 2))
+
     # --- check (#62) ---
     check_p = sub.add_parser(
         "check",
@@ -1196,7 +1314,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-_PASSTHROUGH_VERBS = {"status", "serve", "bib"}
+_PASSTHROUGH_VERBS = {"status", "serve", "bib", "taxonomy"}
 
 
 def main(argv: Optional[List[str]] = None) -> int:

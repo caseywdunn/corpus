@@ -49,17 +49,34 @@ def short_hash(full_hash: str) -> str:
     return full_hash[:HASH_PREFIX_LEN].lower()
 
 
-def find_all_pdfs(input_dir: Path) -> Dict[str, List[Path]]:
+def find_all_pdfs(
+    input_dir: Path,
+    exclude_under: Optional[Path] = None,
+) -> Dict[str, List[Path]]:
     """Recursively find all PDFs under ``input_dir`` and group by full SHA-256.
 
     Returns a dict mapping full hex digest → list of paths that share it
     (duplicates). The caller derives the short directory name via
     :func:`short_hash`.
+
+    ``exclude_under`` skips PDFs whose resolved path is under the given
+    directory. Required when ``input_dir`` is an ancestor of ``output_dir``
+    (e.g., the demo's ``input_pdfs: .`` with ``output_dir: ./output``):
+    each per-paper ``documents/<HASH>/processed.pdf`` is a different PDF
+    (OCR adds a text layer) and would otherwise be ingested as a new
+    document on every re-run, doubling the corpus.
     """
+    excl = exclude_under.resolve() if exclude_under is not None else None
     pdf_map: Dict[str, List[Path]] = {}
     for pdf_path in input_dir.rglob("*.pdf"):
         if not pdf_path.is_file():
             continue
+        if excl is not None:
+            try:
+                pdf_path.resolve().relative_to(excl)
+                continue  # under the exclusion dir — skip
+            except ValueError:
+                pass
         try:
             full_hash = calculate_pdf_hash(pdf_path)
             pdf_map.setdefault(full_hash, []).append(pdf_path)
@@ -129,7 +146,8 @@ def prune_orphans(
             try:
                 import lancedb  # type: ignore
                 db = lancedb.connect(str(vector_db_path))
-                if "document_chunks" in db.list_tables():
+                from .embeddings import lancedb_table_names
+                if "document_chunks" in lancedb_table_names(db):
                     table = db.open_table("document_chunks")
                     surviving_hashes = doc_hashes - set(doc_orphans)
                     if surviving_hashes:

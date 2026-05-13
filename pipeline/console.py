@@ -62,7 +62,7 @@ _STATUS_THRESHOLD = {
 }
 
 
-def print_status(message: str, status: _Status = "info") -> None:
+def print_status(message: str, status: _Status = "info", *, force: bool = False) -> None:
     """Print ``message`` prefixed with the configured status symbol.
 
     On TTY: colored emoji + styled message. Off TTY: plain ASCII tag.
@@ -75,13 +75,18 @@ def print_status(message: str, status: _Status = "info") -> None:
     Respects the root logger's effective level: an ``info``/``ok``
     line is suppressed when the root level is WARNING or above
     (so ``corpus -q ...`` doesn't print the CLI's own progress
-    chatter), while ``warn``/``fail`` lines always fire.
+    chatter), while ``warn``/``fail`` lines always fire. Set
+    ``force=True`` to bypass the threshold — used by commands whose
+    *entire* purpose is to print a report (``corpus check``), where
+    suppressing the report at the default verbosity would defeat the
+    command.
     """
     from rich.markup import escape as _rich_escape
 
-    threshold = _STATUS_THRESHOLD[status]
-    if logging.getLogger().getEffectiveLevel() > threshold:
-        return
+    if not force:
+        threshold = _STATUS_THRESHOLD[status]
+        if logging.getLogger().getEffectiveLevel() > threshold:
+            return
 
     sym = _symbol(status)
     if console.is_terminal:

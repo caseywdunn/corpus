@@ -15,7 +15,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 from bib import bib_entry_to_metadata
 

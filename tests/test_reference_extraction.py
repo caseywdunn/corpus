@@ -2,6 +2,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.corpus_required
+
 
 def test_min_reference_count(paper_references):
     """Pipeline extracts at least the expected number of references."""

@@ -274,6 +274,61 @@ def test_package_audit_fails_when_absolute_path_unscrubbed(tmp_path: Path):
         )
 
 
+def test_package_scrubs_input_fingerprint_path_in_lexicon_categories(tmp_path: Path):
+    """Regression for #70 — per-category lexicon JSONs (anatomy.json,
+    biogeography.json, methods.json, …) carry an
+    ``input_fingerprint.path`` pointing at the source lexicon.yaml on
+    the build host. The scrubber must strip the absolute prefix from
+    every such file, not just taxa.json, or the §10 audit refuses the
+    bundle.
+    """
+    src = _make_output_with_absolute_paths(tmp_path / "out")
+    h = "abc"
+    hd = src / "documents" / h
+    abs_lex_path = "/nfs/roberts/project/cwd7/source/lexicon.yaml"
+    # anatomy.json: per-category artifact in the shape pipeline.annotate
+    # actually emits — has a ``category`` key (so the bundle copy phase
+    # whitelists it) plus an absolute ``input_fingerprint.path``.
+    (hd / "anatomy.json").write_text(json.dumps({
+        "category": "anatomy",
+        "total_mentions": 0,
+        "unique_terms": 0,
+        "input_fingerprint": {
+            "path": abs_lex_path,
+            "sha256": "deadbeef",
+            "size": 123,
+        },
+    }))
+    # taxa.json: also carries an absolute input_fingerprint.path, so
+    # the n_scrubbed count covers both legacy + #70 codepath together.
+    (hd / "taxa.json").write_text(json.dumps({
+        "taxa": [],
+        "input_fingerprint": {
+            "path": "/nfs/roberts/project/cwd7/source/taxonomy.sqlite",
+            "sha256": "cafe",
+            "size": 99,
+        },
+    }))
+    dst = tmp_path / "serve"
+    # Audit must pass — i.e. package() does NOT raise.
+    manifest = pkg.package(
+        output_dir=src.resolve(), serve_dir=dst,
+        version="v0.1.0", include_pdfs=False, dry_run=False,
+    )
+
+    anatomy = json.loads((dst / "documents" / h / "anatomy.json").read_text())
+    assert anatomy["input_fingerprint"]["path"] == "lexicon.yaml"
+    # Other fingerprint fields preserved.
+    assert anatomy["input_fingerprint"]["sha256"] == "deadbeef"
+    assert anatomy["input_fingerprint"]["size"] == 123
+
+    taxa = json.loads((dst / "documents" / h / "taxa.json").read_text())
+    assert taxa["input_fingerprint"]["path"] == "taxonomy.sqlite"
+
+    # summary + figures + taxa + anatomy = 4 scrubbed files.
+    assert manifest["_stats"]["n_files_scrubbed"] == 4
+
+
 def test_to_corpus_relative_helper(tmp_path: Path):
     root = tmp_path / "out"
     root.mkdir()

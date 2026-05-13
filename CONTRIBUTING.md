@@ -32,6 +32,33 @@ python -m pytest tests/test_biblio_cascade.py -v
 - If you touch the pipeline, run at least one end-to-end on the demo papers (`cd demo && corpus run`) and verify the affected ground-truth YAMLs still match.
 - If you touch the MCP server surface, exercise the relevant tools against `demo/output/` (`cd demo && corpus serve`).
 
+### Continuous integration
+
+[![T0 lint + unit (dev)](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml/badge.svg?branch=dev)](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml?query=branch%3Adev)
+[![T1/T2 integration (dev)](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml/badge.svg?branch=dev)](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml?query=branch%3Adev)
+
+Badges above reflect the `dev` branch — the active development line — so contributors see immediately whether the next release is green. The README's badges are scoped to `main` for the release-state signal users care about.
+
+Four test tiers (#75); the first two run automatically in GitHub Actions, the last two are manual release-time checks.
+
+| Tier | Trigger | Where | What it catches |
+|---|---|---|---|
+| **T0 — lint + unit** | every push, every branch | [`.github/workflows/lint.yml`](.github/workflows/lint.yml) | pyflakes (NameError-class bugs) + ~314 unit tests with no corpus dependency |
+| **T1 — demo build + serve, Linux** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | `corpus run` on the 4-paper demo against real Grobid + LanceDB, bundle-manifest shape, audit-clean, SSE round-trip, all `corpus_required` parametrized tests, then the 4 + 1 implicit-resume scenario (copy [`tests/fixtures/round2_paper/Siebert_etal2011.pdf`](tests/fixtures/round2_paper/) into `demo/`, re-run, assert `skipped=4, embedded≥1, failed=0` — regression check for #71) |
+| **T2 — demo build + serve, macOS arm64** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | same as T1 on `macos-15`, with `grobid.disable: true` (Docker Desktop isn't on GHA macOS runners) — catches macOS-specific regressions including darwin-specific LanceDB resume behavior |
+| **T3 — clean-room EC2** | manual, pre-release | [`dev_docs/ec2_smoke.sh`](dev_docs/ec2_smoke.sh) | full install from absolutely nothing on Ubuntu — catches `environment.yaml` drift that warm GHA caches hide |
+| **T4 — operator walkthrough** | manual, when CLI changes | [`dev_docs/clean_install_walkthrough.sh`](dev_docs/clean_install_walkthrough.sh) | every operator verb interactively (`completion`, `--cite`, `status --report`, full `bib export/import` round-trip) |
+
+Local equivalents:
+
+```bash
+pytest -m "not corpus_required and not resume_scenario"   # T0
+cd demo && corpus run --no-vision                          # T1/T2 round-1 corpus build
+pytest -m corpus_required                                  #   ground-truth assertions
+cp tests/fixtures/round2_paper/Siebert_etal2011.pdf demo/  # T1/T2 round-2 setup
+cd demo && corpus run --no-vision                          #   resume scenario (needs Grobid + ~2 min)
+```
+
 ## Commit style
 
 - Short, present-tense subject line (<70 chars). Body explains the *why*, not the *what* — the diff covers what.
@@ -77,23 +104,41 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
 
 ### Releasing
 
-1. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
+1. **Confirm CI on `dev` is green.** Both T0 and T1/T2 must be ✓ on
+   the latest `dev` commit (`gh run list --branch dev --limit 4`, or
+   the [Actions tab](https://github.com/caseywdunn/corpus/actions)).
+   A red `dev` means the release merge into `main` will be red too —
+   fix the cause before proceeding. The README badges are scoped to
+   `main`, so anything red here gets stamped on the released version.
+2. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
    string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
    for it. Commit.
-2. Merge `dev` → `main`, push.
-3. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`. The tag
+3. Merge `dev` → `main`, push. **Wait for CI on `main` to go green**
+   (`gh run watch`, or poll `gh run list --branch main`) before
+   tagging — once you tag, the version-stamped artifact is fixed; you
+   don't want to be the person who released vX.Y.Z and then immediately
+   tagged vX.Y.Z+1 to fix a CI failure that the merge surfaced.
+4. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`. The tag
    name and `__version__` must match (modulo the `v` prefix).
-4. Create the GitHub release from the tag (CHANGELOG entry as release notes).
-5. Create the `vN` maintenance branch from the tag if this is a new major.
-6. On `dev`, bump `__version__` to the next pre-release (e.g.
+5. Create the GitHub release from the tag (CHANGELOG entry as release notes).
+6. Create the `vN` maintenance branch from the tag if this is a new major.
+7. On `dev`, bump `__version__` to the next pre-release (e.g.
    `"0.3.0.dev0"` — PEP 440 suffix) and open a new `## [Unreleased]`
    section in `CHANGELOG.md`.
+8. Clean up [dev_docs/PLAN.md](dev_docs/PLAN.md): tick off items that
+   shipped in this release (or strike them through), prune anything
+   that's no longer the plan, and open a fresh section for the next
+   version's roadmap. The CHANGELOG records what *happened*; PLAN
+   records what's *next* — they shouldn't drift.
 
 Worked example — releasing `vX.Y.Z` end-to-end from the shell. Run
 each block separately and read the output; don't paste end-to-end.
 
 ```bash
-# Pre-flight: tests green and the smoke walkthrough still works.
+# Pre-flight A: CI on dev is green (both T0 and T1/T2).
+gh run list --branch dev --limit 4   # expect ✓ on the top two rows
+
+# Pre-flight B: local tests green and the smoke walkthrough still works.
 python -m pytest tests/ -q
 corpus --version           # confirm `pip install -e .` is current
 # (optionally) re-run dev_docs/clean_install_walkthrough.sh against a
@@ -111,6 +156,11 @@ git push origin dev
 git checkout main && git pull --ff-only
 git merge --no-ff dev -m "Release vX.Y.Z"
 git push origin main
+
+# 2a. WAIT FOR CI ON MAIN to be green before tagging — the tag pins
+#     the version-stamped artifact in the bundle manifest, and a red
+#     main badge on the README would persist until the next release.
+gh run watch   # or: gh run list --branch main --limit 4
 
 # 3. Tag from main; the tag name MUST match __version__ modulo the leading `v`.
 git tag -a vX.Y.Z -m "vX.Y.Z"
@@ -133,6 +183,13 @@ $EDITOR pipeline/version.py   # bump to "X.Y+1.0.dev0" (or major+1)
 $EDITOR CHANGELOG.md          # insert a fresh "## [Unreleased]" block
 git add pipeline/version.py CHANGELOG.md
 git commit -m "post-release: bump dev to X.Y+1.0.dev0"
+git push origin dev
+
+# 7. Clean up the roadmap: prune shipped items and open the next
+#    version's section.
+$EDITOR dev_docs/PLAN.md
+git add dev_docs/PLAN.md
+git commit -m "plan: clear shipped X.Y.Z items, open X.Y+1.0 planning"
 git push origin dev
 ```
 

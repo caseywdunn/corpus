@@ -49,6 +49,13 @@ output_dir: ./output
 # Leave the block commented out (default) to skip the synonymy graph
 # entirely — the pipeline still extracts taxon mentions from text, you
 # only lose the link from historical names to current valid names.
+#
+# When opting in: uncomment EVERY line below and preserve the exact
+# indentation (2 spaces per level). The `source:` and `root_id:` lines
+# are nested under `taxonomy:` — they must keep their 2-space indent
+# when the leading `# ` is stripped, or YAML will read them as
+# top-level keys and the loader will error out.
+#
 # taxonomy:
 #   source: worms
 #   root_id: 1371                 # Siphonophorae order (example)

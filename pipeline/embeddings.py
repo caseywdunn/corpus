@@ -31,6 +31,23 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 
+def lancedb_table_names(db) -> List[str]:
+    """Return the list of table names in a LanceDB connection.
+
+    Bridges a silent return-type change between lancedb releases (#71):
+    the legacy ``db.list_tables()`` returned a plain ``list[str]``, but
+    0.30.x switched to a Pydantic ``ListTablesResponse`` wrapper whose
+    ``in`` operator no longer matches names. Callers that wrote
+    ``'document_chunks' in db.list_tables()`` got ``False`` even when
+    the table existed, falling through to ``create_table()`` and
+    aborting with ``ValueError: Table 'document_chunks' already exists``
+    on every re-run against an existing output dir. This helper
+    normalizes both shapes back to ``list[str]``.
+    """
+    result = db.list_tables()
+    return list(getattr(result, "tables", result))
+
+
 class EmbeddingError(RuntimeError):
     """Raised when the embedding backend fails (network, OOM, etc.)."""
 

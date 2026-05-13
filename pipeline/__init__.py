@@ -42,6 +42,34 @@ from .version import __version__ as PIPELINE_VERSION  # noqa: E402,F401
 # each module's own basicConfig wins as before.
 import logging as _logging  # noqa: E402
 import os as _os  # noqa: E402
+import sys as _sys  # noqa: E402
+
+
+# Platform-portability env-var defaults (#72, KMP duplicate-libomp).
+# These must be set *before* any submodule (or anything they pull in)
+# imports torch — hence the package __init__. setdefault leaves user
+# overrides intact.
+#
+# TORCH_COMPILE_DISABLE=1 (#72): docling's StandardPdfPipeline triggers
+# torch._inductor on certain layout / table code paths, which JIT-shells
+# out to `g++` at runtime. On HPC compute nodes without a GCC module
+# loaded, the JIT call fails with ``OSError: [Errno 14] Bad address:
+# 'g++'`` and the affected papers are silently lost. docling doesn't
+# need inductor for correctness, so disabling it is a clean fix that
+# also avoids the rare "g++ not on PATH" failure on stripped-down
+# laptops + deploy hosts. The (small) compile-time perf gain only
+# matters for hot tensor ops we don't hit in the pipeline.
+_os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
+
+# KMP_DUPLICATE_LIB_OK=TRUE on macOS: pip-installed torch ships its own
+# libomp.dylib, scikit-learn ships another, and conda-forge ships a third
+# via llvm-openmp. Without this, the first ``import torch`` after numpy
+# aborts with the duplicate-libomp message. The override is a documented
+# OpenMP debug knob — safe in practice for our workloads, and matches the
+# behavior tools/run_mcp_server.sh has set for the serve path since v0.2.
+if _sys.platform == "darwin":
+    _os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 _log_level = _os.environ.get("CORPUS_LOG_LEVEL", "").upper()
 if _log_level in {"WARNING", "INFO", "DEBUG"}:
     _logging.basicConfig(
