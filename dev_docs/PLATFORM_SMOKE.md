@@ -3,9 +3,9 @@
 > **Authoritative coverage now lives in GitHub Actions.** As of #75, T1
 > (Linux + Grobid) and T2 (macOS arm64) in
 > [`.github/workflows/integration.yml`](../.github/workflows/integration.yml)
-> exercise the same demo build on every PR and every push to `dev` / `main`
-> — that's where bundle-audit, manifest-shape, and SSE-round-trip
-> regressions get caught now.
+> exercise the same demo build on every push and every PR — that's
+> where bundle-audit, manifest-shape, and SSE-round-trip regressions
+> get caught now.
 >
 > This runbook is the manual fallback used at release time (when the CI
 > tiers have already passed but the release operator wants a clean-env

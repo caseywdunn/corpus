@@ -6,10 +6,12 @@
 # coverage) would have been caught hours after landing instead of
 # weeks later in PLATFORM_SMOKE.md.
 #
-# Per the issue body's amendment: dev is the daily-cadence branch
-# in this repo (main is reserved for releases). Triggers cover PRs
-# into either, plus pushes to either — pushes to dev are the primary
-# catch surface, pushes to main double-check at release-merge time.
+# Triggers on every push (any branch) plus every PR — main is only
+# touched at release, dev is the daily-cadence branch, and we want
+# to catch regressions before they reach either. Restricting to
+# pushes-on-dev-or-main would mean a topic branch's first signal
+# came at PR time, which is too late for the Linux + macOS divergence
+# this tier is meant to surface.
 #
 # Tier breakdown:
 #   T1 — ubuntu-24.04 + Grobid (Docker). Builds demo, runs corpus_required
@@ -28,9 +30,7 @@ name: T1/T2/T3 — integration
 
 on:
   push:
-    branches: [dev, main]
   pull_request:
-    branches: [dev, main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
