@@ -34,6 +34,11 @@ python -m pytest tests/test_biblio_cascade.py -v
 
 ### Continuous integration
 
+[![T0 lint + unit (dev)](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml/badge.svg?branch=dev)](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml?query=branch%3Adev)
+[![T1/T2 integration (dev)](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml/badge.svg?branch=dev)](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml?query=branch%3Adev)
+
+Badges above reflect the `dev` branch — the active development line — so contributors see immediately whether the next release is green. The README's badges are scoped to `main` for the release-state signal users care about.
+
 Four test tiers (#75); the first two run automatically in GitHub Actions, the last two are manual release-time checks.
 
 | Tier | Trigger | Where | What it catches |

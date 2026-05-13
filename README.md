@@ -1,6 +1,8 @@
 # corpus
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19964909.svg)](https://doi.org/10.5281/zenodo.19964909)
+[![T0 lint + unit](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/caseywdunn/corpus/actions/workflows/lint.yml?query=branch%3Amain)
+[![T1/T2 integration](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml/badge.svg?branch=main)](https://github.com/caseywdunn/corpus/actions/workflows/integration.yml?query=branch%3Amain)
 
 ## Citing corpus
 
