@@ -8,18 +8,18 @@ The one-command conda install in the [README](README.md) covers most setups. The
 | --- | --- |
 | **linux-x86_64** (HPC clusters, generic CPU/GPU servers, Bouchet) | Supported |
 | **macOS arm64** (Apple Silicon) | Supported — see [Apple Silicon: arm64-native conda required](#apple-silicon-arm64-native-conda-required) below |
-| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` both require torch ≥ 2.4. The chain is structurally broken. |
+| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | Not supported. Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` both require torch ≥ 2.4. The chain is structurally broken. |
 | linux-aarch64 | Not currently supported. Most wheels exist, but `pymupdf` (among others) isn't on conda-forge linux-aarch64, so `environment.yaml` would need pip-side workarounds. Add as a third target if a real Graviton use case appears. |
 
 ## Apple Silicon: arm64-native conda required
 
-On an arm64 Mac the corpus environment must be created with an arm64-native conda. The default download from anaconda.com is the **Intel x86_64** build of Anaconda3, which keeps running under Rosetta and traps the install in the unsupported macOS Intel matrix above. Symptoms when this happens: `transformers` silently disables PyTorch, then `docling` model loads abort with `Dynamo is not supported on Python 3.12+`.
+On an arm64 Mac the corpus environment must be created with an arm64-native conda. An x86_64 conda on Apple Silicon runs under Rosetta and traps the install in the unsupported macOS Intel matrix above. Symptoms: `transformers` silently disables PyTorch, then `docling` model loads abort with `Dynamo is not supported on Python 3.12+`.
 
-The requirement is an arm64-native conda — not miniforge specifically. Any of these works:
+Anaconda, Miniconda, and Miniforge all ship arm64 builds for Apple Silicon, and their downloads pages typically pick the right one for an Apple Silicon visitor. The hazard is an older install that predates Apple Silicon support, picking the wrong installer from a multi-button downloads page, or running conda from inside a Rosetta'd terminal. Confirm via `conda info | grep platform` (see the pre-creation gate below). Distribution download pages:
 
-- **arm64 Anaconda** — `Anaconda3-...-MacOSX-arm64.pkg` from <https://www.anaconda.com/download> (pick the Apple Silicon variant, not the default).
-- **arm64 Miniconda** — `Miniconda3-latest-MacOSX-arm64.sh` from <https://docs.conda.io/projects/miniconda/en/latest/>.
-- **Miniforge** — arm64 by default since 2021; from <https://github.com/conda-forge/miniforge>.
+- **Anaconda** — <https://www.anaconda.com/download> (Apple Silicon Graphical Installer).
+- **Miniconda** — <https://docs.conda.io/projects/miniconda/en/latest/> (`Miniconda3-latest-MacOSX-arm64.sh`).
+- **Miniforge** — <https://github.com/conda-forge/miniforge> (arm64 by default since 2021).
 
 ### Pre-creation gate
 

@@ -180,7 +180,7 @@ Check whether your platform is supported before installing.
 | --- | --- |
 | **linux-x86_64** | Supported. The reference HPC + deploy target (Bouchet, AWS EC2). |
 | **macOS arm64** (Apple Silicon) | Supported. Two extra constraints — see [macOS (Apple Silicon)](#macos-apple-silicon) below. |
-| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` require torch ≥ 2.4, which has no macOS Intel build. |
+| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | Not supported. Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` require torch ≥ 2.4, which has no macOS Intel build. |
 | linux-aarch64 (Graviton, Ampere) | Not currently supported. Most wheels exist but the env hasn't been tested; add as a third target if a real Graviton use case appears. |
 
 [INSTALL.md](INSTALL.md#supported-platforms) covers optional OCR helpers, the pip-only fallback, and per-platform notes.
@@ -188,7 +188,7 @@ Check whether your platform is supported before installing.
 ### Prerequisites
 
 - **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
-- **conda** — a conda installer such as [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/). Any standard distribution works (Anaconda, Miniconda, [Miniforge](https://github.com/conda-forge/miniforge)). **macOS Apple Silicon users: read [macOS (Apple Silicon)](#macos-apple-silicon) before installing — the default anaconda.com download is the wrong architecture.**
+- **conda** — a conda installer such as [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/). Any standard distribution works (Anaconda, Miniconda, [Miniforge](https://github.com/conda-forge/miniforge)). **macOS Apple Silicon: see [macOS (Apple Silicon)](#macos-apple-silicon) — the env requires an arm64-native conda.**
 
 ### macOS (Apple Silicon)
 
@@ -196,9 +196,9 @@ Two extra constraints apply on Apple Silicon. Both stem from the macOS Intel-arc
 
 #### 1. conda must be arm64-native
 
-The corpus env's Python must run natively as `arm64`. The default download from anaconda.com is the **Intel x86_64** build of Anaconda3, which keeps running under Rosetta on Apple Silicon — `transformers` then silently disables PyTorch and `docling` model loads abort.
+The corpus env's Python must run natively as `arm64`. An x86_64 conda on Apple Silicon runs under Rosetta and traps the install in the unsupported macOS Intel matrix above — `transformers` then silently disables PyTorch and `docling` model loads abort.
 
-The requirement is an arm64-native conda, *not* miniforge specifically. arm64 Anaconda (`Anaconda3-...-MacOSX-arm64.pkg`), arm64 Miniconda (`Miniconda3-latest-MacOSX-arm64.sh`), and [Miniforge](https://github.com/conda-forge/miniforge) (arm64 by default) all qualify.
+Anaconda, Miniconda, and Miniforge all ship arm64 builds, and their downloads pages typically pick the right one for an Apple Silicon visitor. The hazard is an older conda install that predates Apple Silicon support, picking the wrong installer from a multi-button downloads page, or running conda from inside a Rosetta'd terminal.
 
 **Check the conda you have:**
 
