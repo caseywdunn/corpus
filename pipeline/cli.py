@@ -485,11 +485,51 @@ def _cmd_run(args: argparse.Namespace) -> int:
             status="ok",
         )
     else:
-        print_status(
-            "run complete. Try `corpus status --report` and `corpus serve` next.",
-            status="ok",
-        )
+        run_log = _write_run_log(output_dir)
+        if run_log is None:
+            print_status(
+                "run complete. Try `corpus status --report` and `corpus serve` next.",
+                status="ok",
+            )
+        else:
+            print_status(
+                f"run complete. Report → {run_log} (same as `corpus status "
+                f"--report`). `corpus serve` to serve the bundle.",
+                status="ok",
+            )
     return EXIT_OK
+
+
+def _write_run_log(output_dir: Path) -> Optional[Path]:
+    """Write the end-of-run report to ``<output_dir>/run.log`` (#57).
+
+    Captures the same content as ``corpus status --report`` so the
+    operator has a self-contained record of pass-rates and cross-paper
+    artifact presence for this run. Overwrites prior log — the state
+    reported is always "as of right now"; for history, git the file
+    or copy it aside.
+
+    Returns the written path, or ``None`` if there's nothing to
+    report (no ``documents/`` tree yet — e.g. the orchestrator
+    bailed before extract ran).
+    """
+    from datetime import datetime
+    from .status import aggregate, render_artifacts, render_text
+
+    documents_dir = output_dir / "documents"
+    if not documents_dir.is_dir():
+        return None
+    rollup = aggregate(documents_dir)
+    header = (
+        f"# corpus run report\n"
+        f"# generated at {datetime.now().isoformat(timespec='seconds')}\n"
+        f"# corpus version {__version__}\n"
+        f"# output_dir {output_dir.resolve()}\n\n"
+    )
+    body = render_text(rollup) + "\n\n" + render_artifacts(output_dir)
+    log_path = output_dir / "run.log"
+    log_path.write_text(header + body, encoding="utf-8")
+    return log_path
 
 
 def _distill_bundle(output_dir: Path) -> int:
