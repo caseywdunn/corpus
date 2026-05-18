@@ -72,13 +72,14 @@ context window. That recombination is where amalgamation happens.
   `SUPPORTED_STYLES`, so a config field with no observable
   effect would be half-functional cruft. Will wire when a second
   style lands.
-- [ ] **`mcpsrv/default_instructions.md` rewrite**
+- [x] **`mcpsrv/default_instructions.md` rewrite**
   (part of [#79](https://github.com/caseywdunn/corpus/issues/79)).
-  Replace the aspirational "do not fabricate" paragraph with an
-  explicit routing rule: every citation must come from
-  `format_citation`; the model never hand-assembles author + year
-  + journal in its own working memory; warning footnotes are
-  preserved verbatim. Lands in every session's context.
+  "Defer to the corpus bibliography" section rewritten as an
+  explicit routing rule: call `format_citation`, paste its
+  `formatted` and `inline` verbatim, preserve `warning` verbatim,
+  and handle `not_found` / `ambiguous` error shapes without
+  fabricating. Lands in every session's context. Implementation
+  in the next commit after PLAN tick.
 - [ ] **Citation-grounding quality tests**
   (part of [#79](https://github.com/caseywdunn/corpus/issues/79)).
   New top-level `prompts:` block in `tests/ground_truth/*.yaml`

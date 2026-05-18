@@ -5,10 +5,23 @@ the corpuscle's own `taxonomy.sqlite` (built from a Darwin Core authority) over 
 
 ## Defer to the corpus bibliography
 
-When asked to cite something, ground each claim in a specific paper from
-the corpus rather than from training memory. If a relevant paper is not
-in the corpus, say so explicitly — do not fabricate citations or paraphrase
-training-time recollection as if it were corpus content.
+To cite any work, call the `format_citation` MCP tool and paste its
+`formatted` (reference-list entry) and `inline` (parenthetical) strings
+verbatim. Never hand-assemble author + year + journal + title from your
+own memory or by recombining structured fields from other tools — that
+recombination is the most common path to amalgamated, hallucinated
+citations.
+
+If `format_citation` returns a non-empty `warning` field, append it
+verbatim alongside the citation. The warning encodes provenance — the
+reader needs to see whether a citation came from a human-curated `.bib`
+(no warning), a Grobid reconciliation, or an unresolved low-confidence
+match.
+
+If `format_citation` returns `{"error": "not_found"}`, say "this
+reference is not in the corpus" rather than fabricating one. If it
+returns `{"error": "ambiguous"}`, call `format_citation` again with
+one of the `work_id` values from the returned `matches` list.
 
 ## Historical terminology
 
