@@ -321,6 +321,155 @@ def resolve_reference(
     return {"matches": results, "count": len(results), "queried": query}
 
 
+# #79 — warning footnote per provenance tier. Strings are public
+# contract: the LLM is instructed to preserve them verbatim, and
+# downstream document-quality tests grep for them. Don't change
+# without coordinating both ends.
+_PROVENANCE_WARNING = {
+    "bib": "",
+    "grobid_reconciled":
+        "* generated via reconciliation in corpus, check if correct",
+    "unresolved":
+        "* reference not present in bibliography, check if correct",
+}
+
+
+@mcp.tool()
+def format_citation(
+    query: Optional[str] = None,
+    work_id: Optional[str] = None,
+    paper_hash: Optional[str] = None,
+    style: str = "author-year",
+) -> Dict[str, Any]:
+    """Return a fully-assembled citation string for a work in the
+    bibliographic authority DB, plus provenance tier and warning
+    text (#79).
+
+    **Use this for every citation you emit.** Never recombine
+    author / year / journal / title in your own context — that's
+    where amalgamated, hallucinated references come from. Paste
+    the ``formatted`` and ``inline`` strings verbatim into the
+    document; if ``warning`` is non-empty, append it verbatim too.
+
+    Resolve in one of three ways (provide exactly one):
+
+    - ``query`` — free-text ``"Author Year"`` or ``"Author Year
+      Title fragment"``. Same parser as :func:`resolve_reference`.
+    - ``work_id`` — canonical id (``"10.1234/foo"``, ``"corpus:..."``,
+      ``"bhl:..."``).
+    - ``paper_hash`` — 12-hex SHA-256 prefix of a corpus paper.
+
+    Returns ``{"work_id", "formatted", "inline", "provenance",
+    "warning", "fields"}`` on a clean resolution. The ``provenance``
+    tier is one of:
+
+    - ``"bib"``: the row was touched by ``corpus bib import`` —
+      human-curated. ``warning`` is empty.
+    - ``"grobid_reconciled"``: corpus paper metadata or a
+      high-confidence cited-reference match (DOI / alias / BHL,
+      score ≥ 0.9). ``warning`` is the reconciliation footnote.
+    - ``"unresolved"``: fuzzy under threshold, author_year_only
+      fallback, or a new ghost. ``warning`` is the
+      bibliography-absence footnote.
+
+    On an ambiguous free-text match, returns ``{"error":
+    "ambiguous", "matches": [...]}`` so the caller can pick a
+    ``work_id`` and call again. On no match, returns ``{"error":
+    "not_found", ...}`` — the model should then say "this
+    reference is not in the corpus" rather than fabricating one.
+
+    Volume + pages are not currently rendered (they live in
+    per-paper ``references.json``, not on ``works.*``). v0.5.x
+    follow-up.
+    """
+    from bib.format import SUPPORTED_STYLES, format_citation as _format_str
+
+    idx = _need_index()
+    if idx.biblio_db is None:
+        return {"error": "bibliographic authority database not configured"}
+    if style not in SUPPORTED_STYLES:
+        return {
+            "error": f"unknown style {style!r}",
+            "supported_styles": sorted(SUPPORTED_STYLES),
+        }
+    if sum(x is not None for x in (query, work_id, paper_hash)) != 1:
+        return {
+            "error": "provide exactly one of: query, work_id, paper_hash",
+        }
+
+    # Resolve to a single works row.
+    work: Optional[Dict] = None
+    if work_id is not None:
+        work = idx.biblio_db.get_work(work_id)
+        if work is None:
+            return {"error": "not_found", "work_id": work_id}
+    elif paper_hash is not None:
+        work = idx.biblio_db.get_work_by_corpus_hash(paper_hash)
+        if work is None:
+            return {"error": "not_found", "paper_hash": paper_hash}
+    else:  # query is not None
+        import re
+        m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", query.strip())
+        if not m:
+            return {
+                "error": "could not parse author/year from query — "
+                         "pass work_id explicitly or refine query",
+                "queried": query,
+            }
+        author = m.group(1).strip()
+        year = int(m.group(2))
+        title_frag = query.replace(author, "", 1).strip()
+        title_frag = title_frag.replace(str(year), "", 1).strip(" ,;:")
+        results = idx.biblio_db.search_works(
+            author, year, title_frag if title_frag else None,
+        )
+        if not results:
+            # Broaden: drop the title constraint and retry.
+            results = idx.biblio_db.search_works(author, year)
+        if not results:
+            return {
+                "error": "not_found",
+                "queried": query,
+                "parsed_author": author,
+                "parsed_year": year,
+            }
+        if len(results) > 1:
+            return {
+                "error": "ambiguous",
+                "queried": query,
+                "matches": [
+                    {"work_id": r["work_id"], "title": r.get("title"),
+                     "year": r.get("year"), "journal": r.get("journal")}
+                    for r in results
+                ],
+            }
+        work = idx.biblio_db.get_work(results[0]["work_id"])
+        if work is None:  # search_works returned a row, get_work lost it
+            return {"error": "not_found", "queried": query}
+
+    # Assemble fields. volume + pages aren't on works.* — TODO when
+    # the bibliography subsystem persists per-citation locator info.
+    fields: Dict[str, Any] = {
+        "authors": idx.biblio_db.get_authors(work["work_id"]),
+        "year": work.get("year"),
+        "title": work.get("title"),
+        "journal": work.get("journal"),
+        "volume": None,
+        "pages": None,
+        "doi": work.get("doi"),
+    }
+    rendered = _format_str(fields, style=style)
+    provenance = idx.biblio_db.provenance(work["work_id"])
+    return {
+        "work_id": work["work_id"],
+        "formatted": rendered["formatted"],
+        "inline": rendered["inline"],
+        "provenance": provenance,
+        "warning": _PROVENANCE_WARNING[provenance],
+        "fields": fields,
+    }
+
+
 @mcp.tool()
 def get_missing_references(
     min_citations: int = 2,
