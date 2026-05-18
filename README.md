@@ -180,8 +180,8 @@ Check whether your platform is supported before installing.
 | --- | --- |
 | **linux-x86_64** | Supported. The reference HPC + deploy target (Bouchet, AWS EC2). |
 | **macOS arm64** (Apple Silicon) | Supported. Two extra constraints — see [macOS (Apple Silicon)](#macos-apple-silicon) below. |
-| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | Not supported. Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` require torch ≥ 2.4, which has no macOS Intel build. |
-| linux-aarch64 (Graviton, Ampere) | Not currently supported. Most wheels exist but the env hasn't been tested; add as a third target if a real Graviton use case appears. |
+| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | Not supported. |
+| linux-aarch64 (Graviton, Ampere) | Not currently supported. |
 
 [INSTALL.md](INSTALL.md#supported-platforms) covers optional OCR helpers, the pip-only fallback, and per-platform notes.
 
@@ -207,7 +207,7 @@ conda info | grep platform
 # must print: platform : osx-arm64
 ```
 
-If it prints `osx-arm64`, you're set — proceed to [Clone and install](#clone-and-install). If it prints `osx-64`, install one of the arm64 distributions above alongside the existing conda and use its explicit binary path so the env lands under the right distribution:
+If it prints `osx-arm64`, you're set on this constraint (item 2 below still applies). If it prints `osx-64`, install one of the arm64 distributions above alongside the existing conda and use its explicit binary path so the env lands under the right distribution:
 
 ```bash
 ~/miniforge3/bin/conda env create -f environment.yaml
@@ -234,16 +234,6 @@ bash tools/install_tessdata.sh   # Tesseract OCR language packs
 
 `pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data — see [Language support](#language-support) below.
 
-### Start Grobid before `corpus run`
-
-Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on Bouchet, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
-
-```bash
-docker compose up -d grobid              # start in background; persists across runs
-curl http://localhost:8070/api/isalive   # should print "true"
-corpus check                             # confirms grobid + GPU + config + disk
-```
-
 ## Language support
 
 OCR is the only stage where language matters. Each scanned PDF gets its language detected automatically (`langdetect` on the first few pages of extracted text), and the result is routed to a matching [Tesseract](https://github.com/tesseract-ocr/tesseract) language pack — a `<code>.traineddata` file that teaches Tesseract to recognize a particular language or script. Born-digital PDFs with a clean text layer skip OCR entirely, so packs only matter for scans.
@@ -263,6 +253,16 @@ bash tools/install_tessdata.sh ara hin tha
 To make a new language part of the fallback set tried when detection is uncertain, add its code to `ocr.ocr_languages_default` in `config.yaml`.
 
 **Everything past OCR is language-agnostic.** The [BGE-M3](https://huggingface.co/BAAI/bge-m3) embedding model is multilingual (trained on 100+ languages) and built for cross-lingual retrieval — a question in English finds passages in German, Latin, French, and so on. Grobid metadata extraction works across European languages, and the vision LLM that tags figures reads labels in whatever script is on the plate. So once OCR succeeds, no further language configuration is needed.
+
+## Start Grobid before `corpus run`
+
+Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on Bouchet, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
+
+```bash
+docker compose up -d grobid              # start in background; persists across runs
+curl http://localhost:8070/api/isalive   # should print "true"
+corpus check                             # confirms grobid + GPU + config + disk
+```
 
 ## Try it on the demo corpus
 
