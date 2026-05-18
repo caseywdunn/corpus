@@ -46,7 +46,7 @@ import subprocess
 import sys
 from importlib import resources
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import yaml
 
@@ -695,6 +695,19 @@ def _cmd_check(args: argparse.Namespace) -> int:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
             pstatus(f"input_pdfs: {input_dir} not found", status="fail")
 
+    # 7. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
+    # env in the unsupported macOS x86_64 matrix (Apple dropped Intel-mac
+    # torch wheels after 2.2, breaking docling + transformers ≥ 5). Hard
+    # fail loud rather than letting `corpus run` discover it deep in a
+    # model load. Linux is not checked: there is no Rosetta equivalent.
+    arch, arch_failure = _check_python_arch()
+    if arch:
+        if arch_failure is None:
+            pstatus(f"Python arch: {arch} (native)", status="ok")
+        else:
+            failures.append(arch_failure)
+            pstatus(f"Python arch: {arch} (Rosetta — unsupported)", status="fail")
+
     if failures:
         print()
         pstatus(f"{len(failures)} precondition(s) failed:", status="fail")
@@ -704,6 +717,31 @@ def _cmd_check(args: argparse.Namespace) -> int:
     print()
     pstatus("ready: `corpus run` should succeed on this host.", status="ok")
     return EXIT_OK
+
+
+def _check_python_arch() -> Tuple[str, Optional[str]]:
+    """Check the active Python's architecture on macOS.
+
+    Returns ``(arch_label, failure_message)``:
+    - On non-darwin: ``("", None)`` — caller skips the check entirely.
+    - On darwin/arm64: ``("arm64", None)``.
+    - On darwin/<other>: ``(arch, "...explanatory failure...")``.
+
+    Separated from ``_cmd_check`` so the contract is unit-testable
+    via mocked ``sys.platform`` + ``platform.machine`` without
+    standing up a full config + grobid + disk environment.
+    """
+    if sys.platform != "darwin":
+        return "", None
+    import platform as _platform
+    arch = _platform.machine()
+    if arch == "arm64":
+        return arch, None
+    return arch, (
+        f"Python arch is {arch} (Rosetta on Apple Silicon). corpus "
+        f"requires an arm64-native conda env; see README §Supported "
+        f"platforms for the fix."
+    )
 
 
 def _detect_accelerator() -> Optional[str]:

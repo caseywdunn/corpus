@@ -175,7 +175,7 @@ Every CLI takes the corpuscle root as its first positional argument and resolves
 ### Prerequisites
 
 - **Docker** — required at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS). On HPC hosts without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
-- **conda** — use [miniforge](https://github.com/conda-forge/miniforge), not anaconda.com's default download. Required on Apple Silicon (the default download is Intel x86_64 and silently traps you in an unsupported Rosetta path; see [Supported platforms](#supported-platforms) below); recommended everywhere else for the smaller install and arm64-native packaging.
+- **conda** — Apple Silicon requires an **arm64-native conda**. Any of arm64 Anaconda, arm64 Miniconda, or [Miniforge](https://github.com/conda-forge/miniforge) works; the default download from anaconda.com is the Intel x86_64 build and silently traps you in an unsupported Rosetta path. Check what you have with `conda info | grep platform` — it must print `platform : osx-arm64`. See [Supported platforms](#supported-platforms) below for the full gate (pre- and post-creation). On Linux, miniforge is recommended but any conda works.
 
 ### Clone and install
 
@@ -207,10 +207,37 @@ never drift.
 
 **On Apple Silicon, two things have to be right:**
 
-1. **Use an arm64-native conda** ([miniforge](https://github.com/conda-forge/miniforge)) to create the corpus env. The default download from anaconda.com is the Intel x86_64 build and keeps running under Rosetta even on an arm64 host — that traps the install in the unsupported macOS Intel matrix above, and `transformers` then silently disables PyTorch. After `conda env create -f environment.yaml`, verify with:
+1. **Use an arm64-native conda** to create the corpus env. The requirement is that the conda creating the env resolves packages from the `osx-arm64` subdir — *not* that you use miniforge specifically. Any of these works: arm64 Anaconda (`Anaconda3-...-MacOSX-arm64.pkg`), arm64 Miniconda (`Miniconda3-latest-MacOSX-arm64.sh`), or [Miniforge](https://github.com/conda-forge/miniforge) (arm64 by default). The default download from anaconda.com is the Intel x86_64 build, which keeps running under Rosetta and traps the install in the unsupported macOS Intel matrix above; `transformers` then silently disables PyTorch.
+
+   **Pre-creation gate** — check the conda you're about to use:
 
    ```bash
-   ~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
+   conda info | grep platform
+   # must print: platform : osx-arm64   (NOT osx-64)
+   ```
+
+   If it shows `osx-64`, your conda is running under Rosetta. The recommended fix is to install one of the arm64 distributions above alongside the existing conda and use its explicit binary path so the env lands under the right distribution:
+
+   ```bash
+   ~/miniforge3/bin/conda env create -f environment.yaml
+   # (or ~/miniconda3-arm64/bin/conda, etc. — match wherever the arm64 install landed)
+   ```
+
+   Your existing conda is left untouched. If you specifically do not want a second conda distribution, `CONDA_SUBDIR=osx-arm64` can force the existing conda to pull arm64 packages:
+
+   ```bash
+   CONDA_SUBDIR=osx-arm64 conda env create -f environment.yaml
+   conda activate corpus && conda config --env --set subdir osx-arm64
+   # the second line locks the env to arm64 so future `conda update` doesn't revert it
+   ```
+
+   Less battle-tested than the primary path — the conda binary itself still runs under Rosetta, and a missing subdir-lock will silently re-pull x86_64 packages on update.
+
+   **Post-creation gate** — `corpus check` enforces this automatically (it hard-fails on Rosetta'd Python), but the manual equivalent is:
+
+   ```bash
+   conda activate corpus
+   python -c "import platform; print(platform.machine())"
    # expect: arm64   (NOT x86_64)
    ```
 

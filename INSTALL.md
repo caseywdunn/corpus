@@ -7,32 +7,62 @@ The one-command conda install in the [README](README.md) covers most setups. The
 | Target | Status |
 | --- | --- |
 | **linux-x86_64** (HPC clusters, generic CPU/GPU servers, Bouchet) | Supported |
-| **macOS arm64** (Apple Silicon) | Supported — see [Apple Silicon: use miniforge, not Intel anaconda](#apple-silicon-use-miniforge-not-intel-anaconda) below |
+| **macOS arm64** (Apple Silicon) | Supported — see [Apple Silicon: arm64-native conda required](#apple-silicon-arm64-native-conda-required) below |
 | macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` both require torch ≥ 2.4. The chain is structurally broken. |
 | linux-aarch64 | Not currently supported. Most wheels exist, but `pymupdf` (among others) isn't on conda-forge linux-aarch64, so `environment.yaml` would need pip-side workarounds. Add as a third target if a real Graviton use case appears. |
 
-## Apple Silicon: use miniforge, not Intel anaconda
+## Apple Silicon: arm64-native conda required
 
 On an arm64 Mac the corpus environment must be created with an arm64-native conda. The default download from anaconda.com is the **Intel x86_64** build of Anaconda3, which keeps running under Rosetta and traps the install in the unsupported macOS Intel matrix above. Symptoms when this happens: `transformers` silently disables PyTorch, then `docling` model loads abort with `Dynamo is not supported on Python 3.12+`.
 
-[Miniforge](https://github.com/conda-forge/miniforge) ships native arm64 builds. Install it once:
+The requirement is an arm64-native conda — not miniforge specifically. Any of these works:
+
+- **arm64 Anaconda** — `Anaconda3-...-MacOSX-arm64.pkg` from <https://www.anaconda.com/download> (pick the Apple Silicon variant, not the default).
+- **arm64 Miniconda** — `Miniconda3-latest-MacOSX-arm64.sh` from <https://docs.conda.io/projects/miniconda/en/latest/>.
+- **Miniforge** — arm64 by default since 2021; from <https://github.com/conda-forge/miniforge>.
+
+### Pre-creation gate
+
+Check whichever conda you intend to use:
 
 ```bash
-# https://github.com/conda-forge/miniforge#install
+conda info | grep platform
+# must print: platform : osx-arm64   (NOT osx-64)
+```
+
+If it prints `osx-arm64`, you're set — proceed to `conda env create -f environment.yaml` and skip to the post-creation gate.
+
+If it prints `osx-64`, your conda is running under Rosetta. **Recommended fix:** install one of the arm64 distributions above alongside the existing conda. Use its explicit binary path so the env lands under the right distribution; the existing conda is left untouched.
+
+```bash
+# Example with miniforge — substitute any of the three arm64 distributions
 curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
 bash Miniforge3-MacOSX-arm64.sh
-# then use the miniforge conda (not /opt/anaconda3) for `conda env create`
 ~/miniforge3/bin/conda env create -f environment.yaml
 ```
 
-Verify the env is actually arm64 after creation:
+**Alternative for users who specifically don't want a second conda distribution:** `CONDA_SUBDIR=osx-arm64` can force the existing x86_64 conda to pull arm64 packages.
 
 ```bash
-~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
+CONDA_SUBDIR=osx-arm64 conda env create -f environment.yaml
+conda activate corpus && conda config --env --set subdir osx-arm64
+```
+
+The second line locks `subdir: osx-arm64` into the env's `.condarc` so subsequent `conda update` calls don't revert to x86_64. Less battle-tested than the primary path — the conda binary itself still runs under Rosetta, and a missing subdir-lock will silently re-pull x86_64 packages on update.
+
+### Post-creation gate
+
+After `conda env create`, verify the env's Python is arm64-native. `corpus check` enforces this automatically (it hard-fails on Rosetta'd Python on macOS), but the manual equivalent is:
+
+```bash
+conda activate corpus
+python -c "import platform; print(platform.machine())"
 # expect: arm64   (NOT x86_64)
 ```
 
-`pip install -e .` then puts the `corpus` binary inside `~/miniforge3/envs/corpus/bin/`. Activate the env or call the binary by absolute path — Claude Desktop / VS Code MCP configs that previously pointed at `/opt/anaconda3/envs/corpus/bin/corpus` need to be updated.
+`platform.machine()` reports the architecture of the running process, not the silicon — so it reads `arm64` only when the env's Python is truly native, not when an x86_64 binary is being launched under Rosetta on Apple Silicon. Running it from the env's Python is the meaningful check; running it from `/usr/bin/python3` or another unrelated Python tells you nothing about the corpus env.
+
+`pip install -e .` then puts the `corpus` binary inside `<conda-prefix>/envs/corpus/bin/`. Activate the env or call the binary by absolute path — Claude Desktop / VS Code MCP configs that previously pointed at `/opt/anaconda3/envs/corpus/bin/corpus` need to be updated to wherever the arm64 conda put the env.
 
 ## Higher OCR compression: pngquant + jbig2enc
 
