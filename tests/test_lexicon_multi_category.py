@@ -86,6 +86,31 @@ def test_load_lexicon_rejects_non_mapping_category(tmp_path):
         load_lexicon(p)
 
 
+def test_load_lexicon_rejects_list_term_entry(tmp_path):
+    """The natural shortcut `term: [synonym, synonym]` used to crash
+    silently with `AttributeError: 'list' object has no attribute
+    'get'`, which main.py's `except Exception` swallowed into a
+    warning — leaving the whole annotation pass as a no-op. Now
+    raises a ValueError with an actionable message showing the user
+    the right shape.
+    """
+    p = tmp_path / "bad.yaml"
+    p.write_text(
+        "anatomy:\n"
+        "  pneumatophore:\n"
+        "    - pneumatophores\n"
+        "    - float\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as exc:
+        load_lexicon(p)
+    msg = str(exc.value)
+    assert "category 'anatomy'" in msg
+    assert "term 'pneumatophore'" in msg
+    assert "list" in msg          # surfaces the offending type
+    assert "synonyms" in msg      # shows the corrected shape
+
+
 def test_demo_lexicon_loads(tmp_path):
     """The shipped demo lexicon round-trips through load_lexicon."""
     demo = Path(__file__).resolve().parent.parent / "demo" / "lexicon.yaml"

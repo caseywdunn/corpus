@@ -327,6 +327,14 @@ def main():
 
         if args.lexicon is not None:
             if args.lexicon.exists():
+                # Narrow the swallow: a misshapen lexicon (ValueError from
+                # load_lexicon) is a configuration error the user must fix,
+                # not a transient hiccup. Letting it propagate aborts the
+                # run loudly instead of silently degrading to no-op
+                # annotation across the whole corpus. File-read and
+                # YAML-parse failures stay warn-and-continue (mid-edit
+                # filesystem hiccups, permissions).
+                import yaml as _yaml
                 try:
                     lexicons = load_lexicon(args.lexicon)
                     lex_fingerprints = lexicon_fingerprints(args.lexicon)
@@ -337,7 +345,7 @@ def main():
                             "Lexicon[%s] loaded from %s (%d terms, sha256=%s…)",
                             category, args.lexicon, len(section), sha[:12],
                         )
-                except Exception as e:
+                except (FileNotFoundError, PermissionError, _yaml.YAMLError) as e:
                     logger.warning(
                         "Could not load lexicon %s: %s", args.lexicon, e,
                     )

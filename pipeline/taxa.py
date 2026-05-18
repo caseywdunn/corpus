@@ -374,6 +374,14 @@ def load_lexicon(path: Path) -> Dict[str, Dict[str, Dict]]:
         section: Dict[str, Dict] = {}
         for canonical, entry in terms.items():
             entry = entry or {}
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    f"{path}: category '{category}', term '{canonical}': "
+                    f"value must be a mapping of {{synonyms, translations, "
+                    f"description}} (got {type(entry).__name__}). If you "
+                    f"meant a list of synonyms, write "
+                    f"`{canonical}: {{synonyms: [...]}}`."
+                )
             section[canonical] = {
                 "synonyms": list(entry.get("synonyms") or []),
                 "translations": dict(entry.get("translations") or {}),
