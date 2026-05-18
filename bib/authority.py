@@ -233,6 +233,12 @@ def create_schema(conn: sqlite3.Connection) -> None:
             -- is a short tag from the closed vocab in dev_docs/QC.md.
             serve          INTEGER NOT NULL DEFAULT 1,
             serve_reason   TEXT,
+            -- #79 — set by bib/importer.py whenever a row is touched by
+            -- a `corpus bib import`. NULL means the row's bib fields
+            -- have never been blessed by a human-edited .bib; the
+            -- format_citation MCP tool uses this to gate "from user .bib"
+            -- (no warning) vs "grobid-reconciled" (warning) provenance.
+            bib_imported_at REAL,
             created_at     REAL NOT NULL,
             updated_at     REAL NOT NULL
         );
@@ -308,9 +314,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-# v0.3 column additions (#51 + #54). ALTER TABLE ADD COLUMN is a no-op on
-# new DBs (CREATE TABLE above already declared the columns) and a one-time
-# migration on existing v0.2 DBs.
+# Column additions per release. ALTER TABLE ADD COLUMN is a no-op on
+# new DBs (CREATE TABLE above already declared the columns) and a
+# one-time migration on DBs built by older releases.
 _V03_WORKS_COLUMNS = [
     ("license",        "TEXT"),
     ("license_url",    "TEXT"),
@@ -319,12 +325,15 @@ _V03_WORKS_COLUMNS = [
     ("serve",          "INTEGER NOT NULL DEFAULT 1"),
     ("serve_reason",   "TEXT"),
 ]
+_V05_WORKS_COLUMNS = [
+    ("bib_imported_at", "REAL"),  # #79
+]
 
 
 def _migrate_works_columns(conn: sqlite3.Connection) -> None:
-    """Idempotent ALTER TABLE for the v0.3 works.* additions."""
+    """Idempotent ALTER TABLE for works.* additions from past releases."""
     have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
-    for name, decl in _V03_WORKS_COLUMNS:
+    for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS):
         if name not in have:
             conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
