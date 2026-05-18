@@ -142,10 +142,14 @@ Smaller items that fit alongside the two big-ticket pieces.
   per-input content SHA) into a corpuscle-side state file so a
   re-run that's doing more than expected can show *why*. Carried
   from v0.3 → v0.4; not yet filed.
-- [ ] **Success summary on clean `corpus run`**
+- [x] **Success summary on clean `corpus run`**
   ([#57](https://github.com/caseywdunn/corpus/issues/57)).
-  Half-shipped in v0.3 — the next-step pointer landed, the
-  `--report` block + `<output_dir>/run.log` line did not.
+  New `_write_run_log` helper in `pipeline/cli.py` writes the
+  same content as `corpus status --report` to
+  `<output_dir>/run.log` at the tail of `corpus run`. Trailing
+  success message points at the file. Overwrites prior log; dry-run
+  short-circuits before writing. Landed on dev (d365792); closes
+  on release merge.
 - [ ] **Lexicon YAML loader bug.** A non-mapping-of-mappings
   lexicon silently degrades to no-op annotation with
   `WARNING ... 'list' object has no attribute 'get'`. Either
