@@ -80,17 +80,20 @@ context window. That recombination is where amalgamation happens.
   and handle `not_found` / `ambiguous` error shapes without
   fabricating. Lands in every session's context. Implementation
   in the next commit after PLAN tick.
-- [ ] **Citation-grounding quality tests**
+- [x] **Citation-grounding quality tests**
   (part of [#79](https://github.com/caseywdunn/corpus/issues/79)).
-  New top-level `prompts:` block in `tests/ground_truth/*.yaml`
-  declaring expected work panels per prompt, plus
-  `tests/test_prompt_quality.py` harness that runs the prompt
-  against the served corpus and checks emitted citations against
-  the panel (precision / recall / hallucination count). Gated
-  behind an env-var so it runs only on the release-time T2 lane,
-  not every PR. Includes a `forbidden_hallucinations` clause for
-  the original taxonomist-feedback incident as a regression
-  trip-wire.
+  Harness shipped in `tests/test_prompt_quality.py`: real Claude
+  API round-trips with `format_citation` wired as a callable tool,
+  scoring on expected-citation emission + parenthetical-token
+  trace-back + forbidden-hallucination co-occurrence windows.
+  Gated behind `RUN_PROMPT_QUALITY=1` + `ANTHROPIC_API_KEY` so
+  default CI doesn't burn API budget. Schema for the new
+  `prompts:` block in ground-truth YAMLs documented in
+  `dev_docs/TESTING.md`. Scoring functions have in-process unit
+  tests that always run. First concrete prompt panels (and CI
+  integration that sets the API key secret in the release-time
+  lane) are tracked as follow-ups — needs the demo to be built
+  with a current biblio_authority.sqlite to look up real work_ids.
 
 ### Cache-friendly MCP dossier tools
 

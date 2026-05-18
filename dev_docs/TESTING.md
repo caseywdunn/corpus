@@ -151,9 +151,53 @@ references:
     - title_contains: "keyword"
       authors_contain: ["Smith"]
       year: 2001
+
+prompts:                     # citation-grounding round-trips (#79)
+  - id: marrus_synopsis
+    prompt: "Summarize the discovery of Marrus claudanielis with
+             citations from the corpus."
+    expected_citations:      # each must be emitted via format_citation
+      - work_id: "corpus:..."
+      - work_id: "10.1234/..."
+    forbidden_hallucinations:  # negative trip-wires
+      - author_surname: "Schneider"
+        attributed_journal_not: "Bull. Mus. Comp. Zool."
+    expected_failure: false  # set true for known gaps; xfails
 ```
 
 Any section or field can be omitted — absent sections are skipped, not failed.
+
+### Citation-grounding tests (`prompts:` block)
+
+Each entry in the `prompts:` block runs as a real Claude API round-trip
+with the `format_citation` MCP tool wired in as a callable. The
+harness (`tests/test_prompt_quality.py`) asserts that every expected
+`work_id` is emitted via the tool (the `formatted` output must appear
+verbatim in the response) and that no parenthetical-citation tokens
+appear that don't trace to a logged tool call — the latter catches the
+recombination class that #79 exists to prevent.
+
+`forbidden_hallucinations` is the negative trip-wire: each entry's
+`author_surname` and `attributed_journal_not` must not co-occur within
+a ~200-character window of the response. Use it to pin known incidents
+(the original taxonomist-feedback case being the seed) as a
+no-regression guard.
+
+**Gating.** These tests cost real API calls and are skipped unless
+`RUN_PROMPT_QUALITY=1`. Within CI, they're intended for the
+release-time lane with `ANTHROPIC_API_KEY` in the runner secrets —
+not on every PR. Locally:
+
+```bash
+RUN_PROMPT_QUALITY=1 ANTHROPIC_API_KEY=sk-... \
+  python -m pytest tests/test_prompt_quality.py -v
+# Optional: override the model (default claude-haiku-4-5-20251001)
+PROMPT_QUALITY_MODEL=claude-sonnet-4-6-20251001 ...
+```
+
+The harness's scoring functions (`_score`, regex matchers) have
+in-process unit tests that always run regardless of the gate, so a
+regression in the harness itself can't ride into a release.
 
 ### Adding a new assertion
 
