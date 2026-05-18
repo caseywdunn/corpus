@@ -178,10 +178,10 @@ Check whether your platform is supported before installing.
 
 | Target | Status |
 | --- | --- |
-| **linux-x86_64** | Supported. The reference HPC + deploy target (Bouchet, AWS EC2). |
+| **linux-x86_64** | Supported. |
 | **macOS arm64** (Apple Silicon) | Supported. Two extra constraints — see [macOS (Apple Silicon)](#macos-apple-silicon) below. |
 | macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | Not supported. |
-| linux-aarch64 (Graviton, Ampere) | Not currently supported. |
+| linux-aarch64 (Graviton, Ampere) | Not yet supported, may be in the future. |
 
 [INSTALL.md](INSTALL.md#supported-platforms) covers optional OCR helpers, the pip-only fallback, and per-platform notes.
 
