@@ -59,20 +59,19 @@ client-side, because today's MCP surface returns structured fields
 and leaves the LLM to recombine them into citation prose in its own
 context window. That recombination is where amalgamation happens.
 
-- [ ] **`format_citation` MCP tool + provenance cascade**
+- [x] **`format_citation` MCP tool + provenance cascade**
   ([#79](https://github.com/caseywdunn/corpus/issues/79)).
-  New tool that returns a fully-assembled citation string from
-  the authority DB plus a provenance tier:
-  `bib` (touched by user-edited `.bib`) → no warning;
-  `grobid_reconciled` (DOI / alias / BHL, score ≥ 0.9) →
-  appends `* generated via reconciliation in corpus, check if
-  correct`; `unresolved` (fuzzy below threshold, author-year-only,
-  new ghost) → appends `* reference not present in bibliography,
-  check if correct`. Adds a `bib_imported_at REAL` column to
-  `works` so the importer can mark its rows; hand-rolled
-  author-year / vancouver / bibtex formatters in a new
-  `bib/format.py` (no new deps); style configurable via a new
-  `bibliography.citation_style` config key.
+  Shipped in four commits on dev: schema + importer stamp
+  (219a4a2), `bib/format.py` with the author-year formatter
+  (4d16064), `BiblioAuthority.provenance()` tier classifier
+  (fc3a7e9), and the `format_citation` MCP tool itself wiring
+  the three together (e8f075a). Public warning footnotes per
+  tier match the issue spec verbatim. `vancouver` / `bibtex`
+  styles + the `bibliography.citation_style` config field are
+  deferred to follow-ups — only one style currently exists in
+  `SUPPORTED_STYLES`, so a config field with no observable
+  effect would be half-functional cruft. Will wire when a second
+  style lands.
 - [ ] **`mcpsrv/default_instructions.md` rewrite**
   (part of [#79](https://github.com/caseywdunn/corpus/issues/79)).
   Replace the aspirational "do not fabricate" paragraph with an

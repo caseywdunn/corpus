@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 27 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 28 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -47,6 +47,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_excerpts_citing` | Cross-corpus: every passage citing a given work — surface text, section, and the surrounding paragraph. |
 | `get_citation_graph` | Citation graph around a work or paper (in / out / both). |
 | `resolve_reference` | Resolve a free-text bibliographic reference to a work in the authority database. |
+| `format_citation` | Fully-assembled citation string for a work in the authority DB, plus provenance tier (`bib` / `grobid_reconciled` / `unresolved`) and verbatim warning footnote. The route for every citation an LLM client emits — never recombine fields client-side. |
 | `get_missing_references` | Works cited by corpus papers that are NOT in the corpus. |
 | `get_works_by_author` | All works by an author across the full bibliographic authority database (corpus papers + cited references + taxonomic-authority stubs). |
 | `get_original_description` | Find the original-description paper for a taxon. |

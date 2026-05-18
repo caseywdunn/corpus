@@ -13,7 +13,7 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
-- [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface (27 tools)
+- [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface (28 tools)
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
 - [DEPLOY.md](DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
@@ -48,7 +48,7 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 | Path | Role |
 | --- | --- |
 | `pipeline/` | Top-level CLI router (`pipeline/cli.py` → the `corpus` binary), Stage 1 + Pass 3b/3c orchestrator, post-pipeline modules (`embed`, `taxon_mentions`, `intext_citations`, `taxonomy_ingest`, `status`, `orchestrator`), and shared library modules. Pydantic config schema in `config_schema.py`; bundled `config.template.yaml`. |
-| `mcpsrv/` | MCP server. FastMCP `app.py` + 27 tools in `tools/{papers,taxonomy,bibliography,figures,chunks}.py`; `mcpsrv.bundle` distills a build into a served bundle. |
+| `mcpsrv/` | MCP server. FastMCP `app.py` + 28 tools in `tools/{papers,taxonomy,bibliography,figures,chunks}.py`; `mcpsrv.bundle` distills a build into a served bundle. |
 | `bib/` | BibTeX round-trip + biblio authority + reconcile (`bib.parser`, `bib.export`, `bib.importer`, `bib.authority`, `bib.reconcile`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx, systemd, sync + update scripts. |
