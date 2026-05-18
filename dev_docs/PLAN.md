@@ -122,13 +122,19 @@ Smaller items that fit alongside the two big-ticket pieces.
   ([#78](https://github.com/caseywdunn/corpus/issues/78)).
   Config schema rejects `urn:lsid:` IDs even though the CLI
   accepts them. Quick schema fix.
-- [ ] **Install docs / conda prescription — needs design**
+- [x] **Install docs / conda prescription**
   ([#77](https://github.com/caseywdunn/corpus/issues/77)).
-  External-tester feedback says the README over-prescribes
-  miniforge when the real requirement is an arm64-native conda.
-  The issue body proposes a specific direction but the right
-  shape of the fix isn't yet agreed; revisit before changing the
-  README. Carry as needs-design, not needs-code.
+  README + INSTALL.md reframed: the requirement is an
+  arm64-native conda (Anaconda, Miniconda, or Miniforge all
+  qualify), not miniforge specifically. New `conda info | grep
+  platform` pre-gate; `corpus check` now hard-fails on Rosetta'd
+  Python on macOS (post-gate). `CONDA_SUBDIR=osx-arm64` is
+  documented as the alternative for users who don't want a second
+  conda distribution. Installation section restructured so
+  Supported platforms comes first, macOS-specific items are
+  consolidated in one subsection, and Grobid startup moved out to
+  its own h2 (it's a run-time, not install-time, concern).
+  Landed on dev (b92e355 + follow-ups); closes on release merge.
 - [ ] **Drift detection.** Hash the resolved config (input paths +
   per-input content SHA) into a corpuscle-side state file so a
   re-run that's doing more than expected can show *why*. Carried
