@@ -118,10 +118,13 @@ MCP surface for the way LLM clients actually consume it.
 
 Smaller items that fit alongside the two big-ticket pieces.
 
-- [ ] **`taxonomy.root_id` rejects DwC-A LSID format**
+- [x] **`taxonomy.root_id` rejects DwC-A LSID format**
   ([#78](https://github.com/caseywdunn/corpus/issues/78)).
-  Config schema rejects `urn:lsid:` IDs even though the CLI
-  accepts them. Quick schema fix.
+  Schema relaxed to `Optional[Union[int, str]]`; worms keeps the
+  integer AphiaID path, dwc/dwca now accept either a bare integer
+  taxonID or an LSID string. Downstream code already wrapped with
+  `str(...)`, so no callers changed. Regression tests pin both
+  shapes. Landed on dev (7be13f8); closes on release merge.
 - [x] **Install docs / conda prescription**
   ([#77](https://github.com/caseywdunn/corpus/issues/77)).
   README + INSTALL.md reframed: the requirement is an
