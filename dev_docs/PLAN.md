@@ -150,11 +150,12 @@ Smaller items that fit alongside the two big-ticket pieces.
   success message points at the file. Overwrites prior log; dry-run
   short-circuits before writing. Landed on dev (d365792); closes
   on release merge.
-- [ ] **Lexicon YAML loader bug.** A non-mapping-of-mappings
-  lexicon silently degrades to no-op annotation with
-  `WARNING ... 'list' object has no attribute 'get'`. Either
-  tighten the schema check + emit an actionable error, or accept
-  both shapes. No issue yet.
+- [x] **Lexicon YAML loader bug.** Tightened: `load_lexicon`
+  now rejects list-shaped term entries with a ValueError that
+  names the category, term, offending type, and corrected shape;
+  `main.py` narrowed its swallow to file / yaml errors so schema
+  violations propagate instead of silently degrading to no-op
+  annotation. Landed on dev (f4b36b0).
 
 ## 2. Carryover to v0.6
 
