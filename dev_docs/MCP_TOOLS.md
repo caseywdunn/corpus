@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 28 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 29 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -22,6 +22,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | Tool | Returns |
 | --- | --- |
 | `bundle_info` | Bundle version, server name + version, paper / chunk / figure counts, embedding model, pipeline git SHA. Lets clients detect stale endpoints and cite a corpus version in downstream work. |
+| `corpus_summary` | One-call orientation: paper counts by decade, lexicon coverage per category (top terms), top taxa, figure totals, bundle identity. Server-side join over the in-memory indexes — fixed-shape payload (~2–5 k tokens) regardless of corpus size. Caps on `top_taxa` + `top_terms_per_category`. |
 | `list_papers` | Every paper in the corpus with bibliographic + annotation counts. Optional `year_from` / `year_to` filters. |
 | `get_paper` | Full metadata for one paper: title, authors, year, abstract, DOI, plus top taxa and anatomy terms. |
 | `get_chunk` | One chunk's full record: text, headings, section_class, figure_refs. |

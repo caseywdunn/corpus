@@ -1,8 +1,9 @@
-"""Paper-level MCP tools: bundle_info, list_papers, get_paper, get_chunk."""
+"""Paper-level MCP tools: bundle_info, corpus_summary, list_papers, get_paper, get_chunk."""
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pipeline.version import __version__
 from ..app import _load_json, _need_index, mcp
@@ -31,6 +32,152 @@ def bundle_info() -> Dict:
         "server_version": __version__,
         **dict(idx.bundle_manifest),
     }
+
+
+# #76 — defaults sized for the cache-friendly dossier-tools work.
+# These bound the typical payload size; the user can override
+# top_taxa and per-category top_terms via parameters.
+_CORPUS_SUMMARY_TOP_TAXA_DEFAULT = 25
+_CORPUS_SUMMARY_TOP_TERMS_PER_CATEGORY_DEFAULT = 15
+
+
+@mcp.tool()
+def corpus_summary(
+    top_taxa: int = _CORPUS_SUMMARY_TOP_TAXA_DEFAULT,
+    top_terms_per_category: int = _CORPUS_SUMMARY_TOP_TERMS_PER_CATEGORY_DEFAULT,
+) -> Dict[str, Any]:
+    """Single-call corpus orientation: paper counts by decade, lexicon
+    coverage per category, top taxa, figure totals, bundle identity.
+    Replaces the N×``list_papers`` pagination + scattered probing pattern
+    when an LLM client needs to size up an unfamiliar corpus (#76).
+
+    Supersedes the p01 pattern of 12× paginated ``list_papers`` for the
+    "give me a corpus orientation" use case. Typical payload ~2–5 k
+    tokens, fixed shape regardless of corpus size — every aggregation
+    is a server-side join over indexes already loaded at startup.
+
+    Pair with ``list_papers`` for full per-paper detail, or
+    ``get_taxon_dossier`` (when shipped) for one-taxon drill-down.
+
+    Returned shape (stable, deterministic ordering — sorted by count
+    desc, ties by name asc):
+
+        {
+          "n_papers": int,
+          "year_range": {"min": int, "max": int} | null,
+          "by_decade": [{"decade": int, "n_papers": int}, ...],
+          "lexicon_categories": [str, ...],
+          "lexicon_coverage": {
+            category: {
+              "n_terms_hit": int,
+              "n_papers_with_hits": int,
+              "n_mentions_total": int,
+              "top_terms": [{"term", "n_papers", "n_mentions"}, ...],
+            }, ...
+          },
+          "n_figures_total": int,
+          "n_unique_taxa": int,
+          "top_taxa": [{"taxon_id", "name", "rank", "n_papers", "n_mentions"}, ...],
+          "bundle_version": str | null,
+          "server_version": str,
+        }
+
+    Parameters cap the bounded lists: ``top_taxa`` (default 25) and
+    ``top_terms_per_category`` (default 15). Set to 0 to omit either
+    list entirely if the caller wants the headline counts only.
+    """
+    idx = _need_index()
+
+    # Year coverage. None years are skipped from both min/max and
+    # the decade histogram.
+    years = [p.get("year") for p in idx.papers.values() if p.get("year")]
+    if years:
+        year_range: Optional[Dict[str, int]] = {
+            "min": min(years), "max": max(years),
+        }
+        decades = Counter((y // 10) * 10 for y in years)
+        by_decade = [
+            {"decade": d, "n_papers": n}
+            for d, n in sorted(decades.items())
+        ]
+    else:
+        year_range = None
+        by_decade = []
+
+    # Lexicon coverage per category. lexicon_to_papers is
+    # {category: {term: [paper_hash, ...]}}; lexicon_mention_counts is
+    # {category: {term: {paper_hash: n_mentions}}}.
+    lexicon_categories = sorted(idx.lexicon_to_papers.keys())
+    lexicon_coverage: Dict[str, Dict[str, Any]] = {}
+    for category in lexicon_categories:
+        terms = idx.lexicon_to_papers[category]
+        mention_counts = idx.lexicon_mention_counts.get(category, {})
+        papers_with_hits: set = set()
+        n_mentions_total = 0
+        term_stats: List[Dict[str, Any]] = []
+        for term, paper_hashes in terms.items():
+            unique_papers = set(paper_hashes)
+            papers_with_hits |= unique_papers
+            n_mentions = sum(mention_counts.get(term, {}).values())
+            n_mentions_total += n_mentions
+            term_stats.append({
+                "term": term,
+                "n_papers": len(unique_papers),
+                "n_mentions": n_mentions,
+            })
+        term_stats.sort(key=lambda t: (-t["n_mentions"], t["term"]))
+        lexicon_coverage[category] = {
+            "n_terms_hit": len(terms),
+            "n_papers_with_hits": len(papers_with_hits),
+            "n_mentions_total": n_mentions_total,
+            "top_terms": (
+                term_stats[: top_terms_per_category]
+                if top_terms_per_category > 0 else []
+            ),
+        }
+
+    # Taxa: pick the N most-mentioned across the corpus.
+    taxon_stats: List[Dict[str, Any]] = []
+    for aid, paper_hashes in idx.taxon_to_papers.items():
+        unique_papers = set(paper_hashes)
+        n_mentions = sum(
+            idx.taxon_mention_counts.get(aid, {}).values()
+        )
+        display = idx.taxon_display.get(aid, {})
+        taxon_stats.append({
+            "taxon_id": aid,
+            "name": display.get("accepted_name") or aid,
+            "rank": display.get("rank"),
+            "n_papers": len(unique_papers),
+            "n_mentions": n_mentions,
+        })
+    taxon_stats.sort(key=lambda t: (-t["n_mentions"], t["name"]))
+    top_taxa_list = taxon_stats[: top_taxa] if top_taxa > 0 else []
+    # Drop sparse-encoded null rank from each entry.
+    for t in top_taxa_list:
+        if t.get("rank") is None:
+            t.pop("rank", None)
+
+    n_figures_total = sum(
+        p.get("n_figures") or 0 for p in idx.papers.values()
+    )
+
+    summary: Dict[str, Any] = {
+        "n_papers": len(idx.papers),
+        "year_range": year_range,
+        "by_decade": by_decade,
+        "lexicon_categories": lexicon_categories,
+        "lexicon_coverage": lexicon_coverage,
+        "n_figures_total": n_figures_total,
+        "n_unique_taxa": len(idx.taxon_to_papers),
+        "top_taxa": top_taxa_list,
+        "bundle_version": (
+            idx.bundle_manifest.get("bundle_version")
+            if idx.bundle_manifest else None
+        ),
+        "server_version": __version__,
+    }
+    return summary
 
 
 @mcp.tool()
