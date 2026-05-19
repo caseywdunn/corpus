@@ -78,8 +78,8 @@ context window. That recombination is where amalgamation happens.
   explicit routing rule: call `format_citation`, paste its
   `formatted` and `inline` verbatim, preserve `warning` verbatim,
   and handle `not_found` / `ambiguous` error shapes without
-  fabricating. Lands in every session's context. Implementation
-  in the next commit after PLAN tick.
+  fabricating. Lands in every session's context. Shipped in
+  1d8b485.
 - [x] **Citation-grounding quality tests**
   (part of [#79](https://github.com/caseywdunn/corpus/issues/79)).
   Harness shipped in `tests/test_prompt_quality.py`: real Claude
@@ -115,7 +115,7 @@ MCP surface for the way LLM clients actually consume it.
   `get_taxon_lexicon_slice` (db767e7), `lexicon_matrix` +
   `get_lexicon_term_dossier` (b7195d7), figure-dossier pair
   (05e775c), `get_papers` + `get_taxon_subtree_dossier`
-  (this commit). 100 unit tests across the six tool groups; tool
+  (1d5e6ed). 100 unit tests across the six tool groups; tool
   count 27 → 38 in MCP_TOOLS.md. Caching layer on dossier outputs
   (per #76 implementation notes) deferred until in-vivo timings
   show it matters — the in-memory aggregation is already fast.
