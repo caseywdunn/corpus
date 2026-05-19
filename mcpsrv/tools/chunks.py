@@ -22,26 +22,18 @@ def get_chunks(
     chunk_ids: Optional[List[str]] = None,
     with_text: bool = True,
 ) -> List[Dict]:
-    """Batched chunk fetch for one paper — the drill-down pair to
-    every ``*_dossier`` tool (#76). Get the dossier's chunk_index,
-    pick the chunk_ids that matter, fetch their full text with one
-    call instead of N×``get_chunk``.
+    """Batched chunk fetch — drill-down pair to every ``*_dossier``
+    tool (#76). Pick chunk_ids from a dossier's chunk_index, fetch
+    text in one call instead of N× ``get_chunk``.
 
-    ``chunk_ids=None`` returns every chunk in the paper, in original
-    order. Pass an explicit list to fetch only those — useful when a
-    dossier returns 50 chunk_ids and only 5 are relevant to the
-    current question. Unknown IDs are silently skipped (so the
-    caller doesn't have to deduplicate against the dossier's index).
+    ``chunk_ids=None`` returns all chunks in paper order. An explicit
+    list returns just those (unknown IDs silently skipped).
+    ``with_text=False`` emits metadata-only (~80 chars/chunk vs ~600):
+    chunk_id, section_class, headings, len_chars, figure_refs.
 
-    ``with_text=False`` emits the metadata-only shape (~80 chars per
-    chunk vs ~600 with full text): chunk_id, section_class,
-    headings, len_chars, figure_refs. Use it for orientation passes
-    where the body text isn't yet needed.
-
-    Returns ``[{chunk_id, section_class, headings, figure_refs,
-    [text,] [len_chars,]}, ...]`` in paper-order. Errors as
-    ``[{error: ...}]`` for an unknown paper_hash, matching the
-    convention of sibling tools.
+    Returns ``[{chunk_id, section_class, headings, figure_refs, text?,
+    len_chars?}, ...]`` in paper order. ``[{error: ...}]`` on unknown
+    paper_hash.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)

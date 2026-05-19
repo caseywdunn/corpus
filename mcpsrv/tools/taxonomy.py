@@ -189,48 +189,28 @@ def get_taxon_dossier(
     top_n_lexicon: int = _DOSSIER_LEXICON_TOP_N_DEFAULT,
     top_n_cooccurring: int = _DOSSIER_COOCCURRING_TOP_N_DEFAULT,
 ) -> Dict[str, Any]:
-    """One-call comprehensive view of a taxon across the corpus (#76).
+    """One-call view of a taxon across the corpus (#76). Supersedes
+    ``search_taxon`` + ``get_papers_for_taxon`` + N× ``get_paper`` +
+    N× ``get_chunks_for_taxon`` + ``get_figures_for_taxon``. Pair with
+    ``get_chunks(paper_hash, chunk_ids=[...])`` for full text — the
+    chunk_index returns IDs only.
 
-    Supersedes the chain ``search_taxon`` + ``get_papers_for_taxon``
-    + N× ``get_paper`` + N× ``get_chunks_for_taxon`` +
-    ``get_figures_for_taxon`` for enumerative taxon-anatomy and
-    monographic prompts (~45 round-trips → 1). Typical payload
-    3–10 k tokens.
+    ``include`` trims the response to a subset of {papers, chunks,
+    figures, lexicon, cooccurring_taxa}. Default = all five. Caps:
+    max_papers (50), max_chunks (100), max_figures (25),
+    top_n_lexicon (10/category), top_n_cooccurring (20 taxa).
 
-    Pair with ``get_chunks(paper_hash, chunk_ids=[...])`` for
-    selective full-text drill-down — ``chunk_index`` returns IDs +
-    section + headings, **not text**. Pair with
-    ``get_figure_image(paper_hash, figure_id)`` to pull a figure's
-    bytes once the figure_index identifies the relevant one.
-
-    ``include`` (default = all five sections) trims the response:
-    one or more of ``papers``, ``chunks``, ``figures``, ``lexicon``,
-    ``cooccurring_taxa``. Use it to drop sections an enumerative
-    prompt doesn't need (e.g. ``include=["papers", "chunks"]`` skips
-    figures + lexicon + cooccurring for a text-only review).
-
-    Per-section caps: ``max_papers`` (default 50, sorted by mention
-    count desc), ``max_chunks`` (100, paper-then-chunk order),
-    ``max_figures`` (25, caption-relevance-first), ``top_n_lexicon``
-    (10 per category), ``top_n_cooccurring`` (20 taxa).
-
-    Returned shape (sections present iff requested via ``include``):
+    Returns ``{taxon, n_papers_mentioning, papers?, chunk_index?,
+    figure_index?, lexicon_aggregated?, cooccurring_taxa?}``:
 
         {
-          "taxon": {taxon_id, accepted_name, rank, authority,
-                    matched_name?},
-          "n_papers_mentioning": int,
-          "papers": [{hash, title, year, first_author, n_mentions}, ...],
-          "chunk_index": [{paper_hash, chunk_id, section_class,
-                           headings}, ...],
-          "figure_index": [{paper_hash, figure_id, figure_type,
-                            page, figure_number, caption_has_taxon}, ...],
-          "lexicon_aggregated": {
-            category: [{term, n_papers, n_mentions}, ...],
-            ...
-          },
-          "cooccurring_taxa": [{taxon_id, name, rank?,
-                                n_shared_papers}, ...],
+          "taxon": {taxon_id, accepted_name, rank?, authority?, matched_name?},
+          "papers": [{hash, title, year, first_author?, n_mentions}, ...],
+          "chunk_index": [{paper_hash, chunk_id, section_class, headings}, ...],
+          "figure_index": [{paper_hash, figure_id, figure_type, page,
+                            figure_number, caption_has_taxon}, ...],
+          "lexicon_aggregated": {category: [{term, n_papers, n_mentions}, ...]},
+          "cooccurring_taxa": [{taxon_id, name, rank?, n_shared_papers}, ...],
         }
     """
     idx = _need_index()
@@ -445,40 +425,20 @@ def get_taxon_lexicon_slice(
     max_paper_examples: int = 5,
 ) -> Dict[str, Any]:
     """Lexicon coverage for one taxon under one category, joined at
-    the chunk level (#76, priority 3/6).
+    the chunk level (#76). Use for "for taxon T, what does the corpus
+    say about it under lens C?"
 
-    Answers "for taxon T, what does the corpus say about it under
-    lens C?" — supersedes the implicit
-    N× ``get_chunks_for_taxon`` + per-chunk lexicon scanning loop in
-    p06 (country names per taxon), p10 (chemosensory terms), p12
-    (genetic markers), p11 (life-history traits). Single call,
-    ~1–3 k tokens typical.
+    Join is **same-chunk co-occurrence** — a term counts only when it
+    appears in a chunk where the taxon is also mentioned. Tighter
+    than paper-level rollups: distinguishes "term applied to taxon"
+    from "term appears in a paper that also mentions taxon."
 
-    The join is **same-chunk co-occurrence**: a term counts only when
-    it appears in a chunk where the taxon is also mentioned. This is
-    tighter than the paper-level rollups in ``corpus_summary`` /
-    ``get_taxon_dossier``'s ``lexicon_aggregated`` — chunk co-occurrence
-    is what tells the LLM "this term is *applied to* this taxon" vs
-    "this term appears somewhere in a paper that also mentions this
-    taxon."
+    Category-agnostic: unknown category returns ``{error:
+    "unknown_category", available: [...]}``. Terms sorted by
+    n_chunks desc, term asc.
 
-    Category-agnostic: returns ``{"error": "unknown_category",
-    "available": [...]}`` if the bundle doesn't declare it.
-
-    Returned shape (terms sorted by n_chunks desc, then term asc):
-
-        {
-          "taxon": {taxon_id, accepted_name, rank?, authority?},
-          "category": str,
-          "n_chunks_total": int,        # chunks where taxon mentioned
-          "n_papers_total": int,        # papers where taxon mentioned
-          "terms": [{
-            "term": str,
-            "n_chunks": int,            # chunks with taxon + term
-            "n_papers": int,
-            "paper_examples": [hash, ...],  # up to max_paper_examples
-          }, ...]
-        }
+    Returns ``{taxon, category, n_chunks_total, n_papers_total,
+    terms: [{term, n_chunks, n_papers, paper_examples}]}``.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
@@ -711,36 +671,22 @@ def get_taxon_subtree_dossier(
     max_species: int = _SUBTREE_MAX_SPECIES_DEFAULT,
     max_aggregate_papers: int = _SUBTREE_MAX_AGGREGATE_PAPERS_DEFAULT,
 ) -> Dict[str, Any]:
-    """Per-species capsule view of a clade, plus a deduplicated
-    aggregate paper list across the whole subtree (#76, priority 6/6).
+    """Per-species capsule view of a clade + deduplicated aggregate
+    paper list across the subtree (#76). For "all species under
+    <genus> and what the corpus says about each." Supersedes
+    ``list_valid_species_under`` + N× ``get_papers_for_taxon``.
 
-    Replaces the p07 monographic pattern:
-    ``list_valid_species_under`` + N× ``get_papers_for_taxon`` +
-    N× ``get_chunks_for_taxon`` for "give me all the species under
-    <genus> and what the corpus says about each."
+    Walks the DwC taxonomy via ``parent_name_usage_id`` (BFS), filters
+    to accepted species + subspecies, projects per-species coverage
+    from the in-memory indexes. No chunk text — pair with
+    ``get_taxon_dossier`` for one-species drill-down or
+    ``get_chunks`` after picking papers from ``aggregate_papers``.
 
-    Walks the configured Darwin Core taxonomy snapshot via
-    ``parent_name_usage_id`` (BFS, same algorithm as
-    ``list_valid_species_under``) and projects per-species corpus
-    coverage from the in-memory ``taxon_to_papers`` /
-    ``taxon_mention_counts`` indexes. No chunk text is returned — pair
-    with ``get_taxon_dossier(taxon)`` for one-species drill-down or
-    ``get_chunks(paper_hash, chunk_ids=[...])`` after the aggregate
-    paper list identifies the candidates.
-
-    Returned shape::
-
-        {
-          "root": {taxon_id, accepted_name, rank?},
-          "n_species_in_subtree": int,        # accepted species/subspecies
-          "species_with_corpus_coverage": [{
-            "taxon_id", "accepted_name", "authorship?", "rank",
-            "n_papers", "n_mentions"
-          }, ...]      # sorted by n_papers desc, name asc; capped at max_species
-          "aggregate_papers": [{
-            "hash", "title", "year", "n_species_covered", "total_mentions"
-          }, ...]      # union across species, sorted by n_species_covered desc
-        }
+    Returns ``{root, n_species_in_subtree, species_with_corpus_coverage:
+    [{taxon_id, accepted_name, authorship?, rank, n_papers,
+    n_mentions}] (sorted by n_papers desc, name asc), aggregate_papers:
+    [{hash, title, year, n_species_covered, total_mentions}] (sorted by
+    n_species_covered desc)}``.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:

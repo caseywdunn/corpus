@@ -46,45 +46,20 @@ def corpus_summary(
     top_taxa: int = _CORPUS_SUMMARY_TOP_TAXA_DEFAULT,
     top_terms_per_category: int = _CORPUS_SUMMARY_TOP_TERMS_PER_CATEGORY_DEFAULT,
 ) -> Dict[str, Any]:
-    """Single-call corpus orientation: paper counts by decade, lexicon
-    coverage per category, top taxa, figure totals, bundle identity.
-    Replaces the N×``list_papers`` pagination + scattered probing pattern
-    when an LLM client needs to size up an unfamiliar corpus (#76).
+    """One-call corpus orientation: paper counts by decade, lexicon
+    coverage per category, top taxa, figure totals, bundle identity
+    (#76). Supersedes the N× ``list_papers`` pagination pattern. Pair
+    with ``list_papers`` for per-paper detail or ``get_taxon_dossier``
+    for one-taxon drill-down. Fixed-shape ~2–5 k tokens.
 
-    Supersedes the p01 pattern of 12× paginated ``list_papers`` for the
-    "give me a corpus orientation" use case. Typical payload ~2–5 k
-    tokens, fixed shape regardless of corpus size — every aggregation
-    is a server-side join over indexes already loaded at startup.
+    Counts sorted desc, ties by name asc. Caps: ``top_taxa`` (default
+    25), ``top_terms_per_category`` (default 15); 0 omits the list.
 
-    Pair with ``list_papers`` for full per-paper detail, or
-    ``get_taxon_dossier`` (when shipped) for one-taxon drill-down.
-
-    Returned shape (stable, deterministic ordering — sorted by count
-    desc, ties by name asc):
-
-        {
-          "n_papers": int,
-          "year_range": {"min": int, "max": int} | null,
-          "by_decade": [{"decade": int, "n_papers": int}, ...],
-          "lexicon_categories": [str, ...],
-          "lexicon_coverage": {
-            category: {
-              "n_terms_hit": int,
-              "n_papers_with_hits": int,
-              "n_mentions_total": int,
-              "top_terms": [{"term", "n_papers", "n_mentions"}, ...],
-            }, ...
-          },
-          "n_figures_total": int,
-          "n_unique_taxa": int,
-          "top_taxa": [{"taxon_id", "name", "rank", "n_papers", "n_mentions"}, ...],
-          "bundle_version": str | null,
-          "server_version": str,
-        }
-
-    Parameters cap the bounded lists: ``top_taxa`` (default 25) and
-    ``top_terms_per_category`` (default 15). Set to 0 to omit either
-    list entirely if the caller wants the headline counts only.
+    Returns ``{n_papers, year_range, by_decade, lexicon_categories,
+    lexicon_coverage: {category: {n_terms_hit, n_papers_with_hits,
+    n_mentions_total, top_terms: [{term, n_papers, n_mentions}]}},
+    n_figures_total, n_unique_taxa, top_taxa: [{taxon_id, name,
+    rank?, n_papers, n_mentions}], bundle_version, server_version}``.
     """
     idx = _need_index()
 

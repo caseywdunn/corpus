@@ -88,3 +88,32 @@ Category-agnostic — every tool takes `category` as an argument and returns `{"
 | --- | --- |
 | `lexicon_matrix` | Paper × term mention-count grid for one category. Caller-controlled columns (`terms=`) or top-N by total mention count. Caller-controlled rows (`paper_hashes=`) or all papers, optionally year-filtered. Papers with no `<category>.json` surface as zero-filled rows. Typical ~2 k tokens for 100 × 20. |
 | `get_lexicon_term_dossier` | Per-term cross-corpus view: rollup counts, top papers by mention count, chunk examples (IDs only — pair with `get_chunks`), term description. |
+
+## Prompt-cache integration (Anthropic API clients)
+
+The tool catalog + system prompt this server emits are static across a corpus build — #76 principle 4 (deterministic ordering and shape) means cache breakpoints stay valid until a new bundle ships. A client consuming the surface via Anthropic's Messages API directly (the `tests/test_prompt_quality.py` harness in #79 is the reference implementation; Claude Desktop / Claude Code handle caching themselves) cuts cached-token pricing ~10× by placing `cache_control` breakpoints after the static prefix:
+
+```python
+client.messages.create(
+    model="claude-sonnet-4-6",
+    system=[
+        {"type": "text", "text": default_instructions_md,
+         "cache_control": {"type": "ephemeral"}},   # ← end of system prompt
+    ],
+    tools=[
+        *tool_definitions[:-1],
+        {**tool_definitions[-1],
+         "cache_control": {"type": "ephemeral"}},   # ← end of tool catalog
+    ],
+    messages=[...],
+)
+```
+
+Two breakpoints land below the ~5 k-token cache-eligibility floor on typical bundles:
+
+- **System prompt** (`mcpsrv/default_instructions.md` concatenated with any corpuscle-specific `instructions.md`): ~500–1500 tokens.
+- **Tool catalog** (38 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
+
+Together ~5 k tokens get cached across all turns of a session — a non-trivial saving on conversations that fan out into many tool-use rounds. Cache lives ~5 minutes by default; subsequent sessions against the same build hit the same cache lines.
+
+The catalog is stable across builds *unless* you bump `pipeline/version.py` or a docstring changes. PR diffs that touch tool docstrings should expect a cache miss on the next session — a routine cost.

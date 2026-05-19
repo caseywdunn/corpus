@@ -107,34 +107,17 @@ def get_intext_citations(
 
 @mcp.tool()
 def get_excerpts_citing(work_id: str, limit: int = 50) -> Dict:
-    """Passages across the corpus that cite ``work_id`` (issue #7).
+    """Cross-corpus passages citing ``work_id`` — actual paragraph
+    text around each citation marker. Answers "show me every passage
+    where <Author Year> is cited" (issue #7).
 
-    Cross-paper view of in-text citations.  Joins the bibliography
-    authority's ``citations`` table (which carries the
-    paper_hash → grobid_xml_id → cited_work_id mapping built by
-    ``reconcile_corpus_to_biblio.py``) against each citing paper's
-    ``intext_citations.json`` to return the actual paragraph text
-    surrounding each citation marker.
+    ``work_id`` is a DOI / ``corpus:...`` / ``bhl:...`` key — same
+    space as ``get_citation_graph``. Only resolved citations
+    contribute (~60% of in-text refs); Grobid-unmatched refs don't
+    surface here.
 
-    Useful for "show me every passage where Pugh 1997 is cited" —
-    answers questions an unweighted citation graph can't.
-
-    Parameters
-    ----------
-    work_id:
-        DOI, ``corpus:...`` key, or ``bhl:...`` key — same identifier
-        space as ``get_citation_graph``.
-    limit:
-        Cap on excerpts returned across all citing papers.
-
-    Returns ``{"work_id": ..., "n_excerpts": N, "excerpts": [...]}``
-    where each excerpt has ``citing_paper_hash``, ``citing_paper_title``,
-    ``surface``, ``section``, and ``paragraph``.
-
-    Only resolved citations contribute (the ~40% of in-text refs Grobid
-    couldn't match to a listBibl entry produce no row in ``citations``
-    and so don't show up here).  A future fuzzy-resolution pass against
-    the surface text would close that gap.
+    Returns ``{work_id, n_excerpts, excerpts: [{citing_paper_hash,
+    citing_paper_title, surface, section, paragraph}, ...]}``.
     """
     idx = _need_index()
     if idx.biblio_db is None:
@@ -341,46 +324,27 @@ def format_citation(
     paper_hash: Optional[str] = None,
     style: str = "author-year",
 ) -> Dict[str, Any]:
-    """Return a fully-assembled citation string for a work in the
-    bibliographic authority DB, plus provenance tier and warning
-    text (#79).
+    """Return a formatted citation string for a work in the corpus
+    bibliographic authority DB (#79).
 
     **Use this for every citation you emit.** Never recombine
     author / year / journal / title in your own context — that's
     where amalgamated, hallucinated references come from. Paste
-    the ``formatted`` and ``inline`` strings verbatim into the
-    document; if ``warning`` is non-empty, append it verbatim too.
+    ``formatted`` + ``inline`` verbatim; append non-empty ``warning``
+    verbatim too.
 
-    Resolve in one of three ways (provide exactly one):
+    Resolve via exactly one of: ``query`` (free-text "Author Year
+    [Title]"), ``work_id`` (DOI / corpus: / bhl:), or ``paper_hash``
+    (12-hex SHA-256 prefix).
 
-    - ``query`` — free-text ``"Author Year"`` or ``"Author Year
-      Title fragment"``. Same parser as :func:`resolve_reference`.
-    - ``work_id`` — canonical id (``"10.1234/foo"``, ``"corpus:..."``,
-      ``"bhl:..."``).
-    - ``paper_hash`` — 12-hex SHA-256 prefix of a corpus paper.
+    Returns ``{work_id, formatted, inline, provenance, warning,
+    fields}``. ``provenance`` ∈ {``bib`` (curated, no warning),
+    ``grobid_reconciled`` (reconciliation footnote), ``unresolved``
+    (bibliography-absence footnote)}.
 
-    Returns ``{"work_id", "formatted", "inline", "provenance",
-    "warning", "fields"}`` on a clean resolution. The ``provenance``
-    tier is one of:
-
-    - ``"bib"``: the row was touched by ``corpus bib import`` —
-      human-curated. ``warning`` is empty.
-    - ``"grobid_reconciled"``: corpus paper metadata or a
-      high-confidence cited-reference match (DOI / alias / BHL,
-      score ≥ 0.9). ``warning`` is the reconciliation footnote.
-    - ``"unresolved"``: fuzzy under threshold, author_year_only
-      fallback, or a new ghost. ``warning`` is the
-      bibliography-absence footnote.
-
-    On an ambiguous free-text match, returns ``{"error":
-    "ambiguous", "matches": [...]}`` so the caller can pick a
-    ``work_id`` and call again. On no match, returns ``{"error":
-    "not_found", ...}`` — the model should then say "this
-    reference is not in the corpus" rather than fabricating one.
-
-    Volume + pages are not currently rendered (they live in
-    per-paper ``references.json``, not on ``works.*``). v0.5.x
-    follow-up.
+    On ambiguous match returns ``{error: "ambiguous", matches: [...]}``;
+    on no match returns ``{error: "not_found", ...}`` — say "not in
+    the corpus" rather than fabricating one.
     """
     from bib.format import SUPPORTED_STYLES, format_citation as _format_str
 

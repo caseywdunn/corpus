@@ -95,30 +95,18 @@ def lexicon_matrix(
     year_to: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Paper × term mention-count grid for one lexicon category (#76).
+    Server-side join; ~2 k tokens for 100 × 20.
 
-    Replaces ad-hoc rendering of "lexicon coverage" sections (p01) and
-    keyword-sanity tables (p13's TaxoDros check) — instead of fetching
-    each paper's top_lexicon_terms and joining client-side, the server
-    emits the table directly. Typical payload ~2 k tokens for a
-    100-paper × 20-term grid.
+    Columns: ``terms=[...]`` for a specific set, else top_n by total
+    mention count. Rows: ``paper_hashes=[...]`` else all papers,
+    optionally year-filtered (inclusive), sorted by year desc then
+    hash. Cells: ``terms[].mention_count`` from each paper's
+    ``<category>.json``; papers with no file contribute zero rows.
 
-    Columns: pass ``terms=[...]`` for a specific column set, or
-    accept the default — the ``top_n`` most-mentioned terms across
-    the whole corpus, sorted by total mention count.
+    Category-agnostic. Unknown category returns ``{error:
+    "unknown_category", available: [...]}``.
 
-    Rows: pass ``paper_hashes=[...]`` for a specific row set, or
-    accept the default — every paper, optionally filtered by
-    ``year_from`` / ``year_to`` (inclusive). Rows are sorted by year
-    desc, then hash for stable ordering.
-
-    Cells: integer mention counts read from each paper's
-    ``<category>.json`` ``terms[].mention_count`` field. Papers with
-    no ``<category>.json`` contribute a zero row.
-
-    Category-agnostic. Returns ``{"error": "unknown_category",
-    "available": [...]}`` if the bundle doesn't declare it.
-
-    Returned shape::
+    Returns::
 
         {
           "category": str,

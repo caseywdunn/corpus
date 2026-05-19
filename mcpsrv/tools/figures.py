@@ -311,36 +311,21 @@ def get_figure_dossier_for_taxon(
     max_linked_chunks: int = _FIGURE_DOSSIER_MAX_LINKED_CHUNKS_DEFAULT,
     include_rois: bool = True,
 ) -> Dict[str, Any]:
-    """Figures linked to a taxon, each with its explanatory chunk IDs (#76).
+    """Figures linked to a taxon, each with its explanatory chunk IDs
+    (#76). Supersedes ``get_figures_for_taxon`` + per-figure
+    ``list_figure_rois`` + cross-ref against ``get_chunks_for_taxon``.
+    Pair with ``get_chunks(paper_hash, chunk_ids=[...])`` to read the
+    explanatory passages.
 
-    Supersedes the chain ``get_figures_for_taxon`` + per-figure
-    ``list_figure_rois`` + cross-ref against
-    ``get_chunks_for_taxon`` for "show me the figures of <taxon>
-    and the passages that describe them." Single call; the LLM
-    pulls one targeted ``get_chunks(paper_hash, chunk_ids=[...])``
-    to read the explanatory passages.
+    Real figures + plates only (graphical_element / plate_label
+    skipped). Ranked by caption-name match > mere paper-mention.
 
-    Figures ranked the same way ``get_figures_for_taxon`` does:
-    caption-name match scores higher than mere paper-mention. Only
-    real figures / plates are returned (skips graphical_element,
-    plate_label, etc.).
-
-    Returned shape::
-
-        {
-          "taxon": {taxon_id, accepted_name, ...},
-          "n_papers_with_figures": int,
-          "n_figures": int,
-          "figures": [{
-            "paper_hash", "paper_title", "paper_year",
-            "figure_id", "figure_type", "page", "figure_number",
-            "caption_preview", "image_path",
-            "caption_has_taxon": bool,
-            "linked_chunks": [{chunk_id, section_class, headings}, ...],
-            "rois": {panel_count_from_caption, panel_labels,
-                     n_rois_with_pixel_bbox},   # iff include_rois
-          }, ...]
-        }
+    Returns ``{taxon, n_papers_with_figures, n_figures, figures:
+    [{paper_hash, paper_title, paper_year, figure_id, figure_type,
+    page, figure_number, caption_preview, image_path,
+    caption_has_taxon, linked_chunks: [{chunk_id, section_class,
+    headings}], rois?: {panel_count_from_caption, panel_labels,
+    n_rois_with_pixel_bbox}}]}``.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
@@ -725,30 +710,18 @@ def get_figure_url(
     figure_id: str,
     label: Optional[str] = None,
 ) -> Dict:
-    """Return an HTTP URL the caller can ``curl -o`` to land the
-    figure PNG on disk *without* loading its bytes into the model's
-    context window.
+    """Return a bearer-gated HTTP URL the caller can ``curl -o`` to
+    land the figure PNG on disk *without* loading its bytes into the
+    model's context window. Use instead of ``get_figure_image`` when
+    file bytes must reach the filesystem (pandoc / LaTeX / PDF
+    assembly) — the byte flow stays off the MCP JSON-RPC channel
+    regardless of figure size.
 
-    Use this instead of ``get_figure_image`` when you need the file
-    bytes to land in the local filesystem (e.g. for pandoc / LaTeX /
-    PDF assembly). ``get_figure_image`` ships bytes through the MCP
-    image-content channel, which clients render inline for the human
-    reader but do not expose to the model as data the model can
-    re-emit through ``Write``/``Bash``.
-
-    The returned ``url`` is bearer-token-gated by the same secret that
-    guards ``/sse`` (or, on stdio MCP, a one-shot token minted at
-    server start). Fetch with ``curl -H "$auth_header" -o <path>
-    "$url"``; the bytes flow over HTTP outside the MCP JSON-RPC
-    channel so they don't burn context regardless of figure size.
-
-    Without ``label`` returns the whole figure. With ``label`` returns
-    the panel crop if one exists (matching ``get_figure_image``
-    semantics), falling back to the whole figure otherwise.
-
-    Refuses the figure when the parent work's ``publishable`` flag
-    (#51) is false, same policy as ``get_figure_image`` — override at
-    server start with ``--allow-unpublishable``.
+    Fetch via ``curl -H "$auth_header" -o <path> "$url"``. Without
+    ``label`` returns the whole figure; with ``label`` returns the
+    panel crop if one exists (else falls back to the whole figure).
+    Refuses unpublishable figures (#51) unless server started with
+    ``--allow-unpublishable``.
 
     Returns ``{url, auth_header, mime_type, publishable, license,
     license_source}`` on success, ``{error: ...}`` on failure.
