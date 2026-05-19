@@ -144,10 +144,6 @@ Smaller items that fit alongside the two big-ticket pieces.
   consolidated in one subsection, and Grobid startup moved out to
   its own h2 (it's a run-time, not install-time, concern).
   Landed on dev (b92e355 + follow-ups); closes on release merge.
-- [ ] **Drift detection.** Hash the resolved config (input paths +
-  per-input content SHA) into a corpuscle-side state file so a
-  re-run that's doing more than expected can show *why*. Carried
-  from v0.3 → v0.4; not yet filed.
 - [x] **Success summary on clean `corpus run`**
   ([#57](https://github.com/caseywdunn/corpus/issues/57)).
   New `_write_run_log` helper in `pipeline/cli.py` writes the
@@ -167,6 +163,13 @@ Smaller items that fit alongside the two big-ticket pieces.
 
 Out of v0.5 by scope, carried so they stay visible.
 
+- **Drift detection**
+  ([#80](https://github.com/caseywdunn/corpus/issues/80)).
+  Diff the resolved config + per-input content SHAs across runs
+  and report the diff before the orchestrator starts, so an operator
+  can see *why* a re-run is doing more work than expected. Carried
+  as a PLAN-only note since v0.3; filed as a real issue at the end
+  of v0.5 so it's tracked, not orphaned.
 - **Figure-number extraction on old/scanned papers**
   ([#16](https://github.com/caseywdunn/corpus/issues/16)).
   ~538 of 1,787 papers have unparsed figure numbers; modest
