@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 29 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 31 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -26,6 +26,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `list_papers` | Every paper in the corpus with bibliographic + annotation counts. Optional `year_from` / `year_to` filters. |
 | `get_paper` | Full metadata for one paper: title, authors, year, abstract, DOI, plus top taxa and anatomy terms. |
 | `get_chunk` | One chunk's full record: text, headings, section_class, figure_refs. |
+| `get_chunks` | Batched chunk fetch for one paper — drill-down pair to every `*_dossier` tool. Pass `chunk_ids=[...]` for a subset; `with_text=False` emits metadata-only (~80 chars/chunk). |
 | `get_chunks_by_section` | Chunks of a paper filtered by section class. |
 
 ## Taxonomy
@@ -38,6 +39,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_taxon_mentions` | All text-span mentions of a taxon across the corpus, with surrounding context. |
 | `list_valid_species_under` | All currently-valid species descending from the given taxon in the configured taxonomy snapshot. |
 | `get_papers_by_author` | Papers authored by the given surname (case-insensitive). |
+| `get_taxon_dossier` | One-call comprehensive view of a taxon across the corpus: metadata, papers (sorted by mention count), chunk_index (IDs only — pair with `get_chunks`), figure_index, top lexicon terms per category, cooccurring taxa. Supersedes the `search_taxon` + `get_papers_for_taxon` + N× `get_paper` + N× `get_chunks_for_taxon` + `get_figures_for_taxon` chain (~45 round-trips → 1). `include=[...]` trims sections. |
 
 ## Bibliography + citation graph
 

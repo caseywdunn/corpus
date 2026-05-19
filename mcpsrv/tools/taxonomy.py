@@ -9,10 +9,22 @@ form is the accepted name, an unaccepted one, or a registered synonym.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..app import _load_json, _need_index, mcp
+
+# Filenames at the per-paper root that are NOT lexicon outputs.
+# Mirrors the same list in CorpusIndex.load() so dossier readers
+# walking *.json files can distinguish lexicon outputs from the
+# fixed pipeline artifacts.
+_NON_LEXICON_PER_PAPER_FILES = frozenset({
+    "summary.json", "metadata.json", "references.json",
+    "taxa.json", "figures.json", "chunks.json",
+    "scan_detection.json", "docling_doc.json",
+    "intext_citations.json", "pipeline_state.json",
+})
 
 
 # Helper used by the get_taxon_mentions fallback path.
@@ -154,6 +166,275 @@ def get_chunks_for_taxon(
             })
 
     return out[offset: offset + int(limit)] if limit else out[offset:]
+
+
+# #76 — dossier defaults sized for typical 3–10 k-token responses.
+_DOSSIER_MAX_PAPERS_DEFAULT = 50
+_DOSSIER_MAX_CHUNKS_DEFAULT = 100
+_DOSSIER_MAX_FIGURES_DEFAULT = 25
+_DOSSIER_LEXICON_TOP_N_DEFAULT = 10
+_DOSSIER_COOCCURRING_TOP_N_DEFAULT = 20
+_DOSSIER_SECTIONS = frozenset({
+    "papers", "chunks", "figures", "lexicon", "cooccurring_taxa",
+})
+
+
+@mcp.tool()
+def get_taxon_dossier(
+    taxon_name: str,
+    include: Optional[List[str]] = None,
+    max_papers: int = _DOSSIER_MAX_PAPERS_DEFAULT,
+    max_chunks: int = _DOSSIER_MAX_CHUNKS_DEFAULT,
+    max_figures: int = _DOSSIER_MAX_FIGURES_DEFAULT,
+    top_n_lexicon: int = _DOSSIER_LEXICON_TOP_N_DEFAULT,
+    top_n_cooccurring: int = _DOSSIER_COOCCURRING_TOP_N_DEFAULT,
+) -> Dict[str, Any]:
+    """One-call comprehensive view of a taxon across the corpus (#76).
+
+    Supersedes the chain ``search_taxon`` + ``get_papers_for_taxon``
+    + N× ``get_paper`` + N× ``get_chunks_for_taxon`` +
+    ``get_figures_for_taxon`` for enumerative taxon-anatomy and
+    monographic prompts (~45 round-trips → 1). Typical payload
+    3–10 k tokens.
+
+    Pair with ``get_chunks(paper_hash, chunk_ids=[...])`` for
+    selective full-text drill-down — ``chunk_index`` returns IDs +
+    section + headings, **not text**. Pair with
+    ``get_figure_image(paper_hash, figure_id)`` to pull a figure's
+    bytes once the figure_index identifies the relevant one.
+
+    ``include`` (default = all five sections) trims the response:
+    one or more of ``papers``, ``chunks``, ``figures``, ``lexicon``,
+    ``cooccurring_taxa``. Use it to drop sections an enumerative
+    prompt doesn't need (e.g. ``include=["papers", "chunks"]`` skips
+    figures + lexicon + cooccurring for a text-only review).
+
+    Per-section caps: ``max_papers`` (default 50, sorted by mention
+    count desc), ``max_chunks`` (100, paper-then-chunk order),
+    ``max_figures`` (25, caption-relevance-first), ``top_n_lexicon``
+    (10 per category), ``top_n_cooccurring`` (20 taxa).
+
+    Returned shape (sections present iff requested via ``include``):
+
+        {
+          "taxon": {taxon_id, accepted_name, rank, authority,
+                    matched_name?},
+          "n_papers_mentioning": int,
+          "papers": [{hash, title, year, first_author, n_mentions}, ...],
+          "chunk_index": [{paper_hash, chunk_id, section_class,
+                           headings}, ...],
+          "figure_index": [{paper_hash, figure_id, figure_type,
+                            page, figure_number, caption_has_taxon}, ...],
+          "lexicon_aggregated": {
+            category: [{term, n_papers, n_mentions}, ...],
+            ...
+          },
+          "cooccurring_taxa": [{taxon_id, name, rank?,
+                                n_shared_papers}, ...],
+        }
+    """
+    idx = _need_index()
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(taxon_name)
+    if not hit:
+        return {"not_found": True, "queried": taxon_name}
+
+    aid = hit["accepted_taxon_id"]
+    requested = (
+        _DOSSIER_SECTIONS
+        if include is None
+        else _DOSSIER_SECTIONS & set(include)
+    )
+
+    # Always emit taxon metadata + paper-mention count.
+    out: Dict[str, Any] = {
+        "taxon": {
+            "taxon_id": aid,
+            "accepted_name": hit.get("accepted_name"),
+            "rank": hit.get("rank"),
+            "authority": hit.get("authority"),
+        },
+        "n_papers_mentioning": len(idx.taxon_to_papers.get(aid, [])),
+    }
+    # matched_name only when it diverges from accepted_name (synonym hit)
+    matched_name = hit.get("matched_name")
+    if matched_name and matched_name != hit.get("accepted_name"):
+        out["taxon"]["matched_name"] = matched_name
+    # Drop null rank / authority for sparse encoding.
+    for k in ("rank", "authority"):
+        if out["taxon"].get(k) is None:
+            out["taxon"].pop(k, None)
+
+    paper_hashes = list(idx.taxon_to_papers.get(aid, []))
+    if not paper_hashes:
+        return out  # taxon known but no corpus papers mention it
+
+    # Sort papers by mention count desc, ties by year desc.
+    paper_hashes.sort(
+        key=lambda h: (
+            -idx.taxon_mention_counts.get(aid, {}).get(h, 0),
+            -(idx.papers.get(h, {}).get("year") or 0),
+        ),
+    )
+    in_scope = paper_hashes[: max_papers]
+
+    if "papers" in requested:
+        papers_out: List[Dict[str, Any]] = []
+        for h in in_scope:
+            p = idx.papers.get(h) or {}
+            authors = p.get("authors") or []
+            first_author = (
+                (authors[0].get("surname") or "") if authors else ""
+            )
+            papers_out.append({
+                "hash": h,
+                "title": p.get("title"),
+                "year": p.get("year"),
+                "first_author": first_author or None,
+                "n_mentions": idx.taxon_mention_counts.get(aid, {}).get(h, 0),
+            })
+        # Sparse-encode null first_author.
+        for row in papers_out:
+            if row.get("first_author") is None:
+                row.pop("first_author", None)
+        out["papers"] = papers_out
+
+    if "chunks" in requested:
+        chunk_index: List[Dict[str, Any]] = []
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            taxa = _load_json(Path(p["hash_dir"]) / "taxa.json", default={}) or {}
+            chunks_data = _load_json(
+                Path(p["hash_dir"]) / "chunks.json", default={},
+            ) or {}
+            chunks_by_id = {
+                c.get("chunk_id"): c
+                for c in chunks_data.get("chunks", []) or []
+            }
+            seen: set = set()
+            for m in taxa.get("mentions", []) or []:
+                if m.get("accepted_taxon_id") != aid:
+                    continue
+                cid = m.get("chunk_id")
+                if not cid or cid in seen:
+                    continue
+                seen.add(cid)
+                ch = chunks_by_id.get(cid) or {}
+                chunk_index.append({
+                    "paper_hash": h,
+                    "chunk_id": cid,
+                    "section_class": ch.get("section_class"),
+                    "headings": ch.get("headings") or [],
+                })
+                if len(chunk_index) >= max_chunks:
+                    break
+            if len(chunk_index) >= max_chunks:
+                break
+        out["chunk_index"] = chunk_index
+
+    if "figures" in requested:
+        from .figures import _REAL_FIGURE_TYPES  # local import: avoid cycle
+
+        accepted_low = (hit.get("accepted_name") or "").lower()
+        matched_low = (matched_name or "").lower()
+        fig_rows: List[Dict[str, Any]] = []
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
+            for f in figs.get("figures", []) or []:
+                if f.get("figure_type") not in _REAL_FIGURE_TYPES:
+                    continue
+                caption = (f.get("caption_text") or f.get("caption") or "").lower()
+                hit_in_caption = bool(
+                    accepted_low and accepted_low in caption
+                ) or bool(matched_low and matched_low in caption)
+                fig_rows.append({
+                    "paper_hash": h,
+                    "figure_id": f.get("figure_id"),
+                    "figure_type": f.get("figure_type"),
+                    "page": f.get("page"),
+                    "figure_number": f.get("figure_number"),
+                    "caption_has_taxon": hit_in_caption,
+                    "_score": (100 if hit_in_caption else 0)
+                    + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
+                })
+        fig_rows.sort(key=lambda r: -r["_score"])
+        for r in fig_rows:
+            r.pop("_score", None)
+        out["figure_index"] = fig_rows[: max_figures]
+
+    if "lexicon" in requested:
+        # Aggregate lexicon term counts across papers in scope by
+        # walking per-paper <category>.json files. The corpus-wide
+        # lexicon_to_papers index is paper-level but doesn't carry
+        # mention counts on a per-paper basis sliced by taxon scope —
+        # so we accumulate from disk.
+        per_category: Dict[str, Dict[str, Dict[str, int]]] = {}
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            hash_dir = Path(p["hash_dir"])
+            for child in hash_dir.glob("*.json"):
+                if child.name in _NON_LEXICON_PER_PAPER_FILES:
+                    continue
+                payload = _load_json(child, default=None)
+                if not isinstance(payload, dict):
+                    continue
+                category = payload.get("category")
+                if not category:
+                    continue
+                cat_acc = per_category.setdefault(category, {})
+                for term in payload.get("terms", []) or []:
+                    canon = term.get("canonical")
+                    if not canon:
+                        continue
+                    rec = cat_acc.setdefault(canon, {"n_papers": 0, "n_mentions": 0})
+                    rec["n_papers"] += 1
+                    rec["n_mentions"] += term.get("mention_count", 0) or 0
+        lexicon_aggregated: Dict[str, List[Dict[str, Any]]] = {}
+        for category, terms in per_category.items():
+            ranked = sorted(
+                ({"term": t, **rec} for t, rec in terms.items()),
+                key=lambda r: (-r["n_mentions"], r["term"]),
+            )
+            lexicon_aggregated[category] = ranked[: top_n_lexicon]
+        out["lexicon_aggregated"] = lexicon_aggregated
+
+    if "cooccurring_taxa" in requested:
+        # Counter of taxon_id (other than aid) keyed by how many of
+        # the in-scope papers mention each one.
+        co_papers: Counter = Counter()
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            taxa = _load_json(Path(p["hash_dir"]) / "taxa.json", default={}) or {}
+            seen_here: set = set()
+            for t in taxa.get("taxa", []) or []:
+                other_aid = t.get("accepted_taxon_id")
+                if other_aid and other_aid != aid and other_aid not in seen_here:
+                    co_papers[other_aid] += 1
+                    seen_here.add(other_aid)
+        cooccur_rows: List[Dict[str, Any]] = []
+        for other_aid, n_shared in co_papers.most_common(top_n_cooccurring):
+            display = idx.taxon_display.get(other_aid, {})
+            row: Dict[str, Any] = {
+                "taxon_id": other_aid,
+                "name": display.get("accepted_name") or other_aid,
+                "n_shared_papers": n_shared,
+            }
+            if display.get("rank"):
+                row["rank"] = display.get("rank")
+            cooccur_rows.append(row)
+        out["cooccurring_taxa"] = cooccur_rows
+
+    return out
 
 
 @mcp.tool()

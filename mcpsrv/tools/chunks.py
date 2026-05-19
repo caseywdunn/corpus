@@ -17,6 +17,66 @@ from ..app import _load_json, _need_index, mcp
 
 
 @mcp.tool()
+def get_chunks(
+    paper_hash: str,
+    chunk_ids: Optional[List[str]] = None,
+    with_text: bool = True,
+) -> List[Dict]:
+    """Batched chunk fetch for one paper — the drill-down pair to
+    every ``*_dossier`` tool (#76). Get the dossier's chunk_index,
+    pick the chunk_ids that matter, fetch their full text with one
+    call instead of N×``get_chunk``.
+
+    ``chunk_ids=None`` returns every chunk in the paper, in original
+    order. Pass an explicit list to fetch only those — useful when a
+    dossier returns 50 chunk_ids and only 5 are relevant to the
+    current question. Unknown IDs are silently skipped (so the
+    caller doesn't have to deduplicate against the dossier's index).
+
+    ``with_text=False`` emits the metadata-only shape (~80 chars per
+    chunk vs ~600 with full text): chunk_id, section_class,
+    headings, len_chars, figure_refs. Use it for orientation passes
+    where the body text isn't yet needed.
+
+    Returns ``[{chunk_id, section_class, headings, figure_refs,
+    [text,] [len_chars,]}, ...]`` in paper-order. Errors as
+    ``[{error: ...}]`` for an unknown paper_hash, matching the
+    convention of sibling tools.
+    """
+    idx = _need_index()
+    p = idx.papers.get(paper_hash)
+    if not p:
+        return [{"error": f"no such paper_hash: {paper_hash}"}]
+    chunks_data = _load_json(Path(p["hash_dir"]) / "chunks.json", default={}) or {}
+    all_chunks = chunks_data.get("chunks", []) or []
+
+    if chunk_ids is None:
+        selected = all_chunks
+    else:
+        wanted = set(chunk_ids)
+        by_id = {c.get("chunk_id"): c for c in all_chunks}
+        # Preserve paper-order rather than caller-order; the caller
+        # is usually grabbing a set, not a sequence.
+        selected = [by_id[cid] for cid in by_id if cid in wanted]
+
+    out: List[Dict] = []
+    for c in selected:
+        text = c.get("text") or ""
+        row: Dict[str, object] = {
+            "chunk_id": c.get("chunk_id"),
+            "section_class": c.get("section_class"),
+            "headings": c.get("headings") or [],
+            "figure_refs": c.get("figure_refs") or [],
+        }
+        if with_text:
+            row["text"] = text
+        else:
+            row["len_chars"] = len(text)
+        out.append(row)
+    return out
+
+
+@mcp.tool()
 def get_chunks_by_section(
     paper_hash: str,
     section_class: Optional[str] = None,
