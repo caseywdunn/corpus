@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 34 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 36 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -62,6 +62,8 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | --- | --- |
 | `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. |
 | `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). |
+| `get_figure_dossier_for_taxon` | Figures linked to a taxon, each with `linked_chunks` (chunk IDs that reference the figure via `chunks.json:figure_refs`) + summarized ROIs. Single call replaces `get_figures_for_taxon` + per-figure `list_figure_rois` + cross-ref against `get_chunks_for_taxon`. |
+| `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Category-agnostic. |
 | `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references. |
 | `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. |
 | `list_figure_rois` | Per-panel / per-subfigure ROIs annotated on a figure. |

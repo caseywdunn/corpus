@@ -16,7 +16,7 @@ cases.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import Image
 
@@ -218,6 +218,270 @@ def get_figures_for_lexicon_term(
     rows.sort(key=lambda r: -r["match_count"])
     return rows[: int(limit)] if limit else rows
 
+
+
+# #76 — bounded defaults for the figure-dossier pair.
+_FIGURE_DOSSIER_MAX_FIGURES_DEFAULT = 25
+_FIGURE_DOSSIER_MAX_LINKED_CHUNKS_DEFAULT = 10
+_FIGURE_CAPTION_PREVIEW_CHARS = 200
+
+
+def _caption_preview(caption: str, n: int = _FIGURE_CAPTION_PREVIEW_CHARS) -> str:
+    """Trim a caption to a preview length without breaking mid-word."""
+    caption = (caption or "").strip()
+    if len(caption) <= n:
+        return caption
+    cut = caption[: n].rsplit(" ", 1)[0]
+    return cut + "…"
+
+
+def _linked_chunks_for_figure(
+    figure_id: str,
+    chunks_by_id: Dict[str, Dict],
+    max_chunks: int,
+) -> List[Dict]:
+    """Find chunks in this paper that reference ``figure_id`` via
+    chunks.json ``figure_refs``. Returns lightweight entries (IDs +
+    section + headings, no text — caller pairs with get_chunks)."""
+    out: List[Dict] = []
+    for cid, ch in chunks_by_id.items():
+        if figure_id in (ch.get("figure_refs") or []):
+            out.append({
+                "chunk_id": cid,
+                "section_class": ch.get("section_class"),
+                "headings": ch.get("headings") or [],
+            })
+            if len(out) >= max_chunks:
+                break
+    return out
+
+
+def _figure_dossier_entry(
+    idx,
+    paper_hash: str,
+    figure_record: Dict,
+    chunks_by_id: Dict[str, Dict],
+    *,
+    include_rois: bool,
+    max_linked_chunks: int,
+    extra_fields: Optional[Dict] = None,
+) -> Dict:
+    """Compose the per-figure dossier row. ROIs are summarised to
+    counts + panel labels (caption-derived) rather than full ROI
+    objects — those are still available via list_figure_rois."""
+    p = idx.papers.get(paper_hash) or {}
+    figure_id = figure_record.get("figure_id")
+    entry: Dict[str, Any] = {
+        "paper_hash": paper_hash,
+        "paper_title": p.get("title"),
+        "paper_year": p.get("year"),
+        "figure_id": figure_id,
+        "figure_type": figure_record.get("figure_type"),
+        "page": figure_record.get("page"),
+        "figure_number": figure_record.get("figure_number"),
+        "caption_preview": _caption_preview(
+            figure_record.get("caption_text") or figure_record.get("caption") or "",
+        ),
+        "image_path": f"{paper_hash}/figures/{figure_record.get('filename') or ''}",
+        "linked_chunks": _linked_chunks_for_figure(
+            figure_id, chunks_by_id, max_linked_chunks,
+        ),
+    }
+    if include_rois:
+        panels = figure_record.get("panels_from_caption") or []
+        rois = figure_record.get("rois") or []
+        entry["rois"] = {
+            "panel_count_from_caption": figure_record.get(
+                "panel_count_from_caption", 0,
+            ),
+            "panel_labels": [
+                p.get("label") for p in panels if p.get("label")
+            ],
+            "n_rois_with_pixel_bbox": len(rois),
+        }
+    if extra_fields:
+        entry.update(extra_fields)
+    return entry
+
+
+@mcp.tool()
+def get_figure_dossier_for_taxon(
+    taxon_name: str,
+    max_figures: int = _FIGURE_DOSSIER_MAX_FIGURES_DEFAULT,
+    max_linked_chunks: int = _FIGURE_DOSSIER_MAX_LINKED_CHUNKS_DEFAULT,
+    include_rois: bool = True,
+) -> Dict[str, Any]:
+    """Figures linked to a taxon, each with its explanatory chunk IDs (#76).
+
+    Supersedes the chain ``get_figures_for_taxon`` + per-figure
+    ``list_figure_rois`` + cross-ref against
+    ``get_chunks_for_taxon`` for "show me the figures of <taxon>
+    and the passages that describe them." Single call; the LLM
+    pulls one targeted ``get_chunks(paper_hash, chunk_ids=[...])``
+    to read the explanatory passages.
+
+    Figures ranked the same way ``get_figures_for_taxon`` does:
+    caption-name match scores higher than mere paper-mention. Only
+    real figures / plates are returned (skips graphical_element,
+    plate_label, etc.).
+
+    Returned shape::
+
+        {
+          "taxon": {taxon_id, accepted_name, ...},
+          "n_papers_with_figures": int,
+          "n_figures": int,
+          "figures": [{
+            "paper_hash", "paper_title", "paper_year",
+            "figure_id", "figure_type", "page", "figure_number",
+            "caption_preview", "image_path",
+            "caption_has_taxon": bool,
+            "linked_chunks": [{chunk_id, section_class, headings}, ...],
+            "rois": {panel_count_from_caption, panel_labels,
+                     n_rois_with_pixel_bbox},   # iff include_rois
+          }, ...]
+        }
+    """
+    idx = _need_index()
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(taxon_name)
+    if not hit:
+        return {"not_found": True, "queried": taxon_name}
+
+    aid = hit["accepted_taxon_id"]
+    accepted_low = (hit.get("accepted_name") or "").lower()
+    matched_low = (hit.get("matched_name") or "").lower()
+    paper_hashes = list(idx.taxon_to_papers.get(aid, []))
+
+    taxon_block: Dict[str, Any] = {
+        "taxon_id": aid,
+        "accepted_name": hit.get("accepted_name"),
+    }
+    if hit.get("rank"):
+        taxon_block["rank"] = hit["rank"]
+
+    scored: List[Dict] = []
+    n_papers_with_figures = 0
+    for h in paper_hashes:
+        p = idx.papers.get(h)
+        if not p:
+            continue
+        figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
+        fig_list = figs.get("figures", []) or []
+        chunks_data = _load_json(
+            Path(p["hash_dir"]) / "chunks.json", default={},
+        ) or {}
+        chunks_by_id = {
+            c.get("chunk_id"): c
+            for c in chunks_data.get("chunks", []) or []
+        }
+        had_a_figure = False
+        for f in fig_list:
+            if f.get("figure_type") not in _REAL_FIGURE_TYPES:
+                continue
+            had_a_figure = True
+            caption = (f.get("caption_text") or f.get("caption") or "").lower()
+            caption_hit = (
+                bool(accepted_low and accepted_low in caption)
+                or bool(matched_low and matched_low in caption)
+            )
+            score = (100 if caption_hit else 0) + idx.taxon_mention_counts.get(
+                aid, {},
+            ).get(h, 0)
+            entry = _figure_dossier_entry(
+                idx, h, f, chunks_by_id,
+                include_rois=include_rois,
+                max_linked_chunks=max_linked_chunks,
+                extra_fields={"caption_has_taxon": caption_hit},
+            )
+            scored.append((score, entry))
+        if had_a_figure:
+            n_papers_with_figures += 1
+
+    scored.sort(key=lambda pair: -pair[0])
+    figures_out = [entry for _, entry in scored[: max_figures]]
+    return {
+        "taxon": taxon_block,
+        "n_papers_with_figures": n_papers_with_figures,
+        "n_figures": len(figures_out),
+        "figures": figures_out,
+    }
+
+
+@mcp.tool()
+def get_figure_dossier_for_term(
+    category: str,
+    term: str,
+    max_figures: int = _FIGURE_DOSSIER_MAX_FIGURES_DEFAULT,
+    max_linked_chunks: int = _FIGURE_DOSSIER_MAX_LINKED_CHUNKS_DEFAULT,
+    include_rois: bool = True,
+) -> Dict[str, Any]:
+    """Figures whose captions mention a lexicon term, each with its
+    explanatory chunk IDs (#76).
+
+    Replaces the chain ``get_figures_for_lexicon_term`` + per-figure
+    ``list_figure_rois`` + cross-ref against ``get_chunks_for_topic``
+    for the "show me figures depicting <term> and the passages that
+    explain them" pattern.
+
+    Category-agnostic. Match is caption-substring (case-insensitive)
+    on ``term``. Returns the same shape as
+    ``get_figure_dossier_for_taxon`` minus the taxon block, plus
+    ``caption_match_count`` per figure (the substring hit count).
+    """
+    idx = _need_index()
+    available = sorted(idx.lexicon_to_papers.keys())
+    if category not in available:
+        return {
+            "error": "unknown_category",
+            "queried_category": category,
+            "available": available,
+        }
+    term_low = (term or "").strip().lower()
+    if not term_low:
+        return {"error": "empty_term"}
+
+    scored: List[Dict] = []
+    n_papers_with_figures = 0
+    for h, p in idx.papers.items():
+        figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
+        fig_list = figs.get("figures", []) or []
+        chunks_data = _load_json(
+            Path(p["hash_dir"]) / "chunks.json", default={},
+        ) or {}
+        chunks_by_id = {
+            c.get("chunk_id"): c
+            for c in chunks_data.get("chunks", []) or []
+        }
+        had_a_figure = False
+        for f in fig_list:
+            if f.get("figure_type") not in _REAL_FIGURE_TYPES:
+                continue
+            caption = (f.get("caption_text") or f.get("caption") or "")
+            occ = caption.lower().count(term_low)
+            if occ == 0:
+                continue
+            had_a_figure = True
+            entry = _figure_dossier_entry(
+                idx, h, f, chunks_by_id,
+                include_rois=include_rois,
+                max_linked_chunks=max_linked_chunks,
+                extra_fields={"caption_match_count": occ},
+            )
+            scored.append((occ, entry))
+        if had_a_figure:
+            n_papers_with_figures += 1
+
+    scored.sort(key=lambda pair: -pair[0])
+    figures_out = [entry for _, entry in scored[: max_figures]]
+    return {
+        "category": category,
+        "term": term,
+        "n_papers_with_figures": n_papers_with_figures,
+        "n_figures": len(figures_out),
+        "figures": figures_out,
+    }
 
 
 @mcp.tool()
