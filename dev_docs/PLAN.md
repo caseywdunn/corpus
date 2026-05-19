@@ -120,6 +120,29 @@ MCP surface for the way LLM clients actually consume it.
   (per #76 implementation notes) deferred until in-vivo timings
   show it matters — the in-memory aggregation is already fast.
 
+### Token-efficiency follow-ups
+
+Smaller token-cost levers surfaced after the #76 + #79 work shipped,
+filed at the end of v0.5 so they're tracked.
+
+- [x] **Docstring audit + prompt-cache documentation**
+  ([#81](https://github.com/caseywdunn/corpus/issues/81)). Trimmed
+  the eight longest `@mcp.tool()` docstrings (~25 kc → ~19.6 kc,
+  **~1.4 k tokens saved per uncached session**, ~20% catalog
+  reduction). Plus a new `dev_docs/MCP_TOOLS.md` section showing
+  Anthropic API clients where to place `cache_control` breakpoints
+  for the ~5 k-token system-prompt + tool-catalog static prefix
+  (~10× cheaper on cache_read). 112 tests still pass. Landed on
+  dev (0dbc0ca).
+- [x] **`get_chunks_for_topic with_text=False` mode**
+  ([#82](https://github.com/caseywdunn/corpus/issues/82)). Mirrors
+  the `get_chunks` pattern from #76 onto the semantic-search
+  surface — metadata-only response (~80 chars/row vs ~600), then
+  drill down via `get_chunks(paper_hash, chunk_ids=[...])`.
+  Projected ~45% cut on typical k=10 scan-then-focus workflows.
+  Backwards-compatible (default stays `True`). Landed on dev
+  (40d56d1).
+
 ### Quick fixes + carryover
 
 Smaller items that fit alongside the two big-ticket pieces.
@@ -170,6 +193,13 @@ Out of v0.5 by scope, carried so they stay visible.
   can see *why* a re-run is doing more work than expected. Carried
   as a PLAN-only note since v0.3; filed as a real issue at the end
   of v0.5 so it's tracked, not orphaned.
+- **Column-store shape for `lexicon_matrix`**
+  ([#83](https://github.com/caseywdunn/corpus/issues/83)).
+  Held pending real-world motivation: optional column-store row
+  shape (parallel arrays + `row_schema`) instead of repeated JSON
+  keys per row. Saves ~20–30% tokens at 100-row matrix scale at
+  the cost of slightly less ergonomic JSON. File-only until a
+  prompt-suite analysis shows large-matrix usage matters.
 - **Figure-number extraction on old/scanned papers**
   ([#16](https://github.com/caseywdunn/corpus/issues/16)).
   ~538 of 1,787 papers have unparsed figure numbers; modest
