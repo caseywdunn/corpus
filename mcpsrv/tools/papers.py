@@ -254,6 +254,71 @@ def get_paper(paper_hash: str) -> Dict:
     }
 
 @mcp.tool()
+def get_papers(
+    hashes: List[str],
+    fields: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Batched ``get_paper`` for many hashes at once (#76).
+
+    Replaces the N×``get_paper`` pattern when a dossier returns a
+    paper list and the LLM wants metadata for each. Server-side this
+    is a hash-map lookup — already free.
+
+    ``fields`` (optional) whitelists which keys to return per paper.
+    Unknown fields are silently dropped; the standard set is
+    ``{hash, title, year, authors, doi, journal, abstract, filename,
+    n_chunks, n_figures, n_taxa, n_lexicon_terms, top_taxa,
+    top_lexicon_terms}``. Pass ``["hash", "title", "year",
+    "first_author"]`` for a thin payload.
+
+    Unknown hashes surface as ``{"hash": <h>, "error": "not_found"}``
+    so the caller can locate misses without re-issuing per-hash
+    requests. Output is in input order so the caller can zip back to
+    its prompt context.
+    """
+    idx = _need_index()
+    out: List[Dict[str, Any]] = []
+    for h in hashes:
+        p = idx.papers.get(h)
+        if p is None:
+            out.append({"hash": h, "error": "not_found"})
+            continue
+        # Materialize the full record (mirrors get_paper). The
+        # field-whitelist below trims after, so callers can ask for a
+        # cheap projection without us having to short-circuit reads.
+        hash_dir = Path(p["hash_dir"])
+        taxa = _load_json(hash_dir / "taxa.json", default={}) or {}
+        top_lexicon_terms: Dict[str, list] = {}
+        for child in hash_dir.glob("*.json"):
+            if child.name in _NON_LEXICON_FILES:
+                continue
+            payload = _load_json(child, default=None)
+            if isinstance(payload, dict) and "category" in payload:
+                top_lexicon_terms[payload["category"]] = (
+                    payload.get("terms") or []
+                )[:10]
+        # Synthesized "first_author" convenience — saves the caller
+        # walking authors[0].surname themselves.
+        authors = p.get("authors") or []
+        first_author = (
+            (authors[0].get("surname") or "") if authors else ""
+        ) or None
+
+        record: Dict[str, Any] = {
+            **{k: v for k, v in p.items() if k != "hash_dir"},
+            "first_author": first_author,
+            "top_taxa": (taxa.get("taxa") or [])[:10],
+            "top_lexicon_terms": top_lexicon_terms,
+        }
+        if fields is not None:
+            record = {k: v for k, v in record.items() if k in set(fields)}
+            # Always carry the hash so callers can locate rows.
+            record["hash"] = h
+        out.append(record)
+    return out
+
+
+@mcp.tool()
 def get_chunk(paper_hash: str, chunk_id: str) -> Dict:
     """One chunk's full record: text, headings, section_class,
     figure_refs."""

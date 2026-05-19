@@ -107,15 +107,18 @@ selectively. Worked example on p02 projects ~85 % token / ~92 %
 cache_read reduction. Pairs naturally with #79: both reshape the
 MCP surface for the way LLM clients actually consume it.
 
-- [ ] **Dossier tool suite**
+- [x] **Dossier tool suite**
   ([#76](https://github.com/caseywdunn/corpus/issues/76)).
-  Six new tools per the issue's priority order:
-  `corpus_summary`, `get_taxon_dossier`, the
-  `get_chunks(ids)` drill-down pair, `get_taxon_lexicon_slice`,
-  `lexicon_matrix`, `get_figure_dossier_*`, and batched
-  `get_papers`. 7–10 days across the six; the underlying indexes
-  are all on disk already, so v0.4's hardening doesn't block it.
-  Design lives in #76.
+  All six priority slots shipped on dev:
+  `corpus_summary` (ed6a229), `get_taxon_dossier` +
+  `get_chunks(ids)` workhorse pair (a007da7),
+  `get_taxon_lexicon_slice` (db767e7), `lexicon_matrix` +
+  `get_lexicon_term_dossier` (b7195d7), figure-dossier pair
+  (05e775c), `get_papers` + `get_taxon_subtree_dossier`
+  (this commit). 100 unit tests across the six tool groups; tool
+  count 27 → 38 in MCP_TOOLS.md. Caching layer on dossier outputs
+  (per #76 implementation notes) deferred until in-vivo timings
+  show it matters — the in-memory aggregation is already fast.
 
 ### Quick fixes + carryover
 

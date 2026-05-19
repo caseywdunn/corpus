@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 36 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -26,6 +26,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `list_papers` | Every paper in the corpus with bibliographic + annotation counts. Optional `year_from` / `year_to` filters. |
 | `get_paper` | Full metadata for one paper: title, authors, year, abstract, DOI, plus top taxa and anatomy terms. |
 | `get_chunk` | One chunk's full record: text, headings, section_class, figure_refs. |
+| `get_papers` | Batched `get_paper` for many hashes at once with optional field whitelist. Output is in input order. Synthesizes `first_author` so the caller doesn't walk `authors[0].surname` themselves. |
 | `get_chunks` | Batched chunk fetch for one paper — drill-down pair to every `*_dossier` tool. Pass `chunk_ids=[...]` for a subset; `with_text=False` emits metadata-only (~80 chars/chunk). |
 | `get_chunks_by_section` | Chunks of a paper filtered by section class. |
 
@@ -41,6 +42,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_papers_by_author` | Papers authored by the given surname (case-insensitive). |
 | `get_taxon_dossier` | One-call comprehensive view of a taxon across the corpus: metadata, papers (sorted by mention count), chunk_index (IDs only — pair with `get_chunks`), figure_index, top lexicon terms per category, cooccurring taxa. Supersedes the `search_taxon` + `get_papers_for_taxon` + N× `get_paper` + N× `get_chunks_for_taxon` + `get_figures_for_taxon` chain (~45 round-trips → 1). `include=[...]` trims sections. |
 | `get_taxon_lexicon_slice` | Lexicon coverage for one taxon under one category, joined at the chunk level. Same-chunk co-occurrence — tighter than `corpus_summary` / dossier rollups: a term only counts when it appears in a chunk where the taxon is also mentioned. Returns `{term, n_chunks, n_papers, paper_examples}` per term. Category-agnostic; unknown category returns the available list. |
+| `get_taxon_subtree_dossier` | Walk a clade's accepted species/subspecies via the DwC `parent_name_usage_id` tree; for each species with corpus coverage, return a capsule (paper count, mention count, authorship). Plus a deduplicated aggregate paper list across the subtree with `n_species_covered` per paper. Supersedes the p07 monographic pattern of `list_valid_species_under` + N× `get_papers_for_taxon`. |
 
 ## Bibliography + citation graph
 

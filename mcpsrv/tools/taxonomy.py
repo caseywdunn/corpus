@@ -700,6 +700,156 @@ def get_papers_by_author(surname: str) -> List[Dict]:
     return out
 
 
+# #76 — subtree-dossier bounds.
+_SUBTREE_MAX_SPECIES_DEFAULT = 50
+_SUBTREE_MAX_AGGREGATE_PAPERS_DEFAULT = 50
+
+
+@mcp.tool()
+def get_taxon_subtree_dossier(
+    root_taxon_name: str,
+    max_species: int = _SUBTREE_MAX_SPECIES_DEFAULT,
+    max_aggregate_papers: int = _SUBTREE_MAX_AGGREGATE_PAPERS_DEFAULT,
+) -> Dict[str, Any]:
+    """Per-species capsule view of a clade, plus a deduplicated
+    aggregate paper list across the whole subtree (#76, priority 6/6).
+
+    Replaces the p07 monographic pattern:
+    ``list_valid_species_under`` + N× ``get_papers_for_taxon`` +
+    N× ``get_chunks_for_taxon`` for "give me all the species under
+    <genus> and what the corpus says about each."
+
+    Walks the configured Darwin Core taxonomy snapshot via
+    ``parent_name_usage_id`` (BFS, same algorithm as
+    ``list_valid_species_under``) and projects per-species corpus
+    coverage from the in-memory ``taxon_to_papers`` /
+    ``taxon_mention_counts`` indexes. No chunk text is returned — pair
+    with ``get_taxon_dossier(taxon)`` for one-species drill-down or
+    ``get_chunks(paper_hash, chunk_ids=[...])`` after the aggregate
+    paper list identifies the candidates.
+
+    Returned shape::
+
+        {
+          "root": {taxon_id, accepted_name, rank?},
+          "n_species_in_subtree": int,        # accepted species/subspecies
+          "species_with_corpus_coverage": [{
+            "taxon_id", "accepted_name", "authorship?", "rank",
+            "n_papers", "n_mentions"
+          }, ...]      # sorted by n_papers desc, name asc; capped at max_species
+          "aggregate_papers": [{
+            "hash", "title", "year", "n_species_covered", "total_mentions"
+          }, ...]      # union across species, sorted by n_species_covered desc
+        }
+    """
+    idx = _need_index()
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(root_taxon_name)
+    if not hit:
+        return {"not_found": True, "queried": root_taxon_name}
+
+    root_block: Dict[str, Any] = {
+        "taxon_id": hit["accepted_taxon_id"],
+        "accepted_name": hit.get("accepted_name"),
+    }
+    if hit.get("rank"):
+        root_block["rank"] = hit["rank"]
+
+    # BFS the subtree, collecting descendant taxon_ids.
+    conn = idx.taxonomy_db.conn
+    frontier = [hit["accepted_taxon_id"]]
+    descendants: List[str] = []
+    seen: set = set()
+    while frontier:
+        parent = frontier.pop(0)
+        if parent in seen:
+            continue
+        seen.add(parent)
+        cur = conn.execute(
+            "SELECT taxon_id FROM taxa WHERE parent_name_usage_id = ?",
+            (parent,),
+        )
+        for row in cur:
+            descendants.append(row[0])
+            frontier.append(row[0])
+
+    if not descendants:
+        return {
+            "root": root_block,
+            "n_species_in_subtree": 0,
+            "species_with_corpus_coverage": [],
+            "aggregate_papers": [],
+        }
+
+    placeholders = ",".join("?" * len(descendants))
+    cur = conn.execute(
+        f"""SELECT taxon_id, scientific_name, scientific_name_authorship,
+                   taxon_rank
+            FROM taxa
+            WHERE taxon_id IN ({placeholders})
+              AND taxonomic_status = 'accepted'
+              AND lower(taxon_rank) IN ('species', 'subspecies')
+            ORDER BY scientific_name""",
+        descendants,
+    )
+    species_rows = cur.fetchall()
+
+    # Per-species capsule, only emit those with at least one paper.
+    species_capsules: List[Dict[str, Any]] = []
+    paper_to_species: Dict[str, set] = {}
+    paper_to_mentions: Dict[str, int] = {}
+    for row in species_rows:
+        tid = row[0]
+        paper_hashes = idx.taxon_to_papers.get(tid, [])
+        if not paper_hashes:
+            continue
+        mention_counts = idx.taxon_mention_counts.get(tid, {})
+        n_mentions = sum(mention_counts.values())
+        capsule: Dict[str, Any] = {
+            "taxon_id": tid,
+            "accepted_name": row[1],
+            "rank": row[3],
+            "n_papers": len(set(paper_hashes)),
+            "n_mentions": n_mentions,
+        }
+        if row[2]:
+            capsule["authorship"] = row[2]
+        species_capsules.append(capsule)
+        for h in paper_hashes:
+            paper_to_species.setdefault(h, set()).add(tid)
+            paper_to_mentions[h] = paper_to_mentions.get(h, 0) + (
+                mention_counts.get(h, 0)
+            )
+
+    species_capsules.sort(
+        key=lambda c: (-c["n_papers"], c["accepted_name"]),
+    )
+
+    aggregate_rows: List[Dict[str, Any]] = []
+    for h, species_set in paper_to_species.items():
+        p = idx.papers.get(h)
+        if not p:
+            continue
+        aggregate_rows.append({
+            "hash": h,
+            "title": p.get("title"),
+            "year": p.get("year"),
+            "n_species_covered": len(species_set),
+            "total_mentions": paper_to_mentions.get(h, 0),
+        })
+    aggregate_rows.sort(
+        key=lambda r: (-r["n_species_covered"], -r["total_mentions"], r["hash"]),
+    )
+
+    return {
+        "root": root_block,
+        "n_species_in_subtree": len(species_rows),
+        "species_with_corpus_coverage": species_capsules[: max_species],
+        "aggregate_papers": aggregate_rows[: max_aggregate_papers],
+    }
+
+
 @mcp.tool()
 def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
     """All currently-valid species descending from the given taxon in
