@@ -228,20 +228,23 @@ def get_chunks_for_topic(
     query: str,
     k: int = 20,
     paper_hash: Optional[str] = None,
+    with_text: bool = True,
 ) -> List[Dict]:
-    """Semantic search over chunks via the LanceDB vector index.
+    """Semantic top-``k`` chunks via LanceDB cosine similarity. Use
+    for "how is X discussed in the corpus" — for literal taxa /
+    lexicon terms use the exhaustive ``get_chunks_for_taxon`` /
+    ``get_figures_for_lexicon_term`` instead.
 
-    Returns the top-``k`` chunks most similar to ``query`` by cosine
-    similarity. Use this for "how is X discussed in the corpus" style
-    questions (dev_docs/PLAN.md §8 Q6, Q8) where the match criterion is
-    semantic, not a literal taxon or lexicon term — for those use
-    ``get_chunks_for_taxon`` / ``get_figures_for_lexicon_term`` instead,
-    which return exhaustive matches.
+    ``with_text=False`` (#82) emits a metadata-only shape
+    (~80 chars/row vs ~600 with full text) suitable for a
+    scan-then-drill-down workflow: scan the result list, pick the
+    relevant chunk_ids, fetch full text via
+    ``get_chunks(paper_hash, chunk_ids=[...])``. Cuts a typical
+    k=10 search's body-text cost by ~45%.
 
-    Pass ``paper_hash`` to constrain the search to a single paper.
-
-    Returns ``[{error: ...}]`` if no LanceDB index exists yet — run
-    ``python embed_chunks.py <output_dir>`` to build one.
+    Pass ``paper_hash`` to constrain to one paper. Returns
+    ``[{error: ...}]`` if no LanceDB index exists yet — build with
+    ``python embed_chunks.py <output_dir>``.
     """
     idx = _need_index()
     embedder, table = idx.get_topic_searcher()
@@ -268,16 +271,21 @@ def get_chunks_for_topic(
         # which only contains papers whose per-paper artifacts shipped.
         if h and h not in idx.papers:
             continue
-        out.append({
+        text = r.get("text") or ""
+        row: Dict = {
             "paper_hash": h,
             "paper_title": m.get("title"),
             "paper_year": m.get("year"),
             "chunk_id": m.get("chunk_id"),
             "section_class": m.get("section_class"),
             "headings": m.get("headings") or [],
-            "text": r.get("text"),
             "score": r.get("_distance"),  # LanceDB returns cosine distance
-        })
+        }
+        if with_text:
+            row["text"] = text
+        else:
+            row["len_chars"] = len(text)
+        out.append(row)
     return out
 
 
