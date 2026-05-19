@@ -473,10 +473,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "bundle is intact but no served bundle was produced. Re-run "
                 "`python -m mcpsrv.bundle <output_dir> <serve_dir> "
                 "--version vX.Y.Z` to retry, or pass --no-bundle to skip.",
-                status="warn",
+                status="fail",
             )
-            # Don't propagate — the build bundle is valid; bundle is a
-            # ship-to-host convenience.
+            # Propagate: _serve/ is the deployable artifact (DEPLOY.md);
+            # a failed distill must not stamp the run as successful.
+            return rc
 
     if args.dry_run:
         print_status(

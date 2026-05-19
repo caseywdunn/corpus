@@ -78,9 +78,16 @@ def get_intext_citations(
     total_citations}``. Each citation record carries
     ``target_xml_id`` (links to ``get_bibliography(xml_id=...)``;
     ``None`` for unresolved), ``surface`` (the cited text), the
-    enclosing ``section`` heading, and ``para_index`` into
-    ``paragraphs``. Defaults to the first 100 of each list;
-    paginate via ``offset``.
+    enclosing ``section`` heading, and ``para_index`` into the
+    returned ``paragraphs`` list.
+
+    ``limit`` + ``offset`` paginate over the citation list. Returned
+    ``paragraphs`` is a sublist containing only the paragraphs referenced
+    by the citations on this page (deduplicated, in source order); each
+    citation's ``para_index`` is remapped to its position in that
+    sublist. Paginating over paragraphs and citations independently
+    breaks the index relationship, so pagination is anchored to the
+    citation list and the paragraph sublist follows.
 
     Returns ``{"error": ...}`` if intext_citations.json is missing
     (backfill with ``backfill_intext_citations.py``).
@@ -95,13 +102,37 @@ def get_intext_citations(
             "error": "intext_citations.json missing — backfill with "
                      "`python backfill_intext_citations.py <output_dir>`",
         }
-    paragraphs = data.get("paragraphs") or []
-    citations = data.get("citations") or []
+    paragraphs_full = data.get("paragraphs") or []
+    citations_full = data.get("citations") or []
+
+    start = int(offset)
+    end = start + int(limit)
+    citations_page = citations_full[start:end]
+
+    referenced_indices = sorted({
+        c.get("para_index")
+        for c in citations_page
+        if isinstance(c.get("para_index"), int)
+        and 0 <= c["para_index"] < len(paragraphs_full)
+    })
+    global_to_local = {gi: li for li, gi in enumerate(referenced_indices)}
+    paragraphs_page = [paragraphs_full[gi] for gi in referenced_indices]
+
+    remapped_citations: List[Dict] = []
+    for c in citations_page:
+        gi = c.get("para_index")
+        c_out = dict(c)
+        if isinstance(gi, int) and gi in global_to_local:
+            c_out["para_index"] = global_to_local[gi]
+        else:
+            c_out["para_index"] = None
+        remapped_citations.append(c_out)
+
     return {
-        "paragraphs": paragraphs[offset: offset + int(limit)],
-        "citations": citations[offset: offset + int(limit)],
-        "total_paragraphs": len(paragraphs),
-        "total_citations": len(citations),
+        "paragraphs": paragraphs_page,
+        "citations": remapped_citations,
+        "total_paragraphs": len(paragraphs_full),
+        "total_citations": len(citations_full),
     }
 
 

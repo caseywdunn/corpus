@@ -141,7 +141,9 @@ def prune_orphans(
         # 2. Drop LanceDB rows whose hash is no longer in doc_hashes.
         # Schema: pipeline/embed.py:ChunkMetadata stores the hash as
         # ``metadata.pdf_hash`` (nested), not a flat ``hash`` column.
-        vector_db_path = output_dir / "vector_db"
+        # The LanceDB tables live under ``vector_db/lancedb/`` —
+        # ``pipeline.embed`` writes there at line 312.
+        vector_db_path = output_dir / "vector_db" / "lancedb"
         if vector_db_path.is_dir():
             try:
                 import lancedb  # type: ignore
@@ -226,7 +228,7 @@ def audit_orphans(input_dir: Path, output_dir: Path) -> int:
             print(f"  {h}{last_known}")
 
     vector_orphans: List[str] = []
-    vector_db_path = output_dir / "vector_db"
+    vector_db_path = output_dir / "vector_db" / "lancedb"
     if vector_db_path.is_dir():
         try:
             import lancedb  # type: ignore

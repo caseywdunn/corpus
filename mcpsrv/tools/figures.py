@@ -16,7 +16,7 @@ cases.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.fastmcp import Image
 
@@ -168,26 +168,46 @@ def get_figures_for_lexicon_term(
     paper_hash: Optional[str] = None,
     limit: int = 50,
     include_all: bool = False,
-) -> List[Dict]:
+) -> Union[List[Dict], Dict]:
     """Figures whose captions mention a lexicon term, ranked by
     caption occurrence count.
 
     ``category`` is a top-level key in the corpus's lexicon
-    (``anatomy``, ``biogeography``, …). ``term`` is matched
-    case-insensitively as a substring; pass the canonical name or any
-    declared synonym/translation. Returns real figures + plates by
-    default; ``include_all=True`` includes the review bucket.
+    (``anatomy``, ``biogeography``, …). The search is scoped to papers
+    that registered at least one term in that category at extraction
+    time — passing ``category="anatomy"`` will not surface figures
+    whose only lexicon hit is a biogeography term. Unknown categories
+    return ``{"error": "unknown_category", "available": [...]}``,
+    matching ``get_figure_dossier_for_term``.
+
+    ``term`` is matched case-insensitively as a substring against
+    figure captions; pass the canonical name or any declared synonym/
+    translation. Returns real figures + plates by default;
+    ``include_all=True`` includes the review bucket.
     """
     idx = _need_index()
     term_low = (term or "").strip().lower()
     if not term_low:
         return []
-    # ``category`` is currently used for documentation + future filtering
-    # by lexicon-membership. The match itself is caption-text search.
-    _ = category
+    available = sorted(idx.lexicon_to_papers.keys())
+    if category not in available:
+        return {
+            "error": "unknown_category",
+            "queried_category": category,
+            "available": available,
+        }
+    # Restrict the candidate paper set to those tagged with at least
+    # one term in this category at extraction time. Without this filter
+    # the caption search runs across every paper and yields cross-
+    # category false positives (e.g. an anatomy term that also occurs
+    # in a biogeography-only paper).
+    in_category: set = set()
+    for paper_hashes in idx.lexicon_to_papers.get(category, {}).values():
+        in_category.update(paper_hashes)
     target_hashes = (
         [paper_hash] if paper_hash else list(idx.papers.keys())
     )
+    target_hashes = [h for h in target_hashes if h in in_category]
     rows: List[Dict] = []
     for h in target_hashes:
         p = idx.papers.get(h)
