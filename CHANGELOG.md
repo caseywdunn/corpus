@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`with_text=False` on `get_chunks_by_section` + `get_chunks_for_taxon`**
+  ([#84](https://github.com/caseywdunn/corpus/issues/84)). Mirrors the
+  #82 pattern on the two remaining chunk surfaces. The new flag drops
+  the chunk `text` field and emits `len_chars` instead, so a caller
+  can scan IDs + section + headings cheaply and drill in with
+  `get_chunks(paper_hash, chunk_ids=[...])`. Default behaviour
+  unchanged — additive flag, no contract break.
+
+### Changed
+
+- **MCP tools now reject `limit < 1` instead of treating `limit=0` as
+  unlimited** ([#86](https://github.com/caseywdunn/corpus/issues/86)).
+  `get_chunks_by_section`, `get_chunks_for_taxon`, `get_taxon_mentions`,
+  `get_figures_for_taxon`, and `get_figures_for_lexicon_term` used to
+  return the entire candidate set when called with `limit=0` (the
+  `rows[:limit] if limit else rows` pattern). A client passing
+  `limit=0` reasonably expects "zero rows" or an error — getting
+  back a 2000-row response was a footgun. The tools now return
+  `[{"error": "limit must be >= 1 …"}]` for `limit < 1`, and silently
+  clamp absurdly large limits to a per-tool ceiling
+  (`mcpsrv.app.MAX_LIMIT = 500`). Existing callers passing positive
+  limits keep working unchanged.
+
 ## [0.4.0] - 2026-05-13
 
 ### Theme

@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.fastmcp import Image
 
-from ..app import _load_json, _need_index, mcp
+from ..app import _load_json, _need_index, _validated_limit, mcp
 
 
 # Restricted to the figure types that get returned by get_figures_for_*.
@@ -116,6 +116,10 @@ def get_figures_for_taxon(
     and unclassifiable graphical elements). Pass ``include_all=True`` to
     see every extracted item including the review bucket.
     """
+    try:
+        n = _validated_limit(limit)
+    except ValueError as e:
+        return [{"error": str(e)}]
     idx = _need_index()
     if idx.taxonomy_db is None:
         return [{"error": "no taxonomy snapshot configured"}]
@@ -158,7 +162,7 @@ def get_figures_for_taxon(
                 "score": (100 if caption_hit else 0) + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             })
     rows.sort(key=lambda r: -r["score"])
-    return rows[: int(limit)] if limit else rows
+    return rows[:n]
 
 
 @mcp.tool()
@@ -185,6 +189,10 @@ def get_figures_for_lexicon_term(
     translation. Returns real figures + plates by default;
     ``include_all=True`` includes the review bucket.
     """
+    try:
+        n = _validated_limit(limit)
+    except ValueError as e:
+        return [{"error": str(e)}]
     idx = _need_index()
     term_low = (term or "").strip().lower()
     if not term_low:
@@ -236,7 +244,7 @@ def get_figures_for_lexicon_term(
                 "match_count": occ,
             })
     rows.sort(key=lambda r: -r["match_count"])
-    return rows[: int(limit)] if limit else rows
+    return rows[:n]
 
 
 

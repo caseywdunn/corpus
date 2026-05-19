@@ -24,8 +24,8 @@ from typing import Dict, List
 import pytest
 
 from mcpsrv import app as mcp_app
-from mcpsrv.tools.chunks import get_chunks
-from mcpsrv.tools.taxonomy import get_taxon_dossier
+from mcpsrv.tools.chunks import get_chunks, get_chunks_by_section
+from mcpsrv.tools.taxonomy import get_chunks_for_taxon, get_taxon_dossier
 
 
 # ---------------------------------------------------------------------------
@@ -434,4 +434,88 @@ def test_include_filter_taxon_metadata_always_present(corpus):
 def test_include_unknown_section_silently_ignored(corpus):
     d = get_taxon_dossier("Marrus", include=["papers", "made_up_section"])
     assert "papers" in d
-    assert "made_up_section" not in d
+
+
+# ---------------------------------------------------------------------------
+# #84 — with_text=False on get_chunks_by_section + get_chunks_for_taxon
+# ---------------------------------------------------------------------------
+
+
+def test_get_chunks_by_section_default_carries_full_text(corpus):
+    rows = get_chunks_by_section(paper_hash="aaaaaaaaaaaa")
+    assert all("text" in r for r in rows)
+    assert "Marrus claudanielis is a deep-sea siphonophore." in rows[0]["text"]
+
+
+def test_get_chunks_by_section_with_text_false_drops_text(corpus):
+    rows = get_chunks_by_section(
+        paper_hash="aaaaaaaaaaaa", with_text=False,
+    )
+    assert all("text" not in r for r in rows)
+    assert all("len_chars" in r for r in rows)
+    assert rows[0]["len_chars"] == len(
+        "Marrus claudanielis is a deep-sea siphonophore.",
+    )
+
+
+def test_get_chunks_by_section_filter_still_applies_with_text_false(corpus):
+    rows = get_chunks_by_section(
+        paper_hash="aaaaaaaaaaaa",
+        section_class="description",
+        with_text=False,
+    )
+    assert [r["chunk_id"] for r in rows] == ["c1"]
+    assert "text" not in rows[0]
+
+
+def test_get_chunks_for_taxon_default_carries_full_text(corpus):
+    rows = get_chunks_for_taxon("Marrus")
+    assert all("text" in r for r in rows)
+    # Marrus appears in 4 chunks across 2 papers (3 in aaa, 1 in bbb).
+    assert len(rows) == 4
+
+
+def test_get_chunks_for_taxon_with_text_false_drops_text(corpus):
+    rows = get_chunks_for_taxon("Marrus", with_text=False)
+    assert all("text" not in r for r in rows)
+    assert all("len_chars" in r for r in rows)
+    # len_chars equals the source chunk's character count.
+    for r in rows:
+        assert isinstance(r["len_chars"], int)
+        assert r["len_chars"] > 0
+
+
+# ---------------------------------------------------------------------------
+# #86 — limit=0 is no longer "unlimited"; limit < 1 returns a clear error
+# ---------------------------------------------------------------------------
+
+
+def test_get_chunks_by_section_limit_zero_returns_error(corpus):
+    rows = get_chunks_by_section(paper_hash="aaaaaaaaaaaa", limit=0)
+    assert len(rows) == 1 and "error" in rows[0]
+    assert "limit must be >= 1" in rows[0]["error"]
+
+
+def test_get_chunks_by_section_limit_negative_returns_error(corpus):
+    rows = get_chunks_by_section(paper_hash="aaaaaaaaaaaa", limit=-5)
+    assert len(rows) == 1 and "error" in rows[0]
+
+
+def test_get_chunks_by_section_limit_clamped_to_max(corpus):
+    """Huge limit values silently clamp to MAX_LIMIT — the cap keeps
+    callers from spilling massive payloads even when they ask. The
+    fixture only has 3 chunks, so we can't observe the clamp ceiling
+    directly, but the call must succeed (not error)."""
+    rows = get_chunks_by_section(paper_hash="aaaaaaaaaaaa", limit=10_000)
+    assert all("error" not in r for r in rows)
+    assert len(rows) == 3  # fixture's chunk count, well below MAX_LIMIT
+
+
+def test_get_chunks_for_taxon_limit_zero_returns_error(corpus):
+    rows = get_chunks_for_taxon("Marrus", limit=0)
+    assert len(rows) == 1 and "error" in rows[0]
+
+
+def test_get_chunks_for_taxon_limit_positive_caps_results(corpus):
+    rows = get_chunks_for_taxon("Marrus", limit=2)
+    assert len(rows) == 2

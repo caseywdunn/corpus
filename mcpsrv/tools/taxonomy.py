@@ -13,7 +13,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..app import _load_json, _need_index, mcp
+from ..app import _load_json, _need_index, _validated_limit, mcp
 
 # Filenames at the per-paper root that are NOT lexicon outputs.
 # Mirrors the same list in CorpusIndex.load() so dossier readers
@@ -113,6 +113,7 @@ def get_chunks_for_taxon(
     paper_hash: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    with_text: bool = True,
 ) -> List[Dict]:
     """Every chunk that mentions the taxon (resolved through synonymy).
 
@@ -121,7 +122,16 @@ def get_chunks_for_taxon(
     paginate via ``offset`` / ``limit`` for enumerative queries
     (monographic reviews of a genus). Each chunk is roughly 100–200
     tokens, so a 50-chunk response is ~5–10k tokens.
+
+    ``with_text=False`` (#84) drops the chunk text and adds
+    ``len_chars`` so a common-taxon scan doesn't spill body text into
+    chat context; pair with ``get_chunks(paper_hash, chunk_ids=[...])``
+    to drill into the chunks the caller actually wants.
     """
+    try:
+        n = _validated_limit(limit)
+    except ValueError as e:
+        return [{"error": str(e)}]
     idx = _need_index()
     if idx.taxonomy_db is None:
         return [{"error": "no taxonomy snapshot configured"}]
@@ -155,17 +165,22 @@ def get_chunks_for_taxon(
 
         for cid in matching_chunk_ids:
             ch = chunks_by_id.get(cid) or {}
-            out.append({
+            text = ch.get("text") or ""
+            row: Dict = {
                 "paper_hash": h,
                 "paper_title": p.get("title"),
                 "paper_year": p.get("year"),
                 "chunk_id": cid,
                 "section_class": ch.get("section_class"),
                 "headings": ch.get("headings") or [],
-                "text": ch.get("text"),
-            })
+            }
+            if with_text:
+                row["text"] = text
+            else:
+                row["len_chars"] = len(text)
+            out.append(row)
 
-    return out[offset: offset + int(limit)] if limit else out[offset:]
+    return out[offset: offset + n]
 
 
 # #76 — dossier defaults sized for typical 3–10 k-token responses.
@@ -559,6 +574,10 @@ def get_taxon_mentions(
     ``build_taxon_mentions.py``). Falls back to per-paper
     ``taxa.json`` scanning if the database is not available.
     """
+    try:
+        n = _validated_limit(limit)
+    except ValueError as e:
+        return [{"error": str(e)}]
     idx = _need_index()
     if idx.taxonomy_db is None:
         return [{"error": "no taxonomy snapshot configured"}]
@@ -570,7 +589,7 @@ def get_taxon_mentions(
     if idx.taxon_mention_db is not None:
         # Fast path: query the corpus-wide SQLite
         rows = idx.taxon_mention_db.mentions_for_taxon(
-            aid, corpus_hash=paper_hash, limit=limit, offset=offset,
+            aid, corpus_hash=paper_hash, limit=n, offset=offset,
         )
         # Enrich with paper-level metadata
         out = []
@@ -625,7 +644,8 @@ def get_taxon_mentions(
                 "name_type": m.get("name_type", ""),
                 "method": "regex_taxonomy",
             })
-    return out[offset: offset + int(limit)] if limit else out[offset:]
+    return out[offset: offset + n]
+
 
 @mcp.tool()
 def get_papers_by_author(surname: str) -> List[Dict]:

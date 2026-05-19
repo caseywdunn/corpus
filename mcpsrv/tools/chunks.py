@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 
 from pipeline.embeddings import EmbeddingError
 
-from ..app import _load_json, _need_index, mcp
+from ..app import _load_json, _need_index, _validated_limit, mcp
 
 
 @mcp.tool()
@@ -73,6 +73,7 @@ def get_chunks_by_section(
     paper_hash: str,
     section_class: Optional[str] = None,
     limit: int = 50,
+    with_text: bool = True,
 ) -> List[Dict]:
     """Chunks of a paper filtered by section class.
 
@@ -81,7 +82,17 @@ def get_chunks_by_section(
     ``description``, ``discussion``, ``conclusion``, ``acknowledgements``,
     ``references``, ``appendix``. Pass ``None`` to return all chunks
     (up to ``limit``).
+
+    ``with_text=False`` (#84) drops the chunk text and adds
+    ``len_chars`` — same scan-then-drill-down pattern as
+    ``get_chunks_for_topic`` (#82). Pair with
+    ``get_chunks(paper_hash, chunk_ids=[...])`` to fetch text for the
+    chunks the caller cares about.
     """
+    try:
+        n = _validated_limit(limit)
+    except ValueError as e:
+        return [{"error": str(e)}]
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
@@ -91,14 +102,19 @@ def get_chunks_by_section(
     for c in chunks.get("chunks", []) or []:
         if section_class is not None and c.get("section_class") != section_class:
             continue
-        rows.append({
+        text = c.get("text") or ""
+        row: Dict = {
             "paper_hash": paper_hash,
             "chunk_id": c.get("chunk_id"),
             "section_class": c.get("section_class"),
             "headings": c.get("headings") or [],
-            "text": c.get("text"),
-        })
-    return rows[: int(limit)] if limit else rows
+        }
+        if with_text:
+            row["text"] = text
+        else:
+            row["len_chars"] = len(text)
+        rows.append(row)
+    return rows[:n]
 
 
 
