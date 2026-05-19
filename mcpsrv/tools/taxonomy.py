@@ -438,6 +438,149 @@ def get_taxon_dossier(
 
 
 @mcp.tool()
+def get_taxon_lexicon_slice(
+    taxon_name: str,
+    category: str,
+    top_n: int = 25,
+    max_paper_examples: int = 5,
+) -> Dict[str, Any]:
+    """Lexicon coverage for one taxon under one category, joined at
+    the chunk level (#76, priority 3/6).
+
+    Answers "for taxon T, what does the corpus say about it under
+    lens C?" — supersedes the implicit
+    N× ``get_chunks_for_taxon`` + per-chunk lexicon scanning loop in
+    p06 (country names per taxon), p10 (chemosensory terms), p12
+    (genetic markers), p11 (life-history traits). Single call,
+    ~1–3 k tokens typical.
+
+    The join is **same-chunk co-occurrence**: a term counts only when
+    it appears in a chunk where the taxon is also mentioned. This is
+    tighter than the paper-level rollups in ``corpus_summary`` /
+    ``get_taxon_dossier``'s ``lexicon_aggregated`` — chunk co-occurrence
+    is what tells the LLM "this term is *applied to* this taxon" vs
+    "this term appears somewhere in a paper that also mentions this
+    taxon."
+
+    Category-agnostic: returns ``{"error": "unknown_category",
+    "available": [...]}`` if the bundle doesn't declare it.
+
+    Returned shape (terms sorted by n_chunks desc, then term asc):
+
+        {
+          "taxon": {taxon_id, accepted_name, rank?, authority?},
+          "category": str,
+          "n_chunks_total": int,        # chunks where taxon mentioned
+          "n_papers_total": int,        # papers where taxon mentioned
+          "terms": [{
+            "term": str,
+            "n_chunks": int,            # chunks with taxon + term
+            "n_papers": int,
+            "paper_examples": [hash, ...],  # up to max_paper_examples
+          }, ...]
+        }
+    """
+    idx = _need_index()
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(taxon_name)
+    if not hit:
+        return {"not_found": True, "queried": taxon_name}
+
+    available = sorted(idx.lexicon_to_papers.keys())
+    if category not in available:
+        return {
+            "error": "unknown_category",
+            "queried_category": category,
+            "available": available,
+        }
+
+    aid = hit["accepted_taxon_id"]
+    paper_hashes = list(idx.taxon_to_papers.get(aid, []))
+
+    taxon_block: Dict[str, Any] = {
+        "taxon_id": aid,
+        "accepted_name": hit.get("accepted_name"),
+    }
+    if hit.get("rank"):
+        taxon_block["rank"] = hit["rank"]
+    if hit.get("authority"):
+        taxon_block["authority"] = hit["authority"]
+
+    if not paper_hashes:
+        return {
+            "taxon": taxon_block,
+            "category": category,
+            "n_chunks_total": 0,
+            "n_papers_total": 0,
+            "terms": [],
+        }
+
+    # Walk papers: pair the taxon's chunk_ids per paper with the
+    # category's chunk_ids per paper, intersect.
+    n_chunks_total = 0
+    n_papers_with_taxon = 0
+    # canonical → {"chunks": set of (paper_hash, chunk_id),
+    #              "papers": set of paper_hash}
+    term_aggregate: Dict[str, Dict[str, set]] = {}
+
+    for h in paper_hashes:
+        p = idx.papers.get(h)
+        if not p:
+            continue
+        hash_dir = Path(p["hash_dir"])
+        taxa = _load_json(hash_dir / "taxa.json", default={}) or {}
+        # Set of chunk_ids in this paper where the taxon is mentioned.
+        taxon_chunks: set = set()
+        for m in taxa.get("mentions", []) or []:
+            if m.get("accepted_taxon_id") == aid:
+                cid = m.get("chunk_id")
+                if cid:
+                    taxon_chunks.add(cid)
+        if not taxon_chunks:
+            continue
+        n_chunks_total += len(taxon_chunks)
+        n_papers_with_taxon += 1
+
+        lex_payload = _load_json(
+            hash_dir / f"{category}.json", default=None,
+        )
+        if not isinstance(lex_payload, dict):
+            continue
+        for m in lex_payload.get("mentions", []) or []:
+            cid = m.get("chunk_id")
+            canonical = m.get("canonical")
+            if not cid or not canonical or cid not in taxon_chunks:
+                continue
+            rec = term_aggregate.setdefault(
+                canonical, {"chunks": set(), "papers": set()},
+            )
+            rec["chunks"].add((h, cid))
+            rec["papers"].add(h)
+
+    terms_out = sorted(
+        (
+            {
+                "term": canonical,
+                "n_chunks": len(rec["chunks"]),
+                "n_papers": len(rec["papers"]),
+                "paper_examples": sorted(rec["papers"])[: max_paper_examples],
+            }
+            for canonical, rec in term_aggregate.items()
+        ),
+        key=lambda r: (-r["n_chunks"], r["term"]),
+    )
+
+    return {
+        "taxon": taxon_block,
+        "category": category,
+        "n_chunks_total": n_chunks_total,
+        "n_papers_total": n_papers_with_taxon,
+        "terms": terms_out[: top_n],
+    }
+
+
+@mcp.tool()
 def get_taxon_mentions(
     taxon_name: str,
     paper_hash: Optional[str] = None,
