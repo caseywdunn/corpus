@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 32 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 34 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -75,3 +75,12 @@ Requires `embed_chunks.py` to have been run (for `get_chunks_for_topic`) and `AN
 | --- | --- |
 | `get_chunks_for_topic` | Semantic search over chunks via the LanceDB vector index. |
 | `translate_chunk` | Translate one chunk to the target language (default English), via the Anthropic Claude API. |
+
+## Lexicon
+
+Category-agnostic — every tool takes `category` as an argument and returns `{"error": "unknown_category", "available": [...]}` if the bundle doesn't declare it.
+
+| Tool | Returns |
+| --- | --- |
+| `lexicon_matrix` | Paper × term mention-count grid for one category. Caller-controlled columns (`terms=`) or top-N by total mention count. Caller-controlled rows (`paper_hashes=`) or all papers, optionally year-filtered. Papers with no `<category>.json` surface as zero-filled rows. Typical ~2 k tokens for 100 × 20. |
+| `get_lexicon_term_dossier` | Per-term cross-corpus view: rollup counts, top papers by mention count, chunk examples (IDs only — pair with `get_chunks`), term description. |
