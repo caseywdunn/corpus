@@ -74,6 +74,32 @@ def test_taxonomy_worms_requires_root_id():
     assert any("root_id" in m for m in msgs)
 
 
+def test_taxonomy_root_id_accepts_integer():
+    """Regression guard for the integer-AphiaID path that worms uses."""
+    cfg = validate_config({"taxonomy": {"source": "worms", "root_id": 1371}})
+    assert cfg.taxonomy.root_id == 1371
+
+
+def test_taxonomy_root_id_accepts_lsid_string(tmp_path):
+    """#78: DwC-A snapshots from WoRMS use LSIDs (e.g.
+    ``urn:lsid:marinespecies.org:taxname:558``) as the ``taxonID``
+    field. The CLI's ``--root-id`` flag is ``type=str``, and
+    ``prune_to_subgraph`` matches strings against the ``taxonID``
+    column, but the schema previously rejected anything non-integer
+    — leaving LSID pruning unreachable via config.
+    """
+    dwca = tmp_path / "archive.zip"
+    dwca.write_bytes(b"placeholder")
+    cfg = validate_config({
+        "taxonomy": {
+            "source": "dwca",
+            "path": str(dwca),
+            "root_id": "urn:lsid:marinespecies.org:taxname:558",
+        },
+    })
+    assert cfg.taxonomy.root_id == "urn:lsid:marinespecies.org:taxname:558"
+
+
 def test_taxonomy_dwca_requires_path():
     with pytest.raises(ValidationError) as exc:
         validate_config({"taxonomy": {"source": "dwca"}})

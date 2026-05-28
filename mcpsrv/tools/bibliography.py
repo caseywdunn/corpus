@@ -78,9 +78,16 @@ def get_intext_citations(
     total_citations}``. Each citation record carries
     ``target_xml_id`` (links to ``get_bibliography(xml_id=...)``;
     ``None`` for unresolved), ``surface`` (the cited text), the
-    enclosing ``section`` heading, and ``para_index`` into
-    ``paragraphs``. Defaults to the first 100 of each list;
-    paginate via ``offset``.
+    enclosing ``section`` heading, and ``para_index`` into the
+    returned ``paragraphs`` list.
+
+    ``limit`` + ``offset`` paginate over the citation list. Returned
+    ``paragraphs`` is a sublist containing only the paragraphs referenced
+    by the citations on this page (deduplicated, in source order); each
+    citation's ``para_index`` is remapped to its position in that
+    sublist. Paginating over paragraphs and citations independently
+    breaks the index relationship, so pagination is anchored to the
+    citation list and the paragraph sublist follows.
 
     Returns ``{"error": ...}`` if intext_citations.json is missing
     (backfill with ``backfill_intext_citations.py``).
@@ -95,46 +102,53 @@ def get_intext_citations(
             "error": "intext_citations.json missing — backfill with "
                      "`python backfill_intext_citations.py <output_dir>`",
         }
-    paragraphs = data.get("paragraphs") or []
-    citations = data.get("citations") or []
+    paragraphs_full = data.get("paragraphs") or []
+    citations_full = data.get("citations") or []
+
+    start = int(offset)
+    end = start + int(limit)
+    citations_page = citations_full[start:end]
+
+    referenced_indices = sorted({
+        c.get("para_index")
+        for c in citations_page
+        if isinstance(c.get("para_index"), int)
+        and 0 <= c["para_index"] < len(paragraphs_full)
+    })
+    global_to_local = {gi: li for li, gi in enumerate(referenced_indices)}
+    paragraphs_page = [paragraphs_full[gi] for gi in referenced_indices]
+
+    remapped_citations: List[Dict] = []
+    for c in citations_page:
+        gi = c.get("para_index")
+        c_out = dict(c)
+        if isinstance(gi, int) and gi in global_to_local:
+            c_out["para_index"] = global_to_local[gi]
+        else:
+            c_out["para_index"] = None
+        remapped_citations.append(c_out)
+
     return {
-        "paragraphs": paragraphs[offset: offset + int(limit)],
-        "citations": citations[offset: offset + int(limit)],
-        "total_paragraphs": len(paragraphs),
-        "total_citations": len(citations),
+        "paragraphs": paragraphs_page,
+        "citations": remapped_citations,
+        "total_paragraphs": len(paragraphs_full),
+        "total_citations": len(citations_full),
     }
 
 
 @mcp.tool()
 def get_excerpts_citing(work_id: str, limit: int = 50) -> Dict:
-    """Passages across the corpus that cite ``work_id`` (issue #7).
+    """Cross-corpus passages citing ``work_id`` — actual paragraph
+    text around each citation marker. Answers "show me every passage
+    where <Author Year> is cited" (issue #7).
 
-    Cross-paper view of in-text citations.  Joins the bibliography
-    authority's ``citations`` table (which carries the
-    paper_hash → grobid_xml_id → cited_work_id mapping built by
-    ``reconcile_corpus_to_biblio.py``) against each citing paper's
-    ``intext_citations.json`` to return the actual paragraph text
-    surrounding each citation marker.
+    ``work_id`` is a DOI / ``corpus:...`` / ``bhl:...`` key — same
+    space as ``get_citation_graph``. Only resolved citations
+    contribute (~60% of in-text refs); Grobid-unmatched refs don't
+    surface here.
 
-    Useful for "show me every passage where Pugh 1997 is cited" —
-    answers questions an unweighted citation graph can't.
-
-    Parameters
-    ----------
-    work_id:
-        DOI, ``corpus:...`` key, or ``bhl:...`` key — same identifier
-        space as ``get_citation_graph``.
-    limit:
-        Cap on excerpts returned across all citing papers.
-
-    Returns ``{"work_id": ..., "n_excerpts": N, "excerpts": [...]}``
-    where each excerpt has ``citing_paper_hash``, ``citing_paper_title``,
-    ``surface``, ``section``, and ``paragraph``.
-
-    Only resolved citations contribute (the ~40% of in-text refs Grobid
-    couldn't match to a listBibl entry produce no row in ``citations``
-    and so don't show up here).  A future fuzzy-resolution pass against
-    the surface text would close that gap.
+    Returns ``{work_id, n_excerpts, excerpts: [{citing_paper_hash,
+    citing_paper_title, surface, section, paragraph}, ...]}``.
     """
     idx = _need_index()
     if idx.biblio_db is None:
@@ -319,6 +333,136 @@ def resolve_reference(
     for w in results:
         w["cited_by_count"] = idx.biblio_db.citation_count(w["work_id"])
     return {"matches": results, "count": len(results), "queried": query}
+
+
+# #79 — warning footnote per provenance tier. Strings are public
+# contract: the LLM is instructed to preserve them verbatim, and
+# downstream document-quality tests grep for them. Don't change
+# without coordinating both ends.
+_PROVENANCE_WARNING = {
+    "bib": "",
+    "grobid_reconciled":
+        "* generated via reconciliation in corpus, check if correct",
+    "unresolved":
+        "* reference not present in bibliography, check if correct",
+}
+
+
+@mcp.tool()
+def format_citation(
+    query: Optional[str] = None,
+    work_id: Optional[str] = None,
+    paper_hash: Optional[str] = None,
+    style: str = "author-year",
+) -> Dict[str, Any]:
+    """Return a formatted citation string for a work in the corpus
+    bibliographic authority DB (#79).
+
+    **Use this for every citation you emit.** Never recombine
+    author / year / journal / title in your own context — that's
+    where amalgamated, hallucinated references come from. Paste
+    ``formatted`` + ``inline`` verbatim; append non-empty ``warning``
+    verbatim too.
+
+    Resolve via exactly one of: ``query`` (free-text "Author Year
+    [Title]"), ``work_id`` (DOI / corpus: / bhl:), or ``paper_hash``
+    (12-hex SHA-256 prefix).
+
+    Returns ``{work_id, formatted, inline, provenance, warning,
+    fields}``. ``provenance`` ∈ {``bib`` (curated, no warning),
+    ``grobid_reconciled`` (reconciliation footnote), ``unresolved``
+    (bibliography-absence footnote)}.
+
+    On ambiguous match returns ``{error: "ambiguous", matches: [...]}``;
+    on no match returns ``{error: "not_found", ...}`` — say "not in
+    the corpus" rather than fabricating one.
+    """
+    from bib.format import SUPPORTED_STYLES, format_citation as _format_str
+
+    idx = _need_index()
+    if idx.biblio_db is None:
+        return {"error": "bibliographic authority database not configured"}
+    if style not in SUPPORTED_STYLES:
+        return {
+            "error": f"unknown style {style!r}",
+            "supported_styles": sorted(SUPPORTED_STYLES),
+        }
+    if sum(x is not None for x in (query, work_id, paper_hash)) != 1:
+        return {
+            "error": "provide exactly one of: query, work_id, paper_hash",
+        }
+
+    # Resolve to a single works row.
+    work: Optional[Dict] = None
+    if work_id is not None:
+        work = idx.biblio_db.get_work(work_id)
+        if work is None:
+            return {"error": "not_found", "work_id": work_id}
+    elif paper_hash is not None:
+        work = idx.biblio_db.get_work_by_corpus_hash(paper_hash)
+        if work is None:
+            return {"error": "not_found", "paper_hash": paper_hash}
+    else:  # query is not None
+        import re
+        m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", query.strip())
+        if not m:
+            return {
+                "error": "could not parse author/year from query — "
+                         "pass work_id explicitly or refine query",
+                "queried": query,
+            }
+        author = m.group(1).strip()
+        year = int(m.group(2))
+        title_frag = query.replace(author, "", 1).strip()
+        title_frag = title_frag.replace(str(year), "", 1).strip(" ,;:")
+        results = idx.biblio_db.search_works(
+            author, year, title_frag if title_frag else None,
+        )
+        if not results:
+            # Broaden: drop the title constraint and retry.
+            results = idx.biblio_db.search_works(author, year)
+        if not results:
+            return {
+                "error": "not_found",
+                "queried": query,
+                "parsed_author": author,
+                "parsed_year": year,
+            }
+        if len(results) > 1:
+            return {
+                "error": "ambiguous",
+                "queried": query,
+                "matches": [
+                    {"work_id": r["work_id"], "title": r.get("title"),
+                     "year": r.get("year"), "journal": r.get("journal")}
+                    for r in results
+                ],
+            }
+        work = idx.biblio_db.get_work(results[0]["work_id"])
+        if work is None:  # search_works returned a row, get_work lost it
+            return {"error": "not_found", "queried": query}
+
+    # Assemble fields. volume + pages aren't on works.* — TODO when
+    # the bibliography subsystem persists per-citation locator info.
+    fields: Dict[str, Any] = {
+        "authors": idx.biblio_db.get_authors(work["work_id"]),
+        "year": work.get("year"),
+        "title": work.get("title"),
+        "journal": work.get("journal"),
+        "volume": None,
+        "pages": None,
+        "doi": work.get("doi"),
+    }
+    rendered = _format_str(fields, style=style)
+    provenance = idx.biblio_db.provenance(work["work_id"])
+    return {
+        "work_id": work["work_id"],
+        "formatted": rendered["formatted"],
+        "inline": rendered["inline"],
+        "provenance": provenance,
+        "warning": _PROVENANCE_WARNING[provenance],
+        "fields": fields,
+    }
 
 
 @mcp.tool()

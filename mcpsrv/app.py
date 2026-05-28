@@ -44,6 +44,36 @@ def _load_json(path: Path, default: Any = None) -> Any:
     return default
 
 
+# Safety cap on every paginated MCP tool. Existing per-tool defaults
+# (50, 100, …) live below this; the cap just prevents pathological
+# limit=10_000 calls from spilling massive payloads into chat context.
+MAX_LIMIT = 500
+
+
+def _validated_limit(limit: int, *, max_value: int = MAX_LIMIT) -> int:
+    """Validate + clamp a tool's ``limit`` parameter (#86).
+
+    Returns the clamped int. Raises ``ValueError`` on ``limit < 1`` so
+    a caller passing ``limit=0`` gets a clear error instead of an
+    unbounded response. Several tools used to treat ``limit=0`` as
+    "unlimited" via ``rows[:limit] if limit else rows`` — a footgun
+    the moment a client mistakes 0 for "no rows please". Callers
+    convert the exception into their usual error-response shape::
+
+        try:
+            n = _validated_limit(limit)
+        except ValueError as e:
+            return [{"error": str(e)}]
+    """
+    n = int(limit)
+    if n < 1:
+        raise ValueError(
+            f"limit must be >= 1 (got {n}); pass a positive integer or "
+            "omit the parameter to use the tool's default"
+        )
+    return min(n, max_value)
+
+
 # Module-level FastMCP instance — every tools module decorates this one.
 mcp = FastMCP("corpus")
 

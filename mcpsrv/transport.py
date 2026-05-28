@@ -109,15 +109,29 @@ def _load_auth_token(cli_token_file: Optional[Path]) -> Optional[str]:
     """Resolve the bearer-auth token.
 
     Search order:
-      1. ``--auth-token-file <path>`` — read, strip.
+      1. ``--auth-token-file <path>`` — read, strip; raise on empty.
       2. ``CORPUS_MCP_TOKEN`` env var.
       3. None (server runs open; main() logs a big warning).
+
+    Raises ``ValueError`` when the token file exists but resolves to
+    an empty string. An empty file is ambiguous — the operator clearly
+    intended to set a token but ended up with no auth at all, which
+    would otherwise silently open the SSE server.
 
     ``--auth-token`` is deliberately *not* a CLI flag — secrets on the
     command line leak via ``ps``/proc/<pid>/cmdline.
     """
     if cli_token_file is not None:
-        return cli_token_file.read_text().strip()
+        token = cli_token_file.read_text().strip()
+        if not token:
+            raise ValueError(
+                f"--auth-token-file {cli_token_file} is empty (no non-"
+                "whitespace bytes). Refusing to start: an empty token "
+                "file is almost certainly a configuration mistake. Put "
+                "a secret in the file, or unset --auth-token-file to "
+                "run open intentionally."
+            )
+        return token
     env = os.environ.get("CORPUS_MCP_TOKEN", "").strip()
     return env or None
 
