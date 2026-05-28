@@ -61,21 +61,13 @@ from pipeline.version import __version__
 
 logger = logging.getLogger("package_for_serve")
 
-# A string value that *is* an absolute filesystem path needs to be
-# scrubbed before this bundle leaves the build host. The pattern is
-# anchored at the start of a string value (not a substring search) so
-# body-text JSONs (chunks.json, text.json) — which routinely contain
-# URLs and natural-language with "/home/..." mid-string — don't trip it.
-# The audit also screens out values that match URL-ish shapes (``scheme:``
-# prefix; see ``_walk_strings`` filter) before the regex sees them.
-#
-# Coverage is "starts with /" and ends with a path-shaped second
-# component, which catches every common filesystem root: /home, /Users,
-# /tmp, /private/tmp (macOS), /var, /opt, /mnt, /nfs, /srv, /Volumes,
-# /workspace, /scratch, /data, /export, etc. Earlier revisions allow-
-# listed a short set of roots — that left /private, /tmp, /Volumes
-# leaking through the audit.
-_ABS_PATH_RE = re.compile(r'^/[A-Za-z0-9_.+-]+/')
+# Filesystem roots that flag a string as "absolute path that needs to be
+# scrubbed before this bundle leaves the build host". The pattern is
+# anchored at the start of a string value, not as a substring — body-text
+# JSONs (chunks.json, text.json) routinely contain URLs whose path
+# components include "/home/...", "/var/..." etc. mid-string. Anchored
+# matching only catches values whose *entire* shape is a filesystem path.
+_ABS_PATH_RE = re.compile(r'^/(?:nfs|Users|home|mnt|var|opt|srv)/')
 
 # The per-paper whitelist.  Top-level files only — figures/ is handled
 # separately as a directory copy.
@@ -197,23 +189,13 @@ def _read_one_embedding_marker(output_dir: Path) -> Tuple[Optional[str], Optiona
     return None, None
 
 
-def _count_figures_and_chunks(
-    documents_dir: Path,
-    excluded_hashes: Optional[Iterable[str]] = None,
-) -> Tuple[int, int]:
-    """Sum figure_count and chunk_count across the per-paper files we
-    actually plan to serve. ``excluded_hashes`` is the set of hashes
-    flagged ``works.serve = 0`` (#54) — they live in the build bundle
-    but are filtered out of the distilled bundle, so the manifest must
-    not count them. Best-effort — missing/malformed JSONs are silently
-    skipped."""
-    skip = set(excluded_hashes or ())
+def _count_figures_and_chunks(documents_dir: Path) -> Tuple[int, int]:
+    """Sum figure_count and chunk_count across all per-paper files.
+    Best-effort — missing/malformed JSONs are silently skipped."""
     fig_total = 0
     chunk_total = 0
     for hash_dir in documents_dir.iterdir():
         if not hash_dir.is_dir():
-            continue
-        if hash_dir.name in skip:
             continue
         fig_path = hash_dir / "figures.json"
         if fig_path.exists():
@@ -714,9 +696,7 @@ def package(output_dir: Path, serve_dir: Path, version: str,
 
     # Manifest
     model, dim = _read_one_embedding_marker(output_dir)
-    fig_count, chunk_count = _count_figures_and_chunks(
-        documents_dir, excluded_hashes=skipped_hashes,
-    )
+    fig_count, chunk_count = _count_figures_and_chunks(documents_dir)
     manifest = {
         "bundle_version": version,
         "created_at": _iso_now(),

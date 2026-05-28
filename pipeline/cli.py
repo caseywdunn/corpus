@@ -46,7 +46,7 @@ import subprocess
 import sys
 from importlib import resources
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import yaml
 
@@ -473,11 +473,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "bundle is intact but no served bundle was produced. Re-run "
                 "`python -m mcpsrv.bundle <output_dir> <serve_dir> "
                 "--version vX.Y.Z` to retry, or pass --no-bundle to skip.",
-                status="fail",
+                status="warn",
             )
-            # Propagate: _serve/ is the deployable artifact (DEPLOY.md);
-            # a failed distill must not stamp the run as successful.
-            return rc
+            # Don't propagate — the build bundle is valid; bundle is a
+            # ship-to-host convenience.
 
     if args.dry_run:
         print_status(
@@ -486,51 +485,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
             status="ok",
         )
     else:
-        run_log = _write_run_log(output_dir)
-        if run_log is None:
-            print_status(
-                "run complete. Try `corpus status --report` and `corpus serve` next.",
-                status="ok",
-            )
-        else:
-            print_status(
-                f"run complete. Report → {run_log} (same as `corpus status "
-                f"--report`). `corpus serve` to serve the bundle.",
-                status="ok",
-            )
+        print_status(
+            "run complete. Try `corpus status --report` and `corpus serve` next.",
+            status="ok",
+        )
     return EXIT_OK
-
-
-def _write_run_log(output_dir: Path) -> Optional[Path]:
-    """Write the end-of-run report to ``<output_dir>/run.log`` (#57).
-
-    Captures the same content as ``corpus status --report`` so the
-    operator has a self-contained record of pass-rates and cross-paper
-    artifact presence for this run. Overwrites prior log — the state
-    reported is always "as of right now"; for history, git the file
-    or copy it aside.
-
-    Returns the written path, or ``None`` if there's nothing to
-    report (no ``documents/`` tree yet — e.g. the orchestrator
-    bailed before extract ran).
-    """
-    from datetime import datetime
-    from .status import aggregate, render_artifacts, render_text
-
-    documents_dir = output_dir / "documents"
-    if not documents_dir.is_dir():
-        return None
-    rollup = aggregate(documents_dir)
-    header = (
-        f"# corpus run report\n"
-        f"# generated at {datetime.now().isoformat(timespec='seconds')}\n"
-        f"# corpus version {__version__}\n"
-        f"# output_dir {output_dir.resolve()}\n\n"
-    )
-    body = render_text(rollup) + "\n\n" + render_artifacts(output_dir)
-    log_path = output_dir / "run.log"
-    log_path.write_text(header + body, encoding="utf-8")
-    return log_path
 
 
 def _distill_bundle(output_dir: Path) -> int:
@@ -736,19 +695,6 @@ def _cmd_check(args: argparse.Namespace) -> int:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
             pstatus(f"input_pdfs: {input_dir} not found", status="fail")
 
-    # 7. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
-    # env in the unsupported macOS x86_64 matrix (Apple dropped Intel-mac
-    # torch wheels after 2.2, breaking docling + transformers ≥ 5). Hard
-    # fail loud rather than letting `corpus run` discover it deep in a
-    # model load. Linux is not checked: there is no Rosetta equivalent.
-    arch, arch_failure = _check_python_arch()
-    if arch:
-        if arch_failure is None:
-            pstatus(f"Python arch: {arch} (native)", status="ok")
-        else:
-            failures.append(arch_failure)
-            pstatus(f"Python arch: {arch} (Rosetta — unsupported)", status="fail")
-
     if failures:
         print()
         pstatus(f"{len(failures)} precondition(s) failed:", status="fail")
@@ -758,31 +704,6 @@ def _cmd_check(args: argparse.Namespace) -> int:
     print()
     pstatus("ready: `corpus run` should succeed on this host.", status="ok")
     return EXIT_OK
-
-
-def _check_python_arch() -> Tuple[str, Optional[str]]:
-    """Check the active Python's architecture on macOS.
-
-    Returns ``(arch_label, failure_message)``:
-    - On non-darwin: ``("", None)`` — caller skips the check entirely.
-    - On darwin/arm64: ``("arm64", None)``.
-    - On darwin/<other>: ``(arch, "...explanatory failure...")``.
-
-    Separated from ``_cmd_check`` so the contract is unit-testable
-    via mocked ``sys.platform`` + ``platform.machine`` without
-    standing up a full config + grobid + disk environment.
-    """
-    if sys.platform != "darwin":
-        return "", None
-    import platform as _platform
-    arch = _platform.machine()
-    if arch == "arm64":
-        return arch, None
-    return arch, (
-        f"Python arch is {arch} (Rosetta on Apple Silicon). corpus "
-        f"requires an arm64-native conda env; see README §Supported "
-        f"platforms for the fix."
-    )
 
 
 def _detect_accelerator() -> Optional[str]:

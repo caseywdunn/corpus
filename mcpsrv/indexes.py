@@ -310,15 +310,6 @@ class TaxonMentionDB:
         return out
 
 
-# #79 — gating constants for BiblioAuthority.provenance(). The
-# reconciled-tier methods are those that produce trustworthy
-# work_id matches without a fuzzy fallback. Per #2's closure,
-# title_fuzzy + author_year_only are NOT in this set: a tier-2
-# citation must have come from an exact DOI / alias / BHL hit.
-_RECONCILED_METHODS = frozenset({"doi_exact", "alias_exact", "bhl_lookup"})
-_RECONCILED_MIN_SCORE = 0.9
-
-
 class BiblioAuthority:
     """Read-only wrapper around ``biblio_authority.sqlite``."""
 
@@ -332,46 +323,6 @@ class BiblioAuthority:
         cur = self.conn.execute("SELECT * FROM works WHERE work_id = ?", (work_id,))
         row = cur.fetchone()
         return dict(row) if row else None
-
-    def provenance(self, work_id: str) -> str:
-        """Provenance tier for the format_citation MCP tool (#79).
-
-        Returns one of:
-          - ``"bib"``: the works row was touched by ``bib/importer.py``
-            (``bib_imported_at IS NOT NULL``). Human-curated; emit
-            without a provenance warning.
-          - ``"grobid_reconciled"``: the row exists via either a corpus
-            paper's own metadata (``source = 'corpus_paper'``) or a
-            high-confidence reference resolution (match_method in
-            {doi_exact, alias_exact, bhl_lookup} with score ≥ 0.9).
-            Emit with the reconciliation warning.
-          - ``"unresolved"``: row is missing, or its citation provenance
-            is below the reconciled bar — fuzzy match under threshold,
-            author_year_only fallback, new ghost, or no citation rows
-            at all. Emit with the bibliography-absence warning.
-        """
-        cur = self.conn.execute(
-            "SELECT bib_imported_at, source FROM works WHERE work_id = ?",
-            (work_id,),
-        )
-        row = cur.fetchone()
-        if row is None:
-            return "unresolved"
-        if row["bib_imported_at"] is not None:
-            return "bib"
-        if row["source"] == "corpus_paper":
-            return "grobid_reconciled"
-        # Cited reference — gate on the best citation row pointing here.
-        placeholders = ",".join("?" * len(_RECONCILED_METHODS))
-        cur2 = self.conn.execute(
-            f"""SELECT 1 FROM citations
-                WHERE cited_work_id = ?
-                  AND match_method IN ({placeholders})
-                  AND match_score >= ?
-                LIMIT 1""",
-            (work_id, *sorted(_RECONCILED_METHODS), _RECONCILED_MIN_SCORE),
-        )
-        return "grobid_reconciled" if cur2.fetchone() else "unresolved"
 
     def get_work_by_corpus_hash(self, corpus_hash: str) -> Optional[Dict]:
         cur = self.conn.execute(

@@ -66,16 +66,12 @@ def create_schema(conn: sqlite3.Connection) -> None:
             method         TEXT NOT NULL DEFAULT 'regex_taxonomy'
         );
 
-        -- Per-paper processing status for resumability.
-        -- ``source_mtime`` is the mtime of taxa.json at the time we
-        -- ingested it; on subsequent passes we re-ingest if the file
-        -- on disk is newer (auto-reconcile after per-paper re-runs).
+        -- Per-paper processing status for resumability
         CREATE TABLE IF NOT EXISTS papers_processed (
             corpus_hash    TEXT PRIMARY KEY,
             n_mentions     INTEGER NOT NULL,
             n_unique_taxa  INTEGER NOT NULL,
-            processed_at   REAL NOT NULL,
-            source_mtime   REAL
+            processed_at   REAL NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS build_meta (
@@ -93,13 +89,6 @@ def create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_tm_accepted_name
             ON taxon_mentions(accepted_name);
     """)
-    # Backward-compat ALTER for DBs created before the source_mtime
-    # column existed. CREATE TABLE IF NOT EXISTS leaves an older schema
-    # untouched, so without this migration the staleness check would
-    # silently read NULL on every paper and re-ingest every time.
-    have_cols = {row[1] for row in conn.execute("PRAGMA table_info(papers_processed)")}
-    if "source_mtime" not in have_cols:
-        conn.execute("ALTER TABLE papers_processed ADD COLUMN source_mtime REAL")
     conn.commit()
 
 
@@ -164,7 +153,6 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
     total_papers = 0
     total_mentions = 0
     skipped = 0
-    refreshed = 0
     errors = 0
     batch = 0
 
@@ -177,36 +165,14 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
 
         corpus_hash = hash_dir.name
 
-        # Staleness check: keep the prior row when the source artifact
-        # hasn't changed since we last ingested it; re-ingest otherwise.
-        # Older DBs may have NULL ``source_mtime`` — treat that as
-        # "ingested at unknown time" so the next pass refreshes them
-        # rather than silently skipping forever.
-        try:
-            current_mtime = taxa_path.stat().st_mtime
-        except OSError as e:
-            logger.warning("Skipping %s: %s", taxa_path, e)
-            errors += 1
-            continue
+        # Skip if already processed
         cur = conn.execute(
-            "SELECT source_mtime FROM papers_processed WHERE corpus_hash = ?",
+            "SELECT 1 FROM papers_processed WHERE corpus_hash = ?",
             (corpus_hash,),
         )
-        row = cur.fetchone()
-        is_refresh = False
-        if row is not None:
-            stored_mtime = row[0]
-            if stored_mtime is not None and stored_mtime >= current_mtime:
-                skipped += 1
-                continue
-            is_refresh = True
-            # Drop the prior rows for this corpus_hash before re-ingest
-            # so we don't accumulate duplicate mentions when the source
-            # file was regenerated.
-            conn.execute(
-                "DELETE FROM taxon_mentions WHERE corpus_hash = ?",
-                (corpus_hash,),
-            )
+        if cur.fetchone():
+            skipped += 1
+            continue
 
         try:
             taxa_data = json.loads(taxa_path.read_text(encoding="utf-8"))
@@ -220,35 +186,31 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
 
         conn.execute(
             """INSERT OR REPLACE INTO papers_processed
-               (corpus_hash, n_mentions, n_unique_taxa, processed_at,
-                source_mtime)
-               VALUES (?, ?, ?, ?, ?)""",
-            (corpus_hash, n_mentions, n_unique, time.time(), current_mtime),
+               (corpus_hash, n_mentions, n_unique_taxa, processed_at)
+               VALUES (?, ?, ?, ?)""",
+            (corpus_hash, n_mentions, n_unique, time.time()),
         )
 
         total_papers += 1
         total_mentions += n_mentions
-        if is_refresh:
-            refreshed += 1
         batch += 1
         if batch >= 50:
             conn.commit()
             batch = 0
             logger.info(
-                "Progress: %d papers, %d mentions (%d skipped, %d refreshed)",
-                total_papers, total_mentions, skipped, refreshed,
+                "Progress: %d papers, %d mentions (%d skipped)",
+                total_papers, total_mentions, skipped,
             )
 
     conn.commit()
     logger.info(
-        "Build complete: %d papers, %d mentions, %d skipped, %d refreshed, %d errors",
-        total_papers, total_mentions, skipped, refreshed, errors,
+        "Build complete: %d papers, %d mentions, %d skipped, %d errors",
+        total_papers, total_mentions, skipped, errors,
     )
     return {
         "papers": total_papers,
         "mentions": total_mentions,
         "skipped": skipped,
-        "refreshed": refreshed,
         "errors": errors,
     }
 

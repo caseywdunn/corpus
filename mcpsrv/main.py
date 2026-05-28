@@ -280,11 +280,7 @@ def main() -> int:
             index.figure_auth_token = None
         mcp.run()
     elif args.transport == "sse":
-        try:
-            token = _load_auth_token(args.auth_token_file)
-        except ValueError as e:
-            logger.error("auth-token config error: %s", e)
-            return 3
+        token = _load_auth_token(args.auth_token_file)
         # #69 — build a public URL prefix the tool can hand out. We
         # don't try to be clever about the operator's reverse-proxy
         # hostname; bind host + bind port is the most we know, and

@@ -39,7 +39,6 @@ def _make_db(path: Path) -> None:
             license TEXT, license_url TEXT, license_source TEXT,
             publishable INTEGER,
             serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
-            bib_imported_at REAL,
             created_at REAL, updated_at REAL
         );
         CREATE TABLE work_authors (
@@ -213,61 +212,6 @@ def test_import_replaces_author_list(tmp_path):
         "ORDER BY position"
     ).fetchall()
     assert rows == [("Smith", "Jane"), ("Lee", "Quentin")]
-
-
-def test_import_stamps_bib_imported_at_on_field_change(tmp_path):
-    """#79: any importer-applied change records bib_imported_at so the
-    format_citation MCP tool can flag the row as 'from user .bib' (no
-    provenance warning)."""
-    db = tmp_path / "biblio.sqlite"
-    _make_db(db)
-    before = time.time()
-    bib = tmp_path / "edited.bib"
-    _write_bib(bib, """\
-@article{Smith2010,
-  title = {Corrected title},
-  corpus_hash = {aaaaaa},
-}
-""")
-    import_bibtex(db, bib)
-    after = time.time()
-
-    conn = sqlite3.connect(db)
-    row = conn.execute(
-        "SELECT bib_imported_at FROM works WHERE work_id='10.1/aaa'"
-    ).fetchone()
-    assert row[0] is not None
-    assert before <= row[0] <= after
-
-    # The untouched row stays NULL — only rows the importer applies a
-    # change to get stamped.
-    row2 = conn.execute(
-        "SELECT bib_imported_at FROM works WHERE work_id='10.1/bbb'"
-    ).fetchone()
-    assert row2[0] is None
-
-
-def test_import_stamps_bib_imported_at_on_author_only_change(tmp_path):
-    """An import that only changes the author list (no _WORK_FIELDS
-    delta) still records bib_imported_at — author edits are a human
-    blessing of the row just as much as title or journal edits."""
-    db = tmp_path / "biblio.sqlite"
-    _make_db(db)
-    # Pre-seed the row with no author so the diff sees authors change.
-    bib = tmp_path / "edited.bib"
-    _write_bib(bib, """\
-@article{Smith2010,
-  author = {Smith, Jane and Lee, Quentin},
-  corpus_hash = {aaaaaa},
-}
-""")
-    import_bibtex(db, bib)
-
-    conn = sqlite3.connect(db)
-    row = conn.execute(
-        "SELECT bib_imported_at FROM works WHERE work_id='10.1/aaa'"
-    ).fetchone()
-    assert row[0] is not None
 
 
 def test_dry_run_writes_nothing(tmp_path):

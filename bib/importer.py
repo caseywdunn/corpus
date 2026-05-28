@@ -231,14 +231,7 @@ def apply_entry(
     if not changes:
         return 0
 
-    now = time.time()
-
-    # Update works.* for the simple fields, plus always touch
-    # updated_at + bib_imported_at (#79) when any change applies — so an
-    # author-only change still records that the importer touched this
-    # row, and the format_citation MCP tool can distinguish "from user
-    # .bib" from "grobid-reconciled" by checking bib_imported_at IS NOT
-    # NULL.
+    # Update works.* for the simple fields
     sets: List[str] = []
     params: List = []
     for field in _WORK_FIELDS:
@@ -257,13 +250,14 @@ def apply_entry(
         else:
             params.append(new_val)
         sets.append(f"{field} = ?")
-    sets.extend(["updated_at = ?", "bib_imported_at = ?"])
-    params.extend([now, now])
-    params.append(work_id)
-    conn.execute(
-        f"UPDATE works SET {', '.join(sets)} WHERE work_id = ?",
-        tuple(params),
-    )
+    if sets:
+        sets.append("updated_at = ?")
+        params.append(time.time())
+        params.append(work_id)
+        conn.execute(
+            f"UPDATE works SET {', '.join(sets)} WHERE work_id = ?",
+            tuple(params),
+        )
 
     # Replace author list when changed
     if "authors" in changes:

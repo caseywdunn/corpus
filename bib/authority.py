@@ -233,12 +233,6 @@ def create_schema(conn: sqlite3.Connection) -> None:
             -- is a short tag from the closed vocab in dev_docs/QC.md.
             serve          INTEGER NOT NULL DEFAULT 1,
             serve_reason   TEXT,
-            -- #79 — set by bib/importer.py whenever a row is touched by
-            -- a `corpus bib import`. NULL means the row's bib fields
-            -- have never been blessed by a human-edited .bib; the
-            -- format_citation MCP tool uses this to gate "from user .bib"
-            -- (no warning) vs "grobid-reconciled" (warning) provenance.
-            bib_imported_at REAL,
             created_at     REAL NOT NULL,
             updated_at     REAL NOT NULL
         );
@@ -299,19 +293,6 @@ def create_schema(conn: sqlite3.Connection) -> None:
             value TEXT
         );
 
-        -- Tracks the mtime of the per-paper artifacts we ingested
-        -- (metadata.json for phase 1, references.json for phase 2) so
-        -- subsequent runs can detect when a single paper was reprocessed
-        -- and reconcile the cross-paper rows without a full --rebuild.
-        -- artifact ∈ ('metadata', 'references').
-        CREATE TABLE IF NOT EXISTS paper_artifacts_processed (
-            corpus_hash    TEXT NOT NULL,
-            artifact       TEXT NOT NULL,
-            source_mtime   REAL NOT NULL,
-            processed_at   REAL NOT NULL,
-            PRIMARY KEY (corpus_hash, artifact)
-        );
-
         CREATE INDEX IF NOT EXISTS idx_works_doi ON works(doi) WHERE doi IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_works_corpus_hash ON works(corpus_hash) WHERE corpus_hash IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_works_year ON works(year);
@@ -327,9 +308,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-# Column additions per release. ALTER TABLE ADD COLUMN is a no-op on
-# new DBs (CREATE TABLE above already declared the columns) and a
-# one-time migration on DBs built by older releases.
+# v0.3 column additions (#51 + #54). ALTER TABLE ADD COLUMN is a no-op on
+# new DBs (CREATE TABLE above already declared the columns) and a one-time
+# migration on existing v0.2 DBs.
 _V03_WORKS_COLUMNS = [
     ("license",        "TEXT"),
     ("license_url",    "TEXT"),
@@ -338,15 +319,12 @@ _V03_WORKS_COLUMNS = [
     ("serve",          "INTEGER NOT NULL DEFAULT 1"),
     ("serve_reason",   "TEXT"),
 ]
-_V05_WORKS_COLUMNS = [
-    ("bib_imported_at", "REAL"),  # #79
-]
 
 
 def _migrate_works_columns(conn: sqlite3.Connection) -> None:
-    """Idempotent ALTER TABLE for works.* additions from past releases."""
+    """Idempotent ALTER TABLE for the v0.3 works.* additions."""
     have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
-    for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS):
+    for name, decl in _V03_WORKS_COLUMNS:
         if name not in have:
             conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
@@ -516,47 +494,6 @@ def insert_alias(conn: sqlite3.Connection, alias_key: str, work_id: str) -> None
         pass
 
 
-def _artifact_state(
-    conn: sqlite3.Connection, corpus_hash: str, artifact: str,
-    current_mtime: float,
-) -> Tuple[bool, bool]:
-    """Return ``(seen, stale)`` for a per-paper artifact.
-
-    ``seen`` is True when the row exists; ``stale`` is True when the
-    on-disk file mtime is newer than the recorded mtime (or no mtime
-    is recorded). Callers use ``not seen`` to take the first-ingest
-    path and ``seen and stale`` to take the re-ingest path.
-    """
-    cur = conn.execute(
-        "SELECT source_mtime FROM paper_artifacts_processed "
-        "WHERE corpus_hash = ? AND artifact = ?",
-        (corpus_hash, artifact),
-    )
-    row = cur.fetchone()
-    if row is None:
-        return False, True
-    stored = row[0]
-    if stored is None or current_mtime > stored:
-        return True, True
-    return True, False
-
-
-def _record_artifact(
-    conn: sqlite3.Connection, corpus_hash: str, artifact: str,
-    current_mtime: float,
-) -> None:
-    """Stamp the artifact as processed at ``current_mtime``."""
-    conn.execute(
-        """INSERT INTO paper_artifacts_processed
-           (corpus_hash, artifact, source_mtime, processed_at)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(corpus_hash, artifact) DO UPDATE SET
-               source_mtime = excluded.source_mtime,
-               processed_at = excluded.processed_at""",
-        (corpus_hash, artifact, current_mtime, time.time()),
-    )
-
-
 def insert_citation(conn: sqlite3.Connection, citing_work_id: str,
                     cited_work_id: str, citing_corpus_hash: str,
                     grobid_xml_id: str, raw_citation: str,
@@ -688,7 +625,6 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
         return 0
 
     count = 0
-    refreshed = 0
     batch = 0
     for hash_dir in sorted(docs_dir.iterdir()):
         if not hash_dir.is_dir():
@@ -698,30 +634,10 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             continue
 
         corpus_hash = hash_dir.name
-        try:
-            current_mtime = meta_path.stat().st_mtime
-        except OSError as e:
-            logger.warning("Skipping %s: %s", meta_path, e)
+        # Skip if already seeded
+        cur = conn.execute("SELECT 1 FROM works WHERE corpus_hash = ?", (corpus_hash,))
+        if cur.fetchone():
             continue
-
-        # Skip when we've already seeded this corpus_hash AND the
-        # source metadata.json hasn't been regenerated since. When
-        # metadata is newer than the stored mtime, fall through to
-        # refresh the row's title/year/journal/doi/license/serve
-        # fields and rebuild its author list.
-        seen, stale = _artifact_state(
-            conn, corpus_hash, "metadata", current_mtime,
-        )
-        existing_work_id: Optional[str] = None
-        if seen and not stale:
-            continue
-        if seen and stale:
-            cur = conn.execute(
-                "SELECT work_id FROM works WHERE corpus_hash = ?",
-                (corpus_hash,),
-            )
-            row = cur.fetchone()
-            existing_work_id = row[0] if row else None
 
         try:
             meta = json.loads(meta_path.read_text())
@@ -764,23 +680,6 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             work_id = f"corpus:{corpus_hash}"
             guid_type = "corpus_key"
 
-        if existing_work_id is not None and existing_work_id != work_id:
-            # Identity changed (e.g. metadata.json gained a DOI that
-            # rewrites work_id from corpus_key → doi). Citations table
-            # has FK references on the old work_id — re-seeding under
-            # a new work_id would orphan them. Leave the prior row in
-            # place; the operator can address with --rebuild if they
-            # need the identity update.
-            logger.warning(
-                "metadata.json for %s now resolves to work_id %r, but "
-                "this corpus_hash is already bound to %r. Keeping the "
-                "existing row to preserve citation graph integrity; "
-                "use --rebuild to re-key.",
-                corpus_hash, work_id, existing_work_id,
-            )
-            _record_artifact(conn, corpus_hash, "metadata", current_mtime)
-            continue
-
         inserted = insert_work(conn, work_id, guid_type, title, year, journal,
                                doi, corpus_hash, in_corpus=True,
                                source="corpus_paper")
@@ -795,37 +694,14 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             # surfaces license / licenseurl / serve / servereason).
             _seed_license_and_serve(conn, work_id, meta)
             count += 1
-        elif existing_work_id is not None:
-            # Same work_id — refresh fields and rebuild the author list.
-            now = time.time()
-            conn.execute(
-                """UPDATE works SET title=?, year=?, journal=?,
-                       doi=?, updated_at=? WHERE work_id=?""",
-                (title, year, journal, doi or None, now, work_id),
-            )
-            conn.execute("DELETE FROM work_authors WHERE work_id=?", (work_id,))
-            insert_authors(conn, work_id, authors)
-            if first_surname:
-                alias = make_alias_key(first_surname, year, title or meta.get("filename", ""))
-                insert_alias(conn, alias, work_id)
-            _seed_license_and_serve(conn, work_id, meta)
-            refreshed += 1
-
-        _record_artifact(conn, corpus_hash, "metadata", current_mtime)
-        batch += 1
-        if batch >= 100:
-            conn.commit()
-            batch = 0
-            logger.info(
-                "Phase 1 progress: %d corpus papers seeded, %d refreshed",
-                count, refreshed,
-            )
+            batch += 1
+            if batch >= 100:
+                conn.commit()
+                batch = 0
+                logger.info("Phase 1 progress: %d corpus papers seeded", count)
 
     conn.commit()
-    logger.info(
-        "Phase 1 complete: %d corpus papers seeded, %d refreshed",
-        count, refreshed,
-    )
+    logger.info("Phase 1 complete: %d corpus papers seeded", count)
     return count
 
 
@@ -1156,8 +1032,6 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
     n_papers = 0
     batch = 0
 
-    n_skipped = 0
-    n_refreshed = 0
     for hash_dir in sorted(docs_dir.iterdir()):
         if not hash_dir.is_dir():
             continue
@@ -1174,31 +1048,6 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         if not row:
             continue
         citing_work_id = row[0]
-
-        try:
-            current_mtime = refs_path.stat().st_mtime
-        except OSError as e:
-            logger.warning("Skipping %s: %s", refs_path, e)
-            continue
-
-        # Staleness check: skip when references.json hasn't changed
-        # since we last ingested it. On re-ingest, drop prior citation
-        # rows tied to this paper before re-resolving — otherwise the
-        # ``INSERT OR IGNORE`` on citations leaves stale match_method
-        # / match_score / raw_citation values for refs that were
-        # re-parsed.
-        seen, stale = _artifact_state(
-            conn, corpus_hash, "references", current_mtime,
-        )
-        if seen and not stale:
-            n_skipped += 1
-            continue
-        if seen and stale:
-            conn.execute(
-                "DELETE FROM citations WHERE citing_corpus_hash = ?",
-                (corpus_hash,),
-            )
-            n_refreshed += 1
 
         try:
             refs_data = json.loads(refs_path.read_text())
@@ -1226,7 +1075,6 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
             )
             n_citations += 1
 
-        _record_artifact(conn, corpus_hash, "references", current_mtime)
         n_papers += 1
         batch += 1
         if batch >= 10:
@@ -1236,11 +1084,8 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
                         n_papers, n_citations, n_new_works)
 
     conn.commit()
-    logger.info(
-        "Phase 2 complete: %d papers, %d citations, %d new works created "
-        "(%d skipped, %d refreshed)",
-        n_papers, n_citations, n_new_works, n_skipped, n_refreshed,
-    )
+    logger.info("Phase 2 complete: %d papers, %d citations, %d new works created",
+                n_papers, n_citations, n_new_works)
     return n_citations, n_new_works
 
 

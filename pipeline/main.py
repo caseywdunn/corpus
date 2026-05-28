@@ -327,14 +327,6 @@ def main():
 
         if args.lexicon is not None:
             if args.lexicon.exists():
-                # Narrow the swallow: a misshapen lexicon (ValueError from
-                # load_lexicon) is a configuration error the user must fix,
-                # not a transient hiccup. Letting it propagate aborts the
-                # run loudly instead of silently degrading to no-op
-                # annotation across the whole corpus. File-read and
-                # YAML-parse failures stay warn-and-continue (mid-edit
-                # filesystem hiccups, permissions).
-                import yaml as _yaml
                 try:
                     lexicons = load_lexicon(args.lexicon)
                     lex_fingerprints = lexicon_fingerprints(args.lexicon)
@@ -345,7 +337,7 @@ def main():
                             "Lexicon[%s] loaded from %s (%d terms, sha256=%s…)",
                             category, args.lexicon, len(section), sha[:12],
                         )
-                except (FileNotFoundError, PermissionError, _yaml.YAMLError) as e:
+                except Exception as e:
                     logger.warning(
                         "Could not load lexicon %s: %s", args.lexicon, e,
                     )
@@ -503,12 +495,6 @@ def main():
         _emit_bucket("would skip", would_skip)
         return
 
-    # Track papers whose extraction worker crashed (#issue: stage-1
-    # child-process failures used to be log-only and the pipeline still
-    # exited 0, so segfaulting papers vanished from the build with no
-    # signal to the operator). Each entry: {hash, pdf, exitcode, signal}.
-    worker_failures: List[Dict[str, Any]] = []
-
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
 
@@ -647,62 +633,20 @@ def main():
                 proc.join()
                 if proc.exitcode != 0:
                     if proc.exitcode < 0:
-                        signal_num = -proc.exitcode
                         logger.error(
                             "Document %s killed by signal %d (segfault?) — skipping",
-                            pdf_hash, signal_num,
+                            pdf_hash, -proc.exitcode,
                         )
-                        worker_failures.append({
-                            "pdf_hash": pdf_hash,
-                            "pdf_hash_full": pdf_hash_full,
-                            "pdf_path": str(primary_pdf),
-                            "exitcode": proc.exitcode,
-                            "signal": signal_num,
-                        })
                     else:
                         logger.error(
                             "Document %s worker exited with code %d — skipping",
                             pdf_hash, proc.exitcode,
                         )
-                        worker_failures.append({
-                            "pdf_hash": pdf_hash,
-                            "pdf_hash_full": pdf_hash_full,
-                            "pdf_path": str(primary_pdf),
-                            "exitcode": proc.exitcode,
-                            "signal": None,
-                        })
 
     logger.info("Processing complete. Results saved to: %s", output_dir)
     logger.info("  Documents: %s", documents_dir)
     logger.info("  Vector DB: %s", vector_db_dir)
 
-    if worker_failures:
-        # Persist a structured failure record so downstream tooling
-        # (orchestrator, `corpus status --report`) can see what dropped
-        # out of this batch without grepping the log stream.
-        from .version import __version__ as _pipeline_version
-        failure_summary = {
-            "pipeline_version": _pipeline_version,
-            "n_failed": len(worker_failures),
-            "failures": worker_failures,
-        }
-        failures_path = output_dir / "stage1_failures.json"
-        try:
-            failures_path.write_text(json.dumps(failure_summary, indent=2))
-            logger.error(
-                "%d document(s) crashed during extraction — see %s",
-                len(worker_failures), failures_path,
-            )
-        except OSError as e:
-            logger.error(
-                "%d document(s) crashed during extraction; could not write "
-                "%s (%s)",
-                len(worker_failures), failures_path, e,
-            )
-        return 1
-
-    return 0
-
 
 if __name__ == "__main__":
-    sys.exit(main() or 0)
+    main()

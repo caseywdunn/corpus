@@ -172,54 +172,10 @@ Every CLI takes the corpuscle root as its first positional argument and resolves
 
 ## Installation
 
-### Supported platforms
-
-Check whether your platform is supported before installing.
-
-| Target | Status |
-| --- | --- |
-| **linux-x86_64** | Supported. |
-| **macOS arm64** (Apple Silicon) | Supported. Two extra constraints — see [macOS (Apple Silicon)](#macos-apple-silicon) below. |
-| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | Not supported. |
-| linux-aarch64 (Graviton, Ampere) | Not yet supported, may be in the future. |
-
-[INSTALL.md](INSTALL.md#supported-platforms) covers optional OCR helpers, the pip-only fallback, and per-platform notes.
-
 ### Prerequisites
 
-- **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
-- **conda** — a conda installer such as [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/). Any standard distribution works (Anaconda, Miniconda, [Miniforge](https://github.com/conda-forge/miniforge)). **macOS Apple Silicon: see [macOS (Apple Silicon)](#macos-apple-silicon) — the env requires an arm64-native conda.**
-
-### macOS (Apple Silicon)
-
-Two extra constraints apply on Apple Silicon. Both stem from the macOS Intel-arch matrix being unsupported (see [Supported platforms](#supported-platforms) above).
-
-#### 1. conda must be arm64-native
-
-The corpus env's Python must run natively as `arm64`. An x86_64 conda on Apple Silicon runs under Rosetta and traps the install in the unsupported macOS Intel matrix above — `transformers` then silently disables PyTorch and `docling` model loads abort.
-
-Anaconda, Miniconda, and Miniforge all ship arm64 builds, and their downloads pages typically pick the right one for an Apple Silicon visitor. The hazard is an older conda install that predates Apple Silicon support, picking the wrong installer from a multi-button downloads page, or running conda from inside a Rosetta'd terminal.
-
-**Check the conda you have:**
-
-```bash
-conda info | grep platform
-# must print: platform : osx-arm64
-```
-
-If it prints `osx-arm64`, you're set on this constraint (item 2 below still applies). If it prints `osx-64`, install one of the arm64 distributions above alongside the existing conda and use its explicit binary path so the env lands under the right distribution:
-
-```bash
-~/miniforge3/bin/conda env create -f environment.yaml
-```
-
-The existing conda is left untouched. As an alternative to a second distribution, `CONDA_SUBDIR=osx-arm64 conda env create -f environment.yaml` followed by `conda activate corpus && conda config --env --set subdir osx-arm64` forces the existing x86_64 conda to pull arm64 packages — less battle-tested; details in [INSTALL.md](INSTALL.md#apple-silicon-arm64-native-conda-required).
-
-After install, `corpus check` hard-fails on a Rosetta'd Python, so a wrong-arch env is caught immediately rather than at the first long pipeline run.
-
-#### 2. Grobid runs under x86_64 emulation
-
-The Grobid Docker image (`grobid/grobid:0.8.1`) is `linux/amd64` only; Docker Desktop emulates it on Apple Silicon. In **Settings → General**, enable **"Use Rosetta for x86_64/amd64 emulation"** for the fast path — QEMU still works but is noticeably slower. Allocate ≥ 12 GB to Docker Desktop under **Settings → Resources** so the existing `JAVA_OPTS=-Xmx8g` heap in `docker-compose.yml` fits; drop to `-Xmx4g` if you have less. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+- **Docker** — required at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (or `apt install docker.io` on Debian/Ubuntu, `brew install --cask docker` on macOS). On HPC hosts without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
+- **conda** — use [miniforge](https://github.com/conda-forge/miniforge), not anaconda.com's default download. Required on Apple Silicon (the default download is Intel x86_64 and silently traps you in an unsupported Rosetta path; see [Supported platforms](#supported-platforms) below); recommended everywhere else for the smaller install and arm64-native packaging.
 
 ### Clone and install
 
@@ -229,10 +185,46 @@ cd corpus
 conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
-bash tools/install_tessdata.sh   # Tesseract OCR language packs
+bash tools/install_tessdata.sh   # Tesseract OCR language packs (see INSTALL.md)
 ```
 
-`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data — see [Language support](#language-support) below.
+`pip install -e .` puts the `corpus` binary on PATH (via the
+`[project.scripts]` entry point in `pyproject.toml`); the package
+metadata version stays in sync with `pipeline/version.py` so
+`pip show corpus`, `corpus --version`, and the bundle manifest
+never drift.
+
+`tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data; the script downloads the [default fallback language set](#language-support) into `$CONDA_PREFIX/share/tessdata/`. Optional `pngquant` / `jbig2enc` (smaller output PDFs) are covered in [INSTALL.md](INSTALL.md#supported-platforms).
+
+### Supported platforms
+
+| Target | Status |
+| --- | --- |
+| **linux-x86_64** | Supported. The reference HPC + deploy target (Bouchet, AWS EC2). |
+| **macOS arm64** (Apple Silicon) | Supported, with two extra constraints — see below. |
+| macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | **Not supported.** Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` require torch ≥ 2.4, which has no macOS Intel build. |
+| linux-aarch64 (Graviton, Ampere) | Not currently supported. Wheels exist for most dependencies but we don't test it; add as a third target if a real Graviton use case appears. |
+
+**On Apple Silicon, two things have to be right:**
+
+1. **Use an arm64-native conda** ([miniforge](https://github.com/conda-forge/miniforge)) to create the corpus env. The default download from anaconda.com is the Intel x86_64 build and keeps running under Rosetta even on an arm64 host — that traps the install in the unsupported macOS Intel matrix above, and `transformers` then silently disables PyTorch. After `conda env create -f environment.yaml`, verify with:
+
+   ```bash
+   ~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
+   # expect: arm64   (NOT x86_64)
+   ```
+
+2. **Grobid still runs under Rosetta.** The official Grobid Docker image (`grobid/grobid:0.8.1`) is `linux/amd64` only. On Apple Silicon, Docker Desktop runs it under x86_64 emulation. Enable **Settings → General → "Use Rosetta for x86_64/amd64 emulation"** in Docker Desktop for the fastest path; without Rosetta, QEMU emulation works but is noticeably slower. Memory budget is the bigger concern — keep the `JAVA_OPTS=-Xmx8g` heap in `docker-compose.yml` only if Docker Desktop has at least 12 GB allocated under **Settings → Resources**, otherwise drop to `-Xmx4g`. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+
+See [INSTALL.md](INSTALL.md#supported-platforms) for the optional OCR helper install (pngquant, jbig2enc) and the pip-only fallback.
+
+Grobid runs as a separate service that must be up *before* you call `corpus run`. `docker compose up -d` runs it in the background; leave it running while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` won't try to launch it for you — auto-launching cross-platform is awkward (docker on a laptop, Singularity on Bouchet, neither on a stripped-down host). `corpus check` confirms reachability before you commit to a long pipeline run.
+
+```bash
+docker compose up -d grobid              # start in background; persists across runs
+curl http://localhost:8070/api/isalive   # should print "true"
+corpus check                             # confirms grobid + GPU + config + disk
+```
 
 ## Language support
 
@@ -253,16 +245,6 @@ bash tools/install_tessdata.sh ara hin tha
 To make a new language part of the fallback set tried when detection is uncertain, add its code to `ocr.ocr_languages_default` in `config.yaml`.
 
 **Everything past OCR is language-agnostic.** The [BGE-M3](https://huggingface.co/BAAI/bge-m3) embedding model is multilingual (trained on 100+ languages) and built for cross-lingual retrieval — a question in English finds passages in German, Latin, French, and so on. Grobid metadata extraction works across European languages, and the vision LLM that tags figures reads labels in whatever script is on the plate. So once OCR succeeds, no further language configuration is needed.
-
-## Start Grobid before `corpus run`
-
-Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on Bouchet, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
-
-```bash
-docker compose up -d grobid              # start in background; persists across runs
-curl http://localhost:8070/api/isalive   # should print "true"
-corpus check                             # confirms grobid + GPU + config + disk
-```
 
 ## Try it on the demo corpus
 
