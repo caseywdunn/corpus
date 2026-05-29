@@ -222,6 +222,18 @@ Runs in parallel with Group A (different subtree).
   the WoRMS DwC-A backbone excludes `isMarine=0` records, so
   freshwater/terrestrial taxa hit silent resolution failures. Add to
   README/INSTALL or a `dev_docs/` taxonomy note.
+- [ ] **Figure panel-ROI default-on + `--figure-panels` flag**
+  ([#102](https://github.com/caseywdunn/corpus/issues/102)). Pass 3a (OCR
+  ROIs) and 3b (vision) are mutually exclusive (`pipeline/runner.py:268-277`)
+  and both opt-in, so the default produces *no* `rois`. Make 3a the floor
+  (it already self-gates to multi-panel figures via `panels_from_caption`,
+  so it's cheap/CPU-only) and replace `--vision-backend {claude,local}` +
+  `--content-aware-figures` with one selector `--figure-panels
+  {ocr,vision-local,vision-claude,off}` (default `ocr`); align the config
+  key `vision.backend` → `figures.panel_detection`. Breaking **CLI/config**
+  rename + permissive default — not MCP-surface (so not freeze-gated) but
+  the same 1.0-stability logic argues for doing the rename now. CHANGELOG
+  migration note + one-time figure-stage rebuild for existing corpuscles.
 
 ### Carry (tracked, not committed this cycle)
 
@@ -263,6 +275,13 @@ shrink.
   strict client leaks figures through the unprofiled URL.
 - **Never remove `format_citation` before `format_citations` exists**
   (Phase 1 → Phase 2) or the server has zero citation tool.
+- **#102 is a breaking CLI/config rename + a default-output change.**
+  `--vision-backend` / `--content-aware-figures` and the `vision.backend`
+  config key are removed; any operator script, `slurm/batch_pass3b.sh`, or
+  `config.yaml` referencing them breaks. Making 3a default-on also re-runs
+  the figure stage on the next `corpus run` for every existing corpuscle
+  (per-stage resume sees a new stage record) — call out the one-time
+  rebuild and provide the old→new flag/key mapping in the CHANGELOG.
 
 ### Verification
 
