@@ -5,23 +5,27 @@ the corpuscle's own `taxonomy.sqlite` (built from a Darwin Core authority) over 
 
 ## Defer to the corpus bibliography
 
-To cite any work, call the `format_citation` MCP tool and paste its
-`formatted` (reference-list entry) and `inline` (parenthetical) strings
-verbatim. Never hand-assemble author + year + journal + title from your
-own memory or by recombining structured fields from other tools — that
-recombination is the most common path to amalgamated, hallucinated
-citations.
+To cite any work, call the `format_citations` MCP tool and paste each
+returned `formatted` (reference-list entry) and `inline` (parenthetical)
+string verbatim. Never hand-assemble author + year + journal + title from
+your own memory or by recombining structured fields from other tools —
+that recombination is the most common path to amalgamated, hallucinated
+citations. Pass exactly one of `queries` / `work_ids` / `paper_hashes`
+(each a list); batch all the citations you need for a reference list into
+a single call rather than issuing one per work.
 
-If `format_citation` returns a non-empty `warning` field, append it
-verbatim alongside the citation. The warning encodes provenance — the
-reader needs to see whether a citation came from a human-curated `.bib`
-(no warning), a Grobid reconciliation, or an unresolved low-confidence
-match.
+`format_citations` returns `{style, count, citations: [...]}` with one
+entry per input in input order. If a citation's `warning` field is
+non-empty, append it verbatim alongside that citation. The warning
+encodes provenance — the reader needs to see whether a citation came from
+a human-curated `.bib` (no warning), a Grobid reconciliation, or an
+unresolved low-confidence match.
 
-If `format_citation` returns `{"error": "not_found"}`, say "this
-reference is not in the corpus" rather than fabricating one. If it
-returns `{"error": "ambiguous"}`, call `format_citation` again with
-one of the `work_id` values from the returned `matches` list.
+If a citation entry is `{"error": "not_found"}`, say "this reference is
+not in the corpus" rather than fabricating one. If an entry is
+`{"error": "ambiguous"}`, call `format_citations` again with one of the
+`work_id` values from that entry's `matches` list (as a `work_ids`
+element).
 
 ## Historical terminology
 

@@ -490,54 +490,6 @@ def _format_one(
 
 
 @mcp.tool()
-def format_citation(
-    query: Optional[str] = None,
-    work_id: Optional[str] = None,
-    paper_hash: Optional[str] = None,
-    style: str = "author-year",
-) -> Dict[str, Any]:
-    """Return a formatted citation string for a work in the corpus
-    bibliographic authority DB (#79).
-
-    **Use this for every citation you emit.** Never recombine
-    author / year / journal / title in your own context — that's
-    where amalgamated, hallucinated references come from. Paste
-    ``formatted`` + ``inline`` verbatim; append non-empty ``warning``
-    verbatim too.
-
-    Resolve via exactly one of: ``query`` (free-text "Author Year
-    [Title]"), ``work_id`` (DOI / corpus: / bhl:), or ``paper_hash``
-    (12-hex SHA-256 prefix).
-
-    Returns ``{work_id, formatted, inline, provenance, warning,
-    fields}``. ``provenance`` ∈ {``bib`` (curated, no warning),
-    ``grobid_reconciled`` (reconciliation footnote), ``unresolved``
-    (bibliography-absence footnote)}.
-
-    On ambiguous match returns ``{error: "ambiguous", matches: [...]}``;
-    on no match returns ``{error: "not_found", ...}`` — say "not in
-    the corpus" rather than fabricating one.
-    """
-    from bib.format import SUPPORTED_STYLES
-
-    idx = _need_index()
-    if idx.biblio_db is None:
-        return {"error": "bibliographic authority database not configured"}
-    if style not in SUPPORTED_STYLES:
-        return {
-            "error": f"unknown style {style!r}",
-            "supported_styles": sorted(SUPPORTED_STYLES),
-        }
-    if sum(x is not None for x in (query, work_id, paper_hash)) != 1:
-        return {
-            "error": "provide exactly one of: query, work_id, paper_hash",
-        }
-    return _format_one(
-        idx, query=query, work_id=work_id, paper_hash=paper_hash, style=style,
-    )
-
-
-@mcp.tool()
 def format_citations(
     queries: Optional[List[str]] = None,
     work_ids: Optional[List[str]] = None,

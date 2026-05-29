@@ -21,9 +21,27 @@ from mcpsrv import app as mcp_app
 from mcpsrv.indexes import BiblioAuthority
 from mcpsrv.tools.bibliography import (
     _PROVENANCE_WARNING,
-    format_citation,
     format_citations,
 )
+
+
+def _cite(**kwargs):
+    """Resolve a single citation through the batched ``format_citations``
+    tool and return its one entry.
+
+    The singular ``format_citation`` MCP tool was removed in #88 §2.3
+    (Phase 2); the batched tool is the only citation entry point. This
+    helper keeps the per-tier resolution assertions below readable by
+    mapping a single ``query`` / ``work_id`` / ``paper_hash`` kwarg to
+    its plural selector and unwrapping ``citations[0]``.
+    """
+    style = kwargs.pop("style", "author-year")
+    selector_map = {
+        "query": "queries", "work_id": "work_ids", "paper_hash": "paper_hashes",
+    }
+    selectors = {selector_map[k]: [v] for k, v in kwargs.items()}
+    out = format_citations(style=style, **selectors)
+    return out["citations"][0]
 
 
 def _make_authority_db(path: Path) -> sqlite3.Connection:
@@ -141,7 +159,7 @@ def index(tmp_path: Path):
 
 
 def test_resolves_work_id_with_bib_tier(index):
-    out = format_citation(work_id="corpus:dunn|2005|marrus")
+    out = _cite(work_id="corpus:dunn|2005|marrus")
     assert out["provenance"] == "bib"
     assert out["warning"] == ""
     assert "Dunn, C. W." in out["formatted"]
@@ -152,7 +170,7 @@ def test_resolves_work_id_with_bib_tier(index):
 
 
 def test_resolves_work_id_with_grobid_reconciled_tier(index):
-    out = format_citation(work_id="corpus:siebert|2011|hapless")
+    out = _cite(work_id="corpus:siebert|2011|hapless")
     assert out["provenance"] == "grobid_reconciled"
     assert out["warning"] == \
         "* generated via reconciliation in corpus, check if correct"
@@ -161,7 +179,7 @@ def test_resolves_work_id_with_grobid_reconciled_tier(index):
 
 
 def test_resolves_work_id_with_unresolved_tier(index):
-    out = format_citation(work_id="corpus:lensia|1965|unknown")
+    out = _cite(work_id="corpus:lensia|1965|unknown")
     assert out["provenance"] == "unresolved"
     assert out["warning"] == \
         "* reference not present in bibliography, check if correct"
@@ -169,7 +187,7 @@ def test_resolves_work_id_with_unresolved_tier(index):
 
 def test_resolves_paper_hash(index):
     """corpus_hash is the bridge from in-corpus PDFs to authority rows."""
-    out = format_citation(paper_hash="dunnhash000")
+    out = _cite(paper_hash="dunnhash000")
     assert out["work_id"] == "corpus:dunn|2005|marrus"
     assert out["provenance"] == "bib"
 
@@ -177,14 +195,14 @@ def test_resolves_paper_hash(index):
 def test_resolves_query_free_text_unique(index):
     """A query that matches exactly one work returns the formatted
     citation — no disambiguation needed."""
-    out = format_citation(query="Dunn 2005")
+    out = _cite(query="Dunn 2005")
     assert out["work_id"] == "corpus:dunn|2005|marrus"
     assert out["provenance"] == "bib"
     assert "Marrus claudanielis" in out["formatted"]
 
 
 def test_resolves_query_with_title_fragment_narrows(index):
-    out = format_citation(query="Siebert 2011 hapless")
+    out = _cite(query="Siebert 2011 hapless")
     assert out["work_id"] == "corpus:siebert|2011|hapless"
 
 
@@ -192,7 +210,7 @@ def test_query_not_found_returns_error_not_fabrication(index):
     """The contract: when a work isn't in the corpus, do NOT
     synthesize a citation. Return an explicit not_found so the
     model says 'not in the corpus' in its prose."""
-    out = format_citation(query="NotAnAuthor 2099")
+    out = _cite(query="NotAnAuthor 2099")
     assert out["error"] == "not_found"
     assert out["queried"] == "NotAnAuthor 2099"
     assert out["parsed_author"] == "NotAnAuthor"
@@ -211,7 +229,7 @@ def test_ambiguous_query_returns_match_list(index):
     conn.commit()
     conn.close()
 
-    out = format_citation(query="Dunn 2005")
+    out = _cite(query="Dunn 2005")
     assert out["error"] == "ambiguous"
     assert len(out["matches"]) == 2
     assert {m["work_id"] for m in out["matches"]} == {
@@ -220,20 +238,25 @@ def test_ambiguous_query_returns_match_list(index):
     }
 
 
-def test_rejects_missing_resolver_args(index):
-    out = format_citation()
-    assert "exactly one of" in out["error"]
+def test_singular_citation_tool_removed_from_registry():
+    """#88 §2.3 (Phase 2): the singular ``format_citation`` / ``get_paper``
+    / ``get_chunk`` MCP tools are removed; only the batched plurals remain
+    registered. Guards against a re-introduction silently re-bloating the
+    frozen 1.0 surface.
 
+    ``bib.format.format_citation`` (the pure string formatter) is a
+    different symbol and must stay importable — asserted here so the two
+    don't get conflated.
+    """
+    import mcpsrv.main  # noqa: F401 — triggers @mcp.tool() registration
+    from mcpsrv.app import mcp
 
-def test_rejects_multiple_resolver_args(index):
-    out = format_citation(query="Dunn 2005", work_id="corpus:dunn|2005|marrus")
-    assert "exactly one of" in out["error"]
+    names = {t.name for t in mcp._tool_manager.list_tools()}
+    assert {"format_citation", "get_paper", "get_chunk"}.isdisjoint(names)
+    assert {"format_citations", "get_papers", "get_chunks"} <= names
 
-
-def test_rejects_unknown_style(index):
-    out = format_citation(work_id="corpus:dunn|2005|marrus", style="vancouver")
-    assert "unknown style" in out["error"]
-    assert "author-year" in out["supported_styles"]
+    from bib.format import format_citation as _string_formatter
+    assert callable(_string_formatter)
 
 
 def test_warning_table_is_complete():
@@ -265,8 +288,8 @@ def test_batch_work_ids_preserve_input_order_and_tiers(index):
     assert out["citations"][0]["warning"] == _PROVENANCE_WARNING["unresolved"]
 
 
-def test_batch_matches_single_tool_per_item(index):
-    one = format_citation(work_id="corpus:dunn|2005|marrus")
+def test_batch_matches_single_resolve_per_item(index):
+    one = _cite(work_id="corpus:dunn|2005|marrus")
     batch = format_citations(work_ids=["corpus:dunn|2005|marrus"])
     assert batch["citations"][0] == one
 

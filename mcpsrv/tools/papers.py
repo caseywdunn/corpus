@@ -205,30 +205,6 @@ _NON_LEXICON_FILES = {
 
 
 @mcp.tool()
-def get_paper(paper_hash: str) -> Dict:
-    """Full metadata for one paper: title, authors, year, abstract, DOI,
-    plus top-10 taxa and the top-10 terms in each configured lexicon
-    category (anatomy, biogeography, …) found on this paper."""
-    idx = _need_index()
-    p = idx.papers.get(paper_hash)
-    if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
-    hash_dir = Path(p["hash_dir"])
-    taxa = _load_json(hash_dir / "taxa.json", default={}) or {}
-    top_lexicon_terms: Dict[str, list] = {}
-    for child in hash_dir.glob("*.json"):
-        if child.name in _NON_LEXICON_FILES:
-            continue
-        payload = _load_json(child, default=None)
-        if isinstance(payload, dict) and "category" in payload:
-            top_lexicon_terms[payload["category"]] = (payload.get("terms") or [])[:10]
-    return {
-        **{k: v for k, v in p.items() if k != "hash_dir"},
-        "top_taxa": (taxa.get("taxa") or [])[:10],
-        "top_lexicon_terms": top_lexicon_terms,
-    }
-
-@mcp.tool()
 def get_papers(
     hashes: List[str],
     fields: Optional[List[str]] = None,
@@ -291,21 +267,6 @@ def get_papers(
             record["hash"] = h
         out.append(record)
     return out
-
-
-@mcp.tool()
-def get_chunk(paper_hash: str, chunk_id: str) -> Dict:
-    """One chunk's full record: text, headings, section_class,
-    figure_refs."""
-    idx = _need_index()
-    p = idx.papers.get(paper_hash)
-    if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
-    chunks = _load_json(Path(p["hash_dir"]) / "chunks.json", default={}) or {}
-    for c in chunks.get("chunks", []) or []:
-        if c.get("chunk_id") == chunk_id:
-            return {**c, "paper_hash": paper_hash, "paper_title": p.get("title")}
-    return {"error": f"no such chunk_id {chunk_id!r} in paper {paper_hash}"}
 
 
 # ---------------------------------------------------------------------------
