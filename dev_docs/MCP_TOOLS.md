@@ -34,7 +34,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 
 | Tool | Returns |
 | --- | --- |
-| `search_taxon` | Resolve a taxon name against the configured Darwin Core taxonomy snapshot. |
+| `search_taxon` | Resolve a taxon name against the configured Darwin Core taxonomy snapshot. Pass `parent_chain=True` (#88) to add the accepted taxon's ancestry (immediate parent → root, each `{taxon_id, scientific_name, rank}`). |
 | `get_papers_for_taxon` | Papers mentioning a taxon, resolved through synonymy. |
 | `get_chunks_for_taxon` | Every chunk that mentions the taxon (resolved through synonymy). |
 | `get_taxon_mentions` | All text-span mentions of a taxon across the corpus, with surrounding context. |
