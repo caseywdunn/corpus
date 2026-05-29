@@ -87,7 +87,7 @@ Category-agnostic — every tool takes `category` as an argument and returns `{"
 
 | Tool | Returns |
 | --- | --- |
-| `lexicon_matrix` | Paper × term mention-count grid for one category. Caller-controlled columns (`terms=`) or top-N by total mention count. Caller-controlled rows (`paper_hashes=`) or all papers, optionally year-filtered. Papers with no `<category>.json` surface as zero-filled rows. Typical ~2 k tokens for 100 × 20. |
+| `lexicon_matrix` | Lexicon-coverage view for one category. **Default `detail=False`** returns compact per-term totals (`term_totals[]` with `total_mentions` + `papers_with_mentions`) over the selected papers. **`detail=True`** returns the full paper × term mention-count grid (`rows[]`), which is O(papers × terms) and was a multi-MB runaway, hence opt-in (#88). Caller-controlled columns (`terms=`) or top-N by total mention count; caller-controlled paper set (`paper_hashes=`) or all papers, optionally year-filtered. |
 | `get_lexicon_term_dossier` | Per-term cross-corpus view: rollup counts, top papers by mention count, chunk examples (IDs only — pair with `get_chunks`), term description. |
 
 ## Prompt-cache integration (Anthropic API clients)
