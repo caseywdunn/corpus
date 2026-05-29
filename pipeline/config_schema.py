@@ -277,6 +277,7 @@ __all__ = [
     "BibliographyConfig",
     "ChunkingConfig",
     "CorpuscleConfig",
+    "FiguresConfig",
     "GrobidConfig",
     "HugeDocumentConfig",
     "LicensingConfig",
@@ -285,6 +286,5 @@ __all__ = [
     "StageTimeoutsConfig",
     "TaxonomyConfig",
     "ValidationError",
-    "VisionConfig",
     "validate_config",
 ]
