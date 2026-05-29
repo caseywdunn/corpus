@@ -415,7 +415,7 @@ sudo journalctl -u corpus-mcp -f        # live server logs
 sudo journalctl -u nginx -f             # reverse-proxy logs
 sudo systemctl status corpus-mcp        # status + last few lines
 curl -s http://localhost/health         # nginx health (no host header needed)
-curl -s -H "Host: $DOMAIN" http://localhost/healthz   # MCP liveness
+curl -s -H "Host: $DOMAIN" http://localhost/healthz   # MCP capability report (JSON; 200 healthy / 503 degraded)
 ```
 
 ---
@@ -458,7 +458,13 @@ aws s3api delete-bucket --bucket $BUCKET --region $REGION
 - **Health check path is `/health`, not `/healthz`.**  nginx serves
   `/health` directly (no auth, returns `ok`); `/healthz` is proxied to
   the MCP server and requires the correct Host header.  ALB health checks
-  must use `/health`.
+  default to `/health` (pure process liveness).  `/healthz` is the
+  richer probe (#91): it returns a JSON capability report and **503 when
+  a backing index is degraded** (e.g. an embedding-model dim mismatch
+  that would otherwise serve silently-empty semantic searches).  Point
+  the ALB target group at `/healthz` instead of `/health` if you want a
+  degraded instance pulled from rotation rather than merely a crashed
+  one; `absent` capabilities (a structured-only corpus) stay healthy.
 
 - **`CreateBucket=false` for replacement deploys.**  When the S3 bucket
   already exists (owned by a previous stack that's still running), pass

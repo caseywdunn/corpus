@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 import os
 import secrets
@@ -30,18 +31,43 @@ logger = logging.getLogger(__name__)
 
 
 class _HealthzASGI:
-    """ASGI middleware: short-circuit ``GET /healthz`` with a plain
-    200, delegate everything else.
+    """ASGI middleware: short-circuit ``GET /healthz`` with a JSON
+    capability report, delegate everything else.
 
     Mounted *outside* :class:`_BearerAuthASGI` so the probe is reachable
-    without a bearer token.  ``/healthz`` reveals only that the process
-    is up, which is already inferable from a successful TCP connect,
-    and uptime monitors / nginx readiness probes should not need the
-    shared secret.
+    without a bearer token — uptime monitors / ALB readiness probes
+    should not need the shared secret. The body reports per-capability
+    state (#91); detail strings are kept filesystem-path-free so this
+    stays safe to expose unauthenticated.
+
+    Status code is **200** when every capability is ``ok`` or ``absent``
+    and **503** when any capability is ``degraded`` — so a load balancer
+    pulls a server whose backing index broke (e.g. an embedding-model
+    dim mismatch) out of rotation instead of serving silently-empty
+    semantic searches.
     """
 
-    def __init__(self, app):
+    def __init__(self, app, idx=None):
         self.app = app
+        self.idx = idx
+
+    def _report(self) -> Tuple[int, dict]:
+        from .app import TOOL_STATS
+        if self.idx is None:
+            # No index wired (shouldn't happen in SSE serve) — process
+            # is up but can't report capabilities.
+            return 200, {"status": "ok", "capabilities": {}, "tools": {}}
+        caps = self.idx.capabilities()
+        healthy = not any(c["state"] == "degraded" for c in caps.values())
+        body = {
+            "status": "ok" if healthy else "degraded",
+            "capabilities": caps,
+            "tools": {
+                "total_calls": TOOL_STATS.total_calls,
+                "total_errors": TOOL_STATS.total_errors,
+            },
+        }
+        return (200 if healthy else 503), body
 
     async def __call__(self, scope, receive, send):
         if (
@@ -49,12 +75,14 @@ class _HealthzASGI:
             and scope.get("method") == "GET"
             and scope.get("path") == "/healthz"
         ):
+            status, body = self._report()
+            payload = (json.dumps(body) + "\n").encode("utf-8")
             await send({
                 "type": "http.response.start",
-                "status": 200,
-                "headers": [(b"content-type", b"text/plain; charset=utf-8")],
+                "status": status,
+                "headers": [(b"content-type", b"application/json; charset=utf-8")],
             })
-            await send({"type": "http.response.body", "body": b"ok\n"})
+            await send({"type": "http.response.body", "body": payload})
             return
         await self.app(scope, receive, send)
 
@@ -197,7 +225,7 @@ def _run_sse(
             host, port,
         )
     # Healthz wraps the auth layer so probes don't need the bearer token.
-    app = _HealthzASGI(app)
+    app = _HealthzASGI(app, idx=idx)
     logger.info("Serving SSE on http://%s:%d (healthz: GET /healthz)", host, port)
     if idx is not None:
         logger.info(
