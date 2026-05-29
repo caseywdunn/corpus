@@ -133,6 +133,20 @@ def _audit_corpus_chunks(documents_dir: Path) -> Tuple[int, int, List[str]]:
     return attempted, total_chunks, zero_chunk_hashes
 
 
+def _panels_to_legacy(mode: str) -> Tuple[bool, Optional[str]]:
+    """Map the ``--figure-panels`` selector (#102) to the legacy
+    ``(content_aware_figures, vision_backend_name)`` pair the runner and
+    its refresh/pass-3c gates still consume.
+
+    ``ocr`` → Pass 3a (content-aware, no vision backend); ``vision-local``
+    / ``vision-claude`` → Pass 3b with the named backend; ``off`` →
+    neither pass runs.
+    """
+    content_aware = mode == "ocr"
+    backend = {"vision-local": "local", "vision-claude": "claude"}.get(mode)
+    return content_aware, backend
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Process a corpus of PDFs with hash-based organization"
@@ -187,20 +201,14 @@ def main():
              "(taxon mentions and every --lexicon category).",
     )
     parser.add_argument(
-        "--content-aware-figures",
-        action="store_true",
-        help="Run Pass 3a — OCR-driven panel/figure ROI detection on multi-panel "
-             "figures (adds ~1-2 s per figure with caption panels; opt-in because "
-             "OCR reliability on line-art figures is mixed; see dev_docs/PLAN.md §9)",
-    )
-    parser.add_argument(
-        "--vision-backend",
-        choices=["claude", "local"],
-        default=None,
-        help="Run Pass 3b — vision-LLM-driven panel + compound-figure detection. "
-             "'claude' uses the Anthropic API (needs ANTHROPIC_API_KEY); "
-             "'local' uses an open-weights VLM on CUDA/MPS (Bouchet production). "
-             "Supersedes --content-aware-figures when both are set.",
+        "--figure-panels",
+        choices=["ocr", "vision-local", "vision-claude", "off"],
+        default="ocr",
+        help="Panel-ROI detection mode (#102). 'ocr' (default) runs Pass 3a "
+             "— OCR-driven panel ROIs, CPU-only, self-gated to multi-panel "
+             "figures. 'vision-local' / 'vision-claude' run Pass 3b "
+             "(open-weights VLM on CUDA/MPS, or the Anthropic API — needs "
+             "ANTHROPIC_API_KEY). 'off' disables panel-ROI detection.",
     )
     parser.add_argument(
         "--vision-model",
@@ -211,9 +219,10 @@ def main():
     parser.add_argument(
         "--refresh-vision",
         action="store_true",
-        help="With --resume and --vision-backend: instead of skipping hashes whose "
-             "summary.json already exists, re-run ONLY Pass 3b on each hash's "
-             "existing figures.json. No OCR/Docling/Grobid/chunking is re-done.",
+        help="With --resume and --figure-panels vision-*: instead of skipping "
+             "hashes whose summary.json already exists, re-run ONLY Pass 3b on "
+             "each hash's existing figures.json. No OCR/Docling/Grobid/chunking "
+             "is re-done.",
     )
     parser.add_argument(
         "--audit-orphans",
@@ -254,8 +263,17 @@ def main():
 
     args = parser.parse_args()
 
+    # #102 — derive the legacy (content_aware_figures, vision backend name)
+    # pair the rest of the pipeline still threads through, from the single
+    # --figure-panels selector.
+    args.content_aware_figures, args.vision_backend = _panels_to_legacy(
+        args.figure_panels
+    )
+
     if args.refresh_vision and not args.vision_backend:
-        parser.error("--refresh-vision requires --vision-backend to be set")
+        parser.error(
+            "--refresh-vision requires --figure-panels vision-local|vision-claude"
+        )
 
     setup_root_logging()
 

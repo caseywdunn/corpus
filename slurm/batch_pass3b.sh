@@ -87,7 +87,7 @@ PY_ARGS=(
     --refresh-vision
     --no-grobid
     --no-taxa
-    --vision-backend local
+    --figure-panels vision-local
     "${BATCH_ARGS[@]}"
 )
 echo "python args: -m pipeline.main ${PY_ARGS[*]}"

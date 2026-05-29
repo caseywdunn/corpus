@@ -302,9 +302,11 @@ nohup corpus run > run.log 2>&1 &     # background; tail run.log to follow
 tmux new-session -s corpus 'corpus run; bash'   # detach with C-b d
 ```
 
-## Vision pass (optional)
+## Figure panel detection
 
-Set `vision.backend: local` (needs CUDA/MPS) or `vision.backend: claude` (needs `ANTHROPIC_API_KEY`) in `config.yaml` and `corpus run` picks it up automatically. If the backend isn't usable on the host, the pass skips gracefully with a one-line nudge — Pass 3b never hard-fails deep into the run because of a missing GPU or missing key. `--no-vision` is the explicit-skip flag for a config that requests it.
+Multi-panel figure ROIs are detected by `figures.panel_detection` in `config.yaml` (#102). The default `ocr` is a cheap, CPU-only OCR pass (Pass 3a) that self-gates to figures whose caption implies multiple panels — no GPU or API key needed. Set `figures.panel_detection: vision-local` (needs CUDA/MPS) or `vision-claude` (needs `ANTHROPIC_API_KEY`) to run the more reliable vision pass (Pass 3b) instead, or `off` to skip panel ROIs entirely. If a vision backend isn't usable on the host, the run downgrades to the OCR floor with a one-line nudge — Pass 3b never hard-fails deep into the run because of a missing GPU or key. `corpus run --no-vision` likewise downgrades a configured vision backend to the OCR floor.
+
+(Migrating from v0.5? The `vision:` block became `figures:`; `vision.backend` → `figures.panel_detection`, with `none → off` (or `ocr` for the new floor), `local → vision-local`, `claude → vision-claude`. `corpus run` fails loudly with this mapping if it sees a legacy `vision:` block.)
 
 On Bouchet, the SLURM chain (`slurm/batch_pipeline.sh`) runs Pass 3b on `gpu_h200` automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 
