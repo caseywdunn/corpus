@@ -70,12 +70,19 @@ def create_schema(conn: sqlite3.Connection) -> None:
         -- ``source_mtime`` is the mtime of taxa.json at the time we
         -- ingested it; on subsequent passes we re-ingest if the file
         -- on disk is newer (auto-reconcile after per-paper re-runs).
+        -- ``taxonomy_sha`` is the sha256 of the taxonomy.sqlite that
+        -- the ingested taxa.json was resolved against, read from the
+        -- paper's taxa-stage fingerprint (#95). mtime is unreliable
+        -- across HPC array-task nodes with skewed clocks, so a change
+        -- of recorded backbone forces a re-ingest even when mtime looks
+        -- fresh.
         CREATE TABLE IF NOT EXISTS papers_processed (
             corpus_hash    TEXT PRIMARY KEY,
             n_mentions     INTEGER NOT NULL,
             n_unique_taxa  INTEGER NOT NULL,
             processed_at   REAL NOT NULL,
-            source_mtime   REAL
+            source_mtime   REAL,
+            taxonomy_sha   TEXT
         );
 
         CREATE TABLE IF NOT EXISTS build_meta (
@@ -100,6 +107,12 @@ def create_schema(conn: sqlite3.Connection) -> None:
     have_cols = {row[1] for row in conn.execute("PRAGMA table_info(papers_processed)")}
     if "source_mtime" not in have_cols:
         conn.execute("ALTER TABLE papers_processed ADD COLUMN source_mtime REAL")
+    # #95 — same back-compat ALTER for the taxonomy fingerprint column.
+    # Older DBs read NULL taxonomy_sha, which the staleness check treats
+    # as "ingested against an unknown backbone" so the first fingerprint-
+    # aware pass re-ingests them once.
+    if "taxonomy_sha" not in have_cols:
+        conn.execute("ALTER TABLE papers_processed ADD COLUMN taxonomy_sha TEXT")
     conn.commit()
 
 
@@ -112,6 +125,29 @@ def parse_chunk_index(chunk_id: str) -> int:
     """Extract integer index from chunk_id like 'chunk_5' → 5."""
     m = _CHUNK_INDEX_RE.search(chunk_id or "")
     return int(m.group(1)) if m else -1
+
+
+def _paper_taxonomy_sha(hash_dir: Path) -> Optional[str]:
+    """Return the sha256 of the taxonomy.sqlite that this paper's
+    taxa.json was resolved against (#95), read from the taxa-stage
+    ``input_fingerprint`` in ``pipeline_state.json``.
+
+    Returns ``None`` when the file is missing/malformed, the taxa stage
+    has no recorded fingerprint, or the corpus has no taxonomy — all of
+    which mean "no recorded backbone to compare", and the staleness
+    check falls back to mtime alone.
+    """
+    state_path = hash_dir / "pipeline_state.json"
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(state, dict):
+        return None
+    rec = (state.get("stages") or {}).get("taxa_and_lexicon_extraction") or {}
+    taxonomy_fp = (rec.get("input_fingerprint") or {}).get("taxonomy") or {}
+    sha = taxonomy_fp.get("sha256")
+    return sha if isinstance(sha, str) else None
 
 
 # ── Main build logic ────────────────────────────────────────────────
@@ -166,7 +202,21 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
     skipped = 0
     refreshed = 0
     errors = 0
+    lagging = 0
     batch = 0
+
+    # #95 — hash the current taxonomy.sqlite once so we can flag papers
+    # whose taxa.json was built against an older backbone (an operator
+    # hint to re-run `corpus run`, which regenerates taxa.json before a
+    # mention rebuild). None when the corpus has no taxonomy.
+    from .stages import _file_sha256
+    taxonomy_path = output_dir / "taxonomy.sqlite"
+    current_taxonomy_sha: Optional[str] = None
+    if taxonomy_path.exists():
+        try:
+            current_taxonomy_sha = _file_sha256(taxonomy_path)
+        except OSError as e:
+            logger.warning("Could not hash %s: %s", taxonomy_path, e)
 
     for hash_dir in sorted(docs_dir.iterdir()):
         if not hash_dir.is_dir():
@@ -188,15 +238,35 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
             logger.warning("Skipping %s: %s", taxa_path, e)
             errors += 1
             continue
+        # #95 — the backbone a paper's taxa.json was resolved against,
+        # recorded in its taxa-stage fingerprint. Drives re-ingest
+        # independently of mtime.
+        paper_taxo_sha = _paper_taxonomy_sha(hash_dir)
+        if (
+            current_taxonomy_sha is not None
+            and paper_taxo_sha is not None
+            and paper_taxo_sha != current_taxonomy_sha
+        ):
+            lagging += 1
+
         cur = conn.execute(
-            "SELECT source_mtime FROM papers_processed WHERE corpus_hash = ?",
+            "SELECT source_mtime, taxonomy_sha FROM papers_processed "
+            "WHERE corpus_hash = ?",
             (corpus_hash,),
         )
         row = cur.fetchone()
         is_refresh = False
         if row is not None:
-            stored_mtime = row[0]
-            if stored_mtime is not None and stored_mtime >= current_mtime:
+            stored_mtime, stored_taxo_sha = row
+            mtime_fresh = stored_mtime is not None and stored_mtime >= current_mtime
+            # Skip only when BOTH signals say "unchanged": taxa.json is
+            # no newer than our last ingest AND the recorded backbone is
+            # the same one we ingested against. A changed backbone forces
+            # a re-ingest even when mtime looks fresh (#95 — the
+            # cross-component case mtime alone misses on HPC nodes with
+            # skewed clocks).
+            taxo_unchanged = paper_taxo_sha == stored_taxo_sha
+            if mtime_fresh and taxo_unchanged:
                 skipped += 1
                 continue
             is_refresh = True
@@ -221,9 +291,10 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
         conn.execute(
             """INSERT OR REPLACE INTO papers_processed
                (corpus_hash, n_mentions, n_unique_taxa, processed_at,
-                source_mtime)
-               VALUES (?, ?, ?, ?, ?)""",
-            (corpus_hash, n_mentions, n_unique, time.time(), current_mtime),
+                source_mtime, taxonomy_sha)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (corpus_hash, n_mentions, n_unique, time.time(), current_mtime,
+             paper_taxo_sha),
         )
 
         total_papers += 1
@@ -244,12 +315,21 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
         "Build complete: %d papers, %d mentions, %d skipped, %d refreshed, %d errors",
         total_papers, total_mentions, skipped, refreshed, errors,
     )
+    if lagging:
+        logger.warning(
+            "%d paper(s) have taxa.json resolved against an OLDER taxonomy "
+            "than the current %s. Their mentions reflect the stale backbone; "
+            "re-run `corpus run` to regenerate taxa.json before rebuilding "
+            "mentions.",
+            lagging, taxonomy_path.name,
+        )
     return {
         "papers": total_papers,
         "mentions": total_mentions,
         "skipped": skipped,
         "refreshed": refreshed,
         "errors": errors,
+        "lagging": lagging,
     }
 
 
