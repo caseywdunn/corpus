@@ -245,6 +245,7 @@ def get_chunks_for_topic(
     k: int = 20,
     paper_hash: Optional[str] = None,
     with_text: bool = True,
+    with_cites: bool = False,
 ) -> List[Dict]:
     """Semantic top-``k`` chunks via LanceDB cosine similarity. Use
     for "how is X discussed in the corpus" — for literal taxa /
@@ -257,6 +258,14 @@ def get_chunks_for_topic(
     relevant chunk_ids, fetch full text via
     ``get_chunks(paper_hash, chunk_ids=[...])``. Cuts a typical
     k=10 search's body-text cost by ~45%.
+
+    ``with_cites=True`` (#88) attaches ``cited_work_ids`` to each
+    row — the distinct works the chunk's *parent paper* cites in-text,
+    resolved via the bibliographic authority (deduplicated per paper).
+    Feed them straight to ``format_citations`` to build a reference
+    list. Empty list when the authority DB isn't loaded. Citation spans
+    are tracked per paper, not per chunk, so every chunk from the same
+    paper carries the same list.
 
     Pass ``paper_hash`` to constrain to one paper. Returns
     ``[{error: ...}]`` if no LanceDB index exists yet — build with
@@ -277,6 +286,25 @@ def get_chunks_for_topic(
     if paper_hash:
         search = search.where(f"metadata.pdf_hash = '{paper_hash}'")
     results = search.to_list()
+
+    # #88 — per-paper in-text citation targets, loaded once per paper.
+    _cites_cache: Dict[str, List[str]] = {}
+    biblio = getattr(idx, "biblio_db", None)
+
+    def _cited_work_ids(h: str) -> List[str]:
+        if h not in _cites_cache:
+            if biblio is None:
+                _cites_cache[h] = []
+            else:
+                rows = biblio.conn.execute(
+                    "SELECT DISTINCT cited_work_id FROM citations "
+                    "WHERE citing_corpus_hash = ? AND cited_work_id IS NOT NULL "
+                    "ORDER BY cited_work_id",
+                    (h,),
+                ).fetchall()
+                _cites_cache[h] = [row[0] for row in rows]
+        return _cites_cache[h]
+
     out: List[Dict] = []
     for r in results:
         m = r.get("metadata") or {}
@@ -301,6 +329,8 @@ def get_chunks_for_topic(
             row["text"] = text
         else:
             row["len_chars"] = len(text)
+        if with_cites:
+            row["cited_work_ids"] = _cited_work_ids(h) if h else []
         out.append(row)
     return out
 
