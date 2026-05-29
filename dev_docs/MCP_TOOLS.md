@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 40 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 42 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -63,13 +63,13 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 
 | Tool | Returns |
 | --- | --- |
-| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. |
-| `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). |
+| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. `caption_text` is a preview by default (#85); `full_caption=True` for the verbatim caption. |
+| `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). `caption_text` previewed by default (#85); `full_caption=True` for verbatim. |
 | `get_figure_dossier_for_taxon` | Figures linked to a taxon, each with `linked_chunks` (chunk IDs that reference the figure via `chunks.json:figure_refs`) + summarized ROIs. Single call replaces `get_figures_for_taxon` + per-figure `list_figure_rois` + cross-ref against `get_chunks_for_taxon`. |
 | `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Category-agnostic. |
 | `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references. |
-| `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. |
-| `get_figure_url` | A bearer-gated HTTP URL (plus `auth_header` + license fields) the caller can `curl -o` to land the figure PNG on disk without loading its bytes into the model's context — for pandoc / LaTeX / PDF assembly. |
+| `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. Figure-licensing gate keyed to the per-call `profile=` (#101): a strict profile (manuscript/presentation) refuses an unpublishable figure, the default `report` allows it. |
+| `get_figure_url` | A bearer-gated HTTP URL (plus `auth_header` + license/attribution fields) the caller can `curl -o` to land the figure PNG on disk without loading its bytes into context — for pandoc / LaTeX / PDF assembly. Honors the per-call `profile=` gate (#101) and encodes the resolved profile into the URL so the HTTP fetch enforces the same policy. |
 | `list_figure_rois` | Per-panel / per-subfigure ROIs annotated on a figure. |
 | `get_figure_roi_image` | Crop a panel ROI out of a figure image and return the crop's path. |
 
@@ -81,6 +81,15 @@ Requires `embed_chunks.py` to have been run (for `get_chunks_for_topic`) and `AN
 | --- | --- |
 | `get_chunks_for_topic` | Semantic search over chunks via the LanceDB vector index. Pass `with_text=False` for a metadata-only scan (#82): ~80 chars/row vs ~600 with full text, then drill down with `get_chunks(paper_hash, chunk_ids=[...])`. Pass `with_cites=True` (#88) to attach `cited_work_ids` (the chunk's parent paper's in-text citation targets) — feed to `format_citations`. |
 | `translate_chunk` | Translate one chunk to the target language (default English), via the Anthropic Claude API. |
+
+## Output profiles
+
+Output type is a per-call client/session property (#101): pass `profile=` (`report` / `manuscript` / `presentation`) to the gated figure tools to select the figure-licensing policy. These tools expose the vocabulary.
+
+| Tool | Returns |
+| --- | --- |
+| `list_output_profiles` | The built-in output profiles and their policies (`figure_licensing`, `require_attribution`, `citation_provenance`, `excerpt_max_words`) plus the server's fallback `profile`. |
+| `get_active_profile` | The server's fallback output profile — the one applied to calls that omit `profile=`. Informational; the authoritative selection is per-call. |
 
 ## Lexicon
 
@@ -114,7 +123,7 @@ client.messages.create(
 Two breakpoints land below the ~5 k-token cache-eligibility floor on typical bundles:
 
 - **System prompt** (`mcpsrv/default_instructions.md` concatenated with any corpuscle-specific `instructions.md`): ~500–1500 tokens.
-- **Tool catalog** (40 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
+- **Tool catalog** (42 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
 
 Together ~5 k tokens get cached across all turns of a session — a non-trivial saving on conversations that fan out into many tool-use rounds. Cache lives ~5 minutes by default; subsequent sessions against the same build hit the same cache lines.
 

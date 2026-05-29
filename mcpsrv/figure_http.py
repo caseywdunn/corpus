@@ -22,9 +22,11 @@ local stdio (loopback HTTP server bound to 127.0.0.1) and SSE/AWS
 Honored gates:
 
 * ``_BearerAuthASGI`` (same middleware that guards ``/sse``).
-* ``#51`` publishable check (refuses figures the parent work isn't
-  licensed-cleared for, unless the server was started with
-  ``--allow-unpublishable``).
+* ``#51`` / ``#101`` figure-licensing check keyed to the request
+  ``?profile=`` (refuses figures the parent work isn't licensed-cleared
+  for under a *strict* profile; the permissive ``report`` default
+  allows them). The profile is encoded into the URL by
+  ``get_figure_url`` so the fetch enforces the same policy.
 """
 from __future__ import annotations
 
@@ -45,17 +47,25 @@ _HASH_RE = re.compile(r"^[a-f0-9]{12}$")
 _FIGURE_ID_RE = re.compile(r"^[A-Za-z0-9._\-]+$")
 
 
-def make_figure_app(idx, allow_unpublishable: bool = False):
+def make_figure_app(idx, default_profile: Optional[str] = None):
     """Build an ASGI handler that serves
-    ``GET /figures/<paper_hash>/<figure_id>?label=...``.
+    ``GET /figures/<paper_hash>/<figure_id>?profile=...&label=...``.
 
     ``idx`` is the live :class:`mcpsrv.indexes.CorpusIndex` so we can
     resolve ``paper_hash → hash_dir`` and probe the bibliographic
     authority for license fields.
+
+    The figure-licensing gate (#101) is keyed to the request's
+    ``?profile=`` (the value :func:`get_figure_url` encodes into the URL
+    it hands out), falling back to ``default_profile`` — the server's
+    ``--default-profile`` — when the query omits it. A strict client's
+    URL therefore stays strict on fetch; only an unprofiled URL falls
+    back to the server default.
     """
     # Lazy import — keeps the load-time cost off `import mcpsrv` for
     # non-serve uses (tests, bundle distillation).
     from .tools.figures import _license_metadata_for_paper
+    from .profiles import resolve_profile
 
     async def app(scope, receive, send):
         if scope.get("type") != "http":
@@ -83,8 +93,10 @@ def make_figure_app(idx, allow_unpublishable: bool = False):
             await _send_text(send, 400, "malformed figure_id")
             return
 
-        # Optional ``?label=<panel>`` to fetch a sub-panel crop.
+        # Optional ``?label=<panel>`` (sub-panel crop) and ``?profile=``
+        # (the policy the URL was issued under).
         label: Optional[str] = None
+        req_profile: Optional[str] = None
         qs = scope.get("query_string", b"").decode("latin-1", errors="replace")
         if qs:
             for piece in qs.split("&"):
@@ -93,24 +105,29 @@ def make_figure_app(idx, allow_unpublishable: bool = False):
                     if not _FIGURE_ID_RE.match(label):
                         await _send_text(send, 400, "malformed label")
                         return
+                elif piece.startswith("profile="):
+                    req_profile = piece[len("profile="):]
 
         p = idx.papers.get(paper_hash)
         if not p:
             await _send_text(send, 404, f"no such paper_hash: {paper_hash}")
             return
 
-        # Publishable gate (#51) — mirror the get_figure_image policy.
-        if not allow_unpublishable:
+        # Figure-licensing gate (#101) — keyed to the request profile,
+        # falling back to the server default. Mirrors get_figure_url.
+        active = resolve_profile(req_profile, default_profile)
+        if active.figure_licensing == "strict":
             lic = _license_metadata_for_paper(paper_hash)
             if not lic.get("publishable"):
                 body = {
                     "error": "figure not publishable",
+                    "profile": active.name,
                     "license": lic.get("license") or "unknown",
                     "license_source": lic.get("license_source"),
                     "hint": (
-                        "restart the server with --allow-unpublishable for "
-                        "local rights-holder cases, or read get_figure() for "
-                        "the raw license fields if your jurisdiction differs"
+                        "this URL was issued under a strict profile; request "
+                        "with profile=report for in-chat display, or read "
+                        "get_figure() for the raw license fields"
                     ),
                 }
                 await _send_json(send, 403, body)
