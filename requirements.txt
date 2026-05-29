@@ -30,16 +30,19 @@ uvicorn
 # sentence-transformers, but vision.py and embeddings.py import them
 # directly, so we declare them to avoid relying on a transitive pin.
 lancedb
-sentence-transformers
-torch
-transformers
+# Pinned as a known-good set (#98): docling 2.95/2.96 silently break macOS
+# arm64 (MPS) extraction. Keep the four in lockstep; move forward only after
+# verifying newer docling extracts correctly on arm64.
+sentence-transformers==5.5.0
+torch==2.12.0
+transformers==5.8.1
 
 # LLM clients used by MCP tools
 anthropic
 
 # Pipeline-side (needed for process_corpus.py / figures.py, not
 # strictly required by the MCP server alone)
-docling
+docling==2.94.0  # pinned (#98) — see the torch/transformers note above
 ocrmypdf
 pymupdf
 langdetect

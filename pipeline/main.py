@@ -102,6 +102,37 @@ def _expected_stages_for_run(
     return stages
 
 
+def _audit_corpus_chunks(documents_dir: Path) -> Tuple[int, int, List[str]]:
+    """Scan a built ``documents/`` tree and report extraction yield.
+
+    Returns ``(attempted, total_chunks, zero_chunk_hashes)`` where
+    ``attempted`` counts per-document dirs that have a ``summary.json``
+    (i.e. extraction ran), ``total_chunks`` sums ``chunks.json`` chunk
+    counts across them, and ``zero_chunk_hashes`` lists the dirs that
+    produced none. Missing/malformed ``chunks.json`` counts as zero.
+    Used by the silent-failure guard (#99)."""
+    attempted = 0
+    total_chunks = 0
+    zero_chunk_hashes: List[str] = []
+    if not documents_dir.exists():
+        return attempted, total_chunks, zero_chunk_hashes
+    for hash_dir in sorted(documents_dir.iterdir()):
+        if not hash_dir.is_dir() or not (hash_dir / "summary.json").exists():
+            continue
+        attempted += 1
+        n_chunks = 0
+        chunks_path = hash_dir / "chunks.json"
+        if chunks_path.exists():
+            try:
+                n_chunks = len(json.loads(chunks_path.read_text()).get("chunks", []))
+            except (OSError, json.JSONDecodeError):
+                n_chunks = 0
+        total_chunks += n_chunks
+        if n_chunks == 0:
+            zero_chunk_hashes.append(hash_dir.name)
+    return attempted, total_chunks, zero_chunk_hashes
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Process a corpus of PDFs with hash-based organization"
@@ -700,6 +731,31 @@ def main():
                 len(worker_failures), failures_path, e,
             )
         return 1
+
+    # Silent-failure guard (#99): a run can "complete" with every document
+    # producing zero chunks — e.g. when the extraction backend (docling)
+    # regresses on a platform and returns empty documents without crashing.
+    # On macOS the per-document worker runs inline, so such a document lands
+    # a non-success summary.json but no subprocess failure; the run would
+    # otherwise exit 0 and ship an empty served bundle. Treat a corpus-wide
+    # zero-chunk result as a hard error, and warn on individual empties.
+    attempted, total_chunks, zero_chunk_hashes = _audit_corpus_chunks(documents_dir)
+
+    if attempted and total_chunks == 0:
+        logger.error(
+            "Extraction produced zero chunks across all %d processed "
+            "document(s) — refusing to package an empty corpus. The "
+            "extraction backend likely failed silently (e.g. docling "
+            "returning empty output); inspect pipeline.log in each document "
+            "dir under %s.",
+            attempted, documents_dir,
+        )
+        return 1
+    if zero_chunk_hashes:
+        logger.warning(
+            "%d of %d document(s) produced zero chunks: %s",
+            len(zero_chunk_hashes), attempted, ", ".join(zero_chunk_hashes),
+        )
 
     return 0
 
