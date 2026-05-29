@@ -211,7 +211,7 @@ def test_query_not_found_returns_error_not_fabrication(index):
     synthesize a citation. Return an explicit not_found so the
     model says 'not in the corpus' in its prose."""
     out = _cite(query="NotAnAuthor 2099")
-    assert out["error"] == "not_found"
+    assert out["code"] == "not_found"
     assert out["queried"] == "NotAnAuthor 2099"
     assert out["parsed_author"] == "NotAnAuthor"
     assert out["parsed_year"] == 2099
@@ -230,7 +230,7 @@ def test_ambiguous_query_returns_match_list(index):
     conn.close()
 
     out = _cite(query="Dunn 2005")
-    assert out["error"] == "ambiguous"
+    assert out["code"] == "ambiguous"
     assert len(out["matches"]) == 2
     assert {m["work_id"] for m in out["matches"]} == {
         "corpus:dunn|2005|marrus",
@@ -309,8 +309,8 @@ def test_batch_per_item_errors_do_not_fail_the_batch(index):
     ])
     assert out["count"] == 3
     assert out["citations"][0]["work_id"] == "corpus:dunn|2005|marrus"
-    assert out["citations"][1]["error"] == "not_found"
-    assert out["citations"][2]["error"] == "empty_item"
+    assert out["citations"][1]["code"] == "not_found"
+    assert out["citations"][2]["code"] == "empty_item"
 
 
 def test_batch_requires_exactly_one_selector(index):

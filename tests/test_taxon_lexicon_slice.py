@@ -188,7 +188,7 @@ def test_n_papers_total(corpus):
 
 def test_unknown_category_returns_available_list(corpus):
     out = get_taxon_lexicon_slice("Marrus", "made_up")
-    assert out["error"] == "unknown_category"
+    assert out["code"] == "invalid_argument"
     assert out["queried_category"] == "made_up"
     assert "anatomy" in out["available"]
 

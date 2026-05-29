@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Theme — v0.6 road-to-1.0
+
+v0.6 is the **API-freeze** cycle: no new feature tools, instead a
+one-time pass to finalize the public MCP tool surface, fix known
+correctness bugs, and harden ops — because after 1.0 a change to any
+tool default, signature, or response shape is a breaking change. The
+served surface is now **39 MCP tools** with a uniform error payload and
+a consistent pagination convention; this is the surface 1.0 freezes.
+
+### Changed (breaking)
+
+- **MCP surface frozen at 39 tools.** The redundant singular tools were
+  removed in favor of their batched plurals
+  ([#88](https://github.com/caseywdunn/corpus/issues/88) §2.3):
+  `format_citation` → `format_citations`, `get_paper` → `get_papers`,
+  `get_chunk` → `get_chunks` (pass a single-element list for the
+  one-item case). `mcpsrv/default_instructions.md` routes citations
+  through `format_citations`.
+- **Breaking response-shape defaults**
+  ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 1):
+  `lexicon_matrix` returns per-term **summaries by default**
+  (`detail=True` for the full grid — fixes a 71 MB → 684 KB runaway);
+  the older figure tools (`get_figures_for_taxon`,
+  `get_figures_for_lexicon_term`) return a **caption preview** by
+  default (`full_caption=True` for the verbatim caption,
+  [#85](https://github.com/caseywdunn/corpus/issues/85));
+  `get_chunks_for_topic` gains `with_cites=True` in-text cite refs.
+- **Uniform tool error payload** (freeze gate,
+  [#88](https://github.com/caseywdunn/corpus/issues/88) §3). Every tool
+  error return now carries a human `error` message **plus a machine
+  `code`** (`not_found` / `ambiguous` / `invalid_argument` /
+  `not_configured` / `no_results` / `unavailable` / `empty_item` /
+  `forbidden`). Clients branching on the citation `error` token
+  (`"not_found"` / `"ambiguous"`) must branch on `code` instead.
+- **Pagination naming** reconciled to `limit` everywhere, except the
+  multi-section dossier/graph tools, which keep descriptive `max_*`
+  caps (one call, several independently-bounded sections — the
+  documented exception). A `tests/test_freeze_contract.py` meta-test
+  enforces both the 39-tool set and the naming rule.
+- **Output-type profiles replace `--allow-unpublishable`**
+  ([#101](https://github.com/caseywdunn/corpus/issues/101)). Figure +
+  citation gating is now driven by a per-call `profile=` arg
+  (`report` / `manuscript` / `presentation`); the server
+  `--default-profile` sets the fallback for calls that omit it (default
+  `report`, permissive — startup warns). New `list_output_profiles` /
+  `get_active_profile` discovery tools. Figure responses gain
+  `license` / `attribution` fields.
+- **Figure panel detection: `--figure-panels` + OCR floor default-on**
+  ([#102](https://github.com/caseywdunn/corpus/issues/102)). The
+  `vision:` config block became `figures:`; `--vision-backend` +
+  `--content-aware-figures` collapsed into one
+  `--figure-panels {ocr,vision-local,vision-claude,off}` (default
+  `ocr`, a CPU-only floor). A legacy `vision:` block now fails config
+  validation with the migration mapping. Existing corpuscles re-run the
+  figure stage once on the next `corpus run`.
+
+### Added
+
+- **`format_citations`** batched citation formatter and **`search_taxon`
+  `parent_chain`** ancestry walk
+  ([#88](https://github.com/caseywdunn/corpus/issues/88)).
+- **Breadth + edge caps on `get_citation_graph`**
+  ([#87](https://github.com/caseywdunn/corpus/issues/87)):
+  `max_edges_per_node` / `max_total_edges` + a `truncated` flag.
+- **`/healthz` capability report + refuse-to-serve on degraded
+  capability** ([#91](https://github.com/caseywdunn/corpus/issues/91)).
+  `/healthz` returns JSON capability flags and **503** when a backing
+  index is degraded; `get_chunks_for_topic` raises a hard error (not
+  empty rows) on a degraded semantic index.
+- **Central per-invocation run log**
+  ([#90](https://github.com/caseywdunn/corpus/issues/90)):
+  `<output_dir>/runs/<timestamp>/run.log` archives argv, resolved
+  config, dependency-stack versions, and stage success/failure counts
+  (top-level `run.log` kept as "latest").
+- **`corpus debug-pdf`** single-PDF debug runner with per-stage tracing
+  ([#92](https://github.com/caseywdunn/corpus/issues/92)).
+- **Per-tool instrumentation shim** in `mcpsrv/app.py` (call/error/
+  latency counters) feeding `/healthz` and the run log.
+
+### Fixed
+
+- **Bib-provenance preserved through import + reconciliation**
+  ([#100](https://github.com/caseywdunn/corpus/issues/100)): a
+  reference in the user-edited `.bib` stays authoritative `bib`
+  provenance after an unchanged re-import and after reconciliation, so
+  curated references no longer warn spuriously.
+- **`build_taxon_mentions` freshness is fingerprint-aware**
+  ([#95](https://github.com/caseywdunn/corpus/issues/95)): re-ingest is
+  gated on the taxonomy sha recorded in each paper's taxa-stage
+  fingerprint, not just `taxa.json` mtime (unreliable across HPC nodes).
+- **HuggingFace implicit-token warning** silenced via a shared
+  `HF_HUB_DISABLE_IMPLICIT_TOKEN` setter
+  ([#97](https://github.com/caseywdunn/corpus/issues/97)).
+- **WoRMS `isMarine=0` gap documented**
+  ([#96](https://github.com/caseywdunn/corpus/issues/96)).
+
+### Migration (v0.5 → v0.6)
+
+| Old | New |
+| --- | --- |
+| `format_citation(...)` | `format_citations(queries=[...] / work_ids=[...] / paper_hashes=[...])` |
+| `get_paper(hash)` | `get_papers(hashes=[hash])` |
+| `get_chunk(hash, chunk_id)` | `get_chunks(hash, chunk_ids=[chunk_id])` |
+| citation error token `{"error": "not_found"}` | `{"error": <message>, "code": "not_found"}` (branch on `code`) |
+| `lexicon_matrix()` full grid | summary by default; `lexicon_matrix(detail=True)` for the grid |
+| `get_figures_for_taxon` full `caption_text` | caption preview; `full_caption=True` for verbatim |
+| server flag `--allow-unpublishable` | server `--default-profile` + per-call `profile=` |
+| config `vision.backend: {none,local,claude}` | config `figures.panel_detection: {off,ocr,vision-local,vision-claude}` (default `ocr`) |
+| CLI `--vision-backend` / `--content-aware-figures` | CLI `--figure-panels {ocr,vision-local,vision-claude,off}` |
+
 ## [0.5.0] - 2026-05-29
 
 ### Theme

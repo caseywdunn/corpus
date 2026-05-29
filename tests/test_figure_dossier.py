@@ -282,13 +282,13 @@ def test_term_dossier_linked_chunks_populated(corpus):
 
 def test_term_dossier_unknown_category_error(corpus):
     out = get_figure_dossier_for_term("not_a_category", "pneumatophore")
-    assert out["error"] == "unknown_category"
+    assert out["code"] == "invalid_argument"
     assert "anatomy" in out["available"]
 
 
 def test_term_dossier_empty_term_error(corpus):
     out = get_figure_dossier_for_term("anatomy", "")
-    assert out["error"] == "empty_term"
+    assert out["code"] == "invalid_argument"
 
 
 def test_term_dossier_max_linked_chunks_respected(corpus):

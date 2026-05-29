@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.fastmcp import Image
 
-from ..app import _load_json, _need_index, _validated_limit, mcp
+from ..app import _load_json, _need_index, _validated_limit, error, mcp
 from ..profiles import get_profile, resolve_profile
 
 
@@ -148,10 +148,10 @@ def get_figures_for_taxon(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -226,18 +226,15 @@ def get_figures_for_lexicon_term(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     term_low = (term or "").strip().lower()
     if not term_low:
         return []
     available = sorted(idx.lexicon_to_papers.keys())
     if category not in available:
-        return {
-            "error": "unknown_category",
-            "queried_category": category,
-            "available": available,
-        }
+        return error("unknown lexicon category", "invalid_argument",
+                     queried_category=category, available=available)
     # Restrict the candidate paper set to those tagged with at least
     # one term in this category at extraction time. Without this filter
     # the caption search runs across every paper and yields cross-
@@ -391,7 +388,7 @@ def get_figure_dossier_for_taxon(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return {"not_found": True, "queried": taxon_name}
@@ -480,14 +477,11 @@ def get_figure_dossier_for_term(
     idx = _need_index()
     available = sorted(idx.lexicon_to_papers.keys())
     if category not in available:
-        return {
-            "error": "unknown_category",
-            "queried_category": category,
-            "available": available,
-        }
+        return error("unknown lexicon category", "invalid_argument",
+                     queried_category=category, available=available)
     term_low = (term or "").strip().lower()
     if not term_low:
-        return {"error": "empty_term"}
+        return error("term must be non-empty", "invalid_argument")
 
     scored: List[Dict] = []
     n_papers_with_figures = 0
@@ -539,7 +533,7 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
@@ -552,7 +546,7 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
                 # #51 — license metadata inherited from the parent work.
                 **_license_metadata_for_paper(paper_hash),
             }
-    return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+    return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
 
 
@@ -569,7 +563,7 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return [{"error": f"no such paper_hash: {paper_hash}"}]
+        return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
@@ -584,7 +578,7 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
                 "pass3_status": f.get("pass3_status"),
                 "image_size_px": f.get("image_size_px"),
             }]
-    return [{"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}]
+    return [error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")]
 
 
 @mcp.tool()
@@ -610,7 +604,7 @@ def get_figure_roi_image(
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
     fig = next(
@@ -618,7 +612,7 @@ def get_figure_roi_image(
         None,
     )
     if fig is None:
-        return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+        return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
     whole_image = hash_dir / "figures" / (fig.get("filename") or "")
     caption_text = fig.get("caption_text") or fig.get("caption") or ""
@@ -665,7 +659,7 @@ def get_figure_roi_image(
                 y1 = max(y0 + 1, min(y1, im.height))
                 im.crop((x0, y0, x1, y1)).save(str(crop_path))
         except Exception as e:
-            return {"error": f"could not crop figure: {e}"}
+            return error(f"could not crop figure: {e}", "unavailable")
 
     return {
         "paper_hash": paper_hash,
@@ -807,19 +801,18 @@ def get_figure_url(
     active = _active_figure_profile(idx, profile)
     base = getattr(idx, "figure_url_base", None)
     if not base:
-        return {
-            "error": (
-                "figure HTTP route is not available on this server. "
-                "Possible causes: figure side-car failed to bind at "
-                "startup (check server logs), or the server is running "
-                "with an older mcpsrv that predates #69. "
-                "Fall back to get_figure_image."
-            ),
-        }
+        return error(
+            "figure HTTP route is not available on this server. "
+            "Possible causes: figure side-car failed to bind at "
+            "startup (check server logs), or the server is running "
+            "with an older mcpsrv that predates #69. "
+            "Fall back to get_figure_image.",
+            "unavailable",
+        )
 
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
 
     # Verify the figure record exists before handing out a URL — the
     # HTTP route would 404 anyway, but a JSON error here is cheaper
@@ -830,21 +823,18 @@ def get_figure_url(
         None,
     )
     if fig is None:
-        return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+        return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
     lic = _license_metadata_for_paper(paper_hash)
     refusal = _figure_licensing_refusal(active, lic)
     if refusal:
-        return {
-            "error": (
-                f"{refusal}. Server refuses to hand out a URL the operator "
-                f"would only get a 403 from. Read get_figure({paper_hash!r}, "
-                f"{figure_id!r}) for the raw license fields, or pass "
-                f"profile='report' for in-chat display."
-            ),
-            "profile": active.name,
-            **lic,
-        }
+        return error(
+            f"{refusal}. Server refuses to hand out a URL the operator "
+            f"would only get a 403 from. Read get_figure({paper_hash!r}, "
+            f"{figure_id!r}) for the raw license fields, or pass "
+            f"profile='report' for in-chat display.",
+            "forbidden", profile=active.name, **lic,
+        )
 
     # Encode the resolved profile into the URL so the HTTP route enforces
     # the same policy (the route defaults to the server fallback when no

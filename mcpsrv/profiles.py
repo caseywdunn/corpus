@@ -78,7 +78,10 @@ def resolve_profile(
 
 
 def unknown_profile_error(name: str) -> Dict:
+    # Uniform error shape (Phase 3 freeze gate): error message + machine
+    # code + tool-specific context.
     return {
         "error": f"unknown profile {name!r}",
+        "code": "invalid_argument",
         "available": sorted(BUILTIN_PROFILES),
     }

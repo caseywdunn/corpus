@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 
 from pipeline.embeddings import EmbeddingError
 
-from ..app import _load_json, _need_index, _validated_limit, mcp
+from ..app import _load_json, _need_index, _validated_limit, error, mcp
 
 
 @mcp.tool()
@@ -38,7 +38,7 @@ def get_chunks(
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return [{"error": f"no such paper_hash: {paper_hash}"}]
+        return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     chunks_data = _load_json(Path(p["hash_dir"]) / "chunks.json", default={}) or {}
     all_chunks = chunks_data.get("chunks", []) or []
 
@@ -92,11 +92,11 @@ def get_chunks_by_section(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return [{"error": f"no such paper_hash: {paper_hash}"}]
+        return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     chunks = _load_json(Path(p["hash_dir"]) / "chunks.json", default={}) or {}
     rows: List[Dict] = []
     for c in chunks.get("chunks", []) or []:
@@ -134,14 +134,16 @@ def translate_chunk(
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
     hash_dir = Path(p["hash_dir"])
 
     # Find the chunk text.
     chunks = _load_json(hash_dir / "chunks.json", default={}) or {}
     chunk = next((c for c in chunks.get("chunks", []) or [] if c.get("chunk_id") == chunk_id), None)
     if chunk is None:
-        return {"error": f"no such chunk_id {chunk_id!r} in paper {paper_hash}"}
+        return error(
+            f"no such chunk_id {chunk_id!r} in paper {paper_hash}", "not_found",
+        )
     original = chunk.get("text") or ""
 
     # If the paper's detected_language already matches, no translation
@@ -182,10 +184,13 @@ def translate_chunk(
     try:
         import anthropic
     except ImportError:
-        return {"error": "anthropic package not installed (pip install anthropic)"}
+        return error(
+            "anthropic package not installed (pip install anthropic)",
+            "unavailable",
+        )
     import os
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        return {"error": "ANTHROPIC_API_KEY not set in environment"}
+        return error("ANTHROPIC_API_KEY not set in environment", "not_configured")
 
     client = anthropic.Anthropic()
     # Short prompt because Claude handles translation well without
@@ -207,7 +212,7 @@ def translate_chunk(
             messages=[{"role": "user", "content": original}],
         )
     except Exception as e:
-        return {"error": f"Claude API call failed: {e}"}
+        return error(f"Claude API call failed: {e}", "unavailable")
 
     # Extract the text block from the response.
     translated_text = ""
@@ -284,14 +289,15 @@ def get_chunks_for_topic(
                 f"topic search is degraded and refusing to serve: "
                 f"{cap['detail']}. Check the server logs and GET /healthz."
             )
-        return [{
-            "error": "no LanceDB index available; run "
-                     "`python embed_chunks.py <output_dir>` to build one"
-        }]
+        return [error(
+            "no LanceDB index available; run "
+            "`python embed_chunks.py <output_dir>` to build one",
+            "not_configured",
+        )]
     try:
         qvec = embedder.embed([query])[0]
     except EmbeddingError as e:
-        return [{"error": f"embedding the query failed: {e}"}]
+        return [error(f"embedding the query failed: {e}", "unavailable")]
     search = table.search(qvec).limit(int(k))
     if paper_hash:
         search = search.where(f"metadata.pdf_hash = '{paper_hash}'")
