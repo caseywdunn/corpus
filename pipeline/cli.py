@@ -44,6 +44,7 @@ import os
 import shutil
 import subprocess
 import sys
+import textwrap
 from importlib import resources
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -486,7 +487,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             status="ok",
         )
     else:
-        run_log = _write_run_log(output_dir)
+        run_log = _write_run_log(output_dir, cfg=cfg, argv=sys.argv)
         if run_log is None:
             print_status(
                 "run complete. Try `corpus status --report` and `corpus serve` next.",
@@ -501,18 +502,31 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _write_run_log(output_dir: Path) -> Optional[Path]:
-    """Write the end-of-run report to ``<output_dir>/run.log`` (#57).
+def _write_run_log(
+    output_dir: Path,
+    cfg: Optional[CorpuscleConfig] = None,
+    argv: Optional[List[str]] = None,
+) -> Optional[Path]:
+    """Write the end-of-run report (#57, #90).
 
-    Captures the same content as ``corpus status --report`` so the
-    operator has a self-contained record of pass-rates and cross-paper
-    artifact presence for this run. Overwrites prior log — the state
-    reported is always "as of right now"; for history, git the file
-    or copy it aside.
+    Captures a self-contained, reproducible record of the run: the
+    ``corpus status --report`` pass-rate + artifact rollup, plus (#90)
+    the invocation's argv, the *resolved* config, the dependency-stack
+    versions that produced the output, and aggregate stage success /
+    failure counts.
 
-    Returns the written path, or ``None`` if there's nothing to
-    report (no ``documents/`` tree yet — e.g. the orchestrator
-    bailed before extract ran).
+    Two copies are written:
+
+    * ``<output_dir>/runs/<timestamp>/run.log`` — the per-invocation
+      archive, so a sequence of runs leaves an auditable trail rather
+      than overwriting one another.
+    * ``<output_dir>/run.log`` — the "latest" copy, preserved at the
+      top level for #57 back-compat (``corpus status``, the served
+      bundle, and existing tooling read it there).
+
+    Returns the top-level path, or ``None`` if there's nothing to
+    report (no ``documents/`` tree yet — e.g. the orchestrator bailed
+    before extract ran).
     """
     from datetime import datetime
     from .status import aggregate, render_artifacts, render_text
@@ -521,16 +535,83 @@ def _write_run_log(output_dir: Path) -> Optional[Path]:
     if not documents_dir.is_dir():
         return None
     rollup = aggregate(documents_dir)
-    header = (
-        f"# corpus run report\n"
-        f"# generated at {datetime.now().isoformat(timespec='seconds')}\n"
-        f"# corpus version {__version__}\n"
-        f"# output_dir {output_dir.resolve()}\n\n"
-    )
-    body = render_text(rollup) + "\n\n" + render_artifacts(output_dir)
+
+    now = datetime.now()
+    header_lines = [
+        "# corpus run report",
+        f"# generated at {now.isoformat(timespec='seconds')}",
+        f"# corpus version {__version__}",
+    ]
+    sha = _git_sha_or_none()
+    if sha:
+        header_lines.append(f"# git {sha}")
+    header_lines.append(f"# output_dir {output_dir.resolve()}")
+    if argv is not None:
+        header_lines.append(f"# argv {' '.join(argv)}")
+    header = "\n".join(header_lines) + "\n\n"
+
+    sections = [render_text(rollup), _render_run_summary(rollup)]
+    if cfg is not None:
+        sections.append(_render_resolved_config(cfg))
+    sections.append(_render_dependency_versions())
+    sections.append(render_artifacts(output_dir))
+    content = header + "\n\n".join(s.rstrip() for s in sections) + "\n"
+
+    # Per-invocation archive (#90) — second-resolution timestamp; full
+    # pipeline runs take minutes, so collisions don't occur in practice.
+    runs_dir = output_dir / "runs" / now.strftime("%Y%m%dT%H%M%S")
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    (runs_dir / "run.log").write_text(content, encoding="utf-8")
+
+    # Top-level "latest" copy (#57 back-compat).
     log_path = output_dir / "run.log"
-    log_path.write_text(header + body, encoding="utf-8")
+    log_path.write_text(content, encoding="utf-8")
     return log_path
+
+
+def _render_run_summary(rollup: dict) -> str:
+    """Aggregate stage success/failure counts across all stages (#90)."""
+    stages = rollup.get("stages", {}) or {}
+    total_ok = sum(r.get("ok", 0) for r in stages.values())
+    total_fail = sum(r.get("fail", 0) for r in stages.values())
+    return "\n".join([
+        "Run summary:",
+        f"  documents:          {rollup.get('total_documents', 0)}",
+        f"  stage runs ok:      {total_ok}",
+        f"  stage runs failed:  {total_fail}",
+    ])
+
+
+def _render_resolved_config(cfg: CorpuscleConfig) -> str:
+    """Serialize the validated, resolved config (#90). ``mode='json'``
+    coerces Path / enum fields to strings so the dump is plain YAML."""
+    try:
+        dumped = yaml.safe_dump(
+            cfg.model_dump(mode="json"), sort_keys=False, default_flow_style=False,
+        )
+    except Exception as e:  # never let a serialization quirk fail the run
+        dumped = f"(could not serialize config: {e})"
+    return "Resolved config:\n" + textwrap.indent(dumped.rstrip(), "  ")
+
+
+def _render_dependency_versions() -> str:
+    """Versions of the stack that produced this output (#90). Centered
+    on the ML pins (#98) whose silent drift broke a v0.5 build, plus the
+    serving deps, so a run.log pins exactly what to reproduce against."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    pkgs = [
+        "docling", "torch", "transformers", "sentence-transformers",
+        "lancedb", "pyarrow", "mcp", "anthropic", "pydantic",
+    ]
+    lines = ["Dependency versions:", f"  {'python':<22s} {sys.version.split()[0]}"]
+    for p in pkgs:
+        try:
+            v = version(p)
+        except PackageNotFoundError:
+            v = "(not installed)"
+        lines.append(f"  {p:<22s} {v}")
+    return "\n".join(lines)
 
 
 def _distill_bundle(output_dir: Path) -> int:
