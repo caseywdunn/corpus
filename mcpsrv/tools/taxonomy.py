@@ -13,7 +13,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..app import _load_json, _need_index, _validated_limit, mcp
+from ..app import _load_json, _need_index, _validated_limit, error, mcp
 
 # Filenames at the per-paper root that are NOT lexicon outputs.
 # Mirrors the same list in CorpusIndex.load() so dossier readers
@@ -88,7 +88,7 @@ def search_taxon(name: str, parent_chain: bool = False) -> Dict:
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(name)
     if not hit:
         return {"not_found": True, "queried": name}
@@ -121,7 +121,7 @@ def get_papers_for_taxon(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -175,10 +175,10 @@ def get_chunks_for_taxon(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -274,7 +274,7 @@ def get_taxon_dossier(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return {"not_found": True, "queried": taxon_name}
@@ -501,18 +501,15 @@ def get_taxon_lexicon_slice(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return {"not_found": True, "queried": taxon_name}
 
     available = sorted(idx.lexicon_to_papers.keys())
     if category not in available:
-        return {
-            "error": "unknown_category",
-            "queried_category": category,
-            "available": available,
-        }
+        return error("unknown lexicon category", "invalid_argument",
+                     queried_category=category, available=available)
 
     aid = hit["accepted_taxon_id"]
     paper_hashes = list(idx.taxon_to_papers.get(aid, []))
@@ -621,10 +618,10 @@ def get_taxon_mentions(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -754,7 +751,7 @@ def get_taxon_subtree_dossier(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(root_taxon_name)
     if not hit:
         return {"not_found": True, "queried": root_taxon_name}
@@ -872,7 +869,7 @@ def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(parent_taxon_name)
     if not hit:
         return []

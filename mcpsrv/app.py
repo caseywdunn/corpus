@@ -183,6 +183,39 @@ _install_call_instrumentation(mcp)
 _INDEX: Optional["CorpusIndex"] = None  # type: ignore  # noqa: F821
 
 
+# ---------------------------------------------------------------------------
+# Uniform tool error payload (Phase 3 freeze gate — #88 §3)
+# ---------------------------------------------------------------------------
+#
+# Every tool error *return* (as opposed to a raised hard error) carries a
+# human-readable ``error`` message plus a stable machine-readable
+# ``code``. 1.0 freezes this shape, so clients can branch on ``code``
+# without string-matching the message. The canonical codes:
+#
+#   not_found        a named entity (paper/chunk/taxon/work/figure) doesn't exist
+#   ambiguous        a lookup matched more than one candidate
+#   invalid_argument a parameter was missing, malformed, or out of range
+#   not_configured   the tool's backing index/DB isn't part of this corpus
+#   no_results       a valid query simply produced nothing
+#   unavailable      a required capability is degraded / an upstream call failed
+#   empty_item       a batch element was empty/blank
+#   forbidden        a policy gate refused (e.g. figure licensing / profile)
+
+ERROR_CODES = frozenset({
+    "not_found", "ambiguous", "invalid_argument", "not_configured",
+    "no_results", "unavailable", "empty_item", "forbidden",
+})
+
+
+def error(message: str, code: str, **extra: Any) -> dict:
+    """Build a uniform tool error payload ``{"error", "code", **extra}``.
+
+    ``extra`` carries any tool-specific context (e.g. ``matches``,
+    ``supported_styles``, ``queried``) alongside the frozen two keys.
+    """
+    return {"error": message, "code": code, **extra}
+
+
 def _need_index():
     """Return the active CorpusIndex; raise if main() hasn't run yet."""
     if _INDEX is None:

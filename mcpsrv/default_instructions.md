@@ -21,11 +21,12 @@ encodes provenance — the reader needs to see whether a citation came from
 a human-curated `.bib` (no warning), a Grobid reconciliation, or an
 unresolved low-confidence match.
 
-If a citation entry is `{"error": "not_found"}`, say "this reference is
-not in the corpus" rather than fabricating one. If an entry is
-`{"error": "ambiguous"}`, call `format_citations` again with one of the
+If a citation entry carries `"code": "not_found"`, say "this reference is
+not in the corpus" rather than fabricating one. If an entry carries
+`"code": "ambiguous"`, call `format_citations` again with one of the
 `work_id` values from that entry's `matches` list (as a `work_ids`
-element).
+element). (Every tool error carries a human `error` message plus a
+machine `code` — branch on `code`.)
 
 ## Historical terminology
 
