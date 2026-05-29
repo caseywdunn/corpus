@@ -140,6 +140,21 @@ Built from per-paper artifacts after Stage 1 finishes. All four are independentl
 
 Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM clients can query. The server is a read-only view over per-paper artifacts; it does not store data of its own. The server entry point [`mcp_server.py`](../mcp_server.py) is a thin shim — the implementation lives in `mcpsrv/`, with the 27 `@mcp.tool()`-decorated functions split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks}.py`. See [MCP_TOOLS.md](MCP_TOOLS.md) for the full tool surface.
 
+## Steering the client session
+
+The server often needs to shape *how* the client uses the corpus — report vs. manuscript structure, cross-validation of synthesized claims, citation discipline — not just answer queries. MCP is **client-driven**: a server can only add to the model's context as a *response* to a client-initiated request (`initialize`, `tools/call`, `prompts/get`, `resources/read`), and can **never unilaterally push a turn** mid-session. Elicitation, sampling, and notifications do *not* inject free-form prompting into the model's context. So all steering rides on three response channels, in increasing specificity:
+
+1. **`instructions`** — `InitializeResult.instructions`, sourced from `<corpuscle>/instructions.md`, injected once at session start. The always-on baseline: tool routing, citation rules, "respect the active output profile." Established.
+2. **Tool-result guidance** — short guidance text appended to a tool's response payload, which lands in context the moment that tool is called. This is the idiomatic *just-in-time* nudge channel; it beats front-loading everything into `instructions` (which the model reads once and drifts from). `format_citation`'s provenance warning is the established example. The intended extension is to make this **output-profile-aware** (tracked in [#101](https://github.com/caseywdunn/corpus/issues/101)): e.g. under a `manuscript` profile, figure tools remind the model to verify publishability and emit the attribution string, and synthesis retrievals nudge cross-validation against multiple sources.
+3. **MCP Prompts** (`prompts/list` / `prompts/get`, surfaced in Claude Code as `/mcp__corpus__<name>`) — user-invoked structural scaffolds (a manuscript skeleton, a monographic-review recipe, a cross-validation checklist). Zero context cost until invoked. Forward-looking, tracked in #101.
+
+Two rules govern the idiom:
+
+- **Soft steering** (document structure, cross-validation, house style) goes in the nudge channels above, keyed to the client-selected output profile. It is advisory — the model may ignore it.
+- **Hard requirements** (figure publishability, citation provenance) are enforced **server-side at the tool boundary**, never delivered as a nudge the model can ignore. This is the #79/#100 lesson: a trust-critical gate must be code, not a prompt.
+
+Tool-result nudges cost tokens on every call and pull against the served-bundle payload-trimming work (#76, #81–86), so keep them terse and conditional rather than emitting on every call.
+
 ## Key files
 
 | File / package | Role |
