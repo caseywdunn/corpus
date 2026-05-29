@@ -51,7 +51,11 @@ output/
 
 ## Pipeline stages
 
-The pipeline is split into independent stages so that CPU-heavy work, GPU work, and API-cost work can run on different hardware and be resumed independently.
+The pipeline is split into independent stages so that CPU-heavy work, GPU work, and API-cost work can run on different hardware and be resumed independently. Three terms recur in this doc and in the code — they are *not* synonyms:
+
+- **Stage** — a top-level, independently-resumable phase the orchestrator and SLURM scripts schedule, often on distinct hardware: **Stage 1** (CPU per-paper processing), the optional **vision pass** (GPU/API), and **Stage 2** (embedding, GPU).
+- **Step** — one operation in the ordered sequence *inside* a stage. Stage 1 has the six steps tabled below; the figure lifecycle has eleven (see [Figure pipeline](#figure-pipeline)).
+- **Pass** — a *figure-pipeline-internal* numbering (Pass 2.5, 3a, 3b, 3c) that predates the stage scheme and survives in code field names (`pass3_status`, `pass3_backend`) and the `slurm/batch_pass3b.sh` job. Passes 2.5 / 3a / 3c are CPU work invoked from the Stage 1 runner; only **Pass 3b** (vision) needs a GPU/API, which is why it is the one pass that appears as its own subsection below and can be scheduled separately. All four passes are detailed in the Figure pipeline section.
 
 ### Stage 1: CPU processing (`pipeline/`)
 
@@ -68,18 +72,11 @@ Orchestrated by `pipeline.runner.run_pdf_processing_pipeline`, six steps per PDF
 
 Stage 1 supports SLURM job-array parallelization via `--batch-index` / `--batch-size`. Each array task deterministically processes a slice of the sorted hash list. See [BOUCHET.md](BOUCHET.md) for operational details.
 
-### Pass 3b: Vision analysis (`process_corpus.py --vision-backend`)
+### Vision pass (optional, GPU/API): figure panels + compound figures
 
-A GPU pass that runs a vision-language model (Qwen2.5-VL-7B-Instruct locally, or Claude API) over extracted figures to detect:
-- **Panel structure**: whether a figure is a multi-panel composite
-- **Compound figures**: plate-style composites spanning multiple figure numbers
-- ROI bounding boxes for individual panels within composites
+This is **Pass 3b** of the figure pipeline — the only figure pass that needs a GPU or a paid API, which is why it is called out at stage level here. It runs a vision-language model (Qwen2.5-VL-7B-Instruct locally, or Claude via API; selected by `--vision-backend {local|claude}`) over extracted figures to detect multi-panel structure, compound plates spanning several figure numbers, and per-panel ROI boxes, writing the results back into `figures.json`. **Pass 3c** (compound-figure resolution + range-notation renaming, e.g. `fig_3-4.png`) is a CPU follow-on that runs automatically in the same invocation whenever Pass 3b — or the OCR-based Pass 3a — flagged a compound.
 
-Results are written back into `figures.json` per hash.
-
-### Pass 3c: Compound figure renaming
-
-Automatically renames figure files for detected compound figures using range notation (e.g., `fig_3-4.png` for a plate containing figures 3 and 4). Runs as part of the same invocation as Pass 3b.
+By default both run inline inside the Stage 1 per-paper runner; on HPC the GPU-bound Pass 3b is commonly split into its own scheduled job (`slurm/batch_pass3b.sh`) after the CPU stage completes. See [Figure pipeline](#figure-pipeline) for the full pass-by-pass behavior and what is lost when the vision pass is skipped.
 
 ### Stage 2: Embedding (`embed_chunks.py`)
 
@@ -95,19 +92,21 @@ A corpuscle can span centuries of literature — 19th-century engraved plates wi
 
 ### Lifecycle (per PDF)
 
-| # | Step | Code | Always run? | Writes |
+The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "Stage · when" column ties each step back to the stage vocabulary above: steps 1–7 and 11 run during Stage 1 (CPU) — every paper, except the conditional PyMuPDF fallback (step 5). Steps 8–10 are the optional figure **passes** enabled by flags; of those, only Pass 3b leaves the CPU stage (GPU/API).
+
+| # | Step (figure pass) | Code | Stage · when | Writes |
 |---|---|---|---|---|
-| 1 | **Docling extraction** — iterate `document.pictures`, render each to PNG, capture page + bbox | `pipeline/extract.py:165-257` (render/save at `:184-189`, `:232`) | yes | `figures/*.png`, base fields |
-| 2 | **Caption association** — structural link then proximity heuristic | `pipeline/figures.py:extract_caption_info` `:655-752` | yes | `caption_text`, `caption_source`, `caption_page`, `caption_bbox` |
-| 3 | **Figure-number parsing** — multilingual, incl. Roman numerals | `pipeline/figures.py:parse_figure_number` `:334-359` (`_FIGURE_PREFIX` `:45-50`, roman `:84-100`) | yes | `figure_number` |
-| 4 | **Classification** — figure / plate / subpanel / graphical_element / unclassified | `pipeline/figures.py:classify_figure` `:425-471` | yes | `figure_type` |
-| 5 | **PyMuPDF fallback** — raw embedded-image extraction when docling finds nothing | `pipeline/extract.py:273-354` (gated `:277`, `fitz.Pixmap` `:310`) | only if docling yields 0 figures and the PDF is not a scan | `width`, `height`, `extraction_method: pymupdf` |
-| 6 | **Deduplication + panel grouping** — bbox-overlap merge, whole-figure-vs-subpanel split, panel-letter assignment in reading order | `pipeline/figures.py:dedupe_figures` `:494-599` (overlap `:394-413`, reading order `:474-491`) | yes | `panel_letter`, refined `figure_type` |
-| 7 | **Pass 2.5 — caption panels + missing-figure detection** | `pipeline/figure_passes.py:36-95`; `detect_missing_figures` `pipeline/figures.py:269-331` | yes | `panels_from_caption`, top-level `missing_figures[]` |
-| 8 | **Pass 3a — OCR panel ROIs** *(optional)* | `pipeline/figure_passes.py:98-151`; `detect_figure_rois` `:1083-1138` | `--content-aware-figures` | `rois[]` (`source: ocr:tesseract`), `pass3_status` |
-| 9 | **Pass 3b — vision-LLM panel + compound detection** *(optional, supersedes 3a)* | `pipeline/figure_passes.py:154-213`; backends in `pipeline/vision.py` | `--vision-backend {claude\|local}` | `rois[]` (`source: vision:…`), `parent_figure_index`, `pass3_backend` |
-| 10 | **Pass 3c — compound-figure resolution** *(auto when 3a/3b ran)* | `pipeline/figures.py:1298-1502` (trigger `runner.py:282-293`) | when a 3a/3b status ends in `_compound` | renames PNG to `fig_3-4.png`, new `image_shared_with` sub-figure records |
-| 11 | **Chunk-figure linking** | `pipeline/figures.py:link_chunks_to_figures` `:1510-1581` | yes | `figure_refs` (on chunks), `referenced_in_chunks` (on figures) |
+| 1 | **Docling extraction** — iterate `document.pictures`, render each to PNG, capture page + bbox | `pipeline/extract.py:165-257` (render/save at `:184-189`, `:232`) | Stage 1 · always | `figures/*.png`, base fields |
+| 2 | **Caption association** — structural link then proximity heuristic | `pipeline/figures.py:extract_caption_info` `:655-752` | Stage 1 · always | `caption_text`, `caption_source`, `caption_page`, `caption_bbox` |
+| 3 | **Figure-number parsing** — multilingual, incl. Roman numerals | `pipeline/figures.py:parse_figure_number` `:334-359` (`_FIGURE_PREFIX` `:45-50`, roman `:84-100`) | Stage 1 · always | `figure_number` |
+| 4 | **Classification** — figure / plate / subpanel / graphical_element / unclassified | `pipeline/figures.py:classify_figure` `:425-471` | Stage 1 · always | `figure_type` |
+| 5 | **PyMuPDF fallback** — raw embedded-image extraction when docling finds nothing | `pipeline/extract.py:273-354` (gated `:277`, `fitz.Pixmap` `:310`) | Stage 1 · only if docling yields 0 figures and the PDF is not a scan | `width`, `height`, `extraction_method: pymupdf` |
+| 6 | **Deduplication + panel grouping** — bbox-overlap merge, whole-figure-vs-subpanel split, panel-letter assignment in reading order | `pipeline/figures.py:dedupe_figures` `:494-599` (overlap `:394-413`, reading order `:474-491`) | Stage 1 · always | `panel_letter`, refined `figure_type` |
+| 7 | **Pass 2.5** — caption panels + missing-figure detection | `pipeline/figure_passes.py:36-95`; `detect_missing_figures` `pipeline/figures.py:269-331` | Stage 1 · always | `panels_from_caption`, top-level `missing_figures[]` |
+| 8 | **Pass 3a** — OCR panel ROIs | `pipeline/figure_passes.py:98-151`; `detect_figure_rois` `:1083-1138` | Stage 1 · opt-in (`--content-aware-figures`) | `rois[]` (`source: ocr:tesseract`), `pass3_status` |
+| 9 | **Pass 3b** — vision-LLM panel + compound detection (supersedes 3a) | `pipeline/figure_passes.py:154-213`; backends in `pipeline/vision.py` | Vision pass · opt-in (`--vision-backend`); GPU/API, separable on HPC | `rois[]` (`source: vision:…`), `parent_figure_index`, `pass3_backend` |
+| 10 | **Pass 3c** — compound-figure resolution | `pipeline/figures.py:1298-1502` (trigger `runner.py:282-293`) | Stage 1 · auto when a 3a/3b status ends in `_compound` | renames PNG to `fig_3-4.png`, new `image_shared_with` sub-figure records |
+| 11 | **Chunk-figure linking** | `pipeline/figures.py:link_chunks_to_figures` `:1510-1581` | Stage 1 · always | `figure_refs` (on chunks), `referenced_in_chunks` (on figures) |
 
 Figure records are written to `<HASH>/figures.json`; the per-page QC overlays in `<HASH>/visualizations/` (yellow figure bboxes, red word boxes) are the primary *visual* regression check, since most figure-quality properties resist unit assertions. Bbox coordinate systems differ by path and are tagged per record (`bbox_coord_system`: `pdf_pts_bottom_left` for docling, `pdf_pts_top_left` for PyMuPDF).
 
