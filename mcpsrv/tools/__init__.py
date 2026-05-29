@@ -14,4 +14,5 @@ from . import (  # noqa: F401  (side-effect imports register MCP tools)
     figures,
     chunks,
     bibliography,
+    lexicon,
 )

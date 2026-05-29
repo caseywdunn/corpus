@@ -17,7 +17,7 @@ legacy stage modules continue reading the dict.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -36,10 +36,14 @@ class TaxonomyConfig(BaseModel):
         default=None,
         description="Taxonomy source kind. None disables auto-build.",
     )
-    root_id: Optional[int] = Field(
+    root_id: Optional[Union[int, str]] = Field(
         default=None,
-        description="WoRMS AphiaID root for the subtree to ingest "
-        "(required when source='worms').",
+        description="Root for the subtree to ingest. For source='worms' "
+        "this is an integer WoRMS AphiaID (required). For "
+        "source='dwc' or 'dwca' it's a taxonID value as it appears in "
+        "the archive — often a bare integer, but DwC-A snapshots from "
+        "WoRMS use LSIDs like 'urn:lsid:marinespecies.org:taxname:1371'. "
+        "Optional for dwc/dwca; omit to ingest the full archive.",
     )
     path: Optional[Path] = Field(
         default=None,

@@ -9,10 +9,22 @@ form is the accepted name, an unaccepted one, or a registered synonym.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from ..app import _load_json, _need_index, mcp
+from ..app import _load_json, _need_index, _validated_limit, mcp
+
+# Filenames at the per-paper root that are NOT lexicon outputs.
+# Mirrors the same list in CorpusIndex.load() so dossier readers
+# walking *.json files can distinguish lexicon outputs from the
+# fixed pipeline artifacts.
+_NON_LEXICON_PER_PAPER_FILES = frozenset({
+    "summary.json", "metadata.json", "references.json",
+    "taxa.json", "figures.json", "chunks.json",
+    "scan_detection.json", "docling_doc.json",
+    "intext_citations.json", "pipeline_state.json",
+})
 
 
 # Helper used by the get_taxon_mentions fallback path.
@@ -101,6 +113,7 @@ def get_chunks_for_taxon(
     paper_hash: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    with_text: bool = True,
 ) -> List[Dict]:
     """Every chunk that mentions the taxon (resolved through synonymy).
 
@@ -109,7 +122,16 @@ def get_chunks_for_taxon(
     paginate via ``offset`` / ``limit`` for enumerative queries
     (monographic reviews of a genus). Each chunk is roughly 100–200
     tokens, so a 50-chunk response is ~5–10k tokens.
+
+    ``with_text=False`` (#84) drops the chunk text and adds
+    ``len_chars`` so a common-taxon scan doesn't spill body text into
+    chat context; pair with ``get_chunks(paper_hash, chunk_ids=[...])``
+    to drill into the chunks the caller actually wants.
     """
+    try:
+        n = _validated_limit(limit)
+    except ValueError as e:
+        return [{"error": str(e)}]
     idx = _need_index()
     if idx.taxonomy_db is None:
         return [{"error": "no taxonomy snapshot configured"}]
@@ -143,17 +165,394 @@ def get_chunks_for_taxon(
 
         for cid in matching_chunk_ids:
             ch = chunks_by_id.get(cid) or {}
-            out.append({
+            text = ch.get("text") or ""
+            row: Dict = {
                 "paper_hash": h,
                 "paper_title": p.get("title"),
                 "paper_year": p.get("year"),
                 "chunk_id": cid,
                 "section_class": ch.get("section_class"),
                 "headings": ch.get("headings") or [],
-                "text": ch.get("text"),
-            })
+            }
+            if with_text:
+                row["text"] = text
+            else:
+                row["len_chars"] = len(text)
+            out.append(row)
 
-    return out[offset: offset + int(limit)] if limit else out[offset:]
+    return out[offset: offset + n]
+
+
+# #76 — dossier defaults sized for typical 3–10 k-token responses.
+_DOSSIER_MAX_PAPERS_DEFAULT = 50
+_DOSSIER_MAX_CHUNKS_DEFAULT = 100
+_DOSSIER_MAX_FIGURES_DEFAULT = 25
+_DOSSIER_LEXICON_TOP_N_DEFAULT = 10
+_DOSSIER_COOCCURRING_TOP_N_DEFAULT = 20
+_DOSSIER_SECTIONS = frozenset({
+    "papers", "chunks", "figures", "lexicon", "cooccurring_taxa",
+})
+
+
+@mcp.tool()
+def get_taxon_dossier(
+    taxon_name: str,
+    include: Optional[List[str]] = None,
+    max_papers: int = _DOSSIER_MAX_PAPERS_DEFAULT,
+    max_chunks: int = _DOSSIER_MAX_CHUNKS_DEFAULT,
+    max_figures: int = _DOSSIER_MAX_FIGURES_DEFAULT,
+    top_n_lexicon: int = _DOSSIER_LEXICON_TOP_N_DEFAULT,
+    top_n_cooccurring: int = _DOSSIER_COOCCURRING_TOP_N_DEFAULT,
+) -> Dict[str, Any]:
+    """One-call view of a taxon across the corpus (#76). Supersedes
+    ``search_taxon`` + ``get_papers_for_taxon`` + N× ``get_paper`` +
+    N× ``get_chunks_for_taxon`` + ``get_figures_for_taxon``. Pair with
+    ``get_chunks(paper_hash, chunk_ids=[...])`` for full text — the
+    chunk_index returns IDs only.
+
+    ``include`` trims the response to a subset of {papers, chunks,
+    figures, lexicon, cooccurring_taxa}. Default = all five. Caps:
+    max_papers (50), max_chunks (100), max_figures (25),
+    top_n_lexicon (10/category), top_n_cooccurring (20 taxa).
+
+    Returns ``{taxon, n_papers_mentioning, papers?, chunk_index?,
+    figure_index?, lexicon_aggregated?, cooccurring_taxa?}``:
+
+        {
+          "taxon": {taxon_id, accepted_name, rank?, authority?, matched_name?},
+          "papers": [{hash, title, year, first_author?, n_mentions}, ...],
+          "chunk_index": [{paper_hash, chunk_id, section_class, headings}, ...],
+          "figure_index": [{paper_hash, figure_id, figure_type, page,
+                            figure_number, caption_has_taxon}, ...],
+          "lexicon_aggregated": {category: [{term, n_papers, n_mentions}, ...]},
+          "cooccurring_taxa": [{taxon_id, name, rank?, n_shared_papers}, ...],
+        }
+    """
+    idx = _need_index()
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(taxon_name)
+    if not hit:
+        return {"not_found": True, "queried": taxon_name}
+
+    aid = hit["accepted_taxon_id"]
+    requested = (
+        _DOSSIER_SECTIONS
+        if include is None
+        else _DOSSIER_SECTIONS & set(include)
+    )
+
+    # Always emit taxon metadata + paper-mention count.
+    out: Dict[str, Any] = {
+        "taxon": {
+            "taxon_id": aid,
+            "accepted_name": hit.get("accepted_name"),
+            "rank": hit.get("rank"),
+            "authority": hit.get("authority"),
+        },
+        "n_papers_mentioning": len(idx.taxon_to_papers.get(aid, [])),
+    }
+    # matched_name only when it diverges from accepted_name (synonym hit)
+    matched_name = hit.get("matched_name")
+    if matched_name and matched_name != hit.get("accepted_name"):
+        out["taxon"]["matched_name"] = matched_name
+    # Drop null rank / authority for sparse encoding.
+    for k in ("rank", "authority"):
+        if out["taxon"].get(k) is None:
+            out["taxon"].pop(k, None)
+
+    paper_hashes = list(idx.taxon_to_papers.get(aid, []))
+    if not paper_hashes:
+        return out  # taxon known but no corpus papers mention it
+
+    # Sort papers by mention count desc, ties by year desc.
+    paper_hashes.sort(
+        key=lambda h: (
+            -idx.taxon_mention_counts.get(aid, {}).get(h, 0),
+            -(idx.papers.get(h, {}).get("year") or 0),
+        ),
+    )
+    in_scope = paper_hashes[: max_papers]
+
+    if "papers" in requested:
+        papers_out: List[Dict[str, Any]] = []
+        for h in in_scope:
+            p = idx.papers.get(h) or {}
+            authors = p.get("authors") or []
+            first_author = (
+                (authors[0].get("surname") or "") if authors else ""
+            )
+            papers_out.append({
+                "hash": h,
+                "title": p.get("title"),
+                "year": p.get("year"),
+                "first_author": first_author or None,
+                "n_mentions": idx.taxon_mention_counts.get(aid, {}).get(h, 0),
+            })
+        # Sparse-encode null first_author.
+        for row in papers_out:
+            if row.get("first_author") is None:
+                row.pop("first_author", None)
+        out["papers"] = papers_out
+
+    if "chunks" in requested:
+        chunk_index: List[Dict[str, Any]] = []
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            taxa = _load_json(Path(p["hash_dir"]) / "taxa.json", default={}) or {}
+            chunks_data = _load_json(
+                Path(p["hash_dir"]) / "chunks.json", default={},
+            ) or {}
+            chunks_by_id = {
+                c.get("chunk_id"): c
+                for c in chunks_data.get("chunks", []) or []
+            }
+            seen: set = set()
+            for m in taxa.get("mentions", []) or []:
+                if m.get("accepted_taxon_id") != aid:
+                    continue
+                cid = m.get("chunk_id")
+                if not cid or cid in seen:
+                    continue
+                seen.add(cid)
+                ch = chunks_by_id.get(cid) or {}
+                chunk_index.append({
+                    "paper_hash": h,
+                    "chunk_id": cid,
+                    "section_class": ch.get("section_class"),
+                    "headings": ch.get("headings") or [],
+                })
+                if len(chunk_index) >= max_chunks:
+                    break
+            if len(chunk_index) >= max_chunks:
+                break
+        out["chunk_index"] = chunk_index
+
+    if "figures" in requested:
+        from .figures import _REAL_FIGURE_TYPES  # local import: avoid cycle
+
+        accepted_low = (hit.get("accepted_name") or "").lower()
+        matched_low = (matched_name or "").lower()
+        fig_rows: List[Dict[str, Any]] = []
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
+            for f in figs.get("figures", []) or []:
+                if f.get("figure_type") not in _REAL_FIGURE_TYPES:
+                    continue
+                caption = (f.get("caption_text") or f.get("caption") or "").lower()
+                hit_in_caption = bool(
+                    accepted_low and accepted_low in caption
+                ) or bool(matched_low and matched_low in caption)
+                fig_rows.append({
+                    "paper_hash": h,
+                    "figure_id": f.get("figure_id"),
+                    "figure_type": f.get("figure_type"),
+                    "page": f.get("page"),
+                    "figure_number": f.get("figure_number"),
+                    "caption_has_taxon": hit_in_caption,
+                    "_score": (100 if hit_in_caption else 0)
+                    + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
+                })
+        fig_rows.sort(key=lambda r: -r["_score"])
+        for r in fig_rows:
+            r.pop("_score", None)
+        out["figure_index"] = fig_rows[: max_figures]
+
+    if "lexicon" in requested:
+        # Aggregate lexicon term counts across papers in scope by
+        # walking per-paper <category>.json files. The corpus-wide
+        # lexicon_to_papers index is paper-level but doesn't carry
+        # mention counts on a per-paper basis sliced by taxon scope —
+        # so we accumulate from disk.
+        per_category: Dict[str, Dict[str, Dict[str, int]]] = {}
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            hash_dir = Path(p["hash_dir"])
+            for child in hash_dir.glob("*.json"):
+                if child.name in _NON_LEXICON_PER_PAPER_FILES:
+                    continue
+                payload = _load_json(child, default=None)
+                if not isinstance(payload, dict):
+                    continue
+                category = payload.get("category")
+                if not category:
+                    continue
+                cat_acc = per_category.setdefault(category, {})
+                for term in payload.get("terms", []) or []:
+                    canon = term.get("canonical")
+                    if not canon:
+                        continue
+                    rec = cat_acc.setdefault(canon, {"n_papers": 0, "n_mentions": 0})
+                    rec["n_papers"] += 1
+                    rec["n_mentions"] += term.get("mention_count", 0) or 0
+        lexicon_aggregated: Dict[str, List[Dict[str, Any]]] = {}
+        for category, terms in per_category.items():
+            ranked = sorted(
+                ({"term": t, **rec} for t, rec in terms.items()),
+                key=lambda r: (-r["n_mentions"], r["term"]),
+            )
+            lexicon_aggregated[category] = ranked[: top_n_lexicon]
+        out["lexicon_aggregated"] = lexicon_aggregated
+
+    if "cooccurring_taxa" in requested:
+        # Counter of taxon_id (other than aid) keyed by how many of
+        # the in-scope papers mention each one.
+        co_papers: Counter = Counter()
+        for h in in_scope:
+            p = idx.papers.get(h)
+            if not p:
+                continue
+            taxa = _load_json(Path(p["hash_dir"]) / "taxa.json", default={}) or {}
+            seen_here: set = set()
+            for t in taxa.get("taxa", []) or []:
+                other_aid = t.get("accepted_taxon_id")
+                if other_aid and other_aid != aid and other_aid not in seen_here:
+                    co_papers[other_aid] += 1
+                    seen_here.add(other_aid)
+        cooccur_rows: List[Dict[str, Any]] = []
+        for other_aid, n_shared in co_papers.most_common(top_n_cooccurring):
+            display = idx.taxon_display.get(other_aid, {})
+            row: Dict[str, Any] = {
+                "taxon_id": other_aid,
+                "name": display.get("accepted_name") or other_aid,
+                "n_shared_papers": n_shared,
+            }
+            if display.get("rank"):
+                row["rank"] = display.get("rank")
+            cooccur_rows.append(row)
+        out["cooccurring_taxa"] = cooccur_rows
+
+    return out
+
+
+@mcp.tool()
+def get_taxon_lexicon_slice(
+    taxon_name: str,
+    category: str,
+    top_n: int = 25,
+    max_paper_examples: int = 5,
+) -> Dict[str, Any]:
+    """Lexicon coverage for one taxon under one category, joined at
+    the chunk level (#76). Use for "for taxon T, what does the corpus
+    say about it under lens C?"
+
+    Join is **same-chunk co-occurrence** — a term counts only when it
+    appears in a chunk where the taxon is also mentioned. Tighter
+    than paper-level rollups: distinguishes "term applied to taxon"
+    from "term appears in a paper that also mentions taxon."
+
+    Category-agnostic: unknown category returns ``{error:
+    "unknown_category", available: [...]}``. Terms sorted by
+    n_chunks desc, term asc.
+
+    Returns ``{taxon, category, n_chunks_total, n_papers_total,
+    terms: [{term, n_chunks, n_papers, paper_examples}]}``.
+    """
+    idx = _need_index()
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(taxon_name)
+    if not hit:
+        return {"not_found": True, "queried": taxon_name}
+
+    available = sorted(idx.lexicon_to_papers.keys())
+    if category not in available:
+        return {
+            "error": "unknown_category",
+            "queried_category": category,
+            "available": available,
+        }
+
+    aid = hit["accepted_taxon_id"]
+    paper_hashes = list(idx.taxon_to_papers.get(aid, []))
+
+    taxon_block: Dict[str, Any] = {
+        "taxon_id": aid,
+        "accepted_name": hit.get("accepted_name"),
+    }
+    if hit.get("rank"):
+        taxon_block["rank"] = hit["rank"]
+    if hit.get("authority"):
+        taxon_block["authority"] = hit["authority"]
+
+    if not paper_hashes:
+        return {
+            "taxon": taxon_block,
+            "category": category,
+            "n_chunks_total": 0,
+            "n_papers_total": 0,
+            "terms": [],
+        }
+
+    # Walk papers: pair the taxon's chunk_ids per paper with the
+    # category's chunk_ids per paper, intersect.
+    n_chunks_total = 0
+    n_papers_with_taxon = 0
+    # canonical → {"chunks": set of (paper_hash, chunk_id),
+    #              "papers": set of paper_hash}
+    term_aggregate: Dict[str, Dict[str, set]] = {}
+
+    for h in paper_hashes:
+        p = idx.papers.get(h)
+        if not p:
+            continue
+        hash_dir = Path(p["hash_dir"])
+        taxa = _load_json(hash_dir / "taxa.json", default={}) or {}
+        # Set of chunk_ids in this paper where the taxon is mentioned.
+        taxon_chunks: set = set()
+        for m in taxa.get("mentions", []) or []:
+            if m.get("accepted_taxon_id") == aid:
+                cid = m.get("chunk_id")
+                if cid:
+                    taxon_chunks.add(cid)
+        if not taxon_chunks:
+            continue
+        n_chunks_total += len(taxon_chunks)
+        n_papers_with_taxon += 1
+
+        lex_payload = _load_json(
+            hash_dir / f"{category}.json", default=None,
+        )
+        if not isinstance(lex_payload, dict):
+            continue
+        for m in lex_payload.get("mentions", []) or []:
+            cid = m.get("chunk_id")
+            canonical = m.get("canonical")
+            if not cid or not canonical or cid not in taxon_chunks:
+                continue
+            rec = term_aggregate.setdefault(
+                canonical, {"chunks": set(), "papers": set()},
+            )
+            rec["chunks"].add((h, cid))
+            rec["papers"].add(h)
+
+    terms_out = sorted(
+        (
+            {
+                "term": canonical,
+                "n_chunks": len(rec["chunks"]),
+                "n_papers": len(rec["papers"]),
+                "paper_examples": sorted(rec["papers"])[: max_paper_examples],
+            }
+            for canonical, rec in term_aggregate.items()
+        ),
+        key=lambda r: (-r["n_chunks"], r["term"]),
+    )
+
+    return {
+        "taxon": taxon_block,
+        "category": category,
+        "n_chunks_total": n_chunks_total,
+        "n_papers_total": n_papers_with_taxon,
+        "terms": terms_out[: top_n],
+    }
 
 
 @mcp.tool()
@@ -175,6 +574,10 @@ def get_taxon_mentions(
     ``build_taxon_mentions.py``). Falls back to per-paper
     ``taxa.json`` scanning if the database is not available.
     """
+    try:
+        n = _validated_limit(limit)
+    except ValueError as e:
+        return [{"error": str(e)}]
     idx = _need_index()
     if idx.taxonomy_db is None:
         return [{"error": "no taxonomy snapshot configured"}]
@@ -186,7 +589,7 @@ def get_taxon_mentions(
     if idx.taxon_mention_db is not None:
         # Fast path: query the corpus-wide SQLite
         rows = idx.taxon_mention_db.mentions_for_taxon(
-            aid, corpus_hash=paper_hash, limit=limit, offset=offset,
+            aid, corpus_hash=paper_hash, limit=n, offset=offset,
         )
         # Enrich with paper-level metadata
         out = []
@@ -241,7 +644,8 @@ def get_taxon_mentions(
                 "name_type": m.get("name_type", ""),
                 "method": "regex_taxonomy",
             })
-    return out[offset: offset + int(limit)] if limit else out[offset:]
+    return out[offset: offset + n]
+
 
 @mcp.tool()
 def get_papers_by_author(surname: str) -> List[Dict]:
@@ -274,6 +678,142 @@ def get_papers_by_author(surname: str) -> List[Dict]:
             "filename": p.get("filename"),
         })
     return out
+
+
+# #76 — subtree-dossier bounds.
+_SUBTREE_MAX_SPECIES_DEFAULT = 50
+_SUBTREE_MAX_AGGREGATE_PAPERS_DEFAULT = 50
+
+
+@mcp.tool()
+def get_taxon_subtree_dossier(
+    root_taxon_name: str,
+    max_species: int = _SUBTREE_MAX_SPECIES_DEFAULT,
+    max_aggregate_papers: int = _SUBTREE_MAX_AGGREGATE_PAPERS_DEFAULT,
+) -> Dict[str, Any]:
+    """Per-species capsule view of a clade + deduplicated aggregate
+    paper list across the subtree (#76). For "all species under
+    <genus> and what the corpus says about each." Supersedes
+    ``list_valid_species_under`` + N× ``get_papers_for_taxon``.
+
+    Walks the DwC taxonomy via ``parent_name_usage_id`` (BFS), filters
+    to accepted species + subspecies, projects per-species coverage
+    from the in-memory indexes. No chunk text — pair with
+    ``get_taxon_dossier`` for one-species drill-down or
+    ``get_chunks`` after picking papers from ``aggregate_papers``.
+
+    Returns ``{root, n_species_in_subtree, species_with_corpus_coverage:
+    [{taxon_id, accepted_name, authorship?, rank, n_papers,
+    n_mentions}] (sorted by n_papers desc, name asc), aggregate_papers:
+    [{hash, title, year, n_species_covered, total_mentions}] (sorted by
+    n_species_covered desc)}``.
+    """
+    idx = _need_index()
+    if idx.taxonomy_db is None:
+        return {"error": "no taxonomy snapshot configured"}
+    hit = idx.taxonomy_db.lookup(root_taxon_name)
+    if not hit:
+        return {"not_found": True, "queried": root_taxon_name}
+
+    root_block: Dict[str, Any] = {
+        "taxon_id": hit["accepted_taxon_id"],
+        "accepted_name": hit.get("accepted_name"),
+    }
+    if hit.get("rank"):
+        root_block["rank"] = hit["rank"]
+
+    # BFS the subtree, collecting descendant taxon_ids.
+    conn = idx.taxonomy_db.conn
+    frontier = [hit["accepted_taxon_id"]]
+    descendants: List[str] = []
+    seen: set = set()
+    while frontier:
+        parent = frontier.pop(0)
+        if parent in seen:
+            continue
+        seen.add(parent)
+        cur = conn.execute(
+            "SELECT taxon_id FROM taxa WHERE parent_name_usage_id = ?",
+            (parent,),
+        )
+        for row in cur:
+            descendants.append(row[0])
+            frontier.append(row[0])
+
+    if not descendants:
+        return {
+            "root": root_block,
+            "n_species_in_subtree": 0,
+            "species_with_corpus_coverage": [],
+            "aggregate_papers": [],
+        }
+
+    placeholders = ",".join("?" * len(descendants))
+    cur = conn.execute(
+        f"""SELECT taxon_id, scientific_name, scientific_name_authorship,
+                   taxon_rank
+            FROM taxa
+            WHERE taxon_id IN ({placeholders})
+              AND taxonomic_status = 'accepted'
+              AND lower(taxon_rank) IN ('species', 'subspecies')
+            ORDER BY scientific_name""",
+        descendants,
+    )
+    species_rows = cur.fetchall()
+
+    # Per-species capsule, only emit those with at least one paper.
+    species_capsules: List[Dict[str, Any]] = []
+    paper_to_species: Dict[str, set] = {}
+    paper_to_mentions: Dict[str, int] = {}
+    for row in species_rows:
+        tid = row[0]
+        paper_hashes = idx.taxon_to_papers.get(tid, [])
+        if not paper_hashes:
+            continue
+        mention_counts = idx.taxon_mention_counts.get(tid, {})
+        n_mentions = sum(mention_counts.values())
+        capsule: Dict[str, Any] = {
+            "taxon_id": tid,
+            "accepted_name": row[1],
+            "rank": row[3],
+            "n_papers": len(set(paper_hashes)),
+            "n_mentions": n_mentions,
+        }
+        if row[2]:
+            capsule["authorship"] = row[2]
+        species_capsules.append(capsule)
+        for h in paper_hashes:
+            paper_to_species.setdefault(h, set()).add(tid)
+            paper_to_mentions[h] = paper_to_mentions.get(h, 0) + (
+                mention_counts.get(h, 0)
+            )
+
+    species_capsules.sort(
+        key=lambda c: (-c["n_papers"], c["accepted_name"]),
+    )
+
+    aggregate_rows: List[Dict[str, Any]] = []
+    for h, species_set in paper_to_species.items():
+        p = idx.papers.get(h)
+        if not p:
+            continue
+        aggregate_rows.append({
+            "hash": h,
+            "title": p.get("title"),
+            "year": p.get("year"),
+            "n_species_covered": len(species_set),
+            "total_mentions": paper_to_mentions.get(h, 0),
+        })
+    aggregate_rows.sort(
+        key=lambda r: (-r["n_species_covered"], -r["total_mentions"], r["hash"]),
+    )
+
+    return {
+        "root": root_block,
+        "n_species_in_subtree": len(species_rows),
+        "species_with_corpus_coverage": species_capsules[: max_species],
+        "aggregate_papers": aggregate_rows[: max_aggregate_papers],
+    }
 
 
 @mcp.tool()
