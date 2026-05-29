@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 39 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 40 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -54,6 +54,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_citation_graph` | Citation graph around a work or paper (in / out / both). |
 | `resolve_reference` | Resolve a free-text bibliographic reference to a work in the authority database. |
 | `format_citation` | Fully-assembled citation string for a work in the authority DB, plus provenance tier (`bib` / `grobid_reconciled` / `unresolved`) and verbatim warning footnote. The route for every citation an LLM client emits — never recombine fields client-side. |
+| `format_citations` | Batched `format_citation` (#88): pass one of `queries` / `work_ids` / `paper_hashes` (a list); returns `citations[]` in input order, each the `format_citation` payload or a per-item error. Prefer this over N single calls when emitting a reference list. |
 | `get_missing_references` | Works cited by corpus papers that are NOT in the corpus. |
 | `get_works_by_author` | All works by an author across the full bibliographic authority database (corpus papers + cited references + taxonomic-authority stubs). |
 | `get_original_description` | Find the original-description paper for a taxon. |
@@ -113,7 +114,7 @@ client.messages.create(
 Two breakpoints land below the ~5 k-token cache-eligibility floor on typical bundles:
 
 - **System prompt** (`mcpsrv/default_instructions.md` concatenated with any corpuscle-specific `instructions.md`): ~500–1500 tokens.
-- **Tool catalog** (39 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
+- **Tool catalog** (40 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
 
 Together ~5 k tokens get cached across all turns of a session — a non-trivial saving on conversations that fan out into many tool-use rounds. Cache lives ~5 minutes by default; subsequent sessions against the same build hit the same cache lines.
 
