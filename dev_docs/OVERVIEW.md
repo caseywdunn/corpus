@@ -143,6 +143,8 @@ Because these passes are GPU/API-cost-bearing, the corpus-scale validation of fi
 
 When a Darwin Core taxonomy SQLite snapshot is available (`<corpuscle>/taxonomy.sqlite`, built by `ingest_taxonomy.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default for siphonophores is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py <corpuscle> --source dwc --input <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
 
+> **WoRMS is marine-only (`isMarine=0` records are excluded) (#96).** The WoRMS DwC-A backbone — and the `--source worms` REST walk — only carry taxa flagged marine. A corpuscle whose literature spans freshwater or terrestrial groups (or marine taxa with non-marine relatives) will hit *silent* resolution failures: those names simply don't resolve to a `taxonID`, so they're dropped from `taxa.json` with no error, and `search_taxon` returns `not_found`. For a non-marine or mixed clade, build the snapshot from a GBIF or WFO DwC export (`--source dwc --input Taxon.tsv`) instead of WoRMS. This is a data-source limitation, not a pipeline bug — there is no flag that makes WoRMS emit non-marine records.
+
 ## Lexicon-driven annotation
 
 A user-supplied lexicon tags chunks with category-specific terms. The YAML is two-level — top-level keys are categories, each value is a flat term map:
