@@ -215,10 +215,13 @@ corpus serve -- \
     > serve.log 2>&1 &
 SERVE_PID=$!
 
-# Wait for the port. Probe /healthz (non-streaming, returns "ok"
-# immediately) — NOT /sse, which holds the connection open as a server-
-# sent-event stream and would hang `curl -sf` indefinitely without a
-# --max-time. Cap the loop at ~40s for cold-start index loading.
+# Wait for the port. Probe /healthz (non-streaming JSON capability
+# report, 200 when healthy / 503 when a capability is degraded — #91)
+# — NOT /sse, which holds the connection open as a server-sent-event
+# stream and would hang `curl -sf` indefinitely without a --max-time.
+# `curl -sf` treats the 503 as a failure, so the loop keeps waiting
+# until the server is actually serveable. Cap at ~40s for cold-start
+# index loading.
 for i in {1..40}; do
   curl -sf -o /dev/null --max-time 1 \
     "http://127.0.0.1:$MCP_PORT/healthz" && break

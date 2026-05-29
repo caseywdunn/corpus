@@ -267,6 +267,25 @@ def main() -> int:
     set_index(index)
     logger.info("Serving corpus: %s (%d papers)", args.output_dir, n)
 
+    # #91 — surface capability health at startup. Degraded capabilities
+    # (index present but unserveable) get a loud warning; they also make
+    # /healthz return 503 and the backed tools raise hard errors rather
+    # than returning empty rows. ``absent`` is normal (structured-only
+    # corpus) and logged at info level only.
+    caps = index.capabilities()
+    degraded = {k: c["detail"] for k, c in caps.items() if c["state"] == "degraded"}
+    if degraded:
+        logger.warning(
+            "*** Serving with DEGRADED capabilities: %s. /healthz will "
+            "report 503 and the backed tools will refuse to serve. ***",
+            ", ".join(f"{k} ({d})" for k, d in degraded.items()),
+        )
+    else:
+        logger.info(
+            "Capabilities: %s",
+            ", ".join(f"{k}={c['state']}" for k, c in caps.items()),
+        )
+
     if args.transport == "stdio":
         # #69 — start the figure HTTP side-car so get_figure_url can
         # return a working URL on local stdio MCP. Daemon thread; dies

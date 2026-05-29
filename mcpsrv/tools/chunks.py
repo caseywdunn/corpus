@@ -274,6 +274,16 @@ def get_chunks_for_topic(
     idx = _need_index()
     embedder, table = idx.get_topic_searcher()
     if embedder is None or table is None:
+        # #91 — distinguish a legitimately structured-only corpus
+        # (return the build-an-index guidance) from an operational
+        # fault (raise a hard MCP error so a degraded server refuses to
+        # serve silently-empty results that read as "no matches").
+        cap = idx.capabilities()["topic_search"]
+        if cap["state"] == "degraded":
+            raise RuntimeError(
+                f"topic search is degraded and refusing to serve: "
+                f"{cap['detail']}. Check the server logs and GET /healthz."
+            )
         return [{
             "error": "no LanceDB index available; run "
                      "`python embed_chunks.py <output_dir>` to build one"
