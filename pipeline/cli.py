@@ -348,20 +348,30 @@ def _build_orchestrator_argv(
     if cfg.grobid.url:
         sub_argv += ["--grobid-url", cfg.grobid.url]
 
-    # Vision pass (#65): opt-out via --no-vision flag, vision.backend=none,
-    # OR capability detection — skip gracefully (with a one-line nudge)
-    # when the configured backend isn't usable on this host.
-    if not args.no_vision and cfg.vision.backend != "none":
-        skip_reason = _vision_skip_reason(cfg.vision.backend)
+    # Figure panel-ROI detection (#102): figures.panel_detection selects
+    # the pass. `--no-vision` downgrades a vision backend to the OCR
+    # floor (not off — the OCR pass is the cheap default baseline).
+    # Capability detection (#65) likewise downgrades an unusable vision
+    # backend to OCR with a one-line nudge rather than hard-failing
+    # Pass 3b deep into the run.
+    panel_mode = cfg.figures.panel_detection
+    if args.no_vision and panel_mode in ("vision-local", "vision-claude"):
+        print_status(
+            "--no-vision: using the OCR panel floor instead of the vision pass",
+            status="info",
+        )
+        panel_mode = "ocr"
+    if panel_mode in ("vision-local", "vision-claude"):
+        skip_reason = _vision_skip_reason(panel_mode)
         if skip_reason is not None:
             print_status(
-                f"vision pass skipped: {skip_reason}",
+                f"vision panel pass downgraded to the OCR floor: {skip_reason}",
                 status="warn",
             )
-        else:
-            sub_argv += ["--vision-backend", cfg.vision.backend]
-            if cfg.vision.model:
-                sub_argv += ["--vision-model", cfg.vision.model]
+            panel_mode = "ocr"
+    sub_argv += ["--figure-panels", panel_mode]
+    if panel_mode in ("vision-local", "vision-claude") and cfg.figures.model:
+        sub_argv += ["--vision-model", cfg.figures.model]
 
     # #64: auto-build cross-paper databases.
     if cfg.taxonomy.source is not None:
@@ -984,29 +994,29 @@ def _detect_accelerator() -> Optional[str]:
     return None
 
 
-def _vision_skip_reason(backend: str) -> Optional[str]:
-    """Return a human-readable reason to skip the vision pass on this host
-    given the configured ``backend``, or None if the backend is usable.
+def _vision_skip_reason(mode: str) -> Optional[str]:
+    """Return a human-readable reason the ``vision-*`` panel mode isn't
+    usable on this host, or None if it is (#65, #102).
 
-    #65 — capability-aware skip. Gracefully avoids loading a multi-GB
-    open-weights model on a CPU-only host or hitting the Anthropic API
-    without credentials, both of which hard-fail Pass 3b deep into the
-    pipeline today.
+    Gracefully avoids loading a multi-GB open-weights model on a CPU-only
+    host or hitting the Anthropic API without credentials, both of which
+    hard-fail Pass 3b deep into the pipeline. The caller downgrades to
+    the OCR panel floor (``ocr``) when this returns a reason.
     """
-    if backend == "local":
+    if mode == "vision-local":
         if _detect_accelerator() is None:
             return (
-                "vision.backend=local but no CUDA/MPS detected on this host. "
-                "Either set `vision.backend: claude` (and export "
-                "ANTHROPIC_API_KEY) or `vision.backend: none`, or run on a "
-                "GPU host."
+                "figures.panel_detection=vision-local but no CUDA/MPS "
+                "detected on this host. Use `figures.panel_detection: "
+                "vision-claude` (and export ANTHROPIC_API_KEY), or `ocr`, "
+                "or run on a GPU host."
             )
-    elif backend == "claude":
+    elif mode == "vision-claude":
         if not os.environ.get("ANTHROPIC_API_KEY"):
             return (
-                "vision.backend=claude but ANTHROPIC_API_KEY is unset. "
-                "Either export ANTHROPIC_API_KEY, or set "
-                "`vision.backend: local` / `vision.backend: none`."
+                "figures.panel_detection=vision-claude but ANTHROPIC_API_KEY "
+                "is unset. Either export ANTHROPIC_API_KEY, or use "
+                "`figures.panel_detection: vision-local` / `ocr`."
             )
     return None
 

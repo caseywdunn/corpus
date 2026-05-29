@@ -19,7 +19,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -52,21 +59,31 @@ class TaxonomyConfig(BaseModel):
     )
 
 
-class VisionConfig(BaseModel):
-    """Vision pass (Pass 3b) settings (#59 / #65)."""
+class FiguresConfig(BaseModel):
+    """Figure panel-ROI detection settings (#102, supersedes the v0.5
+    ``vision`` block).
+
+    ``panel_detection`` selects which pass annotates multi-panel figure
+    ROIs. Pass 3a (``ocr``) is the cheap CPU-only floor and the default
+    — it self-gates to figures whose caption implies multiple panels, so
+    it's near-free on single-panel figures. The ``vision-*`` modes run
+    Pass 3b instead (open-weights VLM or the Anthropic API); ``off``
+    disables panel-ROI detection entirely.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    backend: Literal["local", "claude", "none"] = Field(
-        default="none",
-        description="local = open-weights VLM on CUDA/MPS; "
-        "claude = Anthropic API (needs ANTHROPIC_API_KEY); "
-        "none = skip the pass entirely.",
+    panel_detection: Literal["ocr", "vision-local", "vision-claude", "off"] = Field(
+        default="ocr",
+        description="ocr = OCR-driven panel ROIs (CPU, default floor); "
+        "vision-local = open-weights VLM on CUDA/MPS; "
+        "vision-claude = Anthropic API (needs ANTHROPIC_API_KEY); "
+        "off = no panel-ROI detection.",
     )
     model: Optional[str] = Field(
         default=None,
         description="Override the per-backend default vision model "
-        "(e.g. claude-sonnet-4-6-20251001).",
+        "(e.g. claude-sonnet-4-6-20251001); used only by the vision-* modes.",
     )
 
 
@@ -203,7 +220,7 @@ class CorpuscleConfig(BaseModel):
     )
 
     taxonomy: TaxonomyConfig = Field(default_factory=TaxonomyConfig)
-    vision: VisionConfig = Field(default_factory=VisionConfig)
+    figures: FiguresConfig = Field(default_factory=FiguresConfig)
     grobid: GrobidConfig = Field(default_factory=GrobidConfig)
     bibliography: BibliographyConfig = Field(default_factory=BibliographyConfig)
     licensing: LicensingConfig = Field(default_factory=LicensingConfig)
@@ -214,6 +231,22 @@ class CorpuscleConfig(BaseModel):
     stage_timeouts: StageTimeoutsConfig = Field(default_factory=StageTimeoutsConfig)
     huge_document: HugeDocumentConfig = Field(default_factory=HugeDocumentConfig)
     quality_gates: QualityGatesConfig = Field(default_factory=QualityGatesConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_vision_block(cls, data):
+        """The v0.5 ``vision:`` block was renamed to ``figures:`` in v0.6
+        (#102). Fail loud with the mapping rather than letting
+        ``extra=forbid`` emit a bare "unexpected field" error."""
+        if isinstance(data, dict) and "vision" in data:
+            raise ValueError(
+                "the `vision:` config block was replaced by `figures:` in "
+                "v0.6 (#102). Rename it and map `vision.backend` → "
+                "`figures.panel_detection`: none → `off` (or `ocr` for the "
+                "new CPU OCR-panel floor), local → `vision-local`, claude → "
+                "`vision-claude`. Move `vision.model` → `figures.model`."
+            )
+        return data
 
     @field_validator("taxonomy")
     @classmethod

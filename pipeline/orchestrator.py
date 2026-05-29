@@ -95,10 +95,8 @@ class Step:
                 cmd += ["--grobid-url", args.grobid_url]
             if args.strict_network:
                 cmd.append("--strict-network")
-            if args.content_aware_figures:
-                cmd.append("--content-aware-figures")
-            if args.vision_backend:
-                cmd += ["--vision-backend", args.vision_backend]
+            if args.figure_panels:
+                cmd += ["--figure-panels", args.figure_panels]
             if args.vision_model:
                 cmd += ["--vision-model", args.vision_model]
             if args.refresh_vision:
@@ -213,14 +211,12 @@ def main() -> int:
              "(passed to process_corpus.py). Recommended for release runs.",
     )
     parser.add_argument(
-        "--content-aware-figures", action="store_true",
-        help="Run Pass 3a OCR-driven panel ROI detection "
-             "(passed to process_corpus.py).",
-    )
-    parser.add_argument(
-        "--vision-backend", choices=["claude", "local"], default=None,
-        help="Run Pass 3b vision-LLM-driven panel detection "
-             "(passed to process_corpus.py).",
+        "--figure-panels",
+        choices=["ocr", "vision-local", "vision-claude", "off"],
+        default="ocr",
+        help="Panel-ROI detection mode (#102): ocr = Pass 3a OCR floor "
+             "(default), vision-local / vision-claude = Pass 3b vision, "
+             "off = none (passed to process_corpus.py).",
     )
     parser.add_argument(
         "--vision-model", default=None,
@@ -229,8 +225,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--refresh-vision", action="store_true",
-        help="With --resume + --vision-backend, re-run only Pass 3b on "
-             "existing figures.json (passed to process_corpus.py).",
+        help="With --resume + --figure-panels vision-*, re-run only Pass 3b "
+             "on existing figures.json (passed to process_corpus.py).",
     )
     parser.add_argument(
         "--config", type=Path, default=None,

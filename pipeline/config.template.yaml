@@ -61,12 +61,14 @@ output_dir: ./output
 #   root_id: 1371                 # Siphonophorae order (example)
 #   # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
 
-# Vision pass (Pass 3b — figure annotation by a vision LLM).
-vision:
-  backend: none     # one of: local (open-weights VLM on CUDA/MPS),
-                    #         claude (Anthropic API; needs ANTHROPIC_API_KEY),
-                    #         none (skip entirely)
-  # model: claude-sonnet-4-6-20251001   # optional override
+# Figure panel-ROI detection (#102).
+figures:
+  panel_detection: ocr   # one of: ocr (OCR-driven panel ROIs, CPU-only,
+                         #             the default floor),
+                         #         vision-local (open-weights VLM on CUDA/MPS),
+                         #         vision-claude (Anthropic API; needs ANTHROPIC_API_KEY),
+                         #         off (no panel-ROI detection)
+  # model: claude-sonnet-4-6-20251001   # optional override (vision-* modes)
 
 # Grobid (PDF metadata + reference parsing). Runs as a Docker service;
 # see README §Grobid.

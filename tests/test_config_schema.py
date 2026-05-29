@@ -22,7 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def test_empty_config_uses_defaults():
     cfg = CorpuscleConfig()
-    assert cfg.vision.backend == "none"
+    # #102 — OCR panel detection is the default floor.
+    assert cfg.figures.panel_detection == "ocr"
     assert cfg.licensing.pd_cutoff_years == 95
     assert cfg.bibliography.enrich_bhl is False
     assert cfg.grobid.url.startswith("http")
@@ -55,9 +56,18 @@ def test_demo_config_validates():
 
 def test_bad_enum_points_at_key():
     with pytest.raises(ValidationError) as exc:
-        validate_config({"vision": {"backend": "claud"}})
+        validate_config({"figures": {"panel_detection": "ocrr"}})
     locs = [".".join(str(x) for x in err["loc"]) for err in exc.value.errors()]
-    assert "vision.backend" in locs
+    assert "figures.panel_detection" in locs
+
+
+def test_legacy_vision_block_rejected_with_migration_hint():
+    """#102 — the renamed `vision:` block fails loud with the mapping."""
+    with pytest.raises(ValidationError) as exc:
+        validate_config({"vision": {"backend": "claude"}})
+    msgs = " ".join(err["msg"] for err in exc.value.errors())
+    assert "figures.panel_detection" in msgs
+    assert "vision-claude" in msgs
 
 
 def test_unknown_top_level_key_rejected():
