@@ -134,6 +134,23 @@ that ignore the new surface keep working.
 - **Code-review batch — release-blocker + 8 follow-ups** (`09758a0`).
   Addressed the findings from the pre-release Codex review pass across
   the new MCP surface.
+- **Pinned the docling/torch/transformers/sentence-transformers stack**
+  ([#98](https://github.com/caseywdunn/corpus/issues/98)). The
+  extraction/ML stack was unpinned in `environment.yaml`,
+  `requirements.txt`, and `pyproject.toml`, so every build resolved the
+  latest PyPI wheels. `docling` 2.95/2.96 silently break extraction on
+  macOS arm64 (MPS) — empty output, no crash — which surfaced as a
+  reproducible T2 failure with no code change. Pinned to the last-green
+  set (`docling==2.94.0`, `transformers==5.8.1`, `torch==2.12.0`,
+  `sentence-transformers==5.5.0`). A deliberate forward-move is tracked
+  in the issue.
+- **`corpus run` now fails on a zero-yield extraction**
+  ([#99](https://github.com/caseywdunn/corpus/issues/99)). When every
+  processed document produced zero chunks (e.g. a silently-failing
+  extraction backend), the run previously logged "all steps succeeded"
+  and packaged an empty served bundle. The extract stage now exits
+  non-zero on a corpus-wide zero-chunk result and warns on individual
+  empty documents, so the failure is loud instead of shipped.
 
 ## [0.4.0] - 2026-05-13
 
