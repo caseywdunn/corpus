@@ -43,7 +43,28 @@ class _FakeEmbedder:
         return [[0.0] * 3 for _ in queries]
 
 
-def _make_index(results: List[Dict]):
+class _FakeBiblioDB:
+    """Minimal biblio_db stub exposing ``.conn.execute(...).fetchall()``
+    for the cited_work_ids query in get_chunks_for_topic(with_cites=True)."""
+
+    def __init__(self, cites_by_paper: Dict[str, List[str]]):
+        self._cites = cites_by_paper
+
+    class _Conn:
+        def __init__(self, outer):
+            self._outer = outer
+
+        def execute(self, _sql: str, params: Tuple):
+            paper_hash = params[0]
+            rows = [(wid,) for wid in self._outer._cites.get(paper_hash, [])]
+            return types.SimpleNamespace(fetchall=lambda: rows)
+
+    @property
+    def conn(self):
+        return self._Conn(self)
+
+
+def _make_index(results: List[Dict], biblio_db=None):
     """Build a CorpusIndex-shaped stub with a synthetic topic-searcher
     that returns the given LanceDB row records."""
     embedder = _FakeEmbedder()
@@ -52,6 +73,7 @@ def _make_index(results: List[Dict]):
     return types.SimpleNamespace(
         papers=papers,
         get_topic_searcher=lambda: (embedder, table),
+        biblio_db=biblio_db,
     )
 
 
@@ -117,3 +139,41 @@ def test_with_text_false_token_cut_vs_with_text_true(index):
         f"with_text=False not significantly shorter: "
         f"{len(no_text)} vs {len(with_text)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# with_cites= (#88)
+# ---------------------------------------------------------------------------
+
+
+def test_with_cites_false_omits_cited_work_ids(index):
+    out = get_chunks_for_topic("query")
+    assert "cited_work_ids" not in out[0]
+
+
+def test_with_cites_true_attaches_parent_paper_citations(monkeypatch):
+    results = [{
+        "metadata": {"pdf_hash": "aaaaaaaaaaaa", "title": "Paper A",
+                     "year": 2005, "chunk_id": "c0",
+                     "section_class": "description", "headings": []},
+        "text": "body",
+        "_distance": 0.1,
+    }]
+    biblio = _FakeBiblioDB({"aaaaaaaaaaaa": [
+        "corpus:dunn|2005|x", "doi:10.1/abc",
+    ]})
+    fake = _make_index(results, biblio_db=biblio)
+    original = mcp_app._INDEX
+    mcp_app.set_index(fake)
+    try:
+        out = get_chunks_for_topic("query", with_cites=True)
+        assert out[0]["cited_work_ids"] == ["corpus:dunn|2005|x", "doi:10.1/abc"]
+    finally:
+        mcp_app.set_index(original)
+
+
+def test_with_cites_true_empty_when_no_biblio_db(index):
+    # The `index` fixture has biblio_db=None — with_cites must degrade
+    # to an empty list rather than raising.
+    out = get_chunks_for_topic("query", with_cites=True)
+    assert out[0]["cited_work_ids"] == []
