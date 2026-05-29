@@ -147,47 +147,73 @@ def test_matrix_default_columns_are_top_n_by_mention_count(corpus):
     out = lexicon_matrix("anatomy", top_n=2)
     # pneumatophore: 5+1=6, tentacle: 3, nectophore: 2 → top-2 is
     # pneumatophore, tentacle.
-    assert out["terms"] == ["pneumatophore", "tentacle"]
+    assert [t["term"] for t in out["term_totals"]] == ["pneumatophore", "tentacle"]
 
 
 def test_matrix_caller_columns_preserve_order_and_drop_unknown(corpus):
     out = lexicon_matrix("anatomy", terms=["tentacle", "no_such_term", "nectophore"])
-    assert out["terms"] == ["tentacle", "nectophore"]
+    assert [t["term"] for t in out["term_totals"]] == ["tentacle", "nectophore"]
 
 
-def test_matrix_rows_sorted_by_year_desc_then_hash(corpus):
+# --- #88: summary is the default; the full grid is opt-in (detail=True) ---
+
+
+def test_matrix_default_is_summary_not_grid(corpus):
     out = lexicon_matrix("anatomy", terms=["pneumatophore"])
+    assert out["detail"] is False
+    assert "rows" not in out          # the O(papers×terms) runaway is gone
+    assert out["paper_count"] == 3
+    assert out["term_totals"][0] == {
+        "term": "pneumatophore",
+        "total_mentions": 6,          # a:5 + b:1
+        "papers_with_mentions": 2,    # c has no anatomy.json
+    }
+
+
+def test_matrix_summary_totals_respect_year_filter(corpus):
+    out = lexicon_matrix("anatomy", terms=["pneumatophore"],
+                         year_from=2010, year_to=2010)
+    # 2010 papers are b (pneumatophore=1) and c (no file).
+    assert out["paper_count"] == 2
+    assert out["term_totals"][0]["total_mentions"] == 1
+    assert out["term_totals"][0]["papers_with_mentions"] == 1
+
+
+def test_matrix_detail_rows_sorted_by_year_desc_then_hash(corpus):
+    out = lexicon_matrix("anatomy", terms=["pneumatophore"], detail=True)
+    assert out["detail"] is True
     row_hashes = [r["paper_hash"] for r in out["rows"]]
     # 2010 papers first (b, c by hash), then 2005 (a).
     assert row_hashes == ["bbbbbbbbbbbb", "cccccccccccc", "aaaaaaaaaaaa"]
 
 
-def test_matrix_paper_with_no_category_file_is_zero_row(corpus):
+def test_matrix_detail_paper_with_no_category_file_is_zero_row(corpus):
     """Paper cccc has no anatomy.json. The contract is that it still
-    appears in the matrix as a zero-filled row — papers shouldn't
+    appears in the grid as a zero-filled row — papers shouldn't
     silently disappear from coverage tables just because they have
     no hits in the chosen category."""
-    out = lexicon_matrix("anatomy", terms=["pneumatophore", "tentacle"])
+    out = lexicon_matrix("anatomy", terms=["pneumatophore", "tentacle"], detail=True)
     row_c = next(r for r in out["rows"] if r["paper_hash"] == "cccccccccccc")
     assert row_c["counts"] == [0, 0]
 
 
-def test_matrix_counts_match_per_paper_mention_counts(corpus):
-    out = lexicon_matrix("anatomy", terms=["pneumatophore", "nectophore"])
+def test_matrix_detail_counts_match_per_paper_mention_counts(corpus):
+    out = lexicon_matrix("anatomy", terms=["pneumatophore", "nectophore"],
+                         detail=True)
     row_a = next(r for r in out["rows"] if r["paper_hash"] == "aaaaaaaaaaaa")
     assert row_a["counts"] == [5, 2]
 
 
-def test_matrix_year_filter_restricts_rows(corpus):
+def test_matrix_detail_year_filter_restricts_rows(corpus):
     out = lexicon_matrix("anatomy", terms=["pneumatophore"],
-                         year_from=2010, year_to=2010)
+                         year_from=2010, year_to=2010, detail=True)
     hashes = {r["paper_hash"] for r in out["rows"]}
     assert hashes == {"bbbbbbbbbbbb", "cccccccccccc"}
 
 
-def test_matrix_paper_hashes_filter_restricts_rows(corpus):
+def test_matrix_detail_paper_hashes_filter_restricts_rows(corpus):
     out = lexicon_matrix("anatomy", terms=["pneumatophore"],
-                         paper_hashes=["aaaaaaaaaaaa", "bogus"])
+                         paper_hashes=["aaaaaaaaaaaa", "bogus"], detail=True)
     hashes = {r["paper_hash"] for r in out["rows"]}
     assert hashes == {"aaaaaaaaaaaa"}
 
