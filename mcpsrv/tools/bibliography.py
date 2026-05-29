@@ -207,6 +207,8 @@ def get_citation_graph(
     paper_hash: Optional[str] = None,
     direction: str = "both",
     depth: int = 1,
+    max_edges_per_node: int = 50,
+    max_total_edges: int = 500,
 ) -> Dict:
     """Citation graph around a work.
 
@@ -216,7 +218,14 @@ def get_citation_graph(
     ``"cited_by"`` (papers cited by this work), or ``"both"``.
     ``depth > 1`` follows transitive citations (max 3).
 
-    Returns the root work plus the citation edges.
+    Breadth is bounded (#87) so a hub work can't return a runaway graph:
+    ``max_edges_per_node`` caps how many edges each node contributes
+    (when a node exceeds it, its edges are ranked by ``cited_by_count``
+    descending and the top ones kept), and ``max_total_edges`` caps the
+    whole walk. Defaults are generous; the response carries
+    ``truncated: bool`` so a caller can tell whether either cap fired.
+
+    Returns the root work plus the citation edges and ``truncated``.
     """
     idx = _need_index()
     if idx.biblio_db is None:
@@ -243,23 +252,43 @@ def get_citation_graph(
         },
     }
 
+    truncated = False
     if direction in ("citing", "both"):
-        citing = _walk_citations(idx.biblio_db, work_id, "citing", depth)
+        citing, t = _walk_citations(
+            idx.biblio_db, work_id, "citing", depth,
+            max_edges_per_node=max_edges_per_node,
+            max_total_edges=max_total_edges,
+        )
         result["citing"] = citing
+        truncated = truncated or t
     if direction in ("cited_by", "both"):
-        cited_by = _walk_citations(idx.biblio_db, work_id, "cited_by", depth)
+        cited_by, t = _walk_citations(
+            idx.biblio_db, work_id, "cited_by", depth,
+            max_edges_per_node=max_edges_per_node,
+            max_total_edges=max_total_edges,
+        )
         result["cited_by"] = cited_by
+        truncated = truncated or t
 
+    result["truncated"] = truncated
     return result
 
 
 def _walk_citations(
     biblio: BiblioAuthority, work_id: str, direction: str, depth: int,
-) -> List[Dict]:
-    """BFS citation walk."""
+    *, max_edges_per_node: int, max_total_edges: int,
+) -> "tuple[List[Dict], bool]":
+    """BFS citation walk with breadth + total-edge caps (#87).
+
+    Returns ``(edges, truncated)``. When a node has more neighbours than
+    ``max_edges_per_node`` they are ranked by ``cited_by_count`` (desc,
+    ``work_id`` tiebreak) and only the top ones kept — so the most-cited
+    edges survive truncation. The total walk stops at ``max_total_edges``.
+    """
     visited: set = set()
     frontier = [work_id]
     results: List[Dict] = []
+    truncated = False
     for d in range(depth):
         next_frontier: List[str] = []
         for wid in frontier:
@@ -267,13 +296,22 @@ def _walk_citations(
                 continue
             visited.add(wid)
             rows = biblio.citing(wid) if direction == "citing" else biblio.cited_by(wid)
+            if len(rows) > max_edges_per_node:
+                truncated = True
+                rows = sorted(
+                    rows,
+                    key=lambda r: (-biblio.citation_count(r["work_id"]),
+                                   r["work_id"]),
+                )[:max_edges_per_node]
             for r in rows:
+                if len(results) >= max_total_edges:
+                    return results, True
                 r["depth"] = d + 1
                 results.append(r)
                 if r["work_id"] not in visited:
                     next_frontier.append(r["work_id"])
         frontier = next_frontier
-    return results
+    return results, truncated
 
 
 @mcp.tool()
