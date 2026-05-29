@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 41 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 42 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -34,7 +34,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 
 | Tool | Returns |
 | --- | --- |
-| `search_taxon` | Resolve a taxon name against the configured Darwin Core taxonomy snapshot. |
+| `search_taxon` | Resolve a taxon name against the configured Darwin Core taxonomy snapshot. Pass `parent_chain=True` (#88) to add the accepted taxon's ancestry (immediate parent → root, each `{taxon_id, scientific_name, rank}`). |
 | `get_papers_for_taxon` | Papers mentioning a taxon, resolved through synonymy. |
 | `get_chunks_for_taxon` | Every chunk that mentions the taxon (resolved through synonymy). |
 | `get_taxon_mentions` | All text-span mentions of a taxon across the corpus, with surrounding context. |
@@ -51,9 +51,10 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_bibliography` | Parsed references for one paper (from Grobid TEI). |
 | `get_intext_citations` | In-text `<ref type="bibr">` markers for one paper, with deduplicated paragraph excerpts and section context. |
 | `get_excerpts_citing` | Cross-corpus: every passage citing a given work — surface text, section, and the surrounding paragraph. |
-| `get_citation_graph` | Citation graph around a work or paper (in / out / both). |
+| `get_citation_graph` | Citation graph around a work or paper (in / out / both). Bounded breadth (#87): `max_edges_per_node` (per-node fan-out, survivors ranked by `cited_by_count`) + `max_total_edges` caps, with a `truncated` flag. Generous defaults. |
 | `resolve_reference` | Resolve a free-text bibliographic reference to a work in the authority database. |
 | `format_citation` | Fully-assembled citation string for a work in the authority DB, plus provenance tier (`bib` / `grobid_reconciled` / `unresolved`) and verbatim warning footnote. The route for every citation an LLM client emits — never recombine fields client-side. |
+| `format_citations` | Batched `format_citation` (#88): pass one of `queries` / `work_ids` / `paper_hashes` (a list); returns `citations[]` in input order, each the `format_citation` payload or a per-item error. Prefer this over N single calls when emitting a reference list. |
 | `get_missing_references` | Works cited by corpus papers that are NOT in the corpus. |
 | `get_works_by_author` | All works by an author across the full bibliographic authority database (corpus papers + cited references + taxonomic-authority stubs). |
 | `get_original_description` | Find the original-description paper for a taxon. |
@@ -78,7 +79,7 @@ Requires `embed_chunks.py` to have been run (for `get_chunks_for_topic`) and `AN
 
 | Tool | Returns |
 | --- | --- |
-| `get_chunks_for_topic` | Semantic search over chunks via the LanceDB vector index. Pass `with_text=False` for a metadata-only scan (#82): ~80 chars/row vs ~600 with full text, then drill down with `get_chunks(paper_hash, chunk_ids=[...])`. |
+| `get_chunks_for_topic` | Semantic search over chunks via the LanceDB vector index. Pass `with_text=False` for a metadata-only scan (#82): ~80 chars/row vs ~600 with full text, then drill down with `get_chunks(paper_hash, chunk_ids=[...])`. Pass `with_cites=True` (#88) to attach `cited_work_ids` (the chunk's parent paper's in-text citation targets) — feed to `format_citations`. |
 | `translate_chunk` | Translate one chunk to the target language (default English), via the Anthropic Claude API. |
 
 ## Output profiles
@@ -96,7 +97,7 @@ Category-agnostic — every tool takes `category` as an argument and returns `{"
 
 | Tool | Returns |
 | --- | --- |
-| `lexicon_matrix` | Paper × term mention-count grid for one category. Caller-controlled columns (`terms=`) or top-N by total mention count. Caller-controlled rows (`paper_hashes=`) or all papers, optionally year-filtered. Papers with no `<category>.json` surface as zero-filled rows. Typical ~2 k tokens for 100 × 20. |
+| `lexicon_matrix` | Lexicon-coverage view for one category. **Default `detail=False`** returns compact per-term totals (`term_totals[]` with `total_mentions` + `papers_with_mentions`) over the selected papers. **`detail=True`** returns the full paper × term mention-count grid (`rows[]`), which is O(papers × terms) and was a multi-MB runaway, hence opt-in (#88). Caller-controlled columns (`terms=`) or top-N by total mention count; caller-controlled paper set (`paper_hashes=`) or all papers, optionally year-filtered. |
 | `get_lexicon_term_dossier` | Per-term cross-corpus view: rollup counts, top papers by mention count, chunk examples (IDs only — pair with `get_chunks`), term description. |
 
 ## Prompt-cache integration (Anthropic API clients)
@@ -122,7 +123,7 @@ client.messages.create(
 Two breakpoints land below the ~5 k-token cache-eligibility floor on typical bundles:
 
 - **System prompt** (`mcpsrv/default_instructions.md` concatenated with any corpuscle-specific `instructions.md`): ~500–1500 tokens.
-- **Tool catalog** (41 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
+- **Tool catalog** (42 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
 
 Together ~5 k tokens get cached across all turns of a session — a non-trivial saving on conversations that fan out into many tool-use rounds. Cache lives ~5 minutes by default; subsequent sessions against the same build hit the same cache lines.
 

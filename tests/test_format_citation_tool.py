@@ -19,7 +19,11 @@ import pytest
 from bib.authority import create_schema
 from mcpsrv import app as mcp_app
 from mcpsrv.indexes import BiblioAuthority
-from mcpsrv.tools.bibliography import _PROVENANCE_WARNING, format_citation
+from mcpsrv.tools.bibliography import (
+    _PROVENANCE_WARNING,
+    format_citation,
+    format_citations,
+)
 
 
 def _make_authority_db(path: Path) -> sqlite3.Connection:
@@ -239,3 +243,64 @@ def test_warning_table_is_complete():
     tool — this test forces them to evolve together."""
     expected_tiers = {"bib", "grobid_reconciled", "unresolved"}
     assert set(_PROVENANCE_WARNING.keys()) == expected_tiers
+
+
+# ---------------------------------------------------------------------------
+# format_citations — batched (#88)
+# ---------------------------------------------------------------------------
+
+
+def test_batch_work_ids_preserve_input_order_and_tiers(index):
+    out = format_citations(work_ids=[
+        "corpus:lensia|1965|unknown",      # unresolved
+        "corpus:dunn|2005|marrus",         # bib
+        "corpus:siebert|2011|hapless",     # grobid_reconciled
+    ])
+    assert out["style"] == "author-year"
+    assert out["count"] == 3
+    provs = [c["provenance"] for c in out["citations"]]
+    assert provs == ["unresolved", "bib", "grobid_reconciled"]
+    # warnings track provenance and match the single-tool table
+    assert out["citations"][1]["warning"] == ""  # bib tier, no warning
+    assert out["citations"][0]["warning"] == _PROVENANCE_WARNING["unresolved"]
+
+
+def test_batch_matches_single_tool_per_item(index):
+    one = format_citation(work_id="corpus:dunn|2005|marrus")
+    batch = format_citations(work_ids=["corpus:dunn|2005|marrus"])
+    assert batch["citations"][0] == one
+
+
+def test_batch_queries_and_paper_hashes(index):
+    by_query = format_citations(queries=["Dunn 2005"])
+    assert by_query["citations"][0]["work_id"] == "corpus:dunn|2005|marrus"
+    by_hash = format_citations(paper_hashes=["dunnhash000"])
+    assert by_hash["citations"][0]["work_id"] == "corpus:dunn|2005|marrus"
+
+
+def test_batch_per_item_errors_do_not_fail_the_batch(index):
+    out = format_citations(work_ids=[
+        "corpus:dunn|2005|marrus",   # ok
+        "corpus:nope|9999|ghost",    # not_found
+        "",                          # empty_item
+    ])
+    assert out["count"] == 3
+    assert out["citations"][0]["work_id"] == "corpus:dunn|2005|marrus"
+    assert out["citations"][1]["error"] == "not_found"
+    assert out["citations"][2]["error"] == "empty_item"
+
+
+def test_batch_requires_exactly_one_selector(index):
+    none = format_citations()
+    assert "exactly one of" in none["error"]
+    both = format_citations(queries=["Dunn 2005"], work_ids=["corpus:dunn|2005|marrus"])
+    assert "exactly one of" in both["error"]
+    assert "citations" not in both
+
+
+def test_batch_rejects_empty_list_and_bad_style(index):
+    empty = format_citations(work_ids=[])
+    assert "non-empty list" in empty["error"]
+    bad = format_citations(work_ids=["corpus:dunn|2005|marrus"], style="vancouver")
+    assert "unknown style" in bad["error"]
+    assert "citations" not in bad

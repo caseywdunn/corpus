@@ -70,6 +70,19 @@ _os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
 if _sys.platform == "darwin":
     _os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
+# HF_HUB_DISABLE_IMPLICIT_TOKEN=1 (#97): the three model-load sites
+# (SentenceTransformer in embeddings.py, AutoProcessor +
+# Qwen2_5_VL in vision.py) pull in huggingface_hub, which logs a noisy
+# warning when it falls back to an implicitly-stored token to fetch
+# public models we never gate. All our models are public, so disable the
+# implicit-token path. Must be set before huggingface_hub is imported —
+# the lazy `from sentence_transformers import …` / `from transformers
+# import …` inside those functions happens well after this package
+# __init__, so setting it here covers every code path (pipeline build +
+# the MCP serve path, which imports pipeline.embeddings). setdefault
+# leaves an explicit user override intact.
+_os.environ.setdefault("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1")
+
 _log_level = _os.environ.get("CORPUS_LOG_LEVEL", "").upper()
 if _log_level in {"WARNING", "INFO", "DEBUG"}:
     _logging.basicConfig(

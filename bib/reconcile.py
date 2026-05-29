@@ -310,14 +310,44 @@ def merge_phase1_into_ghost(conn: sqlite3.Connection,
         (ghost_work_id, phase1_work_id),
     )
 
-    # 4. Upgrade the ghost row to be the corpus paper.
-    conn.execute(
-        """UPDATE works
-           SET in_corpus = 1, corpus_hash = ?, source = 'corpus_paper',
-               updated_at = ?
-           WHERE work_id = ?""",
-        (corpus_hash, time.time(), ghost_work_id),
-    )
+    # 4. Upgrade the ghost row to be the corpus paper, carrying bib
+    #    authority forward (#100). If the Phase-1 row was touched by a
+    #    user .bib import (bib_imported_at IS NOT NULL), that provenance
+    #    and its curated bibliographic fields must survive the merge —
+    #    otherwise reconciliation silently demotes a bib-curated corpus
+    #    paper back to grobid_reconciled and lets the GROBID-derived
+    #    ghost fields win. Index-style row access (no row_factory here).
+    p1 = conn.execute(
+        "SELECT bib_imported_at, title, year, journal, doi "
+        "FROM works WHERE work_id = ?", (phase1_work_id,),
+    ).fetchone()
+    g = conn.execute(
+        "SELECT bib_imported_at FROM works WHERE work_id = ?",
+        (ghost_work_id,),
+    ).fetchone()
+    p1_bib = p1[0] if p1 else None
+    g_bib = g[0] if g else None
+    carried_bib = p1_bib if p1_bib is not None else g_bib
+
+    if p1 is not None and p1_bib is not None:
+        # bib-curated Phase-1 fields are authoritative over the ghost's.
+        conn.execute(
+            """UPDATE works
+               SET in_corpus = 1, corpus_hash = ?, source = 'corpus_paper',
+                   title = ?, year = ?, journal = ?, doi = ?,
+                   bib_imported_at = ?, updated_at = ?
+               WHERE work_id = ?""",
+            (corpus_hash, p1[1], p1[2], p1[3], p1[4],
+             carried_bib, time.time(), ghost_work_id),
+        )
+    else:
+        conn.execute(
+            """UPDATE works
+               SET in_corpus = 1, corpus_hash = ?, source = 'corpus_paper',
+                   bib_imported_at = ?, updated_at = ?
+               WHERE work_id = ?""",
+            (corpus_hash, carried_bib, time.time(), ghost_work_id),
+        )
 
     # 5. Clean up the now-orphan Phase-1 row.
     conn.execute("DELETE FROM work_aliases WHERE work_id = ?", (phase1_work_id,))

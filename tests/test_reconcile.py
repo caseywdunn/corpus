@@ -65,6 +65,7 @@ def _make_db():
             bhl_item_id TEXT, bhl_part_id TEXT, openalex_id TEXT,
             corpus_hash TEXT, in_corpus INTEGER NOT NULL DEFAULT 0,
             source TEXT NOT NULL, confidence REAL DEFAULT 1.0,
+            bib_imported_at REAL,
             created_at REAL NOT NULL, updated_at REAL NOT NULL
         );
         CREATE TABLE work_authors (

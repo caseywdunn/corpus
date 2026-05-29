@@ -36,8 +36,41 @@ def parse_chunk_index(chunk_id: str) -> int:
     return int(m.group(1)) if m else -1
 
 
+def _walk_parent_chain(conn, taxon_id: str, max_depth: int = 64) -> List[Dict]:
+    """Walk the DwC ``parent_name_usage_id`` tree upward from
+    ``taxon_id``, returning ancestors ordered immediate-parent → root,
+    each ``{taxon_id, scientific_name, rank}``. Cycle- and depth-guarded
+    against malformed snapshots."""
+    chain: List[Dict] = []
+    seen = {taxon_id}
+    current = taxon_id
+    for _ in range(max_depth):
+        row = conn.execute(
+            "SELECT parent_name_usage_id FROM taxa WHERE taxon_id = ?",
+            (current,),
+        ).fetchone()
+        parent_id = row[0] if row else None
+        if not parent_id or parent_id in seen:
+            break
+        seen.add(parent_id)
+        prow = conn.execute(
+            "SELECT taxon_id, scientific_name, taxon_rank "
+            "FROM taxa WHERE taxon_id = ?",
+            (parent_id,),
+        ).fetchone()
+        if not prow:
+            break
+        chain.append({
+            "taxon_id": prow[0],
+            "scientific_name": prow[1],
+            "rank": prow[2],
+        })
+        current = parent_id
+    return chain
+
+
 @mcp.tool()
-def search_taxon(name: str) -> Dict:
+def search_taxon(name: str, parent_chain: bool = False) -> Dict:
     """Resolve a taxon name against the configured DwC taxonomy snapshot.
 
     Accepts any form the snapshot knows: accepted names, historical
@@ -46,6 +79,12 @@ def search_taxon(name: str) -> Dict:
     the ``name_type`` of the match (``accepted`` | ``unaccepted`` |
     ``synonym``). Missing names return a structured ``not_found`` result
     rather than an error.
+
+    ``parent_chain=True`` (#88) adds a ``parent_chain`` list — the
+    accepted taxon's ancestors from immediate parent up to the root of
+    the snapshot, each ``{taxon_id, scientific_name, rank}`` — so a
+    caller can place the name in its higher classification without
+    extra calls.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
@@ -54,12 +93,17 @@ def search_taxon(name: str) -> Dict:
     if not hit:
         return {"not_found": True, "queried": name}
     in_corpus = hit["accepted_taxon_id"] in idx.taxon_to_papers
-    return {
+    result = {
         **hit,
         "queried": name,
         "in_corpus": in_corpus,
         "mentioning_paper_count": len(idx.taxon_to_papers.get(hit["accepted_taxon_id"], [])),
     }
+    if parent_chain:
+        result["parent_chain"] = _walk_parent_chain(
+            idx.taxonomy_db.conn, hit["accepted_taxon_id"],
+        )
+    return result
 
 
 @mcp.tool()

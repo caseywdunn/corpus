@@ -93,30 +93,50 @@ def lexicon_matrix(
     paper_hashes: Optional[List[str]] = None,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    detail: bool = False,
 ) -> Dict[str, Any]:
-    """Paper × term mention-count grid for one lexicon category (#76).
-    Server-side join; ~2 k tokens for 100 × 20.
+    """Lexicon-coverage view for one category (#76, #88).
 
-    Columns: ``terms=[...]`` for a specific set, else top_n by total
-    mention count. Rows: ``paper_hashes=[...]`` else all papers,
-    optionally year-filtered (inclusive), sorted by year desc then
-    hash. Cells: ``terms[].mention_count`` from each paper's
-    ``<category>.json``; papers with no file contribute zero rows.
+    **Default (``detail=False``)** returns compact per-term totals over
+    the selected papers — O(terms), a few hundred bytes for a typical
+    query. **``detail=True``** returns the full paper × term
+    mention-count grid (O(papers × terms)); on a large corpus that grid
+    was a multi-MB runaway, so it is now opt-in (#88).
+
+    Columns/terms: ``terms=[...]`` for a specific set, else top_n by
+    total mention count. Paper set: ``paper_hashes=[...]`` else all
+    papers, optionally year-filtered (inclusive). Counts come from the
+    in-memory mention index; grid cells fall back to each paper's
+    ``<category>.json``.
 
     Category-agnostic. Unknown category returns ``{error:
     "unknown_category", available: [...]}``.
 
-    Returns::
+    Returns (``detail=False``)::
 
         {
           "category": str,
+          "detail": false,
+          "paper_count": int,                 # papers in the selected set
+          "term_totals": [{
+            "term": str,
+            "total_mentions": int,            # summed over the paper set
+            "papers_with_mentions": int,
+          }, ...]                             # column order
+        }
+
+    Returns (``detail=True``)::
+
+        {
+          "category": str,
+          "detail": true,
           "terms": [canonical, ...],          # column order
           "rows": [{
             "paper_hash": str,
             "title": str,
             "year": int | null,
             "counts": [int, ...],             # parallel to terms
-          }, ...]
+          }, ...]                             # one row per paper
         }
     """
     idx = _need_index()
@@ -140,8 +160,38 @@ def lexicon_matrix(
 
     row_hashes = _paper_filter(idx, paper_hashes, year_from, year_to)
 
-    # Per-paper, read the <category>.json once and build a vector
-    # parallel to columns.
+    # Default (detail=False): compact per-term totals over the selected
+    # papers. Summing across the in-memory lexicon_mention_counts (term →
+    # {paper_hash: count}) keeps this O(non-zero cells) and avoids the
+    # per-paper file reads + O(papers × terms) payload that made the full
+    # grid a multi-MB runaway (#88).
+    if not detail:
+        mention_counts = idx.lexicon_mention_counts.get(category, {})
+        row_set = set(row_hashes)
+        term_totals: List[Dict[str, Any]] = []
+        for t in columns:
+            per_paper = mention_counts.get(t, {})
+            total = 0
+            papers_with = 0
+            for h, c in per_paper.items():
+                c = c or 0
+                if h in row_set and c:
+                    total += c
+                    papers_with += 1
+            term_totals.append({
+                "term": t,
+                "total_mentions": total,
+                "papers_with_mentions": papers_with,
+            })
+        return {
+            "category": category,
+            "detail": False,
+            "paper_count": len(row_hashes),
+            "term_totals": term_totals,
+        }
+
+    # detail=True: the full paper × term grid. Read each paper's
+    # <category>.json once and build a vector parallel to columns.
     rows: List[Dict[str, Any]] = []
     column_index = {t: i for i, t in enumerate(columns)}
     for h in row_hashes:
@@ -166,6 +216,7 @@ def lexicon_matrix(
 
     return {
         "category": category,
+        "detail": True,
         "terms": columns,
         "rows": rows,
     }
