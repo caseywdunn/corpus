@@ -27,11 +27,13 @@ dependencies = [
     "mcp",
     "uvicorn",
     "lancedb",
-    "sentence-transformers",
-    "torch",
-    "transformers",
+    # Pinned known-good set (#98): docling 2.95/2.96 silently break macOS
+    # arm64 (MPS) extraction. Keep in lockstep; advance deliberately.
+    "sentence-transformers==5.5.0",
+    "torch==2.12.0",
+    "transformers==5.8.1",
     "anthropic",
-    "docling",
+    "docling==2.94.0",
     "ocrmypdf",
     "pymupdf",
     "langdetect",
