@@ -502,6 +502,111 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_debug_pdf(args: argparse.Namespace) -> int:
+    """Run the per-paper pipeline on a single PDF with verbose stage
+    tracing and no bundle / cross-paper steps (#92).
+
+    A focused troubleshooting runner for hard documents. It drives
+    exactly the per-PDF stages ``run_pdf_processing_pipeline`` runs
+    (huge-doc gate, scan detection, PDF prep, docling extraction,
+    chunking, figures — plus the bibliography stage when ``--grobid-url``
+    is given), writes the intermediate artifacts under a debug directory
+    you can inspect, and prints a per-stage ok/fail + timing table so a
+    failure is immediately attributable to a stage. It deliberately runs
+    inline (no fork) and with ``resume=False`` so every stage executes
+    every time. The taxa/lexicon stages — which need corpus-level
+    ``taxonomy.sqlite`` / lexicon inputs — are out of scope; use a full
+    `corpus run` for those.
+    """
+    import tempfile
+
+    from .grobid_client import GrobidClient
+    from .io import calculate_pdf_hash, create_summary_json, short_hash
+    from .log import per_pdf_file_log, setup_root_logging
+    from .runner import run_pdf_processing_pipeline
+
+    pdf_path: Path = args.pdf
+    if not pdf_path.is_file():
+        print_status(f"not a PDF file: {pdf_path}", status="fail")
+        return EXIT_CONFIG_ERROR
+
+    # This is a debug command — default to verbose so the stage trace is
+    # visible without requiring -v. -q/-vv still take precedence.
+    setup_root_logging(logging.DEBUG if args.verbose >= 2 else logging.INFO)
+    log = logging.getLogger("pipeline.debug_pdf")
+
+    debug_root = (args.output_dir or (Path.cwd() / "debug-pdf")).resolve()
+    pdf_hash_full = calculate_pdf_hash(pdf_path)
+    hash_dir = debug_root / short_hash(pdf_hash_full)
+    hash_dir.mkdir(parents=True, exist_ok=True)
+    print_status(
+        f"debug-pdf: {pdf_path.name} ({short_hash(pdf_hash_full)}) → {hash_dir}",
+        status="info",
+    )
+
+    grobid_client: Optional[GrobidClient] = None
+    if args.grobid_url:
+        grobid_client = GrobidClient(base_url=args.grobid_url)
+        print_status(f"bibliography stage enabled via Grobid at {args.grobid_url}",
+                     status="info")
+    else:
+        print_status(
+            "bibliography stage skipped (pass --grobid-url to enable); "
+            "taxa/lexicon stages are out of scope for debug-pdf",
+            status="info",
+        )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with per_pdf_file_log(hash_dir) as log_path:
+            log.info("pipeline.log: %s", log_path)
+            log.info("pdf_hash_full: %s", pdf_hash_full)
+            summary = run_pdf_processing_pipeline(
+                pdf_path, hash_dir, Path(temp_dir),
+                grobid_client=grobid_client,
+                taxonomy_db=None,
+                lexicons=None,
+                bib_index=None,
+                resume=False,
+            )
+        create_summary_json(
+            pdf_hash_full, [pdf_path], pdf_path.parent, hash_dir, summary,
+        )
+
+    _print_debug_pdf_trace(summary, hash_dir)
+    return EXIT_OK if summary.get("status") == "success" else EXIT_GENERIC
+
+
+def _print_debug_pdf_trace(summary: dict, hash_dir: Path) -> None:
+    """Print a per-stage ok/fail + timing table for `corpus debug-pdf`."""
+    timings = summary.get("stage_timings") or []
+    failures = {f.get("stage"): f for f in (summary.get("stage_failures") or [])}
+    skipped = set(summary.get("skipped_stages") or [])
+
+    print()
+    print(f"Stage trace ({len(timings)} stages run):")
+    for t in timings:
+        stage = t.get("stage", "?")
+        ok = t.get("ok")
+        dur = t.get("duration_s")
+        mark = "✓" if ok else "✗"
+        dur_s = f"{dur:6.2f}s" if isinstance(dur, (int, float)) else "     ?"
+        line = f"  {mark} {stage:<28s} {dur_s}"
+        if not ok and stage in failures:
+            line += f"   {failures[stage].get('error', '')}"
+        print(line)
+    if skipped:
+        print(f"  (skipped, artifact already present: {', '.join(sorted(skipped))})")
+
+    status = summary.get("status", "unknown")
+    n_files = len(summary.get("files_created") or [])
+    print()
+    print_status(
+        f"status={status}; {n_files} artifact(s) written under {hash_dir}",
+        status="ok" if status == "success" else "fail",
+    )
+    print(f"Full log: {hash_dir / 'pipeline.log'}")
+
+
 def _write_run_log(
     output_dir: Path,
     cfg: Optional[CorpuscleConfig] = None,
@@ -939,7 +1044,7 @@ _corpus_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Top-level verbs.
-    local verbs="init run status serve bib check completion"
+    local verbs="init run debug-pdf status serve bib check completion"
     if [[ ${COMP_CWORD} -eq 1 ]] || [[ "$prev" == "-c" || "$prev" == "--config" ]]; then
         if [[ "$prev" == "-c" || "$prev" == "--config" ]]; then
             COMPREPLY=( $(compgen -f -- "$cur") )
@@ -953,6 +1058,7 @@ _corpus_complete() {
     cmd="${COMP_WORDS[1]}"
     case "$cmd" in
         run)        COMPREPLY=( $(compgen -W "--dry-run --force-rebuild --no-vision --no-bundle --enrich-bhl -h --help" -- "$cur") ) ;;
+        debug-pdf)  COMPREPLY=( $(compgen -W "--output-dir --grobid-url -h --help" -- "$cur") ) ;;
         status)     COMPREPLY=( $(compgen -W "--output-dir --report --json --list-hashes --filter-stage --filter-reason --filter-gate -v -h --help" -- "$cur") ) ;;
         serve)      COMPREPLY=( $(compgen -W "--output-dir --transport --host --port --auth-token-file -h --help" -- "$cur") ) ;;
         bib)        COMPREPLY=( $(compgen -W "export import -h --help" -- "$cur") ) ;;
@@ -973,6 +1079,7 @@ _corpus() {
     verbs=(
         'init:scaffold config.yaml in cwd'
         'run:full pipeline + post-pipeline + bundle'
+        'debug-pdf:run the per-paper pipeline on one PDF with stage tracing'
         'status:build-state rollup + report'
         'serve:MCP server'
         'bib:BibTeX round-trip'
@@ -984,6 +1091,7 @@ _corpus() {
     elif (( CURRENT >= 3 )); then
         case "$words[2]" in
             run)        _arguments '--dry-run' '--force-rebuild' '--no-vision' '--no-bundle' '--enrich-bhl' ;;
+            debug-pdf)  _arguments '--output-dir:DIR:_files -/' '--grobid-url:URL:' '1:PDF:_files' ;;
             status)     _arguments '--output-dir:DIR:_files -/' '--report' '--json' '--list-hashes' ;;
             serve)      _arguments '--output-dir:DIR:_files -/' '--transport' '--host' '--port' '--auth-token-file:FILE:_files' ;;
             bib)        _values 'subcommand' export import ;;
@@ -998,6 +1106,7 @@ _FISH_COMPLETION = """\
 # corpus(1) fish completion — generated by `corpus completion fish`
 complete -c corpus -n "__fish_use_subcommand" -a init        -d 'scaffold config.yaml in cwd'
 complete -c corpus -n "__fish_use_subcommand" -a run         -d 'full pipeline + post-pipeline + bundle'
+complete -c corpus -n "__fish_use_subcommand" -a debug-pdf   -d 'run the per-paper pipeline on one PDF with stage tracing'
 complete -c corpus -n "__fish_use_subcommand" -a status      -d 'build-state rollup + report'
 complete -c corpus -n "__fish_use_subcommand" -a serve       -d 'MCP server'
 complete -c corpus -n "__fish_use_subcommand" -a bib         -d 'BibTeX round-trip'
@@ -1009,6 +1118,7 @@ complete -c corpus -l cite -d 'Print the citation (plain | bibtex)'
 complete -c corpus -s v -d 'verbose (-vv = debug all)'
 complete -c corpus -s q -l quiet
 complete -c corpus -n "__fish_seen_subcommand_from run" -l dry-run -l force-rebuild -l no-vision -l no-bundle -l enrich-bhl
+complete -c corpus -n "__fish_seen_subcommand_from debug-pdf" -l output-dir -l grobid-url
 complete -c corpus -n "__fish_seen_subcommand_from completion" -a 'bash zsh fish'
 """
 
@@ -1277,6 +1387,40 @@ def _build_parser() -> argparse.ArgumentParser:
                        help="Enrich pre-DOI references against the Biodiversity "
                        "Heritage Library (slow, rate-limited; #64)")
     run_p.set_defaults(func=_cmd_run)
+
+    # --- debug-pdf ---
+    debug_pdf_p = sub.add_parser(
+        "debug-pdf",
+        help="Run the per-paper pipeline on a single PDF with stage tracing.",
+        description=(
+            "Troubleshooting runner for hard documents (#92). Drives one "
+            "PDF through the per-paper extraction pipeline "
+            "(huge-doc gate → scan detection → PDF prep → docling "
+            "extraction → chunking → figures, plus bibliography when "
+            "--grobid-url is given), writes the intermediate artifacts "
+            "under a debug directory for inspection, and prints a "
+            "per-stage ok/fail + timing table so a failure is immediately "
+            "attributable to a stage. Runs inline with resume disabled — "
+            "every stage executes every time. No bundle, no cross-paper "
+            "steps. The taxa/lexicon stages need corpus-level inputs and "
+            "are out of scope; use a full `corpus run` for those."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    debug_pdf_p.add_argument(
+        "pdf", type=Path, help="Path to the single PDF to debug.",
+    )
+    debug_pdf_p.add_argument(
+        "--output-dir", type=Path, default=None,
+        help="Where to write the debug artifacts (default: ./debug-pdf/). "
+             "A <hash>/ subdir is created per PDF, mirroring documents/.",
+    )
+    debug_pdf_p.add_argument(
+        "--grobid-url", default=None, metavar="URL",
+        help="Enable the bibliography stage against a Grobid server "
+             "(e.g. http://localhost:8070). Skipped when omitted.",
+    )
+    debug_pdf_p.set_defaults(func=_cmd_debug_pdf)
 
     # --- status ---
     status_p = sub.add_parser(
