@@ -27,10 +27,26 @@ success. v0.5 closed both — pinning the ML stack to a known-good set
 `corpus run` fail loudly on a zero-yield extraction
 ([#99](https://github.com/caseywdunn/corpus/issues/99)).
 
-**v0.6 theme is not yet set.** The cycle opens with a candidate pool
-(below) drawn from v0.5 carryover and the issues filed during the v0.5
-cycle, but the through-line and punch list still need to be chosen.
-Treat §1 as a backlog to prioritize, not a committed scope.
+**v0.6 is the road-to-1.0 cycle.** 1.0 carries an API-stability
+signal, so the through-line is *no new feature tools* — instead,
+finalize the public MCP tool surface, fix known correctness bugs, and
+harden the production/operations experience. The organizing principle:
+**any change to an MCP tool's default, signature, or response shape
+must land in v0.6**, because after 1.0 those become breaking changes.
+The spine of the cycle is therefore a one-time "API-freeze pass" over
+the tool surface (Group A), with a focused set of bug fixes (Group B)
+and ops polish (Group C) alongside. Writing the formal 1.0
+API-stability *policy* doc is deliberately left for the 1.0 release
+itself; v0.6 is code and fixes.
+
+> **Planning note — #88 Part 1 is not merged.** The
+> [#88](https://github.com/caseywdunn/corpus/issues/88) body describes
+> "Part 1" changes as implemented "in this branch," but `git log --all`
+> shows no trace and the tools confirm it: `format_citations` (plural)
+> does not exist, `with_cites`/`parent_chain` are absent, and
+> `lexicon_matrix` still returns the full grid. So the Group-A Part-1
+> items below are *net-new implementation*, not settling existing code.
+> See the **scope flag** under §1.
 
 Doc map unchanged: architectural background in
 [OVERVIEW.md](OVERVIEW.md); per-feature history in
@@ -41,74 +57,199 @@ full v0.5 plan archived in the
 Open work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues).
 
-## 1. v0.6 candidate pool (unprioritized)
+## 1. v0.6 punch list
 
-Filed and visible, not yet scoped into a punch list. Grouped by theme
-so a v0.6 through-line is easier to pick.
+### Group A — MCP tool-surface API-freeze pass
 
-### Carryover from v0.5
+The spine of the cycle. **Sequence matters**: implement all signature
+changes first, remove redundant tools second, reconcile naming /
+error-shape last (the reconciliation is the freeze gate — doing it
+earlier guarantees a second rename pass). Phase 1 items are independent
+and parallelizable across issue branches; Phase 2 depends on Phase 1;
+Phase 3 is last.
 
-- **Drift detection**
-  ([#80](https://github.com/caseywdunn/corpus/issues/80)).
-  Diff the resolved config + per-input content SHAs across runs and
-  report the diff before the orchestrator starts, so an operator can
-  see *why* a re-run is doing more work than expected.
-- **Column-store shape for `lexicon_matrix`**
-  ([#83](https://github.com/caseywdunn/corpus/issues/83)).
-  Optional parallel-arrays + `row_schema` row shape instead of
-  repeated JSON keys per row (~20–30% token saving at 100-row scale).
-  Held pending a prompt-suite analysis showing large-matrix usage
-  matters.
-- **Figure-number extraction on old/scanned papers**
-  ([#16](https://github.com/caseywdunn/corpus/issues/16)).
-  ~538 of 1,787 papers have unparsed figure numbers; modest heuristic
-  work.
-- **Vision pass corpus-scale validation**
-  ([#11](https://github.com/caseywdunn/corpus/issues/11)).
-  Operational run + figure-coverage audit on Bouchet against the v0.5
-  build. Release-validation, not coding.
-- **Move the docling pin forward**
+**Phase 0 — instrumentation scaffold** (do first; unblocks #91/#90 and
+the uniform error shape)
+
+- [ ] **Per-tool instrumentation shim** in
+  [mcpsrv/app.py](../mcpsrv/app.py) at registration (tool name, args
+  summary, latency, ok/error → module counter + logger). Internal,
+  additive. Feeds #91 structured logging, #90 success/failure counts,
+  and the Phase-3 uniform error-row shape. Reuse the existing
+  `_validated_limit()` (`app.py:53`) as the `limit` standardization
+  lever.
+
+**Phase 1 — per-tool signature changes**
+
+- [ ] **`lexicon_matrix` summary-by-default**
+  (part of [#88](https://github.com/caseywdunn/corpus/issues/88) Part 1;
+  `mcpsrv/tools/lexicon.py:89`). Add `detail: bool=False`; default
+  returns per-term totals, opt-in returns the full grid. **Breaking
+  default** — fixes the 71 MB → 684 KB runaway.
+- [ ] **Batched `format_citations`**
+  ([#88](https://github.com/caseywdunn/corpus/issues/88);
+  `mcpsrv/tools/bibliography.py`). New `format_citations(queries |
+  work_ids | paper_hashes, style)` reusing the existing single-resolve
+  body. Must exist before the singular is removed in Phase 2.
+- [ ] **`with_cites=True` on `get_chunks_for_topic`**
+  ([#88](https://github.com/caseywdunn/corpus/issues/88);
+  `mcpsrv/tools/chunks.py:243`). Attach in-text cite refs per parent
+  paper. **Breaking default.** *(Enhancement-leaning — trimmable; see
+  scope flag.)*
+- [ ] **`search_taxon` `parent_chain`**
+  ([#88](https://github.com/caseywdunn/corpus/issues/88);
+  `mcpsrv/tools/taxonomy.py:40`). Additive ancestry walk.
+  *(Enhancement-leaning — trimmable; see scope flag.)*
+- [ ] **Caption preview default on older figure tools**
+  ([#85](https://github.com/caseywdunn/corpus/issues/85);
+  `mcpsrv/tools/figures.py`). In `get_figures_for_taxon` /
+  `get_figures_for_lexicon_term` (full caption at `:156`, `:240`) swap
+  `caption_text` for `_caption_preview(...)` (helper already at `:257`)
+  and add `full_caption: bool=False`. **Breaking** (default field
+  truncated).
+- [ ] **Breadth + edge caps on `get_citation_graph`**
+  ([#87](https://github.com/caseywdunn/corpus/issues/87);
+  `mcpsrv/tools/bibliography.py:205-276`). Add `max_edges_per_node` /
+  `max_total_edges`, rank each node by `cited_by_count` in
+  `_walk_citations` (`:258`), add a `truncated` field. Keep defaults
+  generous → additive.
+- [ ] **Flip figure-publishability gate to permissive**
+  ([#94](https://github.com/caseywdunn/corpus/issues/94)). Land **on
+  the same branch as #85** (both touch `figures.py`). Replace
+  `--allow-unpublishable` (default False) with `--strict-figure-licensing`
+  (default False, inverted sense) at `mcpsrv/main.py:125-130/252`; carry
+  `strict_figure_licensing` on the index; flip both gate checks
+  (`figures.py:680,786`). **Breaking** (CLI flag rename + permissive
+  default). Add a startup warning when strict is off — this is a
+  security-relevant default flip.
+
+**Phase 2 — tool removals** (after Phase 1)
+
+- [ ] **Remove the three redundant singular tools**
+  ([#88](https://github.com/caseywdunn/corpus/issues/88) §2.3). Delete
+  `format_citation` (`bibliography.py:352`), `get_paper`
+  (`papers.py:208`), `get_chunk` (`papers.py:297`) — the plurals
+  `get_papers` / `get_chunks` already cover the singleton case.
+  **Breaking (tools removed).** Rewire
+  [mcpsrv/default_instructions.md](../mcpsrv/default_instructions.md)
+  (the citation routing rule) and `dev_docs/MCP_TOOLS.md`. Do **not**
+  touch `bib.format.format_citation` — that is a different symbol (the
+  pure string formatter); leave its import intact.
+
+**Phase 3 — consistency reconciliation** (last; the freeze gate)
+
+- [ ] **Reconcile naming + error shape across the tool surface.** Pick
+  one convention — `limit` everywhere (rename figure-tool
+  `max_figures` / `max_linked_chunks`, or document the dossier
+  exception) — and apply the Phase-0 uniform error-row shape
+  (`{"error", "code"}`) to every `return [{"error": ...}]` site. One
+  consolidated CHANGELOG entry + a migration table. This is the surface
+  that 1.0 freezes.
+
+### Group B — correctness bugs
+
+Runs in parallel with Group A (different subtree).
+
+- [ ] **`build_taxon_mentions` freshness**
+  ([#95](https://github.com/caseywdunn/corpus/issues/95)). The mtime
+  gate (`pipeline/taxon_mentions.py:191-201`) is correct in isolation;
+  the bug is cross-component — a taxonomy refresh can leave per-paper
+  `taxa.json` mtime stale while the backbone changed. **Make staleness
+  fingerprint-aware**: compare each paper's `pipeline_state.json`
+  taxa-stage `input_fingerprint` against the current `taxonomy.sqlite`
+  sha256 (`pipeline/main.py:338`), not just mtime. Validate against the
+  exact repro (rebuild taxonomy.sqlite → re-run → assert mentions
+  re-ingest).
+- [ ] **HuggingFace token warning**
+  ([#97](https://github.com/caseywdunn/corpus/issues/97)). One shared
+  `_hf_env()` setter (`HF_HUB_DISABLE_IMPLICIT_TOKEN=1`) imported by the
+  three model-load sites (`pipeline/embeddings.py:183`,
+  `pipeline/vision.py:429/434`, `pipeline/extract.py:59`), or set once
+  at pipeline entry. Not a contract change.
+
+### Group C — production hardening / UX polish
+
+- [ ] **MCP health checks + refuse-to-serve on degraded capability**
+  ([#91](https://github.com/caseywdunn/corpus/issues/91)). Turn the
+  silent `(None, None)` degradation in `get_topic_searcher`
+  (`mcpsrv/indexes.py:91-132`) into a tracked degraded state; make
+  `/healthz` (`mcpsrv/transport.py:32-59`) return JSON capability flags
+  + non-200 when a required capability is down; raise hard MCP errors
+  (not empty rows) when a tool's backing index is degraded. Consume the
+  Phase-0 instrumentation for structured request logging.
+- [ ] **Central per-invocation run log**
+  ([#90](https://github.com/caseywdunn/corpus/issues/90)). Extend
+  `_write_run_log` (`pipeline/cli.py:504`) to write
+  `<output_dir>/runs/<timestamp>/run.log` (keep the top-level `run.log`
+  as the "latest" copy for #57 back-compat) with argv, resolved config,
+  tool/dep versions (`pipeline/version.py`), and success/failure counts.
+- [ ] **`corpus debug-pdf` single-PDF debug runner**
+  ([#92](https://github.com/caseywdunn/corpus/issues/92)). New subparser
+  in the `pipeline/cli.py` router (mirror `run_p` / `status_p`) that runs
+  `pipeline/runner.py`'s per-paper pipeline on one PDF with verbose stage
+  tracing, no bundle. Update fish completions.
+- [ ] **Document the WoRMS `isMarine=0` gap**
+  ([#96](https://github.com/caseywdunn/corpus/issues/96)). Docs only:
+  the WoRMS DwC-A backbone excludes `isMarine=0` records, so
+  freshwater/terrestrial taxa hit silent resolution failures. Add to
+  README/INSTALL or a `dev_docs/` taxonomy note.
+
+### Carry (tracked, not committed this cycle)
+
+- [ ] **Move the docling pin forward**
   ([#98](https://github.com/caseywdunn/corpus/issues/98) follow-up).
-  v0.5 pinned `docling==2.94.0` (+ torch/transformers/sentence-
-  transformers) because docling 2.95/2.96 silently break macOS arm64
-  (MPS) extraction. Reproduce on an arm64 Mac, determine whether it's
-  a docling API change to adapt to or an upstream bug to report, then
-  advance the pin deliberately.
+  Keep `docling==2.94.0`; reproduce on an arm64 Mac, determine whether
+  docling 2.95/2.96 broke MPS extraction via an API change to adapt to
+  or an upstream bug to report, then advance the pin deliberately.
+  Needs Apple-Silicon hardware to verify — not blocking the cycle.
 
-### MCP surface refinements (filed during v0.5)
+### Scope flag (decide at execution)
 
-- **Caption-preview default on older figure tools**
-  ([#85](https://github.com/caseywdunn/corpus/issues/85)).
-- **Breadth + edge caps on `get_citation_graph` traversal**
-  ([#87](https://github.com/caseywdunn/corpus/issues/87)).
-- **MCP tooling evaluation + consideration**
-  ([#88](https://github.com/caseywdunn/corpus/issues/88)).
+#88 Part 1 being unimplemented enlarges Group A beyond what "settle
+defaults" implied. Two Part-1 items are enhancement-leaning rather than
+fix/consolidation: `with_cites` on `get_chunks_for_topic` and
+`search_taxon` `parent_chain`. The others are load-bearing for the
+freeze (`lexicon_matrix` summary fixes a runaway; `format_citations` is
+required before the singular can be removed). Recommendation: keep all
+of Part 1 — these are the right 1.0 default shapes and the #88 eval data
+backs them — but this is the natural trim point if the cycle needs to
+shrink.
 
-### Operations + observability (filed during v0.5)
+### Landmines
 
-- **MCP server health checks + structured logging**
-  ([#91](https://github.com/caseywdunn/corpus/issues/91)).
-- **Central per-invocation log for non-dry-run runs**
-  ([#90](https://github.com/caseywdunn/corpus/issues/90)).
-  Pairs with the v0.5 `run.log` work ([#57]).
-- **Evaluate Cloud Run vs the EC2+ALB stack**
-  ([#89](https://github.com/caseywdunn/corpus/issues/89)).
+- **Tool removal (#88 §2.3) is highest-risk.**
+  `default_instructions.md` tells the served LLM to call
+  `format_citation` for *every* citation — it must be rewired to
+  `format_citations` or the assistant calls a dead tool.
+  `tests/test_format_citation_tool.py` and `tests/test_prompt_quality.py`
+  (a real-model eval needing `ANTHROPIC_API_KEY`) are pinned to the
+  singular and must be rewritten + re-run. No internal Python caller uses
+  the singular MCP tools.
+- **#94 is a security-relevant default flip** (permissive figure serving
+  by default). A public deploy relying on default-deny becomes permissive
+  on upgrade — prominent CHANGELOG migration note + startup warning.
+- **Never remove `format_citation` before `format_citations` exists**
+  (Phase 1 → Phase 2) or the server has zero citation tool.
 
-### Pipeline + CLI (filed during v0.5)
+### Verification
 
-- **`corpus export` CLI — streaming bulk exports outside the MCP
-  server** ([#93](https://github.com/caseywdunn/corpus/issues/93)).
-- **Standalone single-PDF debug runner**
-  ([#92](https://github.com/caseywdunn/corpus/issues/92)).
-- **Flip the figure-publishability gate default** to permissive,
-  opt-in strict ([#94](https://github.com/caseywdunn/corpus/issues/94)).
-- **`build_taxon_mentions` skips papers regardless of `taxa.json`
-  freshness** ([#95](https://github.com/caseywdunn/corpus/issues/95)).
-- **WoRMS DwC-A excludes `isMarine=0` records** — doc gap that bites
-  freshwater/terrestrial users
-  ([#96](https://github.com/caseywdunn/corpus/issues/96)).
-- **HuggingFace token warning**
-  ([#97](https://github.com/caseywdunn/corpus/issues/97)).
+- **Unit (T0):** rewrite `test_format_citation_tool.py` →
+  `format_citations` + a regression test asserting the singular tools are
+  no longer registered; extend `test_lexicon_tools.py` (summary vs
+  `detail=True`), `test_chunks_for_topic_with_text.py` (`with_cites`),
+  `test_figure_dossier.py` (caption truncation + `full_caption`); new
+  `test_citation_graph_caps`, figure-gate-permissive, fingerprint-repro
+  in `test_taxon_mentions_fast_path.py`, HF-warning-absent,
+  `test_healthz`, `test_debug_pdf`, `test_run_log.py` (runs/<ts>/). Add a
+  Phase-3 "freeze contract" meta-test enumerating registered tools and
+  asserting uniform error shape + `limit` naming.
+- **End-to-end (T1 Linux / T2 macOS):** demo build + MCP SSE round-trip
+  exercises #91 healthz, #90 run.log, #92 debug-pdf, #94 gate, and the
+  §2.3 tool-list. The §2.3 rename **mandates** an `ANTHROPIC_API_KEY` run
+  of `test_prompt_quality.py`.
+- Re-run the #88 eval suite (`eval/run_suite.py`, lite suite) after the
+  surface changes to confirm the turn/volume wins and no accuracy
+  regression.
 
 ## 2. Target queries (evergreen reference)
 
@@ -120,7 +261,7 @@ Generic shapes; concrete instantiations live in the corpuscle's
 | --- | --- | --- |
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer ([#13](https://github.com/caseywdunn/corpus/issues/13), deferred to v2.0+) |
 | Q2 | "Compose a monographic review of `<genus>`." | Indices in place; citation-trust gap closed by [#79](https://github.com/caseywdunn/corpus/issues/79) in v0.5; synthesis recipe not yet scoped |
-| Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14), v0.6+ candidate) |
+| Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14)) |
 | Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Vision pass on by default since v0.3; full-corpus run pending [#11](https://github.com/caseywdunn/corpus/issues/11) |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |
 | Q6 | "Summarize `<topic>` across the corpus." | Indices in place; cache cost addressed by dossier tools [#76](https://github.com/caseywdunn/corpus/issues/76) in v0.5 |
@@ -135,11 +276,39 @@ single source of truth and is stamped into every persistent artifact
 [CONTRIBUTING.md](../CONTRIBUTING.md) covers the branching model and
 release ritual.
 
-## 4. Out of scope (carried from v0.5)
+## 4. Carryover to v1.1+ (deferred out of v0.6 by scope)
+
+Not in the road-to-1.0 freeze cycle — either net-new features (safe to
+add after 1.0 without breaking the frozen surface) or work awaiting
+motivation. Carried so they stay visible.
+
+- **`export_to_disk` + `suggest_command`**
+  ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2) and the
+  **`corpus export` CLI** ([#93](https://github.com/caseywdunn/corpus/issues/93))
+  — bulk-export surface for "the LLM isn't the consumer" workflows. New
+  tools; additive, so they don't constrain the 1.0 freeze.
+- **Drift detection**
+  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Pre-run diff
+  of resolved config + per-input content SHAs.
+- **Column-store shape for `lexicon_matrix`**
+  ([#83](https://github.com/caseywdunn/corpus/issues/83)). Token saving
+  at large-matrix scale; held pending a prompt-suite analysis that shows
+  it matters.
+- **Figure-number extraction on old/scanned papers**
+  ([#16](https://github.com/caseywdunn/corpus/issues/16)). ~538 of 1,787
+  papers have unparsed figure numbers.
+- **Vision pass corpus-scale validation**
+  ([#11](https://github.com/caseywdunn/corpus/issues/11)). Operational
+  run + figure-coverage audit on Bouchet.
+- **Evaluate Cloud Run vs the EC2+ALB stack**
+  ([#89](https://github.com/caseywdunn/corpus/issues/89)). Deployment
+  decision, not part of the MCP API contract.
+
+## 5. Out of scope (longer horizon)
 
 - [#14](https://github.com/caseywdunn/corpus/issues/14) — Trait
   extraction + identification keys (Q3). Substantial enough to
-  warrant its own plan section when picked up; v0.6+ candidate.
+  warrant its own plan section when picked up.
 - [#13](https://github.com/caseywdunn/corpus/issues/13) — Geographic
   mention layer. Deferred to v2.0+; the mention-layer surface is
   likely to be reworked at the major-version boundary.
