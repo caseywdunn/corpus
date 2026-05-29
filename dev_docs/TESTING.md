@@ -156,7 +156,7 @@ prompts:                     # citation-grounding round-trips (#79)
   - id: marrus_synopsis
     prompt: "Summarize the discovery of Marrus claudanielis with
              citations from the corpus."
-    expected_citations:      # each must be emitted via format_citation
+    expected_citations:      # each must be emitted via format_citations
       - work_id: "corpus:..."
       - work_id: "10.1234/..."
     forbidden_hallucinations:  # negative trip-wires
@@ -170,7 +170,7 @@ Any section or field can be omitted — absent sections are skipped, not failed.
 ### Citation-grounding tests (`prompts:` block)
 
 Each entry in the `prompts:` block runs as a real Claude API round-trip
-with the `format_citation` MCP tool wired in as a callable. The
+with the `format_citations` MCP tool wired in as a callable. The
 harness (`tests/test_prompt_quality.py`) asserts that every expected
 `work_id` is emitted via the tool (the `formatted` output must appear
 verbatim in the response) and that no parenthetical-citation tokens

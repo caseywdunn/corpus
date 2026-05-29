@@ -2,13 +2,13 @@
 
 Runs each ``prompts:`` entry in ``tests/ground_truth/*.yaml`` against
 the served corpus via a real Claude API round-trip, with the
-``format_citation`` MCP tool wired in as a callable. Verifies that
-every expected citation is emitted as ``format_citation``'s
-``formatted`` output (i.e., the model used the tool and pasted the
-output verbatim, per ``default_instructions.md``), and that no
-``forbidden_hallucinations`` patterns appear in the response.
+``format_citations`` MCP tool wired in as a callable. Verifies that
+every expected citation is emitted as one of ``format_citations``'s
+per-item ``formatted`` outputs (i.e., the model used the tool and
+pasted the output verbatim, per ``default_instructions.md``), and that
+no ``forbidden_hallucinations`` patterns appear in the response.
 
-This is the *behavioural* check the format_citation tool exists to
+This is the *behavioural* check the format_citations tool exists to
 support — does an LLM client following the instructions actually
 avoid hallucinated citations against this corpus, end to end. The
 in-process tests in ``test_format_citation_tool.py`` pin the tool's
@@ -126,7 +126,7 @@ def biblio_db_path() -> Path:
 @pytest.fixture(scope="session")
 def mcp_index_injected(biblio_db_path: Path):
     """Inject a BiblioAuthority into the MCP module-global so the
-    in-process format_citation tool call path resolves against the
+    in-process format_citations tool call path resolves against the
     real demo build."""
     from mcpsrv import app as mcp_app
     from mcpsrv.indexes import BiblioAuthority
@@ -157,28 +157,30 @@ def anthropic_client():
 # ---------------------------------------------------------------------------
 
 
-def _format_citation_tool_def() -> Dict[str, Any]:
-    """Anthropic-API tool definition mirroring the format_citation MCP
-    tool. The description nudges the model to actually use it — the
-    system prompt (from default_instructions.md) carries the verbatim-
-    paste rule.
+def _format_citations_tool_def() -> Dict[str, Any]:
+    """Anthropic-API tool definition mirroring the batched
+    format_citations MCP tool. The description nudges the model to
+    actually use it — the system prompt (from default_instructions.md)
+    carries the verbatim-paste rule.
     """
     return {
-        "name": "format_citation",
+        "name": "format_citations",
         "description": (
-            "Return a fully-assembled citation string for a work in the "
+            "Return fully-assembled citation strings for works in the "
             "corpus bibliographic authority DB. Use for EVERY citation "
             "you emit — never recombine author/year/journal/title in your "
-            "own context. Provide exactly one of: query (free-text "
-            "'Author Year [Title]'), work_id (canonical DOI / corpus: / "
-            "bhl:), paper_hash (12-hex SHA-256 prefix of a corpus paper)."
+            "own context. Pass exactly one of: queries (free-text 'Author "
+            "Year [Title]' strings), work_ids (canonical DOI / corpus: / "
+            "bhl:), paper_hashes (12-hex SHA-256 prefixes of corpus "
+            "papers) — each a list. Returns citations[] in input order. "
+            "Batch a whole reference list into one call."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string"},
-                "work_id": {"type": "string"},
-                "paper_hash": {"type": "string"},
+                "queries": {"type": "array", "items": {"type": "string"}},
+                "work_ids": {"type": "array", "items": {"type": "string"}},
+                "paper_hashes": {"type": "array", "items": {"type": "string"}},
             },
         },
     }
@@ -196,14 +198,16 @@ def _run_round_trip(
     """Loop tool-use turns until the model emits a final response.
 
     Returns (final_text, tool_calls) where tool_calls is the list of
-    ``{"input": ..., "output": ...}`` records for each
-    format_citation invocation.
+    ``{"input": ..., "output": ...}`` records — one per *resolved
+    citation*. A single batched ``format_citations`` call that returns
+    N citations expands into N records here, so the per-item scorer
+    downstream stays unchanged.
     """
-    from mcpsrv.tools.bibliography import format_citation
+    from mcpsrv.tools.bibliography import format_citations
 
     messages: List[Dict[str, Any]] = [{"role": "user", "content": prompt_text}]
     tool_calls: List[Dict[str, Any]] = []
-    tools = [_format_citation_tool_def()]
+    tools = [_format_citations_tool_def()]
 
     for _ in range(_MAX_TURNS):
         resp = client.messages.create(
@@ -220,12 +224,17 @@ def _run_round_trip(
 
         tool_results: List[Dict[str, Any]] = []
         for block in resp.content:
-            if block.type == "tool_use" and block.name == "format_citation":
+            if block.type == "tool_use" and block.name == "format_citations":
                 try:
-                    result = format_citation(**(block.input or {}))
+                    result = format_citations(**(block.input or {}))
                 except Exception as e:  # surface as tool error, not crash
                     result = {"error": "tool_exception", "detail": str(e)}
-                tool_calls.append({"input": dict(block.input or {}), "output": result})
+                # Flatten the batch into one record per citation so the
+                # scorer can match each work_id / formatted / inline.
+                for cite in (result.get("citations") or []):
+                    tool_calls.append(
+                        {"input": dict(block.input or {}), "output": cite}
+                    )
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
@@ -266,7 +275,7 @@ def _score(
 ) -> Dict[str, Any]:
     """Compare emitted citations against the expected panel.
 
-    A work counts as "emitted" iff format_citation was called with
+    A work counts as "emitted" iff format_citations returned an entry with
     a work_id that resolved correctly AND the returned ``formatted``
     string appears in ``final_text`` (i.e., the model pasted it
     verbatim).
@@ -399,12 +408,12 @@ def test_prompt_grounds_citations(
 
     assert not score["missing"], (
         f"{yaml_name}::{prompt_spec['id']}: expected citations not emitted "
-        f"via format_citation — {score['missing']}. Final response excerpt: "
+        f"via format_citations — {score['missing']}. Final response excerpt: "
         f"{final_text[:300]!r}"
     )
     assert not score["hallucinated"], (
         f"{yaml_name}::{prompt_spec['id']}: parenthetical citations in "
-        f"response don't trace to a format_citation call — "
+        f"response don't trace to a format_citations call — "
         f"{score['hallucinated']}. The model hand-wrote a citation; "
         f"this is the hallucination class #79 exists to prevent."
     )
