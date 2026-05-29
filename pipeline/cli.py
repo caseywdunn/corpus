@@ -866,16 +866,23 @@ def _cmd_check(args: argparse.Namespace) -> int:
     else:
         pstatus("GPU: none (CPU-only; embedding pass will be slow)", status="warn")
 
-    # 3. Vision backend usability — under #65 a missing capability is
-    # a warn (the pass auto-skips at run time with the same message),
-    # not a hard precondition failure.
-    vision_skip = _vision_skip_reason(cfg.vision.backend)
-    if cfg.vision.backend == "none":
-        pstatus("Vision pass: disabled in config", status="warn")
-    elif vision_skip is None:
-        pstatus(f"Vision pass: backend `{cfg.vision.backend}` ready", status="ok")
+    # 3. Figure panel-ROI detection (#102). Under #65 an unusable vision
+    # backend is a warn (the run downgrades to the OCR floor with the
+    # same message), not a hard precondition failure.
+    panel_mode = cfg.figures.panel_detection
+    if panel_mode == "off":
+        pstatus("Figure panels: disabled in config (panel_detection: off)",
+                status="warn")
+    elif panel_mode == "ocr":
+        pstatus("Figure panels: OCR floor (panel_detection: ocr; CPU-only)",
+                status="ok")
     else:
-        pstatus(f"Vision pass: would skip — {vision_skip}", status="warn")
+        vision_skip = _vision_skip_reason(panel_mode)
+        if vision_skip is None:
+            pstatus(f"Figure panels: `{panel_mode}` ready", status="ok")
+        else:
+            pstatus(f"Figure panels: would downgrade to OCR floor — {vision_skip}",
+                    status="warn")
 
     # 4. Grobid reachability
     if cfg.grobid.disable:
