@@ -1253,7 +1253,9 @@ def _build_parser() -> argparse.ArgumentParser:
             "                                 per-component DB overrides\n"
             "  --check                        non-binding pre-flight + exit\n"
             "  --name <id>                    server name reported to MCP clients\n"
-            "  --allow-unpublishable          bypass figure-licensing gate"
+            "  --default-profile <name>       fallback output profile for calls\n"
+            "                                 without profile= (report|manuscript|\n"
+            "                                 presentation; default report)"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

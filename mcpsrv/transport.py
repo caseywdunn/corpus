@@ -161,7 +161,7 @@ def _run_sse(
     port: int,
     token: Optional[str],
     idx=None,
-    allow_unpublishable: bool = False,
+    default_profile: Optional[str] = None,
 ) -> None:
     """Serve the FastMCP app over SSE on ``host:port``, optionally
     with bearer-token auth.  Requires uvicorn (pulled in transitively
@@ -182,7 +182,7 @@ def _run_sse(
 
     sse_app = mcp.sse_app()
     if idx is not None:
-        figure_app = make_figure_app(idx, allow_unpublishable=allow_unpublishable)
+        figure_app = make_figure_app(idx, default_profile=default_profile)
         app = _RouteMuxASGI(sse_app, figure_app)
     else:
         app = sse_app
@@ -223,7 +223,7 @@ def _run_sse(
 
 def start_stdio_figure_server(
     idx,
-    allow_unpublishable: bool = False,
+    default_profile: Optional[str] = None,
     host: str = "127.0.0.1",
 ) -> Tuple[str, int, str]:
     """Spin up a daemon-thread uvicorn serving only the figure HTTP
@@ -249,7 +249,7 @@ def start_stdio_figure_server(
     sock.set_inheritable(True)
 
     token = secrets.token_hex(32)
-    figure_app = make_figure_app(idx, allow_unpublishable=allow_unpublishable)
+    figure_app = make_figure_app(idx, default_profile=default_profile)
     app = _BearerAuthASGI(figure_app, token)
 
     config = uvicorn.Config(

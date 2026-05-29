@@ -122,11 +122,14 @@ def main() -> int:
              "the port. Exits 0 on green, 3 on precondition failure. (#47)",
     )
     parser.add_argument(
-        "--allow-unpublishable", action="store_true",
-        help="Bypass the #51 publishable gate on get_figure_image — return "
-             "image bytes regardless of license / age. Use only for local "
-             "rights-holder cases (you own the figures, or you're operating "
-             "under fair use). Never set on a public-facing deploy.",
+        "--default-profile", choices=["report", "manuscript", "presentation"],
+        default="report",
+        help="Output profile (#101) applied to figure/citation calls that "
+             "omit profile=. Selection is really a per-call client property; "
+             "this is only the server fallback. 'report' (default) serves "
+             "figures permissively (in-chat display = fair use); 'manuscript'/"
+             "'presentation' gate on the publishable flag. Publication-bound "
+             "clients should pass profile='manuscript' per call regardless.",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -247,14 +250,18 @@ def main() -> int:
         taxon_mention_db=taxon_mention_db,
         embedding_model=args.embedding_model,
     )
-    # #51 — server-level allow-unpublishable override; carried on the
-    # index since that's what every figure tool already has access to.
-    index.allow_unpublishable = bool(args.allow_unpublishable)
-    if index.allow_unpublishable:
+    # #101 — server-level output-profile fallback for calls that omit
+    # profile=. Carried on the index, which every figure tool can read.
+    # The real selection is per-call; this is only the default.
+    from .profiles import get_profile
+    index.default_profile = args.default_profile
+    if get_profile(args.default_profile).figure_licensing == "permissive":
         logger.warning(
-            "*** --allow-unpublishable enabled: get_figure_image returns "
-            "bytes regardless of license. Use only for local rights-holder "
-            "cases; never on a public-facing deploy. ***",
+            "*** default profile %r serves figures permissively: a call "
+            "without profile= returns image bytes/URLs regardless of "
+            "license. This is the intended chat default; publication-bound "
+            "clients must pass profile='manuscript' per call. ***",
+            args.default_profile,
         )
     n = index.load()
     set_index(index)
@@ -267,7 +274,7 @@ def main() -> int:
         from .transport import start_stdio_figure_server
         try:
             fig_host, fig_port, fig_token = start_stdio_figure_server(
-                index, allow_unpublishable=index.allow_unpublishable,
+                index, default_profile=index.default_profile,
             )
             index.figure_url_base = f"http://{fig_host}:{fig_port}"
             index.figure_auth_token = fig_token
@@ -294,7 +301,7 @@ def main() -> int:
         _run_sse(
             args.host, args.port, token,
             idx=index,
-            allow_unpublishable=index.allow_unpublishable,
+            default_profile=index.default_profile,
         )
     else:  # argparse's choices= should prevent this
         raise ValueError(f"unknown transport: {args.transport!r}")
