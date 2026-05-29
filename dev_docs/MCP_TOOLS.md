@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 39 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -68,6 +68,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Category-agnostic. |
 | `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references. |
 | `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. |
+| `get_figure_url` | A bearer-gated HTTP URL (plus `auth_header` + license fields) the caller can `curl -o` to land the figure PNG on disk without loading its bytes into the model's context — for pandoc / LaTeX / PDF assembly. |
 | `list_figure_rois` | Per-panel / per-subfigure ROIs annotated on a figure. |
 | `get_figure_roi_image` | Crop a panel ROI out of a figure image and return the crop's path. |
 
@@ -112,7 +113,7 @@ client.messages.create(
 Two breakpoints land below the ~5 k-token cache-eligibility floor on typical bundles:
 
 - **System prompt** (`mcpsrv/default_instructions.md` concatenated with any corpuscle-specific `instructions.md`): ~500–1500 tokens.
-- **Tool catalog** (38 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
+- **Tool catalog** (39 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
 
 Together ~5 k tokens get cached across all turns of a session — a non-trivial saving on conversations that fan out into many tool-use rounds. Cache lives ~5 minutes by default; subsequent sessions against the same build hit the same cache lines.
 
