@@ -113,15 +113,28 @@ the uniform error shape)
   `max_total_edges`, rank each node by `cited_by_count` in
   `_walk_citations` (`:258`), add a `truncated` field. Keep defaults
   generous → additive.
-- [ ] **Flip figure-publishability gate to permissive**
-  ([#94](https://github.com/caseywdunn/corpus/issues/94)). Land **on
-  the same branch as #85** (both touch `figures.py`). Replace
-  `--allow-unpublishable` (default False) with `--strict-figure-licensing`
-  (default False, inverted sense) at `mcpsrv/main.py:125-130/252`; carry
-  `strict_figure_licensing` on the index; flip both gate checks
-  (`figures.py:680,786`). **Breaking** (CLI flag rename + permissive
-  default). Add a startup warning when strict is off — this is a
-  security-relevant default flip.
+- [ ] **Output-type profile ontology — per-call `profile=` selection**
+  ([#101](https://github.com/caseywdunn/corpus/issues/101), supersedes
+  [#94](https://github.com/caseywdunn/corpus/issues/94)). Land **on the
+  same branch as #85** (both touch `figures.py`). Output type is a
+  **client/session property carried per call, not a corpus/server
+  attribute** — the shared SSE deploy (~20 clients, one index) means a
+  server-start flag or per-corpuscle-config default can't distinguish a
+  user's concurrent chat / internal-report / manuscript sessions. Add an
+  optional `profile=` arg (global built-in vocabulary `report` /
+  `manuscript` / `presentation`) to the gated figure + citation tools;
+  remove `--allow-unpublishable` (`mcpsrv/main.py:125-130/252`) for a
+  `--default-profile` server *fallback* (default `report`); enforce
+  `figure_licensing` at `figures.py:680,786` + `figure_http.py:103`; add
+  `list_output_profiles` / `get_active_profile` discovery tools.
+  **Breaking** (CLI flag removed; permissive fallback; figure response
+  shape gains `license`/`attribution` fields). Startup warning when the
+  fallback is permissive — security-relevant default. **Freeze-critical
+  core** = the `profile=` param + stable profile vocabulary + figure gate
+  (these change signatures/defaults, so must land pre-1.0); the further
+  axes (`require_attribution` emission, `citation_provenance: strict`,
+  `excerpt_max_words`) are additive and may follow post-1.0 —
+  `citation_provenance: strict` depends on #100.
 
 **Phase 2 — tool removals** (after Phase 1)
 
@@ -150,6 +163,22 @@ the uniform error shape)
 
 Runs in parallel with Group A (different subtree).
 
+- [ ] **Bib-provenance preservation through import + reconciliation**
+  ([#100](https://github.com/caseywdunn/corpus/issues/100), follow-up to
+  [#79](https://github.com/caseywdunn/corpus/issues/79)). Over-zealous
+  `format_citation` warnings (reported by shchurch): bib-imported
+  references all warn because the `bib` provenance tier isn't stamped or
+  preserved. Three causes — (a) `bib_imported_at` is only stamped on
+  *changed* rows (`bib/importer.py:230-232`), so an unchanged re-import of
+  the authoritative `.bib` leaves every row warned; (b)
+  `_merge_phase1_into_ghost` (`bib/reconcile.py:313-325`) keeps the
+  GROBID-derived ghost row and deletes the bib-stamped phase-1 row without
+  carrying `bib_imported_at`/bib fields forward, so reconciliation against
+  corpus-paper bibliographies drops bib authority; (c)
+  `find_matching_work_id` (`bib/importer.py:80-111`) matches only on
+  `corpus_hash`/`doi`. **Invariant**: a reference present in the
+  user-edited `.bib` stays authoritative `bib` provenance, including after
+  reconciliation. Unblocks #101's `citation_provenance: strict` axis.
 - [ ] **`build_taxon_mentions` freshness**
   ([#95](https://github.com/caseywdunn/corpus/issues/95)). The mtime
   gate (`pipeline/taxon_mentions.py:191-201`) is correct in isolation;
@@ -225,9 +254,13 @@ shrink.
   (a real-model eval needing `ANTHROPIC_API_KEY`) are pinned to the
   singular and must be rewritten + re-run. No internal Python caller uses
   the singular MCP tools.
-- **#94 is a security-relevant default flip** (permissive figure serving
-  by default). A public deploy relying on default-deny becomes permissive
-  on upgrade — prominent CHANGELOG migration note + startup warning.
+- **#101 is a security-relevant default flip** (permissive figure serving
+  when a call omits `profile=`). A public deploy relying on today's
+  default-deny becomes permissive on upgrade, and `--allow-unpublishable`
+  is removed — prominent CHANGELOG migration note + startup warning. The
+  `get_figure_url` → HTTP-fetch path must carry the resolved profile (the
+  handed-out URL is enforced independently at `figure_http.py:103`), or a
+  strict client leaks figures through the unprofiled URL.
 - **Never remove `format_citation` before `format_citations` exists**
   (Phase 1 → Phase 2) or the server has zero citation tool.
 
@@ -238,13 +271,19 @@ shrink.
   no longer registered; extend `test_lexicon_tools.py` (summary vs
   `detail=True`), `test_chunks_for_topic_with_text.py` (`with_cites`),
   `test_figure_dossier.py` (caption truncation + `full_caption`); new
-  `test_citation_graph_caps`, figure-gate-permissive, fingerprint-repro
+  `test_citation_graph_caps`; per-profile figure gate (#101) including two
+  concurrent SSE clients passing different `profile=` and getting
+  independent results (the core per-session regression) + attribution
+  emitted under `manuscript`; bib-provenance preservation (#100: an
+  unchanged `.bib` re-import and a post-import reconcile both keep the
+  `bib` tier with no warning); fingerprint-repro
   in `test_taxon_mentions_fast_path.py`, HF-warning-absent,
   `test_healthz`, `test_debug_pdf`, `test_run_log.py` (runs/<ts>/). Add a
   Phase-3 "freeze contract" meta-test enumerating registered tools and
   asserting uniform error shape + `limit` naming.
 - **End-to-end (T1 Linux / T2 macOS):** demo build + MCP SSE round-trip
-  exercises #91 healthz, #90 run.log, #92 debug-pdf, #94 gate, and the
+  exercises #91 healthz, #90 run.log, #92 debug-pdf, the #101 profile gate
+  (per-call `profile=` over a shared SSE server), and the
   §2.3 tool-list. The §2.3 rename **mandates** an `ANTHROPIC_API_KEY` run
   of `test_prompt_quality.py`.
 - Re-run the #88 eval suite (`eval/run_suite.py`, lite suite) after the
@@ -260,7 +299,7 @@ Generic shapes; concrete instantiations live in the corpuscle's
 | # | Pattern | Status entering v0.6 |
 | --- | --- | --- |
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer ([#13](https://github.com/caseywdunn/corpus/issues/13), deferred to v2.0+) |
-| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; citation-trust gap closed by [#79](https://github.com/caseywdunn/corpus/issues/79) in v0.5; synthesis recipe not yet scoped |
+| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; citation-trust gap closed by [#79](https://github.com/caseywdunn/corpus/issues/79) in v0.5 (provenance-preservation follow-up [#100](https://github.com/caseywdunn/corpus/issues/100)); synthesis recipe not yet scoped |
 | Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14)) |
 | Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Vision pass on by default since v0.3; full-corpus run pending [#11](https://github.com/caseywdunn/corpus/issues/11) |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |
