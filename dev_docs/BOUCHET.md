@@ -66,6 +66,11 @@ Do this once on an interactive node (login nodes usually block outbound internet
 # re-download them (the "Stale HF_HOME" pitfall below).
 export HF_HOME="$BOUCHET_PROJECT/cache/huggingface"
 export TRANSFORMERS_CACHE="$HF_HOME/hub"
+# Silence the implicit-token warning (#97). The batch jobs get this for
+# free (it's set in pipeline/__init__.py on import), but these python -c
+# one-liners import sentence_transformers/transformers directly and skip
+# that, so set it here too.
+export HF_HUB_DISABLE_IMPLICIT_TOKEN=1
 
 # BGE-M3 (embeddings) — ~2 GB
 python -c "from sentence_transformers import SentenceTransformer; \
