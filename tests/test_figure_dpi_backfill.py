@@ -99,6 +99,70 @@ def test_backfill_dry_run_writes_nothing(tmp_path):
     assert json.loads((hd / "figures.json").read_text()) == before
 
 
+def _make_raster_paper(tmp_path: Path, img_px, placement_pt, fig_bbox):
+    """Build documents/<hash>/ whose processed.pdf has one embedded raster
+    of ``img_px`` (w,h) placed at ``placement_pt`` rect, and a figure
+    record at ``fig_bbox`` (top-left coords)."""
+    import fitz
+
+    hd = tmp_path / "documents" / "rasterhash01"
+    (hd / "figures").mkdir(parents=True)
+
+    doc = fitz.open()
+    page = doc.new_page(width=600, height=800)
+    pm = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, img_px[0], img_px[1]))
+    pm.clear_with(180)
+    page.insert_image(fitz.Rect(*placement_pt), pixmap=pm)
+    doc.save(hd / "processed.pdf")
+    doc.close()
+
+    (hd / "figures.json").write_text(json.dumps({"figures": [{
+        "figure_id": "fig_1", "filename": "fig_1.png", "figure_type": "figure",
+        "page": 1, "bbox": fig_bbox, "bbox_coord_system": "pdf_pts_top_left",
+    }]}))
+    return hd
+
+
+@pytest.mark.skipif(not FIXTURE_PDF.is_file(), reason="needs PyMuPDF")
+def test_native_uses_embedded_image_density(tmp_path):
+    # 400px image placed across 100pt → native density 4 px/pt = 288 dpi.
+    hd = _make_raster_paper(tmp_path, img_px=(400, 300),
+                            placement_pt=(100, 100, 200, 175),
+                            fig_bbox=[100, 100, 200, 175])
+    assert bf.main([str(tmp_path), "--native"]) == 0
+
+    rec = json.loads((hd / "figures.json").read_text())["figures"][0]
+    assert rec["resolution_mode"] == "native"
+    assert rec["render_dpi"] == 288          # 72 * (400/100)
+    from PIL import Image
+    w, h = Image.open(hd / "figures" / "fig_1.png").size
+    assert abs(w - 400) <= 3 and abs(h - 300) <= 3  # native pixel dims recovered
+
+
+def test_native_vector_fallback(tmp_path):
+    # Figure region with no overlapping raster → 300 dpi vector fallback.
+    hd = _make_raster_paper(tmp_path, img_px=(400, 300),
+                            placement_pt=(100, 100, 200, 175),
+                            fig_bbox=[300, 400, 500, 500])  # no image here
+    assert bf.main([str(tmp_path), "--native", "--vector-dpi", "300"]) == 0
+    rec = json.loads((hd / "figures.json").read_text())["figures"][0]
+    assert rec["resolution_mode"] == "vector_fallback"
+    assert rec["render_dpi"] == 300
+    from PIL import Image
+    w, _ = Image.open(hd / "figures" / "fig_1.png").size
+    assert abs(w - round(200 * 300 / 72)) <= 3   # 200pt at 300 dpi
+
+
+def test_native_max_dpi_caps_dense_source(tmp_path):
+    hd = _make_raster_paper(tmp_path, img_px=(400, 300),
+                            placement_pt=(100, 100, 200, 175),
+                            fig_bbox=[100, 100, 200, 175])
+    assert bf.main([str(tmp_path), "--native", "--max-dpi", "100"]) == 0
+    rec = json.loads((hd / "figures.json").read_text())["figures"][0]
+    assert rec["resolution_mode"] == "native_capped"
+    assert rec["render_dpi"] == 100
+
+
 def test_backfill_skips_figure_without_bbox(tmp_path):
     hd = tmp_path / "documents" / "deadbeef0001"
     (hd / "figures").mkdir(parents=True)

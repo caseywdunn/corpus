@@ -21,9 +21,20 @@ fatal). The re-rendered crop is bbox-exact and may frame slightly
 differently from docling's original crop — acceptable for a quality
 backfill; validate on one paper before a full run.
 
+Two modes:
+- ``--scale S`` (default): a single fixed scale for every figure
+  (DPI = 72*S).
+- ``--native``: preserve each figure's *native source resolution* — render
+  at the densest overlapping embedded image's pixel density, which varies
+  per figure and per scan. Vector figures have no native resolution, so
+  they fall back to ``--vector-dpi`` (default 300). ``--max-dpi`` optionally
+  caps pathological full-page scans.
+
 Usage:
-    python backfill_figure_dpi.py <output_dir> [--scale 2.0] [--dry-run]
-    python backfill_figure_dpi.py <output_dir> --scale 4.0 --only <HASH>
+    python backfill_figure_dpi.py <output_dir> --native --only <HASH> --dry-run
+    python backfill_figure_dpi.py <output_dir> --native               # full bundle
+    python backfill_figure_dpi.py <output_dir> --native --vector-dpi 300 --max-dpi 600
+    python backfill_figure_dpi.py <output_dir> --scale 4.0            # fixed mode
 """
 from __future__ import annotations
 
@@ -57,7 +68,51 @@ def _rect_for(bbox, coord_system: str, page_height: float):
     return None  # unknown coord system → caller skips
 
 
-def _backfill_paper(hash_dir: Path, scale: float, dry_run: bool) -> dict:
+def _native_scale_for(doc, pg, rect, vector_dpi: float, max_dpi):
+    """Per-figure render scale for ``--native`` mode (#121).
+
+    Returns ``(scale, dpi, mode)``. For a figure whose region overlaps
+    embedded raster image(s), the scale reproduces the **densest**
+    overlapping source's native pixel density (a 600-dpi scan figure
+    renders at 600 dpi; a 150-dpi one at 150 — the value varies per
+    figure, nothing hardcoded). A pure-vector figure has no native
+    resolution, so it falls back to ``vector_dpi`` (default 300). An
+    optional ``max_dpi`` caps pathological full-page scans.
+
+    Density is px-per-point; ``fitz.Matrix(s, s)`` renders ``s`` px/pt,
+    so scale == density and dpi == 72 * density.
+    """
+    best_density = 0.0  # px per pt
+    for img in pg.get_images(full=True):
+        xref = img[0]
+        try:
+            rects = pg.get_image_rects(xref)
+        except Exception:
+            continue
+        for r in rects:
+            inter = r & rect
+            if inter.is_empty or inter.get_area() <= 1.0:  # no real overlap
+                continue
+            try:
+                info = doc.extract_image(xref)  # dims without full decode
+            except Exception:
+                continue
+            w_px, h_px = info.get("width", 0), info.get("height", 0)
+            if w_px <= 0 or h_px <= 0 or r.width <= 0 or r.height <= 0:
+                continue
+            best_density = max(best_density, w_px / r.width, h_px / r.height)
+
+    if best_density > 0:
+        scale, mode = best_density, "native"
+    else:
+        scale, mode = vector_dpi / 72.0, "vector_fallback"
+    if max_dpi and scale > max_dpi / 72.0:
+        scale, mode = max_dpi / 72.0, mode + "_capped"
+    return scale, round(scale * 72), mode
+
+
+def _backfill_paper(hash_dir: Path, *, native: bool, fixed_scale: float,
+                    vector_dpi: float, max_dpi, dry_run: bool) -> dict:
     import fitz  # PyMuPDF
 
     stats = {"rendered": 0, "skipped_no_bbox": 0, "skipped_no_src": 0, "errors": 0}
@@ -95,21 +150,29 @@ def _backfill_paper(hash_dir: Path, scale: float, dry_run: bool) -> dict:
             if rect is None or rect.is_empty or rect.width <= 0 or rect.height <= 0:
                 stats["skipped_no_bbox"] += 1
                 continue
+            if native:
+                scale, dpi, mode = _native_scale_for(
+                    doc, pg, rect, vector_dpi, max_dpi)
+            else:
+                scale, dpi, mode = fixed_scale, round(fixed_scale * 72), "fixed"
             png_path = hash_dir / "figures" / fname
             try:
                 if dry_run:
-                    new_w = round(rect.width * scale)
-                    new_h = round(rect.height * scale)
-                    logger.info("[dry-run] %s/%s → %d×%d px (scale %.1f)",
-                                hash_dir.name, fname, new_w, new_h, scale)
+                    logger.info("[dry-run] %s/%s → %d×%d px (%d dpi, %s)",
+                                hash_dir.name, fname,
+                                round(rect.width * scale), round(rect.height * scale),
+                                dpi, mode)
                 else:
                     pix = pg.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=rect)
                     png_path.parent.mkdir(parents=True, exist_ok=True)
                     pix.save(png_path)
-                    if "width" in fig or "height" in fig:
-                        fig["width"], fig["height"] = pix.width, pix.height
-                        changed = True
-                    fig["images_scale"] = scale  # provenance of the re-render
+                    # Stamp resolution provenance + always record dims, so
+                    # stored figure resolution is auditable from figures.json
+                    # (closes the metadata gap for re-rendered figures).
+                    fig["width"], fig["height"] = pix.width, pix.height
+                    fig["images_scale"] = round(scale, 4)
+                    fig["render_dpi"] = dpi
+                    fig["resolution_mode"] = mode
                     changed = True
                 stats["rendered"] += 1
             except Exception as e:  # one bad figure must not abort the paper
@@ -130,8 +193,21 @@ def main(argv: Optional[list] = None) -> int:
     )
     parser.add_argument("output_dir", type=Path,
                         help="Corpus output dir (contains documents/<hash>/).")
+    parser.add_argument("--native", action="store_true",
+                        help="Preserve each figure's native source resolution: "
+                             "render at the densest overlapping embedded image's "
+                             "DPI (varies per figure/scan), falling back to "
+                             "--vector-dpi for resolution-less vector figures. "
+                             "Overrides --scale.")
     parser.add_argument("--scale", type=float, default=2.0,
-                        help="Target images_scale (DPI = 72*scale). Default 2.0.")
+                        help="Fixed mode: target images_scale (DPI = 72*scale). "
+                             "Default 2.0. Ignored when --native is set.")
+    parser.add_argument("--vector-dpi", type=float, default=300.0,
+                        help="--native fallback DPI for vector figures (no native "
+                             "resolution exists). Default 300.")
+    parser.add_argument("--max-dpi", type=float, default=None,
+                        help="--native ceiling, to bound pathological full-page "
+                             "scans. Default: uncapped.")
     parser.add_argument("--only", default=None, metavar="HASH",
                         help="Re-render a single paper hash (validate before a "
                              "full run).")
@@ -153,8 +229,11 @@ def main(argv: Optional[list] = None) -> int:
         logger.error("no documents/ under %s", args.output_dir)
         return 2
 
-    if not 1.0 <= args.scale <= 8.0:
+    if not args.native and not 1.0 <= args.scale <= 8.0:
         logger.error("--scale must be in [1.0, 8.0] (got %s)", args.scale)
+        return 2
+    if args.native and args.vector_dpi <= 0:
+        logger.error("--vector-dpi must be positive (got %s)", args.vector_dpi)
         return 2
 
     totals = {"rendered": 0, "skipped_no_bbox": 0, "skipped_no_src": 0, "errors": 0,
@@ -170,17 +249,24 @@ def main(argv: Optional[list] = None) -> int:
         if not (hash_dir / "figures.json").is_file():
             continue
         totals["papers"] += 1
-        s = _backfill_paper(hash_dir, args.scale, args.dry_run)
+        s = _backfill_paper(
+            hash_dir, native=args.native, fixed_scale=args.scale,
+            vector_dpi=args.vector_dpi, max_dpi=args.max_dpi, dry_run=args.dry_run,
+        )
         for k, v in s.items():
             totals[k] += v
 
     verb = "would re-render" if args.dry_run else "re-rendered"
+    mode_desc = (
+        f"native (vector fallback {args.vector_dpi:.0f} dpi"
+        + (f", capped {args.max_dpi:.0f} dpi)" if args.max_dpi else ")")
+        if args.native else f"fixed scale {args.scale:.1f} ({round(72 * args.scale)} dpi)"
+    )
     logger.info(
-        "Done. %d papers; %s %d figures at scale %.1f (%d dpi); "
+        "Done. %d papers; %s %d figures — mode: %s; "
         "%d skipped (no bbox), %d skipped (no source), %d errors.",
-        totals["papers"], verb, totals["rendered"], args.scale,
-        round(72 * args.scale), totals["skipped_no_bbox"],
-        totals["skipped_no_src"], totals["errors"],
+        totals["papers"], verb, totals["rendered"], mode_desc,
+        totals["skipped_no_bbox"], totals["skipped_no_src"], totals["errors"],
     )
     return 0
 
