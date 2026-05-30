@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from bib.authority import normalize_for_key
+
 from ..app import _load_json, _need_index, error, mcp
 
 if TYPE_CHECKING:
@@ -661,7 +663,11 @@ def get_works_by_author(
     if idx.biblio_db is None:
         return [error("bibliographic authority database not configured", "not_configured")]
 
-    norm = surname.strip().lower()
+    # #122 — the surname_normalized column is built with
+    # normalize_for_key (diacritic-stripped); query with the SAME
+    # normalizer so "Müller" matches "muller". A plain .strip().lower()
+    # leaves the umlaut on and silently returns zero rows.
+    norm = normalize_for_key(surname)
     query = """
         SELECT DISTINCT w.work_id, w.title, w.year, w.journal, w.doi,
                w.in_corpus, w.corpus_hash, w.guid_type

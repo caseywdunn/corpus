@@ -13,6 +13,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from bib.authority import normalize_for_key
+
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
 
 # Filenames at the per-paper root that are NOT lexicon outputs.
@@ -698,7 +700,9 @@ def get_papers_by_author(surname: str) -> List[Dict]:
     get_chunks_for_taxon or get_chunks_by_section.
     """
     idx = _need_index()
-    key = (surname or "").strip().lower()
+    # #122 — normalize with the same diacritic-folding key used to build
+    # author_to_papers (CorpusIndex.load), so "Müller" == "Muller".
+    key = normalize_for_key(surname or "")
     if not key:
         return []
     hashes = idx.author_to_papers.get(key, [])

@@ -21,6 +21,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from bib.authority import normalize_for_key
 from pipeline.taxa import TaxonomyDB
 from pipeline.embeddings import (
     EmbeddingBackend,
@@ -349,7 +350,10 @@ class CorpusIndex:
                     )
 
             for author in metadata.get("authors", []) or []:
-                surname = (author.get("surname") or "").strip().lower()
+                # #122 — key the Grobid-metadata author index with the
+                # same diacritic-folding normalizer get_papers_by_author
+                # queries with, so "Müller" and "Muller" resolve alike.
+                surname = normalize_for_key(author.get("surname") or "")
                 if surname:
                     self.author_to_papers[surname].append(paper_hash)
 
@@ -538,7 +542,9 @@ class BiblioAuthority:
             FROM works w JOIN work_authors wa ON w.work_id = wa.work_id
             WHERE wa.surname_normalized = ?
         """
-        params: list = [surname.strip().lower()]
+        # #122 — match the diacritic-stripped surname_normalized column
+        # with the same normalizer that built it.
+        params: list = [normalize_for_key(surname)]
         if year:
             query += " AND w.year = ?"
             params.append(year)
