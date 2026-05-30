@@ -35,8 +35,8 @@ def _cfg(tmp_path: Path, panel_detection="ocr"):
 
 def _run_args(**overrides):
     base = dict(
-        force_rebuild=False, dry_run=False, no_vision=False, enrich_bhl=False,
-        force_rebuild_taxonomy=False, force_rebuild_biblio=False,
+        force_rebuild=False, dry_run=False, no_vision=False, figure_panels=None,
+        enrich_bhl=False, force_rebuild_taxonomy=False, force_rebuild_biblio=False,
         force_rebuild_taxon_mentions=False,
     )
     base.update(overrides)
@@ -80,6 +80,43 @@ def test_usable_vision_mode_is_forwarded(tmp_path, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     argv = _argv(tmp_path, "vision-claude")
     assert argv[argv.index("--figure-panels") + 1] == "vision-claude"
+
+
+# --- corpus run --figure-panels override (#102 follow-up) ---------------------
+
+
+def test_run_figure_panels_overrides_config(tmp_path, monkeypatch):
+    """An explicit `corpus run --figure-panels` wins over the config key."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    # config says ocr; the CLI override asks for vision-claude.
+    argv = _argv(tmp_path, "ocr", figure_panels="vision-claude")
+    assert argv[argv.index("--figure-panels") + 1] == "vision-claude"
+
+
+def test_run_figure_panels_off_overrides_config(tmp_path):
+    argv = _argv(tmp_path, "vision-claude", figure_panels="off")
+    assert argv[argv.index("--figure-panels") + 1] == "off"
+
+
+def test_no_vision_is_alias_for_ocr_even_from_off(tmp_path):
+    """`--no-vision` ≡ `--figure-panels ocr`, so it forces the OCR floor
+    even when the config selected `off`."""
+    argv = _argv(tmp_path, "off", no_vision=True)
+    assert argv[argv.index("--figure-panels") + 1] == "ocr"
+
+
+def test_run_rejects_figure_panels_with_no_vision(tmp_path):
+    """The two are mutually exclusive in the `corpus run` parser."""
+    parser = cli._build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["run", "--figure-panels", "ocr", "--no-vision"])
+
+
+def test_run_accepts_figure_panels_choice(tmp_path):
+    parser = cli._build_parser()
+    args = parser.parse_args(["run", "--figure-panels", "vision-local"])
+    assert args.figure_panels == "vision-local"
+    assert args.no_vision is False
 
 
 # --- pipeline.main derivation -------------------------------------------------
