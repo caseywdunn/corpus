@@ -3,7 +3,7 @@
 Pins the MCP tool surface that 1.0 freezes, so any drift is a deliberate,
 reviewed edit rather than an accident:
 
-1. The exact set of registered tool names (39).
+1. The exact set of registered tool names (38).
 2. The pagination-naming convention — single-knob tools use ``limit``;
    only the documented multi-cap dossier/graph tools use ``max_*``.
 3. The uniform error payload — every tool error return carries a human
@@ -40,7 +40,6 @@ EXPECTED_TOOLS = frozenset({
     "get_taxon_subtree_dossier", "get_works_by_author", "lexicon_matrix",
     "list_figure_rois", "list_output_profiles", "list_papers",
     "list_valid_species_under", "resolve_reference", "search_taxon",
-    "translate_chunk",
 })
 
 # The documented exception to "``limit`` everywhere": tools where one call
@@ -78,8 +77,8 @@ def test_registered_tool_surface_is_frozen():
     )
 
 
-def test_tool_count_is_39():
-    assert len(_registered()) == 39
+def test_tool_count_is_38():
+    assert len(_registered()) == 38
 
 
 def test_removed_singular_tools_stay_removed():

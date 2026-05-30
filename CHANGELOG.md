@@ -13,18 +13,24 @@ v0.6 is the **API-freeze** cycle: no new feature tools, instead a
 one-time pass to finalize the public MCP tool surface, fix known
 correctness bugs, and harden ops — because after 1.0 a change to any
 tool default, signature, or response shape is a breaking change. The
-served surface is now **39 MCP tools** with a uniform error payload and
+served surface is now **38 MCP tools** with a uniform error payload and
 a consistent pagination convention; this is the surface 1.0 freezes.
 
 ### Changed (breaking)
 
-- **MCP surface frozen at 39 tools.** The redundant singular tools were
+- **MCP surface frozen at 38 tools.** The redundant singular tools were
   removed in favor of their batched plurals
   ([#88](https://github.com/caseywdunn/corpus/issues/88) §2.3):
   `format_citation` → `format_citations`, `get_paper` → `get_papers`,
   `get_chunk` → `get_chunks` (pass a single-element list for the
   one-item case). `mcpsrv/default_instructions.md` routes citations
   through `format_citations`.
+- **Removed `translate_chunk`** ([#124](https://github.com/caseywdunn/corpus/issues/124)).
+  It was the only server-side LLM-call tool; the MCP server is now a
+  purely deterministic retrieval layer. Translation is an analysis step
+  an MCP client (itself an LLM) does on chunk text it already retrieved
+  via `get_chunks` — it doesn't need a server-side Claude call, key, or
+  cache. Removed pre-1.0 so it isn't frozen into the stable surface.
 - **Breaking response-shape defaults**
   ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 1):
   `lexicon_matrix` returns per-term **summaries by default**
@@ -134,6 +140,7 @@ a consistent pagination convention; this is the surface 1.0 freezes.
 | `format_citation(...)` | `format_citations(queries=[...] / work_ids=[...] / paper_hashes=[...])` |
 | `get_paper(hash)` | `get_papers(hashes=[hash])` |
 | `get_chunk(hash, chunk_id)` | `get_chunks(hash, chunk_ids=[chunk_id])` |
+| `translate_chunk(hash, chunk_id, target_language)` | removed — translate the text from `get_chunks` client-side |
 | citation error token `{"error": "not_found"}` | `{"error": <message>, "code": "not_found"}` (branch on `code`) |
 | `lexicon_matrix()` full grid | summary by default; `lexicon_matrix(detail=True)` for the grid |
 | `get_figures_for_taxon` full `caption_text` | caption preview; `full_caption=True` for verbatim |
