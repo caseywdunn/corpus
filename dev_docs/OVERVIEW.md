@@ -92,7 +92,7 @@ A corpuscle can span centuries of literature — 19th-century engraved plates wi
 
 ### Lifecycle (per PDF)
 
-The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "Stage · when" column ties each step back to the stage vocabulary above: steps 1–7 and 11 run during Stage 1 (CPU) — every paper, except the conditional PyMuPDF fallback (step 5). Steps 8–10 are the optional figure **passes** enabled by flags; of those, only Pass 3b leaves the CPU stage (GPU/API).
+The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "Stage · when" column ties each step back to the stage vocabulary above: steps 1–7 and 11 run during Stage 1 (CPU) — every paper, except the conditional PyMuPDF fallback (step 5). Steps 8–10 are the figure **passes** selected by `figures.panel_detection` (Pass 3a `ocr` is the default floor; Pass 3b is opt-in via the `vision-*` modes; Pass 3c auto-follows a compound); of those, only Pass 3b leaves the CPU stage (GPU/API).
 
 | # | Step (figure pass) | Code | Stage · when | Writes |
 |---|---|---|---|---|
@@ -129,12 +129,14 @@ Captions are the highest-value annotation per figure and the hardest in historic
 
 When neither path finds text, the figure keeps `caption_source: null` — a useful signal for figure-quality triage.
 
-### Optional passes — what is lost when they are skipped
+### Selecting a pass — and what is lost when one is skipped
 
-All of steps 8–10 are **off by default**; a plain `corpus run` produces figures, captions, numbers, classification, dedup/panel-letters, `missing_figures`, and chunk links, but no pixel-level panel geometry and no compound splitting.
+Panel detection is selected by **`figures.panel_detection`** in the corpuscle's `config.yaml` (`ocr` / `vision-local` / `vision-claude` / `off`; #102), overridable per run with **`corpus run --figure-panels <mode>`**. The deprecated `corpus run --no-vision` is an alias for `--figure-panels ocr`. Under the hood `corpus run` translates this into the `--figure-panels` flag on `pipeline.main` / the orchestrator (which is where it appears in `slurm/` jobs).
 
-- **Without Pass 3a or 3b (no `rois`):** there is no geometric segmentation of multi-panel figures. `get_figure_image(label="B")` can only fall back to the whole figure; panel-level retrieval degrades to the caption-derived `panels_from_caption` descriptions (text, not crops).
-- **Pass 3a (OCR) vs Pass 3b (vision):** 3a (Tesseract on a 3×-upscaled crop) detects only printed letter labels and has low recall on line-art/engraved plates; 3b (Qwen2.5-VL locally or Claude Haiku via API) is substantially more reliable and is the **only** pass that detects *compound* figures — a single extracted image that actually contains several numbered figures (common in plate-heavy monographs). The two are mutually exclusive, selected by `--figure-panels` (`ocr` is the default CPU floor; `vision-local` / `vision-claude` run 3b instead; `off` runs neither).
+Since #102 the default is **`ocr`** — Pass 3a is the CPU floor and runs on a plain `corpus run`. So the default output now includes OCR `rois`; only `panel_detection: off` reproduces the pre-#102 "no panel geometry" behavior.
+
+- **With `off` (no Pass 3a or 3b → no `rois`):** there is no geometric segmentation of multi-panel figures. `get_figure_image(label="B")` can only fall back to the whole figure; panel-level retrieval degrades to the caption-derived `panels_from_caption` descriptions (text, not crops).
+- **Pass 3a (OCR, the `ocr` default) vs Pass 3b (vision):** 3a (Tesseract on a 3×-upscaled crop) detects only printed letter labels and has low recall on line-art/engraved plates; 3b (Qwen2.5-VL locally or Claude Haiku via API, the `vision-local` / `vision-claude` modes) is substantially more reliable and is the **only** pass that detects *compound* figures — a single extracted image that actually contains several numbered figures (common in plate-heavy monographs). The two are mutually exclusive.
 - **Without Pass 3b → no Pass 3c:** compound plates are never split. A `fig_3-4.png`-style image stays a single record with an ambiguous `figure_number`, its embedded sub-figures remain invisible to `figure_number`-keyed queries, and the `missing_figures[]` entries that 3c would have matched to recovered sub-figures (`image_shared_with` links, real numbers + captions) are left unresolved. The `missing_figures` list itself is still produced (Pass 2.5) as a coverage signal.
 
 Because these passes are GPU/API-cost-bearing, the corpus-scale validation of figure coverage is tracked separately ([#11](https://github.com/caseywdunn/corpus/issues/11)), and figure-number recovery on old/scanned papers is an open gap ([#16](https://github.com/caseywdunn/corpus/issues/16)). When a new layout exposes a new failure mode, capture it as a ground-truth fixture under `tests/` so the fix is guarded against regression.

@@ -348,19 +348,23 @@ def _build_orchestrator_argv(
     if cfg.grobid.url:
         sub_argv += ["--grobid-url", cfg.grobid.url]
 
-    # Figure panel-ROI detection (#102): figures.panel_detection selects
-    # the pass. `--no-vision` downgrades a vision backend to the OCR
-    # floor (not off — the OCR pass is the cheap default baseline).
-    # Capability detection (#65) likewise downgrades an unusable vision
-    # backend to OCR with a one-line nudge rather than hard-failing
-    # Pass 3b deep into the run.
-    panel_mode = cfg.figures.panel_detection
-    if args.no_vision and panel_mode in ("vision-local", "vision-claude"):
+    # Figure panel-ROI detection (#102). Effective mode precedence:
+    # explicit `--figure-panels` > `--no-vision` (deprecated alias for
+    # `ocr`) > the corpuscle's `figures.panel_detection` config key.
+    if args.figure_panels is not None:
+        panel_mode = args.figure_panels
+    elif args.no_vision:
         print_status(
-            "--no-vision: using the OCR panel floor instead of the vision pass",
+            "--no-vision is a deprecated alias for `--figure-panels ocr` "
+            "(CPU OCR-panel floor)",
             status="info",
         )
         panel_mode = "ocr"
+    else:
+        panel_mode = cfg.figures.panel_detection
+    # Capability detection (#65) downgrades an unusable vision backend to
+    # the OCR floor with a one-line nudge rather than hard-failing Pass 3b
+    # deep into the run.
     if panel_mode in ("vision-local", "vision-claude"):
         skip_reason = _vision_skip_reason(panel_mode)
         if skip_reason is not None:
@@ -1074,7 +1078,7 @@ _corpus_complete() {
     # Per-verb flag completions.
     cmd="${COMP_WORDS[1]}"
     case "$cmd" in
-        run)        COMPREPLY=( $(compgen -W "--dry-run --force-rebuild --no-vision --no-bundle --enrich-bhl -h --help" -- "$cur") ) ;;
+        run)        COMPREPLY=( $(compgen -W "--dry-run --force-rebuild --figure-panels --no-vision --no-bundle --enrich-bhl -h --help" -- "$cur") ) ;;
         debug-pdf)  COMPREPLY=( $(compgen -W "--output-dir --grobid-url -h --help" -- "$cur") ) ;;
         status)     COMPREPLY=( $(compgen -W "--output-dir --report --json --list-hashes --filter-stage --filter-reason --filter-gate -v -h --help" -- "$cur") ) ;;
         serve)      COMPREPLY=( $(compgen -W "--output-dir --transport --host --port --auth-token-file -h --help" -- "$cur") ) ;;
@@ -1107,7 +1111,7 @@ _corpus() {
         _describe 'command' verbs
     elif (( CURRENT >= 3 )); then
         case "$words[2]" in
-            run)        _arguments '--dry-run' '--force-rebuild' '--no-vision' '--no-bundle' '--enrich-bhl' ;;
+            run)        _arguments '--dry-run' '--force-rebuild' '--figure-panels:mode:(ocr vision-local vision-claude off)' '--no-vision' '--no-bundle' '--enrich-bhl' ;;
             debug-pdf)  _arguments '--output-dir:DIR:_files -/' '--grobid-url:URL:' '1:PDF:_files' ;;
             status)     _arguments '--output-dir:DIR:_files -/' '--report' '--json' '--list-hashes' ;;
             serve)      _arguments '--output-dir:DIR:_files -/' '--transport' '--host' '--port' '--auth-token-file:FILE:_files' ;;
@@ -1135,6 +1139,7 @@ complete -c corpus -l cite -d 'Print the citation (plain | bibtex)'
 complete -c corpus -s v -d 'verbose (-vv = debug all)'
 complete -c corpus -s q -l quiet
 complete -c corpus -n "__fish_seen_subcommand_from run" -l dry-run -l force-rebuild -l no-vision -l no-bundle -l enrich-bhl
+complete -c corpus -n "__fish_seen_subcommand_from run" -l figure-panels -x -a 'ocr vision-local vision-claude off'
 complete -c corpus -n "__fish_seen_subcommand_from debug-pdf" -l output-dir -l grobid-url
 complete -c corpus -n "__fish_seen_subcommand_from completion" -a 'bash zsh fish'
 """
@@ -1374,8 +1379,25 @@ def _build_parser() -> argparse.ArgumentParser:
                        help="Rebuild only biblio_authority.sqlite (#64)")
     run_p.add_argument("--force-rebuild-taxon-mentions", action="store_true",
                        help="Rebuild only taxon_mentions.sqlite (#64)")
-    run_p.add_argument("--no-vision", action="store_true",
-                       help="Skip the vision pass (Pass 3b)")
+    # Figure panel-ROI detection (#102). The per-run override of the
+    # corpuscle's `figures.panel_detection` config key. `--no-vision` is
+    # the deprecated alias for `--figure-panels ocr`; the two are
+    # mutually exclusive.
+    panels_grp = run_p.add_mutually_exclusive_group()
+    panels_grp.add_argument(
+        "--figure-panels",
+        choices=["ocr", "vision-local", "vision-claude", "off"],
+        default=None,
+        help="Override config `figures.panel_detection` for this run: "
+             "ocr (CPU OCR-panel floor), vision-local / vision-claude "
+             "(Pass 3b vision), or off. Omit to use config.yaml.",
+    )
+    panels_grp.add_argument(
+        "--no-vision", action="store_true",
+        help="Deprecated alias for `--figure-panels ocr`: skip the vision "
+             "pass (Pass 3b) and use the CPU OCR-panel floor instead. Does "
+             "NOT disable panels — pass `--figure-panels off` for that.",
+    )
     run_p.add_argument("--no-bundle", action="store_true",
                        help="Skip the served-bundle distillation step. "
                        "Build artifacts in `<output_dir>/` are unaffected; "
