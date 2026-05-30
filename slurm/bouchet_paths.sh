@@ -11,6 +11,19 @@
 BOUCHET_PROJECT="${BOUCHET_PROJECT:-/nfs/roberts/project/pi_cwd7/cwd7}"
 
 REPO_DIR="${REPO_DIR:-$BOUCHET_PROJECT/corpus}"
+
+# Corpuscle config.yaml — the source of truth for the new `corpus run`
+# flow (#138). input_pdfs / output_dir / bib / lexicon / taxonomy / grobid
+# now live INSIDE this file, not as CLI flags. The phase scripts
+# (batch_process_corpus, batch_pass3b, batch_embed, batch_finalize) drive
+# `corpus -c "$CORPUS_CONFIG" run --only <phase>`. See BOUCHET.md for how
+# to author it. The dynamic Grobid node URL is still injected at submit
+# time via $GROBID_URL, which `corpus run` honors as an override.
+CORPUS_CONFIG="${CORPUS_CONFIG:-$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml}"
+
+# Legacy path vars — still consumed by the not-yet-ported helper scripts
+# (batch_grobid.sh, batch_biblio.sh) and by batch_pipeline.sh's banner.
+# Keep them in sync with the matching keys in $CORPUS_CONFIG.
 INPUT_DIR="${INPUT_DIR:-$BOUCHET_PROJECT/siphonophores/library}"
 OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/siphonophore_corpuscle}"
 BIB_FILE="${BIB_FILE:-$BOUCHET_PROJECT/siphonophores/siphonophores.bib}"

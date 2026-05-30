@@ -146,3 +146,43 @@ def test_batch_flags_need_both():
     assert orch._batch_flags(_argv_args(batch_index=1)) == []  # size missing
     assert orch._batch_flags(_argv_args(batch_index=1, batch_size=2)) == \
         ["--batch-index", "1", "--batch-size", "2"]
+
+
+# --- $GROBID_URL override (#138) ---------------------------------------------
+
+
+def test_grobid_url_env_overrides_config(tmp_path, monkeypatch):
+    """$GROBID_URL beats the static config.yaml address (#138).
+
+    On HPC, Grobid runs on a dynamically-allocated compute node whose
+    hostname isn't known until submit time, so config.yaml can't name it;
+    slurm/batch_pipeline.sh discovers the node and exports GROBID_URL.
+    The override must reach the orchestrator argv.
+    """
+    (tmp_path / "pdfs").mkdir()
+    (tmp_path / "config.yaml").write_text(
+        "input_pdfs: ./pdfs\noutput_dir: ./output\n"
+        "grobid:\n  url: http://static:8070\n"
+    )
+    captured = {}
+
+    def fake_run(cmd, *a, **k):
+        captured["cmd"] = cmd
+
+        class _R:
+            returncode = 0
+        return _R()
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    monkeypatch.setenv("GROBID_URL", "http://dynamic-node:8070")
+
+    # --only vision skips preconditions/prune, so the run goes straight to
+    # argv build + subprocess. --dry-run keeps it side-effect-free.
+    args = _run_args(only="vision", dry_run=True,
+                     config=tmp_path / "config.yaml")
+    assert cli._cmd_run(args) == cli.EXIT_OK
+
+    cmd = captured["cmd"]
+    assert "--grobid-url" in cmd
+    assert "http://dynamic-node:8070" in cmd
+    assert "http://static:8070" not in cmd

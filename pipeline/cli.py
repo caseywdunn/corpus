@@ -421,6 +421,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print_status(f"config not found: {config_path}", status="fail")
         return EXIT_CONFIG_ERROR
     cfg = _load_validated(config_path)
+    # $GROBID_URL overrides the configured Grobid address (#138). On HPC,
+    # Grobid runs on a dynamically-allocated compute node whose hostname
+    # isn't known until submit time, so the static config.yaml value can't
+    # name it; slurm/batch_pipeline.sh discovers the node and exports
+    # GROBID_URL. Matches the old `pipeline.main` default-from-$GROBID_URL
+    # behavior. Applied before the precondition ping and the argv build so
+    # both see the override.
+    grobid_url_env = os.environ.get("GROBID_URL")
+    if grobid_url_env:
+        cfg.grobid.url = grobid_url_env
     output_dir = _resolve_against(config_path, cfg.output_dir)
     # Single-phase HPC selector (#corpus-run-hpc): None = full run on one
     # node; extract/vision/embed/post run one orchestrator phase; bundle

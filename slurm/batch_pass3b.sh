@@ -81,17 +81,14 @@ if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
     echo "Array task $SLURM_ARRAY_TASK_ID, batch size $BATCH_SIZE"
 fi
 
-PY_ARGS=(
-    "$INPUT_DIR" "$OUTPUT_DIR"
-    --resume
-    --refresh-vision
-    --no-grobid
-    --no-taxa
-    --figure-panels vision-local
-    "${BATCH_ARGS[@]}"
-)
-echo "python args: -m pipeline.main ${PY_ARGS[*]}"
+# Vision phase only (Pass 3b + 3c). The `--only vision` orchestrator step
+# already forces --refresh-vision / --no-grobid / --no-taxa internally;
+# we only pin the backend to the local Qwen2.5-VL with --figure-panels
+# vision-local. Resume is implicit. No Grobid needed (#138).
+echo "corpus -c $CORPUS_CONFIG run --only vision --figure-panels vision-local ${BATCH_ARGS[*]}"
 
-python -m pipeline.main "${PY_ARGS[@]}"
+corpus -c "$CORPUS_CONFIG" run --only vision \
+    --figure-panels vision-local \
+    "${BATCH_ARGS[@]}"
 
 echo "Pass 3b + 3c completed at $(date)"
