@@ -395,6 +395,16 @@ def _build_orchestrator_argv(
         sub_argv.append("--force-rebuild-biblio")
     if args.force_rebuild_taxon_mentions:
         sub_argv.append("--force-rebuild-taxon-mentions")
+    # HPC single-phase + array slicing (#corpus-run-hpc). `bundle` is a
+    # CLI-level phase (handled before the orchestrator is invoked), so
+    # it's never forwarded here.
+    only = getattr(args, "only", None)
+    if only is not None and only != "bundle":
+        sub_argv += ["--only", only]
+    if getattr(args, "batch_index", None) is not None:
+        sub_argv += ["--batch-index", str(args.batch_index)]
+    if getattr(args, "batch_size", None) is not None:
+        sub_argv += ["--batch-size", str(args.batch_size)]
     return sub_argv
 
 
@@ -411,29 +421,56 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print_status(f"config not found: {config_path}", status="fail")
         return EXIT_CONFIG_ERROR
     cfg = _load_validated(config_path)
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    # Single-phase HPC selector (#corpus-run-hpc): None = full run on one
+    # node; extract/vision/embed/post run one orchestrator phase; bundle
+    # distills the served bundle only. Each maps to its own SLURM job.
+    only = getattr(args, "only", None)
+    if (args.batch_index is None) != (args.batch_size is None):
+        print_status("--batch-index and --batch-size must be given together",
+                     status="fail")
+        return EXIT_CONFIG_ERROR
+    if args.batch_index is not None and only not in ("extract", "vision"):
+        print_status(
+            "--batch-index/--batch-size apply only to --only extract|vision",
+            status="fail")
+        return EXIT_CONFIG_ERROR
 
-    # Fail-fast preconditions: catch the two ergonomic cliffs that would
-    # otherwise burn hours of compute (Grobid unreachable → placeholder
-    # metadata across the whole bibliography pass; input_pdfs missing →
-    # silent zero-paper run). The vision/ANTHROPIC_API_KEY paths are
-    # warn-and-skip (#65) — graceful degradation, not a fail-fast case.
-    if not args.skip_checks:
-        rc = _run_preconditions(cfg, config_path, args)
+    # --only bundle: (re)distill the served bundle from existing
+    # output_dir artifacts. No preconditions / prune / pipeline.
+    if only == "bundle":
+        if args.dry_run:
+            print_status(
+                f"dry-run: would distill served bundle into {output_dir / '_serve'}",
+                status="info")
+            return EXIT_OK
+        if args.no_bundle:
+            print_status("--only bundle with --no-bundle is a no-op", status="warn")
+            return EXIT_OK
+        return _distill_bundle(output_dir)
+
+    # Preconditions + orphan prune + flag-invalidation are extract-phase
+    # concerns — skip them for the GPU (vision/embed) and post phases,
+    # which scan no input and need no Grobid.
+    if only in (None, "extract"):
+        # Fail-fast preconditions: catch the two ergonomic cliffs that
+        # would otherwise burn hours (Grobid unreachable → placeholder
+        # metadata; input_pdfs missing → silent zero-paper run). The
+        # vision/ANTHROPIC_API_KEY paths are warn-and-skip (#65).
+        if not args.skip_checks:
+            rc = _run_preconditions(cfg, config_path, args)
+            if rc != EXIT_OK:
+                return rc
+        # #66: orphan cleanup before extract so later stages don't consume
+        # orphan hashes. Default prune; --no-prune = audit; --force-prune
+        # bypasses the safety rail.
+        rc = _prune_orphans(cfg, config_path, args)
         if rc != EXIT_OK:
             return rc
-
-    # #66: orphan cleanup runs *before* the extract step so subsequent
-    # stages don't consume the orphan hashes. Default = prune; --no-prune
-    # = read-only audit only; --force-prune bypasses the safety rail.
-    rc = _prune_orphans(cfg, config_path, args)
-    if rc != EXIT_OK:
-        return rc
-
-    # #54: --re-process-flagged invalidates pipeline_state.json for every
-    # paper carrying the named quality_flag, so the per-stage resume
-    # logic re-extracts them on the upcoming run.
-    if args.re_process_flagged:
-        _invalidate_flagged(cfg, config_path, args.re_process_flagged)
+        # #54: --re-process-flagged invalidates pipeline_state.json for
+        # papers carrying the named quality_flag so resume re-extracts them.
+        if args.re_process_flagged:
+            _invalidate_flagged(cfg, config_path, args.re_process_flagged)
 
     sub_argv = _build_orchestrator_argv(cfg, config_path, args)
     cmd = [sys.executable, "-m", "pipeline.orchestrator", *sub_argv]
@@ -453,7 +490,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # `Expected top-level file instructions.md missing from <output_dir>`.
     # We copy on mtime change, so re-runs are idempotent and edits
     # propagate.
-    output_dir = _resolve_against(config_path, cfg.output_dir)
     if not args.dry_run and config_path is not None:
         src_instructions = config_path.parent / "instructions.md"
         if src_instructions.exists():
@@ -466,33 +502,34 @@ def _cmd_run(args: argparse.Namespace) -> int:
             if needs_copy:
                 shutil.copy2(src_instructions, dst_instructions)
 
-    # #60 — bundle distillation in line. Produce a ready-to-ship served
-    # bundle alongside the build bundle unless --no-bundle. The served
-    # bundle lands at `<output_dir>/_serve/` and is the directory remote
-    # deploys (DEPLOY.md) ship to S3 / EC2.
-    if args.no_bundle:
-        print_status(
-            "skipping served-bundle distillation (--no-bundle)",
-            status="info",
-        )
-    elif args.dry_run:
-        print_status(
-            f"dry-run: would distill served bundle into {output_dir / '_serve'}",
-            status="info",
-        )
-    else:
-        rc = _distill_bundle(output_dir)
-        if rc != 0:
+    # #60 — bundle distillation in line, on a full run only. The served
+    # bundle lands at `<output_dir>/_serve/`. Sub-phases (extract / vision
+    # / embed / post) skip it — the HPC flow distills once via a final
+    # `--only bundle` job; `--only bundle` is handled at the top.
+    if only is None:
+        if args.no_bundle:
             print_status(
-                f"served-bundle distillation failed (exit {rc}); the build "
-                "bundle is intact but no served bundle was produced. Re-run "
-                "`python -m mcpsrv.bundle <output_dir> <serve_dir> "
-                "--version vX.Y.Z` to retry, or pass --no-bundle to skip.",
-                status="fail",
+                "skipping served-bundle distillation (--no-bundle)",
+                status="info",
             )
-            # Propagate: _serve/ is the deployable artifact (DEPLOY.md);
-            # a failed distill must not stamp the run as successful.
-            return rc
+        elif args.dry_run:
+            print_status(
+                f"dry-run: would distill served bundle into {output_dir / '_serve'}",
+                status="info",
+            )
+        else:
+            rc = _distill_bundle(output_dir)
+            if rc != 0:
+                print_status(
+                    f"served-bundle distillation failed (exit {rc}); the build "
+                    "bundle is intact but no served bundle was produced. Re-run "
+                    "`python -m mcpsrv.bundle <output_dir> <serve_dir> "
+                    "--version vX.Y.Z` to retry, or pass --no-bundle to skip.",
+                    status="fail",
+                )
+                # Propagate: _serve/ is the deployable artifact (DEPLOY.md);
+                # a failed distill must not stamp the run as successful.
+                return rc
 
     if args.dry_run:
         print_status(
@@ -500,6 +537,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
             "`--dry-run` to execute the plan above.",
             status="ok",
         )
+    elif only not in (None, "post"):
+        # A sub-phase (extract / vision / embed) — its job is done; the
+        # run-log + report come from the full run or the post phase.
+        print_status(f"phase '{only}' complete.", status="ok")
     else:
         run_log = _write_run_log(output_dir, cfg=cfg, argv=sys.argv)
         if run_log is None:
@@ -1425,6 +1466,24 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--enrich-bhl", action="store_true",
                        help="Enrich pre-DOI references against the Biodiversity "
                        "Heritage Library (slow, rate-limited; #64)")
+    # HPC / job-array support: run one phase per SLURM job, on the right
+    # partition, and slice the per-paper stages into array tasks. Omit
+    # --only to run the whole pipeline on one node (the default).
+    run_p.add_argument(
+        "--only", choices=["extract", "vision", "embed", "post", "bundle"],
+        default=None,
+        help="Run only one phase (for HPC, where each maps to a separate "
+             "SLURM job/partition): extract (CPU), vision (GPU Pass 3b "
+             "refresh), embed (GPU), post (cross-paper DBs), bundle (served-"
+             "bundle distill). Omit to run the full pipeline on one node.")
+    run_p.add_argument(
+        "--batch-index", type=int, default=None,
+        help="0-based array-task index; with --batch-size, processes a "
+             "deterministic slice of the sorted hash list (SLURM job "
+             "arrays). Only with --only extract|vision.")
+    run_p.add_argument(
+        "--batch-size", type=int, default=None,
+        help="PDFs per array task (pairs with --batch-index).")
     run_p.set_defaults(func=_cmd_run)
 
     # --- debug-pdf ---

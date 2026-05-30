@@ -101,6 +101,25 @@ class Step:
                 cmd += ["--vision-model", args.vision_model]
             if args.refresh_vision:
                 cmd.append("--refresh-vision")
+            cmd += _batch_flags(args)
+        elif self.name == "vision":
+            # HPC `--only vision` phase: re-run only Pass 3b (vision ROI
+            # detection) on existing figures.json, on the GPU partition.
+            # The extract phase may have run the CPU ocr floor, so force a
+            # vision backend here. No Grobid / taxa work — figures only.
+            cmd += [str(args.input_dir), str(args.output_dir), "--resume",
+                    "--refresh-vision", "--no-grobid", "--no-taxa"]
+            if args.dry_run:
+                cmd.append("--dry-run")
+            if args.config:
+                cmd += ["--config", str(args.config)]
+            fp = (args.figure_panels
+                  if args.figure_panels in ("vision-local", "vision-claude")
+                  else "vision-local")
+            cmd += ["--figure-panels", fp]
+            if args.vision_model:
+                cmd += ["--vision-model", args.vision_model]
+            cmd += _batch_flags(args)
         elif self.name == "embed":
             cmd += [str(args.output_dir)]
             if args.resume:
@@ -156,6 +175,62 @@ STEPS: List[Step] = [
 
 # Steps that depend on Stage 1 outputs only — usable with --skip-pipeline.
 POST_PIPELINE_STEPS = {"build_biblio", "build_taxa", "backfill_intext", "reconcile"}
+
+# The GPU Pass-3b refresh, runnable as its own phase (`--only vision`).
+# Not part of the default chain — when running the whole pipeline on one
+# node, Pass 3b happens inline inside `extract` (figures.panel_detection
+# = vision-*). It's a separate phase only so HPC can put it on a GPU
+# partition after a CPU extract pass.
+VISION_STEP = Step("vision", "pipeline.main",
+                   "Pass 3b: vision ROI refresh (GPU; --only vision)")
+
+# `--only <phase>` → the step name(s) that phase runs. ``post`` is the
+# four cross-paper builds; ``bundle`` is handled in the CLI (served-bundle
+# distill), not here.
+ONLY_PHASES = {
+    "extract": ["extract"],
+    "vision": ["vision"],
+    "embed": ["embed"],
+    "post": ["build_biblio", "build_taxa", "backfill_intext", "reconcile"],
+}
+
+
+def select_steps(args: argparse.Namespace) -> List[Step]:
+    """Resolve the ordered step list to run from the CLI args.
+
+    Precedence: ``--only <phase>`` (single HPC phase, no chaining/
+    taxonomy-autobuild) > ``--skip-pipeline`` (post-pipeline only) >
+    ``--from <step>`` (suffix) > the full chain. The ingest_taxonomy
+    autobuild step is dropped unless it's actually needed (#64).
+    """
+    if args.only is not None:
+        names = ONLY_PHASES[args.only]
+        catalog = {s.name: s for s in [*STEPS, VISION_STEP]}
+        return [catalog[n] for n in names]
+
+    if args.skip_pipeline:
+        selected = [s for s in STEPS if s.name in POST_PIPELINE_STEPS]
+    elif args.from_step is not None:
+        idx = next(i for i, s in enumerate(STEPS) if s.name == args.from_step)
+        selected = list(STEPS[idx:])
+    else:
+        selected = list(STEPS)
+
+    # #64: drop ingest_taxonomy unless we actually need to (re)build the
+    # snapshot. The other DBs handle the same via their own --rebuild.
+    if _should_skip_taxonomy_ingest(args):
+        selected = [s for s in selected if s.name != "ingest_taxonomy"]
+    return selected
+
+
+def _batch_flags(args: argparse.Namespace) -> List[str]:
+    """`--batch-index/--batch-size` passthrough for HPC array slicing
+    (#corpus-run-hpc). Both must be set; otherwise no slicing."""
+    idx = getattr(args, "batch_index", None)
+    size = getattr(args, "batch_size", None)
+    if idx is not None and size is not None:
+        return ["--batch-index", str(idx), "--batch-size", str(size)]
+    return []
 
 
 def _should_skip_taxonomy_ingest(args: argparse.Namespace) -> bool:
@@ -252,6 +327,23 @@ def main() -> int:
         choices=[s.name for s in STEPS],
         help="Start from this step (skipping all earlier steps).",
     )
+    parser.add_argument(
+        "--only", choices=list(ONLY_PHASES), default=None,
+        help="Run only one phase, instead of the full chain — for HPC "
+             "where each phase maps to a separate SLURM job/partition: "
+             "extract (CPU), vision (GPU Pass 3b refresh), embed (GPU), "
+             "post (cross-paper DBs). Omit to run the whole pipeline.",
+    )
+    parser.add_argument(
+        "--batch-index", type=int, default=None,
+        help="0-based array-task index; with --batch-size, processes a "
+             "deterministic slice of the sorted hash list (SLURM job "
+             "arrays). Applies to the extract + vision phases.",
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=None,
+        help="PDFs per array task (pairs with --batch-index).",
+    )
     # #64 — auto-build cross-paper databases.
     parser.add_argument(
         "--taxonomy-source", choices=["worms", "dwc", "dwca"], default=None,
@@ -299,22 +391,13 @@ def main() -> int:
     # --resume, done.
 
     # Determine the step subset
-    if args.skip_pipeline and args.from_step:
-        parser.error("--skip-pipeline and --from are mutually exclusive")
+    if sum(bool(x) for x in (args.skip_pipeline, args.from_step, args.only)) > 1:
+        parser.error("--only, --skip-pipeline, and --from are mutually exclusive")
+    if args.batch_index is not None and args.only not in ("extract", "vision"):
+        parser.error("--batch-index/--batch-size apply only to "
+                     "--only extract or --only vision")
 
-    selected = list(STEPS)
-    if args.skip_pipeline:
-        selected = [s for s in selected if s.name in POST_PIPELINE_STEPS]
-    elif args.from_step is not None:
-        idx = next(i for i, s in enumerate(STEPS) if s.name == args.from_step)
-        selected = STEPS[idx:]
-
-    # #64: drop ingest_taxonomy if we don't need to (re)build the
-    # snapshot — this is the auto-detect part of "auto-build" cross-paper
-    # databases. The other DBs (biblio_authority, taxon_mentions) handle
-    # the same logic via their own --rebuild flags applied per-DB above.
-    if _should_skip_taxonomy_ingest(args):
-        selected = [s for s in selected if s.name != "ingest_taxonomy"]
+    selected = select_steps(args)
 
     logger.info("Running %d step(s):", len(selected))
     for s in selected:
