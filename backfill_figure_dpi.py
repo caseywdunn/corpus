@@ -45,147 +45,38 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from pipeline.figures import render_figures
+
 logger = logging.getLogger("backfill_figure_dpi")
-
-# Real figure crops worth re-rendering; skip journal furniture etc.
-_RENDERABLE_TYPES = {"figure", "plate", "subpanel", None}
-
-
-def _rect_for(bbox, coord_system: str, page_height: float):
-    """Translate a stored bbox to a PyMuPDF (top-left origin) rect.
-
-    docling stores ``[l, b, r, t]`` in bottom-left origin (``t > b``);
-    PyMuPDF's path already stored top-left ``[x0, y0, x1, y1]``.
-    """
-    import fitz  # PyMuPDF
-
-    l, a, r, b = (float(v) for v in bbox)
-    if coord_system == "pdf_pts_bottom_left":
-        # flip y: top-left y = page_height - (bottom-left y)
-        return fitz.Rect(l, page_height - b, r, page_height - a)
-    if coord_system == "pdf_pts_top_left":
-        return fitz.Rect(l, a, r, b)
-    return None  # unknown coord system → caller skips
-
-
-def _native_scale_for(doc, pg, rect, vector_dpi: float, max_dpi):
-    """Per-figure render scale for ``--native`` mode (#121).
-
-    Returns ``(scale, dpi, mode)``. For a figure whose region overlaps
-    embedded raster image(s), the scale reproduces the **densest**
-    overlapping source's native pixel density (a 600-dpi scan figure
-    renders at 600 dpi; a 150-dpi one at 150 — the value varies per
-    figure, nothing hardcoded). A pure-vector figure has no native
-    resolution, so it falls back to ``vector_dpi`` (default 300). An
-    optional ``max_dpi`` caps pathological full-page scans.
-
-    Density is px-per-point; ``fitz.Matrix(s, s)`` renders ``s`` px/pt,
-    so scale == density and dpi == 72 * density.
-    """
-    best_density = 0.0  # px per pt
-    for img in pg.get_images(full=True):
-        xref = img[0]
-        try:
-            rects = pg.get_image_rects(xref)
-        except Exception:
-            continue
-        for r in rects:
-            inter = r & rect
-            if inter.is_empty or inter.get_area() <= 1.0:  # no real overlap
-                continue
-            try:
-                info = doc.extract_image(xref)  # dims without full decode
-            except Exception:
-                continue
-            w_px, h_px = info.get("width", 0), info.get("height", 0)
-            if w_px <= 0 or h_px <= 0 or r.width <= 0 or r.height <= 0:
-                continue
-            best_density = max(best_density, w_px / r.width, h_px / r.height)
-
-    if best_density > 0:
-        scale, mode = best_density, "native"
-    else:
-        scale, mode = vector_dpi / 72.0, "vector_fallback"
-    if max_dpi and scale > max_dpi / 72.0:
-        scale, mode = max_dpi / 72.0, mode + "_capped"
-    return scale, round(scale * 72), mode
 
 
 def _backfill_paper(hash_dir: Path, *, native: bool, fixed_scale: float,
                     vector_dpi: float, max_dpi, dry_run: bool) -> dict:
-    import fitz  # PyMuPDF
-
-    stats = {"rendered": 0, "skipped_no_bbox": 0, "skipped_no_src": 0, "errors": 0}
+    """Re-render one paper's figures from its processed.pdf, via the shared
+    pipeline.figures.render_figures — the exact logic the extraction stage's
+    native default uses. Writes figures.json back when anything rendered."""
     figures_json = hash_dir / "figures.json"
     data = json.loads(figures_json.read_text(encoding="utf-8"))
     figures = data.get("figures", []) or []
 
     src_pdf = hash_dir / "processed.pdf"
     if not src_pdf.is_file():
-        stats["skipped_no_src"] = len(figures)
         logger.warning("%s: no processed.pdf — skipping %d figures",
                        hash_dir.name, len(figures))
-        return stats
+        return {"rendered": 0, "skipped_no_bbox": 0, "skipped_method": 0,
+                "skipped_no_src": len(figures), "errors": 0}
 
-    doc = fitz.open(src_pdf)
-    try:
-        changed = False
-        for fig in figures:
-            bbox = fig.get("bbox")
-            coord = fig.get("bbox_coord_system")
-            page = fig.get("page")
-            fname = fig.get("filename")
-            ftype = fig.get("figure_type")
-            if ftype not in _RENDERABLE_TYPES:
-                continue
-            if not bbox or not coord or not page or not fname:
-                stats["skipped_no_bbox"] += 1
-                continue
-            page_idx = int(page) - 1  # stored page is 1-based
-            if page_idx < 0 or page_idx >= doc.page_count:
-                stats["skipped_no_bbox"] += 1
-                continue
-            pg = doc[page_idx]
-            rect = _rect_for(bbox, coord, pg.rect.height)
-            if rect is None or rect.is_empty or rect.width <= 0 or rect.height <= 0:
-                stats["skipped_no_bbox"] += 1
-                continue
-            if native:
-                scale, dpi, mode = _native_scale_for(
-                    doc, pg, rect, vector_dpi, max_dpi)
-            else:
-                scale, dpi, mode = fixed_scale, round(fixed_scale * 72), "fixed"
-            png_path = hash_dir / "figures" / fname
-            try:
-                if dry_run:
-                    logger.info("[dry-run] %s/%s → %d×%d px (%d dpi, %s)",
-                                hash_dir.name, fname,
-                                round(rect.width * scale), round(rect.height * scale),
-                                dpi, mode)
-                else:
-                    pix = pg.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=rect)
-                    png_path.parent.mkdir(parents=True, exist_ok=True)
-                    pix.save(png_path)
-                    # Stamp resolution provenance + always record dims, so
-                    # stored figure resolution is auditable from figures.json
-                    # (closes the metadata gap for re-rendered figures).
-                    fig["width"], fig["height"] = pix.width, pix.height
-                    fig["images_scale"] = round(scale, 4)
-                    fig["render_dpi"] = dpi
-                    fig["resolution_mode"] = mode
-                    changed = True
-                stats["rendered"] += 1
-            except Exception as e:  # one bad figure must not abort the paper
-                logger.warning("%s/%s: render failed: %s", hash_dir.name, fname, e)
-                stats["errors"] += 1
-        if changed and not dry_run:
-            figures_json.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8",
-            )
-    finally:
-        doc.close()
+    stats = render_figures(
+        src_pdf, figures, hash_dir / "figures",
+        native=native, fixed_scale=fixed_scale, vector_dpi=vector_dpi,
+        max_dpi=max_dpi, dry_run=dry_run, label_prefix=f"{hash_dir.name}/",
+    )
+    stats["skipped_no_src"] = 0
+    if not dry_run and stats["rendered"]:
+        figures_json.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8",
+        )
     return stats
-
 
 def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(
@@ -236,8 +127,8 @@ def main(argv: Optional[list] = None) -> int:
         logger.error("--vector-dpi must be positive (got %s)", args.vector_dpi)
         return 2
 
-    totals = {"rendered": 0, "skipped_no_bbox": 0, "skipped_no_src": 0, "errors": 0,
-              "papers": 0}
+    totals = {"rendered": 0, "skipped_no_bbox": 0, "skipped_method": 0,
+              "skipped_no_src": 0, "errors": 0, "papers": 0}
     hash_dirs = sorted(d for d in docs.iterdir() if d.is_dir())
     if args.only:
         hash_dirs = [d for d in hash_dirs if d.name == args.only]

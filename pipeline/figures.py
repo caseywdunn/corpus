@@ -1745,3 +1745,155 @@ def generate_figures_report(hash_dir: Path) -> Optional[Path]:
     out = hash_dir / "figures_report.html"
     out.write_text("\n".join(parts), encoding="utf-8")
     return out
+
+
+# ---------------------------------------------------------------------------
+# Resolution-aware figure rendering (#121)
+# ---------------------------------------------------------------------------
+#
+# Shared by the extraction stage (default `native` mode) and
+# backfill_figure_dpi.py. Renders a figure's page region from the source
+# PDF at a chosen scale, so a figure's saved resolution can either track
+# its native source density (scans, embedded images) or use a fixed
+# scale. The render covers the bbox region (not the raw embedded image)
+# so vector annotations + composite raster/vector + multi-panel plates
+# survive at native fidelity.
+
+_NATIVE_SKIP_METHODS = ("pymupdf",)  # already native (raw xref pixmap)
+
+
+def figure_rect_for_bbox(bbox, coord_system: str, page_height: float):
+    """Translate a stored figure bbox to a PyMuPDF (top-left origin) Rect.
+
+    docling stores ``[l, b, r, t]`` bottom-left (``t > b``); the PyMuPDF
+    fallback already stores top-left ``[x0, y0, x1, y1]``. Returns a
+    ``fitz.Rect`` or ``None`` for an unknown coord system.
+    """
+    import fitz
+
+    l, a, r, b = (float(v) for v in bbox)
+    if coord_system == "pdf_pts_bottom_left":
+        return fitz.Rect(l, page_height - b, r, page_height - a)
+    if coord_system == "pdf_pts_top_left":
+        return fitz.Rect(l, a, r, b)
+    return None
+
+
+def native_render_scale(doc, page, rect, vector_dpi: float, max_dpi):
+    """Per-figure render scale for native mode (#121). Returns
+    ``(scale, dpi, mode)``.
+
+    A figure overlapping embedded raster image(s) renders at the densest
+    overlapping source's native pixel density (``px/pt``); ``fitz.Matrix
+    (s, s)`` renders ``s`` px/pt so ``scale == density`` and ``dpi ==
+    72*density``. A pure-vector figure (no overlap) has no native
+    resolution → ``vector_dpi`` fallback. ``max_dpi`` optionally caps it.
+    """
+    best_density = 0.0  # px per pt
+    for img in page.get_images(full=True):
+        xref = img[0]
+        try:
+            rects = page.get_image_rects(xref)
+        except Exception:
+            continue
+        for r in rects:
+            inter = r & rect
+            if inter.is_empty or inter.get_area() <= 1.0:
+                continue
+            try:
+                info = doc.extract_image(xref)
+            except Exception:
+                continue
+            w_px, h_px = info.get("width", 0), info.get("height", 0)
+            if w_px <= 0 or h_px <= 0 or r.width <= 0 or r.height <= 0:
+                continue
+            best_density = max(best_density, w_px / r.width, h_px / r.height)
+
+    if best_density > 0:
+        scale, mode = best_density, "native"
+    else:
+        scale, mode = vector_dpi / 72.0, "vector_fallback"
+    if max_dpi and scale > max_dpi / 72.0:
+        scale, mode = max_dpi / 72.0, mode + "_capped"
+    return scale, round(scale * 72), mode
+
+
+def render_figures(
+    pdf_path: Path,
+    figures: List[Dict],
+    figures_dir: Path,
+    *,
+    native: bool,
+    fixed_scale: float = 2.0,
+    vector_dpi: float = 300.0,
+    max_dpi=None,
+    dry_run: bool = False,
+    label_prefix: str = "",
+) -> Dict[str, int]:
+    """Render each figure record's PNG from its bbox + ``pdf_path`` (#121).
+
+    ``native=True`` renders every docling-path figure at its source's
+    native DPI (vector fallback ``vector_dpi``); ``native=False`` uses
+    ``fixed_scale`` (DPI = 72*scale). Figures from the PyMuPDF fallback
+    are skipped (already native via raw xref). Mutates each rendered
+    ``fig`` with ``width``/``height``/``images_scale``/``render_dpi``/
+    ``resolution_mode``. Returns counts.
+    """
+    import fitz
+
+    stats = {"rendered": 0, "skipped_no_bbox": 0, "skipped_method": 0, "errors": 0}
+    if not Path(pdf_path).is_file():
+        stats["skipped_no_bbox"] = len(figures)
+        return stats
+
+    doc = fitz.open(str(pdf_path))
+    try:
+        for fig in figures:
+            if fig.get("extraction_method") in _NATIVE_SKIP_METHODS:
+                stats["skipped_method"] += 1
+                continue
+            bbox = fig.get("bbox")
+            coord = fig.get("bbox_coord_system")
+            page = fig.get("page")
+            fname = fig.get("filename")
+            if not bbox or not coord or not page or not fname:
+                stats["skipped_no_bbox"] += 1
+                continue
+            page_idx = int(page) - 1
+            if page_idx < 0 or page_idx >= doc.page_count:
+                stats["skipped_no_bbox"] += 1
+                continue
+            pg = doc[page_idx]
+            rect = figure_rect_for_bbox(bbox, coord, pg.rect.height)
+            if rect is None or rect.is_empty or rect.width <= 0 or rect.height <= 0:
+                stats["skipped_no_bbox"] += 1
+                continue
+
+            if native:
+                scale, dpi, mode = native_render_scale(doc, pg, rect, vector_dpi, max_dpi)
+            else:
+                scale, dpi, mode = fixed_scale, round(fixed_scale * 72), "fixed"
+
+            if dry_run:
+                logger.info("[dry-run] %s%s → %d×%d px (%d dpi, %s)",
+                            label_prefix, fname,
+                            round(rect.width * scale), round(rect.height * scale),
+                            dpi, mode)
+                stats["rendered"] += 1
+                continue
+            try:
+                pix = pg.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=rect)
+                out_path = figures_dir / fname
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                pix.save(str(out_path))
+                fig["width"], fig["height"] = pix.width, pix.height
+                fig["images_scale"] = round(scale, 4)
+                fig["render_dpi"] = dpi
+                fig["resolution_mode"] = mode
+                stats["rendered"] += 1
+            except Exception as e:
+                logger.warning("%s%s: render failed: %s", label_prefix, fname, e)
+                stats["errors"] += 1
+    finally:
+        doc.close()
+    return stats

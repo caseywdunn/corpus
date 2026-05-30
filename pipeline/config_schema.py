@@ -85,17 +85,39 @@ class FiguresConfig(BaseModel):
         description="Override the per-backend default vision model "
         "(e.g. claude-sonnet-4-6-20251001); used only by the vision-* modes.",
     )
+    resolution_mode: Literal["native", "fixed"] = Field(
+        default="native",
+        description="How saved figure resolution is chosen (#121). "
+        "'native' (default) renders each figure at its source's native "
+        "pixel density — a 600-dpi scan figure stays 600 dpi, a vector "
+        "figure uses `vector_dpi` — so resolution tracks the source and "
+        "varies per figure. 'fixed' renders every figure at the single "
+        "`images_scale` instead. Applies to future ingests only; lift an "
+        "existing bundle with backfill_figure_dpi.py.",
+    )
+    vector_dpi: float = Field(
+        default=300.0,
+        gt=0.0,
+        le=1200.0,
+        description="Native mode (#121): render DPI for vector figures, "
+        "which have no native resolution. Default 300 (print-grade).",
+    )
+    max_dpi: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Native mode (#121): optional ceiling so a dense "
+        "full-page scan figure doesn't render to a pathologically large "
+        "PNG. Default: uncapped.",
+    )
     images_scale: float = Field(
         default=2.0,
         ge=1.0,
         le=8.0,
-        description="Docling figure rasterization scale (#121). Saved "
-        "figure DPI = 72 * images_scale, fixed at extraction time and "
-        "never resized downstream. 1.0 = 72 dpi (the pre-v0.6 default, "
-        "grainy in print); 2.0 = 144 dpi (default); 3.0 = 216 dpi; 4.0 = "
-        "288 dpi (print-grade, ~16x the disk of 1.0). Raise for "
-        "publication-bound corpuscles. Applies to future ingests only — "
-        "re-extract or run backfill_figure_dpi.py for an existing bundle.",
+        description="Fixed mode (#121, resolution_mode: fixed): figure "
+        "rasterization scale. Saved figure DPI = 72 * images_scale. "
+        "1.0 = 72 dpi (pre-v0.6 default, grainy in print); 2.0 = 144 dpi; "
+        "3.0 = 216; 4.0 = 288 (print-grade). Ignored in the default "
+        "'native' mode.",
     )
 
 
