@@ -106,6 +106,14 @@ _DEFAULT_CONFIG = {
     "chunking": {
         "max_tokens": 8191,
     },
+    # Figure rasterization scale (#121). Saved figure DPI = 72 * scale,
+    # fixed at extraction time. Must stay in sync with
+    # config_schema.FiguresConfig.images_scale + config.template.yaml.
+    # (figures.panel_detection lives in the pydantic FiguresConfig; the
+    # pipeline reads that via the CLI flow, not this CONFIG global.)
+    "figures": {
+        "images_scale": 2.0,
+    },
     # Per-stage wallclock caps in seconds (#34). Hard-enforced where
     # technically feasible (subprocess.run on ocrmypdf; GrobidClient
     # request timeout). Stages without a hard-cap mechanism still record

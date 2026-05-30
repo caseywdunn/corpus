@@ -85,6 +85,18 @@ class FiguresConfig(BaseModel):
         description="Override the per-backend default vision model "
         "(e.g. claude-sonnet-4-6-20251001); used only by the vision-* modes.",
     )
+    images_scale: float = Field(
+        default=2.0,
+        ge=1.0,
+        le=8.0,
+        description="Docling figure rasterization scale (#121). Saved "
+        "figure DPI = 72 * images_scale, fixed at extraction time and "
+        "never resized downstream. 1.0 = 72 dpi (the pre-v0.6 default, "
+        "grainy in print); 2.0 = 144 dpi (default); 3.0 = 216 dpi; 4.0 = "
+        "288 dpi (print-grade, ~16x the disk of 1.0). Raise for "
+        "publication-bound corpuscles. Applies to future ingests only — "
+        "re-extract or run backfill_figure_dpi.py for an existing bundle.",
+    )
 
 
 class GrobidConfig(BaseModel):
