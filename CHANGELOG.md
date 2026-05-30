@@ -61,7 +61,20 @@ a consistent pagination convention; this is the surface 1.0 freezes.
   `--figure-panels {ocr,vision-local,vision-claude,off}` (default
   `ocr`, a CPU-only floor). A legacy `vision:` block now fails config
   validation with the migration mapping. Existing corpuscles re-run the
-  figure stage once on the next `corpus run`.
+  figure stage once on the next `corpus run`. `corpus run` accepts
+  `--figure-panels` as a per-run override of `figures.panel_detection`;
+  `--no-vision` is now a deprecated alias for `--figure-panels ocr`.
+- **Figure resolution: native per-figure DPI by default**
+  ([#121](https://github.com/caseywdunn/corpus/issues/121)). Figures
+  were rasterized at docling's 72 dpi default and looked grainy in
+  print. Extraction now defaults to `figures.resolution_mode: native`:
+  each figure is rendered at its **source's native pixel density** (a
+  600-dpi scan figure stays 600 dpi — resolution varies per figure),
+  with `figures.vector_dpi` (default 300) for resolution-less vector
+  figures and an optional `figures.max_dpi` cap. `resolution_mode:
+  fixed` keeps a uniform `figures.images_scale` (default 2.0 → 144 dpi)
+  instead. Affects future ingests only; lift an existing bundle with
+  `backfill_figure_dpi.py --native`.
 
 ### Added
 
@@ -85,6 +98,10 @@ a consistent pagination convention; this is the surface 1.0 freezes.
   ([#92](https://github.com/caseywdunn/corpus/issues/92)).
 - **Per-tool instrumentation shim** in `mcpsrv/app.py` (call/error/
   latency counters) feeding `/healthz` and the run log.
+- **`backfill_figure_dpi.py`** re-renders an existing bundle's figures
+  in place from their stored bbox + source PDF, at a fixed `--scale` or
+  `--native` (per-figure source DPI), without re-running docling
+  ([#121](https://github.com/caseywdunn/corpus/issues/121)).
 
 ### Fixed
 
@@ -102,6 +119,13 @@ a consistent pagination convention; this is the surface 1.0 freezes.
   ([#97](https://github.com/caseywdunn/corpus/issues/97)).
 - **WoRMS `isMarine=0` gap documented**
   ([#96](https://github.com/caseywdunn/corpus/issues/96)).
+- **Diacritic author lookup**
+  ([#122](https://github.com/caseywdunn/corpus/issues/122)):
+  `get_works_by_author("Müller")` returned 0 while `"Muller"` returned
+  the real set — the `surname_normalized` column is diacritic-stripped
+  at build but was queried with a plain `.strip().lower()`. Every author
+  site now queries with the same `normalize_for_key` normalizer (`Müller
+  ≡ Muller`; `Mueller` stays distinct). Serve-side fix — no rebuild.
 
 ### Migration (v0.5 → v0.6)
 
@@ -115,7 +139,8 @@ a consistent pagination convention; this is the surface 1.0 freezes.
 | `get_figures_for_taxon` full `caption_text` | caption preview; `full_caption=True` for verbatim |
 | server flag `--allow-unpublishable` | server `--default-profile` + per-call `profile=` |
 | config `vision.backend: {none,local,claude}` | config `figures.panel_detection: {off,ocr,vision-local,vision-claude}` (default `ocr`) |
-| CLI `--vision-backend` / `--content-aware-figures` | CLI `--figure-panels {ocr,vision-local,vision-claude,off}` |
+| CLI `--vision-backend` / `--content-aware-figures` | CLI `--figure-panels {ocr,vision-local,vision-claude,off}` (on both `corpus run` and `pipeline.main`); `--no-vision` → alias for `--figure-panels ocr` |
+| figures rendered at a fixed 72 dpi | `figures.resolution_mode: native` (default) — per-figure source DPI; `fixed` + `figures.images_scale` for uniform DPI; `backfill_figure_dpi.py --native` lifts existing bundles |
 
 ## [0.5.0] - 2026-05-29
 
