@@ -73,6 +73,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free up disk space
+        # The ubuntu-24.04 runner ships ~25–30 GB of preinstalled
+        # toolchains we never use (Android SDK, .NET, GHC/ghcup, CodeQL).
+        # The conda solve + BGE-M3 model + Grobid service image have
+        # intermittently exhausted the disk at "Set up miniforge" with
+        # `No space left on device`. Reclaim the big unused dirs up front.
+        #
+        # Done as a plain `rm -rf` rather than a third-party action to
+        # keep CI dependency-light (matches the action-pinning hygiene
+        # here) and to avoid any chance of disturbing the running Grobid
+        # `services:` container. Best-effort: missing paths must not fail
+        # the job (`|| true`). No `docker image prune` — Grobid's image
+        # is in use by the live service container.
+        run: |
+          echo "disk before:"; df -h /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL || true
+          echo "disk after:"; df -h /
+
       - name: Set up miniforge + conda env
         uses: conda-incubator/setup-miniconda@v3
         with:
