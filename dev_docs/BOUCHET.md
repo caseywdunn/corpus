@@ -37,7 +37,7 @@ cache/huggingface/  ← model cache (see below)
 
 ```bash
 module load miniconda
-conda env create -f ~/project/corpus/environment.yaml
+conda env create -f "$BOUCHET_PROJECT/corpus/environment.yaml"
 conda activate corpus
 ```
 
@@ -59,8 +59,13 @@ Verify with `python -c "import torch; print(torch.__version__, torch.cuda.is_ava
 Do this once on an interactive node (login nodes usually block outbound internet; request a compute node with `salloc -p interactive -t 0:30:00`):
 
 ```bash
-export HF_HOME=~/project/cache/huggingface
-export TRANSFORMERS_CACHE=$HF_HOME/hub
+# Pre-download into the SAME cache the batch jobs read —
+# $BOUCHET_PROJECT/cache/huggingface, the path slurm/bouchet_paths.sh
+# exports as HF_HOME. Don't use ~/project/... here: if it doesn't
+# resolve to $BOUCHET_PROJECT, the jobs won't find these weights and
+# re-download them (the "Stale HF_HOME" pitfall below).
+export HF_HOME="$BOUCHET_PROJECT/cache/huggingface"
+export TRANSFORMERS_CACHE="$HF_HOME/hub"
 
 # BGE-M3 (embeddings) — ~2 GB
 python -c "from sentence_transformers import SentenceTransformer; \
@@ -73,7 +78,34 @@ python -c "from transformers import AutoProcessor, \
     Qwen2_5_VLForConditionalGeneration.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct')"
 ```
 
-Batch jobs set `HF_HOME` to the same path so they see the cached weights without re-downloading.
+Batch jobs read the same `HF_HOME` (set by `slurm/bouchet_paths.sh` to
+`$BOUCHET_PROJECT/cache/huggingface`), so they pick up these weights
+without re-downloading.
+
+**Is the pre-download idempotent?** *Partly.* Re-running these commands is
+safe and a near-no-op when nothing changed upstream — `huggingface_hub`
+HEAD-checks each file's etag against the cache and fetches only what
+differs. But `from_pretrained(...)` / `SentenceTransformer(...)` resolve
+the model's **`main` revision**, not a pinned commit, so the download is
+**not version-locked**: if `BAAI/bge-m3` or the Qwen repo publishes a new
+revision upstream, the next run pulls it into a new cache snapshot. That
+can change behavior — a changed bge-m3 silently makes fresh query vectors
+inconsistent with a `vector_db/lancedb` index built from the old weights
+(same dimension, different values), and a changed Qwen alters Pass 3b
+output.
+
+Check what's cached and which commit each model currently resolves to:
+
+```bash
+huggingface-cli scan-cache                          # repos, REVISION (commit), refs, size, path
+cat "$HF_HOME/hub/models--BAAI--bge-m3/refs/main"    # the commit `main` points at right now
+```
+
+For a reproducible build, **pin a commit** — pass `revision="<sha>"` to
+`SentenceTransformer(..., revision=...)` / `from_pretrained(...,
+revision=...)` and record it — and/or set `HF_HUB_OFFLINE=1` in the batch
+environment so a job can never reach out and pull a newer revision: it
+uses exactly the snapshot cached here or fails loudly.
 
 ### 4. Grobid as a Singularity service
 
@@ -126,7 +158,7 @@ sbatch --job-name=corpus-sample-embed \
     slurm/batch_embed.sh
 ```
 
-Inspect `~/project/output_sample/documents/<HASH>/summary.json` and `figures_report.html` for a handful of papers. Confirm:
+Inspect `$BOUCHET_PROJECT/output_sample/documents/<HASH>/summary.json` and `figures_report.html` for a handful of papers. Confirm:
 
 - Grobid metadata populated (`metadata.json`)
 - Figures extracted + captioned, panels listed in `figures.json`
@@ -255,6 +287,6 @@ Adjust walltimes if the corpus grows beyond ~2000 papers.
 - **Login nodes can't download models.** HF and other downloads must run on a compute node via `salloc`. Trying to pre-cache from a login node will hit outbound-firewall blocks.
 - **Stale `HF_HOME`.** If a job re-downloads a model, `HF_HOME` isn't being honored — check that the export in the SLURM script points to a path you actually populated.
 - **Grobid URL.** SLURM compute nodes can't talk to your laptop's `localhost:8070` — `GROBID_URL` must resolve to a host visible from the job's node. If the Grobid node goes down mid-run, subsequent papers get placeholder metadata; `--resume` won't retry them without `--no-resume` or manually deleting `metadata.json`.
-- **LFS on stage 1.** If stage 1 can't see the full PDFs (only LFS pointers), re-run `git lfs pull` in `~/project/siphonophores`.
+- **LFS on stage 1.** If stage 1 can't see the full PDFs (only LFS pointers), re-run `git lfs pull` in `$BOUCHET_PROJECT/siphonophores`.
 - **GPU partition trap for Pass 3b.** `rtx_5000_ada` nodes on the `gpu` partition carry an older NVIDIA driver (`nvidia-smi` reports CUDA 12.8 but torch 2.9.0+cu128 rejects it as "too old") and silently fall back to CPU, where Qwen2.5-VL-7B is unusable. Always submit Pass 3b to `gpu_h200 --gpus=h200:1`. A pre-flight `python -c "import torch; assert torch.cuda.is_available()"` in `slurm/batch_pass3b.sh` aborts the job early if this is ever regressed.
 - **lmod module cache flakiness.** `module load CUDA/12.6.0` occasionally errors with `CUDA/12.6.0.lua: Empty or non-existent file` even though `module spider CUDA` lists it. `slurm/batch_pass3b.sh` now skips the explicit CUDA module entirely — torch 2.9.0+cu128 ships bundled CUDA userspace libs in `site-packages/nvidia/` and works without it on gpu_h200. If another script hits this, retry with `module --ignore-cache load …`.
