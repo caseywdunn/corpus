@@ -120,7 +120,7 @@ client.messages.create(
 Two breakpoints land below the ~5 k-token cache-eligibility floor on typical bundles:
 
 - **System prompt** (`mcpsrv/default_instructions.md` concatenated with any corpuscle-specific `instructions.md`): ~500–1500 tokens.
-- **Tool catalog** (42 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
+- **Tool catalog** (39 tools × ~100 tokens after the #81 docstring trim): ~4 k tokens.
 
 Together ~5 k tokens get cached across all turns of a session — a non-trivial saving on conversations that fan out into many tool-use rounds. Cache lives ~5 minutes by default; subsequent sessions against the same build hit the same cache lines.
 
