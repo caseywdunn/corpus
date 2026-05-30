@@ -112,6 +112,12 @@ _DEFAULT_CONFIG = {
     # (figures.panel_detection lives in the pydantic FiguresConfig; the
     # pipeline reads that via the CLI flow, not this CONFIG global.)
     "figures": {
+        # 'native' (default) renders each figure at its source's native
+        # pixel density (#121); vector figures fall back to vector_dpi.
+        # 'fixed' uses images_scale for every figure instead.
+        "resolution_mode": "native",
+        "vector_dpi": 300.0,
+        "max_dpi": None,
         "images_scale": 2.0,
     },
     # Per-stage wallclock caps in seconds (#34). Hard-enforced where

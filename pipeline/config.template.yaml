@@ -69,12 +69,17 @@ figures:
                          #         vision-claude (Anthropic API; needs ANTHROPIC_API_KEY),
                          #         off (no panel-ROI detection)
   # model: claude-sonnet-4-6-20251001   # optional override (vision-* modes)
-  images_scale: 2.0      # figure rasterization scale (#121): saved DPI = 72 * scale.
-                         #   1.0 = 72 dpi (grainy in print), 2.0 = 144 (default),
-                         #   3.0 = 216, 4.0 = 288 (print-grade, ~16x disk vs 1.0).
-                         # Raise for publication-bound corpuscles. Future ingests
-                         # only — re-extract or run backfill_figure_dpi.py to lift
-                         # an existing bundle.
+
+  # Figure resolution (#121). 'native' (default) renders each figure at its
+  # source's native pixel density — a 600-dpi scan figure stays 600 dpi —
+  # so resolution varies per figure rather than one hardcoded value.
+  resolution_mode: native   # native | fixed
+  vector_dpi: 300           # native mode: render DPI for vector figures
+                            #   (no native resolution exists). Default 300.
+  # max_dpi: 600            # native mode: optional ceiling for dense scans.
+  # images_scale: 2.0       # fixed mode only: uniform DPI = 72 * scale.
+  # Future ingests only — run backfill_figure_dpi.py --native to lift an
+  # existing bundle.
 
 # Grobid (PDF metadata + reference parsing). Runs as a Docker service;
 # see README §Grobid.

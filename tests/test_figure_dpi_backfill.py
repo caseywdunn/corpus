@@ -163,6 +163,50 @@ def test_native_max_dpi_caps_dense_source(tmp_path):
     assert rec["render_dpi"] == 100
 
 
+def test_resolution_mode_defaults_to_native():
+    from pipeline.config_schema import CorpuscleConfig
+    f = CorpuscleConfig().figures
+    assert f.resolution_mode == "native"
+    assert f.vector_dpi == 300.0
+    assert f.max_dpi is None
+    from pipeline.config import _DEFAULT_CONFIG
+    assert _DEFAULT_CONFIG["figures"]["resolution_mode"] == "native"
+
+
+def test_render_figures_skips_pymupdf_method(tmp_path):
+    """PyMuPDF-fallback figures are already native (raw xref) — the
+    native pass must skip them, not re-render."""
+    import fitz
+    from pipeline.figures import render_figures
+
+    pdf = tmp_path / "src.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=600, height=800)
+    pm = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 400, 300))
+    pm.clear_with(180)
+    page.insert_image(fitz.Rect(100, 100, 200, 175), pixmap=pm)
+    doc.save(pdf)
+    doc.close()
+
+    figs_dir = tmp_path / "figures"
+    figs_dir.mkdir()
+    figures = [
+        {"figure_id": "d1", "filename": "d1.png", "page": 1,
+         "bbox": [100, 100, 200, 175], "bbox_coord_system": "pdf_pts_top_left",
+         "extraction_method": "docling"},
+        {"figure_id": "p1", "filename": "p1.png", "page": 1,
+         "bbox": [100, 100, 200, 175], "bbox_coord_system": "pdf_pts_top_left",
+         "extraction_method": "pymupdf"},
+    ]
+    stats = render_figures(pdf, figures, figs_dir, native=True, vector_dpi=300)
+    assert stats["rendered"] == 1
+    assert stats["skipped_method"] == 1
+    assert (figs_dir / "d1.png").exists()
+    assert not (figs_dir / "p1.png").exists()
+    assert figures[0]["resolution_mode"] == "native"
+    assert "resolution_mode" not in figures[1]  # untouched
+
+
 def test_backfill_skips_figure_without_bbox(tmp_path):
     hd = tmp_path / "documents" / "deadbeef0001"
     (hd / "figures").mkdir(parents=True)
