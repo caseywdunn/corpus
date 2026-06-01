@@ -3,7 +3,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=16G
 #SBATCH --time=4:00:00
 #SBATCH --output=logs/slurm-embed-%j.out
 #SBATCH --error=logs/slurm-embed-%j.err

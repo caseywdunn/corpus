@@ -3,7 +3,7 @@
 #SBATCH --partition=gpu_h200
 #SBATCH --gpus=h200:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=16G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-pass3b-%A_%a.out
 #SBATCH --error=logs/slurm-pass3b-%A_%a.err

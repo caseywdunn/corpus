@@ -2,7 +2,7 @@
 #SBATCH --job-name=corpus-stage1
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=128G
+#SBATCH --mem=256G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-stage1-%A_%a.out
 #SBATCH --error=logs/slurm-stage1-%A_%a.err

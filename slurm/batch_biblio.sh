@@ -2,7 +2,7 @@
 #SBATCH --job-name=biblio-authority
 #SBATCH --partition=week
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=8G
+#SBATCH --mem=32G
 #SBATCH --time=7-00:00:00
 #SBATCH --output=logs/slurm-biblio-%j.out
 #SBATCH --error=logs/slurm-biblio-%j.err

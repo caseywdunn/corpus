@@ -2,7 +2,7 @@
 #SBATCH --job-name=corpus-finalize
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=8G
+#SBATCH --mem=32G
 #SBATCH --time=12:00:00
 #SBATCH --output=logs/slurm-finalize-%j.out
 #SBATCH --error=logs/slurm-finalize-%j.err
