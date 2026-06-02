@@ -75,7 +75,21 @@ logger = logging.getLogger("package_for_serve")
 # /workspace, /scratch, /data, /export, etc. Earlier revisions allow-
 # listed a short set of roots — that left /private, /tmp, /Volumes
 # leaking through the audit.
-_ABS_PATH_RE = re.compile(r'^/[A-Za-z0-9_.+-]+/')
+#
+# Two false-positive classes excluded via regex + caller guard:
+#   1. PDF glyph codes (/G03/G38/, /G3/G71/, /c81f5/c8167/...): first
+#      component is one letter + one or more hex digits — excluded by
+#      (?![A-Za-z][0-9A-Fa-f]+/). Real path roots (nfs, home, tmp, var,
+#      …) always contain at least one non-hex character after the first
+#      letter (e.g. 'n'+'f's', not all-hex), so the lookahead never fires
+#      on them. Purely-hex names like /cafe/ would be silently skipped —
+#      acceptable on HPC systems where roots are human-readable words.
+#   2. DOI/URL fragments (/10.1016/j.ocemod.2012.10.007) and glyph+text
+#      strings (/journal/rsos R. Soc., /g20/g17 This is...): DOIs start
+#      with a digit, excluded by requiring [A-Za-z] as the first char.
+#      Strings with spaces are excluded by the ``' ' not in s`` guard in
+#      the caller (real filesystem paths never contain spaces on HPC).
+_ABS_PATH_RE = re.compile(r'^/(?![A-Za-z][0-9A-Fa-f]+/)[A-Za-z][A-Za-z0-9_.+-]+/')
 
 # The per-paper whitelist.  Top-level files only — figures/ is handled
 # separately as a directory copy.
@@ -541,7 +555,7 @@ def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
         except Exception:
             continue
         for s in _walk_strings(data):
-            if _ABS_PATH_RE.match(s):
+            if ' ' not in s and _ABS_PATH_RE.match(s):
                 offenders.append((str(jp.relative_to(serve_dir)), s[:120]))
                 break  # one offender per file is enough to flag it
     return offenders

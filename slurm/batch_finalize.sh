@@ -38,6 +38,12 @@ source "$SCRIPT_DIR/bouchet_paths.sh"
 
 cd "$REPO_DIR"
 
+# ── Environment ──────────────────────────────────────────────────────
+module purge
+module load miniconda
+eval "$(conda shell.bash hook)"
+conda activate corpus
+
 ENRICH_BHL="${ENRICH_BHL:-0}"
 SKIP_BUNDLE="${SKIP_BUNDLE:-0}"
 
