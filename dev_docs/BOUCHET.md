@@ -118,7 +118,43 @@ corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" run --dry-run
 phase scripts find it with no extra flags. To build a *different* corpuscle,
 export `CORPUS_CONFIG=/path/to/other/config.yaml` before submitting.
 
-### 4. Pre-download HuggingFace models
+### 4. Pre-build the taxonomy
+
+**Do this before submitting any batch jobs.** Batch compute nodes on Bouchet
+do not have outbound internet access, so `source: worms` will silently fail
+during `corpus run --only extract` — taxon extraction is skipped and
+`taxonomy.sqlite` is never written. Build it on the login node (which does
+have internet) before the first pipeline submission:
+
+```bash
+conda activate corpus
+corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" taxonomy ingest --source worms
+# → writes siphonophore_corpuscle/taxonomy.sqlite (~700 KB, takes ~1–2 min)
+```
+
+Then export it as a portable DwC-A zip and update `config.yaml` to use the
+local file. This makes future runs — including on nodes without internet —
+ingest from the zip in seconds instead of walking the WoRMS REST API:
+
+```bash
+corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" taxonomy export \
+    -o "$BOUCHET_PROJECT/siphonophores/taxonomy.dwca.zip"
+```
+
+Update `config.yaml`:
+
+```yaml
+taxonomy:
+  source: dwca
+  path: ../siphonophores/taxonomy.dwca.zip   # local; works on isolated compute nodes
+  root_id: 1371
+```
+
+Commit `taxonomy.dwca.zip` to the siphonophores repo so the taxonomy is
+version-controlled alongside the PDFs and bib file. If WoRMS upstream changes
+significantly, regenerate with `--source worms` and re-export.
+
+### 4b. Pre-download HuggingFace models
 
 Do this once on an interactive node (login nodes usually block outbound internet; request a compute node with `salloc -p interactive -t 0:30:00`):
 
@@ -270,10 +306,11 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 NUM_BATCHES=4 BATCH_SIZE=512 bash slurm/batch_pipeline.sh
 
 # Parallelize Pass 3b too — useful when figure-heavy corpora make the
-# vision pass the long pole. NUM_PASS3B_BATCHES = ceil(total_papers /
-# PASS3B_BATCH_SIZE). gpu_h200 partition has limited slots, so check
-# `sinfo -p gpu_h200` before fanning out aggressively.
-NUM_BATCHES=8 NUM_PASS3B_BATCHES=4 bash slurm/batch_pipeline.sh
+# vision pass the long pole. NUM_PASS3B_BATCHES should equal NUM_BATCHES
+# so every paper is covered (default is now $NUM_BATCHES when unset).
+# gpu_h200 partition has limited slots, so check `sinfo -p gpu_h200`
+# before fanning out aggressively.
+NUM_BATCHES=8 NUM_PASS3B_BATCHES=8 bash slurm/batch_pipeline.sh
 ```
 
 The orchestrator:
