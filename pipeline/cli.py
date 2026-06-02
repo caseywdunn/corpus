@@ -994,7 +994,63 @@ def _cmd_check(args: argparse.Namespace) -> int:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
             pstatus(f"input_pdfs: {input_dir} not found", status="fail")
 
-    # 7. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
+    # 7. Taxonomy source availability
+    if cfg.taxonomy.source is not None:
+        db_path = output_dir / "taxonomy.sqlite"
+        if cfg.taxonomy.source == "worms":
+            # WoRMS reaches out to the network. On an internet-connected node
+            # a first `corpus run` will build taxonomy.sqlite automatically.
+            # On HPC compute nodes (no outbound internet), the sqlite must be
+            # pre-built on a login node first — `corpus run --only extract`
+            # will fail loudly if it is absent.
+            if db_path.exists():
+                pstatus(
+                    f"Taxonomy: {db_path.name} present (WoRMS pre-built)",
+                    status="ok",
+                )
+            else:
+                pstatus(
+                    "Taxonomy: taxonomy.sqlite not yet built — WoRMS will be "
+                    "fetched on first run (requires internet; pre-build on a "
+                    "login node before submitting HPC array jobs)",
+                    status="warn",
+                )
+        else:  # dwca / dwc
+            tx_path = (
+                _resolve_against(config_path, cfg.taxonomy.path)
+                if cfg.taxonomy.path is not None else None
+            )
+            if tx_path is None:
+                failures.append(
+                    f"taxonomy.source={cfg.taxonomy.source!r} but "
+                    "taxonomy.path is not set in config."
+                )
+                pstatus(
+                    f"Taxonomy: source={cfg.taxonomy.source!r}, path not set",
+                    status="fail",
+                )
+            elif not tx_path.exists():
+                failures.append(
+                    f"taxonomy.source={cfg.taxonomy.source!r} but "
+                    f"taxonomy.path={tx_path} does not exist."
+                )
+                pstatus(f"Taxonomy: {tx_path} not found", status="fail")
+            elif db_path.exists():
+                pstatus(
+                    f"Taxonomy: {db_path.name} present "
+                    f"(source: {cfg.taxonomy.source})",
+                    status="ok",
+                )
+            else:
+                # Archive/dir is present but sqlite not yet built — the next
+                # full `corpus run` will build it via ingest_taxonomy.
+                pstatus(
+                    f"Taxonomy: {tx_path.name} found, "
+                    f"{db_path.name} not yet built (will be created on first run)",
+                    status="warn",
+                )
+
+    # 8. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
     # env in the unsupported macOS x86_64 matrix (Apple dropped Intel-mac
     # torch wheels after 2.2, breaking docling + transformers ≥ 5). Hard
     # fail loud rather than letting `corpus run` discover it deep in a

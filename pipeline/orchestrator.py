@@ -233,6 +233,71 @@ def _batch_flags(args: argparse.Namespace) -> List[str]:
     return []
 
 
+def _check_taxonomy_available(
+    args: argparse.Namespace, selected: List[Step]
+) -> Optional[str]:
+    """Return an error string if taxonomy is configured but unavailable.
+
+    Two failure modes:
+
+    * ``ingest_taxonomy`` is *not* in the selected steps (e.g. ``--only
+      extract`` on an HPC compute node) but ``taxonomy.sqlite`` is absent
+      — the extract step will silently skip taxon annotation. Fail before
+      any work starts so the operator knows to pre-build the taxonomy on a
+      network-connected node first.
+
+    * Source is ``dwca`` or ``dwc`` and the local archive/directory path
+      does not exist — ``ingest_taxonomy`` would fail immediately; surface
+      this sooner with a more descriptive message.
+    """
+    if not args.taxonomy_source:
+        return None
+
+    step_names = {s.name for s in selected}
+
+    if "ingest_taxonomy" in step_names:
+        # ingest_taxonomy will run — only check that local path exists for
+        # file-based sources (worms reaches out to the network, which the
+        # step itself will fail on if unavailable).
+        if args.taxonomy_source in ("dwca", "dwc"):
+            tx_path = getattr(args, "taxonomy_path", None)
+            if tx_path is None or not Path(tx_path).exists():
+                path_str = str(tx_path) if tx_path is not None else "(not set)"
+                return (
+                    f"taxonomy.source={args.taxonomy_source!r} requires a local "
+                    f"archive but taxonomy.path={path_str!r} does not exist. "
+                    "Provide a valid DwC-A archive or DwC directory."
+                )
+        return None  # ingest_taxonomy will handle the rest
+
+    # ingest_taxonomy is NOT in the selected steps — taxonomy.sqlite must
+    # already exist for taxon annotation to work.
+    db_path = getattr(args, "taxonomy_db", None) or (args.output_dir / "taxonomy.sqlite")
+    if Path(db_path).exists():
+        return None
+
+    if args.taxonomy_source == "worms":
+        hint = (
+            "WoRMS requires internet access. HPC compute nodes are "
+            "network-restricted, so the taxonomy must be pre-built on a "
+            "login node before submitting the array job. Options:\n"
+            "  1. Run `corpus run --only ingest_taxonomy` on the login node.\n"
+            "  2. Export a WoRMS subtree as a DwC-A snapshot, copy it to "
+            "the project dir, and switch config to source: dwca."
+        )
+    else:  # dwca / dwc
+        tx_path = getattr(args, "taxonomy_path", None)
+        path_str = str(tx_path) if tx_path is not None else "(path not set)"
+        hint = (
+            f"Run `corpus run --only ingest_taxonomy` to build it from "
+            f"{path_str}."
+        )
+    return (
+        f"taxonomy.source={args.taxonomy_source!r} is configured but "
+        f"{db_path} does not exist. {hint}"
+    )
+
+
 def _should_skip_taxonomy_ingest(args: argparse.Namespace) -> bool:
     """#64: skip ingest_taxonomy when (a) no source set, or (b) the
     taxonomy SQLite already exists and the operator hasn't asked for
@@ -398,6 +463,14 @@ def main() -> int:
                      "--only extract or --only vision")
 
     selected = select_steps(args)
+
+    # Fail early if taxonomy is configured but unavailable for the selected
+    # steps — avoids a silent "no taxon annotations" corpus on HPC where
+    # compute nodes lack internet and --only skips ingest_taxonomy.
+    taxonomy_err = _check_taxonomy_available(args, selected)
+    if taxonomy_err:
+        logger.error(taxonomy_err)
+        return 1
 
     logger.info("Running %d step(s):", len(selected))
     for s in selected:
