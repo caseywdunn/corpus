@@ -277,11 +277,15 @@ def _check_taxonomy_available(
         return None
 
     if args.taxonomy_source == "worms":
+        root_id = getattr(args, "taxonomy_root_id", None)
+        root_flag = f" --root-id {root_id}" if root_id else " --root-id <aphia_id>"
         hint = (
             "WoRMS requires internet access. HPC compute nodes are "
             "network-restricted, so the taxonomy must be pre-built on a "
-            "login node before submitting the array job. Options:\n"
-            "  1. Run `corpus run --only ingest_taxonomy` on the login node.\n"
+            "login node (which allows small outbound API calls) before "
+            "submitting the array job. Options:\n"
+            f"  1. Run `corpus taxonomy ingest --source worms{root_flag}` "
+            "on the login node.\n"
             "  2. Export a WoRMS subtree as a DwC-A snapshot, copy it to "
             "the project dir, and switch config to source: dwca."
         )
@@ -289,8 +293,8 @@ def _check_taxonomy_available(
         tx_path = getattr(args, "taxonomy_path", None)
         path_str = str(tx_path) if tx_path is not None else "(path not set)"
         hint = (
-            f"Run `corpus run --only ingest_taxonomy` to build it from "
-            f"{path_str}."
+            f"Run `corpus taxonomy ingest --source {args.taxonomy_source} "
+            f"--input {path_str}` to build it from the archive."
         )
     return (
         f"taxonomy.source={args.taxonomy_source!r} is configured but "

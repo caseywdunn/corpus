@@ -128,7 +128,7 @@ have internet) before the first pipeline submission:
 
 ```bash
 conda activate corpus
-corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" taxonomy ingest --source worms
+corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" taxonomy ingest --source worms --root-id 1371
 # → writes siphonophore_corpuscle/taxonomy.sqlite (~700 KB, takes ~1–2 min)
 ```
 
@@ -156,7 +156,13 @@ significantly, regenerate with `--source worms` and re-export.
 
 ### 4b. Pre-download HuggingFace models
 
-Do this once on an interactive node (login nodes usually block outbound internet; request a compute node with `salloc -p interactive -t 0:30:00`):
+Do this once on an interactive compute node. Login nodes allow small outbound API calls (WoRMS REST, git, pip) but block large binary downloads — HuggingFace model fetches hit that limit and must run on a compute node:
+
+```bash
+salloc -p devel -t 1:00:00 --mem=8G
+```
+
+Once on the node:
 
 ```bash
 # Pre-download into the SAME cache the batch jobs read —
@@ -399,7 +405,7 @@ Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltim
 
 ## Common pitfalls
 
-- **Login nodes can't download models.** HF and other downloads must run on a compute node via `salloc`. Trying to pre-cache from a login node will hit outbound-firewall blocks.
+- **Login nodes block large binary downloads.** Small outbound API calls (WoRMS REST, git, pip) work fine on the login node. HuggingFace model fetches (~2–15 GB) hit the outbound-size limit and must run on a compute node via `salloc`. Trying to pre-cache models from a login node will fail silently or with a firewall error.
 - **Stale `HF_HOME`.** If a job re-downloads a model, `HF_HOME` isn't being honored — check that the export in the SLURM script points to a path you actually populated.
 - **Grobid URL.** SLURM compute nodes can't talk to your laptop's `localhost:8070` — `$GROBID_URL` (which overrides the config's `grobid.url`) must resolve to a host visible from the job's node. If the Grobid node goes down mid-run, subsequent papers get placeholder metadata; a re-run's implicit resume won't retry them unless their inputs changed — force it with `corpus run --only extract --re-process-flagged <gate>` or by deleting the affected `metadata.json`.
 - **Config not found / wrong corpuscle.** Every phase script reads `$CORPUS_CONFIG`. If a job dies with "no config.yaml" or builds the wrong tree, confirm `$CORPUS_CONFIG` points at the intended `config.yaml` (default is the production corpuscle; a leftover `export CORPUS_CONFIG=…sample…` from a smoke test will silently redirect a production submit).
