@@ -122,8 +122,13 @@ phases without writing artifacts:
 
 ```bash
 corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" check
-corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" run --dry-run
+corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" run --dry-run --skip-checks
 ```
+
+On the login node `corpus check` will always warn about GPU and Grobid —
+both are expected (GPU runs on compute nodes, Grobid is started automatically
+by `batch_pipeline.sh`). All other checks should be green. `--skip-checks`
+is needed for `--dry-run` on the login node for the same reason.
 
 `$CORPUS_CONFIG` already defaults to this path in `bouchet_paths.sh` (after
 updating it), so the phase scripts find it with no extra flags. To build a
@@ -142,6 +147,19 @@ have internet) before the first pipeline submission:
 conda activate corpus
 corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" taxonomy ingest --source worms --root-id 1371
 # → writes corpuscles/siphonophore_YYYYMMDD/taxonomy.sqlite (~700 KB, takes ~1–2 min)
+```
+
+**If `taxonomy.dwca.zip` is already committed to the siphonophores repo** (the
+normal case after the first build), skip the WoRMS step and ingest directly
+from the zip — works on any node, takes under a second:
+
+```bash
+conda activate corpus
+corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" \
+    taxonomy ingest --source dwca \
+    --input "$BOUCHET_PROJECT/siphonophores/taxonomy.dwca.zip" \
+    --root-id 1371
+# → writes corpuscles/siphonophore_YYYYMMDD/taxonomy.sqlite in ~1 s
 ```
 
 Then export it as a portable DwC-A zip and commit it to the siphonophores repo.

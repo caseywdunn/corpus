@@ -22,13 +22,13 @@ REPO_DIR="${REPO_DIR:-$BOUCHET_PROJECT/corpus}"
 # Corpuscles live under $BOUCHET_PROJECT/corpuscles/<name>_YYYYMMDD/.
 # Update this line when starting a new build; the date is the build date.
 # Sample runs follow the same convention (siphonophore_sample_YYYYMMDD).
-CORPUS_CONFIG="${CORPUS_CONFIG:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260601/config.yaml}"
+CORPUS_CONFIG="${CORPUS_CONFIG:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260603/config.yaml}"
 
 # Legacy path vars — still consumed by the not-yet-ported helper scripts
 # (batch_grobid.sh, batch_biblio.sh) and by batch_pipeline.sh's banner.
 # Keep them in sync with the matching keys in $CORPUS_CONFIG.
 INPUT_DIR="${INPUT_DIR:-$BOUCHET_PROJECT/siphonophores/library}"
-OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260601}"
+OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260603}"
 BIB_FILE="${BIB_FILE:-$BOUCHET_PROJECT/siphonophores/siphonophores.bib}"
 LEXICON="${LEXICON:-$BOUCHET_PROJECT/siphonophores/lexicon.yaml}"
 CACHE_DIR="${CACHE_DIR:-$BOUCHET_PROJECT/cache}"
