@@ -27,21 +27,27 @@ git lfs pull                              # ~2000 PDFs, several GB
 Resulting layout (all under `$BOUCHET_PROJECT`):
 
 ```
-corpus/                       ← this repo (the `corpus` CLI)
-siphonophores/                ← input PDF tree + siphonophores.bib + lexicon.yaml
-siphonophore_corpuscle/       ← the corpuscle: config.yaml + build artifacts
-  config.yaml                 ← authored in step 3 (the source of truth)
-  documents/<HASH>/…          ← per-paper artifacts (created by extract)
-  *.sqlite, vector_db/        ← cross-paper DBs + LanceDB (created by embed/post)
-  _serve/                     ← distilled served bundle (created by bundle)
-cache/huggingface/            ← model cache (see below)
+corpus/                          ← this repo (the `corpus` CLI)
+siphonophores/                   ← input PDF tree + siphonophores.bib + lexicon.yaml
+corpuscles/                      ← all siphonophore corpuscle builds
+  siphonophore_YYYYMMDD/         ← one directory per production build (date = build date)
+    config.yaml                  ← authored in step 3 (the source of truth)
+    documents/<HASH>/…           ← per-paper artifacts (created by extract)
+    *.sqlite, vector_db/         ← cross-paper DBs + LanceDB (created by embed/post)
+    _serve/                      ← distilled served bundle (created by bundle)
+  siphonophore_sample_YYYYMMDD/  ← sample/smoke-test builds (same structure)
+cache/huggingface/               ← model cache (see below)
 ```
+
+When starting a new build, create `corpuscles/siphonophore_YYYYMMDD/`, scaffold a
+`config.yaml` there (step 3), and update the `CORPUS_CONFIG` default in
+`slurm/bouchet_paths.sh` to point at it (one-line change).
 
 As of #138 the SLURM phase scripts drive the **same `corpus run` CLI**
 users run, one phase per job. All per-corpuscle inputs (PDF dir, BibTeX,
-lexicon, taxonomy source, Grobid) live in `siphonophore_corpuscle/config.yaml`
+lexicon, taxonomy source, Grobid) live in the corpuscle's `config.yaml`
 — **not** as CLI flags or env vars. The scripts reference it through
-`$CORPUS_CONFIG` (default `$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml`,
+`$CORPUS_CONFIG` (default `$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml`,
 set in [slurm/bouchet_paths.sh](../slurm/bouchet_paths.sh)).
 
 ### 2. Conda environment
@@ -72,29 +78,34 @@ per-corpuscle input from it. Scaffold it once, then edit:
 
 ```bash
 conda activate corpus
-mkdir -p "$BOUCHET_PROJECT/siphonophore_corpuscle"
-cd "$BOUCHET_PROJECT/siphonophore_corpuscle"
+# Replace YYYYMMDD with today's date, e.g. 20260603
+mkdir -p "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD"
+cd "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD"
 corpus init                              # drops a commented config.yaml here
 ```
 
+Update the `CORPUS_CONFIG` default in `slurm/bouchet_paths.sh` to point at
+the new directory (one-line change).
+
 Edit `config.yaml` so it points at the siphonophores repo. Paths resolve
-**relative to the config file's directory** (here, `siphonophore_corpuscle/`),
-so the `../siphonophores/...` paths below work regardless of
+**relative to the config file's directory** (here, `corpuscles/siphonophore_YYYYMMDD/`),
+so the `../../siphonophores/...` paths below work regardless of
 `$BOUCHET_PROJECT` (YAML has no env-var expansion — keep them relative or
 write absolute literals):
 
 ```yaml
-# $BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml
-input_pdfs: ../siphonophores/library          # the PDF tree (was $INPUT_DIR)
+# $BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml
+input_pdfs: ../../siphonophores/library       # the PDF tree
 output_dir: .                                 # artifacts land here in the
-                                              #   corpuscle dir (= old $OUTPUT_DIR);
+                                              #   corpuscle dir;
                                               #   keeps resume pointed at any
                                               #   existing documents/<HASH>/ tree
-bib: ../siphonophores/siphonophores.bib       # was $BIB_FILE
-lexicon: ../siphonophores/lexicon.yaml        # was $LEXICON
+bib: ../../siphonophores/siphonophores.bib
+lexicon: ../../siphonophores/lexicon.yaml
 
 taxonomy:                                     # Siphonophorae, WoRMS AphiaID 1371
-  source: worms
+  source: dwca
+  path: ../../siphonophores/taxonomy.dwca.zip # pre-exported; see step 4
   root_id: 1371
 
 figures:
@@ -110,13 +121,14 @@ can run the build and the config parses; `corpus run --dry-run` plans the
 phases without writing artifacts:
 
 ```bash
-corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" check
-corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" run --dry-run
+corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" check
+corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" run --dry-run
 ```
 
-`$CORPUS_CONFIG` already defaults to this path in `bouchet_paths.sh`, so the
-phase scripts find it with no extra flags. To build a *different* corpuscle,
-export `CORPUS_CONFIG=/path/to/other/config.yaml` before submitting.
+`$CORPUS_CONFIG` already defaults to this path in `bouchet_paths.sh` (after
+updating it), so the phase scripts find it with no extra flags. To build a
+*different* corpuscle, export `CORPUS_CONFIG=/path/to/other/config.yaml`
+before submitting.
 
 ### 4. Pre-build the taxonomy
 
@@ -128,25 +140,25 @@ have internet) before the first pipeline submission:
 
 ```bash
 conda activate corpus
-corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" taxonomy ingest --source worms --root-id 1371
-# → writes siphonophore_corpuscle/taxonomy.sqlite (~700 KB, takes ~1–2 min)
+corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" taxonomy ingest --source worms --root-id 1371
+# → writes corpuscles/siphonophore_YYYYMMDD/taxonomy.sqlite (~700 KB, takes ~1–2 min)
 ```
 
-Then export it as a portable DwC-A zip and update `config.yaml` to use the
-local file. This makes future runs — including on nodes without internet —
-ingest from the zip in seconds instead of walking the WoRMS REST API:
+Then export it as a portable DwC-A zip and commit it to the siphonophores repo.
+This makes every future build ingest from the zip in seconds instead of
+re-walking the WoRMS REST API, and works on isolated compute nodes:
 
 ```bash
-corpus -c "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" taxonomy export \
+corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" taxonomy export \
     -o "$BOUCHET_PROJECT/siphonophores/taxonomy.dwca.zip"
 ```
 
-Update `config.yaml`:
+Update `config.yaml` (the corpuscle dir is two levels below `siphonophores/`):
 
 ```yaml
 taxonomy:
   source: dwca
-  path: ../siphonophores/taxonomy.dwca.zip   # local; works on isolated compute nodes
+  path: ../../siphonophores/taxonomy.dwca.zip  # local; works on isolated compute nodes
   root_id: 1371
 ```
 
@@ -259,13 +271,14 @@ selected by exporting `CORPUS_CONFIG`:
 mkdir -p "$BOUCHET_PROJECT/siphonophores_sample/library"
 # …copy ~30 PDFs into siphonophores_sample/library/
 
-# 2. A sample corpuscle config. Copy the real one and repoint input_pdfs;
-#    output_dir: . keeps the sample's artifacts out of the production tree.
-mkdir -p "$BOUCHET_PROJECT/siphonophore_sample_corpuscle"
-cd "$BOUCHET_PROJECT/siphonophore_sample_corpuscle"
-cp "$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml" .
-#   edit:  input_pdfs: ../siphonophores_sample/library
-export CORPUS_CONFIG="$BOUCHET_PROJECT/siphonophore_sample_corpuscle/config.yaml"
+# 2. A sample corpuscle. Use today's date, e.g. 20260603.
+mkdir -p "$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD"
+cd "$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD"
+# Copy the production config and repoint input_pdfs; output_dir: . keeps
+# the sample's artifacts out of the production tree.
+cp "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" .
+#   edit:  input_pdfs: ../../siphonophores_sample/library
+export CORPUS_CONFIG="$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml"
 
 # 3. Run the phases. The simplest path is the orchestrator, which inherits
 #    $CORPUS_CONFIG via --export=ALL and runs the whole chain:
@@ -278,7 +291,7 @@ bash slurm/batch_pipeline.sh
 # sbatch slurm/batch_finalize.sh           # post + bundle (CPU)
 ```
 
-Inspect `$BOUCHET_PROJECT/siphonophore_sample_corpuscle/documents/<HASH>/summary.json` and `figures_report.html` for a handful of papers. Confirm:
+Inspect `$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/documents/<HASH>/summary.json` and `figures_report.html` for a handful of papers. Confirm:
 
 - Grobid metadata populated (`metadata.json`)
 - Figures extracted + captioned, panels listed in `figures.json`
@@ -359,7 +372,7 @@ them into `corpus run --only post`) are:
 To run the tail by hand (e.g. after fixing a build issue):
 
 ```bash
-export CORPUS_CONFIG="$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml"
+export CORPUS_CONFIG="$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml"
 
 # Cross-paper DBs only. ENRICH_BHL=1 adds Biodiversity Heritage Library
 # coverage for pre-DOI refs (slow, rate-limited ~1 req/s — many hours on
@@ -376,18 +389,18 @@ bundle`. The post phase honors `--force-rebuild*` only when you ask; a plain
 re-run is idempotent. Confirm the cross-paper SQLites landed:
 
 ```bash
-ls -la "$BOUCHET_PROJECT/siphonophore_corpuscle"/{taxonomy,biblio_authority,taxon_mentions}.sqlite
+ls -la "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD"/{taxonomy,biblio_authority,taxon_mentions}.sqlite
 ```
 
 The bundle phase distills into `<output_dir>/_serve/` — for the production
-corpuscle that's `$BOUCHET_PROJECT/siphonophore_corpuscle/_serve/`. This
+corpuscle that's `$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/`. This
 replaces the old standalone `package_for_serve.py` / `SERVE_BUNDLE_DIR`
 step: `_serve/` **is** the deployable artifact (path-scrubbed + audited +
 manifested). Re-distill any time with:
 
 ```bash
 corpus -c "$CORPUS_CONFIG" run --only bundle
-cat "$BOUCHET_PROJECT/siphonophore_corpuscle/_serve/bundle_manifest.json"
+cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/bundle_manifest.json"
 ```
 
 `_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](DEPLOY.md) §6.

@@ -19,13 +19,16 @@ REPO_DIR="${REPO_DIR:-$BOUCHET_PROJECT/corpus}"
 # `corpus -c "$CORPUS_CONFIG" run --only <phase>`. See BOUCHET.md for how
 # to author it. The dynamic Grobid node URL is still injected at submit
 # time via $GROBID_URL, which `corpus run` honors as an override.
-CORPUS_CONFIG="${CORPUS_CONFIG:-$BOUCHET_PROJECT/siphonophore_corpuscle/config.yaml}"
+# Corpuscles live under $BOUCHET_PROJECT/corpuscles/<name>_YYYYMMDD/.
+# Update this line when starting a new build; the date is the build date.
+# Sample runs follow the same convention (siphonophore_sample_YYYYMMDD).
+CORPUS_CONFIG="${CORPUS_CONFIG:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260601/config.yaml}"
 
 # Legacy path vars — still consumed by the not-yet-ported helper scripts
 # (batch_grobid.sh, batch_biblio.sh) and by batch_pipeline.sh's banner.
 # Keep them in sync with the matching keys in $CORPUS_CONFIG.
 INPUT_DIR="${INPUT_DIR:-$BOUCHET_PROJECT/siphonophores/library}"
-OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/siphonophore_corpuscle}"
+OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260601}"
 BIB_FILE="${BIB_FILE:-$BOUCHET_PROJECT/siphonophores/siphonophores.bib}"
 LEXICON="${LEXICON:-$BOUCHET_PROJECT/siphonophores/lexicon.yaml}"
 CACHE_DIR="${CACHE_DIR:-$BOUCHET_PROJECT/cache}"
