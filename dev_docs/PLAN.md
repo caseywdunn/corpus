@@ -57,6 +57,32 @@ full v0.5 plan archived in the
 Open work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues).
 
+## 0. Open branches / pre-merge gates
+
+### `issue-corpus-run-hpc-1-engine` → dev
+
+Branch is complete (12 commits ahead of dev) but **must not be merged until the
+acceptance tests pass on a compute node**:
+
+```bash
+salloc -p devel -t 2:00:00 --mem=32G
+module load miniconda && conda activate corpus
+cd $BOUCHET_PROJECT/corpus
+
+# Programmatic smoke test (all layers, including semantic search)
+python tools/smoke_test_sse.py \
+    $BOUCHET_PROJECT/corpuscles/siphonophore_20260603 \
+    --server-startup-timeout 120
+
+# Manual acceptance prompts — connect Claude to the running MCP server
+# and work through dev_docs/ACCEPTANCE_PROMPTS.md
+```
+
+Both must pass before opening the PR to dev.  The smoke test exits 0 on
+success.  For the acceptance prompts, confirm at minimum: corpus summary,
+one taxon dossier, one semantic search result, one bibliography lookup,
+and the lexicon matrix.
+
 ## 1. v0.6 punch list
 
 ### Group A — MCP tool-surface API-freeze pass
