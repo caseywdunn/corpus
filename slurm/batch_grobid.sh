@@ -2,7 +2,7 @@
 #SBATCH --job-name=grobid
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
+#SBATCH --mem=32G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-grobid-%j.out
 #SBATCH --error=logs/slurm-grobid-%j.err

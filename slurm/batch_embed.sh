@@ -3,7 +3,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=16G
 #SBATCH --time=4:00:00
 #SBATCH --output=logs/slurm-embed-%j.out
 #SBATCH --error=logs/slurm-embed-%j.err
@@ -44,11 +44,10 @@ mkdir -p logs
 # ── Run ──────────────────────────────────────────────────────────────
 echo "Starting embedding pass at $(date)"
 echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'unknown')"
-echo "Output: $OUTPUT_DIR"
+echo "Config: $CORPUS_CONFIG"
 
-python -m pipeline.embed \
-    "$OUTPUT_DIR" \
-    --resume || {
+# Embed phase only (BGE-M3 → LanceDB). Resume is implicit (#138).
+corpus -c "$CORPUS_CONFIG" run --only embed || {
     EC=$?
     # Bus error (135) or segfault (139) during CUDA teardown after
     # successful embedding is a known issue on RTX 5000 Ada nodes with
@@ -57,7 +56,7 @@ python -m pipeline.embed \
     if [ $EC -eq 135 ] || [ $EC -eq 139 ]; then
         echo "WARNING: Bus error during cleanup (exit $EC) — embeddings are complete"
     else
-        echo "ERROR: pipeline.embed failed with exit code $EC"
+        echo "ERROR: corpus run --only embed failed with exit code $EC"
         exit $EC
     fi
 }

@@ -2,7 +2,7 @@
 #SBATCH --job-name=corpus-finalize
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=8G
+#SBATCH --mem=32G
 #SBATCH --time=12:00:00
 #SBATCH --output=logs/slurm-finalize-%j.out
 #SBATCH --error=logs/slurm-finalize-%j.err
@@ -38,40 +38,39 @@ source "$SCRIPT_DIR/bouchet_paths.sh"
 
 cd "$REPO_DIR"
 
+# ── Environment ──────────────────────────────────────────────────────
+module purge
+module load miniconda
+eval "$(conda shell.bash hook)"
+conda activate corpus
+
 ENRICH_BHL="${ENRICH_BHL:-0}"
-SERVE_BUNDLE_DIR="${SERVE_BUNDLE_DIR:-}"
+SKIP_BUNDLE="${SKIP_BUNDLE:-0}"
 
 echo "=== Cross-paper finalize at $(date) ==="
-echo "Output dir:  $OUTPUT_DIR"
+echo "Config:      $CORPUS_CONFIG"
 echo "BHL enrich:  $ENRICH_BHL"
-echo "Serve bundle: ${SERVE_BUNDLE_DIR:-<none>}"
+echo "Skip bundle: $SKIP_BUNDLE"
 
-BHL_FLAG=""
+BHL_FLAG=()
 if [ "$ENRICH_BHL" = "1" ]; then
-    BHL_FLAG="--enrich-bhl"
+    BHL_FLAG=(--enrich-bhl)
 fi
 
-# 1. Bibliographic authority DB (and apply any sidecar from #67)
-echo "── build_biblio ──────────────────────────────────────────────"
-python -m bib.authority "$OUTPUT_DIR" $BHL_FLAG -v
+# Post phase: the four cross-paper builds (biblio authority → taxon
+# mentions → in-text citation backfill → reconcile) now run in dependency
+# order inside `corpus run --only post` instead of four raw module
+# invocations (#138).
+echo "── post (cross-paper DBs) ────────────────────────────────────"
+corpus -c "$CORPUS_CONFIG" run --only post "${BHL_FLAG[@]}"
 
-# 2. Taxon mention rollup
-echo "── build_taxa ────────────────────────────────────────────────"
-python -m pipeline.taxon_mentions "$OUTPUT_DIR" -v
-
-# 3. In-text citation backfill from TEI bodies
-echo "── backfill_intext ───────────────────────────────────────────"
-python -m pipeline.intext_citations "$OUTPUT_DIR"
-
-# 4. Reconcile ghost cited-references onto corpus papers
-echo "── reconcile ─────────────────────────────────────────────────"
-python -m bib.reconcile "$OUTPUT_DIR"
-
-# 5. Optional: distill into a served bundle
-if [ -n "$SERVE_BUNDLE_DIR" ]; then
-    VERSION="$(python -c 'from pipeline.version import __version__; print(__version__)')"
-    echo "── package_for_serve → $SERVE_BUNDLE_DIR (v$VERSION) ─────────"
-    python -m mcpsrv.bundle "$OUTPUT_DIR" "$SERVE_BUNDLE_DIR" --version "$VERSION"
+# Bundle phase: distill the served bundle into <output_dir>/_serve/.
+# This supersedes the old SERVE_BUNDLE_DIR / `mcpsrv.bundle` step — the
+# served bundle now always lands at _serve/ (DEPLOY.md). Set SKIP_BUNDLE=1
+# to stop after the cross-paper DBs.
+if [ "$SKIP_BUNDLE" != "1" ]; then
+    echo "── bundle (served-bundle distill → _serve/) ──────────────────"
+    corpus -c "$CORPUS_CONFIG" run --only bundle
 fi
 
 echo "=== Cross-paper finalize complete at $(date) ==="
