@@ -423,6 +423,31 @@ cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/bundle_manifest.js
 
 `_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](DEPLOY.md) §6.
 
+## Acceptance testing a completed build
+
+After `batch_finalize.sh` completes, verify the corpuscle on an **interactive compute
+node** (not the login node — the MCP server loads the ~600 MB BGE-M3 embedder when
+the first semantic-search tool is called, which requires more memory than the shared
+login node allows):
+
+```bash
+salloc -p devel -t 2:00:00 --mem=32G
+module load miniconda
+conda activate corpus
+
+# 1. Programmatic smoke test (corpus-agnostic, any corpuscle)
+python "$BOUCHET_PROJECT/corpus/tools/smoke_test_sse.py" \
+    "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD" \
+    --server-startup-timeout 120
+
+# 2. Manual acceptance prompts (siphonophore-specific — see note)
+#    Connect Claude to the running MCP server and paste each prompt from:
+#    dev_docs/ACCEPTANCE_PROMPTS.md
+```
+
+> **Note:** `ACCEPTANCE_PROMPTS.md` is a siphonophore-specific example.
+> For a different corpus, copy it and substitute taxon/author names.
+
 ## Partition reference (from dev_docs/PLAN.md §7)
 
 | Phase (`--only`) | Script | Partition | GPU? | Walltime |

@@ -1,9 +1,21 @@
 # Siphonophore Corpus — MCP Acceptance Prompt Checklist
 
+> **Scope: siphonophore corpus, Yale Bouchet HPC (example)**
+> This file is specific to the Dunn-lab siphonophore corpuscle.  It is an
+> example of how to write acceptance prompts for a corpus; taxon names,
+> author names, and paper titles are siphonophore-specific.  To test a
+> different corpus, copy this file and substitute appropriate names.  The
+> general-purpose programmatic smoke test (corpus-agnostic) lives in
+> [`tools/smoke_test_sse.py`](../tools/smoke_test_sse.py).  See also
+> [BOUCHET.md](BOUCHET.md) for HPC-specific run instructions.
+
 A set of realistic natural-language prompts for manual (or Claude-assisted) acceptance
 testing of the siphonophore corpus MCP server.  Run these in order against the live
 server after a new corpuscle build to confirm that all databases, indexes, and tool
 paths are working correctly.
+
+Run on an interactive compute node (`salloc`); the server loads the ~600 MB
+BGE-M3 embedding model on the first semantic search prompt.
 
 Each prompt names the **primary tool(s)** it exercises and lists observable **pass
 criteria** — things a human tester can confirm without domain expertise.

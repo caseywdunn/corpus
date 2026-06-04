@@ -6,6 +6,25 @@ Orientation for AI coding agents working in this repository.
 
 A workflow for interrogating a corpus of scientific literature PDFs, spanning both scanned/old and born-digital papers. Target use cases: searching, citation analysis, and collecting figures of the same species across different papers. Corpus-agnostic by design — the group-specific data (taxonomy snapshot, lexicon, BibTeX, instructions) lives in the per-instance corpuscle directory; the lab's reference deployment is a siphonophore corpus, but every other group plugs into the same machinery.
 
+## Documentation scope
+
+Corpus is group-agnostic. The general documentation applies to any corpus and any
+cluster. The siphonophore / Bouchet files are one worked example — **do not treat
+them as requirements or as the only supported workflow**.
+
+| File | Scope | Notes |
+|---|---|---|
+| `README.md`, `INSTALL.md`, `DEPLOY.md` | General | Any corpus, any platform |
+| `dev_docs/OVERVIEW.md`, `dev_docs/PLAN.md`, `dev_docs/MCP_TOOLS.md` | General | Architecture, roadmap, tool reference |
+| `dev_docs/TESTING.md` | General | Quality test suite (ground truth, eval workflow) |
+| `tools/smoke_test_sse.py` | General | Programmatic MCP smoke test; works on any corpuscle. Requires a compute node (not login) for full Layer 3 coverage — Layer 3 loads the ~600 MB BGE-M3 embedder for semantic search. |
+| `dev_docs/BOUCHET.md` | **Siphonophore + Yale Bouchet (example)** | Runbook for the Dunn-lab siphonophore corpus on Yale's Bouchet HPC. The SLURM scripts, paths, and partition names are Bouchet-specific; the pattern (config-driven `corpus run`, job arrays, pre-download models) is general. Use as a template, not a literal guide. |
+| `dev_docs/ACCEPTANCE_PROMPTS.md` | **Siphonophore (example)** | Manual acceptance prompts for the siphonophore corpuscle. Taxon names are siphonophore-specific; adapt for other groups. Referenced from BOUCHET.md. |
+
+When authoring documentation for a new corpus or cluster, add analogues to
+`BOUCHET.md` / `ACCEPTANCE_PROMPTS.md` in your own runbook file — don't modify the
+general docs to embed group-specific details.
+
 ## Documentation map
 
 - [README.md](README.md) — installation, usage, MCP server setup, examples
@@ -14,7 +33,8 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface + count
-- [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
+- [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC runbook for siphonophore corpus on Yale Bouchet (example; adapt for other clusters/corpora)
+- [dev_docs/ACCEPTANCE_PROMPTS.md](dev_docs/ACCEPTANCE_PROMPTS.md) — manual acceptance prompts for the siphonophore corpuscle (example; adapt taxon names)
 - [DEPLOY.md](DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
