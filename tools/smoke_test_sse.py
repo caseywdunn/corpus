@@ -432,6 +432,15 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
                     if isinstance(d, list):
                         _ok(f"get_bibliography({first_hash[:8]}…) → "
                             f"{len(d)} refs")
+                    elif d is None:
+                        # get_bibliography returns a bare list; an empty
+                        # one (paper with no parsed references — common on
+                        # the demo corpus and on scanned/old papers) is
+                        # serialised as zero content blocks, so
+                        # _parse_tool_result yields None. That's a valid
+                        # empty result, not a failure.
+                        _ok(f"get_bibliography({first_hash[:8]}…) → 0 refs "
+                            f"(empty)")
                     else:
                         rc |= _fail(f"get_bibliography unexpected: {type(d)}")
                 except Exception as e:
