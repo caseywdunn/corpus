@@ -21,6 +21,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from bib.authority import normalize_for_key
 from pipeline.taxa import TaxonomyDB
 from pipeline.embeddings import (
     EmbeddingBackend,
@@ -63,6 +64,13 @@ class CorpusIndex:
         self._embedding_model_override = embedding_model
         self._embedder: Optional[EmbeddingBackend] = None
         self._lance_table = None
+        # Tracked semantic-search status (#91). ``None`` until first
+        # probed; thereafter one of ``"ok"`` / ``"absent"`` / a
+        # ``"degraded: <reason>"`` string. ``get_topic_searcher`` writes
+        # the authoritative value (it exercises the full embedder-load
+        # path); :meth:`capabilities` falls back to a cheap structural
+        # probe that doesn't force the ~600 MB embedder load.
+        self._topic_search_status: Optional[str] = None
 
         # Per-paper header, keyed on the 12-char short hash (directory name).
         self.papers: Dict[str, Dict] = {}
@@ -90,25 +98,37 @@ class CorpusIndex:
 
     def get_topic_searcher(self):
         """Return (embedder, table) for semantic chunk search, loading on
-        first use. Returns ``(None, None)`` if there is no LanceDB table
-        on disk — get_chunks_for_topic surfaces this as a clear error
-        rather than crashing.
+        first use. Returns ``(None, None)`` when semantic search is
+        unavailable, recording *why* on ``self._topic_search_status``
+        (#91) so :meth:`capabilities` and ``get_chunks_for_topic`` can
+        distinguish a legitimately structured-only corpus (``"absent"``)
+        from an operational fault (``"degraded: …"``) that should refuse
+        to serve rather than return empty rows.
         """
         if self._lance_table is not None and self._embedder is not None:
+            self._topic_search_status = "ok"
             return self._embedder, self._lance_table
+        # No vector store on disk → this corpus simply wasn't built with
+        # semantic search. Expected, not a fault.
+        if not self.vector_db_dir.exists():
+            self._topic_search_status = "absent"
+            return None, None
         try:
             import lancedb
         except ImportError:
-            return None, None
-        if not self.vector_db_dir.exists():
+            self._topic_search_status = "degraded: lancedb not installed"
             return None, None
         try:
             db = lancedb.connect(str(self.vector_db_dir))
             if "document_chunks" not in lancedb_table_names(db):
+                # vector_db/ exists but holds no chunk table — treat as
+                # absent (e.g. a leftover empty dir) rather than failing.
+                self._topic_search_status = "absent"
                 return None, None
             table = db.open_table("document_chunks")
         except Exception as e:
             logger.warning("Could not open LanceDB at %s: %s", self.vector_db_dir, e)
+            self._topic_search_status = "degraded: cannot open LanceDB index"
             return None, None
 
         # Pin the model to whatever was used to build the table — schema
@@ -118,6 +138,7 @@ class CorpusIndex:
             embedder = get_embedder(self._embedding_model_override)
         except EmbeddingError as e:
             logger.warning("Could not load embedding backend: %s", e)
+            self._topic_search_status = "degraded: embedding backend unavailable"
             return None, None
         if embedder.dim != existing_dim:
             logger.warning(
@@ -126,10 +147,107 @@ class CorpusIndex:
                 "matches the index.",
                 embedder.model_name, embedder.dim, existing_dim,
             )
+            self._topic_search_status = (
+                f"degraded: embedding-model dim mismatch "
+                f"(model emits {embedder.dim}, index expects {existing_dim})"
+            )
             return None, None
         self._embedder = embedder
         self._lance_table = table
+        self._topic_search_status = "ok"
         return embedder, table
+
+    def _probe_topic_search_cheap(self) -> str:
+        """Structural semantic-search probe that does *not* force the
+        embedder load (#91). Returns the same vocabulary as
+        ``self._topic_search_status`` but only catches faults visible
+        without loading the ~600 MB model: missing store, missing
+        lancedb, unopenable table. The embedder-load + dim-mismatch
+        faults are recorded by :meth:`get_topic_searcher` on the first
+        real query and take precedence once set.
+        """
+        if self._embedder is not None and self._lance_table is not None:
+            return "ok"
+        if not self.vector_db_dir.exists():
+            return "absent"
+        try:
+            import lancedb
+        except ImportError:
+            return "degraded: lancedb not installed"
+        try:
+            db = lancedb.connect(str(self.vector_db_dir))
+            if "document_chunks" not in lancedb_table_names(db):
+                return "absent"
+            db.open_table("document_chunks")
+        except Exception as e:
+            logger.warning("healthz: cannot open LanceDB at %s: %s",
+                           self.vector_db_dir, e)
+            return "degraded: cannot open LanceDB index"
+        return "ok"
+
+    def capabilities(self) -> Dict[str, Dict[str, Optional[str]]]:
+        """Snapshot of served-capability health (#91).
+
+        Each entry is ``{"state": <state>, "detail": <str|None>}`` where
+        ``state`` is:
+
+        * ``"ok"`` — backing index loaded and serving.
+        * ``"absent"`` — legitimately not part of this corpus
+          (structured-only build, no taxon-mention layer, …). Not a
+          fault; tools return their usual "not configured" guidance.
+        * ``"degraded"`` — the index exists but cannot be served
+          (misconfiguration / corruption). An operational fault:
+          ``/healthz`` returns non-200 and the backed tools raise hard
+          errors instead of returning empty rows.
+
+        Detail strings are kept filesystem-path-free so ``/healthz`` can
+        expose them unauthenticated; full exception text goes to the log.
+        """
+        caps: Dict[str, Dict[str, Optional[str]]] = {}
+
+        # Core: an empty paper index means a broken / empty bundle
+        # (the v0.5 zero-yield failure mode) — degraded, not absent.
+        caps["papers"] = (
+            {"state": "ok", "detail": f"{len(self.papers)} papers"}
+            if self.papers
+            else {"state": "degraded", "detail": "no papers indexed"}
+        )
+
+        # Semantic search: prefer the authoritative status recorded by a
+        # real query; otherwise do the cheap structural probe.
+        raw = self._topic_search_status or self._probe_topic_search_cheap()
+        if raw == "ok":
+            caps["topic_search"] = {"state": "ok", "detail": None}
+        elif raw == "absent":
+            caps["topic_search"] = {
+                "state": "absent",
+                "detail": "no semantic-search index in this corpus",
+            }
+        else:
+            caps["topic_search"] = {
+                "state": "degraded",
+                "detail": raw.split("degraded: ", 1)[-1],
+            }
+
+        # Structured backings: loaded, or legitimately not configured.
+        for name, db in (
+            ("taxonomy", self.taxonomy_db),
+            ("bibliography", self.biblio_db),
+            ("taxon_mentions", self.taxon_mention_db),
+        ):
+            caps[name] = (
+                {"state": "ok", "detail": None}
+                if db is not None
+                else {"state": "absent", "detail": "not configured for this corpus"}
+            )
+        return caps
+
+    def is_healthy(self) -> bool:
+        """True iff no capability is ``degraded`` (#91). ``absent`` is
+        healthy — a structured-only corpus is a valid deploy."""
+        return not any(
+            c["state"] == "degraded" for c in self.capabilities().values()
+        )
 
     def load(self) -> int:
         """Populate the indexes from ``documents/*/``. Returns the number
@@ -232,7 +350,10 @@ class CorpusIndex:
                     )
 
             for author in metadata.get("authors", []) or []:
-                surname = (author.get("surname") or "").strip().lower()
+                # #122 — key the Grobid-metadata author index with the
+                # same diacritic-folding normalizer get_papers_by_author
+                # queries with, so "Müller" and "Muller" resolve alike.
+                surname = normalize_for_key(author.get("surname") or "")
                 if surname:
                     self.author_to_papers[surname].append(paper_hash)
 
@@ -421,7 +542,9 @@ class BiblioAuthority:
             FROM works w JOIN work_authors wa ON w.work_id = wa.work_id
             WHERE wa.surname_normalized = ?
         """
-        params: list = [surname.strip().lower()]
+        # #122 — match the diacritic-stripped surname_normalized column
+        # with the same normalizer that built it.
+        params: list = [normalize_for_key(surname)]
         if year:
             query += " AND w.year = ?"
             params.append(year)

@@ -61,12 +61,25 @@ output_dir: ./output
 #   root_id: 1371                 # Siphonophorae order (example)
 #   # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
 
-# Vision pass (Pass 3b — figure annotation by a vision LLM).
-vision:
-  backend: none     # one of: local (open-weights VLM on CUDA/MPS),
-                    #         claude (Anthropic API; needs ANTHROPIC_API_KEY),
-                    #         none (skip entirely)
-  # model: claude-sonnet-4-6-20251001   # optional override
+# Figure panel-ROI detection (#102).
+figures:
+  panel_detection: ocr   # one of: ocr (OCR-driven panel ROIs, CPU-only,
+                         #             the default floor),
+                         #         vision-local (open-weights VLM on CUDA/MPS),
+                         #         vision-claude (Anthropic API; needs ANTHROPIC_API_KEY),
+                         #         off (no panel-ROI detection)
+  # model: claude-sonnet-4-6-20251001   # optional override (vision-* modes)
+
+  # Figure resolution (#121). 'native' (default) renders each figure at its
+  # source's native pixel density — a 600-dpi scan figure stays 600 dpi —
+  # so resolution varies per figure rather than one hardcoded value.
+  resolution_mode: native   # native | fixed
+  vector_dpi: 300           # native mode: render DPI for vector figures
+                            #   (no native resolution exists). Default 300.
+  # max_dpi: 600            # native mode: optional ceiling for dense scans.
+  # images_scale: 2.0       # fixed mode only: uniform DPI = 72 * scale.
+  # Future ingests only — run backfill_figure_dpi.py --native to lift an
+  # existing bundle.
 
 # Grobid (PDF metadata + reference parsing). Runs as a Docker service;
 # see README §Grobid.

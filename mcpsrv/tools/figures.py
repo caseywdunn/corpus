@@ -5,13 +5,16 @@ get_figure, list_figure_rois, get_figure_roi_image, get_figure_image.
 The image-returning tools wrap PIL crops in FastMCP's ``Image``
 content type.
 
-#51 — figure licensing. Each figure inherits license metadata from
-its parent work (looked up at tool-call time from biblio_authority).
-``get_figure_image`` refuses image bytes when ``publishable=false``,
-returning a ValueError with the reason; clients with non-default
-jurisdictions can read the raw license fields and re-derive.
-``mcpsrv.main --allow-unpublishable`` bypasses for local rights-holder
-cases.
+#51 / #101 — figure licensing, keyed to the active output profile.
+Each figure inherits license metadata from its parent work (looked up
+at tool-call time from biblio_authority). The image-returning tools
+gate on the per-call ``profile=`` (``report`` / ``manuscript`` /
+``presentation``; see ``mcpsrv.profiles``): a ``strict`` profile refuses
+bytes/URL when ``publishable=false``, the default permissive ``report``
+allows them (in-chat display = fair use). The server ``--default-profile``
+sets the fallback for calls that omit ``profile=``. The raw license
+fields are always exposed via ``get_figure`` so a publication-bound
+client can self-filter.
 """
 from __future__ import annotations
 
@@ -20,7 +23,29 @@ from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.fastmcp import Image
 
-from ..app import _load_json, _need_index, _validated_limit, mcp
+from ..app import _load_json, _need_index, _validated_limit, error, mcp
+from ..profiles import get_profile, resolve_profile
+
+
+def _active_figure_profile(idx, profile: Optional[str]):
+    """Resolve the active output profile for a figure call (#101):
+    per-call ``profile=`` wins, else the server ``--default-profile``
+    fallback, else built-in ``report``."""
+    return resolve_profile(profile, getattr(idx, "default_profile", None))
+
+
+def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
+    """Return a refusal reason when the active profile's figure-licensing
+    policy forbids this figure, else None. Only the ``strict`` policy
+    gates; ``permissive`` always allows (but the license metadata is
+    still surfaced so a publication-bound client can self-filter)."""
+    if active.figure_licensing == "strict" and not lic.get("publishable"):
+        return (
+            f"figure not publishable under profile {active.name!r}: "
+            f"license={lic.get('license') or 'unknown'!r} "
+            f"(source={lic.get('license_source')!r})"
+        )
+    return None
 
 
 # Restricted to the figure types that get returned by get_figures_for_*.
@@ -103,6 +128,7 @@ def get_figures_for_taxon(
     paper_hash: Optional[str] = None,
     limit: int = 50,
     include_all: bool = False,
+    full_caption: bool = False,
 ) -> List[Dict]:
     """Figures from papers that mention the taxon, ranked by caption
     relevance.
@@ -115,14 +141,17 @@ def get_figures_for_taxon(
     (skipping journal furniture, subpanels of already-returned figures,
     and unclassifiable graphical elements). Pass ``include_all=True`` to
     see every extracted item including the review bucket.
+
+    ``caption_text`` is a preview (first ~200 chars) by default (#85);
+    pass ``full_caption=True`` for the verbatim caption.
     """
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -143,7 +172,8 @@ def get_figures_for_taxon(
             ftype = f.get("figure_type")
             if not include_all and ftype not in _REAL_FIGURE_TYPES:
                 continue
-            caption = (f.get("caption_text") or f.get("caption") or "").lower()
+            cap_full = f.get("caption_text") or f.get("caption") or ""
+            caption = cap_full.lower()
             caption_hit = accepted_name_low in caption or (
                 matched_name_low and matched_name_low in caption
             )
@@ -153,7 +183,7 @@ def get_figures_for_taxon(
                 "figure_id": f.get("figure_id"),
                 "figure_type": ftype,
                 "page": f.get("page"),
-                "caption_text": f.get("caption_text") or f.get("caption"),
+                "caption_text": cap_full if full_caption else _caption_preview(cap_full),
                 "figure_number": f.get("figure_number"),
                 # Relative to the corpuscle's documents/ dir.
                 # Call get_figure_image to fetch bytes.
@@ -172,6 +202,7 @@ def get_figures_for_lexicon_term(
     paper_hash: Optional[str] = None,
     limit: int = 50,
     include_all: bool = False,
+    full_caption: bool = False,
 ) -> Union[List[Dict], Dict]:
     """Figures whose captions mention a lexicon term, ranked by
     caption occurrence count.
@@ -188,22 +219,22 @@ def get_figures_for_lexicon_term(
     figure captions; pass the canonical name or any declared synonym/
     translation. Returns real figures + plates by default;
     ``include_all=True`` includes the review bucket.
+
+    ``caption_text`` is a preview (first ~200 chars) by default (#85);
+    pass ``full_caption=True`` for the verbatim caption.
     """
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     term_low = (term or "").strip().lower()
     if not term_low:
         return []
     available = sorted(idx.lexicon_to_papers.keys())
     if category not in available:
-        return {
-            "error": "unknown_category",
-            "queried_category": category,
-            "available": available,
-        }
+        return error("unknown lexicon category", "invalid_argument",
+                     queried_category=category, available=available)
     # Restrict the candidate paper set to those tagged with at least
     # one term in this category at extraction time. Without this filter
     # the caption search runs across every paper and yields cross-
@@ -237,7 +268,7 @@ def get_figures_for_lexicon_term(
                 "figure_type": ftype,
                 "page": f.get("page"),
                 "figure_number": f.get("figure_number"),
-                "caption_text": caption,
+                "caption_text": caption if full_caption else _caption_preview(caption),
                 # Relative to the corpuscle's documents/ dir.
                 # Call get_figure_image to fetch bytes.
                 "image_path": f"{h}/figures/{f.get('filename') or ''}",
@@ -357,7 +388,7 @@ def get_figure_dossier_for_taxon(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return {"not_found": True, "queried": taxon_name}
@@ -446,14 +477,11 @@ def get_figure_dossier_for_term(
     idx = _need_index()
     available = sorted(idx.lexicon_to_papers.keys())
     if category not in available:
-        return {
-            "error": "unknown_category",
-            "queried_category": category,
-            "available": available,
-        }
+        return error("unknown lexicon category", "invalid_argument",
+                     queried_category=category, available=available)
     term_low = (term or "").strip().lower()
     if not term_low:
-        return {"error": "empty_term"}
+        return error("term must be non-empty", "invalid_argument")
 
     scored: List[Dict] = []
     n_papers_with_figures = 0
@@ -505,7 +533,7 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
@@ -518,7 +546,7 @@ def get_figure(paper_hash: str, figure_id: str) -> Dict:
                 # #51 — license metadata inherited from the parent work.
                 **_license_metadata_for_paper(paper_hash),
             }
-    return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+    return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
 
 
@@ -535,7 +563,7 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return [{"error": f"no such paper_hash: {paper_hash}"}]
+        return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
@@ -550,7 +578,7 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
                 "pass3_status": f.get("pass3_status"),
                 "image_size_px": f.get("image_size_px"),
             }]
-    return [{"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}]
+    return [error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")]
 
 
 @mcp.tool()
@@ -576,7 +604,7 @@ def get_figure_roi_image(
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
     fig = next(
@@ -584,7 +612,7 @@ def get_figure_roi_image(
         None,
     )
     if fig is None:
-        return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+        return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
     whole_image = hash_dir / "figures" / (fig.get("filename") or "")
     caption_text = fig.get("caption_text") or fig.get("caption") or ""
@@ -631,7 +659,7 @@ def get_figure_roi_image(
                 y1 = max(y0 + 1, min(y1, im.height))
                 im.crop((x0, y0, x1, y1)).save(str(crop_path))
         except Exception as e:
-            return {"error": f"could not crop figure: {e}"}
+            return error(f"could not crop figure: {e}", "unavailable")
 
     return {
         "paper_hash": paper_hash,
@@ -652,6 +680,7 @@ def get_figure_image(
     paper_hash: str,
     figure_id: str,
     label: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> Image:
     """Return a figure (or panel crop) as inline PNG bytes.
 
@@ -661,35 +690,39 @@ def get_figure_image(
     panel crop, falling back to the whole figure when no pixel ROI was
     detected.
 
-    #51: refuses to return image bytes when the parent work's
-    ``publishable`` flag is false (license forbids reuse, or unknown
-    license, or work is too recent for the configured PD cutoff).
-    Override at server start with ``mcpsrv.main --allow-unpublishable``
-    for local-only rights-holder cases. The raw license fields are
-    always exposed via ``get_figure``, so clients with non-default
-    jurisdictions can re-derive.
+    #101: the figure-licensing gate is keyed to the active output
+    ``profile`` (``report`` / ``manuscript`` / ``presentation``; pass it
+    per call to reflect what you're producing). Under a ``strict``
+    profile (manuscript / presentation) this refuses image bytes when
+    the parent work's ``publishable`` flag is false. Under the default
+    permissive ``report`` profile the image is returned (in-chat display
+    is fair use). ``get_figure`` always exposes the raw license fields,
+    so a publication-bound client can self-filter; pass
+    ``profile="manuscript"`` to have the server enforce it. Unknown
+    profile names raise.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         raise ValueError(f"no such paper_hash: {paper_hash}")
 
-    # #51 — publishable gate. Server-level allow override carried on the
-    # CorpusIndex. Refuses with a structured ValueError so clients
-    # can branch on the message.
-    if not getattr(idx, "allow_unpublishable", False):
-        lic = _license_metadata_for_paper(paper_hash)
-        if not lic["publishable"]:
-            license_v = lic.get("license") or "unknown"
-            raise ValueError(
-                f"figure not publishable: license={license_v!r} "
-                f"(source={lic['license_source']!r}). The image is not "
-                f"returned to avoid downstream copyright issues. Read "
-                f"get_figure({paper_hash!r}, {figure_id!r}) for the raw "
-                f"license fields if your jurisdiction / use case differs, "
-                f"or restart the server with --allow-unpublishable for "
-                f"local rights-holder cases."
-            )
+    if profile is not None and get_profile(profile) is None:
+        raise ValueError(
+            f"unknown profile {profile!r}; use list_output_profiles()"
+        )
+    active = _active_figure_profile(idx, profile)
+
+    # #101 — figure-licensing gate, keyed to the active profile. Refuses
+    # with a structured ValueError so clients can branch on the message.
+    lic = _license_metadata_for_paper(paper_hash)
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        raise ValueError(
+            f"{refusal}. The image is not returned to avoid downstream "
+            f"copyright issues. Read get_figure({paper_hash!r}, "
+            f"{figure_id!r}) for the raw license fields, or pass "
+            f"profile='report' for in-chat display."
+        )
 
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
@@ -737,6 +770,7 @@ def get_figure_url(
     paper_hash: str,
     figure_id: str,
     label: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> Dict:
     """Return a bearer-gated HTTP URL the caller can ``curl -o`` to
     land the figure PNG on disk *without* loading its bytes into the
@@ -748,28 +782,37 @@ def get_figure_url(
     Fetch via ``curl -H "$auth_header" -o <path> "$url"``. Without
     ``label`` returns the whole figure; with ``label`` returns the
     panel crop if one exists (else falls back to the whole figure).
-    Refuses unpublishable figures (#51) unless server started with
-    ``--allow-unpublishable``.
 
-    Returns ``{url, auth_header, mime_type, publishable, license,
-    license_source}`` on success, ``{error: ...}`` on failure.
+    #101: the figure-licensing gate is keyed to the active ``profile``;
+    a ``strict`` profile (manuscript / presentation) refuses an
+    unpublishable figure, the default permissive ``report`` allows it.
+    The resolved profile is **encoded into the returned URL** so the
+    subsequent HTTP fetch enforces the same policy (otherwise a strict
+    client could leak via the unprofiled path).
+
+    Returns ``{url, auth_header, mime_type, profile, publishable,
+    license, license_source, attribution}`` on success, ``{error: ...}``
+    on failure (including ``unknown profile``).
     """
     idx = _need_index()
+    if profile is not None and get_profile(profile) is None:
+        from ..profiles import unknown_profile_error
+        return unknown_profile_error(profile)
+    active = _active_figure_profile(idx, profile)
     base = getattr(idx, "figure_url_base", None)
     if not base:
-        return {
-            "error": (
-                "figure HTTP route is not available on this server. "
-                "Possible causes: figure side-car failed to bind at "
-                "startup (check server logs), or the server is running "
-                "with an older mcpsrv that predates #69. "
-                "Fall back to get_figure_image."
-            ),
-        }
+        return error(
+            "figure HTTP route is not available on this server. "
+            "Possible causes: figure side-car failed to bind at "
+            "startup (check server logs), or the server is running "
+            "with an older mcpsrv that predates #69. "
+            "Fall back to get_figure_image.",
+            "unavailable",
+        )
 
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
 
     # Verify the figure record exists before handing out a URL — the
     # HTTP route would 404 anyway, but a JSON error here is cheaper
@@ -780,27 +823,28 @@ def get_figure_url(
         None,
     )
     if fig is None:
-        return {"error": f"no such figure_id {figure_id!r} in paper {paper_hash}"}
+        return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
     lic = _license_metadata_for_paper(paper_hash)
-    if not getattr(idx, "allow_unpublishable", False) and not lic.get("publishable"):
-        return {
-            "error": (
-                f"figure not publishable: license={lic.get('license') or 'unknown'!r} "
-                f"(source={lic.get('license_source')!r}). Server refuses to hand out "
-                f"a URL the operator would only get a 403 from. Read "
-                f"get_figure({paper_hash!r}, {figure_id!r}) for the raw license "
-                f"fields, or restart the server with --allow-unpublishable for "
-                f"local rights-holder cases."
-            ),
-            **lic,
-        }
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        return error(
+            f"{refusal}. Server refuses to hand out a URL the operator "
+            f"would only get a 403 from. Read get_figure({paper_hash!r}, "
+            f"{figure_id!r}) for the raw license fields, or pass "
+            f"profile='report' for in-chat display.",
+            "forbidden", profile=active.name, **lic,
+        )
 
-    url = f"{base}/figures/{paper_hash}/{figure_id}"
+    # Encode the resolved profile into the URL so the HTTP route enforces
+    # the same policy (the route defaults to the server fallback when no
+    # profile is present — a strict client must not leak via that path).
+    query = [f"profile={active.name}"]
     if label:
-        # Single key=value, no urlencoding gymnastics needed — figure_id
-        # / label are constrained to [A-Za-z0-9._-] on the server side.
-        url = f"{url}?label={label}"
+        # figure_id / label are constrained to [A-Za-z0-9._-] server-side,
+        # so no urlencoding gymnastics are needed.
+        query.append(f"label={label}")
+    url = f"{base}/figures/{paper_hash}/{figure_id}?{'&'.join(query)}"
     token = getattr(idx, "figure_auth_token", None)
     auth_header = f"Authorization: Bearer {token}" if token else None
 
@@ -808,9 +852,11 @@ def get_figure_url(
         "url": url,
         "auth_header": auth_header,
         "mime_type": "image/png",
+        "profile": active.name,
         "publishable": lic.get("publishable"),
         "license": lic.get("license"),
         "license_source": lic.get("license_source"),
+        "attribution": lic.get("attribution") if active.require_attribution else None,
         "fetch_hint": (
             "curl -fsSL -H \"$auth_header\" -o /tmp/fig.png \"$url\""
             if auth_header

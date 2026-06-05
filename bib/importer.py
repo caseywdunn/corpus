@@ -86,6 +86,7 @@ def find_matching_work_id(
     Match priority:
       1. corpus_hash field — exact match on ``works.corpus_hash``
       2. DOI field — exact match on ``works.doi`` (after normalization)
+      3. work_id field — exact match on ``works.work_id`` (#100)
 
     On no match: ``(None, "no_match")``.
     """
@@ -107,6 +108,20 @@ def find_matching_work_id(
         ).fetchone()
         if row:
             return row[0], "doi"
+
+    # 3. work_id field — exact match on ``works.work_id`` (#100). The
+    # exporter writes ``work_id`` into every entry, so a hand-curated
+    # cited reference with neither corpus_hash nor DOI (common for
+    # pre-DOI literature) can still be matched back to its row and
+    # stamped as bib provenance.
+    work_id_field = _strip_outer_braces(entry.get("work_id", "") or "")
+    if work_id_field:
+        row = conn.execute(
+            "SELECT work_id FROM works WHERE work_id = ?",
+            (work_id_field,),
+        ).fetchone()
+        if row:
+            return row[0], "work_id"
 
     return None, "no_match"
 
@@ -227,11 +242,21 @@ def apply_entry(
     """
     from .authority import normalize_for_key
 
+    now = time.time()
+
     changes = diff_entry_against_work(conn, work_id, entry)
     if not changes:
+        # No field-level diff, but the entry IS present in the user's
+        # authoritative .bib — stamp bib provenance anyway (#100).
+        # Previously we returned early with bib_imported_at left NULL, so
+        # re-importing an unchanged .bib left every reference classified
+        # as grobid_reconciled/unresolved and warned by format_citation.
+        conn.execute(
+            "UPDATE works SET updated_at = ?, bib_imported_at = ? "
+            "WHERE work_id = ?",
+            (now, now, work_id),
+        )
         return 0
-
-    now = time.time()
 
     # Update works.* for the simple fields, plus always touch
     # updated_at + bib_imported_at (#79) when any change applies — so an

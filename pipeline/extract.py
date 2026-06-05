@@ -16,10 +16,12 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from . import stamp_artifact
+from .config import CONFIG
 from .figures import (
     detect_missing_figures,
     extract_caption_info,
     parse_figure_number,
+    render_figures,
 )
 from .scan import create_cell_visualizations
 
@@ -59,13 +61,22 @@ def extract_docling_content(
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.pipeline_options import PdfPipelineOptions
-        # Configure converter to generate picture images explicitly
+        # Configure converter to generate picture images explicitly.
+        # #121 — docling renders picture crops at 72 * images_scale dpi
+        # and the saved PNG is never resized downstream, so this scale is
+        # the figure-quality lever. It was previously left at docling's
+        # 1.0 default (72 dpi, grainy in print); now driven by
+        # figures.images_scale (default 2.0 = 144 dpi).
+        images_scale = float(CONFIG.get("figures", {}).get("images_scale", 2.0))
+        logger.info("docling images_scale=%.1f (figure dpi=%d)",
+                    images_scale, round(72 * images_scale))
         pipeline_options = PdfPipelineOptions(
             do_ocr=False,
             do_table_structure=True,
             generate_picture_images=True,
             generate_page_images=False,
             do_picture_classification=True,
+            images_scale=images_scale,
         )
         pdf_format_option = PdfFormatOption(pipeline_options=pipeline_options)
         converter = DocumentConverter(format_options={InputFormat.PDF: pdf_format_option})
@@ -352,6 +363,26 @@ def extract_docling_content(
             logger.warning("PyMuPDF not available; cannot run fallback image extraction")
         except Exception as e:
             logger.warning("PyMuPDF fallback failed: %s", e)
+
+    # #121 — resolution pass. In the default `native` mode, re-render each
+    # docling-extracted figure from its bbox at the source's native pixel
+    # density (vector figures fall back to figures.vector_dpi), so figure
+    # resolution tracks the source rather than a single fixed scale. In
+    # `fixed` mode the docling render at figures.images_scale is kept as-is.
+    fig_cfg = CONFIG.get("figures", {})
+    if fig_cfg.get("resolution_mode", "native") == "native" and figures_data:
+        stats = render_figures(
+            pdf_path, figures_data, figures_dir,
+            native=True,
+            vector_dpi=float(fig_cfg.get("vector_dpi", 300.0)),
+            max_dpi=fig_cfg.get("max_dpi"),
+        )
+        logger.info(
+            "native figure resolution pass: %d re-rendered, %d native-skip, "
+            "%d no-bbox, %d errors",
+            stats["rendered"], stats["skipped_method"],
+            stats["skipped_no_bbox"], stats["errors"],
+        )
 
     # Write figures.json
     figures_info = {

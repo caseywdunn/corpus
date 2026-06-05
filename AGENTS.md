@@ -6,6 +6,25 @@ Orientation for AI coding agents working in this repository.
 
 A workflow for interrogating a corpus of scientific literature PDFs, spanning both scanned/old and born-digital papers. Target use cases: searching, citation analysis, and collecting figures of the same species across different papers. Corpus-agnostic by design — the group-specific data (taxonomy snapshot, lexicon, BibTeX, instructions) lives in the per-instance corpuscle directory; the lab's reference deployment is a siphonophore corpus, but every other group plugs into the same machinery.
 
+## Documentation scope
+
+Corpus is group-agnostic. The general documentation applies to any corpus and any
+cluster. The siphonophore / Bouchet files are one worked example — **do not treat
+them as requirements or as the only supported workflow**.
+
+| File | Scope | Notes |
+|---|---|---|
+| `README.md`, `INSTALL.md`, `DEPLOY.md` | General | Any corpus, any platform |
+| `dev_docs/OVERVIEW.md`, `dev_docs/PLAN.md`, `dev_docs/MCP_TOOLS.md` | General | Architecture, roadmap, tool reference |
+| `dev_docs/TESTING.md` | General | Quality test suite (ground truth, eval workflow) |
+| `tools/smoke_test_sse.py` | General | Programmatic MCP smoke test; works on any corpuscle. Requires a compute node (not login) for full Layer 3 coverage — Layer 3 loads the ~600 MB BGE-M3 embedder for semantic search. |
+| `dev_docs/BOUCHET.md` | **Siphonophore + Yale Bouchet (example)** | Runbook for the Dunn-lab siphonophore corpus on Yale's Bouchet HPC. The SLURM scripts, paths, and partition names are Bouchet-specific; the pattern (config-driven `corpus run`, job arrays, pre-download models) is general. Use as a template, not a literal guide. |
+| `dev_docs/ACCEPTANCE_PROMPTS.md` | **Siphonophore (example)** | Manual acceptance prompts for the siphonophore corpuscle. Taxon names are siphonophore-specific; adapt for other groups. Referenced from BOUCHET.md. |
+
+When authoring documentation for a new corpus or cluster, add analogues to
+`BOUCHET.md` / `ACCEPTANCE_PROMPTS.md` in your own runbook file — don't modify the
+general docs to embed group-specific details.
+
 ## Documentation map
 
 - [README.md](README.md) — installation, usage, MCP server setup, examples
@@ -13,8 +32,9 @@ A workflow for interrogating a corpus of scientific literature PDFs, spanning bo
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
-- [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface (38 tools)
-- [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC operational runbook (SLURM, Grobid, job arrays)
+- [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface + count
+- [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC runbook for siphonophore corpus on Yale Bouchet (example; adapt for other clusters/corpora)
+- [dev_docs/ACCEPTANCE_PROMPTS.md](dev_docs/ACCEPTANCE_PROMPTS.md) — manual acceptance prompts for the siphonophore corpuscle (example; adapt taxon names)
 - [DEPLOY.md](DEPLOY.md) — AWS deploy runbook (S3 bundle + EC2 systemd)
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
@@ -48,7 +68,7 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 | Path | Role |
 | --- | --- |
 | `pipeline/` | Top-level CLI router (`pipeline/cli.py` → the `corpus` binary), Stage 1 + Pass 3b/3c orchestrator, post-pipeline modules (`embed`, `taxon_mentions`, `intext_citations`, `taxonomy_ingest`, `status`, `orchestrator`), and shared library modules. Pydantic config schema in `config_schema.py`; bundled `config.template.yaml`. |
-| `mcpsrv/` | MCP server. FastMCP `app.py` + 38 tools in `tools/{papers,taxonomy,bibliography,figures,chunks}.py`; `mcpsrv.bundle` distills a build into a served bundle. |
+| `mcpsrv/` | MCP server. FastMCP `app.py` + the `@mcp.tool()` surface in `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py` (catalog + count in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md)); `mcpsrv.bundle` distills a build into a served bundle. |
 | `bib/` | BibTeX round-trip + biblio authority + reconcile (`bib.parser`, `bib.export`, `bib.importer`, `bib.authority`, `bib.reconcile`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx, systemd, sync + update scripts. |
@@ -64,4 +84,5 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 - Pipeline failures land in structured `summary.json["stage_failures"]` with reason codes (`timeout`, `crash`, `external_unavailable`, `unsupported_format`, `corrupted`, `quality_gate`, `too_large`); silent-failure quality gates emit `quality_flags`. Free-text `errors[]` is being phased out.
 - `config.yaml` is loaded by `pipeline.config.load_config`; CLI flags override config values, which override built-in defaults.
 - External calls (Grobid, BHL, CrossRef, OpenAlex) flow through `pipeline/external.py` for shared retry + backoff + circuit breaker. `--strict-network` aborts on the first transient failure for release builds.
+- Steering the client session: the MCP server is client-driven — it can only add to the model's context in *response* to a request, never push unsolicited. Soft guidance (report/manuscript structure, cross-validation nudges, house style) rides on `instructions` (always-on, from `<corpuscle>/instructions.md`), tool-result text (just-in-time, keyed to the active output profile per #101; `format_citation`'s provenance warning is the established example), and user-invoked MCP prompts (`/mcp__corpus__<name>`). Keep tool-result nudges terse — they cost tokens on every call (#76, #81–86). Hard requirements (figure publishability, citation provenance) are enforced server-side at the tool boundary, never via a nudge the model can ignore. See OVERVIEW.md "Steering the client session".
 - `__version__` in `pipeline/version.py` is the single source of truth; CONTRIBUTING.md covers the branching model.

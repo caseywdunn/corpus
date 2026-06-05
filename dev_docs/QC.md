@@ -117,7 +117,7 @@ typed as a single gate per invocation; chain runs for multiple gates.
 | `corpus status` rollups | Skipped papers still appear (so you can compare against new candidates) |
 | Build bundle | Skipped papers stay |
 | Served bundle | Skipped papers excluded by `mcpsrv.bundle` (#54) |
-| MCP `get_paper` / `list_papers` | Skipped papers don't appear (reads served bundle) |
+| MCP `get_papers` / `list_papers` | Skipped papers don't appear (reads served bundle) |
 | MCP citation graph | A skipped paper can still appear as a *citation target* of a non-skipped paper (authority record exists) |
 
 This is the documented contract. Reverting a skip is non-destructive:

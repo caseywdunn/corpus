@@ -28,11 +28,13 @@ taxonomy:
   source: dwca
   path: ./taxonomy.zip
 
-# Demo runs with the vision pass off so it works on any host without
-# CUDA / MPS / ANTHROPIC_API_KEY. Set backend to `local` or `claude`
-# (and add ANTHROPIC_API_KEY for the latter) when validating Pass 3b.
-vision:
-  backend: none
+# Figure panel-ROI detection (#102). `ocr` is the CPU-only default
+# floor — no CUDA / MPS / ANTHROPIC_API_KEY needed, so the demo runs
+# anywhere. Switch panel_detection to `vision-local` or `vision-claude`
+# (and add ANTHROPIC_API_KEY for the latter) to validate Pass 3b, or
+# `off` to skip panel ROIs entirely.
+figures:
+  panel_detection: ocr
 
 grobid:
   url: http://localhost:8070

@@ -1,6 +1,6 @@
 # MCP tool surface
 
-The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -24,23 +24,21 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `bundle_info` | Bundle version, server name + version, paper / chunk / figure counts, embedding model, pipeline git SHA. Lets clients detect stale endpoints and cite a corpus version in downstream work. |
 | `corpus_summary` | One-call orientation: paper counts by decade, lexicon coverage per category (top terms), top taxa, figure totals, bundle identity. Server-side join over the in-memory indexes — fixed-shape payload (~2–5 k tokens) regardless of corpus size. Caps on `top_taxa` + `top_terms_per_category`. |
 | `list_papers` | Every paper in the corpus with bibliographic + annotation counts. Optional `year_from` / `year_to` filters. |
-| `get_paper` | Full metadata for one paper: title, authors, year, abstract, DOI, plus top taxa and anatomy terms. |
-| `get_chunk` | One chunk's full record: text, headings, section_class, figure_refs. |
-| `get_papers` | Batched `get_paper` for many hashes at once with optional field whitelist. Output is in input order. Synthesizes `first_author` so the caller doesn't walk `authors[0].surname` themselves. |
-| `get_chunks` | Batched chunk fetch for one paper — drill-down pair to every `*_dossier` tool. Pass `chunk_ids=[...]` for a subset; `with_text=False` emits metadata-only (~80 chars/chunk). |
+| `get_papers` | Full metadata for one or many papers (title, authors, year, abstract, DOI, top taxa and lexicon terms) with optional field whitelist. Output is in input order. Synthesizes `first_author` so the caller doesn't walk `authors[0].surname` themselves. Pass a single-element `hashes` list for the one-paper case. |
+| `get_chunks` | Chunk fetch for one paper — drill-down pair to every `*_dossier` tool. Pass `chunk_ids=[...]` for a subset (a single-element list for one chunk); `with_text=False` emits metadata-only (~80 chars/chunk). |
 | `get_chunks_by_section` | Chunks of a paper filtered by section class. |
 
 ## Taxonomy
 
 | Tool | Returns |
 | --- | --- |
-| `search_taxon` | Resolve a taxon name against the configured Darwin Core taxonomy snapshot. |
+| `search_taxon` | Resolve a taxon name against the configured Darwin Core taxonomy snapshot. Pass `parent_chain=True` (#88) to add the accepted taxon's ancestry (immediate parent → root, each `{taxon_id, scientific_name, rank}`). |
 | `get_papers_for_taxon` | Papers mentioning a taxon, resolved through synonymy. |
 | `get_chunks_for_taxon` | Every chunk that mentions the taxon (resolved through synonymy). |
 | `get_taxon_mentions` | All text-span mentions of a taxon across the corpus, with surrounding context. |
 | `list_valid_species_under` | All currently-valid species descending from the given taxon in the configured taxonomy snapshot. |
 | `get_papers_by_author` | Papers authored by the given surname (case-insensitive). |
-| `get_taxon_dossier` | One-call comprehensive view of a taxon across the corpus: metadata, papers (sorted by mention count), chunk_index (IDs only — pair with `get_chunks`), figure_index, top lexicon terms per category, cooccurring taxa. Supersedes the `search_taxon` + `get_papers_for_taxon` + N× `get_paper` + N× `get_chunks_for_taxon` + `get_figures_for_taxon` chain (~45 round-trips → 1). `include=[...]` trims sections. |
+| `get_taxon_dossier` | One-call comprehensive view of a taxon across the corpus: metadata, papers (sorted by mention count), chunk_index (IDs only — pair with `get_chunks`), figure_index, top lexicon terms per category, cooccurring taxa. Supersedes the `search_taxon` + `get_papers_for_taxon` + `get_papers` + N× `get_chunks_for_taxon` + `get_figures_for_taxon` chain (~45 round-trips → 1). `include=[...]` trims sections. |
 | `get_taxon_lexicon_slice` | Lexicon coverage for one taxon under one category, joined at the chunk level. Same-chunk co-occurrence — tighter than `corpus_summary` / dossier rollups: a term only counts when it appears in a chunk where the taxon is also mentioned. Returns `{term, n_chunks, n_papers, paper_examples}` per term. Category-agnostic; unknown category returns the available list. |
 | `get_taxon_subtree_dossier` | Walk a clade's accepted species/subspecies via the DwC `parent_name_usage_id` tree; for each species with corpus coverage, return a capsule (paper count, mention count, authorship). Plus a deduplicated aggregate paper list across the subtree with `n_species_covered` per paper. Supersedes the p07 monographic pattern of `list_valid_species_under` + N× `get_papers_for_taxon`. |
 
@@ -51,9 +49,9 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_bibliography` | Parsed references for one paper (from Grobid TEI). |
 | `get_intext_citations` | In-text `<ref type="bibr">` markers for one paper, with deduplicated paragraph excerpts and section context. |
 | `get_excerpts_citing` | Cross-corpus: every passage citing a given work — surface text, section, and the surrounding paragraph. |
-| `get_citation_graph` | Citation graph around a work or paper (in / out / both). |
+| `get_citation_graph` | Citation graph around a work or paper (in / out / both). Bounded breadth (#87): `max_edges_per_node` (per-node fan-out, survivors ranked by `cited_by_count`) + `max_total_edges` caps, with a `truncated` flag. Generous defaults. |
 | `resolve_reference` | Resolve a free-text bibliographic reference to a work in the authority database. |
-| `format_citation` | Fully-assembled citation string for a work in the authority DB, plus provenance tier (`bib` / `grobid_reconciled` / `unresolved`) and verbatim warning footnote. The route for every citation an LLM client emits — never recombine fields client-side. |
+| `format_citations` | Fully-assembled citation strings for works in the authority DB — the route for every citation an LLM client emits; never recombine fields client-side (#88). Pass one of `queries` / `work_ids` / `paper_hashes` (a list); returns `{style, count, citations[]}` in input order, each entry a citation payload (`work_id`, `formatted`, `inline`, provenance tier `bib` / `grobid_reconciled` / `unresolved`, verbatim warning footnote) or a per-item error. Batch a whole reference list into one call. |
 | `get_missing_references` | Works cited by corpus papers that are NOT in the corpus. |
 | `get_works_by_author` | All works by an author across the full bibliographic authority database (corpus papers + cited references + taxonomic-authority stubs). |
 | `get_original_description` | Find the original-description paper for a taxon. |
@@ -62,23 +60,32 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 
 | Tool | Returns |
 | --- | --- |
-| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. |
-| `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). |
+| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. `caption_text` is a preview by default (#85); `full_caption=True` for the verbatim caption. |
+| `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). `caption_text` previewed by default (#85); `full_caption=True` for verbatim. |
 | `get_figure_dossier_for_taxon` | Figures linked to a taxon, each with `linked_chunks` (chunk IDs that reference the figure via `chunks.json:figure_refs`) + summarized ROIs. Single call replaces `get_figures_for_taxon` + per-figure `list_figure_rois` + cross-ref against `get_chunks_for_taxon`. |
 | `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Category-agnostic. |
 | `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references. |
-| `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. |
+| `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. Figure-licensing gate keyed to the per-call `profile=` (#101): a strict profile (manuscript/presentation) refuses an unpublishable figure, the default `report` allows it. |
+| `get_figure_url` | A bearer-gated HTTP URL (plus `auth_header` + license/attribution fields) the caller can `curl -o` to land the figure PNG on disk without loading its bytes into context — for pandoc / LaTeX / PDF assembly. Honors the per-call `profile=` gate (#101) and encodes the resolved profile into the URL so the HTTP fetch enforces the same policy. |
 | `list_figure_rois` | Per-panel / per-subfigure ROIs annotated on a figure. |
 | `get_figure_roi_image` | Crop a panel ROI out of a figure image and return the crop's path. |
 
-## Semantic search + translation
+## Semantic search
 
-Requires `embed_chunks.py` to have been run (for `get_chunks_for_topic`) and `ANTHROPIC_API_KEY` (for `translate_chunk`).
+Requires `embed_chunks.py` to have been run (for `get_chunks_for_topic`).
 
 | Tool | Returns |
 | --- | --- |
-| `get_chunks_for_topic` | Semantic search over chunks via the LanceDB vector index. Pass `with_text=False` for a metadata-only scan (#82): ~80 chars/row vs ~600 with full text, then drill down with `get_chunks(paper_hash, chunk_ids=[...])`. |
-| `translate_chunk` | Translate one chunk to the target language (default English), via the Anthropic Claude API. |
+| `get_chunks_for_topic` | Semantic search over chunks via the LanceDB vector index. Pass `with_text=False` for a metadata-only scan (#82): ~80 chars/row vs ~600 with full text, then drill down with `get_chunks(paper_hash, chunk_ids=[...])`. Pass `with_cites=True` (#88) to attach `cited_work_ids` (the chunk's parent paper's in-text citation targets) — feed to `format_citations`. |
+
+## Output profiles
+
+Output type is a per-call client/session property (#101): pass `profile=` (`report` / `manuscript` / `presentation`) to the gated figure tools to select the figure-licensing policy. These tools expose the vocabulary.
+
+| Tool | Returns |
+| --- | --- |
+| `list_output_profiles` | The built-in output profiles and their policies (`figure_licensing`, `require_attribution`, `citation_provenance`, `excerpt_max_words`) plus the server's fallback `profile`. |
+| `get_active_profile` | The server's fallback output profile — the one applied to calls that omit `profile=`. Informational; the authoritative selection is per-call. |
 
 ## Lexicon
 
@@ -86,7 +93,7 @@ Category-agnostic — every tool takes `category` as an argument and returns `{"
 
 | Tool | Returns |
 | --- | --- |
-| `lexicon_matrix` | Paper × term mention-count grid for one category. Caller-controlled columns (`terms=`) or top-N by total mention count. Caller-controlled rows (`paper_hashes=`) or all papers, optionally year-filtered. Papers with no `<category>.json` surface as zero-filled rows. Typical ~2 k tokens for 100 × 20. |
+| `lexicon_matrix` | Lexicon-coverage view for one category. **Default `detail=False`** returns compact per-term totals (`term_totals[]` with `total_mentions` + `papers_with_mentions`) over the selected papers. **`detail=True`** returns the full paper × term mention-count grid (`rows[]`), which is O(papers × terms) and was a multi-MB runaway, hence opt-in (#88). Caller-controlled columns (`terms=`) or top-N by total mention count; caller-controlled paper set (`paper_hashes=`) or all papers, optionally year-filtered. |
 | `get_lexicon_term_dossier` | Per-term cross-corpus view: rollup counts, top papers by mention count, chunk examples (IDs only — pair with `get_chunks`), term description. |
 
 ## Prompt-cache integration (Anthropic API clients)

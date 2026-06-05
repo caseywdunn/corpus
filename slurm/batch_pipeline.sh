@@ -105,7 +105,7 @@ echo "  Grobid cancel job: $CANCEL_JOB (runs after Stage 1)"
 
 # ── Step 6: Submit Pass 3b and Embed (depend on Stage 1) ────────────
 echo ""
-NUM_PASS3B_BATCHES="${NUM_PASS3B_BATCHES:-1}"
+NUM_PASS3B_BATCHES="${NUM_PASS3B_BATCHES:-$NUM_BATCHES}"
 PASS3B_BATCH_SIZE="${PASS3B_BATCH_SIZE:-256}"
 echo "Submitting Pass 3b (vision, GPU; $NUM_PASS3B_BATCHES batch(es) of $PASS3B_BATCH_SIZE)..."
 if [ "$NUM_PASS3B_BATCHES" -gt 1 ]; then

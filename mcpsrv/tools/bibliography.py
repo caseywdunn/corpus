@@ -10,7 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from ..app import _load_json, _need_index, mcp
+from bib.authority import normalize_for_key
+
+from ..app import _load_json, _need_index, error, mcp
 
 if TYPE_CHECKING:
     from ..indexes import BiblioAuthority  # noqa: F401  — annotation only
@@ -36,7 +38,7 @@ def get_bibliography(
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return [{"error": f"no such paper_hash: {paper_hash}"}]
+        return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     refs = _load_json(Path(p["hash_dir"]) / "references.json", default={}) or {}
     ref_list = (refs.get("references", []) or [])[offset: offset + int(limit)]
     if not resolved or idx.biblio_db is None:
@@ -95,13 +97,14 @@ def get_intext_citations(
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
+        return error(f"no such paper_hash: {paper_hash}", "not_found")
     data = _load_json(Path(p["hash_dir"]) / "intext_citations.json", default=None)
     if data is None:
-        return {
-            "error": "intext_citations.json missing — backfill with "
-                     "`python backfill_intext_citations.py <output_dir>`",
-        }
+        return error(
+            "intext_citations.json missing — backfill with "
+            "`python backfill_intext_citations.py <output_dir>`",
+            "not_configured",
+        )
     paragraphs_full = data.get("paragraphs") or []
     citations_full = data.get("citations") or []
 
@@ -152,7 +155,7 @@ def get_excerpts_citing(work_id: str, limit: int = 50) -> Dict:
     """
     idx = _need_index()
     if idx.biblio_db is None:
-        return {"error": "biblio_authority DB not loaded"}
+        return error("biblio_authority DB not loaded", "not_configured")
 
     rows = idx.biblio_db.conn.execute(
         """SELECT c.citing_corpus_hash, c.grobid_xml_id
@@ -207,6 +210,8 @@ def get_citation_graph(
     paper_hash: Optional[str] = None,
     direction: str = "both",
     depth: int = 1,
+    max_edges_per_node: int = 50,
+    max_total_edges: int = 500,
 ) -> Dict:
     """Citation graph around a work.
 
@@ -216,23 +221,30 @@ def get_citation_graph(
     ``"cited_by"`` (papers cited by this work), or ``"both"``.
     ``depth > 1`` follows transitive citations (max 3).
 
-    Returns the root work plus the citation edges.
+    Breadth is bounded (#87) so a hub work can't return a runaway graph:
+    ``max_edges_per_node`` caps how many edges each node contributes
+    (when a node exceeds it, its edges are ranked by ``cited_by_count``
+    descending and the top ones kept), and ``max_total_edges`` caps the
+    whole walk. Defaults are generous; the response carries
+    ``truncated: bool`` so a caller can tell whether either cap fired.
+
+    Returns the root work plus the citation edges and ``truncated``.
     """
     idx = _need_index()
     if idx.biblio_db is None:
-        return {"error": "bibliographic authority database not configured"}
+        return error("bibliographic authority database not configured", "not_configured")
     # Resolve paper_hash to work_id if needed
     if not work_id and paper_hash:
         w = idx.biblio_db.get_work_by_corpus_hash(paper_hash)
         if not w:
-            return {"error": f"no work found for paper_hash: {paper_hash}"}
+            return error(f"no work found for paper_hash: {paper_hash}", "not_found")
         work_id = w["work_id"]
     if not work_id:
-        return {"error": "provide either work_id or paper_hash"}
+        return error("provide either work_id or paper_hash", "invalid_argument")
 
     root = idx.biblio_db.get_work(work_id)
     if not root:
-        return {"error": f"no such work_id: {work_id}"}
+        return error(f"no such work_id: {work_id}", "not_found")
 
     depth = min(int(depth), 3)
     result: Dict[str, Any] = {
@@ -243,23 +255,43 @@ def get_citation_graph(
         },
     }
 
+    truncated = False
     if direction in ("citing", "both"):
-        citing = _walk_citations(idx.biblio_db, work_id, "citing", depth)
+        citing, t = _walk_citations(
+            idx.biblio_db, work_id, "citing", depth,
+            max_edges_per_node=max_edges_per_node,
+            max_total_edges=max_total_edges,
+        )
         result["citing"] = citing
+        truncated = truncated or t
     if direction in ("cited_by", "both"):
-        cited_by = _walk_citations(idx.biblio_db, work_id, "cited_by", depth)
+        cited_by, t = _walk_citations(
+            idx.biblio_db, work_id, "cited_by", depth,
+            max_edges_per_node=max_edges_per_node,
+            max_total_edges=max_total_edges,
+        )
         result["cited_by"] = cited_by
+        truncated = truncated or t
 
+    result["truncated"] = truncated
     return result
 
 
 def _walk_citations(
     biblio: BiblioAuthority, work_id: str, direction: str, depth: int,
-) -> List[Dict]:
-    """BFS citation walk."""
+    *, max_edges_per_node: int, max_total_edges: int,
+) -> "tuple[List[Dict], bool]":
+    """BFS citation walk with breadth + total-edge caps (#87).
+
+    Returns ``(edges, truncated)``. When a node has more neighbours than
+    ``max_edges_per_node`` they are ranked by ``cited_by_count`` (desc,
+    ``work_id`` tiebreak) and only the top ones kept — so the most-cited
+    edges survive truncation. The total walk stops at ``max_total_edges``.
+    """
     visited: set = set()
     frontier = [work_id]
     results: List[Dict] = []
+    truncated = False
     for d in range(depth):
         next_frontier: List[str] = []
         for wid in frontier:
@@ -267,13 +299,22 @@ def _walk_citations(
                 continue
             visited.add(wid)
             rows = biblio.citing(wid) if direction == "citing" else biblio.cited_by(wid)
+            if len(rows) > max_edges_per_node:
+                truncated = True
+                rows = sorted(
+                    rows,
+                    key=lambda r: (-biblio.citation_count(r["work_id"]),
+                                   r["work_id"]),
+                )[:max_edges_per_node]
             for r in rows:
+                if len(results) >= max_total_edges:
+                    return results, True
                 r["depth"] = d + 1
                 results.append(r)
                 if r["work_id"] not in visited:
                     next_frontier.append(r["work_id"])
         frontier = next_frontier
-    return results
+    return results, truncated
 
 
 @mcp.tool()
@@ -292,7 +333,7 @@ def resolve_reference(
     """
     idx = _need_index()
     if idx.biblio_db is None:
-        return {"error": "bibliographic authority database not configured"}
+        return error("bibliographic authority database not configured", "not_configured")
 
     # Parse author and year from query if not provided separately
     if not author:
@@ -305,7 +346,7 @@ def resolve_reference(
                 year = int(m.group(2))
 
     if not author:
-        return {"error": "could not parse author from query; pass author= explicitly"}
+        return error("could not parse author from query; pass author= explicitly", "invalid_argument")
 
     # Title fragment is whatever remains after author+year
     title_frag = query
@@ -348,99 +389,74 @@ _PROVENANCE_WARNING = {
 }
 
 
-@mcp.tool()
-def format_citation(
-    query: Optional[str] = None,
-    work_id: Optional[str] = None,
-    paper_hash: Optional[str] = None,
-    style: str = "author-year",
+def _resolve_work_for_citation(
+    idx, *, query=None, work_id=None, paper_hash=None,
 ) -> Dict[str, Any]:
-    """Return a formatted citation string for a work in the corpus
-    bibliographic authority DB (#79).
+    """Resolve exactly one selector to a single ``works`` row.
 
-    **Use this for every citation you emit.** Never recombine
-    author / year / journal / title in your own context — that's
-    where amalgamated, hallucinated references come from. Paste
-    ``formatted`` + ``inline`` verbatim; append non-empty ``warning``
-    verbatim too.
-
-    Resolve via exactly one of: ``query`` (free-text "Author Year
-    [Title]"), ``work_id`` (DOI / corpus: / bhl:), or ``paper_hash``
-    (12-hex SHA-256 prefix).
-
-    Returns ``{work_id, formatted, inline, provenance, warning,
-    fields}``. ``provenance`` ∈ {``bib`` (curated, no warning),
-    ``grobid_reconciled`` (reconciliation footnote), ``unresolved``
-    (bibliography-absence footnote)}.
-
-    On ambiguous match returns ``{error: "ambiguous", matches: [...]}``;
-    on no match returns ``{error: "not_found", ...}`` — say "not in
-    the corpus" rather than fabricating one.
+    Returns ``{"work": <row>}`` on success, or an error dict
+    (``not_found`` / ``ambiguous`` / parse failure) otherwise. The
+    caller validates that exactly one of ``query`` / ``work_id`` /
+    ``paper_hash`` is non-None. Shared by ``format_citation`` (single)
+    and ``format_citations`` (batched).
     """
-    from bib.format import SUPPORTED_STYLES, format_citation as _format_str
-
-    idx = _need_index()
-    if idx.biblio_db is None:
-        return {"error": "bibliographic authority database not configured"}
-    if style not in SUPPORTED_STYLES:
-        return {
-            "error": f"unknown style {style!r}",
-            "supported_styles": sorted(SUPPORTED_STYLES),
-        }
-    if sum(x is not None for x in (query, work_id, paper_hash)) != 1:
-        return {
-            "error": "provide exactly one of: query, work_id, paper_hash",
-        }
-
-    # Resolve to a single works row.
-    work: Optional[Dict] = None
     if work_id is not None:
         work = idx.biblio_db.get_work(work_id)
         if work is None:
-            return {"error": "not_found", "work_id": work_id}
-    elif paper_hash is not None:
+            return error(f"no work found for work_id {work_id!r}",
+                         "not_found", work_id=work_id)
+        return {"work": work}
+    if paper_hash is not None:
         work = idx.biblio_db.get_work_by_corpus_hash(paper_hash)
         if work is None:
-            return {"error": "not_found", "paper_hash": paper_hash}
-    else:  # query is not None
-        import re
-        m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", query.strip())
-        if not m:
-            return {
-                "error": "could not parse author/year from query — "
-                         "pass work_id explicitly or refine query",
-                "queried": query,
-            }
-        author = m.group(1).strip()
-        year = int(m.group(2))
-        title_frag = query.replace(author, "", 1).strip()
-        title_frag = title_frag.replace(str(year), "", 1).strip(" ,;:")
-        results = idx.biblio_db.search_works(
-            author, year, title_frag if title_frag else None,
+            return error(f"no work found for paper_hash {paper_hash!r}",
+                         "not_found", paper_hash=paper_hash)
+        return {"work": work}
+
+    # query: parse "Author Year [Title]".
+    import re
+    m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", (query or "").strip())
+    if not m:
+        return error(
+            "could not parse author/year from query — "
+            "pass work_id explicitly or refine query",
+            "invalid_argument", queried=query,
         )
-        if not results:
-            # Broaden: drop the title constraint and retry.
-            results = idx.biblio_db.search_works(author, year)
-        if not results:
-            return {
-                "error": "not_found",
-                "queried": query,
-                "parsed_author": author,
-                "parsed_year": year,
-            }
-        if len(results) > 1:
-            return {
-                "error": "ambiguous",
-                "queried": query,
-                "matches": [
-                    {"work_id": r["work_id"], "title": r.get("title"),
-                     "year": r.get("year"), "journal": r.get("journal")}
-                    for r in results
-                ],
-            }
-        work = idx.biblio_db.get_work(results[0]["work_id"])
-        if work is None:  # search_works returned a row, get_work lost it
-            return {"error": "not_found", "queried": query}
+    author = m.group(1).strip()
+    year = int(m.group(2))
+    title_frag = query.replace(author, "", 1).strip()
+    title_frag = title_frag.replace(str(year), "", 1).strip(" ,;:")
+    results = idx.biblio_db.search_works(
+        author, year, title_frag if title_frag else None,
+    )
+    if not results:
+        # Broaden: drop the title constraint and retry.
+        results = idx.biblio_db.search_works(author, year)
+    if not results:
+        return error(
+            "reference not in the corpus bibliography",
+            "not_found", queried=query, parsed_author=author, parsed_year=year,
+        )
+    if len(results) > 1:
+        return error(
+            "query matched multiple works — pass one of the work_id values",
+            "ambiguous", queried=query,
+            matches=[
+                {"work_id": r["work_id"], "title": r.get("title"),
+                 "year": r.get("year"), "journal": r.get("journal")}
+                for r in results
+            ],
+        )
+    work = idx.biblio_db.get_work(results[0]["work_id"])
+    if work is None:  # search_works returned a row, get_work lost it
+        return error("reference not in the corpus bibliography",
+                     "not_found", queried=query)
+    return {"work": work}
+
+
+def _format_resolved_work(idx, work, style) -> Dict[str, Any]:
+    """Render a resolved ``works`` row to the citation payload."""
+    from bib.format import format_citation as _format_str
 
     # Assemble fields. volume + pages aren't on works.* — TODO when
     # the bibliography subsystem persists per-citation locator info.
@@ -465,6 +481,84 @@ def format_citation(
     }
 
 
+def _format_one(
+    idx, *, query=None, work_id=None, paper_hash=None, style="author-year",
+) -> Dict[str, Any]:
+    """Resolve one selector and render it, else return the resolve error."""
+    resolved = _resolve_work_for_citation(
+        idx, query=query, work_id=work_id, paper_hash=paper_hash,
+    )
+    if "work" not in resolved:
+        return resolved
+    return _format_resolved_work(idx, resolved["work"], style)
+
+
+@mcp.tool()
+def format_citations(
+    queries: Optional[List[str]] = None,
+    work_ids: Optional[List[str]] = None,
+    paper_hashes: Optional[List[str]] = None,
+    style: str = "author-year",
+) -> Dict[str, Any]:
+    """Batched :func:`format_citation` — format many citations in one
+    call (#88). Prefer this over N single calls when emitting a
+    reference list.
+
+    Pass exactly one of ``queries`` / ``work_ids`` / ``paper_hashes``
+    (a non-empty list); each element resolves and renders exactly as
+    the single tool, in input order. **Use this for every citation you
+    emit** — never recombine author / year / journal / title in your
+    own context. Paste each ``formatted`` + ``inline`` verbatim and
+    append any non-empty ``warning`` verbatim.
+
+    Returns::
+
+        {
+          "style": str,
+          "count": int,
+          "citations": [ <per-item>, ... ]   # input order
+        }
+
+    where each ``<per-item>`` is the :func:`format_citation` payload
+    (``{work_id, formatted, inline, provenance, warning, fields}``) or
+    a per-item error dict (``not_found`` / ``ambiguous`` / parse
+    failure / ``empty_item``). The batch as a whole succeeds even if
+    individual items fail. Top-level errors (bad ``style``, no/many
+    selectors) return ``{error: ...}`` without a ``citations`` list.
+    """
+    from bib.format import SUPPORTED_STYLES
+
+    idx = _need_index()
+    if idx.biblio_db is None:
+        return error("bibliographic authority database not configured", "not_configured")
+    if style not in SUPPORTED_STYLES:
+        return error(f"unknown style {style!r}", "invalid_argument",
+                     supported_styles=sorted(SUPPORTED_STYLES))
+    provided = [
+        (name, lst) for name, lst in (
+            ("queries", queries),
+            ("work_ids", work_ids),
+            ("paper_hashes", paper_hashes),
+        ) if lst is not None
+    ]
+    if len(provided) != 1:
+        return error("provide exactly one of: queries, work_ids, paper_hashes",
+                     "invalid_argument")
+    kind, items = provided[0]
+    if not isinstance(items, list) or not items:
+        return error(f"{kind} must be a non-empty list", "invalid_argument")
+
+    selector = {"queries": "query", "work_ids": "work_id",
+                "paper_hashes": "paper_hash"}[kind]
+    citations: List[Dict[str, Any]] = []
+    for item in items:
+        if item is None or (isinstance(item, str) and not item.strip()):
+            citations.append(error("empty selector element", "empty_item", kind=kind))
+            continue
+        citations.append(_format_one(idx, style=style, **{selector: item}))
+    return {"style": style, "count": len(citations), "citations": citations}
+
+
 @mcp.tool()
 def get_missing_references(
     min_citations: int = 2,
@@ -480,7 +574,7 @@ def get_missing_references(
     """
     idx = _need_index()
     if idx.biblio_db is None:
-        return [{"error": "bibliographic authority database not configured"}]
+        return [error("bibliographic authority database not configured", "not_configured")]
 
     query = """
         SELECT w.work_id, w.title, w.year, w.journal, w.doi,
@@ -521,9 +615,9 @@ def get_original_description(taxon_name: str) -> Dict:
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     if idx.biblio_db is None:
-        return {"error": "bibliographic authority database not configured"}
+        return error("bibliographic authority database not configured", "not_configured")
 
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
@@ -567,9 +661,13 @@ def get_works_by_author(
     """
     idx = _need_index()
     if idx.biblio_db is None:
-        return [{"error": "bibliographic authority database not configured"}]
+        return [error("bibliographic authority database not configured", "not_configured")]
 
-    norm = surname.strip().lower()
+    # #122 — the surname_normalized column is built with
+    # normalize_for_key (diacritic-stripped); query with the SAME
+    # normalizer so "Müller" matches "muller". A plain .strip().lower()
+    # leaves the umlaut on and silently returns zero rows.
+    norm = normalize_for_key(surname)
     query = """
         SELECT DISTINCT w.work_id, w.title, w.year, w.journal, w.doi,
                w.in_corpus, w.corpus_hash, w.guid_type

@@ -1,19 +1,21 @@
 """Chunk-level MCP tools.
 
-Surfaces: get_chunks_by_section (Grobid-section-typed retrieval),
-get_chunks_for_topic (semantic search via the LanceDB vector index),
-translate_chunk (Claude-driven on-demand translation, currently the
-only LLM-call tool in the surface).
+Surfaces: get_chunks (batched chunk fetch for one paper),
+get_chunks_by_section (Grobid-section-typed retrieval), and
+get_chunks_for_topic (semantic search via the LanceDB vector index).
+
+The server has no LLM-call tools — it is a deterministic retrieval
+layer (#124). The former server-side `translate_chunk` was removed
+pre-1.0; an MCP client translates retrieved chunk text itself.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from pipeline.embeddings import EmbeddingError
 
-from ..app import _load_json, _need_index, _validated_limit, mcp
+from ..app import _load_json, _need_index, _validated_limit, error, mcp
 
 
 @mcp.tool()
@@ -38,7 +40,7 @@ def get_chunks(
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return [{"error": f"no such paper_hash: {paper_hash}"}]
+        return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     chunks_data = _load_json(Path(p["hash_dir"]) / "chunks.json", default={}) or {}
     all_chunks = chunks_data.get("chunks", []) or []
 
@@ -92,11 +94,11 @@ def get_chunks_by_section(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        return [{"error": f"no such paper_hash: {paper_hash}"}]
+        return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     chunks = _load_json(Path(p["hash_dir"]) / "chunks.json", default={}) or {}
     rows: List[Dict] = []
     for c in chunks.get("chunks", []) or []:
@@ -119,132 +121,12 @@ def get_chunks_by_section(
 
 
 @mcp.tool()
-def translate_chunk(
-    paper_hash: str,
-    chunk_id: str,
-    target_language: str = "en",
-    model: str = "claude-haiku-4-5-20251001",
-) -> Dict:
-    """Translate one chunk to the target language (default English) via
-    the Anthropic Claude API. Cached server-side per chunk so repeats
-    are free. If the chunk is already in the target language, returns
-    the original with ``translation_needed: False``. Requires
-    ``ANTHROPIC_API_KEY``.
-    """
-    idx = _need_index()
-    p = idx.papers.get(paper_hash)
-    if not p:
-        return {"error": f"no such paper_hash: {paper_hash}"}
-    hash_dir = Path(p["hash_dir"])
-
-    # Find the chunk text.
-    chunks = _load_json(hash_dir / "chunks.json", default={}) or {}
-    chunk = next((c for c in chunks.get("chunks", []) or [] if c.get("chunk_id") == chunk_id), None)
-    if chunk is None:
-        return {"error": f"no such chunk_id {chunk_id!r} in paper {paper_hash}"}
-    original = chunk.get("text") or ""
-
-    # If the paper's detected_language already matches, no translation
-    # needed. Short-circuit so the user doesn't pay a Claude call to get
-    # the same bytes back.
-    scan = _load_json(hash_dir / "scan_detection.json", default={}) or {}
-    src_lang = scan.get("detected_language")
-    if src_lang and src_lang.lower() == target_language.lower():
-        return {
-            "paper_hash": paper_hash,
-            "chunk_id": chunk_id,
-            "source_language": src_lang,
-            "target_language": target_language,
-            "translation_needed": False,
-            "original": original,
-            "translation": original,
-            "cached": False,
-        }
-
-    # Check the on-disk cache first.
-    cache_file = hash_dir / f"translated_{target_language}.json"
-    cache = _load_json(cache_file, default={}) or {}
-    if chunk_id in cache:
-        hit = cache[chunk_id]
-        return {
-            "paper_hash": paper_hash,
-            "chunk_id": chunk_id,
-            "source_language": src_lang,
-            "target_language": target_language,
-            "translation_needed": True,
-            "original": original,
-            "translation": hit.get("translation", ""),
-            "cached": True,
-            "model": hit.get("model"),
-        }
-
-    # Translate via Claude.
-    try:
-        import anthropic
-    except ImportError:
-        return {"error": "anthropic package not installed (pip install anthropic)"}
-    import os
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return {"error": "ANTHROPIC_API_KEY not set in environment"}
-
-    client = anthropic.Anthropic()
-    # Short prompt because Claude handles translation well without
-    # elaborate instruction. Preserve scientific names (Latin binomials,
-    # taxonomic authorities) and quoted terms verbatim — these carry
-    # technical meaning that paraphrase would degrade.
-    system_prompt = (
-        f"Translate the following scientific text into {target_language}. "
-        "Preserve any Latin scientific names, taxonomic authorities "
-        "(e.g., 'Eschscholtz, 1829'), and terms in quotation marks "
-        "exactly as written. Return only the translation — no preface, "
-        "no commentary, no source-text repetition."
-    )
-    try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=max(512, min(4096, len(original))),
-            system=system_prompt,
-            messages=[{"role": "user", "content": original}],
-        )
-    except Exception as e:
-        return {"error": f"Claude API call failed: {e}"}
-
-    # Extract the text block from the response.
-    translated_text = ""
-    for block in response.content:
-        if getattr(block, "type", None) == "text":
-            translated_text += block.text or ""
-    translated_text = translated_text.strip()
-
-    # Persist to cache.
-    cache[chunk_id] = {
-        "translation": translated_text,
-        "model": model,
-        "source_language": src_lang,
-    }
-    with cache_file.open("w", encoding="utf-8") as f:
-        json.dump(cache, f, indent=2, ensure_ascii=False)
-
-    return {
-        "paper_hash": paper_hash,
-        "chunk_id": chunk_id,
-        "source_language": src_lang,
-        "target_language": target_language,
-        "translation_needed": True,
-        "original": original,
-        "translation": translated_text,
-        "cached": False,
-        "model": model,
-    }
-
-
-
-@mcp.tool()
 def get_chunks_for_topic(
     query: str,
     k: int = 20,
     paper_hash: Optional[str] = None,
     with_text: bool = True,
+    with_cites: bool = False,
 ) -> List[Dict]:
     """Semantic top-``k`` chunks via LanceDB cosine similarity. Use
     for "how is X discussed in the corpus" — for literal taxa /
@@ -258,6 +140,14 @@ def get_chunks_for_topic(
     ``get_chunks(paper_hash, chunk_ids=[...])``. Cuts a typical
     k=10 search's body-text cost by ~45%.
 
+    ``with_cites=True`` (#88) attaches ``cited_work_ids`` to each
+    row — the distinct works the chunk's *parent paper* cites in-text,
+    resolved via the bibliographic authority (deduplicated per paper).
+    Feed them straight to ``format_citations`` to build a reference
+    list. Empty list when the authority DB isn't loaded. Citation spans
+    are tracked per paper, not per chunk, so every chunk from the same
+    paper carries the same list.
+
     Pass ``paper_hash`` to constrain to one paper. Returns
     ``[{error: ...}]`` if no LanceDB index exists yet — build with
     ``python embed_chunks.py <output_dir>``.
@@ -265,18 +155,48 @@ def get_chunks_for_topic(
     idx = _need_index()
     embedder, table = idx.get_topic_searcher()
     if embedder is None or table is None:
-        return [{
-            "error": "no LanceDB index available; run "
-                     "`python embed_chunks.py <output_dir>` to build one"
-        }]
+        # #91 — distinguish a legitimately structured-only corpus
+        # (return the build-an-index guidance) from an operational
+        # fault (raise a hard MCP error so a degraded server refuses to
+        # serve silently-empty results that read as "no matches").
+        cap = idx.capabilities()["topic_search"]
+        if cap["state"] == "degraded":
+            raise RuntimeError(
+                f"topic search is degraded and refusing to serve: "
+                f"{cap['detail']}. Check the server logs and GET /healthz."
+            )
+        return [error(
+            "no LanceDB index available; run "
+            "`python embed_chunks.py <output_dir>` to build one",
+            "not_configured",
+        )]
     try:
         qvec = embedder.embed([query])[0]
     except EmbeddingError as e:
-        return [{"error": f"embedding the query failed: {e}"}]
+        return [error(f"embedding the query failed: {e}", "unavailable")]
     search = table.search(qvec).limit(int(k))
     if paper_hash:
         search = search.where(f"metadata.pdf_hash = '{paper_hash}'")
     results = search.to_list()
+
+    # #88 — per-paper in-text citation targets, loaded once per paper.
+    _cites_cache: Dict[str, List[str]] = {}
+    biblio = getattr(idx, "biblio_db", None)
+
+    def _cited_work_ids(h: str) -> List[str]:
+        if h not in _cites_cache:
+            if biblio is None:
+                _cites_cache[h] = []
+            else:
+                rows = biblio.conn.execute(
+                    "SELECT DISTINCT cited_work_id FROM citations "
+                    "WHERE citing_corpus_hash = ? AND cited_work_id IS NOT NULL "
+                    "ORDER BY cited_work_id",
+                    (h,),
+                ).fetchall()
+                _cites_cache[h] = [row[0] for row in rows]
+        return _cites_cache[h]
+
     out: List[Dict] = []
     for r in results:
         m = r.get("metadata") or {}
@@ -301,6 +221,8 @@ def get_chunks_for_topic(
             row["text"] = text
         else:
             row["len_chars"] = len(text)
+        if with_cites:
+            row["cited_work_ids"] = _cited_work_ids(h) if h else []
         out.append(row)
     return out
 

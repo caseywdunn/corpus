@@ -2,7 +2,7 @@
 #SBATCH --job-name=corpus-stage1
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=128G
+#SBATCH --mem=256G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-stage1-%A_%a.out
 #SBATCH --error=logs/slurm-stage1-%A_%a.err
@@ -65,56 +65,41 @@ print(f'docling + torch loaded OK ({torch.__version__})')
 "
 
 # ── Grobid ───────────────────────────────────────────────────────────
-GROBID_URL="${GROBID_URL:-http://localhost:8070}"
-echo "Grobid URL: $GROBID_URL"
-
-# Quick health check — warn but don't abort (pipeline has --no-grobid fallback)
-if ! curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1; then
-    echo "WARNING: Grobid not reachable at $GROBID_URL — metadata will use fallback"
+# $CORPUS_CONFIG is the source of truth for the Grobid address. When
+# batch_pipeline.sh discovers the dynamically-allocated Grobid node it
+# exports $GROBID_URL, which `corpus run` honors as an override (#138).
+# Submitted standalone (no override), the grobid.url from config.yaml is
+# used. Only export when explicitly set, so we never shadow the config.
+if [ -n "${GROBID_URL:-}" ]; then
+    export GROBID_URL
+    echo "Grobid URL (override): $GROBID_URL"
+    # Warn but don't abort — config may set grobid.disable, and the
+    # pipeline degrades to header-fallback metadata if Grobid is down.
+    if ! curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1; then
+        echo "WARNING: Grobid not reachable at $GROBID_URL — metadata will use fallback"
+    fi
+else
+    echo "Grobid URL: from $CORPUS_CONFIG (no \$GROBID_URL override)"
 fi
 
-# ── Taxonomy + lexicon (if available) ────────────────────────────────
-# Taxonomy: built by ingest_taxonomy.py (any DwC source — WoRMS, GBIF,
-# iNaturalist, or a curated CSV). Optional; pipeline degrades gracefully
-# if absent. Lexicon: a single multi-category YAML; top-level keys are
-# categories (anatomy, biogeography, …). See demo/lexicon.yaml.
-TAXONOMY_FLAG=""
-if [ -f "$OUTPUT_DIR/taxonomy.sqlite" ]; then
-    TAXONOMY_FLAG="--taxonomy-db $OUTPUT_DIR/taxonomy.sqlite"
-fi
-
-LEXICON_FLAG=""
-if [ -f "${LEXICON:-}" ]; then
-    LEXICON_FLAG="--lexicon $LEXICON"
-elif [ -f "$OUTPUT_DIR/lexicon.yaml" ]; then
-    LEXICON_FLAG="--lexicon $OUTPUT_DIR/lexicon.yaml"
-fi
-
-BIB_FLAG=""
-if [ -f "${BIB_FILE:-}" ]; then
-    BIB_FLAG="--bib $BIB_FILE"
-fi
+# Inputs (taxonomy, lexicon, bib) are no longer passed as flags — they
+# live in $CORPUS_CONFIG and `corpus run` reads them from there (#138).
 
 # ── Batch parameters (for SLURM job arrays) ─────────────────────────
 BATCH_SIZE="${BATCH_SIZE:-256}"
-BATCH_ARGS=""
+BATCH_ARGS=()
 if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
-    BATCH_ARGS="--batch-index $SLURM_ARRAY_TASK_ID --batch-size $BATCH_SIZE"
+    BATCH_ARGS=(--batch-index "$SLURM_ARRAY_TASK_ID" --batch-size "$BATCH_SIZE")
     echo "Array task $SLURM_ARRAY_TASK_ID, batch size $BATCH_SIZE"
 fi
 
 # ── Run ──────────────────────────────────────────────────────────────
-echo "Starting Stage 1 processing at $(date)"
-echo "Input:  $INPUT_DIR"
-echo "Output: $OUTPUT_DIR"
+# Extract phase only: OCR → docling → Grobid metadata → chunking → taxa +
+# lexicon tagging. Resume is implicit; $GROBID_URL overrides the config's
+# Grobid address (set above / by batch_pipeline.sh).
+echo "Starting Stage 1 (extract) at $(date)"
+echo "Config: $CORPUS_CONFIG"
 
-python -m pipeline.main \
-    "$INPUT_DIR" "$OUTPUT_DIR" \
-    --resume \
-    --grobid-url "$GROBID_URL" \
-    $TAXONOMY_FLAG \
-    $LEXICON_FLAG \
-    $BIB_FLAG \
-    $BATCH_ARGS
+corpus -c "$CORPUS_CONFIG" run --only extract "${BATCH_ARGS[@]}"
 
 echo "Stage 1 completed at $(date)"

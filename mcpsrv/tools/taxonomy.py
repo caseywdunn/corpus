@@ -13,7 +13,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..app import _load_json, _need_index, _validated_limit, mcp
+from bib.authority import normalize_for_key
+
+from ..app import _load_json, _need_index, _validated_limit, error, mcp
 
 # Filenames at the per-paper root that are NOT lexicon outputs.
 # Mirrors the same list in CorpusIndex.load() so dossier readers
@@ -36,8 +38,41 @@ def parse_chunk_index(chunk_id: str) -> int:
     return int(m.group(1)) if m else -1
 
 
+def _walk_parent_chain(conn, taxon_id: str, max_depth: int = 64) -> List[Dict]:
+    """Walk the DwC ``parent_name_usage_id`` tree upward from
+    ``taxon_id``, returning ancestors ordered immediate-parent → root,
+    each ``{taxon_id, scientific_name, rank}``. Cycle- and depth-guarded
+    against malformed snapshots."""
+    chain: List[Dict] = []
+    seen = {taxon_id}
+    current = taxon_id
+    for _ in range(max_depth):
+        row = conn.execute(
+            "SELECT parent_name_usage_id FROM taxa WHERE taxon_id = ?",
+            (current,),
+        ).fetchone()
+        parent_id = row[0] if row else None
+        if not parent_id or parent_id in seen:
+            break
+        seen.add(parent_id)
+        prow = conn.execute(
+            "SELECT taxon_id, scientific_name, taxon_rank "
+            "FROM taxa WHERE taxon_id = ?",
+            (parent_id,),
+        ).fetchone()
+        if not prow:
+            break
+        chain.append({
+            "taxon_id": prow[0],
+            "scientific_name": prow[1],
+            "rank": prow[2],
+        })
+        current = parent_id
+    return chain
+
+
 @mcp.tool()
-def search_taxon(name: str) -> Dict:
+def search_taxon(name: str, parent_chain: bool = False) -> Dict:
     """Resolve a taxon name against the configured DwC taxonomy snapshot.
 
     Accepts any form the snapshot knows: accepted names, historical
@@ -46,20 +81,31 @@ def search_taxon(name: str) -> Dict:
     the ``name_type`` of the match (``accepted`` | ``unaccepted`` |
     ``synonym``). Missing names return a structured ``not_found`` result
     rather than an error.
+
+    ``parent_chain=True`` (#88) adds a ``parent_chain`` list — the
+    accepted taxon's ancestors from immediate parent up to the root of
+    the snapshot, each ``{taxon_id, scientific_name, rank}`` — so a
+    caller can place the name in its higher classification without
+    extra calls.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(name)
     if not hit:
         return {"not_found": True, "queried": name}
     in_corpus = hit["accepted_taxon_id"] in idx.taxon_to_papers
-    return {
+    result = {
         **hit,
         "queried": name,
         "in_corpus": in_corpus,
         "mentioning_paper_count": len(idx.taxon_to_papers.get(hit["accepted_taxon_id"], [])),
     }
+    if parent_chain:
+        result["parent_chain"] = _walk_parent_chain(
+            idx.taxonomy_db.conn, hit["accepted_taxon_id"],
+        )
+    return result
 
 
 @mcp.tool()
@@ -77,7 +123,7 @@ def get_papers_for_taxon(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -131,10 +177,10 @@ def get_chunks_for_taxon(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -230,7 +276,7 @@ def get_taxon_dossier(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return {"not_found": True, "queried": taxon_name}
@@ -457,18 +503,15 @@ def get_taxon_lexicon_slice(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return {"not_found": True, "queried": taxon_name}
 
     available = sorted(idx.lexicon_to_papers.keys())
     if category not in available:
-        return {
-            "error": "unknown_category",
-            "queried_category": category,
-            "available": available,
-        }
+        return error("unknown lexicon category", "invalid_argument",
+                     queried_category=category, available=available)
 
     aid = hit["accepted_taxon_id"]
     paper_hashes = list(idx.taxon_to_papers.get(aid, []))
@@ -577,10 +620,10 @@ def get_taxon_mentions(
     try:
         n = _validated_limit(limit)
     except ValueError as e:
-        return [{"error": str(e)}]
+        return [error(str(e), "invalid_argument")]
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(taxon_name)
     if not hit:
         return []
@@ -657,7 +700,9 @@ def get_papers_by_author(surname: str) -> List[Dict]:
     get_chunks_for_taxon or get_chunks_by_section.
     """
     idx = _need_index()
-    key = (surname or "").strip().lower()
+    # #122 — normalize with the same diacritic-folding key used to build
+    # author_to_papers (CorpusIndex.load), so "Müller" == "Muller".
+    key = normalize_for_key(surname or "")
     if not key:
         return []
     hashes = idx.author_to_papers.get(key, [])
@@ -710,7 +755,7 @@ def get_taxon_subtree_dossier(
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return {"error": "no taxonomy snapshot configured"}
+        return error("no taxonomy snapshot configured", "not_configured")
     hit = idx.taxonomy_db.lookup(root_taxon_name)
     if not hit:
         return {"not_found": True, "queried": root_taxon_name}
@@ -828,7 +873,7 @@ def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
-        return [{"error": "no taxonomy snapshot configured"}]
+        return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(parent_taxon_name)
     if not hit:
         return []

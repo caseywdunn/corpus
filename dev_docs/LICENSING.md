@@ -59,27 +59,39 @@ This file is a starting point, not legal advice. Operators
 publishing derived works are responsible for checking the rights
 that apply in their jurisdiction.
 
-## The publishable gate on `get_figure_image`
+## The figure-licensing gate, keyed to the output profile (#101)
 
-`mcpsrv.tools.figures.get_figure_image` raises a structured
-`ValueError` when `publishable=false`:
+The figure-licensing gate is governed by the active **output profile**,
+which a client passes per call as `profile=` (see `mcpsrv/profiles.py`):
 
-> figure not publishable: license='unknown' (source='unknown'). The
-> image is not returned to avoid downstream copyright issues. Read
-> get_figure(<paper_hash>, <figure_id>) for the raw license fields if
-> your jurisdiction / use case differs, or restart the server with
-> --allow-unpublishable for local rights-holder cases.
+- **`report`** (the default) — *permissive*: `get_figure_image` /
+  `get_figure_url` return the figure regardless of `publishable`, on the
+  basis that momentary in-chat display is fair use. License metadata is
+  still returned so a publication-bound client can self-filter.
+- **`manuscript`** / **`presentation`** — *strict*: the tools refuse a
+  figure whose parent work is `publishable=false`, e.g.
 
-The `--allow-unpublishable` server flag bypasses the gate
-unconditionally. Use only when:
+  > figure not publishable under profile 'manuscript': license='unknown'
+  > (source='unknown'). … Read get_figure(<paper_hash>, <figure_id>) for
+  > the raw license fields, or pass profile='report' for in-chat display.
 
-- You hold the rights to the figures (e.g. you authored the papers), **or**
-- You're operating under fair use / fair dealing for a specific purpose
-  and have made that determination yourself, **or**
-- The corpus runs strictly locally and no derived publication will
-  carry the figures.
+Selection is a **per-call client/session property**, not a server or
+corpus setting — a shared SSE server serves chat, internal-report, and
+manuscript sessions at once, so each call states its own profile. The
+server's `--default-profile` only sets the fallback for calls that omit
+`profile=` (default `report`); a startup warning fires when that
+fallback is permissive. When `get_figure_url` issues a URL it encodes
+the resolved profile into the URL, so the subsequent HTTP fetch enforces
+the same policy.
 
-Never set `--allow-unpublishable` on a public-facing deploy.
+> **Publication-bound work must pass `profile="manuscript"` per call.**
+> The permissive default means a client that forgets to set a profile
+> will receive uncleared figures — surface the returned `license` /
+> `publishable` fields and do not embed `publishable=false` figures in a
+> derived publication.
+
+(Replaces the v0.5 `--allow-unpublishable` server flag, which was a
+single global toggle and could not distinguish concurrent sessions.)
 
 ## Curating license fields
 

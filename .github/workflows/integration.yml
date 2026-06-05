@@ -73,6 +73,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free up disk space
+        # The ubuntu-24.04 runner ships ~25–30 GB of preinstalled
+        # toolchains we never use (Android SDK, .NET, GHC/ghcup, CodeQL).
+        # The conda solve + BGE-M3 model + Grobid service image have
+        # intermittently exhausted the disk at "Set up miniforge" with
+        # `No space left on device`. Reclaim the big unused dirs up front.
+        #
+        # Done as a plain `rm -rf` rather than a third-party action to
+        # keep CI dependency-light (matches the action-pinning hygiene
+        # here) and to avoid any chance of disturbing the running Grobid
+        # `services:` container. Best-effort: missing paths must not fail
+        # the job (`|| true`). No `docker image prune` — Grobid's image
+        # is in use by the live service container.
+        run: |
+          echo "disk before:"; df -h /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL || true
+          echo "disk after:"; df -h /
+
       - name: Set up miniforge + conda env
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -87,17 +110,56 @@ jobs:
           # explicitly instead.
           conda-remove-defaults: "true"
 
-      - name: Cache HuggingFace BGE-M3 model
+      - name: Cache HuggingFace model hub (BGE-M3 + docling)
         uses: actions/cache@v4
         with:
-          path: ~/.cache/huggingface/hub/models--BAAI--bge-m3
-          key: hf-bge-m3-${{ runner.os }}-v1
-          # Single-key cache (no restore-keys): the model artifact is
-          # immutable for a given key, so a partial restore would only
-          # serve a corrupt download.
+          # Whole hub cache: BGE-M3 (embed stage) + docling's layout /
+          # tableformer / picture-classifier models. extract.py leaves
+          # docling's artifacts_path unset, so its download_hf_model uses
+          # snapshot_download(local_dir=None) → here, same as BGE-M3.
+          # Caching only the BGE-M3 subdir (the old key) left docling's
+          # models re-downloaded every run, which 429'd and reded the lane.
+          # Both model sets are immutable for the versions pinned in the
+          # key, so a single static key is safe.
+          path: ~/.cache/huggingface/hub
+          key: hf-hub-${{ runner.os }}-bge-m3-docling2.94.0-v1
 
       - name: Editable install
         run: pip install --quiet -e .
+
+      - name: Prefetch docling models into HF cache (retry on HF 429)
+        # docling downloads its models from HuggingFace on first use.
+        # Anonymous GHA IPs intermittently get HTTP 429'd, which fails
+        # extraction with "zero chunks" (#99 fail-loud). Warm the cache
+        # once here with backoff so a transient throttle doesn't sink the
+        # lane; the cache step above then persists it across runs. Mirrors
+        # extract.py's pipeline options so exactly the needed models warm.
+        working-directory: demo
+        run: |
+          python - <<'PY'
+          import glob, sys, time
+          from docling.document_converter import DocumentConverter, PdfFormatOption
+          from docling.datamodel.base_models import InputFormat
+          from docling.datamodel.pipeline_options import PdfPipelineOptions
+          opts = PdfPipelineOptions(
+              do_ocr=False, do_table_structure=True,
+              generate_picture_images=True, do_picture_classification=True,
+          )
+          conv = DocumentConverter(
+              format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
+          )
+          pdf = sorted(glob.glob("*.pdf"))[0]
+          for i in range(1, 7):
+              try:
+                  conv.convert(pdf)
+                  print(f"docling model prefetch ok (attempt {i})")
+                  break
+              except Exception as e:
+                  print(f"prefetch attempt {i} failed: {e}", flush=True)
+                  time.sleep(i * 20)
+          else:
+              sys.exit("docling model prefetch failed after 6 attempts")
+          PY
 
       - name: Install system tools (ghostscript, tesseract, jq)
         # ocrmypdf needs ghostscript + tesseract on PATH; jq is used
@@ -242,14 +304,47 @@ jobs:
           # explicitly instead.
           conda-remove-defaults: "true"
 
-      - name: Cache HuggingFace BGE-M3 model
+      - name: Cache HuggingFace model hub (BGE-M3 + docling)
         uses: actions/cache@v4
         with:
-          path: ~/.cache/huggingface/hub/models--BAAI--bge-m3
-          key: hf-bge-m3-${{ runner.os }}-v1
+          # See the T1 note: cache the whole hub so docling's models
+          # (downloaded via snapshot_download(local_dir=None)) persist
+          # across runs instead of re-fetching + 429'ing every time.
+          path: ~/.cache/huggingface/hub
+          key: hf-hub-${{ runner.os }}-bge-m3-docling2.94.0-v1
 
       - name: Editable install
         run: pip install --quiet -e .
+
+      - name: Prefetch docling models into HF cache (retry on HF 429)
+        # See the T1 step. macOS T2 runs the same `corpus run --no-vision`
+        # and hits the same docling download path, so warm it here too.
+        working-directory: demo
+        run: |
+          python - <<'PY'
+          import glob, sys, time
+          from docling.document_converter import DocumentConverter, PdfFormatOption
+          from docling.datamodel.base_models import InputFormat
+          from docling.datamodel.pipeline_options import PdfPipelineOptions
+          opts = PdfPipelineOptions(
+              do_ocr=False, do_table_structure=True,
+              generate_picture_images=True, do_picture_classification=True,
+          )
+          conv = DocumentConverter(
+              format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
+          )
+          pdf = sorted(glob.glob("*.pdf"))[0]
+          for i in range(1, 7):
+              try:
+                  conv.convert(pdf)
+                  print(f"docling model prefetch ok (attempt {i})")
+                  break
+              except Exception as e:
+                  print(f"prefetch attempt {i} failed: {e}", flush=True)
+                  time.sleep(i * 20)
+          else:
+              sys.exit("docling model prefetch failed after 6 attempts")
+          PY
 
       - name: Architecture sanity (arm64)
         # Guards against the long-tail "tesseract installed under
