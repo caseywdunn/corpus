@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-06-04
 
 ### Theme — v0.6 road-to-1.0
 
@@ -51,7 +51,7 @@ a consistent pagination convention; this is the surface 1.0 freezes.
   multi-section dossier/graph tools, which keep descriptive `max_*`
   caps (one call, several independently-bounded sections — the
   documented exception). A `tests/test_freeze_contract.py` meta-test
-  enforces both the 39-tool set and the naming rule.
+  enforces both the 38-tool set and the naming rule.
 - **Output-type profiles replace `--allow-unpublishable`**
   ([#101](https://github.com/caseywdunn/corpus/issues/101)). Figure +
   citation gating is now driven by a per-call `profile=` arg
