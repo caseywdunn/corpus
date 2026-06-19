@@ -8,7 +8,7 @@
 
 We are preparing a manuscript that presents corpus. In the mean time, please cite corpus as:
 
-> Dunn, C. W., Manko, M. K., Zapata, F., & Church, S. H. (2026). Corpus: Model Context Protocol (MCP) server for taxonomic literature. <https://doi.org/10.5281/zenodo.19964909>
+> Church, S. H., Manko, M. K., Zapata, F., & Dunn, C. W.,  (2026). corpus: extracting AI agent-accessible data from biodiversity literature. <https://doi.org/10.5281/zenodo.19964909>
 
 ## What corpus does
 
