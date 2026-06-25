@@ -175,6 +175,12 @@ def parse_authority(authority: str) -> Optional[Tuple[List[str], int]]:
         return None
     authors_str = m.group(1).strip()
     year = int(m.group(2))
+    # Drop a trailing ", in <other work's author>" clause — the zoological
+    # idiom for a name published inside someone else's work (e.g.
+    # "A. Agassiz, in L. Agassiz, 1860"). The describing author is the part
+    # before ", in"; without this the whole phrase collapses into a single
+    # bogus surname like "Agassiz, in Agassiz" that matches no work.
+    authors_str = re.split(r",\s+in\s+", authors_str, maxsplit=1)[0].strip()
     # Split on ' & ' or ' and '
     raw_authors = re.split(r"\s*&\s*|\s+and\s+", authors_str)
     surnames = []
@@ -669,13 +675,38 @@ def fuzzy_match_with_score(conn: sqlite3.Connection, surname: str,
 
 def author_year_match(conn: sqlite3.Connection, surname: str,
                       year: Optional[int]) -> Optional[str]:
-    """Last-resort match: author surname + year only, if exactly one candidate."""
+    """Match an original-description work by first-author surname + year.
+
+    A unique candidate wins outright. When several works share the same
+    (first-author, year) — typically the physical corpus paper plus
+    cited-reference / authority ghosts harvested from other papers'
+    bibliographies — prefer an in-corpus work so the link resolves to the
+    real paper instead of minting an empty stub. Ties among in-corpus
+    works (e.g. the same monograph ingested twice) break by citation count
+    then work_id, for determinism. Returns None only when no in-corpus
+    work shares the (author, year), preserving the stub path for taxa
+    whose original description genuinely isn't in the corpus.
+    """
     if not surname or not year:
         return None
     candidates = _first_author_candidates(conn, surname, year)
+    if not candidates:
+        return None
     if len(candidates) == 1:
         return candidates[0][0]
-    return None
+    work_ids = [c[0] for c in candidates]
+    placeholders = ",".join("?" * len(work_ids))
+    row = conn.execute(
+        f"""SELECT w.work_id
+            FROM works w
+            LEFT JOIN citations c ON c.cited_work_id = w.work_id
+            WHERE w.work_id IN ({placeholders}) AND w.in_corpus = 1
+            GROUP BY w.work_id
+            ORDER BY COUNT(c.cited_work_id) DESC, w.work_id ASC
+            LIMIT 1""",
+        work_ids,
+    ).fetchone()
+    return row[0] if row else None
 
 
 # ── Phase 1: Seed from corpus papers ────────────────────────────────
@@ -1500,6 +1531,11 @@ def main() -> int:
                 DROP TABLE IF EXISTS work_authors;
                 DROP TABLE IF EXISTS works;
                 DROP TABLE IF EXISTS build_meta;
+                -- Must drop the per-paper seed ledger too, or phase 1's
+                -- "already seeded" guard skips re-seeding every paper whose
+                -- metadata.json mtime is unchanged — leaving a --rebuild with
+                -- only the works table dropped and almost nothing re-seeded.
+                DROP TABLE IF EXISTS paper_artifacts_processed;
             """)
 
         create_schema(conn)
