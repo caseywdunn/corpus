@@ -491,6 +491,20 @@ def main() -> int:
             min_score=args.min_score, margin=args.margin,
             max_chars=args.max_chars, dry_run=args.dry_run,
         )
+        if not args.dry_run:
+            # Re-link taxon authorities AFTER reconcile. phase 3 (in
+            # build_biblio) ran before ghost cited-references were merged onto
+            # corpus papers, so some taxon_work_links point at ghost works that
+            # reconcile has since removed (orphaned links) or at stubs that now
+            # have a real in-corpus counterpart. Rebuild the links against the
+            # final, reconciled works table so original-description lookups
+            # resolve to the held paper.
+            from bib.authority import phase3_authority_links
+            conn.execute("DELETE FROM taxon_work_links")
+            conn.commit()
+            n = phase3_authority_links(conn, args.output_dir / "taxonomy.sqlite")
+            conn.commit()
+            logger.info("Re-linked %d taxon authorities against the reconciled works table", n)
     finally:
         conn.close()
 
