@@ -826,13 +826,26 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             # surfaces license / licenseurl / serve / servereason).
             _seed_license_and_serve(conn, work_id, meta)
             count += 1
-        elif existing_work_id is not None:
-            # Same work_id — refresh fields and rebuild the author list.
+        else:
+            # work_id already present — either a stale re-seed of this same
+            # corpus paper, or a collision with a ghost cited_reference work
+            # created by a prior phase-2 run (in_corpus=0, no corpus_hash).
+            # In the ghost case we must PROMOTE the stub to a real corpus
+            # paper; otherwise a held PDF is silently swallowed by a citation
+            # stub and its taxa never resolve to an in-corpus original
+            # description even though the PDF is physically present.
+            # COALESCE keeps the first bound corpus_hash when two scans dedupe
+            # to one work_id; the source CASE preserves an existing
+            # corpus_paper's provenance while upgrading a cited_reference ghost.
             now = time.time()
             conn.execute(
-                """UPDATE works SET title=?, year=?, journal=?,
-                       doi=?, updated_at=? WHERE work_id=?""",
-                (title, year, journal, doi or None, now, work_id),
+                """UPDATE works SET title=?, year=?, journal=?, doi=?,
+                       corpus_hash = COALESCE(corpus_hash, ?),
+                       in_corpus = 1,
+                       source = CASE WHEN in_corpus = 1 THEN source
+                                     ELSE 'corpus_paper' END,
+                       updated_at=? WHERE work_id=?""",
+                (title, year, journal, doi or None, corpus_hash, now, work_id),
             )
             conn.execute("DELETE FROM work_authors WHERE work_id=?", (work_id,))
             insert_authors(conn, work_id, authors)
