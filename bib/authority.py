@@ -160,11 +160,49 @@ _AUTHORITY_RE = re.compile(
 )
 
 
+def _split_author_surnames(fragment: str) -> List[str]:
+    """Split an author-list fragment into individual surnames.
+
+    Splits on ``&``, ``and`` and **commas** — commas separate authors in DwC
+    author lists like ``"Gershwin, Zeidler & Davie"`` (previously the comma
+    was not a delimiter, so the first surname collapsed into the bogus
+    ``"Gershwin Zeidler"`` and matched no work). Drops forename initials —
+    single letters or clusters like ``"L."`` / ``"O.F."`` — and stray
+    lowercase connectors (``"of"``), while preserving genuine surname
+    particles (``van``, ``von``, ``de`` …).
+    """
+    out: List[str] = []
+    for a in re.split(r"\s*&\s*|\s+and\s+|\s*,\s*", fragment):
+        a = a.strip()
+        if not a:
+            continue
+        name_parts = []
+        for p in a.split():
+            if re.match(r"^(?:[A-Z]\.?)+$", p):
+                continue  # forename initial(s): "L.", "O.F.", "JG"
+            if p.islower() and p.lower() not in _PARTICLES:
+                continue  # stray connector such as "of"
+            name_parts.append(p)
+        if name_parts:
+            out.append(" ".join(name_parts))
+        elif a.split():
+            out.append(a.split()[-1].rstrip("."))
+    return out
+
+
 def parse_authority(authority: str) -> Optional[Tuple[List[str], int]]:
     """Parse a DwC scientificNameAuthorship string into (author_surnames, year).
 
     Handles: 'Eschscholtz, 1829', '(Huxley, 1859)', 'Quoy & Gaimard, 1833',
-    'L. Agassiz, 1862', 'Lens & van Riemsdijk, 1908'.
+    'L. Agassiz, 1862', 'Lens & van Riemsdijk, 1908', comma-separated author
+    lists ('Gershwin, Zeidler & Davie, 2010'), and the zoological "X in Y"
+    idiom ('Brandt in Mertens, 1833') for a name published inside another
+    author's work.
+
+    The surname list is ordered for original-description *linking*: the
+    author(s) of the physical work come first. For "X in Y" that is the
+    containing work Y (which holds the PDF), then the describing author X —
+    phase 3 tries each in turn, so either resolves the link.
 
     Returns None if unparseable.
     """
@@ -175,28 +213,24 @@ def parse_authority(authority: str) -> Optional[Tuple[List[str], int]]:
         return None
     authors_str = m.group(1).strip()
     year = int(m.group(2))
-    # Split on ' & ' or ' and '
-    raw_authors = re.split(r"\s*&\s*|\s+and\s+", authors_str)
-    surnames = []
-    for a in raw_authors:
-        a = a.strip()
-        if not a:
-            continue
-        # Strip leading initials: "L. Agassiz" -> "Agassiz", "M. Sars" -> "Sars"
-        # But keep "van Riemsdijk" as-is
-        parts = a.split()
-        # Drop parts that look like initials (single letter, optionally with period)
-        name_parts = []
-        for p in parts:
-            if re.match(r"^[A-Z]\.?$", p):
-                continue  # initial, skip
-            name_parts.append(p)
-        if name_parts:
-            surnames.append(" ".join(name_parts))
-        elif parts:
-            # All parts were initials? Use the last one stripped of period
-            surnames.append(parts[-1].rstrip("."))
-    return surnames, year
+
+    # "X in Y" idiom (comma optional): "A. Agassiz in L. Agassiz",
+    # "Brandt in Mertens", "Lamarck in Bruguière". X describes the name; Y is
+    # the work that physically holds it. Put Y first so linking finds the PDF.
+    parts_in = re.split(r"(?:,\s*)?\bin\b\s+", authors_str, maxsplit=1)
+    if len(parts_in) == 2:
+        describing_str, containing_str = parts_in
+    else:
+        describing_str, containing_str = authors_str, ""
+
+    ordered: List[str] = []
+    for group in (containing_str, describing_str):
+        for surname in _split_author_surnames(group):
+            if surname and surname not in ordered:
+                ordered.append(surname)
+    if not ordered:
+        return None
+    return ordered, year
 
 
 # ── Schema ───────────────────────────────────────────────────────────
@@ -669,13 +703,126 @@ def fuzzy_match_with_score(conn: sqlite3.Connection, surname: str,
 
 def author_year_match(conn: sqlite3.Connection, surname: str,
                       year: Optional[int]) -> Optional[str]:
-    """Last-resort match: author surname + year only, if exactly one candidate."""
+    """Match an original-description work by first-author surname + year.
+
+    A unique candidate wins outright. When several works share the same
+    (first-author, year) — typically the physical corpus paper plus
+    cited-reference / authority ghosts harvested from other papers'
+    bibliographies — prefer an in-corpus work so the link resolves to the
+    real paper instead of minting an empty stub. Ties among in-corpus
+    works (e.g. the same monograph ingested twice) break by citation count
+    then work_id, for determinism. Returns None only when no in-corpus
+    work shares the (author, year), preserving the stub path for taxa
+    whose original description genuinely isn't in the corpus.
+    """
     if not surname or not year:
         return None
     candidates = _first_author_candidates(conn, surname, year)
+    if not candidates:
+        return None
     if len(candidates) == 1:
         return candidates[0][0]
+    work_ids = [c[0] for c in candidates]
+    placeholders = ",".join("?" * len(work_ids))
+    row = conn.execute(
+        f"""SELECT w.work_id
+            FROM works w
+            LEFT JOIN citations c ON c.cited_work_id = w.work_id
+            WHERE w.work_id IN ({placeholders}) AND w.in_corpus = 1
+            GROUP BY w.work_id
+            ORDER BY COUNT(c.cited_work_id) DESC, w.work_id ASC
+            LIMIT 1""",
+        work_ids,
+    ).fetchone()
+    return row[0] if row else None
+
+
+def _fuzzy_author_year(conn: sqlite3.Connection, surnames: List[str],
+                       year: Optional[int]) -> Optional[str]:
+    """Match an in-corpus work whose first-author surname is a near-spelling
+    of a parsed surname (same year). Conservative: needs a unique, high
+    similarity in-corpus candidate. Catches DwC authorship typos like
+    'Eschscholz'→'Eschscholtz' and 'Della Chiaje'→'Delle Chiaje' that exact
+    matching misses.
+    """
+    if not _HAS_BHL_DEPS or not year:
+        return None
+    targets = [normalize_for_key(s) for s in surnames if s]
+    if not targets:
+        return None
+    rows = conn.execute(
+        """SELECT DISTINCT wa.surname_normalized, wa.work_id
+           FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
+           WHERE wa.position = 0 AND w.year = ? AND w.in_corpus = 1""",
+        (year,),
+    ).fetchall()
+    hits = []
+    for cand_norm, wid in rows:
+        if not cand_norm:
+            continue
+        best = max((int(fuzz.ratio(t, cand_norm)) for t in targets), default=0)
+        if best >= 88:
+            hits.append((best, wid))
+    if not hits:
+        return None
+    hits.sort(reverse=True)
+    # Require a clear unique winner (or a single distinct work) to stay safe.
+    if len(hits) == 1 or hits[0][1] == hits[1][1] or hits[0][0] - hits[1][0] >= 3:
+        return hits[0][1]
     return None
+
+
+def resolve_authority_work(conn: sqlite3.Connection, surnames: List[str],
+                           year: Optional[int]) -> Tuple[Optional[str], float]:
+    """Best work for a parsed authority's (surnames, year), with confidence.
+
+    Tries each candidate surname as a first author in order — so the "X in Y"
+    idiom resolves to the containing work Y (surnames[0]) and multi-author
+    lists resolve to their true first author. When several (first-author,
+    year) works exist, disambiguate by how many of the authority's *other*
+    surnames appear anywhere in a candidate's author list (handles two
+    same-author/same-year papers, e.g. Harbison 2001 invasion vs Lampocteis).
+    Falls back to the in-corpus / citation-count preference, then a
+    conservative fuzzy-spelling match. Returns (work_id, confidence) or
+    (None, 0.0).
+    """
+    def in_corpus(work_id: str) -> bool:
+        r = conn.execute(
+            "SELECT in_corpus FROM works WHERE work_id = ?", (work_id,)
+        ).fetchone()
+        return bool(r and r[0])
+
+    norm_all = [normalize_for_key(s) for s in surnames]
+    for idx, surname in enumerate(surnames):
+        cands = _first_author_candidates(conn, surname, year)
+        if not cands:
+            continue
+        if len(cands) == 1:
+            # A lone candidate is often a cited-reference ghost (in_corpus=0)
+            # with this exact surname+year. Only accept it when it is the held
+            # paper; otherwise keep looking (other surnames, then fuzzy) so the
+            # link resolves to a real PDF rather than an empty stub.
+            if in_corpus(cands[0][0]):
+                return cands[0][0], 0.7
+            continue
+        # Several (first-author, year) works: rank in-corpus first, then by how
+        # many of the authority's other surnames appear in the candidate's
+        # author list (disambiguates two same-author/same-year papers).
+        others = {n for j, n in enumerate(norm_all) if j != idx and n}
+        scored = []
+        for cid, _ in cands:
+            coauth = {r[0] for r in conn.execute(
+                "SELECT surname_normalized FROM work_authors WHERE work_id = ?",
+                (cid,))}
+            scored.append((in_corpus(cid), len(others & coauth), cid))
+        scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
+        top = scored[0]
+        if top[0]:  # an in-corpus candidate
+            return top[2], 0.85 if top[1] > 0 else 0.7
+    fb = _fuzzy_author_year(conn, surnames, year)
+    if fb:
+        return fb, 0.6
+    return None, 0.0
 
 
 # ── Phase 1: Seed from corpus papers ────────────────────────────────
@@ -795,13 +942,26 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             # surfaces license / licenseurl / serve / servereason).
             _seed_license_and_serve(conn, work_id, meta)
             count += 1
-        elif existing_work_id is not None:
-            # Same work_id — refresh fields and rebuild the author list.
+        else:
+            # work_id already present — either a stale re-seed of this same
+            # corpus paper, or a collision with a ghost cited_reference work
+            # created by a prior phase-2 run (in_corpus=0, no corpus_hash).
+            # In the ghost case we must PROMOTE the stub to a real corpus
+            # paper; otherwise a held PDF is silently swallowed by a citation
+            # stub and its taxa never resolve to an in-corpus original
+            # description even though the PDF is physically present.
+            # COALESCE keeps the first bound corpus_hash when two scans dedupe
+            # to one work_id; the source CASE preserves an existing
+            # corpus_paper's provenance while upgrading a cited_reference ghost.
             now = time.time()
             conn.execute(
-                """UPDATE works SET title=?, year=?, journal=?,
-                       doi=?, updated_at=? WHERE work_id=?""",
-                (title, year, journal, doi or None, now, work_id),
+                """UPDATE works SET title=?, year=?, journal=?, doi=?,
+                       corpus_hash = COALESCE(corpus_hash, ?),
+                       in_corpus = 1,
+                       source = CASE WHEN in_corpus = 1 THEN source
+                                     ELSE 'corpus_paper' END,
+                       updated_at=? WHERE work_id=?""",
+                (title, year, journal, doi or None, corpus_hash, now, work_id),
             )
             conn.execute("DELETE FROM work_authors WHERE work_id=?", (work_id,))
             insert_authors(conn, work_id, authors)
@@ -1293,38 +1453,11 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
         if not surnames:
             continue
 
-        first_surname = surnames[0]
-
-        # Try to find a matching work
-        # We don't have a title from the authority string, so use author+year
-        matched_id = author_year_match(conn, first_surname, year)
-        confidence = 0.7
-
-        # If multiple authors in the authority, try matching with all of them
-        if not matched_id and len(surnames) > 1:
-            norm_surname = normalize_for_key(first_surname)
-            candidate_cur = conn.execute(
-                """SELECT DISTINCT wa.work_id
-                   FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-                   WHERE wa.surname_normalized = ? AND w.year = ? AND wa.position = 0""",
-                (norm_surname, year),
-            )
-            candidates = candidate_cur.fetchall()
-            if len(candidates) > 1:
-                # Disambiguate by checking second author
-                for cand_row in candidates:
-                    cand_id = cand_row[0]
-                    auth2_cur = conn.execute(
-                        "SELECT surname_normalized FROM work_authors "
-                        "WHERE work_id = ? AND position = 1",
-                        (cand_id,),
-                    )
-                    auth2 = auth2_cur.fetchone()
-                    if auth2 and len(surnames) > 1:
-                        if auth2[0] == normalize_for_key(surnames[1]):
-                            matched_id = cand_id
-                            confidence = 0.85
-                            break
+        # Resolve to a work by author + year. resolve_authority_work tries
+        # each parsed surname as a first author (so the "X in Y" idiom finds
+        # the containing work), disambiguates several same-author/same-year
+        # works by co-author overlap, and falls back to a fuzzy-spelling match.
+        matched_id, confidence = resolve_authority_work(conn, surnames, year)
 
         if matched_id:
             try:
@@ -1339,7 +1472,7 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
                 pass
         else:
             # Create a stub work from the authority string
-            work_id = make_corpus_guid(first_surname, year, "")
+            work_id = make_corpus_guid(surnames[0], year, "")
             inserted = insert_work(
                 conn, work_id, "corpus_key", title="", year=year, journal="",
                 doi="", corpus_hash=None, in_corpus=False,
@@ -1500,6 +1633,11 @@ def main() -> int:
                 DROP TABLE IF EXISTS work_authors;
                 DROP TABLE IF EXISTS works;
                 DROP TABLE IF EXISTS build_meta;
+                -- Must drop the per-paper seed ledger too, or phase 1's
+                -- "already seeded" guard skips re-seeding every paper whose
+                -- metadata.json mtime is unchanged — leaving a --rebuild with
+                -- only the works table dropped and almost nothing re-seeded.
+                DROP TABLE IF EXISTS paper_artifacts_processed;
             """)
 
         create_schema(conn)
