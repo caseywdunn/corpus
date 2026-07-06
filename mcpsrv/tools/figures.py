@@ -129,13 +129,20 @@ def get_figures_for_taxon(
     limit: int = 50,
     include_all: bool = False,
     full_caption: bool = False,
+    caption_only: bool = False,
 ) -> List[Dict]:
     """Figures from papers that mention the taxon, ranked by caption
     relevance.
 
     A figure whose caption names the taxon directly scores higher than
-    a figure from a paper that merely mentions it elsewhere. Each
-    result carries the on-disk figure image path.
+    a figure from a paper that merely mentions it elsewhere. **This means
+    the list also includes figures whose caption does *not* name the
+    taxon** — returned from any paper that mentions the taxon anywhere,
+    with ``caption_has_taxon: false`` and a low ``score`` (the caption
+    match contributes 100 to the score; a bare mention contributes only
+    the mention count). For a precise "figures of this taxon" answer,
+    filter on ``caption_has_taxon`` (or ``score``), or pass
+    ``caption_only=True`` to return only caption-matched figures.
 
     By default only returns items classified as ``figure`` or ``plate``
     (skipping journal furniture, subpanels of already-returned figures,
@@ -177,6 +184,8 @@ def get_figures_for_taxon(
             caption_hit = accepted_name_low in caption or (
                 matched_name_low and matched_name_low in caption
             )
+            if caption_only and not caption_hit:
+                continue
             rows.append({
                 "paper_hash": h,
                 "paper_title": p.get("title"),

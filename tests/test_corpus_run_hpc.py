@@ -127,11 +127,19 @@ def test_extract_step_carries_batch_flags():
     assert "--batch-size" in argv and "64" in argv
 
 
-def test_vision_step_forces_vision_backend_and_refresh():
-    argv = orch.VISION_STEP.argv(_argv_args(figure_panels="ocr",
+def test_vision_step_requires_explicit_backend():
+    # The vision phase must NOT silently substitute vision-local for a
+    # non-vision mode — that turned a misconfiguration into a surprise
+    # ~16 GB local-model download (#147 / F2). It now errors instead.
+    with pytest.raises(SystemExit):
+        orch.VISION_STEP.argv(_argv_args(figure_panels="ocr",
+                                         batch_index=1, batch_size=8))
+
+
+def test_vision_step_carries_flags_with_explicit_backend():
+    argv = orch.VISION_STEP.argv(_argv_args(figure_panels="vision-local",
                                             batch_index=1, batch_size=8))
     assert "--refresh-vision" in argv
-    # extract phase used the ocr floor; vision phase must force a backend
     assert argv[argv.index("--figure-panels") + 1] == "vision-local"
     assert "--no-grobid" in argv and "--no-taxa" in argv
     assert "--batch-index" in argv

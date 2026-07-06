@@ -11,10 +11,9 @@ Backend abstraction mirrors ``pipeline.embeddings``:
 * :class:`ClaudeVisionBackend` — Anthropic Claude via the official SDK.
   Network-dependent, pennies per figure at Haiku. The right choice for
   development and any host with outbound HTTP to the Anthropic API.
-* :class:`LocalVLMBackend` (forthcoming) — Qwen2.5-VL or similar
-  open-weights model on CUDA / MPS / CPU. Zero per-call cost, fully
-  local, network-independent. The right choice for the Bouchet
-  production run.
+* :class:`LocalVLMBackend` — Qwen2.5-VL or similar open-weights model
+  on CUDA / MPS / CPU. Zero per-call cost, fully local, network-
+  independent. The right choice for the Bouchet production run.
 
 Both backends return the same structured output — a list of panel /
 embedded-figure ROIs with normalized bboxes + per-ROI confidence — so

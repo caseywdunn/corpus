@@ -23,7 +23,7 @@ Corpus itself is general-purpose — not tied to any group of organisms. You aim
 Corpus reads a folder of PDFs and produces a knowledge base built around: **taxa, figures, bibliographies, and the cross-paper relationships between them**. It handles several tasks:
 
 - **OCR for old scans** — including 19th-century German Fraktur and other historical typefaces, with per-paper language detection.
-- **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then vision-LLM-tagged for taxonomy and anatomy.
+- **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then linked to taxonomy and anatomy by matching the caption against the Darwin Core synonymy graph and the anatomy lexicon. An optional vision-language model additionally detects multi-panel structure and compound plates.
 - **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton and Bargmann 1965" is one entity even when twenty papers cite it differently.
 - **Taxonomy linking** — every species mention is matched against a [Darwin Core](https://dwc.tdwg.org/) taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
 
@@ -268,13 +268,15 @@ corpus check                             # confirms grobid + GPU + config + disk
 
 ## Try it on the demo corpus
 
-The repo ships [demo/](demo/) — a regular corpuscle: 4 siphonophore PDFs (born-digital English, born-digital English, scanned German Fraktur, and scanned Russian), `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it. A 5th paper sits in [`tests/fixtures/round2_paper/`](tests/fixtures/round2_paper/) — outside the demo's `input_pdfs` scope — held back for the "add a paper and re-run" implicit-resume scenario exercised by [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
+The repo ships [demo/](demo/) — a regular corpuscle: 4 siphonophore PDFs (born-digital English, born-digital English, a 19th-c. German paper — Schneider 1891, born-digital with a clean text layer — and scanned Russian), `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it. A 5th paper sits in [`tests/fixtures/round2_paper/`](tests/fixtures/round2_paper/) — outside the demo's `input_pdfs` scope — held back for the "add a paper and re-run" implicit-resume scenario exercised by [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
 
 ```bash
 cd demo && corpus run
 ```
 
 Output lands in `demo/output/` (gitignored). Re-run anytime — `corpus run` is always idempotent.
+
+**What the default demo does and does not exercise.** The demo config sets `figures.panel_detection: ocr` (the CPU-only floor), so a default `corpus run` on `demo/` does **not** run the vision figure pass (Pass 3b) or the Fraktur OCR path — the scanned Russian paper *does* exercise genuine forced OCR, but Schneider 1891 is read from its existing text layer, not OCR'd as Fraktur. To exercise the vision pass, set `figures.panel_detection: vision-claude` (needs `ANTHROPIC_API_KEY` exported or in `.env`) or `vision-local` (needs a GPU), or pass `corpus run --figure-panels vision-claude`.
 
 ## First time run
 
@@ -352,7 +354,7 @@ The full file whitelist and path-scrubbing contract are documented in the [`mcps
 corpus serve   # reads bundle path from config.yaml's output_dir
 ```
 
-Point your MCP client at this. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code; for Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Point your MCP client at this. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code, pointed at `demo/output` so it works after a `cd demo && corpus run` (it needs the `corpus` binary on PATH — activate the conda env first, or edit the `command` to the env's absolute path). Repoint `--output-dir` at your own bundle for real use. For Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -375,9 +377,9 @@ For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE star
 
 Once your client is configured, open it and confirm the corpus server is connected. Open a [Claude Code](https://claude.com/claude-code) session at the terminal and run `/mcp` — the corpus server should appear in the list along with its tool surface.
 
-**Interactive chat** is the most direct mode. Ask questions like the [example queries](#example-uses) above and get answers streamed back, citing the source papers. This is text-only — figures don't render inline, so corpus content that lives in images (plates, photographs, morphological line drawings) doesn't come along for the ride.
+**Interactive chat** is the most direct mode. Ask questions like the [example queries](#example-uses) above and get answers streamed back, citing the source papers. Figures *do* come along: `get_figure_image` returns a standards-compliant MCP `ImageContent` block, so image-capable clients (e.g. Claude Desktop) render plates, photographs, and morphological line drawings inline in the chat. The report workflow below is for compiled, multi-figure, or citable outputs — not a workaround for a rendering limitation.
 
-**Reports** are how you reach the rest. Ask the LLM to write a report and it produces a markdown or LaTeX file alongside the chat, which can then be rendered to PDF (Claude Code can call `pandoc` / `pdflatex` directly). Reports can be plain text or pull figures from the corpus by reference, so a morphological-diversity summary with one plate per species is a single prompt away. Other natural fits:
+**Reports** are how you reach the rest. Ask the LLM to write a report and it produces a markdown or LaTeX file alongside the chat, which can then be rendered to PDF (Claude Code can call `pandoc` directly; the env bundles the self-contained `tectonic` LaTeX engine, so `pandoc report.md -o report.pdf --pdf-engine=tectonic` works out of the box — Markdown/HTML output needs no TeX at all). Reports can be plain text or pull figures from the corpus by reference, so a morphological-diversity summary with one plate per species is a single prompt away. Other natural fits:
 
 - **Character matrices** compiled from the literature (e.g. "nectophore presence/absence and gastrozooid count for every physonect in the corpus").
 - **Compiled data exports** in CSV, TSV, JSONL, or BibTeX so downstream tools can pick up where chat leaves off.

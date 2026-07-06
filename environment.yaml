@@ -43,6 +43,7 @@ dependencies:
   # level if you want the extra compression — see INSTALL.md.
   - pymupdf
   - pandoc    # md → pdf for write-up workflows initiated by Claude (#50)
+  - tectonic  # self-contained LaTeX engine so pandoc's LaTeX→PDF path works out of the box (#50); no full TeX Live install
 
   # Config, data, scientific
   - numpy
@@ -75,7 +76,7 @@ dependencies:
       - sentence-transformers==5.5.0  # local embedding backend (Phase E); pulls torch + transformers. Pinned with the docling stack (#98) to keep the known-good set consistent.
       - torch==2.12.0  # pinned (#98) for build reproducibility. Imported directly in pipeline/embeddings.py / pipeline/vision.py. On Bouchet this PyPI build is CUDA 13; reinstall from the cu128 index — see dev_docs/BOUCHET.md (issue #21).
       - transformers==5.8.1  # pinned (#98). Imported directly in pipeline/vision.py for the local VLM backend.
-      - anthropic  # Claude API client for on-demand translation (translate_chunk MCP tool)
+      - anthropic  # Claude API client for the vision figure-panel backend (pipeline/vision.py)
       - pytesseract  # Python wrapper for Tesseract — used in Pass 3a figure-label OCR (dev_docs/PLAN.md §9)
       - qwen-vl-utils  # image preprocessing for Qwen2.5-VL local VLM backend (pipeline/vision.py)
       - accelerate  # HuggingFace device_map / model sharding for local VLM

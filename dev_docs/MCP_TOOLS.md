@@ -60,7 +60,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 
 | Tool | Returns |
 | --- | --- |
-| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. `caption_text` is a preview by default (#85); `full_caption=True` for the verbatim caption. |
+| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. Also returns figures whose caption does not name the taxon (from papers that mention it elsewhere) with `caption_has_taxon: false` and a low `score` — filter on `caption_has_taxon`/`score`, or pass `caption_only=True`, for precision. `caption_text` is a preview by default (#85); `full_caption=True` for the verbatim caption. |
 | `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). `caption_text` previewed by default (#85); `full_caption=True` for verbatim. |
 | `get_figure_dossier_for_taxon` | Figures linked to a taxon, each with `linked_chunks` (chunk IDs that reference the figure via `chunks.json:figure_refs`) + summarized ROIs. Single call replaces `get_figures_for_taxon` + per-figure `list_figure_rois` + cross-ref against `get_chunks_for_taxon`. |
 | `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Category-agnostic. |

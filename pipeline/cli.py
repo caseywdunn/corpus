@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import yaml
+from dotenv import find_dotenv, load_dotenv
 
 from .config_schema import CorpuscleConfig, ValidationError, validate_config
 from .console import console, print_status
@@ -1788,6 +1789,15 @@ _PASSTHROUGH_VERBS = {"status", "serve", "bib", "taxonomy"}
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    # Load .env before anything reads os.environ so the vision capability
+    # gate (_vision_skip_reason) can see an ANTHROPIC_API_KEY that lives
+    # only in .env — otherwise it silently downgrades vision-claude → ocr
+    # (#147 / F2). `usecwd=True` searches from the directory the operator
+    # runs `corpus` in (e.g. `cd demo && corpus run` finds demo/.env),
+    # rather than bare load_dotenv()'s search from this module's own
+    # directory. Loading here in the parent propagates the key to every
+    # spawned pipeline subprocess via the inherited environment.
+    load_dotenv(find_dotenv(usecwd=True))
     parser = _build_parser()
     # Use parse_known_args so passthrough subcommands (status, serve,
     # bib) can forward flags like --transport, --report, --json to the

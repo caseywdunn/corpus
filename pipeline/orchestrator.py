@@ -113,10 +113,25 @@ class Step:
                 cmd.append("--dry-run")
             if args.config:
                 cmd += ["--config", str(args.config)]
-            fp = (args.figure_panels
-                  if args.figure_panels in ("vision-local", "vision-claude")
-                  else "vision-local")
-            cmd += ["--figure-panels", fp]
+            # The vision phase must run an explicit vision backend. Do NOT
+            # silently substitute vision-local for a non-vision mode: that
+            # turned a misconfiguration (e.g. an ANTHROPIC_API_KEY that was
+            # invisible to the capability gate, #147/F2) into a surprise
+            # ~16 GB Qwen2.5-VL download that ran the opposite of the
+            # requested backend. HPC callers always pass the backend
+            # explicitly (see slurm/batch_pass3b.sh); anything else is an
+            # operator error worth surfacing, not guessing.
+            if args.figure_panels not in ("vision-local", "vision-claude"):
+                logger.error(
+                    "`--only vision` requires an explicit vision backend, but "
+                    "--figure-panels=%r. Re-run with "
+                    "`--figure-panels vision-local` or "
+                    "`--figure-panels vision-claude` (the latter needs "
+                    "ANTHROPIC_API_KEY exported or in .env).",
+                    args.figure_panels,
+                )
+                raise SystemExit(2)
+            cmd += ["--figure-panels", args.figure_panels]
             if args.vision_model:
                 cmd += ["--vision-model", args.vision_model]
             cmd += _batch_flags(args)

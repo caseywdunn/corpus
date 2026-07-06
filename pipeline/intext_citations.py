@@ -101,9 +101,17 @@ def main() -> int:
             n_total, n_parsed, n_skipped, n_no_tei,
         )
     else:
+        # `backfill_intext` is an idempotent top-up. In-text citations are
+        # normally written during the main extraction stage, so on a healthy
+        # re-run every paper is "already up-to-date" and nothing is parsed
+        # here — that is success, not a no-op failure. Spell it out so
+        # "0 parsed, N skipped" doesn't read like the feature did nothing.
         logger.info(
-            "Done: %d papers (%d parsed, %d skipped, %d failed); %d citations total",
-            n_total, n_parsed, n_skipped, n_failed, n_citations,
+            "Done: %d papers — %d newly parsed, %d already up-to-date, "
+            "%d without grobid.tei.xml, %d parse-failed; %d citations from "
+            "newly parsed papers (papers already up-to-date kept the in-text "
+            "citations written during extraction).",
+            n_total, n_parsed, n_skipped, n_no_tei, n_failed, n_citations,
         )
     return 0
 
