@@ -118,13 +118,15 @@ TESSDATA_DIR=/usr/local/share/tessdata bash tools/install_tessdata.sh
 
 ## Grobid on Bouchet
 
-Grobid runs as a Docker service locally. On an HPC cluster without Docker, [Singularity](https://docs.sylabs.io/) can pull the same image:
+Grobid runs as a Docker service locally, using the lightweight `lfoppiano/grobid:0.8.1` image by default (the same image used here on HPC, so local and cluster match). On an HPC cluster without Docker, [Singularity](https://docs.sylabs.io/) can pull it:
 
 ```bash
 singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
 singularity run --bind $HOME grobid.sif &
 corpus run    # config.yaml in cwd points at <input> + sets grobid.url
 ```
+
+The full DeLFT image `grobid/grobid:0.8.1` (~32 GB) gives higher-quality reference parsing but requires AVX and therefore an AVX-capable Linux x86_64 host — it crash-loops under Rosetta on Apple Silicon. It is an opt-in only; see the comments in [`docker-compose.yml`](docker-compose.yml) and [README §Grobid](README.md#2-grobid-runs-under-x86_64-emulation).
 
 ## Pip-only fallback
 

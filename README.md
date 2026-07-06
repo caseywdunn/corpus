@@ -219,7 +219,9 @@ After install, `corpus check` hard-fails on a Rosetta'd Python, so a wrong-arch 
 
 #### 2. Grobid runs under x86_64 emulation
 
-The Grobid Docker image (`grobid/grobid:0.8.1`) is `linux/amd64` only; Docker Desktop emulates it on Apple Silicon. In **Settings → General**, enable **"Use Rosetta for x86_64/amd64 emulation"** for the fast path — QEMU still works but is noticeably slower. Allocate ≥ 12 GB to Docker Desktop under **Settings → Resources** so the existing `JAVA_OPTS=-Xmx8g` heap in `docker-compose.yml` fits; drop to `-Xmx4g` if you have less. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+The default Grobid image (`lfoppiano/grobid:0.8.1`, the lightweight CRF-only build) is `linux/amd64`; Docker Desktop emulates it on Apple Silicon. In **Settings → General**, enable **"Use Rosetta for x86_64/amd64 emulation"** for the fast path — QEMU still works but is noticeably slower. This image is ~1 GB, boots in seconds, and emits full TEI with in-text reference markers, so it runs fine under emulation with the default `JAVA_OPTS=-Xmx4g` heap. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+
+> **Do not use the full DeLFT image (`grobid/grobid:0.8.1`) on Apple Silicon.** Its TensorFlow/DeLFT reference parser requires AVX CPU instructions, which Rosetta 2 does not implement, so the container crash-loops (exit 134 / SIGABRT) no matter how the Rosetta toggle is set — and only after a ~20 GB download. The DeLFT image is an opt-in for **AVX-capable Linux x86_64 hosts** where it improves reference-parsing quality; see the comments in [`docker-compose.yml`](docker-compose.yml).
 
 ### Clone and install
 

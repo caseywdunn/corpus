@@ -18,23 +18,30 @@
 
 services:
   grobid:
-    # grobid/grobid is the full image with DeLFT deep-learning reference
-    # parsing (~32 GB on disk with all bundled models — `more disk and ram
-    # are OK for improved quality` per the project decision). Linux/amd64
-    # only; runs under Rosetta on Apple Silicon. If you need a smaller
-    # footprint (CI, low-disk machines), swap to the CRF-only lightweight
-    # image by changing this line to: ``lfoppiano/grobid:0.8.1``.
-    image: grobid/grobid:0.8.1
+    # lfoppiano/grobid is the lightweight CRF-only image (~1 GB): boots in
+    # seconds, runs everywhere, and still emits full TEI with in-text
+    # <ref type="bibr"> markers. It is the default because it is the only
+    # image that runs on all "Supported" platforms — including macOS Apple
+    # Silicon under Rosetta.
+    #
+    # OPT-IN (AVX-capable Linux x86_64 only): the full DeLFT deep-learning
+    # image `grobid/grobid:0.8.1` (~32 GB on disk) gives higher-quality
+    # reference parsing. Do NOT use it on Apple Silicon: its TensorFlow/DeLFT
+    # binaries require AVX CPU instructions, which Rosetta 2 does not
+    # implement, so the container crash-loops (exit 134 / SIGABRT) regardless
+    # of the "Use Rosetta" toggle. See README §Grobid. To opt in on a Linux
+    # host with AVX, change the line below to `grobid/grobid:0.8.1` and raise
+    # the heap under `environment` accordingly.
+    image: lfoppiano/grobid:0.8.1
     container_name: corpus-grobid
     ports:
       - "8070:8070"
     restart: unless-stopped
-    # Grobid is memory-hungry under heavy load; the full deep-learning
-    # image more so. 8 GB heap is comfortable on a 32 GB MacBook Pro and
-    # fine for batch-processing a 2000-paper corpus on Bouchet. Drop to
-    # -Xmx4g if running somewhere tight on memory.
+    # The CRF-only image is light on memory; 4 GB heap is comfortable and
+    # fine for batch-processing a large corpus. Raise to -Xmx8g if you have
+    # opted in to the full DeLFT image above.
     environment:
-      - JAVA_OPTS=-Xmx8g -Xms2g
+      - JAVA_OPTS=-Xmx4g -Xms1g
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8070/api/isalive"]
       interval: 30s
