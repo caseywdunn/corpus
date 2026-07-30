@@ -437,3 +437,77 @@ jobs:
             demo/output/_serve/bundle_manifest.json
           if-no-files-found: ignore
 
+
+  # ─────────────────────────────────────────────────────────────────
+  # T1-compose — the documented Grobid setup, on every push (#161)
+  # ─────────────────────────────────────────────────────────────────
+  #
+  # T1 above starts Grobid as a GHA `services:` container with its own
+  # image reference and its own JAVA_OPTS. That means `docker-compose.yml`
+  # — the file every non-HPC user actually runs — was covered by no test
+  # at all, which is precisely how both reviewer-reported Grobid defects
+  # shipped:
+  #
+  #   #146  the default image (grobid/grobid:0.8.1) crash-looped on Apple
+  #         Silicon after a ~20 GB download, blocking a reviewer on a
+  #         platform we advertise as Supported.
+  #   #157  the healthcheck shelled out to curl, which the lfoppiano
+  #         image doesn't ship, so corpus-grobid reported (unhealthy)
+  #         forever while working fine.
+  #
+  # This job is deliberately small — it does not build the demo, since T1
+  # covers that. It pins the four things a user's first command depends
+  # on: the image boots, the API answers, Docker's own healthcheck goes
+  # `healthy` (the standing guard for #157), and `corpus check` agrees.
+  t1-compose:
+    name: T1-compose — docker-compose.yml boots + reports healthy (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start Grobid from docker-compose.yml
+        run: docker compose up -d grobid
+
+      - name: Wait for /api/isalive
+        run: |
+          ready=0
+          for i in $(seq 1 90); do
+            if [ "$(curl -fsS http://localhost:8070/api/isalive 2>/dev/null)" = "true" ]; then
+              echo "Grobid alive after $((i * 2))s"
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "Grobid did not answer /api/isalive within 180s"
+            docker compose logs grobid | tail -50
+            exit 1
+          fi
+
+      - name: Assert the compose healthcheck reports healthy (#157)
+        # The regression guard. `start_period` is 60s and `interval` is
+        # 30s, so allow generous time for Docker to render its first
+        # verdict, then require `healthy` — not merely "not unhealthy".
+        run: |
+          for i in $(seq 1 40); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' corpus-grobid 2>/dev/null || echo missing)
+            echo "t+$((i * 5))s: $status"
+            case "$status" in
+              healthy)   echo "compose healthcheck reports healthy"; exit 0 ;;
+              unhealthy)
+                echo "compose healthcheck reports UNHEALTHY — this is #157 regressing."
+                docker inspect --format '{{json .State.Health}}' corpus-grobid
+                exit 1 ;;
+            esac
+            sleep 5
+          done
+          echo "healthcheck never left '$status' within 200s"
+          docker inspect --format '{{json .State.Health}}' corpus-grobid
+          exit 1
+
+      - name: Stop Grobid
+        if: always()
+        run: docker compose down || true

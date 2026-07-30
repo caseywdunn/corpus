@@ -75,7 +75,24 @@ def extract_docling_content(
             do_table_structure=True,
             generate_picture_images=True,
             generate_page_images=False,
-            do_picture_classification=True,
+            # #140 — OFF deliberately. docling's DocumentFigureClassifier
+            # is an extra HuggingFace download and a per-figure inference
+            # pass whose output we never read: every figure's
+            # ``figure_type`` comes from our own ``classify_figure()``
+            # heuristic (extract.py:221 / :344, implemented in
+            # figures.py:425) and the served vocabulary is corpus's own
+            # (figure / plate / subpanel), not docling's picture classes.
+            # Verified before flipping: the only reference to picture
+            # classification anywhere in pipeline/, mcpsrv/, bib/, or
+            # tests/ was this flag.
+            #
+            # Turning it off removes a download from every new user's first
+            # run. It was also the proximate cause of a CI outage — when
+            # anonymous GitHub runner IPs got HTTP 429'd, this model was
+            # the first fetch to fail, yielding zero chunks and a red dev.
+            # The layout model and TableFormer are still downloaded, so
+            # this does not remove the HuggingFace dependency itself.
+            do_picture_classification=False,
             images_scale=images_scale,
         )
         pdf_format_option = PdfFormatOption(pipeline_options=pipeline_options)

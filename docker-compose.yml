@@ -40,10 +40,37 @@ services:
     # The CRF-only image is light on memory; 4 GB heap is comfortable and
     # fine for batch-processing a large corpus. Raise to -Xmx8g if you have
     # opted in to the full DeLFT image above.
+    #
+    # NOTE on the CI divergence (#161): integration.yml's T1 `services:`
+    # block additionally passes `-XX:-UseContainerSupport`, added for a
+    # cgroup-v2 JVM NPE seen on GHA runners (#72 / 40ae330). That flag is
+    # deliberately NOT mirrored here. Disabling container support makes the
+    # JVM ignore the container's memory limit and size its heap from the
+    # host instead — undesirable on a user's laptop, where honoring the
+    # limit is the point. Verified 2026-07-30: this file boots clean on a
+    # cgroup-v2 Linux host (`stat -fc %T /sys/fs/cgroup` → `cgroup2fs`)
+    # with no NPE and no cgroup warning in the container log, so the
+    # upstream problem is not universal to cgroup v2. Don't "fix" the
+    # divergence by copying the flag over.
     environment:
       - JAVA_OPTS=-Xmx4g -Xms1g
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8070/api/isalive"]
+      # #157 — the image has no curl, wget, nc, or python3 (verified by
+      # `docker exec corpus-grobid which ...`: only java, bash, and a
+      # dash /bin/sh). The previous `curl` probe therefore always failed
+      # and `corpus-grobid` reported (unhealthy) forever while serving
+      # perfectly — the first thing a new user sees after
+      # `docker compose up -d grobid`.
+      #
+      # bash's /dev/tcp does a real HTTP GET with no extra tooling, and
+      # greps the response for the `true` that /api/isalive returns.
+      # That discriminates properly: a closed port fails, and so does a
+      # listening server answering 404 on the wrong path.
+      #
+      # `bash` is named explicitly rather than using CMD-SHELL, because
+      # CMD-SHELL runs /bin/sh, which here is dash — and dash has no
+      # /dev/tcp ("cannot create /dev/tcp/...: Directory nonexistent").
+      test: ["CMD", "bash", "-c", 'exec 3<>/dev/tcp/127.0.0.1/8070 && printf "GET /api/isalive HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && grep -q true <&3']
       interval: 30s
       timeout: 5s
       retries: 3

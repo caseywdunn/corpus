@@ -54,9 +54,37 @@ The v0.6 MCP surface freeze holds — no new tools. See
   way a new user experiences it (the path that 429'd in #140).
   `dev_docs/ec2_smoke.sh` is relabelled **T3-bare** and remains the
   manual pre-release check for the bare-host apt/miniforge bootstrap.
+- **T1-compose — `docker-compose.yml` is exercised on every push**
+  ([#161](https://github.com/caseywdunn/corpus/issues/161)). T1 starts
+  Grobid as a GHA `services:` container, so the compose file every
+  non-HPC user actually runs was covered by no test — which is how both
+  #146 (wrong default image, crash-looping on Apple Silicon) and #157
+  (broken healthcheck) shipped. The new job boots the real file, waits
+  for `/api/isalive`, and requires `docker inspect` to report `healthy`,
+  which is the standing regression guard for #157.
 
 ### Fixed
 
+- **Grobid's compose healthcheck actually works now**
+  ([#157](https://github.com/caseywdunn/corpus/issues/157)). It shelled
+  out to `curl`, which the `lfoppiano/grobid:0.8.1` image does not ship
+  (nor `wget`, `nc`, or `python3` — verified by `docker exec`), so
+  `corpus-grobid` reported `(unhealthy)` forever while serving perfectly.
+  It now does a real HTTP GET of `/api/isalive` through bash's
+  `/dev/tcp`, greps the response for `true`, and names `bash` explicitly
+  because `CMD-SHELL` runs `/bin/sh`, which in this image is dash and has
+  no `/dev/tcp`. `docker inspect` reports `healthy`.
+- **docling's picture classifier is no longer downloaded or run**
+  ([#140](https://github.com/caseywdunn/corpus/issues/140)).
+  `do_picture_classification` was `True`, which fetched
+  `DocumentFigureClassifier-v2.5` from HuggingFace and ran it on every
+  figure — but nothing read the result: `figure_type` comes from our own
+  `classify_figure()` heuristic and the served vocabulary is corpus's own
+  (`figure` / `plate` / `subpanel`). One fewer model download on a new
+  user's first run, and one fewer HuggingFace 429 surface (this model was
+  the first fetch to fail in the #140 CI outage). The layout model and
+  TableFormer are still downloaded. Existing corpuscles re-run the
+  figure/extract stage on the next `corpus run`.
 - **Corrected a wrong claim about CI caching** that had propagated into
   #156, #158, and `CONTRIBUTING.md`. `setup-miniconda` does not cache the
   solved conda environment and this repo adds no `actions/cache` for it,
