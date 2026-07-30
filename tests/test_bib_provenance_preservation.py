@@ -124,3 +124,115 @@ def test_reconcile_without_bib_keeps_ghost_fields(conn):
     assert row[0] == "Ghost Title"
     assert row[1] == "corpus_paper"
     assert row[2] is None
+
+
+# (d) the CALLER must reach the stamping branch (#142 → #152) --------------
+#
+# `test_unchanged_reimport_stamps_bib_imported_at` above calls apply_entry
+# directly, which is why #100 looked complete: the no-diff branch worked,
+# but `import_bibtex` early-`continue`d before ever calling it, so the
+# branch was unreachable in production. A real round-trip re-import
+# stamped only entries that happened to have field edits — 20 of 19,834 in
+# the reported corpus — leaving the rest in the reconciliation-warning
+# tier (#152), and an authority-DB rebuild re-broke it every time.
+#
+# These go through the public entry point so the wiring is covered, not
+# just the branch.
+
+
+def _write_bib(tmp_path, body: str):
+    p = tmp_path / "lib.bib"
+    p.write_text(body, encoding="utf-8")
+    return p
+
+
+def _seed_db(tmp_path, *, corpus_hash="aabbccddeeff", title="Marrus claudanielis",
+             year=2005):
+    db = tmp_path / "biblio_authority.sqlite"
+    c = sqlite3.connect(db)
+    create_schema(c)
+    _insert_work(
+        c, f"corpus:dunn|{year}|marrus", title=title, year=year,
+        source="corpus_paper", in_corpus=1, corpus_hash=corpus_hash,
+        bib_imported_at=None,
+    )
+    c.commit()
+    c.close()
+    return db
+
+
+def test_import_bibtex_stamps_unchanged_entries(tmp_path):
+    """The #142 regression test: an entry that matches the DB exactly must
+    still come out of `import_bibtex` stamped into the bib tier."""
+    from bib.importer import import_bibtex
+
+    db = _seed_db(tmp_path)
+    bib = _write_bib(tmp_path, """@article{dunn2005,
+  corpus_hash = {aabbccddeeff},
+  title = {Marrus claudanielis},
+  year = {2005},
+}
+""")
+    counters = import_bibtex(db, bib)
+    assert counters["no_changes"] == 1, counters   # genuinely no field diff
+    assert counters["changed"] == 0, counters
+
+    c = sqlite3.connect(db)
+    stamped = _bib_imported_at(c, "corpus:dunn|2005|marrus")
+    c.close()
+    assert stamped is not None, (
+        "import_bibtex left bib_imported_at NULL on a matched-but-unchanged "
+        "entry — #142 has regressed and #152's warnings are back"
+    )
+
+
+def test_unchanged_reimport_lands_in_the_silent_bib_tier(tmp_path):
+    """#152's acceptance criterion, end to end: after re-importing an
+    unchanged .bib, the work's provenance tier is `bib`, which is the tier
+    `format_citations` emits *without* a reconciliation warning."""
+    from mcpsrv.indexes import BiblioAuthority
+
+    from bib.importer import import_bibtex
+
+    db = _seed_db(tmp_path)
+
+    # Before: a corpus_paper row with no bib stamp reads as reconciled, so
+    # format_citations warns on it.
+    before = BiblioAuthority(db).provenance("corpus:dunn|2005|marrus")
+    assert before != "bib", before
+
+    bib = _write_bib(tmp_path, """@article{dunn2005,
+  corpus_hash = {aabbccddeeff},
+  title = {Marrus claudanielis},
+  year = {2005},
+}
+""")
+    import_bibtex(db, bib)
+    # ...and again, to prove idempotence — the reported symptom was that a
+    # *re*-import of an already-clean .bib changed nothing.
+    import_bibtex(db, bib)
+
+    after = BiblioAuthority(db).provenance("corpus:dunn|2005|marrus")
+    assert after == "bib", (
+        f"provenance is {after!r}, so format_citations still emits "
+        "'generated via reconciliation, check if correct' on a work the "
+        "user curated by hand (#152)"
+    )
+
+
+def test_dry_run_does_not_stamp(tmp_path):
+    """--dry-run must stay side-effect free, including for the new stamp."""
+    from bib.importer import import_bibtex
+
+    db = _seed_db(tmp_path)
+    bib = _write_bib(tmp_path, """@article{dunn2005,
+  corpus_hash = {aabbccddeeff},
+  title = {Marrus claudanielis},
+  year = {2005},
+}
+""")
+    import_bibtex(db, bib, dry_run=True)
+    c = sqlite3.connect(db)
+    stamped = _bib_imported_at(c, "corpus:dunn|2005|marrus")
+    c.close()
+    assert stamped is None, "dry-run wrote bib_imported_at"

@@ -92,6 +92,49 @@ The v0.6 MCP surface freeze holds — no new tools. See
 
 ### Fixed
 
+- **The bib parser no longer discards the rest of the file on one bad
+  entry** ([#141](https://github.com/caseywdunn/corpus/issues/141)).
+  Importing a 19,834-entry export parsed only 2,258 of them, with a single
+  WARNING and a summary that looked entirely plausible. Three fixes:
+  (a) **the root cause** — neither brace scanner honored backslash
+  escapes, so Grobid OCR output like `author = {Des, Ej\{aims}` counted
+  the escaped brace as an opening one and the entry never closed. The
+  quoted-string scanner had always handled backslashes; only the brace
+  path was missing it. (b) A genuinely malformed entry now costs *one
+  entry*: the scan recovers at the next top-level `@` instead of stopping.
+  (c) The summary reconciles parsed entries against the number of `@`
+  markers in the file and warns on a shortfall, which is what makes a
+  truncation visible at all. An unbalanced brace inside a *value* — which
+  used to swallow the entry's remaining fields with no message
+  whatsoever — now logs, naming the entry and the field.
+- **Curated `.bib` entries stay out of the warning tier**
+  ([#142](https://github.com/caseywdunn/corpus/issues/142),
+  [#152](https://github.com/caseywdunn/corpus/issues/152), completing
+  [#100](https://github.com/caseywdunn/corpus/issues/100)).
+  `import_bibtex` early-`continue`d on its no-field-diff branch before
+  ever calling `apply_entry`, making #100's "stamp `bib_imported_at` even
+  with no diff" logic unreachable dead code — the branch worked and was
+  even unit-tested, but nothing reached it. A full round-trip re-import
+  therefore stamped only entries that happened to have edits (20 of
+  19,834 in the reported corpus), so `format_citations` kept emitting
+  "generated via reconciliation, check if correct" on hand-curated works;
+  and since an authority-DB rebuild clears the stamp and forces a
+  re-import, curation was defeated on every rebuild. Also collapsed a
+  vestigial `return 0 if no_match == 0 else 0` whose branches were
+  identical.
+- **A configured-but-missing taxonomy fails instead of silently skipping**
+  ([#139](https://github.com/caseywdunn/corpus/issues/139)). The first
+  full production run on Bouchet put 1763 papers through with empty
+  `taxa.json` and an empty `taxon_mentions.sqlite`, because
+  `taxonomy.source: worms` needs outbound internet that compute nodes
+  don't have and the per-paper stage merely warned. `corpus run` now
+  passes `--require-taxonomy` to the extract stage whenever the corpuscle
+  configures `taxonomy.source`, and that stage refuses to run rather than
+  produce empty annotations, with a message naming the login-node
+  pre-build and the `dwca` export. A corpuscle with no `taxonomy:` block,
+  or an explicit `--no-taxa`, is unaffected — that remains a supported
+  configuration. README §Taxonomy documents the internet requirement and
+  the export→dwca workflow.
 - **Grobid's compose healthcheck actually works now**
   ([#157](https://github.com/caseywdunn/corpus/issues/157)). It shelled
   out to `curl`, which the `lfoppiano/grobid:0.8.1` image does not ship

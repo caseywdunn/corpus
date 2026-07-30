@@ -392,6 +392,25 @@ def import_bibtex(
             if not changes:
                 counters["no_changes"] += 1
                 logger.debug("%s: no changes (%s)", cite_key, work_id)
+                # #142 — still call apply_entry. It has a no-diff branch
+                # that stamps bib_imported_at, which is #100's documented
+                # intent ("the entry IS present in the user's
+                # authoritative .bib"), but this loop used to `continue`
+                # here and so never reached it — making that branch
+                # unreachable dead code.
+                #
+                # The consequence was severe and invisible: a full
+                # round-trip re-import stamped only the entries that
+                # happened to have field edits (20 of 19,834 in the
+                # reported corpus), so CorpusIndex.provenance() kept
+                # returning grobid_reconciled for the rest and
+                # format_citations kept emitting "generated via
+                # reconciliation, check if correct" on works the user had
+                # curated by hand (#152). And because an authority-DB
+                # rebuild clears bib_imported_at and forces a re-import,
+                # curation was defeated again on every rebuild.
+                if not dry_run:
+                    apply_entry(conn, work_id, entry)
                 continue
 
             counters["changed"] += 1
@@ -506,7 +525,12 @@ def main() -> int:
         counters["no_changes"],
         counters["changed"],
     )
-    return 0 if counters["no_match"] == 0 else 0  # warn-but-don't-fail on no-match
+    # No-match entries are warned about above but are not a failure: a
+    # curated .bib legitimately contains works that aren't in this
+    # corpuscle. (This was written as `0 if no_match == 0 else 0` — both
+    # branches returning 0 — which read as though a non-zero exit had been
+    # intended and lost. It hadn't; simplified to say so plainly.)
+    return 0
 
 
 if __name__ == "__main__":

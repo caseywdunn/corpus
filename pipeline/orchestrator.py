@@ -89,6 +89,15 @@ class Step:
                 cmd += ["--lexicon", str(args.lexicon)]
             if args.no_taxa:
                 cmd.append("--no-taxa")
+            elif getattr(args, "taxonomy_source", None):
+                # #139 — the corpuscle configures a taxonomy, so tell the
+                # per-paper stage to fail rather than warn if the snapshot
+                # is missing. _check_taxonomy_available() above already
+                # pre-flights this for `corpus run`; passing it through
+                # closes the window where the snapshot vanishes after the
+                # pre-check, and makes the requirement explicit at the
+                # layer that would otherwise write empty taxa.json.
+                cmd.append("--require-taxonomy")
             if args.no_grobid:
                 cmd.append("--no-grobid")
             if args.grobid_url is not None:
