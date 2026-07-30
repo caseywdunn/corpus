@@ -45,8 +45,8 @@ Layout on the EC2 host:
   venv/               Python 3.12 virtualenv
   bundles/
     v0.4.0/           copy of s3://<bucket>/v0.4.0/
-    v0.5.0/
-  bundle -> bundles/v0.5.0/       atomic symlink to active version
+    v1.0.0/
+  bundle -> bundles/v1.0.0/       atomic symlink to active version
 
 /etc/corpus/
   mcp.token           bearer token, mode 640, root:corpus
@@ -384,11 +384,11 @@ aws cloudformation wait stack-delete-complete --stack-name ${ORGANISM}-mcp --reg
 
 ```bash
 # On Bouchet — upload new bundle
-BUCKET=$BUCKET deploy/sync_to_s3.sh /path/to/pipeline/output v0.5.0
+BUCKET=$BUCKET deploy/sync_to_s3.sh /path/to/pipeline/output v1.0.0
 
 # On EC2
 ssh -i ~/.ssh/${KEYPAIR}.pem ubuntu@$EC2_IP
-sudo -u corpus /srv/corpus/repo/deploy/update.sh v0.5.0
+sudo -u corpus /srv/corpus/repo/deploy/update.sh v1.0.0
 # (reads BUCKET from /etc/corpus/update.conf)
 ```
 

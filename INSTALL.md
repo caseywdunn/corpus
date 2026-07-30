@@ -67,130 +67,74 @@ python -c "import platform; print(platform.machine())"
 ## Model downloads and where they land
 
 Three models are fetched from HuggingFace the first time you run the
-pipeline — not at install time:
-
-| Model | Size | Needed for |
-| --- | --- | --- |
-| docling page-layout | ~165 MB | text + figure extraction |
-| docling TableFormer | ~340 MB | table structure |
-| [BGE-M3](https://huggingface.co/BAAI/bge-m3) | ~4.3 GB | embeddings / semantic search |
-
-A fourth, the ~16 GB Qwen2.5-VL local vision model, is fetched only if
-you ask for `--figure-panels vision-local`.
-
-**Fetch them ahead of time** so a first `corpus run` doesn't stop
-mid-stage on a slow or throttled network:
+pipeline, not at install time: docling's page-layout model (~165 MB),
+docling's TableFormer (~340 MB), and [BGE-M3](https://huggingface.co/BAAI/bge-m3)
+(~4.3 GB) for embeddings. A fourth, the ~16 GB Qwen2.5-VL local vision
+model, is fetched only for `--figure-panels vision-local`.
 
 ```bash
-corpus prefetch                    # the three above
-corpus prefetch --include-vision   # ...plus the 16 GB local VLM
+corpus prefetch                    # get them now, not mid-run
+corpus prefetch --include-vision   # ...plus the local VLM
 ```
 
-`corpus prefetch` retries with backoff, because HuggingFace throttles
-anonymous traffic with HTTP 429 — a shared institutional NAT looks like
-abuse from the other side, and this is what took our own CI down in
-[#140](https://github.com/caseywdunn/corpus/issues/140). `corpus check`
-reports which models are already cached **without downloading anything
-or touching the network**, so it is safe to run on an isolated host.
+Prefetching retries with backoff, because HuggingFace throttles anonymous
+traffic with HTTP 429 — a shared institutional NAT looks like abuse from
+the other side ([#140](https://github.com/caseywdunn/corpus/issues/140)).
+`corpus check` reports what is cached **without touching the network**,
+so it is safe on an isolated host.
 
-### Controlling the cache location
+They land in `~/.cache/huggingface/` unless you set `HF_HOME` (or the
+narrower `HF_HUB_CACHE`) *before* downloading — do that when your home
+directory is small or isn't shared across the machines that will run the
+pipeline.
 
-By default the models land in `~/.cache/huggingface/`. Two environment
-variables move them, and both must be set *before* the download:
+### Offline hosts
 
-```bash
-export HF_HOME=/path/to/big/shared/storage/huggingface
-# or, more narrowly, just the model cache:
-export HF_HUB_CACHE=/path/to/big/shared/storage/hf-hub
-```
-
-Set these when your home directory is small or is not shared across the
-machines that will run the pipeline. `corpus prefetch` prints the cache
-directory it will use and warns when neither variable is set.
-
-### Offline and air-gapped hosts
-
-The pattern is *prepare where there is internet, run where there isn't*:
+Prepare where there is internet, run where there isn't:
 
 ```bash
-# On a login node (has internet), with HF_HOME on shared storage:
-export HF_HOME=$PROJECT/huggingface
-corpus prefetch
+export HF_HOME=$PROJECT/huggingface   # shared storage, both places
+corpus prefetch                       # on a login node
 
-# In the batch job (compute node, no outbound internet):
-export HF_HOME=$PROJECT/huggingface
-export HF_HUB_OFFLINE=1     # fail loudly instead of hanging on a fetch
+export HF_HUB_OFFLINE=1               # in the batch job
 corpus run
 ```
 
-`HF_HUB_OFFLINE=1` is the important half: without it, a model that turns
-out to be missing produces a long stall rather than an error. The
-taxonomy has the same shape of requirement — `taxonomy.source: worms`
-walks the WoRMS REST API and so needs internet; pre-build it on the login
-node and switch to `source: dwca`
-([#139](https://github.com/caseywdunn/corpus/issues/139)). See
-[dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
+`HF_HUB_OFFLINE=1` is the important half: without it a missing model
+stalls instead of failing. The taxonomy needs the same treatment —
+`source: worms` walks a REST API, so pre-build it where there is internet
+and switch the corpuscle to `source: dwca`
+([#139](https://github.com/caseywdunn/corpus/issues/139)).
 
 ## Clusters with a small or non-writable home directory
 
-Reported by a user installing on their own HPC system
-([#153](https://github.com/caseywdunn/corpus/issues/153)): on a cluster
-where user home space is effectively unusable and work must live in a
-shared project filesystem, conda, pip, and HuggingFace all need
-redirecting *before* anything is installed, or they quietly fill `$HOME`
-and fail.
+On clusters where home space is unusable and work lives in a shared
+project filesystem, conda, pip, and HuggingFace all need redirecting
+*before* anything is installed, or they quietly fill `$HOME` and fail
+([#153](https://github.com/caseywdunn/corpus/issues/153)).
 
 ```bash
-# Point every cache and config at project/scratch space first.
 export CONDA_PKGS_DIRS=$PROJECT/conda/pkgs
 export CONDA_ENVS_DIRS=$PROJECT/conda/envs
 export PIP_CACHE_DIR=$SCRATCH/pip-cache
 export HF_HOME=$PROJECT/huggingface
 export TMPDIR=$SCRATCH/tmp
 
-conda env create -f environment.yaml
-conda activate corpus
+conda env create -f environment.yaml && conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh
 corpus prefetch
 ```
 
-Some sites additionally need `$HOME` itself pointed at project space for
-the duration of the install, because not every tool honors the variables
-above. That is a heavier hammer — prefer the specific variables, and
-reach for it only if something still writes to your real home:
+Some sites additionally need `$HOME` itself redirected for the install,
+because not every tool honors the variables above — prefer the specific
+variables, and reach for `HOME=$PROJECT/fakehome conda env create …` only
+if something still writes to your real home.
 
-```bash
-HOME=$PROJECT/fakehome conda env create -f environment.yaml
-```
-
-### Grobid under Singularity/Apptainer, on a compute node
-
-Grobid is only needed while *building* a corpuscle, and on a cluster it
-runs as a batch job rather than a Docker service. Note that
-`localhost:8070` is then wrong — the service is on whichever node the job
-landed on, and `grobid.url` in `config.yaml` must say so:
-
-```bash
-singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
-
-# In a SLURM job script:
-singularity run \
-  --pwd /opt/grobid \
-  --bind $HOME \
-  --writable-tmpfs \
-  --env HF_HOME=$PROJECT/huggingface \
-  grobid.sif &
-
-# Then point the corpuscle at the node actually serving it, e.g.
-#   grobid:
-#     url: http://cs620:8070
-# and confirm with:
-curl http://$(hostname):8070/api/isalive
-```
-
-Only the lightweight `lfoppiano/grobid:0.8.1` image is recommended here;
-see [Grobid on Bouchet](#grobid-on-bouchet) below.
+Grobid runs as a batch job rather than a Docker service on a cluster, and
+`grobid.url` must then name the allocated compute node rather than
+`localhost`. [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) is the worked
+example, including the Singularity invocation and SLURM scripts.
 
 ## Higher OCR compression: pngquant + jbig2enc
 
@@ -244,17 +188,19 @@ TESSDATA_DIR=/usr/local/share/tessdata bash tools/install_tessdata.sh
 # Debian/Ubuntu typically: /usr/share/tesseract-ocr/<version>/tessdata
 ```
 
-## Grobid on Bouchet
+## Grobid image choice, and hosts without Docker
 
-Grobid runs as a Docker service locally, using the lightweight `lfoppiano/grobid:0.8.1` image by default (the same image used here on HPC, so local and cluster match). On an HPC cluster without Docker, [Singularity](https://docs.sylabs.io/) can pull it:
+The default is the lightweight `lfoppiano/grobid:0.8.1` (~1 GB, CRF-only)
+— the same image used on HPC, so local and cluster match. The full DeLFT
+image `grobid/grobid:0.8.1` (~32 GB) parses references better but requires
+AVX, so it needs an AVX-capable Linux x86_64 host; it crash-loops under
+Rosetta on Apple Silicon. Opt in via the comments in
+[`docker-compose.yml`](docker-compose.yml).
 
-```bash
-singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
-singularity run --bind $HOME grobid.sif &
-corpus run    # config.yaml in cwd points at <input> + sets grobid.url
-```
-
-The full DeLFT image `grobid/grobid:0.8.1` (~32 GB) gives higher-quality reference parsing but requires AVX and therefore an AVX-capable Linux x86_64 host — it crash-loops under Rosetta on Apple Silicon. It is an opt-in only; see the comments in [`docker-compose.yml`](docker-compose.yml) and [README §Grobid](README.md#2-grobid-runs-under-x86_64-emulation).
+Without Docker, [Singularity/Apptainer](https://docs.sylabs.io/) pulls the
+same image: `singularity build grobid.sif docker://lfoppiano/grobid:0.8.1`.
+On a cluster it runs as a job, so `grobid.url` must name the allocated node
+— see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) for the full recipe.
 
 ## Pip-only fallback
 

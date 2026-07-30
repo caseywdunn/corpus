@@ -91,7 +91,7 @@ deferred out of v0.6 — belongs to this cycle's release step.
 Doc map unchanged: architectural background in
 [OVERVIEW.md](OVERVIEW.md); per-feature history in
 [CHANGELOG.md](../CHANGELOG.md); HPC operations in
-[BOUCHET.md](BOUCHET.md); deployment in [DEPLOY.md](DEPLOY.md);
+[BOUCHET.md](BOUCHET.md); deployment in [DEPLOY.md](../DEPLOY.md);
 platform-portability criteria in
 [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md). Open work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues).

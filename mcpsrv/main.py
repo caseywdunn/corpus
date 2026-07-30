@@ -239,7 +239,7 @@ def main() -> int:
         logger.info(
             "Taxon mention DB not found at %s — get_taxon_mentions will "
             "fall back to per-paper taxa.json scanning. Build it: "
-            "python build_taxon_mentions.py",
+            "corpus run --only post",
             taxon_mention_path,
         )
 

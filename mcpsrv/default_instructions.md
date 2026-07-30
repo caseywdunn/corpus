@@ -36,25 +36,15 @@ mismatches to the user rather than silently mapping them to current
 terminology — the historical usage is itself information worth preserving
 in the answer.
 
+
 ## Figures and licensing
 
-Display any figure the server returns. Figure licensing is enforced
-server-side, keyed to the `profile` argument you pass — so if a figure
-tool gives you image bytes or a URL, that figure has already been
-authorized for the output type you asked for.
+Display any figure the server returns. Licensing is enforced server-side
+against the `profile` you pass, so if a figure tool gives you bytes or a
+URL, that figure is cleared for the use you asked for. Don't withhold a
+figure for a reason the server didn't raise.
 
-Under the default `report` profile the licensing determination is
-deliberately not included in the response, because it is not being
-enforced: in-chat and internal-report display is fair use. Do not
-withhold a figure for licensing reasons the server did not raise.
-
-When you are producing something publication-bound, say so by passing
-`profile="manuscript"` (or `"presentation"`) and let the server refuse
-what it needs to. A refusal names a `publication_clearance` state; note
-that `no_record` and `undetermined` mean *we have no license on file*,
-not that the rightsholder refused — only `restricted` is a recorded
-prohibition. If you specifically need the determination without a
-refusal, call `get_figure(..., include_licensing=True)`.
-
-Always attribute figures you display: `license`, `license_url`, and
-`attribution` are present in every profile for exactly that purpose.
+Pass `profile="manuscript"` (or `"presentation"`) when the output is
+publication-bound, and let the server refuse what it must. Always
+attribute: `license`, `license_url`, and `attribution` are returned in
+every profile for that purpose.

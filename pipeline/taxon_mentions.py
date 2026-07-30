@@ -19,9 +19,9 @@ disturbing existing rows. ``--rebuild`` drops everything and
 re-ingests from scratch.
 
 Usage:
-    python build_taxon_mentions.py /path/to/output
-    python build_taxon_mentions.py /path/to/output --rebuild
-    python build_taxon_mentions.py /path/to/output -o custom_path.sqlite
+    python -m pipeline.taxon_mentions /path/to/output
+    python -m pipeline.taxon_mentions /path/to/output --rebuild
+    python -m pipeline.taxon_mentions /path/to/output -o custom_path.sqlite
 """
 
 from __future__ import annotations

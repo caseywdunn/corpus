@@ -12,11 +12,11 @@ records the model + dim used, so ``--resume`` knows what to skip and
 ``--rebuild`` knows when to drop and re-embed.
 
 Usage:
-    python embed_chunks.py demo_output                         # default
-    python embed_chunks.py demo_output --model BAAI/bge-m3
-    python embed_chunks.py demo_output --pdf-hash af043530e5dd # one doc
-    python embed_chunks.py demo_output --resume                # skip embedded
-    python embed_chunks.py demo_output --rebuild               # drop the table first
+    python -m pipeline.embed demo_output                         # default
+    python -m pipeline.embed demo_output --model BAAI/bge-m3
+    python -m pipeline.embed demo_output --pdf-hash af043530e5dd # one doc
+    python -m pipeline.embed demo_output --resume                # skip embedded
+    python -m pipeline.embed demo_output --rebuild               # drop the table first
 """
 
 from __future__ import annotations

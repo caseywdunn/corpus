@@ -150,7 +150,7 @@ def get_chunks_for_topic(
 
     Pass ``paper_hash`` to constrain to one paper. Returns
     ``[{error: ...}]`` if no LanceDB index exists yet — build with
-    ``python embed_chunks.py <output_dir>``.
+    ``corpus run --only embed``.
     """
     idx = _need_index()
     embedder, table = idx.get_topic_searcher()
@@ -167,7 +167,7 @@ def get_chunks_for_topic(
             )
         return [error(
             "no LanceDB index available; run "
-            "`python embed_chunks.py <output_dir>` to build one",
+            "`corpus run --only embed` to build one",
             "not_configured",
         )]
     try:

@@ -614,7 +614,7 @@ def get_taxon_mentions(
     ``char_end``, ``mention_text``, and the chunk/paper context.
 
     Requires the taxon mention database (built by
-    ``build_taxon_mentions.py``). Falls back to per-paper
+    ``corpus run --only post``). Falls back to per-paper
     ``taxa.json`` scanning if the database is not available.
     """
     try:

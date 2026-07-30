@@ -15,7 +15,7 @@ The top-level entry-point scripts are thin shims; the implementation is grouped 
 | `deploy/` | CloudFormation, nginx config, systemd unit, sync + update shell scripts. |
 | `tests/` | Ground-truth + corpus-wide consistency tests. |
 
-The top-level [`process_corpus.py`](../process_corpus.py) and [`mcp_server.py`](../mcp_server.py) are CLI shims that re-export the packages above so existing invocations keep working.
+There are no top-level entry-point scripts: `corpus` (from `[project.scripts]`) is the single CLI, and it dispatches into the packages above. The root-level scripts this doc used to list — `process_corpus.py`, `mcp_server.py`, and friends — were folded into packages in v0.3 (#60).
 
 ## Content-addressed storage
 
@@ -78,7 +78,7 @@ This is **Pass 3b** of the figure pipeline — the only figure pass that needs a
 
 By default both run inline inside the Stage 1 per-paper runner; on HPC the GPU-bound Pass 3b is commonly split into its own scheduled job (`slurm/batch_pass3b.sh`) after the CPU stage completes. See [Figure pipeline](#figure-pipeline) for the full pass-by-pass behavior and what is lost when the vision pass is skipped.
 
-### Stage 2: Embedding (`embed_chunks.py`)
+### Stage 2: Embedding (`pipeline/embed.py`)
 
 Reads `chunks.json` per hash and produces vector embeddings stored in LanceDB.
 
@@ -145,7 +145,7 @@ Because these passes are GPU/API-cost-bearing, the corpus-scale validation of fi
 
 ## Taxonomic annotation
 
-When a Darwin Core taxonomy SQLite snapshot is available (`<corpuscle>/taxonomy.sqlite`, built by `ingest_taxonomy.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default for siphonophores is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py <corpuscle> --source dwc --input <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
+When a Darwin Core taxonomy SQLite snapshot is available (`<corpuscle>/taxonomy.sqlite`, built by `pipeline/taxonomy_ingest.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default for siphonophores is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py <corpuscle> --source dwc --input <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
 
 > **WoRMS is marine-only (`isMarine=0` records are excluded) (#96).** The WoRMS DwC-A backbone — and the `--source worms` REST walk — only carry taxa flagged marine. A corpuscle whose literature spans freshwater or terrestrial groups (or marine taxa with non-marine relatives) will hit *silent* resolution failures: those names simply don't resolve to a `taxonID`, so they're dropped from `taxa.json` with no error, and `search_taxon` returns `not_found`. For a non-marine or mixed clade, build the snapshot from a GBIF or WFO DwC export (`--source dwc --input Taxon.tsv`) instead of WoRMS. This is a data-source limitation, not a pipeline bug — there is no flag that makes WoRMS emit non-marine records.
 
@@ -172,16 +172,16 @@ Built from per-paper artifacts after Stage 1 finishes. All four are independentl
 
 | Database | Builder | What it stores |
 |---|---|---|
-| `taxonomy.sqlite` | `ingest_taxonomy.py` | Darwin Core taxon backbone + synonymy. |
-| `biblio_authority.sqlite` | `build_biblio_authority.py` (+ `reconcile_corpus_to_biblio.py`) | Deduplicated works graph: corpus papers, cited references, taxonomic-authority strings; resolved to DOI / BHL Part / normalized citation key. |
-| `taxon_mentions.sqlite` | `build_taxon_mentions.py` | Cross-paper taxon-name index from gnfinder + abbreviated-form expansion (`A. elegans` → `Agalma elegans`). |
-| `intext_citations.json` (per-paper) | `backfill_intext_citations.py` | TEI body `<ref type="bibr">` elements joined to chunk offsets and resolved to `work_id` in the bibliographic authority. |
+| `taxonomy.sqlite` | `pipeline/taxonomy_ingest.py` | Darwin Core taxon backbone + synonymy. |
+| `biblio_authority.sqlite` | `bib/authority.py` (+ `bib/reconcile.py`) | Deduplicated works graph: corpus papers, cited references, taxonomic-authority strings; resolved to DOI / BHL Part / normalized citation key. |
+| `taxon_mentions.sqlite` | `pipeline/taxon_mentions.py` | Cross-paper taxon-name index from gnfinder + abbreviated-form expansion (`A. elegans` → `Agalma elegans`). |
+| `intext_citations.json` (per-paper) | `pipeline/intext_citations.py` | TEI body `<ref type="bibr">` elements joined to chunk offsets and resolved to `work_id` in the bibliographic authority. |
 
-[`update_corpus.py`](../update_corpus.py) chains the pipeline, embeddings, and these four post-pipeline scripts in dependency order; [`corpus_status.py`](../corpus_status.py) reports stage completion, quality flags, and stale annotations.
+`corpus run` chains the pipeline, embeddings, and these four post-pipeline steps in dependency order (see `pipeline/orchestrator.py`); `corpus status` reports what completed, what is stale, and what carries quality flags.
 
 ## MCP server (`mcpsrv/`)
 
-Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM clients can query. The server is a read-only view over per-paper artifacts; it does not store data of its own. The server entry point [`mcp_server.py`](../mcp_server.py) is a thin shim — the implementation lives in `mcpsrv/`, with the `@mcp.tool()`-decorated functions split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. See [MCP_TOOLS.md](MCP_TOOLS.md) for the full tool surface and count.
+Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM clients can query. The server is a read-only view over per-paper artifacts; it does not store data of its own. The server entry point `corpus serve` is a thin shim — the implementation lives in `mcpsrv/`, with the `@mcp.tool()`-decorated functions split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. See [MCP_TOOLS.md](MCP_TOOLS.md) for the full tool surface and count.
 
 ## Steering the client session
 
@@ -203,10 +203,10 @@ Tool-result nudges cost tokens on every call and pull against the served-bundle 
 | File / package | Role |
 |---|---|
 | `pipeline/` | Stage 1 + Pass 3b/3c orchestrator (split per-stage; CLI in `pipeline/main.py`) |
-| `process_corpus.py` | Thin CLI shim into `pipeline.main` (kept for backwards compatibility) |
-| `update_corpus.py` | Orchestrator that runs pipeline + post-pipeline scripts in dependency order |
-| `corpus_status.py` | Single-command rollup of stage completion, quality flags, staleness |
-| `embed_chunks.py` | Stage 2 embedding (BGE-M3 → LanceDB) |
+| `pipeline/main.py` | Stage 1 CLI: per-paper extraction, OCR, metadata, chunking, annotation |
+| `pipeline/orchestrator.py` | Runs pipeline + post-pipeline steps in dependency order (backs `corpus run`) |
+| `pipeline/status.py` | Rollup of stage completion, quality flags, staleness (backs `corpus status`) |
+| `pipeline/embed.py` | Stage 2 embedding (BGE-M3 → LanceDB) |
 | `pipeline/figures.py` | Figure extraction, classification, caption parsing, chunk-figure linking |
 | `pipeline/vision.py` | Vision-LLM backends (local Qwen2.5-VL, Claude API) |
 | `pipeline/taxa.py` | Taxonomy DB access, taxon-mention extraction, lexicon loaders |
@@ -215,7 +215,7 @@ Tool-result nudges cost tokens on every call and pull against the served-bundle 
 | `pipeline/external.py` | Shared retry + circuit breaker + `--strict-network` mode |
 | `pipeline/version.py` | Single-source `__version__` stamped into every artifact |
 | `mcpsrv/` | MCP server implementation (MCPServer, eager index, stdio + SSE transports) |
-| `mcp_server.py` | Thin CLI shim into `mcpsrv.main` |
+| `pipeline/prefetch.py` | Model prefetch + offline cache inspection (backs `corpus prefetch`) |
 | `bib/` | BibTeX parser, importer, exporter (round-trip curation) |
 | `config.yaml` | Pipeline configuration (loaded by `pipeline.config.load_config`) |
 | `slurm/batch_pipeline.sh` | SLURM orchestrator: chains Grobid, Stage 1 array, cleanup, Pass 3b, Embed |
@@ -223,10 +223,10 @@ Tool-result nudges cost tokens on every call and pull against the served-bundle 
 | `slurm/batch_pass3b.sh` | SLURM Pass 3b batch script (GPU) |
 | `slurm/batch_embed.sh` | SLURM embedding batch script (GPU) |
 | `slurm/bouchet_paths.sh` | Shared path definitions for all batch scripts |
-| `ingest_taxonomy.py` | Build Darwin Core taxonomy SQLite from a DwC file, archive, or the WoRMS API |
-| `build_biblio_authority.py` | Bibliographic authority DB (deduplicated works + citation graph) |
-| `build_taxon_mentions.py` | Cross-paper taxon mentions SQLite |
-| `backfill_intext_citations.py` | TEI body → `intext_citations.json` per paper |
-| `reconcile_corpus_to_biblio.py` | Merge ghost cited-references onto corpus papers |
-| `package_for_serve.py` | Whitelist + manifest the served bundle for S3 / EC2 deploy |
+| `pipeline/taxonomy_ingest.py` | Build Darwin Core taxonomy SQLite from a DwC file, archive, or the WoRMS API |
+| `bib/authority.py` | Bibliographic authority DB (deduplicated works + citation graph) |
+| `pipeline/taxon_mentions.py` | Cross-paper taxon mentions SQLite |
+| `pipeline/intext_citations.py` | TEI body → `intext_citations.json` per paper |
+| `bib/reconcile.py` | Merge ghost cited-references onto corpus papers |
+| `mcpsrv/bundle.py` | Whitelist + manifest the served bundle for S3 / EC2 deploy |
 | `demo/lexicon.yaml` | Example multi-category lexicon (siphonophore anatomy under `anatomy:`) |

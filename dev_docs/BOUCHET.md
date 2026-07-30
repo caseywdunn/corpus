@@ -259,7 +259,13 @@ singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
 # Start as a long-running job on an interactive node or via a separate
 # SLURM job. Example interactive launch (adjust -t to cover stage 1):
 salloc -p day -c 4 --mem=16G -t 24:00:00 \
-    singularity run --bind "$BOUCHET_PROJECT" grobid.sif
+    singularity run --bind "$BOUCHET_PROJECT" \
+        --writable-tmpfs \
+        --env HF_HOME="$BOUCHET_PROJECT/huggingface" \
+        grobid.sif
+# --writable-tmpfs and --env HF_HOME are what a user on another cluster
+# needed to get the image running where $HOME is unusable (#153); they are
+# harmless here and save the next person the debugging.
 # …returns a URL like http://<compute_node>:8070
 
 # In a second terminal, submit the extract phase pointing at it. The
@@ -421,7 +427,7 @@ corpus -c "$CORPUS_CONFIG" run --only bundle
 cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/bundle_manifest.json"
 ```
 
-`_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](DEPLOY.md) §6.
+`_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](../DEPLOY.md) §6.
 
 ## Acceptance testing a completed build
 

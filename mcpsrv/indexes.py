@@ -4,7 +4,7 @@
   Holds per-paper headers + reverse indexes for taxon/lexicon/author
   lookup so tool calls don't re-scan the documents tree.
 * :class:`TaxonMentionDB` — read-only wrapper over
-  ``taxon_mentions.sqlite`` (built by ``build_taxon_mentions.py``).
+  ``taxon_mentions.sqlite`` (built by ``corpus run --only post``).
 * :class:`BiblioAuthority` — read-only wrapper over
   ``biblio_authority.sqlite`` (built by ``build_biblio_authority.py``).
 

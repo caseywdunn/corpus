@@ -914,17 +914,25 @@ def _cmd_prefetch(args: argparse.Namespace) -> int:
         "HuggingFace cache: cannot determine (huggingface_hub not importable)",
         status="ok" if cache else "warn",
     )
-    if cache is not None and "HF_HOME" not in os.environ and "HF_HUB_CACHE" not in os.environ:
+
+    rows, all_present = pf.model_report(
+        embedding_model=args.model, include_vision=args.include_vision,
+    )
+    # Only nag about the cache location when we are about to write ~4.8 GB
+    # into it. Warning on a re-run that downloads nothing is noise the
+    # operator can't act on.
+    if (
+        not all_present
+        and cache is not None
+        and "HF_HOME" not in os.environ
+        and "HF_HUB_CACHE" not in os.environ
+    ):
         pstatus(
             "HF_HOME/HF_HUB_CACHE unset — models go to the default cache "
             "above. Set HF_HOME if that filesystem is small or not shared "
             "across nodes (see INSTALL.md).",
             status="warn",
         )
-
-    rows, all_present = pf.model_report(
-        embedding_model=args.model, include_vision=args.include_vision,
-    )
     for r in rows:
         if r["cached"]:
             pstatus(

@@ -2,14 +2,20 @@
 """Run the pipeline + post-pipeline scripts in dependency order (#32).
 
 After adding new papers (or after a taxonomy / lexicon edit), the
-corpus needs to walk through six tools in a specific order:
+corpus needs to walk through six steps in a specific order:
 
-  1. process_corpus.py        — Stage 1: extraction + annotation
-  2. embed_chunks.py          — Stage 2: embeddings (GPU)
-  3. build_biblio_authority.py — bibliographic authority DB
-  4. build_taxon_mentions.py   — taxon mention SQLite
-  5. backfill_intext_citations.py — TEI body → intext_citations.json
-  6. reconcile_corpus_to_biblio.py — merge ghost cited-references
+  1. pipeline.main            — Stage 1: extraction + annotation
+  2. pipeline.embed           — Stage 2: embeddings (GPU)
+  3. bib.authority            — bibliographic authority DB
+  4. pipeline.taxon_mentions  — taxon mention SQLite
+  5. pipeline.intext_citations — TEI body → intext_citations.json
+  6. bib.reconcile            — merge ghost cited-references
+
+(These were root-level scripts through v0.2 — ``process_corpus.py``,
+``embed_chunks.py`` and friends — and were folded into packages in v0.3
+(#60). The old names survive in comments here and there; the modules
+above are the real entry points, and ``corpus run`` is the user-facing
+one.)
 
 Forgetting a step produces a silently inconsistent corpus. This
 wrapper runs all six in order, with ``--resume`` semantics throughout
@@ -19,21 +25,21 @@ Each step is a subprocess; failure fails the whole run fast (no
 attempt to recover by skipping later steps that might depend on the
 failed one).
 
-Pairs with #28 (per-stage resume in process_corpus.py) and #30
+Pairs with #28 (per-stage resume in the extract stage) and #30
 (idempotency audit of the post-pipeline scripts) — the underlying
 guarantees that make a single re-run loop safe.
 
 For Bouchet runs use ``slurm/batch_pipeline.sh`` instead; the GPU
-embedding step (2) needs a different partition. ``update_corpus.py``
-is the local-dev / small-corpus path.
+embedding step (2) needs a different partition. ``corpus run`` is the
+local-dev / small-corpus path.
 
-Usage::
+Usage — normally via ``corpus run``, which wraps this module::
 
-    python update_corpus.py <input_dir> <output_dir>
-    python update_corpus.py <input_dir> <output_dir> --bib siphonophores.bib
-    python update_corpus.py <input_dir> <output_dir> --skip-pipeline
-    python update_corpus.py <input_dir> <output_dir> --from build_biblio
-    python update_corpus.py <input_dir> <output_dir> --dry-run
+    corpus run
+    corpus run --bib siphonophores.bib
+    corpus run --skip-pipeline
+    corpus run --from build_biblio
+    corpus run --dry-run
 """
 from __future__ import annotations
 
@@ -46,7 +52,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-logger = logging.getLogger("update_corpus")
+logger = logging.getLogger("corpus.run")
 
 REPO_ROOT = Path(__file__).resolve().parent
 
@@ -348,35 +354,35 @@ def main() -> int:
     parser.add_argument("output_dir", type=Path, help="Corpus output directory")
     parser.add_argument(
         "--bib", type=Path, default=None,
-        help="Optional BibTeX for metadata override (passed to process_corpus.py).",
+        help="Optional BibTeX for metadata override (passed to the extract stage).",
     )
     parser.add_argument(
         "--taxonomy-db", type=Path, default=None,
-        help="Taxonomy SQLite path (passed to process_corpus.py).",
+        help="Taxonomy SQLite path (passed to the extract stage).",
     )
     parser.add_argument(
         "--lexicon", type=Path, default=None,
-        help="Multi-category lexicon YAML (passed to process_corpus.py). "
+        help="Multi-category lexicon YAML (passed to the extract stage). "
              "Top-level keys are categories; see demo/lexicon.yaml.",
     )
     parser.add_argument(
         "--no-taxa", action="store_true",
         help="Skip the taxa_and_lexicon_extraction stage entirely "
              "(taxon mentions and every --lexicon category; passed to "
-             "process_corpus.py).",
+             "the extract stage).",
     )
     parser.add_argument(
         "--no-grobid", action="store_true",
-        help="Skip Grobid even if reachable (passed to process_corpus.py).",
+        help="Skip Grobid even if reachable (passed to the extract stage).",
     )
     parser.add_argument(
         "--grobid-url", default=None,
-        help="Grobid service URL (passed to process_corpus.py).",
+        help="Grobid service URL (passed to the extract stage).",
     )
     parser.add_argument(
         "--strict-network", action="store_true",
         help="Fail fast on the first transient external-service failure "
-             "(passed to process_corpus.py). Recommended for release runs.",
+             "(passed to the extract stage). Recommended for release runs.",
     )
     parser.add_argument(
         "--figure-panels",
@@ -384,21 +390,21 @@ def main() -> int:
         default="ocr",
         help="Panel-ROI detection mode (#102): ocr = Pass 3a OCR floor "
              "(default), vision-local / vision-claude = Pass 3b vision, "
-             "off = none (passed to process_corpus.py).",
+             "off = none (passed to the extract stage).",
     )
     parser.add_argument(
         "--vision-model", default=None,
         help="Override the per-backend default vision model "
-             "(passed to process_corpus.py).",
+             "(passed to the extract stage).",
     )
     parser.add_argument(
         "--refresh-vision", action="store_true",
         help="With --resume + --figure-panels vision-*, re-run only Pass 3b "
-             "on existing figures.json (passed to process_corpus.py).",
+             "on existing figures.json (passed to the extract stage).",
     )
     parser.add_argument(
         "--config", type=Path, default=None,
-        help="Path to config.yaml (passed to process_corpus.py).",
+        help="Path to config.yaml (passed to the extract stage).",
     )
     parser.add_argument(
         "--resume", action="store_true",

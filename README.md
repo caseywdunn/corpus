@@ -151,7 +151,7 @@ Override the default location with `--instructions <path>` when starting the MCP
 
 ## Computational requirements
 
-- **Disk.** Plan on several times the size of the original PDFs.
+- **Disk.** Roughly 5 GB of models (docling layout + TableFormer + BGE-M3, fetched once by `corpus prefetch` or on the first run), plus several times the size of the original PDFs for the corpuscle itself. The models dominate for a small corpus; the corpuscle dominates past a few hundred papers.
 - **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking, annotation) is CPU-bound and parallelizes well across PDFs. Stage 2 (BGE-M3 embeddings) and the optional vision pass (Qwen2.5-VL-7B figure tagging) are GPU-accelerated; embeddings still run on CPU but slowly, and the local vision backend needs a GPU to be usable. A Claude API vision backend is also available — costs API credits but runs anywhere.
 - **Scale.** A few dozen PDFs run on a laptop in a couple of hours. A few thousand benefit from an HPC cluster — we use Yale's Bouchet, runbook in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.

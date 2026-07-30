@@ -224,6 +224,26 @@ The v0.6 MCP surface freeze holds — no new tools. See
   or an explicit `--no-taxa`, is unaffected — that remains a supported
   configuration. README §Taxonomy documents the internet requirement and
   the export→dwca workflow.
+- **Documentation swept against the code.** A review after the cycle
+  landed found docs describing removed or renamed things:
+  `dev_docs/LICENSING.md` still taught the `publishable` wire field that
+  #154 removed; `dev_docs/MCP_TOOLS.md` described four figure tools as
+  they were before #154/#143; and `dev_docs/OVERVIEW.md` handed newcomers
+  a file-inventory table listing eleven root-level scripts that were
+  folded into packages back in v0.3 (#60), two of them as broken links.
+  All corrected, and every relative link in the docs now resolves.
+- **Dead script names removed from user-visible messages.** A served MCP
+  error payload told users to run `python embed_chunks.py <output_dir>`
+  (removed in v0.3) — it now says `corpus run --only embed`. Likewise the
+  serve-time taxon-mention warning, twelve `corpus run` help strings, and
+  the orchestrator's logger name, which labelled every run log line
+  `update_corpus` after a script of that name.
+- **`corpus prefetch` no longer warns about `HF_HOME` when it has nothing
+  to download.** The nag now fires only when models will actually be
+  written.
+- **README's disk estimate includes the models.** It said "several times
+  the size of the original PDFs", which omits the ~5 GB of models that
+  dominate for a small corpus.
 - **`corpus check` no longer greener than `corpus run`.** It reported
   "ready" for a zero-PDF `input_pdfs`, which `corpus run` refuses outright —
   and run's refusal points the user at "`corpus check` for the full
