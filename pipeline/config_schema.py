@@ -93,7 +93,7 @@ class FiguresConfig(BaseModel):
         "figure uses `vector_dpi` — so resolution tracks the source and "
         "varies per figure. 'fixed' renders every figure at the single "
         "`images_scale` instead. Applies to future ingests only; lift an "
-        "existing bundle with backfill_figure_dpi.py.",
+        "existing bundle with tools/backfill_figure_dpi.py.",
     )
     vector_dpi: float = Field(
         default=300.0,

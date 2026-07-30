@@ -1752,7 +1752,7 @@ def generate_figures_report(hash_dir: Path) -> Optional[Path]:
 # ---------------------------------------------------------------------------
 #
 # Shared by the extraction stage (default `native` mode) and
-# backfill_figure_dpi.py. Renders a figure's page region from the source
+# tools/backfill_figure_dpi.py. Renders a figure's page region from the source
 # PDF at a chosen scale, so a figure's saved resolution can either track
 # its native source density (scans, embedded images) or use a fixed
 # scale. The render covers the bbox region (not the raw embedded image)
