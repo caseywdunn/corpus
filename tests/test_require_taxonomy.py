@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -78,10 +80,20 @@ def test_no_taxa_wins_over_require_taxonomy(tmp_path):
     assert "refusing to run" not in out
 
 
+@pytest.mark.corpus_required
 def test_orchestrator_passes_require_taxonomy_when_configured():
     """The flag is only useful if `corpus run` actually sends it. Asserted
     against the dry-run's echoed sub-command for the demo corpuscle, which
-    configures taxonomy.source: dwca."""
+    configures taxonomy.source: dwca.
+
+    Marked ``corpus_required``: it drives the real CLI, and with
+    ``--only extract`` the orchestrator's own #139 pre-flight refuses to
+    print any argv until ``demo/output/taxonomy.sqlite`` exists — the guard
+    doing exactly its job. So this needs a built demo. The
+    environment-independent half of the same contract lives in
+    ``tests/test_corpus_run_hpc.py``, which calls ``Step.argv`` directly;
+    this one additionally proves the orchestrator wires it up.
+    """
     proc = subprocess.run(
         # --skip-checks: this asserts on argv construction, not on
         # pre-flight. Without it `corpus run --dry-run` probes Grobid and
@@ -95,6 +107,7 @@ def test_orchestrator_passes_require_taxonomy_when_configured():
     assert "--require-taxonomy" in out, out
 
 
+@pytest.mark.corpus_required
 def test_orchestrator_omits_require_taxonomy_with_no_taxa():
     proc = subprocess.run(
         [sys.executable, "-m", "pipeline.cli", "run", "--dry-run",
