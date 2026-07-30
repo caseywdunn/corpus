@@ -224,6 +224,31 @@ The v0.6 MCP surface freeze holds — no new tools. See
   or an explicit `--no-taxa`, is unaffected — that remains a supported
   configuration. README §Taxonomy documents the internet requirement and
   the export→dwca workflow.
+- **`corpus prefetch` was broken on its main path.** It called
+  `emb.encode(...)`, but the embedding backend's method is `embed` — so a
+  genuine cold prefetch downloaded all 4.8 GB, *then* failed with an
+  `AttributeError`, then retried it six times with backoff before
+  reporting "failed after 6 attempts" as if the network were at fault. Two
+  fixes: the correct method, and `_with_retry` no longer retries
+  programming errors (`AttributeError`/`TypeError`/`NameError`/
+  `ImportError`), which it cannot fix and which retrying only disguises.
+  A test now binds the call to the real `EmbeddingBackend` API, since
+  every existing test mocked the backend and the clean-room lane exercises
+  the cold download through `corpus run` rather than `corpus prefetch` —
+  so nothing caught it.
+- **A correct first run no longer ends in warnings.** Building a corpuscle
+  with no `taxonomy:` block — a documented, supported setup — emitted two
+  `WARNING`s about `taxonomy.sqlite` and `instructions.md` being absent
+  from the bundle, and `corpus status` marked the taxonomy `✗` alongside
+  real artifacts. Both are optional by design (and since #139 a
+  *configured* but missing taxonomy fails the run outright, so absence
+  here means "not wanted"). They are now an `INFO` line and a `–  (optional
+  — no taxonomy: block configured)` marker. The `✗` is reserved for gaps
+  that matter.
+- **Run logs no longer name scripts that don't exist.** Ten loggers were
+  named after root-level scripts removed in v0.3 (`package_for_serve`,
+  `build_taxon_mentions`, `ingest_taxonomy`, …), so every line of a run log
+  pointed at a filename a user could not find. Renamed to `corpus.*`.
 - **Documentation swept against the code.** A review after the cycle
   landed found docs describing removed or renamed things:
   `dev_docs/LICENSING.md` still taught the `publishable` wire field that

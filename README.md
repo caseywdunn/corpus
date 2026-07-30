@@ -202,7 +202,7 @@ Check whether your platform is supported before installing.
 
 ### Prerequisites
 
-- **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
+- **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-image-choice-and-hosts-without-docker).
 - **conda** — a conda installer such as [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/). Any standard distribution works (Anaconda, Miniconda, [Miniforge](https://github.com/conda-forge/miniforge)). **macOS Apple Silicon: see [macOS (Apple Silicon)](#macos-apple-silicon) — the env requires an arm64-native conda.**
 
 ### macOS (Apple Silicon)

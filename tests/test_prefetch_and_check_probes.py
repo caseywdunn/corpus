@@ -289,3 +289,49 @@ def test_check_fails_on_zero_pdfs_like_run_does(tmp_path):
     )
     # Same remedy wording as the orchestrator's guard, so the two agree.
     assert "--skip-checks" in out, out
+
+
+# --- the prefetch code path must bind to the REAL backend API ----------------
+
+
+def test_prefetch_calls_a_method_the_embedding_backend_actually_has():
+    """`corpus prefetch` called `emb.encode(...)`, but the EmbeddingBackend
+    ABC defines `embed`. It shipped because every unit test here mocks the
+    backend, and T3 exercises the cold download through `corpus run` rather
+    than through `corpus prefetch` — so nothing bound the call to the real
+    API. The failure only appeared on a genuine cold prefetch, *after* the
+    4.8 GB download had already succeeded.
+
+    Asserted against the abstract base class, so it stays true for any
+    backend, and without constructing one (which would download a model).
+    """
+    import inspect
+
+    from pipeline import prefetch as pf
+    from pipeline.embeddings import EmbeddingBackend
+
+    src = inspect.getsource(pf.prefetch_embedding)
+    called = {m for m in ("embed", "encode") if f"emb.{m}(" in src}
+    assert called, "prefetch_embedding no longer touches the model at all"
+    for method in called:
+        assert hasattr(EmbeddingBackend, method), (
+            f"prefetch_embedding calls emb.{method}(), which EmbeddingBackend "
+            f"does not define. Available: "
+            f"{sorted(m for m in vars(EmbeddingBackend) if not m.startswith('_'))}"
+        )
+
+
+def test_programming_errors_are_not_retried(monkeypatch):
+    """Retrying an AttributeError costs ~5 min of backoff and then reports
+    'failed after 6 attempts', which reads like a flaky network."""
+    calls = {"n": 0}
+
+    def _bug():
+        calls["n"] += 1
+        raise AttributeError("'LocalBackend' object has no attribute 'encode'")
+
+    from pipeline import prefetch as pf
+    monkeypatch.setattr(pf.time, "sleep", lambda s: None)
+    with pytest.raises(RuntimeError, match="bug in corpus"):
+        pf._with_retry("thing", _bug, attempts=6)
+    assert calls["n"] == 1, "a programming error must fail on the first attempt"

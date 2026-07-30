@@ -76,7 +76,7 @@ def _require_rapidfuzz() -> None:
         )
         sys.exit(1)
 
-logger = logging.getLogger("reconcile")
+logger = logging.getLogger("corpus.reconcile")
 
 # Default is derived per-corpus from the output_dir positional arg in
 # main(); see "corpuscle" layout in README.md.

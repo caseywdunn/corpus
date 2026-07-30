@@ -79,7 +79,7 @@ _GATE_INFO: Dict[str, Tuple[str, str]] = {
     ),
 }
 
-logger = logging.getLogger("corpus_status")
+logger = logging.getLogger("corpus.status")
 
 
 # ---------------------------------------------------------------------------
@@ -212,11 +212,20 @@ def render_artifacts(output_dir: Path) -> str:
     server can run with any subset present; missing ones surface here.
     """
     out: List[str] = ["Cross-paper artifacts:"]
+    # `taxonomy.sqlite` is optional — a corpuscle with no `taxonomy:` block
+    # is a documented, supported setup, and since #139 a *configured* one
+    # that's missing fails the run outright. Marking its absence with the
+    # same ✗ as a real gap made a clean first run look half-broken.
+    optional = {"taxonomy.sqlite": "optional — no taxonomy: block configured"}
     for rel in ("biblio_authority.sqlite", "taxon_mentions.sqlite",
                 "taxonomy.sqlite", "vector_db/lancedb"):
         p = output_dir / rel
-        mark = "✓" if p.exists() else "✗"
-        out.append(f"  {mark} {rel}")
+        if p.exists():
+            out.append(f"  ✓ {rel}")
+        elif rel in optional:
+            out.append(f"  – {rel}  ({optional[rel]})")
+        else:
+            out.append(f"  ✗ {rel}")
     return "\n".join(out) + "\n"
 
 

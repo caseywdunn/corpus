@@ -147,7 +147,7 @@ for a pre-release gate.
 **`Dynamo is not supported on Python 3.12+`** during model load on
 macOS — the active conda is x86_64 (Intel anaconda under Rosetta),
 not arm64. Recreate the env with miniforge. See
-[INSTALL.md](../INSTALL.md#apple-silicon-use-miniforge-not-intel-anaconda).
+[INSTALL.md](../INSTALL.md#apple-silicon-arm64-native-conda-required).
 
 **`pngquant not on PATH`** warning during OCR — expected on macOS
 unless you `brew install pngquant`. Pipeline auto-degrades

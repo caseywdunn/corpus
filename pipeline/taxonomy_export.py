@@ -60,7 +60,7 @@ import zipfile
 from pathlib import Path
 from typing import List, Tuple
 
-logger = logging.getLogger("taxonomy_export")
+logger = logging.getLogger("corpus.taxonomy_export")
 
 
 # Column order in taxon.tsv. The ID column comes first (DwC-A meta.xml

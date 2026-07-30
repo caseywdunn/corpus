@@ -36,11 +36,11 @@ Files in the served-bundle whitelist (the contract):
 With ``--include-pdfs`` also: ``processed.pdf`` per document.
 
 Usage:
-    python package_for_serve.py /path/to/output /path/to/serve_bundle \\
+    python -m mcpsrv.bundle /path/to/output /path/to/serve_bundle \\
         --version v1.0.0
-    python package_for_serve.py /path/to/output /path/to/serve_bundle \\
+    python -m mcpsrv.bundle /path/to/output /path/to/serve_bundle \\
         --version v1.0.0 --include-pdfs
-    python package_for_serve.py /path/to/output /path/to/serve_bundle --dry-run
+    python -m mcpsrv.bundle /path/to/output /path/to/serve_bundle --dry-run
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from pipeline.version import __version__
 
-logger = logging.getLogger("package_for_serve")
+logger = logging.getLogger("corpus.bundle")
 
 # A string value that *is* an absolute filesystem path needs to be
 # scrubbed before this bundle leaves the build host. The pattern is
@@ -680,14 +680,29 @@ def package(output_dir: Path, serve_dir: Path, version: str,
     # ship without biblio_authority.sqlite and taxon_mentions.sqlite.
     # The lexicon YAML is not bundled — extraction happens at process
     # time and lands in each paper's <category>.json artifacts.
+    # ...but only the two the post phase always produces are *expected*.
+    # `taxonomy.sqlite` and `instructions.md` are optional by design — the
+    # README documents leaving the `taxonomy:` block commented out as the
+    # no-taxonomy path, and instructions.md as opt-in — so warning about
+    # them made a correct first run end in two WARNINGs about features the
+    # user had deliberately not configured. Since #139, a *configured* but
+    # missing taxonomy fails loudly at run time instead, so absence here
+    # genuinely means "not wanted".
+    _EXPECTED = ("biblio_authority.sqlite", "taxon_mentions.sqlite")
     for fname in ("taxonomy.sqlite", "biblio_authority.sqlite",
                   "taxon_mentions.sqlite", "instructions.md"):
         src = output_dir / fname
         if not src.exists():
-            logger.warning(
-                "Expected top-level file %s missing from %s — "
-                "bundle will not include it", fname, output_dir,
-            )
+            if fname in _EXPECTED:
+                logger.warning(
+                    "Expected top-level file %s missing from %s — "
+                    "bundle will not include it", fname, output_dir,
+                )
+            else:
+                logger.info(
+                    "Optional top-level file %s not present; bundle will "
+                    "not include it", fname,
+                )
             continue
         bw = _copy_file(src, serve_dir / fname, dry_run)
         if bw:
@@ -798,7 +813,7 @@ def main() -> int:
         return 1
 
     stats = manifest.pop("_stats")
-    logger.info("═══ package_for_serve %s ═══",
+    logger.info("═══ served bundle %s ═══",
                 "dry-run" if args.dry_run else "complete")
     logger.info("  papers:      %d", manifest["paper_count"])
     logger.info("  chunks:      %d", manifest["chunk_count"])

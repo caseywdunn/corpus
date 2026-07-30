@@ -36,7 +36,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-logger = logging.getLogger("bib_export")
+logger = logging.getLogger("corpus.bib.export")
 
 
 # ---------------------------------------------------------------------------

@@ -152,6 +152,15 @@ _ATTEMPTS = 6
 _BACKOFF_STEP_S = 20
 
 
+# Failures that retrying cannot fix — they mean the code is wrong, not the
+# network. Retrying one of these costs the user ~5 minutes of backoff and
+# then reports "failed after 6 attempts", which reads like a flaky network
+# and buries the real cause. (Observed: a wrong method name on the
+# embedding backend survived six attempts, after the 4.8 GB download had
+# already succeeded.)
+_PROGRAMMING_ERRORS = (AttributeError, TypeError, NameError, ImportError)
+
+
 def _with_retry(what: str, fn, attempts: int = _ATTEMPTS) -> None:
     last: Optional[Exception] = None
     for i in range(1, attempts + 1):
@@ -159,7 +168,13 @@ def _with_retry(what: str, fn, attempts: int = _ATTEMPTS) -> None:
             fn()
             logger.info("%s: ok (attempt %d)", what, i)
             return
-        except Exception as e:  # noqa: BLE001 - report and retry anything
+        except _PROGRAMMING_ERRORS as e:
+            raise RuntimeError(
+                f"{what}: {type(e).__name__}: {e}. This is a bug in corpus, "
+                "not a network problem — retrying would not help. Please "
+                "report it with this message."
+            ) from e
+        except Exception as e:  # noqa: BLE001 - anything else may be transient
             last = e
             logger.warning("%s: attempt %d/%d failed: %s", what, i, attempts, e)
             if i < attempts:
@@ -203,8 +218,12 @@ def prefetch_embedding(
         from .embeddings import get_embedder
         emb = get_embedder(repo)
         # Touch the model so weights actually load rather than merely
-        # resolving a config file.
-        emb.encode(["warmup"])
+        # resolving a config file. The method is ``embed`` — the
+        # EmbeddingBackend ABC's own name, not sentence-transformers'
+        # ``encode``. Calling the wrong one made `corpus prefetch` fail
+        # *after* successfully downloading 4.8 GB, then burn six retries
+        # on an AttributeError that no amount of retrying could fix.
+        emb.embed(["warmup"])
 
     _with_retry(f"embedding model {repo}", _run, attempts)
 

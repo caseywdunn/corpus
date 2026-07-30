@@ -37,7 +37,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger("build_taxon_mentions")
+logger = logging.getLogger("corpus.taxon_mentions")
 
 # Default is derived per-corpus from the output_dir positional arg in
 # main(); see "corpuscle" layout in README.md.

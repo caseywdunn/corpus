@@ -64,7 +64,7 @@ from pipeline.external import (
     retry_with_backoff,
 )
 
-logger = logging.getLogger("build_biblio")
+logger = logging.getLogger("corpus.biblio")
 
 # Module-level breaker — BHL is hit from a single CLI run, so per-process
 # state is the right scope. Threshold is generous: BHL routinely 500s on

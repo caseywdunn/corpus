@@ -57,7 +57,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from .parser import _split_authors, _strip_outer_braces, parse_bibtex
 
-logger = logging.getLogger("bib_import")
+logger = logging.getLogger("corpus.bib.import")
 
 
 # ---------------------------------------------------------------------------

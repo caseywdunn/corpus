@@ -26,7 +26,7 @@ from pathlib import Path
 
 from pipeline.grobid_client import parse_tei_intext_citations
 
-logger = logging.getLogger("backfill_intext")
+logger = logging.getLogger("corpus.intext")
 
 
 def main() -> int:
