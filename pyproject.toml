@@ -6,7 +6,13 @@ build-backend = "setuptools.build_meta"
 name = "corpus"
 description = "MCP server for taxonomic literature corpora"
 readme = "README.md"
-requires-python = ">=3.12"
+# Bounded deliberately (#163). environment.yaml pins python=3.12, all four
+# CI tiers test 3.12 only, and the #98 known-good ML set (torch 2.12,
+# transformers 5.8.1, docling 2.94.0) was verified against nothing else.
+# An unbounded floor let pip attempt 3.13+ — reachable via INSTALL.md's
+# pip-only path, where `python3 -m venv` increasingly means 3.13. Widen
+# this only together with a 3.13 CI lane.
+requires-python = ">=3.12,<3.13"
 authors = [{ name = "Casey Dunn" }]
 dynamic = ["version"]
 
@@ -44,9 +50,19 @@ dependencies = [
     "pytesseract==0.3.13",
     "qwen-vl-utils==0.0.14",
     "accelerate==1.14.0",
-    "ipykernel",
+]
+
+# Not runtime deps (#162). These were in `dependencies`, so every install —
+# including the AWS deploy host in DEPLOY.md — pulled a test runner, a
+# linter, and a Jupyter kernel plus its ZeroMQ/Tornado stack. They stay
+# unconditional in environment.yaml, which *is* the development
+# environment (tests/test_no_undefined_names.py needs pyflakes on PATH
+# there).
+[project.optional-dependencies]
+dev = [
     "pytest",
     "pyflakes",
+    "ipykernel",
 ]
 
 [project.urls]

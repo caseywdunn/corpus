@@ -64,6 +64,134 @@ python -c "import platform; print(platform.machine())"
 
 `pip install -e .` then puts the `corpus` binary inside `<conda-prefix>/envs/corpus/bin/`. Activate the env or call the binary by absolute path — Claude Desktop / VS Code MCP configs that previously pointed at `/opt/anaconda3/envs/corpus/bin/corpus` need to be updated to wherever the arm64 conda put the env.
 
+## Model downloads and where they land
+
+Three models are fetched from HuggingFace the first time you run the
+pipeline — not at install time:
+
+| Model | Size | Needed for |
+| --- | --- | --- |
+| docling page-layout | ~165 MB | text + figure extraction |
+| docling TableFormer | ~340 MB | table structure |
+| [BGE-M3](https://huggingface.co/BAAI/bge-m3) | ~4.3 GB | embeddings / semantic search |
+
+A fourth, the ~16 GB Qwen2.5-VL local vision model, is fetched only if
+you ask for `--figure-panels vision-local`.
+
+**Fetch them ahead of time** so a first `corpus run` doesn't stop
+mid-stage on a slow or throttled network:
+
+```bash
+corpus prefetch                    # the three above
+corpus prefetch --include-vision   # ...plus the 16 GB local VLM
+```
+
+`corpus prefetch` retries with backoff, because HuggingFace throttles
+anonymous traffic with HTTP 429 — a shared institutional NAT looks like
+abuse from the other side, and this is what took our own CI down in
+[#140](https://github.com/caseywdunn/corpus/issues/140). `corpus check`
+reports which models are already cached **without downloading anything
+or touching the network**, so it is safe to run on an isolated host.
+
+### Controlling the cache location
+
+By default the models land in `~/.cache/huggingface/`. Two environment
+variables move them, and both must be set *before* the download:
+
+```bash
+export HF_HOME=/path/to/big/shared/storage/huggingface
+# or, more narrowly, just the model cache:
+export HF_HUB_CACHE=/path/to/big/shared/storage/hf-hub
+```
+
+Set these when your home directory is small or is not shared across the
+machines that will run the pipeline. `corpus prefetch` prints the cache
+directory it will use and warns when neither variable is set.
+
+### Offline and air-gapped hosts
+
+The pattern is *prepare where there is internet, run where there isn't*:
+
+```bash
+# On a login node (has internet), with HF_HOME on shared storage:
+export HF_HOME=$PROJECT/huggingface
+corpus prefetch
+
+# In the batch job (compute node, no outbound internet):
+export HF_HOME=$PROJECT/huggingface
+export HF_HUB_OFFLINE=1     # fail loudly instead of hanging on a fetch
+corpus run
+```
+
+`HF_HUB_OFFLINE=1` is the important half: without it, a model that turns
+out to be missing produces a long stall rather than an error. The
+taxonomy has the same shape of requirement — `taxonomy.source: worms`
+walks the WoRMS REST API and so needs internet; pre-build it on the login
+node and switch to `source: dwca`
+([#139](https://github.com/caseywdunn/corpus/issues/139)). See
+[dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
+
+## Clusters with a small or non-writable home directory
+
+Reported by a user installing on their own HPC system
+([#153](https://github.com/caseywdunn/corpus/issues/153)): on a cluster
+where user home space is effectively unusable and work must live in a
+shared project filesystem, conda, pip, and HuggingFace all need
+redirecting *before* anything is installed, or they quietly fill `$HOME`
+and fail.
+
+```bash
+# Point every cache and config at project/scratch space first.
+export CONDA_PKGS_DIRS=$PROJECT/conda/pkgs
+export CONDA_ENVS_DIRS=$PROJECT/conda/envs
+export PIP_CACHE_DIR=$SCRATCH/pip-cache
+export HF_HOME=$PROJECT/huggingface
+export TMPDIR=$SCRATCH/tmp
+
+conda env create -f environment.yaml
+conda activate corpus
+pip install -e .
+bash tools/install_tessdata.sh
+corpus prefetch
+```
+
+Some sites additionally need `$HOME` itself pointed at project space for
+the duration of the install, because not every tool honors the variables
+above. That is a heavier hammer — prefer the specific variables, and
+reach for it only if something still writes to your real home:
+
+```bash
+HOME=$PROJECT/fakehome conda env create -f environment.yaml
+```
+
+### Grobid under Singularity/Apptainer, on a compute node
+
+Grobid is only needed while *building* a corpuscle, and on a cluster it
+runs as a batch job rather than a Docker service. Note that
+`localhost:8070` is then wrong — the service is on whichever node the job
+landed on, and `grobid.url` in `config.yaml` must say so:
+
+```bash
+singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
+
+# In a SLURM job script:
+singularity run \
+  --pwd /opt/grobid \
+  --bind $HOME \
+  --writable-tmpfs \
+  --env HF_HOME=$PROJECT/huggingface \
+  grobid.sif &
+
+# Then point the corpuscle at the node actually serving it, e.g.
+#   grobid:
+#     url: http://cs620:8070
+# and confirm with:
+curl http://$(hostname):8070/api/isalive
+```
+
+Only the lightweight `lfoppiano/grobid:0.8.1` image is recommended here;
+see [Grobid on Bouchet](#grobid-on-bouchet) below.
+
 ## Higher OCR compression: pngquant + jbig2enc
 
 `ocrmypdf` has two optional native helpers, neither of which is available on conda-forge for every platform we target. The runtime auto-degrades when they're missing (`pipeline/scan.py` drops `--optimize` from 2 → 1 when `pngquant` isn't on PATH), so installing them is purely a size-of-output decision.
@@ -133,9 +261,23 @@ The full DeLFT image `grobid/grobid:0.8.1` (~32 GB) gives higher-quality referen
 If you can't use conda, you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc pandoc` on macOS, or `apt-get install` the equivalents on Debian/Ubuntu) and then:
 
 ```bash
-pip install -e .          # development clone
+pip install -e ".[dev]"   # development clone (the [dev] extra adds
+                          # pytest, pyflakes, and ipykernel — they are
+                          # not runtime dependencies, see #162)
+pip install -e .          # runtime only, e.g. a server-only deploy host
+
 # or for a deploy host pinning a release:
-pip install git+https://github.com/caseywdunn/corpus.git@v0.3.0
+pip install git+https://github.com/caseywdunn/corpus.git@v0.6.0
+```
+
+Python **3.12** specifically: `requires-python` is `>=3.12,<3.13`, because
+that is what `environment.yaml` pins and what CI tests, and the pinned ML
+stack (torch 2.12, transformers 5.8.1, docling 2.94.0) has been verified
+against nothing else. `python3 -m venv` on a current distro may well give
+you 3.13, so create the venv with an explicit interpreter:
+
+```bash
+python3.12 -m venv .venv && . .venv/bin/activate
 ```
 
 `requirements.txt` is retained for the AWS deploy path (which builds a stock `python3.12 -m venv` and pre-existed `pyproject.toml`); both manifests must stay in sync per [CONTRIBUTING.md](CONTRIBUTING.md#dependencies--two-files-on-purpose).

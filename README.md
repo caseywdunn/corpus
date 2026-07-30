@@ -232,9 +232,12 @@ conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh   # Tesseract OCR language packs
+corpus prefetch                  # ~4.8 GB of models, up front
 ```
 
 `pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data — see [Language support](#language-support) below.
+
+`corpus prefetch` is optional but recommended: it downloads the three models the pipeline otherwise fetches on first use (docling's layout model and TableFormer, plus the ~4.3 GB BGE-M3 embedding model), retrying with backoff because HuggingFace throttles anonymous traffic. Getting them now means the first `corpus run` can't stall mid-stage on a slow network. Set `HF_HOME` first if your home directory is small or isn't shared across machines, and see [INSTALL.md](INSTALL.md#model-downloads-and-where-they-land) for the offline/HPC pattern — prefetch where there's internet, run with `HF_HUB_OFFLINE=1` where there isn't. `corpus check` reports what's already cached without touching the network.
 
 ## Language support
 
@@ -284,7 +287,8 @@ Output lands in `demo/output/` (gitignored). Re-run anytime — `corpus run` is 
 mkdir my-corpus && cd my-corpus
 corpus init                # scaffold config.yaml from the bundled template
 $EDITOR config.yaml        # set input_pdfs, taxonomy, optional bib + lexicon
-corpus check               # pre-flight: validates config + probes Grobid/GPU/disk
+corpus check               # pre-flight: config, Grobid, GPU, disk, OCR
+                           #   toolchain, tessdata packs, model cache
 corpus run                 # full pipeline + post-pipeline + bundle, hands-off
 corpus status --report     # stage pass-rates + cross-paper artifact ✓/✗
 corpus serve               # local MCP server against the freshly built bundle

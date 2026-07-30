@@ -862,6 +862,134 @@ def _cmd_taxonomy_ingest(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# `corpus prefetch`  (#159)
+# ---------------------------------------------------------------------------
+
+
+def _sample_pdf_for_prefetch(args: argparse.Namespace) -> Optional[Path]:
+    """A PDF to exercise docling's model loads with.
+
+    Preference order: an explicit ``--pdf``, then the first PDF under the
+    configured ``input_pdfs``, then the packaged demo corpus. docling
+    needs a real document — there is no "download only" API — so this is
+    about finding the cheapest legitimate one.
+    """
+    if args.pdf is not None:
+        return args.pdf if args.pdf.exists() else None
+    config_path = _resolve_config_path(args.config)
+    if config_path is not None and config_path.exists():
+        try:
+            raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+            cfg = validate_config(raw)
+            if cfg.input_pdfs is not None:
+                input_dir = _resolve_against(config_path, cfg.input_pdfs)
+                if input_dir.is_dir():
+                    pdfs = sorted(input_dir.rglob("*.pdf"))
+                    if pdfs:
+                        return pdfs[0]
+        except Exception:
+            pass  # fall through to the demo
+    demo = Path(__file__).resolve().parent.parent / "demo"
+    if demo.is_dir():
+        pdfs = sorted(demo.glob("*.pdf"))
+        if pdfs:
+            return pdfs[0]
+    return None
+
+
+def _cmd_prefetch(args: argparse.Namespace) -> int:
+    """Download the models a run needs, ahead of the run (#159).
+
+    Exits 0 when everything is cached, 3 when a download could not be
+    completed — a precondition failure, same class as an unreachable
+    Grobid.
+    """
+    from functools import partial
+    from . import prefetch as pf
+    pstatus = partial(print_status, force=True)
+
+    cache = pf.hf_cache_dir()
+    pstatus(
+        f"HuggingFace cache: {cache}" if cache else
+        "HuggingFace cache: cannot determine (huggingface_hub not importable)",
+        status="ok" if cache else "warn",
+    )
+    if cache is not None and "HF_HOME" not in os.environ and "HF_HUB_CACHE" not in os.environ:
+        pstatus(
+            "HF_HOME/HF_HUB_CACHE unset — models go to the default cache "
+            "above. Set HF_HOME if that filesystem is small or not shared "
+            "across nodes (see INSTALL.md).",
+            status="warn",
+        )
+
+    rows, all_present = pf.model_report(
+        embedding_model=args.model, include_vision=args.include_vision,
+    )
+    for r in rows:
+        if r["cached"]:
+            pstatus(
+                f"{r['repo']} — already cached ({pf.human_size(r['size_bytes'])})",
+                status="ok",
+            )
+        else:
+            pstatus(f"{r['repo']} — not cached, will fetch ({r['label']})",
+                    status="warn")
+    if all_present:
+        print()
+        pstatus("every required model is already cached; nothing to do.",
+                status="ok")
+        return EXIT_OK
+
+    sample = _sample_pdf_for_prefetch(args)
+    if sample is None:
+        pstatus(
+            "no sample PDF found for docling's model load — pass --pdf, or "
+            "run from a corpuscle whose input_pdfs contains one",
+            status="warn",
+        )
+    else:
+        pstatus(f"exercising docling with {sample.name}", status="info")
+
+    try:
+        pf.prefetch_all(
+            sample,
+            embedding_model=args.model,
+            include_vision=args.include_vision,
+        )
+    except RuntimeError as e:
+        print()
+        pstatus(str(e), status="fail")
+        pstatus(
+            "if this host has no outbound internet, prefetch on a host "
+            "that does with HF_HOME pointed at shared storage, then run "
+            "the pipeline with HF_HUB_OFFLINE=1.",
+            status="info",
+        )
+        return EXIT_PRECONDITION
+
+    rows, all_present = pf.model_report(
+        embedding_model=args.model, include_vision=args.include_vision,
+    )
+    print()
+    if all_present:
+        pstatus("all models cached; `corpus run` will not need to download.",
+                status="ok")
+        return EXIT_OK
+    missing = [r["repo"] for r in rows if not r["cached"]]
+    # Not fatal: the downloads reported success, so the pinned docling may
+    # simply use repo ids other than the ones we report on. Say so rather
+    # than claiming a failure.
+    pstatus(
+        "downloads completed, but these expected repos are still absent "
+        f"from the cache: {', '.join(missing)}. If `corpus run` works, the "
+        "pinned model versions use different repo ids than this build "
+        "reports and the list in pipeline/prefetch.py needs updating.",
+        status="warn",
+    )
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
 # `corpus check`  (#62 stub)  /  `corpus completion`  (#61 stub)
 # ---------------------------------------------------------------------------
 
@@ -1051,7 +1179,105 @@ def _cmd_check(args: argparse.Namespace) -> int:
                     status="warn",
                 )
 
-    # 8. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
+    # 8. OCR toolchain (#160). ocrmypdf shells out to tesseract and
+    # ghostscript; pipeline/scan.py checks for them at *use* time, deep
+    # inside a run. Check here instead. Only a real precondition when the
+    # corpus might actually need OCR — a born-digital-only corpus never
+    # invokes it — but we can't know that before scanning, so a missing
+    # binary is a failure unless OCR is impossible anyway.
+    missing_bins = [
+        b for b in ("tesseract", "ocrmypdf", "gs") if shutil.which(b) is None
+    ]
+    if missing_bins:
+        failures.append(
+            f"OCR toolchain incomplete: {', '.join(missing_bins)} not on PATH. "
+            "Scanned PDFs cannot be OCR'd. conda-forge provides tesseract + "
+            "ghostscript (`gs`); ocrmypdf comes from pip. See INSTALL.md."
+        )
+        pstatus(f"OCR toolchain: missing {', '.join(missing_bins)}", status="fail")
+    else:
+        pstatus("OCR toolchain: tesseract, ocrmypdf, ghostscript on PATH",
+                status="ok")
+    # Optional ocrmypdf helpers — scan.py degrades deliberately (drops
+    # --optimize 2 → 1), so informational only.
+    missing_opt = [
+        b for b in ("pngquant", "jbig2enc") if shutil.which(b) is None
+    ]
+    if missing_opt:
+        pstatus(
+            f"OCR compression helpers: {', '.join(missing_opt)} absent "
+            "(optional — OCR output will be larger, not wrong)",
+            status="info",
+        )
+
+    # 9. Tesseract language packs (#160). The conda-forge tesseract ships
+    # ONLY English, and `bash tools/install_tessdata.sh` is a required
+    # post-install step per the README. Skip it and a Cyrillic or Fraktur
+    # scan OCRs against the English pack — extraction still "succeeds",
+    # the text is just quietly wrong. That is precisely what pre-flight
+    # exists to catch, so warn loudly and name the fix.
+    if shutil.which("tesseract") is not None:
+        try:
+            from .scan import _available_tesseract_langs
+            available = set(_available_tesseract_langs())
+        except Exception as e:
+            available = set()
+            logging.getLogger(__name__).debug(
+                "could not enumerate tesseract langs: %s", e)
+        wanted = list(cfg.ocr.ocr_languages_default or [])
+        if not available:
+            pstatus(
+                "Tesseract language packs: none found — run "
+                "`bash tools/install_tessdata.sh`",
+                status="warn",
+            )
+        else:
+            missing_langs = [c for c in wanted if c not in available]
+            if missing_langs:
+                pstatus(
+                    "Tesseract language packs: missing "
+                    f"{', '.join(missing_langs)} of {len(wanted)} configured "
+                    "— scans in those languages will silently fall back to "
+                    "the installed set. Fix: `bash tools/install_tessdata.sh "
+                    f"{' '.join(missing_langs)}`",
+                    status="warn",
+                )
+            else:
+                pstatus(
+                    f"Tesseract language packs: all {len(wanted)} configured "
+                    f"packs installed ({len(available)} available)",
+                    status="ok",
+                )
+
+    # 10. Model cache (#159). docling's layout model, TableFormer, and the
+    # embedding model are fetched from HuggingFace on first use. Read-only
+    # probe — never touches the network, so this is safe on an air-gapped
+    # host. A missing model is a warning rather than a failure: an
+    # internet-connected host will just download it mid-run, which works,
+    # only slowly.
+    try:
+        from . import prefetch as _pf
+        rows, all_present = _pf.model_report()
+        if all_present:
+            pstatus(
+                f"Models: all {len(rows)} required models cached "
+                f"({_pf.hf_cache_dir()})",
+                status="ok",
+            )
+        else:
+            absent = [r["repo"] for r in rows if not r["cached"]]
+            pstatus(
+                f"Models: {len(absent)} of {len(rows)} not in the local "
+                f"HuggingFace cache ({', '.join(absent)}). The first "
+                "`corpus run` will download them; on a metered, throttled, "
+                "or offline host run `corpus prefetch` first.",
+                status="warn",
+            )
+    except Exception as e:
+        logging.getLogger(__name__).debug("model-cache probe failed: %s", e)
+        pstatus("Models: could not inspect the HuggingFace cache", status="warn")
+
+    # 11. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
     # env in the unsupported macOS x86_64 matrix (Apple dropped Intel-mac
     # torch wheels after 2.2, breaking docling + transformers ≥ 5). Hard
     # fail loud rather than letting `corpus run` discover it deep in a
@@ -1173,7 +1399,7 @@ _corpus_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Top-level verbs.
-    local verbs="init run debug-pdf status serve bib check completion"
+    local verbs="init run debug-pdf status serve bib taxonomy check prefetch completion"
     if [[ ${COMP_CWORD} -eq 1 ]] || [[ "$prev" == "-c" || "$prev" == "--config" ]]; then
         if [[ "$prev" == "-c" || "$prev" == "--config" ]]; then
             COMPREPLY=( $(compgen -f -- "$cur") )
@@ -1212,7 +1438,9 @@ _corpus() {
         'status:build-state rollup + report'
         'serve:MCP server'
         'bib:BibTeX round-trip'
+        'taxonomy:taxonomy export/ingest'
         'check:environment + config pre-flight'
+        'prefetch:download the HuggingFace models a run needs'
         'completion:generate a shell completion script'
     )
     if (( CURRENT == 2 )); then
@@ -1224,6 +1452,7 @@ _corpus() {
             status)     _arguments '--output-dir:DIR:_files -/' '--report' '--json' '--list-hashes' ;;
             serve)      _arguments '--output-dir:DIR:_files -/' '--transport' '--host' '--port' '--auth-token-file:FILE:_files' ;;
             bib)        _values 'subcommand' export import ;;
+            prefetch)   _arguments '--include-vision' '--model:MODEL:' '--pdf:PDF:_files' ;;
             completion) _values 'shell' bash zsh fish ;;
         esac
     fi
@@ -1239,7 +1468,9 @@ complete -c corpus -n "__fish_use_subcommand" -a debug-pdf   -d 'run the per-pap
 complete -c corpus -n "__fish_use_subcommand" -a status      -d 'build-state rollup + report'
 complete -c corpus -n "__fish_use_subcommand" -a serve       -d 'MCP server'
 complete -c corpus -n "__fish_use_subcommand" -a bib         -d 'BibTeX round-trip'
+complete -c corpus -n "__fish_use_subcommand" -a taxonomy    -d 'taxonomy export/ingest'
 complete -c corpus -n "__fish_use_subcommand" -a check       -d 'environment + config pre-flight'
+complete -c corpus -n "__fish_use_subcommand" -a prefetch    -d 'download the HuggingFace models a run needs'
 complete -c corpus -n "__fish_use_subcommand" -a completion  -d 'generate a shell completion script'
 complete -c corpus -s c -l config -r -d 'Path to config.yaml'
 complete -c corpus -s V -l version
@@ -1765,6 +1996,47 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     check_p.set_defaults(func=_cmd_check)
+
+    # --- prefetch (#159) ---
+    prefetch_p = sub.add_parser(
+        "prefetch",
+        help="Download the HuggingFace models a `corpus run` needs.",
+        description=(
+            "Fetch every model the pipeline downloads on first use — "
+            "docling's page-layout model, docling's TableFormer, and the "
+            "embedding model — so the first `corpus run` doesn't stop "
+            "mid-stage on a slow, throttled, or absent network. Retries "
+            "with backoff, because HuggingFace 429s anonymous traffic.\n\n"
+            "Set HF_HOME (or HF_HUB_CACHE) first to control where they "
+            "land — required on hosts with a small home directory. On a "
+            "cluster whose compute nodes have no outbound internet, run "
+            "this on a login node with HF_HOME on shared storage, then "
+            "run the pipeline with HF_HUB_OFFLINE=1 so an accidental "
+            "fetch fails loudly instead of hanging.\n\n"
+            "`corpus check` reports which of these are already cached "
+            "without downloading anything."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    prefetch_p.add_argument(
+        "--include-vision", action="store_true",
+        help=(
+            "also fetch the local vision-language model (~16 GB), needed "
+            "only for `--figure-panels vision-local`"
+        ),
+    )
+    prefetch_p.add_argument(
+        "--model", default=None,
+        help="embedding model id to fetch (default: the pipeline's BAAI/bge-m3)",
+    )
+    prefetch_p.add_argument(
+        "--pdf", type=Path, default=None,
+        help=(
+            "PDF used to exercise docling's model loads (default: one "
+            "from the configured input_pdfs, else the packaged demo)"
+        ),
+    )
+    prefetch_p.set_defaults(func=_cmd_prefetch)
 
     # --- completion (#61) ---
     comp_p = sub.add_parser(

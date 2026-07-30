@@ -59,9 +59,13 @@ pytesseract==0.3.13  # pinned (#158)
 qwen-vl-utils==0.0.14  # pinned (#158)
 accelerate==1.14.0  # pinned (#158)
 
-# Notebooks / interactive dev
+# Dev-only: notebooks, test runner, static-analysis gate.
+#
+# These mirror pyproject.toml's [project.optional-dependencies].dev rather
+# than its runtime `dependencies` (#162). They are kept here because this
+# file is also used to build development/CI environments where conda isn't
+# available — a *server-only* deploy host (DEPLOY.md) can safely drop this
+# block along with the vision/OCR extras noted in the header.
 ipykernel
-
-# Test runner
 pytest
 pyflakes  # static-analysis gate for tests/test_no_undefined_names.py

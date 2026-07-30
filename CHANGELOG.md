@@ -54,6 +54,33 @@ The v0.6 MCP surface freeze holds — no new tools. See
   way a new user experiences it (the path that 429'd in #140).
   `dev_docs/ec2_smoke.sh` is relabelled **T3-bare** and remains the
   manual pre-release check for the bare-host apt/miniforge bootstrap.
+- **`corpus prefetch`** ([#159](https://github.com/caseywdunn/corpus/issues/159)).
+  Downloads the three models the pipeline otherwise fetches on first use —
+  docling's page-layout model, docling's TableFormer, and the ~4.3 GB
+  BGE-M3 embedding model — with retry and backoff, because HuggingFace
+  429s anonymous traffic and a shared institutional NAT looks like abuse
+  from the other side. `--include-vision` adds the ~16 GB local VLM.
+  Prints the cache directory and warns when `HF_HOME`/`HF_HUB_CACHE` are
+  unset. INSTALL.md documents the offline pattern: prefetch where there is
+  internet, then run with `HF_HUB_OFFLINE=1` where there isn't.
+- **`corpus check` gained three pre-flight probes** (#159,
+  [#160](https://github.com/caseywdunn/corpus/issues/160)) — the OCR
+  toolchain (`tesseract` / `ocrmypdf` / `ghostscript` on PATH; a failure,
+  exit 3), the Tesseract language packs against
+  `ocr.ocr_languages_default` (a warning naming the missing codes and the
+  `tools/install_tessdata.sh` invocation that fixes them), and the model
+  cache (a warning, never a network call — safe on an air-gapped node).
+  Previously the only `shutil.which` calls lived in `pipeline/scan.py`,
+  i.e. checked mid-run; and skipping `install_tessdata.sh` — a *required*
+  post-install step — silently OCR'd Cyrillic and Fraktur against the
+  English pack.
+- **Install documentation for clusters and offline hosts**
+  ([#153](https://github.com/caseywdunn/corpus/issues/153), from a user's
+  own install report). INSTALL.md now covers redirecting conda/pip/HF
+  caches out of a small home directory, the `HOME` override some sites
+  need, running Grobid under Singularity in a batch job, and the fact that
+  `grobid.url` must name the allocated compute node rather than
+  `localhost`.
 - **T1-compose — `docker-compose.yml` is exercised on every push**
   ([#161](https://github.com/caseywdunn/corpus/issues/161)). T1 starts
   Grobid as a GHA `services:` container, so the compose file every
@@ -85,6 +112,24 @@ The v0.6 MCP surface freeze holds — no new tools. See
   the first fetch to fail in the #140 CI outage). The layout model and
   TableFormer are still downloaded. Existing corpuscles re-run the
   figure/extract stage on the next `corpus run`.
+- **Test dependencies are no longer runtime dependencies**
+  ([#162](https://github.com/caseywdunn/corpus/issues/162)). `pytest`,
+  `pyflakes`, and `ipykernel` moved from `[project].dependencies` to a
+  `[project.optional-dependencies].dev` extra, so installing corpus no
+  longer drags in a test runner and a Jupyter kernel. Development clones
+  want `pip install -e ".[dev]"`; the conda env supplies them
+  unconditionally as before.
+- **`requires-python` is bounded to `>=3.12,<3.13`**
+  ([#163](https://github.com/caseywdunn/corpus/issues/163)). It was
+  unbounded while `environment.yaml` pins 3.12, CI tests only 3.12, and
+  the #98 known-good ML set was verified against nothing else — so pip
+  was free to attempt an untested 3.13+ install via the documented
+  pip-only path.
+- **Shell completions offer every verb.** The three hand-maintained
+  completion snippets had drifted: `taxonomy` was missing from all of
+  them. Adding `prefetch` surfaced it, and a new test now compares each
+  snippet against the live argparse subcommand list so it can't drift
+  again.
 - **Corrected a wrong claim about CI caching** that had propagated into
   #156, #158, and `CONTRIBUTING.md`. `setup-miniconda` does not cache the
   solved conda environment and this repo adds no `actions/cache` for it,
