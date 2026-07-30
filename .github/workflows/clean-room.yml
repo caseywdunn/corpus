@@ -34,14 +34,41 @@
 
 name: T3 — clean-room install (scheduled)
 
+# IMPORTANT — how this lane can actually be triggered.
+#
+# GitHub only honors `schedule:` and `workflow_dispatch:` for workflows
+# that exist on the **default branch** (`main`). Until this file is merged
+# to main it is not registered at all: `gh workflow run clean-room.yml`
+# returns `HTTP 404: Not Found`, and no weekly run fires. Learned the hard
+# way — the first attempt to dispatch this from a feature branch 404'd.
+#
+# That mattered because PLAN.md §0 makes a green clean-room run a gate on
+# *tagging* 1.0, and a gate you cannot invoke before the release merge is
+# not a gate. Hence the two extra triggers below.
 on:
   schedule:
-    # Mondays 06:00 UTC. Weekly is the right cadence: the failure mode is
-    # measured in weeks, and each run costs ~30 min of runner time.
+    # Mondays 06:00 UTC, once this file is on main. Weekly is the right
+    # cadence: the failure mode is measured in weeks, and each run costs
+    # ~30-60 min of runner time.
     - cron: "0 6 * * 1"
   workflow_dispatch:
-    # So a release can demand a green clean-room run on demand — the
-    # PLAN.md §0 gate — without waiting for Monday.
+    # On-demand, once on main — for a release that wants a fresh green run
+    # rather than waiting for Monday.
+  pull_request:
+    # A PR *targeting main* is a release proposal, and this is the release
+    # gate — so run it there automatically rather than relying on someone
+    # remembering to dispatch it. Releases are rare, so the cost is rare.
+    # This also makes the gate satisfiable before the merge, which the
+    # dispatch-only version was not.
+    branches:
+      - main
+  push:
+    # Fires only when this lane itself changes, on any branch. Cheap
+    # (editing this file is rare) and it means a change to the clean-room
+    # lane is validated by running it — including from a feature branch,
+    # where none of the triggers above work.
+    paths:
+      - ".github/workflows/clean-room.yml"
 
 concurrency:
   group: ${{ github.workflow }}

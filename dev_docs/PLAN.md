@@ -108,9 +108,26 @@ Wave 0 built it:
 [`.github/workflows/clean-room.yml`](../.github/workflows/clean-room.yml)
 (**T3**) runs conda env → `pip install -e .` → the real
 `docker-compose.yml` → demo `corpus run` → bundle → `corpus_required` →
-SSE round-trip, weekly and on `workflow_dispatch`, with the HuggingFace
-cache off so a first-run model download is exercised for real. Dispatch
-it and require green before tagging.
+SSE round-trip, with the HuggingFace cache off so a first-run model
+download is exercised for real.
+
+**How to actually invoke it.** GitHub honors `schedule:` and
+`workflow_dispatch:` only for workflows present on the **default branch**
+(`main`), so while T3 lives on a feature branch it is unregistered —
+`gh workflow run clean-room.yml` returns `HTTP 404` and no weekly run
+fires. A gate that cannot be invoked until after the release merge is not
+a gate, so the lane also triggers on:
+
+* **a pull request targeting `main`** — which *is* the release proposal,
+  so the gate runs automatically on it rather than depending on someone
+  remembering to dispatch. This is the intended path: it satisfies the
+  gate *before* the merge, and dovetails with CONTRIBUTING.md's existing
+  "wait for CI on main to be green before tagging" step.
+* **a push that modifies `clean-room.yml` itself** — so a change to the
+  lane is validated by running it, from any branch.
+
+Once 1.0 is on `main`, the weekly `schedule:` takes over as the standing
+drift detector.
 
 [`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) (**T3-bare**) stays manual and
 pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
