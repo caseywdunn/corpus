@@ -249,3 +249,43 @@ def test_completions_offer_every_verb():
     for name, snippet in (("zsh", _ZSH_COMPLETION), ("fish", _FISH_COMPLETION)):
         missing = [v for v in verbs if v not in snippet]
         assert not missing, f"{name} completion missing verbs: {missing}"
+
+
+# --- `corpus check` must not be more permissive than `corpus run` ------------
+
+
+def test_check_fails_on_zero_pdfs_like_run_does(tmp_path):
+    """`corpus check`'s promise is "can the next run succeed on this host?",
+    and `corpus run` refuses a zero-PDF input dir outright. `check` used to
+    report "ready" for exactly that condition — while run's refusal tells
+    the user to "See `corpus check` for the full pre-flight surface", which
+    was then less complete than the thing it deferred to.
+
+    Found by the T4 operator walkthrough (dev_docs/clean_install_walkthrough.sh)
+    on a freshly `corpus init`-ed corpuscle.
+    """
+    import os
+    import textwrap
+
+    corpuscle = tmp_path / "empty_corpuscle"
+    (corpuscle / "pdfs").mkdir(parents=True)
+    (corpuscle / "config.yaml").write_text(textwrap.dedent("""
+        input_pdfs: ./pdfs
+        output_dir: ./output
+        grobid:
+          disable: true
+    """).lstrip())
+
+    env = dict(os.environ)
+    proc = subprocess.run(
+        [sys.executable, "-m", "pipeline.cli", "check"],
+        cwd=corpuscle, env=env, capture_output=True, text=True, timeout=300,
+    )
+    out = proc.stdout + proc.stderr
+    assert "0 PDFs" in out, out
+    assert proc.returncode == 3, (
+        f"expected exit 3 (precondition), got {proc.returncode} — check is "
+        f"greener than run:\n{out}"
+    )
+    # Same remedy wording as the orchestrator's guard, so the two agree.
+    assert "--skip-checks" in out, out

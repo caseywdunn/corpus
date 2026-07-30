@@ -224,6 +224,13 @@ The v0.6 MCP surface freeze holds — no new tools. See
   or an explicit `--no-taxa`, is unaffected — that remains a supported
   configuration. README §Taxonomy documents the internet requirement and
   the export→dwca workflow.
+- **`corpus check` no longer greener than `corpus run`.** It reported
+  "ready" for a zero-PDF `input_pdfs`, which `corpus run` refuses outright —
+  and run's refusal points the user at "`corpus check` for the full
+  pre-flight surface", which was then less complete than the thing it
+  deferred to. Now a precondition failure with the same wording and the same
+  `--skip-checks` escape hatch. Found by re-running the T4 operator
+  walkthrough after this cycle's CLI changes.
 - **Grobid's compose healthcheck actually works now**
   ([#157](https://github.com/caseywdunn/corpus/issues/157)). It shelled
   out to `curl`, which the `lfoppiano/grobid:0.8.1` image does not ship

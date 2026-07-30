@@ -157,10 +157,29 @@ cp "$SIPH_REPO/instructions.md" .
 
 
 # =============================================================================
-# 5. Pre-flight checks.
+# 4b. Fetch the models up front (#159). Optional but recommended: without
+#     this, the first `corpus run` stops to download ~4.8 GB (docling
+#     layout + TableFormer + BGE-M3) mid-stage. Set HF_HOME first if your
+#     home directory is small or not shared across machines.
 # =============================================================================
 
-corpus check                  # config schema + grobid + GPU + disk
+corpus prefetch --help
+corpus prefetch                # ~4.8 GB; idempotent, reports what's cached
+# corpus prefetch --include-vision   # + the ~16 GB local VLM
+
+
+# =============================================================================
+# 5. Pre-flight checks.
+#
+# `corpus check` covers: config schema, GPU, figure-panel backend, Grobid
+# reachability, disk, input_pdfs (fails on zero PDFs, matching what `corpus
+# run` itself refuses), taxonomy, the OCR toolchain + Tesseract language
+# packs (#160), the HuggingFace model cache (#159), and macOS Python arch.
+# It never touches the network for the model probe, so it is safe on an
+# isolated host.
+# =============================================================================
+
+corpus check                  # exits 0 green / 2 config error / 3 precondition
 corpus run --dry-run          # prints the plan; no artifacts written
 
 
@@ -297,13 +316,19 @@ wait "$SERVE_PID" 2>/dev/null || true
 # =============================================================================
 
 # Top-level + per-verb help.
+#
+# The verb list is *derived*, not hardcoded. A hardcoded list silently went
+# stale: this tour missed `debug-pdf` and `taxonomy` (both shipped in v0.6)
+# until the v1.0 pass re-ran T4 and diffed it against the parser. The bash
+# completion script is the source here because
+# tests/test_prefetch_and_check_probes.py::test_completions_offer_every_verb
+# pins it to argparse's real subcommand set — so this loop covers every verb
+# for as long as that test passes.
 corpus --help
-corpus run --help
-corpus serve --help
-corpus status --help
-corpus bib --help
-corpus check --help
-corpus completion --help
+for v in $(corpus completion bash | sed -n 's/^ *local verbs="\([^"]*\)".*/\1/p'); do
+    echo "───── corpus $v --help ─────"
+    corpus "$v" --help
+done
 
 # Citation (CITATION.cff is the source of truth).
 corpus --cite               # plain text

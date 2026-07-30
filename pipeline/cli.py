@@ -1118,7 +1118,20 @@ def _cmd_check(args: argparse.Namespace) -> int:
                 sum(1 for p in input_dir.rglob("*.pdf") if not _is_under_output(p))
                 if input_dir.is_dir() else 0
             )
-            pstatus(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
+            if n_pdfs == 0:
+                # Match the orchestrator's own guard (`corpus run` refuses a
+                # zero-PDF input dir with the same message). Found by the T4
+                # operator walkthrough: `check` used to report "ready" here
+                # while `run` refused — and `run`'s refusal points the user
+                # at "`corpus check` for the full pre-flight surface", which
+                # was then *less* complete than the thing it deferred to.
+                failures.append(
+                    f"input_pdfs path has zero PDFs under {input_dir}. "
+                    "Drop PDFs in or pass --skip-checks to run anyway."
+                )
+                pstatus(f"input_pdfs: {input_dir} (0 PDFs)", status="fail")
+            else:
+                pstatus(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
         else:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
             pstatus(f"input_pdfs: {input_dir} not found", status="fail")
