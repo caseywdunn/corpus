@@ -413,6 +413,16 @@ def derive_publishable(license_v: Optional[str], year: Optional[int],
 
     Returns (publishable, license_source). publishable=None means
     "couldn't decide" (e.g. unrecognized license string).
+
+    **This boolean is lossy and is not what should be shown to clients**
+    (#154 §2): a ``0`` means "we could not establish public domain", which
+    is *not* the same as "the rightsholder forbade it", yet both collapse
+    to the same value. In the served siphonophore corpus 86% of works were
+    ``publishable=0, license_source=unknown`` and **not one** was asserted
+    ``all-rights-reserved``. Use :func:`clearance_state` for anything a
+    client or a human reads; keep this boolean for the storage column and
+    the strict-profile gate, where "could not establish" and "forbidden"
+    do warrant the same conservative answer.
     """
     import datetime as _dt
     if license_v:
@@ -421,13 +431,78 @@ def derive_publishable(license_v: Optional[str], year: Optional[int],
             return 1, "bibtex"
         if norm in _NON_PUBLISHABLE_LICENSES:
             return 0, "bibtex"
-        # Unrecognized license string — leave publishable null but record source
+        # Unrecognized license string — leave publishable null but record
+        # source. Warn (#154 §2): silently NULLing means a typo'd
+        # `license = {CC-BY 4.0}` (space, not hyphen) blocks a figure under
+        # strict profiles exactly like an asserted all-rights-reserved,
+        # with nothing in the build log to explain it.
+        logger.warning(
+            "unrecognized license string %r — leaving publishable NULL. "
+            "Under a strict output profile this blocks the work's figures "
+            "as firmly as an explicit all-rights-reserved. Recognized "
+            "values: %s",
+            license_v,
+            ", ".join(sorted(_PUBLISHABLE_LICENSES | _NON_PUBLISHABLE_LICENSES)),
+        )
         return None, "bibtex"
     if year is not None:
         current = _dt.datetime.now().year
         if (current - int(year)) >= pd_cutoff_years:
             return 1, "age_based_pd"
     return 0, "unknown"
+
+
+# The five states a work's publication clearance can actually be in
+# (#154 §2). ``publishable`` collapses the last three into a single 0,
+# which is why the flag reads as a prohibition when it usually means
+# "unknown".
+CLEARANCE_PUBLIC_DOMAIN = "public_domain"
+CLEARANCE_LICENSED_OPEN = "licensed_open"
+CLEARANCE_RESTRICTED = "restricted"
+CLEARANCE_UNDETERMINED = "undetermined"
+CLEARANCE_NO_RECORD = "no_record"
+
+
+def clearance_state(work: Optional[Dict]) -> str:
+    """Publication-clearance state for a works row (#154 §2).
+
+    Distinguishes the states ``publishable`` flattens:
+
+    * ``public_domain``  — asserted public-domain, or past the PD cutoff
+      (``license_source = age_based_pd``).
+    * ``licensed_open``  — an explicit open license (CC-BY family).
+    * ``restricted``     — the rightsholder's terms were recorded and
+      forbid republication (``all-rights-reserved``, etc.). **Positive
+      evidence of restriction**, unlike the states below.
+    * ``undetermined``   — a license string was recorded but not
+      recognized (``publishable IS NULL``). Often a typo.
+    * ``no_record``      — nothing on file: no license and not old enough
+      to be age-based PD, or the work isn't in the authority DB at all.
+      This is the overwhelmingly common case and carries **no** evidence
+      of restriction either way.
+
+    Derived from the stored columns rather than a new one, so no schema
+    migration or authority-DB rebuild is required.
+    """
+    if not work:
+        return CLEARANCE_NO_RECORD
+    source = (work.get("license_source") or "").strip().lower()
+    pub = work.get("publishable")
+    license_v = (work.get("license") or "").strip().lower()
+
+    if pub is None:
+        # Recorded but unrecognized — the typo case.
+        return CLEARANCE_UNDETERMINED if source else CLEARANCE_NO_RECORD
+    if int(pub) == 1:
+        if source == "age_based_pd":
+            return CLEARANCE_PUBLIC_DOMAIN
+        if license_v in {"public-domain", "cc0", "cc0-1.0"}:
+            return CLEARANCE_PUBLIC_DOMAIN
+        return CLEARANCE_LICENSED_OPEN
+    # publishable == 0: restricted only when we actually recorded terms.
+    if source == "bibtex" and license_v:
+        return CLEARANCE_RESTRICTED
+    return CLEARANCE_NO_RECORD
 
 
 def _resolve_pd_cutoff_from_config(config_path: Optional[Path]) -> int:

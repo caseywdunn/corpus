@@ -12,9 +12,18 @@ gate on the per-call ``profile=`` (``report`` / ``manuscript`` /
 ``presentation``; see ``mcpsrv.profiles``): a ``strict`` profile refuses
 bytes/URL when ``publishable=false``, the default permissive ``report``
 allows them (in-chat display = fair use). The server ``--default-profile``
-sets the fallback for calls that omit ``profile=``. The raw license
-fields are always exposed via ``get_figure`` so a publication-bound
-client can self-filter.
+sets the fallback for calls that omit ``profile=``.
+
+#154 — the *gate*, not the client, decides. Attribution fields
+(``license`` / ``license_url`` / ``attribution``) go out in every profile
+because captions need them; the clearance *determination*
+(``publication_clearance`` / ``license_source``) is surfaced only under a
+strict profile or on an explicit ``include_licensing=True``. Under the
+permissive default the server has already authorized the figure, and
+shipping a permission-shaped flag next to it caused figures to be
+withheld in ordinary report use — on 86% of the served corpus that flag
+meant only "we could not establish public domain", not "the
+rightsholder refused".
 """
 from __future__ import annotations
 
@@ -24,7 +33,7 @@ from typing import Any, Dict, List, Optional, Union
 from mcp.server.mcpserver import Image
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
-from ..profiles import get_profile, resolve_profile
+from ..profiles import get_profile, resolve_profile, unknown_profile_error
 
 
 def _active_figure_profile(idx, profile: Optional[str]):
@@ -37,13 +46,33 @@ def _active_figure_profile(idx, profile: Optional[str]):
 def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
     """Return a refusal reason when the active profile's figure-licensing
     policy forbids this figure, else None. Only the ``strict`` policy
-    gates; ``permissive`` always allows (but the license metadata is
-    still surfaced so a publication-bound client can self-filter)."""
+    gates; ``permissive`` always allows.
+
+    Deliberately keyed on the conservative ``publishable`` boolean rather
+    than the five-state ``publication_clearance``: for *refusal* purposes,
+    "could not establish public domain" and "explicitly restricted" do
+    warrant the same answer. The distinction matters for what we *tell*
+    the client, which is why the refusal message reports the state
+    (#154 §2)."""
     if active.figure_licensing == "strict" and not lic.get("publishable"):
+        state = lic.get("publication_clearance") or "no_record"
+        because = {
+            "restricted":
+                "the recorded license forbids republication",
+            "undetermined":
+                "a license was recorded but not recognized (often a typo — "
+                "check the .bib `license` field)",
+            "no_record":
+                "no license on file and the work is not old enough to be "
+                "age-based public domain; this is an ABSENCE of evidence, "
+                "not a refusal by the rightsholder",
+        }.get(state, "clearance could not be established")
         return (
-            f"figure not publishable under profile {active.name!r}: "
-            f"license={lic.get('license') or 'unknown'!r} "
-            f"(source={lic.get('license_source')!r})"
+            f"figure withheld under profile {active.name!r} — "
+            f"publication_clearance={state!r}: {because}. "
+            f"license={lic.get('license') or 'none recorded'!r} "
+            f"(source={lic.get('license_source')!r}). "
+            "For in-chat display request profile='report'."
         )
     return None
 
@@ -54,13 +83,19 @@ _REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
 
 
 def _license_metadata_for_paper(paper_hash: str) -> Dict:
-    """Look up license + publishable + attribution for a paper (#51).
+    """Look up license + clearance + attribution for a paper (#51).
 
     Returns ``{license, license_url, license_source, publishable,
-    attribution}`` — all keys present even when the authority DB has
-    no entry (everything falls back to ``unknown`` / ``False`` so
-    clients see a consistent shape).
+    publication_clearance, attribution}`` — all keys present even when the
+    authority DB has no entry, so callers see a consistent shape.
+
+    **Internal view.** ``publishable`` is retained here because the
+    strict-profile gate needs a single conservative boolean, but it must
+    not go out on the wire unfiltered — see
+    :func:`_license_fields_for_wire` and #154 §1/§2.
     """
+    from bib.authority import CLEARANCE_NO_RECORD, clearance_state
+
     idx = _need_index()
     work = None
     if idx.biblio_db is not None:
@@ -74,6 +109,7 @@ def _license_metadata_for_paper(paper_hash: str) -> Dict:
             "license_url": None,
             "license_source": "unknown",
             "publishable": False,
+            "publication_clearance": CLEARANCE_NO_RECORD,
             "attribution": None,
         }
     return {
@@ -81,8 +117,45 @@ def _license_metadata_for_paper(paper_hash: str) -> Dict:
         "license_url": work.get("license_url"),
         "license_source": work.get("license_source") or "unknown",
         "publishable": bool(work.get("publishable")),
+        "publication_clearance": clearance_state(work),
         "attribution": _attribution_string(work),
     }
+
+
+def _license_fields_for_wire(
+    lic: Dict, active, include_licensing: bool = False,
+) -> Dict:
+    """The license fields that belong in a tool response (#154 §1).
+
+    ``license`` / ``license_url`` / ``attribution`` go out in **every**
+    profile — a caption needs them regardless of what the figure is for.
+
+    The *clearance determination* does not. Under the permissive ``report``
+    profile the server has already decided to serve the figure, so shipping
+    ``publishable: false`` alongside it just invites the client to overrule
+    a decision that was never theirs. That is not hypothetical: the default
+    profile is ``report``, the server refuses nothing, and figures were
+    still being withheld because a model reasonably reads itself as
+    "publication-bound" and reads ``publishable`` as "may I show this".
+    On 86% of the served corpus that flag was ``0`` meaning merely "we
+    could not establish public domain".
+
+    So the determination is included only when the active profile is
+    actually gating on it, or when the caller explicitly asks via
+    ``include_licensing=True``. When included it is reported as
+    ``publication_clearance`` — a five-state description of what we know
+    (see :func:`bib.authority.clearance_state`) — rather than the
+    permission-shaped boolean.
+    """
+    out = {
+        "license": lic.get("license"),
+        "license_url": lic.get("license_url"),
+        "attribution": lic.get("attribution"),
+    }
+    if include_licensing or active.figure_licensing == "strict":
+        out["publication_clearance"] = lic.get("publication_clearance")
+        out["license_source"] = lic.get("license_source")
+    return out
 
 
 def _attribution_string(work: Dict) -> Optional[str]:
@@ -535,25 +608,50 @@ def get_figure_dossier_for_term(
 
 
 @mcp.tool()
-def get_figure(paper_hash: str, figure_id: str) -> Dict:
+def get_figure(
+    paper_hash: str,
+    figure_id: str,
+    profile: Optional[str] = None,
+    include_licensing: bool = False,
+) -> Dict:
     """One figure's full record: caption, page, bbox, image path,
-    cross-references, plus license + publishable + attribution (#51)
-    inherited from the parent work."""
+    cross-references, plus the attribution fields (#51) inherited from the
+    parent work.
+
+    ``license`` / ``license_url`` / ``attribution`` are always present —
+    you need them to caption the figure in any context.
+
+    The publication-clearance *determination* is included only under a
+    strict ``profile`` (``manuscript`` / ``presentation``), or when you
+    pass ``include_licensing=True`` (#154). Under the default permissive
+    ``report`` profile the server has already decided to serve the figure,
+    so a clearance flag alongside it is just an invitation to withhold
+    something that was cleared — display what you are given. When present,
+    ``publication_clearance`` is one of ``public_domain`` /
+    ``licensed_open`` / ``restricted`` / ``undetermined`` / ``no_record``;
+    only ``restricted`` is positive evidence that republication was
+    refused.
+    """
+    if profile is not None and get_profile(profile) is None:
+        return unknown_profile_error(profile)
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         return error(f"no such paper_hash: {paper_hash}", "not_found")
+    active = _active_figure_profile(idx, profile)
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
+            lic = _license_metadata_for_paper(paper_hash)
             return {
                 **f,
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
                 # Relative to the corpuscle's documents/ dir.
                 "image_path": f"{paper_hash}/figures/{f.get('filename') or ''}",
-                # #51 — license metadata inherited from the parent work.
-                **_license_metadata_for_paper(paper_hash),
+                # #51 / #154 — attribution always; the clearance
+                # determination only where it is actually being enforced.
+                **_license_fields_for_wire(lic, active, include_licensing),
             }
     return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
@@ -595,6 +693,7 @@ def get_figure_roi_image(
     paper_hash: str,
     figure_id: str,
     label: str,
+    profile: Optional[str] = None,
 ) -> Dict:
     """Crop a panel ROI out of a figure image and return the crop's path.
 
@@ -609,11 +708,27 @@ def get_figure_roi_image(
     (OCR missed the label), returns the whole figure's image path with
     ``crop: false`` — the LLM can still display the whole figure and
     reason about which region is which panel using the caption.
+
+    Honors the figure-licensing gate for the active ``profile``, like
+    ``get_figure_image`` and ``get_figure_url`` (#154 §3). It previously
+    did not, which made it a way around them: a client refused under
+    ``manuscript`` could obtain the same pixels here — including, via the
+    no-pixel-ROI fallback below, the whole uncropped figure.
     """
+    if profile is not None and get_profile(profile) is None:
+        return unknown_profile_error(profile)
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         return error(f"no such paper_hash: {paper_hash}", "not_found")
+    # Gate before touching disk, matching the other enforcement points —
+    # and before the `roi_entry is None` fallback, which returns the whole
+    # figure and was the widest part of the bypass.
+    active = _active_figure_profile(idx, profile)
+    lic = _license_metadata_for_paper(paper_hash)
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        return error(refusal, "forbidden")
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
     fig = next(
@@ -703,11 +818,16 @@ def get_figure_image(
     ``profile`` (``report`` / ``manuscript`` / ``presentation``; pass it
     per call to reflect what you're producing). Under a ``strict``
     profile (manuscript / presentation) this refuses image bytes when
-    the parent work's ``publishable`` flag is false. Under the default
-    permissive ``report`` profile the image is returned (in-chat display
-    is fair use). ``get_figure`` always exposes the raw license fields,
-    so a publication-bound client can self-filter; pass
-    ``profile="manuscript"`` to have the server enforce it. Unknown
+    the parent work's clearance could not be established. Under the
+    default permissive ``report`` profile the image is returned (in-chat
+    display is fair use).
+
+    **Don't self-filter** (#154): pass the profile that matches what you
+    are producing and let the server decide. If it returns bytes under
+    ``report``, display them — a clearance determination is not included
+    there precisely because it is not being enforced. ``get_figure(...,
+    include_licensing=True)`` gives you the determination explicitly if
+    you need to reason about it. Unknown
     profile names raise.
     """
     idx = _need_index()
@@ -805,7 +925,6 @@ def get_figure_url(
     """
     idx = _need_index()
     if profile is not None and get_profile(profile) is None:
-        from ..profiles import unknown_profile_error
         return unknown_profile_error(profile)
     active = _active_figure_profile(idx, profile)
     base = getattr(idx, "figure_url_base", None)
@@ -862,10 +981,11 @@ def get_figure_url(
         "auth_header": auth_header,
         "mime_type": "image/png",
         "profile": active.name,
-        "publishable": lic.get("publishable"),
-        "license": lic.get("license"),
-        "license_source": lic.get("license_source"),
-        "attribution": lic.get("attribution") if active.require_attribution else None,
+        # #154 §1 — the server just authorized this URL under `active`, so
+        # don't ship a clearance flag inviting the client to withhold it.
+        # Attribution and license go out either way (a caption needs them);
+        # the determination only under a strict profile.
+        **_license_fields_for_wire(lic, active),
         "fetch_hint": (
             "curl -fsSL -H \"$auth_header\" -o /tmp/fig.png \"$url\""
             if auth_header

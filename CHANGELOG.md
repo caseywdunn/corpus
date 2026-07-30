@@ -90,6 +90,59 @@ The v0.6 MCP surface freeze holds — no new tools. See
   for `/api/isalive`, and requires `docker inspect` to report `healthy`,
   which is the standing regression guard for #157.
 
+### Changed (breaking, MCP surface)
+
+- **Figure licensing: the gate decides, not the client**
+  ([#154](https://github.com/caseywdunn/corpus/issues/154)). Three defects
+  fixed together, because two of them pulled in opposite directions.
+
+  **Advisory metadata no longer leaks into permissive use.** `get_figure`
+  and `get_figure_url` injected `publishable` / `license_source`
+  regardless of profile, so a model *just authorized* to display a figure
+  read `"publishable": false` beside it and withheld it. The default
+  profile is `report`, the server refuses nothing under it, and figures
+  were being withheld anyway. `license` / `license_url` / `attribution`
+  are still present in every profile — captions need them — but the
+  clearance *determination* now appears only under a strict profile
+  (`manuscript` / `presentation`) or on an explicit
+  `get_figure(..., include_licensing=True)`. **`publishable` is gone from
+  every response shape**, replaced where it appears by
+  `publication_clearance`.
+
+  **"Unknown" is no longer conflated with "restricted."**
+  `publishable=0` meant *both* "the rightsholder forbade this" and "we
+  could not establish public domain". In the served corpus that collapse
+  was total: 55,177 works (86%) were `publishable=0,
+  license_source=unknown` and **not one** was asserted
+  `all-rights-reserved`. A new `publication_clearance` reports five
+  states — `public_domain`, `licensed_open`, `restricted`,
+  `undetermined`, `no_record` — and refusal messages name the state that
+  caused them, spelling out that `no_record` is an absence of evidence
+  rather than a prohibition. Derived from existing columns, so **no
+  authority-DB rebuild is required**. Unrecognized license strings now
+  warn at build time instead of being silently NULLed, which is what made
+  a typo'd `license = {CC-BY 4.0}` (space, not hyphen) block figures as
+  firmly as an explicit refusal.
+
+  **`get_figure_roi_image` no longer bypasses the gate.** It took no
+  `profile` and never consulted the licensing check, so a client refused
+  by `get_figure_image` under `manuscript` could obtain the same pixels
+  through it — including the whole uncropped figure, via the no-pixel-ROI
+  fallback. It now accepts `profile` and refuses before touching disk.
+  `tests/test_freeze_contract.py` gained a check that *every*
+  pixel-returning tool accepts `profile`, since the v0.6 plan had warned
+  about exactly this class and the warning was honored for
+  `figure_http.py` while this tool was missed.
+
+  Also on the HTTP route: `?profile=` is now validated (an unknown value
+  400s instead of silently falling through to the server default, which
+  `resolve_profile`'s own contract said callers must prevent), and the
+  query string is parsed with `parse_qs` so a percent-encoded `label`
+  resolves instead of missing its crop. `mcpsrv/default_instructions.md`
+  gained a licensing section telling the served model to display what the
+  server returns and to pass `profile="manuscript"` when it is
+  publication-bound.
+
 ### Fixed
 
 - **The bib parser no longer discards the rest of the file on one bad

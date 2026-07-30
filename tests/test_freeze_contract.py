@@ -159,3 +159,51 @@ def test_no_raw_error_dict_returns_in_tools():
         "raw error-dict returns bypass app.error() (no machine `code`):\n"
         + "\n".join(offenders)
     )
+
+
+# --- 4. every figure-pixel path consults the licensing gate -------------------
+
+
+def test_every_figure_pixel_tool_takes_a_profile():
+    """#154 §3 — `get_figure_roi_image` shipped without a `profile`
+    parameter and so bypassed the licensing gate entirely: a client refused
+    by `get_figure_image` under `manuscript` could get the same pixels,
+    including the whole uncropped figure, through it.
+
+    The v0.6 plan's landmine list had warned that the `get_figure_url` →
+    HTTP-fetch path must carry the resolved profile; it was honored for
+    `figure_http.py` and missed for this tool. So the rule is generalized
+    here: *every* tool that can return figure pixels is an enforcement
+    point, and must accept `profile` so the gate can be applied.
+    """
+    import inspect
+
+    reg = _registered()
+    # Tools that return, or hand out a route to, figure pixels.
+    pixel_tools = [
+        "get_figure_image",      # inline bytes
+        "get_figure_roi_image",  # panel crop written to disk
+        "get_figure_url",        # authenticated URL to the bytes
+    ]
+    for name in pixel_tools:
+        assert name in reg, f"{name} is not registered"
+        params = inspect.signature(_fn(reg[name])).parameters
+        assert "profile" in params, (
+            f"{name} returns figure pixels but takes no `profile` — it "
+            "cannot honor the licensing gate (#154 §3)"
+        )
+
+
+def test_figure_licensing_refusal_is_shared_not_reimplemented():
+    """All enforcement points must route through one predicate, or they
+    drift apart — which is exactly how §3 happened."""
+    import inspect
+
+    from mcpsrv.tools import figures as figmod
+
+    src = inspect.getsource(figmod)
+    # Each of the three tool paths should call the shared helper.
+    assert src.count("_figure_licensing_refusal(") >= 4, (
+        "expected the shared refusal predicate to be defined once and "
+        "called from every pixel-returning tool"
+    )
