@@ -170,14 +170,14 @@ issue branches.
 Everything a user hits in their first hour. Mostly one-liners and docs;
 the exception is #159, which is the largest new surface in the cycle.
 
-- [ ] **Fix the Grobid healthcheck**
+- [x] **Fix the Grobid healthcheck**
   ([#157](https://github.com/caseywdunn/corpus/issues/157)).
   `docker-compose.yml:46` probes with `curl`, absent from the
   `lfoppiano/grobid:0.8.1` image, so `corpus-grobid` reports
   `(unhealthy)` forever while working fine. First thing a new user sees
   after `docker compose up -d grobid`. Use the JVM/wget path available
   in the image, or drop to a TCP probe.
-- [ ] **Exercise `docker-compose.yml` in CI**
+- [x] **Exercise `docker-compose.yml` in CI**
   ([#161](https://github.com/caseywdunn/corpus/issues/161)). T1 starts
   Grobid as a GHA `services:` container with different `JAVA_OPTS`, so
   the compose file's image, heap, container name, and healthcheck are
@@ -187,7 +187,7 @@ the exception is #159, which is the largest new surface in the cycle.
   regressing), and runs `corpus check`. Then resolve the `JAVA_OPTS`
   divergence in one direction: CI passes `-XX:-UseContainerSupport`
   (#72 / 40ae330, a cgroup-v2 JVM NPE) and the compose file does not.
-- [ ] **Drop `do_picture_classification`**
+- [x] **Drop `do_picture_classification`**
   ([#140](https://github.com/caseywdunn/corpus/issues/140)).
   `pipeline/extract.py:78` sets it `True`, so docling downloads and runs
   `DocumentFigureClassifier-v2.5` on every PDF — but `figure_type` comes
@@ -198,7 +198,7 @@ the exception is #159, which is the largest new surface in the cycle.
   Confirm nothing consumes docling's picture-class annotations before
   flipping, per the issue. Re-runs the figure/extract stage on existing
   corpuscles — changelog it.
-- [ ] **`corpus prefetch` + model pre-flight**
+- [x] **`corpus prefetch` + model pre-flight**
   ([#159](https://github.com/caseywdunn/corpus/issues/159)). First run
   must reach HuggingFace for docling's layout model, TableFormer, and
   BGE-M3. There is no way to fetch them ahead of time, no way to check
@@ -210,7 +210,7 @@ the exception is #159, which is the largest new surface in the cycle.
   `HF_HOME` / `TRANSFORMERS_CACHE` / `HF_HUB_OFFLINE`. Have CI call the
   real command instead of maintaining its own copy. Land **after** #140,
   which removes one of the downloads.
-- [ ] **`corpus check`: validate the OCR toolchain**
+- [x] **`corpus check`: validate the OCR toolchain**
   ([#160](https://github.com/caseywdunn/corpus/issues/160)). The only
   `shutil.which` calls live in `pipeline/scan.py` — checked at use time,
   deep in a run. `_cmd_check` (`pipeline/cli.py:869`) never probes
@@ -220,7 +220,7 @@ the exception is #159, which is the largest new surface in the cycle.
   with only a buried warning. Fail on missing binaries; warn on missing
   language packs, naming the codes and the fixing invocation.
   `_available_tesseract_langs()` already exists.
-- [ ] **Document the shared-filesystem / HPC install**
+- [x] **Document the shared-filesystem / HPC install**
   ([#153](https://github.com/caseywdunn/corpus/issues/153)). A user's
   own report: redirect pip/conda caches and `HF_HOME` into project
   space, temporarily reset `$HOME`, run Grobid under Singularity in a
@@ -228,13 +228,13 @@ the exception is #159, which is the largest new surface in the cycle.
   `localhost`. All true, none of it documented. Folds naturally into
   #159's cache section and BOUCHET.md. **Windows/WSL is explicitly not
   supported** and needs no table row.
-- [ ] **Move test deps out of runtime dependencies**
+- [x] **Move test deps out of runtime dependencies**
   ([#162](https://github.com/caseywdunn/corpus/issues/162)).
   `pytest`, `pyflakes`, `ipykernel` are in `[project].dependencies`
   (`pyproject.toml:43-45`), so every install pulls a test runner and a
   Jupyter kernel. Move to `[project.optional-dependencies].dev`; keep
   them unconditional in `environment.yaml`, which *is* the dev env.
-- [ ] **Bound `requires-python`**
+- [x] **Bound `requires-python`**
   ([#163](https://github.com/caseywdunn/corpus/issues/163)).
   `pyproject.toml:9` says `>=3.12` with no upper bound while the env
   pins `python=3.12`, CI tests 3.12 only, and the #98 known-good ML set
@@ -247,7 +247,7 @@ the exception is #159, which is the largest new surface in the cycle.
 Changes stored artifacts, so it should land before users build
 corpuscles they intend to keep.
 
-- [ ] **Fix the bib parser's silent truncation**
+- [x] **Fix the bib parser's silent truncation**
   ([#141](https://github.com/caseywdunn/corpus/issues/141)). A single
   unbalanced brace discards every entry after it: on a 19,834-entry
   export the parse stopped at ~1.75 MB and imported 2,258 entries, with
@@ -266,7 +266,7 @@ corpuscles they intend to keep.
   invisible into obvious, and it also covers `_parse_fields`, which has
   no `depth != 0` check at all and silently drops the remaining fields
   of an entry with *no warning whatsoever*.
-- [ ] **Stamp `bib_imported_at` on matched-but-unchanged entries**
+- [x] **Stamp `bib_imported_at` on matched-but-unchanged entries**
   ([#142](https://github.com/caseywdunn/corpus/issues/142), completing
   [#100](https://github.com/caseywdunn/corpus/issues/100)).
   `bib/importer.py:391-395` `continue`s on the no-change branch before
@@ -278,7 +278,7 @@ corpuscles they intend to keep.
   every rebuild. While in the file, collapse the vestigial
   `return 0 if counters["no_match"] == 0 else 0` at `:509` — both
   branches return 0.
-- [ ] **Verify #152 closes with #142**
+- [x] **Verify #152 closes with #142**
   ([#152](https://github.com/caseywdunn/corpus/issues/152)). "Reference
   warnings are overzealous" is a symptom, not an independent bug: with
   `bib_imported_at` unstamped, `CorpusIndex.provenance()` keeps
@@ -289,7 +289,7 @@ corpuscles they intend to keep.
   is #100 cause (b) — `_merge_phase1_into_ghost`
   (`bib/reconcile.py:313-325`) dropping bib fields — and belongs here
   too.
-- [ ] **Make a missing taxonomy loud**
+- [x] **Make a missing taxonomy loud**
   ([#139](https://github.com/caseywdunn/corpus/issues/139) follow-ups 1
   and 2). `pipeline/runner.py:305` gates the taxa/anatomy stage on
   `taxonomy_db is not None or bool(lexicons)`, so an absent
@@ -308,7 +308,7 @@ corpuscles they intend to keep.
 Making frozen tools honest. No signatures widen; #154 narrows one
 response shape, which is the last moment that is cheap.
 
-- [ ] **Fix figure licensing**
+- [x] **Fix figure licensing**
   ([#154](https://github.com/caseywdunn/corpus/issues/154)). Three
   defects that must be fixed **together**, because §1 and §3 pull in
   opposite directions and both follow from making the gate — not the
@@ -344,7 +344,7 @@ response shape, which is the last moment that is cheap.
   never URL-decodes, so a label containing `%20` misses its crop.
   `urllib.parse.parse_qs` fixes the second and duplicate-parameter
   handling at once.
-- [ ] **Expand lexicon synonyms in figure retrieval**
+- [x] **Expand lexicon synonyms in figure retrieval**
   ([#143](https://github.com/caseywdunn/corpus/issues/143)).
   Ingestion is synonym-aware — `anatomy.json` records every surface form
   against its `canonical` term — but retrieval throws that away and does
