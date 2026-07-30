@@ -31,6 +31,40 @@ The v0.6 MCP surface freeze holds — no new tools. See
   every smoke layer). **Operators pinning `mcp` themselves must move to
   `2.0.0`;** 2.0 additionally pulls `httpx2`, `mcp-types`,
   `opentelemetry-api`, `pyjwt`, and `python-multipart`.
+- **Every pip dependency is now pinned exactly**
+  ([#158](https://github.com/caseywdunn/corpus/issues/158)): `ocrmypdf`,
+  `lancedb`, `langdetect`, `uvicorn`, `anthropic`, `pytesseract`,
+  `qwen-vl-utils`, and `accelerate` join the already-pinned ML stack
+  (#98) and `mcp` (#156). CI re-resolves `environment.yaml` on every run,
+  so an unpinned dep made CI itself nondeterministic — any push could
+  break for reasons unrelated to the push. `lancedb` (#71) and `mcp`
+  (#156) had each already done it. Bumping one is now a deliberate,
+  reviewable commit across `environment.yaml`, `requirements.txt`, and
+  `pyproject.toml`.
+
+### Added
+
+- **T3 — scheduled clean-room CI lane**
+  ([`.github/workflows/clean-room.yml`](.github/workflows/clean-room.yml),
+  [#158](https://github.com/caseywdunn/corpus/issues/158)). Weekly plus
+  `workflow_dispatch`. Runs the documented install path end to end —
+  cold conda solve, the real `docker-compose.yml`, demo `corpus run`,
+  `corpus_required`, SSE round-trip — with the HuggingFace model cache
+  **disabled**, so a genuine first-run model download is exercised the
+  way a new user experiences it (the path that 429'd in #140).
+  `dev_docs/ec2_smoke.sh` is relabelled **T3-bare** and remains the
+  manual pre-release check for the bare-host apt/miniforge bootstrap.
+
+### Fixed
+
+- **Corrected a wrong claim about CI caching** that had propagated into
+  #156, #158, and `CONTRIBUTING.md`. `setup-miniconda` does not cache the
+  solved conda environment and this repo adds no `actions/cache` for it,
+  so T0/T1/T2 have always re-resolved `environment.yaml` from scratch.
+  The reason `mcp` 2.0.0 went unnoticed for 24 days was not a stale
+  cache: it was that CI only runs on push and nobody pushed to `dev`
+  between 2026-07-06 and 2026-07-30. The first push after the release
+  failed immediately.
 
 ## [0.6.0] - 2026-06-04
 

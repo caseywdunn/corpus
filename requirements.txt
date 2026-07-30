@@ -7,6 +7,14 @@
 # ocrmypdf, qwen-vl-utils, accelerate) are included for parity
 # with the conda env but can be stripped on a server-only host
 # to save ~2 GB of disk.
+#
+# PINNING (#158): every package that environment.yaml installs via pip
+# is pinned exactly here too, because CI's env cache never re-resolves
+# them and a green badge therefore proves nothing about a fresh install.
+# The pure-Python libs below that conda supplies natively (requests,
+# pydantic, numpy, …) are still unpinned — an asymmetry, since this file
+# is also the AWS deploy path where pip resolves them fresh. Pinning
+# those too is worth deciding deliberately rather than by drift.
 
 # Web, data, config
 requests
@@ -25,12 +33,12 @@ rich  # operator-facing CLI rendering (#63); also transitive via mcp + anthropic
 # by name for the SSE transport.
 mcp==2.0.0  # pinned (#156) — 2.0.0 renamed FastMCP → MCPServer and removed
             # `mcp.server.fastmcp`; unpinned `mcp` broke clean installs.
-uvicorn
+uvicorn==0.52.0  # pinned (#158)
 
 # Vector index + embedding backend.  torch + transformers come in via
 # sentence-transformers, but vision.py and embeddings.py import them
 # directly, so we declare them to avoid relying on a transitive pin.
-lancedb
+lancedb==0.36.0  # pinned (#158) — already broke us once at 0.30.x (#71)
 # Pinned as a known-good set (#98): docling 2.95/2.96 silently break macOS
 # arm64 (MPS) extraction. Keep the four in lockstep; move forward only after
 # verifying newer docling extracts correctly on arm64.
@@ -39,17 +47,17 @@ torch==2.12.0
 transformers==5.8.1
 
 # LLM clients used by MCP tools
-anthropic
+anthropic==0.120.2  # pinned (#158)
 
 # Pipeline-side (needed for process_corpus.py / figures.py, not
 # strictly required by the MCP server alone)
 docling==2.94.0  # pinned (#98) — see the torch/transformers note above
-ocrmypdf
+ocrmypdf==17.8.1  # pinned (#158)
 pymupdf
-langdetect
-pytesseract
-qwen-vl-utils
-accelerate
+langdetect==1.0.9  # pinned (#158)
+pytesseract==0.3.13  # pinned (#158)
+qwen-vl-utils==0.0.14  # pinned (#158)
+accelerate==1.14.0  # pinned (#158)
 
 # Notebooks / interactive dev
 ipykernel

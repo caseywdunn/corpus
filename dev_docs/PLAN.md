@@ -41,14 +41,30 @@ writing **`conda env create -f environment.yaml` produces a broken
 environment** ([#156](https://github.com/caseywdunn/corpus/issues/156)).
 
 The organizing principle: **a green CI badge must mean that a fresh
-install works.** Today it does not and cannot — CI restores a cached
-conda env keyed on a file hash, so unpinned dependencies are never
-re-resolved
-([#158](https://github.com/caseywdunn/corpus/issues/158)), and no job
-ever runs `docker-compose.yml`
-([#161](https://github.com/caseywdunn/corpus/issues/161)). Every other
-item in this cycle is downstream of fixing that: until a clean install
-is verified continuously, no fix in it can be trusted to survive.
+install works** — and, just as important, that a *silent* badge doesn't
+mean anything at all.
+
+> **Correction to #156 and #158, established 2026-07-30.** Both issues
+> attribute the invisible drift to a cached conda env. That is wrong:
+> `setup-miniconda` does not cache the solved environment and this repo
+> adds no `actions/cache` for it, so T0/T1/T2 re-resolve
+> `environment.yaml` on every run. The only caches are integration.yml's
+> HuggingFace model-hub caches. The real mechanism is **timeliness**: CI
+> runs only on push, and `dev` sat untouched from 2026-07-06 to
+> 2026-07-30. `mcp` 2.0.0 shipped in that window and broke every clean
+> install for 24 days; the first push after it (`f6cff9a`) failed
+> immediately with the expected 18 collection errors. This makes pinning
+> *more* important than #158 argued — with a fresh solve every run, an
+> unpinned dep makes CI itself nondeterministic, so any push can break
+> for reasons unrelated to the push — and it makes the fix cheaper: a
+> `schedule:` trigger, not a cache-key redesign.
+
+The gaps are therefore a missing clock (now
+[`clean-room.yml`](../.github/workflows/clean-room.yml), T3) and a
+documented install path no job exercises — nothing ever runs
+`docker-compose.yml` ([#161](https://github.com/caseywdunn/corpus/issues/161)).
+Every other item in this cycle is downstream: until a clean install is
+verified continuously, no fix in it can be trusted to survive.
 
 Secondary through-line: **no silent wrongness.** The 1.0 bug list is
 dominated by code that produces plausible-looking bad output rather than
@@ -88,12 +104,20 @@ cycle:
 > **A clean-room install from `environment.yaml` must be verified by CI,
 > not by hand, before 1.0 is tagged.**
 
-[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) already performs exactly this
-run (apt deps → miniforge → conda env → `pip install -e .` → Grobid via
-Docker → demo `corpus run` → bundle → SSE round-trip), but
-CONTRIBUTING.md's tier table marks it manual/pre-release, so it has
-never caught drift while the drift was cheap. Wave 0 puts it on a
-schedule. Everything else in §1 is verified *against* that lane.
+Wave 0 built it:
+[`.github/workflows/clean-room.yml`](../.github/workflows/clean-room.yml)
+(**T3**) runs conda env → `pip install -e .` → the real
+`docker-compose.yml` → demo `corpus run` → bundle → `corpus_required` →
+SSE round-trip, weekly and on `workflow_dispatch`, with the HuggingFace
+cache off so a first-run model download is exercised for real. Dispatch
+it and require green before tagging.
+
+[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) (**T3-bare**) stays manual and
+pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
+(apt, miniforge install) on a real Ubuntu EC2 instance, against
+[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md)'s criteria.
+
+Everything else in §1 is verified *against* T3.
 
 No open branches or pre-merge gates. (`issue-corpus-run-hpc-1-engine`,
 gated in the v0.6 plan on compute-node acceptance tests, is merged into
@@ -108,7 +132,7 @@ issue branches.
 
 ### Wave 0 — restore installability
 
-- [ ] **Migrate `mcpsrv/` to the `mcp` 2.x API and pin exactly**
+- [x] **Migrate `mcpsrv/` to the `mcp` 2.x API and pin exactly**
   ([#156](https://github.com/caseywdunn/corpus/issues/156)). `mcp` is
   unpinned and now resolves to `2.0.0`, which removed
   `mcp.server.fastmcp`. Two import sites break —
@@ -120,12 +144,18 @@ issue branches.
   plus one test fix). Acceptance **must** include
   `corpus serve --transport sse` end-to-end, since DEPLOY.md's AWS path
   rides SSE and static inspection cannot derisk it.
-- [ ] **Make dependency drift visible**
+- [x] **Make dependency drift visible**
   ([#158](https://github.com/caseywdunn/corpus/issues/158)). Two parts,
   both required:
-  (a) **Schedule T3** — a weekly `schedule:` trigger on
-  `dev_docs/ec2_smoke.sh` so a clean-room install failure surfaces in
-  days rather than at release time. This is the §0 gate.
+  (a) **A scheduled clean-room lane** —
+  [`.github/workflows/clean-room.yml`](../.github/workflows/clean-room.yml),
+  weekly + `workflow_dispatch`, so a clean-install failure surfaces in
+  days rather than whenever someone next pushes. This is the §0 gate.
+  Per the correction above it is a *clock*, not a cache fix; it also
+  disables the HuggingFace cache so a genuine first-run model download
+  is exercised, and drives the real `docker-compose.yml`. The bare-host
+  half of the old T3 (apt + miniforge bootstrap on EC2) stays manual as
+  **T3-bare**.
   (b) **Pin the remaining nine pip deps** with a one-line rationale
   each, as #98 did for the ML stack: `ocrmypdf`, `lancedb`,
   `langdetect`, `mcp`, `uvicorn`, `anthropic`, `pytesseract`,
@@ -468,10 +498,13 @@ no external report has it biting anyone. It is the second trim point.
   `docker inspect` health, which is the standing guard for #157. #160's
   pre-flight should be asserted in the negative too — a deliberately
   emptied tessdata dir must make `corpus check` warn.
-- **Clean-room (T3):** the §0 gate. Scheduled weekly per #158a and run
-  green immediately before the tag. This is the only tier that
-  substantiates "installs out of the box," and no amount of T0/T1/T2
-  green substitutes for it.
+- **Clean-room (T3):** the §0 gate —
+  [`clean-room.yml`](../.github/workflows/clean-room.yml), weekly plus
+  `workflow_dispatch`. Dispatch it and require green immediately before
+  the tag. It is the only automated tier that exercises a cold model
+  download and the real compose file; **T3-bare**
+  (`dev_docs/ec2_smoke.sh`) remains the manual pre-release check for the
+  bare-host bootstrap.
 - Consider adding `tools/` to the pyflakes gate in
   `tests/test_no_undefined_names.py` — it lints `pipeline/`, `mcpsrv/`,
   and `bib/` only, so the four Python scripts under `tools/` never get

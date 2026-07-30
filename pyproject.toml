@@ -26,21 +26,24 @@ dependencies = [
     "rich",
     # Pinned exactly (#156): 2.0.0 removed `mcp.server.fastmcp`.
     "mcp==2.0.0",
-    "uvicorn",
-    "lancedb",
+    # Pinned (#158): CI's env cache never re-resolves these, so an
+    # unpinned dep drifts invisibly until a clean install. `lancedb`
+    # (#71) and `mcp` (#156) have each already broken one.
+    "uvicorn==0.52.0",
+    "lancedb==0.36.0",
     # Pinned known-good set (#98): docling 2.95/2.96 silently break macOS
     # arm64 (MPS) extraction. Keep in lockstep; advance deliberately.
     "sentence-transformers==5.5.0",
     "torch==2.12.0",
     "transformers==5.8.1",
-    "anthropic",
+    "anthropic==0.120.2",
     "docling==2.94.0",
-    "ocrmypdf",
+    "ocrmypdf==17.8.1",
     "pymupdf",
-    "langdetect",
-    "pytesseract",
-    "qwen-vl-utils",
-    "accelerate",
+    "langdetect==1.0.9",
+    "pytesseract==0.3.13",
+    "qwen-vl-utils==0.0.14",
+    "accelerate==1.14.0",
     "ipykernel",
     "pytest",
     "pyflakes",

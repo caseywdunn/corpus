@@ -1,0 +1,190 @@
+# T3 — scheduled clean-room install (#158).
+#
+# WHY THIS EXISTS
+#
+# T0/T1/T2 already resolve environment.yaml from scratch on every run —
+# setup-miniconda does not cache the solved env and this repo adds no
+# actions/cache for it. So dependency drift is *detected* by the existing
+# tiers; what was missing is a *clock*. CI only runs on push, and `dev`
+# sat untouched from 2026-07-06 to 2026-07-30. `mcp` 2.0.0 shipped in
+# that window, broke every clean install (#156), and nobody found out
+# until the next push 24 days later.
+#
+# This lane runs on a timer instead of on a push, so the worst-case
+# discovery latency for "a fresh install is broken" is one week rather
+# than "however long until someone touches the repo."
+#
+# WHAT IT ADDS OVER T1
+#
+# T1 caches the HuggingFace model hub, so it never exercises a genuine
+# first-run model download. This lane disables that cache deliberately:
+# a fresh user's first `corpus run` must fetch docling's layout model,
+# TableFormer, and BGE-M3 from HuggingFace, and that path has broken
+# before (#140 — anonymous runner IPs got 429'd and produced zero
+# chunks). It also drives the real `docker-compose.yml` rather than a
+# GHA `services:` container, so the documented Grobid setup is covered
+# (#161 guards the same file on every push; this lane re-checks it cold).
+#
+# NOT a substitute for dev_docs/ec2_smoke.sh, which additionally proves
+# the bare-host path (apt, miniforge bootstrap) on a real EC2 instance.
+# That stays a manual pre-release step; PLATFORM_SMOKE.md is its
+# criteria list. This lane covers the dependency-resolution and
+# model-download half continuously, which is the half that has actually
+# broken.
+
+name: T3 — clean-room install (scheduled)
+
+on:
+  schedule:
+    # Mondays 06:00 UTC. Weekly is the right cadence: the failure mode is
+    # measured in weeks, and each run costs ~30 min of runner time.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    # So a release can demand a green clean-room run on demand — the
+    # PLAN.md §0 gate — without waiting for Monday.
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  clean-install:
+    name: clean-room install + demo + serve (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    # T1 needs ~13-15 min warm. Cold model downloads add ~5-10, and the
+    # Grobid image pull is not cached either. 60 leaves room for a slow
+    # runner hour without a mid-stage hard kill.
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        # Same rationale as integration.yml's copy: the runner ships
+        # ~25-30 GB of toolchains we never use, and the conda solve +
+        # uncached models + Grobid image have exhausted the disk before.
+        # No Grobid `services:` container here, so `docker image prune`
+        # would be safe — but there is nothing to prune on a cold runner.
+        run: |
+          echo "disk before:"; df -h /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL || true
+          echo "disk after:"; df -h /
+
+      - name: Set up miniforge + conda env (cold solve, no cache)
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: corpus
+          environment-file: environment.yaml
+          use-mamba: true
+          conda-remove-defaults: "true"
+
+      - name: Editable install
+        run: pip install --quiet -e .
+
+      - name: Report the resolved dependency set
+        # #158 asks that a drift failure name the resolving package rather
+        # than surface as an unrelated test error. Everything in
+        # environment.yaml's pip: block is pinned exactly, so this table
+        # should be identical week over week; a diff here is the signal.
+        # Printed before any test runs so it is present even when a later
+        # step fails.
+        run: |
+          echo "── Pinned pip deps as resolved in this env ──"
+          for p in mcp uvicorn lancedb docling ocrmypdf langdetect \
+                   pytesseract qwen-vl-utils accelerate anthropic \
+                   torch transformers sentence-transformers; do
+            printf '%-24s %s\n' "$p" \
+              "$(pip show "$p" 2>/dev/null | awk '/^Version:/{print $2}')"
+          done
+          echo "── python ──"; python -V
+          echo "── full freeze (for diffing against a past run) ──"
+          pip freeze
+
+      - name: Install system tools (ghostscript, tesseract, jq)
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            ghostscript tesseract-ocr jq
+          bash tools/install_tessdata.sh
+
+      - name: Start Grobid via the real docker-compose.yml
+        # The documented user path, cold: pulls the image named in the
+        # compose file rather than one pinned in a workflow `services:`
+        # block. #161 covers the same file on every push.
+        run: |
+          docker compose up -d grobid
+          ready=0
+          for i in $(seq 1 90); do
+            if [ "$(curl -fsS http://localhost:8070/api/isalive 2>/dev/null)" = "true" ]; then
+              echo "Grobid alive after $((i * 2))s"
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "Grobid did not become ready within 180s"
+            docker compose logs grobid | tail -50
+            exit 1
+          fi
+
+      - name: corpus check
+        working-directory: demo
+        run: corpus check
+
+      - name: corpus run (no vision, cold model download) on demo
+        # No HuggingFace cache restored on purpose — this is the step that
+        # exercises a genuine first-run download of docling's models and
+        # BGE-M3, the way a new user experiences it.
+        working-directory: demo
+        run: corpus -v run --no-vision 2>&1 | tee /tmp/run.log
+
+      - name: Verify bundle manifest + audit clean
+        working-directory: demo
+        run: |
+          manifest=output/_serve/bundle_manifest.json
+          test -f "$manifest" || { echo "bundle_manifest.json missing"; exit 1; }
+          paper_count=$(jq -r '.paper_count' "$manifest")
+          [ "$paper_count" = "4" ] \
+            || { echo "paper_count=$paper_count (expected 4)"; exit 1; }
+          grep -qE "Path scrub: rewrote [0-9]+ files; audit clean\." /tmp/run.log \
+            || { echo "served-bundle absolute-path audit (#70) did not log 'audit clean'"; exit 1; }
+
+      - name: Run corpus_required tests against the built demo
+        # Same three --deselect flags as T1 (integration.yml): those
+        # functions compare bib-canonical metadata against PDF text and
+        # legitimately fail on the demo's Russian and Marrus papers.
+        env:
+          CORPUS_OUTPUT_DIR: ${{ github.workspace }}/demo/output
+        run: |
+          python -m pytest -v --tb=short -m "corpus_required" \
+            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_first_author_surname_in_text \
+            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_title_appears_in_text \
+            --deselect tests/test_corpus_wide.py::TestCitationGraph::test_references_match_corpus_papers
+
+      - name: MCP / SSE round-trip smoke
+        run: python tools/smoke_test_sse.py demo/output/_serve --port 18080
+
+      - name: Stop Grobid
+        if: always()
+        run: docker compose down || true
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t3-clean-room-logs
+          path: |
+            /tmp/run.log
+            demo/output/run.log
+          if-no-files-found: ignore
