@@ -83,8 +83,11 @@ def test_orchestrator_passes_require_taxonomy_when_configured():
     against the dry-run's echoed sub-command for the demo corpuscle, which
     configures taxonomy.source: dwca."""
     proc = subprocess.run(
+        # --skip-checks: this asserts on argv construction, not on
+        # pre-flight. Without it `corpus run --dry-run` probes Grobid and
+        # exits 3 in the T0 tier, which has no Grobid service.
         [sys.executable, "-m", "pipeline.cli", "run", "--dry-run",
-         "--only", "extract"],
+         "--skip-checks", "--only", "extract"],
         cwd=REPO_ROOT / "demo", capture_output=True, text=True, timeout=300,
     )
     out = proc.stdout + proc.stderr
@@ -95,7 +98,7 @@ def test_orchestrator_passes_require_taxonomy_when_configured():
 def test_orchestrator_omits_require_taxonomy_with_no_taxa():
     proc = subprocess.run(
         [sys.executable, "-m", "pipeline.cli", "run", "--dry-run",
-         "--only", "extract", "--no-taxa"],
+         "--skip-checks", "--only", "extract", "--no-taxa"],
         cwd=REPO_ROOT / "demo", capture_output=True, text=True, timeout=300,
     )
     out = proc.stdout + proc.stderr
