@@ -143,6 +143,33 @@ The v0.6 MCP surface freeze holds — no new tools. See
   server returns and to pass `profile="manuscript"` when it is
   publication-bound.
 
+- **Lexicon figure retrieval expands synonyms**
+  ([#143](https://github.com/caseywdunn/corpus/issues/143)).
+  `get_figures_for_lexicon_term` and `get_figure_dossier_for_term` did a
+  case-insensitive substring count of the *single string the caller
+  passed*, so a query for a lexicon term silently missed every figure
+  whose caption used a different surface form of the same concept —
+  `wing` didn't find `ala`, `ala` didn't find `wing`, and neither found
+  `forewing`. Ingestion had always been synonym-aware (each mention
+  records the `matched_text` found and the `canonical` it resolves to);
+  retrieval just ignored that layer.
+
+  A query is now resolved to its canonical term and matched against every
+  surface form observed in the corpus. Rows report `matched_surfaces` and
+  the resolved `canonical`; an unrecognized term degrades to a literal
+  search and says `resolved: false` rather than silently looking
+  synonym-aware. Measured on the demo corpus — figures returned, before →
+  after: `feeding polyps` 0 → 13, `swimming bells` 0 → 16, `siphons`
+  0 → 13, `gastrozooid` 11 → 13.
+
+  Because the surface forms come from what extraction actually matched
+  rather than from the lexicon YAML (which a distilled bundle doesn't
+  ship), this also works **across languages**: the demo's Russian paper
+  contributes `нектофор` → `nectophore` and `гастрозоид` →
+  `gastrozooid`, so an English query now reaches Cyrillic captions
+  (`нектофор` 2 → 16). The corresponding limitation is that a declared
+  synonym appearing in no paper's text is not expanded.
+
 ### Fixed
 
 - **The bib parser no longer discards the rest of the file on one bad

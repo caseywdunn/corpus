@@ -82,6 +82,74 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
 _REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
 
 
+def _resolve_lexicon_surfaces(idx, category: str, term: str) -> Dict:
+    """Expand a lexicon query to every surface form of its concept (#143).
+
+    Extraction is synonym-aware — each mention records the
+    ``matched_text`` found and the ``canonical`` term it belongs to — but
+    retrieval used to ignore that layer and substring-match the single
+    string the caller passed. So querying ``wing`` missed captions saying
+    ``ala``, querying ``ala`` missed ``wing``, and querying ``forewing``
+    missed its sibling synonyms, even though the lexicon and the
+    extraction layer both already knew they were the same concept.
+
+    Returns ``{canonical, surfaces, resolved, queried}``:
+
+    * ``resolved`` is False when the term isn't a known surface form in
+      this category. We still search for the literal string then — a
+      caller asking for something outside the lexicon should get a
+      substring search rather than an empty list — but the caller can see
+      that no expansion happened.
+    * ``surfaces`` is lower-cased and always contains the query itself.
+
+    Coverage note: surfaces come from forms that actually occurred in this
+    corpus's scanned text, because a distilled bundle doesn't ship the
+    lexicon YAML. A declared synonym nothing wrote won't be expanded.
+    """
+    queried = (term or "").strip().lower()
+    surface_map = getattr(idx, "lexicon_surface_to_canonical", {}).get(category, {})
+    canonical = surface_map.get(queried)
+    if canonical is None:
+        return {
+            "canonical": None,
+            "surfaces": [queried],
+            "resolved": False,
+            "queried": queried,
+        }
+    surfaces = set(
+        getattr(idx, "lexicon_canonical_surfaces", {})
+        .get(category, {})
+        .get(canonical, set())
+    )
+    surfaces.add(queried)
+    surfaces.add(canonical.lower())
+    return {
+        "canonical": canonical,
+        "surfaces": sorted(surfaces),
+        "resolved": True,
+        "queried": queried,
+    }
+
+
+def _caption_surface_hits(caption_low: str, surfaces: List[str]) -> Dict:
+    """Count caption occurrences across every surface form.
+
+    Returns ``{occurrences, matched_surfaces}``. Occurrences sum over
+    forms, so a caption using two synonyms of one concept ranks above one
+    using a single form — which is the intent of ranking by occurrence.
+    """
+    total = 0
+    matched: List[str] = []
+    for s in surfaces:
+        if not s:
+            continue
+        c = caption_low.count(s)
+        if c:
+            total += c
+            matched.append(s)
+    return {"occurrences": total, "matched_surfaces": matched}
+
+
 def _license_metadata_for_paper(paper_hash: str) -> Dict:
     """Look up license + clearance + attribution for a paper (#51).
 
@@ -297,10 +365,17 @@ def get_figures_for_lexicon_term(
     return ``{"error": "unknown_category", "available": [...]}``,
     matching ``get_figure_dossier_for_term``.
 
-    ``term`` is matched case-insensitively as a substring against
-    figure captions; pass the canonical name or any declared synonym/
-    translation. Returns real figures + plates by default;
-    ``include_all=True`` includes the review bucket.
+    ``term`` is **resolved through the lexicon** and matched against every
+    surface form of its concept (#143), so a query for ``wing`` also finds
+    captions that only ever say ``ala`` or ``forewing``, and vice versa.
+    Pass the canonical name or any synonym — they are equivalent. Each row
+    reports the ``matched_surfaces`` that actually hit, and the response is
+    a list of rows plus a trailing note only when the term could *not* be
+    resolved (then it degrades to a literal substring search, and
+    ``resolved: false`` says so).
+
+    Returns real figures + plates by default; ``include_all=True`` includes
+    the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
     pass ``full_caption=True`` for the verbatim caption.
@@ -329,6 +404,9 @@ def get_figures_for_lexicon_term(
         [paper_hash] if paper_hash else list(idx.papers.keys())
     )
     target_hashes = [h for h in target_hashes if h in in_category]
+    # #143 — expand the query to every surface form of its concept.
+    resolution = _resolve_lexicon_surfaces(idx, category, term_low)
+    surfaces = resolution["surfaces"]
     rows: List[Dict] = []
     for h in target_hashes:
         p = idx.papers.get(h)
@@ -340,8 +418,8 @@ def get_figures_for_lexicon_term(
             if not include_all and ftype not in _REAL_FIGURE_TYPES:
                 continue
             caption = (f.get("caption_text") or f.get("caption") or "")
-            occ = caption.lower().count(term_low)
-            if occ == 0:
+            hits = _caption_surface_hits(caption.lower(), surfaces)
+            if hits["occurrences"] == 0:
                 continue
             rows.append({
                 "paper_hash": h,
@@ -354,10 +432,27 @@ def get_figures_for_lexicon_term(
                 # Relative to the corpuscle's documents/ dir.
                 # Call get_figure_image to fetch bytes.
                 "image_path": f"{h}/figures/{f.get('filename') or ''}",
-                "match_count": occ,
+                "match_count": hits["occurrences"],
+                # Which synonym(s) actually hit — so a caller can tell a
+                # canonical match from a synonym match (#143).
+                "matched_surfaces": hits["matched_surfaces"],
+                "canonical": resolution["canonical"],
             })
     rows.sort(key=lambda r: -r["match_count"])
-    return rows[:n]
+    out = rows[:n]
+    if not resolution["resolved"]:
+        # Degraded to a literal substring search — say so rather than
+        # letting an unrecognized term look like a synonym-aware result.
+        out.append({
+            "note": (
+                f"{term!r} is not a known surface form in lexicon category "
+                f"{category!r}; searched for the literal string only. Pass a "
+                "canonical term or a synonym that occurs in the corpus for "
+                "synonym-aware matching."
+            ),
+            "resolved": False,
+        })
+    return out
 
 
 
@@ -551,10 +646,15 @@ def get_figure_dossier_for_term(
     for the "show me figures depicting <term> and the passages that
     explain them" pattern.
 
-    Category-agnostic. Match is caption-substring (case-insensitive)
-    on ``term``. Returns the same shape as
-    ``get_figure_dossier_for_taxon`` minus the taxon block, plus
-    ``caption_match_count`` per figure (the substring hit count).
+    ``term`` is resolved through the lexicon and matched against every
+    surface form of its concept (#143) — a query for ``wing`` finds
+    captions that only say ``ala``, and vice versa. Returns the same shape
+    as ``get_figure_dossier_for_taxon`` minus the taxon block, plus
+    ``caption_match_count`` per figure (summed across surface forms) and
+    ``matched_surfaces`` naming the forms that hit. The response reports
+    the resolved ``canonical`` and a ``resolved`` flag; when the term isn't
+    a known surface form this degrades to a literal substring search with
+    ``resolved: false``.
     """
     idx = _need_index()
     available = sorted(idx.lexicon_to_papers.keys())
@@ -564,6 +664,9 @@ def get_figure_dossier_for_term(
     term_low = (term or "").strip().lower()
     if not term_low:
         return error("term must be non-empty", "invalid_argument")
+    # #143 — same synonym expansion as get_figures_for_lexicon_term.
+    resolution = _resolve_lexicon_surfaces(idx, category, term_low)
+    surfaces = resolution["surfaces"]
 
     scored: List[Dict] = []
     n_papers_with_figures = 0
@@ -582,7 +685,8 @@ def get_figure_dossier_for_term(
             if f.get("figure_type") not in _REAL_FIGURE_TYPES:
                 continue
             caption = (f.get("caption_text") or f.get("caption") or "")
-            occ = caption.lower().count(term_low)
+            hits = _caption_surface_hits(caption.lower(), surfaces)
+            occ = hits["occurrences"]
             if occ == 0:
                 continue
             had_a_figure = True
@@ -590,7 +694,10 @@ def get_figure_dossier_for_term(
                 idx, h, f, chunks_by_id,
                 include_rois=include_rois,
                 max_linked_chunks=max_linked_chunks,
-                extra_fields={"caption_match_count": occ},
+                extra_fields={
+                    "caption_match_count": occ,
+                    "matched_surfaces": hits["matched_surfaces"],
+                },
             )
             scored.append((occ, entry))
         if had_a_figure:
@@ -601,6 +708,10 @@ def get_figure_dossier_for_term(
     return {
         "category": category,
         "term": term,
+        # #143 — what the term resolved to, and every form searched for.
+        "canonical": resolution["canonical"],
+        "resolved": resolution["resolved"],
+        "surfaces_searched": surfaces,
         "n_papers_with_figures": n_papers_with_figures,
         "n_figures": len(figures_out),
         "figures": figures_out,
