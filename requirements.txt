@@ -23,7 +23,8 @@ rich  # operator-facing CLI rendering (#63); also transitive via mcp + anthropic
 # MCP server + transport deps.  uvicorn is also a transitive dep of
 # mcp today, but we pin it explicitly because mcp_server.py imports it
 # by name for the SSE transport.
-mcp
+mcp==2.0.0  # pinned (#156) — 2.0.0 renamed FastMCP → MCPServer and removed
+            # `mcp.server.fastmcp`; unpinned `mcp` broke clean installs.
 uvicorn
 
 # Vector index + embedding backend.  torch + transformers come in via

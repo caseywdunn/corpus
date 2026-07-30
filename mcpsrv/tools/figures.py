@@ -2,7 +2,7 @@
 
 Surfaces: get_figures_for_taxon, get_figures_for_lexicon_term,
 get_figure, list_figure_rois, get_figure_roi_image, get_figure_image.
-The image-returning tools wrap PIL crops in FastMCP's ``Image``
+The image-returning tools wrap PIL crops in MCPServer's ``Image``
 content type.
 
 #51 / #101 — figure licensing, keyed to the active output profile.
@@ -21,7 +21,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from mcp.server.fastmcp import Image
+from mcp.server.mcpserver import Image
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
 from ..profiles import get_profile, resolve_profile

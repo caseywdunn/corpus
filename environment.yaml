@@ -71,7 +71,11 @@ dependencies:
       - docling==2.94.0  # pinned (#98): docling 2.95/2.96 silently break macOS arm64 (MPS) extraction (empty output, no crash). Move forward deliberately once verified on arm64.
       - lancedb
       - langdetect  # language detection for scan_detection / OCR language selection (Phase C)
-      - mcp  # Model Context Protocol SDK for the corpus-serving agent tools layer
+      - mcp==2.0.0  # Model Context Protocol SDK for the corpus-serving agent tools
+                    # layer. Pinned exactly (#156): 2.0.0 removed
+                    # `mcp.server.fastmcp` (FastMCP → MCPServer), so an unpinned
+                    # `mcp` silently broke every clean install while CI stayed
+                    # green on a cached env. Advance deliberately.
       - uvicorn  # ASGI server for `mcp_server.py --transport sse`; declared explicitly so we don't rely on mcp's transitive pin
       - sentence-transformers==5.5.0  # local embedding backend (Phase E); pulls torch + transformers. Pinned with the docling stack (#98) to keep the known-good set consistent.
       - torch==2.12.0  # pinned (#98) for build reproducibility. Imported directly in pipeline/embeddings.py / pipeline/vision.py. On Bouchet this PyPI build is CUDA 13; reinstall from the cu128 index — see dev_docs/BOUCHET.md (issue #21).

@@ -125,7 +125,7 @@ def test_correct_token_passes_through():
 
 
 def test_non_http_scope_passes_through_unauthenticated():
-    """Lifespan + websocket scopes bypass auth — FastMCP relies on
+    """Lifespan + websocket scopes bypass auth — MCPServer relies on
     lifespan startup events and we shouldn't block those with token
     checks the client has no way to supply.
     """

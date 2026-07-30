@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Theme — v1.0 installability
+
+1.0 is the version strangers install, so the cycle's organizing
+principle is that **a green CI badge must mean a fresh install works**.
+The v0.6 MCP surface freeze holds — no new tools. See
+[dev_docs/PLAN.md](dev_docs/PLAN.md) for the wave plan.
+
+### Changed (breaking)
+
+- **`mcp` pinned to `2.0.0`, `mcpsrv/` migrated to the 2.x API**
+  ([#156](https://github.com/caseywdunn/corpus/issues/156)). `mcp` was
+  unpinned and PyPI's latest became `2.0.0`, which removed
+  `mcp.server.fastmcp` — so a fresh `conda env create` produced 18
+  test-collection errors and a `corpus serve` that could not start,
+  while CI stayed green on a cached pre-2.0 env. `FastMCP` is now
+  `MCPServer` (`mcp.server`), `Image` moves to `mcp.server.mcpserver`,
+  and the private `_mcp_server` backing attribute is `_lowlevel_server`.
+  The 38-tool surface, the `@mcp.tool()` schema generation, the
+  `ToolManager.call_tool` instrumentation monkeypatch, and the SSE
+  transport are all unchanged — verified end-to-end over a real
+  `--transport sse` server (bearer auth, initialize handshake, 38 tools,
+  every smoke layer). **Operators pinning `mcp` themselves must move to
+  `2.0.0`;** 2.0 additionally pulls `httpx2`, `mcp-types`,
+  `opentelemetry-api`, `pyjwt`, and `python-multipart`.
+
 ## [0.6.0] - 2026-06-04
 
 ### Theme — v0.6 road-to-1.0

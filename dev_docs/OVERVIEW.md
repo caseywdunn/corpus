@@ -9,7 +9,7 @@ The top-level entry-point scripts are thin shims; the implementation is grouped 
 | Package | Role |
 |---|---|
 | `pipeline/` | Stage 1 + Pass 3b/3c orchestrator and shared library modules. Split into `scan.py` (OCR), `extract.py` (docling), `metadata.py` (Grobid + bib), `chunking.py`, `annotate.py` (taxa + lexicons), `figure_passes.py`, `runner.py` (per-paper orchestrator), `main.py` (CLI), and supporting `config.py` / `io.py` / `log.py` / `stages.py`. Shared library modules: `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py`, `version.py`. |
-| `mcpsrv/` | MCP server. `app.py` defines the FastMCP instance; `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py` register the `@mcp.tool()`-decorated functions (see [MCP_TOOLS.md](MCP_TOOLS.md) for the catalog); `transport.py` handles stdio + SSE; `indexes.py` is the eager in-memory index. |
+| `mcpsrv/` | MCP server. `app.py` defines the MCPServer instance; `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py` register the `@mcp.tool()`-decorated functions (see [MCP_TOOLS.md](MCP_TOOLS.md) for the catalog); `transport.py` handles stdio + SSE; `indexes.py` is the eager in-memory index. |
 | `bib/` | BibTeX import / export round-trip plus shared metadata helpers (`parser.py`, `importer.py`, `export.py`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx config, systemd unit, sync + update shell scripts. |
@@ -214,7 +214,7 @@ Tool-result nudges cost tokens on every call and pull against the served-bundle 
 | `pipeline/embeddings.py` | BGE-M3 embedding backends (local, HF, etc.) |
 | `pipeline/external.py` | Shared retry + circuit breaker + `--strict-network` mode |
 | `pipeline/version.py` | Single-source `__version__` stamped into every artifact |
-| `mcpsrv/` | MCP server implementation (FastMCP, eager index, stdio + SSE transports) |
+| `mcpsrv/` | MCP server implementation (MCPServer, eager index, stdio + SSE transports) |
 | `mcp_server.py` | Thin CLI shim into `mcpsrv.main` |
 | `bib/` | BibTeX parser, importer, exporter (round-trip curation) |
 | `config.yaml` | Pipeline configuration (loaded by `pipeline.config.load_config`) |
