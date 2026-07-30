@@ -117,7 +117,7 @@ All seven checks should pass locally before you move to a real server.
   }
   ```
 
-A cleaner Custom Connectors experience would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` in FastMCP) with OAuth discovery, but this is deferred indefinitely — SSE + bearer token works for the ~20-collaborator deploy target.
+A cleaner Custom Connectors experience would add a **Streamable HTTP** transport (`mcp.streamable_http_app()` on `MCPServer`) with OAuth discovery, but this is deferred indefinitely — SSE + bearer token works for the ~20-collaborator deploy target.
 
 ---
 
@@ -449,7 +449,7 @@ aws s3api delete-bucket --bucket $BUCKET --region $REGION
   Already set on `siphonophores-mcp-alb`; if you create a new ALB set it
   immediately: `aws elbv2 modify-load-balancer-attributes --attributes Key=idle_timeout.timeout_seconds,Value=3600`.
 
-- **FastMCP 421 Invalid Host header.**  FastMCP's SSE transport rejects
+- **MCP server 421 Invalid Host header.**  `MCPServer`'s SSE transport rejects
   any `Host` that isn't `127.0.0.1:*` or `localhost:*` (DNS-rebinding
   protection).  `deploy/nginx.conf` rewrites `Host: localhost:8080` before
   proxying.  If you rebuild nginx config from scratch, keep the rewrite —

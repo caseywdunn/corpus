@@ -43,8 +43,20 @@ jobs:
           miniforge-version: latest
           activate-environment: corpus
           environment-file: environment.yaml
-          # Cache key is hashed from environment.yaml + pyproject.toml; the
-          # action handles save/restore via its own cache layer (saves ~5 min/run).
+          # NOTE: setup-miniconda does NOT cache the solved environment,
+          # and this repo adds no actions/cache for it — so every run
+          # re-resolves environment.yaml from scratch. (An earlier comment
+          # here claimed the opposite; that claim was wrong and it misled
+          # the analysis in #156/#158. The only actions/cache steps in this
+          # repo are integration.yml's HuggingFace model-hub caches.)
+          #
+          # Consequence: CI *is* a real dependency-drift detector, but only
+          # as timely as the push cadence. `mcp` 2.0.0 broke every clean
+          # install and went unnoticed for 24 days simply because nobody
+          # pushed to dev between 2026-07-06 and 2026-07-30. That gap is
+          # what clean-room.yml's `schedule:` trigger closes, and it is the
+          # real argument for pinning every dep (#158): with a fresh solve
+          # each run, an unpinned dep makes CI itself nondeterministic.
           use-mamba: true
           # See integration.yml for the rationale on this line.
           conda-remove-defaults: "true"

@@ -106,7 +106,22 @@ Or invoke the ingester directly without `corpus run`: `corpus taxonomy ingest --
 
 The inverse — dumping a corpus's built taxonomy back out as a DwC-A — is `corpus taxonomy export -o taxonomy.zip`. Use it to share a taxonomy snapshot without forcing the recipient to walk WoRMS again, or to commit a small fixture into a downstream repo so CI exercises the `dwca` ingest path without network calls. The round-trip property: `corpus taxonomy ingest --source dwca --input <export.zip>` recovers the same `taxa` row set as the source SQLite.
 
-**Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path.
+**`source: worms` needs outbound internet**, because it walks the WoRMS REST API. That is fine on a laptop or a login node, but HPC compute nodes are usually network-restricted, so a batch job configured for `worms` cannot build the snapshot. Build it once where there *is* internet and switch to a local source for the runs:
+
+```bash
+# On a login node (or your laptop):
+corpus taxonomy ingest --source worms --root-id 1371
+corpus taxonomy export -o taxonomy.zip
+
+# Then in config.yaml, for every subsequent (possibly offline) run:
+taxonomy:
+  source: dwca
+  path: ./taxonomy.zip
+```
+
+This is the path the bundled demo uses, which is why the demo's first run doesn't touch the network for taxonomy. Since v1.0, a run that configures `taxonomy:` but finds no snapshot **fails loudly** instead of proceeding with taxon extraction silently skipped — the earlier behavior put 1763 papers through a production run with empty `taxa.json` before anyone noticed ([#139](https://github.com/caseywdunn/corpus/issues/139)). `corpus check` reports the same condition as a pre-flight warning.
+
+**Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path, and no run will fail for a missing snapshot.
 
 ### Lexicons (optional)
 
@@ -232,9 +247,12 @@ conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh   # Tesseract OCR language packs
+corpus prefetch                  # ~4.8 GB of models, up front
 ```
 
 `pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data — see [Language support](#language-support) below.
+
+`corpus prefetch` is optional but recommended: it downloads the three models the pipeline otherwise fetches on first use (docling's layout model and TableFormer, plus the ~4.3 GB BGE-M3 embedding model), retrying with backoff because HuggingFace throttles anonymous traffic. Getting them now means the first `corpus run` can't stall mid-stage on a slow network. Set `HF_HOME` first if your home directory is small or isn't shared across machines, and see [INSTALL.md](INSTALL.md#model-downloads-and-where-they-land) for the offline/HPC pattern — prefetch where there's internet, run with `HF_HUB_OFFLINE=1` where there isn't. `corpus check` reports what's already cached without touching the network.
 
 ## Language support
 
@@ -284,7 +302,8 @@ Output lands in `demo/output/` (gitignored). Re-run anytime — `corpus run` is 
 mkdir my-corpus && cd my-corpus
 corpus init                # scaffold config.yaml from the bundled template
 $EDITOR config.yaml        # set input_pdfs, taxonomy, optional bib + lexicon
-corpus check               # pre-flight: validates config + probes Grobid/GPU/disk
+corpus check               # pre-flight: config, Grobid, GPU, disk, OCR
+                           #   toolchain, tessdata packs, model cache
 corpus run                 # full pipeline + post-pipeline + bundle, hands-off
 corpus status --report     # stage pass-rates + cross-paper artifact ✓/✗
 corpus serve               # local MCP server against the freshly built bundle

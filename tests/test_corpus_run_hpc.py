@@ -115,6 +115,10 @@ def _argv_args(**overrides):
         no_taxa=False, no_grobid=False, grobid_url=None, strict_network=False,
         figure_panels="ocr", vision_model=None, refresh_vision=False,
         batch_index=None, batch_size=None,
+        # Mirrors the real parser: `corpus run` always sets these, and the
+        # extract step reads taxonomy_source to decide whether to pass
+        # --require-taxonomy (#139).
+        taxonomy_source=None, taxonomy_root_id=None, taxonomy_path=None,
     )
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -125,6 +129,23 @@ def test_extract_step_carries_batch_flags():
     argv = step.argv(_argv_args(batch_index=4, batch_size=64))
     assert "--batch-index" in argv and "4" in argv
     assert "--batch-size" in argv and "64" in argv
+
+
+def test_extract_step_requires_taxonomy_when_configured():
+    """#139 — a corpuscle that configures taxonomy.source must tell the
+    per-paper stage to fail rather than silently write empty taxa.json."""
+    step = next(s for s in orch.STEPS if s.name == "extract")
+    argv = step.argv(_argv_args(taxonomy_source="dwca"))
+    assert "--require-taxonomy" in argv
+
+
+def test_extract_step_omits_require_taxonomy_when_unconfigured():
+    """A corpuscle with no taxonomy: block is a supported setup and must
+    not be turned into a failing run."""
+    step = next(s for s in orch.STEPS if s.name == "extract")
+    assert "--require-taxonomy" not in step.argv(_argv_args())
+    assert "--require-taxonomy" not in step.argv(
+        _argv_args(taxonomy_source="dwca", no_taxa=True))
 
 
 def test_vision_step_requires_explicit_backend():

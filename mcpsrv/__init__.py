@@ -4,7 +4,7 @@ The root-level ``mcp_server.py`` is a thin shim that delegates here so
 ``python mcp_server.py …`` invocations keep working. The real
 implementation is split per-concern across submodules:
 
-* :mod:`mcpsrv.app` — FastMCP instance + index accessor + ``_load_json``
+* :mod:`mcpsrv.app` — MCPServer instance + index accessor + ``_load_json``
 * :mod:`mcpsrv.indexes` — ``CorpusIndex``, ``TaxonMentionDB``, ``BiblioAuthority``
 * :mod:`mcpsrv.tools.papers` / ``.taxonomy`` / ``.figures`` / ``.chunks``
   / ``.bibliography`` / ``.lexicon`` — the ``@mcp.tool()``-decorated

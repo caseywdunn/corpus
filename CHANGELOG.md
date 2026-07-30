@@ -5,6 +5,272 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Theme — v1.0 installability
+
+1.0 is the version strangers install, so the cycle's organizing
+principle is that **a green CI badge must mean a fresh install works**.
+The v0.6 MCP surface freeze holds — no new tools. See
+[dev_docs/PLAN.md](dev_docs/PLAN.md) for the wave plan.
+
+### Changed (breaking)
+
+- **`mcp` pinned to `2.0.0`, `mcpsrv/` migrated to the 2.x API**
+  ([#156](https://github.com/caseywdunn/corpus/issues/156)). `mcp` was
+  unpinned and PyPI's latest became `2.0.0`, which removed
+  `mcp.server.fastmcp` — so a fresh `conda env create` produced 18
+  test-collection errors and a `corpus serve` that could not start,
+  while CI stayed green on a cached pre-2.0 env. `FastMCP` is now
+  `MCPServer` (`mcp.server`), `Image` moves to `mcp.server.mcpserver`,
+  and the private `_mcp_server` backing attribute is `_lowlevel_server`.
+  The 38-tool surface, the `@mcp.tool()` schema generation, the
+  `ToolManager.call_tool` instrumentation monkeypatch, and the SSE
+  transport are all unchanged — verified end-to-end over a real
+  `--transport sse` server (bearer auth, initialize handshake, 38 tools,
+  every smoke layer). **Operators pinning `mcp` themselves must move to
+  `2.0.0`;** 2.0 additionally pulls `httpx2`, `mcp-types`,
+  `opentelemetry-api`, `pyjwt`, and `python-multipart`.
+- **Every pip dependency is now pinned exactly**
+  ([#158](https://github.com/caseywdunn/corpus/issues/158)): `ocrmypdf`,
+  `lancedb`, `langdetect`, `uvicorn`, `anthropic`, `pytesseract`,
+  `qwen-vl-utils`, and `accelerate` join the already-pinned ML stack
+  (#98) and `mcp` (#156). CI re-resolves `environment.yaml` on every run,
+  so an unpinned dep made CI itself nondeterministic — any push could
+  break for reasons unrelated to the push. `lancedb` (#71) and `mcp`
+  (#156) had each already done it. Bumping one is now a deliberate,
+  reviewable commit across `environment.yaml`, `requirements.txt`, and
+  `pyproject.toml`.
+
+### Added
+
+- **T3 — scheduled clean-room CI lane**
+  ([`.github/workflows/clean-room.yml`](.github/workflows/clean-room.yml),
+  [#158](https://github.com/caseywdunn/corpus/issues/158)). Weekly plus
+  `workflow_dispatch`. Runs the documented install path end to end —
+  cold conda solve, the real `docker-compose.yml`, demo `corpus run`,
+  `corpus_required`, SSE round-trip — with the HuggingFace model cache
+  **disabled**, so a genuine first-run model download is exercised the
+  way a new user experiences it (the path that 429'd in #140).
+  `dev_docs/ec2_smoke.sh` is relabelled **T3-bare** and remains the
+  manual pre-release check for the bare-host apt/miniforge bootstrap.
+- **`corpus prefetch`** ([#159](https://github.com/caseywdunn/corpus/issues/159)).
+  Downloads the three models the pipeline otherwise fetches on first use —
+  docling's page-layout model, docling's TableFormer, and the ~4.3 GB
+  BGE-M3 embedding model — with retry and backoff, because HuggingFace
+  429s anonymous traffic and a shared institutional NAT looks like abuse
+  from the other side. `--include-vision` adds the ~16 GB local VLM.
+  Prints the cache directory and warns when `HF_HOME`/`HF_HUB_CACHE` are
+  unset. INSTALL.md documents the offline pattern: prefetch where there is
+  internet, then run with `HF_HUB_OFFLINE=1` where there isn't.
+- **`corpus check` gained three pre-flight probes** (#159,
+  [#160](https://github.com/caseywdunn/corpus/issues/160)) — the OCR
+  toolchain (`tesseract` / `ocrmypdf` / `ghostscript` on PATH; a failure,
+  exit 3), the Tesseract language packs against
+  `ocr.ocr_languages_default` (a warning naming the missing codes and the
+  `tools/install_tessdata.sh` invocation that fixes them), and the model
+  cache (a warning, never a network call — safe on an air-gapped node).
+  Previously the only `shutil.which` calls lived in `pipeline/scan.py`,
+  i.e. checked mid-run; and skipping `install_tessdata.sh` — a *required*
+  post-install step — silently OCR'd Cyrillic and Fraktur against the
+  English pack.
+- **Install documentation for clusters and offline hosts**
+  ([#153](https://github.com/caseywdunn/corpus/issues/153), from a user's
+  own install report). INSTALL.md now covers redirecting conda/pip/HF
+  caches out of a small home directory, the `HOME` override some sites
+  need, running Grobid under Singularity in a batch job, and the fact that
+  `grobid.url` must name the allocated compute node rather than
+  `localhost`.
+- **T1-compose — `docker-compose.yml` is exercised on every push**
+  ([#161](https://github.com/caseywdunn/corpus/issues/161)). T1 starts
+  Grobid as a GHA `services:` container, so the compose file every
+  non-HPC user actually runs was covered by no test — which is how both
+  #146 (wrong default image, crash-looping on Apple Silicon) and #157
+  (broken healthcheck) shipped. The new job boots the real file, waits
+  for `/api/isalive`, and requires `docker inspect` to report `healthy`,
+  which is the standing regression guard for #157.
+
+  It earned its keep immediately: on its first run it caught that
+  `docker-compose.yml` was missing `-XX:-UseContainerSupport`, without
+  which this image's JVM aborts at startup on some cgroup-v2 hosts
+  (upstream JDK bug, #72 — a `CgroupV2Subsystem.getInstance` NPE) and
+  Grobid never binds a port. A local cgroup-v2 host boots fine without it
+  while GHA's cgroup-v2 runners fail every time, so the flag now ships on
+  by default; `-Xmx4g` pins the heap regardless, so it costs nothing.
+  Users on an affected host previously saw only "Grobid never comes up".
+
+### Changed (breaking, MCP surface)
+
+- **Figure licensing: the gate decides, not the client**
+  ([#154](https://github.com/caseywdunn/corpus/issues/154)). Three defects
+  fixed together, because two of them pulled in opposite directions.
+
+  **Advisory metadata no longer leaks into permissive use.** `get_figure`
+  and `get_figure_url` injected `publishable` / `license_source`
+  regardless of profile, so a model *just authorized* to display a figure
+  read `"publishable": false` beside it and withheld it. The default
+  profile is `report`, the server refuses nothing under it, and figures
+  were being withheld anyway. `license` / `license_url` / `attribution`
+  are still present in every profile — captions need them — but the
+  clearance *determination* now appears only under a strict profile
+  (`manuscript` / `presentation`) or on an explicit
+  `get_figure(..., include_licensing=True)`. **`publishable` is gone from
+  every response shape**, replaced where it appears by
+  `publication_clearance`.
+
+  **"Unknown" is no longer conflated with "restricted."**
+  `publishable=0` meant *both* "the rightsholder forbade this" and "we
+  could not establish public domain". In the served corpus that collapse
+  was total: 55,177 works (86%) were `publishable=0,
+  license_source=unknown` and **not one** was asserted
+  `all-rights-reserved`. A new `publication_clearance` reports five
+  states — `public_domain`, `licensed_open`, `restricted`,
+  `undetermined`, `no_record` — and refusal messages name the state that
+  caused them, spelling out that `no_record` is an absence of evidence
+  rather than a prohibition. Derived from existing columns, so **no
+  authority-DB rebuild is required**. Unrecognized license strings now
+  warn at build time instead of being silently NULLed, which is what made
+  a typo'd `license = {CC-BY 4.0}` (space, not hyphen) block figures as
+  firmly as an explicit refusal.
+
+  **`get_figure_roi_image` no longer bypasses the gate.** It took no
+  `profile` and never consulted the licensing check, so a client refused
+  by `get_figure_image` under `manuscript` could obtain the same pixels
+  through it — including the whole uncropped figure, via the no-pixel-ROI
+  fallback. It now accepts `profile` and refuses before touching disk.
+  `tests/test_freeze_contract.py` gained a check that *every*
+  pixel-returning tool accepts `profile`, since the v0.6 plan had warned
+  about exactly this class and the warning was honored for
+  `figure_http.py` while this tool was missed.
+
+  Also on the HTTP route: `?profile=` is now validated (an unknown value
+  400s instead of silently falling through to the server default, which
+  `resolve_profile`'s own contract said callers must prevent), and the
+  query string is parsed with `parse_qs` so a percent-encoded `label`
+  resolves instead of missing its crop. `mcpsrv/default_instructions.md`
+  gained a licensing section telling the served model to display what the
+  server returns and to pass `profile="manuscript"` when it is
+  publication-bound.
+
+- **Lexicon figure retrieval expands synonyms**
+  ([#143](https://github.com/caseywdunn/corpus/issues/143)).
+  `get_figures_for_lexicon_term` and `get_figure_dossier_for_term` did a
+  case-insensitive substring count of the *single string the caller
+  passed*, so a query for a lexicon term silently missed every figure
+  whose caption used a different surface form of the same concept —
+  `wing` didn't find `ala`, `ala` didn't find `wing`, and neither found
+  `forewing`. Ingestion had always been synonym-aware (each mention
+  records the `matched_text` found and the `canonical` it resolves to);
+  retrieval just ignored that layer.
+
+  A query is now resolved to its canonical term and matched against every
+  surface form observed in the corpus. Rows report `matched_surfaces` and
+  the resolved `canonical`; an unrecognized term degrades to a literal
+  search and says `resolved: false` rather than silently looking
+  synonym-aware. Measured on the demo corpus — figures returned, before →
+  after: `feeding polyps` 0 → 13, `swimming bells` 0 → 16, `siphons`
+  0 → 13, `gastrozooid` 11 → 13.
+
+  Because the surface forms come from what extraction actually matched
+  rather than from the lexicon YAML (which a distilled bundle doesn't
+  ship), this also works **across languages**: the demo's Russian paper
+  contributes `нектофор` → `nectophore` and `гастрозоид` →
+  `gastrozooid`, so an English query now reaches Cyrillic captions
+  (`нектофор` 2 → 16). The corresponding limitation is that a declared
+  synonym appearing in no paper's text is not expanded.
+
+### Fixed
+
+- **The bib parser no longer discards the rest of the file on one bad
+  entry** ([#141](https://github.com/caseywdunn/corpus/issues/141)).
+  Importing a 19,834-entry export parsed only 2,258 of them, with a single
+  WARNING and a summary that looked entirely plausible. Three fixes:
+  (a) **the root cause** — neither brace scanner honored backslash
+  escapes, so Grobid OCR output like `author = {Des, Ej\{aims}` counted
+  the escaped brace as an opening one and the entry never closed. The
+  quoted-string scanner had always handled backslashes; only the brace
+  path was missing it. (b) A genuinely malformed entry now costs *one
+  entry*: the scan recovers at the next top-level `@` instead of stopping.
+  (c) The summary reconciles parsed entries against the number of `@`
+  markers in the file and warns on a shortfall, which is what makes a
+  truncation visible at all. An unbalanced brace inside a *value* — which
+  used to swallow the entry's remaining fields with no message
+  whatsoever — now logs, naming the entry and the field.
+- **Curated `.bib` entries stay out of the warning tier**
+  ([#142](https://github.com/caseywdunn/corpus/issues/142),
+  [#152](https://github.com/caseywdunn/corpus/issues/152), completing
+  [#100](https://github.com/caseywdunn/corpus/issues/100)).
+  `import_bibtex` early-`continue`d on its no-field-diff branch before
+  ever calling `apply_entry`, making #100's "stamp `bib_imported_at` even
+  with no diff" logic unreachable dead code — the branch worked and was
+  even unit-tested, but nothing reached it. A full round-trip re-import
+  therefore stamped only entries that happened to have edits (20 of
+  19,834 in the reported corpus), so `format_citations` kept emitting
+  "generated via reconciliation, check if correct" on hand-curated works;
+  and since an authority-DB rebuild clears the stamp and forces a
+  re-import, curation was defeated on every rebuild. Also collapsed a
+  vestigial `return 0 if no_match == 0 else 0` whose branches were
+  identical.
+- **A configured-but-missing taxonomy fails instead of silently skipping**
+  ([#139](https://github.com/caseywdunn/corpus/issues/139)). The first
+  full production run on Bouchet put 1763 papers through with empty
+  `taxa.json` and an empty `taxon_mentions.sqlite`, because
+  `taxonomy.source: worms` needs outbound internet that compute nodes
+  don't have and the per-paper stage merely warned. `corpus run` now
+  passes `--require-taxonomy` to the extract stage whenever the corpuscle
+  configures `taxonomy.source`, and that stage refuses to run rather than
+  produce empty annotations, with a message naming the login-node
+  pre-build and the `dwca` export. A corpuscle with no `taxonomy:` block,
+  or an explicit `--no-taxa`, is unaffected — that remains a supported
+  configuration. README §Taxonomy documents the internet requirement and
+  the export→dwca workflow.
+- **Grobid's compose healthcheck actually works now**
+  ([#157](https://github.com/caseywdunn/corpus/issues/157)). It shelled
+  out to `curl`, which the `lfoppiano/grobid:0.8.1` image does not ship
+  (nor `wget`, `nc`, or `python3` — verified by `docker exec`), so
+  `corpus-grobid` reported `(unhealthy)` forever while serving perfectly.
+  It now does a real HTTP GET of `/api/isalive` through bash's
+  `/dev/tcp`, greps the response for `true`, and names `bash` explicitly
+  because `CMD-SHELL` runs `/bin/sh`, which in this image is dash and has
+  no `/dev/tcp`. `docker inspect` reports `healthy`.
+- **docling's picture classifier is no longer downloaded or run**
+  ([#140](https://github.com/caseywdunn/corpus/issues/140)).
+  `do_picture_classification` was `True`, which fetched
+  `DocumentFigureClassifier-v2.5` from HuggingFace and ran it on every
+  figure — but nothing read the result: `figure_type` comes from our own
+  `classify_figure()` heuristic and the served vocabulary is corpus's own
+  (`figure` / `plate` / `subpanel`). One fewer model download on a new
+  user's first run, and one fewer HuggingFace 429 surface (this model was
+  the first fetch to fail in the #140 CI outage). The layout model and
+  TableFormer are still downloaded. Existing corpuscles re-run the
+  figure/extract stage on the next `corpus run`.
+- **Test dependencies are no longer runtime dependencies**
+  ([#162](https://github.com/caseywdunn/corpus/issues/162)). `pytest`,
+  `pyflakes`, and `ipykernel` moved from `[project].dependencies` to a
+  `[project.optional-dependencies].dev` extra, so installing corpus no
+  longer drags in a test runner and a Jupyter kernel. Development clones
+  want `pip install -e ".[dev]"`; the conda env supplies them
+  unconditionally as before.
+- **`requires-python` is bounded to `>=3.12,<3.13`**
+  ([#163](https://github.com/caseywdunn/corpus/issues/163)). It was
+  unbounded while `environment.yaml` pins 3.12, CI tests only 3.12, and
+  the #98 known-good ML set was verified against nothing else — so pip
+  was free to attempt an untested 3.13+ install via the documented
+  pip-only path.
+- **Shell completions offer every verb.** The three hand-maintained
+  completion snippets had drifted: `taxonomy` was missing from all of
+  them. Adding `prefetch` surfaced it, and a new test now compares each
+  snippet against the live argparse subcommand list so it can't drift
+  again.
+- **Corrected a wrong claim about CI caching** that had propagated into
+  #156, #158, and `CONTRIBUTING.md`. `setup-miniconda` does not cache the
+  solved conda environment and this repo adds no `actions/cache` for it,
+  so T0/T1/T2 have always re-resolved `environment.yaml` from scratch.
+  The reason `mcp` 2.0.0 went unnoticed for 24 days was not a stale
+  cache: it was that CI only runs on push and nobody pushed to `dev`
+  between 2026-07-06 and 2026-07-30. The first push after the release
+  failed immediately.
+
 ## [0.6.0] - 2026-06-04
 
 ### Theme — v0.6 road-to-1.0

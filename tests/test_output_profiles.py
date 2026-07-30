@@ -80,7 +80,7 @@ def test_builtin_vocabulary_and_resolution():
 def test_strict_profile_refuses_unpublishable(tmp_path):
     idx, h = _make_index(tmp_path, publishable=False)
     mcp_app.set_index(idx)
-    with pytest.raises(ValueError, match="not publishable under profile 'manuscript'"):
+    with pytest.raises(ValueError, match="withheld under profile 'manuscript'"):
         get_figure_image(h, "docling_1", profile="manuscript")
 
 
@@ -100,7 +100,7 @@ def test_default_fallback_is_permissive(tmp_path):
 def test_server_default_manuscript_gates_calls_without_profile(tmp_path):
     idx, h = _make_index(tmp_path, publishable=False, default_profile="manuscript")
     mcp_app.set_index(idx)
-    with pytest.raises(ValueError, match="not publishable"):
+    with pytest.raises(ValueError, match="withheld under profile"):
         get_figure_image(h, "docling_1")  # falls back to strict default
 
 
@@ -143,7 +143,7 @@ def test_url_strict_refuses_unpublishable(tmp_path):
     idx, h = _make_index(tmp_path, publishable=False)
     mcp_app.set_index(idx)
     out = get_figure_url(h, "docling_1", profile="manuscript")
-    assert "not publishable" in out["error"]
+    assert "withheld under profile" in out["error"]
     assert "url" not in out
 
 

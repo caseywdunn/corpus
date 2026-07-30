@@ -40,10 +40,51 @@ services:
     # The CRF-only image is light on memory; 4 GB heap is comfortable and
     # fine for batch-processing a large corpus. Raise to -Xmx8g if you have
     # opted in to the full DeLFT image above.
+    #
+    # `-XX:-UseContainerSupport` is required, not optional (#72, #161).
+    # On some cgroup-v2 hosts this image's JVM aborts at startup before
+    # Grobid ever binds a port:
+    #
+    #   Exception in thread "main" java.lang.NullPointerException: Cannot
+    #   invoke "jdk.internal.platform.CgroupInfo.getMountPoint()" because
+    #   "anyController" is null
+    #     at jdk.internal.platform.cgroupv2.CgroupV2Subsystem.getInstance
+    #
+    # That is an upstream JDK bug in container-aware sizing, and it is not
+    # predictable from the cgroup version alone: a local cgroup-v2 Linux
+    # box boots this file fine without the flag, while GHA's cgroup-v2
+    # ubuntu-24.04 runners reproduce the NPE every time. Since we cannot
+    # tell affected hosts apart, the flag ships on by default.
+    #
+    # The usual objection to disabling container support — that the JVM
+    # then sizes its heap from the host rather than the container limit —
+    # does not apply here, because `-Xmx4g` pins the heap explicitly
+    # anyway. So this costs nothing and prevents a crash-at-startup that
+    # a user would experience as "Grobid just never comes up".
+    #
+    # This was found by the T1-compose CI job (#161) on its first run: an
+    # earlier version of this file omitted the flag on the reasoning above,
+    # and the job caught it. That job exists precisely because nothing used
+    # to exercise this file.
     environment:
-      - JAVA_OPTS=-Xmx4g -Xms1g
+      - JAVA_OPTS=-XX:-UseContainerSupport -Xmx4g -Xms1g
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8070/api/isalive"]
+      # #157 — the image has no curl, wget, nc, or python3 (verified by
+      # `docker exec corpus-grobid which ...`: only java, bash, and a
+      # dash /bin/sh). The previous `curl` probe therefore always failed
+      # and `corpus-grobid` reported (unhealthy) forever while serving
+      # perfectly — the first thing a new user sees after
+      # `docker compose up -d grobid`.
+      #
+      # bash's /dev/tcp does a real HTTP GET with no extra tooling, and
+      # greps the response for the `true` that /api/isalive returns.
+      # That discriminates properly: a closed port fails, and so does a
+      # listening server answering 404 on the wrong path.
+      #
+      # `bash` is named explicitly rather than using CMD-SHELL, because
+      # CMD-SHELL runs /bin/sh, which here is dash — and dash has no
+      # /dev/tcp ("cannot create /dev/tcp/...: Directory nonexistent").
+      test: ["CMD", "bash", "-c", 'exec 3<>/dev/tcp/127.0.0.1/8070 && printf "GET /api/isalive HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && grep -q true <&3']
       interval: 30s
       timeout: 5s
       retries: 3

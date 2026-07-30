@@ -91,6 +91,23 @@ class CorpusIndex:
         self.lexicon_mention_counts: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
             lambda: defaultdict(dict),
         )
+        # #143 — surface-form ↔ canonical maps, so figure retrieval can be
+        # synonym-aware. Extraction already resolves synonyms (each mention
+        # records the ``matched_text`` it found and the ``canonical`` it
+        # belongs to), but retrieval used to throw that away and substring-
+        # match the single string the caller passed — so a query for `wing`
+        # missed captions saying `ala`, and vice versa.
+        #
+        # Built from the *observed* surface forms in the served per-paper
+        # artifacts rather than from the lexicon YAML, which is not shipped
+        # into a distilled bundle. That means coverage is "forms that
+        # actually occur in this corpus's scanned text", which is the useful
+        # set for retrieval — but a declared synonym that appears in no
+        # paper's body text won't be known here. Both maps are lower-cased.
+        self.lexicon_surface_to_canonical: Dict[str, Dict[str, str]] = defaultdict(dict)
+        self.lexicon_canonical_surfaces: Dict[str, Dict[str, set]] = defaultdict(
+            lambda: defaultdict(set),
+        )
         self.author_to_papers: Dict[str, List[str]] = defaultdict(list)
         # accepted_taxon_id → accepted name (for display when we only
         # have IDs from the reverse index).
@@ -348,6 +365,19 @@ class CorpusIndex:
                     self.lexicon_mention_counts[category][canonical][paper_hash] = (
                         term.get("mention_count", 0)
                     )
+                    # A canonical is always a surface form of itself.
+                    low = canonical.lower()
+                    self.lexicon_surface_to_canonical[category][low] = canonical
+                    self.lexicon_canonical_surfaces[category][canonical].add(low)
+                # #143 — harvest every surface form extraction actually
+                # matched, so retrieval can expand a query to its siblings.
+                for mention in payload.get("mentions", []) or []:
+                    canonical = mention.get("canonical")
+                    surface = (mention.get("matched_text") or "").strip().lower()
+                    if not canonical or not surface:
+                        continue
+                    self.lexicon_surface_to_canonical[category][surface] = canonical
+                    self.lexicon_canonical_surfaces[category][canonical].add(surface)
 
             for author in metadata.get("authors", []) or []:
                 # #122 — key the Grobid-metadata author index with the

@@ -19,7 +19,7 @@ def bundle_info() -> Dict:
     idx = _need_index()
     if idx.bundle_manifest is None:
         return {
-            "server_name": mcp._mcp_server.name,
+            "server_name": mcp._lowlevel_server.name,
             "server_version": __version__,
             "bundle_version": None,
             "note": "no bundle_manifest.json — this server is backed "
@@ -28,7 +28,7 @@ def bundle_info() -> Dict:
                     "<serve_dir> --version vX.Y.Z` to produce one.",
         }
     return {
-        "server_name": mcp._mcp_server.name,
+        "server_name": mcp._lowlevel_server.name,
         "server_version": __version__,
         **dict(idx.bundle_manifest),
     }

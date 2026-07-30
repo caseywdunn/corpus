@@ -68,7 +68,7 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 | Path | Role |
 | --- | --- |
 | `pipeline/` | Top-level CLI router (`pipeline/cli.py` → the `corpus` binary), Stage 1 + Pass 3b/3c orchestrator, post-pipeline modules (`embed`, `taxon_mentions`, `intext_citations`, `taxonomy_ingest`, `status`, `orchestrator`), and shared library modules. Pydantic config schema in `config_schema.py`; bundled `config.template.yaml`. |
-| `mcpsrv/` | MCP server. FastMCP `app.py` + the `@mcp.tool()` surface in `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py` (catalog + count in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md)); `mcpsrv.bundle` distills a build into a served bundle. |
+| `mcpsrv/` | MCP server. MCPServer `app.py` + the `@mcp.tool()` surface in `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py` (catalog + count in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md)); `mcpsrv.bundle` distills a build into a served bundle. |
 | `bib/` | BibTeX round-trip + biblio authority + reconcile (`bib.parser`, `bib.export`, `bib.importer`, `bib.authority`, `bib.reconcile`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx, systemd, sync + update scripts. |

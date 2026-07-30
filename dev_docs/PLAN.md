@@ -41,14 +41,30 @@ writing **`conda env create -f environment.yaml` produces a broken
 environment** ([#156](https://github.com/caseywdunn/corpus/issues/156)).
 
 The organizing principle: **a green CI badge must mean that a fresh
-install works.** Today it does not and cannot — CI restores a cached
-conda env keyed on a file hash, so unpinned dependencies are never
-re-resolved
-([#158](https://github.com/caseywdunn/corpus/issues/158)), and no job
-ever runs `docker-compose.yml`
-([#161](https://github.com/caseywdunn/corpus/issues/161)). Every other
-item in this cycle is downstream of fixing that: until a clean install
-is verified continuously, no fix in it can be trusted to survive.
+install works** — and, just as important, that a *silent* badge doesn't
+mean anything at all.
+
+> **Correction to #156 and #158, established 2026-07-30.** Both issues
+> attribute the invisible drift to a cached conda env. That is wrong:
+> `setup-miniconda` does not cache the solved environment and this repo
+> adds no `actions/cache` for it, so T0/T1/T2 re-resolve
+> `environment.yaml` on every run. The only caches are integration.yml's
+> HuggingFace model-hub caches. The real mechanism is **timeliness**: CI
+> runs only on push, and `dev` sat untouched from 2026-07-06 to
+> 2026-07-30. `mcp` 2.0.0 shipped in that window and broke every clean
+> install for 24 days; the first push after it (`f6cff9a`) failed
+> immediately with the expected 18 collection errors. This makes pinning
+> *more* important than #158 argued — with a fresh solve every run, an
+> unpinned dep makes CI itself nondeterministic, so any push can break
+> for reasons unrelated to the push — and it makes the fix cheaper: a
+> `schedule:` trigger, not a cache-key redesign.
+
+The gaps are therefore a missing clock (now
+[`clean-room.yml`](../.github/workflows/clean-room.yml), T3) and a
+documented install path no job exercises — nothing ever runs
+`docker-compose.yml` ([#161](https://github.com/caseywdunn/corpus/issues/161)).
+Every other item in this cycle is downstream: until a clean install is
+verified continuously, no fix in it can be trusted to survive.
 
 Secondary through-line: **no silent wrongness.** The 1.0 bug list is
 dominated by code that produces plausible-looking bad output rather than
@@ -88,12 +104,37 @@ cycle:
 > **A clean-room install from `environment.yaml` must be verified by CI,
 > not by hand, before 1.0 is tagged.**
 
-[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) already performs exactly this
-run (apt deps → miniforge → conda env → `pip install -e .` → Grobid via
-Docker → demo `corpus run` → bundle → SSE round-trip), but
-CONTRIBUTING.md's tier table marks it manual/pre-release, so it has
-never caught drift while the drift was cheap. Wave 0 puts it on a
-schedule. Everything else in §1 is verified *against* that lane.
+Wave 0 built it:
+[`.github/workflows/clean-room.yml`](../.github/workflows/clean-room.yml)
+(**T3**) runs conda env → `pip install -e .` → the real
+`docker-compose.yml` → demo `corpus run` → bundle → `corpus_required` →
+SSE round-trip, with the HuggingFace cache off so a first-run model
+download is exercised for real.
+
+**How to actually invoke it.** GitHub honors `schedule:` and
+`workflow_dispatch:` only for workflows present on the **default branch**
+(`main`), so while T3 lives on a feature branch it is unregistered —
+`gh workflow run clean-room.yml` returns `HTTP 404` and no weekly run
+fires. A gate that cannot be invoked until after the release merge is not
+a gate, so the lane also triggers on:
+
+* **a pull request targeting `main`** — which *is* the release proposal,
+  so the gate runs automatically on it rather than depending on someone
+  remembering to dispatch. This is the intended path: it satisfies the
+  gate *before* the merge, and dovetails with CONTRIBUTING.md's existing
+  "wait for CI on main to be green before tagging" step.
+* **a push that modifies `clean-room.yml` itself** — so a change to the
+  lane is validated by running it, from any branch.
+
+Once 1.0 is on `main`, the weekly `schedule:` takes over as the standing
+drift detector.
+
+[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) (**T3-bare**) stays manual and
+pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
+(apt, miniforge install) on a real Ubuntu EC2 instance, against
+[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md)'s criteria.
+
+Everything else in §1 is verified *against* T3.
 
 No open branches or pre-merge gates. (`issue-corpus-run-hpc-1-engine`,
 gated in the v0.6 plan on compute-node acceptance tests, is merged into
@@ -108,7 +149,7 @@ issue branches.
 
 ### Wave 0 — restore installability
 
-- [ ] **Migrate `mcpsrv/` to the `mcp` 2.x API and pin exactly**
+- [x] **Migrate `mcpsrv/` to the `mcp` 2.x API and pin exactly**
   ([#156](https://github.com/caseywdunn/corpus/issues/156)). `mcp` is
   unpinned and now resolves to `2.0.0`, which removed
   `mcp.server.fastmcp`. Two import sites break —
@@ -120,12 +161,18 @@ issue branches.
   plus one test fix). Acceptance **must** include
   `corpus serve --transport sse` end-to-end, since DEPLOY.md's AWS path
   rides SSE and static inspection cannot derisk it.
-- [ ] **Make dependency drift visible**
+- [x] **Make dependency drift visible**
   ([#158](https://github.com/caseywdunn/corpus/issues/158)). Two parts,
   both required:
-  (a) **Schedule T3** — a weekly `schedule:` trigger on
-  `dev_docs/ec2_smoke.sh` so a clean-room install failure surfaces in
-  days rather than at release time. This is the §0 gate.
+  (a) **A scheduled clean-room lane** —
+  [`.github/workflows/clean-room.yml`](../.github/workflows/clean-room.yml),
+  weekly + `workflow_dispatch`, so a clean-install failure surfaces in
+  days rather than whenever someone next pushes. This is the §0 gate.
+  Per the correction above it is a *clock*, not a cache fix; it also
+  disables the HuggingFace cache so a genuine first-run model download
+  is exercised, and drives the real `docker-compose.yml`. The bare-host
+  half of the old T3 (apt + miniforge bootstrap on EC2) stays manual as
+  **T3-bare**.
   (b) **Pin the remaining nine pip deps** with a one-line rationale
   each, as #98 did for the ML stack: `ocrmypdf`, `lancedb`,
   `langdetect`, `mcp`, `uvicorn`, `anthropic`, `pytesseract`,
@@ -140,24 +187,27 @@ issue branches.
 Everything a user hits in their first hour. Mostly one-liners and docs;
 the exception is #159, which is the largest new surface in the cycle.
 
-- [ ] **Fix the Grobid healthcheck**
+- [x] **Fix the Grobid healthcheck**
   ([#157](https://github.com/caseywdunn/corpus/issues/157)).
   `docker-compose.yml:46` probes with `curl`, absent from the
   `lfoppiano/grobid:0.8.1` image, so `corpus-grobid` reports
   `(unhealthy)` forever while working fine. First thing a new user sees
   after `docker compose up -d grobid`. Use the JVM/wget path available
   in the image, or drop to a TCP probe.
-- [ ] **Exercise `docker-compose.yml` in CI**
+- [x] **Exercise `docker-compose.yml` in CI**
   ([#161](https://github.com/caseywdunn/corpus/issues/161)). T1 starts
   Grobid as a GHA `services:` container with different `JAVA_OPTS`, so
   the compose file's image, heap, container name, and healthcheck are
   covered by nothing — which is how #146 and #157 both shipped. Add a
   short job that runs the real file, waits for `/api/isalive`, asserts
   `docker inspect` reports `healthy` (this is what guards #157 from
-  regressing), and runs `corpus check`. Then resolve the `JAVA_OPTS`
-  divergence in one direction: CI passes `-XX:-UseContainerSupport`
-  (#72 / 40ae330, a cgroup-v2 JVM NPE) and the compose file does not.
-- [ ] **Drop `do_picture_classification`**
+  regressing), and runs `corpus check`. **Resolved:** the `JAVA_OPTS`
+  divergence closed toward CI — `docker-compose.yml` now also passes
+  `-XX:-UseContainerSupport`. The T1-compose job caught the NPE on its
+  first run, so #72 is not GHA-specific and the compose default was
+  broken for users on affected cgroup-v2 hosts. `-Xmx4g` pins the heap
+  regardless, so disabling container-aware sizing costs nothing.
+- [x] **Drop `do_picture_classification`**
   ([#140](https://github.com/caseywdunn/corpus/issues/140)).
   `pipeline/extract.py:78` sets it `True`, so docling downloads and runs
   `DocumentFigureClassifier-v2.5` on every PDF — but `figure_type` comes
@@ -168,7 +218,7 @@ the exception is #159, which is the largest new surface in the cycle.
   Confirm nothing consumes docling's picture-class annotations before
   flipping, per the issue. Re-runs the figure/extract stage on existing
   corpuscles — changelog it.
-- [ ] **`corpus prefetch` + model pre-flight**
+- [x] **`corpus prefetch` + model pre-flight**
   ([#159](https://github.com/caseywdunn/corpus/issues/159)). First run
   must reach HuggingFace for docling's layout model, TableFormer, and
   BGE-M3. There is no way to fetch them ahead of time, no way to check
@@ -180,7 +230,7 @@ the exception is #159, which is the largest new surface in the cycle.
   `HF_HOME` / `TRANSFORMERS_CACHE` / `HF_HUB_OFFLINE`. Have CI call the
   real command instead of maintaining its own copy. Land **after** #140,
   which removes one of the downloads.
-- [ ] **`corpus check`: validate the OCR toolchain**
+- [x] **`corpus check`: validate the OCR toolchain**
   ([#160](https://github.com/caseywdunn/corpus/issues/160)). The only
   `shutil.which` calls live in `pipeline/scan.py` — checked at use time,
   deep in a run. `_cmd_check` (`pipeline/cli.py:869`) never probes
@@ -190,7 +240,7 @@ the exception is #159, which is the largest new surface in the cycle.
   with only a buried warning. Fail on missing binaries; warn on missing
   language packs, naming the codes and the fixing invocation.
   `_available_tesseract_langs()` already exists.
-- [ ] **Document the shared-filesystem / HPC install**
+- [x] **Document the shared-filesystem / HPC install**
   ([#153](https://github.com/caseywdunn/corpus/issues/153)). A user's
   own report: redirect pip/conda caches and `HF_HOME` into project
   space, temporarily reset `$HOME`, run Grobid under Singularity in a
@@ -198,13 +248,13 @@ the exception is #159, which is the largest new surface in the cycle.
   `localhost`. All true, none of it documented. Folds naturally into
   #159's cache section and BOUCHET.md. **Windows/WSL is explicitly not
   supported** and needs no table row.
-- [ ] **Move test deps out of runtime dependencies**
+- [x] **Move test deps out of runtime dependencies**
   ([#162](https://github.com/caseywdunn/corpus/issues/162)).
   `pytest`, `pyflakes`, `ipykernel` are in `[project].dependencies`
   (`pyproject.toml:43-45`), so every install pulls a test runner and a
   Jupyter kernel. Move to `[project.optional-dependencies].dev`; keep
   them unconditional in `environment.yaml`, which *is* the dev env.
-- [ ] **Bound `requires-python`**
+- [x] **Bound `requires-python`**
   ([#163](https://github.com/caseywdunn/corpus/issues/163)).
   `pyproject.toml:9` says `>=3.12` with no upper bound while the env
   pins `python=3.12`, CI tests 3.12 only, and the #98 known-good ML set
@@ -217,7 +267,7 @@ the exception is #159, which is the largest new surface in the cycle.
 Changes stored artifacts, so it should land before users build
 corpuscles they intend to keep.
 
-- [ ] **Fix the bib parser's silent truncation**
+- [x] **Fix the bib parser's silent truncation**
   ([#141](https://github.com/caseywdunn/corpus/issues/141)). A single
   unbalanced brace discards every entry after it: on a 19,834-entry
   export the parse stopped at ~1.75 MB and imported 2,258 entries, with
@@ -236,7 +286,7 @@ corpuscles they intend to keep.
   invisible into obvious, and it also covers `_parse_fields`, which has
   no `depth != 0` check at all and silently drops the remaining fields
   of an entry with *no warning whatsoever*.
-- [ ] **Stamp `bib_imported_at` on matched-but-unchanged entries**
+- [x] **Stamp `bib_imported_at` on matched-but-unchanged entries**
   ([#142](https://github.com/caseywdunn/corpus/issues/142), completing
   [#100](https://github.com/caseywdunn/corpus/issues/100)).
   `bib/importer.py:391-395` `continue`s on the no-change branch before
@@ -248,7 +298,7 @@ corpuscles they intend to keep.
   every rebuild. While in the file, collapse the vestigial
   `return 0 if counters["no_match"] == 0 else 0` at `:509` — both
   branches return 0.
-- [ ] **Verify #152 closes with #142**
+- [x] **Verify #152 closes with #142**
   ([#152](https://github.com/caseywdunn/corpus/issues/152)). "Reference
   warnings are overzealous" is a symptom, not an independent bug: with
   `bib_imported_at` unstamped, `CorpusIndex.provenance()` keeps
@@ -259,7 +309,7 @@ corpuscles they intend to keep.
   is #100 cause (b) — `_merge_phase1_into_ghost`
   (`bib/reconcile.py:313-325`) dropping bib fields — and belongs here
   too.
-- [ ] **Make a missing taxonomy loud**
+- [x] **Make a missing taxonomy loud**
   ([#139](https://github.com/caseywdunn/corpus/issues/139) follow-ups 1
   and 2). `pipeline/runner.py:305` gates the taxa/anatomy stage on
   `taxonomy_db is not None or bool(lexicons)`, so an absent
@@ -278,7 +328,7 @@ corpuscles they intend to keep.
 Making frozen tools honest. No signatures widen; #154 narrows one
 response shape, which is the last moment that is cheap.
 
-- [ ] **Fix figure licensing**
+- [x] **Fix figure licensing**
   ([#154](https://github.com/caseywdunn/corpus/issues/154)). Three
   defects that must be fixed **together**, because §1 and §3 pull in
   opposite directions and both follow from making the gate — not the
@@ -314,7 +364,7 @@ response shape, which is the last moment that is cheap.
   never URL-decodes, so a label containing `%20` misses its crop.
   `urllib.parse.parse_qs` fixes the second and duplicate-parameter
   handling at once.
-- [ ] **Expand lexicon synonyms in figure retrieval**
+- [x] **Expand lexicon synonyms in figure retrieval**
   ([#143](https://github.com/caseywdunn/corpus/issues/143)).
   Ingestion is synonym-aware — `anatomy.json` records every surface form
   against its `canonical` term — but retrieval throws that away and does
@@ -468,10 +518,13 @@ no external report has it biting anyone. It is the second trim point.
   `docker inspect` health, which is the standing guard for #157. #160's
   pre-flight should be asserted in the negative too — a deliberately
   emptied tessdata dir must make `corpus check` warn.
-- **Clean-room (T3):** the §0 gate. Scheduled weekly per #158a and run
-  green immediately before the tag. This is the only tier that
-  substantiates "installs out of the box," and no amount of T0/T1/T2
-  green substitutes for it.
+- **Clean-room (T3):** the §0 gate —
+  [`clean-room.yml`](../.github/workflows/clean-room.yml), weekly plus
+  `workflow_dispatch`. Dispatch it and require green immediately before
+  the tag. It is the only automated tier that exercises a cold model
+  download and the real compose file; **T3-bare**
+  (`dev_docs/ec2_smoke.sh`) remains the manual pre-release check for the
+  bare-host bootstrap.
 - Consider adding `tools/` to the pyflakes gate in
   `tests/test_no_undefined_names.py` — it lints `pipeline/`, `mcpsrv/`,
   and `bib/` only, so the four Python scripts under `tools/` never get
