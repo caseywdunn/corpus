@@ -184,9 +184,12 @@ the exception is #159, which is the largest new surface in the cycle.
   covered by nothing — which is how #146 and #157 both shipped. Add a
   short job that runs the real file, waits for `/api/isalive`, asserts
   `docker inspect` reports `healthy` (this is what guards #157 from
-  regressing), and runs `corpus check`. Then resolve the `JAVA_OPTS`
-  divergence in one direction: CI passes `-XX:-UseContainerSupport`
-  (#72 / 40ae330, a cgroup-v2 JVM NPE) and the compose file does not.
+  regressing), and runs `corpus check`. **Resolved:** the `JAVA_OPTS`
+  divergence closed toward CI — `docker-compose.yml` now also passes
+  `-XX:-UseContainerSupport`. The T1-compose job caught the NPE on its
+  first run, so #72 is not GHA-specific and the compose default was
+  broken for users on affected cgroup-v2 hosts. `-Xmx4g` pins the heap
+  regardless, so disabling container-aware sizing costs nothing.
 - [x] **Drop `do_picture_classification`**
   ([#140](https://github.com/caseywdunn/corpus/issues/140)).
   `pipeline/extract.py:78` sets it `True`, so docling downloads and runs

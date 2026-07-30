@@ -90,6 +90,15 @@ The v0.6 MCP surface freeze holds — no new tools. See
   for `/api/isalive`, and requires `docker inspect` to report `healthy`,
   which is the standing regression guard for #157.
 
+  It earned its keep immediately: on its first run it caught that
+  `docker-compose.yml` was missing `-XX:-UseContainerSupport`, without
+  which this image's JVM aborts at startup on some cgroup-v2 hosts
+  (upstream JDK bug, #72 — a `CgroupV2Subsystem.getInstance` NPE) and
+  Grobid never binds a port. A local cgroup-v2 host boots fine without it
+  while GHA's cgroup-v2 runners fail every time, so the flag now ships on
+  by default; `-Xmx4g` pins the heap regardless, so it costs nothing.
+  Users on an affected host previously saw only "Grobid never comes up".
+
 ### Changed (breaking, MCP surface)
 
 - **Figure licensing: the gate decides, not the client**

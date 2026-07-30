@@ -62,6 +62,10 @@ jobs:
       # cgroup-v2 detection (#72 / 40ae330: lfoppiano/grobid:0.8.1's
       # JVM hits an NPE on cgroup-v2 hosts when container-aware sizing
       # is on — Ubuntu 24.04 GHA runners default to cgroup v2).
+      #
+      # docker-compose.yml now carries the same flag (#161): the
+      # T1-compose job below proved the NPE reproduces there too, so this
+      # is no longer a CI-only workaround. Keep the two in step.
       grobid:
         image: lfoppiano/grobid:0.8.1
         ports:
