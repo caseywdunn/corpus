@@ -58,7 +58,7 @@ conda env create -f "$BOUCHET_PROJECT/corpus/environment.yaml"
 conda activate corpus
 ```
 
-`environment.yaml` ships the Tesseract packs that back the default `ocr.ocr_languages_default` set in `config.yaml` (eng, deu, fra, rus, lat, spa, por, chi_sim, chi_tra, jpn, ell, kor, plus opt-in grc). The one exception is **19th-c. German Fraktur (`deu_latf`)**, which isn't on conda-forge — install it manually per [INSTALL.md](INSTALL.md#additional-ocr-language-packs).
+`environment.yaml` ships the Tesseract packs that back the default `ocr.ocr_languages_default` set in `config.yaml` (eng, deu, fra, rus, lat, spa, por, chi_sim, chi_tra, jpn, ell, kor, plus opt-in grc). The one exception is **19th-c. German Fraktur (`deu_latf`)**, which isn't on conda-forge — install it manually per [INSTALL.md](INSTALL.md#ocr-language-packs).
 
 **GPU torch (issue #21).** PyPI's default `torch` resolves to a CUDA 13 build, but Bouchet's H200 driver caps at CUDA 12.8. Re-install torch from PyTorch's cu128 index after the conda env exists:
 

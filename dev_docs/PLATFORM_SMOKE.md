@@ -79,7 +79,7 @@ partition. The CPU-portability check is what this runbook owns.
 ```bash
 # Verify the active env is actually arm64. If this prints x86_64,
 # stop and rebuild with miniforge — see
-# INSTALL.md#apple-silicon-use-miniforge-not-intel-anaconda.
+# INSTALL.md#apple-silicon-arm64-native-conda-required.
 ~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
 # expect: arm64
 
@@ -121,7 +121,7 @@ conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh
 
-# Grobid via Apptainer/Singularity — see INSTALL.md#grobid-on-bouchet
+# Grobid via Apptainer/Singularity — see INSTALL.md#grobid-image-choice-and-hosts-without-docker
 singularity build --force grobid.sif docker://lfoppiano/grobid:0.8.1
 singularity run --bind $HOME grobid.sif &
 curl -fsS http://localhost:8070/api/isalive
