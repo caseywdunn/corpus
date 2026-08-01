@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] — `1.0.0rc1`
+
+`dev` now carries `1.0.0rc1` so artifacts built from it are stamped with a
+version that isn't a released one. It had been sitting at plain `0.6.0` —
+the version actually released on 2026-06-04 — because the post-release
+"reintroduce a pre-release suffix" step was skipped, so everything built
+from `dev` since then claimed to be v0.6.0.
 
 ### Theme — v1.0 installability
 

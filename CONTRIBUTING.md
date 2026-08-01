@@ -199,8 +199,8 @@ git push origin dev
 ### Versioning
 
 [pipeline/version.py](pipeline/version.py) is the single source of truth for the code
-version. It is read dynamically by `pyproject.toml` (so `pip show
-corpus`, `corpus --version`, and the bundle manifest never drift),
+version. It is read dynamically by `pyproject.toml` (so `corpus
+--version` and the bundle manifest never drift),
 imported by `mcpsrv` (surfaced via the `bundle_info` tool) and
 `mcpsrv.bundle` (default for `--version`, stamped into
 `bundle_manifest.json`), and gets paired with the git HEAD SHA on every
@@ -209,7 +209,22 @@ artifact. So any output tree carries the exact code that produced it.
 Between releases, `dev` carries a PEP 440 pre-release suffix
 (`0.3.0.dev0`, `0.3.0a1`, `0.3.0rc1`). The release commit drops the
 suffix; the next commit on `dev` reintroduces one for the *next*
-target version.
+target version. Use PEP 440 spelling — `1.0.0rc1`, not `1.0.0-rc1`,
+which setuptools would silently normalize, making this file disagree
+with the installed metadata.
+
+**After bumping, re-run `pip install -e .`.** An editable install's pip
+metadata is a snapshot taken at install time, so `pip show corpus` keeps
+reporting the *old* version until you reinstall — while `corpus
+--version`, the import, and every stamped artifact immediately report the
+new one. Only `pip show` drifts, and only until reinstall; artifacts are
+never wrong.
+
+**A version bump forces a full reprocess.** `_stage_recorded_complete`
+(`pipeline/stages.py`) treats a stage record whose `pipeline_version`
+differs from the current one as stale, so `--resume` re-runs every stage
+on every paper. That is usually what you want when the code changed, but
+bump deliberately before a large incremental run rather than during it.
 
 Schema versions for on-disk artifacts (sqlite DBs, LanceDB index) are
 tracked separately from code SemVer — a code bug-fix doesn't break old
