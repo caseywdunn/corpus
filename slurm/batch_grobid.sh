@@ -12,9 +12,16 @@
 # Usage:
 #     GROBID_JOB=$(sbatch --parsable batch_grobid.sh)
 #     # wait for running, grab the node name, then export for stage 1:
-#     NODE=$(squeue -j $GROBID_JOB -h -o %N)
-#     export GROBID_URL=http://$NODE:8070
+#     until [ "$(squeue -j "$GROBID_JOB" -h -o %T)" = RUNNING ]; do sleep 5; done
+#     export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):8070"
+#     # RUNNING only means SLURM started the container. Grobid needs another
+#     # ~30-60 s to load its models and bind :8070, so poll before using it —
+#     # a "Connection refused" in that window is startup, not failure.
+#     until curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1; do sleep 5; done
 #     sbatch batch_process_corpus.sh
+#
+# batch_pipeline.sh does all of the above for you; the manual path is for
+# debugging and for the `corpus check` preflight (see dev_docs/BOUCHET.md §6).
 #
 # Three binds matter:
 #   1. $BOUCHET_PROJECT → so Grobid can read PDFs from the corpus tree.

@@ -358,9 +358,25 @@ until [ "$(squeue -j "$GROBID_JOB" -h -o %T)" = RUNNING ]; do sleep 5; done
 export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):8070"
 
 # The job reaching RUNNING only means SLURM started the container; Grobid
-# itself needs another ~30-60 s to load its models and bind :8070. Poll.
-until curl -fsS "$GROBID_URL/api/isalive"; do sleep 10; done   # → true
+# itself needs another ~30-60 s to load its models and bind :8070. The first
+# few polls failing is expected, not an error — this is the same wait
+# slurm/batch_pipeline.sh does for you.
+for i in $(seq 1 60); do
+    curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1 && break
+    printf "\r  waiting for Grobid at %s (%ds)..." "$GROBID_URL" "$((i * 5))"
+    sleep 5
+done
+echo
+curl -fsS "$GROBID_URL/api/isalive"; echo   # → true
 ```
+
+If that last `curl` errors instead of printing `true`, Grobid did not come up
+within 5 minutes and the log is the place to look —
+`logs/slurm-grobid-$GROBID_JOB.err` for model loading, and
+`$BOUCHET_PROJECT/cache/grobid_logs/$GROBID_JOB/grobid-service.log` for the
+service itself (readable only while the job is alive; the job deletes it on
+exit). A healthy startup ends with `Started application@...{0.0.0.0:8070}`.
+Don't `scancel` a job that is merely still loading Wapiti models.
 
 `$GROBID_URL` overrides the config's `grobid.url` for this dynamically-allocated node
 (#138), for both `corpus run` and `corpus check`. It is honored only when set, so
