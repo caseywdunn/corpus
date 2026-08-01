@@ -1,6 +1,7 @@
 # Running the corpus pipeline on Bouchet (YCRC)
 
-Operational notes for running the full ~2000-paper siphonophore corpus on Bouchet. See [OVERVIEW.md](OVERVIEW.md) for pipeline architecture and `dunnlab-hpc` skill for Dunn-lab-wide YCRC conventions.
+Operational notes for running the full siphonophore corpus on Bouchet (1769 PDFs as
+of 2026-08-01; the acceptance run is scoped at 1800). See [OVERVIEW.md](OVERVIEW.md) for pipeline architecture and `dunnlab-hpc` skill for Dunn-lab-wide YCRC conventions.
 
 ## One-time setup
 
@@ -21,7 +22,7 @@ git clone git@github.com:dunnlab/siphonophores.git
 module load git-lfs
 cd siphonophores
 git lfs install --local                   # wires LFS hooks into .git/config
-git lfs pull                              # ~2000 PDFs, several GB
+git lfs pull                              # ~1800 PDFs, several GB
 ```
 
 Resulting layout (all under `$BOUCHET_PROJECT`):
@@ -44,9 +45,13 @@ When starting a new build, create `corpuscles/siphonophore_YYYYMMDD/`, scaffold 
 `config.yaml` there (step 3), and repoint the `current` symlink at it:
 
 ```bash
+cd "$BOUCHET_PROJECT/corpuscles"
 ln -sfn siphonophore_YYYYMMDD "$BOUCHET_PROJECT/corpuscles/current"
 ls -l "$BOUCHET_PROJECT/corpuscles/current"   # confirm the active build
 ```
+
+The link *target* is a bare name, resolved relative to the link's own directory,
+so this command is correct from any cwd — the `cd` is for the reader, not the shell.
 
 **No tracked file names a corpuscle**, so switching builds is never a commit.
 The symlink lives on the cluster next to the builds it points at, which also
@@ -69,6 +74,7 @@ To build a corpuscle other than `current` for one run, export the var — no
 symlink change, no edit:
 
 ```bash
+cd "$BOUCHET_PROJECT/corpus"
 CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml \
     bash slurm/batch_pipeline.sh
 ```
@@ -99,8 +105,8 @@ Confirm before moving on:
 ls "$CONDA_PREFIX/share/tessdata/deu_latf.traineddata"   # must exist
 ```
 
-Once `config.yaml` exists (step 3), `corpus check` re-verifies this properly —
-it reports every configured pack, e.g. `all 13 configured packs installed`.
+The step 7 preflight re-verifies this properly — `corpus check` reports every
+configured pack, e.g. `all 13 configured packs installed`.
 
 **GPU torch (issue #21) — no extra step needed.** The conda env is complete as
 created: `environment.yaml` pins `torch==2.12.0`, PyPI ships that as a CUDA 13
@@ -150,8 +156,13 @@ Repoint the `current` symlink at the new directory (see step 1) so the batch
 scripts pick it up:
 
 ```bash
+cd "$BOUCHET_PROJECT/corpuscles"
 ln -sfn siphonophore_YYYYMMDD "$BOUCHET_PROJECT/corpuscles/current"
+ls -l "$BOUCHET_PROJECT/corpuscles/current"   # confirm the active build
 ```
+
+(As in step 1: the bare-name target makes this correct from any cwd; the `cd` is
+for the reader.)
 
 Edit `config.yaml` so it points at the siphonophores repo. Paths resolve
 **relative to the config file's directory** (here, `corpuscles/siphonophore_YYYYMMDD/`),
@@ -179,22 +190,12 @@ figures:
 
 grobid:
   url: http://localhost:8070                  # overridden at submit time by
-                                              #   $GROBID_URL (see step 5 / #138)
+                                              #   $GROBID_URL (see step 6 / #138)
 ```
 
-Validate it before submitting anything — `corpus check` confirms the host
-can run the build and the config parses; `corpus run --dry-run` plans the
-phases without writing artifacts:
-
-```bash
-corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" check
-corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" run --dry-run --skip-checks
-```
-
-On the login node `corpus check` will always warn about GPU and Grobid —
-both are expected (GPU runs on compute nodes, Grobid is started automatically
-by `batch_pipeline.sh`). All other checks should be green. `--skip-checks`
-is needed for `--dry-run` on the login node for the same reason.
+Don't run `corpus check` yet — steps 4–6 supply the taxonomy DB, the model cache,
+and Grobid, so a check run here would fail on prerequisites you haven't built.
+Step 7 is the preflight gate, and by then it should come back green.
 
 Once `current` points at this corpuscle, the phase scripts find it with no
 extra flags. To build a *different* corpuscle for one run, export
@@ -204,7 +205,7 @@ precedence over the symlink.
 ### 4. Pre-build the taxonomy
 
 **Do this before submitting any batch jobs.** Not for connectivity reasons —
-login and batch nodes both reach WoRMS — but because you do not want ~2000
+login and batch nodes both reach WoRMS — but because you do not want ~1800
 extract tasks each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
 front:
 
@@ -250,14 +251,14 @@ Commit `taxonomy.dwca.zip` to the siphonophores repo so the taxonomy is
 version-controlled alongside the PDFs and bib file. If WoRMS upstream changes
 significantly, regenerate with `--source worms` and re-export.
 
-### 4b. Pre-download HuggingFace models
+### 5. Pre-download HuggingFace models
 
 Do this once, before the first submission. Run it wherever is convenient — the
 login node is fine (it pulls from the HuggingFace CDN at ~100 MB/s), and so are
 batch nodes. Observe the usual courtesy: a multi-GB fetch on the shared login
 node is fine, a long CPU-bound job is not.
 
-Prefetching matters for two reasons: it keeps a 2000-paper run from stopping
+Prefetching matters for two reasons: it keeps an 1800-paper run from stopping
 mid-stage on a HuggingFace 429, and it is what makes `HF_HUB_OFFLINE=1` usable
 as a reproducibility lever (see below).
 
@@ -323,44 +324,94 @@ loader would be stricter still, but `corpus` does not currently thread a
 revision through to the model loads — worth an issue if a build ever needs
 to be reproducible against a moving upstream.)
 
-### 5. Grobid as a Singularity service
+### 6. Grobid as a Singularity service
 
-Grobid is the extract phase's bibliographic + section-structure extractor. The `docker-compose.yml` in this repo targets macOS dev; on Bouchet run it via Singularity:
+Grobid is the extract phase's bibliographic + section-structure extractor. The
+`docker-compose.yml` in this repo targets macOS dev; there is no Docker on Bouchet,
+so run it via Singularity.
+
+Build the image once (it already exists at `$BOUCHET_PROJECT/cache/grobid.sif`, so
+skip this unless you're starting a fresh project root):
 
 ```bash
 cd "$BOUCHET_PROJECT/cache"
 singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
-
-# Start as a long-running job on an interactive node or via a separate
-# SLURM job. Example interactive launch (adjust -t to cover stage 1):
-salloc -p day -c 4 --mem=16G -t 24:00:00 \
-    singularity run --bind "$BOUCHET_PROJECT" \
-        --writable-tmpfs \
-        --env HF_HOME="$BOUCHET_PROJECT/huggingface" \
-        grobid.sif
-# --writable-tmpfs and --env HF_HOME are what a user on another cluster
-# needed to get the image running where $HOME is unusable (#153); they are
-# harmless here and save the next person the debugging.
-# …returns a URL like http://<compute_node>:8070
-
-# In a second terminal, submit the extract phase pointing at it. The
-# extract script reads input/output/bib/lexicon from $CORPUS_CONFIG;
-# $GROBID_URL overrides the config's grobid.url for this dynamically-
-# allocated node (#138). Exported only when set, so config.yaml stays
-# authoritative on standalone submits.
-export GROBID_URL=http://<compute_node>:8070
-sbatch slurm/batch_process_corpus.sh
 ```
 
+**Start it with `slurm/batch_grobid.sh`, not by hand.** That script does three binds
+that all matter — `$BOUCHET_PROJECT` (so Grobid can read the PDF tree), a writable
+host dir onto `/opt/grobid/grobid-home/tmp` (without it Grobid answers **HTTP 500 to
+every request**, because the Singularity rootfs is read-only and it writes temp files
+per request), and a writable host dir onto `/opt/grobid/logs` (without it Grobid
+**crashes on startup** opening `logs/grobid-service.log`). It creates both dirs
+per-job so concurrent instances don't collide. A hand-rolled
+`singularity run --bind "$BOUCHET_PROJECT"` gets you a service that starts and then
+fails every request.
+
+To bring one up and point this shell at it — this is what step 7 and a manual
+`sbatch slurm/batch_process_corpus.sh` need:
+
+```bash
+cd "$BOUCHET_PROJECT/corpus"
+GROBID_JOB=$(sbatch --parsable slurm/batch_grobid.sh)
+until [ "$(squeue -j "$GROBID_JOB" -h -o %T)" = RUNNING ]; do sleep 5; done
+export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):8070"
+
+# The job reaching RUNNING only means SLURM started the container; Grobid
+# itself needs another ~30-60 s to load its models and bind :8070. Poll.
+until curl -fsS "$GROBID_URL/api/isalive"; do sleep 10; done   # → true
+```
+
+`$GROBID_URL` overrides the config's `grobid.url` for this dynamically-allocated node
+(#138), for both `corpus run` and `corpus check`. It is honored only when set, so
+`config.yaml` stays authoritative on a standalone submit. Remember to `scancel
+"$GROBID_JOB"` when you're done — it holds a `day` allocation for 24 h.
+
 In practice you don't submit Grobid by hand — `slurm/batch_pipeline.sh`
-(see [Production run](#production-run)) submits it as
-`slurm/batch_grobid.sh`, discovers the node, waits for `/api/isalive`,
-exports `$GROBID_URL` into the extract job, and tears Grobid down
-afterward.
+(see [Production run](#production-run)) submits `slurm/batch_grobid.sh`, discovers the
+node, waits for `/api/isalive`, exports `$GROBID_URL` into the extract job, and tears
+Grobid down afterward. The manual path above exists for step 7 and for debugging.
+
+### 7. Preflight: `corpus check`
+
+With steps 1–6 done, this is the gate. Run it from **inside the corpuscle** — config
+resolution falls back to `./config.yaml`, so no `-c` and no long quoted path:
+
+```bash
+cd "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD"
+corpus check
+corpus run --dry-run
+```
+
+`corpus check` answers "can the next run actually succeed on this host?";
+`corpus run --dry-run` prints the *plan* without writing artifacts. On a login node
+with `$GROBID_URL` exported from step 6, these are the only lines that should not
+be ✓ — two warnings and one informational:
+
+| Line | Expected on the login node | Why |
+|---|---|---|
+| `GPU: none` | ⚠ | GPU phases run on `gpu_h200` / `gpu` via `sbatch`; the login node has no device |
+| `Figure panels: would downgrade to OCR floor` | ⚠ | advisory only — `batch_pass3b.sh` re-decides on the GPU node, where `vision-local` is live |
+| `OCR compression helpers: pngquant, jbig2enc absent` | • | informational; `ocrmypdf` drops `--optimize 2 → 1`, so output is larger, not wrong |
+| everything else | ✓ | if not, stop and fix it before submitting |
+
+In particular `Grobid`, `Taxonomy`, `bib`, `lexicon`, `Models` and the OCR toolchain
+should all be ✓ by this point. Exit codes (#61): **0** green, **2** config error,
+**3** precondition failure — so `corpus check` inside a `set -e` wrapper aborts the
+submit. Since `check` honors `$GROBID_URL`, a ✗ Grobid here means Grobid really is
+unreachable from this host, not that you're checking from the wrong node.
+
+`corpus run --dry-run` ends with `reconcile failed in dry-run (exit 1) … Continuing`
+on a corpuscle that hasn't been built yet. That is expected, not a preflight
+failure — `reconcile` needs `biblio_authority.sqlite`, which only a real run
+produces. The dry run still exits 0.
+
+*(Steps 1–7 verified end-to-end on the cluster 2026-08-01, against
+`corpuscles/siphonophore_20260731`.)*
 
 ## Dry run (20–50 papers) before the full corpus
 
-Before committing to the 2000-paper run, smoke-test end-to-end on a small
+Before committing to the full 1769-paper run, smoke-test end-to-end on a small
 sample. Under the config-driven flow (#138) a sample is just a second
 corpuscle — its own directory + `config.yaml` pointing at a slice of PDFs —
 selected by exporting `CORPUS_CONFIG`:
@@ -380,8 +431,10 @@ cp "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" .
 #   edit:  input_pdfs: ../../siphonophores_sample/library
 export CORPUS_CONFIG="$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml"
 
-# 3. Run the phases. The simplest path is the orchestrator, which inherits
-#    $CORPUS_CONFIG via --export=ALL and runs the whole chain:
+# 3. Run the phases, from the repo (the slurm/ paths are relative to it).
+#    The simplest path is the orchestrator, which inherits $CORPUS_CONFIG
+#    via --export=ALL and runs the whole chain:
+cd "$BOUCHET_PROJECT/corpus"
 bash slurm/batch_pipeline.sh
 
 #    …or submit phases by hand (each reads $CORPUS_CONFIG):
@@ -399,7 +452,7 @@ Inspect `$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/documents/<HAS
 - Pass 3c renamed compound images to range notation (e.g., `fig_3-4.png`)
 - `chunks.json` has reasonable content, embedded into `vector_db/lancedb`
 
-Only then submit the three production jobs against the full input.
+Only then submit the production run against the full input.
 
 ## Production run
 
@@ -417,9 +470,12 @@ is the long pole only when many figures need vision-LLM ROI detection.
 | `PASS3B_BATCH_SIZE` | Pass 3b | `256` | Papers per Pass 3b task |
 
 ```bash
+cd "$BOUCHET_PROJECT/corpus"
+
 # Full pipeline with parallel Stage 1 batches of 256 PDFs each.
-# Adjust NUM_BATCHES = ceil(total_unique_pdfs / 256).
-NUM_BATCHES=8 bash slurm/batch_pipeline.sh
+# Adjust NUM_BATCHES = ceil(total_unique_pdfs / 256) — 7 for the current
+# 1769-PDF library.
+NUM_BATCHES=7 bash slurm/batch_pipeline.sh
 
 # Custom Stage 1 batch size:
 NUM_BATCHES=4 BATCH_SIZE=512 bash slurm/batch_pipeline.sh
@@ -429,7 +485,7 @@ NUM_BATCHES=4 BATCH_SIZE=512 bash slurm/batch_pipeline.sh
 # so every paper is covered (default is now $NUM_BATCHES when unset).
 # gpu_h200 partition has limited slots, so check `sinfo -p gpu_h200`
 # before fanning out aggressively.
-NUM_BATCHES=8 NUM_PASS3B_BATCHES=8 bash slurm/batch_pipeline.sh
+NUM_BATCHES=7 NUM_PASS3B_BATCHES=7 bash slurm/batch_pipeline.sh
 ```
 
 The orchestrator:
@@ -444,8 +500,9 @@ So the orchestrator now runs the whole build, including the cross-paper DBs and 
 For manual submission without the orchestrator (each phase reads `$CORPUS_CONFIG`; resume is implicit):
 
 ```bash
-export GROBID_URL=http://<grobid_node>:8070      # extract needs Grobid
-sbatch --array=0-7 slurm/batch_process_corpus.sh # extract
+cd "$BOUCHET_PROJECT/corpus"
+export GROBID_URL=http://<grobid_node>:8070      # extract needs Grobid (step 6)
+sbatch --array=0-6 slurm/batch_process_corpus.sh # extract
 # After all array tasks complete:
 sbatch --array=0-3 slurm/batch_pass3b.sh         # vision; or omit --array for single-task
 sbatch slurm/batch_embed.sh                      # embed
@@ -472,6 +529,7 @@ them into `corpus run --only post`) are:
 To run the tail by hand (e.g. after fixing a build issue):
 
 ```bash
+cd "$BOUCHET_PROJECT/corpus"
 export CORPUS_CONFIG="$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml"
 
 # Cross-paper DBs only. ENRICH_BHL=1 adds Biodiversity Heritage Library
@@ -539,7 +597,7 @@ python "$BOUCHET_PROJECT/corpus/tools/smoke_test_sse.py" \
 | `embed` (BGE-M3) | `slurm/batch_embed.sh` | `gpu` | 1 | 4 h |
 | `post` + `bundle` (cross-paper DBs + served bundle) | `slurm/batch_finalize.sh` | `day` | no | 12 h |
 
-Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltimes if the corpus grows beyond ~2000 papers.
+Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltimes if the corpus grows well beyond its current ~1800 papers.
 
 The per-user QoS caps that actually bind these submissions (`sacctmgr show qos`,
 2026-08-01):
@@ -553,7 +611,8 @@ The per-user QoS caps that actually bind these submissions (`sacctmgr show qos`,
 | `gpu_devel` | 6 h | 2 GPUs, 12 CPUs, 256 GiB |
 
 Both GPU phases sit well inside the 16-GPU cap even at
-`NUM_BATCHES=8 NUM_PASS3B_BATCHES=8`. The extract array is bounded by `day`'s
+`NUM_BATCHES=8 NUM_PASS3B_BATCHES=8`, above what the current library needs.
+The extract array is bounded by `day`'s
 1000-CPU cap, not by anything in the scripts.
 
 Note that the `gpu` partition is **heterogeneous** — it carries `a40` (48 GB),
@@ -568,6 +627,7 @@ partition for interactive GPU checks.
 - **Missing Tesseract language packs.** The most likely way to get a subtly bad build. `conda env create` alone leaves you with **English-only** OCR; `bash tools/install_tessdata.sh` is a required setup step (see §2). Non-English papers don't error — they just OCR badly as English. Check with `ls $CONDA_PREFIX/share/tessdata/`.
 - **Stale `HF_HOME`.** If a job re-downloads a model, `HF_HOME` isn't being honored — check that the export in the SLURM script points to a path you actually populated.
 - **Grobid URL.** SLURM compute nodes can't talk to your laptop's `localhost:8070` — `$GROBID_URL` (which overrides the config's `grobid.url`) must resolve to a host visible from the job's node. If the Grobid node goes down mid-run, subsequent papers get placeholder metadata; a re-run's implicit resume won't retry them unless their inputs changed — force it with `corpus run --only extract --re-process-flagged <gate>` or by deleting the affected `metadata.json`.
+- **`corpus check` and Grobid.** `check` honors `$GROBID_URL` exactly as `run` does, so the two always agree about which Grobid they mean. If `check` reports `localhost:8070`, `GROBID_URL` simply isn't exported in that shell — the check is right, and the extract job you were about to submit would have used the same wrong address. Re-do the export from §6 and re-run.
 - **Config not found / wrong corpuscle.** Every phase script reads `$CORPUS_CONFIG`. If a job dies with "no config.yaml" or builds the wrong tree, confirm `$CORPUS_CONFIG` points at the intended `config.yaml` (default is the production corpuscle; a leftover `export CORPUS_CONFIG=…sample…` from a smoke test will silently redirect a production submit).
 - **LFS on extract.** If extract can't see the full PDFs (only LFS pointers), re-run `git lfs pull` in `$BOUCHET_PROJECT/siphonophores`.
 - **Don't downgrade torch to "fix" a GPU problem.** The pinned `torch==2.12.0` works on every GPU type on the cluster — all of them run driver 580.159.04 / CUDA 13.0. Older cu128 builds cannot target the Blackwell cards (`b200` sm_100, `rtx_pro_6000_blackwell` sm_120) at all, so a well-meant downgrade silently costs you that hardware and breaks the #98 pin. `batch_pass3b.sh` targets `gpu_h200` for VRAM headroom and throughput on Qwen2.5-VL-7B, **not** because other cards fail; its preflight `torch.cuda.is_available()` guard stays as a cheap regression check.
