@@ -374,9 +374,15 @@ If that last `curl` errors instead of printing `true`, Grobid did not come up
 within 5 minutes and the log is the place to look —
 `logs/slurm-grobid-$GROBID_JOB.err` for model loading, and
 `$BOUCHET_PROJECT/cache/grobid_logs/$GROBID_JOB/grobid-service.log` for the
-service itself (readable only while the job is alive; the job deletes it on
-exit). A healthy startup ends with `Started application@...{0.0.0.0:8070}`.
-Don't `scancel` a job that is merely still loading Wapiti models.
+service itself. A healthy startup ends with
+`Started application@...{0.0.0.0:8070}`. Don't `scancel` a job that is merely
+still loading Wapiti models.
+
+Read that service log **while the job is alive** — the job deletes its contents
+on exit. The now-empty `cache/grobid_logs/$GROBID_JOB/` directory usually
+survives (NFS holds the still-open log as `.nfsXXXX` past the window SLURM
+gives the cleanup trap), so leftover per-job directories under `cache/` are
+expected rather than a symptom; the next `batch_grobid.sh` submit sweeps them.
 
 `$GROBID_URL` overrides the config's `grobid.url` for this dynamically-allocated node
 (#138), for both `corpus run` and `corpus check`. It is honored only when set, so
