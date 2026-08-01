@@ -10,9 +10,8 @@
 # Usage:
 #     bash batch_pipeline.sh
 #
-#     # Override input/output for the sample dataset:
-#     INPUT_DIR=$BOUCHET_PROJECT/siphonophores_sample \
-#     OUTPUT_DIR=$BOUCHET_PROJECT/output_sample \
+#     # Build a corpuscle other than corpuscles/current (e.g. a sample):
+#     CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml \
 #         bash batch_pipeline.sh
 
 set -euo pipefail
@@ -24,8 +23,7 @@ source "$SCRIPT_DIR/bouchet_paths.sh"
 mkdir -p "$REPO_DIR/logs"
 
 echo "=== Corpus Pipeline Launcher ==="
-echo "Input:  $INPUT_DIR"
-echo "Output: $OUTPUT_DIR"
+echo "Config: $CORPUS_CONFIG"
 echo ""
 
 # ── Step 1: Start Grobid server ─────────────────────────────────────

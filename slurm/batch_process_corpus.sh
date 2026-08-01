@@ -41,7 +41,9 @@ module load miniconda
 conda activate corpus
 
 cd "$REPO_DIR"
-mkdir -p logs "$OUTPUT_DIR"
+# `corpus run` creates its own output_dir from $CORPUS_CONFIG; only the
+# SLURM log dir needs pre-creating here.
+mkdir -p logs
 
 # Fail-loud preflight (#20). docling import on Bouchet has historically
 # fallen back to a broken tree-sitter / torch when LD_LIBRARY_PATH

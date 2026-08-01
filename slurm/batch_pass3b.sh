@@ -61,7 +61,7 @@ mkdir -p logs
 # ── Run ──────────────────────────────────────────────────────────────
 echo "Starting Pass 3b (local VLM) at $(date)"
 echo "GPU: $(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null || echo 'unknown')"
-echo "Output: $OUTPUT_DIR"
+echo "Config: $CORPUS_CONFIG"
 
 # Sanity check: abort if torch can't see the GPU (driver mismatch etc.)
 python -c "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 2)" || {

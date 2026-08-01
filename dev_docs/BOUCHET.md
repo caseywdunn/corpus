@@ -30,6 +30,7 @@ Resulting layout (all under `$BOUCHET_PROJECT`):
 corpus/                          ← this repo (the `corpus` CLI)
 siphonophores/                   ← input PDF tree + siphonophores.bib + lexicon.yaml
 corpuscles/                      ← all siphonophore corpuscle builds
+  current -> siphonophore_YYYYMMDD  ← symlink naming the active build
   siphonophore_YYYYMMDD/         ← one directory per production build (date = build date)
     config.yaml                  ← authored in step 3 (the source of truth)
     documents/<HASH>/…           ← per-paper artifacts (created by extract)
@@ -40,15 +41,37 @@ cache/huggingface/               ← model cache (see below)
 ```
 
 When starting a new build, create `corpuscles/siphonophore_YYYYMMDD/`, scaffold a
-`config.yaml` there (step 3), and update the `CORPUS_CONFIG` default in
-`slurm/bouchet_paths.sh` to point at it (one-line change).
+`config.yaml` there (step 3), and repoint the `current` symlink at it:
+
+```bash
+ln -sfn siphonophore_YYYYMMDD "$BOUCHET_PROJECT/corpuscles/current"
+ls -l "$BOUCHET_PROJECT/corpuscles/current"   # confirm the active build
+```
+
+**No tracked file names a corpuscle**, so switching builds is never a commit.
+The symlink lives on the cluster next to the builds it points at, which also
+makes "which corpuscle are jobs writing to?" answerable with `ls` rather than
+`git log`.
 
 As of #138 the SLURM phase scripts drive the **same `corpus run` CLI**
 users run, one phase per job. All per-corpuscle inputs (PDF dir, BibTeX,
 lexicon, taxonomy source, Grobid) live in the corpuscle's `config.yaml`
 — **not** as CLI flags or env vars. The scripts reference it through
-`$CORPUS_CONFIG` (default `$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml`,
-set in [slurm/bouchet_paths.sh](../slurm/bouchet_paths.sh)).
+`$CORPUS_CONFIG`, resolved in
+[slurm/bouchet_paths.sh](../slurm/bouchet_paths.sh) as: exported
+`$CORPUS_CONFIG` → `corpuscles/current/config.yaml` → hard error. There is
+deliberately no dated fallback; a missing selection fails loudly rather than
+silently resuming a finished build. `corpus` honors `$CORPUS_CONFIG` natively
+too (#61), and `bouchet_paths.sh` exports the resolved value so every job in a
+submitted chain builds the same corpuscle even if `current` moves mid-run.
+
+To build a corpuscle other than `current` for one run, export the var — no
+symlink change, no edit:
+
+```bash
+CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml \
+    bash slurm/batch_pipeline.sh
+```
 
 ### 2. Conda environment
 
@@ -123,8 +146,12 @@ cd "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD"
 corpus init                              # drops a commented config.yaml here
 ```
 
-Update the `CORPUS_CONFIG` default in `slurm/bouchet_paths.sh` to point at
-the new directory (one-line change).
+Repoint the `current` symlink at the new directory (see step 1) so the batch
+scripts pick it up:
+
+```bash
+ln -sfn siphonophore_YYYYMMDD "$BOUCHET_PROJECT/corpuscles/current"
+```
 
 Edit `config.yaml` so it points at the siphonophores repo. Paths resolve
 **relative to the config file's directory** (here, `corpuscles/siphonophore_YYYYMMDD/`),
@@ -169,10 +196,10 @@ both are expected (GPU runs on compute nodes, Grobid is started automatically
 by `batch_pipeline.sh`). All other checks should be green. `--skip-checks`
 is needed for `--dry-run` on the login node for the same reason.
 
-`$CORPUS_CONFIG` already defaults to this path in `bouchet_paths.sh` (after
-updating it), so the phase scripts find it with no extra flags. To build a
-*different* corpuscle, export `CORPUS_CONFIG=/path/to/other/config.yaml`
-before submitting.
+Once `current` points at this corpuscle, the phase scripts find it with no
+extra flags. To build a *different* corpuscle for one run, export
+`CORPUS_CONFIG=/path/to/other/config.yaml` before submitting — it takes
+precedence over the symlink.
 
 ### 4. Pre-build the taxonomy
 
