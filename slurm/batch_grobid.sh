@@ -48,8 +48,39 @@ mkdir -p logs
 #      Singularity rootfs is read-only and the directory doesn't exist.
 GROBID_TMP="$CACHE_DIR/grobid_tmp/$SLURM_JOB_ID"
 GROBID_LOGS="$CACHE_DIR/grobid_logs/$SLURM_JOB_ID"
+
+# Reap dirs leaked by earlier jobs. The trap below empties its dirs but often
+# cannot remove them (see there), so sweep on the way in as well as on the way
+# out. -mindepth 1 keeps the parents, which may not exist yet on a fresh
+# project root.
+#
+# Age is the only safe signal for grobid_tmp: Grobid writes there per request
+# and leaves it empty when idle, so a live instance's tmp dir looks exactly
+# like a leaked one. --time=24:00:00 caps a live instance's age at a day, so
+# -mtime +2 cannot touch a running job.
+find "$CACHE_DIR/grobid_tmp" "$CACHE_DIR/grobid_logs" -mindepth 1 -maxdepth 1 \
+    -type d -mtime +2 -exec rm -rf {} + 2>/dev/null || true
+
+# grobid_logs additionally admits a prompt rule, which is what actually keeps
+# the leak in check: a running instance opens grobid-service.log within seconds
+# of mkdir, so an empty log dir 10 min old is always dead.
+find "$CACHE_DIR/grobid_logs" -mindepth 1 -maxdepth 1 \
+    -type d -empty -mmin +10 -exec rmdir {} + 2>/dev/null || true
+
 mkdir -p "$GROBID_TMP" "$GROBID_LOGS"
-trap 'rm -rf "$GROBID_TMP" "$GROBID_LOGS"' EXIT
+
+# Grobid still holds grobid-service.log open when SIGTERM lands, so NFS
+# silly-renames it to .nfsXXXX and the rmdir hits "Directory not empty" until
+# the client releases the file — measured at over 20 s, longer than SLURM's
+# KillWait=30 s leaves us. So expect to lose that race and leave an empty dir
+# behind; the sweep above reaps it on the next submit. What matters here is
+# that the contents go and that cleanup never decides the job's exit status —
+# the old `trap 'rm -rf ...'` failed loudly and returned 1 into a
+# `set -e` EXIT trap.
+cleanup() {
+    rm -rf "$GROBID_TMP" "$GROBID_LOGS" 2>/dev/null || true
+}
+trap cleanup EXIT
 
 echo "Grobid host: $(hostname)"
 echo "Grobid tmp:  $GROBID_TMP"
