@@ -327,7 +327,9 @@ def main():
         else:
             logger.warning(
                 "Grobid not reachable at %s — metadata will be placeholder. "
-                "Start it with: docker compose up -d grobid",
+                "Start it with `docker compose up -d grobid` (laptop/Docker "
+                "host), or on a cluster `sbatch slurm/batch_grobid.sh` then "
+                "`export GROBID_URL=http://<node>:8070`.",
                 args.grobid_url,
             )
 

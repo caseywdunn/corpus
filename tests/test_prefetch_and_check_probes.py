@@ -292,6 +292,103 @@ def test_check_fails_on_zero_pdfs_like_run_does(tmp_path):
     assert "--skip-checks" in out, out
 
 
+# --- `corpus check` must agree with `corpus run` about Grobid ----------------
+
+
+def test_check_honors_grobid_url_env(tmp_path):
+    """`corpus run` lets $GROBID_URL override config's grobid.url (#138),
+    because on HPC Grobid lands on a compute node whose hostname isn't known
+    until submit time. `check` used to probe the config's localhost:8070
+    regardless — so the gate failed on exactly the setup the gate exists to
+    approve, and told the operator to run `docker compose` on a cluster with
+    no Docker.
+    """
+    import os
+    import textwrap
+
+    corpuscle = tmp_path / "grobid_env"
+    (corpuscle / "pdfs").mkdir(parents=True)
+    (corpuscle / "pdfs" / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+    (corpuscle / "config.yaml").write_text(textwrap.dedent("""
+        input_pdfs: ./pdfs
+        output_dir: ./output
+        grobid:
+          url: http://localhost:8070
+    """).lstrip())
+
+    env = dict(os.environ)
+    # An address that cannot resolve: the probe fails either way, so the
+    # assertion is about *which* URL was probed, not reachability.
+    env["GROBID_URL"] = "http://grobid-node-from-env.invalid:8070"
+    proc = subprocess.run(
+        [sys.executable, "-m", "pipeline.cli", "check"],
+        cwd=corpuscle, env=env, capture_output=True, text=True, timeout=300,
+    )
+    out = proc.stdout + proc.stderr
+    assert "grobid-node-from-env.invalid:8070" in out, out
+    assert "localhost:8070" not in out, out
+    # And the remediation must be actionable off a Docker host.
+    assert "batch_grobid.sh" in out, out
+
+
+# --- optional metadata inputs must be validated at pre-flight ----------------
+
+
+def _corpuscle_with_bib(tmp_path: Path, bib_line: str) -> Path:
+    """A minimal corpuscle with Grobid disabled, so the only thing that can
+    move the exit code is the bib path under test."""
+    import textwrap
+
+    corpuscle = tmp_path / "bib_corpuscle"
+    (corpuscle / "pdfs").mkdir(parents=True)
+    (corpuscle / "pdfs" / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+    (corpuscle / "config.yaml").write_text(textwrap.dedent(f"""
+        input_pdfs: ./pdfs
+        output_dir: ./output
+        {bib_line}
+        grobid:
+          disable: true
+    """).lstrip())
+    return corpuscle
+
+
+def _check_rc(corpuscle: Path) -> subprocess.CompletedProcess:
+    import os
+    return subprocess.run(
+        [sys.executable, "-m", "pipeline.cli", "check"],
+        cwd=corpuscle, env=dict(os.environ),
+        capture_output=True, text=True, timeout=300,
+    )
+
+
+def test_check_fails_on_a_bib_path_that_does_not_exist(tmp_path):
+    """A typo'd `bib:` is always an error: `corpus run` passes it through to
+    --bib, where main.py exits partway into the run. Catch it at pre-flight."""
+    proc = _check_rc(_corpuscle_with_bib(tmp_path, "bib: ./missing.bib"))
+    out = proc.stdout + proc.stderr
+    assert "missing.bib" in out, out
+    assert proc.returncode == 3, (
+        f"expected exit 3 (precondition), got {proc.returncode}:\n{out}"
+    )
+
+
+def test_check_does_not_fail_when_bib_is_unset(tmp_path):
+    """`bib:` is optional — omitting it is a supported configuration (Grobid
+    supplies the metadata), so it must be informational, never a failure.
+
+    Asserted on the failure list rather than the exit code, because the exit
+    code also reflects the OCR toolchain, which this test doesn't control
+    (same reasoning as the tessdata/models probes above).
+    """
+    proc = _check_rc(_corpuscle_with_bib(tmp_path, "# no bib configured"))
+    out = proc.stdout + proc.stderr
+    assert "bib: not configured" in out, out
+    assert "lexicon: not configured" in out, out
+    reported = out.split("precondition(s) failed")[1] if (
+        "precondition(s) failed" in out) else ""
+    assert "bib" not in reported, out
+
+
 # --- the prefetch code path must bind to the REAL backend API ----------------
 
 

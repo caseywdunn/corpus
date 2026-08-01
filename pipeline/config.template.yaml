@@ -81,8 +81,12 @@ figures:
   # Future ingests only — run tools/backfill_figure_dpi.py --native to lift an
   # existing bundle.
 
-# Grobid (PDF metadata + reference parsing). Runs as a Docker service;
-# see README §Grobid.
+# Grobid (PDF metadata + reference parsing). Runs as a long-lived service
+# next to the pipeline: Docker on a laptop (`docker compose up -d grobid`,
+# see README §Grobid), Singularity on a cluster. Whichever it is, the
+# $GROBID_URL environment variable overrides the `url:` below at run time —
+# that is how HPC jobs reach a Grobid on a compute node whose hostname isn't
+# known until submit time. `corpus run` and `corpus check` both honor it.
 grobid:
   url: http://localhost:8070
   # disable: true   # skip Grobid even if reachable

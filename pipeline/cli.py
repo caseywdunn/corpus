@@ -199,10 +199,13 @@ def _run_preconditions(
         if not ok:
             failures.append(
                 f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
-                "Start it with `docker compose up -d grobid` (it persists "
-                "across runs). To deliberately run without metadata "
-                "extraction, set `grobid: {disable: true}` in config.yaml. "
-                "To bypass this check just for this run, pass --skip-checks."
+                "Start it with `docker compose up -d grobid` (laptop/Docker "
+                "host; it persists across runs), or on a cluster "
+                "`sbatch slurm/batch_grobid.sh` then "
+                "`export GROBID_URL=http://<node>:8070`. To deliberately run "
+                "without metadata extraction, set `grobid: {disable: true}` "
+                "in config.yaml. To bypass this check just for this run, "
+                "pass --skip-checks."
             )
 
     if failures:
@@ -1042,6 +1045,15 @@ def _cmd_check(args: argparse.Namespace) -> int:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         cfg = validate_config(raw)
         pstatus(f"config.yaml valid ({config_path})", status="ok")
+        # $GROBID_URL overrides the configured address (#138) — the same
+        # precedence `corpus run` applies (see _cmd_run), so check and run
+        # agree about which Grobid they mean. Without this, a check run on
+        # the login node with Grobid live on a compute node probes the
+        # config's localhost:8070 and hard-fails, while the extract job it
+        # is gating would have succeeded.
+        grobid_url_env = os.environ.get("GROBID_URL")
+        if grobid_url_env:
+            cfg.grobid.url = grobid_url_env
     except ValidationError as e:
         pstatus(f"config error in {config_path}", status="fail")
         for err in e.errors():
@@ -1086,7 +1098,9 @@ def _cmd_check(args: argparse.Namespace) -> int:
         else:
             failures.append(
                 f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
-                "Start it with: docker compose up -d grobid"
+                "Start it with `docker compose up -d grobid` (laptop/Docker "
+                "host), or on a cluster `sbatch slurm/batch_grobid.sh` then "
+                "`export GROBID_URL=http://<node>:8070`."
             )
             pstatus(f"Grobid: unreachable at {cfg.grobid.url} ({detail})", status="fail")
 
@@ -1144,7 +1158,31 @@ def _cmd_check(args: argparse.Namespace) -> int:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
             pstatus(f"input_pdfs: {input_dir} not found", status="fail")
 
-    # 7. Taxonomy source availability
+    # 7. Optional metadata inputs: bib + lexicon. Both are optional fields,
+    # but a *set-and-wrong* path is always an error — `corpus run` passes
+    # cfg.bib straight through to --bib, where main.py exits 1 partway into
+    # the run, and a typo'd lexicon silently produces no category artifacts.
+    # Resolved exactly as _cmd_run resolves them, so the paths reported here
+    # are the paths the run will use.
+    for field, value, absent_note in (
+        ("bib", cfg.bib, "not configured (Grobid metadata only)"),
+        ("lexicon", cfg.lexicon, "not configured (no category artifacts)"),
+    ):
+        if value is None:
+            pstatus(f"{field}: {absent_note}", status="info")
+            continue
+        resolved = _resolve_against(config_path, value)
+        if resolved.exists():
+            pstatus(f"{field}: {resolved}", status="ok")
+        else:
+            failures.append(
+                f"{field} path does not exist: {resolved}. "
+                f"Fix the `{field}:` path in {config_path}, or comment it out "
+                f"to run without it."
+            )
+            pstatus(f"{field}: {resolved} not found", status="fail")
+
+    # 8. Taxonomy source availability
     if cfg.taxonomy.source is not None:
         db_path = output_dir / "taxonomy.sqlite"
         if cfg.taxonomy.source == "worms":
@@ -1201,7 +1239,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
                     status="warn",
                 )
 
-    # 8. OCR toolchain (#160). ocrmypdf shells out to tesseract and
+    # 9. OCR toolchain (#160). ocrmypdf shells out to tesseract and
     # ghostscript; pipeline/scan.py checks for them at *use* time, deep
     # inside a run. Check here instead. Only a real precondition when the
     # corpus might actually need OCR — a born-digital-only corpus never
@@ -1232,7 +1270,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
             status="info",
         )
 
-    # 9. Tesseract language packs (#160). The conda-forge tesseract ships
+    # 10. Tesseract language packs (#160). The conda-forge tesseract ships
     # ONLY English, and `bash tools/install_tessdata.sh` is a required
     # post-install step per the README. Skip it and a Cyrillic or Fraktur
     # scan OCRs against the English pack — extraction still "succeeds",
@@ -1271,7 +1309,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
                     status="ok",
                 )
 
-    # 10. Model cache (#159). docling's layout model, TableFormer, and the
+    # 11. Model cache (#159). docling's layout model, TableFormer, and the
     # embedding model are fetched from HuggingFace on first use. Read-only
     # probe — never touches the network, so this is safe on an air-gapped
     # host. A missing model is a warning rather than a failure: an
@@ -1299,7 +1337,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
         logging.getLogger(__name__).debug("model-cache probe failed: %s", e)
         pstatus("Models: could not inspect the HuggingFace cache", status="warn")
 
-    # 11. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
+    # 12. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
     # env in the unsupported macOS x86_64 matrix (Apple dropped Intel-mac
     # torch wheels after 2.2, breaking docling + transformers ≥ 5). Hard
     # fail loud rather than letting `corpus run` discover it deep in a

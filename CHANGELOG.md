@@ -187,6 +187,24 @@ The v0.6 MCP surface freeze holds — no new tools. See
 
 ### Fixed
 
+- **`corpus check` and `corpus run` now agree about which Grobid they
+  mean.** `run` has honored `$GROBID_URL` over the config's `grobid.url`
+  since [#138](https://github.com/caseywdunn/corpus/issues/138) — on HPC
+  Grobid lands on a compute node whose hostname isn't known until submit
+  time, so a static `config.yaml` cannot name it. `check` did not, so it
+  probed `localhost:8070` and hard-failed on exactly the setup it exists
+  to approve, then printed `docker compose up -d grobid` as the remedy —
+  unactionable on a cluster with no Docker. `check` now applies the same
+  override, and all three copies of that remediation string (both CLI
+  gates and the orchestrator's warn-only path) name the cluster route as
+  well: `sbatch slurm/batch_grobid.sh` then `export
+  GROBID_URL=http://<node>:8070`.
+- **`corpus check` validates `bib` and `lexicon` paths.** Neither was
+  stat'd, so a typo'd `bib:` passed pre-flight and then exited the run
+  partway through `pipeline.main`, while a typo'd `lexicon:` silently
+  produced no category artifacts at all. Both are resolved exactly as
+  `corpus run` resolves them: unset is informational (a supported
+  configuration), a set-but-missing path is a precondition failure.
 - **The bib parser no longer discards the rest of the file on one bad
   entry** ([#141](https://github.com/caseywdunn/corpus/issues/141)).
   Importing a 19,834-entry export parsed only 2,258 of them, with a single
