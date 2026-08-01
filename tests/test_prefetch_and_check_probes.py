@@ -6,8 +6,9 @@ assertions are the negative ones: no models cached, no tesseract
 language packs, no OCR binaries on PATH.
 
 `pipeline.prefetch`'s reporting half must never touch the network —
-`corpus check` calls it, and `corpus check` has to work on an air-gapped
-HPC compute node (#139, #153). The tests below monkeypatch the cache
+`corpus check` calls it, and `corpus check` has to work unchanged on a
+host with no outbound access, since some clusters restrict their compute
+nodes (#139, #153). The tests below monkeypatch the cache
 scan rather than mocking HTTP, so a regression that introduced a network
 call would surface as a hang or an error here rather than silently
 passing.

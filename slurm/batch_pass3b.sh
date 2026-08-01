@@ -18,12 +18,12 @@
 # mode (no --array) is unchanged. Example for 8 H200s in parallel:
 #     BATCH_SIZE=256 sbatch --array=0-7 batch_pass3b.sh
 #
-# Partition: we MUST use gpu_h200. The rtx_5000_ada nodes (gpu partition)
-# carry an NVIDIA driver that torch 2.9.0+cu128 rejects as "too old"
-# (reported driver 12080), causing a silent fallback to CPU that makes
-# Qwen2.5-VL-7B unusable. H200 nodes (driver 570.x, supports CUDA 12.8)
-# work out of the box. Confirmed 2026-04-16 via diag_gpu.sh on
-# a1122u02n01 — all three module configs succeeded on H200.
+# Partition: gpu_h200, for VRAM headroom and throughput on Qwen2.5-VL-7B
+# — a preference, not a hard requirement. The whole GPU fleet runs
+# driver 580.159.04 / CUDA 13.0, and the pinned torch 2.12.0 runs on
+# every card type (verified 2026-08-01 on h200, b200,
+# rtx_pro_6000_blackwell, rtx_5000_ada, a40, l40s). The preflight below
+# is cheap and catches any future regression, so it stays.
 #
 # Estimated runtime: ~1–3 s/figure × ~20 figures/paper × 2000 papers ≈
 # 11–17 hours. 24h wall gives headroom for the full corpus.
@@ -34,11 +34,9 @@
 set -euo pipefail
 
 # ── Paths ────────────────────────────────────────────────────────────
-# Pre-download the model to $HF_HOME (set by bouchet_paths.sh) on a
-# compute node before submitting:
-#     python -c "from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration; \
-#         AutoProcessor.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct'); \
-#         Qwen2_5_VLForConditionalGeneration.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct')"
+# Pre-download the model to $HF_HOME (set by bouchet_paths.sh) before
+# submitting:
+#     corpus prefetch --include-vision
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 [ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh
@@ -46,9 +44,9 @@ source "$SCRIPT_DIR/bouchet_paths.sh"
 echo "HuggingFace cache: $HF_HOME"
 
 # ── Environment ──────────────────────────────────────────────────────
-# torch 2.9.0+cu128 ships bundled CUDA userspace libs (see
-# site-packages/nvidia/), so no explicit CUDA module is needed on
-# gpu_h200. We previously loaded CUDA/12.6.0 mirroring vial_scan, but
+# torch ships bundled CUDA userspace libs (see site-packages/nvidia/),
+# so no explicit CUDA module is needed on any GPU partition. We
+# previously loaded CUDA/12.6.0 mirroring vial_scan, but
 # that module file occasionally vanishes from the 2024a tree's lmod
 # cache (observed job 8485894, 2026-04-16) — skipping it eliminates
 # that failure mode.

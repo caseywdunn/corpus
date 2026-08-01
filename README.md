@@ -16,7 +16,7 @@ Think of corpus as an interface between a body of scientific literature and a La
 
 The workflow turns a folder of PDFs — born-digital articles alongside centuries-old scans in multiple languages — into a queryable knowledge base, exposed over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). MCP is the open standard that LLM clients (Claude Desktop, Claude Code, claude.ai web, Cursor) use to reach external data. The primary target is taxonomic literature.
 
-Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on [Yale's HPC cluster](https://docs.ycrc.yale.edu/clusters/bouchet/) and host public servers on [Amazon Web Services (AWS)](https://aws.amazon.com/).
+Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on an HPC cluster and host public servers on [Amazon Web Services (AWS)](https://aws.amazon.com/).
 
 ### Implementation
 
@@ -106,10 +106,10 @@ Or invoke the ingester directly without `corpus run`: `corpus taxonomy ingest --
 
 The inverse — dumping a corpus's built taxonomy back out as a DwC-A — is `corpus taxonomy export -o taxonomy.zip`. Use it to share a taxonomy snapshot without forcing the recipient to walk WoRMS again, or to commit a small fixture into a downstream repo so CI exercises the `dwca` ingest path without network calls. The round-trip property: `corpus taxonomy ingest --source dwca --input <export.zip>` recovers the same `taxa` row set as the source SQLite.
 
-**`source: worms` needs outbound internet**, because it walks the WoRMS REST API. That is fine on a laptop or a login node, but HPC compute nodes are usually network-restricted, so a batch job configured for `worms` cannot build the snapshot. Build it once where there *is* internet and switch to a local source for the runs:
+**`source: worms` needs outbound internet**, because it walks the WoRMS REST API. Don't do that from inside a batch array — every task would walk the API independently, and on a network-restricted cluster they'd all fail. Build the snapshot once and switch to a local source for the runs, which is faster, kinder to WoRMS, and version-pinned rather than tracking a moving upstream:
 
 ```bash
-# On a login node (or your laptop):
+# Once, up front:
 corpus taxonomy ingest --source worms --root-id 1371
 corpus taxonomy export -o taxonomy.zip
 
@@ -276,7 +276,7 @@ To make a new language part of the fallback set tried when detection is uncertai
 
 ## Start Grobid before `corpus run`
 
-Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on Bouchet, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
+Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on a cluster, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
 
 ```bash
 docker compose up -d grobid              # start in background; persists across runs
@@ -311,7 +311,7 @@ corpus serve               # local MCP server against the freshly built bundle
 
 The work divides into two stages, best run on different hardware: Stage 1 is CPU-heavy and embarrassingly parallel; Stage 2 wants a GPU. Each unique PDF is identified by the first 12 hex chars of its SHA-256, and all artifacts live under `<output_dir>/documents/<HASH>/`. `corpus run` is always idempotent — re-runs only do work whose inputs have changed (per-stage state + content fingerprints from v0.2). `--force-rebuild` covers the rare clean-rebuild case.
 
-For large corpora on Bouchet, the SLURM chain (Stage 1 + embed + finalize) is one line:
+For large corpora on a SLURM cluster, the whole chain (Stage 1 + embed + finalize) is one line:
 
 ```bash
 NUM_BATCHES=8 bash slurm/batch_pipeline.sh
@@ -331,7 +331,7 @@ Multi-panel figure ROIs are detected by `figures.panel_detection` in `config.yam
 
 (Migrating from v0.5? The `vision:` block became `figures:`; `vision.backend` → `figures.panel_detection`, with `none → off` (or `ocr` for the new floor), `local → vision-local`, `claude → vision-claude`. `corpus run` fails loudly with this mapping if it sees a legacy `vision:` block.)
 
-On Bouchet, the SLURM chain (`slurm/batch_pipeline.sh`) runs Pass 3b on `gpu_h200` automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
+On a SLURM cluster, `slurm/batch_pipeline.sh` chains Pass 3b onto a GPU partition automatically.
 
 ## Adding and updating documents
 

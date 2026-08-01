@@ -27,11 +27,13 @@ ids below are therefore used only for **reporting**, and a repo we don't
 recognise is never an error.
 
 Operators who need a specific cache location set ``HF_HOME`` (or the
-narrower ``HF_HUB_CACHE``) before running — see INSTALL.md. On a cluster
-whose compute nodes have no outbound internet, run ``corpus prefetch``
-on a login node with ``HF_HOME`` pointed at shared storage, then run the
-pipeline with ``HF_HUB_OFFLINE=1`` so an accidental fetch fails loudly
-instead of hanging.
+narrower ``HF_HUB_CACHE``) before running — see INSTALL.md. If your
+cluster's compute nodes are network-restricted, run ``corpus prefetch``
+on a host that does have outbound access, with ``HF_HOME`` pointed at
+shared storage, then run the pipeline with ``HF_HUB_OFFLINE=1`` so an
+accidental fetch fails loudly instead of hanging. ``HF_HUB_OFFLINE=1`` is
+worth setting even on an unrestricted cluster: it pins the run to the
+snapshot you cached rather than whatever ``main`` points at today.
 """
 from __future__ import annotations
 

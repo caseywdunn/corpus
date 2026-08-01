@@ -6,7 +6,7 @@ The one-command conda install in the [README](README.md) covers most setups. The
 
 | Target | Status |
 | --- | --- |
-| **linux-x86_64** (HPC clusters, generic CPU/GPU servers, Bouchet) | Supported |
+| **linux-x86_64** (HPC clusters, generic CPU/GPU servers) | Supported |
 | **macOS arm64** (Apple Silicon) | Supported — see [Apple Silicon: arm64-native conda required](#apple-silicon-arm64-native-conda-required) below |
 | macOS x86_64 (Intel Mac, or Rosetta on Apple Silicon) | Not supported. Apple dropped Intel-mac PyTorch wheels after 2.2; `docling` and `transformers ≥ 5.0` both require torch ≥ 2.4. The chain is structurally broken. |
 | linux-aarch64 | Not currently supported. Most wheels exist, but `pymupdf` (among others) isn't on conda-forge linux-aarch64, so `environment.yaml` would need pip-side workarounds. Add as a third target if a real Graviton use case appears. |
@@ -94,16 +94,18 @@ Prepare where there is internet, run where there isn't:
 
 ```bash
 export HF_HOME=$PROJECT/huggingface   # shared storage, both places
-corpus prefetch                       # on a login node
+corpus prefetch                       # where there is outbound access
 
-export HF_HUB_OFFLINE=1               # in the batch job
+export HF_HUB_OFFLINE=1               # where there isn't
 corpus run
 ```
 
 `HF_HUB_OFFLINE=1` is the important half: without it a missing model
-stalls instead of failing. The taxonomy needs the same treatment —
-`source: worms` walks a REST API, so pre-build it where there is internet
-and switch the corpuscle to `source: dwca`
+stalls instead of failing. It is also worth setting on a connected host,
+where it pins the run to the snapshot you cached instead of whatever
+upstream `main` points at today. The taxonomy needs the same treatment —
+`source: worms` walks a REST API, so pre-build it once and switch the
+corpuscle to `source: dwca`
 ([#139](https://github.com/caseywdunn/corpus/issues/139)).
 
 ## Clusters with a small or non-writable home directory
@@ -160,7 +162,7 @@ brew install jbig2enc
 sudo apt-get install jbig2enc
 ```
 
-On Bouchet, `module avail pngquant jbig2enc` will tell you whether modules are available; if not, skip — `ocrmypdf` falls back gracefully.
+On an HPC cluster, check `module avail pngquant jbig2enc` first; if neither is available, skip them — `ocrmypdf` falls back gracefully.
 
 ## OCR language packs
 

@@ -93,7 +93,7 @@ dependencies:
                     # green on a cached env. Advance deliberately.
       - uvicorn==0.52.0  # pinned (#158). ASGI server for `corpus serve --transport sse`; declared explicitly so we don't rely on mcp's transitive pin.
       - sentence-transformers==5.5.0  # local embedding backend (Phase E); pulls torch + transformers. Pinned with the docling stack (#98) to keep the known-good set consistent.
-      - torch==2.12.0  # pinned (#98) for build reproducibility. Imported directly in pipeline/embeddings.py / pipeline/vision.py. On Bouchet this PyPI build is CUDA 13; reinstall from the cu128 index — see dev_docs/BOUCHET.md (issue #21).
+      - torch==2.12.0  # pinned (#98) for build reproducibility. Imported directly in pipeline/embeddings.py / pipeline/vision.py. This PyPI build is CUDA 13, which is what Bouchet's driver (580.x / CUDA 13.0) wants — no re-install from a cuXXX index is needed there (issue #21; see dev_docs/BOUCHET.md).
       - transformers==5.8.1  # pinned (#98). Imported directly in pipeline/vision.py for the local VLM backend.
       - anthropic==0.120.2  # pinned (#158). Claude API client for the vision figure-panel backend (pipeline/vision.py).
       - pytesseract==0.3.13  # pinned (#158). Python wrapper for Tesseract — used in Pass 3a figure-label OCR.

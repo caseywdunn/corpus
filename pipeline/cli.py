@@ -968,9 +968,9 @@ def _cmd_prefetch(args: argparse.Namespace) -> int:
         print()
         pstatus(str(e), status="fail")
         pstatus(
-            "if this host has no outbound internet, prefetch on a host "
-            "that does with HF_HOME pointed at shared storage, then run "
-            "the pipeline with HF_HUB_OFFLINE=1.",
+            "if this host is network-restricted, prefetch on a host that "
+            "has outbound access with HF_HOME pointed at shared storage, "
+            "then run the pipeline with HF_HUB_OFFLINE=1.",
             status="info",
         )
         return EXIT_PRECONDITION
@@ -1150,9 +1150,10 @@ def _cmd_check(args: argparse.Namespace) -> int:
         if cfg.taxonomy.source == "worms":
             # WoRMS reaches out to the network. On an internet-connected node
             # a first `corpus run` will build taxonomy.sqlite automatically.
-            # On HPC compute nodes (no outbound internet), the sqlite must be
-            # pre-built on a login node first — `corpus run --only extract`
-            # will fail loudly if it is absent.
+            # Pre-building it is still the right move before a large array
+            # job — one walk of the REST API instead of N — and it is
+            # mandatory if the compute nodes are network-restricted.
+            # `corpus run --only extract` fails loudly if it is absent.
             if db_path.exists():
                 pstatus(
                     f"Taxonomy: {db_path.name} present (WoRMS pre-built)",
@@ -1161,8 +1162,8 @@ def _cmd_check(args: argparse.Namespace) -> int:
             else:
                 pstatus(
                     "Taxonomy: taxonomy.sqlite not yet built — WoRMS will be "
-                    "fetched on first run (requires internet; pre-build on a "
-                    "login node before submitting HPC array jobs)",
+                    "fetched on first run (requires internet; pre-build it "
+                    "once before submitting HPC array jobs)",
                     status="warn",
                 )
         else:  # dwca / dwc
@@ -2029,11 +2030,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "mid-stage on a slow, throttled, or absent network. Retries "
             "with backoff, because HuggingFace 429s anonymous traffic.\n\n"
             "Set HF_HOME (or HF_HUB_CACHE) first to control where they "
-            "land — required on hosts with a small home directory. On a "
-            "cluster whose compute nodes have no outbound internet, run "
-            "this on a login node with HF_HOME on shared storage, then "
-            "run the pipeline with HF_HUB_OFFLINE=1 so an accidental "
-            "fetch fails loudly instead of hanging.\n\n"
+            "land — required on hosts with a small home directory. If "
+            "your cluster's compute nodes are network-restricted, run "
+            "this on a host that has outbound access with HF_HOME on "
+            "shared storage, then run the pipeline with "
+            "HF_HUB_OFFLINE=1 so an accidental fetch fails loudly "
+            "instead of hanging.\n\n"
             "`corpus check` reports which of these are already cached "
             "without downloading anything."
         ),

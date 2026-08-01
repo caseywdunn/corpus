@@ -24,19 +24,23 @@ REPO_DIR="${REPO_DIR:-$BOUCHET_PROJECT/corpus}"
 # Sample runs follow the same convention (siphonophore_sample_YYYYMMDD).
 CORPUS_CONFIG="${CORPUS_CONFIG:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260603/config.yaml}"
 
-# Legacy path vars — still consumed by the not-yet-ported helper scripts
-# (batch_grobid.sh, batch_biblio.sh) and by batch_pipeline.sh's banner.
-# Keep them in sync with the matching keys in $CORPUS_CONFIG.
+# Legacy path vars — still consumed by batch_grobid.sh and by
+# batch_pipeline.sh's banner. Keep them in sync with the matching keys in
+# $CORPUS_CONFIG.
 INPUT_DIR="${INPUT_DIR:-$BOUCHET_PROJECT/siphonophores/library}"
 OUTPUT_DIR="${OUTPUT_DIR:-$BOUCHET_PROJECT/corpuscles/siphonophore_20260603}"
 BIB_FILE="${BIB_FILE:-$BOUCHET_PROJECT/siphonophores/siphonophores.bib}"
 LEXICON="${LEXICON:-$BOUCHET_PROJECT/siphonophores/lexicon.yaml}"
 CACHE_DIR="${CACHE_DIR:-$BOUCHET_PROJECT/cache}"
 
-# HuggingFace cache (BGE-M3 + Qwen2.5-VL weights). Pre-download once on
-# a compute node — see BOUCHET.md.
+# HuggingFace cache (docling models + BGE-M3 + Qwen2.5-VL weights).
+# Warm it once with `corpus prefetch` before the first submission — from
+# the login node or anywhere else convenient. See BOUCHET.md.
+#
+# HF_HOME is the only cache var that matters. We deliberately do NOT set
+# TRANSFORMERS_CACHE: transformers 5.x ignores it, so setting it only
+# creates the illusion of a second knob.
 export HF_HOME="${HF_HOME:-$CACHE_DIR/huggingface}"
-export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/hub}"
 
 # Native libs for the conda env (#20). Bouchet compute nodes don't
 # always have $CONDA_PREFIX/lib on the runtime loader path; without

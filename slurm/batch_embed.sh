@@ -23,10 +23,9 @@
 set -euo pipefail
 
 # ── Paths ────────────────────────────────────────────────────────────
-# Pre-download BGE-M3 to $HF_HOME (set by bouchet_paths.sh) on a compute
-# node before submitting:
-#     python -c "from sentence_transformers import SentenceTransformer; \
-#         SentenceTransformer('BAAI/bge-m3')"
+# Pre-download BGE-M3 to $HF_HOME (set by bouchet_paths.sh) before
+# submitting:
+#     corpus prefetch
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 [ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh

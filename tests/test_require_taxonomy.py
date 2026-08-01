@@ -1,10 +1,10 @@
 """A configured-but-missing taxonomy must fail, not skip silently (#139).
 
-The reported failure: the first full production run on Bouchet put 1763
-papers through with empty `taxa.json` and an empty
-`taxon_mentions.sqlite`, because `taxonomy.source: worms` needs outbound
-internet that compute nodes don't have, and the per-paper stage merely
-logged a WARNING and carried on.
+The reported failure: the first full production run put 1763 papers
+through with empty `taxa.json` and an empty `taxon_mentions.sqlite`. The
+corpuscle configured `taxonomy.source: worms`, the snapshot had never
+been built, and the per-paper stage merely logged a WARNING and carried
+on instead of refusing to run.
 
 Two layers now guard it, and both matter:
 

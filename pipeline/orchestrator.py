@@ -271,10 +271,9 @@ def _check_taxonomy_available(
     Two failure modes:
 
     * ``ingest_taxonomy`` is *not* in the selected steps (e.g. ``--only
-      extract`` on an HPC compute node) but ``taxonomy.sqlite`` is absent
-      — the extract step will silently skip taxon annotation. Fail before
-      any work starts so the operator knows to pre-build the taxonomy on a
-      network-connected node first.
+      extract`` in a batch job) but ``taxonomy.sqlite`` is absent — the
+      extract step will silently skip taxon annotation. Fail before any
+      work starts so the operator knows to pre-build the taxonomy first.
 
     * Source is ``dwca`` or ``dwc`` and the local archive/directory path
       does not exist — ``ingest_taxonomy`` would fail immediately; surface
@@ -310,12 +309,13 @@ def _check_taxonomy_available(
         root_id = getattr(args, "taxonomy_root_id", None)
         root_flag = f" --root-id {root_id}" if root_id else " --root-id <aphia_id>"
         hint = (
-            "WoRMS requires internet access. HPC compute nodes are "
-            "network-restricted, so the taxonomy must be pre-built on a "
-            "login node (which allows small outbound API calls) before "
-            "submitting the array job. Options:\n"
+            "WoRMS requires internet access, and every task in an array "
+            "job would otherwise walk the REST API independently — so "
+            "pre-build the taxonomy once before submitting. It is also "
+            "mandatory if your compute nodes are network-restricted. "
+            "Options:\n"
             f"  1. Run `corpus taxonomy ingest --source worms{root_flag}` "
-            "on the login node.\n"
+            "once, up front.\n"
             "  2. Export a WoRMS subtree as a DwC-A snapshot, copy it to "
             "the project dir, and switch config to source: dwca."
         )
@@ -499,8 +499,8 @@ def main() -> int:
     selected = select_steps(args)
 
     # Fail early if taxonomy is configured but unavailable for the selected
-    # steps — avoids a silent "no taxon annotations" corpus on HPC where
-    # compute nodes lack internet and --only skips ingest_taxonomy.
+    # steps — avoids a silent "no taxon annotations" corpus on HPC, where
+    # --only skips ingest_taxonomy.
     taxonomy_err = _check_taxonomy_available(args, selected)
     if taxonomy_err:
         logger.error(taxonomy_err)

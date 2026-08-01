@@ -56,20 +56,59 @@ set in [slurm/bouchet_paths.sh](../slurm/bouchet_paths.sh)).
 module load miniconda
 conda env create -f "$BOUCHET_PROJECT/corpus/environment.yaml"
 conda activate corpus
+bash "$BOUCHET_PROJECT/corpus/tools/install_tessdata.sh"
 ```
 
-`environment.yaml` ships the Tesseract packs that back the default `ocr.ocr_languages_default` set in `config.yaml` (eng, deu, fra, rus, lat, spa, por, chi_sim, chi_tra, jpn, ell, kor, plus opt-in grc). The one exception is **19th-c. German Fraktur (`deu_latf`)**, which isn't on conda-forge — install it manually per [INSTALL.md](INSTALL.md#ocr-language-packs).
+**Don't skip `install_tessdata.sh`.** The conda-forge `tesseract` package ships
+**only English** LSTM data — no Tesseract language pack is installable from
+conda-forge (issue #52). The script downloads the default
+`ocr.ocr_languages_default` set (deu, fra, rus, lat, spa, por, chi_sim, chi_tra,
+jpn, ell, kor, grc, plus 19th-c. German Fraktur `deu_latf`) into
+`$CONDA_PREFIX/share/tessdata/`. It is idempotent, so re-running is safe. Skip it
+and every non-English paper silently OCRs as English — including the Fraktur
+scans the dry run below is meant to exercise. To add a language outside the
+default set, pass its code: `bash tools/install_tessdata.sh ara hin tha`. See
+[INSTALL.md](../INSTALL.md#ocr-language-packs).
 
-**GPU torch (issue #21).** PyPI's default `torch` resolves to a CUDA 13 build, but Bouchet's H200 driver caps at CUDA 12.8. Re-install torch from PyTorch's cu128 index after the conda env exists:
+Confirm before moving on:
 
 ```bash
-conda activate corpus
-pip install torch==2.9.0 torchvision==0.24.0 \
-    --index-url https://download.pytorch.org/whl/cu128 \
-    --force-reinstall
+ls "$CONDA_PREFIX/share/tessdata/deu_latf.traineddata"   # must exist
 ```
 
-Verify with `python -c "import torch; print(torch.__version__, torch.cuda.is_available())"` on a `gpu` or `gpu_h200` node — should print `2.9.0+cu128 True`. The Stage 1 batch script's preflight (`slurm/batch_process_corpus.sh`) aborts loudly if torch / docling can't import, so a botched install fails fast instead of producing mis-structured output.
+Once `config.yaml` exists (step 3), `corpus check` re-verifies this properly —
+it reports every configured pack, e.g. `all 13 configured packs installed`.
+
+**GPU torch (issue #21) — no extra step needed.** The conda env is complete as
+created: `environment.yaml` pins `torch==2.12.0`, PyPI ships that as a CUDA 13
+build, and Bouchet's GPU driver (580.159.04 / CUDA 13.0) runs it natively.
+
+**Do not `pip install` torch by hand here.** `torch==2.12.0` does not exist on
+PyTorch's `cu128` index (it stops at 2.11.0), so a cu128 re-install silently
+downgrades torch and breaks the #98 known-good pin. If a future driver rollback
+ever makes a CUDA 12 build necessary, 2.12.0 is available from the `cu126` and
+`cu130` indexes — use one of those and keep the pin.
+
+Verify on a **GPU node** (torch can't see a device from the login node):
+
+```bash
+srun -p gpu_devel --gpus=h200:1 -t 5 -c 2 --mem=8G \
+    python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+# → 2.12.0+cu130 True
+```
+
+Use `gpu_devel` for interactive GPU checks. `srun`/`salloc` against `gpu`,
+`gpu_h200`, `gpu_b200` or `gpu_rtx6000` fails with `Invalid qos specification`:
+those partitions' `AllowQos` is `normal,nothrottle` only. That is partition
+policy, not a broken allocation, and it doesn't affect `sbatch` — which is how
+every pipeline phase is submitted. `day`, `devel`, `gpu_devel` and `scavenge` do
+allow interactive jobs.
+
+The Stage 1 batch script's preflight (`slurm/batch_process_corpus.sh`) aborts
+loudly if torch / docling can't import, so a botched env fails fast instead of
+producing mis-structured output.
+
+*(Verified on the cluster 2026-08-01.)*
 
 ### 3. Author the corpuscle config.yaml
 
@@ -137,11 +176,10 @@ before submitting.
 
 ### 4. Pre-build the taxonomy
 
-**Do this before submitting any batch jobs.** Batch compute nodes on Bouchet
-do not have outbound internet access, so `source: worms` will silently fail
-during `corpus run --only extract` — taxon extraction is skipped and
-`taxonomy.sqlite` is never written. Build it on the login node (which does
-have internet) before the first pipeline submission:
+**Do this before submitting any batch jobs.** Not for connectivity reasons —
+login and batch nodes both reach WoRMS — but because you do not want ~2000
+extract tasks each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
+front:
 
 ```bash
 conda activate corpus
@@ -164,7 +202,8 @@ corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" \
 
 Then export it as a portable DwC-A zip and commit it to the siphonophores repo.
 This makes every future build ingest from the zip in seconds instead of
-re-walking the WoRMS REST API, and works on isolated compute nodes:
+re-walking the WoRMS REST API, and keeps the taxonomy reproducible and
+version-pinned rather than tracking a moving upstream:
 
 ```bash
 corpus -c "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" taxonomy export \
@@ -176,7 +215,7 @@ Update `config.yaml` (the corpuscle dir is two levels below `siphonophores/`):
 ```yaml
 taxonomy:
   source: dwca
-  path: ../../siphonophores/taxonomy.dwca.zip  # local; works on isolated compute nodes
+  path: ../../siphonophores/taxonomy.dwca.zip  # local; no network, version-pinned
   root_id: 1371
 ```
 
@@ -186,13 +225,14 @@ significantly, regenerate with `--source worms` and re-export.
 
 ### 4b. Pre-download HuggingFace models
 
-Do this once on an interactive compute node. Login nodes allow small outbound API calls (WoRMS REST, git, pip) but block large binary downloads — HuggingFace model fetches hit that limit and must run on a compute node:
+Do this once, before the first submission. Run it wherever is convenient — the
+login node is fine (it pulls from the HuggingFace CDN at ~100 MB/s), and so are
+batch nodes. Observe the usual courtesy: a multi-GB fetch on the shared login
+node is fine, a long CPU-bound job is not.
 
-```bash
-salloc -p devel -t 1:00:00 --mem=8G
-```
-
-Once on the node:
+Prefetching matters for two reasons: it keeps a 2000-paper run from stopping
+mid-stage on a HuggingFace 429, and it is what makes `HF_HUB_OFFLINE=1` usable
+as a reproducibility lever (see below).
 
 ```bash
 # Pre-download into the SAME cache the batch jobs read —
@@ -201,7 +241,6 @@ Once on the node:
 # resolve to $BOUCHET_PROJECT, the jobs won't find these weights and
 # re-download them (the "Stale HF_HOME" pitfall below).
 export HF_HOME="$BOUCHET_PROJECT/cache/huggingface"
-export TRANSFORMERS_CACHE="$HF_HOME/hub"
 
 # Everything the pipeline needs: docling's page-layout model and
 # TableFormer, plus BGE-M3 for embeddings (~4.8 GB total).
@@ -212,16 +251,14 @@ corpus prefetch
 corpus prefetch --include-vision
 ```
 
-`corpus prefetch` replaced a pair of hand-written `python -c` one-liners
-here. Two reasons that mattered: the old snippets warmed **only** BGE-M3
-and Qwen, leaving docling's two models to be fetched by the first
-extraction job — on a batch node, where that may not be possible — and
-they imported `sentence_transformers` / `transformers` directly, which
-skips `pipeline/__init__.py` and so needed a manual
-`export HF_HUB_DISABLE_IMPLICIT_TOKEN=1` (#97) to silence a warning. The
-command goes through the pipeline's own code paths, so it covers the
-right model set and picks that up for free. It also retries with backoff
-on HTTP 429.
+Use `corpus prefetch` rather than hand-written `python -c` loader snippets: it
+goes through the pipeline's own code paths, so it warms the full model set
+(including docling's page-layout model and TableFormer, which the loader
+one-liners missed) and picks up `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` (#97) without
+you exporting it. It also retries with backoff on HTTP 429.
+
+`HF_HOME` is the only cache variable that matters. `TRANSFORMERS_CACHE` is dead
+— `transformers` 5.x ignores it entirely — so don't set it.
 
 `corpus check` reports what is already cached **without touching the
 network**, so it is safe to run on a batch node to confirm the cache is
@@ -247,7 +284,7 @@ output.
 Check what's cached and which commit each model currently resolves to:
 
 ```bash
-huggingface-cli scan-cache                          # repos, REVISION (commit), refs, size, path
+hf cache ls                                          # repos, REVISION (commit), refs, size, path
 cat "$HF_HOME/hub/models--BAAI--bge-m3/refs/main"    # the commit `main` points at right now
 ```
 
@@ -289,9 +326,10 @@ sbatch slurm/batch_process_corpus.sh
 ```
 
 In practice you don't submit Grobid by hand — `slurm/batch_pipeline.sh`
-(see [Production run](#production-run)) starts it, discovers the node,
-waits for `/api/isalive`, exports `$GROBID_URL` into the extract job, and
-tears Grobid down afterward.
+(see [Production run](#production-run)) submits it as
+`slurm/batch_grobid.sh`, discovers the node, waits for `/api/isalive`,
+exports `$GROBID_URL` into the extract job, and tears Grobid down
+afterward.
 
 ## Dry run (20–50 papers) before the full corpus
 
@@ -438,7 +476,7 @@ corpus -c "$CORPUS_CONFIG" run --only bundle
 cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/bundle_manifest.json"
 ```
 
-`_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](../DEPLOY.md) §6.
+`_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](../DEPLOY.md) §5 (the host pulls it with `deploy/update.sh <version>`); §6 is the post-deploy smoke test.
 
 ## Acceptance testing a completed build
 
@@ -476,12 +514,34 @@ python "$BOUCHET_PROJECT/corpus/tools/smoke_test_sse.py" \
 
 Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltimes if the corpus grows beyond ~2000 papers.
 
+The per-user QoS caps that actually bind these submissions (`sacctmgr show qos`,
+2026-08-01):
+
+| Partition | Max wall | Per-user cap |
+|---|---|---|
+| `day` | 1 d | 1000 CPUs, 15 TiB mem |
+| `week` | 7 d | 96 CPUs, 1.5 TiB mem |
+| `devel` | 6 h | 4 CPUs, 60 GiB |
+| `gpu`, `gpu_h200` | 2 d | 16 GPUs |
+| `gpu_devel` | 6 h | 2 GPUs, 12 CPUs, 256 GiB |
+
+Both GPU phases sit well inside the 16-GPU cap even at
+`NUM_BATCHES=8 NUM_PASS3B_BATCHES=8`. The extract array is bounded by `day`'s
+1000-CPU cap, not by anything in the scripts.
+
+Note that the `gpu` partition is **heterogeneous** — it carries `a40` (48 GB),
+`l40s` (48 GB) and `rtx_5000_ada` (32 GB), so `batch_embed.sh`'s bare
+`--gpus=1` can land on any of the three. BGE-M3 fits comfortably on all of them.
+`gpu_devel` carries one node each of `h200`, `b200`,
+`rtx_pro_6000_blackwell` and `rtx_5000_ada`, which is why it is the right
+partition for interactive GPU checks.
+
 ## Common pitfalls
 
-- **Login nodes block large binary downloads.** Small outbound API calls (WoRMS REST, git, pip) work fine on the login node. HuggingFace model fetches (~2–15 GB) hit the outbound-size limit and must run on a compute node via `salloc`. Trying to pre-cache models from a login node will fail silently or with a firewall error.
+- **Missing Tesseract language packs.** The most likely way to get a subtly bad build. `conda env create` alone leaves you with **English-only** OCR; `bash tools/install_tessdata.sh` is a required setup step (see §2). Non-English papers don't error — they just OCR badly as English. Check with `ls $CONDA_PREFIX/share/tessdata/`.
 - **Stale `HF_HOME`.** If a job re-downloads a model, `HF_HOME` isn't being honored — check that the export in the SLURM script points to a path you actually populated.
 - **Grobid URL.** SLURM compute nodes can't talk to your laptop's `localhost:8070` — `$GROBID_URL` (which overrides the config's `grobid.url`) must resolve to a host visible from the job's node. If the Grobid node goes down mid-run, subsequent papers get placeholder metadata; a re-run's implicit resume won't retry them unless their inputs changed — force it with `corpus run --only extract --re-process-flagged <gate>` or by deleting the affected `metadata.json`.
 - **Config not found / wrong corpuscle.** Every phase script reads `$CORPUS_CONFIG`. If a job dies with "no config.yaml" or builds the wrong tree, confirm `$CORPUS_CONFIG` points at the intended `config.yaml` (default is the production corpuscle; a leftover `export CORPUS_CONFIG=…sample…` from a smoke test will silently redirect a production submit).
 - **LFS on extract.** If extract can't see the full PDFs (only LFS pointers), re-run `git lfs pull` in `$BOUCHET_PROJECT/siphonophores`.
-- **GPU partition trap for the vision phase.** `rtx_5000_ada` nodes on the `gpu` partition carry an older NVIDIA driver (`nvidia-smi` reports CUDA 12.8 but torch 2.9.0+cu128 rejects it as "too old") and silently fall back to CPU, where Qwen2.5-VL-7B is unusable. Always submit the vision phase to `gpu_h200 --gpus=h200:1`. A pre-flight `python -c "import torch; assert torch.cuda.is_available()"` in `slurm/batch_pass3b.sh` aborts the job early if this is ever regressed.
-- **lmod module cache flakiness.** `module load CUDA/12.6.0` occasionally errors with `CUDA/12.6.0.lua: Empty or non-existent file` even though `module spider CUDA` lists it. `slurm/batch_pass3b.sh` now skips the explicit CUDA module entirely — torch 2.9.0+cu128 ships bundled CUDA userspace libs in `site-packages/nvidia/` and works without it on gpu_h200. If another script hits this, retry with `module --ignore-cache load …`.
+- **Don't downgrade torch to "fix" a GPU problem.** The pinned `torch==2.12.0` works on every GPU type on the cluster — all of them run driver 580.159.04 / CUDA 13.0. Older cu128 builds cannot target the Blackwell cards (`b200` sm_100, `rtx_pro_6000_blackwell` sm_120) at all, so a well-meant downgrade silently costs you that hardware and breaks the #98 pin. `batch_pass3b.sh` targets `gpu_h200` for VRAM headroom and throughput on Qwen2.5-VL-7B, **not** because other cards fail; its preflight `torch.cuda.is_available()` guard stays as a cheap regression check.
+- **lmod module cache flakiness.** `module load CUDA/12.6.0` occasionally errors with `CUDA/12.6.0.lua: Empty or non-existent file` even though `module spider CUDA` lists it. `slurm/batch_pass3b.sh` skips the explicit CUDA module entirely — torch ships bundled CUDA userspace libs in `site-packages/nvidia/`, so no CUDA module is needed for the GPU phases at all. If another script hits this, retry with `module --ignore-cache load …`.

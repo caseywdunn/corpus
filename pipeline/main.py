@@ -205,9 +205,9 @@ def main():
         action="store_true",
         help="Fail instead of warning when the taxonomy snapshot is "
              "missing (#139). Passed automatically by `corpus run` when "
-             "the corpuscle configures taxonomy.source, so a "
-             "network-restricted compute node cannot quietly produce a "
-             "corpus with empty taxa.json for every paper.",
+             "the corpuscle configures taxonomy.source, so a batch job "
+             "cannot quietly produce a corpus with empty taxa.json for "
+             "every paper.",
     )
     parser.add_argument(
         "--figure-panels",
@@ -392,10 +392,10 @@ def main():
                 "configures taxonomy.source — refusing to run and silently "
                 "produce empty taxa.json for every paper.\n"
                 "  Build it first:  corpus taxonomy ingest --source <dwc|dwca|worms> ...\n"
-                "  WoRMS needs outbound internet, which HPC compute nodes "
-                "usually lack: build on a login node, or export a DwC-A "
-                "snapshot and switch config to `source: dwca` (see "
-                "INSTALL.md and dev_docs/BOUCHET.md).\n"
+                "  WoRMS needs outbound internet: build the snapshot once "
+                "up front, or export a DwC-A snapshot and switch config to "
+                "`source: dwca` — which is also faster and version-pinned "
+                "(see INSTALL.md and dev_docs/BOUCHET.md).\n"
                 "  Genuinely don't want taxon extraction? Pass --no-taxa.",
                 taxonomy_path,
             )
