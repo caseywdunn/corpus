@@ -202,32 +202,41 @@ Once on the node:
 # re-download them (the "Stale HF_HOME" pitfall below).
 export HF_HOME="$BOUCHET_PROJECT/cache/huggingface"
 export TRANSFORMERS_CACHE="$HF_HOME/hub"
-# Silence the implicit-token warning (#97). The batch jobs get this for
-# free (it's set in pipeline/__init__.py on import), but these python -c
-# one-liners import sentence_transformers/transformers directly and skip
-# that, so set it here too.
-export HF_HUB_DISABLE_IMPLICIT_TOKEN=1
 
-# BGE-M3 (embeddings) — ~2 GB
-python -c "from sentence_transformers import SentenceTransformer; \
-    SentenceTransformer('BAAI/bge-m3')"
+# Everything the pipeline needs: docling's page-layout model and
+# TableFormer, plus BGE-M3 for embeddings (~4.8 GB total).
+corpus prefetch
 
-# Qwen2.5-VL-7B (Pass 3b local backend) — ~15 GB
-python -c "from transformers import AutoProcessor, \
-    Qwen2_5_VLForConditionalGeneration; \
-    AutoProcessor.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct'); \
-    Qwen2_5_VLForConditionalGeneration.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct')"
+# Add the Qwen2.5-VL-7B local vision backend (~15 GB) only if you will
+# run Pass 3b with `--figure-panels vision-local`.
+corpus prefetch --include-vision
 ```
+
+`corpus prefetch` replaced a pair of hand-written `python -c` one-liners
+here. Two reasons that mattered: the old snippets warmed **only** BGE-M3
+and Qwen, leaving docling's two models to be fetched by the first
+extraction job — on a batch node, where that may not be possible — and
+they imported `sentence_transformers` / `transformers` directly, which
+skips `pipeline/__init__.py` and so needed a manual
+`export HF_HUB_DISABLE_IMPLICIT_TOKEN=1` (#97) to silence a warning. The
+command goes through the pipeline's own code paths, so it covers the
+right model set and picks that up for free. It also retries with backoff
+on HTTP 429.
+
+`corpus check` reports what is already cached **without touching the
+network**, so it is safe to run on a batch node to confirm the cache is
+visible from there.
 
 Batch jobs read the same `HF_HOME` (set by `slurm/bouchet_paths.sh` to
 `$BOUCHET_PROJECT/cache/huggingface`), so they pick up these weights
 without re-downloading.
 
-**Is the pre-download idempotent?** *Partly.* Re-running these commands is
-safe and a near-no-op when nothing changed upstream — `huggingface_hub`
-HEAD-checks each file's etag against the cache and fetches only what
-differs. But `from_pretrained(...)` / `SentenceTransformer(...)` resolve
-the model's **`main` revision**, not a pinned commit, so the download is
+**Is the pre-download idempotent?** *Partly.* Re-running `corpus prefetch`
+is safe and a near-no-op when nothing changed upstream — it reports what is
+already cached and skips it, and `huggingface_hub` HEAD-checks each file's
+etag against the cache and fetches only what differs. But the loaders it
+calls resolve the model's **`main` revision**, not a pinned commit, so the
+download is
 **not version-locked**: if `BAAI/bge-m3` or the Qwen repo publishes a new
 revision upstream, the next run pulls it into a new cache snapshot. That
 can change behavior — a changed bge-m3 silently makes fresh query vectors
@@ -242,11 +251,13 @@ huggingface-cli scan-cache                          # repos, REVISION (commit), 
 cat "$HF_HOME/hub/models--BAAI--bge-m3/refs/main"    # the commit `main` points at right now
 ```
 
-For a reproducible build, **pin a commit** — pass `revision="<sha>"` to
-`SentenceTransformer(..., revision=...)` / `from_pretrained(...,
-revision=...)` and record it — and/or set `HF_HUB_OFFLINE=1` in the batch
-environment so a job can never reach out and pull a newer revision: it
-uses exactly the snapshot cached here or fails loudly.
+For a reproducible build, set `HF_HUB_OFFLINE=1` in the batch environment
+so a job can never reach out and pull a newer revision: it uses exactly the
+snapshot cached here, or fails loudly. That is the lever that actually
+holds, and it needs no code change. (Pinning a `revision="<sha>"` per
+loader would be stricter still, but `corpus` does not currently thread a
+revision through to the model loads — worth an issue if a build ever needs
+to be reproducible against a moving upstream.)
 
 ### 5. Grobid as a Singularity service
 
