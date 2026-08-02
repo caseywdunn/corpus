@@ -424,6 +424,54 @@ scan detection's blackletter blindness, the OCR language probe's page gate, the
 path. Any heuristic tuned on Latin prose needs an explicit decision about what it does on a
 corpus that is deliberately multi-script.
 
+## T1/T2 integration tier — run for the first time, with a control
+
+The `corpus_required` tier had never been run on this branch (T0 deselects it). Run against a
+freshly rebuilt demo it gave 5 failures. A control — demo rebuilt at the branch point
+`7a20d80`, my changes absent — gave 5 failures too, but not the same 5:
+
+| test | branch point | this branch |
+|---|---|---|
+| `test_title_appears_in_text[af043530e5dd]` (Marrus) | FAIL | FAIL |
+| `test_title_appears_in_text[dde93d15a5e8]` (Stepanjants) | FAIL | FAIL |
+| `test_first_author_surname_in_text[dde93d15a5e8]` | FAIL | FAIL |
+| `test_references_match_corpus_papers[dde93d15a5e8]` | FAIL | FAIL |
+| `test_references_match_corpus_papers[4fe914163f59]` (Pugh) | **FAIL** | **passes** |
+| `test_title_appears_in_text[ef8482d9cb44]` (Schneider) | passes | **FAIL** |
+
+Four pre-existing; **one fixed, one introduced**. Both of the movers are informative.
+
+**The introduced failure is the OCR change working correctly on a mis-classified document.**
+`demo/Schneider1891.pdf` has a full-page image on *every* page plus embedded fonts — a scan
+carrying a text layer, not born-digital. The README describes it as "born-digital with a clean
+text layer" and builds its explanation of what the default demo run exercises on that claim.
+The claim is wrong, and the "clean" layer is mediocre third-party OCR:
+
+```
+control (trusted text layer)      branch (corpus re-OCR)
+Prof. J. Victor (Jarus       ->   Prof. J. Victor Carus        ✓
+Verlag von "rilhclm Engelmann ->  Verlag von Wilhelm Engelmann ✓
+No. 353-:180.                ->   No. 353- 380.                ✓
+1091.                        ->   1591.            (both wrong)
+5,696 chars                  ->   6,009 chars
+```
+corpus's own OCR recovers the author, publisher and issue numbers. It also introduces a few
+noise lines (`eee`, `AE`, `IO`) from decorative rules, and still misreads the year. Net
+improvement.
+
+`test_title_appears_in_text` fails anyway, because it exact-substring-matches a BibTeX title
+against docling's extracted text. **Any** re-OCR breaks it regardless of whether quality rose
+or fell — it tests string identity, not correctness. The same brittleness explains two of the
+four pre-existing failures: Marrus fails on a single space before a comma
+(`marrus claudanielis, a` vs `marrus claudanielis , a`), with the title plainly present.
+
+**Recommended, not done here** (test-design changes deserve your call): normalize whitespace and
+punctuation before comparison, or score similarity rather than requiring a substring. As
+written the test will fail intermittently on any docling upgrade.
+
+**Also fix the README's demo description** — Schneider 1891 is a scan, so the sentence claiming
+a default demo run does not exercise OCR on it is no longer true.
+
 ## P3 corrections — two findings withdrawn after measurement
 
 **A3 (reconciliation) is not broken.** The claim that bibliographic resolution was "effectively
