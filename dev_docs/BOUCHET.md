@@ -98,7 +98,7 @@ conda-forge (issue #52). The script downloads the default
 jpn, ell, kor, grc, plus 19th-c. German Fraktur `deu_latf`) into
 `$CONDA_PREFIX/share/tessdata/`. It is idempotent, so re-running is safe. Skip it
 and every non-English paper silently OCRs as English — including the Fraktur
-scans the dry run below is meant to exercise. To add a language outside the
+scans the smoke test below is meant to exercise. To add a language outside the
 default set, pass its code: `bash tools/install_tessdata.sh ara hin tha`. See
 [INSTALL.md](../INSTALL.md#ocr-language-packs).
 
@@ -434,12 +434,19 @@ produces. The dry run still exits 0.
 *(Steps 1–7 verified end-to-end on the cluster 2026-08-01, against
 `corpuscles/siphonophore_20260731`.)*
 
-## Dry run (20–50 papers) before the full corpus
+## Smoke test (20–50 papers) before the full corpus
 
 Before committing to the full 1769-paper run, smoke-test end-to-end on a small
-sample. Under the config-driven flow (#138) a sample is just a second
-corpuscle — its own directory + `config.yaml` pointing at a slice of PDFs —
-selected by exporting `CORPUS_CONFIG`:
+sample. Unlike step 7's `corpus run --dry-run`, this is a real build: it submits
+real CPU and GPU jobs and writes real artifacts, which is the point — you
+inspect them below. It is also a different exercise from
+[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md), which checks that the *install* works
+across platforms against the 11-paper demo corpus; this checks that *your*
+production `config.yaml` and *your* PDFs survive the whole chain at small scale.
+
+Under the config-driven flow (#138) a sample is just a second corpuscle — its
+own directory + `config.yaml` pointing at a slice of PDFs — selected by
+exporting `CORPUS_CONFIG`:
 
 ```bash
 # 1. A handful of PDFs spanning born-digital modern + historical scans +
