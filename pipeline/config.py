@@ -168,7 +168,15 @@ _DEFAULT_CONFIG = {
     # request timeout). Stages without a hard-cap mechanism still record
     # timing in summary.json; the value is informational.
     "stage_timeouts": {
-        "ocr": 1800,         # 30 min — long monographs can run scary long
+        # Floor for one document's ocrmypdf call. The effective cap is
+        # max(ocr, ocr_per_page * pages * pack_factor) — see
+        # scan._ocr_timeout_for. A flat value cannot span this corpus:
+        # measured throughput runs 1.3 s/page with one language pack and
+        # 20 s/page with seven, so the 1,549-page delle Chiaje 1830-31
+        # needs anywhere from 34 min to ~8.6 h while a 3-page paper
+        # should still fail fast if it hangs.
+        "ocr": 1800,         # floor, not the whole budget
+        "ocr_per_page": 30,  # generous vs 20 s/page worst observed
         "grobid": 300,       # 5 min — enforced by GrobidClient default
         "docling": 600,      # 10 min — informational only (in-process)
         "vision_pass": 600,  # 10 min — informational only

@@ -1425,6 +1425,47 @@ _OCR_WARNING_PATTERNS = (
 )
 
 
+def _ocr_timeout_for(pdf_path: Path, n_langs: int = 1) -> float:
+    """Wall-clock cap for one document's ocrmypdf call, scaled by size.
+
+    A flat cap cannot fit this corpus. Measured on a 12-core box with the
+    v1.0 re-OCR path, throughput varies ~15x with how many Tesseract
+    language packs are loaded, not just page count:
+
+        Totton 1965a    314 pages, `eng` alone       1.3 s/page
+        Linnaeus 1735    13 pages, 7-pack union     20.0 s/page
+
+    Extrapolated to the largest document in the full siphonophore
+    library (delle Chiaje 1830-31, 1,549 pages) that is 34 minutes at
+    best and ~8.6 hours at worst — against a former flat default of 30
+    minutes, which the *best* case already exceeded. A cluster array task
+    with fewer cores than a workstation makes it worse.
+
+    Raising the flat number instead would mean a genuinely stuck 3-page
+    document also burns hours before failing, which is the thing a
+    timeout exists to prevent. So: a floor for small documents plus a
+    per-page allowance that scales with the real cost driver. On timeout
+    the stage fails outright — ocrmypdf is killed mid-write — so the
+    budget is deliberately generous, and on a cluster the SLURM walltime
+    is the real backstop anyway.
+    """
+    cfg = CONFIG.get("stage_timeouts", {})
+    base = float(cfg.get("ocr", 1800))
+    # 30 s/page is already the *worst* measured rate (7-pack union at
+    # 20 s/page, plus margin), so it is not scaled again by pack count —
+    # doing that double-counts and produced a 51-hour budget for a
+    # 1,549-page monograph. n_langs is accepted for logging and future
+    # tuning, not applied.
+    per_page = float(cfg.get("ocr_per_page", 30))
+    try:
+        import fitz
+        with fitz.open(pdf_path) as doc:
+            n_pages = len(doc)
+    except Exception:
+        return base
+    return max(base, per_page * n_pages)
+
+
 def _log_ocr_warnings(stderr: Optional[str], name: str) -> None:
     """Surface the ocrmypdf warnings that indicate lost or suspect text.
 
@@ -1537,11 +1578,12 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
     optimize_level = str(optimize_level)
 
     logger.info(
-        "Running OCR on %s | file_type=%s mode=%s langs=%s",
+        "Running OCR on %s | file_type=%s mode=%s langs=%s timeout=%.0fs",
         input_pdf.name,
         detection_result.get("file_type"),
         mode_flag,
         lang_arg,
+        _ocr_timeout_for(input_pdf, len(langs)),
     )
     # Per-page OCR timeout. ocrmypdf's default is far too tight for what
     # this pipeline asks of Tesseract: on a dense 300-dpi historical scan
@@ -1565,7 +1607,7 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         str(output_pdf),
     ]
 
-    ocr_timeout = float(CONFIG.get("stage_timeouts", {}).get("ocr", 1800))
+    ocr_timeout = _ocr_timeout_for(input_pdf, len(langs))
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=ocr_timeout,

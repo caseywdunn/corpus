@@ -200,7 +200,15 @@ chunking:
   max_tokens: 8191
 
 stage_timeouts:
+  # OCR's cap is max(ocr, ocr_per_page * pages * pack_factor), not the
+  # flat `ocr` value — one document's runtime spans two orders of
+  # magnitude here. Measured: 1.3 s/page with a single language pack,
+  # 20 s/page with a seven-pack union. `ocr` is the floor that keeps a
+  # small hung document failing fast; `ocr_per_page` is what lets a
+  # 1,500-page monograph finish. On timeout the stage fails outright,
+  # so both are deliberately generous.
   ocr: 1800
+  ocr_per_page: 30
   grobid: 300
   docling: 600
   vision_pass: 600
