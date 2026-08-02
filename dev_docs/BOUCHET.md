@@ -1,7 +1,17 @@
 # Running the corpus pipeline on Bouchet (YCRC)
 
-Operational notes for running the full siphonophore corpus on Bouchet (1769 PDFs as
-of 2026-08-01; the acceptance run is scoped at 1800). See [OVERVIEW.md](OVERVIEW.md) for pipeline architecture and `dunnlab-hpc` skill for Dunn-lab-wide YCRC conventions.
+Operational notes for running the full siphonophore corpus on Bouchet (~2,000 PDFs).
+The library grows as papers are added, so treat every corpus-size figure here as
+approximate. For the current count, run `corpus check` (it reports `input_pdfs`
+with a total) or count directly — note the library is nested in letter
+subdirectories, so this needs `find`, not `ls`:
+
+```bash
+find "$BOUCHET_PROJECT/siphonophores/library" -iname '*.pdf' | wc -l
+```
+
+See [OVERVIEW.md](OVERVIEW.md) for pipeline architecture and
+`dunnlab-hpc` skill for Dunn-lab-wide YCRC conventions.
 
 ## One-time setup
 
@@ -22,7 +32,7 @@ git clone git@github.com:dunnlab/siphonophores.git
 module load git-lfs
 cd siphonophores
 git lfs install --local                   # wires LFS hooks into .git/config
-git lfs pull                              # ~1800 PDFs, several GB
+git lfs pull                              # ~2,000 PDFs, several GB
 ```
 
 Resulting layout (all under `$BOUCHET_PROJECT`):
@@ -208,8 +218,8 @@ precedence over the symlink.
 ### 4. Pre-build the taxonomy
 
 **Do this before submitting any batch jobs.** Not for connectivity reasons —
-login and batch nodes both reach WoRMS — but because you do not want ~1800
-extract tasks each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
+login and batch nodes both reach WoRMS — but because you do not want one extract
+task per paper each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
 front:
 
 ```bash
@@ -261,7 +271,7 @@ login node is fine (it pulls from the HuggingFace CDN at ~100 MB/s), and so are
 batch nodes. Observe the usual courtesy: a multi-GB fetch on the shared login
 node is fine, a long CPU-bound job is not.
 
-Prefetching matters for two reasons: it keeps an 1800-paper run from stopping
+Prefetching matters for two reasons: it keeps a full-corpus run from stopping
 mid-stage on a HuggingFace 429, and it is what makes `HF_HUB_OFFLINE=1` usable
 as a reproducibility lever (see below).
 
@@ -436,7 +446,7 @@ produces. The dry run still exits 0.
 
 ## Smoke test (20–50 papers) before the full corpus
 
-Before committing to the full 1769-paper run, smoke-test end-to-end on a small
+Before committing to the full-corpus run, smoke-test end-to-end on a small
 sample. Unlike step 7's `corpus run --dry-run`, this is a real build: it submits
 real CPU and GPU jobs and writes real artifacts, which is the point — you
 inspect them below. It is also a different exercise from
@@ -505,9 +515,10 @@ is the long pole only when many figures need vision-LLM ROI detection.
 cd "$BOUCHET_PROJECT/corpus"
 
 # Full pipeline with parallel Stage 1 batches of 256 PDFs each.
-# Adjust NUM_BATCHES = ceil(total_unique_pdfs / 256) — 7 for the current
-# 1769-PDF library.
-NUM_BATCHES=7 bash slurm/batch_pipeline.sh
+# NUM_BATCHES = ceil(unique PDFs / 256). Recompute it as the library grows —
+# 8 covers ~2,000 papers, and over-provisioning is harmless (empty tasks exit
+# immediately), whereas under-provisioning silently leaves papers unprocessed.
+NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 
 # Custom Stage 1 batch size:
 NUM_BATCHES=4 BATCH_SIZE=512 bash slurm/batch_pipeline.sh
@@ -517,7 +528,7 @@ NUM_BATCHES=4 BATCH_SIZE=512 bash slurm/batch_pipeline.sh
 # so every paper is covered (default is now $NUM_BATCHES when unset).
 # gpu_h200 partition has limited slots, so check `sinfo -p gpu_h200`
 # before fanning out aggressively.
-NUM_BATCHES=7 NUM_PASS3B_BATCHES=7 bash slurm/batch_pipeline.sh
+NUM_BATCHES=8 NUM_PASS3B_BATCHES=8 bash slurm/batch_pipeline.sh
 ```
 
 The orchestrator:
@@ -629,7 +640,7 @@ python "$BOUCHET_PROJECT/corpus/tools/smoke_test_sse.py" \
 | `embed` (BGE-M3) | `slurm/batch_embed.sh` | `gpu` | 1 | 4 h |
 | `post` + `bundle` (cross-paper DBs + served bundle) | `slurm/batch_finalize.sh` | `day` | no | 12 h |
 
-Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltimes if the corpus grows well beyond its current ~1800 papers.
+Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltimes as the corpus grows.
 
 The per-user QoS caps that actually bind these submissions (`sacctmgr show qos`,
 2026-08-01):

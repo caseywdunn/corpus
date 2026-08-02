@@ -26,6 +26,20 @@ When authoring documentation for a new corpus or cluster, add analogues to
 `BOUCHET.md` / `ACCEPTANCE_PROMPTS.md` in your own runbook file — don't modify the
 general docs to embed group-specific details.
 
+### The siphonophore library's size is dynamic — don't hard-code it
+
+The reference siphonophore library grows as papers are added; any exact count
+written into docs or code is wrong by the next `git lfs pull`. Say **`~2,000
+papers`**, "the current corpus", or "as the corpus grows" instead of a precise
+figure, and phrase anything derived from the size — walltimes, batch counts,
+disk sizing — as a rule that scales rather than a number measured once.
+
+This applies to the corpus size only. Genuinely fixed counts stay exact: the
+11-paper demo corpus, the MCP tool count, the 256-PDF `BATCH_SIZE`. Note
+`NUM_BATCHES` is *not* fixed — it is `ceil(unique PDFs / 256)`, so give the
+formula alongside any literal. `CHANGELOG.md` is exempt too: it records what
+was true at a release, so leave historical figures alone.
+
 ### Keep Yale specifics out of the public docs
 
 `README.md` and `INSTALL.md` are read by people who have never heard of Yale and
