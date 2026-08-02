@@ -187,6 +187,14 @@ ocr:
     - ell
     - kor
   gibberish_threshold: 0.65
+  # Per-page OCR timeout passed to ocrmypdf (--tesseract-timeout).
+  # ocrmypdf's own default is far too tight for dense historical scans
+  # with several language packs loaded, and when it fires the page is
+  # copied into the output *blank* while ocrmypdf still exits 0 — the
+  # loss is completely silent. Observed: Linnaeus 1735 lost 4 of 13
+  # pages (56,631 chars -> 15,292) between two identical runs, purely on
+  # machine load.
+  tesseract_page_timeout: 900
 
 chunking:
   max_tokens: 8191

@@ -60,7 +60,23 @@ def chunk_text(
 
             dl_doc = DoclingDocument.load_from_json(docling_doc_file)
             chunker = HybridChunker()
-            for i, c in enumerate(chunker.chunk(dl_doc=dl_doc)):
+            # HybridChunker deliberately over-feeds its tokenizer while
+            # measuring where to split, so transformers prints
+            # "Token indices sequence length is longer than the specified
+            # maximum sequence length for this model (9926 > 512).
+            # Running this sequence through the model will result in
+            # indexing errors" — straight to the console, with no
+            # timestamp or module prefix, unlike every other line in
+            # run.log. It is harmless and expected, and it reads like a
+            # crash. Quiet it for the duration of the chunk walk only.
+            _tok_log = logging.getLogger("transformers.tokenization_utils_base")
+            _prev_level = _tok_log.level
+            _tok_log.setLevel(logging.ERROR)
+            try:
+                chunk_iter = list(chunker.chunk(dl_doc=dl_doc))
+            finally:
+                _tok_log.setLevel(_prev_level)
+            for i, c in enumerate(chunk_iter):
                 headings = list(getattr(c.meta, "headings", []) or [])
                 captions = list(getattr(c.meta, "captions", []) or [])
                 chunks.append(

@@ -1394,13 +1394,24 @@ def _check_python_arch() -> Tuple[str, Optional[str]]:
 
 
 def _detect_accelerator() -> Optional[str]:
-    """Return 'cuda', 'mps', or None. Uses torch if importable; otherwise None."""
+    """Return 'cuda', 'mps', or None. Uses torch if importable; otherwise None.
+
+    ``torch.cuda.is_available()`` emits a ``UserWarning`` straight to
+    stderr when the driver and the CUDA runtime disagree — two lines of
+    torch internals ahead of any corpus output, on *every* invocation
+    including ``--help``. The condition is real but we already report it
+    properly ("[warn] GPU: none (CPU-only …)"); the raw warning adds
+    nothing and makes a working install look broken.
+    """
     try:
-        import torch
-        if torch.cuda.is_available():
-            return "cuda"
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return "mps"
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            import torch
+            if torch.cuda.is_available():
+                return "cuda"
+            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                return "mps"
     except Exception:
         pass
     return None

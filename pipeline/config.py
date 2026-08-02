@@ -111,6 +111,9 @@ _DEFAULT_CONFIG = {
         # threshold. Must stay in sync with config_schema.OcrConfig
         # default + the bundled config.template.yaml.
         "gibberish_threshold": 0.65,
+        # Per-page --tesseract-timeout for ocrmypdf. A timeout blanks the
+        # page and still exits 0, so this is deliberately generous.
+        "tesseract_page_timeout": 900,
         # Re-OCR scanned pages that already carry a text layer of unknown
         # provenance. The gibberish/visual-script paths above only judge
         # what the text layer *says*; they cannot tell a typeset page

@@ -774,6 +774,12 @@ def _compose_ocr_langs(
 
 
 
+try:  # Pillow's stock decompression-bomb ceiling, captured before we raise it.
+    from PIL import Image as _PILImage
+    _PIL_DEFAULT_MAX_PIXELS = _PILImage.MAX_IMAGE_PIXELS
+except Exception:  # pragma: no cover - Pillow is a hard dependency
+    _PIL_DEFAULT_MAX_PIXELS = 178_956_970
+
 _MAX_VIZ_PAGES = 200
 _MAX_VIZ_WIDTH = 1600  # px — downscale wider renders to limit memory
 
@@ -797,6 +803,17 @@ def create_cell_visualizations(
         from docling_core.types.doc.page import TextCellUnit
         from docling_parse.pdf_parser import DoclingPdfParser, PdfDocument
         from PIL import Image, ImageDraw
+
+        # Pillow's decompression-bomb guard trips on high-resolution
+        # scan pages ("Decoded image exceeds size limit of 178956970
+        # pixels"), which killed QC visualizations on 4 papers once
+        # re-OCR started rendering scans we previously passed through.
+        # The guard exists to stop a hostile *upload* exhausting memory;
+        # here the image is one we just rendered from the operator's own
+        # PDF, so the threat model doesn't apply. Raised rather than
+        # disabled (None would remove the ceiling entirely), and scoped
+        # to this function.
+        Image.MAX_IMAGE_PIXELS = max(_PIL_DEFAULT_MAX_PIXELS or 0, 512_000_000)
 
         logger.info("Creating cell visualizations...")
 
@@ -881,6 +898,14 @@ def create_cell_visualizations(
         logger.warning("Could not create visualizations — missing dependencies: %s", e)
     except Exception as e:
         logger.warning("Could not create visualizations: %s", e)
+    finally:
+        # Restore Pillow's global guard whatever happened above — it is
+        # process-wide state and later stages should keep the default.
+        try:
+            from PIL import Image as _Image
+            _Image.MAX_IMAGE_PIXELS = _PIL_DEFAULT_MAX_PIXELS
+        except Exception:
+            pass
 
 
 
@@ -1362,6 +1387,58 @@ def detect_scan_type(pdf_path: Path) -> Dict:
     })
 
 
+# ocrmypdf reports per-page trouble on stderr and still exits 0. These
+# are the messages that mean text was silently dropped or is suspect.
+_OCR_WARNING_PATTERNS = (
+    ("took too long to OCR", "page(s) hit the per-page OCR timeout and were "
+                             "left blank — raise ocr.tesseract_page_timeout"),
+    ("Suppressing OCR output", "page(s) had OCR text suppressed for improbable "
+                               "aspect ratio"),
+    ("possibly poor OCR", "page(s) flagged by Tesseract as poor quality"),
+    ("Line cannot be recognized", "line(s) could not be recognized"),
+)
+
+
+def _log_ocr_warnings(stderr: Optional[str], name: str) -> None:
+    """Surface the ocrmypdf warnings that indicate lost or suspect text.
+
+    These arrive on a *successful* exit, and the previous code only
+    logged stderr when ocrmypdf failed — so "took too long to OCR -
+    skipping" was discarded on every run it mattered.
+    """
+    if not stderr:
+        return
+    for needle, explanation in _OCR_WARNING_PATTERNS:
+        n = stderr.count(needle)
+        if n:
+            level = logger.warning if "timeout" in explanation else logger.info
+            level("[%s] ocrmypdf: %d %s", name, n, explanation)
+
+
+def _warn_on_empty_ocr_pages(output_pdf: Path, name: str) -> None:
+    """Warn when OCR produced no text at all on some pages.
+
+    The end-state check, independent of whatever ocrmypdf said: a page
+    that came out of OCR with zero characters is either genuinely blank,
+    a plate, or a page we lost. Worth a line in the log either way,
+    because the alternative is discovering it in the embeddings.
+    """
+    try:
+        import fitz
+        with fitz.open(output_pdf) as doc:
+            empty = [i + 1 for i, pg in enumerate(doc) if not pg.get_text("text").strip()]
+            total = len(doc)
+    except Exception:
+        return
+    if empty and total:
+        logger.warning(
+            "[%s] %d/%d page(s) have no text after OCR (pages %s). Blank pages "
+            "and plates are expected; a run of them is not.",
+            name, len(empty), total,
+            ", ".join(str(p) for p in empty[:12]) + ("…" if len(empty) > 12 else ""),
+        )
+
+
 def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
     """Run OCR if the detection result calls for it, else copy straight through.
 
@@ -1440,10 +1517,21 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         mode_flag,
         lang_arg,
     )
+    # Per-page OCR timeout. ocrmypdf's default is far too tight for what
+    # this pipeline asks of Tesseract: on a dense 300-dpi historical scan
+    # with several language packs loaded, a single page legitimately runs
+    # for minutes. When the timeout fires ocrmypdf "copies the
+    # preprocessed page into the final output" — a blank page — and still
+    # exits 0, so the loss is invisible. Observed on Linnaeus 1735:
+    # identical command, two runs, and pages 3/4/9/10 went from thousands
+    # of characters to zero (56,631 chars → 15,292) purely on machine
+    # load, with `OCR completed successfully` logged both times.
+    page_timeout = str(int(CONFIG.get("ocr", {}).get("tesseract_page_timeout", 900)))
     cmd = [
         "ocrmypdf",
         mode_flag,
         "-l", lang_arg,
+        "--tesseract-timeout", page_timeout,
         "--optimize", optimize_level,
         "--color-conversion-strategy", "RGB",
         "--output-type", "pdf",
@@ -1500,3 +1588,5 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         logger.info(
             "OCR completed successfully (mode=%s langs=%s)", mode_flag, lang_arg
         )
+        _log_ocr_warnings(result.stderr, input_pdf.name)
+        _warn_on_empty_ocr_pages(output_pdf, input_pdf.name)

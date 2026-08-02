@@ -177,6 +177,9 @@ class OcrConfig(BaseModel):
         ]
     )
     gibberish_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
+    # Per-page --tesseract-timeout. Generous on purpose: a timeout here
+    # silently blanks the page. See pipeline/scan.py prepare_pdf.
+    tesseract_page_timeout: int = Field(default=900, gt=0)
     # Re-OCR pages that are raster scans even when they already carry a
     # text layer of unknown provenance. See pipeline/scan.py
     # `_scanned_page_fraction`.
