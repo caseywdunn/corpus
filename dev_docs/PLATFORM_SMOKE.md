@@ -89,6 +89,7 @@ conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh
+bash tools/install_ocr_extras.sh
 
 docker compose up -d grobid                # linux/amd64 image, Rosetta
 # Startup is slower under Rosetta than native, so wait rather than probe once.

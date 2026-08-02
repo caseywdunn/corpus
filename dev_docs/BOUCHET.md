@@ -98,12 +98,16 @@ CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.ya
 module load miniconda
 conda env create -f "$BOUCHET_PROJECT/corpus/environment.yaml"
 conda activate corpus
+pip install -e "$BOUCHET_PROJECT/corpus"
 bash "$BOUCHET_PROJECT/corpus/tools/install_tessdata.sh"
+bash "$BOUCHET_PROJECT/corpus/tools/install_ocr_extras.sh"
 ```
 
-**Don't skip `install_tessdata.sh`.** The conda-forge `tesseract` package ships
-**only English** LSTM data — no Tesseract language pack is installable from
-conda-forge (issue #52). The script downloads the default
+**Don't skip `install_tessdata.sh`.** The conda-forge `tesseract` package bundles
+~158 packs of its own, so a fresh env *looks* fully equipped — but they are
+low-accuracy [`tessdata_fast`](https://github.com/tesseract-ocr/tessdata_fast)
+builds (`rus` 3.9 MB against 15.3 MB for `tessdata_best`), and no `tessdata_best`
+pack is installable from conda-forge (issue #52). The script downloads the default
 `ocr.ocr_languages_default` set (deu, fra, rus, lat, spa, por, chi_sim, chi_tra,
 jpn, ell, kor, grc, plus 19th-c. German Fraktur `deu_latf`) into
 `$CONDA_PREFIX/share/tessdata/`. It is idempotent, so re-running is safe. Skip it
@@ -111,6 +115,15 @@ and every non-English paper silently OCRs as English — including the Fraktur
 scans the smoke test below is meant to exercise. To add a language outside the
 default set, pass its code: `bash tools/install_tessdata.sh ara hin tha`. See
 [INSTALL.md](../INSTALL.md#ocr-language-packs).
+
+**`install_ocr_extras.sh` matters more here than on a laptop.** It installs
+`pngquant` from conda-forge into the env — no root needed, but run it on a login
+node since `conda install` wants outbound network. Without it ocrmypdf drops from
+`--optimize 2` to `--optimize 1`, and since v1.0 re-OCRs every scan rather than
+trusting its text layer, that is a large disk difference across a full library: a
+45-page Russian scan came out 90 MB instead of 35 MB. `jbig2enc` has no conda
+package anywhere and needs root, so check `module avail jbig2enc` and skip it
+otherwise — it only affects bitonal images.
 
 Confirm before moving on:
 

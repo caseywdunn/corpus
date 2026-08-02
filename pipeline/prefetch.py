@@ -1,9 +1,10 @@
 """Model prefetch + cache inspection (#159).
 
 A first ``corpus run`` on a fresh install has to reach HuggingFace for
-three models before it can do any work: docling's page-layout model,
-docling's TableFormer (``do_table_structure=True``), and the embedding
-model (BGE-M3 by default). Until this module existed there was no way to
+four models before it can do any work: docling's page-layout model,
+docling's TableFormer (``do_table_structure=True``), docling's
+``HybridChunker`` tokenizer, and the embedding model (BGE-M3 by
+default). Until this module existed there was no way to
 fetch them ahead of time, no way to ask whether they were already
 cached, and no documentation of where they land — so an offline or
 rate-limited host discovered the problem deep inside the extract or

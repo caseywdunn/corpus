@@ -66,11 +66,18 @@ python -c "import platform; print(platform.machine())"
 
 ## Model downloads and where they land
 
-Three models are fetched from HuggingFace the first time you run the
+Four models are fetched from HuggingFace the first time you run the
 pipeline, not at install time: docling's page-layout model (~165 MB),
-docling's TableFormer (~340 MB), and [BGE-M3](https://huggingface.co/BAAI/bge-m3)
-(~4.3 GB) for embeddings. A fourth, the ~16 GB Qwen2.5-VL local vision
-model, is fetched only for `--figure-panels vision-local`.
+docling's TableFormer (~340 MB), docling's `HybridChunker` tokenizer
+(`sentence-transformers/all-MiniLM-L6-v2`, ~730 KB), and
+[BGE-M3](https://huggingface.co/BAAI/bge-m3) (~4.3 GB) for embeddings.
+A fifth, the ~16 GB Qwen2.5-VL local vision model, is fetched only for
+`--figure-panels vision-local`.
+
+The chunker tokenizer is tiny and easy to overlook, but it is not
+optional: without it `HybridChunker` fails and chunking silently falls
+back to a naive character window — a two-page paper came out as 1 chunk
+instead of 16.
 
 ```bash
 corpus prefetch                    # get them now, not mid-run
@@ -125,6 +132,7 @@ export TMPDIR=$SCRATCH/tmp
 conda env create -f environment.yaml && conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh
+bash tools/install_ocr_extras.sh
 corpus prefetch
 ```
 

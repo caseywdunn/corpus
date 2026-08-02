@@ -99,10 +99,13 @@ corpus --help
 
 
 # =============================================================================
-# 2. Tesseract language packs (needed for OCR on older scans).
+# 2. Tesseract language packs (needed for OCR on older scans) + ocrmypdf's
+#    image-compression helpers (pngquant; without it OCR'd PDFs are much
+#    larger).
 # =============================================================================
 
 bash "$CORPUS_REPO/tools/install_tessdata.sh"
+bash "$CORPUS_REPO/tools/install_ocr_extras.sh"
 
 
 # =============================================================================
