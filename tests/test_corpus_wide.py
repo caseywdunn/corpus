@@ -31,6 +31,115 @@ import pytest
 
 pytestmark = pytest.mark.corpus_required
 
+
+# ---------------------------------------------------------------------------
+# Comparing metadata against extracted text
+# ---------------------------------------------------------------------------
+
+
+def _norm(s: str) -> str:
+    """Collapse whitespace and drop space-before-punctuation for comparison.
+
+    Metadata strings come from BibTeX or Grobid; body text comes from
+    docling over a PDF (increasingly, over OCR). The two agree on words
+    and disagree on spacing constantly, so comparing them literally
+    tests typography rather than correctness:
+
+    * ``Marrus claudanielis, a new species`` (bib) vs
+      ``MARRUS CLAUDANIELIS , A NEW SPECIES`` (extracted) — one space
+      before a comma.
+    * ``Einige histologische Befunde an Coelenteraten`` vs
+      ``Einige  histologische  Befunde  an  Coelenteraten.`` — doubled
+      spaces from OCR.
+
+    Both titles are plainly present. Normalizing here keeps these tests
+    pointed at "is the metadata plausible for this text", which is what
+    they are for, and stops them failing on any docling upgrade or
+    re-OCR that shifts tokenization (#167).
+    """
+    s = re.sub(r"\s+", " ", (s or "").lower())
+    s = re.sub(r"\s+([,;:.\)\]])", r"\1", s)
+    return s.strip()
+
+
+# Unicode ranges that tell us which writing system a string is in. Only
+# what this corpus actually contains.
+_SCRIPT_RANGES = (
+    ("cyrillic", 0x0400, 0x052F),
+    ("greek", 0x0370, 0x03FF),
+    ("cjk", 0x3040, 0x9FFF),
+)
+
+
+def _script_shares(s: str) -> dict:
+    """Fraction of alphabetic characters in each writing system."""
+    counts = {"latin": 0}
+    for ch in s or "":
+        if not ch.isalpha():
+            continue
+        cp = ord(ch)
+        for name, lo, hi in _SCRIPT_RANGES:
+            if lo <= cp <= hi:
+                counts[name] = counts.get(name, 0) + 1
+                break
+        else:
+            if cp < 0x0250 or 0x1E00 <= cp <= 0x1EFF:
+                counts["latin"] += 1
+    total = sum(counts.values())
+    if not total:
+        return {}
+    return {k: v / total for k, v in counts.items() if v}
+
+
+def _dominant_script(s: str) -> str:
+    """``'latin'``, ``'cyrillic'``, ``'greek'``, ``'cjk'`` or ``'none'``."""
+    shares = _script_shares(s)
+    return max(shares, key=shares.get) if shares else "none"
+
+
+# A body with at least this share of non-Latin characters is a
+# foreign-script paper for our purposes, whatever the raw majority says.
+_NONLATIN_SUBSTANTIAL = 0.20
+
+
+def _nonlatin_summary(s: str) -> str:
+    """e.g. ``'42% cyrillic'`` — the non-Latin content, for skip messages."""
+    shares = {k: v for k, v in _script_shares(s).items() if k != "latin"}
+    if not shares:
+        return "0% non-Latin"
+    return ", ".join(
+        f"{v:.0%} {k}" for k, v in sorted(shares.items(), key=lambda kv: -kv[1])
+    )
+
+
+def _substantially_nonlatin(s: str) -> bool:
+    """True when enough of ``s`` is non-Latin to call it foreign-script."""
+    shares = _script_shares(s)
+    return sum(v for k, v in shares.items() if k != "latin") >= _NONLATIN_SUBSTANTIAL
+
+
+def _transliteration_likely(meta_value: str, body: str) -> bool:
+    """True when Latin metadata is describing non-Latin-script content.
+
+    Bibliographic metadata for foreign-language papers is conventionally
+    Latin — a translated title, a transliterated surname — while the body
+    stays in the original. Stepanjants 1970 is recorded as "Siphonophora
+    of the southern part of the Kurile-Kamchatka Trench…" and its text
+    begins "СИФОНОФОРЫ РАЙОНА…"; the author is ``Stepanjants`` in the bib
+    and ``Степаньянц`` on the page. Neither is wrong, and no amount of
+    extraction work will make one contain the other.
+
+    Deliberately a *share* test rather than "which script wins". Russian
+    taxonomic papers are dense with Latin binomials and journal titles —
+    Stepanjants 1970 is 21,084 Latin characters against 15,075 Cyrillic,
+    so a majority test calls it a Latin document and the Cyrillic body
+    text goes unnoticed. 42% Cyrillic is plainly a Russian paper.
+    """
+    if _dominant_script(meta_value) != "latin":
+        return False
+    return _substantially_nonlatin(body)
+
+
 # ---------------------------------------------------------------------------
 # Discovery and loading
 # ---------------------------------------------------------------------------
@@ -438,6 +547,23 @@ class TestCitationGraph:
         if len(refs) < 3:
             pytest.skip("too few references to check")
 
+        # The corpus index is keyed on Latin-script surnames. A paper whose
+        # reference list is in another script cannot match it however well
+        # parsing worked — Stepanjants 1970 cites "С Степаньянц" and
+        # "Н Bigelow" in Cyrillic. Matching those would require
+        # transliteration, which neither this test nor the pipeline does.
+        ref_authors = " ".join(
+            (r.get("authors") or [""])[0] if isinstance((r.get("authors") or [""])[0], str)
+            else ""
+            for r in refs
+        )
+        if ref_authors.strip() and _substantially_nonlatin(ref_authors):
+            pytest.skip(
+                f"reference authors are {_nonlatin_summary(ref_authors)}; the "
+                "corpus index is keyed on Latin surnames, so a match is not "
+                "possible without transliteration"
+            )
+
         index = _build_corpus_index()
         matches = 0
         for ref in refs:
@@ -584,7 +710,13 @@ class TestMetadataPlausibility:
         if not surname or len(surname) < 2:
             pytest.skip("first author surname too short or empty")
         body = text_data.get("text", "")
-        assert surname.lower() in body.lower(), (
+        if _transliteration_likely(surname, body):
+            pytest.skip(
+                f"surname {surname!r} is Latin but the body is "
+                f"{_nonlatin_summary(body)}; the metadata is a "
+                "transliteration, nothing to compare"
+            )
+        assert _norm(surname) in _norm(body), (
             f"{doc_hash}: first author surname '{surname}' not found in text"
         )
 
@@ -597,14 +729,19 @@ class TestMetadataPlausibility:
         if not title or len(title) < 10:
             pytest.skip("title too short to check")
         body = text_data.get("text", "")
+        if _transliteration_likely(title, body):
+            pytest.skip(
+                f"title is Latin but the body is {_nonlatin_summary(body)}; "
+                "the recorded title is a translation, nothing to compare"
+            )
         # Try full title first, then first 40 chars (titles can get truncated)
-        title_lower = title.lower()
-        body_lower = body.lower()
-        if title_lower in body_lower:
+        title_norm = _norm(title)
+        body_norm = _norm(body)
+        if title_norm in body_norm:
             return  # pass
         # Try a substantial prefix
-        prefix = title_lower[:min(40, len(title_lower))]
-        assert prefix in body_lower, (
+        prefix = title_norm[:min(40, len(title_norm))]
+        assert prefix in body_norm, (
             f"{doc_hash}: title not found in text. "
             f"Title: '{title[:60]}...'"
         )
