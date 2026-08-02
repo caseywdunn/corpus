@@ -119,6 +119,58 @@ licensing:
 
 ocr:
   optimize_level: 2
+
+  # Re-OCR scanned pages even when they already carry a text layer.
+  # Third-party OCR layers vary wildly in quality, and a bad one is
+  # invisible downstream — it reads as clean text all the way into the
+  # embeddings. A page is judged "scanned" by how much of it is raster
+  # image, which is independent of what the text layer claims.
+  # Set false to trust existing text layers (faster, and appropriate if
+  # your PDFs come from a source whose OCR you vouch for).
+  reocr_scanned_text_layers: true
+  # Fraction of sampled pages that must be a full-page image before the
+  # document counts as a scan. On the 32-paper reference corpus every
+  # scan scored 0.50–1.00 and every born-digital paper exactly 0.00, so
+  # 0.40 sits in a wide empty gap.
+  scan_page_fraction_min: 0.40
+  # Before OCRing a scan, OCR a 3-page sample to find out what language
+  # it is actually in. The existing text layer can't answer that — it is
+  # the thing we decided not to trust — and Tesseract's script detection
+  # can't tell one Latin language from another. Without this probe such
+  # documents OCR with every installed pack at once, which is the least
+  # accurate setting Tesseract has. Costs ~3 pages of OCR per scan.
+  probe_language_by_ocr: true
+  # Minimum langdetect confidence before the probe's answer is used.
+  # langdetect has no Latin profile, so Latin text can only come back as
+  # a low-confidence Romance language — Linnaeus 1735 reads as Catalan at
+  # 0.71, where every correct detection scores ~1.00. Below the floor the
+  # document OCRs with the script's pack union, which includes `lat`.
+  probe_language_min_confidence: 0.85
+  # How many languages the probe may report for one document. Bilingual
+  # originals-plus-translations are common in historical taxonomic
+  # literature (a Russian paper with an English typescript from p. 8, a
+  # French one with Pugh's translation stapled in), and both halves
+  # should be OCR'd under the right model. Beyond ~3 a detection is more
+  # likely noise than a genuinely polyglot volume.
+  probe_max_languages: 3
+  # A probe page whose OCR output scores above this much gibberish is
+  # discarded rather than voted with: it means the page was OCR'd with
+  # the wrong script's packs (Tesseract's script detection is not
+  # infallible), and langdetect will confidently name a language for the
+  # resulting garbage. Real pages in the reference corpus score
+  # 0.12-0.39; a Cyrillic table transcribed with Latin packs scored 0.61.
+  probe_max_gibberish: 0.50
+  # Pages to OCR when probing. Sampled from the middle 15-85% of the
+  # document: the front is covers, title pages and plates, the tail is
+  # references — a multilingual pile of proper nouns and the worst
+  # possible input to language detection.
+  probe_sample_pages: 5
+  # Render DPI for probe pages. 300, not 200: dropping to 200 to save
+  # time measurably degraded detection — Kawamura 1911a lost its
+  # Japanese entirely, Linnaeus 1735 went from correctly finding nothing
+  # to a confident wrong `ca`, and Bernstein 1934 gained a spurious
+  # `bg`. Language ID needs the OCR to be good enough to be a language.
+  probe_dpi: 300
   # Tesseract traineddata codes used when language detection fails.
   ocr_languages_default:
     - eng

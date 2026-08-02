@@ -102,6 +102,37 @@ _DEFAULT_CONFIG = {
         # threshold. Must stay in sync with config_schema.OcrConfig
         # default + the bundled config.template.yaml.
         "gibberish_threshold": 0.65,
+        # Re-OCR scanned pages that already carry a text layer of unknown
+        # provenance. The gibberish/visual-script paths above only judge
+        # what the text layer *says*; they cannot tell a typeset page
+        # from a scan someone else OCR'd badly, which is most of a
+        # historical corpus. `scan_page_fraction_min` is the fraction of
+        # sampled pages that must be a single full-page image before the
+        # document is treated as a scan — see scan._scanned_page_fraction.
+        # Must stay in sync with config_schema.OcrConfig + the bundled
+        # config.template.yaml.
+        "reocr_scanned_text_layers": True,
+        "scan_page_fraction_min": 0.40,
+        # Identify a scan's language by OCRing a small sample, rather
+        # than trusting a layer we've already rejected or falling back to
+        # every installed pack at once. See scan._probe_language_by_ocr.
+        "probe_language_by_ocr": True,
+        # langdetect has no Latin profile, so Latin reads as a
+        # low-confidence Romance language; below this floor we OCR with
+        # the script union (which has `lat`) rather than a wrong pack.
+        "probe_language_min_confidence": 0.85,
+        # Bilingual original-plus-translation volumes are routine here,
+        # so the probe may report more than one language per document.
+        "probe_max_languages": 3,
+        # Probe pages whose OCR output is this gibberish were read with
+        # the wrong script's packs; discard their language vote.
+        "probe_max_gibberish": 0.50,
+        # 300, not 200 — see config.template.yaml. Lowering it broke
+        # language detection on the hardest documents.
+        "probe_dpi": 300,
+        # Sampled from the middle 15-85% of pages — front matter and
+        # references are both poor language-detection input.
+        "probe_sample_pages": 5,
     },
     "chunking": {
         "max_tokens": 8191,

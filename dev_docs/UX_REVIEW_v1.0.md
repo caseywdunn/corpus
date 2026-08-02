@@ -24,8 +24,14 @@ promise. Those are P1 below.
 
 ## P1 — silent quality loss reported as success
 
-### 1.1 OCR is skipped on 29 of 32 papers, including all four Fraktur ones
+### 1.1 OCR is skipped on 29 of 32 papers, including all four Fraktur ones — **FIXED**
 The headline multilingual-OCR capability never runs on the material it exists for.
+
+> **Resolution (2026-08-02).** CWD confirmed the intent: OCR everything that is not digitally
+> native, even if it has been OCR'd before, because third-party OCR quality is highly variable.
+> That was not happening and could not have been — `detect_scan_type` only ever inspected the
+> *content* of the text layer, so `born_digital` meant "reads plausibly", not "produced
+> digitally". See §1.1a below for what shipped.
 
 `scan_detection.json` across the corpuscle: **29/32 `born_digital` / `clean_text_layer` /
 `needs_ocr: false`**; 3 `scanned` (the genuinely image-only PDFs); 1 `broken_text_layer`.
@@ -77,6 +83,120 @@ papers are invisible to taxon-, lexicon- and topic-driven queries while `corpus 
   plus a per-paper override. There is currently none in README, INSTALL.md or the template.
 - Add a quality gate that fires when a pre-1950 document takes the `clean_text_layer` path, so
   this at least appears in `corpus status`.
+
+### 1.1a What shipped for 1.1
+**Detection.** New `_scanned_page_fraction` asks whether pages carry a single image covering
+≥50% of the page — the "is this a scan?" question, independent of the text layer. Above
+`ocr.scan_page_fraction_min` (0.40) the document is `scanned` / `raster_page_images` and gets
+re-OCR'd. On the reference corpus the two populations are perfectly separated: every scan
+scored 0.50–1.00, every born-digital paper exactly 0.00. **29 of 32 papers now OCR, up from 4.**
+
+Page-count fraction, not mean image area: mean area puts a two-page scan with one plate page at
+0.50, too close to a digital paper carrying large figures. It samples *across* the document,
+not the first N pages — Kawamura 1911a is a born-digital English typescript for pages 0–7 and a
+full-page Japanese scan from page 12, and front-only sampling reported 0% raster and skipped
+OCR on 13 pages of Japanese.
+
+**Mode.** `--force-ocr` for uniformly-scanned documents; `--redo-ocr` for mixed ones
+(scanned fraction 0.40–0.95), which replaces OCR text while leaving genuine digital text alone
+so a bound-in typescript isn't rasterized to fix a scanned half. Falls back to `--force-ocr` if
+ocrmypdf refuses. Never `--skip-text` — that would preserve the layer we just rejected.
+
+**Language.** A language read off a rejected text layer inherits its unreliability (Olfers 1824,
+German Fraktur, was detected as Catalan and routed to the `cat` pack). So the language now comes
+from OCRing a 5-page sample:
+- Sampled from the middle 15–85% — the front is covers/plates/boilerplate, the tail is
+  references, which are a multilingual pile of proper nouns and the worst possible detection
+  input. A naive 75% sample lands in the bibliography of a 314-page monograph.
+- **Per page, then unioned.** Bilingual volumes are routine here and one verdict per document
+  is simply wrong for them. Verified: Kawamura 1911a → `jpn+eng`, Carré 1969 → `eng+fra`,
+  Margulis 1976a → `eng+rus`, Gasca & Suárez 1993 → `eng+spa`.
+- Tesseract OSD picks each page's script first, then that page is OCR'd with only that script's
+  packs. Probing every page with the full 13-pack union cost ~85 s/document for the same answer.
+- Pages under 200 characters are skipped; a plate or blank verso shouldn't outvote a body page.
+
+**Two empirical results worth not re-litigating:**
+- **Probe DPI must stay 300.** At 200, Kawamura lost its Japanese entirely, Linnaeus 1735 went
+  from correctly finding nothing to a confident wrong `ca`, and Bernstein 1934 gained a spurious
+  `bg`. The probe is the slowest part of detection and therefore the obvious thing to optimize;
+  don't optimize it this way.
+- **langdetect ships no Latin profile** — `la` is not among its 55 languages, so Latin can only
+  be mis-identified, as a low-confidence Romance language. `probe_language_min_confidence`
+  (0.85) routes those to the script-narrowed union, which does include `lat`. That is a safety
+  net, not a fix; identifying Latin properly needs a different detector. Relevant because Latin
+  diagnoses and pre-Linnaean works are core taxonomic material.
+
+**Discarding wrong-pack output.** Tesseract OSD is not infallible: on Bernstein 1934 it read a
+Cyrillic table as Latin, Tesseract transcribed it with Latin packs
+(`Ta6auna 4 ... Bron. | NeNe cranguk`), and langdetect called that Catalan at p=0.86 — so
+confidence cannot catch this. Gibberish score can: 0.61 for that page against 0.12–0.39 for the
+document's genuine Russian and German pages. Pages above `ocr.probe_max_gibberish` (0.50) are
+discarded. **The gate applies only to Latin-dominant page text** — `_gibberish_score` counts
+≤2-character tokens as suspicious, which is right for Latin-1 mojibake and wrong for CJK, and
+gating CJK on it threw away Kawamura's Japanese a second time.
+
+**A correction to the dataset's own documentation:** Bernstein 1934 is authentically bilingual
+Russian *and* German (page 18: `Auf Grund der Verteilung dieser Form in der Barents-See kam
+Linko zu der Schlussfolgerung...`), a substantial German section of the kind normal for pre-war
+Soviet zoology. `siphonophores_smoke/readme.md` describes it as Russian only.
+
+**Smoke set extended** to 35 papers at CWD's suggestion, with bib records and readme updated:
+`Kawamura1911a` (digital English front / Japanese scan back — the mixed-volume case),
+`Carre1969_Nanomia_tr` (French front / English back), `Hosiaetal2024` (*Nanomia bijuga* figures).
+
+### 1.1b Rebuild results (2026-08-02)
+Full rebuild of the 35-paper smoke corpus with OCR enabled: **exit 0, 35 papers / 3,323 chunks
+/ 420 figures**, every stage 100%, 31 documents OCR'd (was 4).
+
+Olfers 1824, the same passage, before and after:
+```
+before:  !Oir llt/ne €lHbfl1rr. … S!3Dn ber @r6h eintt1 't.atlbencvd.
+after:   …sehr deutlich und zum Theil abweichend von den früheren Untersuchungen.
+         Ueber den sogenannten Giftsporn des männlichen…
+```
+Keferstein & Ehlers 1860 now OCRs its own title correctly (`Auszug aus den Beobachtungen über
+die Siphonophoren von Neapel und Messina angestellt im Winter 185…`, matching the bib record).
+Kawamura 1911a's Japanese half reads under `jpn+eng`. Eschscholtz 1825 went from 3 extracted
+taxa to 6.
+
+**`zero_references_unexpected` rose 8 → 12, and that is correct, not a regression.** It looked
+like force-OCR had destroyed Grobid's reference parse, so I ran Grobid against the original and
+the OCR'd PDF for each newly-flagged paper. The references only the *original* layer produced
+were fabricated out of mojibake:
+
+| paper | refs from original | refs from OCR'd | what the original's "references" were |
+|---|---|---|---|
+| De Haan 1827 | 23 | 0 | surnames `Den Nam Wui I .`, `Jdt`, `Ta`, `On` |
+| Keferstein & Ehlers 1860 | 12 | 0 | title `mac!}:: ~aber ber. (f5'd)roimmfacf gebilbet ifl…` |
+| Chun 1882c | 3 | 0 | — |
+| Vanhöffen 1906 | 0 | 0 | no change |
+| Beklemishev 1969 | 0 | 0 | no change |
+
+Grobid was hallucinating reference structure from corrupt text and parsing taxonomic names
+(`Apolemia Uvaria`, `Abyla pentagona`) as reference titles. Emitting zero is the honest result.
+This is also likely relevant to A3 (reconciliation matching nothing): the authority DB was being
+fed these.
+
+**One real regression, found and fixed: `_gibberish_score` is Latin-centric.** Yamamori 2014
+OCR'd correctly under `jpn` and was still flagged `gibberish_after_ocr` at 0.55, because the
+"token of ≤2 characters is suspicious" rule is meaningless for CJK. A document-level
+Latin-dominance test did *not* fix it — that paper is 88% Latin by character (English abstract,
+references, taxonomic names) with Japanese body text. Fixed at the root: `_gibberish_score` now
+excludes CJK tokens from both numerator and denominator. Yamamori drops to 0.45; the plate-only
+Quoy & Gaimard 1834 still correctly flags at 0.58.
+
+**This assumption has now bitten three times in one session** — the OCR language probe's
+gibberish gate, the `gibberish_after_ocr` quality gate, and the original scan-detection
+threshold that could not see blackletter corruption. Worth treating as systemic: any heuristic
+tuned on Latin prose should be audited before it is applied to a corpus that is deliberately
+multi-script. A residual instance: Chen et al. 2015 (Chinese) scores 0.75 even with CJK tokens
+excluded, because the non-CJK remainder is mostly short fragments and numerals. It is harmless
+today only because that paper is born-digital and the gate is gated on `needs_ocr`.
+
+**Still open from 1.1:** the `visual_script` field remains unpopulated on the non-raster paths,
+and there is still no quality gate that fires when a pre-1950 document is trusted as
+`clean_text_layer`. Both are now much less load-bearing, since the raster check catches the
+population they were meant to catch.
 
 ### 1.2 `corpus prefetch` missed a model, and the miss degraded chunking silently — **FIXED**
 `corpus prefetch` managed three models and asserted *"every required model is already cached;

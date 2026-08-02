@@ -177,6 +177,20 @@ class OcrConfig(BaseModel):
         ]
     )
     gibberish_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
+    # Re-OCR pages that are raster scans even when they already carry a
+    # text layer of unknown provenance. See pipeline/scan.py
+    # `_scanned_page_fraction`.
+    reocr_scanned_text_layers: bool = True
+    scan_page_fraction_min: float = Field(default=0.40, ge=0.0, le=1.0)
+    # OCR a small sample to identify the language before the full pass,
+    # instead of guessing from an untrusted text layer. See
+    # pipeline/scan.py `_probe_language_by_ocr`.
+    probe_language_by_ocr: bool = True
+    probe_language_min_confidence: float = Field(default=0.85, ge=0.0, le=1.0)
+    probe_max_languages: int = Field(default=3, ge=1, le=10)
+    probe_max_gibberish: float = Field(default=0.50, ge=0.0, le=1.0)
+    probe_dpi: int = Field(default=300, ge=72, le=600)
+    probe_sample_pages: int = Field(default=5, ge=1, le=25)
 
 
 class ChunkingConfig(BaseModel):

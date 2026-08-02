@@ -365,6 +365,7 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     except ImportError:
         from process_corpus import _gibberish_score  # type: ignore
 
+
     cfg = CONFIG.get("quality_gates", {})
     flags: List[Dict[str, Any]] = []
 
@@ -407,6 +408,9 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     # is still gibberish (silent-failure mode)
     max_gibberish = float(cfg.get("max_gibberish_score", 0.5))
     if needs_ocr and body:
+        # _gibberish_score itself now excludes CJK tokens, whose short
+        # runs are ordinary words rather than corruption — see its
+        # docstring for the Yamamori 2014 case.
         score = _gibberish_score(body[:50000])  # cap sample for speed
         if score > max_gibberish:
             flags.append({
