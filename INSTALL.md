@@ -179,7 +179,9 @@ brew install jbig2enc
 sudo apt-get install jbig2enc
 ```
 
-On an HPC cluster, check `module avail pngquant jbig2enc` first; if neither is available, skip them — `ocrmypdf` falls back gracefully.
+**On an HPC cluster without root**, `bash tools/install_ocr_extras.sh` still gets you `pngquant`: it installs from conda-forge into the active env, which your account owns. Run it on a login node — `conda install` needs outbound network, which compute nodes frequently lack.
+
+`jbig2enc` is the one you may have to skip. It has no conda package on any platform, and `apt` / `brew` both need root. It is also the smaller win — bitonal images only, while `pngquant` covers the colour and greyscale scans that dominate historical literature. Check `module avail jbig2enc`; if it isn't there, skipping it is a reasonable default rather than a compromise, and `ocrmypdf` falls back gracefully.
 
 ## OCR language packs
 
