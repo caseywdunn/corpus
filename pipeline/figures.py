@@ -118,6 +118,44 @@ _CAPTION_BODY_PREFIX_RE = re.compile(
 # followed by whitespace or end-of-string.
 _PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-Z])\.(?=\s|$)")
 
+# A person's initial looks exactly like a period-style panel label. In a
+# taxonomic corpus both are everywhere: "(A. Agassiz)" is a species
+# authority, "Photo credit to C. Munro" is a credit line, and the naive
+# pattern turned both into panels — 17 bogus records in a 32-paper
+# corpus, including {'label': 'C', 'description': 'Munro'}. These are the
+# contexts where an initial is unambiguous.
+_INITIAL_SURNAME_RE = re.compile(r"^\s+[A-Z][a-zÀ-ÿ]+")
+_CREDIT_CONTEXT_RE = re.compile(
+    r"(credit|courtesy|photo(graph)?s?\s+by|drawn\s+by|after|from|©|copyright)"
+    r"[^.]{0,16}$",
+    re.IGNORECASE,
+)
+_AUTHORITY_TAIL_RE = re.compile(r"^\s+[A-Z][a-zÀ-ÿ]+\s*(?:\)|,\s*\d{4})")
+
+
+def _is_person_initial(body: str, start: int, end: int) -> bool:
+    """True when a ``X.`` match is someone's initial, not a panel label.
+
+    Requires a capitalised word to follow — an initial is always part of
+    a name — plus one of: a credit phrase just before it, an opening
+    parenthesis immediately before it (the ``(A. Agassiz)`` authority
+    form), or a closing paren / four-digit year just after the surname.
+    A caption that genuinely opens a panel with a capitalised word
+    ("A. *Nanomia bijuga* colony, scale bar 1 cm") matches none of
+    those and is left alone.
+    """
+    after = body[end:]
+    if not _INITIAL_SURNAME_RE.match(after):
+        return False
+    before = body[:start]
+    if _CREDIT_CONTEXT_RE.search(before):
+        return True
+    if re.search(r"\(\s*$", before):
+        return True
+    if _AUTHORITY_TAIL_RE.match(after):
+        return True
+    return False
+
 # Parenthesized panel label — tolerates Siebert-style "( A )" with internal
 # whitespace. Must not be adjacent to letters (so "(NaCl)" doesn't match).
 _PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-Z])\s*\)(?![A-Za-z])")
@@ -176,6 +214,8 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
 
     for m in _PANEL_PERIOD_RE.finditer(body):
         if _in_range_span(m.start()):
+            continue
+        if _is_person_initial(body, m.start(), m.end()):
             continue
         markers.append((m.start(), m.end(), m.group(1), "period"))
 

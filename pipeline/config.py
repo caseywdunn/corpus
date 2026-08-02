@@ -32,11 +32,20 @@ logger = logging.getLogger(__name__)
 _SECTION_PATTERNS = [
     ("abstract", r"\babstract\b|\bsummary\b|\bzusammenfassung\b|\br[ée]sum[ée]\b|резюме|сводка"),
     ("introduction", r"\bintroduction\b|\bвведение\b|\beinleitung\b"),
-    ("methods", r"materials?\s+and\s+methods|\bmethods?\b|\bmethodology\b|study\s+area|материалы\s+и\s+методы|m[ée]thodes"),
-    ("results", r"\bresults?\b|\bр[еé]зультаты\b|\bergebnisse\b|\br[ée]sultats\b"),
-    ("description", r"\bdescription\b|\bsystematics?\b|\btaxonomy\b|\bsystematic\s+account\b|\bdiagnosis\b|описание"),
-    ("discussion", r"\bdiscussion\b|обсуждение|\bdiskussion\b"),
+    # Before `methods`: a heading like "CONCLUSIONS ON THE METHODS OF
+    # DEVELOPMENT" names its conclusions and only mentions methods, and
+    # first-match-wins was labelling it `methods`.
     ("conclusion", r"\bconclusions?\b|выводы|\bschlussfolgerung"),
+    # Russian headings in this literature run to "МАТЕРИАЛ И МЕТОДИКА
+    # СБОРА И ОБРАБОТКИ" — singular материал, методика rather than
+    # методы — which the stricter phrase missed.
+    ("methods", r"materials?\s+and\s+methods|\bmethods?\b|\bmethodology\b|study\s+area|материал\w*\s+и\s+метод\w+|m[ée]thodes"),
+    ("results", r"\bresults?\b|\bр[еé]зультаты\b|\bergebnisse\b|\br[ée]sultats\b"),
+    # Morphology/anatomy headings are how descriptive taxonomic papers
+    # label what IMRaD would call results — "GROSS MORPHOLOGY",
+    # "Морфология дефинитивных колоний", "Bau der Siphonophoren".
+    ("description", r"\bdescription\b|\bsystematics?\b|\btaxonomy\b|\bsystematic\s+account\b|\bdiagnosis\b|описание|\bmorpholog\w*|морфолог\w*|\banatom\w*|анатом\w*|\bbau\s+der\b"),
+    ("discussion", r"\bdiscussion\b|обсуждение|\bdiskussion\b"),
     ("acknowledgements", r"acknowledg(?:e?ment)s?|благодарности|danksagung|remerciements"),
     ("references", r"\breferences?\b|\bbibliograph|\bliterature\s+cited\b|литература"),
     ("appendix", r"\bappendix\b|приложение|anhang"),

@@ -35,6 +35,34 @@ from .app import _load_json
 logger = logging.getLogger(__name__)
 
 
+def _scan_facts(hash_dir) -> dict:
+    """Per-paper facts lifted out of ``scan_detection.json``.
+
+    ``language`` is the point of this. The pipeline has always detected a
+    language per paper and written it here, but nothing carried it into
+    the served bundle, so no tool could answer "what languages are in
+    this corpus?" or "show me only the Russian papers" — on a corpus
+    whose entire premise is multilingual historical literature. A client
+    asked that question had to infer it from titles and journal names.
+
+    ``languages`` is the full list when a document is multilingual (a
+    Russian original bound with an English typescript, a French paper
+    carrying Pugh's translation); ``language`` is the dominant one, kept
+    scalar so simple filters stay simple.
+    """
+    scan = _load_json(hash_dir / "scan_detection.json", default={}) or {}
+    langs = scan.get("probe_languages") or []
+    primary = scan.get("detected_language")
+    if not langs and primary:
+        langs = [primary]
+    return {
+        "scan_file_type": scan.get("file_type"),
+        "language": primary or (langs[0] if langs else None),
+        "languages": langs,
+        "was_ocred": bool(scan.get("needs_ocr")),
+    }
+
+
 class CorpusIndex:
     """In-memory view over the per-paper artifacts in ``documents/``.
 
@@ -338,9 +366,7 @@ class CorpusIndex:
                     cat: payload.get("unique_terms", 0)
                     for cat, payload in lexicons_for_paper.items()
                 },
-                "scan_file_type": (
-                    _load_json(hash_dir / "scan_detection.json", default={}) or {}
-                ).get("file_type"),
+                **_scan_facts(hash_dir),
             }
 
             for t in taxa.get("taxa", []) or []:

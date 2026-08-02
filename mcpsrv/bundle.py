@@ -102,6 +102,13 @@ PER_PAPER_FILES = (
     "chunks.json",
     "figures.json",
     "taxa.json",
+    # Carries per-paper language, script and OCR provenance. The server
+    # reads it for `list_papers(language=…)` and `corpus_summary`'s
+    # language breakdown. Omitting it also silently nulled the
+    # `scan_file_type` field the index has always exposed — that field
+    # only ever worked when serving straight from the build tree, not
+    # from a distilled bundle. A few hundred bytes per paper.
+    "scan_detection.json",
 )
 
 

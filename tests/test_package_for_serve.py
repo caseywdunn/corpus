@@ -62,6 +62,16 @@ def _make_fake_output(root: Path, paper_hashes=("abc", "def")) -> Path:
             {"figures": [{"id": "f1"}]}
         ))
         (hd / "taxa.json").write_text(json.dumps({"taxa": []}))
+        # Carries per-paper language + OCR provenance; the server reads it
+        # for list_papers(language=…) and corpus_summary's language
+        # breakdown, so it has to survive distillation.
+        (hd / "scan_detection.json").write_text(json.dumps({
+            "filename": f"{h}.pdf",
+            "file_type": "scanned",
+            "detected_language": "de",
+            "probe_languages": ["de"],
+            "needs_ocr": True,
+        }))
         (hd / "anatomy.json").write_text(json.dumps({"terms": []}))
         (hd / "figures" / "fig1.png").write_bytes(b"\x89PNG...stub...")
         # Build-only: should NOT be copied unless --include-pdfs
