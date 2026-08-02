@@ -472,6 +472,51 @@ written the test will fail intermittently on any docling upgrade.
 **Also fix the README's demo description** — Schneider 1891 is a scan, so the sentence claiming
 a default demo run does not exercise OCR on it is no longer true.
 
+## P2.8 — lexicon translations match only uninflected forms  [PLAN — verified]
+Re-exercising the rebuilt corpus over MCP surfaced that Olfers 1824 and Eschscholtz 1825 still
+extract **zero** anatomy terms, while Vanhöffen 1906 — also German — extracts eight. So German
+matching works in general; something narrower is wrong.
+
+The MCP client's diagnosis ("the lexicon has no German surface forms, the #143 synonym
+resolution covers English↔Latin and nothing else") is **wrong**: `demo/lexicon.yaml` carries 17
+German forms plus French and Russian, and the pipeline consumes them. The real cause is one
+step further in:
+
+| text | matches? | why |
+|---|---|---|
+| `Luftblase` | yes | listed under `translations.de` |
+| **`Luftblasen`** — as actually printed in Eschscholtz | **no** | inflected form not listed |
+| `pneumatophore` | yes | canonical |
+| `pneumatophores` | yes | English plural hand-listed in `synonyms` |
+
+`_build_lexicon_matcher` matches whole words against an enumerated surface-form set. English
+plurals only work because someone typed them into `synonyms`. The `de` / `fr` / `ru`
+translations list base forms only, so in German — which inflects heavily — most real
+occurrences are missed. Eschscholtz's actual text reads `Luftblasen`, and the paper's other
+anatomical vocabulary (`Saugmägen`, `Fangfäden`, `Schwimm- und Athmungshöhle`) is not in the
+lexicon in any form.
+
+The effect is worse than a low score: a German paper reports anatomy coverage of exactly zero,
+which reads as "nothing to see here" rather than "not indexed".
+
+**Not fixed** — two defensible routes and the choice is a design decision:
+1. Enumerate inflected forms in the lexicon (explicit, no false positives, tedious, and each
+   new language repeats the work).
+2. Give the matcher light per-language suffix tolerance for non-English surface forms — real
+   false-positive risk, so it wants test coverage before it ships.
+
+Whichever, the lexicon's non-English vocabulary is also just thin for pre-1900 German, which is
+a content problem independent of matching.
+
+**Also from that session, worth checking separately:** species-level taxa are not extracted from
+abbreviated binomials (`Ph. producta`), so Olfers 1824 — a paper whose entire purpose is
+erecting *Physalia producta* — yields no species-level taxon. I did not verify this one.
+
+**And one claim from that session that is _not_ a defect:** `search_taxon("Porpita")` and
+`search_taxon("Velella")` return `not_found`. Both are Porpitidae (Anthoathecata), correctly
+outside a Siphonophorae-rooted Darwin Core snapshot — `demo/instructions.md` exists partly to
+tell the model exactly this. Absence is correct scope, not missing coverage.
+
 ## P3 corrections — two findings withdrawn after measurement
 
 **A3 (reconciliation) is not broken.** The claim that bibliographic resolution was "effectively

@@ -233,8 +233,17 @@ def get_citation_graph(
     expansion, where every node's fan-out multiplies; at depth 1 exactly
     one node is expanded and ``max_total_edges`` already bounds the
     result. A flat 50 meant the commonest question of all — "show me
-    this paper's bibliography" — silently returned a third of Totton &
-    Bargmann 1965's 155 references.
+    this paper's bibliography" — silently returned under a quarter of
+    Totton & Bargmann 1965's 210 cited works.
+
+    **A hub work's depth-1 graph is large.** Totton's comes back at
+    ~55 kB, past what some MCP clients will pass through in one tool
+    result. That is a *transport* limit, not corpus-side truncation, and
+    the two must not be conflated: ``truncated`` reports only whether
+    *this tool* dropped edges, so it can read ``false`` while the client
+    still fails to deliver the payload. Pass an explicit
+    ``max_edges_per_node`` when you want a bounded response — then
+    ``truncated`` tells you the truth about what you got.
 
     Returns the root work plus the citation edges and ``truncated``.
     """
