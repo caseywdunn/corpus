@@ -187,6 +187,39 @@ The v0.6 MCP surface freeze holds — no new tools. See
 
 ### Fixed
 
+- **A job still loading Grobid's models no longer looks like a failed
+  one.** SLURM reports `RUNNING` when the container starts, but Grobid
+  binds `:8070` another ~10–60 s later, after loading its Wapiti models.
+  Every documented readiness probe used `curl -fsS`, whose `-S`
+  un-silences errors, so that normal window printed `curl: (7) …
+  Connection refused` — and the runbook's `until` loop printed it once
+  per retry. One Grobid job was cancelled 108 s in, mid-model-load, on
+  the strength of that message. `dev_docs/BOUCHET.md` §6 now uses the
+  bounded, quiet poll `slurm/batch_pipeline.sh` has always run, so the
+  manual path and the orchestrator behave alike, and says which log to
+  read if it genuinely times out. The same wait reached `README.md`
+  (which probed a bare `curl` immediately after `docker compose up -d`,
+  with no wait at all), `dev_docs/PLATFORM_SMOKE.md`, and the usage
+  headers of both `slurm/` scripts, which had stopped at `export
+  GROBID_URL=…`. The two `PLATFORM_SMOKE` Singularity legs also gained
+  the tmp and logs binds they were missing — without them Grobid answers
+  HTTP 500 to every request, or crashes on startup.
+- **Grobid's per-job scratch directories no longer leak, or decide the
+  job's exit status.** `slurm/batch_grobid.sh` cleaned up with `trap 'rm
+  -rf …' EXIT`. Grobid still holds `grobid-service.log` open when
+  SIGTERM lands, so NFS silly-renames it to `.nfsXXXX` and the `rmdir`
+  fails with `Directory not empty`; as the last command of an `EXIT`
+  trap under `set -euo pipefail` that also returned 1 as the job's exit
+  status. Seven stale directories had accumulated under `cache/` since
+  April. Retrying does not help — the file takes longer to clear than
+  `KillWait` allows — so cleanup now removes the contents, always
+  succeeds, and each submit sweeps directories left by earlier jobs.
+  Note that `-empty` alone is not a safe liveness signal: Grobid writes
+  `grobid_tmp` per request and leaves it empty when idle, so that rule
+  is scoped to `grobid_logs` (where a live instance always holds
+  `grobid-service.log`), with an age-based backstop for both trees.
+  Leftover empty `cache/grobid_logs/<jobid>/` directories are now
+  expected between submits rather than a symptom.
 - **`corpus check` and `corpus run` now agree about which Grobid they
   mean.** `run` has honored `$GROBID_URL` over the config's `grobid.url`
   since [#138](https://github.com/caseywdunn/corpus/issues/138) — on HPC

@@ -278,9 +278,15 @@ To make a new language part of the fallback set tried when detection is uncertai
 
 Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on a cluster, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
 
+`docker compose up -d` returns as soon as the container is created, but Grobid needs
+another ~30–60 s to load its models and bind the port. Wait for the compose
+healthcheck rather than probing immediately — a `Connection refused` in that window
+means "still starting", not "broken".
+
 ```bash
 docker compose up -d grobid              # start in background; persists across runs
-curl http://localhost:8070/api/isalive   # should print "true"
+docker compose ps grobid                 # wait for (healthy), not just Up
+curl -fsS http://localhost:8070/api/isalive   # should print "true"
 corpus check                             # confirms grobid + GPU + config + disk
 ```
 

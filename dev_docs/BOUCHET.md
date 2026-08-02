@@ -39,6 +39,9 @@ corpuscles/                      ← all siphonophore corpuscle builds
     _serve/                      ← distilled served bundle (created by bundle)
   siphonophore_sample_YYYYMMDD/  ← sample/smoke-test builds (same structure)
 cache/huggingface/               ← model cache (see below)
+cache/grobid.sif                 ← Grobid Singularity image (step 6)
+cache/grobid_{tmp,logs}/<jobid>/ ← per-job Grobid scratch; each submit sweeps
+                                   dirs left by earlier jobs (step 6)
 ```
 
 When starting a new build, create `corpuscles/siphonophore_YYYYMMDD/`, scaffold a
