@@ -128,10 +128,16 @@ def get_chunks_for_topic(
     with_text: bool = True,
     with_cites: bool = False,
 ) -> List[Dict]:
-    """Semantic top-``k`` chunks via LanceDB cosine similarity. Use
+    """Semantic top-``k`` chunks via the LanceDB cosine index. Use
     for "how is X discussed in the corpus" — for literal taxa /
     lexicon terms use the exhaustive ``get_chunks_for_taxon`` /
     ``get_figures_for_lexicon_term`` instead.
+
+    ``score`` is a cosine **distance**, not a similarity: **lower is
+    closer**, rows come back already sorted ascending, and values run
+    0–2 (so a ``score`` above 1.0 is normal, not a bug). Do not sort
+    descending and do not threshold as if it were a similarity — that
+    inverts the ranking.
 
     ``with_text=False`` (#82) emits a metadata-only shape
     (~80 chars/row vs ~600 with full text) suitable for a

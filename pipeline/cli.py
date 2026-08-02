@@ -112,9 +112,16 @@ def _resolve_against(config_path: Path, value: Optional[Path]) -> Optional[Path]
 
     So `cd demo && corpus run` and `corpus --config demo/config.yaml run`
     from anywhere give identical results.
+
+    `~` is expanded first. YAML has no shell, so an unexpanded
+    `~/data/pdfs` would otherwise be treated as a relative path and glued
+    onto the corpuscle root as `<corpuscle>/~/data/pdfs` — a path that
+    cannot exist, reported in an error message that reads like a bug in
+    corpus rather than a typo in the config.
     """
     if value is None:
         return None
+    value = Path(os.path.expanduser(value))
     if value.is_absolute():
         return value
     return (config_path.parent / value).resolve()

@@ -378,6 +378,17 @@ def main():
                 logger.warning(
                     "Could not open taxonomy snapshot %s: %s", taxonomy_path, e,
                 )
+        elif args.require_taxonomy and args.dry_run:
+            # A dry-run writes nothing, so it cannot produce the empty
+            # taxa.json that #139 guards against. On a corpuscle that has
+            # not been built yet the snapshot is *always* missing at this
+            # point — ingest_taxonomy dry-runs too — so failing here made
+            # `corpus run --dry-run` unusable as a first-run sanity check.
+            logger.info(
+                "Taxonomy snapshot %s not found; the ingest_taxonomy step "
+                "builds it on a real run. Continuing the dry-run.",
+                taxonomy_path,
+            )
         elif args.require_taxonomy:
             # #139 — the corpuscle configures a taxonomy, so a missing
             # snapshot is a hard error rather than a skip. This is the
@@ -456,8 +467,14 @@ def main():
                 args.vision_backend, e,
             )
 
-    # Create output directory structure
-    documents_dir, vector_db_dir = create_output_structure(output_dir)
+    # Create output directory structure. A dry-run promises "No files
+    # written", so it must not leave a half-scaffolded corpuscle behind
+    # either — the paths are still computed, just not created.
+    if args.dry_run:
+        documents_dir = output_dir / "documents"
+        vector_db_dir = output_dir / "vector_db"
+    else:
+        documents_dir, vector_db_dir = create_output_structure(output_dir)
 
     # Find all PDFs and group by hash. Exclude anything under output_dir
     # so re-runs don't re-ingest per-paper processed.pdf artifacts (which

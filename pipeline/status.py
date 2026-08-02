@@ -276,7 +276,13 @@ def render_text(rollup: Dict[str, Any]) -> str:
             f"{n_qf_total} flag{'s' if n_qf_total != 1 else ''}) — "
             "informational; nothing is rejected."
         )
-        out.append("List affected papers with:  corpus status --filter-gate <name>")
+        # --filter-gate narrows a listing; on its own it has nothing to
+        # narrow and the full report prints unchanged, which reads as the
+        # flag being broken. Pair it with --list-hashes in the hint.
+        out.append(
+            "List affected papers with:  "
+            "corpus status --list-hashes --filter-gate <name>"
+        )
         out.append("")
         for gate, count in qf.most_common():
             sev, desc = _GATE_INFO.get(gate, ("?", ""))

@@ -478,6 +478,16 @@ def main() -> int:
         args.db = args.output_dir / "biblio_authority.sqlite"
 
     if not args.db.exists():
+        if args.dry_run:
+            # The build_biblio step creates this DB, and in a dry-run it
+            # deliberately doesn't. Erroring here made `corpus run
+            # --dry-run` on a not-yet-built corpuscle report a failure
+            # that says nothing about whether the real run would work.
+            logger.info(
+                "Dry-run: %s does not exist yet; the build_biblio step "
+                "creates it on a real run. Nothing to reconcile.", args.db,
+            )
+            return 0
         logger.error("DB not found: %s. Run `corpus run` (or `python -m bib.authority`) first.", args.db)
         return 1
     if not args.output_dir.is_dir():

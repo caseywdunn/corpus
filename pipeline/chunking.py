@@ -74,8 +74,22 @@ def chunk_text(
                 )
             logger.info("HybridChunker produced %d chunks", len(chunks))
         except Exception as e:
-            logger.warning(
-                "HybridChunker failed (%s); falling back to naive char chunker", e
+            # This branch means docling gave us a real document and the
+            # *chunker* failed — usually its tokenizer
+            # (sentence-transformers/all-MiniLM-L6-v2) not being in the
+            # HuggingFace cache under HF_HUB_OFFLINE=1. The naive
+            # fallback still produces chunks, so the run exits 0 and
+            # nothing downstream complains, while retrieval quality
+            # collapses: a 2-page paper chunks to 1 window instead of 16.
+            # Log it at ERROR with the remedy — a whole-corpus silent
+            # degradation is the failure mode #139 was about.
+            logger.error(
+                "HybridChunker failed (%s); falling back to the naive char "
+                "chunker for this paper. Retrieval quality will be much "
+                "worse — chunks stop respecting headings, tables and "
+                "captions. If this fires for every paper, the chunker's "
+                "tokenizer is missing from the HuggingFace cache: run "
+                "`corpus prefetch` on a host with network access.", e,
             )
             chunks = []
             chunker_name = "naive_char_window"

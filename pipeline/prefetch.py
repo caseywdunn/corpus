@@ -49,9 +49,18 @@ logger = logging.getLogger(__name__)
 # module docstring. Keep in sync with environment.yaml's docling pin on a
 # best-effort basis; being wrong here degrades a `corpus check` line to
 # "unknown", it does not break a run.
+#
+# The chunker tokenizer is listed for a second reason beyond reporting:
+# `corpus prefetch` short-circuits ("nothing to do") when every repo here
+# is cached, so a model absent from this dict is never fetched at all.
+# Leaving it out is what let a "fully prefetched" host still fall back to
+# the naive chunker under HF_HUB_OFFLINE=1.
+CHUNKER_TOKENIZER_REPO = "sentence-transformers/all-MiniLM-L6-v2"
+
 DOCLING_REPOS: Dict[str, str] = {
     "docling-project/docling-layout-heron": "docling page-layout model",
     "docling-project/docling-models": "docling TableFormer (table structure)",
+    CHUNKER_TOKENIZER_REPO: "docling HybridChunker tokenizer (text chunking)",
 }
 
 # The embedding default, mirroring pipeline.embeddings._DEFAULT_LOCAL_MODEL.
@@ -185,11 +194,21 @@ def _with_retry(what: str, fn, attempts: int = _ATTEMPTS) -> None:
 
 
 def prefetch_docling(sample_pdf: Path, attempts: int = _ATTEMPTS) -> None:
-    """Warm docling's models by converting one real PDF.
+    """Warm docling's models by converting *and chunking* one real PDF.
 
     Mirrors :func:`pipeline.extract` pipeline options so exactly the
     models a run needs are fetched — notably ``do_picture_classification``
     stays off (#140), so we no longer warm a classifier nothing reads.
+
+    Chunking is exercised too, because ``HybridChunker`` pulls its own
+    tokenizer (currently ``sentence-transformers/all-MiniLM-L6-v2``) the
+    first time it runs — a model that conversion alone never touches.
+    Missing it does not fail a run: :mod:`pipeline.chunking` catches the
+    error and silently falls back to the naive character chunker, which
+    turned a 2-page paper into 1 chunk instead of 16 on a host running
+    the documented ``HF_HUB_OFFLINE=1`` recipe. Prefetching by doing the
+    real work is the whole point of this module; chunking was the half
+    it wasn't doing.
     """
     def _run() -> None:
         from docling.document_converter import DocumentConverter, PdfFormatOption
@@ -205,7 +224,12 @@ def prefetch_docling(sample_pdf: Path, attempts: int = _ATTEMPTS) -> None:
         conv = DocumentConverter(
             format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
         )
-        conv.convert(str(sample_pdf))
+        result = conv.convert(str(sample_pdf))
+
+        # Same construction as pipeline.chunking, so whatever tokenizer
+        # the pinned docling wants is the one that lands in the cache.
+        from docling.chunking import HybridChunker
+        list(HybridChunker().chunk(result.document))
 
     _with_retry("docling models", _run, attempts)
 

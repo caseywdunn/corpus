@@ -7,7 +7,9 @@
 # Path resolution: relative paths resolve against the directory
 # containing this file (not cwd). So `cd <corpuscle> && corpus run`
 # and `corpus --config <corpuscle>/config.yaml run` from anywhere
-# give identical results.
+# give identical results. A leading `~` is expanded to your home
+# directory; environment variables ($HOME, $SCRATCH) are NOT — YAML
+# has no shell, so write those out in full.
 
 # ---------------------------------------------------------------------------
 # Per-corpuscle inputs
@@ -50,16 +52,28 @@ output_dir: ./output
 # entirely — the pipeline still extracts taxon mentions from text, you
 # only lose the link from historical names to current valid names.
 #
-# When opting in: uncomment EVERY line below and preserve the exact
-# indentation (2 spaces per level). The `source:` and `root_id:` lines
-# are nested under `taxonomy:` — they must keep their 2-space indent
-# when the leading `# ` is stripped, or YAML will read them as
-# top-level keys and the loader will error out.
+# When opting in: uncomment ONE of the two blocks below — they are
+# alternatives, not a single block to uncomment wholesale. `root_id`
+# belongs to `worms` only; `path` belongs to `dwca`/`dwc` only.
+# Preserve the exact indentation: `source:` and its sibling key are
+# nested under `taxonomy:` and must keep their 2-space indent once the
+# leading `# ` is stripped, or YAML reads them as top-level keys and
+# the loader errors out.
+#
+# Local archive — the recommended default. No network at run time, and
+# version-pinned rather than tracking a moving upstream.
+#
+# taxonomy:
+#   source: dwca
+#   path: ./taxonomy.dwca.zip
+#
+# WoRMS subtree — needs outbound internet on every fresh corpuscle.
+# Prefer building this once, then `corpus taxonomy export -o taxonomy.zip`
+# and switching to the `dwca` block above (README §External taxonomic data).
 #
 # taxonomy:
 #   source: worms
 #   root_id: 1371                 # Siphonophorae order (example)
-#   # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
 
 # Figure panel-ROI detection (#102).
 figures:

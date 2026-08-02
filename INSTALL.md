@@ -166,16 +166,19 @@ On an HPC cluster, check `module avail pngquant jbig2enc` first; if neither is a
 
 ## OCR language packs
 
-The conda-forge `tesseract` package ships only the English LSTM model. Every other language pack — including 19th-century German Fraktur (`deu_latf`) — has to be dropped into `$CONDA_PREFIX/share/tessdata/` as a `<code>.traineddata` file from the [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo. There is no `tesseract-data-<code>` package on conda-forge; older versions of `environment.yaml` referenced packages by that name and silently failed to install on a fresh env (issue [#52](https://github.com/caseywdunn/corpus/issues/52)).
+The pipeline is tuned against [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best), the highest-accuracy of the three upstream LSTM variants. Those `<code>.traineddata` files have to be dropped into `$CONDA_PREFIX/share/tessdata/` by hand: there is no `tesseract-data-<code>` package on conda-forge; older versions of `environment.yaml` referenced packages by that name and silently failed to install on a fresh env (issue [#52](https://github.com/caseywdunn/corpus/issues/52)).
+
+The conda-forge `tesseract` package *does* bundle ~158 packs of its own, so a fresh env looks fully equipped — but they are [`tessdata_fast`](https://github.com/tesseract-ocr/tessdata_fast) builds, byte-identical to that upstream and the least accurate variant (`rus` 3.9 MB vs 15.3 MB for best; `deu` 1.5 MB vs 8.6 MB). Only `deu_latf`, the 19th-century German Fraktur pack, is genuinely absent. Running the installer is what upgrades the rest.
 
 [`tools/install_tessdata.sh`](tools/install_tessdata.sh) automates the download for the default fallback set in `config.yaml` (`eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`, `grc`, plus `deu_latf` for 19th-c. German):
 
 ```bash
 conda activate corpus
 bash tools/install_tessdata.sh
+bash tools/install_tessdata.sh --force   # re-download even the ones it installed
 ```
 
-The script is idempotent — re-running skips packs that already exist.
+The script is idempotent: it records the codes it fetched in `$CONDA_PREFIX/share/tessdata/.corpus_tessdata_best` and skips those on a re-run. A pack that is on disk but *not* in that marker came from the conda-forge bundle and gets replaced — that is the whole point, so don't be surprised when a fresh env reports `replacing non-best copy` for every language.
 
 To add a language outside the default set, pass its [ISO-to-Tesseract code](pipeline/scan.py) explicitly:
 

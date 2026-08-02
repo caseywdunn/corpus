@@ -501,6 +501,23 @@ def main() -> int:
     # Fail early if taxonomy is configured but unavailable for the selected
     # steps — avoids a silent "no taxon annotations" corpus on HPC, where
     # --only skips ingest_taxonomy.
+    # A dry-run walks every step against the corpuscle as it stands now.
+    # On a corpuscle that has never been built there is no documents/ tree,
+    # no taxonomy.sqlite and no biblio_authority.sqlite yet, so every step
+    # after `extract` reports its input as missing — at ERROR level, from
+    # the child process, seconds after `corpus check` said the host was
+    # ready. Say so up front rather than letting the user infer it from
+    # six tracebacks' worth of red.
+    unbuilt = args.dry_run and not (args.output_dir / "documents").is_dir()
+    if unbuilt:
+        logger.info(
+            "Dry-run against a corpuscle that has not been built yet "
+            "(%s has no documents/). Steps after `extract` will report "
+            "their inputs as missing — that is expected here, not a "
+            "misconfiguration; a real `corpus run` creates them in order.",
+            args.output_dir,
+        )
+
     taxonomy_err = _check_taxonomy_available(args, selected)
     if taxonomy_err:
         logger.error(taxonomy_err)

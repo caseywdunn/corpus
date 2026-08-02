@@ -1526,18 +1526,15 @@ def main() -> int:
 
     if args.dry_run:
         documents_dir = args.output_dir / "documents"
-        if not documents_dir.is_dir():
-            logger.error("Not a corpus output dir: %s (no documents/)", args.output_dir)
-            return 1
-        n_papers = sum(1 for d in documents_dir.iterdir() if d.is_dir())
-        n_metadata = sum(
-            1 for d in documents_dir.iterdir()
-            if d.is_dir() and (d / "metadata.json").exists()
+        # No documents/ means the corpuscle has not been extracted yet;
+        # "0 hash dirs" is the honest plan. See pipeline/taxon_mentions.py.
+        hash_dirs = (
+            [d for d in documents_dir.iterdir() if d.is_dir()]
+            if documents_dir.is_dir() else []
         )
-        n_refs = sum(
-            1 for d in documents_dir.iterdir()
-            if d.is_dir() and (d / "references.json").exists()
-        )
+        n_papers = len(hash_dirs)
+        n_metadata = sum(1 for d in hash_dirs if (d / "metadata.json").exists())
+        n_refs = sum(1 for d in hash_dirs if (d / "references.json").exists())
         action = "rebuild from scratch" if args.rebuild else "incrementally update"
         logger.info(
             "Dry-run: would %s %s. Source: %d hash dirs (%d with metadata.json, "

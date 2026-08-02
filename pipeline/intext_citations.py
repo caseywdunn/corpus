@@ -53,6 +53,14 @@ def main() -> int:
 
     docs = args.output_dir / "documents"
     if not docs.is_dir():
+        if args.dry_run:
+            # See pipeline/embed.py: on a corpuscle that has not been
+            # extracted yet, "0 papers" is the plan, not a failure.
+            logger.info(
+                "Dry-run: %s does not exist yet; the extract step creates "
+                "it on a real run. 0 papers to parse.", docs,
+            )
+            return 0
         logger.error("Not a corpus output dir: %s (no documents/)", args.output_dir)
         return 1
 

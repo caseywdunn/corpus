@@ -13,11 +13,14 @@
 # from 2 → 1 when pngquant isn't on PATH and logs a one-line nudge.
 # See INSTALL.md for system-install instructions for both.
 #
-# Tesseract language packs are NOT in conda-forge (the base `tesseract`
-# package ships only English LSTM data).  After creating the env, run
-# `bash tools/install_tessdata.sh` to drop the default fallback set
-# (deu, fra, rus, lat, spa, por, chi_sim, chi_tra, jpn, ell, kor, grc,
-# deu_latf) into $CONDA_PREFIX/share/tessdata.  See INSTALL.md.
+# tessdata_best language packs are NOT in conda-forge.  The base
+# `tesseract` package bundles ~158 packs, but they are tessdata_fast
+# builds — the least accurate variant, which matters on the degraded
+# historical scans this pipeline targets.  After creating the env, run
+# `bash tools/install_tessdata.sh` to replace them with tessdata_best
+# for the default fallback set (eng, deu, fra, rus, lat, spa, por,
+# chi_sim, chi_tra, jpn, ell, kor, grc, deu_latf) in
+# $CONDA_PREFIX/share/tessdata.  See INSTALL.md.
 #
 # On HPC (Bouchet / YCRC) the same file works after `module load miniconda`.
 
@@ -32,9 +35,9 @@ dependencies:
   - pip
 
   # PDF + OCR toolchain (native side)
-  - tesseract  # English LSTM data ships with the base package. Other
-               # language packs are downloaded by tools/install_tessdata.sh
-               # after env creation — none of them are on conda-forge.
+  - tesseract  # Ships tessdata_fast language data. tools/install_tessdata.sh
+               # replaces the packs we care about with tessdata_best after
+               # env creation — that variant is not on conda-forge at all.
   - ghostscript
   # pngquant is ocrmypdf's optional helper for color-PNG quantization
   # (substantial size savings on PDFs with many embedded color images).

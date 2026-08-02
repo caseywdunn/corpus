@@ -272,6 +272,15 @@ def main() -> int:
     documents_dir = output_dir / "documents"
     vector_db_dir = output_dir / "vector_db"
     if not documents_dir.exists():
+        if args.dry_run:
+            # Nothing has been extracted yet. A dry-run reports the plan
+            # for the corpuscle as it stands; "0 to embed" is that plan,
+            # not a failure.
+            logger.info(
+                "Dry-run: %s does not exist yet; the extract step creates "
+                "it on a real run. Would embed 0 hash(es).", documents_dir,
+            )
+            return 0
         logger.error("Documents directory %s does not exist", documents_dir)
         return 1
 

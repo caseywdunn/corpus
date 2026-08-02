@@ -8,7 +8,7 @@
 
 We are preparing a manuscript that presents corpus. In the mean time, please cite corpus as:
 
-> Church, S. H., Manko, M. K., Zapata, F., & Dunn, C. W.,  (2026). corpus: extracting AI agent-accessible data from biodiversity literature. <https://doi.org/10.5281/zenodo.19964909>
+> Church, S. H., Mańko, M. K., Zapata, F., & Dunn, C. W. (2026). Extracting AI agent-accessible data from biodiversity literature with corpus. <https://doi.org/10.5281/zenodo.19964909>
 
 ## What corpus does
 
@@ -151,7 +151,7 @@ Override the default location with `--instructions <path>` when starting the MCP
 
 ## Computational requirements
 
-- **Disk.** Roughly 5 GB of models (docling layout + TableFormer + BGE-M3, fetched once by `corpus prefetch` or on the first run), plus several times the size of the original PDFs for the corpuscle itself. The models dominate for a small corpus; the corpuscle dominates past a few hundred papers.
+- **Disk.** Budget ~15 GB before a single PDF is processed: the conda env is ~8 GB (torch and its CUDA wheels dominate) and the models are another ~5 GB (docling layout + TableFormer + BGE-M3, fetched once by `corpus prefetch` or on the first run). On top of that, the corpuscle itself runs several times the size of the original PDFs. The env and models dominate for a small corpus; the corpuscle dominates past a few hundred papers.
 - **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking, annotation) is CPU-bound and parallelizes well across PDFs. Stage 2 (BGE-M3 embeddings) and the optional vision pass (Qwen2.5-VL-7B figure tagging) are GPU-accelerated; embeddings still run on CPU but slowly, and the local vision backend needs a GPU to be usable. A Claude API vision backend is also available — costs API credits but runs anywhere.
 - **Scale.** A few dozen PDFs run on a laptop in a couple of hours. A few thousand benefit from an HPC cluster — we use Yale's Bouchet, runbook in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
@@ -202,7 +202,14 @@ Check whether your platform is supported before installing.
 
 ### Prerequisites
 
-- **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-image-choice-and-hosts-without-docker).
+- **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On Linux, add yourself to the `docker` group afterwards or every `docker compose` call below fails with `permission denied ... /var/run/docker.sock`:
+
+  ```bash
+  sudo usermod -aG docker $USER    # then log out and back in, or: newgrp docker
+  docker run --rm hello-world      # confirms the daemon is reachable as you
+  ```
+
+  On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-image-choice-and-hosts-without-docker).
 - **conda** — a conda installer such as [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/). Any standard distribution works (Anaconda, Miniconda, [Miniforge](https://github.com/conda-forge/miniforge)). **macOS Apple Silicon: see [macOS (Apple Silicon)](#macos-apple-silicon) — the env requires an arm64-native conda.**
 
 ### macOS (Apple Silicon)
@@ -250,15 +257,17 @@ bash tools/install_tessdata.sh   # Tesseract OCR language packs
 corpus prefetch                  # ~4.8 GB of models, up front
 ```
 
-`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data — see [Language support](#language-support) below.
+`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only low-accuracy `tessdata_fast` language data — see [Language support](#language-support) below.
 
-`corpus prefetch` is optional but recommended: it downloads the three models the pipeline otherwise fetches on first use (docling's layout model and TableFormer, plus the ~4.3 GB BGE-M3 embedding model), retrying with backoff because HuggingFace throttles anonymous traffic. Getting them now means the first `corpus run` can't stall mid-stage on a slow network. Set `HF_HOME` first if your home directory is small or isn't shared across machines, and see [INSTALL.md](INSTALL.md#model-downloads-and-where-they-land) for the offline/HPC pattern — prefetch where there's internet, run with `HF_HUB_OFFLINE=1` where there isn't. `corpus check` reports what's already cached without touching the network.
+`corpus prefetch` is optional but recommended: it downloads the three models the pipeline otherwise fetches on first use (docling's layout model and TableFormer, plus the ~4.3 GB BGE-M3 embedding model), retrying with backoff because HuggingFace throttles anonymous traffic. Getting them now means the first `corpus run` can't stall mid-stage on a slow network. It does not make the run *offline* — HuggingFace is still contacted for revision checks on every run unless you `export HF_HUB_OFFLINE=1`, which is the setting that actually pins a run to the cached snapshot ([INSTALL.md](INSTALL.md#offline-hosts)). Set `HF_HOME` first if your home directory is small or isn't shared across machines, and see [INSTALL.md](INSTALL.md#model-downloads-and-where-they-land) for the offline/HPC pattern — prefetch where there's internet, run with `HF_HUB_OFFLINE=1` where there isn't. `corpus check` reports what's already cached without touching the network.
 
 ## Language support
 
 OCR is the only stage where language matters. Each scanned PDF gets its language detected automatically (`langdetect` on the first few pages of extracted text), and the result is routed to a matching [Tesseract](https://github.com/tesseract-ocr/tesseract) language pack — a `<code>.traineddata` file that teaches Tesseract to recognize a particular language or script. Born-digital PDFs with a clean text layer skip OCR entirely, so packs only matter for scans.
 
-**What ships by default.** The conda-forge `tesseract` package ships only the English LSTM model. The default fallback set in `config.yaml` (`ocr.ocr_languages_default`: `eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`) plus `grc` (Ancient Greek, opt-in) and `deu_latf` (19th-c. German Fraktur) are installed by running [`tools/install_tessdata.sh`](tools/install_tessdata.sh) after `conda env create` — it drops the matching `<code>.traineddata` files into `$CONDA_PREFIX/share/tessdata/` directly from the official [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo. None of the per-language packs are on conda-forge.
+**What ships by default.** The default fallback set in `config.yaml` (`ocr.ocr_languages_default`: `eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`) plus `grc` (Ancient Greek, opt-in) and `deu_latf` (19th-c. German Fraktur) are installed by running [`tools/install_tessdata.sh`](tools/install_tessdata.sh) after `conda env create` — it drops the matching `<code>.traineddata` files into `$CONDA_PREFIX/share/tessdata/` directly from the official [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo.
+
+Running the script is **not optional**, even though `conda activate corpus && tesseract --list-langs` shows ~130 languages already. The conda-forge `tesseract` package bundles [`tessdata_fast`](https://github.com/tesseract-ocr/tessdata_fast) builds — the smallest and least accurate of the three upstream variants (Russian is 3.9 MB fast vs 15.3 MB best), and accuracy on degraded historical scans is exactly what `tessdata_best` buys. The installer replaces any pack it did not itself fetch and records what it installed in `$CONDA_PREFIX/share/tessdata/.corpus_tessdata_best`, so re-running is cheap and `--force` re-downloads everything.
 
 **Without `deu_latf`,** scanned 19th-c. German papers (Goldfuss 1820, Brandt 1837, Pagenstecher 1869, Dönitz 1871, …) OCR to whitespace. The default install bundles it, so no separate step is needed unless you trimmed the language list.
 

@@ -133,12 +133,15 @@ def test_docling_prefetch_does_not_warm_the_picture_classifier(monkeypatch):
         def __init__(self, **kw):
             seen.update(kw)
 
+    class _FakeResult:
+        document = object()
+
     class _FakeConv:
         def __init__(self, **kw):
             pass
 
         def convert(self, path):
-            return None
+            return _FakeResult()
 
     monkeypatch.setitem(
         sys.modules, "docling.datamodel.pipeline_options",
@@ -156,9 +159,27 @@ def test_docling_prefetch_does_not_warm_the_picture_classifier(monkeypatch):
     mod_bm.InputFormat = _IF
     monkeypatch.setitem(sys.modules, "docling.datamodel.base_models", mod_bm)
 
+    # prefetch_docling also exercises the chunker, so its tokenizer lands
+    # in the cache — see _FakeChunker's assertion below.
+    chunked = []
+
+    class _FakeChunker:
+        def chunk(self, doc):
+            chunked.append(doc)
+            return iter(())
+
+    mod_ch = type(sys)("docling.chunking")
+    mod_ch.HybridChunker = _FakeChunker
+    monkeypatch.setitem(sys.modules, "docling.chunking", mod_ch)
+
     pf.prefetch_docling(Path("whatever.pdf"), attempts=1)
     assert seen.get("do_picture_classification") is False
     assert seen.get("do_table_structure") is True
+    # The chunker pulls its own tokenizer (all-MiniLM-L6-v2) that
+    # conversion alone never touches; skipping it left "fully
+    # prefetched" hosts silently falling back to the naive char chunker
+    # under HF_HUB_OFFLINE=1.
+    assert chunked, "prefetch_docling must exercise the chunker, not just convert"
 
 
 # --- `corpus check` probes ----------------------------------------------------
