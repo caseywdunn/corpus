@@ -39,11 +39,13 @@ dependencies:
                # replaces the packs we care about with tessdata_best after
                # env creation — that variant is not on conda-forge at all.
   - ghostscript
-  # pngquant is ocrmypdf's optional helper for color-PNG quantization
-  # (substantial size savings on PDFs with many embedded color images).
-  # NOT installed here: it's missing from osx-arm64 conda-forge, and
-  # the runtime degrades gracefully without it. Install at the system
-  # level if you want the extra compression — see INSTALL.md.
+  # pngquant is ocrmypdf's helper for color-PNG quantization. NOT here
+  # because conda-forge has no osx-arm64 build and env files have no
+  # platform conditionals, so listing it would break `conda env create`
+  # on Apple Silicon. Run `bash tools/install_ocr_extras.sh` after
+  # creating the env — it installs pngquant where conda-forge has it.
+  # Worth doing: without it ocrmypdf runs at --optimize 1, and a 45-page
+  # Russian scan came out 90 MB instead of 35 MB. See INSTALL.md.
   - pymupdf
   - pandoc    # md → pdf for write-up workflows initiated by Claude (#50)
   - tectonic  # self-contained LaTeX engine so pandoc's LaTeX→PDF path works out of the box (#50); no full TeX Live install

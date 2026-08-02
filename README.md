@@ -254,10 +254,11 @@ conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh   # Tesseract OCR language packs
+bash tools/install_ocr_extras.sh # pngquant — much smaller OCR'd PDFs
 corpus prefetch                  # ~4.8 GB of models, up front
 ```
 
-`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only low-accuracy `tessdata_fast` language data — see [Language support](#language-support) below.
+`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only low-accuracy `tessdata_fast` language data — see [Language support](#language-support) below. `tools/install_ocr_extras.sh` installs `pngquant`, without which ocrmypdf drops from `--optimize 2` to `--optimize 1`: on a 45-page Russian scan that is the difference between a 35 MB and a 90 MB `processed.pdf`. It matters more since v1.0, which re-OCRs every scanned paper rather than trusting its text layer — budget for it before a large run.
 
 `corpus prefetch` is optional but recommended: it downloads the three models the pipeline otherwise fetches on first use (docling's layout model and TableFormer, plus the ~4.3 GB BGE-M3 embedding model), retrying with backoff because HuggingFace throttles anonymous traffic. Getting them now means the first `corpus run` can't stall mid-stage on a slow network. It does not make the run *offline* — HuggingFace is still contacted for revision checks on every run unless you `export HF_HUB_OFFLINE=1`, which is the setting that actually pins a run to the cached snapshot ([INSTALL.md](INSTALL.md#offline-hosts)). Set `HF_HOME` first if your home directory is small or isn't shared across machines, and see [INSTALL.md](INSTALL.md#model-downloads-and-where-they-land) for the offline/HPC pattern — prefetch where there's internet, run with `HF_HUB_OFFLINE=1` where there isn't. `corpus check` reports what's already cached without touching the network.
 

@@ -140,9 +140,26 @@ example, including the Singularity invocation and SLURM scripts.
 
 ## Higher OCR compression: pngquant + jbig2enc
 
-`ocrmypdf` has two optional native helpers, neither of which is available on conda-forge for every platform we target. The runtime auto-degrades when they're missing (`pipeline/scan.py` drops `--optimize` from 2 → 1 when `pngquant` isn't on PATH), so installing them is purely a size-of-output decision.
+`ocrmypdf` has two optional native helpers. The runtime auto-degrades when they're missing (`pipeline/scan.py` drops `--optimize` from 2 → 1 when `pngquant` isn't on PATH), so this is a size-of-output decision — but on scanned material it is a large one, and since v1.0 re-OCRs every scan rather than trusting its text layer, most of a historical corpus now takes that path.
 
-`pngquant` — needed for color-PNG quantization at `--optimize 2+`. Missing from conda-forge **osx-arm64**, so we install it at the system level on all platforms for consistency:
+Measured on Beklemishev 1969, a 45-page Russian scan:
+
+| | output |
+|---|---|
+| source PDF | 1.1 MB |
+| `--optimize 1` (no pngquant) | 90 MB |
+| `--optimize 2` (with pngquant) | **35 MB** |
+
+Across a library that is the difference between fitting a quota and not. The helper script installs what your platform has:
+
+```bash
+conda activate corpus
+bash tools/install_ocr_extras.sh
+```
+
+It is idempotent and prints what it could not install. The manual equivalents follow.
+
+`pngquant` — needed for color-PNG quantization at `--optimize 2+`. On conda-forge for linux-64 and osx-64 but **not osx-arm64**, which is why it can't live in `environment.yaml` (conda env files have no platform conditionals, so listing it would break `conda env create` on Apple Silicon). `tools/install_ocr_extras.sh` installs it from conda-forge where available; otherwise:
 
 ```bash
 # macOS
@@ -152,7 +169,7 @@ brew install pngquant
 sudo apt-get install pngquant
 ```
 
-`jbig2enc` — needed for B/W image compression at the highest optimization level:
+`jbig2enc` — B/W image compression at the highest optimization level. Not packaged on conda-forge for any platform, so it is a system install everywhere:
 
 ```bash
 # macOS

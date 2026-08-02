@@ -1266,14 +1266,27 @@ def _cmd_check(args: argparse.Namespace) -> int:
         pstatus("OCR toolchain: tesseract, ocrmypdf, ghostscript on PATH",
                 status="ok")
     # Optional ocrmypdf helpers — scan.py degrades deliberately (drops
-    # --optimize 2 → 1), so informational only.
+    # --optimize 2 → 1). Not wrong, but "larger" undersells it on scanned
+    # material: Beklemishev 1969 comes out 90 MB without pngquant and
+    # 35 MB with it. Since v1.0 re-OCRs every scan rather than trusting
+    # its text layer, far more documents take this path, so pngquant's
+    # absence is now a real disk-budget item on a large corpus.
+    # `jbig2` is the binary jbig2enc installs.
     missing_opt = [
-        b for b in ("pngquant", "jbig2enc") if shutil.which(b) is None
+        name for name, binary in (("pngquant", "pngquant"), ("jbig2enc", "jbig2"))
+        if shutil.which(binary) is None
     ]
-    if missing_opt:
+    if "pngquant" in missing_opt:
+        pstatus(
+            f"OCR compression helpers: {', '.join(missing_opt)} absent — "
+            "ocrmypdf drops to --optimize 1 and processed.pdf can be ~2.5x "
+            "larger on scans. Install with: bash tools/install_ocr_extras.sh",
+            status="warn",
+        )
+    elif missing_opt:
         pstatus(
             f"OCR compression helpers: {', '.join(missing_opt)} absent "
-            "(optional — OCR output will be larger, not wrong)",
+            "(optional — slightly larger output on bitonal scans)",
             status="info",
         )
 
