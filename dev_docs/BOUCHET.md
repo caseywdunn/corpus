@@ -358,8 +358,15 @@ every request**, because the Singularity rootfs is read-only and it writes temp 
 per request), and a writable host dir onto `/opt/grobid/logs` (without it Grobid
 **crashes on startup** opening `logs/grobid-service.log`). It creates both dirs
 per-job so concurrent instances don't collide. A hand-rolled
-`singularity run --bind "$BOUCHET_PROJECT"` gets you a service that starts and then
-fails every request.
+`singularity run --bind "$BOUCHET_PROJECT"` does not even get that far: without
+`--pwd /opt/grobid` it dies immediately with
+
+```
+[FATAL tini] exec ./grobid-service/bin/grobid-service failed: No such file or directory
+```
+
+because Singularity starts in your *host* cwd rather than the image's `WORKDIR`.
+Add `--pwd` and it starts, then fails every request for want of the writable binds.
 
 To bring one up and point this shell at it — this is what step 7 and a manual
 `sbatch slurm/batch_process_corpus.sh` need:

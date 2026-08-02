@@ -13,7 +13,14 @@
 #
 # On Bouchet / YCRC, Singularity converts the same image:
 #     singularity build grobid.sif docker://lfoppiano/grobid:0.8.1
-#     singularity run --bind $HOME grobid.sif  (with port forwarding)
+#     singularity run --pwd /opt/grobid --bind $HOME grobid.sif
+#
+# --pwd /opt/grobid is required, not cosmetic: Docker honours the image's
+# WORKDIR, Singularity does not — it starts in your *host* cwd, so tini
+# fails with "exec ./grobid-service/bin/grobid-service: No such file or
+# directory" before the service ever starts. On a cluster use
+# slurm/batch_grobid.sh instead, which adds the two writable binds
+# (grobid-home/tmp, logs) that this line still lacks.
 # See dev_docs/PLAN.md for HPC deployment notes.
 
 services:
