@@ -53,8 +53,16 @@ def _scan_facts(hash_dir) -> dict:
     scan = _load_json(hash_dir / "scan_detection.json", default={}) or {}
     langs = scan.get("probe_languages") or []
     primary = scan.get("detected_language")
-    if not langs and primary:
+    # Only fall back to the text layer's own guess when the pipeline
+    # trusted it. On a re-OCR'd scan that guess came *from* the layer we
+    # rejected, and reporting it would launder an explicitly-distrusted
+    # value into the served API: Linnaeus 1735 is Latin, its corrupt
+    # layer reads as Catalan, and `language_trusted` is already False.
+    # Better to report no language than a wrong one.
+    if not langs and primary and scan.get("language_trusted", True):
         langs = [primary]
+    elif not langs:
+        primary = None
     return {
         "scan_file_type": scan.get("file_type"),
         "language": primary or (langs[0] if langs else None),

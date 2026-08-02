@@ -380,6 +380,50 @@ blank in both. This was never a two-run fluke; it was constant, unmeasured loss.
 Exposure scales with the re-OCR change: 31 documents take this path where 4 did before. On a
 cluster with array jobs competing for cores it would be worse and equally silent.
 
+## Final verification (2026-08-02, 35-paper rebuild with every fix)
+
+Clean rebuild, 111 min, exit 0, all stages 100%, no failures.
+
+| check | before | after |
+|---|---|---|
+| corpus text extracted | 1,943,374 chars | **2,206,893** (+13.6%) |
+| Linnaeus 1735 alone | 38,349 | **301,833** |
+| bogus author-initial panels | 3 | **0** |
+| chunks with a `section_class` | 357/3211 (11.1%) | **555/3412 (16.3%)** |
+| `section_class: description` | 18 | **193** |
+| `section_class: methods` | 1 | **23** |
+| `gibberish_after_ocr` flags | 2 (one false) | **1** (the genuine plate-only volume) |
+| papers OCR'd | 4 (pre-review) | **31/35** |
+
+`corpus serve --check` green. `scan_detection.json` reaches all 35 distilled bundles, so the
+language surface works end to end: `by_language` = en 16, de 7, fr 7, ru 5, sv 2, it 2, ja 2,
+es 1, nl 1, pt 1, and `language="ru"` returns exactly the five Russian papers the dataset
+documents.
+
+Two defects found *during* this verification and fixed:
+
+* **The CJK gibberish fix was insufficient.** Yamamori 2014 still flagged, because the quality
+  gate scores `text.json` rather than chunk text, and excluding CJK *tokens* is not enough when
+  the non-CJK remainder is `['##', 'Li', '\_', "『'", '=']`. On a document 55–63% CJK the
+  heuristic has no validity in either direction, so `_gibberish_score` now returns 0.0 above
+  `_CJK_SHARE_UNSCORABLE` (0.30) instead of a misleading number. Safe only because
+  `_scanned_page_fraction` now answers "is this a scan?" independently — this heuristic is no
+  longer the sole guard.
+* **A bug in the new language surface.** `_scan_facts` fell back to `detected_language` even
+  when `language_trusted` was False, laundering a value the pipeline had explicitly rejected
+  into the served API — Linnaeus 1735 was reported as Catalan. It now reports no language.
+
+**Known caveat, not fixed:** langdetect has no Latin profile, so Latin text surfaces as a
+low-confidence Romance language. Tilesius 1814 (Swedish, with Latin passages) reports
+`ca` among its languages. Consumers of the `language` field should know that `ca` on a
+pre-modern work often means Latin.
+
+**The Latin-centric assumption in `_gibberish_score` bit five separate times in this review** —
+scan detection's blackletter blindness, the OCR language probe's page gate, the
+`gibberish_after_ocr` quality gate, the CJK token exclusion, and finally the text.json scoring
+path. Any heuristic tuned on Latin prose needs an explicit decision about what it does on a
+corpus that is deliberately multi-script.
+
 ## P3 corrections — two findings withdrawn after measurement
 
 **A3 (reconciliation) is not broken.** The claim that bibliographic resolution was "effectively

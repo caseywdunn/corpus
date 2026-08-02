@@ -133,6 +133,13 @@ def _detect_language(text: str):
 _DIGIT_IN_WORD_RE = re.compile(r"\d")
 
 
+# Above this share of CJK characters, _gibberish_score returns 0.0
+# rather than a meaningless number. 0.30 sits well clear of both
+# populations measured on the reference corpus: Japanese and Chinese
+# papers run 0.55-0.63, every Latin-script paper 0.00.
+_CJK_SHARE_UNSCORABLE = 0.30
+
+
 def _is_cjk(ch: str) -> bool:
     """True for Han, kana and Hangul characters."""
     cp = ord(ch)
@@ -167,6 +174,25 @@ def _gibberish_score(text: str) -> float:
     document is 88% Latin by character, so a document-level script test
     would not have caught this).
     """
+    alpha_chars = [c for c in text if c.isalpha()]
+    if alpha_chars:
+        cjk_share = sum(_is_cjk(c) for c in alpha_chars) / len(alpha_chars)
+        if cjk_share > _CJK_SHARE_UNSCORABLE:
+            # On a CJK-dominant document this measure has no validity in
+            # either direction, so refuse to produce a number rather than
+            # produce a misleading one. Excluding CJK *tokens* is not
+            # enough: what remains is page numbers, figure labels and
+            # markup fragments — Yamamori 2014's non-CJK remainder is
+            # ['##', 'Li', '\\_', "『'", '=', …] — which scores as
+            # garbage no matter how good the OCR was. Yamamori OCR'd
+            # correctly under `jpn` and still scored 0.82.
+            #
+            # Safe because the "is this a scan?" question is now answered
+            # independently by _scanned_page_fraction; this heuristic is
+            # no longer the only thing standing between a corrupt text
+            # layer and the corpus.
+            return 0.0
+
     words = [w.strip(".,;:!?()[]{}\"'") for w in text.split()]
     words = [w for w in words if w]
     scored = []
