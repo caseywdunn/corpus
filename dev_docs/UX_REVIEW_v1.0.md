@@ -345,6 +345,79 @@ ever clear a figure in practice.
 
 ---
 
+## P1.4 — OCR silently dropped whole pages to a per-page timeout — **FIXED**
+Found while verifying the OCR rebuild, and the most serious defect in the review. OCR was
+losing entire pages, **nondeterministically**, and reporting success. Linnaeus 1735, identical
+command and input across two runs:
+
+```
+run A  [43, 414, 5027, 6420, 10575, 3796, 6012, 0, 9758, 8462, 6124, 0, 0]
+run B  [43, 414, 5027,    0,     0, 3796, 6012, 0,    0,    0,    0, 0, 0]
+```
+56,631 characters became 15,292. Both logged `OCR completed successfully`, both exited 0, and
+`corpus status` reported 100% on every stage.
+
+Reproducing with stderr captured named it immediately:
+```
+12 [tesseract] took too long to OCR - skipping
+13 [tesseract] took too long to OCR - skipping
+ 9 [tesseract] lots of diacritics - possibly poor OCR
+   Suppressing OCR output text with improbable aspect ratio
+```
+`--tesseract-timeout`, documented as "give up on OCR after the timeout, but copy the
+preprocessed page into the final output" — a blank page and a clean exit. The pipeline never
+set it, so it inherited ocrmypdf's default, far too tight for a dense 300-dpi scan with seven
+language packs loaded. Load-dependent, so it does not reproduce reliably.
+
+Fixed three ways: the timeout is set explicitly (`ocr.tesseract_page_timeout`, 900 s/page);
+ocrmypdf's stderr is logged **on success**, which is the single line that made this invisible;
+and a post-OCR check names pages that came back with no text.
+
+With the timeout raised, Linnaeus yields **92,616 characters across all 13 pages** — meaning
+the *better* of the two runs above was still missing 39% of the document, and pages 12–13 were
+blank in both. This was never a two-run fluke; it was constant, unmeasured loss.
+
+Exposure scales with the re-OCR change: 31 documents take this path where 4 did before. On a
+cluster with array jobs competing for cores it would be worse and equally silent.
+
+## P3 corrections — two findings withdrawn after measurement
+
+**A3 (reconciliation) is not broken.** The claim that bibliographic resolution was "effectively
+non-functional" came from an MCP client's inference over one paper's reference list, and I
+repeated it without measuring. The authority DB over 710 citations: `doi_exact` 233,
+`title_fuzzy` 7, `alias_exact` 12, `new_work` 458. Fuzzy title matching exists and fires.
+The `matched 0 / no_candidates 27` line is a *different* step (merging ghost cited-references
+onto corpus papers), and in a 35-paper corpus spanning 1594–2026 most papers genuinely are not
+cited by the others.
+
+The 5 `low_score` near-misses are mostly **correct rejections** — same author and year,
+different works:
+
+| corpus paper | best ghost candidate | verdict |
+|---|---|---|
+| Kawamura 1911 | `shidarezakura kurage and nagayoraku kurage` | different paper |
+| Carré 1969 | `etude du developpment larvaire de sphaeronectes` | different paper (corpus one is *Rosacea villafrancae* sp. n.) |
+| Chun 1882 | `ueber die cyclische entwickelung…` | different paper |
+| Totton 1965 | *(empty title, score 0)* | unverifiable |
+| Vanhöffen 1906 | `siphonophoren nordisches plankton` | plausibly the same work |
+
+Lowering the threshold would merge distinct works, which is worse than leaving them separate.
+**No change made.**
+
+**3.4 (licensing) is not a bug.** With `pd_cutoff_years: 95` the cutoff is 1931. All 16
+pre-1931 corpus papers are correctly `public_domain` via `license_source: age_based_pd`; the 17
+`no_record` ones are all 1932 or later, where conservative "unknown" is right because they may
+still be in copyright. `license: null` means "no explicit license string" — the determination
+lives in `publishable` / `license_source` / `clearance_state`, surfaced under a strict profile
+or `include_licensing=True` (#154). Worth a line in MCP_TOOLS.md, not a code change.
+
+**A2 (`section_class`) was also mis-framed** — see §1.1b. The 89% null rate is mostly correct
+and the multilingual patterns work; only a handful of genuine misses needed fixing.
+
+The pattern across all four: an MCP client's plausible-sounding inference is not evidence.
+Every one of these needed measuring against the artifacts before acting, and three of the four
+would have been actively harmful to "fix".
+
 ## P4 — polish
 
 | # | Finding |
