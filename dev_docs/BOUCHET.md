@@ -526,7 +526,61 @@ Only then submit the production run against the full input.
 Everything above is setup and rehearsal. This section is the real build, and it
 is self-contained: with steps 1–7 done once, this is the only part you repeat.
 
+### Environment
+
+Almost everything is derived by [slurm/bouchet_paths.sh](../slurm/bouchet_paths.sh),
+which every batch script sources. What you actually have to do:
+
+```bash
+module load miniconda
+conda activate corpus          # required — see below
+cd "$BOUCHET_PROJECT/corpus"   # the slurm/ paths are relative to the repo
+```
+
+**`conda activate corpus` is not optional, and not for the reason it looks.**
+The orchestrator itself needs no env. But every phase script sources
+`bouchet_paths.sh` *before* it runs `conda activate`, and that file sets
+`LD_LIBRARY_PATH` from `$CONDA_PREFIX` — which at that moment is whatever the
+*submitting* shell had, propagated by `sbatch --export=ALL`. Submit without
+activating and the jobs run with no `LD_LIBRARY_PATH`, which is
+[#20](https://github.com/caseywdunn/corpus/issues/20): docling and torch fall
+back to system libraries and can produce mis-structured output without
+crashing. `batch_process_corpus.sh` has a fail-loud import preflight that
+catches the worst of it, but don't rely on it.
+
+| Variable | Who sets it | Notes |
+|---|---|---|
+| `BOUCHET_PROJECT` | you, **only if** not `/nfs/roberts/project/pi_cwd7/cwd7` | everything else derives from it |
+| `CORPUS_CONFIG` | you, **only** for a one-off build that isn't `corpuscles/current` | otherwise resolved from the symlink; hard error if neither exists |
+| `HF_HOME` | `bouchet_paths.sh` → `$BOUCHET_PROJECT/cache/huggingface` | **don't set it by hand for the run.** You *do* need it exported for the manual `corpus prefetch` in §5, and it must match this path or the jobs re-download (the "Stale HF_HOME" pitfall) |
+| `LD_LIBRARY_PATH` | `bouchet_paths.sh`, from `$CONDA_PREFIX` | see the warning above |
+| `REPO_DIR`, `CACHE_DIR` | `bouchet_paths.sh` | derived from `BOUCHET_PROJECT` |
+| `GROBID_URL` | `batch_pipeline.sh` | discovered from its own Grobid job and injected into extract. Any value you export is overwritten |
+
+Optional knobs:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `NUM_BATCHES` | `1` | Stage 1 CPU array tasks — **set this**; see below |
+| `BATCH_SIZE` | `256` | PDFs per Stage 1 task |
+| `NUM_PASS3B_BATCHES` | `$NUM_BATCHES` | Pass 3b GPU array tasks |
+| `PASS3B_BATCH_SIZE` | `256` | papers per Pass 3b task |
+| `HF_HUB_OFFLINE` | unset | `1` pins the run to the cached model snapshot; makes a build reproducible against a moving upstream (§5) |
+| `ENRICH_BHL` | unset | `1` adds BHL enrichment in finalize — slow, rate-limited, many hours |
+| `SKIP_BUNDLE` | unset | `1` runs the cross-paper DBs without distilling `_serve/` |
+
 ### Before you launch
+
+**Run it from the login node.** `batch_pipeline.sh` submits six jobs, polls
+`squeue` and `curl` while sleeping, prints a summary and exits — it does no
+compute, and every phase runs in its own SLURM job with `afterok` dependencies,
+so nothing depends on the launcher staying alive. Under `salloc` you would hold
+an allocation to run a poller, and if that allocation expires during the ~15 min
+Grobid wait you get an orphaned Grobid with no cleanup job attached to it.
+
+It is also **not resumable**: if it dies partway, some jobs are submitted and
+some aren't, and re-running submits a second Grobid plus a duplicate chain.
+If that happens, `squeue --me`, cancel everything it created, and start over.
 
 **Cancel any Grobid you started by hand.** `slurm/batch_pipeline.sh` submits its
 *own* Grobid unconditionally — there is no way to hand it an existing one. It
