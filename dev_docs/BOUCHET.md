@@ -425,7 +425,10 @@ expected rather than a symptom; the next `batch_grobid.sh` submit sweeps them.
 In practice you don't submit Grobid by hand — `slurm/batch_pipeline.sh`
 (see [Production run](#production-run)) submits `slurm/batch_grobid.sh`, discovers the
 node, waits for `/api/isalive`, exports `$GROBID_URL` into the extract job, and tears
-Grobid down afterward. The manual path above exists for step 7 and for debugging.
+Grobid down afterward. The manual path above exists for step 7 and for debugging —
+and because the orchestrator always starts its own, **cancel a hand-started Grobid
+before launching a production run** or it holds a `day` allocation for 24 h doing
+nothing.
 
 ### 7. Preflight: `corpus check`
 
@@ -516,7 +519,45 @@ Inspect `$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/documents/<HAS
 
 Only then submit the production run against the full input.
 
+---
+
 ## Production run
+
+Everything above is setup and rehearsal. This section is the real build, and it
+is self-contained: with steps 1–7 done once, this is the only part you repeat.
+
+### Before you launch
+
+**Cancel any Grobid you started by hand.** `slurm/batch_pipeline.sh` submits its
+*own* Grobid unconditionally — there is no way to hand it an existing one. It
+overwrites `$GROBID_URL` with its own job's node, and the cleanup job it
+schedules cancels only the job it started. A Grobid left over from §6 or §7 will
+therefore sit idle holding a `day` allocation for the full 24 hours.
+
+```bash
+# Find it — the job name is `grobid`:
+squeue -u "$USER" -o "%.10i %.12j %.8T %.10M %N"
+
+scancel <grobid_job_id>
+```
+
+If you kept the shell from §6, `scancel "$GROBID_JOB"` does it directly.
+
+**Confirm the two things that fail silently rather than loudly:**
+
+```bash
+# 1. NUM_BATCHES must cover the library: ceil(unique PDFs / BATCH_SIZE).
+#    Under-provisioning leaves papers unprocessed with no error;
+#    over-provisioning is harmless (empty tasks exit immediately).
+find "$BOUCHET_PROJECT/siphonophores/library" -iname '*.pdf' | wc -l
+
+# 2. A leftover `export CORPUS_CONFIG=…sample…` from a smoke test will
+#    redirect a production submit into the sample corpuscle.
+echo "${CORPUS_CONFIG:-<unset — will use corpuscles/current>}"
+ls -l "$BOUCHET_PROJECT/corpuscles/current"
+```
+
+### Launching
 
 The pipeline orchestrator (`slurm/batch_pipeline.sh`) handles Grobid startup, extract job-array submission, Grobid cleanup, and vision + embed + finalize chaining automatically — every job runs `corpus run --only <phase>` against `$CORPUS_CONFIG`.
 
