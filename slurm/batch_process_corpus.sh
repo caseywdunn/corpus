@@ -6,6 +6,8 @@
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-stage1-%A_%a.out
 #SBATCH --error=logs/slurm-stage1-%A_%a.err
+#SBATCH --open-mode=append
+#SBATCH --mail-type=FAIL,TIME_LIMIT
 #
 # Stage 1: PDF processing pipeline (CPU-only).
 # OCR, docling extraction, chunking, metadata (Grobid), Pass 2.5.
@@ -96,7 +98,14 @@ fi
 # live in $CORPUS_CONFIG and `corpus run` reads them from there (#138).
 
 # ── Batch parameters (for SLURM job arrays) ─────────────────────────
-BATCH_SIZE="${BATCH_SIZE:-256}"
+# 64, not 256. The 2026-08-02 build ran 256/task and two tasks hit the
+# 24 h wall mid-OCR; the tasks that did finish cleared it by as little as
+# 55 min. Because downstream jobs chain on `afterok`, a single timed-out
+# task silently cancels Pass 3b, Embed and Finalize. At the worst-case
+# observed rate (225 scan-heavy docs in 24 h) 64 docs is ~7 h — a 3x
+# margin rather than 0.9x. More, smaller tasks also spread the OCR-heavy
+# tail instead of concentrating it in one slice.
+BATCH_SIZE="${BATCH_SIZE:-64}"
 BATCH_ARGS=()
 if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
     BATCH_ARGS=(--batch-index "$SLURM_ARRAY_TASK_ID" --batch-size "$BATCH_SIZE")

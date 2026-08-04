@@ -1,13 +1,21 @@
 #!/bin/bash
 #SBATCH --job-name=grobid
-#SBATCH --partition=day
+#SBATCH --partition=week
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=24:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --output=logs/slurm-grobid-%j.out
 #SBATCH --error=logs/slurm-grobid-%j.err
 #
 # Long-running Grobid service for stage 1 to talk to.
+#
+# `week`/48 h rather than `day`/24 h: this job is submitted *before*
+# stage 1 and `day` caps at 24 h, so an equal wall guaranteed Grobid
+# died first. Papers stage 1 processes after that get placeholder
+# metadata, and implicit resume will NOT retry them — their inputs are
+# unchanged — so the loss is silent. Outliving stage 1 costs nothing:
+# the `afterany` grobid-cancel job in batch_pipeline.sh tears this down
+# as soon as stage 1 ends, however it ends.
 #
 # Usage:
 #     GROBID_JOB=$(sbatch --parsable batch_grobid.sh)
@@ -56,10 +64,11 @@ GROBID_LOGS="$CACHE_DIR/grobid_logs/$SLURM_JOB_ID"
 #
 # Age is the only safe signal for grobid_tmp: Grobid writes there per request
 # and leaves it empty when idle, so a live instance's tmp dir looks exactly
-# like a leaked one. --time=24:00:00 caps a live instance's age at a day, so
-# -mtime +2 cannot touch a running job.
+# like a leaked one. --time=2-00:00:00 caps a live instance's age at two days,
+# so -mtime +3 cannot touch a running job. Keep this threshold strictly above
+# the walltime above if you ever change it.
 find "$CACHE_DIR/grobid_tmp" "$CACHE_DIR/grobid_logs" -mindepth 1 -maxdepth 1 \
-    -type d -mtime +2 -exec rm -rf {} + 2>/dev/null || true
+    -type d -mtime +3 -exec rm -rf {} + 2>/dev/null || true
 
 # grobid_logs additionally admits a prompt rule, which is what actually keeps
 # the leak in check: a running instance opens grobid-service.log within seconds

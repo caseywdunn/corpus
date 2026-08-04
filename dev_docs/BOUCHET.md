@@ -420,14 +420,14 @@ expected rather than a symptom; the next `batch_grobid.sh` submit sweeps them.
 `$GROBID_URL` overrides the config's `grobid.url` for this dynamically-allocated node
 (#138), for both `corpus run` and `corpus check`. It is honored only when set, so
 `config.yaml` stays authoritative on a standalone submit. Remember to `scancel
-"$GROBID_JOB"` when you're done — it holds a `day` allocation for 24 h.
+"$GROBID_JOB"` when you're done — it holds a `week` allocation for 48 h.
 
 In practice you don't submit Grobid by hand — `slurm/batch_pipeline.sh`
 (see [Production run](#production-run)) submits `slurm/batch_grobid.sh`, discovers the
 node, waits for `/api/isalive`, exports `$GROBID_URL` into the extract job, and tears
 Grobid down afterward. The manual path above exists for step 7 and for debugging —
 and because the orchestrator always starts its own, **cancel a hand-started Grobid
-before launching a production run** or it holds a `day` allocation for 24 h doing
+before launching a production run** or it holds a `week` allocation for 48 h doing
 nothing.
 
 ### 7. Preflight: `corpus check`
@@ -561,9 +561,9 @@ Optional knobs:
 
 | Variable | Default | Effect |
 |---|---|---|
-| `NUM_BATCHES` | `1` | Stage 1 CPU array tasks — **set this**; see below |
-| `BATCH_SIZE` | `256` | PDFs per Stage 1 task |
-| `NUM_PASS3B_BATCHES` | `$NUM_BATCHES` | Pass 3b GPU array tasks |
+| `NUM_BATCHES` | *auto* — `ceil(PDF files / BATCH_SIZE)` | Stage 1 CPU array tasks. Derived from the corpuscle's own `input_pdfs`, so you no longer have to set it; export a value only to override |
+| `BATCH_SIZE` | `64` | PDFs per Stage 1 task — see "Why `BATCH_SIZE` is 64" below |
+| `NUM_PASS3B_BATCHES` | `1` | Pass 3b GPU array tasks. Deliberately *not* tied to `NUM_BATCHES` |
 | `PASS3B_BATCH_SIZE` | `256` | papers per Pass 3b task |
 | `HF_HUB_OFFLINE` | unset | `1` pins the run to the cached model snapshot; makes a build reproducible against a moving upstream (§5) |
 | `ENRICH_BHL` | unset | `1` adds BHL enrichment in finalize — slow, rate-limited, many hours |
@@ -571,7 +571,7 @@ Optional knobs:
 
 ### Before you launch
 
-**Run it from the login node.** `batch_pipeline.sh` submits six jobs, polls
+**Run it from the login node.** `batch_pipeline.sh` submits seven jobs, polls
 `squeue` and `curl` while sleeping, prints a summary and exits — it does no
 compute, and every phase runs in its own SLURM job with `afterok` dependencies,
 so nothing depends on the launcher staying alive. Under `salloc` you would hold
@@ -586,7 +586,7 @@ If that happens, `squeue --me`, cancel everything it created, and start over.
 *own* Grobid unconditionally — there is no way to hand it an existing one. It
 overwrites `$GROBID_URL` with its own job's node, and the cleanup job it
 schedules cancels only the job it started. A Grobid left over from §6 or §7 will
-therefore sit idle holding a `day` allocation for the full 24 hours.
+therefore sit idle holding a `week` allocation for the full 48 hours.
 
 ```bash
 # Find it — the job name is `grobid`:
@@ -597,61 +597,106 @@ scancel <grobid_job_id>
 
 If you kept the shell from §6, `scancel "$GROBID_JOB"` does it directly.
 
-**Confirm the two things that fail silently rather than loudly:**
+**Confirm the thing that still fails silently rather than loudly:**
 
 ```bash
-# 1. NUM_BATCHES must cover the library: ceil(unique PDFs / BATCH_SIZE).
-#    Under-provisioning leaves papers unprocessed with no error;
-#    over-provisioning is harmless (empty tasks exit immediately).
-find "$BOUCHET_PROJECT/siphonophores/library" -iname '*.pdf' | wc -l
-
-# 2. A leftover `export CORPUS_CONFIG=…sample…` from a smoke test will
-#    redirect a production submit into the sample corpuscle.
+# A leftover `export CORPUS_CONFIG=…sample…` from a smoke test will
+# redirect a production submit into the sample corpuscle.
 echo "${CORPUS_CONFIG:-<unset — will use corpuscles/current>}"
 ls -l "$BOUCHET_PROJECT/corpuscles/current"
 ```
+
+Under-provisioning `NUM_BATCHES` used to belong on this list — it left the
+tail of the library unprocessed with no error. It no longer can: the
+launcher derives the array size from the corpuscle's `input_pdfs` and
+prints what it decided, e.g.
+
+```
+Auto-sized Stage 1: 1772 PDFs / 64 per task = 28 tasks
+```
+
+Check that line against the library size if you want the belt-and-braces
+version; the count comes from the same `find` as the header of this doc.
 
 ### Launching
 
 The pipeline orchestrator (`slurm/batch_pipeline.sh`) handles Grobid startup, extract job-array submission, Grobid cleanup, and vision + embed + finalize chaining automatically — every job runs `corpus run --only <phase>` against `$CORPUS_CONFIG`.
 
 The orchestrator parallelizes both Stage 1 (CPU) and Pass 3b (GPU)
-independently. Stage 1 dominates wallclock for typical corpora; Pass 3b
-is the long pole only when many figures need vision-LLM ROI detection.
+independently. Pass 3b looks like the long pole and is not: only figures
+whose caption declares more than one panel reach the VLM, which on the
+2026-08-04 build was 934 of 21,789 figure records (4.3%).
 
-| Knob | Stage | Default | What it controls |
-|---|---|---|---|
-| `NUM_BATCHES` | Stage 1 | `1` | Parallel CPU array tasks |
-| `BATCH_SIZE` | Stage 1 | `256` | PDFs per Stage 1 task |
-| `NUM_PASS3B_BATCHES` | Pass 3b | `1` | Parallel GPU array tasks |
-| `PASS3B_BATCH_SIZE` | Pass 3b | `256` | Papers per Pass 3b task |
+Measured on that build (1,769 papers, 261k chunks), end to end 5 h 10 m:
+
+| Phase | Shape | Elapsed |
+|---|---|---|
+| extract | 28 tasks × 64 PDFs | 2 h 35 m (slowest task; most finish in 1–4 min) |
+| vision (Pass 3b) | 1 GPU task | 1 h 24 m |
+| embed | 1 GPU task | 21 m |
+| finalize | 1 CPU task | 1 h 03 m |
+
+Extract's wallclock is set by whichever slice draws the scanned Fraktur and
+Cyrillic monographs, not by the average paper. Pass 3b's is dominated by the
+walk over every document directory rather than by the 934 VLM calls, so it
+scales with corpus size even though the GPU work does not.
+
+The parallelism knobs are in the [Environment](#environment) table above.
 
 ```bash
 cd "$BOUCHET_PROJECT/corpus"
 
-# Full pipeline with parallel Stage 1 batches of 256 PDFs each.
-# NUM_BATCHES = ceil(unique PDFs / 256). Recompute it as the library grows —
-# 8 covers ~2,000 papers, and over-provisioning is harmless (empty tasks exit
-# immediately), whereas under-provisioning silently leaves papers unprocessed.
-NUM_BATCHES=8 bash slurm/batch_pipeline.sh
+# The whole build, hands-off. NUM_BATCHES is derived from the corpuscle's
+# own input_pdfs, so there is nothing to recompute as the library grows.
+bash slurm/batch_pipeline.sh
 
-# Custom Stage 1 batch size:
-NUM_BATCHES=4 BATCH_SIZE=512 bash slurm/batch_pipeline.sh
+# Override the slice size (NUM_BATCHES re-derives from it automatically):
+BATCH_SIZE=128 bash slurm/batch_pipeline.sh
 
-# Parallelize Pass 3b too — useful when figure-heavy corpora make the
-# vision pass the long pole. NUM_PASS3B_BATCHES should equal NUM_BATCHES
-# so every paper is covered (default is now $NUM_BATCHES when unset).
-# gpu_h200 partition has limited slots, so check `sinfo -p gpu_h200`
-# before fanning out aggressively.
-NUM_BATCHES=8 NUM_PASS3B_BATCHES=8 bash slurm/batch_pipeline.sh
+# Fan Pass 3b out across GPUs. Rarely needed — only for a genuinely
+# figure-bound corpus. Mind the 16-GPU per-user cap and check
+# `sinfo -p gpu_h200` first.
+NUM_PASS3B_BATCHES=4 bash slurm/batch_pipeline.sh
 ```
+
+### Why `BATCH_SIZE` is 64 and not 256
+
+The 2026-08-02 siphonophore build ran 8 tasks × 256 PDFs against Stage 1's
+24 h wall. Two tasks drew the OCR-heavy scans and hit the wall at 252/256
+and 225/256; the tasks that *did* finish cleared it by as little as 55 min.
+Because Pass 3b, Embed and Finalize all chain on `afterok`, those two
+TIMEOUTs cancelled the entire downstream chain — silently, with no log, no
+mail and no queue entry. See "Chain integrity" below.
+
+64 PDFs/task gives roughly a 3× margin at the worst observed rate, and more
+tasks spread the OCR-heavy tail instead of concentrating it in one slice.
+Empty and already-complete tasks cost ~4 min each, so over-provisioning is
+cheap; under-provisioning silently leaves papers unprocessed.
+
+### Chain integrity
+
+`afterok` on a job *array* requires **every** task to exit 0. One TIMEOUT
+takes out Pass 3b, Embed and Finalize. Three things now guard this:
+
+- `NUM_BATCHES` is auto-derived, so the array can no longer be too small
+  for the library.
+- Stage 1 carries `--mail-type=FAIL,TIME_LIMIT`, so a wall hit sends mail.
+- A `chain-watchdog` job runs on `afterany` after Stage 1 and always
+  reports: the per-task states, the completed-document count, and an
+  explicit warning naming the cancelled downstream job IDs. Read
+  `logs/slurm-watchdog-<jobid>.out` before assuming a build finished.
+
+`batch_pipeline.sh` also prints `squeue --me -o "%.12i %.18j %.10T %.30E"`
+right after submit — every downstream job should show a pending
+`Dependency` reason there.
 
 The orchestrator:
 1. Starts Grobid as a SLURM job, waits for it to be alive, exports `$GROBID_URL` for the extract job
 2. Submits **extract** (`batch_process_corpus.sh`) as a job array (`--array=0-N`), each task processing a deterministic slice of the sorted hash list
 3. Schedules Grobid cleanup after extract completes (runs regardless of success/failure)
-4. Queues **vision** (`batch_pass3b.sh`, GPU array) and **embed** (`batch_embed.sh`, GPU) with `afterok` dependency on the full extract array
-5. Queues **finalize** (`batch_finalize.sh` — `corpus run --only post` then `--only bundle`) with `afterok` dependency on embed
+4. Queues **vision** (`batch_pass3b.sh`, GPU) and **embed** (`batch_embed.sh`, GPU) with `afterok` dependency on the full extract array
+5. Queues **finalize** (`batch_finalize.sh` — `corpus run --only post` then `--only bundle`) with `afterok` on **both** embed and vision. Both are needed: the served bundle copies `figures.json` and `figures/*.png`, which Pass 3b rewrites and Pass 3c renames, so gating on embed alone let `bundle` capture pre-vision ROIs and stale figure filenames
+6. Queues a **chain-watchdog** on `afterany` after extract, which reports the array outcome whether or not the chain survived
 
 So the orchestrator now runs the whole build, including the cross-paper DBs and served-bundle distill, hands-off. Every job invokes `corpus -c "$CORPUS_CONFIG" run --only <phase>`.
 
@@ -659,15 +704,18 @@ For manual submission without the orchestrator (each phase reads `$CORPUS_CONFIG
 
 ```bash
 cd "$BOUCHET_PROJECT/corpus"
-export GROBID_URL=http://<grobid_node>:8070      # extract needs Grobid (step 6)
-sbatch --array=0-6 slurm/batch_process_corpus.sh # extract
-# After all array tasks complete:
-sbatch --array=0-3 slurm/batch_pass3b.sh         # vision; or omit --array for single-task
-sbatch slurm/batch_embed.sh                      # embed
-sbatch slurm/batch_finalize.sh                   # post + bundle → _serve/
+export GROBID_URL=http://<grobid_node>:8070       # extract needs Grobid (step 6)
+S1=$(sbatch --parsable --array=0-27 slurm/batch_process_corpus.sh)   # extract
+P=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_pass3b.sh)  # vision
+E=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_embed.sh)   # embed
+sbatch --dependency=afterok:$E:$P slurm/batch_finalize.sh              # post + bundle → _serve/
 ```
 
-Resume is implicit in `corpus run`, so restarts are cheap — re-queuing a phase re-processes only papers whose inputs changed. Without `NUM_BATCHES` / `NUM_PASS3B_BATCHES` (or set to 1), the corresponding phase runs as a single job, which is usually right for small corpora.
+Size `--array` as `ceil(PDF files / BATCH_SIZE) - 1`; the orchestrator does this for you.
+
+Resume is implicit in `corpus run`, so restarts are cheap — re-queuing a phase re-processes only papers whose inputs changed. Without `NUM_PASS3B_BATCHES` (or set to 1), Pass 3b runs as a single job, which is right for all but genuinely figure-bound corpora.
+
+**Do not trust `corpus run --only embed --dry-run`.** The real run gates resume on the marker's `embedding_model` + `embedding_dim` (`_marker_matches_backend`, `pipeline/embed.py:216`), but the dry-run path checks only that `vector_db/<HASH>_embedded.done` exists (`embed.py:296-306`). Stage 1 writes a *chunking* receipt at that same path (the `ingest_to_vector_db` stub, `pipeline/chunking.py:149`), which carries neither key. So on a corpus that has finished extract but never embedded, the dry-run reports "already have a marker" for every paper while the real run correctly embeds them all. Check `vector_db/lancedb/` for the actual state — if that directory is absent, nothing has been embedded regardless of how many `.done` files there are.
 
 ## Post-pipeline cross-paper databases + served bundle
 
@@ -754,8 +802,16 @@ python "$BOUCHET_PROJECT/corpus/tools/smoke_test_sse.py" \
 | `vision` (Pass 3b + 3c, Qwen2.5-VL-7B) | `slurm/batch_pass3b.sh` | `gpu_h200` | 1 | 24 h |
 | `embed` (BGE-M3) | `slurm/batch_embed.sh` | `gpu` | 1 | 4 h |
 | `post` + `bundle` (cross-paper DBs + served bundle) | `slurm/batch_finalize.sh` | `day` | no | 12 h |
+| (Grobid service) | `slurm/batch_grobid.sh` | `week` | no | 48 h |
 
 Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltimes as the corpus grows.
+
+Grobid sits on `week`/48 h rather than `day`/24 h **on purpose**: it is submitted
+before extract, so an equal wall guaranteed it died first. Papers extract handles
+after Grobid dies get placeholder metadata, and implicit resume will not retry them
+(their inputs are unchanged) — a silent quality loss. It costs nothing to outlive
+extract, because the `afterany` grobid-cancel job tears the service down the moment
+extract ends. **Keep Grobid's walltime strictly greater than extract's.**
 
 The per-user QoS caps that actually bind these submissions (`sacctmgr show qos`,
 2026-08-01):
@@ -768,10 +824,12 @@ The per-user QoS caps that actually bind these submissions (`sacctmgr show qos`,
 | `gpu`, `gpu_h200` | 2 d | 16 GPUs |
 | `gpu_devel` | 6 h | 2 GPUs, 12 CPUs, 256 GiB |
 
-Both GPU phases sit well inside the 16-GPU cap even at
-`NUM_BATCHES=8 NUM_PASS3B_BATCHES=8`, above what the current library needs.
-The extract array is bounded by `day`'s
-1000-CPU cap, not by anything in the scripts.
+Both GPU phases sit well inside the 16-GPU cap at the defaults, which run
+Pass 3b as a single job. The 16-GPU cap is why `NUM_PASS3B_BATCHES` no
+longer inherits `NUM_BATCHES`: at `BATCH_SIZE=64` the extract array is
+~28 tasks, and matching that on `gpu_h200` would queue against the cap for
+work one GPU finishes in about an hour. The extract array itself is bounded
+by `day`'s 1000-CPU cap (28 × 8 = 224 CPUs), not by anything in the scripts.
 
 Note that the `gpu` partition is **heterogeneous** — it carries `a40` (48 GB),
 `l40s` (48 GB) and `rtx_5000_ada` (32 GB), so `batch_embed.sh`'s bare

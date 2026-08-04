@@ -25,8 +25,25 @@
 # rtx_pro_6000_blackwell, rtx_5000_ada, a40, l40s). The preflight below
 # is cheap and catches any future regression, so it stays.
 #
-# Estimated runtime: ~1–3 s/figure × ~20 figures/paper × 2000 papers ≈
-# 11–17 hours. 24h wall gives headroom for the full corpus.
+# Measured runtime: 1 h 24 m as a single job over 1,769 papers
+# (2026-08-04 build), against the 24 h wall.
+#
+# Only figures whose caption declares more than one panel reach the VLM
+# (the `len(panels) <= 1: continue` filter in _pass3b_annotate_rois,
+# pipeline/figure_passes.py) — on that build, 934 of 21,789 figure
+# records, 4.3%. The GPU work is therefore small; the wallclock is
+# dominated by walking every document directory and rewriting
+# figures.json, so it scales with corpus size, not figure count.
+#
+# An earlier estimate here read "~20 figures/paper × 2000 papers ≈ 11–17
+# hours"; it assumed every figure goes to the GPU and is what made Pass
+# 3b look like the pipeline's long pole. It is not. The job still walks
+# every document directory to rewrite figures.json, so wall time scales
+# with corpus size, but the GPU work does not.
+#
+# Consequently --array is rarely worth it here: batch_pipeline.sh
+# defaults NUM_PASS3B_BATCHES to 1. Fan out only for a genuinely
+# figure-bound corpus, and mind the 16-GPU per-user cap on gpu_h200.
 #
 # Usage:
 #     sbatch batch_pass3b.sh
