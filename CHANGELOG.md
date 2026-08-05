@@ -201,6 +201,32 @@ at that run is what surfaced the silent SLURM-chain failure fixed below.
   volume answers to both its codes), and `corpus_summary` gains
   `by_language` and `n_papers_ocred`. Additive only: the 38-tool freeze
   holds, and no existing field changes shape.
+- **An API-stability policy**
+  ([dev_docs/API_STABILITY.md](dev_docs/API_STABILITY.md)), deferred out of
+  v0.6 because a policy written over a moving surface documents intentions
+  rather than commitments. It says what the freeze covers (the 38 tool
+  names, parameter names and meanings, response field names, the
+  pagination convention, the error vocabulary, profile semantics), what it
+  does not, which changes are additive versus breaking, and the
+  deprecation path — one full minor plus 90 days, announced in the
+  docstring, because that is the tool description MCP clients actually
+  read and MCP has no out-of-band warning channel.
+
+  Two exclusions are worth reading before depending on this: on-disk
+  artifacts carry their own `ARTIFACT_SCHEMA_VERSION` and are not a public
+  API, and **extracted content is explicitly not covered** — a stable API
+  does not promise stable data, as this release's re-OCR change
+  demonstrates. Pin a built corpuscle, not a version, when you need
+  reproducibility.
+- **The distribution channel is stated rather than implied**
+  (INSTALL.md §"How corpus is distributed"). git clone + conda is
+  canonical and the only supported channel; pin a release with
+  `git clone --branch v1.0.0`. **There is no PyPI package by decision, not
+  by omission:** pip cannot install tesseract, ghostscript, pngquant,
+  pandoc or Grobid, so `pip install corpus` would import cleanly and then
+  fail on the first scanned PDF — the exact failure class this cycle
+  exists to remove. Zenodo carries the citable DOI, which is what a PyPI
+  presence would have been standing in for.
 - **The OCR budget scales with the document.** `stage_timeouts.ocr` is now
   a *floor* rather than the whole budget, and two keys join it:
   `stage_timeouts.ocr_per_page` (default 30 s) sets the effective
