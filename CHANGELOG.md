@@ -5,13 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — `1.0.0rc1`
+## [1.0.0] - 2026-08-05
 
-`dev` now carries `1.0.0rc1` so artifacts built from it are stamped with a
-version that isn't a released one. It had been sitting at plain `0.6.0` —
-the version actually released on 2026-06-04 — because the post-release
-"reintroduce a pre-release suffix" step was skipped, so everything built
-from `dev` since then claimed to be v0.6.0.
+Through most of this cycle `dev` carried a plain `0.6.0` — the version
+actually released on 2026-06-04 — because the post-release step that
+reintroduces a pre-release suffix had been skipped. Everything built from
+`dev` between that release and this one therefore stamped itself v0.6.0,
+whatever it actually contained. A `1.0.0rc1` suffix restored the
+distinction late in the cycle, and this release drops it; see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the convention.
 
 ### Theme — v1.0 installability
 
