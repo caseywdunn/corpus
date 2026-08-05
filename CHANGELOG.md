@@ -20,6 +20,15 @@ principle is that **a green CI badge must mean a fresh install works**.
 The v0.6 MCP surface freeze holds — no new tools. See
 [dev_docs/PLAN.md](dev_docs/PLAN.md) for the wave plan.
 
+Two things ran the cycle's fixes past its tests. A pre-release UX pass
+worked through the README as a new user would, against a smoke corpus of
+35 papers spanning 13 languages, 4 Fraktur, 5 Russian and 3 image-only —
+which is where most of the OCR and first-run work below came from. Then a
+full production run on Bouchet: **1,769 of 1,769 documents, 0 stage
+failures, 261,093 chunks embedded, 934 of 934 eligible figures through the
+vision pass, and no job in the chain ending TIMEOUT.** The first attempt
+at that run is what surfaced the silent SLURM-chain failure fixed below.
+
 ### Changed (breaking)
 
 - **`mcp` pinned to `2.0.0`, `mcpsrv/` migrated to the 2.x API**
@@ -47,6 +56,58 @@ The v0.6 MCP surface freeze holds — no new tools. See
   (#156) had each already done it. Bumping one is now a deliberate,
   reviewable commit across `environment.yaml`, `requirements.txt`, and
   `pyproject.toml`.
+- **OCR now runs on everything that is not digitally native, not just on
+  what reads badly.** `detect_scan_type` only ever inspected the
+  *content* of a PDF's text layer, so `born_digital` meant "reads
+  plausibly", not "was produced digitally" — a scan carrying any
+  third-party OCR layer was trusted and never re-OCR'd. On the 32-paper
+  smoke corpus that was 29 of 32 papers, including all four Fraktur ones,
+  whose layers are visibly corrupt but score *below* the gibberish
+  threshold. The entire multilingual OCR apparatus, `deu_latf` included,
+  ran on 4 documents out of 32.
+
+  Detection now asks whether pages *are* scans, independently of the text
+  layer: `_scanned_page_fraction` measures how many sampled pages carry a
+  single image covering ≥50% of the page. The populations separate
+  perfectly on the reference corpus — every scan 0.50–1.00, every
+  born-digital paper exactly 0.00 — and pages are sampled across the
+  whole document rather than the first N, because Kawamura 1911a is a
+  born-digital English typescript for pages 0–7 and a Japanese scan from
+  page 12, and front-only sampling reported 0% raster and skipped OCR on
+  13 pages of Japanese. Mixed volumes get `--redo-ocr`, which replaces
+  OCR text while leaving genuine digital text alone, so a bound-in
+  typescript isn't rasterized to fix a scanned half; uniformly-scanned
+  documents get `--force-ocr`. Never `--skip-text`, which would preserve
+  the layer we just rejected.
+
+  Language selection had the same circularity — it was read off the layer
+  we distrust, which sent Olfers 1824 (German Fraktur) to the Catalan
+  pack. It now comes from OCRing a 5-page sample, per page and unioned,
+  because bilingual originals-plus-translations are routine in this
+  literature (verified on `jpn+eng`, `eng+fra`, `eng+rus`, `eng+spa`
+  pairs). Pages are sampled from the middle 15–85% — the front is covers
+  and plates, the tail is references — and Tesseract OSD picks each
+  page's script so it is OCR'd with only that script's packs. Probe pages
+  whose own OCR output is gibberish are discarded: OSD is not infallible,
+  and on Bernstein 1934 it read a Cyrillic table as Latin, producing text
+  langdetect called Catalan at p=0.86. Confidence cannot catch that;
+  gibberish score can (0.61, against 0.12–0.39 for that document's
+  genuine pages). Two results are recorded in the config so they are not
+  re-litigated: probe DPI must stay 300 (at 200, Kawamura lost its
+  Japanese and Linnaeus 1735 went from correctly finding nothing to a
+  confident wrong `ca`), and langdetect ships no Latin profile, so Latin
+  can only ever be mis-identified — a confidence floor routes those to a
+  union containing `lat`.
+
+  **This re-runs extraction on every existing corpuscle and changes
+  stored text.** On the smoke corpus: 35 papers / 3,323 chunks / 420
+  figures, 31 documents OCR'd where 4 were before, Olfers 1824 going from
+  `!Oir llt/ne €lHbfl1rr.` to readable German and Eschscholtz 1825 from 3
+  extracted taxa to 6. `zero_references_unexpected` rose 8 → 12, and that
+  is *correct*: Grobid had been fabricating references out of mojibake (De
+  Haan 1827's 23 "references" had surnames `Den Nam Wui I .`, `Jdt`,
+  `Ta`, `On`), verified by running Grobid against the original and the
+  re-OCR'd PDF side by side.
 
 ### Added
 
@@ -104,6 +165,48 @@ The v0.6 MCP surface freeze holds — no new tools. See
   while GHA's cgroup-v2 runners fail every time, so the flag now ships on
   by default; `-Xmx4g` pins the heap regardless, so it costs nothing.
   Users on an affected host previously saw only "Grobid never comes up".
+- **`tools/install_ocr_extras.sh`** — installs `pngquant`, mirroring
+  `tools/install_tessdata.sh`'s contract (idempotent, exits 0 either
+  way). Without `pngquant`, `pipeline/scan.py` silently degrades
+  `ocrmypdf` from `--optimize 2` to `--optimize 1`, which was documented
+  as "OCR output will be larger, not wrong" — a bad undersell on scanned
+  material. Measured on Beklemishev 1969, a 45-page Russian scan: source
+  PDF 1.1 MB, `--optimize 1` **90 MB**, `--optimize 2` **35 MB**, 61%
+  smaller. Since v1.0 re-OCRs every scan rather than trusting its text
+  layer, most of a historical corpus now takes that path — 31 of 35
+  papers in the smoke corpus, where 4 did before — so on a full library
+  this is the difference between fitting a disk quota and not.
+
+  `pngquant` cannot simply go in `environment.yaml`: conda-forge has
+  linux-64 and osx-64 builds but no osx-arm64, and conda env files have no
+  platform conditionals, so listing it would break `conda env create` on
+  Apple Silicon, a supported target. `jbig2enc` is on conda-forge for no
+  platform at all. Both verified with `conda search --platform` rather
+  than by trusting the existing comment. The script installs `pngquant`
+  from conda-forge where a build exists — **no root required, so it works
+  on an HPC account** — prints the brew/apt line where it doesn't, and for
+  `jbig2enc` detects an HPC-ish environment and offers `module avail` plus
+  a source build instead of a useless `sudo apt-get`. It also notes that
+  `conda install` wants a login node, since compute nodes often have no
+  outbound network. `corpus check` promotes a missing `pngquant` from info
+  to **warn**, quantifies the cost, and names the script; `jbig2enc` stays
+  informational, because it compresses bitonal images only while
+  `pngquant` covers the colour and greyscale scans that dominate this
+  material.
+- **Language is visible on the served surface.** Nothing in the tool
+  surface exposed language, on a corpus whose entire premise is
+  multilingual historical literature — a client asked "what languages are
+  in this corpus?" had to infer it from titles. `list_papers` now returns
+  `language` / `languages` and accepts a `language=` filter (a bilingual
+  volume answers to both its codes), and `corpus_summary` gains
+  `by_language` and `n_papers_ocred`. Additive only: the 38-tool freeze
+  holds, and no existing field changes shape.
+- **The OCR budget scales with the document.** `stage_timeouts.ocr` is now
+  a *floor* rather than the whole budget, and two keys join it:
+  `stage_timeouts.ocr_per_page` (default 30 s) sets the effective
+  per-document cap to `max(ocr, ocr_per_page × pages)`, and
+  `ocr.tesseract_page_timeout` (default 900 s) caps a single page. See
+  **Fixed** below for what each of them was losing.
 
 ### Changed (breaking, MCP surface)
 
@@ -187,6 +290,234 @@ The v0.6 MCP surface freeze holds — no new tools. See
 
 ### Fixed
 
+- **OCR no longer loses whole pages silently.** OCR was dropping entire
+  pages, nondeterministically, and reporting success. Linnaeus 1735, same
+  command and same input across two runs — per-page character counts:
+
+      run A  [43, 414, 5027, 6420, 10575, 3796, 6012, 0, 9758, 8462, 6124, 0, 0]
+      run B  [43, 414, 5027,    0,     0, 3796, 6012, 0,    0,    0,    0, 0, 0]
+
+  56,631 characters became 15,292. Both runs logged "OCR completed
+  successfully", both exited 0, and `corpus status` showed 100% on every
+  stage. Reproducing with stderr captured named the mechanism:
+  `[tesseract] took too long to OCR - skipping`. That is ocrmypdf's
+  `--tesseract-timeout`, whose documented behaviour is to give up on a
+  page but *copy the preprocessed page into the final output* — a blank
+  page and a clean exit. The pipeline never set it, so it took ocrmypdf's
+  default, far too tight for a dense 300-dpi historical scan with seven
+  language packs loaded, and load-dependent enough not to reproduce
+  reliably. Three fixes: `--tesseract-timeout` is now set explicitly from
+  `ocr.tesseract_page_timeout` (default 900 s/page), which takes Linnaeus
+  to 92,616 characters across all 13 pages — the *better* of the two runs
+  above was still missing 39% of the document, and pages 12–13 were blank
+  in both; ocrmypdf's stderr is logged **on success**, not only on
+  failure, which is the single line that made this invisible, since every
+  message that matters arrives on a clean exit; and a post-OCR check
+  counts and names pages that came out with no text, because blank pages
+  and plates are legitimate but a *run* of them is not. Exposure scales
+  with the re-OCR change above — 31 documents now take this path where 4
+  did — and on a cluster with array jobs competing for cores it would have
+  been worse and equally silent.
+- **A monograph no longer fails OCR for being long.**
+  `stage_timeouts.ocr` was a flat 1800 s cap on one document's whole
+  `ocrmypdf` call, and on timeout the stage fails outright rather than
+  degrading. Measured throughput varies ~15× with how many Tesseract
+  language packs are loaded, not just with page count — Totton 1965a, 314
+  pages under `eng` alone, ran 1.3 s/page; Linnaeus 1735, 13 pages under a
+  7-pack union, ran 20.0 s/page. Extrapolated to the largest document in
+  the full siphonophore library (delle Chiaje 1830–31, 1,549 pages) that
+  is 34 minutes at best and ~8.6 hours at worst, so the flat 30-minute cap
+  failed even the best case and a full-library run would have lost its
+  biggest monographs. Raising the flat number is the wrong fix: a budget
+  big enough for 1,549 pages lets a genuinely hung 3-page paper burn hours
+  before failing, which is the thing the timeout exists to prevent. So
+  `ocr` became a floor and the effective cap is
+  `max(ocr, ocr_per_page × pages)` — 30 min for a 2-page paper, 157 min
+  for Totton, 12.9 h for delle Chiaje. The chosen budget is logged on
+  every OCR call so it can be seen rather than inferred. Note that the
+  per-page rate is already the worst (7-pack) observed case, so it is
+  deliberately *not* scaled again by pack count; an earlier version did,
+  and double-counted its way to a 51-hour budget.
+- **CJK text is no longer scored for gibberish, and an untrusted language
+  is no longer served.** Two defects, both from Latin-prose assumptions.
+  `_gibberish_score` excluded CJK *tokens*, which was not enough:
+  Yamamori 2014 still flagged `gibberish_after_ocr` despite OCRing
+  correctly under `jpn`, because the quality gate scores `text.json`, and
+  what remains after excluding CJK is `['##', 'Li', '\_', "『'", '=']` —
+  page numbers, figure labels and markup fragments, which score as
+  garbage however good the OCR was. On a document that is 55–63% CJK the
+  measure has no validity in either direction, so it now returns `0.0`
+  above a 0.30 CJK share rather than producing a misleading number. That
+  is safe only because `_scanned_page_fraction` now answers "is this a
+  scan?" independently, so the heuristic is no longer the only thing
+  between a corrupt text layer and the corpus. (This was the fifth defect
+  traced to a Latin-prose assumption in that one function.) Separately,
+  `_scan_facts` fell back to a paper's `detected_language` even when
+  `language_trusted` was `False` — laundering a value the pipeline had
+  explicitly rejected into the served API. Linnaeus 1735 is Latin, its
+  corrupt text layer reads as Catalan, and the new `language` field
+  reported Catalan; it now reports no language, which is the honest
+  answer. Verified on a full 35-paper rebuild: corpus text 1,943,374 →
+  2,206,893 characters (+13.6%), Linnaeus alone 38,349 → 301,833; bogus
+  author-initial panels 3 → 0; `section_class` coverage 11.1% → 16.3%; one
+  remaining gibberish flag, on a genuinely garbled plate-only volume.
+- **`tools/install_tessdata.sh` installed almost nothing on a fresh
+  env.** conda-forge's tesseract 5.5.2 now bundles 158 language packs, and
+  they are `tessdata_fast` builds — verified byte-exact against upstream,
+  `rus` at 3.9 MB against 15.3 MB for `best`. The script's "file exists →
+  skip" check therefore fetched only `deu_latf` and left the low-accuracy
+  models in place, under a banner reading `Source: tessdata_best`. It now
+  tracks what it fetched in a marker file and replaces anything else, and
+  gained `eng`, `--force` and `--help`. The claim that tesseract "ships
+  only English LSTM data" was false and is corrected in README.md,
+  INSTALL.md and `environment.yaml`.
+- **`corpus prefetch` missed docling's HybridChunker tokenizer** while
+  asserting "every required model is already cached". Under the documented
+  `HF_HUB_OFFLINE=1` recipe, chunking then fell back to the naive
+  character chunker — 16 chunks became 1 for the same paper, exit 0 either
+  way. `prefetch_docling` now exercises the chunker and counts the
+  tokenizer in `DOCLING_REPOS`, so prefetch stops short-circuiting, and
+  the fallback logs at `ERROR` with the remedy. `corpus prefetch` manages
+  **four** models, not three; README.md, INSTALL.md and the module
+  docstring all said three.
+- **`get_chunks_for_topic` described `score` as "cosine similarity" while
+  returning `_distance`.** That docstring is the tool description every
+  MCP client reads, so thresholding or sorting on it inverted the ranking.
+- **`resolve_reference` failed on any multi-author query.** Everything
+  before the year was captured as one surname, so `Totton Bargmann 1965`
+  searched for an author literally named "Totton Bargmann" and matched
+  nothing — and typing both surnames is the natural way to look up a
+  two-author work, so it failed on first use. It now tries the whole blob
+  first (multi-word surnames like `van Soest`, `De Haan`, `Lo Bianco` are
+  real in this literature), then each surname in turn; `not_found` reports
+  `authors_tried`.
+- **`get_citation_graph` truncated the commonest question it is asked.**
+  It applied its 50-edge per-node cap even at `depth=1`, where the runaway
+  [#87](https://github.com/caseywdunn/corpus/issues/87) guards against
+  cannot occur — one node is expanded and `max_total_edges` already bounds
+  the walk. So "show me this paper's bibliography" silently returned a
+  fraction of a hub work's references. Now unbounded at depth 1, 50
+  beyond. The `work_id` tiebreak also degenerated to alphabetical whenever
+  citation counts tie, which in a small corpus is nearly always (one list
+  came back cut off at "Jacobs 1937"); ties now keep document order. The
+  docstring's motivating example was also wrong — it cited "Totton &
+  Bargmann 1965's 155 references" from an MCP client's report, repeated
+  unverified; the real figure is 213 in `references.json` and 210 citation
+  rows. It now also warns that a hub work's depth-1 graph runs ~55 kB,
+  past what some MCP clients pass through in one tool result — a
+  *transport* limit, not corpus-side truncation, so `truncated: false` can
+  be accurate while the client still fails to deliver the payload. Pass an
+  explicit `max_edges_per_node` when a bounded response is wanted.
+- **`scan_detection.json` was never in the served bundle whitelist**, so
+  the `scan_file_type` field the index has always exposed was silently
+  `null` whenever anyone served a distilled bundle rather than the build
+  tree. Found while surfacing language on the served surface.
+- **Caption parsing invented figure panels out of people's initials.**
+  `(A. Agassiz)` is a species authority and `Photo credit to C. Munro` is
+  a credit line; both became panels — 17 bogus records across 32 papers,
+  including `{'label': 'C', 'description': 'Munro'}`. An `X.` match is now
+  read as an initial when a capitalised word follows *and* a credit phrase
+  precedes, or an opening paren immediately precedes, or a closing paren or
+  year follows the surname. A caption that genuinely opens a panel with a
+  capitalised taxon name still parses.
+- **`section_class`: fixed the genuine misses.** The 89% null rate is
+  mostly *correct* rather than the English-only vocabulary first assumed —
+  German `ZUSAMMENFASSUNG` and French `INDEX BIBLIOGRAPHIQUE` classify
+  fine, and the nulls are taxonomic names, paper-specific headings,
+  running heads and OCR noise, because descriptive taxonomic literature
+  does not use IMRaD sections. The real misses: Russian
+  `МАТЕРИАЛ И МЕТОДИКА` (singular, missed by the stricter
+  `материалы и методы`), morphology/anatomy → `description` in three
+  languages, and `CONCLUSIONS ON THE METHODS OF DEVELOPMENT` being
+  labelled `methods` because first-match-wins ordered `methods` first.
+- **A fresh corpuscle's `--dry-run` no longer prints six ERRORs.**
+  `corpus run --dry-run` reported failure seconds after `corpus check`
+  reported the host ready, because five guards treated "not built yet" as
+  a failure; each is now dry-run-aware and reports the real plan. The
+  [#139](https://github.com/caseywdunn/corpus/issues/139) taxonomy
+  precondition is unchanged for real runs — a dry-run writes nothing, so
+  it cannot produce the empty `taxa.json` that guard exists for. Also in
+  the same pass: `--dry-run` created `output/`, `documents/` and
+  `vector_db/` while printing "No files written", which additionally made
+  the second dry-run behave differently from the first; `~` in config
+  paths was not expanded, yielding `<corpuscle>/~/data/…` in the error
+  message; the config template told you to uncomment *every* line of a
+  taxonomy block that then yields an invalid `worms`+`path` mix; and
+  `corpus status` printed a `--filter-gate` hint that does nothing without
+  `--list-hashes`.
+- **One agreed citation form** across `CITATION.cff`, its packaged copy
+  and README.md (Church, Mańko, Zapata, Dunn 2026), so `--cite`,
+  `--cite=bibtex` and `bundle_manifest.json` all match.
+- **QC visualizations no longer die on large scans.** Pillow's
+  decompression-bomb ceiling was killing visualization rendering on 4
+  papers once re-OCR started rendering scans. It is raised around that
+  render and restored in a `finally`, since it is process-wide state — the
+  guard exists to stop a hostile upload exhausting memory, and here the
+  image is one we just rendered from the operator's own PDF.
+- **Every invocation no longer opens with two lines of torch internals.**
+  torch's CUDA driver/runtime `UserWarning` printed ahead of any corpus
+  output on every invocation *including `--help`*, while `corpus check`
+  already reports GPU status properly; it is now silenced at the two sites
+  that probe for an accelerator. Likewise transformers' "Token indices
+  sequence length is longer than…" during chunking, which `HybridChunker`
+  provokes deliberately while measuring where to split, and which reads
+  like a crash.
+- **The SLURM pipeline chain no longer fails silently.** The 2026-08-02
+  siphonophore build stalled with stage 1 at 97.9% and stages 2–4 never
+  run, from two independent faults. Stage 1 had no walltime margin: 8
+  tasks × 256 PDFs against a 24 h wall meant tasks 2 and 3 drew the
+  OCR-heavy scans and hit the wall at 252/256 and 225/256, while the tasks
+  that finished cleared it by as little as 55 min. And `afterok` on a job
+  array is all-or-nothing, so two TIMEOUT tasks had SLURM cancel Pass 3b,
+  Embed and Finalize with no log, no mail and no queue entry — the build
+  looked finished and nothing said otherwise. Fixes: `BATCH_SIZE` default
+  256 → 64 (~3× margin at the worst observed rate, and it spreads the
+  OCR-heavy tail instead of concentrating it), plus
+  `--mail-type=FAIL,TIME_LIMIT` and `--open-mode=append`; `NUM_BATCHES` is
+  derived from the corpuscle's own `input_pdfs` rather than defaulting to
+  1, so the array can no longer be too small for the library; a
+  chain-watchdog job on `afterany` always reports the array outcome and
+  names the cancelled downstream jobs, and the dependency state is printed
+  at submit time. Two ordering bugs went with them: `finalize` now depends
+  on `afterok:EMBED:PASS3B` rather than embed alone — they are siblings, so
+  `bundle` could previously start while Pass 3b was still rewriting
+  `figures.json` and Pass 3c still renaming split-panel PNGs, both of which
+  `mcpsrv/bundle.py` copies into `_serve/` — and Grobid moved to
+  `week`/48 h, because it is submitted *before* stage 1, so an equal 24 h
+  wall on `day` guaranteed Grobid died first and papers processed after
+  that got placeholder metadata that implicit resume will not retry. It
+  costs nothing: the `afterany` cancel job still tears Grobid down when
+  stage 1 ends. `NUM_PASS3B_BATCHES` also no longer defaults to
+  `NUM_BATCHES` — Pass 3b sends only multi-panel figures to the VLM, 934 of
+  21,789 records on this corpus, so one GPU task suffices and matching
+  stage 1's array would just queue against the 16-GPU per-user cap.
+- **The `corpus_required` metadata checks compared typography, not
+  meaning** ([#167](https://github.com/caseywdunn/corpus/issues/167)). All
+  five failures came from two causes, neither a defect in the pipeline or
+  the data. Whitespace: the checks compared BibTeX strings to docling's
+  extracted text literally, so `claudanielis, a` vs `claudanielis , a` and
+  `Einige histologische` vs `Einige  histologische` failed on titles that
+  are plainly present. A `_norm()` now collapses whitespace and drops
+  space-before-punctuation. Schneider 1891 only started failing when v1.0
+  began re-OCRing scans that carry a text layer — and that re-OCR is an
+  improvement (`Prof. J. Victor (Jarus` → `Prof. J. Victor Carus`), so the
+  test was punishing a fix, and would equally have failed on any docling
+  upgrade that shifted tokenization. Cross-script metadata: Stepanjants
+  1970 records an English *translation* as its title while the body reads
+  `СИФОНОФОРЫ РАЙОНА…`, is "Stepanjants" in the bib and "Степаньянц" on
+  the page. Latin metadata for foreign-language papers is normal practice,
+  no extraction work will make one string contain the other, and checking
+  it tests transliteration, which neither these tests nor the pipeline
+  do — those three checks now skip with the reason stated. The trigger is
+  a *share*, not a majority: Stepanjants 1970 is 21,084 Latin characters
+  against 15,075 Cyrillic, because Russian taxonomic papers are dense with
+  Latin binomials and journal names, so a majority test would call it a
+  Latin document and never fire. ≥20% non-Latin fires, and skip messages
+  quote the measured figure (`body is 42% cyrillic`) so the reasoning is
+  checkable rather than asserted. The full suite is now green end to end at
+  872 passed, 20 skipped, 0 failed — so the three `--deselect` flags that
+  T1, T2 and T3 carry for these tests are obsolete and should come out,
+  which is the only thing keeping the repaired tests from running in CI.
 - **A job still loading Grobid's models no longer looks like a failed
   one.** SLURM reports `RUNNING` when the container starts, but Grobid
   binds `:8070` another ~10–60 s later, after loading its Wapiti models.
@@ -314,6 +645,74 @@ The v0.6 MCP surface freeze holds — no new tools. See
   a file-inventory table listing eleven root-level scripts that were
   folded into packages back in v0.3 (#60), two of them as broken links.
   All corrected, and every relative link in the docs now resolves.
+- **Documentation swept again after the OCR and prefetch changes**, since
+  four of the five defects that pass found were created by those changes.
+  `install_ocr_extras.sh` had reached the README install block only, so
+  every other install recipe still omitted it — INSTALL.md's cluster
+  block, BOUCHET.md §2, PLATFORM_SMOKE.md, and the clean-install
+  walkthrough — and the cluster ones matter most, because that is where
+  the disk difference lands; BOUCHET.md was also missing `pip install -e .`
+  entirely, and still carried the false "ships only English LSTM data"
+  tesseract claim corrected everywhere else, in the one document someone
+  follows while standing on the cluster. README said "born-digital PDFs
+  with a clean text layer skip OCR entirely", now actively misleading: the
+  classification is geometric, so a scan arriving with third-party OCR
+  baked in is still a scan and gets re-OCR'd. OVERVIEW.md described scan
+  detection without its primary signal, and had none of `--redo-ocr`, the
+  OCR language probe, or the scaling timeouts. Checked mechanically and
+  found clean: relative links (0 broken), documented config keys (all 7
+  valid against the pydantic schema), documented CLI verbs against the
+  real subcommand set, and the demo paper counts — including the README's
+  new claim that the demo OCRs three of its four papers, verified against
+  `scan_detection.json` (Pugh, Stepanjants and Schneider are
+  `raster_page_images`; Marrus alone is `born_digital`).
+- **`docker-compose.yml`'s Singularity hint was missing `--pwd
+  /opt/grobid`.** Docker honours the image `WORKDIR`; Singularity starts
+  in the host cwd instead, so the line as written dies before the service
+  starts — `[FATAL tini] exec ./grobid-service/bin/grobid-service failed:
+  No such file or directory`. Hit for real on Bouchet.
+  `slurm/batch_grobid.sh` and PLATFORM_SMOKE.md both passed `--pwd`
+  already; only this comment was wrong, and it is the one a reader is most
+  likely to copy. BOUCHET.md had described the hand-rolled failure as a
+  service that "starts and then fails every request" — that is the symptom
+  *after* `--pwd` is added, while the first failure is that it never
+  starts. Both are now spelled out with the error text.
+- **Stopped hard-coding the siphonophore library's size.** The library
+  grows as papers are added, so every exact count baked into the docs is
+  wrong by the next `git lfs pull`; BOUCHET.md alone asserted three
+  different figures. Replaced with phrasing that scales, and the rule is
+  recorded in AGENTS.md. Two corrections worth stating rather than
+  burying: the header now says how to get the real count, because
+  `ls … | wc -l` returns 17 — the library is nested in letter
+  subdirectories — so it takes `find … -iname '*.pdf' | wc -l`, or just
+  `corpus check`, which reports it. And `NUM_BATCHES` is derived from
+  corpus size rather than being a fixed tuning constant, so it cannot be
+  left alone: `pipeline/main.py` slices `all_hashes[start:end]`, so a
+  surplus array task gets an empty slice and exits immediately while a
+  shortfall leaves papers unprocessed **with no error** — asymmetric, so
+  the docs say to round up and explain why.
+- **BOUCHET.md no longer calls the sample build a "dry run."** It used the
+  phrase for two opposite things within one screen: `corpus run --dry-run`
+  prints the plan without writing artifacts, while eight lines later "Dry
+  run (20–50 papers) before the full corpus" headed a section that creates
+  a corpuscle, submits real CPU and GPU jobs, and writes the artifacts you
+  then inspect. A reader coming off step 7 could reasonably take the
+  section below it to write nothing too, when it is in fact the last
+  checkpoint before committing the full library. Renamed to "smoke test",
+  which its own first sentence already called it.
+- **`dev_docs/UX_REVIEW_v1.0.md` removed.** The pre-release review is
+  retained outside the repo; its actionable findings are filed as
+  [#164](https://github.com/caseywdunn/corpus/issues/164)–[#173](https://github.com/caseywdunn/corpus/issues/173),
+  each carrying its own reproducing evidence, and the fixes it drove are
+  in this section. Three of its findings were **withdrawn** after
+  measuring against the artifacts rather than trusting an MCP client's
+  inference, and three of those four would have been actively harmful to
+  "fix": reconciliation is conservative by design and its near-misses are
+  correct rejections of same-author/same-year different works; figure
+  licensing derives public-domain status from year, so `license: null` on a
+  pre-1931 work is fully cleared rather than unknown; and `section_class`'s
+  high null rate is mostly correct, because descriptive taxonomic
+  literature does not use IMRaD headings.
 - **Dead script names removed from user-visible messages.** A served MCP
   error payload told users to run `python embed_chunks.py <output_dir>`
   (removed in v0.3) — it now says `corpus run --only embed`. Likewise the

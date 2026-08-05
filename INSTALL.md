@@ -245,7 +245,7 @@ pip install -e ".[dev]"   # development clone (the [dev] extra adds
 pip install -e .          # runtime only, e.g. a server-only deploy host
 
 # or for a deploy host pinning a release:
-pip install git+https://github.com/caseywdunn/corpus.git@v0.6.0
+pip install git+https://github.com/caseywdunn/corpus.git@v1.0.0
 ```
 
 Python **3.12** specifically: `requires-python` is `>=3.12,<3.13`, because

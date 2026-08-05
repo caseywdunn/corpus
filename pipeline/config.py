@@ -169,8 +169,10 @@ _DEFAULT_CONFIG = {
     # timing in summary.json; the value is informational.
     "stage_timeouts": {
         # Floor for one document's ocrmypdf call. The effective cap is
-        # max(ocr, ocr_per_page * pages * pack_factor) — see
-        # scan._ocr_timeout_for. A flat value cannot span this corpus:
+        # max(ocr, ocr_per_page * pages) — see scan._ocr_timeout_for,
+        # which deliberately does *not* scale again by pack count, since
+        # ocr_per_page is already the worst-case (7-pack) rate.
+        # A flat value cannot span this corpus:
         # measured throughput runs 1.3 s/page with one language pack and
         # 20 s/page with seven, so the 1,549-page delle Chiaje 1830-31
         # needs anywhere from 34 min to ~8.6 h while a 3-page paper

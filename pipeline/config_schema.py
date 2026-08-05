@@ -205,8 +205,9 @@ class ChunkingConfig(BaseModel):
 class StageTimeoutsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # Effective OCR cap is max(ocr, ocr_per_page * pages * pack_factor).
-    # See pipeline/scan.py `_ocr_timeout_for`.
+    # Effective OCR cap is max(ocr, ocr_per_page * pages) — not scaled by
+    # pack count, since ocr_per_page is already the worst-case (7-pack)
+    # rate. See pipeline/scan.py `_ocr_timeout_for`.
     ocr: int = Field(default=1800, gt=0)
     ocr_per_page: int = Field(default=30, gt=0)
     grobid: int = Field(default=300, gt=0)

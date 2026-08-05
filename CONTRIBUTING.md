@@ -115,7 +115,11 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
    `main`, so anything red here gets stamped on the released version.
 2. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
    string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
-   for it. Commit.
+   for it. Bump the release-pinned install line in
+   [INSTALL.md](INSTALL.md) (`pip install git+…@vX.Y.Z`) to the same tag —
+   it names a tag that only exists once you reach step 4, so nothing
+   catches it going stale, and it has now drifted twice
+   (`grep -rn '\.git@v' INSTALL.md`). Commit.
 3. Merge `dev` → `main`, push. **Wait for CI on `main` to go green**
    (`gh run watch`, or poll `gh run list --branch main`) before
    tagging — once you tag, the version-stamped artifact is fixed; you
