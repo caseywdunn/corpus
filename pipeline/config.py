@@ -32,11 +32,20 @@ logger = logging.getLogger(__name__)
 _SECTION_PATTERNS = [
     ("abstract", r"\babstract\b|\bsummary\b|\bzusammenfassung\b|\br[ée]sum[ée]\b|резюме|сводка"),
     ("introduction", r"\bintroduction\b|\bвведение\b|\beinleitung\b"),
-    ("methods", r"materials?\s+and\s+methods|\bmethods?\b|\bmethodology\b|study\s+area|материалы\s+и\s+методы|m[ée]thodes"),
-    ("results", r"\bresults?\b|\bр[еé]зультаты\b|\bergebnisse\b|\br[ée]sultats\b"),
-    ("description", r"\bdescription\b|\bsystematics?\b|\btaxonomy\b|\bsystematic\s+account\b|\bdiagnosis\b|описание"),
-    ("discussion", r"\bdiscussion\b|обсуждение|\bdiskussion\b"),
+    # Before `methods`: a heading like "CONCLUSIONS ON THE METHODS OF
+    # DEVELOPMENT" names its conclusions and only mentions methods, and
+    # first-match-wins was labelling it `methods`.
     ("conclusion", r"\bconclusions?\b|выводы|\bschlussfolgerung"),
+    # Russian headings in this literature run to "МАТЕРИАЛ И МЕТОДИКА
+    # СБОРА И ОБРАБОТКИ" — singular материал, методика rather than
+    # методы — which the stricter phrase missed.
+    ("methods", r"materials?\s+and\s+methods|\bmethods?\b|\bmethodology\b|study\s+area|материал\w*\s+и\s+метод\w+|m[ée]thodes"),
+    ("results", r"\bresults?\b|\bр[еé]зультаты\b|\bergebnisse\b|\br[ée]sultats\b"),
+    # Morphology/anatomy headings are how descriptive taxonomic papers
+    # label what IMRaD would call results — "GROSS MORPHOLOGY",
+    # "Морфология дефинитивных колоний", "Bau der Siphonophoren".
+    ("description", r"\bdescription\b|\bsystematics?\b|\btaxonomy\b|\bsystematic\s+account\b|\bdiagnosis\b|описание|\bmorpholog\w*|морфолог\w*|\banatom\w*|анатом\w*|\bbau\s+der\b"),
+    ("discussion", r"\bdiscussion\b|обсуждение|\bdiskussion\b"),
     ("acknowledgements", r"acknowledg(?:e?ment)s?|благодарности|danksagung|remerciements"),
     ("references", r"\breferences?\b|\bbibliograph|\bliterature\s+cited\b|литература"),
     ("appendix", r"\bappendix\b|приложение|anhang"),
@@ -102,6 +111,40 @@ _DEFAULT_CONFIG = {
         # threshold. Must stay in sync with config_schema.OcrConfig
         # default + the bundled config.template.yaml.
         "gibberish_threshold": 0.65,
+        # Per-page --tesseract-timeout for ocrmypdf. A timeout blanks the
+        # page and still exits 0, so this is deliberately generous.
+        "tesseract_page_timeout": 900,
+        # Re-OCR scanned pages that already carry a text layer of unknown
+        # provenance. The gibberish/visual-script paths above only judge
+        # what the text layer *says*; they cannot tell a typeset page
+        # from a scan someone else OCR'd badly, which is most of a
+        # historical corpus. `scan_page_fraction_min` is the fraction of
+        # sampled pages that must be a single full-page image before the
+        # document is treated as a scan — see scan._scanned_page_fraction.
+        # Must stay in sync with config_schema.OcrConfig + the bundled
+        # config.template.yaml.
+        "reocr_scanned_text_layers": True,
+        "scan_page_fraction_min": 0.40,
+        # Identify a scan's language by OCRing a small sample, rather
+        # than trusting a layer we've already rejected or falling back to
+        # every installed pack at once. See scan._probe_language_by_ocr.
+        "probe_language_by_ocr": True,
+        # langdetect has no Latin profile, so Latin reads as a
+        # low-confidence Romance language; below this floor we OCR with
+        # the script union (which has `lat`) rather than a wrong pack.
+        "probe_language_min_confidence": 0.85,
+        # Bilingual original-plus-translation volumes are routine here,
+        # so the probe may report more than one language per document.
+        "probe_max_languages": 3,
+        # Probe pages whose OCR output is this gibberish were read with
+        # the wrong script's packs; discard their language vote.
+        "probe_max_gibberish": 0.50,
+        # 300, not 200 — see config.template.yaml. Lowering it broke
+        # language detection on the hardest documents.
+        "probe_dpi": 300,
+        # Sampled from the middle 15-85% of pages — front matter and
+        # references are both poor language-detection input.
+        "probe_sample_pages": 5,
     },
     "chunking": {
         "max_tokens": 8191,
@@ -125,7 +168,17 @@ _DEFAULT_CONFIG = {
     # request timeout). Stages without a hard-cap mechanism still record
     # timing in summary.json; the value is informational.
     "stage_timeouts": {
-        "ocr": 1800,         # 30 min — long monographs can run scary long
+        # Floor for one document's ocrmypdf call. The effective cap is
+        # max(ocr, ocr_per_page * pages) — see scan._ocr_timeout_for,
+        # which deliberately does *not* scale again by pack count, since
+        # ocr_per_page is already the worst-case (7-pack) rate.
+        # A flat value cannot span this corpus:
+        # measured throughput runs 1.3 s/page with one language pack and
+        # 20 s/page with seven, so the 1,549-page delle Chiaje 1830-31
+        # needs anywhere from 34 min to ~8.6 h while a 3-page paper
+        # should still fail fast if it hangs.
+        "ocr": 1800,         # floor, not the whole budget
+        "ocr_per_page": 30,  # generous vs 20 s/page worst observed
         "grobid": 300,       # 5 min — enforced by GrobidClient default
         "docling": 600,      # 10 min — informational only (in-process)
         "vision_pass": 600,  # 10 min — informational only

@@ -115,6 +115,10 @@ def _argv_args(**overrides):
         no_taxa=False, no_grobid=False, grobid_url=None, strict_network=False,
         figure_panels="ocr", vision_model=None, refresh_vision=False,
         batch_index=None, batch_size=None,
+        # Mirrors the real parser: `corpus run` always sets these, and the
+        # extract step reads taxonomy_source to decide whether to pass
+        # --require-taxonomy (#139).
+        taxonomy_source=None, taxonomy_root_id=None, taxonomy_path=None,
     )
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -127,11 +131,36 @@ def test_extract_step_carries_batch_flags():
     assert "--batch-size" in argv and "64" in argv
 
 
-def test_vision_step_forces_vision_backend_and_refresh():
-    argv = orch.VISION_STEP.argv(_argv_args(figure_panels="ocr",
+def test_extract_step_requires_taxonomy_when_configured():
+    """#139 — a corpuscle that configures taxonomy.source must tell the
+    per-paper stage to fail rather than silently write empty taxa.json."""
+    step = next(s for s in orch.STEPS if s.name == "extract")
+    argv = step.argv(_argv_args(taxonomy_source="dwca"))
+    assert "--require-taxonomy" in argv
+
+
+def test_extract_step_omits_require_taxonomy_when_unconfigured():
+    """A corpuscle with no taxonomy: block is a supported setup and must
+    not be turned into a failing run."""
+    step = next(s for s in orch.STEPS if s.name == "extract")
+    assert "--require-taxonomy" not in step.argv(_argv_args())
+    assert "--require-taxonomy" not in step.argv(
+        _argv_args(taxonomy_source="dwca", no_taxa=True))
+
+
+def test_vision_step_requires_explicit_backend():
+    # The vision phase must NOT silently substitute vision-local for a
+    # non-vision mode — that turned a misconfiguration into a surprise
+    # ~16 GB local-model download (#147 / F2). It now errors instead.
+    with pytest.raises(SystemExit):
+        orch.VISION_STEP.argv(_argv_args(figure_panels="ocr",
+                                         batch_index=1, batch_size=8))
+
+
+def test_vision_step_carries_flags_with_explicit_backend():
+    argv = orch.VISION_STEP.argv(_argv_args(figure_panels="vision-local",
                                             batch_index=1, batch_size=8))
     assert "--refresh-vision" in argv
-    # extract phase used the ocr floor; vision phase must force a backend
     assert argv[argv.index("--figure-panels") + 1] == "vision-local"
     assert "--no-grobid" in argv and "--no-taxa" in argv
     assert "--batch-index" in argv

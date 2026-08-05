@@ -2,7 +2,7 @@
 
 Surfaces: get_figures_for_taxon, get_figures_for_lexicon_term,
 get_figure, list_figure_rois, get_figure_roi_image, get_figure_image.
-The image-returning tools wrap PIL crops in FastMCP's ``Image``
+The image-returning tools wrap PIL crops in MCPServer's ``Image``
 content type.
 
 #51 / #101 — figure licensing, keyed to the active output profile.
@@ -12,19 +12,28 @@ gate on the per-call ``profile=`` (``report`` / ``manuscript`` /
 ``presentation``; see ``mcpsrv.profiles``): a ``strict`` profile refuses
 bytes/URL when ``publishable=false``, the default permissive ``report``
 allows them (in-chat display = fair use). The server ``--default-profile``
-sets the fallback for calls that omit ``profile=``. The raw license
-fields are always exposed via ``get_figure`` so a publication-bound
-client can self-filter.
+sets the fallback for calls that omit ``profile=``.
+
+#154 — the *gate*, not the client, decides. Attribution fields
+(``license`` / ``license_url`` / ``attribution``) go out in every profile
+because captions need them; the clearance *determination*
+(``publication_clearance`` / ``license_source``) is surfaced only under a
+strict profile or on an explicit ``include_licensing=True``. Under the
+permissive default the server has already authorized the figure, and
+shipping a permission-shaped flag next to it caused figures to be
+withheld in ordinary report use — on 86% of the served corpus that flag
+meant only "we could not establish public domain", not "the
+rightsholder refused".
 """
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from mcp.server.fastmcp import Image
+from mcp.server.mcpserver import Image
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
-from ..profiles import get_profile, resolve_profile
+from ..profiles import get_profile, resolve_profile, unknown_profile_error
 
 
 def _active_figure_profile(idx, profile: Optional[str]):
@@ -37,13 +46,33 @@ def _active_figure_profile(idx, profile: Optional[str]):
 def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
     """Return a refusal reason when the active profile's figure-licensing
     policy forbids this figure, else None. Only the ``strict`` policy
-    gates; ``permissive`` always allows (but the license metadata is
-    still surfaced so a publication-bound client can self-filter)."""
+    gates; ``permissive`` always allows.
+
+    Deliberately keyed on the conservative ``publishable`` boolean rather
+    than the five-state ``publication_clearance``: for *refusal* purposes,
+    "could not establish public domain" and "explicitly restricted" do
+    warrant the same answer. The distinction matters for what we *tell*
+    the client, which is why the refusal message reports the state
+    (#154 §2)."""
     if active.figure_licensing == "strict" and not lic.get("publishable"):
+        state = lic.get("publication_clearance") or "no_record"
+        because = {
+            "restricted":
+                "the recorded license forbids republication",
+            "undetermined":
+                "a license was recorded but not recognized (often a typo — "
+                "check the .bib `license` field)",
+            "no_record":
+                "no license on file and the work is not old enough to be "
+                "age-based public domain; this is an ABSENCE of evidence, "
+                "not a refusal by the rightsholder",
+        }.get(state, "clearance could not be established")
         return (
-            f"figure not publishable under profile {active.name!r}: "
-            f"license={lic.get('license') or 'unknown'!r} "
-            f"(source={lic.get('license_source')!r})"
+            f"figure withheld under profile {active.name!r} — "
+            f"publication_clearance={state!r}: {because}. "
+            f"license={lic.get('license') or 'none recorded'!r} "
+            f"(source={lic.get('license_source')!r}). "
+            "For in-chat display request profile='report'."
         )
     return None
 
@@ -53,14 +82,88 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
 _REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
 
 
+def _resolve_lexicon_surfaces(idx, category: str, term: str) -> Dict:
+    """Expand a lexicon query to every surface form of its concept (#143).
+
+    Extraction is synonym-aware — each mention records the
+    ``matched_text`` found and the ``canonical`` term it belongs to — but
+    retrieval used to ignore that layer and substring-match the single
+    string the caller passed. So querying ``wing`` missed captions saying
+    ``ala``, querying ``ala`` missed ``wing``, and querying ``forewing``
+    missed its sibling synonyms, even though the lexicon and the
+    extraction layer both already knew they were the same concept.
+
+    Returns ``{canonical, surfaces, resolved, queried}``:
+
+    * ``resolved`` is False when the term isn't a known surface form in
+      this category. We still search for the literal string then — a
+      caller asking for something outside the lexicon should get a
+      substring search rather than an empty list — but the caller can see
+      that no expansion happened.
+    * ``surfaces`` is lower-cased and always contains the query itself.
+
+    Coverage note: surfaces come from forms that actually occurred in this
+    corpus's scanned text, because a distilled bundle doesn't ship the
+    lexicon YAML. A declared synonym nothing wrote won't be expanded.
+    """
+    queried = (term or "").strip().lower()
+    surface_map = getattr(idx, "lexicon_surface_to_canonical", {}).get(category, {})
+    canonical = surface_map.get(queried)
+    if canonical is None:
+        return {
+            "canonical": None,
+            "surfaces": [queried],
+            "resolved": False,
+            "queried": queried,
+        }
+    surfaces = set(
+        getattr(idx, "lexicon_canonical_surfaces", {})
+        .get(category, {})
+        .get(canonical, set())
+    )
+    surfaces.add(queried)
+    surfaces.add(canonical.lower())
+    return {
+        "canonical": canonical,
+        "surfaces": sorted(surfaces),
+        "resolved": True,
+        "queried": queried,
+    }
+
+
+def _caption_surface_hits(caption_low: str, surfaces: List[str]) -> Dict:
+    """Count caption occurrences across every surface form.
+
+    Returns ``{occurrences, matched_surfaces}``. Occurrences sum over
+    forms, so a caption using two synonyms of one concept ranks above one
+    using a single form — which is the intent of ranking by occurrence.
+    """
+    total = 0
+    matched: List[str] = []
+    for s in surfaces:
+        if not s:
+            continue
+        c = caption_low.count(s)
+        if c:
+            total += c
+            matched.append(s)
+    return {"occurrences": total, "matched_surfaces": matched}
+
+
 def _license_metadata_for_paper(paper_hash: str) -> Dict:
-    """Look up license + publishable + attribution for a paper (#51).
+    """Look up license + clearance + attribution for a paper (#51).
 
     Returns ``{license, license_url, license_source, publishable,
-    attribution}`` — all keys present even when the authority DB has
-    no entry (everything falls back to ``unknown`` / ``False`` so
-    clients see a consistent shape).
+    publication_clearance, attribution}`` — all keys present even when the
+    authority DB has no entry, so callers see a consistent shape.
+
+    **Internal view.** ``publishable`` is retained here because the
+    strict-profile gate needs a single conservative boolean, but it must
+    not go out on the wire unfiltered — see
+    :func:`_license_fields_for_wire` and #154 §1/§2.
     """
+    from bib.authority import CLEARANCE_NO_RECORD, clearance_state
+
     idx = _need_index()
     work = None
     if idx.biblio_db is not None:
@@ -74,6 +177,7 @@ def _license_metadata_for_paper(paper_hash: str) -> Dict:
             "license_url": None,
             "license_source": "unknown",
             "publishable": False,
+            "publication_clearance": CLEARANCE_NO_RECORD,
             "attribution": None,
         }
     return {
@@ -81,8 +185,45 @@ def _license_metadata_for_paper(paper_hash: str) -> Dict:
         "license_url": work.get("license_url"),
         "license_source": work.get("license_source") or "unknown",
         "publishable": bool(work.get("publishable")),
+        "publication_clearance": clearance_state(work),
         "attribution": _attribution_string(work),
     }
+
+
+def _license_fields_for_wire(
+    lic: Dict, active, include_licensing: bool = False,
+) -> Dict:
+    """The license fields that belong in a tool response (#154 §1).
+
+    ``license`` / ``license_url`` / ``attribution`` go out in **every**
+    profile — a caption needs them regardless of what the figure is for.
+
+    The *clearance determination* does not. Under the permissive ``report``
+    profile the server has already decided to serve the figure, so shipping
+    ``publishable: false`` alongside it just invites the client to overrule
+    a decision that was never theirs. That is not hypothetical: the default
+    profile is ``report``, the server refuses nothing, and figures were
+    still being withheld because a model reasonably reads itself as
+    "publication-bound" and reads ``publishable`` as "may I show this".
+    On 86% of the served corpus that flag was ``0`` meaning merely "we
+    could not establish public domain".
+
+    So the determination is included only when the active profile is
+    actually gating on it, or when the caller explicitly asks via
+    ``include_licensing=True``. When included it is reported as
+    ``publication_clearance`` — a five-state description of what we know
+    (see :func:`bib.authority.clearance_state`) — rather than the
+    permission-shaped boolean.
+    """
+    out = {
+        "license": lic.get("license"),
+        "license_url": lic.get("license_url"),
+        "attribution": lic.get("attribution"),
+    }
+    if include_licensing or active.figure_licensing == "strict":
+        out["publication_clearance"] = lic.get("publication_clearance")
+        out["license_source"] = lic.get("license_source")
+    return out
 
 
 def _attribution_string(work: Dict) -> Optional[str]:
@@ -129,13 +270,20 @@ def get_figures_for_taxon(
     limit: int = 50,
     include_all: bool = False,
     full_caption: bool = False,
+    caption_only: bool = False,
 ) -> List[Dict]:
     """Figures from papers that mention the taxon, ranked by caption
     relevance.
 
     A figure whose caption names the taxon directly scores higher than
-    a figure from a paper that merely mentions it elsewhere. Each
-    result carries the on-disk figure image path.
+    a figure from a paper that merely mentions it elsewhere. **This means
+    the list also includes figures whose caption does *not* name the
+    taxon** — returned from any paper that mentions the taxon anywhere,
+    with ``caption_has_taxon: false`` and a low ``score`` (the caption
+    match contributes 100 to the score; a bare mention contributes only
+    the mention count). For a precise "figures of this taxon" answer,
+    filter on ``caption_has_taxon`` (or ``score``), or pass
+    ``caption_only=True`` to return only caption-matched figures.
 
     By default only returns items classified as ``figure`` or ``plate``
     (skipping journal furniture, subpanels of already-returned figures,
@@ -177,6 +325,8 @@ def get_figures_for_taxon(
             caption_hit = accepted_name_low in caption or (
                 matched_name_low and matched_name_low in caption
             )
+            if caption_only and not caption_hit:
+                continue
             rows.append({
                 "paper_hash": h,
                 "paper_title": p.get("title"),
@@ -215,10 +365,17 @@ def get_figures_for_lexicon_term(
     return ``{"error": "unknown_category", "available": [...]}``,
     matching ``get_figure_dossier_for_term``.
 
-    ``term`` is matched case-insensitively as a substring against
-    figure captions; pass the canonical name or any declared synonym/
-    translation. Returns real figures + plates by default;
-    ``include_all=True`` includes the review bucket.
+    ``term`` is **resolved through the lexicon** and matched against every
+    surface form of its concept (#143), so a query for ``wing`` also finds
+    captions that only ever say ``ala`` or ``forewing``, and vice versa.
+    Pass the canonical name or any synonym — they are equivalent. Each row
+    reports the ``matched_surfaces`` that actually hit, and the response is
+    a list of rows plus a trailing note only when the term could *not* be
+    resolved (then it degrades to a literal substring search, and
+    ``resolved: false`` says so).
+
+    Returns real figures + plates by default; ``include_all=True`` includes
+    the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
     pass ``full_caption=True`` for the verbatim caption.
@@ -247,6 +404,9 @@ def get_figures_for_lexicon_term(
         [paper_hash] if paper_hash else list(idx.papers.keys())
     )
     target_hashes = [h for h in target_hashes if h in in_category]
+    # #143 — expand the query to every surface form of its concept.
+    resolution = _resolve_lexicon_surfaces(idx, category, term_low)
+    surfaces = resolution["surfaces"]
     rows: List[Dict] = []
     for h in target_hashes:
         p = idx.papers.get(h)
@@ -258,8 +418,8 @@ def get_figures_for_lexicon_term(
             if not include_all and ftype not in _REAL_FIGURE_TYPES:
                 continue
             caption = (f.get("caption_text") or f.get("caption") or "")
-            occ = caption.lower().count(term_low)
-            if occ == 0:
+            hits = _caption_surface_hits(caption.lower(), surfaces)
+            if hits["occurrences"] == 0:
                 continue
             rows.append({
                 "paper_hash": h,
@@ -272,10 +432,27 @@ def get_figures_for_lexicon_term(
                 # Relative to the corpuscle's documents/ dir.
                 # Call get_figure_image to fetch bytes.
                 "image_path": f"{h}/figures/{f.get('filename') or ''}",
-                "match_count": occ,
+                "match_count": hits["occurrences"],
+                # Which synonym(s) actually hit — so a caller can tell a
+                # canonical match from a synonym match (#143).
+                "matched_surfaces": hits["matched_surfaces"],
+                "canonical": resolution["canonical"],
             })
     rows.sort(key=lambda r: -r["match_count"])
-    return rows[:n]
+    out = rows[:n]
+    if not resolution["resolved"]:
+        # Degraded to a literal substring search — say so rather than
+        # letting an unrecognized term look like a synonym-aware result.
+        out.append({
+            "note": (
+                f"{term!r} is not a known surface form in lexicon category "
+                f"{category!r}; searched for the literal string only. Pass a "
+                "canonical term or a synonym that occurs in the corpus for "
+                "synonym-aware matching."
+            ),
+            "resolved": False,
+        })
+    return out
 
 
 
@@ -469,10 +646,15 @@ def get_figure_dossier_for_term(
     for the "show me figures depicting <term> and the passages that
     explain them" pattern.
 
-    Category-agnostic. Match is caption-substring (case-insensitive)
-    on ``term``. Returns the same shape as
-    ``get_figure_dossier_for_taxon`` minus the taxon block, plus
-    ``caption_match_count`` per figure (the substring hit count).
+    ``term`` is resolved through the lexicon and matched against every
+    surface form of its concept (#143) — a query for ``wing`` finds
+    captions that only say ``ala``, and vice versa. Returns the same shape
+    as ``get_figure_dossier_for_taxon`` minus the taxon block, plus
+    ``caption_match_count`` per figure (summed across surface forms) and
+    ``matched_surfaces`` naming the forms that hit. The response reports
+    the resolved ``canonical`` and a ``resolved`` flag; when the term isn't
+    a known surface form this degrades to a literal substring search with
+    ``resolved: false``.
     """
     idx = _need_index()
     available = sorted(idx.lexicon_to_papers.keys())
@@ -482,6 +664,9 @@ def get_figure_dossier_for_term(
     term_low = (term or "").strip().lower()
     if not term_low:
         return error("term must be non-empty", "invalid_argument")
+    # #143 — same synonym expansion as get_figures_for_lexicon_term.
+    resolution = _resolve_lexicon_surfaces(idx, category, term_low)
+    surfaces = resolution["surfaces"]
 
     scored: List[Dict] = []
     n_papers_with_figures = 0
@@ -500,7 +685,8 @@ def get_figure_dossier_for_term(
             if f.get("figure_type") not in _REAL_FIGURE_TYPES:
                 continue
             caption = (f.get("caption_text") or f.get("caption") or "")
-            occ = caption.lower().count(term_low)
+            hits = _caption_surface_hits(caption.lower(), surfaces)
+            occ = hits["occurrences"]
             if occ == 0:
                 continue
             had_a_figure = True
@@ -508,7 +694,10 @@ def get_figure_dossier_for_term(
                 idx, h, f, chunks_by_id,
                 include_rois=include_rois,
                 max_linked_chunks=max_linked_chunks,
-                extra_fields={"caption_match_count": occ},
+                extra_fields={
+                    "caption_match_count": occ,
+                    "matched_surfaces": hits["matched_surfaces"],
+                },
             )
             scored.append((occ, entry))
         if had_a_figure:
@@ -519,6 +708,10 @@ def get_figure_dossier_for_term(
     return {
         "category": category,
         "term": term,
+        # #143 — what the term resolved to, and every form searched for.
+        "canonical": resolution["canonical"],
+        "resolved": resolution["resolved"],
+        "surfaces_searched": surfaces,
         "n_papers_with_figures": n_papers_with_figures,
         "n_figures": len(figures_out),
         "figures": figures_out,
@@ -526,25 +719,50 @@ def get_figure_dossier_for_term(
 
 
 @mcp.tool()
-def get_figure(paper_hash: str, figure_id: str) -> Dict:
+def get_figure(
+    paper_hash: str,
+    figure_id: str,
+    profile: Optional[str] = None,
+    include_licensing: bool = False,
+) -> Dict:
     """One figure's full record: caption, page, bbox, image path,
-    cross-references, plus license + publishable + attribution (#51)
-    inherited from the parent work."""
+    cross-references, plus the attribution fields (#51) inherited from the
+    parent work.
+
+    ``license`` / ``license_url`` / ``attribution`` are always present —
+    you need them to caption the figure in any context.
+
+    The publication-clearance *determination* is included only under a
+    strict ``profile`` (``manuscript`` / ``presentation``), or when you
+    pass ``include_licensing=True`` (#154). Under the default permissive
+    ``report`` profile the server has already decided to serve the figure,
+    so a clearance flag alongside it is just an invitation to withhold
+    something that was cleared — display what you are given. When present,
+    ``publication_clearance`` is one of ``public_domain`` /
+    ``licensed_open`` / ``restricted`` / ``undetermined`` / ``no_record``;
+    only ``restricted`` is positive evidence that republication was
+    refused.
+    """
+    if profile is not None and get_profile(profile) is None:
+        return unknown_profile_error(profile)
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         return error(f"no such paper_hash: {paper_hash}", "not_found")
+    active = _active_figure_profile(idx, profile)
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
+            lic = _license_metadata_for_paper(paper_hash)
             return {
                 **f,
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
                 # Relative to the corpuscle's documents/ dir.
                 "image_path": f"{paper_hash}/figures/{f.get('filename') or ''}",
-                # #51 — license metadata inherited from the parent work.
-                **_license_metadata_for_paper(paper_hash),
+                # #51 / #154 — attribution always; the clearance
+                # determination only where it is actually being enforced.
+                **_license_fields_for_wire(lic, active, include_licensing),
             }
     return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
@@ -586,6 +804,7 @@ def get_figure_roi_image(
     paper_hash: str,
     figure_id: str,
     label: str,
+    profile: Optional[str] = None,
 ) -> Dict:
     """Crop a panel ROI out of a figure image and return the crop's path.
 
@@ -600,11 +819,27 @@ def get_figure_roi_image(
     (OCR missed the label), returns the whole figure's image path with
     ``crop: false`` — the LLM can still display the whole figure and
     reason about which region is which panel using the caption.
+
+    Honors the figure-licensing gate for the active ``profile``, like
+    ``get_figure_image`` and ``get_figure_url`` (#154 §3). It previously
+    did not, which made it a way around them: a client refused under
+    ``manuscript`` could obtain the same pixels here — including, via the
+    no-pixel-ROI fallback below, the whole uncropped figure.
     """
+    if profile is not None and get_profile(profile) is None:
+        return unknown_profile_error(profile)
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
         return error(f"no such paper_hash: {paper_hash}", "not_found")
+    # Gate before touching disk, matching the other enforcement points —
+    # and before the `roi_entry is None` fallback, which returns the whole
+    # figure and was the widest part of the bypass.
+    active = _active_figure_profile(idx, profile)
+    lic = _license_metadata_for_paper(paper_hash)
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        return error(refusal, "forbidden")
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
     fig = next(
@@ -694,11 +929,16 @@ def get_figure_image(
     ``profile`` (``report`` / ``manuscript`` / ``presentation``; pass it
     per call to reflect what you're producing). Under a ``strict``
     profile (manuscript / presentation) this refuses image bytes when
-    the parent work's ``publishable`` flag is false. Under the default
-    permissive ``report`` profile the image is returned (in-chat display
-    is fair use). ``get_figure`` always exposes the raw license fields,
-    so a publication-bound client can self-filter; pass
-    ``profile="manuscript"`` to have the server enforce it. Unknown
+    the parent work's clearance could not be established. Under the
+    default permissive ``report`` profile the image is returned (in-chat
+    display is fair use).
+
+    **Don't self-filter** (#154): pass the profile that matches what you
+    are producing and let the server decide. If it returns bytes under
+    ``report``, display them — a clearance determination is not included
+    there precisely because it is not being enforced. ``get_figure(...,
+    include_licensing=True)`` gives you the determination explicitly if
+    you need to reason about it. Unknown
     profile names raise.
     """
     idx = _need_index()
@@ -796,7 +1036,6 @@ def get_figure_url(
     """
     idx = _need_index()
     if profile is not None and get_profile(profile) is None:
-        from ..profiles import unknown_profile_error
         return unknown_profile_error(profile)
     active = _active_figure_profile(idx, profile)
     base = getattr(idx, "figure_url_base", None)
@@ -853,10 +1092,11 @@ def get_figure_url(
         "auth_header": auth_header,
         "mime_type": "image/png",
         "profile": active.name,
-        "publishable": lic.get("publishable"),
-        "license": lic.get("license"),
-        "license_source": lic.get("license_source"),
-        "attribution": lic.get("attribution") if active.require_attribution else None,
+        # #154 §1 — the server just authorized this URL under `active`, so
+        # don't ship a clearance flag inviting the client to withhold it.
+        # Attribution and license go out either way (a caption needs them);
+        # the determination only under a strict profile.
+        **_license_fields_for_wire(lic, active),
         "fetch_hint": (
             "curl -fsSL -H \"$auth_header\" -o /tmp/fig.png \"$url\""
             if auth_header

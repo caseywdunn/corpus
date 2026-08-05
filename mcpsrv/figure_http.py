@@ -35,6 +35,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Optional
+from urllib.parse import parse_qs
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def make_figure_app(idx, default_profile: Optional[str] = None):
     # Lazy import — keeps the load-time cost off `import mcpsrv` for
     # non-serve uses (tests, bundle distillation).
     from .tools.figures import _license_metadata_for_paper
-    from .profiles import resolve_profile
+    from .profiles import get_profile, resolve_profile, unknown_profile_error
 
     async def app(scope, receive, send):
         if scope.get("type") != "http":
@@ -95,18 +96,39 @@ def make_figure_app(idx, default_profile: Optional[str] = None):
 
         # Optional ``?label=<panel>`` (sub-panel crop) and ``?profile=``
         # (the policy the URL was issued under).
+        #
+        # parse_qs rather than a hand-rolled split (#154): the previous
+        # loop never URL-decoded, so a label containing anything
+        # percent-encoded (``?label=A%20B``) failed the charset check or
+        # silently missed its crop file and fell back to the whole figure.
+        # It also mishandled repeated parameters.
         label: Optional[str] = None
         req_profile: Optional[str] = None
         qs = scope.get("query_string", b"").decode("latin-1", errors="replace")
         if qs:
-            for piece in qs.split("&"):
-                if piece.startswith("label="):
-                    label = piece[len("label="):]
-                    if not _FIGURE_ID_RE.match(label):
-                        await _send_text(send, 400, "malformed label")
-                        return
-                elif piece.startswith("profile="):
-                    req_profile = piece[len("profile="):]
+            params = parse_qs(qs, keep_blank_values=True)
+            if "label" in params:
+                label = params["label"][-1]
+                if not _FIGURE_ID_RE.match(label):
+                    await _send_text(send, 400, "malformed label")
+                    return
+            if "profile" in params:
+                req_profile = params["profile"][-1]
+                # Validate up front (#154). resolve_profile's contract says
+                # callers do this: unknown names fall *through* to the
+                # server default, so a typo'd ``?profile=manuscipt`` would
+                # silently be served under a different policy than the
+                # client asked for, with no error. The MCP tools validate;
+                # this route must agree with them.
+                if get_profile(req_profile) is None:
+                    await _send_json(send, 400, {
+                        **unknown_profile_error(req_profile),
+                        "hint": (
+                            "the profile in a figure URL must be one of the "
+                            "built-ins; omit it to use the server default"
+                        ),
+                    })
+                    return
 
         p = idx.papers.get(paper_hash)
         if not p:
@@ -120,9 +142,12 @@ def make_figure_app(idx, default_profile: Optional[str] = None):
             lic = _license_metadata_for_paper(paper_hash)
             if not lic.get("publishable"):
                 body = {
-                    "error": "figure not publishable",
+                    "error": "figure withheld under a strict profile",
                     "profile": active.name,
-                    "license": lic.get("license") or "unknown",
+                    # #154 §2 — say which state caused it. `no_record` is
+                    # an absence of evidence, not a refusal.
+                    "publication_clearance": lic.get("publication_clearance"),
+                    "license": lic.get("license") or "none recorded",
                     "license_source": lic.get("license_source"),
                     "hint": (
                         "this URL was issued under a strict profile; request "

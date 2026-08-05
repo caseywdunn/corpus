@@ -112,12 +112,12 @@ def test_backfill_intext_idempotent(backfill_corpus: Path):
     r1 = _run("backfill_intext_citations.py", str(out))
     assert intext.exists()
     payload_before = intext.read_text()
-    assert "Done: 2 papers (1 parsed" in r1.stderr or "1 parsed" in r1.stderr
+    assert "1 newly parsed" in r1.stderr
 
     # 2nd run — no work, file content stable
     r2 = _run("backfill_intext_citations.py", str(out))
     assert intext.read_text() == payload_before
-    assert "1 skipped" in r2.stderr
+    assert "1 already up-to-date" in r2.stderr
 
 
 def test_backfill_intext_picks_up_added_paper(backfill_corpus: Path):
@@ -135,8 +135,8 @@ def test_backfill_intext_picks_up_added_paper(backfill_corpus: Path):
     # ccc got parsed; aaa unchanged
     assert (out / "documents" / "ccc" / "intext_citations.json").exists()
     assert (out / "documents" / "aaa" / "intext_citations.json").read_text() == aaa_payload_before
-    assert "1 skipped" in r.stderr  # aaa skipped
-    assert "1 parsed" in r.stderr   # ccc parsed
+    assert "1 already up-to-date" in r.stderr  # aaa skipped
+    assert "1 newly parsed" in r.stderr        # ccc parsed
 
 
 def test_backfill_intext_dry_run_writes_nothing(backfill_corpus: Path):

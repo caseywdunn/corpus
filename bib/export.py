@@ -36,7 +36,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-logger = logging.getLogger("bib_export")
+logger = logging.getLogger("corpus.bib.export")
 
 
 # ---------------------------------------------------------------------------
@@ -101,11 +101,23 @@ def assign_cite_keys(
 # ---------------------------------------------------------------------------
 
 # Characters that need escaping in BibTeX field values. We keep
-# diacritics as-is (modern BibTeX with biber/utf8 handles them); only
-# brace-balance hazards and explicit BibTeX delimiters get escaped.
+# diacritics as-is (modern BibTeX with biber/utf8 handles them); brace
+# balance hazards, explicit BibTeX delimiters, and the LaTeX specials get
+# escaped.
+#
+# The specials are the inverse of ``bib.parser.unescape_bib_value``'s
+# ``_ESCAPED_SPECIALS`` (#177), and both halves are required. Emitting a
+# bare ``&`` produces a .bib that breaks the moment it reaches LaTeX, and
+# a bare ``%`` is worse — it comments out the rest of the line, so a file
+# corpus exported would lose fields when any real BibTeX tool re-read it.
 _BIBTEX_FIELD_ESCAPES = (
     ("{", r"\{"),
     ("}", r"\}"),
+    ("&", r"\&"),
+    ("%", r"\%"),
+    ("_", r"\_"),
+    ("#", r"\#"),
+    ("$", r"\$"),
 )
 
 

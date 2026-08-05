@@ -16,8 +16,7 @@
 # wraps them in this single CPU job, which slurm/batch_pipeline.sh
 # chains via --dependency=afterok: on the embed job.
 #
-# Single CPU job, no GPU. Mirrors batch_biblio.sh ergonomics + accepts
-# the same opt-in env vars:
+# Single CPU job, no GPU. Opt-in env vars:
 #
 # Usage:
 #     sbatch batch_finalize.sh

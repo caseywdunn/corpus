@@ -201,6 +201,15 @@ def main():
              "(taxon mentions and every --lexicon category).",
     )
     parser.add_argument(
+        "--require-taxonomy",
+        action="store_true",
+        help="Fail instead of warning when the taxonomy snapshot is "
+             "missing (#139). Passed automatically by `corpus run` when "
+             "the corpuscle configures taxonomy.source, so a batch job "
+             "cannot quietly produce a corpus with empty taxa.json for "
+             "every paper.",
+    )
+    parser.add_argument(
         "--figure-panels",
         choices=["ocr", "vision-local", "vision-claude", "off"],
         default="ocr",
@@ -318,7 +327,9 @@ def main():
         else:
             logger.warning(
                 "Grobid not reachable at %s — metadata will be placeholder. "
-                "Start it with: docker compose up -d grobid",
+                "Start it with `docker compose up -d grobid` (laptop/Docker "
+                "host), or on a cluster `sbatch slurm/batch_grobid.sh` then "
+                "`export GROBID_URL=http://<node>:8070`.",
                 args.grobid_url,
             )
 
@@ -367,11 +378,46 @@ def main():
                 logger.warning(
                     "Could not open taxonomy snapshot %s: %s", taxonomy_path, e,
                 )
+        elif args.require_taxonomy and args.dry_run:
+            # A dry-run writes nothing, so it cannot produce the empty
+            # taxa.json that #139 guards against. On a corpuscle that has
+            # not been built yet the snapshot is *always* missing at this
+            # point — ingest_taxonomy dry-runs too — so failing here made
+            # `corpus run --dry-run` unusable as a first-run sanity check.
+            logger.info(
+                "Taxonomy snapshot %s not found; the ingest_taxonomy step "
+                "builds it on a real run. Continuing the dry-run.",
+                taxonomy_path,
+            )
+        elif args.require_taxonomy:
+            # #139 — the corpuscle configures a taxonomy, so a missing
+            # snapshot is a hard error rather than a skip. This is the
+            # layer where the damage actually happens: the first full
+            # Bouchet production run put 1763 papers through with empty
+            # taxa.json, and the only signal was the WARNING below.
+            # `corpus run` pre-checks the same condition in
+            # orchestrator._check_taxonomy_available; this is the
+            # defense-in-depth copy that also covers direct
+            # `python -m pipeline.main` invocations and a snapshot that
+            # disappears between the pre-check and the work.
+            logger.error(
+                "Taxonomy snapshot %s not found, but this corpuscle "
+                "configures taxonomy.source — refusing to run and silently "
+                "produce empty taxa.json for every paper.\n"
+                "  Build it first:  corpus taxonomy ingest --source <dwc|dwca|worms> ...\n"
+                "  WoRMS needs outbound internet: build the snapshot once "
+                "up front, or export a DwC-A snapshot and switch config to "
+                "`source: dwca` — which is also faster and version-pinned "
+                "(see INSTALL.md and dev_docs/BOUCHET.md).\n"
+                "  Genuinely don't want taxon extraction? Pass --no-taxa.",
+                taxonomy_path,
+            )
+            return 1
         else:
             logger.warning(
                 "Taxonomy snapshot %s not found — taxon extraction skipped. "
-                "Build it with: python -m pipeline.taxonomy_ingest %s --source <dwc|dwca|worms> ...",
-                taxonomy_path, args.output_dir,
+                "Build it with: corpus taxonomy ingest --source <dwc|dwca|worms> ...",
+                taxonomy_path,
             )
 
         if args.lexicon is not None:
@@ -421,8 +467,14 @@ def main():
                 args.vision_backend, e,
             )
 
-    # Create output directory structure
-    documents_dir, vector_db_dir = create_output_structure(output_dir)
+    # Create output directory structure. A dry-run promises "No files
+    # written", so it must not leave a half-scaffolded corpuscle behind
+    # either — the paths are still computed, just not created.
+    if args.dry_run:
+        documents_dir = output_dir / "documents"
+        vector_db_dir = output_dir / "vector_db"
+    else:
+        documents_dir, vector_db_dir = create_output_structure(output_dir)
 
     # Find all PDFs and group by hash. Exclude anything under output_dir
     # so re-runs don't re-ingest per-paper processed.pdf artifacts (which

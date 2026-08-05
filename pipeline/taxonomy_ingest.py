@@ -76,7 +76,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 
-logger = logging.getLogger("ingest_taxonomy")
+logger = logging.getLogger("corpus.taxonomy")
 
 
 # Default is derived per-corpus from the output_dir positional arg in

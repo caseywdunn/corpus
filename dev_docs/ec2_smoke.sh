@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # dev_docs/ec2_smoke.sh
 #
-# One-shot platform-portability smoke test on a clean Ubuntu EC2 host.
+# T3-bare — one-shot platform-portability smoke test on a clean Ubuntu
+# EC2 host.
+#
+# This is the *bare-host* tier: it is the only check that exercises the
+# apt + miniforge bootstrap from absolutely nothing. The automated
+# clean-room lane (.github/workflows/clean-room.yml, T3) covers the
+# dependency-resolution, cold-model-download, compose, demo-build and
+# SSE half continuously on a schedule; run this one before a release for
+# the bootstrap half.
 # Validates the linux-x86_64 install path end-to-end: apt deps,
 # miniforge, conda env from environment.yaml, pip install -e .,
 # Grobid via Docker, the demo `corpus run`, bundle distillation, and

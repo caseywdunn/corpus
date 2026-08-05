@@ -93,7 +93,7 @@ class FiguresConfig(BaseModel):
         "figure uses `vector_dpi` — so resolution tracks the source and "
         "varies per figure. 'fixed' renders every figure at the single "
         "`images_scale` instead. Applies to future ingests only; lift an "
-        "existing bundle with backfill_figure_dpi.py.",
+        "existing bundle with tools/backfill_figure_dpi.py.",
     )
     vector_dpi: float = Field(
         default=300.0,
@@ -177,6 +177,23 @@ class OcrConfig(BaseModel):
         ]
     )
     gibberish_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
+    # Per-page --tesseract-timeout. Generous on purpose: a timeout here
+    # silently blanks the page. See pipeline/scan.py prepare_pdf.
+    tesseract_page_timeout: int = Field(default=900, gt=0)
+    # Re-OCR pages that are raster scans even when they already carry a
+    # text layer of unknown provenance. See pipeline/scan.py
+    # `_scanned_page_fraction`.
+    reocr_scanned_text_layers: bool = True
+    scan_page_fraction_min: float = Field(default=0.40, ge=0.0, le=1.0)
+    # OCR a small sample to identify the language before the full pass,
+    # instead of guessing from an untrusted text layer. See
+    # pipeline/scan.py `_probe_language_by_ocr`.
+    probe_language_by_ocr: bool = True
+    probe_language_min_confidence: float = Field(default=0.85, ge=0.0, le=1.0)
+    probe_max_languages: int = Field(default=3, ge=1, le=10)
+    probe_max_gibberish: float = Field(default=0.50, ge=0.0, le=1.0)
+    probe_dpi: int = Field(default=300, ge=72, le=600)
+    probe_sample_pages: int = Field(default=5, ge=1, le=25)
 
 
 class ChunkingConfig(BaseModel):
@@ -188,7 +205,11 @@ class ChunkingConfig(BaseModel):
 class StageTimeoutsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    # Effective OCR cap is max(ocr, ocr_per_page * pages) — not scaled by
+    # pack count, since ocr_per_page is already the worst-case (7-pack)
+    # rate. See pipeline/scan.py `_ocr_timeout_for`.
     ocr: int = Field(default=1800, gt=0)
+    ocr_per_page: int = Field(default=30, gt=0)
     grobid: int = Field(default=300, gt=0)
     docling: int = Field(default=600, gt=0)
     vision_pass: int = Field(default=600, gt=0)

@@ -31,10 +31,10 @@ Two modes:
   caps pathological full-page scans.
 
 Usage:
-    python backfill_figure_dpi.py <output_dir> --native --only <HASH> --dry-run
-    python backfill_figure_dpi.py <output_dir> --native               # full bundle
-    python backfill_figure_dpi.py <output_dir> --native --vector-dpi 300 --max-dpi 600
-    python backfill_figure_dpi.py <output_dir> --scale 4.0            # fixed mode
+    python tools/backfill_figure_dpi.py <output_dir> --native --only <HASH> --dry-run
+    python tools/backfill_figure_dpi.py <output_dir> --native               # full bundle
+    python tools/backfill_figure_dpi.py <output_dir> --native --vector-dpi 300 --max-dpi 600
+    python tools/backfill_figure_dpi.py <output_dir> --scale 4.0            # fixed mode
 """
 from __future__ import annotations
 

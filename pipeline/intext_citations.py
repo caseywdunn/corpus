@@ -26,7 +26,7 @@ from pathlib import Path
 
 from pipeline.grobid_client import parse_tei_intext_citations
 
-logger = logging.getLogger("backfill_intext")
+logger = logging.getLogger("corpus.intext")
 
 
 def main() -> int:
@@ -53,6 +53,14 @@ def main() -> int:
 
     docs = args.output_dir / "documents"
     if not docs.is_dir():
+        if args.dry_run:
+            # See pipeline/embed.py: on a corpuscle that has not been
+            # extracted yet, "0 papers" is the plan, not a failure.
+            logger.info(
+                "Dry-run: %s does not exist yet; the extract step creates "
+                "it on a real run. 0 papers to parse.", docs,
+            )
+            return 0
         logger.error("Not a corpus output dir: %s (no documents/)", args.output_dir)
         return 1
 
@@ -101,9 +109,17 @@ def main() -> int:
             n_total, n_parsed, n_skipped, n_no_tei,
         )
     else:
+        # `backfill_intext` is an idempotent top-up. In-text citations are
+        # normally written during the main extraction stage, so on a healthy
+        # re-run every paper is "already up-to-date" and nothing is parsed
+        # here — that is success, not a no-op failure. Spell it out so
+        # "0 parsed, N skipped" doesn't read like the feature did nothing.
         logger.info(
-            "Done: %d papers (%d parsed, %d skipped, %d failed); %d citations total",
-            n_total, n_parsed, n_skipped, n_failed, n_citations,
+            "Done: %d papers — %d newly parsed, %d already up-to-date, "
+            "%d without grobid.tei.xml, %d parse-failed; %d citations from "
+            "newly parsed papers (papers already up-to-date kept the in-text "
+            "citations written during extraction).",
+            n_total, n_parsed, n_skipped, n_no_tei, n_failed, n_citations,
         )
     return 0
 

@@ -114,10 +114,16 @@ def detect_device() -> str:
     except ImportError:
         return "cpu"
 
-    if torch.cuda.is_available():
-        return "cuda"
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return "mps"
+    # Silence torch's driver/runtime-mismatch UserWarning; the caller
+    # reports CPU-only status itself. See pipeline/cli.py
+    # _detect_accelerator for the reasoning.
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if torch.cuda.is_available():
+            return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
     return "cpu"
 
 

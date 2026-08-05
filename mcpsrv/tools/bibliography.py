@@ -210,7 +210,7 @@ def get_citation_graph(
     paper_hash: Optional[str] = None,
     direction: str = "both",
     depth: int = 1,
-    max_edges_per_node: int = 50,
+    max_edges_per_node: Optional[int] = None,
     max_total_edges: int = 500,
 ) -> Dict:
     """Citation graph around a work.
@@ -225,8 +225,25 @@ def get_citation_graph(
     ``max_edges_per_node`` caps how many edges each node contributes
     (when a node exceeds it, its edges are ranked by ``cited_by_count``
     descending and the top ones kept), and ``max_total_edges`` caps the
-    whole walk. Defaults are generous; the response carries
-    ``truncated: bool`` so a caller can tell whether either cap fired.
+    whole walk. The response carries ``truncated: bool`` so a caller can
+    tell whether either cap fired.
+
+    ``max_edges_per_node`` defaults to *unbounded at ``depth=1``* and to
+    50 beyond that. The runaway #87 guards against is transitive
+    expansion, where every node's fan-out multiplies; at depth 1 exactly
+    one node is expanded and ``max_total_edges`` already bounds the
+    result. A flat 50 meant the commonest question of all — "show me
+    this paper's bibliography" — silently returned under a quarter of
+    Totton & Bargmann 1965's 210 cited works.
+
+    **A hub work's depth-1 graph is large.** Totton's comes back at
+    ~55 kB, past what some MCP clients will pass through in one tool
+    result. That is a *transport* limit, not corpus-side truncation, and
+    the two must not be conflated: ``truncated`` reports only whether
+    *this tool* dropped edges, so it can read ``false`` while the client
+    still fails to deliver the payload. Pass an explicit
+    ``max_edges_per_node`` when you want a bounded response — then
+    ``truncated`` tells you the truth about what you got.
 
     Returns the root work plus the citation edges and ``truncated``.
     """
@@ -247,6 +264,10 @@ def get_citation_graph(
         return error(f"no such work_id: {work_id}", "not_found")
 
     depth = min(int(depth), 3)
+    if max_edges_per_node is None:
+        # Only the total cap applies at depth 1 — one node is expanded,
+        # so there is no fan-out to multiply. See the docstring.
+        max_edges_per_node = max_total_edges if depth <= 1 else 50
     result: Dict[str, Any] = {
         "root": {
             **root,
@@ -301,10 +322,15 @@ def _walk_citations(
             rows = biblio.citing(wid) if direction == "citing" else biblio.cited_by(wid)
             if len(rows) > max_edges_per_node:
                 truncated = True
+                # Stable sort on citation count alone. A `work_id`
+                # tiebreak looks principled but degenerates to
+                # alphabetical order whenever counts are tied, which in a
+                # small corpus is nearly always — Totton's 155-reference
+                # list came back cut off at "Jacobs 1937". Leaving ties
+                # in their original order at least preserves the order
+                # the references appear in the document.
                 rows = sorted(
-                    rows,
-                    key=lambda r: (-biblio.citation_count(r["work_id"]),
-                                   r["work_id"]),
+                    rows, key=lambda r: -biblio.citation_count(r["work_id"]),
                 )[:max_edges_per_node]
             for r in rows:
                 if len(results) >= max_total_edges:
@@ -315,6 +341,40 @@ def _walk_citations(
                     next_frontier.append(r["work_id"])
         frontier = next_frontier
     return results, truncated
+
+
+# Words that join names in a citation rather than being one. "al" covers
+# "et al." once the period is stripped.
+_AUTHOR_CONNECTORS = frozenset({"and", "und", "et", "al", "with", "&", "e"})
+
+
+def _author_candidates(blob: str) -> List[str]:
+    """Surname candidates from a parsed author blob, most specific first.
+
+    ``"Totton Bargmann"`` → ``["Totton Bargmann", "Totton", "Bargmann"]``.
+    The full blob leads because multi-word surnames are real in this
+    literature ("van Soest", "De Haan", "Lo Bianco"); individual tokens
+    follow so a two-author query still resolves.
+
+    Lowercase and very short tokens are not offered on their own — the
+    particles in "van Soest" and "De Haan" would otherwise match half the
+    database.
+    """
+    import re
+    blob = (blob or "").strip()
+    if not blob:
+        return []
+    candidates = [blob]
+    tokens = [t.strip(".,&") for t in re.split(r"[\s,&]+", blob)]
+    for tok in tokens:
+        if (
+            len(tok) > 2
+            and tok[:1].isupper()
+            and tok.lower() not in _AUTHOR_CONNECTORS
+            and tok not in candidates
+        ):
+            candidates.append(tok)
+    return candidates
 
 
 @mcp.tool()
@@ -336,6 +396,7 @@ def resolve_reference(
         return error("bibliographic authority database not configured", "not_configured")
 
     # Parse author and year from query if not provided separately
+    explicit_author = bool(author)
     if not author:
         import re
         # Try to extract "Author Year" or "Author, Year"
@@ -356,14 +417,32 @@ def resolve_reference(
         title_frag = title_frag.replace(str(year), "", 1).strip()
     title_frag = title_frag.strip(" ,;:")
 
-    results = idx.biblio_db.search_works(
-        author, year, title_frag if title_frag else None,
-    )
+    # Everything before the year is captured as one author string, so a
+    # two-author reference arrives as "Totton Bargmann" and matches
+    # nothing — `works` rows are keyed on a single surname. Typing both
+    # surnames is the natural way to look up a two-author work, so this
+    # failed on first use. Try the whole blob first (multi-word surnames
+    # like "van Soest" and "De Haan" are real), then each surname in it.
+    candidates = [author] if explicit_author else _author_candidates(author)
+    results = []
+    matched_author = author
+    for cand in candidates:
+        results = idx.biblio_db.search_works(
+            cand, year, title_frag if title_frag else None,
+        )
+        if not results:
+            # Broaden: try without title
+            results = idx.biblio_db.search_works(cand, year)
+        if results:
+            matched_author = cand
+            break
+    author = matched_author
     if not results:
-        # Broaden: try without title
-        results = idx.biblio_db.search_works(author, year)
-    if not results:
-        return {"not_found": True, "queried": query, "parsed_author": author, "parsed_year": year}
+        return {
+            "not_found": True, "queried": query,
+            "parsed_author": author, "parsed_year": year,
+            "authors_tried": candidates,
+        }
     if len(results) == 1:
         w = results[0]
         w["authors"] = idx.biblio_db.get_authors(w["work_id"])

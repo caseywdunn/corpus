@@ -19,9 +19,9 @@ disturbing existing rows. ``--rebuild`` drops everything and
 re-ingests from scratch.
 
 Usage:
-    python build_taxon_mentions.py /path/to/output
-    python build_taxon_mentions.py /path/to/output --rebuild
-    python build_taxon_mentions.py /path/to/output -o custom_path.sqlite
+    python -m pipeline.taxon_mentions /path/to/output
+    python -m pipeline.taxon_mentions /path/to/output --rebuild
+    python -m pipeline.taxon_mentions /path/to/output -o custom_path.sqlite
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger("build_taxon_mentions")
+logger = logging.getLogger("corpus.taxon_mentions")
 
 # Default is derived per-corpus from the output_dir positional arg in
 # main(); see "corpuscle" layout in README.md.
@@ -392,14 +392,17 @@ def main() -> int:
 
     if args.dry_run:
         documents_dir = args.output_dir / "documents"
-        if not documents_dir.is_dir():
-            logger.error("Not a corpus output dir: %s (no documents/)", args.output_dir)
-            return 1
-        n_papers = sum(1 for d in documents_dir.iterdir() if d.is_dir())
-        n_chunks_files = sum(
-            1 for d in documents_dir.iterdir()
-            if d.is_dir() and (d / "chunks.json").exists()
+        # A corpuscle that has not been extracted yet has no documents/.
+        # Report the honest plan ("0 hash dirs") rather than erroring —
+        # `corpus run --dry-run` is how a new user sanity-checks a fresh
+        # config, and every downstream step failing there reads as a
+        # broken install.
+        hash_dirs = (
+            [d for d in documents_dir.iterdir() if d.is_dir()]
+            if documents_dir.is_dir() else []
         )
+        n_papers = len(hash_dirs)
+        n_chunks_files = sum(1 for d in hash_dirs if (d / "chunks.json").exists())
         action = "rebuild from scratch" if args.rebuild else "incrementally update"
         logger.info(
             "Dry-run: would %s %s. Source: %d hash dirs, %d with chunks.json. "

@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import yaml
+from dotenv import find_dotenv, load_dotenv
 
 from .config_schema import CorpuscleConfig, ValidationError, validate_config
 from .console import console, print_status
@@ -111,9 +112,16 @@ def _resolve_against(config_path: Path, value: Optional[Path]) -> Optional[Path]
 
     So `cd demo && corpus run` and `corpus --config demo/config.yaml run`
     from anywhere give identical results.
+
+    `~` is expanded first. YAML has no shell, so an unexpanded
+    `~/data/pdfs` would otherwise be treated as a relative path and glued
+    onto the corpuscle root as `<corpuscle>/~/data/pdfs` — a path that
+    cannot exist, reported in an error message that reads like a bug in
+    corpus rather than a typo in the config.
     """
     if value is None:
         return None
+    value = Path(os.path.expanduser(value))
     if value.is_absolute():
         return value
     return (config_path.parent / value).resolve()
@@ -198,10 +206,13 @@ def _run_preconditions(
         if not ok:
             failures.append(
                 f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
-                "Start it with `docker compose up -d grobid` (it persists "
-                "across runs). To deliberately run without metadata "
-                "extraction, set `grobid: {disable: true}` in config.yaml. "
-                "To bypass this check just for this run, pass --skip-checks."
+                "Start it with `docker compose up -d grobid` (laptop/Docker "
+                "host; it persists across runs), or on a cluster "
+                "`sbatch slurm/batch_grobid.sh` then "
+                "`export GROBID_URL=http://<node>:8070`. To deliberately run "
+                "without metadata extraction, set `grobid: {disable: true}` "
+                "in config.yaml. To bypass this check just for this run, "
+                "pass --skip-checks."
             )
 
     if failures:
@@ -861,6 +872,142 @@ def _cmd_taxonomy_ingest(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# `corpus prefetch`  (#159)
+# ---------------------------------------------------------------------------
+
+
+def _sample_pdf_for_prefetch(args: argparse.Namespace) -> Optional[Path]:
+    """A PDF to exercise docling's model loads with.
+
+    Preference order: an explicit ``--pdf``, then the first PDF under the
+    configured ``input_pdfs``, then the packaged demo corpus. docling
+    needs a real document — there is no "download only" API — so this is
+    about finding the cheapest legitimate one.
+    """
+    if args.pdf is not None:
+        return args.pdf if args.pdf.exists() else None
+    config_path = _resolve_config_path(args.config)
+    if config_path is not None and config_path.exists():
+        try:
+            raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+            cfg = validate_config(raw)
+            if cfg.input_pdfs is not None:
+                input_dir = _resolve_against(config_path, cfg.input_pdfs)
+                if input_dir.is_dir():
+                    pdfs = sorted(input_dir.rglob("*.pdf"))
+                    if pdfs:
+                        return pdfs[0]
+        except Exception:
+            pass  # fall through to the demo
+    demo = Path(__file__).resolve().parent.parent / "demo"
+    if demo.is_dir():
+        pdfs = sorted(demo.glob("*.pdf"))
+        if pdfs:
+            return pdfs[0]
+    return None
+
+
+def _cmd_prefetch(args: argparse.Namespace) -> int:
+    """Download the models a run needs, ahead of the run (#159).
+
+    Exits 0 when everything is cached, 3 when a download could not be
+    completed — a precondition failure, same class as an unreachable
+    Grobid.
+    """
+    from functools import partial
+    from . import prefetch as pf
+    pstatus = partial(print_status, force=True)
+
+    cache = pf.hf_cache_dir()
+    pstatus(
+        f"HuggingFace cache: {cache}" if cache else
+        "HuggingFace cache: cannot determine (huggingface_hub not importable)",
+        status="ok" if cache else "warn",
+    )
+
+    rows, all_present = pf.model_report(
+        embedding_model=args.model, include_vision=args.include_vision,
+    )
+    # Only nag about the cache location when we are about to write ~4.8 GB
+    # into it. Warning on a re-run that downloads nothing is noise the
+    # operator can't act on.
+    if (
+        not all_present
+        and cache is not None
+        and "HF_HOME" not in os.environ
+        and "HF_HUB_CACHE" not in os.environ
+    ):
+        pstatus(
+            "HF_HOME/HF_HUB_CACHE unset — models go to the default cache "
+            "above. Set HF_HOME if that filesystem is small or not shared "
+            "across nodes (see INSTALL.md).",
+            status="warn",
+        )
+    for r in rows:
+        if r["cached"]:
+            pstatus(
+                f"{r['repo']} — already cached ({pf.human_size(r['size_bytes'])})",
+                status="ok",
+            )
+        else:
+            pstatus(f"{r['repo']} — not cached, will fetch ({r['label']})",
+                    status="warn")
+    if all_present:
+        print()
+        pstatus("every required model is already cached; nothing to do.",
+                status="ok")
+        return EXIT_OK
+
+    sample = _sample_pdf_for_prefetch(args)
+    if sample is None:
+        pstatus(
+            "no sample PDF found for docling's model load — pass --pdf, or "
+            "run from a corpuscle whose input_pdfs contains one",
+            status="warn",
+        )
+    else:
+        pstatus(f"exercising docling with {sample.name}", status="info")
+
+    try:
+        pf.prefetch_all(
+            sample,
+            embedding_model=args.model,
+            include_vision=args.include_vision,
+        )
+    except RuntimeError as e:
+        print()
+        pstatus(str(e), status="fail")
+        pstatus(
+            "if this host is network-restricted, prefetch on a host that "
+            "has outbound access with HF_HOME pointed at shared storage, "
+            "then run the pipeline with HF_HUB_OFFLINE=1.",
+            status="info",
+        )
+        return EXIT_PRECONDITION
+
+    rows, all_present = pf.model_report(
+        embedding_model=args.model, include_vision=args.include_vision,
+    )
+    print()
+    if all_present:
+        pstatus("all models cached; `corpus run` will not need to download.",
+                status="ok")
+        return EXIT_OK
+    missing = [r["repo"] for r in rows if not r["cached"]]
+    # Not fatal: the downloads reported success, so the pinned docling may
+    # simply use repo ids other than the ones we report on. Say so rather
+    # than claiming a failure.
+    pstatus(
+        "downloads completed, but these expected repos are still absent "
+        f"from the cache: {', '.join(missing)}. If `corpus run` works, the "
+        "pinned model versions use different repo ids than this build "
+        "reports and the list in pipeline/prefetch.py needs updating.",
+        status="warn",
+    )
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
 # `corpus check`  (#62 stub)  /  `corpus completion`  (#61 stub)
 # ---------------------------------------------------------------------------
 
@@ -905,6 +1052,15 @@ def _cmd_check(args: argparse.Namespace) -> int:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         cfg = validate_config(raw)
         pstatus(f"config.yaml valid ({config_path})", status="ok")
+        # $GROBID_URL overrides the configured address (#138) — the same
+        # precedence `corpus run` applies (see _cmd_run), so check and run
+        # agree about which Grobid they mean. Without this, a check run on
+        # the login node with Grobid live on a compute node probes the
+        # config's localhost:8070 and hard-fails, while the extract job it
+        # is gating would have succeeded.
+        grobid_url_env = os.environ.get("GROBID_URL")
+        if grobid_url_env:
+            cfg.grobid.url = grobid_url_env
     except ValidationError as e:
         pstatus(f"config error in {config_path}", status="fail")
         for err in e.errors():
@@ -949,7 +1105,9 @@ def _cmd_check(args: argparse.Namespace) -> int:
         else:
             failures.append(
                 f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
-                "Start it with: docker compose up -d grobid"
+                "Start it with `docker compose up -d grobid` (laptop/Docker "
+                "host), or on a cluster `sbatch slurm/batch_grobid.sh` then "
+                "`export GROBID_URL=http://<node>:8070`."
             )
             pstatus(f"Grobid: unreachable at {cfg.grobid.url} ({detail})", status="fail")
 
@@ -989,20 +1147,58 @@ def _cmd_check(args: argparse.Namespace) -> int:
                 sum(1 for p in input_dir.rglob("*.pdf") if not _is_under_output(p))
                 if input_dir.is_dir() else 0
             )
-            pstatus(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
+            if n_pdfs == 0:
+                # Match the orchestrator's own guard (`corpus run` refuses a
+                # zero-PDF input dir with the same message). Found by the T4
+                # operator walkthrough: `check` used to report "ready" here
+                # while `run` refused — and `run`'s refusal points the user
+                # at "`corpus check` for the full pre-flight surface", which
+                # was then *less* complete than the thing it deferred to.
+                failures.append(
+                    f"input_pdfs path has zero PDFs under {input_dir}. "
+                    "Drop PDFs in or pass --skip-checks to run anyway."
+                )
+                pstatus(f"input_pdfs: {input_dir} (0 PDFs)", status="fail")
+            else:
+                pstatus(f"input_pdfs: {input_dir} ({n_pdfs} PDFs)", status="ok")
         else:
             failures.append(f"input_pdfs path does not exist: {input_dir}")
             pstatus(f"input_pdfs: {input_dir} not found", status="fail")
 
-    # 7. Taxonomy source availability
+    # 7. Optional metadata inputs: bib + lexicon. Both are optional fields,
+    # but a *set-and-wrong* path is always an error — `corpus run` passes
+    # cfg.bib straight through to --bib, where main.py exits 1 partway into
+    # the run, and a typo'd lexicon silently produces no category artifacts.
+    # Resolved exactly as _cmd_run resolves them, so the paths reported here
+    # are the paths the run will use.
+    for field, value, absent_note in (
+        ("bib", cfg.bib, "not configured (Grobid metadata only)"),
+        ("lexicon", cfg.lexicon, "not configured (no category artifacts)"),
+    ):
+        if value is None:
+            pstatus(f"{field}: {absent_note}", status="info")
+            continue
+        resolved = _resolve_against(config_path, value)
+        if resolved.exists():
+            pstatus(f"{field}: {resolved}", status="ok")
+        else:
+            failures.append(
+                f"{field} path does not exist: {resolved}. "
+                f"Fix the `{field}:` path in {config_path}, or comment it out "
+                f"to run without it."
+            )
+            pstatus(f"{field}: {resolved} not found", status="fail")
+
+    # 8. Taxonomy source availability
     if cfg.taxonomy.source is not None:
         db_path = output_dir / "taxonomy.sqlite"
         if cfg.taxonomy.source == "worms":
             # WoRMS reaches out to the network. On an internet-connected node
             # a first `corpus run` will build taxonomy.sqlite automatically.
-            # On HPC compute nodes (no outbound internet), the sqlite must be
-            # pre-built on a login node first — `corpus run --only extract`
-            # will fail loudly if it is absent.
+            # Pre-building it is still the right move before a large array
+            # job — one walk of the REST API instead of N — and it is
+            # mandatory if the compute nodes are network-restricted.
+            # `corpus run --only extract` fails loudly if it is absent.
             if db_path.exists():
                 pstatus(
                     f"Taxonomy: {db_path.name} present (WoRMS pre-built)",
@@ -1011,8 +1207,8 @@ def _cmd_check(args: argparse.Namespace) -> int:
             else:
                 pstatus(
                     "Taxonomy: taxonomy.sqlite not yet built — WoRMS will be "
-                    "fetched on first run (requires internet; pre-build on a "
-                    "login node before submitting HPC array jobs)",
+                    "fetched on first run (requires internet; pre-build it "
+                    "once before submitting HPC array jobs)",
                     status="warn",
                 )
         else:  # dwca / dwc
@@ -1050,7 +1246,118 @@ def _cmd_check(args: argparse.Namespace) -> int:
                     status="warn",
                 )
 
-    # 8. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
+    # 9. OCR toolchain (#160). ocrmypdf shells out to tesseract and
+    # ghostscript; pipeline/scan.py checks for them at *use* time, deep
+    # inside a run. Check here instead. Only a real precondition when the
+    # corpus might actually need OCR — a born-digital-only corpus never
+    # invokes it — but we can't know that before scanning, so a missing
+    # binary is a failure unless OCR is impossible anyway.
+    missing_bins = [
+        b for b in ("tesseract", "ocrmypdf", "gs") if shutil.which(b) is None
+    ]
+    if missing_bins:
+        failures.append(
+            f"OCR toolchain incomplete: {', '.join(missing_bins)} not on PATH. "
+            "Scanned PDFs cannot be OCR'd. conda-forge provides tesseract + "
+            "ghostscript (`gs`); ocrmypdf comes from pip. See INSTALL.md."
+        )
+        pstatus(f"OCR toolchain: missing {', '.join(missing_bins)}", status="fail")
+    else:
+        pstatus("OCR toolchain: tesseract, ocrmypdf, ghostscript on PATH",
+                status="ok")
+    # Optional ocrmypdf helpers — scan.py degrades deliberately (drops
+    # --optimize 2 → 1). Not wrong, but "larger" undersells it on scanned
+    # material: Beklemishev 1969 comes out 90 MB without pngquant and
+    # 35 MB with it. Since v1.0 re-OCRs every scan rather than trusting
+    # its text layer, far more documents take this path, so pngquant's
+    # absence is now a real disk-budget item on a large corpus.
+    # `jbig2` is the binary jbig2enc installs.
+    missing_opt = [
+        name for name, binary in (("pngquant", "pngquant"), ("jbig2enc", "jbig2"))
+        if shutil.which(binary) is None
+    ]
+    if "pngquant" in missing_opt:
+        pstatus(
+            f"OCR compression helpers: {', '.join(missing_opt)} absent — "
+            "ocrmypdf drops to --optimize 1 and processed.pdf can be ~2.5x "
+            "larger on scans. Install with: bash tools/install_ocr_extras.sh",
+            status="warn",
+        )
+    elif missing_opt:
+        pstatus(
+            f"OCR compression helpers: {', '.join(missing_opt)} absent "
+            "(optional — slightly larger output on bitonal scans)",
+            status="info",
+        )
+
+    # 10. Tesseract language packs (#160). The conda-forge tesseract ships
+    # ONLY English, and `bash tools/install_tessdata.sh` is a required
+    # post-install step per the README. Skip it and a Cyrillic or Fraktur
+    # scan OCRs against the English pack — extraction still "succeeds",
+    # the text is just quietly wrong. That is precisely what pre-flight
+    # exists to catch, so warn loudly and name the fix.
+    if shutil.which("tesseract") is not None:
+        try:
+            from .scan import _available_tesseract_langs
+            available = set(_available_tesseract_langs())
+        except Exception as e:
+            available = set()
+            logging.getLogger(__name__).debug(
+                "could not enumerate tesseract langs: %s", e)
+        wanted = list(cfg.ocr.ocr_languages_default or [])
+        if not available:
+            pstatus(
+                "Tesseract language packs: none found — run "
+                "`bash tools/install_tessdata.sh`",
+                status="warn",
+            )
+        else:
+            missing_langs = [c for c in wanted if c not in available]
+            if missing_langs:
+                pstatus(
+                    "Tesseract language packs: missing "
+                    f"{', '.join(missing_langs)} of {len(wanted)} configured "
+                    "— scans in those languages will silently fall back to "
+                    "the installed set. Fix: `bash tools/install_tessdata.sh "
+                    f"{' '.join(missing_langs)}`",
+                    status="warn",
+                )
+            else:
+                pstatus(
+                    f"Tesseract language packs: all {len(wanted)} configured "
+                    f"packs installed ({len(available)} available)",
+                    status="ok",
+                )
+
+    # 11. Model cache (#159). docling's layout model, TableFormer, and the
+    # embedding model are fetched from HuggingFace on first use. Read-only
+    # probe — never touches the network, so this is safe on an air-gapped
+    # host. A missing model is a warning rather than a failure: an
+    # internet-connected host will just download it mid-run, which works,
+    # only slowly.
+    try:
+        from . import prefetch as _pf
+        rows, all_present = _pf.model_report()
+        if all_present:
+            pstatus(
+                f"Models: all {len(rows)} required models cached "
+                f"({_pf.hf_cache_dir()})",
+                status="ok",
+            )
+        else:
+            absent = [r["repo"] for r in rows if not r["cached"]]
+            pstatus(
+                f"Models: {len(absent)} of {len(rows)} not in the local "
+                f"HuggingFace cache ({', '.join(absent)}). The first "
+                "`corpus run` will download them; on a metered, throttled, "
+                "or offline host run `corpus prefetch` first.",
+                status="warn",
+            )
+    except Exception as e:
+        logging.getLogger(__name__).debug("model-cache probe failed: %s", e)
+        pstatus("Models: could not inspect the HuggingFace cache", status="warn")
+
+    # 12. macOS Python arch — Rosetta'd Python on Apple Silicon traps the
     # env in the unsupported macOS x86_64 matrix (Apple dropped Intel-mac
     # torch wheels after 2.2, breaking docling + transformers ≥ 5). Hard
     # fail loud rather than letting `corpus run` discover it deep in a
@@ -1100,13 +1407,24 @@ def _check_python_arch() -> Tuple[str, Optional[str]]:
 
 
 def _detect_accelerator() -> Optional[str]:
-    """Return 'cuda', 'mps', or None. Uses torch if importable; otherwise None."""
+    """Return 'cuda', 'mps', or None. Uses torch if importable; otherwise None.
+
+    ``torch.cuda.is_available()`` emits a ``UserWarning`` straight to
+    stderr when the driver and the CUDA runtime disagree — two lines of
+    torch internals ahead of any corpus output, on *every* invocation
+    including ``--help``. The condition is real but we already report it
+    properly ("[warn] GPU: none (CPU-only …)"); the raw warning adds
+    nothing and makes a working install look broken.
+    """
     try:
-        import torch
-        if torch.cuda.is_available():
-            return "cuda"
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return "mps"
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            import torch
+            if torch.cuda.is_available():
+                return "cuda"
+            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                return "mps"
     except Exception:
         pass
     return None
@@ -1172,7 +1490,7 @@ _corpus_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Top-level verbs.
-    local verbs="init run debug-pdf status serve bib check completion"
+    local verbs="init run debug-pdf status serve bib taxonomy check prefetch completion"
     if [[ ${COMP_CWORD} -eq 1 ]] || [[ "$prev" == "-c" || "$prev" == "--config" ]]; then
         if [[ "$prev" == "-c" || "$prev" == "--config" ]]; then
             COMPREPLY=( $(compgen -f -- "$cur") )
@@ -1211,7 +1529,9 @@ _corpus() {
         'status:build-state rollup + report'
         'serve:MCP server'
         'bib:BibTeX round-trip'
+        'taxonomy:taxonomy export/ingest'
         'check:environment + config pre-flight'
+        'prefetch:download the HuggingFace models a run needs'
         'completion:generate a shell completion script'
     )
     if (( CURRENT == 2 )); then
@@ -1223,6 +1543,7 @@ _corpus() {
             status)     _arguments '--output-dir:DIR:_files -/' '--report' '--json' '--list-hashes' ;;
             serve)      _arguments '--output-dir:DIR:_files -/' '--transport' '--host' '--port' '--auth-token-file:FILE:_files' ;;
             bib)        _values 'subcommand' export import ;;
+            prefetch)   _arguments '--include-vision' '--model:MODEL:' '--pdf:PDF:_files' ;;
             completion) _values 'shell' bash zsh fish ;;
         esac
     fi
@@ -1238,7 +1559,9 @@ complete -c corpus -n "__fish_use_subcommand" -a debug-pdf   -d 'run the per-pap
 complete -c corpus -n "__fish_use_subcommand" -a status      -d 'build-state rollup + report'
 complete -c corpus -n "__fish_use_subcommand" -a serve       -d 'MCP server'
 complete -c corpus -n "__fish_use_subcommand" -a bib         -d 'BibTeX round-trip'
+complete -c corpus -n "__fish_use_subcommand" -a taxonomy    -d 'taxonomy export/ingest'
 complete -c corpus -n "__fish_use_subcommand" -a check       -d 'environment + config pre-flight'
+complete -c corpus -n "__fish_use_subcommand" -a prefetch    -d 'download the HuggingFace models a run needs'
 complete -c corpus -n "__fish_use_subcommand" -a completion  -d 'generate a shell completion script'
 complete -c corpus -s c -l config -r -d 'Path to config.yaml'
 complete -c corpus -s V -l version
@@ -1765,6 +2088,48 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     check_p.set_defaults(func=_cmd_check)
 
+    # --- prefetch (#159) ---
+    prefetch_p = sub.add_parser(
+        "prefetch",
+        help="Download the HuggingFace models a `corpus run` needs.",
+        description=(
+            "Fetch every model the pipeline downloads on first use — "
+            "docling's page-layout model, docling's TableFormer, and the "
+            "embedding model — so the first `corpus run` doesn't stop "
+            "mid-stage on a slow, throttled, or absent network. Retries "
+            "with backoff, because HuggingFace 429s anonymous traffic.\n\n"
+            "Set HF_HOME (or HF_HUB_CACHE) first to control where they "
+            "land — required on hosts with a small home directory. If "
+            "your cluster's compute nodes are network-restricted, run "
+            "this on a host that has outbound access with HF_HOME on "
+            "shared storage, then run the pipeline with "
+            "HF_HUB_OFFLINE=1 so an accidental fetch fails loudly "
+            "instead of hanging.\n\n"
+            "`corpus check` reports which of these are already cached "
+            "without downloading anything."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    prefetch_p.add_argument(
+        "--include-vision", action="store_true",
+        help=(
+            "also fetch the local vision-language model (~16 GB), needed "
+            "only for `--figure-panels vision-local`"
+        ),
+    )
+    prefetch_p.add_argument(
+        "--model", default=None,
+        help="embedding model id to fetch (default: the pipeline's BAAI/bge-m3)",
+    )
+    prefetch_p.add_argument(
+        "--pdf", type=Path, default=None,
+        help=(
+            "PDF used to exercise docling's model loads (default: one "
+            "from the configured input_pdfs, else the packaged demo)"
+        ),
+    )
+    prefetch_p.set_defaults(func=_cmd_prefetch)
+
     # --- completion (#61) ---
     comp_p = sub.add_parser(
         "completion",
@@ -1788,6 +2153,15 @@ _PASSTHROUGH_VERBS = {"status", "serve", "bib", "taxonomy"}
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    # Load .env before anything reads os.environ so the vision capability
+    # gate (_vision_skip_reason) can see an ANTHROPIC_API_KEY that lives
+    # only in .env — otherwise it silently downgrades vision-claude → ocr
+    # (#147 / F2). `usecwd=True` searches from the directory the operator
+    # runs `corpus` in (e.g. `cd demo && corpus run` finds demo/.env),
+    # rather than bare load_dotenv()'s search from this module's own
+    # directory. Loading here in the parent propagates the key to every
+    # spawned pipeline subprocess via the inherited environment.
+    load_dotenv(find_dotenv(usecwd=True))
     parser = _build_parser()
     # Use parse_known_args so passthrough subcommands (status, serve,
     # bib) can forward flags like --transport, --report, --json to the

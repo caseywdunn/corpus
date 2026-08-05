@@ -8,7 +8,7 @@
 
 We are preparing a manuscript that presents corpus. In the mean time, please cite corpus as:
 
-> Church, S. H., Manko, M. K., Zapata, F., & Dunn, C. W.,  (2026). corpus: extracting AI agent-accessible data from biodiversity literature. <https://doi.org/10.5281/zenodo.19964909>
+> Church, S. H., Mańko, M. K., Zapata, F., & Dunn, C. W. (2026). Extracting AI agent-accessible data from biodiversity literature with corpus. <https://doi.org/10.5281/zenodo.19964909>
 
 ## What corpus does
 
@@ -16,14 +16,14 @@ Think of corpus as an interface between a body of scientific literature and a La
 
 The workflow turns a folder of PDFs — born-digital articles alongside centuries-old scans in multiple languages — into a queryable knowledge base, exposed over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). MCP is the open standard that LLM clients (Claude Desktop, Claude Code, claude.ai web, Cursor) use to reach external data. The primary target is taxonomic literature.
 
-Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on [Yale's HPC cluster](https://docs.ycrc.yale.edu/clusters/bouchet/) and host public servers on [Amazon Web Services (AWS)](https://aws.amazon.com/).
+Corpus itself is general-purpose — not tied to any group of organisms. You aim it at your PDFs and build a **corpuscle**: a self-contained MCP server for one group (siphonophores, drosophila, ferns, …). Run a corpuscle locally for your own work, or deploy it on a server so colleagues can connect. We build corpuscles on an HPC cluster and host public servers on [Amazon Web Services (AWS)](https://aws.amazon.com/).
 
 ### Implementation
 
 Corpus reads a folder of PDFs and produces a knowledge base built around: **taxa, figures, bibliographies, and the cross-paper relationships between them**. It handles several tasks:
 
 - **OCR for old scans** — including 19th-century German Fraktur and other historical typefaces, with per-paper language detection.
-- **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then vision-LLM-tagged for taxonomy and anatomy.
+- **Figure extraction** — every plate, photograph, and line drawing pulled out with its caption, then linked to taxonomy and anatomy by matching the caption against the Darwin Core synonymy graph and the anatomy lexicon. An optional vision-language model additionally detects multi-panel structure and compound plates.
 - **Bibliography parsing and reconciliation** — references inside each paper are deduplicated across the whole corpus, so, for example, "Totton and Bargmann 1965" is one entity even when twenty papers cite it differently.
 - **Taxonomy linking** — every species mention is matched against a [Darwin Core](https://dwc.tdwg.org/) taxonomy with full synonymy, so a question about *Apolemia uvaria* finds papers that only ever called it *Stephanomia uvaria*.
 
@@ -39,7 +39,7 @@ The output is a per-paper artifact tree plus cross-paper databases. You query it
 - *"Translate the diagnosis of* Forskalia edwardsii *from Haeckel 1888 (German) into English."*
 - *"Write a PDF report with LaTeX showing all nectophore images for* Nanomia*."*
 
-The full tool surface is in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md).
+The full tool surface is in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md); it is frozen as of 1.0 under [dev_docs/API_STABILITY.md](dev_docs/API_STABILITY.md).
 
 ## What you bring
 
@@ -106,7 +106,22 @@ Or invoke the ingester directly without `corpus run`: `corpus taxonomy ingest --
 
 The inverse — dumping a corpus's built taxonomy back out as a DwC-A — is `corpus taxonomy export -o taxonomy.zip`. Use it to share a taxonomy snapshot without forcing the recipient to walk WoRMS again, or to commit a small fixture into a downstream repo so CI exercises the `dwca` ingest path without network calls. The round-trip property: `corpus taxonomy ingest --source dwca --input <export.zip>` recovers the same `taxa` row set as the source SQLite.
 
-**Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path.
+**`source: worms` needs outbound internet**, because it walks the WoRMS REST API. Don't do that from inside a batch array — every task would walk the API independently, and on a network-restricted cluster they'd all fail. Build the snapshot once and switch to a local source for the runs, which is faster, kinder to WoRMS, and version-pinned rather than tracking a moving upstream:
+
+```bash
+# Once, up front:
+corpus taxonomy ingest --source worms --root-id 1371
+corpus taxonomy export -o taxonomy.zip
+
+# Then in config.yaml, for every subsequent (possibly offline) run:
+taxonomy:
+  source: dwca
+  path: ./taxonomy.zip
+```
+
+This is the path the bundled demo uses, which is why the demo's first run doesn't touch the network for taxonomy. Since v1.0, a run that configures `taxonomy:` but finds no snapshot **fails loudly** instead of proceeding with taxon extraction silently skipped — the earlier behavior put 1763 papers through a production run with empty `taxa.json` before anyone noticed ([#139](https://github.com/caseywdunn/corpus/issues/139)). `corpus check` reports the same condition as a pre-flight warning.
+
+**Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path, and no run will fail for a missing snapshot.
 
 ### Lexicons (optional)
 
@@ -136,7 +151,7 @@ Override the default location with `--instructions <path>` when starting the MCP
 
 ## Computational requirements
 
-- **Disk.** Plan on several times the size of the original PDFs.
+- **Disk.** Budget ~15 GB before a single PDF is processed: the conda env is ~8 GB (torch and its CUDA wheels dominate) and the models are another ~5 GB (docling layout + TableFormer + BGE-M3, fetched once by `corpus prefetch` or on the first run). On top of that, the corpuscle itself runs several times the size of the original PDFs. The env and models dominate for a small corpus; the corpuscle dominates past a few hundred papers.
 - **CPU vs. GPU.** Stage 1 (OCR, layout, Grobid, chunking, annotation) is CPU-bound and parallelizes well across PDFs. Stage 2 (BGE-M3 embeddings) and the optional vision pass (Qwen2.5-VL-7B figure tagging) are GPU-accelerated; embeddings still run on CPU but slowly, and the local vision backend needs a GPU to be usable. A Claude API vision backend is also available — costs API credits but runs anywhere.
 - **Scale.** A few dozen PDFs run on a laptop in a couple of hours. A few thousand benefit from an HPC cluster — we use Yale's Bouchet, runbook in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
@@ -187,7 +202,14 @@ Check whether your platform is supported before installing.
 
 ### Prerequisites
 
-- **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-on-bouchet).
+- **Docker** — needed at pipeline build time for Grobid (PDF metadata + reference parsing). Install from <https://docs.docker.com/engine/install/> (`apt install docker.io` on Debian/Ubuntu; `brew install --cask docker` on macOS). On Linux, add yourself to the `docker` group afterwards or every `docker compose` call below fails with `permission denied ... /var/run/docker.sock`:
+
+  ```bash
+  sudo usermod -aG docker $USER    # then log out and back in, or: newgrp docker
+  docker run --rm hello-world      # confirms the daemon is reachable as you
+  ```
+
+  On HPC without Docker, [Apptainer](https://apptainer.org/) substitutes — see [INSTALL.md](INSTALL.md#grobid-image-choice-and-hosts-without-docker).
 - **conda** — a conda installer such as [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/). Any standard distribution works (Anaconda, Miniconda, [Miniforge](https://github.com/conda-forge/miniforge)). **macOS Apple Silicon: see [macOS (Apple Silicon)](#macos-apple-silicon) — the env requires an arm64-native conda.**
 
 ### macOS (Apple Silicon)
@@ -219,7 +241,9 @@ After install, `corpus check` hard-fails on a Rosetta'd Python, so a wrong-arch 
 
 #### 2. Grobid runs under x86_64 emulation
 
-The Grobid Docker image (`grobid/grobid:0.8.1`) is `linux/amd64` only; Docker Desktop emulates it on Apple Silicon. In **Settings → General**, enable **"Use Rosetta for x86_64/amd64 emulation"** for the fast path — QEMU still works but is noticeably slower. Allocate ≥ 12 GB to Docker Desktop under **Settings → Resources** so the existing `JAVA_OPTS=-Xmx8g` heap in `docker-compose.yml` fits; drop to `-Xmx4g` if you have less. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+The default Grobid image (`lfoppiano/grobid:0.8.1`, the lightweight CRF-only build) is `linux/amd64`; Docker Desktop emulates it on Apple Silicon. In **Settings → General**, enable **"Use Rosetta for x86_64/amd64 emulation"** for the fast path — QEMU still works but is noticeably slower. This image is ~1 GB, boots in seconds, and emits full TEI with in-text reference markers, so it runs fine under emulation with the default `JAVA_OPTS=-Xmx4g` heap. Grobid is only used at pipeline build time, not at MCP serve time, so this overhead is bounded to `corpus run`.
+
+> **Do not use the full DeLFT image (`grobid/grobid:0.8.1`) on Apple Silicon.** Its TensorFlow/DeLFT reference parser requires AVX CPU instructions, which Rosetta 2 does not implement, so the container crash-loops (exit 134 / SIGABRT) no matter how the Rosetta toggle is set — and only after a ~20 GB download. The DeLFT image is an opt-in for **AVX-capable Linux x86_64 hosts** where it improves reference-parsing quality; see the comments in [`docker-compose.yml`](docker-compose.yml).
 
 ### Clone and install
 
@@ -230,15 +254,21 @@ conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh   # Tesseract OCR language packs
+bash tools/install_ocr_extras.sh # pngquant — much smaller OCR'd PDFs
+corpus prefetch                  # ~4.8 GB of models, up front
 ```
 
-`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only English LSTM data — see [Language support](#language-support) below.
+`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only low-accuracy `tessdata_fast` language data — see [Language support](#language-support) below. `tools/install_ocr_extras.sh` installs `pngquant`, without which ocrmypdf drops from `--optimize 2` to `--optimize 1`: on a 45-page Russian scan that is the difference between a 35 MB and a 90 MB `processed.pdf`. It matters more since v1.0, which re-OCRs every scanned paper rather than trusting its text layer — budget for it before a large run.
+
+`corpus prefetch` is optional but recommended: it downloads the four models the pipeline otherwise fetches on first use (docling's layout model, TableFormer and `HybridChunker` tokenizer, plus the ~4.3 GB BGE-M3 embedding model), retrying with backoff because HuggingFace throttles anonymous traffic. Getting them now means the first `corpus run` can't stall mid-stage on a slow network. It does not make the run *offline* — HuggingFace is still contacted for revision checks on every run unless you `export HF_HUB_OFFLINE=1`, which is the setting that actually pins a run to the cached snapshot ([INSTALL.md](INSTALL.md#offline-hosts)). Set `HF_HOME` first if your home directory is small or isn't shared across machines, and see [INSTALL.md](INSTALL.md#model-downloads-and-where-they-land) for the offline/HPC pattern — prefetch where there's internet, run with `HF_HUB_OFFLINE=1` where there isn't. `corpus check` reports what's already cached without touching the network.
 
 ## Language support
 
-OCR is the only stage where language matters. Each scanned PDF gets its language detected automatically (`langdetect` on the first few pages of extracted text), and the result is routed to a matching [Tesseract](https://github.com/tesseract-ocr/tesseract) language pack — a `<code>.traineddata` file that teaches Tesseract to recognize a particular language or script. Born-digital PDFs with a clean text layer skip OCR entirely, so packs only matter for scans.
+OCR is the only stage where language matters. Each scanned PDF gets its language detected automatically (`langdetect` on the first few pages of extracted text), and the result is routed to a matching [Tesseract](https://github.com/tesseract-ocr/tesseract) language pack — a `<code>.traineddata` file that teaches Tesseract to recognize a particular language or script. Only genuinely born-digital PDFs skip OCR, so packs only matter for scans — but "born-digital" is decided by page geometry, not by whether a text layer is present. A scan that arrives with someone else's OCR baked in still counts as a scan and is re-OCR'd, because third-party layer quality varies wildly and a bad one is invisible downstream.
 
-**What ships by default.** The conda-forge `tesseract` package ships only the English LSTM model. The default fallback set in `config.yaml` (`ocr.ocr_languages_default`: `eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`) plus `grc` (Ancient Greek, opt-in) and `deu_latf` (19th-c. German Fraktur) are installed by running [`tools/install_tessdata.sh`](tools/install_tessdata.sh) after `conda env create` — it drops the matching `<code>.traineddata` files into `$CONDA_PREFIX/share/tessdata/` directly from the official [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo. None of the per-language packs are on conda-forge.
+**What ships by default.** The default fallback set in `config.yaml` (`ocr.ocr_languages_default`: `eng`, `deu`, `fra`, `rus`, `lat`, `spa`, `por`, `chi_sim`, `chi_tra`, `jpn`, `ell`, `kor`) plus `grc` (Ancient Greek, opt-in) and `deu_latf` (19th-c. German Fraktur) are installed by running [`tools/install_tessdata.sh`](tools/install_tessdata.sh) after `conda env create` — it drops the matching `<code>.traineddata` files into `$CONDA_PREFIX/share/tessdata/` directly from the official [`tesseract-ocr/tessdata_best`](https://github.com/tesseract-ocr/tessdata_best) repo.
+
+Running the script is **not optional**, even though `conda activate corpus && tesseract --list-langs` shows ~130 languages already. The conda-forge `tesseract` package bundles [`tessdata_fast`](https://github.com/tesseract-ocr/tessdata_fast) builds — the smallest and least accurate of the three upstream variants (Russian is 3.9 MB fast vs 15.3 MB best), and accuracy on degraded historical scans is exactly what `tessdata_best` buys. The installer replaces any pack it did not itself fetch and records what it installed in `$CONDA_PREFIX/share/tessdata/.corpus_tessdata_best`, so re-running is cheap and `--force` re-downloads everything.
 
 **Without `deu_latf`,** scanned 19th-c. German papers (Goldfuss 1820, Brandt 1837, Pagenstecher 1869, Dönitz 1871, …) OCR to whitespace. The default install bundles it, so no separate step is needed unless you trimmed the language list.
 
@@ -256,17 +286,23 @@ To make a new language part of the fallback set tried when detection is uncertai
 
 ## Start Grobid before `corpus run`
 
-Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on Bouchet, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
+Grobid runs as a separate service that must be up *before* `corpus run` calls it. `docker compose up -d` runs it in the background; leave it up while you work and stop it with `docker compose stop grobid` when you're done. `corpus run` doesn't auto-launch it (cross-platform auto-launch is awkward — docker on a laptop, Singularity on a cluster, neither on a stripped-down host); `corpus check` confirms reachability before you commit to a long pipeline run.
+
+`docker compose up -d` returns as soon as the container is created, but Grobid needs
+another ~30–60 s to load its models and bind the port. Wait for the compose
+healthcheck rather than probing immediately — a `Connection refused` in that window
+means "still starting", not "broken".
 
 ```bash
 docker compose up -d grobid              # start in background; persists across runs
-curl http://localhost:8070/api/isalive   # should print "true"
+docker compose ps grobid                 # wait for (healthy), not just Up
+curl -fsS http://localhost:8070/api/isalive   # should print "true"
 corpus check                             # confirms grobid + GPU + config + disk
 ```
 
 ## Try it on the demo corpus
 
-The repo ships [demo/](demo/) — a regular corpuscle: 4 siphonophore PDFs (born-digital English, born-digital English, scanned German Fraktur, and scanned Russian), `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it. A 5th paper sits in [`tests/fixtures/round2_paper/`](tests/fixtures/round2_paper/) — outside the demo's `input_pdfs` scope — held back for the "add a paper and re-run" implicit-resume scenario exercised by [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
+The repo ships [demo/](demo/) — a regular corpuscle: 4 siphonophore PDFs (born-digital English, born-digital English, a 19th-c. German paper — Schneider 1891, a scan carrying a third-party text layer — and scanned Russian), `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it. A 5th paper sits in [`tests/fixtures/round2_paper/`](tests/fixtures/round2_paper/) — outside the demo's `input_pdfs` scope — held back for the "add a paper and re-run" implicit-resume scenario exercised by [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
 
 ```bash
 cd demo && corpus run
@@ -274,13 +310,16 @@ cd demo && corpus run
 
 Output lands in `demo/output/` (gitignored). Re-run anytime — `corpus run` is always idempotent.
 
+**What the default demo does and does not exercise.** The demo config sets `figures.panel_detection: ocr` (the CPU-only floor), so a default `corpus run` on `demo/` does **not** run the vision figure pass (Pass 3b). It *does* exercise OCR on three of the four papers: the scanned Russian one, and — since v1.0 re-OCRs anything whose pages are raster images rather than trusting the text layer on them — Schneider 1891 and Pugh 2001 too. Schneider's bundled text layer is itself mediocre third-party OCR (`Prof. J. Victor (Jarus` for *Carus*, `Verlag von "rilhclm Engelmann` for *Wilhelm*), which corpus's own OCR corrects. No paper in the demo exercises the Fraktur (`deu_latf`) path — Schneider is set in roman type. To exercise the vision pass, set `figures.panel_detection: vision-claude` (needs `ANTHROPIC_API_KEY` exported or in `.env`) or `vision-local` (needs a GPU), or pass `corpus run --figure-panels vision-claude`.
+
 ## First time run
 
 ```bash
 mkdir my-corpus && cd my-corpus
 corpus init                # scaffold config.yaml from the bundled template
 $EDITOR config.yaml        # set input_pdfs, taxonomy, optional bib + lexicon
-corpus check               # pre-flight: validates config + probes Grobid/GPU/disk
+corpus check               # pre-flight: config, Grobid, GPU, disk, OCR
+                           #   toolchain, tessdata packs, model cache
 corpus run                 # full pipeline + post-pipeline + bundle, hands-off
 corpus status --report     # stage pass-rates + cross-paper artifact ✓/✗
 corpus serve               # local MCP server against the freshly built bundle
@@ -288,7 +327,7 @@ corpus serve               # local MCP server against the freshly built bundle
 
 The work divides into two stages, best run on different hardware: Stage 1 is CPU-heavy and embarrassingly parallel; Stage 2 wants a GPU. Each unique PDF is identified by the first 12 hex chars of its SHA-256, and all artifacts live under `<output_dir>/documents/<HASH>/`. `corpus run` is always idempotent — re-runs only do work whose inputs have changed (per-stage state + content fingerprints from v0.2). `--force-rebuild` covers the rare clean-rebuild case.
 
-For large corpora on Bouchet, the SLURM chain (Stage 1 + embed + finalize) is one line:
+For large corpora on a SLURM cluster, the whole chain (Stage 1 + embed + finalize) is one line:
 
 ```bash
 NUM_BATCHES=8 bash slurm/batch_pipeline.sh
@@ -308,7 +347,7 @@ Multi-panel figure ROIs are detected by `figures.panel_detection` in `config.yam
 
 (Migrating from v0.5? The `vision:` block became `figures:`; `vision.backend` → `figures.panel_detection`, with `none → off` (or `ocr` for the new floor), `local → vision-local`, `claude → vision-claude`. `corpus run` fails loudly with this mapping if it sees a legacy `vision:` block.)
 
-On Bouchet, the SLURM chain (`slurm/batch_pipeline.sh`) runs Pass 3b on `gpu_h200` automatically — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
+On a SLURM cluster, `slurm/batch_pipeline.sh` chains Pass 3b onto a GPU partition automatically.
 
 ## Adding and updating documents
 
@@ -350,7 +389,7 @@ The full file whitelist and path-scrubbing contract are documented in the [`mcps
 corpus serve   # reads bundle path from config.yaml's output_dir
 ```
 
-Point your MCP client at this. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code; for Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Point your MCP client at this. A project-scoped [.mcp.json](.mcp.json) ships in this repo for Claude Code, pointed at `demo/output` so it works after a `cd demo && corpus run` (it needs the `corpus` binary on PATH — activate the conda env first, or edit the `command` to the env's absolute path). Repoint `--output-dir` at your own bundle for real use. For Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -373,9 +412,9 @@ For sharing a corpus with colleagues or hosting on AWS — bearer-token SSE star
 
 Once your client is configured, open it and confirm the corpus server is connected. Open a [Claude Code](https://claude.com/claude-code) session at the terminal and run `/mcp` — the corpus server should appear in the list along with its tool surface.
 
-**Interactive chat** is the most direct mode. Ask questions like the [example queries](#example-uses) above and get answers streamed back, citing the source papers. This is text-only — figures don't render inline, so corpus content that lives in images (plates, photographs, morphological line drawings) doesn't come along for the ride.
+**Interactive chat** is the most direct mode. Ask questions like the [example queries](#example-uses) above and get answers streamed back, citing the source papers. Figures *do* come along: `get_figure_image` returns a standards-compliant MCP `ImageContent` block, so image-capable clients (e.g. Claude Desktop) render plates, photographs, and morphological line drawings inline in the chat. The report workflow below is for compiled, multi-figure, or citable outputs — not a workaround for a rendering limitation.
 
-**Reports** are how you reach the rest. Ask the LLM to write a report and it produces a markdown or LaTeX file alongside the chat, which can then be rendered to PDF (Claude Code can call `pandoc` / `pdflatex` directly). Reports can be plain text or pull figures from the corpus by reference, so a morphological-diversity summary with one plate per species is a single prompt away. Other natural fits:
+**Reports** are how you reach the rest. Ask the LLM to write a report and it produces a markdown or LaTeX file alongside the chat, which can then be rendered to PDF (Claude Code can call `pandoc` directly; the env bundles the self-contained `tectonic` LaTeX engine, so `pandoc report.md -o report.pdf --pdf-engine=tectonic` works out of the box — Markdown/HTML output needs no TeX at all). Reports can be plain text or pull figures from the corpus by reference, so a morphological-diversity summary with one plate per species is a single prompt away. Other natural fits:
 
 - **Character matrices** compiled from the literature (e.g. "nectophore presence/absence and gastrozooid count for every physonect in the corpus").
 - **Compiled data exports** in CSV, TSV, JSONL, or BibTeX so downstream tools can pick up where chat leaves off.
@@ -391,6 +430,7 @@ Once your client is configured, open it and confirm the corpus server is connect
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
+- [dev_docs/API_STABILITY.md](dev_docs/API_STABILITY.md) — what 1.0 freezes, what counts as a breaking change, and the deprecation path
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 - [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
 - [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — manual fallback / release-time verification (CI tiers T0–T3 in [`.github/workflows/`](.github/workflows/) are the authoritative coverage); references [dev_docs/ec2_smoke.sh](dev_docs/ec2_smoke.sh) for the T4 clean-room linux validation

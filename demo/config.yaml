@@ -1,7 +1,7 @@
 # Demo corpuscle config (#59).
 #
 # Per the v0.3 "demo as regular corpuscle" model: this directory is
-# self-contained — 11 PDFs, siphonophores.bib, lexicon.yaml,
+# self-contained — 4 PDFs, siphonophores.bib, lexicon.yaml,
 # instructions.md, and this config. Running the demo is identical to
 # running any other corpuscle: `cd demo && corpus run` (lands #60).
 #

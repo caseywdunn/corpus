@@ -1,3 +1,8 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "corpus": {
+      "command": "corpus",
+      "args": ["serve", "--output-dir", "demo/output"]
+    }
+  }
 }

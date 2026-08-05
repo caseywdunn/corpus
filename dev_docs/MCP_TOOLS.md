@@ -1,6 +1,8 @@
 # MCP tool surface
 
-The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. The top-level [mcp_server.py](../mcp_server.py) is a thin shim into `mcpsrv.main`.
+The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. `corpus serve` is the user-facing entry point; it wraps `mcpsrv.main`.
+
+This surface is frozen as of 1.0. What that commits us to — additive vs. breaking, and how anything gets removed — is [API_STABILITY.md](API_STABILITY.md).
 
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
@@ -60,19 +62,19 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 
 | Tool | Returns |
 | --- | --- |
-| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. `caption_text` is a preview by default (#85); `full_caption=True` for the verbatim caption. |
-| `get_figures_for_lexicon_term` | Figures whose captions mention a term from one lexicon category (anatomy, biogeography, …). `caption_text` previewed by default (#85); `full_caption=True` for verbatim. |
+| `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. Also returns figures whose caption does not name the taxon (from papers that mention it elsewhere) with `caption_has_taxon: false` and a low `score` — filter on `caption_has_taxon`/`score`, or pass `caption_only=True`, for precision. `caption_text` is a preview by default (#85); `full_caption=True` for the verbatim caption. |
+| `get_figures_for_lexicon_term` | Figures whose captions mention a lexicon term. The query is resolved to its canonical term and matched against **every surface form observed in the corpus** (#143), so `wing` finds captions saying `ala` and vice versa — including across languages, since a Russian paper's `нектофор` maps to `nectophore`. Rows carry `matched_surfaces` + `canonical`; an unrecognized term degrades to a literal search with `resolved: false`. `caption_text` previewed by default (#85). |
 | `get_figure_dossier_for_taxon` | Figures linked to a taxon, each with `linked_chunks` (chunk IDs that reference the figure via `chunks.json:figure_refs`) + summarized ROIs. Single call replaces `get_figures_for_taxon` + per-figure `list_figure_rois` + cross-ref against `get_chunks_for_taxon`. |
-| `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Category-agnostic. |
-| `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references. |
-| `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. Figure-licensing gate keyed to the per-call `profile=` (#101): a strict profile (manuscript/presentation) refuses an unpublishable figure, the default `report` allows it. |
+| `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Synonym-aware on the same basis as `get_figures_for_lexicon_term` (#143); the response reports `canonical`, `resolved`, and `surfaces_searched`. |
+| `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references, plus `license` / `license_url` / `attribution` from the parent work. The publication-clearance *determination* is included only under a strict `profile=`, or on `include_licensing=True` (#154) — under the permissive default the server has already authorized the figure, so it isn't shipped. **`license: null` is normal and does not mean "no licensing information"** — most historical works carry no explicit license string, and their clearance is *derived from publication year* against `licensing.pd_cutoff_years`. The derived answer lives in `publishable` / `license_source` (`age_based_pd`) / `clearance_state`; ask for `include_licensing=True` to see it. A pre-cutoff work reads `license: null` while being fully cleared as public domain. |
+| `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. Figure-licensing gate keyed to the per-call `profile=` (#101): a strict profile (manuscript/presentation) refuses a figure whose publication clearance can't be established, naming the `publication_clearance` state in the refusal; the default `report` allows it. |
 | `get_figure_url` | A bearer-gated HTTP URL (plus `auth_header` + license/attribution fields) the caller can `curl -o` to land the figure PNG on disk without loading its bytes into context — for pandoc / LaTeX / PDF assembly. Honors the per-call `profile=` gate (#101) and encodes the resolved profile into the URL so the HTTP fetch enforces the same policy. |
 | `list_figure_rois` | Per-panel / per-subfigure ROIs annotated on a figure. |
-| `get_figure_roi_image` | Crop a panel ROI out of a figure image and return the crop's path. |
+| `get_figure_roi_image` | Crop a panel ROI out of a figure image and return the crop's path. Honors the per-call `profile=` licensing gate like the other pixel-returning tools (#154 §3) — including the fallback that returns the whole figure when no pixel ROI was detected. |
 
 ## Semantic search
 
-Requires `embed_chunks.py` to have been run (for `get_chunks_for_topic`).
+Requires the embedding stage to have been run (`corpus run --only embed`), for `get_chunks_for_topic`.
 
 | Tool | Returns |
 | --- | --- |

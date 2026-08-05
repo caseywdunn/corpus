@@ -4,7 +4,7 @@
   Holds per-paper headers + reverse indexes for taxon/lexicon/author
   lookup so tool calls don't re-scan the documents tree.
 * :class:`TaxonMentionDB` — read-only wrapper over
-  ``taxon_mentions.sqlite`` (built by ``build_taxon_mentions.py``).
+  ``taxon_mentions.sqlite`` (built by ``corpus run --only post``).
 * :class:`BiblioAuthority` — read-only wrapper over
   ``biblio_authority.sqlite`` (built by ``build_biblio_authority.py``).
 
@@ -33,6 +33,42 @@ from pipeline.embeddings import (
 from .app import _load_json
 
 logger = logging.getLogger(__name__)
+
+
+def _scan_facts(hash_dir) -> dict:
+    """Per-paper facts lifted out of ``scan_detection.json``.
+
+    ``language`` is the point of this. The pipeline has always detected a
+    language per paper and written it here, but nothing carried it into
+    the served bundle, so no tool could answer "what languages are in
+    this corpus?" or "show me only the Russian papers" — on a corpus
+    whose entire premise is multilingual historical literature. A client
+    asked that question had to infer it from titles and journal names.
+
+    ``languages`` is the full list when a document is multilingual (a
+    Russian original bound with an English typescript, a French paper
+    carrying Pugh's translation); ``language`` is the dominant one, kept
+    scalar so simple filters stay simple.
+    """
+    scan = _load_json(hash_dir / "scan_detection.json", default={}) or {}
+    langs = scan.get("probe_languages") or []
+    primary = scan.get("detected_language")
+    # Only fall back to the text layer's own guess when the pipeline
+    # trusted it. On a re-OCR'd scan that guess came *from* the layer we
+    # rejected, and reporting it would launder an explicitly-distrusted
+    # value into the served API: Linnaeus 1735 is Latin, its corrupt
+    # layer reads as Catalan, and `language_trusted` is already False.
+    # Better to report no language than a wrong one.
+    if not langs and primary and scan.get("language_trusted", True):
+        langs = [primary]
+    elif not langs:
+        primary = None
+    return {
+        "scan_file_type": scan.get("file_type"),
+        "language": primary or (langs[0] if langs else None),
+        "languages": langs,
+        "was_ocred": bool(scan.get("needs_ocr")),
+    }
 
 
 class CorpusIndex:
@@ -90,6 +126,23 @@ class CorpusIndex:
         )
         self.lexicon_mention_counts: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
             lambda: defaultdict(dict),
+        )
+        # #143 — surface-form ↔ canonical maps, so figure retrieval can be
+        # synonym-aware. Extraction already resolves synonyms (each mention
+        # records the ``matched_text`` it found and the ``canonical`` it
+        # belongs to), but retrieval used to throw that away and substring-
+        # match the single string the caller passed — so a query for `wing`
+        # missed captions saying `ala`, and vice versa.
+        #
+        # Built from the *observed* surface forms in the served per-paper
+        # artifacts rather than from the lexicon YAML, which is not shipped
+        # into a distilled bundle. That means coverage is "forms that
+        # actually occur in this corpus's scanned text", which is the useful
+        # set for retrieval — but a declared synonym that appears in no
+        # paper's body text won't be known here. Both maps are lower-cased.
+        self.lexicon_surface_to_canonical: Dict[str, Dict[str, str]] = defaultdict(dict)
+        self.lexicon_canonical_surfaces: Dict[str, Dict[str, set]] = defaultdict(
+            lambda: defaultdict(set),
         )
         self.author_to_papers: Dict[str, List[str]] = defaultdict(list)
         # accepted_taxon_id → accepted name (for display when we only
@@ -321,9 +374,7 @@ class CorpusIndex:
                     cat: payload.get("unique_terms", 0)
                     for cat, payload in lexicons_for_paper.items()
                 },
-                "scan_file_type": (
-                    _load_json(hash_dir / "scan_detection.json", default={}) or {}
-                ).get("file_type"),
+                **_scan_facts(hash_dir),
             }
 
             for t in taxa.get("taxa", []) or []:
@@ -348,6 +399,19 @@ class CorpusIndex:
                     self.lexicon_mention_counts[category][canonical][paper_hash] = (
                         term.get("mention_count", 0)
                     )
+                    # A canonical is always a surface form of itself.
+                    low = canonical.lower()
+                    self.lexicon_surface_to_canonical[category][low] = canonical
+                    self.lexicon_canonical_surfaces[category][canonical].add(low)
+                # #143 — harvest every surface form extraction actually
+                # matched, so retrieval can expand a query to its siblings.
+                for mention in payload.get("mentions", []) or []:
+                    canonical = mention.get("canonical")
+                    surface = (mention.get("matched_text") or "").strip().lower()
+                    if not canonical or not surface:
+                        continue
+                    self.lexicon_surface_to_canonical[category][surface] = canonical
+                    self.lexicon_canonical_surfaces[category][canonical].add(surface)
 
             for author in metadata.get("authors", []) or []:
                 # #122 — key the Grobid-metadata author index with the

@@ -1,12 +1,42 @@
-# Figure licensing + the publishable gate
+# Figure licensing
 
 How `corpus` reasons about whether a figure can be reused in a derived
-publication, and what the `publishable` flag exposed by the MCP server
-actually means. Backs [#51](https://github.com/caseywdunn/corpus/issues/51).
+publication, and what the server tells a client about it. Backs
+[#51](https://github.com/caseywdunn/corpus/issues/51) and
+[#154](https://github.com/caseywdunn/corpus/issues/154).
 
-## Default policy
+**The gate decides, not the client.** If a figure tool returns pixels or a
+URL for the `profile=` you passed, that figure is cleared for that use —
+display it. The clearance *determination* is only included in a response
+when a strict profile is in force, or on an explicit
+`get_figure(..., include_licensing=True)`.
 
-A figure is `publishable=true` when **either**:
+## What a client sees: `publication_clearance`
+
+Five states, reported as `publication_clearance` (#154 §2):
+
+| state | meaning |
+|---|---|
+| `public_domain` | asserted public-domain, or past the PD cutoff |
+| `licensed_open` | an explicit open license (CC-BY family) |
+| `restricted` | terms are on file and forbid republication |
+| `undetermined` | a license string was recorded but not recognized — usually a typo |
+| `no_record` | nothing on file. **The common case, and not evidence of restriction.** |
+
+Only `restricted` is a recorded prohibition. The distinction matters
+because in a real corpus the overwhelming majority of works are
+`no_record`: 86% of the served siphonophore corpus, with *not one* work
+asserted `all-rights-reserved`. A single boolean collapsed those into the
+same value, which read as a prohibition and caused clients to withhold
+figures the server had cleared.
+
+## The stored boolean
+
+`works.publishable` remains the storage column and the input to the strict
+gate — for *refusing*, "could not establish" and "explicitly restricted"
+warrant the same conservative answer. It is no longer sent to clients.
+
+A work is `publishable=1` when **either**:
 
 1. The parent work carries an explicit `license` whose value is in the
    set treated as reusable: `public-domain`, `CC0-1.0`, `CC-BY-1.0`
@@ -15,15 +45,17 @@ A figure is `publishable=true` when **either**:
    `licensing.pd_cutoff_years` years before the current year (default
    95, configurable per corpuscle).
 
-A figure is `publishable=false` when:
+It is `publishable=0` when:
 - The license is `all-rights-reserved`, `publisher-permission`, or
   `unknown` (the explicit-not-publishable vocabulary), **or**
 - No license is set and the year is too recent for the configured PD
   cutoff (or year is missing).
 
-`publishable=null` happens when the license string is unrecognized
-(neither in the publishable set nor in the not-publishable set).
-Conservative readers should treat null as not-publishable.
+`publishable=NULL` happens when the license string is unrecognized —
+neither vocabulary matched. That surfaces as `undetermined`, and the
+authority build now logs a warning naming the offending string, because a
+typo'd `license = {CC-BY 4.0}` (space, not hyphen) otherwise blocks
+figures exactly like a real refusal, silently.
 
 ## License sources
 
@@ -35,9 +67,9 @@ Conservative readers should treat null as not-publishable.
 | `age_based_pd` | no license set; year falls outside the PD cutoff |
 | `unknown` | no license, no year, or year too recent |
 
-Both the raw fields (`license`, `license_url`) and the derived
-`publishable` boolean are exposed via the MCP `get_figure` tool, so
-clients with non-default jurisdictions or fair-use claims can re-derive.
+`license`, `license_url`, and a server-computed `attribution` string go
+out in **every** profile — captions need them. The clearance state does
+not; see the note at the top.
 
 ## Jurisdiction caveat
 
@@ -64,16 +96,23 @@ that apply in their jurisdiction.
 The figure-licensing gate is governed by the active **output profile**,
 which a client passes per call as `profile=` (see `mcpsrv/profiles.py`):
 
-- **`report`** (the default) — *permissive*: `get_figure_image` /
-  `get_figure_url` return the figure regardless of `publishable`, on the
-  basis that momentary in-chat display is fair use. License metadata is
-  still returned so a publication-bound client can self-filter.
-- **`manuscript`** / **`presentation`** — *strict*: the tools refuse a
-  figure whose parent work is `publishable=false`, e.g.
+- **`report`** (the default) — *permissive*: `get_figure_image`,
+  `get_figure_url`, and `get_figure_roi_image` return the figure
+  regardless of clearance, on the basis that momentary in-chat display is
+  fair use. No clearance determination is attached, precisely so it isn't
+  mistaken for a permission check.
+- **`manuscript`** / **`presentation`** — *strict*: the same three tools
+  refuse, naming the state that caused it, e.g.
 
-  > figure not publishable under profile 'manuscript': license='unknown'
-  > (source='unknown'). … Read get_figure(<paper_hash>, <figure_id>) for
-  > the raw license fields, or pass profile='report' for in-chat display.
+  > figure withheld under profile 'manuscript' — publication_clearance=
+  > 'no_record': no license on file and the work is not old enough to be
+  > age-based public domain; this is an ABSENCE of evidence, not a refusal
+  > by the rightsholder. … For in-chat display request profile='report'.
+
+All three pixel-returning tools enforce the gate; `get_figure_roi_image`
+did not until #154 §3, which made it a way around the other two.
+`tests/test_freeze_contract.py` now asserts every pixel-returning tool
+takes a `profile`.
 
 Selection is a **per-call client/session property**, not a server or
 corpus setting — a shared SSE server serves chat, internal-report, and
@@ -85,10 +124,9 @@ the resolved profile into the URL, so the subsequent HTTP fetch enforces
 the same policy.
 
 > **Publication-bound work must pass `profile="manuscript"` per call.**
-> The permissive default means a client that forgets to set a profile
-> will receive uncleared figures — surface the returned `license` /
-> `publishable` fields and do not embed `publishable=false` figures in a
-> derived publication.
+> The permissive default means a client that forgets will receive
+> uncleared figures. The remedy is to state the profile, not to
+> second-guess the server's answer.
 
 (Replaces the v0.5 `--allow-unpublishable` server flag, which was a
 single global toggle and could not distinguish concurrent sessions.)

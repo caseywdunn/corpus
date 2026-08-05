@@ -18,15 +18,32 @@
 # mode (no --array) is unchanged. Example for 8 H200s in parallel:
 #     BATCH_SIZE=256 sbatch --array=0-7 batch_pass3b.sh
 #
-# Partition: we MUST use gpu_h200. The rtx_5000_ada nodes (gpu partition)
-# carry an NVIDIA driver that torch 2.9.0+cu128 rejects as "too old"
-# (reported driver 12080), causing a silent fallback to CPU that makes
-# Qwen2.5-VL-7B unusable. H200 nodes (driver 570.x, supports CUDA 12.8)
-# work out of the box. Confirmed 2026-04-16 via diag_gpu.sh on
-# a1122u02n01 — all three module configs succeeded on H200.
+# Partition: gpu_h200, for VRAM headroom and throughput on Qwen2.5-VL-7B
+# — a preference, not a hard requirement. The whole GPU fleet runs
+# driver 580.159.04 / CUDA 13.0, and the pinned torch 2.12.0 runs on
+# every card type (verified 2026-08-01 on h200, b200,
+# rtx_pro_6000_blackwell, rtx_5000_ada, a40, l40s). The preflight below
+# is cheap and catches any future regression, so it stays.
 #
-# Estimated runtime: ~1–3 s/figure × ~20 figures/paper × 2000 papers ≈
-# 11–17 hours. 24h wall gives headroom for the full corpus.
+# Measured runtime: 1 h 24 m as a single job over 1,769 papers
+# (2026-08-04 build), against the 24 h wall.
+#
+# Only figures whose caption declares more than one panel reach the VLM
+# (the `len(panels) <= 1: continue` filter in _pass3b_annotate_rois,
+# pipeline/figure_passes.py) — on that build, 934 of 21,789 figure
+# records, 4.3%. The GPU work is therefore small; the wallclock is
+# dominated by walking every document directory and rewriting
+# figures.json, so it scales with corpus size, not figure count.
+#
+# An earlier estimate here read "~20 figures/paper × 2000 papers ≈ 11–17
+# hours"; it assumed every figure goes to the GPU and is what made Pass
+# 3b look like the pipeline's long pole. It is not. The job still walks
+# every document directory to rewrite figures.json, so wall time scales
+# with corpus size, but the GPU work does not.
+#
+# Consequently --array is rarely worth it here: batch_pipeline.sh
+# defaults NUM_PASS3B_BATCHES to 1. Fan out only for a genuinely
+# figure-bound corpus, and mind the 16-GPU per-user cap on gpu_h200.
 #
 # Usage:
 #     sbatch batch_pass3b.sh
@@ -34,11 +51,9 @@
 set -euo pipefail
 
 # ── Paths ────────────────────────────────────────────────────────────
-# Pre-download the model to $HF_HOME (set by bouchet_paths.sh) on a
-# compute node before submitting:
-#     python -c "from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration; \
-#         AutoProcessor.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct'); \
-#         Qwen2_5_VLForConditionalGeneration.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct')"
+# Pre-download the model to $HF_HOME (set by bouchet_paths.sh) before
+# submitting:
+#     corpus prefetch --include-vision
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 [ -f "$SCRIPT_DIR/bouchet_paths.sh" ] || SCRIPT_DIR="$SCRIPT_DIR/slurm"
 # shellcheck source=bouchet_paths.sh
@@ -46,9 +61,9 @@ source "$SCRIPT_DIR/bouchet_paths.sh"
 echo "HuggingFace cache: $HF_HOME"
 
 # ── Environment ──────────────────────────────────────────────────────
-# torch 2.9.0+cu128 ships bundled CUDA userspace libs (see
-# site-packages/nvidia/), so no explicit CUDA module is needed on
-# gpu_h200. We previously loaded CUDA/12.6.0 mirroring vial_scan, but
+# torch ships bundled CUDA userspace libs (see site-packages/nvidia/),
+# so no explicit CUDA module is needed on any GPU partition. We
+# previously loaded CUDA/12.6.0 mirroring vial_scan, but
 # that module file occasionally vanishes from the 2024a tree's lmod
 # cache (observed job 8485894, 2026-04-16) — skipping it eliminates
 # that failure mode.
@@ -63,7 +78,7 @@ mkdir -p logs
 # ── Run ──────────────────────────────────────────────────────────────
 echo "Starting Pass 3b (local VLM) at $(date)"
 echo "GPU: $(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null || echo 'unknown')"
-echo "Output: $OUTPUT_DIR"
+echo "Config: $CORPUS_CONFIG"
 
 # Sanity check: abort if torch can't see the GPU (driver mismatch etc.)
 python -c "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 2)" || {

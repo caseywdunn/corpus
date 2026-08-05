@@ -143,21 +143,21 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    # Corpuscle-aware server name (#17). FastMCP exposes ``name`` as a
+    # Corpuscle-aware server name (#17). MCPServer exposes ``name`` as a
     # read-only property backed by the lower-level Server's ``name``
     # attribute, which is plain mutable state — we can rename after
-    # the module-level FastMCP is constructed and the change takes
+    # the module-level MCPServer is constructed and the change takes
     # effect on subsequent ``initialize`` calls.
     server_name = args.name or f"corpus:{args.output_dir.name}"
-    mcp._mcp_server.name = server_name
+    mcp._lowlevel_server.name = server_name
     logger.info("MCP server name: %s", server_name)
 
     # MCP instructions surfaced to clients in InitializeResult.instructions.
     # Always serve a packaged default (mcpsrv/default_instructions.md);
     # if a corpuscle-specific instructions.md is present, prepend it so
     # corpus-specific nudges land before the universal defaults.
-    # FastMCP exposes ``instructions`` as a read-only property backed by
-    # ``_mcp_server.instructions``; that backing attribute is plain
+    # MCPServer exposes ``instructions`` as a read-only property backed by
+    # ``_lowlevel_server.instructions``; that backing attribute is plain
     # mutable state, so setting it here takes effect on the next
     # ``initialize`` call.
     parts: list[str] = []
@@ -180,7 +180,7 @@ def main() -> int:
         )
     if parts:
         text = "\n\n".join(p for p in parts if p)
-        mcp._mcp_server.instructions = text
+        mcp._lowlevel_server.instructions = text
         logger.info(
             "Loaded MCP instructions (%d chars from %d source%s)",
             len(text), len(parts), "" if len(parts) == 1 else "s",
@@ -239,7 +239,7 @@ def main() -> int:
         logger.info(
             "Taxon mention DB not found at %s — get_taxon_mentions will "
             "fall back to per-paper taxa.json scanning. Build it: "
-            "python build_taxon_mentions.py",
+            "corpus run --only post",
             taxon_mention_path,
         )
 

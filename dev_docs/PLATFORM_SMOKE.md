@@ -79,7 +79,7 @@ partition. The CPU-portability check is what this runbook owns.
 ```bash
 # Verify the active env is actually arm64. If this prints x86_64,
 # stop and rebuild with miniforge — see
-# INSTALL.md#apple-silicon-use-miniforge-not-intel-anaconda.
+# INSTALL.md#apple-silicon-arm64-native-conda-required.
 ~/miniforge3/envs/corpus/bin/python -c "import platform; print(platform.machine())"
 # expect: arm64
 
@@ -89,9 +89,13 @@ conda env create -f environment.yaml
 conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh
+bash tools/install_ocr_extras.sh
 
 docker compose up -d grobid                # linux/amd64 image, Rosetta
-curl -fsS http://localhost:8070/api/isalive  # expect: true
+# Startup is slower under Rosetta than native, so wait rather than probe once.
+until [ "$(curl -fs http://localhost:8070/api/isalive 2>/dev/null)" = true ]; do
+  sleep 5; echo "waiting for grobid..."
+done                                       # expect: true, within ~1-2 min
 
 cd demo && corpus -v check                 # -v required to see the ok lines
 corpus -v run --no-vision                  # ~25–30 min total wall time on
@@ -121,10 +125,22 @@ conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh
 
-# Grobid via Apptainer/Singularity — see INSTALL.md#grobid-on-bouchet
+# Grobid via Apptainer/Singularity — see INSTALL.md#grobid-image-choice-and-hosts-without-docker
+# On the cluster proper, submit slurm/batch_grobid.sh instead (dev_docs/BOUCHET.md
+# §6); it does this correctly and keeps the service off the login node. The two
+# writable binds below are not optional — without the tmp bind Grobid answers
+# HTTP 500 to every request, and without the logs bind it crashes on startup.
 singularity build --force grobid.sif docker://lfoppiano/grobid:0.8.1
-singularity run --bind $HOME grobid.sif &
-curl -fsS http://localhost:8070/api/isalive
+GROBID_TMP=$(mktemp -d) && GROBID_LOGS=$(mktemp -d)
+singularity run --pwd /opt/grobid --bind $HOME \
+  --bind "$GROBID_TMP:/opt/grobid/grobid-home/tmp" \
+  --bind "$GROBID_LOGS:/opt/grobid/logs" grobid.sif &
+
+# Models take ~30-60 s to load; the backgrounded run above has not bound the
+# port yet, so poll instead of probing once.
+until [ "$(curl -fs http://localhost:8070/api/isalive 2>/dev/null)" = true ]; do
+  sleep 5; echo "waiting for grobid..."
+done                                       # expect: true
 
 cd demo && corpus -v check                 # -v required to see the ok lines
 corpus -v run --no-vision                  # wall time depends on Bouchet
@@ -147,7 +163,7 @@ for a pre-release gate.
 **`Dynamo is not supported on Python 3.12+`** during model load on
 macOS — the active conda is x86_64 (Intel anaconda under Rosetta),
 not arm64. Recreate the env with miniforge. See
-[INSTALL.md](../INSTALL.md#apple-silicon-use-miniforge-not-intel-anaconda).
+[INSTALL.md](../INSTALL.md#apple-silicon-arm64-native-conda-required).
 
 **`pngquant not on PATH`** warning during OCR — expected on macOS
 unless you `brew install pngquant`. Pipeline auto-degrades

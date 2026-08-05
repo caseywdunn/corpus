@@ -19,7 +19,7 @@ def bundle_info() -> Dict:
     idx = _need_index()
     if idx.bundle_manifest is None:
         return {
-            "server_name": mcp._mcp_server.name,
+            "server_name": mcp._lowlevel_server.name,
             "server_version": __version__,
             "bundle_version": None,
             "note": "no bundle_manifest.json — this server is backed "
@@ -28,7 +28,7 @@ def bundle_info() -> Dict:
                     "<serve_dir> --version vX.Y.Z` to produce one.",
         }
     return {
-        "server_name": mcp._mcp_server.name,
+        "server_name": mcp._lowlevel_server.name,
         "server_version": __version__,
         **dict(idx.bundle_manifest),
     }
@@ -55,7 +55,13 @@ def corpus_summary(
     Counts sorted desc, ties by name asc. Caps: ``top_taxa`` (default
     25), ``top_terms_per_category`` (default 15); 0 omits the list.
 
-    Returns ``{n_papers, year_range, by_decade, lexicon_categories,
+    ``by_language`` counts papers per detected ISO 639-1 code, and a
+    bilingual volume counts under each of its languages, so the totals
+    can exceed ``n_papers``. ``n_papers_ocred`` says how many came
+    through corpus's own OCR rather than a text layer.
+
+    Returns ``{n_papers, year_range, by_decade, by_language,
+    n_papers_ocred, lexicon_categories,
     lexicon_coverage: {category: {n_terms_hit, n_papers_with_hits,
     n_mentions_total, top_terms: [{term, n_papers, n_mentions}]}},
     n_figures_total, n_unique_taxa, top_taxa: [{taxon_id, name,
@@ -78,6 +84,24 @@ def corpus_summary(
     else:
         year_range = None
         by_decade = []
+
+    # Language coverage. A paper counts once per distinct language it
+    # contains, so the totals exceed n_papers on a corpus with bilingual
+    # volumes — which is the honest shape for "a Russian original bound
+    # with an English typescript". `n_ocred` is included because the two
+    # questions come up together: which languages, and how much of this
+    # came through OCR rather than a publisher's text layer.
+    lang_counter: Counter = Counter()
+    n_ocred = 0
+    for p in idx.papers.values():
+        for code in (p.get("languages") or []):
+            lang_counter[code] += 1
+        if p.get("was_ocred"):
+            n_ocred += 1
+    by_language = [
+        {"language": code, "n_papers": n}
+        for code, n in sorted(lang_counter.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
 
     # Lexicon coverage per category. lexicon_to_papers is
     # {category: {term: [paper_hash, ...]}}; lexicon_mention_counts is
@@ -141,6 +165,8 @@ def corpus_summary(
         "n_papers": len(idx.papers),
         "year_range": year_range,
         "by_decade": by_decade,
+        "by_language": by_language,
+        "n_papers_ocred": n_ocred,
         "lexicon_categories": lexicon_categories,
         "lexicon_coverage": lexicon_coverage,
         "n_figures_total": n_figures_total,
@@ -159,14 +185,20 @@ def corpus_summary(
 def list_papers(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    language: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> List[Dict]:
     """List papers in the corpus, ordered by year. One row per paper:
-    hash, title, year, first author, counts of chunks/figures/taxa
-    plus per-category lexicon-term counts.
+    hash, title, year, first author, language, counts of
+    chunks/figures/taxa plus per-category lexicon-term counts.
 
-    Filter by year range with ``year_from`` / ``year_to`` (inclusive).
+    Filter by year range with ``year_from`` / ``year_to`` (inclusive),
+    and by ``language`` — an ISO 639-1 code as detected per paper
+    (``de``, ``ru``, ``ja``, …). A paper matches if the language is any
+    of its detected languages, so a Russian original bound with an
+    English translation answers to both ``ru`` and ``en``.
+
     Defaults to 100 rows; paginate via ``offset``. Call
     ``get_paper(hash)`` for full metadata (authors, abstract, DOI,
     filename, top taxa, top lexicon terms).
@@ -179,6 +211,10 @@ def list_papers(
             continue
         if year_to is not None and (year is None or year > year_to):
             continue
+        if language is not None:
+            langs = p.get("languages") or ([p["language"]] if p.get("language") else [])
+            if language.lower() not in {str(x).lower() for x in langs}:
+                continue
         first_author = ""
         if p.get("authors"):
             a0 = p["authors"][0]
@@ -188,6 +224,8 @@ def list_papers(
             "title": p.get("title"),
             "year": year,
             "first_author": first_author,
+            "language": p.get("language"),
+            "languages": p.get("languages") or [],
             "n_chunks": p.get("n_chunks", 0),
             "n_figures": p.get("n_figures", 0),
             "n_taxa": p.get("n_taxa", 0),

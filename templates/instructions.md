@@ -22,7 +22,7 @@ One short paragraph: scope (taxa, topic, time range), source
 selection criteria, and any notable coverage gaps. The model uses
 this to frame "out of scope" answers correctly.
 
-Example: "This corpus covers the order Siphonophora, ~1,800 papers
+Example: "This corpus covers the order Siphonophora, ~2,000 papers
 from late-18th-century printed monographs through born-digital
 2025 articles. Coverage is best for the families Agalmatidae and
 Diphyidae; thin for hippopodiids."

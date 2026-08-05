@@ -9,13 +9,13 @@ The top-level entry-point scripts are thin shims; the implementation is grouped 
 | Package | Role |
 |---|---|
 | `pipeline/` | Stage 1 + Pass 3b/3c orchestrator and shared library modules. Split into `scan.py` (OCR), `extract.py` (docling), `metadata.py` (Grobid + bib), `chunking.py`, `annotate.py` (taxa + lexicons), `figure_passes.py`, `runner.py` (per-paper orchestrator), `main.py` (CLI), and supporting `config.py` / `io.py` / `log.py` / `stages.py`. Shared library modules: `figures.py`, `taxa.py`, `grobid_client.py`, `embeddings.py`, `vision.py`, `external.py`, `version.py`. |
-| `mcpsrv/` | MCP server. `app.py` defines the FastMCP instance; `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py` register the `@mcp.tool()`-decorated functions (see [MCP_TOOLS.md](MCP_TOOLS.md) for the catalog); `transport.py` handles stdio + SSE; `indexes.py` is the eager in-memory index. |
+| `mcpsrv/` | MCP server. `app.py` defines the MCPServer instance; `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py` register the `@mcp.tool()`-decorated functions (see [MCP_TOOLS.md](MCP_TOOLS.md) for the catalog); `transport.py` handles stdio + SSE; `indexes.py` is the eager in-memory index. |
 | `bib/` | BibTeX import / export round-trip plus shared metadata helpers (`parser.py`, `importer.py`, `export.py`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx config, systemd unit, sync + update shell scripts. |
 | `tests/` | Ground-truth + corpus-wide consistency tests. |
 
-The top-level [`process_corpus.py`](../process_corpus.py) and [`mcp_server.py`](../mcp_server.py) are CLI shims that re-export the packages above so existing invocations keep working.
+There are no top-level entry-point scripts: `corpus` (from `[project.scripts]`) is the single CLI, and it dispatches into the packages above. The root-level scripts this doc used to list — `process_corpus.py`, `mcp_server.py`, and friends — were folded into packages in v0.3 (#60).
 
 ## Content-addressed storage
 
@@ -63,8 +63,8 @@ Orchestrated by `pipeline.runner.run_pdf_processing_pipeline`, six steps per PDF
 
 | Step | What happens | Output |
 |---|---|---|
-| **Scan detection** (`pipeline/scan.py`) | Multi-stage heuristic — text-volume gate, langdetect on the existing text layer, gibberish-score, and (for borderline cases) a Tesseract OSD visual-script cross-check — classifies as `born_digital`, `scanned`, or `broken_text_layer` | `scan_detection.json` |
-| **PDF preparation** (`pipeline/scan.py`) | Copies born-digital PDFs as-is; runs `ocrmypdf` on scanned/broken PDFs with language-appropriate Tesseract packs (the default fallback union covers eng/deu/fra/rus/lat/spa/por/chi_sim/chi_tra/jpn/ell/kor + deu_latf Fraktur — configurable via `ocr.ocr_languages_default`) | `processed.pdf` |
+| **Scan detection** (`pipeline/scan.py`) | **Page geometry first** (v1.0): the fraction of sampled pages carrying a single full-page image decides whether a document is a scan, independent of what its text layer claims — a scan bundled with third-party OCR is still a scan. Then the text-layer heuristics for everything else: volume gate, langdetect, gibberish-score, Tesseract OSD visual-script cross-check. Classifies as `born_digital`, `scanned`, or `broken_text_layer` | `scan_detection.json` |
+| **PDF preparation** (`pipeline/scan.py`) | Copies born-digital PDFs as-is. Everything else is OCR'd — `--force-ocr` for a uniform scan, `--redo-ocr` for a mixed volume so a bound-in digital typescript isn't rasterized. Language comes from OCRing a 5-page sample rather than the (distrusted) text layer, per page and unioned so bilingual originals-plus-translations get both packs; failing that, the fallback union (eng/deu/fra/rus/lat/spa/por/chi_sim/chi_tra/jpn/ell/kor + deu_latf Fraktur, via `ocr.ocr_languages_default`). Per-page and per-document timeouts both scale — see `ocr.tesseract_page_timeout` and `stage_timeouts.ocr_per_page` | `processed.pdf` |
 | **Text + figure extraction** (`pipeline/extract.py`) | Docling parses the PDF into structured text and figure regions. Figures go through a classification/caption pipeline (see [Figure pipeline](#figure-pipeline) below). Falls back to raw PyMuPDF image extraction when docling finds nothing. | `text.json`, `figures.json`, `figures/*.png`, `visualizations/*.png` |
 | **Metadata extraction** (`pipeline/metadata.py`, `bib/`) | Grobid extracts title, authors, year, DOI, abstract, section structure, and parsed references. `--bib` overrides the header from a curated BibTeX. Falls back to placeholder when Grobid is unavailable. | `metadata.json` |
 | **Chunking** (`pipeline/chunking.py`) | Splits extracted text via docling's `HybridChunker` (tokenizer-aware, respects section/heading structure), with section-class labels. | `chunks.json` |
@@ -78,7 +78,7 @@ This is **Pass 3b** of the figure pipeline — the only figure pass that needs a
 
 By default both run inline inside the Stage 1 per-paper runner; on HPC the GPU-bound Pass 3b is commonly split into its own scheduled job (`slurm/batch_pass3b.sh`) after the CPU stage completes. See [Figure pipeline](#figure-pipeline) for the full pass-by-pass behavior and what is lost when the vision pass is skipped.
 
-### Stage 2: Embedding (`embed_chunks.py`)
+### Stage 2: Embedding (`pipeline/embed.py`)
 
 Reads `chunks.json` per hash and produces vector embeddings stored in LanceDB.
 
@@ -115,7 +115,7 @@ Figure records are written to `<HASH>/figures.json`; the per-page QC overlays in
 The saved figure's resolution is fixed **entirely at extraction time**; nothing downstream — dedup, the vision passes, or the MCP server — ever resizes or re-encodes the stored PNG.
 
 - **Docling path (the common case), `resolution_mode: native` (default, #121).** Docling detects + classifies figures (rendering its own crops at `figures.images_scale`), then a PyMuPDF pass (`pipeline.figures.render_figures`, called from `extract.py`) **re-renders each figure's bbox at its source's native pixel density** and overwrites the saved PNG. So a figure backed by a 600-dpi scan stays 600 dpi and a 150-dpi one stays 150 — resolution tracks the source and **varies per figure**, rather than a single fixed DPI. A **vector** figure has no native resolution, so it renders at `figures.vector_dpi` (default **300**); `figures.max_dpi` optionally caps dense full-page scans. The bbox region (not the raw embedded xref) is rendered, so vector annotations + composite raster/vector + multi-panel plates survive at native fidelity.
-- **Docling path, `resolution_mode: fixed`.** Skips the native pass; the saved PNG is docling's render at **`72 × images_scale` dpi** (default `2.0` → 144 dpi; `1.0` → 72 dpi was the grainy pre-v0.6 behavior). A single uniform DPI for every figure — predictable size, but down-renders high-res scans. Both modes only affect future ingests; lift an existing bundle in place with `backfill_figure_dpi.py [--native | --scale S]` (re-renders from stored bbox + `processed.pdf`, no docling re-run).
+- **Docling path, `resolution_mode: fixed`.** Skips the native pass; the saved PNG is docling's render at **`72 × images_scale` dpi** (default `2.0` → 144 dpi; `1.0` → 72 dpi was the grainy pre-v0.6 behavior). A single uniform DPI for every figure — predictable size, but down-renders high-res scans. Both modes only affect future ingests; lift an existing bundle in place with `tools/backfill_figure_dpi.py [--native | --scale S]` (re-renders from stored bbox + `processed.pdf`, no docling re-run).
 - **PyMuPDF fallback.** `fitz.Pixmap(doc, xref)` (`pipeline/extract.py:310`) pulls the embedded image at its **native stored resolution** — no render, no scaling. So, paradoxically, the fallback path can yield *higher*-resolution figures than the primary docling path; but it only fires when docling extracts zero figures and the PDF is not a scan (`:277`). The native pass skips these (already native).
 - **PyMuPDF fallback.** `fitz.Pixmap(doc, xref)` (`pipeline/extract.py:310`) pulls the embedded image at its **native stored resolution** — no render, no scaling. So, paradoxically, the fallback path can yield *higher*-resolution figures than the primary docling path; but it only fires when docling extracts zero figures and the PDF is not a scan (`:277`).
 - **No serve-time downscaling.** `get_figure_image` returns the PNG byte-for-byte (`mcpsrv/tools/figures.py:707-708`); the HTTP route does `target.read_bytes()` with no processing (`mcpsrv/figure_http.py:158`). Panel crops are cut from the full-resolution PNG on demand and cached (`tools/figures.py:710-732`), inheriting source resolution. There is no max-dimension cap, thumbnailing, or re-encode anywhere on the serve path.
@@ -145,7 +145,7 @@ Because these passes are GPU/API-cost-bearing, the corpus-scale validation of fi
 
 ## Taxonomic annotation
 
-When a Darwin Core taxonomy SQLite snapshot is available (`<corpuscle>/taxonomy.sqlite`, built by `ingest_taxonomy.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default for siphonophores is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py <corpuscle> --source dwc --input <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
+When a Darwin Core taxonomy SQLite snapshot is available (`<corpuscle>/taxonomy.sqlite`, built by `pipeline/taxonomy_ingest.py`), the pipeline annotates chunks with recognized taxon names. The snapshot can be built from any DwC source — the lab default for siphonophores is WoRMS pruned to Siphonophorae (`--source worms --root-id 1371`), but `ingest_taxonomy.py <corpuscle> --source dwc --input <Taxon.tsv>` ingests any downloaded DwC export, optionally pruned to a subgraph via `--root-id <taxonID>`. Schema follows the Darwin Core Taxon class (`taxonID`, `scientificName`, `parentNameUsageID`, `acceptedNameUsageID`, …).
 
 > **WoRMS is marine-only (`isMarine=0` records are excluded) (#96).** The WoRMS DwC-A backbone — and the `--source worms` REST walk — only carry taxa flagged marine. A corpuscle whose literature spans freshwater or terrestrial groups (or marine taxa with non-marine relatives) will hit *silent* resolution failures: those names simply don't resolve to a `taxonID`, so they're dropped from `taxa.json` with no error, and `search_taxon` returns `not_found`. For a non-marine or mixed clade, build the snapshot from a GBIF or WFO DwC export (`--source dwc --input Taxon.tsv`) instead of WoRMS. This is a data-source limitation, not a pipeline bug — there is no flag that makes WoRMS emit non-marine records.
 
@@ -172,16 +172,16 @@ Built from per-paper artifacts after Stage 1 finishes. All four are independentl
 
 | Database | Builder | What it stores |
 |---|---|---|
-| `taxonomy.sqlite` | `ingest_taxonomy.py` | Darwin Core taxon backbone + synonymy. |
-| `biblio_authority.sqlite` | `build_biblio_authority.py` (+ `reconcile_corpus_to_biblio.py`) | Deduplicated works graph: corpus papers, cited references, taxonomic-authority strings; resolved to DOI / BHL Part / normalized citation key. |
-| `taxon_mentions.sqlite` | `build_taxon_mentions.py` | Cross-paper taxon-name index from gnfinder + abbreviated-form expansion (`A. elegans` → `Agalma elegans`). |
-| `intext_citations.json` (per-paper) | `backfill_intext_citations.py` | TEI body `<ref type="bibr">` elements joined to chunk offsets and resolved to `work_id` in the bibliographic authority. |
+| `taxonomy.sqlite` | `pipeline/taxonomy_ingest.py` | Darwin Core taxon backbone + synonymy. |
+| `biblio_authority.sqlite` | `bib/authority.py` (+ `bib/reconcile.py`) | Deduplicated works graph: corpus papers, cited references, taxonomic-authority strings; resolved to DOI / BHL Part / normalized citation key. |
+| `taxon_mentions.sqlite` | `pipeline/taxon_mentions.py` | Cross-paper taxon-name index from gnfinder + abbreviated-form expansion (`A. elegans` → `Agalma elegans`). |
+| `intext_citations.json` (per-paper) | `pipeline/intext_citations.py` | TEI body `<ref type="bibr">` elements joined to chunk offsets and resolved to `work_id` in the bibliographic authority. |
 
-[`update_corpus.py`](../update_corpus.py) chains the pipeline, embeddings, and these four post-pipeline scripts in dependency order; [`corpus_status.py`](../corpus_status.py) reports stage completion, quality flags, and stale annotations.
+`corpus run` chains the pipeline, embeddings, and these four post-pipeline steps in dependency order (see `pipeline/orchestrator.py`); `corpus status` reports what completed, what is stale, and what carries quality flags.
 
 ## MCP server (`mcpsrv/`)
 
-Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM clients can query. The server is a read-only view over per-paper artifacts; it does not store data of its own. The server entry point [`mcp_server.py`](../mcp_server.py) is a thin shim — the implementation lives in `mcpsrv/`, with the `@mcp.tool()`-decorated functions split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. See [MCP_TOOLS.md](MCP_TOOLS.md) for the full tool surface and count.
+Exposes the processed corpus as an MCP (Model Context Protocol) server that LLM clients can query. The server is a read-only view over per-paper artifacts; it does not store data of its own. The server entry point `corpus serve` is a thin shim — the implementation lives in `mcpsrv/`, with the `@mcp.tool()`-decorated functions split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. See [MCP_TOOLS.md](MCP_TOOLS.md) for the full tool surface and count.
 
 ## Steering the client session
 
@@ -203,10 +203,10 @@ Tool-result nudges cost tokens on every call and pull against the served-bundle 
 | File / package | Role |
 |---|---|
 | `pipeline/` | Stage 1 + Pass 3b/3c orchestrator (split per-stage; CLI in `pipeline/main.py`) |
-| `process_corpus.py` | Thin CLI shim into `pipeline.main` (kept for backwards compatibility) |
-| `update_corpus.py` | Orchestrator that runs pipeline + post-pipeline scripts in dependency order |
-| `corpus_status.py` | Single-command rollup of stage completion, quality flags, staleness |
-| `embed_chunks.py` | Stage 2 embedding (BGE-M3 → LanceDB) |
+| `pipeline/main.py` | Stage 1 CLI: per-paper extraction, OCR, metadata, chunking, annotation |
+| `pipeline/orchestrator.py` | Runs pipeline + post-pipeline steps in dependency order (backs `corpus run`) |
+| `pipeline/status.py` | Rollup of stage completion, quality flags, staleness (backs `corpus status`) |
+| `pipeline/embed.py` | Stage 2 embedding (BGE-M3 → LanceDB) |
 | `pipeline/figures.py` | Figure extraction, classification, caption parsing, chunk-figure linking |
 | `pipeline/vision.py` | Vision-LLM backends (local Qwen2.5-VL, Claude API) |
 | `pipeline/taxa.py` | Taxonomy DB access, taxon-mention extraction, lexicon loaders |
@@ -214,8 +214,8 @@ Tool-result nudges cost tokens on every call and pull against the served-bundle 
 | `pipeline/embeddings.py` | BGE-M3 embedding backends (local, HF, etc.) |
 | `pipeline/external.py` | Shared retry + circuit breaker + `--strict-network` mode |
 | `pipeline/version.py` | Single-source `__version__` stamped into every artifact |
-| `mcpsrv/` | MCP server implementation (FastMCP, eager index, stdio + SSE transports) |
-| `mcp_server.py` | Thin CLI shim into `mcpsrv.main` |
+| `mcpsrv/` | MCP server implementation (MCPServer, eager index, stdio + SSE transports) |
+| `pipeline/prefetch.py` | Model prefetch + offline cache inspection (backs `corpus prefetch`) |
 | `bib/` | BibTeX parser, importer, exporter (round-trip curation) |
 | `config.yaml` | Pipeline configuration (loaded by `pipeline.config.load_config`) |
 | `slurm/batch_pipeline.sh` | SLURM orchestrator: chains Grobid, Stage 1 array, cleanup, Pass 3b, Embed |
@@ -223,10 +223,10 @@ Tool-result nudges cost tokens on every call and pull against the served-bundle 
 | `slurm/batch_pass3b.sh` | SLURM Pass 3b batch script (GPU) |
 | `slurm/batch_embed.sh` | SLURM embedding batch script (GPU) |
 | `slurm/bouchet_paths.sh` | Shared path definitions for all batch scripts |
-| `ingest_taxonomy.py` | Build Darwin Core taxonomy SQLite from a DwC file, archive, or the WoRMS API |
-| `build_biblio_authority.py` | Bibliographic authority DB (deduplicated works + citation graph) |
-| `build_taxon_mentions.py` | Cross-paper taxon mentions SQLite |
-| `backfill_intext_citations.py` | TEI body → `intext_citations.json` per paper |
-| `reconcile_corpus_to_biblio.py` | Merge ghost cited-references onto corpus papers |
-| `package_for_serve.py` | Whitelist + manifest the served bundle for S3 / EC2 deploy |
+| `pipeline/taxonomy_ingest.py` | Build Darwin Core taxonomy SQLite from a DwC file, archive, or the WoRMS API |
+| `bib/authority.py` | Bibliographic authority DB (deduplicated works + citation graph) |
+| `pipeline/taxon_mentions.py` | Cross-paper taxon mentions SQLite |
+| `pipeline/intext_citations.py` | TEI body → `intext_citations.json` per paper |
+| `bib/reconcile.py` | Merge ghost cited-references onto corpus papers |
+| `mcpsrv/bundle.py` | Whitelist + manifest the served bundle for S3 / EC2 deploy |
 | `demo/lexicon.yaml` | Example multi-category lexicon (siphonophore anatomy under `anatomy:`) |

@@ -35,3 +35,16 @@ group definitions that no longer match modern consensus. Surface such
 mismatches to the user rather than silently mapping them to current
 terminology — the historical usage is itself information worth preserving
 in the answer.
+
+
+## Figures and licensing
+
+Display any figure the server returns. Licensing is enforced server-side
+against the `profile` you pass, so if a figure tool gives you bytes or a
+URL, that figure is cleared for the use you asked for. Don't withhold a
+figure for a reason the server didn't raise.
+
+Pass `profile="manuscript"` (or `"presentation"`) when the output is
+publication-bound, and let the server refuse what it must. Always
+attribute: `license`, `license_url`, and `attribution` are returned in
+every profile for that purpose.

@@ -14,7 +14,8 @@ them as requirements or as the only supported workflow**.
 
 | File | Scope | Notes |
 |---|---|---|
-| `README.md`, `INSTALL.md`, `DEPLOY.md` | General | Any corpus, any platform |
+| `README.md`, `INSTALL.md` | General, **public-facing** | Any corpus, any platform. Written for someone on their own machine. |
+| `DEPLOY.md` | General | AWS deploy runbook; any corpus |
 | `dev_docs/OVERVIEW.md`, `dev_docs/PLAN.md`, `dev_docs/MCP_TOOLS.md` | General | Architecture, roadmap, tool reference |
 | `dev_docs/TESTING.md` | General | Quality test suite (ground truth, eval workflow) |
 | `tools/smoke_test_sse.py` | General | Programmatic MCP smoke test; works on any corpuscle. Requires a compute node (not login) for full Layer 3 coverage — Layer 3 loads the ~600 MB BGE-M3 embedder for semantic search. |
@@ -24,6 +25,38 @@ them as requirements or as the only supported workflow**.
 When authoring documentation for a new corpus or cluster, add analogues to
 `BOUCHET.md` / `ACCEPTANCE_PROMPTS.md` in your own runbook file — don't modify the
 general docs to embed group-specific details.
+
+### The siphonophore library's size is dynamic — don't hard-code it
+
+The reference siphonophore library grows as papers are added; any exact count
+written into docs or code is wrong by the next `git lfs pull`. Say **`~2,000
+papers`**, "the current corpus", or "as the corpus grows" instead of a precise
+figure, and phrase anything derived from the size — walltimes, batch counts,
+disk sizing — as a rule that scales rather than a number measured once.
+
+This applies to the corpus size only. Genuinely fixed counts stay exact: the
+11-paper demo corpus, the MCP tool count, the 256-PDF `BATCH_SIZE`. Note
+`NUM_BATCHES` is *not* fixed — it is `ceil(unique PDFs / 256)`, so give the
+formula alongside any literal. `CHANGELOG.md` is exempt too: it records what
+was true at a release, so leave historical figures alone.
+
+### Keep Yale specifics out of the public docs
+
+`README.md` and `INSTALL.md` are read by people who have never heard of Yale and
+are running corpus on a laptop. Keep them crisp and general:
+
+- **No Bouchet-specific content** — no partition names, `module load` lines,
+  `/nfs/roberts/...` paths, NetIDs, QoS limits, or cluster-policy claims ("login
+  nodes block X"). Cluster policy varies per site and goes stale; asserting one
+  cluster's behavior as a general fact is how these docs acquire bugs.
+- **One pointer is the budget.** README gets a single mention — *"we use Yale's
+  Bouchet, runbook in `dev_docs/BOUCHET.md`"* — plus its entry in the docs index.
+  INSTALL may link `BOUCHET.md` as the worked example for a recipe. That's it.
+- **Generic HPC comments are fine** in moderation: "on a SLURM cluster", "on an
+  HPC cluster, check `module avail` first". Say the general thing, then link the
+  worked example rather than inlining it.
+
+Everything site-specific belongs in `dev_docs/BOUCHET.md` and `slurm/`.
 
 ## Documentation map
 
@@ -68,7 +101,7 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 | Path | Role |
 | --- | --- |
 | `pipeline/` | Top-level CLI router (`pipeline/cli.py` → the `corpus` binary), Stage 1 + Pass 3b/3c orchestrator, post-pipeline modules (`embed`, `taxon_mentions`, `intext_citations`, `taxonomy_ingest`, `status`, `orchestrator`), and shared library modules. Pydantic config schema in `config_schema.py`; bundled `config.template.yaml`. |
-| `mcpsrv/` | MCP server. FastMCP `app.py` + the `@mcp.tool()` surface in `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py` (catalog + count in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md)); `mcpsrv.bundle` distills a build into a served bundle. |
+| `mcpsrv/` | MCP server. MCPServer `app.py` + the `@mcp.tool()` surface in `tools/{papers,taxonomy,bibliography,figures,chunks,lexicon}.py` (catalog + count in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md)); `mcpsrv.bundle` distills a build into a served bundle. |
 | `bib/` | BibTeX round-trip + biblio authority + reconcile (`bib.parser`, `bib.export`, `bib.importer`, `bib.authority`, `bib.reconcile`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx, systemd, sync + update scripts. |

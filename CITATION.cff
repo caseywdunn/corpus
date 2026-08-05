@@ -1,16 +1,16 @@
 cff-version: 1.2.0
-title: "Corpus: Model Context Protocol (MCP) server for taxonomic literature"
+title: "Extracting AI agent-accessible data from biodiversity literature with corpus"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
-  - family-names: Dunn
-    given-names: Casey W.
-  - family-names: Manko
+  - family-names: Church
+    given-names: Samuel H.
+  - family-names: Mańko
     given-names: Maciej K.
   - family-names: Zapata
     given-names: Felipe
-  - family-names: Church
-    given-names: Samuel H.
+  - family-names: Dunn
+    given-names: Casey W.
 year: 2026
 identifiers:
   - type: doi
@@ -20,16 +20,16 @@ repository-code: "https://github.com/caseywdunn/corpus"
 license: "(see repository)"
 preferred-citation:
   type: software
-  title: "Corpus: Model Context Protocol (MCP) server for taxonomic literature"
+  title: "Extracting AI agent-accessible data from biodiversity literature with corpus"
   authors:
-    - family-names: Dunn
-      given-names: Casey W.
-    - family-names: Manko
+    - family-names: Church
+      given-names: Samuel H.
+    - family-names: Mańko
       given-names: Maciej K.
     - family-names: Zapata
       given-names: Felipe
-    - family-names: Church
-      given-names: Samuel H.
+    - family-names: Dunn
+      given-names: Casey W.
   year: 2026
   doi: 10.5281/zenodo.19964909
   url: "https://doi.org/10.5281/zenodo.19964909"

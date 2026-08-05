@@ -62,6 +62,10 @@ jobs:
       # cgroup-v2 detection (#72 / 40ae330: lfoppiano/grobid:0.8.1's
       # JVM hits an NPE on cgroup-v2 hosts when container-aware sizing
       # is on — Ubuntu 24.04 GHA runners default to cgroup v2).
+      #
+      # docker-compose.yml now carries the same flag (#161): the
+      # T1-compose job below proved the NPE reproduces there too, so this
+      # is no longer a CI-only workaround. Keep the two in step.
       grobid:
         image: lfoppiano/grobid:0.8.1
         ports:
@@ -220,21 +224,21 @@ jobs:
         # + test_reference_extraction.py + test_figure_extraction.py +
         # test_text_extraction.py all parametrize over demo PDFs.
         #
-        # --deselect: TestMetadataPlausibility's text-overlap checks compare
-        # metadata.title / metadata.authors against text.json body. They
-        # fail on the demo's Russian (Stepanjants, Latin bib title vs
-        # Cyrillic OCR text) and Marrus (bib title vs PDF text formatting)
-        # papers — the bib supplies canonical citation forms, text comes
-        # from the PDF; they're not expected to match verbatim across
-        # alphabets / punctuation. The other plausibility checks in the
-        # same class (year range, author count) still run.
+        # This step carried three --deselect flags until #167. The two
+        # TestMetadataPlausibility text-overlap checks compared
+        # bib-canonical metadata against text.json literally, so they were
+        # testing typography (a space before a comma, an OCR-doubled space)
+        # and transliteration (Stepanjants 1970's Latin bib title against a
+        # Cyrillic body). Both exclusions now live *inside* the tests, where
+        # they are per-paper and state their reason — whitespace is
+        # normalized, and a cross-script comparison skips with the measured
+        # share quoted. Skipping the whole functions here additionally hid
+        # every paper the checks do work on, so a genuine extraction
+        # regression would not have been caught.
         env:
           CORPUS_OUTPUT_DIR: ${{ github.workspace }}/demo/output
         run: |
-          python -m pytest -v --tb=short -m "corpus_required" \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_first_author_surname_in_text \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_title_appears_in_text \
-            --deselect tests/test_corpus_wide.py::TestCitationGraph::test_references_match_corpus_papers
+          python -m pytest -v --tb=short -m "corpus_required"
 
       - name: MCP / SSE round-trip smoke
         run: python tools/smoke_test_sse.py demo/output/_serve --port 18080
@@ -394,14 +398,11 @@ jobs:
         # Reference / metadata tests assume Grobid; on macOS T2 with
         # grobid.disable: true, references.json comes from the --bib
         # path only. Skip the reference-extraction parametrized tests
-        # here; T1 covers the Grobid path. Same --deselect rationale
-        # as T1 for the two text-overlap plausibility checks.
+        # here; T1 covers the Grobid path. The three --deselect flags this
+        # step also carried were dropped with #167 — see T1 above.
         run: |
           python -m pytest -v --tb=short -m "corpus_required" \
-            --ignore=tests/test_reference_extraction.py \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_first_author_surname_in_text \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_title_appears_in_text \
-            --deselect tests/test_corpus_wide.py::TestCitationGraph::test_references_match_corpus_papers
+            --ignore=tests/test_reference_extraction.py
 
       - name: Resume scenario (round 2 — copy Siebert, re-run, assert)
         # Same inline check as T1 but without Grobid. Exercises the
@@ -437,3 +438,77 @@ jobs:
             demo/output/_serve/bundle_manifest.json
           if-no-files-found: ignore
 
+
+  # ─────────────────────────────────────────────────────────────────
+  # T1-compose — the documented Grobid setup, on every push (#161)
+  # ─────────────────────────────────────────────────────────────────
+  #
+  # T1 above starts Grobid as a GHA `services:` container with its own
+  # image reference and its own JAVA_OPTS. That means `docker-compose.yml`
+  # — the file every non-HPC user actually runs — was covered by no test
+  # at all, which is precisely how both reviewer-reported Grobid defects
+  # shipped:
+  #
+  #   #146  the default image (grobid/grobid:0.8.1) crash-looped on Apple
+  #         Silicon after a ~20 GB download, blocking a reviewer on a
+  #         platform we advertise as Supported.
+  #   #157  the healthcheck shelled out to curl, which the lfoppiano
+  #         image doesn't ship, so corpus-grobid reported (unhealthy)
+  #         forever while working fine.
+  #
+  # This job is deliberately small — it does not build the demo, since T1
+  # covers that. It pins the four things a user's first command depends
+  # on: the image boots, the API answers, Docker's own healthcheck goes
+  # `healthy` (the standing guard for #157), and `corpus check` agrees.
+  t1-compose:
+    name: T1-compose — docker-compose.yml boots + reports healthy (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start Grobid from docker-compose.yml
+        run: docker compose up -d grobid
+
+      - name: Wait for /api/isalive
+        run: |
+          ready=0
+          for i in $(seq 1 90); do
+            if [ "$(curl -fsS http://localhost:8070/api/isalive 2>/dev/null)" = "true" ]; then
+              echo "Grobid alive after $((i * 2))s"
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "Grobid did not answer /api/isalive within 180s"
+            docker compose logs grobid | tail -50
+            exit 1
+          fi
+
+      - name: Assert the compose healthcheck reports healthy (#157)
+        # The regression guard. `start_period` is 60s and `interval` is
+        # 30s, so allow generous time for Docker to render its first
+        # verdict, then require `healthy` — not merely "not unhealthy".
+        run: |
+          for i in $(seq 1 40); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' corpus-grobid 2>/dev/null || echo missing)
+            echo "t+$((i * 5))s: $status"
+            case "$status" in
+              healthy)   echo "compose healthcheck reports healthy"; exit 0 ;;
+              unhealthy)
+                echo "compose healthcheck reports UNHEALTHY — this is #157 regressing."
+                docker inspect --format '{{json .State.Health}}' corpus-grobid
+                exit 1 ;;
+            esac
+            sleep 5
+          done
+          echo "healthcheck never left '$status' within 200s"
+          docker inspect --format '{{json .State.Health}}' corpus-grobid
+          exit 1
+
+      - name: Stop Grobid
+        if: always()
+        run: docker compose down || true

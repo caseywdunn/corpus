@@ -12,11 +12,11 @@ records the model + dim used, so ``--resume`` knows what to skip and
 ``--rebuild`` knows when to drop and re-embed.
 
 Usage:
-    python embed_chunks.py demo_output                         # default
-    python embed_chunks.py demo_output --model BAAI/bge-m3
-    python embed_chunks.py demo_output --pdf-hash af043530e5dd # one doc
-    python embed_chunks.py demo_output --resume                # skip embedded
-    python embed_chunks.py demo_output --rebuild               # drop the table first
+    python -m pipeline.embed demo_output                         # default
+    python -m pipeline.embed demo_output --model BAAI/bge-m3
+    python -m pipeline.embed demo_output --pdf-hash af043530e5dd # one doc
+    python -m pipeline.embed demo_output --resume                # skip embedded
+    python -m pipeline.embed demo_output --rebuild               # drop the table first
 """
 
 from __future__ import annotations
@@ -272,6 +272,15 @@ def main() -> int:
     documents_dir = output_dir / "documents"
     vector_db_dir = output_dir / "vector_db"
     if not documents_dir.exists():
+        if args.dry_run:
+            # Nothing has been extracted yet. A dry-run reports the plan
+            # for the corpuscle as it stands; "0 to embed" is that plan,
+            # not a failure.
+            logger.info(
+                "Dry-run: %s does not exist yet; the extract step creates "
+                "it on a real run. Would embed 0 hash(es).", documents_dir,
+            )
+            return 0
         logger.error("Documents directory %s does not exist", documents_dir)
         return 1
 

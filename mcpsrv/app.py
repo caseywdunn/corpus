@@ -1,8 +1,8 @@
-"""Module-level FastMCP instance, index accessor, and shared helpers.
+"""Module-level MCPServer instance, index accessor, and shared helpers.
 
 Every tools module imports ``mcp`` from here and registers via the
 ``@mcp.tool()`` decorator. The package's ``__init__`` triggers those
-imports so all tools land on the same FastMCP instance.
+imports so all tools land on the same MCPServer instance.
 
 ``_INDEX`` is populated at startup by :func:`mcpsrv.main.main`. Tools
 call :func:`_need_index` rather than touching ``_INDEX`` directly so
@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Ensure ANTHROPIC_API_KEY etc. are visible to the stdio subprocess
                 # Claude Code launches — no shell inheritance to rely on.
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +83,9 @@ def _validated_limit(limit: int, *, max_value: int = MAX_LIMIT) -> int:
 # A single dispatch-layer interceptor records, per tool, the call count,
 # transport-level error count, and cumulative latency. We hook
 # ``ToolManager.call_tool`` rather than wrapping each ``@mcp.tool()``
-# function: FastMCP builds every tool's JSON-schema from the *function
+# function: MCPServer builds every tool's JSON-schema from the *function
 # signature* (``Tool.from_function``), so wrapping the functions would
-# risk corrupting that introspection. ``FastMCP.call_tool`` looks up
+# risk corrupting that introspection. ``MCPServer.call_tool`` looks up
 # ``self._tool_manager.call_tool`` dynamically on every call
 # (server.py), so replacing that bound method takes effect for both the
 # stdio and SSE transports.
@@ -145,7 +145,7 @@ def _args_summary(arguments: Any) -> str:
     return ""
 
 
-def _install_call_instrumentation(mcp_instance: "FastMCP") -> None:
+def _install_call_instrumentation(mcp_instance: "MCPServer") -> None:
     """Wrap ``_tool_manager.call_tool`` to feed :data:`TOOL_STATS`."""
     tm = mcp_instance._tool_manager
     if getattr(tm, "_corpus_instrumented", False):
@@ -173,8 +173,8 @@ def _install_call_instrumentation(mcp_instance: "FastMCP") -> None:
     tm._corpus_instrumented = True  # type: ignore[attr-defined]
 
 
-# Module-level FastMCP instance — every tools module decorates this one.
-mcp = FastMCP("corpus")
+# Module-level MCPServer instance — every tools module decorates this one.
+mcp = MCPServer("corpus")
 _install_call_instrumentation(mcp)
 
 # Set by :func:`mcpsrv.main.main` after the corpus index is built.

@@ -2,19 +2,26 @@
 
 `figures.images_scale` controls docling's render scale (saved DPI =
 72 * scale); the default moved from docling's effective 1.0 (72 dpi) to
-2.0 (144 dpi). `backfill_figure_dpi.py` re-renders an *existing* bundle's
-figure PNGs at a target scale from the stored bbox + source PDF, without
-re-running docling.
+2.0 (144 dpi). `tools/backfill_figure_dpi.py` re-renders an *existing*
+bundle's figure PNGs at a target scale from the stored bbox + source PDF,
+without re-running docling.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import shutil
 from pathlib import Path
 
 import pytest
 
-import backfill_figure_dpi as bf
+# The backfill script lives under tools/, which is not an importable
+# package (and is excluded from the wheel), so load it by path rather
+# than relying on rootdir being on sys.path.
+_BACKFILL_PATH = Path(__file__).parent.parent / "tools" / "backfill_figure_dpi.py"
+_spec = importlib.util.spec_from_file_location("backfill_figure_dpi", _BACKFILL_PATH)
+bf = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(bf)
 from pipeline.config_schema import CorpuscleConfig, validate_config
 
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "round2_paper" / "Siebert_etal2011.pdf"

@@ -4,7 +4,7 @@
   shared bearer token (dev_docs/PLAN.md §10).
 * :func:`_load_auth_token` — resolves the active token from
   ``--auth-token-file``, ``CORPUS_MCP_TOKEN``, or ``/etc/corpus/token``.
-* :func:`_run_sse` — wires the FastMCP SSE app behind the auth
+* :func:`_run_sse` — wires the MCPServer SSE app behind the auth
   middleware and serves it on host:port via uvicorn, with the figure
   HTTP route from :mod:`.figure_http` mounted alongside.
 * :func:`start_stdio_figure_server` — spawn a daemon-thread uvicorn
@@ -90,7 +90,7 @@ class _HealthzASGI:
 class _BearerAuthASGI:
     """ASGI middleware: 401 unless ``Authorization: Bearer <token>`` matches.
 
-    Wraps any ASGI app (FastMCP's ``sse_app()``) at construction time —
+    Wraps any ASGI app (MCPServer's ``sse_app()``) at construction time —
     avoids the post-init middleware caveats on finalized Starlette apps.
     Lifespan and websocket scopes pass through unauthenticated; only
     ``http`` requests are gated.
@@ -191,7 +191,7 @@ def _run_sse(
     idx=None,
     default_profile: Optional[str] = None,
 ) -> None:
-    """Serve the FastMCP app over SSE on ``host:port``, optionally
+    """Serve the MCPServer app over SSE on ``host:port``, optionally
     with bearer-token auth.  Requires uvicorn (pulled in transitively
     by the ``mcp`` package for its HTTP transports).
 

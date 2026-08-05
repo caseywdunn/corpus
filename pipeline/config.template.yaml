@@ -7,7 +7,9 @@
 # Path resolution: relative paths resolve against the directory
 # containing this file (not cwd). So `cd <corpuscle> && corpus run`
 # and `corpus --config <corpuscle>/config.yaml run` from anywhere
-# give identical results.
+# give identical results. A leading `~` is expanded to your home
+# directory; environment variables ($HOME, $SCRATCH) are NOT — YAML
+# has no shell, so write those out in full.
 
 # ---------------------------------------------------------------------------
 # Per-corpuscle inputs
@@ -50,16 +52,28 @@ output_dir: ./output
 # entirely — the pipeline still extracts taxon mentions from text, you
 # only lose the link from historical names to current valid names.
 #
-# When opting in: uncomment EVERY line below and preserve the exact
-# indentation (2 spaces per level). The `source:` and `root_id:` lines
-# are nested under `taxonomy:` — they must keep their 2-space indent
-# when the leading `# ` is stripped, or YAML will read them as
-# top-level keys and the loader will error out.
+# When opting in: uncomment ONE of the two blocks below — they are
+# alternatives, not a single block to uncomment wholesale. `root_id`
+# belongs to `worms` only; `path` belongs to `dwca`/`dwc` only.
+# Preserve the exact indentation: `source:` and its sibling key are
+# nested under `taxonomy:` and must keep their 2-space indent once the
+# leading `# ` is stripped, or YAML reads them as top-level keys and
+# the loader errors out.
+#
+# Local archive — the recommended default. No network at run time, and
+# version-pinned rather than tracking a moving upstream.
+#
+# taxonomy:
+#   source: dwca
+#   path: ./taxonomy.dwca.zip
+#
+# WoRMS subtree — needs outbound internet on every fresh corpuscle.
+# Prefer building this once, then `corpus taxonomy export -o taxonomy.zip`
+# and switching to the `dwca` block above (README §External taxonomic data).
 #
 # taxonomy:
 #   source: worms
 #   root_id: 1371                 # Siphonophorae order (example)
-#   # path: ./taxonomy.dwca.zip   # for source: dwc / dwca
 
 # Figure panel-ROI detection (#102).
 figures:
@@ -78,11 +92,15 @@ figures:
                             #   (no native resolution exists). Default 300.
   # max_dpi: 600            # native mode: optional ceiling for dense scans.
   # images_scale: 2.0       # fixed mode only: uniform DPI = 72 * scale.
-  # Future ingests only — run backfill_figure_dpi.py --native to lift an
+  # Future ingests only — run tools/backfill_figure_dpi.py --native to lift an
   # existing bundle.
 
-# Grobid (PDF metadata + reference parsing). Runs as a Docker service;
-# see README §Grobid.
+# Grobid (PDF metadata + reference parsing). Runs as a long-lived service
+# next to the pipeline: Docker on a laptop (`docker compose up -d grobid`,
+# see README §Grobid), Singularity on a cluster. Whichever it is, the
+# $GROBID_URL environment variable overrides the `url:` below at run time —
+# that is how HPC jobs reach a Grobid on a compute node whose hostname isn't
+# known until submit time. `corpus run` and `corpus check` both honor it.
 grobid:
   url: http://localhost:8070
   # disable: true   # skip Grobid even if reachable
@@ -101,6 +119,58 @@ licensing:
 
 ocr:
   optimize_level: 2
+
+  # Re-OCR scanned pages even when they already carry a text layer.
+  # Third-party OCR layers vary wildly in quality, and a bad one is
+  # invisible downstream — it reads as clean text all the way into the
+  # embeddings. A page is judged "scanned" by how much of it is raster
+  # image, which is independent of what the text layer claims.
+  # Set false to trust existing text layers (faster, and appropriate if
+  # your PDFs come from a source whose OCR you vouch for).
+  reocr_scanned_text_layers: true
+  # Fraction of sampled pages that must be a full-page image before the
+  # document counts as a scan. On the 32-paper reference corpus every
+  # scan scored 0.50–1.00 and every born-digital paper exactly 0.00, so
+  # 0.40 sits in a wide empty gap.
+  scan_page_fraction_min: 0.40
+  # Before OCRing a scan, OCR a 3-page sample to find out what language
+  # it is actually in. The existing text layer can't answer that — it is
+  # the thing we decided not to trust — and Tesseract's script detection
+  # can't tell one Latin language from another. Without this probe such
+  # documents OCR with every installed pack at once, which is the least
+  # accurate setting Tesseract has. Costs ~3 pages of OCR per scan.
+  probe_language_by_ocr: true
+  # Minimum langdetect confidence before the probe's answer is used.
+  # langdetect has no Latin profile, so Latin text can only come back as
+  # a low-confidence Romance language — Linnaeus 1735 reads as Catalan at
+  # 0.71, where every correct detection scores ~1.00. Below the floor the
+  # document OCRs with the script's pack union, which includes `lat`.
+  probe_language_min_confidence: 0.85
+  # How many languages the probe may report for one document. Bilingual
+  # originals-plus-translations are common in historical taxonomic
+  # literature (a Russian paper with an English typescript from p. 8, a
+  # French one with Pugh's translation stapled in), and both halves
+  # should be OCR'd under the right model. Beyond ~3 a detection is more
+  # likely noise than a genuinely polyglot volume.
+  probe_max_languages: 3
+  # A probe page whose OCR output scores above this much gibberish is
+  # discarded rather than voted with: it means the page was OCR'd with
+  # the wrong script's packs (Tesseract's script detection is not
+  # infallible), and langdetect will confidently name a language for the
+  # resulting garbage. Real pages in the reference corpus score
+  # 0.12-0.39; a Cyrillic table transcribed with Latin packs scored 0.61.
+  probe_max_gibberish: 0.50
+  # Pages to OCR when probing. Sampled from the middle 15-85% of the
+  # document: the front is covers, title pages and plates, the tail is
+  # references — a multilingual pile of proper nouns and the worst
+  # possible input to language detection.
+  probe_sample_pages: 5
+  # Render DPI for probe pages. 300, not 200: dropping to 200 to save
+  # time measurably degraded detection — Kawamura 1911a lost its
+  # Japanese entirely, Linnaeus 1735 went from correctly finding nothing
+  # to a confident wrong `ca`, and Bernstein 1934 gained a spurious
+  # `bg`. Language ID needs the OCR to be good enough to be a language.
+  probe_dpi: 300
   # Tesseract traineddata codes used when language detection fails.
   ocr_languages_default:
     - eng
@@ -117,12 +187,28 @@ ocr:
     - ell
     - kor
   gibberish_threshold: 0.65
+  # Per-page OCR timeout passed to ocrmypdf (--tesseract-timeout).
+  # ocrmypdf's own default is far too tight for dense historical scans
+  # with several language packs loaded, and when it fires the page is
+  # copied into the output *blank* while ocrmypdf still exits 0 — the
+  # loss is completely silent. Observed: Linnaeus 1735 lost 4 of 13
+  # pages (56,631 chars -> 15,292) between two identical runs, purely on
+  # machine load.
+  tesseract_page_timeout: 900
 
 chunking:
   max_tokens: 8191
 
 stage_timeouts:
+  # OCR's cap is max(ocr, ocr_per_page * pages * pack_factor), not the
+  # flat `ocr` value — one document's runtime spans two orders of
+  # magnitude here. Measured: 1.3 s/page with a single language pack,
+  # 20 s/page with a seven-pack union. `ocr` is the floor that keeps a
+  # small hung document failing fast; `ocr_per_page` is what lets a
+  # 1,500-page monograph finish. On timeout the stage fails outright,
+  # so both are deliberately generous.
   ocr: 1800
+  ocr_per_page: 30
   grobid: 300
   docling: 600
   vision_pass: 600

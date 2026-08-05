@@ -2,14 +2,20 @@
 """Run the pipeline + post-pipeline scripts in dependency order (#32).
 
 After adding new papers (or after a taxonomy / lexicon edit), the
-corpus needs to walk through six tools in a specific order:
+corpus needs to walk through six steps in a specific order:
 
-  1. process_corpus.py        — Stage 1: extraction + annotation
-  2. embed_chunks.py          — Stage 2: embeddings (GPU)
-  3. build_biblio_authority.py — bibliographic authority DB
-  4. build_taxon_mentions.py   — taxon mention SQLite
-  5. backfill_intext_citations.py — TEI body → intext_citations.json
-  6. reconcile_corpus_to_biblio.py — merge ghost cited-references
+  1. pipeline.main            — Stage 1: extraction + annotation
+  2. pipeline.embed           — Stage 2: embeddings (GPU)
+  3. bib.authority            — bibliographic authority DB
+  4. pipeline.taxon_mentions  — taxon mention SQLite
+  5. pipeline.intext_citations — TEI body → intext_citations.json
+  6. bib.reconcile            — merge ghost cited-references
+
+(These were root-level scripts through v0.2 — ``process_corpus.py``,
+``embed_chunks.py`` and friends — and were folded into packages in v0.3
+(#60). The old names survive in comments here and there; the modules
+above are the real entry points, and ``corpus run`` is the user-facing
+one.)
 
 Forgetting a step produces a silently inconsistent corpus. This
 wrapper runs all six in order, with ``--resume`` semantics throughout
@@ -19,21 +25,21 @@ Each step is a subprocess; failure fails the whole run fast (no
 attempt to recover by skipping later steps that might depend on the
 failed one).
 
-Pairs with #28 (per-stage resume in process_corpus.py) and #30
+Pairs with #28 (per-stage resume in the extract stage) and #30
 (idempotency audit of the post-pipeline scripts) — the underlying
 guarantees that make a single re-run loop safe.
 
 For Bouchet runs use ``slurm/batch_pipeline.sh`` instead; the GPU
-embedding step (2) needs a different partition. ``update_corpus.py``
-is the local-dev / small-corpus path.
+embedding step (2) needs a different partition. ``corpus run`` is the
+local-dev / small-corpus path.
 
-Usage::
+Usage — normally via ``corpus run``, which wraps this module::
 
-    python update_corpus.py <input_dir> <output_dir>
-    python update_corpus.py <input_dir> <output_dir> --bib siphonophores.bib
-    python update_corpus.py <input_dir> <output_dir> --skip-pipeline
-    python update_corpus.py <input_dir> <output_dir> --from build_biblio
-    python update_corpus.py <input_dir> <output_dir> --dry-run
+    corpus run
+    corpus run --bib siphonophores.bib
+    corpus run --skip-pipeline
+    corpus run --from build_biblio
+    corpus run --dry-run
 """
 from __future__ import annotations
 
@@ -46,7 +52,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-logger = logging.getLogger("update_corpus")
+logger = logging.getLogger("corpus.run")
 
 REPO_ROOT = Path(__file__).resolve().parent
 
@@ -89,6 +95,15 @@ class Step:
                 cmd += ["--lexicon", str(args.lexicon)]
             if args.no_taxa:
                 cmd.append("--no-taxa")
+            elif getattr(args, "taxonomy_source", None):
+                # #139 — the corpuscle configures a taxonomy, so tell the
+                # per-paper stage to fail rather than warn if the snapshot
+                # is missing. _check_taxonomy_available() above already
+                # pre-flights this for `corpus run`; passing it through
+                # closes the window where the snapshot vanishes after the
+                # pre-check, and makes the requirement explicit at the
+                # layer that would otherwise write empty taxa.json.
+                cmd.append("--require-taxonomy")
             if args.no_grobid:
                 cmd.append("--no-grobid")
             if args.grobid_url is not None:
@@ -113,10 +128,25 @@ class Step:
                 cmd.append("--dry-run")
             if args.config:
                 cmd += ["--config", str(args.config)]
-            fp = (args.figure_panels
-                  if args.figure_panels in ("vision-local", "vision-claude")
-                  else "vision-local")
-            cmd += ["--figure-panels", fp]
+            # The vision phase must run an explicit vision backend. Do NOT
+            # silently substitute vision-local for a non-vision mode: that
+            # turned a misconfiguration (e.g. an ANTHROPIC_API_KEY that was
+            # invisible to the capability gate, #147/F2) into a surprise
+            # ~16 GB Qwen2.5-VL download that ran the opposite of the
+            # requested backend. HPC callers always pass the backend
+            # explicitly (see slurm/batch_pass3b.sh); anything else is an
+            # operator error worth surfacing, not guessing.
+            if args.figure_panels not in ("vision-local", "vision-claude"):
+                logger.error(
+                    "`--only vision` requires an explicit vision backend, but "
+                    "--figure-panels=%r. Re-run with "
+                    "`--figure-panels vision-local` or "
+                    "`--figure-panels vision-claude` (the latter needs "
+                    "ANTHROPIC_API_KEY exported or in .env).",
+                    args.figure_panels,
+                )
+                raise SystemExit(2)
+            cmd += ["--figure-panels", args.figure_panels]
             if args.vision_model:
                 cmd += ["--vision-model", args.vision_model]
             cmd += _batch_flags(args)
@@ -241,10 +271,9 @@ def _check_taxonomy_available(
     Two failure modes:
 
     * ``ingest_taxonomy`` is *not* in the selected steps (e.g. ``--only
-      extract`` on an HPC compute node) but ``taxonomy.sqlite`` is absent
-      — the extract step will silently skip taxon annotation. Fail before
-      any work starts so the operator knows to pre-build the taxonomy on a
-      network-connected node first.
+      extract`` in a batch job) but ``taxonomy.sqlite`` is absent — the
+      extract step will silently skip taxon annotation. Fail before any
+      work starts so the operator knows to pre-build the taxonomy first.
 
     * Source is ``dwca`` or ``dwc`` and the local archive/directory path
       does not exist — ``ingest_taxonomy`` would fail immediately; surface
@@ -280,12 +309,13 @@ def _check_taxonomy_available(
         root_id = getattr(args, "taxonomy_root_id", None)
         root_flag = f" --root-id {root_id}" if root_id else " --root-id <aphia_id>"
         hint = (
-            "WoRMS requires internet access. HPC compute nodes are "
-            "network-restricted, so the taxonomy must be pre-built on a "
-            "login node (which allows small outbound API calls) before "
-            "submitting the array job. Options:\n"
+            "WoRMS requires internet access, and every task in an array "
+            "job would otherwise walk the REST API independently — so "
+            "pre-build the taxonomy once before submitting. It is also "
+            "mandatory if your compute nodes are network-restricted. "
+            "Options:\n"
             f"  1. Run `corpus taxonomy ingest --source worms{root_flag}` "
-            "on the login node.\n"
+            "once, up front.\n"
             "  2. Export a WoRMS subtree as a DwC-A snapshot, copy it to "
             "the project dir, and switch config to source: dwca."
         )
@@ -324,35 +354,35 @@ def main() -> int:
     parser.add_argument("output_dir", type=Path, help="Corpus output directory")
     parser.add_argument(
         "--bib", type=Path, default=None,
-        help="Optional BibTeX for metadata override (passed to process_corpus.py).",
+        help="Optional BibTeX for metadata override (passed to the extract stage).",
     )
     parser.add_argument(
         "--taxonomy-db", type=Path, default=None,
-        help="Taxonomy SQLite path (passed to process_corpus.py).",
+        help="Taxonomy SQLite path (passed to the extract stage).",
     )
     parser.add_argument(
         "--lexicon", type=Path, default=None,
-        help="Multi-category lexicon YAML (passed to process_corpus.py). "
+        help="Multi-category lexicon YAML (passed to the extract stage). "
              "Top-level keys are categories; see demo/lexicon.yaml.",
     )
     parser.add_argument(
         "--no-taxa", action="store_true",
         help="Skip the taxa_and_lexicon_extraction stage entirely "
              "(taxon mentions and every --lexicon category; passed to "
-             "process_corpus.py).",
+             "the extract stage).",
     )
     parser.add_argument(
         "--no-grobid", action="store_true",
-        help="Skip Grobid even if reachable (passed to process_corpus.py).",
+        help="Skip Grobid even if reachable (passed to the extract stage).",
     )
     parser.add_argument(
         "--grobid-url", default=None,
-        help="Grobid service URL (passed to process_corpus.py).",
+        help="Grobid service URL (passed to the extract stage).",
     )
     parser.add_argument(
         "--strict-network", action="store_true",
         help="Fail fast on the first transient external-service failure "
-             "(passed to process_corpus.py). Recommended for release runs.",
+             "(passed to the extract stage). Recommended for release runs.",
     )
     parser.add_argument(
         "--figure-panels",
@@ -360,21 +390,21 @@ def main() -> int:
         default="ocr",
         help="Panel-ROI detection mode (#102): ocr = Pass 3a OCR floor "
              "(default), vision-local / vision-claude = Pass 3b vision, "
-             "off = none (passed to process_corpus.py).",
+             "off = none (passed to the extract stage).",
     )
     parser.add_argument(
         "--vision-model", default=None,
         help="Override the per-backend default vision model "
-             "(passed to process_corpus.py).",
+             "(passed to the extract stage).",
     )
     parser.add_argument(
         "--refresh-vision", action="store_true",
         help="With --resume + --figure-panels vision-*, re-run only Pass 3b "
-             "on existing figures.json (passed to process_corpus.py).",
+             "on existing figures.json (passed to the extract stage).",
     )
     parser.add_argument(
         "--config", type=Path, default=None,
-        help="Path to config.yaml (passed to process_corpus.py).",
+        help="Path to config.yaml (passed to the extract stage).",
     )
     parser.add_argument(
         "--resume", action="store_true",
@@ -469,8 +499,25 @@ def main() -> int:
     selected = select_steps(args)
 
     # Fail early if taxonomy is configured but unavailable for the selected
-    # steps — avoids a silent "no taxon annotations" corpus on HPC where
-    # compute nodes lack internet and --only skips ingest_taxonomy.
+    # steps — avoids a silent "no taxon annotations" corpus on HPC, where
+    # --only skips ingest_taxonomy.
+    # A dry-run walks every step against the corpuscle as it stands now.
+    # On a corpuscle that has never been built there is no documents/ tree,
+    # no taxonomy.sqlite and no biblio_authority.sqlite yet, so every step
+    # after `extract` reports its input as missing — at ERROR level, from
+    # the child process, seconds after `corpus check` said the host was
+    # ready. Say so up front rather than letting the user infer it from
+    # six tracebacks' worth of red.
+    unbuilt = args.dry_run and not (args.output_dir / "documents").is_dir()
+    if unbuilt:
+        logger.info(
+            "Dry-run against a corpuscle that has not been built yet "
+            "(%s has no documents/). Steps after `extract` will report "
+            "their inputs as missing — that is expected here, not a "
+            "misconfiguration; a real `corpus run` creates them in order.",
+            args.output_dir,
+        )
+
     taxonomy_err = _check_taxonomy_available(args, selected)
     if taxonomy_err:
         logger.error(taxonomy_err)
