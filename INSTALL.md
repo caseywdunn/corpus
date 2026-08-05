@@ -2,6 +2,16 @@
 
 The one-command conda install in the [README](README.md) covers most setups. The additions below are needed only for specific OCR or deployment scenarios.
 
+## How corpus is distributed
+
+**git clone + conda is the canonical channel, and the only supported one.** Pin a release with `git clone --branch v1.0.0 https://github.com/caseywdunn/corpus.git`.
+
+**There is no PyPI package, and this is deliberate rather than pending.** corpus depends on native tools pip cannot install — tesseract, ghostscript, pngquant, pandoc, and a Grobid server — so `pip install corpus` would produce a package that imports cleanly and then fails on the first scanned PDF. That is precisely the failure class the 1.0 cycle existed to remove, and shipping a channel that reintroduces it would be a step backwards. The [pip-only fallback](#pip-only-fallback) below exists for hosts that already have the native toolchain; it is a fallback, not a distribution channel.
+
+conda-forge *could* carry the native toolchain, but a feedstock needs every dependency on conda-forge, and the pip-only block (`docling`, `lancedb`, `mcp`, `ocrmypdf`, …) is not. A container image is the better future channel — Docker is already a prerequisite for Grobid — and is tracked in [PLAN.md](dev_docs/PLAN.md) rather than promised here.
+
+**For citation, use the Zenodo DOI**, which is what a PyPI presence would have been standing in for: [10.5281/zenodo.19964909](https://doi.org/10.5281/zenodo.19964909). Each release gets its own DOI via the GitHub integration, and [CITATION.cff](CITATION.cff) carries the current form.
+
 ## Supported platforms
 
 | Target | Status |

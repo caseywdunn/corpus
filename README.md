@@ -39,7 +39,7 @@ The output is a per-paper artifact tree plus cross-paper databases. You query it
 - *"Translate the diagnosis of* Forskalia edwardsii *from Haeckel 1888 (German) into English."*
 - *"Write a PDF report with LaTeX showing all nectophore images for* Nanomia*."*
 
-The full tool surface is in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md).
+The full tool surface is in [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md); it is frozen as of 1.0 under [dev_docs/API_STABILITY.md](dev_docs/API_STABILITY.md).
 
 ## What you bring
 
@@ -430,6 +430,7 @@ Once your client is configured, open it and confirm the corpus server is connect
 - [dev_docs/TESTING.md](dev_docs/TESTING.md) — quality test suite, ground truth format, evaluation workflow
 - [INSTALL.md](INSTALL.md) — optional OCR extras, pip-only fallback, platform notes
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface
+- [dev_docs/API_STABILITY.md](dev_docs/API_STABILITY.md) — what 1.0 freezes, what counts as a breaking change, and the deprecation path
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 - [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
 - [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — manual fallback / release-time verification (CI tiers T0–T3 in [`.github/workflows/`](.github/workflows/) are the authoritative coverage); references [dev_docs/ec2_smoke.sh](dev_docs/ec2_smoke.sh) for the T4 clean-room linux validation

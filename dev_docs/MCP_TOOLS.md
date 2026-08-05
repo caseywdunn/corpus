@@ -2,6 +2,8 @@
 
 The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsrv/tools/{papers,taxonomy,bibliography,figures,chunks,lexicon,profiles}.py`. `corpus serve` is the user-facing entry point; it wraps `mcpsrv.main`.
 
+This surface is frozen as of 1.0. What that commits us to — additive vs. breaking, and how anything gets removed — is [API_STABILITY.md](API_STABILITY.md).
+
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
 ```bash

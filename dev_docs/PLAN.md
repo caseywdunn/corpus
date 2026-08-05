@@ -384,11 +384,18 @@ response shape, which is the last moment that is cheap.
   bump; #145 is their umbrella and closes with them. Verify each against
   the shipped code rather than the commit message, then close with a
   note to @rdmpage.
-- [ ] **Write the 1.0 API-stability policy** — deferred out of v0.6 by
+- [x] **Write the 1.0 API-stability policy** — deferred out of v0.6 by
   design. What "frozen" means for the 38 tools, what constitutes a
   breaking change, and the deprecation path. Belongs next to
-  `dev_docs/MCP_TOOLS.md`.
-- [ ] **Settle the distribution channel.** PyPI is **not** the right
+  `dev_docs/MCP_TOOLS.md`. **Shipped** as
+  [API_STABILITY.md](API_STABILITY.md), linked from MCP_TOOLS.md and the
+  README. It documents the half of the contract that
+  `tests/test_freeze_contract.py` already enforces and is explicit about
+  what is *not* covered — on-disk artifacts (separately versioned by
+  `ARTIFACT_SCHEMA_VERSION`), the CLI, and extracted content, since a
+  stable API does not promise stable data and v1.0's re-OCR change is the
+  proof.
+- [x] **Settle the distribution channel.** PyPI is **not** the right
   primary channel: pip cannot install tesseract, ghostscript, pandoc,
   tectonic, or Grobid, so `pip install` would yield a package that
   imports and then fails on the first scanned PDF — the exact failure
@@ -406,11 +413,26 @@ response shape, which is the last moment that is cheap.
   `biodiversity-corpus`, `corpus-literature` and similar are free, and a
   distribution rename costs nothing user-visible — the `corpus` command
   and the `pipeline`/`mcpsrv`/`bib` imports are unaffected.
+  **Stated** in INSTALL.md §"How corpus is distributed", framed as a
+  decision rather than an omission, and the release-pinned install line
+  is bumped to `@v1.0.0` — plus a new CONTRIBUTING.md release step to
+  bump it, since it names a tag that does not exist until the tag step
+  and had therefore already drifted twice.
+- [x] **Pull #177 into 1.0** (decided at execution, 2026-08-05). BibTeX
+  escapes were served verbatim — five titles in a 702-paper build read
+  `A.Braun \& Vatke`. Decoding happens at the `bib/parser.py` boundary
+  (escaped specials, group-protection braces, accent commands), with the
+  inverse escaping added to `corpus bib export` because a bare `%` in an
+  exported `.bib` comments out the rest of the line. The remaining
+  post-review issues (#164–#176, #178–#180) defer to v1.1.
 - [ ] **Release ritual** per CONTRIBUTING.md §Releasing, including
-  **step 7** (prune the roadmap, open the next section) — the step
+  **step 8** (prune the roadmap, open the next section) — the step
   skipped at v0.6.0, which is why this document described a completed
-  cycle in the present tense for two months. Create the `v0`
-  maintenance branch (new major, per #48).
+  cycle in the present tense for two months.
+  **Step 6 is deliberately skipped:** `origin/v0` already exists but
+  points at `v0.3.0`+1 (`57fd914`), and v0.6.0 is tagged and immutable,
+  so a maintenance branch buys nothing until a v0 backport is actually
+  planned. Revisit #48 if one is.
 
 ### Carry (tracked, not committed this cycle)
 
@@ -432,6 +454,51 @@ response shape, which is the last moment that is cheap.
   (author, year, title) before ranking, so the same work stops appearing
   as N rows. That makes the tool honest without fixing reconciliation,
   and it is additive.
+
+### Deferred to v1.1 by decision (2026-08-05)
+
+Filed after the waves closed — from the pre-release UX review
+(#164–#173) and the viburnum build (#174–#177) — and triaged at the
+release rather than absorbed into it. Only **#177** was pulled in; the
+rest wait. None blocks an install, which is the bar this cycle set.
+
+The freeze permits all of them: every one is a bug fix or an additive
+change under [API_STABILITY.md](API_STABILITY.md), so none needs to wait
+for a major.
+
+- **Correctness on the served surface.** #175 (taxonomic-authority
+  linking assumes zoological authorship, so `get_original_description`
+  is structurally dead for any botanical corpus — 889/913 viburnum taxa
+  had authorship, 0 with a year), #165 (lexicon translations match only
+  uninflected forms, zeroing anatomy coverage on German papers —
+  Eschscholtz prints `Luftblasen`, the lexicon has `Luftblase`), #166
+  (a hub work's depth-1 `get_citation_graph` payload can exceed MCP
+  transport limits while `truncated: false` stays accurate), #155
+  (reference reconciliation, above).
+- **Extraction quality.** #176 (Tesseract OSD overrides a p=1.0
+  language detection with no union or `eng` fallback, and there is no
+  per-document override — 6 of 123 OCR'd papers), #164 (abbreviated
+  genus binomials, `Ph. pelagica`), #172 (`visual_script` is never
+  populated, leaving the text-layer/visual cross-check inert).
+- **Operator surface.** #170 (progress heartbeat during long per-document
+  stages), #169 (`--filter-gate` silently ignored without
+  `--list-hashes` — the hint was fixed, the underlying flag was not),
+  #168 (surface the naive-chunker fallback in `corpus status`), #174
+  (extend per-stage fingerprints to bib entries, filenames and config
+  keys, so editing the input bib stops being a silent no-op).
+- **Housekeeping.** #173 (`pipeline/CITATION.cff` is a hand-maintained
+  copy with nothing enforcing sync — currently byte-identical, so this is
+  a guard rather than a fix), #171 (README ambiguous about where
+  `instructions.md` lives).
+- **Features, additive by construction.** #178–#180 (a `skills/` plugin
+  directory, a clade-monograph skill, and a README quick start).
+- **[PR #144](https://github.com/caseywdunn/corpus/pull/144)** from
+  @beroe — original-description linking against in-corpus works
+  (423 → 505 of 598 ctenophore taxa). Mergeable and substantive, but it
+  is a 4-commit external change that has never run CI, and it touches
+  `bib/authority.py`, which #154 rewrote during this cycle. It wants a
+  review and a CI run, not a last-step merge. Note it overlaps #175:
+  both are `parse_authority`, from opposite ends.
 
 ### Scope flag (decide at execution)
 
