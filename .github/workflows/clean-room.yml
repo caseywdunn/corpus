@@ -188,16 +188,13 @@ jobs:
             || { echo "served-bundle absolute-path audit (#70) did not log 'audit clean'"; exit 1; }
 
       - name: Run corpus_required tests against the built demo
-        # Same three --deselect flags as T1 (integration.yml): those
-        # functions compare bib-canonical metadata against PDF text and
-        # legitimately fail on the demo's Russian and Marrus papers.
+        # This step carried the same three --deselect flags as T1 until
+        # #167 moved those exclusions inside the tests, per-paper and
+        # self-describing. See integration.yml for the full rationale.
         env:
           CORPUS_OUTPUT_DIR: ${{ github.workspace }}/demo/output
         run: |
-          python -m pytest -v --tb=short -m "corpus_required" \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_first_author_surname_in_text \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_title_appears_in_text \
-            --deselect tests/test_corpus_wide.py::TestCitationGraph::test_references_match_corpus_papers
+          python -m pytest -v --tb=short -m "corpus_required"
 
       - name: MCP / SSE round-trip smoke
         run: python tools/smoke_test_sse.py demo/output/_serve --port 18080

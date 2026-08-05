@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -24,22 +25,119 @@ from typing import Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
-def _strip_outer_braces(s: str) -> str:
-    """Remove any braces used purely for bibtex grouping/escaping.
+# Accent commands whose argument may abut them directly (``\'e``) as well
+# as be braced (``\'{e}``). Mapped to Unicode combining marks and composed
+# with NFC below, which is far smaller than an exhaustive letter table.
+_LATEX_ACCENT_MARKS = {
+    "`": "\u0300",   # grave
+    "'": "\u0301",   # acute
+    "^": "\u0302",   # circumflex
+    '"': "\u0308",   # diaeresis
+    "~": "\u0303",   # tilde
+    "=": "\u0304",   # macron
+    ".": "\u0307",   # dot above
+}
 
-    Bibtex authors wrap protected casing or accented chars in ``{}``; the
-    JSON metadata consumers don't want them, so we drop all ``{`` / ``}``
-    after parsing. This is lossy but correct for the fields we care about.
+# Accent commands spelled with a letter, which therefore *require* a brace
+# or space before their argument (``\v{s}``, ``\c c``) — otherwise ``\cc``
+# would be an unknown command rather than a cedilla.
+_LATEX_LETTER_ACCENT_MARKS = {
+    "u": "\u0306",   # breve
+    "v": "\u030C",   # caron
+    "H": "\u030B",   # double acute
+    "c": "\u0327",   # cedilla
+    "k": "\u0328",   # ogonek
+    "r": "\u030A",   # ring above
+}
 
-    Escaped braces (``\\{`` / ``\\}``) are unescaped first, so a value that
-    reached us with an escaped brace — Grobid OCR output does this, see
-    #141 — doesn't leave a stray backslash behind in the metadata.
+# Standalone letter commands. Longest-first when substituted, so ``\oe``
+# is not consumed as ``\o`` + a stray ``e``.
+_LATEX_LETTERS = {
+    r"\ss": "ß", r"\ae": "æ", r"\AE": "Æ", r"\oe": "œ", r"\OE": "Œ",
+    r"\aa": "å", r"\AA": "Å", r"\o": "ø", r"\O": "Ø",
+    r"\l": "ł", r"\L": "Ł", r"\i": "ı", r"\j": "ȷ",
+    r"\dh": "ð", r"\DH": "Ð", r"\th": "þ", r"\TH": "Þ",
+}
+
+_ACCENT_RE = re.compile(
+    r"\\([`'^\"~=.])\s*(?:\{([A-Za-z])\}|([A-Za-z]))"
+)
+_LETTER_ACCENT_RE = re.compile(
+    r"\\([uvHckr])\s*(?:\{([A-Za-z])\}|\s([A-Za-z]))"
+)
+# Trailing whitespace is consumed because in LaTeX a space *terminates* a
+# letter command rather than being content: ``\O rsted`` is "Ørsted", not
+# "Ø rsted". A .bib that means to keep the space writes ``\ss{} and``,
+# where the empty group ends the command and the space survives.
+_LETTER_CMD_RE = re.compile(
+    "(?:"
+    + "|".join(re.escape(k) for k in sorted(_LATEX_LETTERS, key=len, reverse=True))
+    + r")(?![A-Za-z])\s*"
+)
+
+# Characters a BibTeX writer must backslash-escape. Mirrored by
+# ``bib/export.py``'s ``_BIBTEX_FIELD_ESCAPES`` so a round-trip is stable.
+_ESCAPED_SPECIALS = ("&", "%", "_", "#", "$")
+
+_WS_RE = re.compile(r"\s+")
+
+
+def unescape_bib_value(s: str) -> str:
+    """Convert one BibTeX field value to the plain text we serve.
+
+    BibTeX values are LaTeX source, not text: ``&`` must be written
+    ``\\&``, proper nouns are brace-protected (``{DNA}``), and accented
+    letters are commands (``M{\\"u}ller``). Treating a value as plain text
+    passes all of that through to ``metadata.json``, ``_serve/`` and every
+    MCP tool that returns a title — so a client emitting a citation gets
+    ``A.Braun \\& Vatke`` (#177). The ``.bib`` is not wrong in these cases;
+    it is correctly escaped, and we were failing to decode it.
+
+    Order matters. Accents are resolved first, because they are delimited
+    by the very braces the last step drops; escaped specials next; braces
+    only at the end.
+
+    Brace removal is deliberately total and lossy: bibtex uses braces for
+    case protection, which carries no meaning once the value is plain
+    text. Escaped braces (``\\{`` / ``\\}``) unescape first so a value
+    carrying one — Grobid OCR output does this, see #141 — leaves no stray
+    backslash behind.
     """
-    return (
-        s.replace("\\{", "{").replace("\\}", "}")
-        .replace("{", "").replace("}", "")
-        .strip()
+    if not s:
+        return ""
+    out = s
+
+    def _accent(match: re.Match, table: Dict[str, str]) -> str:
+        letter = match.group(2) or match.group(3)
+        return letter + table[match.group(1)]
+
+    out = _ACCENT_RE.sub(lambda m: _accent(m, _LATEX_ACCENT_MARKS), out)
+    out = _LETTER_ACCENT_RE.sub(
+        lambda m: _accent(m, _LATEX_LETTER_ACCENT_MARKS), out
     )
+    out = _LETTER_CMD_RE.sub(
+        lambda m: _LATEX_LETTERS[m.group(0).rstrip()], out
+    )
+
+    for ch in _ESCAPED_SPECIALS:
+        out = out.replace("\\" + ch, ch)
+
+    # ``\\`` is a line break in bibtex, not a literal backslash.
+    out = out.replace("\\\\", " ")
+    out = out.replace("\\{", "{").replace("\\}", "}")
+    out = out.replace("{", "").replace("}", "")
+
+    # Compose the combining marks written above into precomposed
+    # codepoints, so a served "Müller" compares equal to one typed
+    # directly rather than differing by normalization form.
+    out = unicodedata.normalize("NFC", out)
+    return _WS_RE.sub(" ", out).strip()
+
+
+# Retained under the old name because the behavior is a superset: every
+# caller wanted "this bibtex value as text", which is what brace-stripping
+# was approximating.
+_strip_outer_braces = unescape_bib_value
 
 
 def _scan_braced(text: str, open_idx: int) -> tuple:

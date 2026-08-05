@@ -408,6 +408,39 @@ at that run is what surfaced the silent SLURM-chain failure fixed below.
   *transport* limit, not corpus-side truncation, so `truncated: false` can
   be accurate while the client still fails to deliver the payload. Pass an
   explicit `max_edges_per_node` when a bounded response is wanted.
+- **BibTeX escapes no longer reach served metadata**
+  ([#177](https://github.com/caseywdunn/corpus/issues/177)). A `.bib` field
+  is LaTeX source, not text, and corpus was ingesting it as text — so five
+  titles in a 702-paper build were served reading
+  `… (R.Br.) A.Braun \& Vatke`, and any citation a client composed carried
+  the backslash. The `.bib` was correct; `\&` is the required escaping for
+  a literal ampersand.
+
+  `bib/parser.py` now decodes a value at the single boundary every field
+  already passed through: escaped specials (`\&`, `\%`, `\_`, `\#`, `\$`),
+  group-protection braces (`{DNA}`, `{V}iburnum` — these were already
+  dropped), and accent commands, which matter here because this corpus's
+  authors are largely European — `M{\"u}ller` → `Müller`, `Ma\'nko` →
+  `Mańko`, `Fran\c{c}ois` → `François`, `\O rsted` → `Ørsted` (a space
+  *terminates* a LaTeX letter command rather than being content). Output is
+  NFC-normalized, so a served name compares equal to one typed directly
+  instead of differing by normalization form. Applied to `author` and
+  `journal` as well as `title`, since `format_citations` composes from all
+  three.
+
+  `corpus bib export` gained the inverse escaping, which is required rather
+  than symmetric decoration: emitting a bare `&` produces a `.bib` that
+  breaks the moment it reaches LaTeX, and a bare `%` is worse — it comments
+  out the rest of the line, so a file corpus exported would silently lose
+  fields when any real BibTeX tool re-read it. Export → import now
+  round-trips a title unchanged.
+
+  One deliberate limitation, documented in the tests: a *literal* brace
+  does not survive, because brace removal is total and
+  [#141](https://github.com/caseywdunn/corpus/issues/141) depends on an
+  escaped brace leaving nothing behind. The two behaviors conflict, and
+  OCR-emitted stray braces are far commoner in this material than titles
+  that genuinely contain one.
 - **`scan_detection.json` was never in the served bundle whitelist**, so
   the `scan_file_type` field the index has always exposed was silently
   `null` whenever anyone served a distilled bundle rather than the build
@@ -514,10 +547,14 @@ at that run is what surfaced the silent SLURM-chain failure fixed below.
   Latin binomials and journal names, so a majority test would call it a
   Latin document and never fire. ≥20% non-Latin fires, and skip messages
   quote the measured figure (`body is 42% cyrillic`) so the reasoning is
-  checkable rather than asserted. The full suite is now green end to end at
-  872 passed, 20 skipped, 0 failed — so the three `--deselect` flags that
-  T1, T2 and T3 carry for these tests are obsolete and should come out,
-  which is the only thing keeping the repaired tests from running in CI.
+  checkable rather than asserted.
+
+  **The three `--deselect` flags are gone from CI.** T1, T2 and the T3
+  clean-room lane each skipped these functions by name, so the repaired
+  tests ran nowhere — and skipping whole functions also hid every paper
+  the checks *do* work on, meaning a genuine extraction regression would
+  not have been caught. The exclusions now live inside the tests, where
+  they are per-paper and state their reason.
 - **A job still loading Grobid's models no longer looks like a failed
   one.** SLURM reports `RUNNING` when the container starts, but Grobid
   binds `:8070` another ~10–60 s later, after loading its Wapiti models.

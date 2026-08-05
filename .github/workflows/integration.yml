@@ -224,21 +224,21 @@ jobs:
         # + test_reference_extraction.py + test_figure_extraction.py +
         # test_text_extraction.py all parametrize over demo PDFs.
         #
-        # --deselect: TestMetadataPlausibility's text-overlap checks compare
-        # metadata.title / metadata.authors against text.json body. They
-        # fail on the demo's Russian (Stepanjants, Latin bib title vs
-        # Cyrillic OCR text) and Marrus (bib title vs PDF text formatting)
-        # papers — the bib supplies canonical citation forms, text comes
-        # from the PDF; they're not expected to match verbatim across
-        # alphabets / punctuation. The other plausibility checks in the
-        # same class (year range, author count) still run.
+        # This step carried three --deselect flags until #167. The two
+        # TestMetadataPlausibility text-overlap checks compared
+        # bib-canonical metadata against text.json literally, so they were
+        # testing typography (a space before a comma, an OCR-doubled space)
+        # and transliteration (Stepanjants 1970's Latin bib title against a
+        # Cyrillic body). Both exclusions now live *inside* the tests, where
+        # they are per-paper and state their reason — whitespace is
+        # normalized, and a cross-script comparison skips with the measured
+        # share quoted. Skipping the whole functions here additionally hid
+        # every paper the checks do work on, so a genuine extraction
+        # regression would not have been caught.
         env:
           CORPUS_OUTPUT_DIR: ${{ github.workspace }}/demo/output
         run: |
-          python -m pytest -v --tb=short -m "corpus_required" \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_first_author_surname_in_text \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_title_appears_in_text \
-            --deselect tests/test_corpus_wide.py::TestCitationGraph::test_references_match_corpus_papers
+          python -m pytest -v --tb=short -m "corpus_required"
 
       - name: MCP / SSE round-trip smoke
         run: python tools/smoke_test_sse.py demo/output/_serve --port 18080
@@ -398,14 +398,11 @@ jobs:
         # Reference / metadata tests assume Grobid; on macOS T2 with
         # grobid.disable: true, references.json comes from the --bib
         # path only. Skip the reference-extraction parametrized tests
-        # here; T1 covers the Grobid path. Same --deselect rationale
-        # as T1 for the two text-overlap plausibility checks.
+        # here; T1 covers the Grobid path. The three --deselect flags this
+        # step also carried were dropped with #167 — see T1 above.
         run: |
           python -m pytest -v --tb=short -m "corpus_required" \
-            --ignore=tests/test_reference_extraction.py \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_first_author_surname_in_text \
-            --deselect tests/test_corpus_wide.py::TestMetadataPlausibility::test_title_appears_in_text \
-            --deselect tests/test_corpus_wide.py::TestCitationGraph::test_references_match_corpus_papers
+            --ignore=tests/test_reference_extraction.py
 
       - name: Resume scenario (round 2 — copy Siebert, re-run, assert)
         # Same inline check as T1 but without Grobid. Exercises the
