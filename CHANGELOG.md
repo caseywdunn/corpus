@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`corpus check` now warns when the Grobid container isn't the image
+  `docker-compose.yml` specifies.** `/api/isalive` proves something is
+  listening on the port, not what — and because the compose service
+  carries `restart: unless-stopped`, a container created from an older
+  compose file keeps serving that port indefinitely. A macOS arm64 host
+  was found running the full DeLFT image months after the compose default
+  moved to `lfoppiano/grobid:0.8.1`; the pre-flight reported `[ok] Grobid:
+  reachable` throughout, while the image README §Grobid forbids on Apple
+  Silicon was parsing every reference in the corpus. The check is a warn,
+  not a failure — DeLFT is a supported opt-in on AVX-capable Linux
+  x86_64 — and stays silent for a remote or Apptainer Grobid, a host
+  without Docker, and a non-clone install with no compose file.
+
 ### Fixed
 
 - **The README install block now installs `pngquant` on macOS arm64.**
