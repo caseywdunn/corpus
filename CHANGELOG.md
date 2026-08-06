@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`TestCitationGraph::test_references_match_corpus_papers` no longer
+  fails on a small corpus.** It reads "zero in-corpus citations" as
+  evidence of broken reference parsing, which requires that a match was
+  likely to begin with. On the 4-paper demo it isn't — no demo paper
+  cites another (Pugh 2001 and Dunn 2005 both cite *Pugh 1975/1989*
+  against a corpus holding *Pugh 2001*) — so two papers failed on every
+  clean local build, and an operator validating a fresh install got a red
+  suite with no indication it was expected. The check now stands down
+  below 25 documents and is unchanged above it.
+
 - **`resume_scenario` is now actually deselected from a bare `pytest`.**
   Both `pytest.ini` and `tests/test_resume_scenario.py` documented it as
   deselected by default, but nothing implemented that — no `addopts`, no

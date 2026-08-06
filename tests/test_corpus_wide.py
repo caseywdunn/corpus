@@ -240,6 +240,16 @@ def _fig_number_digit_keys(fn):
 
 _CORPUS_INDEX = None
 
+# Below this many documents, "cites nothing else in the corpus" carries no
+# signal about reference parsing — it is the expected outcome. The bundled
+# demo is 4 papers and none of them cites another (Pugh 2001 and Dunn 2005
+# both cite *Pugh 1975/1989*, while the corpus holds *Pugh 2001*), so the
+# check fired on every clean local build. A production corpuscle is
+# ~1,800 papers; anything between the two is an arbitrary line, so this is
+# set well above a toy fixture and far below any corpus the check is
+# meant to police.
+_CITATION_GRAPH_MIN_DOCS = 25
+
 
 def _build_corpus_index():
     """Build a lookup of (normalized_first_author_surname, year) -> [doc_hash].
@@ -541,11 +551,22 @@ class TestCitationGraph:
         This is a soft check — many references will be to papers outside this
         siphonophore corpus. But a paper with 30 references and zero corpus
         matches is suspicious (likely broken reference parsing).
+
+        The premise only holds at corpus scale: it reads zero matches as
+        evidence about the *parser*, which requires that a match was likely
+        in the first place. On a handful of papers it isn't, so the check
+        stands down below ``_CITATION_GRAPH_MIN_DOCS``.
         """
         doc_hash, data = references_data
         refs = data.get("references", [])
         if len(refs) < 3:
             pytest.skip("too few references to check")
+        if len(_DOCS) < _CITATION_GRAPH_MIN_DOCS:
+            pytest.skip(
+                f"corpus is {len(_DOCS)} document(s); this check needs at "
+                f"least {_CITATION_GRAPH_MIN_DOCS} for zero in-corpus "
+                f"citations to say anything about reference parsing"
+            )
 
         # The corpus index is keyed on Latin-script surnames. A paper whose
         # reference list is in another script cannot match it however well
