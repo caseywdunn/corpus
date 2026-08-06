@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The README install block now installs `pngquant` on macOS arm64.**
+  It listed `bash tools/install_ocr_extras.sh` as the step that provides
+  `pngquant`, but conda-forge has no osx-arm64 build, so on Apple Silicon
+  the script prints a Homebrew command and exits without installing
+  anything. An operator following the README verbatim finished the
+  install believing they had it, and every scanned paper thereafter came
+  out at `--optimize 1` — 90 MB instead of 35 MB on a 45-page Russian
+  scan. INSTALL.md had this right all along; the README's one-command
+  block did not.
+
 ## [1.0.0] - 2026-08-05
 
 Through most of this cycle `dev` carried a plain `0.6.0` — the version
