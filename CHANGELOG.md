@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`resume_scenario` is now actually deselected from a bare `pytest`.**
+  Both `pytest.ini` and `tests/test_resume_scenario.py` documented it as
+  deselected by default, but nothing implemented that — no `addopts`, no
+  `collection_modifyitems` hook — so a plain `pytest` built the demo
+  corpuscle twice mid-run and took ~8 minutes instead of ~2. Now an
+  `addopts` line does what the marker description always claimed. `pytest
+  -m resume_scenario` still opts in, since `-m` is last-wins.
+
 - **The README install block now installs `pngquant` on macOS arm64.**
   It listed `bash tools/install_ocr_extras.sh` as the step that provides
   `pngquant`, but conda-forge has no osx-arm64 build, so on Apple Silicon
