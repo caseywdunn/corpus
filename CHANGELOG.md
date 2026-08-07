@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Figure PNGs are now written in their smallest lossless encoding
+  (#184).** Figures are ~97% of a served bundle — 16.3 GB of the 19 GB
+  siphonophore corpuscle — and on a 2,527-figure sample of that corpus
+  47.6% of them are greyscale stored as RGB, because a scanned line
+  engraving rasterizes to three bit-identical channels. Dropping the two
+  redundant ones and re-encoding measured **-33.2%** over the whole
+  figure set, with nothing to trade away.
+
+  Two rules keep it lossless. The original is always a candidate: a
+  blanket `optimize=True` re-encode made **52.1%** of sampled figures
+  *larger*, since line art compresses worse under PIL's filter choices
+  than under the encoder that wrote it, so smallest-of-N is what
+  separates -33.2% from -18.1%. And the channel drop is verified rather
+  than trusted — the candidate is decoded and compared against the source
+  pixels before it may replace anything, with any mismatch keeping the
+  original. Detection is exact channel equality, so a figure with even one
+  genuinely coloured pixel is left alone.
+
+  Bitonal (≤2 grey levels) → mode `1` is deliberately not attempted: it is
+  only bit-exact when the two levels are 0 and 255, covers 3.4% of
+  figures, and is a rounding error in the savings — not worth owning a
+  lossy path.
+
+  Runs once per paper after every producer has written its final bytes,
+  rather than at each save site, because in the default `native` mode the
+  #121 resolution pass re-renders and overwrites docling's output. Applies
+  to new ingests; existing corpuscles keep their current figures until
+  rebuilt. No effect on `processed.pdf`, `docling_doc.json`, chunks, text
+  or embeddings.
+
 - **`corpus check` now warns when the Grobid container isn't the image
   `docker-compose.yml` specifies.** `/api/isalive` proves something is
   listening on the port, not what — and because the compose service

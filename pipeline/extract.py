@@ -22,6 +22,7 @@ from .figures import (
     extract_caption_info,
     parse_figure_number,
     render_figures,
+    shrink_figures_dir,
 )
 from .scan import create_cell_visualizations
 
@@ -400,6 +401,17 @@ def extract_docling_content(
             stats["rendered"], stats["skipped_method"],
             stats["skipped_no_bbox"], stats["errors"],
         )
+
+    # #184 — lossless size pass, after every producer has written its final
+    # bytes. Figures are ~97% of the served bundle and roughly half of them
+    # are greyscale stored as RGB.
+    if figures_data:
+        shrunk_n, shrunk_bytes = shrink_figures_dir(figures_dir)
+        if shrunk_n:
+            logger.info(
+                "lossless PNG pass: %d/%d figures re-encoded, %.1f MB saved",
+                shrunk_n, len(figures_data), shrunk_bytes / (1024 * 1024),
+            )
 
     # Write figures.json
     figures_info = {

@@ -22,8 +22,10 @@ set of figures+captions for one paper at a glance.
 from __future__ import annotations
 
 import html
+import io
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -1785,6 +1787,144 @@ def generate_figures_report(hash_dir: Path) -> Optional[Path]:
     out = hash_dir / "figures_report.html"
     out.write_text("\n".join(parts), encoding="utf-8")
     return out
+
+
+# ---------------------------------------------------------------------------
+# Lossless PNG size reduction (#184)
+# ---------------------------------------------------------------------------
+#
+# Figures are 96.8% of the served bundle — 16.3 GB of a 19 GB production
+# corpuscle — and on a 2,527-figure sample 47.6% of them are greyscale stored
+# as RGB: a scanned line engraving whose three channels are bit-identical.
+# Dropping the two redundant channels and re-encoding measured -33.2% across
+# the whole figure set, with no quality decision to make.
+#
+# Two rules keep it lossless, and both are load-bearing:
+#
+#   * Smallest-of-N, with the original always a candidate. A blanket
+#     `optimize=True` re-encode made 52.1% of sampled figures *larger* —
+#     line art compresses worse under PIL's filter choices than under the
+#     encoder that wrote it — so re-encoding unconditionally is a net loss.
+#   * Verify the channel drop rather than trusting it. The re-encoded
+#     candidate is decoded and compared against the source pixels before it
+#     is allowed to replace anything; a mismatch keeps the original.
+#
+# Bitonal (<=2 grey levels) -> mode "1" is deliberately not attempted. It is
+# only bit-exact when the two levels are 0 and 255, it covers 3.4% of figures,
+# and it is a rounding error in the savings — not worth owning a lossy path.
+
+
+def _encode_png(im) -> bytes:
+    """PNG-encode ``im`` in memory with zlib optimization enabled."""
+    buf = io.BytesIO()
+    im.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+def _is_greyscale_rgb(im) -> bool:
+    """True when an RGB image's three channels are bit-identical.
+
+    Exact equality, not a tolerance — that is what makes the drop to mode
+    "L" reversible. A figure carrying even a few genuinely coloured pixels
+    (a coloured scale bar, a librarian's stamp, ringing from a JPEG source)
+    is left alone, so this under-counts rather than over-counts.
+    """
+    from PIL import ImageChops
+
+    r, g, b = im.split()
+    if ImageChops.difference(r, g).getbbox() is not None:
+        return False
+    return ImageChops.difference(g, b).getbbox() is None
+
+
+def _grey_roundtrips(source, data: bytes) -> bool:
+    """True when ``data`` decodes to exactly ``source``'s grey content.
+
+    ``source`` is RGB with R == G == B, so its red channel *is* the image.
+    Comparing the decoded mode-"L" candidate against that channel is the
+    exact invariant a consumer would observe.
+    """
+    from PIL import Image, ImageChops
+
+    with Image.open(io.BytesIO(data)) as decoded:
+        decoded.load()
+        if decoded.mode != "L" or decoded.size != source.size:
+            return False
+        return ImageChops.difference(decoded, source.getchannel("R")).getbbox() is None
+
+
+def shrink_figure_png(path) -> int:
+    """Rewrite a just-saved figure PNG as its smallest lossless encoding.
+
+    Returns bytes saved (0 if the original was already the smallest form).
+    This is an optimization and never a correctness dependency, so every
+    failure path leaves the file exactly as it was found.
+    """
+    from PIL import Image
+
+    path = Path(path)
+    try:
+        original_size = path.stat().st_size
+        with Image.open(path) as im:
+            im.load()
+            if im.mode not in ("RGB", "L"):
+                # RGBA would silently lose alpha on a channel drop, and
+                # palette images are already indexed. Neither occurs in
+                # this corpus (2,513 RGB + 14 L across the sample), so
+                # bail rather than carry an untested branch.
+                return 0
+
+            best: Optional[bytes] = None
+            # Same-mode re-encode. No verification needed: PNG is lossless
+            # and the pixels are untouched, so only the encoding changes.
+            candidate = _encode_png(im)
+            if len(candidate) < original_size:
+                best = candidate
+
+            if im.mode == "RGB" and _is_greyscale_rgb(im):
+                candidate = _encode_png(im.convert("L"))
+                target = len(best) if best is not None else original_size
+                if len(candidate) < target:
+                    if _grey_roundtrips(im, candidate):
+                        best = candidate
+                    else:
+                        logger.warning(
+                            "%s: greyscale re-encode did not round-trip; "
+                            "keeping the original", path.name,
+                        )
+
+        if best is None:
+            return 0
+        # Replace atomically. stage1 tasks do hit their wall-clock limit on
+        # this corpus, and a truncated figure would outlive the run.
+        tmp = path.with_name(path.name + ".shrink.tmp")
+        tmp.write_bytes(best)
+        os.replace(tmp, path)
+        return original_size - len(best)
+    except Exception as e:
+        logger.debug("PNG shrink skipped for %s: %s", path, e)
+        return 0
+
+
+def shrink_figures_dir(figures_dir) -> Tuple[int, int]:
+    """Shrink every PNG in ``figures_dir``. Returns (files_changed, bytes_saved).
+
+    Run once, after every producer has finished, rather than at each save
+    site: in the default `native` mode the resolution pass re-renders and
+    overwrites docling's output, so shrinking at write time would do the
+    work twice and still miss figures that the resolution pass skips for
+    want of a bbox.
+    """
+    figures_dir = Path(figures_dir)
+    if not figures_dir.is_dir():
+        return 0, 0
+    changed = saved = 0
+    for png in sorted(figures_dir.glob("*.png")):
+        delta = shrink_figure_png(png)
+        if delta > 0:
+            changed += 1
+            saved += delta
+    return changed, saved
 
 
 # ---------------------------------------------------------------------------
