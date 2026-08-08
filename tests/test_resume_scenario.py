@@ -8,9 +8,11 @@ round 1 and embed only the new paper — the canonical regression check
 for implicit-resume (#71 broke this; pyflakes / unit tests can't catch
 it because it needs a real LanceDB on disk to surface).
 
-Marker: ``@pytest.mark.resume_scenario``. Deselected by default so the
-local ``pytest`` run stays fast; T3 in ``.github/workflows/integration.yml``
-opts in with ``pytest -m resume_scenario tests/test_resume_scenario.py``.
+Marker: ``@pytest.mark.resume_scenario``, deselected by ``addopts`` in
+``pytest.ini`` so the local ``pytest`` run stays fast. Opt back in with
+``pytest -m resume_scenario tests/test_resume_scenario.py`` — ``-m`` is
+last-wins, so the command line overrides ``addopts``. T3 in
+``.github/workflows/integration.yml`` does the equivalent inline.
 
 Wall time: ~2 min on Linux CI runners (round 1 ~80s, round 2 ~30s).
 Requires Grobid reachable at ``http://localhost:8070`` (the demo's

@@ -275,6 +275,21 @@ def _should_run_stage(
     return False
 
 
+# Every resumable stage that descends from `processed.pdf`, and so is
+# invalidated by an OCR-language change (#176). That is all of them: the
+# core five plus taxa/lexicon extraction, which reads the chunks. Figure
+# passes are not listed because they are not gated by
+# :func:`_should_run_stage` — they re-run on every pass anyway.
+_OCR_DEPENDENT_STAGES: Tuple[str, ...] = (
+    "scan_detection",
+    "pdf_preparation",
+    "docling_extraction",
+    "metadata_extraction",
+    "text_chunking",
+    "taxa_and_lexicon_extraction",
+)
+
+
 # Stages that every paper produces, regardless of optional inputs.
 _CORE_STAGES: Tuple[str, ...] = (
     "scan_detection",
@@ -320,6 +335,7 @@ def _all_stage_artifacts_complete(
 
 def _expected_fingerprints_for_run(
     *,
+    ocrlang: Optional[str],
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
@@ -336,6 +352,38 @@ def _expected_fingerprints_for_run(
     gate must call this so they agree on what "stale" means; otherwise
     a doc whose stage was recorded under a now-edited lexicon will be
     silently skipped by whichever side forgets the fingerprint.
+
+    ``ocrlang`` (#176) is per-*document*, unlike the taxonomy and lexicon
+    fingerprints which are per-run — so callers must resolve it inside
+    their per-document loop rather than hoisting one value out.
+
+    It fingerprints *every* resumable stage, not just the two that read
+    it. Changing the OCR language rewrites ``processed.pdf``, and every
+    later stage descends from those bytes — docling reads the PDF, Grobid
+    reads it, chunks come from docling's text, taxa come from the chunks.
+    Fingerprinting only ``scan_detection`` and ``pdf_preparation`` re-OCRs
+    the paper and then skips everything that consumes the result, so
+    ``text.json`` still holds the old OCR while the log cheerfully reports
+    the new ``-l``. That is worse than not re-running at all: it looks
+    like it worked.
+
+    It has no default *on purpose*. The first cut of #176 gave it one, and
+    main.py's outer fast path — the gate that actually skips work, and
+    which runs before the per-stage gate — silently kept the default:
+    a paper with no tag last run recorded ``{}``, the gate expected ``{}``,
+    they matched, and the paper was skipped whole before anything could
+    see the tag the operator had just added. Requiring the argument turns
+    that omission into a TypeError at the call site. Pass ``None``
+    explicitly where a per-document value genuinely doesn't apply.
+
+    Note the empty dict, not None, when no override is set. ``{}`` is what
+    :func:`_record_stage_completion` writes for a stage with no
+    fingerprint, so an untagged document still compares equal to its
+    existing record and is *not* re-OCR'd — while a tag that was added,
+    changed, or removed all compare unequal and re-run. Returning None
+    here instead would make removal undetectable, since
+    :func:`_stage_recorded_complete` skips the comparison entirely on
+    None.
     """
     fps: Dict[str, Dict[str, Any]] = {}
     taxa_lex_fp: Dict[str, Any] = {}
@@ -345,6 +393,11 @@ def _expected_fingerprints_for_run(
         taxa_lex_fp["lexicons"] = lexicon_fingerprints
     if taxa_lex_fp:
         fps["taxa_and_lexicon_extraction"] = taxa_lex_fp
+    for stage in _OCR_DEPENDENT_STAGES:
+        fp = dict(fps.get(stage, {}))
+        if ocrlang:
+            fp["ocrlang"] = ocrlang
+        fps[stage] = fp
     return fps
 
 

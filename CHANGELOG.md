@@ -5,6 +5,236 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-08
+
+### Added
+
+- **A paper's bib entry can now pin which Tesseract packs OCR it, via a
+  new `ocrlang` field (#176).** Language detection had no per-document
+  override: `ocr.ocr_languages_default` is consulted only when targeted
+  resolution returns nothing, which a *confident but wrong* detection
+  never reaches, so an operator watching a Korean flora paper OCR as
+  English had no recourse short of hand-patching `scan_detection.json`.
+  The bib is where it belongs — entries are already keyed to individual
+  PDFs, already loaded before the run, and already carry per-paper
+  operator directives that aren't bibliographic facts (`license`,
+  `serve`). Write it the way ocrmypdf spells it, `ocrlang = {ell+eng}`.
+
+  Deliberately *not* the standard BibTeX `language` field, which means
+  "language of the work" and which reference managers populate by
+  default — reusing it would let an ordinary Zotero export silently start
+  steering OCR.
+
+  The pin beats both langdetect and Tesseract OSD, because being outvoted
+  by the signal you are correcting would defeat the purpose; detection
+  still runs and its verdict stays in `scan_detection.json` alongside
+  `ocrlang_requested` / `ocrlang_honored` / `ocrlang_dropped`, so what
+  the pipeline believed and what the operator overruled are visible side
+  by side. Uninstalled pack names are dropped with a warning rather than
+  passed to ocrmypdf, which would fail the paper outright; if none
+  survive, the tag is ignored and detection decides. It selects packs
+  only — it does not force OCR, so tagging a born-digital paper is a
+  no-op.
+
+  Adding, changing or removing a tag re-runs the paper on `--resume` —
+  every stage, not just the OCR ones, because re-OCR rewrites
+  `processed.pdf` and docling, Grobid, chunking and taxon extraction all
+  descend from those bytes. Without that the feature would be a trap in
+  two different ways: the paper would be skipped outright, or it would be
+  re-OCR'd correctly and then have its new text discarded by stages that
+  still counted as complete. Untagged papers keep skipping as before, so
+  no existing corpuscle is re-OCR'd. Validated on a 699-paper corpus:
+  tagging two papers re-processed exactly those two and skipped 697, and
+  a Korean flora paper that had been OCR'd as English cleared its
+  `gibberish_after_ocr` gate with 7,372 Hangul characters recovered.
+
+- **Figure PNGs are now written in their smallest lossless encoding
+  (#184).** Figures are ~97% of a served bundle — 16.3 GB of the 19 GB
+  siphonophore corpuscle — and on a 2,527-figure sample of that corpus
+  47.6% of them are greyscale stored as RGB, because a scanned line
+  engraving rasterizes to three bit-identical channels. Dropping the two
+  redundant ones and re-encoding measured **-33.2%** over the whole
+  figure set, with nothing to trade away.
+
+  Two rules keep it lossless. The original is always a candidate: a
+  blanket `optimize=True` re-encode made **52.1%** of sampled figures
+  *larger*, since line art compresses worse under PIL's filter choices
+  than under the encoder that wrote it, so smallest-of-N is what
+  separates -33.2% from -18.1%. And the channel drop is verified rather
+  than trusted — the candidate is decoded and compared against the source
+  pixels before it may replace anything, with any mismatch keeping the
+  original. Detection is exact channel equality, so a figure with even one
+  genuinely coloured pixel is left alone.
+
+  Bitonal (≤2 grey levels) → mode `1` is deliberately not attempted: it is
+  only bit-exact when the two levels are 0 and 255, covers 3.4% of
+  figures, and is a rounding error in the savings — not worth owning a
+  lossy path.
+
+  Runs once per paper after every producer has written its final bytes,
+  rather than at each save site, because in the default `native` mode the
+  #121 resolution pass re-renders and overwrites docling's output. Applies
+  to new ingests; existing corpuscles keep their current figures until
+  rebuilt. No effect on `processed.pdf`, `docling_doc.json`, chunks, text
+  or embeddings.
+
+- **`corpus check` now warns when the Grobid container isn't the image
+  `docker-compose.yml` specifies.** `/api/isalive` proves something is
+  listening on the port, not what — and because the compose service
+  carries `restart: unless-stopped`, a container created from an older
+  compose file keeps serving that port indefinitely. A macOS arm64 host
+  was found running the full DeLFT image months after the compose default
+  moved to `lfoppiano/grobid:0.8.1`; the pre-flight reported `[ok] Grobid:
+  reachable` throughout, while the image README §Grobid forbids on Apple
+  Silicon was parsing every reference in the corpus. The check is a warn,
+  not a failure — DeLFT is a supported opt-in on AVX-capable Linux
+  x86_64 — and stays silent for a remote or Apptainer Grobid, a host
+  without Docker, and a non-clone install with no compose file.
+
+### Changed
+
+- **The corpus-wide soft consistency checks are now asserted as corpus
+  rates rather than per paper (#185).** Seven checks compare two derived
+  artifacts and read a disagreement as a pipeline defect — a `.bib` title
+  that should appear in the body text, a figure number cited in text that
+  should have a figure. That premise holds for some material and not for
+  the rest, and which one you get is a property of the *corpus*, not the
+  code: a curated title legitimately differs from what an offprint with
+  no title page prints, and a 19th-century monograph legitimately cites
+  plates bound in another volume. Asserted per paper on a production
+  corpuscle they produced 1,690 failures across 1,157 papers — 65% of the
+  corpus — which cannot be triaged, so in practice the signal was off.
+
+  Each check is now one aggregate assertion against a ceiling, bucketed
+  by file type, and a breach names the rate, the denominator, the ceiling
+  and the first ten offending documents, so triage still starts from a
+  hash. Ceilings are calibrated across two deliberately unalike corpora —
+  1,787 documents of marine invertebrate zoology heavy on plate-based
+  monographs, and 699 of botany that is mostly modern journal articles —
+  and `CORPUS_SOFT_RATE_CEILINGS` points at a JSON file overriding any
+  subset of them for a corpus of a different shape.
+
+  `references_match_corpus_papers` is deliberately set where it can only
+  catch catastrophe: its premise, that a paper cites other papers *in
+  this corpus*, measures corpus cohesion rather than reference parsing,
+  and cohesion is not a pipeline property. A corpus assembled by mining
+  references outward runs 52.7% / 84.4% as its normal case.
+
+  The hard per-paper checks are unchanged — `has_text`, `has_title`,
+  `has_authors`, `has_chunks`, `text_min_length`, `chars_per_page`. They
+  agree with the quality gates `run.log` already reports and are few
+  enough to act on individually. The whole rate group stands down below
+  25 documents, so the demo is unaffected.
+
+- **`corpus status` no longer blames missing language packs for every
+  `gibberish_after_ocr`.** The hint said the cause is "usually a missing
+  Tesseract language pack ... install the pack and rerun"; on a 699-paper
+  build with all 126 packs installed that was wrong for every paper it
+  fired on. It now walks three causes cheapest-first — pack absent, pack
+  present but a different one chosen (which `ocrlang` overrides), or the
+  OCR result discarded because `redo_ocr` / `skip_text` preserved a
+  corrupt digital text layer that no pack choice can reach — and names
+  the artifact that answers each. It also notes that a table-dense paper
+  can score high without being broken, since the score is a text
+  heuristic and numeric tables read as noise to it.
+
+
+### Fixed
+
+- **A non-Latin Tesseract OSD verdict no longer discards a
+  high-confidence language detection (#176).** Pack resolution branched
+  `if visual_script … elif detected_iso`, so one OSD call could throw
+  away langdetect's answer entirely. The rationale — OSD reads the page
+  image, so it stays right where a corrupt text layer misleads langdetect
+  — holds, but OSD is a guess from a single sampled page and is wrong
+  often enough to matter. On a 1,787-document siphonophore build from
+  2026-04-18 (a pre-v1.0 tree, and the only corpus at hand),
+  **188 papers had a p>=0.99 Latin-script detection overruled by a
+  non-Latin OSD verdict** — Bigelow 1914 read as Cyrillic, Alvarino 1976b
+  as Greek, Broch 1928 as Japanese.
+
+  How many of those were actually damaged depends on which packs the host
+  had. Resolution returns `[]` when the OSD-named pack isn't installed,
+  and the fallback union rescues the paper. So the **129 Cyrillic verdicts
+  are the certainly-harmed set** — `rus` is in the stock
+  `ocr_languages_default`, so it is always there to win — while the 59
+  exotic verdicts (jpn 24, ara 13, tha 6, han 5, ell 2, ben 2, hin 2) only
+  bite where that pack happens to be installed. Of the 129, the English
+  ones are rescued by the `eng` suffix anyway, leaving **40 papers whose
+  own language pack was displaced** (fra 19, spa 14, dan 2, deu 2, hrv 1,
+  ita 1, nld 1). None tripped `gibberish_after_ocr`.
+
+  Re-OCRing 10 affected papers both ways (3 body pages each, same source
+  PDF, only `-l` differing, on a host with all 126 packs installed — the
+  worst case) measures what a wrong pack costs when it does win:
+  **wrong-script glyphs -68%** (752 -> 242) and **correct diacritics
+  +227%** (256 -> 836), with word count flat at +1%. Mean gibberish score
+  moved -2.6%, which is why no gate fired. The failure is not "text with
+  the accents stripped": a pack in the wrong script rewrites whole words,
+  and on four of the ten papers *not one* of the language's diacritics
+  survived. Chun 1888 lost a clause to hallucinated Thai numerals —
+  `Sie besassen eine völlig runde Schwimmglocke mit relativ sehr kleinem`
+  came out as `เ 1111 mit relativ sehr kleinem`. Car & Hadži 1914
+  (Croatian, OSD said Cyrillic) rendered `dalje redovna opažanja` as
+  `dalje гейоупа opazanja`.
+
+  What this does *not* establish is the state of any shipped corpuscle.
+  The tree measured here predates v1.0 by four months, its file-type mix
+  is nothing like the current one (1,379 born-digital / 254
+  broken-text-layer / 154 scanned, against 734 / 14 / 1,021 reported for
+  the v1.0-era build in #185), and classification has changed underneath
+  it: Chun 1888 is `broken_text_layer` with an OSD verdict of Thai in that
+  tree and `scanned` with no OSD verdict at all today. Its April text
+  carries 1,176 umlauts, so `tha` was not installed and the fallback
+  rescued it. Whether papers in the v1.0 corpuscle are affected is
+  unmeasured — that corpus was not available here.
+
+  The two signals are now unioned, OSD first. Tesseract takes a multi-pack
+  `-l` without complaint, so a wrong OSD verdict costs one surplus pack
+  instead of the right one. An OSD verdict of `Latin` is unchanged: it has
+  no entry in the script→pack map, so it never formed a disagreement in
+  the first place.
+
+- **`tesseract_packs` in `scan_detection.json` now records what ocrmypdf
+  is actually given.** It held targeted resolution alone while the caller
+  appended `eng` on top, so a paper OCR'd with `rus+eng` was filed as
+  `['rus']` — despite a comment claiming the field mirrored the real
+  invocation. Operators grep this field to find bad OCR, and the
+  half-truth is what made the OSD bug above look worse than it was: the
+  original diagnosis blamed a missing `eng` fallback that had been there
+  all along. The value now comes from the same function `prepare_pdf`
+  calls, so the two cannot drift again. `tesseract_pack_available` still
+  reports *targeted* resolution, so it keeps its meaning now that the
+  pack list is never empty.
+
+- **`TestCitationGraph::test_references_match_corpus_papers` no longer
+  fails on a small corpus.** It reads "zero in-corpus citations" as
+  evidence of broken reference parsing, which requires that a match was
+  likely to begin with. On the 4-paper demo it isn't — no demo paper
+  cites another (Pugh 2001 and Dunn 2005 both cite *Pugh 1975/1989*
+  against a corpus holding *Pugh 2001*) — so two papers failed on every
+  clean local build, and an operator validating a fresh install got a red
+  suite with no indication it was expected. The check now stands down
+  below 25 documents and is unchanged above it.
+
+- **`resume_scenario` is now actually deselected from a bare `pytest`.**
+  Both `pytest.ini` and `tests/test_resume_scenario.py` documented it as
+  deselected by default, but nothing implemented that — no `addopts`, no
+  `collection_modifyitems` hook — so a plain `pytest` built the demo
+  corpuscle twice mid-run and took ~8 minutes instead of ~2. Now an
+  `addopts` line does what the marker description always claimed. `pytest
+  -m resume_scenario` still opts in, since `-m` is last-wins.
+
+- **The README install block now installs `pngquant` on macOS arm64.**
+  It listed `bash tools/install_ocr_extras.sh` as the step that provides
+  `pngquant`, but conda-forge has no osx-arm64 build, so on Apple Silicon
+  the script prints a Homebrew command and exits without installing
+  anything. An operator following the README verbatim finished the
+  install believing they had it, and every scanned paper thereafter came
+  out at `--optimize 1` — 90 MB instead of 35 MB on a 45-page Russian
+  scan. INSTALL.md had this right all along; the README's one-command
+  block did not.
+
 ## [1.0.0] - 2026-08-05
 
 Through most of this cycle `dev` carried a plain `0.6.0` — the version

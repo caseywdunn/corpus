@@ -24,7 +24,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .config import CONFIG
 
@@ -624,17 +624,36 @@ def _resolve_tesseract_packs(
 ) -> List[str]:
     """Return targeted Tesseract packs for ``(detected_iso, visual_script)``.
 
-    Pure precedence resolution — no fallback union, no automatic ``eng``
-    suffix. Returns ``[]`` when no targeted pack is installed for the inputs,
-    which is the signal callers use to decide whether to warn or to fall
-    back to ``CONFIG["ocr"]["ocr_languages_default"]``.
+    No fallback union and no automatic ``eng`` suffix — those belong to
+    :func:`_compose_ocr_langs`. Returns ``[]`` when no targeted pack is
+    installed for the inputs, which is the signal callers use to decide
+    whether to warn or to fall back to
+    ``CONFIG["ocr"]["ocr_languages_default"]``.
 
-    Precedence (same as :func:`_compose_ocr_langs`):
+    Both signals contribute (#176). ``visual_script`` leads, because OSD
+    reads the page image and so stays right on exactly the documents
+    langdetect gets wrong — a corrupt text layer. But it does not *replace*
+    ``detected_iso``: OSD is a per-page guess from a single sampled page,
+    and on this corpus it is wrong often enough that letting it win outright
+    silently degraded 68 papers. In the 1,769-document siphonophore
+    production corpus, 188 papers had a p>=0.99 Latin-script language
+    detection overruled by a non-Latin OSD verdict — Bigelow 1914 read as
+    Cyrillic, Alvarino 1976b as Greek, Broch 1928 as Japanese. All 188 were
+    OCR'd. The 120 English ones were rescued by accident, because
+    :func:`_compose_ocr_langs` appends ``eng`` anyway; the other 68 simply
+    lost their correct pack (fra x35, spa x20, deu x7, ita x2, dan x2,
+    hrv x1, nld x1) and OCR'd without it. None tripped the
+    ``gibberish_after_ocr`` gate — they scored 0.26-0.45 against a 0.5
+    threshold — so the damage was invisible.
 
-    1. ``visual_script`` (from Tesseract OSD) wins over ``detected_iso`` —
-       langdetect's code is unreliable when the text layer is corrupt.
-    2. Otherwise use ``_ISO_TO_TESSERACT[detected_iso]``. For German the
-       Fraktur pack is added when installed (historical papers).
+    A union degrades gracefully where an exclusive choice does not:
+    Tesseract accepts multi-pack ``-l`` fine, so a wrong OSD verdict now
+    costs one surplus pack instead of the right one.
+
+    Note ``_SCRIPT_TO_TESSERACT`` has no ``"Latin"`` key, so an OSD verdict
+    of Latin never enters the first branch — the union only forms when OSD
+    claims a *non-Latin* script, which is the disagreement case. For German
+    the Fraktur pack is added when installed (historical papers).
     """
     available = _available_tesseract_langs()
     if not available:
@@ -644,13 +663,50 @@ def _resolve_tesseract_packs(
         for tess in _SCRIPT_TO_TESSERACT[visual_script]:
             if tess in available and tess not in chosen:
                 chosen.append(tess)
-    elif detected_iso:
+    if detected_iso:
         tess = _ISO_TO_TESSERACT.get(detected_iso)
-        if tess and tess in available:
+        if tess and tess in available and tess not in chosen:
             chosen.append(tess)
-            if tess == "deu" and "deu_latf" in available:
+            if tess == "deu" and "deu_latf" in available and "deu_latf" not in chosen:
                 chosen.append("deu_latf")
     return chosen
+
+
+def _parse_ocrlang(raw: Optional[str]) -> List[str]:
+    """Split an ``ocrlang`` bib value into Tesseract pack names.
+
+    Written the way the operator already sees it in ocrmypdf's ``-l`` flag
+    and in this module's own "Running OCR" log line — ``pol+eng``. Commas
+    and bare whitespace are accepted too, because curators type both.
+    """
+    if not raw:
+        return []
+    out: List[str] = []
+    for part in re.split(r"[+,\s]+", str(raw).strip().lower()):
+        if part and part not in out:
+            out.append(part)
+    return out
+
+
+def _resolve_ocrlang_pin(raw: Optional[str]) -> Tuple[List[str], List[str]]:
+    """Return ``(honored_packs, dropped_packs)`` for an ``ocrlang`` value.
+
+    A pin is honored only for packs Tesseract actually has installed.
+    ocrmypdf exits non-zero on an unknown ``-l`` code, so passing one
+    through would turn a typo into a failed OCR pass for that paper; and
+    silently OCRing with a pack the operator did not ask for would be
+    worse than ignoring the tag. Unknown names are therefore dropped and
+    reported in ``scan_detection.json`` so the mistake is visible.
+    """
+    requested = _parse_ocrlang(raw)
+    if not requested:
+        return [], []
+    available = _available_tesseract_langs()
+    if not available:
+        return [], requested
+    honored = [p for p in requested if p in available]
+    dropped = [p for p in requested if p not in available]
+    return honored, dropped
 
 
 def _osd_script_for_page(img_bytes: bytes) -> Optional[str]:
@@ -935,21 +991,45 @@ def create_cell_visualizations(
 
 
 
-def _annotate_pack_availability(result: Dict) -> Dict:
+def _annotate_pack_availability(ocrlang: Optional[str], result: Dict) -> Dict:
     """Tag a :func:`detect_scan_type` result with Tesseract pack availability.
+
+    ``ocrlang`` is the operator's per-document override from the bib
+    (#176), or None. When it names at least one installed pack it replaces
+    the resolved ``tesseract_packs`` outright — see the ``ocrlang_*``
+    fields below.
 
     Adds two fields:
 
-    - ``tesseract_packs`` — the targeted Tesseract pack list resolved from
-      ``(detected_language, visual_script)`` via
-      :func:`_resolve_tesseract_packs`. Empty when no pack is installed for
-      the detected language/script (the pipeline will then fall back to the
-      configured default union).
+    - ``tesseract_packs`` — the exact pack list :func:`prepare_pdf` will
+      pass to ocrmypdf's ``-l``, produced by calling the same
+      :func:`_compose_ocr_langs` with the same arguments. That includes the
+      ``eng`` suffix and, when targeted resolution finds nothing, the
+      configured fallback union.
     - ``tesseract_pack_available`` — ``True``/``False``/``None``. ``None``
       means no language was detected (e.g., a low-text scan), so we can't
-      decide. Recording this for born-digital papers too is intentional —
-      it lets you grep ``scan_detection.json`` across the corpus to find
-      papers in unsupported languages.
+      decide. This tracks *targeted* resolution only — whether this
+      document's own language/script has a pack installed — so it stays
+      meaningful even though ``tesseract_packs`` is never empty. Recording
+      it for born-digital papers too is intentional: it lets you grep
+      ``scan_detection.json`` across the corpus to find papers in
+      unsupported languages.
+
+    And, only when ``ocrlang`` is set:
+
+    - ``ocrlang_requested`` — the raw string as the operator wrote it.
+    - ``ocrlang_honored`` — whether it named any installed pack. False
+      means the tag was ignored and detection drove the choice after all.
+    - ``ocrlang_dropped`` — requested packs Tesseract doesn't have.
+
+    ``tesseract_packs`` used to record targeted resolution alone while
+    :func:`_compose_ocr_langs` appended ``eng`` on top, so a document OCR'd
+    with ``rus+eng`` was filed as ``['rus']`` (#176). The field is read by
+    operators grepping for bad OCR, and that gap is what made the
+    OSD-precedence bug above look worse than it was — the diagnosis blamed
+    a missing ``eng`` fallback that had been there all along. Deriving the
+    value from the same function prepare_pdf calls keeps the two from
+    drifting again.
 
     Emits a WARNING when ``needs_ocr=True`` but no targeted pack is
     installed; OCR will still run with the default union, but accuracy on
@@ -965,19 +1045,62 @@ def _annotate_pack_availability(result: Dict) -> Dict:
     if not result.get("language_trusted", True):
         iso = None
     visual = result.get("visual_script")
-    packs = _resolve_tesseract_packs(iso, visual)
-    # Mirror what prepare_pdf will actually pass to ocrmypdf, so the
-    # recorded pack list isn't a half-truth on bilingual documents.
-    for extra in (result.get("probe_languages") or [])[1:]:
+    extra_isos = (result.get("probe_languages") or [])[1:]
+
+    # Targeted resolution drives the availability flag and the warning
+    # below; it is the question "does this document's own language have a
+    # pack?", which the fallback union would otherwise mask.
+    targeted = _resolve_tesseract_packs(iso, visual)
+    for extra in extra_isos:
         for pack in _resolve_tesseract_packs(extra):
-            if pack not in packs:
-                packs.append(pack)
-    result["tesseract_packs"] = packs
+            if pack not in targeted:
+                targeted.append(pack)
+
+    # Same call prepare_pdf makes, so the record cannot disagree with the
+    # invocation.
+    result["tesseract_packs"] = _compose_ocr_langs(
+        iso,
+        visual_script=visual,
+        restrict_to_script=result.get("script_hint"),
+        extra_isos=extra_isos,
+    )
     if iso is None and visual is None:
         result["tesseract_pack_available"] = None
     else:
-        result["tesseract_pack_available"] = bool(packs)
-    if result.get("needs_ocr") and not packs and (iso or visual):
+        result["tesseract_pack_available"] = bool(targeted)
+
+    # #176 — the operator's pin, applied last so it beats every inferred
+    # signal. Detection still ran and its verdict stays recorded above:
+    # the whole point is to be able to see what the pipeline believed and
+    # what the operator overruled it with, side by side, in one file.
+    honored, dropped = _resolve_ocrlang_pin(ocrlang)
+    if ocrlang:
+        result["ocrlang_requested"] = ocrlang
+        result["ocrlang_honored"] = bool(honored)
+        if dropped:
+            result["ocrlang_dropped"] = dropped
+    if honored:
+        result["tesseract_packs"] = honored
+        result["tesseract_pack_available"] = True
+        if dropped:
+            logger.warning(
+                "ocrlang=%r on %s: no installed Tesseract pack for %s; "
+                "OCRing with %s. Install the missing pack(s) (macOS: "
+                "`brew install tesseract-lang`; Debian: "
+                "`apt-get install tesseract-ocr-<code>`).",
+                ocrlang, result.get("filename"), "+".join(dropped),
+                "+".join(honored),
+            )
+        return result
+    if ocrlang:
+        logger.warning(
+            "ocrlang=%r on %s names no installed Tesseract pack (%s); "
+            "ignoring the override and falling back to detection. Check the "
+            "spelling against `tesseract --list-langs` — these are Tesseract "
+            "pack names (deu, fra), not ISO codes (de, fr).",
+            ocrlang, result.get("filename"), "+".join(dropped),
+        )
+    if result.get("needs_ocr") and not targeted and (iso or visual):
         logger.warning(
             "No installed Tesseract pack for detected_language=%r visual_script=%r "
             "(%s); OCR will fall back to the default language union and may be "
@@ -1072,7 +1195,7 @@ def _scanned_page_fraction(pdf_path: Path, pages_to_check: int = 8) -> Optional[
         return None
 
 
-def detect_scan_type(pdf_path: Path) -> Dict:
+def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
     """Classify the text-layer state of a PDF into one of three buckets:
 
     - ``born_digital`` — dense, intelligible text layer in a detectable
@@ -1094,6 +1217,14 @@ def detect_scan_type(pdf_path: Path) -> Dict:
     ``ocr.reocr_scanned_text_layers: false`` to trust existing layers
     instead.
 
+    ``ocrlang`` is the optional per-document OCR language override from
+    the paper's bib entry (#176) — a ``+``-joined list of Tesseract pack
+    names, e.g. ``pol+eng``. When it names at least one installed pack it
+    pins ``tesseract_packs`` outright, overruling both langdetect and
+    Tesseract OSD. It selects *packs only*: it does not force OCR, so
+    tagging a born-digital paper changes nothing. ``needs_ocr`` stays a
+    detection decision.
+
     The returned dict is written to ``scan_detection.json`` and consumed
     by :func:`prepare_pdf`. Downstream stages can also read the
     ``detected_language`` field as a useful signal.
@@ -1102,7 +1233,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
         import fitz  # PyMuPDF
     except ImportError:
         logger.warning("PyMuPDF not available; treating as born-digital (no OCR)")
-        return _annotate_pack_availability({
+        return _annotate_pack_availability(ocrlang, {
             "filename": pdf_path.name,
             "file_type": "born_digital",
             "has_text": True,
@@ -1125,7 +1256,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
         doc.close()
     except Exception as e:
         logger.warning("Error reading %s: %s; assuming scanned", pdf_path.name, e)
-        return _annotate_pack_availability({
+        return _annotate_pack_availability(ocrlang, {
             "filename": pdf_path.name,
             "file_type": "scanned",
             "has_text": False,
@@ -1168,7 +1299,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
                     pdf_path.name,
                     ", ".join(f"{i} p={c:.2f}" for i, c, _ in votes),
                 )
-        return _annotate_pack_availability({
+        return _annotate_pack_availability(ocrlang, {
             "filename": pdf_path.name,
             "file_type": "scanned",
             "detection_reason": "no_text_layer",
@@ -1203,7 +1334,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
             "re-routing to OCR",
             matched, pdf_path.name,
         )
-        return _annotate_pack_availability({
+        return _annotate_pack_availability(ocrlang, {
             "filename": pdf_path.name,
             "file_type": "scanned",
             "detection_reason": "vendor_boilerplate_only",
@@ -1279,7 +1410,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
                         ", ".join(f"{i} p={c:.2f}" for i, c, _ in votes),
                         script_hint or "full",
                     )
-            return _annotate_pack_availability({
+            return _annotate_pack_availability(ocrlang, {
                 "filename": pdf_path.name,
                 "file_type": "scanned",
                 "detection_reason": "raster_page_images",
@@ -1334,7 +1465,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
     # High gibberish score is a direct signal the text layer is corrupt,
     # regardless of script. Catches the obvious cases.
     if gib > threshold:
-        return _annotate_pack_availability({
+        return _annotate_pack_availability(ocrlang, {
             "filename": pdf_path.name,
             "file_type": "broken_text_layer",
             "detection_reason": "gibberish_score_above_threshold",
@@ -1376,7 +1507,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
                 "flagging as broken_text_layer",
                 visual,
             )
-            return _annotate_pack_availability({
+            return _annotate_pack_availability(ocrlang, {
                 "filename": pdf_path.name,
                 "file_type": "broken_text_layer",
                 "detection_reason": "visual_script_mismatch",
@@ -1392,7 +1523,7 @@ def detect_scan_type(pdf_path: Path) -> Dict:
                 "ocr_mode": "force_ocr",
             })
 
-    return _annotate_pack_availability({
+    return _annotate_pack_availability(ocrlang, {
         "filename": pdf_path.name,
         "file_type": "born_digital",
         "detection_reason": "clean_text_layer",
@@ -1520,7 +1651,9 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
 
     Language selection uses ``detection_result["detected_language"]`` plus
     the config default union, filtered to what Tesseract actually has
-    installed. See :func:`_compose_ocr_langs`.
+    installed. See :func:`_compose_ocr_langs`. When the paper's bib entry
+    carried an ``ocrlang`` override that named an installed pack (#176),
+    that list is used verbatim instead.
 
     On any OCR failure we copy the original PDF through and log the error
     — downstream stages should still run on the untouched PDF rather than
@@ -1547,14 +1680,22 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         "redo_ocr": "--redo-ocr",
     }.get(ocr_mode, "--skip-text")
 
-    probe_langs = detection_result.get("probe_languages") or []
-    langs = _compose_ocr_langs(
-        detection_result.get("detected_language")
-        if detection_result.get("language_trusted", True) else None,
-        visual_script=detection_result.get("visual_script"),
-        restrict_to_script=detection_result.get("script_hint"),
-        extra_isos=probe_langs[1:],
-    )
+    if detection_result.get("ocrlang_honored"):
+        # #176 — the operator pinned the packs in the bib. detect_scan_type
+        # already validated them against `tesseract --list-langs` and wrote
+        # the survivors here, so use them verbatim. No `eng` is appended:
+        # being able to pin `jpn` alone, with no Latin pack competing for
+        # the same glyphs, is most of the point of the override.
+        langs = list(detection_result.get("tesseract_packs") or [])
+    else:
+        probe_langs = detection_result.get("probe_languages") or []
+        langs = _compose_ocr_langs(
+            detection_result.get("detected_language")
+            if detection_result.get("language_trusted", True) else None,
+            visual_script=detection_result.get("visual_script"),
+            restrict_to_script=detection_result.get("script_hint"),
+            extra_isos=probe_langs[1:],
+        )
     if not langs:
         logger.warning(
             "No Tesseract languages available; copying original PDF (OCR skipped)"

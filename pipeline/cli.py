@@ -1102,6 +1102,9 @@ def _cmd_check(args: argparse.Namespace) -> int:
         ok, detail = _ping_grobid(cfg.grobid.url)
         if ok:
             pstatus(f"Grobid: reachable at {cfg.grobid.url}", status="ok")
+            image_warning = _check_grobid_image(cfg.grobid.url)
+            if image_warning:
+                pstatus(image_warning, status="warn")
         else:
             failures.append(
                 f"Grobid not reachable at {cfg.grobid.url} ({detail}). "
@@ -1467,6 +1470,104 @@ def _ping_grobid(url: str) -> tuple[bool, str]:
         return False, f"HTTP {r.status_code}: {r.text[:40]}"
     except Exception as e:
         return False, type(e).__name__
+
+
+_DELFT_IMAGE_PREFIX = "grobid/grobid"
+
+
+def _grobid_image_warning(
+    running: Optional[str],
+    expected: Optional[str],
+    apple_silicon: bool,
+) -> Optional[str]:
+    """Warn when the container answering on the Grobid port isn't the expected image.
+
+    ``/api/isalive`` says something is listening, not *what*. A container
+    started from an older ``docker-compose.yml`` keeps running under
+    ``restart: unless-stopped`` across pulls, so the image serving the port
+    can silently disagree with the compose file — and the image determines
+    which reference parser runs (CRF vs DeLFT), which changes the parsed
+    references of every paper in the corpus.
+
+    Pure so the branch table is unit-testable without Docker. Returns the
+    warning text, or ``None`` when there is nothing to say (image unknown,
+    no expectation to compare against, or the two agree).
+    """
+    if not running or not expected or running == expected:
+        return None
+    msg = (
+        f"Grobid image: container on this port is `{running}`, but "
+        f"docker-compose.yml specifies `{expected}`. Reference parsing "
+        f"differs between images. `docker compose up -d grobid` recreates "
+        f"it from the compose file."
+    )
+    if apple_silicon and running.startswith(_DELFT_IMAGE_PREFIX):
+        msg += (
+            " That image is the full DeLFT build, which README §Grobid "
+            "says not to run on Apple Silicon (its TensorFlow binaries "
+            "need AVX, which Rosetta 2 lacks)."
+        )
+    return msg
+
+
+def _grobid_container_image(url: str) -> Optional[str]:
+    """Image of the local Docker container publishing the Grobid port.
+
+    ``None`` whenever the question doesn't apply or can't be answered:
+    a non-local Grobid (HPC compute node, remote host), no ``docker`` on
+    PATH, or nothing published on that port — Grobid also runs under
+    Apptainer or as a bare JVM, and neither is a problem to report.
+    """
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return None
+    if parsed.hostname not in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+        return None
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    if shutil.which("docker") is None:
+        return None
+    try:
+        r = subprocess.run(
+            ["docker", "ps", "--filter", f"publish={port}", "--format", "{{.Image}}"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except Exception:
+        return None
+    if r.returncode != 0:
+        return None
+    images = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+    return images[0] if len(images) == 1 else None
+
+
+def _compose_grobid_image() -> Optional[str]:
+    """``services.grobid.image`` from the repo's docker-compose.yml, if present.
+
+    Absent for a non-clone install (pip from a tarball, deploy host), in
+    which case there is no expectation to compare a running container to.
+    """
+    compose = Path(__file__).resolve().parent.parent / "docker-compose.yml"
+    if not compose.is_file():
+        return None
+    try:
+        import yaml
+        with open(compose) as fh:
+            data = yaml.safe_load(fh) or {}
+        image = data.get("services", {}).get("grobid", {}).get("image")
+    except Exception:
+        return None
+    return image if isinstance(image, str) else None
+
+
+def _check_grobid_image(url: str) -> Optional[str]:
+    """Compare the container serving ``url`` against docker-compose.yml."""
+    import platform as _platform
+    return _grobid_image_warning(
+        _grobid_container_image(url),
+        _compose_grobid_image(),
+        apple_silicon=(sys.platform == "darwin" and _platform.machine() == "arm64"),
+    )
 
 
 def _free_disk_gb(path: Path) -> Optional[float]:

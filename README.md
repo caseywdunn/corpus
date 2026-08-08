@@ -71,6 +71,28 @@ bib: ./references.bib
 
 Matching is on the basename (case-insensitive), so the `file` value can be a bare filename or a full path. This is the cleanest way to get accurate per-paper metadata where you've already curated references for your own writing.
 
+Because entries are already keyed to individual PDFs, the `.bib` is also where a few *per-paper operator directives* live — settings that aren't bibliographic facts but do need to be stated one paper at a time:
+
+| Field | Effect |
+|---|---|
+| `license`, `licenseurl` | Figure licensing for the served bundle — see [dev_docs/LICENSING.md](dev_docs/LICENSING.md) |
+| `serve`, `servereason` | Exclude a paper from the served bundle — see [dev_docs/QC.md](dev_docs/QC.md) |
+| `ocrlang` | Pin which Tesseract packs OCR this paper |
+
+`ocrlang` is the escape hatch for a paper whose language the pipeline gets confidently wrong. Language detection normally does the right thing, but when it doesn't there is otherwise no way to correct one document — the corpus-wide `ocr.ocr_languages_default` is only consulted when detection finds nothing at all, which a confident-but-wrong detection never reaches.
+
+```bibtex
+@article{Koufos_Perdikis2017,
+  title   = {...},
+  file    = {Koufos_Perdikis2017.pdf},
+  ocrlang = {ell+eng},
+}
+```
+
+Write Tesseract pack names joined by `+` — the same spelling ocrmypdf's `-l` uses, and the same string the run log prints as `langs=`. They are pack names, not ISO codes: `deu`, `fra`, `ell`, not `de`, `fr`, `el`. Run `tesseract --list-langs` to see what's installed. Names that aren't installed are dropped with a warning rather than passed through, and if none survive the tag is ignored and detection decides as usual.
+
+The tag pins language packs only — it does not force OCR, so adding it to a born-digital paper changes nothing. Adding, changing, or removing it re-runs OCR for that paper on the next `corpus run`; papers you didn't touch are left alone.
+
 ### External taxonomic data (optional)
 
 The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution — the layer that lets a question about *Apolemia uvaria* find papers that only ever wrote *Stephanomia uvaria*. It's built once on the first `corpus run` from whichever source you point at; subsequent runs reuse the cached SQLite unless you pass `--force-rebuild-taxonomy`.
@@ -255,10 +277,11 @@ conda activate corpus
 pip install -e .
 bash tools/install_tessdata.sh   # Tesseract OCR language packs
 bash tools/install_ocr_extras.sh # pngquant — much smaller OCR'd PDFs
+brew install pngquant            # macOS arm64 only — see below
 corpus prefetch                  # ~4.8 GB of models, up front
 ```
 
-`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only low-accuracy `tessdata_fast` language data — see [Language support](#language-support) below. `tools/install_ocr_extras.sh` installs `pngquant`, without which ocrmypdf drops from `--optimize 2` to `--optimize 1`: on a 45-page Russian scan that is the difference between a 35 MB and a 90 MB `processed.pdf`. It matters more since v1.0, which re-OCRs every scanned paper rather than trusting its text layer — budget for it before a large run.
+`pip install -e .` puts the `corpus` binary on PATH (via `[project.scripts]` in `pyproject.toml`); the package version stays in sync with `pipeline/version.py` so `pip show corpus`, `corpus --version`, and the bundle manifest never drift. `tools/install_tessdata.sh` is required because the conda-forge `tesseract` package ships only low-accuracy `tessdata_fast` language data — see [Language support](#language-support) below. `tools/install_ocr_extras.sh` installs `pngquant`, without which ocrmypdf drops from `--optimize 2` to `--optimize 1`: on a 45-page Russian scan that is the difference between a 35 MB and a 90 MB `processed.pdf`. It matters more since v1.0, which re-OCRs every scanned paper rather than trusting its text layer — budget for it before a large run. **On macOS arm64 the script cannot install it** — conda-forge has no osx-arm64 `pngquant` build, so the script prints the Homebrew command and exits without it. Run `brew install pngquant` yourself, as the install block above does; the script is idempotent, so re-running it afterwards just confirms what you have. Every other platform gets `pngquant` from the script directly. [INSTALL.md](INSTALL.md#higher-ocr-compression-pngquant--jbig2enc) covers the optional `jbig2enc` and the no-root HPC case.
 
 `corpus prefetch` is optional but recommended: it downloads the four models the pipeline otherwise fetches on first use (docling's layout model, TableFormer and `HybridChunker` tokenizer, plus the ~4.3 GB BGE-M3 embedding model), retrying with backoff because HuggingFace throttles anonymous traffic. Getting them now means the first `corpus run` can't stall mid-stage on a slow network. It does not make the run *offline* — HuggingFace is still contacted for revision checks on every run unless you `export HF_HUB_OFFLINE=1`, which is the setting that actually pins a run to the cached snapshot ([INSTALL.md](INSTALL.md#offline-hosts)). Set `HF_HOME` first if your home directory is small or isn't shared across machines, and see [INSTALL.md](INSTALL.md#model-downloads-and-where-they-land) for the offline/HPC pattern — prefetch where there's internet, run with `HF_HUB_OFFLINE=1` where there isn't. `corpus check` reports what's already cached without touching the network.
 

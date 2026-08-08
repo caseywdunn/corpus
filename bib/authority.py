@@ -239,6 +239,13 @@ def create_schema(conn: sqlite3.Connection) -> None:
             -- format_citation MCP tool uses this to gate "from user .bib"
             -- (no warning) vs "grobid-reconciled" (warning) provenance.
             bib_imported_at REAL,
+            -- #176 — operator override for OCR language packs, as a
+            -- `+`-joined Tesseract pack list (e.g. `pol+eng`). Not a
+            -- bibliographic fact and deliberately not the standard BibTeX
+            -- `language` field, which means "language of the work" and
+            -- which Zotero populates by default — an imported .bib must
+            -- not silently start steering OCR. NULL for almost every row.
+            ocrlang        TEXT,
             created_at     REAL NOT NULL,
             updated_at     REAL NOT NULL
         );
@@ -341,12 +348,16 @@ _V03_WORKS_COLUMNS = [
 _V05_WORKS_COLUMNS = [
     ("bib_imported_at", "REAL"),  # #79
 ]
+_V11_WORKS_COLUMNS = [
+    ("ocrlang", "TEXT"),  # #176
+]
 
 
 def _migrate_works_columns(conn: sqlite3.Connection) -> None:
     """Idempotent ALTER TABLE for works.* additions from past releases."""
     have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
-    for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS):
+    for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS,
+                       *_V11_WORKS_COLUMNS):
         if name not in have:
             conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
@@ -368,11 +379,19 @@ _NON_PUBLISHABLE_LICENSES = frozenset({
 
 
 def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) -> None:
-    """Copy bib-derived license + serve fields from metadata.json into works.*."""
+    """Copy bib-derived license + serve + ocrlang fields from metadata.json
+    into works.*.
+
+    ``ocrlang`` (#176) rides along here purely so ``corpus bib export``
+    can round-trip it. Nothing in the pipeline reads it back from this
+    table — the scan stage reads it straight off the BibIndex, because it
+    has to run before the authority DB exists.
+    """
     license_v = meta.get("license")
     license_url = meta.get("license_url")
     serve_v = meta.get("serve")
     serve_reason = meta.get("serve_reason")
+    ocrlang = meta.get("ocrlang")
 
     # Build the SET clause only for fields we have a value for.
     sets, params = [], []
@@ -390,6 +409,9 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     if serve_reason:
         sets.append("serve_reason = ?")
         params.append(serve_reason)
+    if ocrlang:
+        sets.append("ocrlang = ?")
+        params.append(ocrlang)
     if sets:
         params.append(work_id)
         conn.execute(

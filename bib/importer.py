@@ -141,6 +141,7 @@ def find_matching_work_id(
 _WORK_FIELDS = (
     "title", "year", "journal", "doi",
     "license", "license_url", "serve", "serve_reason",
+    "ocrlang",   # #176 — flat BibTeX name, no rename needed
 )
 _BIBTEX_TO_WORKS = {
     "licenseurl":   "license_url",   # #51 — flat BibTeX → snake_case SQL
