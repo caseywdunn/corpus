@@ -228,8 +228,10 @@ def run_pdf_processing_pipeline(
         figures_file = hash_dir / "figures.json"
         docling_doc_file = hash_dir / "docling_doc.json"
         if _should_run_stage("docling_extraction", hash_dir=hash_dir,
-                             resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "docling_extraction", hash_dir=hash_dir):
+                             resume=resume, processing_summary=processing_summary,
+                             expected_fingerprint=ocr_fingerprints.get("docling_extraction", {})):
+            with _stage(processing_summary, "docling_extraction", hash_dir=hash_dir,
+                        input_fingerprint=ocr_fingerprints.get("docling_extraction", {})):
                 plog.info("Extracting text and figures...")
                 with _docling_log_context(pdf_name, hash_dir.name):
                     extract_docling_content(
@@ -251,8 +253,10 @@ def run_pdf_processing_pipeline(
         references_file = hash_dir / "references.json"
         tei_file = hash_dir / "grobid.tei.xml"
         if _should_run_stage("metadata_extraction", hash_dir=hash_dir,
-                             resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "metadata_extraction", hash_dir=hash_dir):
+                             resume=resume, processing_summary=processing_summary,
+                             expected_fingerprint=ocr_fingerprints.get("metadata_extraction", {})):
+            with _stage(processing_summary, "metadata_extraction", hash_dir=hash_dir,
+                        input_fingerprint=ocr_fingerprints.get("metadata_extraction", {})):
                 plog.info("Extracting metadata (Grobid)...")
                 bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
                 extract_metadata(
@@ -274,8 +278,10 @@ def run_pdf_processing_pipeline(
         # ── text_chunking ──────────────────────────────────────────
         chunks_file = hash_dir / "chunks.json"
         if _should_run_stage("text_chunking", hash_dir=hash_dir,
-                             resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "text_chunking", hash_dir=hash_dir):
+                             resume=resume, processing_summary=processing_summary,
+                             expected_fingerprint=ocr_fingerprints.get("text_chunking", {})):
+            with _stage(processing_summary, "text_chunking", hash_dir=hash_dir,
+                        input_fingerprint=ocr_fingerprints.get("text_chunking", {})):
                 plog.info("Chunking text...")
                 chunk_text(text_file, chunks_output=chunks_file)
                 processing_summary["files_created"].append(str(chunks_file))
@@ -328,7 +334,10 @@ def run_pdf_processing_pipeline(
             # Build via the shared helper (#56) so the outer per-doc
             # gate in main.py and this inner per-stage gate stay in
             # lockstep — same dict shape, same staleness semantics.
+            # ocrlang rides along here too: chunks descend from the OCR,
+            # so a language change invalidates the taxa pulled out of them.
             taxa_anat_fingerprint = _expected_fingerprints_for_run(
+                ocrlang=ocrlang,
                 taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
                 lexicon_fingerprints=lexicon_fingerprints,
             ).get("taxa_and_lexicon_extraction", {})

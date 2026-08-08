@@ -654,10 +654,17 @@ def main():
                 # Per-stage resume (#28, #56): if every required stage
                 # is recorded as complete in pipeline_state.json under
                 # the current PIPELINE_VERSION *and* the matching
-                # input_fingerprint (taxonomy + lexicons), skip the whole
-                # paper (fast path). Otherwise fall through —
+                # input_fingerprint (taxonomy + lexicons + ocrlang), skip
+                # the whole paper (fast path). Otherwise fall through —
                 # run_pdf_processing_pipeline runs only the stages that
                 # aren't recorded complete or whose fingerprint is stale.
+                #
+                # ocrlang must be passed here, not just to the per-stage
+                # gate (#176). This is the gate that actually skips work,
+                # and it runs first: omit the tag and a paper that had no
+                # ocrlang last run compares {} == {} and is skipped whole,
+                # so the per-stage gate never sees the tag the operator
+                # just added.
                 if _all_stage_artifacts_complete(
                     hash_dir,
                     expected_stages=_expected_stages_for_run(
@@ -667,6 +674,7 @@ def main():
                     expected_fingerprints=_expected_fingerprints_for_run(
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,
+                        ocrlang=ocrlang_for_pdf(bib_index, pdf_paths[0].name),
                     ),
                 ):
                     logger.info(
