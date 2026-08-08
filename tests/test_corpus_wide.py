@@ -311,30 +311,68 @@ def _build_corpus_index():
 
 _SOFT_RATE_MIN_DOCS = _CITATION_GRAPH_MIN_DOCS
 
-# Ceilings are empirical, not principled: the observed rate on the v1.0
-# siphonophore production corpus plus headroom. They answer "has this got
-# materially worse", not "is this good". Two consequences worth knowing:
-# they are corpus-shaped and a very different corpus may need its own, and
-# they were measured *before* the #176 OCR fix, so the OCR-sensitive rows
-# should tighten once affected papers are re-ingested.
+# Ceilings are empirical, not principled. They answer "has this got
+# materially worse", not "is this good", and they are calibrated against
+# the two corpora available to measure — deliberately unalike, because a
+# ceiling fitted to one corpus is indistinguishable from a ceiling fitted
+# to that corpus's *subject matter*:
+#
+#   siphonophore  1,787 docs, marine invertebrate zoology, heavy on
+#                 19th-century plate-based monographs and offprints
+#   viburnum        699 docs, botany, mostly modern journal articles,
+#                   assembled by mining references
+#
+# Observed rate (born-digital / OCR), and the ceiling set from it:
+#
+#   check                             siphonophore    viburnum      ceiling
+#   title_appears_in_text             15.3% / 25.5%   9.3% / 19.8%   30 / 45
+#   text_figure_refs_have_figures     34.0% / 66.2%   6.6% / 18.8%   50 / 80
+#   first_author_surname_in_text       5.4% /  4.8%  11.6% /  7.5%   25 / 25
+#   references_match_corpus_papers    26.7% / 47.8%  52.7% / 84.4%   90 / 95
+#   alphabet_ratio                     4.1% /  9.0%   3.5% / 10.7%   12 / 20
+#   extracted_figures_referenced       1.7% /  8.2%  11.7% /  9.1%   25 / 25
+#   no_duplicate_chunks                1.0% /  0.6%   0.7% /  0.0%    5 /  5
+#
+# Ceiling ~= 1.5-2x the higher of the two observed rates, rounded: normal
+# variation between corpora of different character must not fire, while a
+# doubling of a rate should. Where the two corpora disagree by 5x
+# (text_figure_refs born-digital: 34.0% vs 6.6% — plate-based monographs
+# against modern articles) the ceiling necessarily sits near the looser
+# one, and a corpus like viburnum should tighten it locally via
+# CORPUS_SOFT_RATE_CEILINGS rather than run against a ceiling built for
+# somebody else's material.
+#
+# references_match_corpus_papers is the outlier and is deliberately set
+# where it can only catch catastrophe. Its premise — that a paper cites
+# other papers *in this corpus* — measures corpus cohesion, not reference
+# parsing, and cohesion is not a pipeline property: viburnum was assembled
+# by mining references outward, so a paper matching nothing in-corpus is
+# its normal case, at 52.7% / 84.4%. Total parser failure would still show
+# as ~100%, which 90/95 catches; anything subtler this check cannot see on
+# a loosely-coupled corpus and should not pretend to.
+#
+# The OCR rows were measured before the #176 fix and should tighten once
+# affected papers are re-ingested.
 _SOFT_RATE_CEILINGS = {
-    "title_appears_in_text":                {"born_digital": 0.35, "ocr": 0.65},
-    "text_figure_refs_have_extracted_figures": {"born_digital": 0.25, "ocr": 0.60},
-    "first_author_surname_in_text":         {"born_digital": 0.15, "ocr": 0.28},
-    "references_match_corpus_papers":       {"born_digital": 0.15, "ocr": 0.22},
-    "alphabet_ratio":                       {"born_digital": 0.12, "ocr": 0.15},
-    "extracted_figures_referenced_in_text": {"born_digital": 0.07, "ocr": 0.13},
+    "title_appears_in_text":                {"born_digital": 0.30, "ocr": 0.45},
+    "text_figure_refs_have_extracted_figures": {"born_digital": 0.50, "ocr": 0.80},
+    "first_author_surname_in_text":         {"born_digital": 0.25, "ocr": 0.25},
+    "references_match_corpus_papers":       {"born_digital": 0.90, "ocr": 0.95},
+    "alphabet_ratio":                       {"born_digital": 0.12, "ocr": 0.20},
+    "extracted_figures_referenced_in_text": {"born_digital": 0.25, "ocr": 0.25},
     "no_duplicate_chunks":                  {"born_digital": 0.05, "ocr": 0.05},
 }
 
 def _load_ceilings():
     """Ceilings, with a per-corpus override from ``CORPUS_SOFT_RATE_CEILINGS``.
 
-    The defaults below are calibrated to one corpus. Rates are a property of
-    the *material* — how many papers are offprints without title pages, how
-    many are plate-based monographs — so a corpus of a different shape needs
-    its own numbers, and #185 asked for exactly that. Point the env var at a
-    JSON file to supply them::
+    The defaults above are calibrated across two corpora, but rates are a
+    property of the *material* — how many papers are offprints without title
+    pages, how many are plate-based monographs, how tightly the corpus cites
+    itself — so a corpus of a different shape needs its own numbers, and
+    #185 asked for exactly that. A corpus that sits well inside the defaults
+    should tighten them here rather than leave itself covered by a ceiling
+    sized for somebody else's material. Point the env var at a JSON file::
 
         {"title_appears_in_text": {"born_digital": 0.40, "ocr": 0.70}}
 
