@@ -88,10 +88,42 @@ blocks an install, which is the bar 1.0 set.
 
 The freeze permits all of it: every item is a bug fix or an additive
 change under [API_STABILITY.md](API_STABILITY.md), so none waits for a
-major. **Scope is not yet fixed** — §1 is a candidate list in
-dependency-free groups, not a wave plan. The cycle's shape should come
-from whichever group turns out to matter to real corpora; the viburnum
-items (#175, #165, #176) are the ones with a build behind them.
+major.
+
+**What v1.1 turned out to be: silent wrongness in OCR, and test signals
+that had stopped meaning anything.** It is a narrower cycle than §1's
+candidate list, and the shape came from the material rather than the
+plan — as intended.
+
+The OCR half started as one issue about six viburnum papers
+([#176](https://github.com/caseywdunn/corpus/issues/176)) and turned out
+to be three defects, only one of which the issue had identified. A
+non-Latin Tesseract OSD verdict discarded a confident language detection
+outright; `tesseract_packs` in `scan_detection.json` recorded targeted
+resolution while the caller appended `eng` on top, so the field
+misdescribed the actual invocation and misled that issue's own diagnosis;
+and there was no per-document override at all, so an operator watching a
+Korean flora paper OCR as English had no recourse. `ocrlang` in the bib
+closes the third, and the plumbing it needed — per-document fingerprints
+across every stage descended from `processed.pdf` — is what
+[#186](https://github.com/caseywdunn/corpus/issues/186) and
+[#188](https://github.com/caseywdunn/corpus/issues/188) would reuse.
+
+The testing half is [#185](https://github.com/caseywdunn/corpus/issues/185):
+the corpus-wide soft checks fired on 65% of a production corpus, which is
+indistinguishable from off. They now assert corpus rates instead of
+per-paper facts.
+
+**Validation was a from-scratch 699-paper build** of the viburnum
+corpuscle on macOS arm64: 699/699 documents, 0 stage failures, 67,221
+chunks, 5,340 figures, 7h57m. It found two resume bugs that would have
+shipped a feature that silently did nothing, confirmed #184's figure
+shrinking at production scale (3.4 GB → 2.3 GB, −32.4%, against the
+−33.2% measured there), and produced #186 and #187.
+
+**Scope for the rest of §1 is still not fixed** — it remains a candidate
+list in dependency-free groups, not a wave plan. The viburnum items
+(#175, #165) still have a build behind them.
 
 Doc map unchanged: architectural background in
 [OVERVIEW.md](OVERVIEW.md); per-feature history in
@@ -129,20 +161,75 @@ pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
 The per-push tiers (T0, T1/T2, T1-compose) and the full tier table live
 in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-**Baselines need re-measuring.** The last recorded ones were taken at
-`1dbb69a` — T0 at 623 passed / 2 skipped, `corpus_required` at 163
-passed / 14 skipped / 4 xfailed, SSE smoke at 3 layers / 38 tools — but
-that predates both the release commit and
-[#167](https://github.com/caseywdunn/corpus/issues/167), which changed
-what the corpus-wide comparisons assert and therefore which `--deselect`
-flags T1 needs. Re-measure on `v1.0.0` before using any of it as a
-regression reference (§1, Housekeeping).
+**"Re-measure the baselines" was the wrong ask, and is retired.** The
+recorded numbers (T0 at 623 passed / 2 skipped, `corpus_required` at 163
+/ 14 / 4, taken at `1dbb69a`) were treated as a regression reference.
+They cannot be one. T0 went 755 → 799 in a single afternoon of v1.1
+because tests were *added*, and a number that moves whenever someone
+writes a test is a changelog rather than a detector. The property that
+matters for T0 — zero failures — is already enforced by CI on every push,
+so the count adds nothing on top of it.
+
+What a real reference records is pipeline *output*: the #185 soft rates,
+quality-gate counts, and bundle manifest counts for a fixed corpus,
+diffed against a rebuild of that same corpus.
+[#187](https://github.com/caseywdunn/corpus/issues/187) specifies it and
+targets the `siphonophore_sample_YYYYMMDD` smoke-test corpuscle from
+[BOUCHET.md](BOUCHET.md) — big enough for a rate to mean something,
+small enough to rebuild per release. That comparison was run by hand
+against a viburnum rebuild during v1.1 and is what proved the 3.4 GB →
+2.3 GB drop was #184's re-encoding rather than lost content.
+
+The `--deselect` question that paragraph raised is answered: **none**.
+[#167](https://github.com/caseywdunn/corpus/issues/167) removed all three
+flags, T1 now runs bare `-m corpus_required`, and T2 additionally ignores
+`test_reference_extraction.py` because Grobid is disabled there. Both
+workflow files state the reasoning inline.
 
 ## 1. v1.1 candidate list
 
 No wave ordering — none of these blocks another, and none is a
 precondition for verifying the rest, which is what made v1.0's waves
 necessary.
+
+### Shipped in v1.1
+
+- [x] **OCR language selection**
+  ([#176](https://github.com/caseywdunn/corpus/issues/176)) — three
+  defects, not the one filed. The OSD/detection union, an honest
+  `tesseract_packs` record, and `ocrlang` as a per-document bib
+  directive. See the cycle summary above.
+- [x] **Corpus-wide soft checks assert rates, not per-paper facts**
+  ([#185](https://github.com/caseywdunn/corpus/issues/185)), with
+  ceilings calibrated across two unalike corpora and a
+  `CORPUS_SOFT_RATE_CEILINGS` override for a third.
+- [x] **Figure PNGs written in their smallest lossless form**
+  ([#184](https://github.com/caseywdunn/corpus/issues/184)) — −33.2% on
+  the siphonophore sample, −32.4% confirmed on a 699-paper viburnum
+  rebuild.
+- [x] **`corpus check` flags a Grobid container that isn't the compose
+  image**, and the `gibberish_after_ocr` hint in `corpus status` now
+  names the three real causes instead of blaming missing packs.
+
+### Opened by v1.1, not scheduled
+
+Each came out of the 699-paper validation build and none is a regression;
+they are gaps the exercise made visible.
+
+- [ ] **No per-document OCR-*mode* override**
+  ([#186](https://github.com/caseywdunn/corpus/issues/186)). `redo_ocr`
+  preserves a corrupt digital text layer — legacy symbolic Greek fonts,
+  read as spaced punctuation — so OCR output is discarded and no
+  `ocrlang` value can reach it. The sibling of #176, one field along.
+- [ ] **Fingerprint-based regression reference**
+  ([#187](https://github.com/caseywdunn/corpus/issues/187)), targeting
+  the siphonophore smoke-test corpuscle. Replaces the retired
+  "re-measure the baselines" item (§0).
+- [ ] **Per-document page-range selection**
+  ([#188](https://github.com/caseywdunn/corpus/issues/188)) — scanner
+  front matter, prepended translations and blank runs skew scan
+  detection before they waste OCR. Same bib-directive mechanism again;
+  the open question is page-number provenance on served figures.
 
 ### Served-surface correctness
 
@@ -173,10 +260,11 @@ necessary.
 
 ### Extraction quality
 
-- [ ] **Tesseract OSD overrides a p=1.0 language detection**
-  ([#176](https://github.com/caseywdunn/corpus/issues/176)) with no union
-  and no `eng` fallback, and there is no per-document override — 6 of 123
-  OCR'd papers in the viburnum build.
+- [x] **Tesseract OSD overrides a p=1.0 language detection**
+  ([#176](https://github.com/caseywdunn/corpus/issues/176)) — shipped;
+  see above. Note the issue's premise was partly wrong: the `eng`
+  fallback was already present, and the paper count it reports (6) omits
+  two papers that also flag. Neither changes the fix.
 - [ ] **Abbreviated genus binomials**
   ([#164](https://github.com/caseywdunn/corpus/issues/164)) —
   `Ph. pelagica` resolves to nothing.
@@ -215,8 +303,10 @@ necessary.
   `bib/` only, so the Python scripts under `tools/` never get the
   NameError check [#75](https://github.com/caseywdunn/corpus/issues/75)
   built it for.
-- [ ] **Re-measure the test baselines** on `v1.0.0` and record which
-  `--deselect` flags T1 still needs after #167 (see §0).
+- [x] **~~Re-measure the test baselines~~** — retired as mis-specified,
+  not completed. Test counts cannot serve as a regression reference; see
+  §0. Superseded by [#187](https://github.com/caseywdunn/corpus/issues/187).
+  The `--deselect` half is answered: none are needed.
 - [ ] **16 source comments cite PLAN.md sections that no longer exist** —
   `§10` (×8), `§9` (×4), `§7` (×1), and `§3` (×3, where the current §3 is
   a different topic), across `mcpsrv/`, `pipeline/`, `tests/` and
