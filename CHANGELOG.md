@@ -34,11 +34,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   passed to ocrmypdf, which would fail the paper outright; if none
   survive, the tag is ignored and detection decides. It selects packs
   only — it does not force OCR, so tagging a born-digital paper is a
-  no-op. Adding, changing or removing a tag re-runs `scan_detection` and
-  `pdf_preparation` for that paper on `--resume`; without that the
-  feature would be a trap, since the stage artifact already on disk would
-  otherwise cause the edit to be silently skipped. Untagged papers keep
-  skipping as before — existing corpuscles are not re-OCR'd.
+  no-op.
+
+  Adding, changing or removing a tag re-runs the paper on `--resume` —
+  every stage, not just the OCR ones, because re-OCR rewrites
+  `processed.pdf` and docling, Grobid, chunking and taxon extraction all
+  descend from those bytes. Without that the feature would be a trap in
+  two different ways: the paper would be skipped outright, or it would be
+  re-OCR'd correctly and then have its new text discarded by stages that
+  still counted as complete. Untagged papers keep skipping as before, so
+  no existing corpuscle is re-OCR'd. Validated on a 699-paper corpus:
+  tagging two papers re-processed exactly those two and skipped 697, and
+  a Korean flora paper that had been OCR'd as English cleared its
+  `gibberish_after_ocr` gate with 7,372 Hangul characters recovered.
 
 - **Figure PNGs are now written in their smallest lossless encoding
   (#184).** Figures are ~97% of a served bundle — 16.3 GB of the 19 GB
@@ -82,6 +90,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not a failure — DeLFT is a supported opt-in on AVX-capable Linux
   x86_64 — and stays silent for a remote or Apptainer Grobid, a host
   without Docker, and a non-clone install with no compose file.
+
+### Changed
+
+- **The corpus-wide soft consistency checks are now asserted as corpus
+  rates rather than per paper (#185).** Seven checks compare two derived
+  artifacts and read a disagreement as a pipeline defect — a `.bib` title
+  that should appear in the body text, a figure number cited in text that
+  should have a figure. That premise holds for some material and not for
+  the rest, and which one you get is a property of the *corpus*, not the
+  code: a curated title legitimately differs from what an offprint with
+  no title page prints, and a 19th-century monograph legitimately cites
+  plates bound in another volume. Asserted per paper on a production
+  corpuscle they produced 1,690 failures across 1,157 papers — 65% of the
+  corpus — which cannot be triaged, so in practice the signal was off.
+
+  Each check is now one aggregate assertion against a ceiling, bucketed
+  by file type, and a breach names the rate, the denominator, the ceiling
+  and the first ten offending documents, so triage still starts from a
+  hash. Ceilings are calibrated across two deliberately unalike corpora —
+  1,787 documents of marine invertebrate zoology heavy on plate-based
+  monographs, and 699 of botany that is mostly modern journal articles —
+  and `CORPUS_SOFT_RATE_CEILINGS` points at a JSON file overriding any
+  subset of them for a corpus of a different shape.
+
+  `references_match_corpus_papers` is deliberately set where it can only
+  catch catastrophe: its premise, that a paper cites other papers *in
+  this corpus*, measures corpus cohesion rather than reference parsing,
+  and cohesion is not a pipeline property. A corpus assembled by mining
+  references outward runs 52.7% / 84.4% as its normal case.
+
+  The hard per-paper checks are unchanged — `has_text`, `has_title`,
+  `has_authors`, `has_chunks`, `text_min_length`, `chars_per_page`. They
+  agree with the quality gates `run.log` already reports and are few
+  enough to act on individually. The whole rate group stands down below
+  25 documents, so the demo is unaffected.
+
+- **`corpus status` no longer blames missing language packs for every
+  `gibberish_after_ocr`.** The hint said the cause is "usually a missing
+  Tesseract language pack ... install the pack and rerun"; on a 699-paper
+  build with all 126 packs installed that was wrong for every paper it
+  fired on. It now walks three causes cheapest-first — pack absent, pack
+  present but a different one chosen (which `ocrlang` overrides), or the
+  OCR result discarded because `redo_ocr` / `skip_text` preserved a
+  corrupt digital text layer that no pack choice can reach — and names
+  the artifact that answers each. It also notes that a table-dense paper
+  can score high without being broken, since the score is a text
+  heuristic and numeric tables read as noise to it.
+
 
 ### Fixed
 
