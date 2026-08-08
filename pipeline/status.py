@@ -56,9 +56,18 @@ _GATE_INFO: Dict[str, Tuple[str, str]] = {
     ),
     "gibberish_after_ocr": (
         "error",
-        "OCR ran but the result still scores as gibberish. Usually a "
-        "missing Tesseract language pack (e.g. deu_latf for 19th-c. "
-        "German Fraktur). Install the pack and rerun.",
+        "OCR ran but the result still scores as gibberish. Check three "
+        "things, in order. (1) Is the right Tesseract pack installed? "
+        "`corpus check` lists what's present. (2) Was the right pack "
+        "*chosen*? scan_detection.json records tesseract_packs; pin it "
+        "per-paper with `ocrlang = {...}` in the bib if detection got it "
+        "wrong. (3) Was the OCR kept at all? A paper with ocr_mode "
+        "redo_ocr or skip_text keeps its existing digital text, so a "
+        "corrupt text layer (legacy symbolic fonts are the usual cause, "
+        "and read as spaced punctuation) survives OCR untouched — no "
+        "pack choice can fix that one. A high score on a paper that is "
+        "mostly numeric tables can also be the metric, not the text: "
+        "read a sample before acting.",
     ),
     "zero_references_unexpected": (
         "warn",
