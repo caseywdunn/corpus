@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-08-08
+
+### Fixed
+
+- **`CITATION.cff` is now schema-valid, which unblocks Zenodo archival.**
+  The file had failed CFF 1.2.0 validation since it was added, on two
+  independent counts: a top-level `year` key, which the schema does not
+  define (`date-released` is the key), and `license: "(see repository)"`,
+  where an SPDX identifier is required. `license` is now `MIT`, matching
+  `LICENSE`.
+
+  This is why Zenodo stopped archiving. The correlation is exact —
+  `CITATION.cff` landed one day before v0.3.0, v0.1.0 and v0.2.0 archived
+  without it, and every release from v0.3.0 through v1.1.0 did not.
+  Zenodo reads the file to build deposition metadata, so an invalid one
+  fails the deposit *after* its receiver has already answered `202`,
+  which matches the symptom exactly: webhook accepted, no record created.
+  The webhook was never at fault.
+
+  Consequence while it was broken: the concept DOI in `CITATION.cff`
+  always resolves to the newest archived version, so every citation
+  pointed at v0.2.0 from May while seven newer releases existed.
+
 ## [1.1.0] - 2026-08-08
 
 ### Added

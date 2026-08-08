@@ -11,13 +11,13 @@ authors:
     given-names: Felipe
   - family-names: Dunn
     given-names: Casey W.
-year: 2026
+date-released: "2026-08-08"
 identifiers:
   - type: doi
     value: 10.5281/zenodo.19964909
 url: "https://github.com/caseywdunn/corpus"
 repository-code: "https://github.com/caseywdunn/corpus"
-license: "(see repository)"
+license: MIT
 preferred-citation:
   type: software
   title: "Extracting AI agent-accessible data from biodiversity literature with corpus"
@@ -30,6 +30,6 @@ preferred-citation:
       given-names: Felipe
     - family-names: Dunn
       given-names: Casey W.
-  year: 2026
+  date-released: "2026-08-08"
   doi: 10.5281/zenodo.19964909
   url: "https://doi.org/10.5281/zenodo.19964909"
