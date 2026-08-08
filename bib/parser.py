@@ -405,6 +405,11 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
     elif serve_raw in {"1", "true", "yes"}:
         serve_v = 1
     serve_reason = _strip_outer_braces(entry.get("servereason", ""))
+    # #176 — operator override for OCR language packs. Carried through
+    # metadata.json only so `corpus bib export` can round-trip it; the
+    # scan stage reads it off the BibIndex directly, since it runs long
+    # before metadata.json exists.
+    ocrlang = _strip_outer_braces(entry.get("ocrlang", ""))
 
     return {
         "filename": filename,
@@ -419,9 +424,38 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
         "license_url": license_url or None,
         "serve": serve_v,
         "serve_reason": serve_reason or None,
+        "ocrlang": ocrlang or None,
         "extraction_method": "bib",
         "bib_key": entry.get("_key", ""),
     }
+
+
+def entry_ocrlang(entry: Optional[Dict]) -> Optional[str]:
+    """Return the ``ocrlang`` OCR-language override from a parsed bib entry.
+
+    ``ocrlang`` (#176) is a ``+``-joined list of Tesseract pack names —
+    ``pol+eng`` — that pins which packs OCR this one paper. Deliberately
+    not the standard BibTeX ``language`` field: that one means "language
+    of the work", and reference managers populate it by default, so
+    reusing it would let an ordinary import silently start steering OCR.
+    """
+    if not entry:
+        return None
+    return _strip_outer_braces(entry.get("ocrlang", "") or "").strip() or None
+
+
+def ocrlang_for_pdf(bib_index: Optional["BibIndex"], filename: str) -> Optional[str]:
+    """``ocrlang`` override for a PDF basename, or None if there is none.
+
+    Both resume gates must derive this identically or they will disagree
+    about whether ``scan_detection`` is stale — the outer fast-path in
+    ``pipeline/main.py`` would skip a document whose per-stage gate in
+    ``pipeline/runner.py`` wanted to re-run it. Hence one function, called
+    from both, rather than the same three lines written twice.
+    """
+    if bib_index is None:
+        return None
+    return entry_ocrlang(bib_index.lookup(filename))
 
 
 class BibIndex:

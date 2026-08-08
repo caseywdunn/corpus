@@ -322,6 +322,7 @@ def _expected_fingerprints_for_run(
     *,
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+    ocrlang: Optional[str] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Build the ``{stage_name: input_fingerprint}`` map both resume
     gates need (#56).
@@ -336,6 +337,21 @@ def _expected_fingerprints_for_run(
     gate must call this so they agree on what "stale" means; otherwise
     a doc whose stage was recorded under a now-edited lexicon will be
     silently skipped by whichever side forgets the fingerprint.
+
+    ``ocrlang`` (#176) is per-*document*, unlike the taxonomy and lexicon
+    fingerprints which are per-run — so callers must resolve it inside
+    their per-document loop rather than hoisting one value out. It
+    fingerprints ``scan_detection`` and ``pdf_preparation``, the two
+    stages an OCR-language change invalidates.
+
+    Note the empty dict, not None, when no override is set. ``{}`` is what
+    :func:`_record_stage_completion` writes for a stage with no
+    fingerprint, so an untagged document still compares equal to its
+    existing record and is *not* re-OCR'd — while a tag that was added,
+    changed, or removed all compare unequal and re-run. Returning None
+    here instead would make removal undetectable, since
+    :func:`_stage_recorded_complete` skips the comparison entirely on
+    None.
     """
     fps: Dict[str, Dict[str, Any]] = {}
     taxa_lex_fp: Dict[str, Any] = {}
@@ -345,6 +361,9 @@ def _expected_fingerprints_for_run(
         taxa_lex_fp["lexicons"] = lexicon_fingerprints
     if taxa_lex_fp:
         fps["taxa_and_lexicon_extraction"] = taxa_lex_fp
+    ocrlang_fp: Dict[str, Any] = {"ocrlang": ocrlang} if ocrlang else {}
+    fps["scan_detection"] = ocrlang_fp
+    fps["pdf_preparation"] = ocrlang_fp
     return fps
 
 

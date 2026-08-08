@@ -71,6 +71,28 @@ bib: ./references.bib
 
 Matching is on the basename (case-insensitive), so the `file` value can be a bare filename or a full path. This is the cleanest way to get accurate per-paper metadata where you've already curated references for your own writing.
 
+Because entries are already keyed to individual PDFs, the `.bib` is also where a few *per-paper operator directives* live — settings that aren't bibliographic facts but do need to be stated one paper at a time:
+
+| Field | Effect |
+|---|---|
+| `license`, `licenseurl` | Figure licensing for the served bundle — see [dev_docs/LICENSING.md](dev_docs/LICENSING.md) |
+| `serve`, `servereason` | Exclude a paper from the served bundle — see [dev_docs/QC.md](dev_docs/QC.md) |
+| `ocrlang` | Pin which Tesseract packs OCR this paper |
+
+`ocrlang` is the escape hatch for a paper whose language the pipeline gets confidently wrong. Language detection normally does the right thing, but when it doesn't there is otherwise no way to correct one document — the corpus-wide `ocr.ocr_languages_default` is only consulted when detection finds nothing at all, which a confident-but-wrong detection never reaches.
+
+```bibtex
+@article{Koufos_Perdikis2017,
+  title   = {...},
+  file    = {Koufos_Perdikis2017.pdf},
+  ocrlang = {ell+eng},
+}
+```
+
+Write Tesseract pack names joined by `+` — the same spelling ocrmypdf's `-l` uses, and the same string the run log prints as `langs=`. They are pack names, not ISO codes: `deu`, `fra`, `ell`, not `de`, `fr`, `el`. Run `tesseract --list-langs` to see what's installed. Names that aren't installed are dropped with a warning rather than passed through, and if none survive the tag is ignored and detection decides as usual.
+
+The tag pins language packs only — it does not force OCR, so adding it to a born-digital paper changes nothing. Adding, changing, or removing it re-runs OCR for that paper on the next `corpus run`; papers you didn't touch are left alone.
+
 ### External taxonomic data (optional)
 
 The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution — the layer that lets a question about *Apolemia uvaria* find papers that only ever wrote *Stephanomia uvaria*. It's built once on the first `corpus run` from whichever source you point at; subsequent runs reuse the cached SQLite unless you pass `--force-rebuild-taxonomy`.

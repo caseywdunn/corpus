@@ -118,6 +118,7 @@ def _make_min_db(path: Path) -> None:
             license TEXT, license_url TEXT, license_source TEXT,
             publishable INTEGER,
             serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
+            ocrlang TEXT,
             created_at REAL, updated_at REAL
         );
         CREATE TABLE work_authors (

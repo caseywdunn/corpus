@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from pipeline import PIPELINE_VERSION
 from pipeline.stages import (
     _all_stage_artifacts_complete,
@@ -274,22 +276,23 @@ _TAXA_LEX = list(_CORE) + ["taxa_and_lexicon_extraction"]
 
 def test_expected_fingerprints_empty_when_neither_input_configured():
     fps = _expected_fingerprints_for_run()
-    assert fps == {}
+    assert "taxa_and_lexicon_extraction" not in fps
+    # #176 — the OCR stages are always present but empty without an
+    # ocrlang tag, which is what keeps existing corpuscles from re-OCRing.
+    assert fps == {"scan_detection": {}, "pdf_preparation": {}}
 
 
 def test_expected_fingerprints_taxonomy_only():
     fps = _expected_fingerprints_for_run(taxonomy_fingerprint={"sha256": "abc"})
-    assert fps == {"taxa_and_lexicon_extraction": {"taxonomy": {"sha256": "abc"}}}
+    assert fps["taxa_and_lexicon_extraction"] == {"taxonomy": {"sha256": "abc"}}
 
 
 def test_expected_fingerprints_lexicons_only():
     fps = _expected_fingerprints_for_run(
         lexicon_fingerprints={"anatomy": {"sha256": "deadbeef"}},
     )
-    assert fps == {
-        "taxa_and_lexicon_extraction": {
-            "lexicons": {"anatomy": {"sha256": "deadbeef"}},
-        }
+    assert fps["taxa_and_lexicon_extraction"] == {
+        "lexicons": {"anatomy": {"sha256": "deadbeef"}},
     }
 
 
@@ -298,12 +301,56 @@ def test_expected_fingerprints_both_inputs():
         taxonomy_fingerprint={"sha256": "abc"},
         lexicon_fingerprints={"anatomy": {"sha256": "def"}},
     )
-    assert fps == {
-        "taxa_and_lexicon_extraction": {
-            "taxonomy": {"sha256": "abc"},
-            "lexicons": {"anatomy": {"sha256": "def"}},
-        }
+    assert fps["taxa_and_lexicon_extraction"] == {
+        "taxonomy": {"sha256": "abc"},
+        "lexicons": {"anatomy": {"sha256": "def"}},
     }
+
+
+def test_untagged_ocr_fingerprint_matches_an_existing_record(tmp_path):
+    """An untagged document must not be re-OCR'd on --resume (#176).
+
+    _record_stage_completion writes `{}` for a stage with no fingerprint,
+    so the no-ocrlang expectation has to be `{}` too — not None, and not
+    {"ocrlang": None}. Getting this wrong would silently re-OCR every
+    document in every existing corpuscle on the next resume.
+    """
+    _record_stage_completion(tmp_path, "scan_detection")
+    fps = _expected_fingerprints_for_run()
+    assert _stage_recorded_complete(
+        tmp_path, "scan_detection",
+        expected_fingerprint=fps["scan_detection"],
+    )
+
+
+@pytest.mark.parametrize("recorded,current", [
+    (None, "pol+eng"),        # operator adds a tag
+    ("pol", "pol+eng"),       # operator changes a tag
+    ("pol+eng", None),        # operator removes a tag
+])
+def test_ocrlang_change_invalidates_the_ocr_stages(tmp_path, recorded, current):
+    """Add, change and remove must all force scan_detection to re-run.
+
+    Removal is the one that a None-means-no-constraint fingerprint would
+    miss, which is why the helper returns {} rather than None.
+    """
+    _record_stage_completion(
+        tmp_path, "scan_detection",
+        input_fingerprint=_expected_fingerprints_for_run(
+            ocrlang=recorded,
+        )["scan_detection"],
+    )
+    fps = _expected_fingerprints_for_run(ocrlang=current)
+    assert not _stage_recorded_complete(
+        tmp_path, "scan_detection",
+        expected_fingerprint=fps["scan_detection"],
+    )
+
+
+def test_ocrlang_fingerprints_both_ocr_stages():
+    fps = _expected_fingerprints_for_run(ocrlang="pol+eng")
+    assert fps["scan_detection"] == {"ocrlang": "pol+eng"}
+    assert fps["pdf_preparation"] == {"ocrlang": "pol+eng"}
 
 
 def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):

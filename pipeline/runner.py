@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from bib import BibIndex
+from bib import BibIndex, ocrlang_for_pdf
 
 from . import stamp_artifact
 from .annotate import _extract_taxa_and_lexicons
@@ -178,12 +178,31 @@ def run_pdf_processing_pipeline(
             processing_summary["processing_steps"].append("huge_document_check")
 
         # ── scan_detection ──────────────────────────────────────────
+        # #176 — the bib may pin this document's OCR language packs. It is
+        # read here, straight off the BibIndex, rather than from
+        # metadata.json: metadata_extraction runs four stages later, and
+        # the pin has to be in hand before the first OCR decision.
+        #
+        # The same value fingerprints scan_detection and pdf_preparation,
+        # so adding, changing or removing the tag re-runs both on
+        # --resume. Without that the feature would be a trap: the operator
+        # edits the bib, re-runs, and the stage is skipped because its
+        # artifact is already on disk.
+        ocrlang = ocrlang_for_pdf(bib_index, pdf_path.name)
+        ocr_fingerprints = _expected_fingerprints_for_run(ocrlang=ocrlang)
+        scan_fingerprint = ocr_fingerprints.get("scan_detection", {})
+        prep_fingerprint = ocr_fingerprints.get("pdf_preparation", {})
+
         detection_file = hash_dir / "scan_detection.json"
         if _should_run_stage("scan_detection", hash_dir=hash_dir,
-                             resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "scan_detection", hash_dir=hash_dir):
+                             resume=resume, processing_summary=processing_summary,
+                             expected_fingerprint=scan_fingerprint):
+            with _stage(processing_summary, "scan_detection", hash_dir=hash_dir,
+                        input_fingerprint=scan_fingerprint):
                 plog.info("Detecting scan type...")
-                detection_result = detect_scan_type(temp_pdf)
+                if ocrlang:
+                    plog.info("OCR language pinned by bib: %s", ocrlang)
+                detection_result = detect_scan_type(temp_pdf, ocrlang=ocrlang)
                 with open(detection_file, "w") as f:
                     json.dump(stamp_artifact(detection_result), f, indent=2)
                 processing_summary["files_created"].append(str(detection_file))
@@ -195,8 +214,10 @@ def run_pdf_processing_pipeline(
         # ── pdf_preparation ─────────────────────────────────────────
         processed_pdf = hash_dir / "processed.pdf"
         if _should_run_stage("pdf_preparation", hash_dir=hash_dir,
-                             resume=resume, processing_summary=processing_summary):
-            with _stage(processing_summary, "pdf_preparation", hash_dir=hash_dir):
+                             resume=resume, processing_summary=processing_summary,
+                             expected_fingerprint=prep_fingerprint):
+            with _stage(processing_summary, "pdf_preparation", hash_dir=hash_dir,
+                        input_fingerprint=prep_fingerprint):
                 plog.info("Preparing PDF...")
                 prepare_pdf(temp_pdf, detection_result, processed_pdf)
                 processing_summary["files_created"].append(str(processed_pdf))

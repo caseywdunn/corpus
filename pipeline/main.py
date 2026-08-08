@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from bib import BibIndex
+from bib import BibIndex, ocrlang_for_pdf
 
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_lexicons
@@ -522,10 +522,8 @@ def main():
             taxonomy_db=taxonomy_db,
             lexicons=lexicons,
         )
-        expected_fingerprints = _expected_fingerprints_for_run(
-            taxonomy_fingerprint=taxonomy_fingerprint,
-            lexicon_fingerprints=lex_fingerprints,
-        )
+        # #176 — ocrlang is per-document, so the fingerprint map has to be
+        # rebuilt inside the loop rather than hoisted out of it.
         completed_in_scope = sum(
             1
             for h in pdf_map
@@ -533,7 +531,11 @@ def main():
             and _all_stage_artifacts_complete(
                 documents_dir / short_hash(h),
                 expected_stages=expected_stages,
-                expected_fingerprints=expected_fingerprints,
+                expected_fingerprints=_expected_fingerprints_for_run(
+                    taxonomy_fingerprint=taxonomy_fingerprint,
+                    lexicon_fingerprints=lex_fingerprints,
+                    ocrlang=ocrlang_for_pdf(bib_index, pdf_map[h][0].name),
+                ),
             )
         )
         if completed_in_scope:
@@ -551,10 +553,6 @@ def main():
             taxonomy_db=taxonomy_db,
             lexicons=lexicons,
         )
-        expected_fingerprints = _expected_fingerprints_for_run(
-            taxonomy_fingerprint=taxonomy_fingerprint,
-            lexicon_fingerprints=lex_fingerprints,
-        )
         for h, paths in pdf_map.items():
             sh = short_hash(h)
             hd = documents_dir / sh
@@ -568,7 +566,11 @@ def main():
             if (hd / "summary.json").exists() and _all_stage_artifacts_complete(
                 hd,
                 expected_stages=expected_stages,
-                expected_fingerprints=expected_fingerprints,
+                expected_fingerprints=_expected_fingerprints_for_run(
+                    taxonomy_fingerprint=taxonomy_fingerprint,
+                    lexicon_fingerprints=lex_fingerprints,
+                    ocrlang=ocrlang_for_pdf(bib_index, label),
+                ),
             ):
                 would_skip.append(entry)
             elif (hd / "summary.json").exists():

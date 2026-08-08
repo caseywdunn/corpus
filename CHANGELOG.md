@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A paper's bib entry can now pin which Tesseract packs OCR it, via a
+  new `ocrlang` field (#176).** Language detection had no per-document
+  override: `ocr.ocr_languages_default` is consulted only when targeted
+  resolution returns nothing, which a *confident but wrong* detection
+  never reaches, so an operator watching a Korean flora paper OCR as
+  English had no recourse short of hand-patching `scan_detection.json`.
+  The bib is where it belongs — entries are already keyed to individual
+  PDFs, already loaded before the run, and already carry per-paper
+  operator directives that aren't bibliographic facts (`license`,
+  `serve`). Write it the way ocrmypdf spells it, `ocrlang = {ell+eng}`.
+
+  Deliberately *not* the standard BibTeX `language` field, which means
+  "language of the work" and which reference managers populate by
+  default — reusing it would let an ordinary Zotero export silently start
+  steering OCR.
+
+  The pin beats both langdetect and Tesseract OSD, because being outvoted
+  by the signal you are correcting would defeat the purpose; detection
+  still runs and its verdict stays in `scan_detection.json` alongside
+  `ocrlang_requested` / `ocrlang_honored` / `ocrlang_dropped`, so what
+  the pipeline believed and what the operator overruled are visible side
+  by side. Uninstalled pack names are dropped with a warning rather than
+  passed to ocrmypdf, which would fail the paper outright; if none
+  survive, the tag is ignored and detection decides. It selects packs
+  only — it does not force OCR, so tagging a born-digital paper is a
+  no-op. Adding, changing or removing a tag re-runs `scan_detection` and
+  `pdf_preparation` for that paper on `--resume`; without that the
+  feature would be a trap, since the stage artifact already on disk would
+  otherwise cause the edit to be silently skipped. Untagged papers keep
+  skipping as before — existing corpuscles are not re-OCR'd.
+
 - **Figure PNGs are now written in their smallest lossless encoding
   (#184).** Figures are ~97% of a served bundle — 16.3 GB of the 19 GB
   siphonophore corpuscle — and on a 2,527-figure sample of that corpus
@@ -53,6 +84,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without Docker, and a non-clone install with no compose file.
 
 ### Fixed
+
+- **A non-Latin Tesseract OSD verdict no longer discards a
+  high-confidence language detection (#176).** Pack resolution branched
+  `if visual_script … elif detected_iso`, so one OSD call could throw
+  away langdetect's answer entirely. The rationale — OSD reads the page
+  image, so it stays right where a corrupt text layer misleads langdetect
+  — holds, but OSD is a guess from a single sampled page and is wrong
+  often enough to matter. On a 1,787-document siphonophore build from
+  2026-04-18 (a pre-v1.0 tree, and the only corpus at hand),
+  **188 papers had a p>=0.99 Latin-script detection overruled by a
+  non-Latin OSD verdict** — Bigelow 1914 read as Cyrillic, Alvarino 1976b
+  as Greek, Broch 1928 as Japanese.
+
+  How many of those were actually damaged depends on which packs the host
+  had. Resolution returns `[]` when the OSD-named pack isn't installed,
+  and the fallback union rescues the paper. So the **129 Cyrillic verdicts
+  are the certainly-harmed set** — `rus` is in the stock
+  `ocr_languages_default`, so it is always there to win — while the 59
+  exotic verdicts (jpn 24, ara 13, tha 6, han 5, ell 2, ben 2, hin 2) only
+  bite where that pack happens to be installed. Of the 129, the English
+  ones are rescued by the `eng` suffix anyway, leaving **40 papers whose
+  own language pack was displaced** (fra 19, spa 14, dan 2, deu 2, hrv 1,
+  ita 1, nld 1). None tripped `gibberish_after_ocr`.
+
+  Re-OCRing 10 affected papers both ways (3 body pages each, same source
+  PDF, only `-l` differing, on a host with all 126 packs installed — the
+  worst case) measures what a wrong pack costs when it does win:
+  **wrong-script glyphs -68%** (752 -> 242) and **correct diacritics
+  +227%** (256 -> 836), with word count flat at +1%. Mean gibberish score
+  moved -2.6%, which is why no gate fired. The failure is not "text with
+  the accents stripped": a pack in the wrong script rewrites whole words,
+  and on four of the ten papers *not one* of the language's diacritics
+  survived. Chun 1888 lost a clause to hallucinated Thai numerals —
+  `Sie besassen eine völlig runde Schwimmglocke mit relativ sehr kleinem`
+  came out as `เ 1111 mit relativ sehr kleinem`. Car & Hadži 1914
+  (Croatian, OSD said Cyrillic) rendered `dalje redovna opažanja` as
+  `dalje гейоупа opazanja`.
+
+  What this does *not* establish is the state of any shipped corpuscle.
+  The tree measured here predates v1.0 by four months, its file-type mix
+  is nothing like the current one (1,379 born-digital / 254
+  broken-text-layer / 154 scanned, against 734 / 14 / 1,021 reported for
+  the v1.0-era build in #185), and classification has changed underneath
+  it: Chun 1888 is `broken_text_layer` with an OSD verdict of Thai in that
+  tree and `scanned` with no OSD verdict at all today. Its April text
+  carries 1,176 umlauts, so `tha` was not installed and the fallback
+  rescued it. Whether papers in the v1.0 corpuscle are affected is
+  unmeasured — that corpus was not available here.
+
+  The two signals are now unioned, OSD first. Tesseract takes a multi-pack
+  `-l` without complaint, so a wrong OSD verdict costs one surplus pack
+  instead of the right one. An OSD verdict of `Latin` is unchanged: it has
+  no entry in the script→pack map, so it never formed a disagreement in
+  the first place.
+
+- **`tesseract_packs` in `scan_detection.json` now records what ocrmypdf
+  is actually given.** It held targeted resolution alone while the caller
+  appended `eng` on top, so a paper OCR'd with `rus+eng` was filed as
+  `['rus']` — despite a comment claiming the field mirrored the real
+  invocation. Operators grep this field to find bad OCR, and the
+  half-truth is what made the OSD bug above look worse than it was: the
+  original diagnosis blamed a missing `eng` fallback that had been there
+  all along. The value now comes from the same function `prepare_pdf`
+  calls, so the two cannot drift again. `tesseract_pack_available` still
+  reports *targeted* resolution, so it keeps its meaning now that the
+  pack list is never empty.
 
 - **`TestCitationGraph::test_references_match_corpus_papers` no longer
   fails on a small corpus.** It reads "zero in-corpus citations" as

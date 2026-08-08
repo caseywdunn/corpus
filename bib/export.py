@@ -187,7 +187,7 @@ def export_bibtex(
     where = "WHERE in_corpus = 1" if corpus_only else ""
     works_sql = f"""
         SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus,
-               license, license_url, serve, serve_reason
+               license, license_url, serve, serve_reason, ocrlang
         FROM works
         {where}
         ORDER BY year, work_id
@@ -243,6 +243,9 @@ def export_bibtex(
             # #54 — round-trip the deploy-time skip flag.
             "serve": ("false" if (r["serve"] is not None and not r["serve"]) else None),
             "servereason": r["serve_reason"],
+            # #176 — round-trip the OCR language override so an
+            # export/hand-edit/import cycle doesn't silently drop it.
+            "ocrlang": r["ocrlang"],
             # corpus_hash is opaque but lets future bib_import match
             # entries back to per-paper artifacts even after a rename.
             "corpus_hash": r["corpus_hash"],
