@@ -107,12 +107,30 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
 
 ### Releasing
 
-1. **Confirm CI on `dev` is green.** Both T0 and T1/T2 must be ✓ on
+1. **Confirm CI on `dev` is green.** Every per-push lane must be ✓ on
    the latest `dev` commit (`gh run list --branch dev --limit 4`, or
    the [Actions tab](https://github.com/caseywdunn/corpus/actions)).
    A red `dev` means the release merge into `main` will be red too —
    fix the cause before proceeding. The README badges are scoped to
    `main`, so anything red here gets stamped on the released version.
+
+   **Confirm the Zenodo webhook is armed**, while there is still time to
+   fix it:
+
+   ```bash
+   gh api repos/caseywdunn/corpus/hooks \
+     --jq '.[] | select(.config.url | contains("zenodo")) |
+           "active=\(.active) events=\(.events|join(","))"'
+   ```
+
+   Expect `active=true events=release`. No output at all means the repo
+   is toggled **off** in Zenodo and the release will not be archived.
+   Zenodo silently missed v0.3.0 through v1.0.0 — six releases — because
+   nothing checked this and a missing archive looks exactly like a
+   successful release from GitHub's side. Re-arm by toggling the repo
+   off and on at https://zenodo.org/account/settings/github/, which
+   recreates the hook; GitHub then sends a `ping` that Zenodo should
+   answer `202`.
 2. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
    string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
    for it. Bump the release-pinned install line in
@@ -120,7 +138,17 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
    it names a tag that only exists once you reach step 4, so nothing
    catches it going stale, and it has now drifted twice
    (`grep -rn '\.git@v' INSTALL.md`). Commit.
-3. Merge `dev` → `main`, push. **Wait for CI on `main` to go green**
+3. **Open a pull request `dev` → `main`** and wait for every check,
+   then merge. Do **not** push `main` directly: T3's `push` trigger is
+   path-filtered to the clean-room workflow file, so a direct merge runs
+   T0/T1/T2 and silently skips **T3 — clean-room install**, which is the
+   [PLAN.md §0](dev_docs/PLAN.md) release gate. `main` goes green either
+   way, so the omission is invisible. A PR targeting `main` is the only
+   trigger that runs T3 on a release that does not happen to edit that
+   workflow — v1.0.0 fired it on push only because that merge *added*
+   the lane.
+
+   After merging, wait for CI on `main` to go green as well
    (`gh run watch`, or poll `gh run list --branch main`) before
    tagging — once you tag, the version-stamped artifact is fixed; you
    don't want to be the person who released vX.Y.Z and then immediately
@@ -128,6 +156,31 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
 4. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`. The tag
    name and `__version__` must match (modulo the `v` prefix).
 5. Create the GitHub release from the tag (CHANGELOG entry as release notes).
+   **This — not the tag — is what triggers Zenodo.** Verify within a
+   minute or two, while the payload is still redeliverable:
+
+   ```bash
+   gh api repos/caseywdunn/corpus/hooks/<ID>/deliveries \
+     --jq '.[] | "\(.delivered_at) \(.event)/\(.action) code=\(.status_code)"' | head -5
+   ```
+
+   One release produces three deliveries — `created`, `published`,
+   `released`. Zenodo accepts the first with **202** and answers the
+   other two **409**; that pattern is success, not failure. What you are
+   checking for is a 202 on at least one of them. A 4xx across all three
+   means the hook is stale — fix it and redeliver rather than cutting
+   another release:
+
+   ```bash
+   gh api -X POST repos/caseywdunn/corpus/hooks/<ID>/deliveries/<DELIVERY_ID>/attempts
+   ```
+
+   The record itself takes a few minutes to appear; confirm with
+   `curl -sL -H 'Accept: application/json' https://zenodo.org/api/records/19964909`
+   and check that `metadata.version` is the tag you just cut. The
+   concept DOI in `CITATION.cff` always resolves to the newest archived
+   version, so if Zenodo misses a release every citation silently points
+   at an older one.
 6. Create the `vN` maintenance branch from the tag if this is a new major.
 7. On `dev`, bump `__version__` to the next pre-release (e.g.
    `"0.3.0.dev0"` — PEP 440 suffix) and open a new `## [Unreleased]`
@@ -159,10 +212,12 @@ git add pipeline/version.py CHANGELOG.md
 git commit -m "release: vX.Y.Z"
 git push origin dev
 
-# 2. Merge dev → main (no fast-forward so the merge commit marks the release).
-git checkout main && git pull --ff-only
-git merge --no-ff dev -m "Release vX.Y.Z"
-git push origin main
+# 2. Open a PR dev → main. Required: a PR is the ONLY trigger that runs
+#    T3 (clean-room install) on a release that doesn't edit that
+#    workflow. Merging main directly skips the release gate silently.
+gh pr create --base main --head dev --title "Release vX.Y.Z" --body "..."
+gh pr checks <N> --watch          # all lanes, T3 included
+gh pr merge <N> --merge           # merge commit; do NOT --delete-branch (dev is permanent)
 
 # 2a. WAIT FOR CI ON MAIN to be green before tagging — the tag pins
 #     the version-stamped artifact in the bundle manifest, and a red
@@ -177,7 +232,13 @@ git push origin vX.Y.Z
 #    annotation; we want the CHANGELOG section instead. Use --notes-file
 #    pointed at a temp file you extracted from CHANGELOG.md.
 awk '/^## \[X\.Y\.Z\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > /tmp/notes.md
-gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/notes.md
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/notes.md --verify-tag
+
+# 4a. VERIFY ZENODO TOOK IT — the release, not the tag, is the trigger.
+#     Three deliveries per release: 202 on one and 409 on the others is
+#     success (409 = duplicate suppression). All-4xx means a stale hook.
+gh api repos/caseywdunn/corpus/hooks/<ID>/deliveries \
+  --jq '.[] | "\(.delivered_at) \(.event)/\(.action) code=\(.status_code)"' | head -5
 
 # 5. New major only — create the v(N-1) maintenance branch from the
 #    previous major's tag so post-release fixes have a home (#48).
