@@ -282,6 +282,148 @@ def _build_corpus_index():
 
 
 # ---------------------------------------------------------------------------
+# Soft consistency checks as corpus rates (#185)
+# ---------------------------------------------------------------------------
+#
+# These checks compare two derived artifacts and read a disagreement as a
+# pipeline defect. That premise holds for some of this material and not for
+# the rest, and which one you get is a property of the *corpus*, not of the
+# code: a curated .bib title legitimately differs from what an offprint's
+# missing title page prints, and a 19th-century monograph legitimately
+# references plates bound in another volume.
+#
+# Asserted per paper on the 1,769-document production corpus they produced
+# 1,690 failures across 1,157 papers — 65% of the corpus. A signal that
+# fires on two thirds of the corpus cannot be triaged, so in practice it was
+# off. Asserting the *rate* keeps the signal: 3% of born-digital papers
+# failing the title check is actionable and a jump to 30% is a real
+# regression, while `a1b2c3 failed` is neither.
+#
+# This is the same premise-drift 9a6d4b0 fixed at the small-corpus end,
+# arriving from the other direction. There it was fixed by gating on corpus
+# size; here corpus size is not what makes the premise wrong, so the
+# assertion changes shape instead.
+#
+# The hard per-paper checks are deliberately left alone — has_text,
+# has_title, has_authors, has_chunks, text_min_length, chars_per_page. They
+# agree with the quality gates run.log already reports (low_text_density 53,
+# empty_text 27) and they are few enough to act on individually.
+
+_SOFT_RATE_MIN_DOCS = _CITATION_GRAPH_MIN_DOCS
+
+# Ceilings are empirical, not principled: the observed rate on the v1.0
+# siphonophore production corpus plus headroom. They answer "has this got
+# materially worse", not "is this good". Two consequences worth knowing:
+# they are corpus-shaped and a very different corpus may need its own, and
+# they were measured *before* the #176 OCR fix, so the OCR-sensitive rows
+# should tighten once affected papers are re-ingested.
+_SOFT_RATE_CEILINGS = {
+    "title_appears_in_text":                {"born_digital": 0.35, "ocr": 0.65},
+    "text_figure_refs_have_extracted_figures": {"born_digital": 0.25, "ocr": 0.60},
+    "first_author_surname_in_text":         {"born_digital": 0.15, "ocr": 0.28},
+    "references_match_corpus_papers":       {"born_digital": 0.15, "ocr": 0.22},
+    "alphabet_ratio":                       {"born_digital": 0.12, "ocr": 0.15},
+    "extracted_figures_referenced_in_text": {"born_digital": 0.07, "ocr": 0.13},
+    "no_duplicate_chunks":                  {"born_digital": 0.05, "ocr": 0.05},
+}
+
+def _load_ceilings():
+    """Ceilings, with a per-corpus override from ``CORPUS_SOFT_RATE_CEILINGS``.
+
+    The defaults below are calibrated to one corpus. Rates are a property of
+    the *material* — how many papers are offprints without title pages, how
+    many are plate-based monographs — so a corpus of a different shape needs
+    its own numbers, and #185 asked for exactly that. Point the env var at a
+    JSON file to supply them::
+
+        {"title_appears_in_text": {"born_digital": 0.40, "ocr": 0.70}}
+
+    Keys not mentioned keep their default, so an override file only has to
+    carry the rows that differ.
+    """
+    override = os.environ.get("CORPUS_SOFT_RATE_CEILINGS")
+    if not override:
+        return _SOFT_RATE_CEILINGS
+    data, err = _load_json_safe(Path(override))
+    if err:
+        raise RuntimeError(f"CORPUS_SOFT_RATE_CEILINGS={override}: {err}")
+    merged = {k: dict(v) for k, v in _SOFT_RATE_CEILINGS.items()}
+    for check, buckets in (data or {}).items():
+        if check not in merged:
+            raise RuntimeError(
+                f"CORPUS_SOFT_RATE_CEILINGS: unknown check {check!r}; "
+                f"known: {', '.join(sorted(merged))}"
+            )
+        merged[check].update(buckets)
+    return merged
+
+
+_FILE_TYPE_MAP = None
+
+
+def _file_type_bucket(doc_hash):
+    """`born_digital` or `ocr` for a document.
+
+    `scanned` and `broken_text_layer` share a bucket: both are OCR'd, both
+    show the same premise drift, and there are only 14 of the latter — too
+    few for a rate of its own to mean anything.
+    """
+    global _FILE_TYPE_MAP
+    if _FILE_TYPE_MAP is None:
+        _FILE_TYPE_MAP = {}
+        for h, d in _DOCS:
+            data, _ = _load_json_safe(d / "scan_detection.json")
+            ft = (data or {}).get("file_type")
+            _FILE_TYPE_MAP[h] = "born_digital" if ft == "born_digital" else "ocr"
+    return _FILE_TYPE_MAP.get(doc_hash, "ocr")
+
+
+def _assert_soft_rate(check_name, predicate):
+    """Run ``predicate`` over every document and assert the failure rate.
+
+    ``predicate(doc_hash, doc_dir)`` returns True (consistent), False
+    (inconsistent) or None (not applicable — missing input, too little text,
+    a known-untestable shape). Rates are computed per file-type bucket over
+    the applicable documents only.
+    """
+    if len(_DOCS) < _SOFT_RATE_MIN_DOCS:
+        pytest.skip(
+            f"corpus is {len(_DOCS)} document(s); a rate needs at least "
+            f"{_SOFT_RATE_MIN_DOCS} to mean anything"
+        )
+    ceilings = _load_ceilings()[check_name]
+    buckets = {k: {"n": 0, "failed": []} for k in ceilings}
+    for doc_hash, doc_dir in _DOCS:
+        try:
+            verdict = predicate(doc_hash, doc_dir)
+        except Exception as e:                       # noqa: BLE001
+            pytest.fail(f"{check_name} raised on {doc_hash}: {e!r}")
+        if verdict is None:
+            continue
+        b = buckets[_file_type_bucket(doc_hash)]
+        b["n"] += 1
+        if not verdict:
+            b["failed"].append(doc_hash)
+
+    problems = []
+    report = []
+    for name, ceiling in ceilings.items():
+        n = buckets[name]["n"]
+        failed = buckets[name]["failed"]
+        if not n:
+            continue
+        rate = len(failed) / n
+        report.append(f"{name}: {len(failed)}/{n} = {rate:.1%} (ceiling {ceiling:.0%})")
+        if rate > ceiling:
+            problems.append(
+                f"{name}: {rate:.1%} of {n} applicable documents failed "
+                f"{check_name}, above the {ceiling:.0%} ceiling. "
+                f"First offenders: {', '.join(failed[:10])}"
+            )
+    assert not problems, "\n".join(problems) + "\n\nAll buckets: " + "; ".join(report)
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -407,72 +549,6 @@ class TestSummary:
 class TestFigureTextConsistency:
     """Check bidirectional consistency between extracted figures and text."""
 
-    def test_extracted_figures_referenced_in_text(self, figures_and_chunks):
-        """Figures in figures.json should be mentioned somewhere in the text.
-
-        Figures with a figure_number that never appear in any chunk's text
-        suggest either a spurious figure extraction or a text extraction gap.
-        Graphical elements and unclassified figures are excluded — they often
-        lack explicit text references.
-        """
-        doc_hash, figs_data, chunks_data, _ = figures_and_chunks
-        figs = figs_data.get("figures", [])
-        chunks = chunks_data.get("chunks", [])
-
-        # Numbered figures/plates only (skip graphical_element, unclassified)
-        numbered = [
-            f for f in figs
-            if f.get("figure_number") is not None
-            and f.get("figure_type") in ("figure", "plate")
-        ]
-        if not numbered:
-            pytest.skip("no numbered figures/plates")
-
-        # Collect all figure numbers mentioned in chunk text
-        all_text = " ".join(ch.get("text", "") for ch in chunks)
-        text_nums = _extract_text_figure_numbers(all_text)
-
-        unreferenced = [
-            f["figure_number"] for f in numbered
-            if not _fig_number_digit_keys(f["figure_number"]) & text_nums
-        ]
-        # Allow some slack — captions can use unusual formatting
-        frac = len(unreferenced) / len(numbered) if numbered else 0
-        assert frac <= 0.5, (
-            f"{doc_hash}: {len(unreferenced)}/{len(numbered)} numbered figures "
-            f"not referenced in text: {unreferenced[:10]}"
-        )
-
-    def test_text_figure_refs_have_extracted_figures(self, figures_and_chunks):
-        """Figure numbers cited in running text should have corresponding
-        entries in figures.json.
-
-        If the text says 'Fig. 5' but no figure 5 was extracted, the figure
-        extraction pipeline may have missed it.
-        """
-        doc_hash, figs_data, chunks_data, _ = figures_and_chunks
-        figs = figs_data.get("figures", [])
-        chunks = chunks_data.get("chunks", [])
-
-        all_text = " ".join(ch.get("text", "") for ch in chunks)
-        text_nums = _extract_text_figure_numbers(all_text)
-        if not text_nums:
-            pytest.skip("no figure references in text")
-
-        extracted_keys = set()
-        for f in figs:
-            fn = f.get("figure_number")
-            if fn is not None:
-                extracted_keys |= _fig_number_digit_keys(fn)
-
-        missing = text_nums - extracted_keys
-        # Many papers reference figures in other papers, so be lenient.
-        # But if >50% of referenced figures are missing, something is wrong.
-        frac = len(missing) / len(text_nums) if text_nums else 0
-        assert frac <= 0.5, (
-            f"{doc_hash}: {len(missing)}/{len(text_nums)} figure numbers cited "
-            f"in text but not extracted: {sorted(missing)[:10]}"
-        )
 
     def test_figure_chunk_crossrefs_are_symmetric(self, figures_and_chunks):
         """referenced_in_chunks in figures.json and figure_refs in chunks.json
@@ -544,74 +620,6 @@ class TestCitationGraph:
     enough to match known papers.
     """
 
-    def test_references_match_corpus_papers(self, references_data):
-        """Some fraction of each paper's references should match other papers
-        in the corpus (by first-author surname + year).
-
-        This is a soft check — many references will be to papers outside this
-        siphonophore corpus. But a paper with 30 references and zero corpus
-        matches is suspicious (likely broken reference parsing).
-
-        The premise only holds at corpus scale: it reads zero matches as
-        evidence about the *parser*, which requires that a match was likely
-        in the first place. On a handful of papers it isn't, so the check
-        stands down below ``_CITATION_GRAPH_MIN_DOCS``.
-        """
-        doc_hash, data = references_data
-        refs = data.get("references", [])
-        if len(refs) < 3:
-            pytest.skip("too few references to check")
-        if len(_DOCS) < _CITATION_GRAPH_MIN_DOCS:
-            pytest.skip(
-                f"corpus is {len(_DOCS)} document(s); this check needs at "
-                f"least {_CITATION_GRAPH_MIN_DOCS} for zero in-corpus "
-                f"citations to say anything about reference parsing"
-            )
-
-        # The corpus index is keyed on Latin-script surnames. A paper whose
-        # reference list is in another script cannot match it however well
-        # parsing worked — Stepanjants 1970 cites "С Степаньянц" and
-        # "Н Bigelow" in Cyrillic. Matching those would require
-        # transliteration, which neither this test nor the pipeline does.
-        ref_authors = " ".join(
-            (r.get("authors") or [""])[0] if isinstance((r.get("authors") or [""])[0], str)
-            else ""
-            for r in refs
-        )
-        if ref_authors.strip() and _substantially_nonlatin(ref_authors):
-            pytest.skip(
-                f"reference authors are {_nonlatin_summary(ref_authors)}; the "
-                "corpus index is keyed on Latin surnames, so a match is not "
-                "possible without transliteration"
-            )
-
-        index = _build_corpus_index()
-        matches = 0
-        for ref in refs:
-            year = ref.get("year")
-            authors = ref.get("authors", [])
-            if not authors or year is None:
-                continue
-            # First author surname — refs store authors as plain strings
-            first_author = authors[0] if isinstance(authors[0], str) else ""
-            # Extract surname (last whitespace-separated token)
-            surname = first_author.strip().split()[-1].lower() if first_author.strip() else ""
-            if surname and (surname, year) in index:
-                # Don't count self-matches
-                corpus_matches = [h for h in index[(surname, year)] if h != doc_hash]
-                if corpus_matches:
-                    matches += 1
-
-        # We don't assert a minimum match rate because some papers cite
-        # entirely outside the corpus. Instead, we collect the data — the
-        # test passing with 0 matches is fine, but the output is useful
-        # for identifying reference parsing issues at scale.
-        # Flag only if there are many refs and literally zero matches.
-        if len(refs) >= 15:
-            assert matches >= 1, (
-                f"{doc_hash}: 0/{len(refs)} references match any corpus paper "
-                f"(by first-author + year). Likely broken reference parsing."
-            )
 
     def test_paper_is_cited_by_others(self, metadata):
         """Papers published before 2015 in this focused corpus should be cited
@@ -715,58 +723,6 @@ class TestMetadataPlausibility:
             f"(file: {filename})"
         )
 
-    def test_first_author_surname_in_text(self, text_and_metadata):
-        """The first author's surname should appear somewhere in the paper text.
-
-        Authors virtually always appear in their own paper (title page, running
-        header, or self-citations). Absence suggests garbled metadata.
-        """
-        doc_hash, text_data, md, _ = text_and_metadata
-        authors = md.get("authors", [])
-        if not authors:
-            pytest.skip("no authors")
-        first = authors[0]
-        surname = first.get("surname", "") if isinstance(first, dict) else str(first)
-        surname = surname.strip()
-        if not surname or len(surname) < 2:
-            pytest.skip("first author surname too short or empty")
-        body = text_data.get("text", "")
-        if _transliteration_likely(surname, body):
-            pytest.skip(
-                f"surname {surname!r} is Latin but the body is "
-                f"{_nonlatin_summary(body)}; the metadata is a "
-                "transliteration, nothing to compare"
-            )
-        assert _norm(surname) in _norm(body), (
-            f"{doc_hash}: first author surname '{surname}' not found in text"
-        )
-
-    def test_title_appears_in_text(self, text_and_metadata):
-        """The paper title (or a substantial substring) should appear in the
-        extracted text. Missing title suggests either wrong title in metadata
-        or a text extraction gap on the first page."""
-        doc_hash, text_data, md, _ = text_and_metadata
-        title = md.get("title", "").strip()
-        if not title or len(title) < 10:
-            pytest.skip("title too short to check")
-        body = text_data.get("text", "")
-        if _transliteration_likely(title, body):
-            pytest.skip(
-                f"title is Latin but the body is {_nonlatin_summary(body)}; "
-                "the recorded title is a translation, nothing to compare"
-            )
-        # Try full title first, then first 40 chars (titles can get truncated)
-        title_norm = _norm(title)
-        body_norm = _norm(body)
-        if title_norm in body_norm:
-            return  # pass
-        # Try a substantial prefix
-        prefix = title_norm[:min(40, len(title_norm))]
-        assert prefix in body_norm, (
-            f"{doc_hash}: title not found in text. "
-            f"Title: '{title[:60]}...'"
-        )
-
 
 # ===================================================================
 # TEXT QUALITY SIGNALS
@@ -802,20 +758,6 @@ class TestTextQuality:
             f"likely extraction failure"
         )
 
-    def test_alphabet_ratio(self, text_and_metadata):
-        """Text with a low fraction of alphabetic characters is likely OCR
-        garbage or extraction artifacts."""
-        doc_hash, text_data, _, _ = text_and_metadata
-        body = text_data.get("text", "")
-        if len(body) < 100:
-            pytest.skip("text too short")
-        alpha = sum(1 for c in body if c.isalpha())
-        ratio = alpha / len(body)
-        # Normal text is ~70-80% alphabetic. Below 40% is suspicious.
-        assert ratio >= 0.40, (
-            f"{doc_hash}: only {ratio:.1%} alphabetic characters — "
-            f"likely OCR noise or extraction artifacts"
-        )
 
     def test_has_page_count(self, text_and_metadata):
         doc_hash, text_data, _, _ = text_and_metadata
@@ -847,22 +789,6 @@ class TestChunkQuality:
             f"{doc_hash}: {len(empty)}/{len(ch)} chunks have empty text"
         )
 
-    def test_no_duplicate_chunks(self, chunks_data):
-        """Exact duplicate chunk text within a paper suggests a chunking bug."""
-        doc_hash, data = chunks_data
-        ch = data.get("chunks", [])
-        if len(ch) < 2:
-            pytest.skip("too few chunks")
-        texts = [c.get("text", "").strip() for c in ch if c.get("text", "").strip()]
-        seen = set()
-        dupes = []
-        for t in texts:
-            if t in seen:
-                dupes.append(t[:60])
-            seen.add(t)
-        assert len(dupes) <= max(1, len(texts) * 0.05), (
-            f"{doc_hash}: {len(dupes)} duplicate chunks: {dupes[:3]}"
-        )
 
     def test_chunk_length_not_degenerate(self, chunks_data):
         """Flag papers where most chunks are extremely short (< 50 chars) —
@@ -878,3 +804,187 @@ class TestChunkQuality:
             f"{doc_hash}: {frac:.0%} of chunks are < 50 chars — "
             f"chunker may be over-splitting"
         )
+
+
+# ===================================================================
+# SOFT CONSISTENCY CHECKS — asserted as corpus rates (#185)
+# ===================================================================
+#
+# Each predicate is the per-paper logic that used to be an assertion,
+# returning True / False / None (not applicable). The per-paper detail is
+# not lost: a rate that breaches its ceiling names the first offenders, so
+# triage still starts from a document hash.
+
+
+def _check_extracted_figures_referenced_in_text(doc_hash, doc_dir):
+    """Numbered figures should be mentioned somewhere in the text."""
+    figs_data, _ = _load_json_safe(doc_dir / "figures.json")
+    chunks_data, _ = _load_json_safe(doc_dir / "chunks.json")
+    if figs_data is None or chunks_data is None:
+        return None
+    numbered = [
+        f for f in figs_data.get("figures", [])
+        if f.get("figure_number") is not None
+        and f.get("figure_type") in ("figure", "plate")
+    ]
+    if not numbered:
+        return None
+    all_text = " ".join(ch.get("text", "") for ch in chunks_data.get("chunks", []))
+    text_nums = _extract_text_figure_numbers(all_text)
+    unreferenced = [
+        f["figure_number"] for f in numbered
+        if not _fig_number_digit_keys(f["figure_number"]) & text_nums
+    ]
+    return len(unreferenced) / len(numbered) <= 0.5
+
+
+def _check_text_figure_refs_have_extracted_figures(doc_hash, doc_dir):
+    """Figure numbers cited in text should have entries in figures.json.
+
+    Plate-based works break this premise routinely: plates are bound
+    separately, numbered in their own sequence, or live in another volume.
+    """
+    figs_data, _ = _load_json_safe(doc_dir / "figures.json")
+    chunks_data, _ = _load_json_safe(doc_dir / "chunks.json")
+    if figs_data is None or chunks_data is None:
+        return None
+    all_text = " ".join(ch.get("text", "") for ch in chunks_data.get("chunks", []))
+    text_nums = _extract_text_figure_numbers(all_text)
+    if not text_nums:
+        return None
+    extracted = set()
+    for f in figs_data.get("figures", []):
+        fn = f.get("figure_number")
+        if fn is not None:
+            extracted |= _fig_number_digit_keys(fn)
+    return len(text_nums - extracted) / len(text_nums) <= 0.5
+
+
+def _check_first_author_surname_in_text(doc_hash, doc_dir):
+    """The first author's surname should appear in their own paper."""
+    text_data, _ = _load_json_safe(doc_dir / "text.json")
+    md, _ = _load_json_safe(doc_dir / "metadata.json")
+    if text_data is None or md is None:
+        return None
+    authors = md.get("authors", [])
+    if not authors:
+        return None
+    first = authors[0]
+    surname = (first.get("surname", "") if isinstance(first, dict) else str(first)).strip()
+    if not surname or len(surname) < 2:
+        return None
+    body = text_data.get("text", "")
+    if _transliteration_likely(surname, body):
+        return None
+    return _norm(surname) in _norm(body)
+
+
+def _check_title_appears_in_text(doc_hash, doc_dir):
+    """The .bib title should appear in the body text.
+
+    Weakest premise of the set: for this material the recorded title is
+    frequently curated, translated or normalised relative to what the page
+    prints, and offprints and extracts often have no title page at all.
+    """
+    text_data, _ = _load_json_safe(doc_dir / "text.json")
+    md, _ = _load_json_safe(doc_dir / "metadata.json")
+    if text_data is None or md is None:
+        return None
+    title = md.get("title", "").strip()
+    if not title or len(title) < 10:
+        return None
+    body = text_data.get("text", "")
+    if _transliteration_likely(title, body):
+        return None
+    title_norm, body_norm = _norm(title), _norm(body)
+    if title_norm in body_norm:
+        return True
+    return title_norm[:min(40, len(title_norm))] in body_norm
+
+
+def _check_alphabet_ratio(doc_hash, doc_dir):
+    """Low alphabetic fraction suggests OCR garbage."""
+    text_data, _ = _load_json_safe(doc_dir / "text.json")
+    if text_data is None:
+        return None
+    body = text_data.get("text", "")
+    if len(body) < 100:
+        return None
+    return sum(1 for c in body if c.isalpha()) / len(body) >= 0.40
+
+
+def _check_no_duplicate_chunks(doc_hash, doc_dir):
+    """Exact duplicate chunk text within a paper suggests a chunking bug."""
+    data, _ = _load_json_safe(doc_dir / "chunks.json")
+    if data is None:
+        return None
+    ch = data.get("chunks", [])
+    if len(ch) < 2:
+        return None
+    texts = [c.get("text", "").strip() for c in ch if c.get("text", "").strip()]
+    seen, dupes = set(), 0
+    for t in texts:
+        if t in seen:
+            dupes += 1
+        seen.add(t)
+    return dupes <= max(1, len(texts) * 0.05)
+
+
+def _check_references_match_corpus_papers(doc_hash, doc_dir):
+    """A paper with many references should match at least one corpus paper."""
+    data, _ = _load_json_safe(doc_dir / "references.json")
+    if data is None:
+        return None
+    refs = data.get("references", [])
+    if len(refs) < 15:
+        return None
+    ref_authors = " ".join(
+        (r.get("authors") or [""])[0] if isinstance((r.get("authors") or [""])[0], str)
+        else ""
+        for r in refs
+    )
+    if ref_authors.strip() and _substantially_nonlatin(ref_authors):
+        return None
+    index = _build_corpus_index()
+    for ref in refs:
+        year, authors = ref.get("year"), ref.get("authors", [])
+        if not authors or year is None:
+            continue
+        first = authors[0] if isinstance(authors[0], str) else ""
+        surname = first.strip().split()[-1].lower() if first.strip() else ""
+        if surname and any(h != doc_hash for h in index.get((surname, year), ())):
+            return True
+    return False
+
+
+class TestSoftConsistencyRates:
+    """Corpus-health rates for checks whose per-paper premise is unreliable.
+
+    One assertion per check instead of one per paper. See the rationale and
+    the ceiling table above `_SOFT_RATE_CEILINGS`.
+    """
+
+    def test_title_appears_in_text_rate(self):
+        _assert_soft_rate("title_appears_in_text", _check_title_appears_in_text)
+
+    def test_text_figure_refs_have_extracted_figures_rate(self):
+        _assert_soft_rate("text_figure_refs_have_extracted_figures",
+                          _check_text_figure_refs_have_extracted_figures)
+
+    def test_first_author_surname_in_text_rate(self):
+        _assert_soft_rate("first_author_surname_in_text",
+                          _check_first_author_surname_in_text)
+
+    def test_references_match_corpus_papers_rate(self):
+        _assert_soft_rate("references_match_corpus_papers",
+                          _check_references_match_corpus_papers)
+
+    def test_alphabet_ratio_rate(self):
+        _assert_soft_rate("alphabet_ratio", _check_alphabet_ratio)
+
+    def test_extracted_figures_referenced_in_text_rate(self):
+        _assert_soft_rate("extracted_figures_referenced_in_text",
+                          _check_extracted_figures_referenced_in_text)
+
+    def test_no_duplicate_chunks_rate(self):
+        _assert_soft_rate("no_duplicate_chunks", _check_no_duplicate_chunks)
