@@ -40,6 +40,21 @@ This applies to the corpus size only. Genuinely fixed counts stay exact: the
 formula alongside any literal. `CHANGELOG.md` is exempt too: it records what
 was true at a release, so leave historical figures alone.
 
+### Don't cite `dev_docs/PLAN.md` from code comments
+
+PLAN.md is ephemeral. It is pruned and renumbered at every release
+(CONTRIBUTING.md's release ritual, step 8), so a comment reading
+`see dev_docs/PLAN.md §10` points at a section that no longer exists — and says
+nothing about what the code does. This has already happened twice: 16 such
+comments across `mcpsrv/`, `pipeline/`, `tests/` and BOUCHET.md were left
+pointing at a v0.1-era numbering.
+
+Cite a **stable** doc instead — `dev_docs/OVERVIEW.md` for architecture and
+stage internals, `DEPLOY.md` for the served surface, `dev_docs/MCP_TOOLS.md` for
+the tool catalog — or drop the pointer and say the thing. Link by *section
+title*, not number, since those move too. Issue numbers (`#176`) are fine and
+preferred: they are permanent and carry the reasoning.
+
 ### Keep Yale specifics out of the public docs
 
 `README.md` and `INSTALL.md` are read by people who have never heard of Yale and
@@ -63,7 +78,7 @@ Everything site-specific belongs in `dev_docs/BOUCHET.md` and `slurm/`.
 - [README.md](README.md) — installation, usage, MCP server setup, examples
 - [CONTRIBUTING.md](CONTRIBUTING.md) — branching model, release ritual, version bumps
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release
-- [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version
+- [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version. Turns over every release — never cite it from code comments (see above)
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface + count
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC runbook for siphonophore corpus on Yale Bouchet (example; adapt for other clusters/corpora)
