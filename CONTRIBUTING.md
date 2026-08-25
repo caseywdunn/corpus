@@ -133,7 +133,23 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
    answer `202`.
 2. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
    string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
-   for it. Bump the release-pinned install line in
+   for it.
+
+   **A minor or major entry opens with a `### Theme — vX.Y <name>`
+   paragraph** stating the cycle's organizing principle: what it was
+   *for*, in a few sentences, before the Added/Changed/Fixed lists say
+   what it did. Patch releases are exempt — a one-fix patch's theme is
+   its fix, and demanding a section there produces filler.
+
+   This is the CHANGELOG's job, not [PLAN.md](dev_docs/PLAN.md)'s. PLAN
+   records what's *next* and is pruned every release (step 8), so any
+   history left in it is both duplicated and on its way to being deleted.
+   The rule exists because the sections were written inconsistently —
+   1.0.0, 0.6.0, 0.5.0 and 0.4.0 have one; 1.1.0 did not until it was
+   backfilled — and each gap pulled a cycle summary into PLAN.md's
+   preamble, which had grown to ~100 lines of duplicated history by v1.2.
+
+   Bump the release-pinned install line in
    [INSTALL.md](INSTALL.md) (`pip install git+…@vX.Y.Z`) to the same tag —
    it names a tag that only exists once you reach step 4, so nothing
    catches it going stale, and it has now drifted twice

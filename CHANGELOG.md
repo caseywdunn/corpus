@@ -32,6 +32,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2026-08-08
 
+### Theme — v1.1 post-1.0 correctness
+
+v1.1 was triaged out of the 1.0 release rather than absorbed into it:
+the pre-release UX review, the viburnum production build, and two items
+carried across several cycles. Nothing in it blocked an install, which
+is the bar 1.0 set, and the v0.6 38-tool freeze permitted all of it —
+every item is a bug fix or an additive change under
+[API_STABILITY.md](dev_docs/API_STABILITY.md).
+
+**What it turned out to be: silent wrongness in OCR, and test signals
+that had stopped meaning anything.** A narrower cycle than its candidate
+list, with the shape coming from the material rather than the plan. The
+OCR half began as one issue about six viburnum papers (#176) and proved
+to be three defects, only one of which that issue had identified — the
+third being that there was no per-document override at all, so an
+operator watching a Korean flora paper OCR as English had no recourse.
+The testing half was #185: corpus-wide soft checks firing on 65% of a
+production corpus, which is indistinguishable from off.
+
+Validation was a from-scratch **699-paper viburnum build** on macOS
+arm64 — 699/699 documents, 0 stage failures, 67,221 chunks, 5,340
+figures, 7h57m. It found two resume bugs that would have shipped a
+feature that silently did nothing, confirmed #184's figure shrinking at
+production scale (3.4 GB → 2.3 GB, −32.4%, against the −33.2% measured
+on the siphonophore sample), and opened #186, #187 and #188.
+
+*(Backfilled 2026-08-25, from this cycle's own PLAN.md write-up rather
+than reconstructed from the diff. Older entries without a theme section
+were deliberately left alone — see CONTRIBUTING.md's release ritual.)*
+
 ### Added
 
 - **A paper's bib entry can now pin which Tesseract packs OCR it, via a

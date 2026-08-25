@@ -1,115 +1,33 @@
 # PLAN.md — Corpus pipeline (v1.2)
 
-v0.1 (2026-05-01) shipped the full extraction → annotation → indexing
-→ MCP-serving stack. v0.2 hardened internals (per-stage resume, input
-fingerprints, structured failure schema, quality gates). v0.3 collapsed
-the user surface into one CLI plus a per-corpuscle `config.yaml`. v0.4
-closed the silent-failure modes external testers and clean-room HPC
-hosts surfaced, and gated the next cycle on tiered CI. v0.5 was the
-served-bundle quality cycle — LLM-side citation amalgamation
-([#79](https://github.com/caseywdunn/corpus/issues/79)), the dossier
-suite ([#76](https://github.com/caseywdunn/corpus/issues/76)), and a
-pinned ML stack after an unpinned docling release silently broke macOS
-arm64 extraction ([#98](https://github.com/caseywdunn/corpus/issues/98),
-[#99](https://github.com/caseywdunn/corpus/issues/99)).
+**Prior cycles are recorded elsewhere, not here.** A minor or major
+release entry in [CHANGELOG.md](../CHANGELOG.md) opens with the cycle's
+organizing theme — required going forward by
+[CONTRIBUTING.md](../CONTRIBUTING.md)'s release ritual, step 2, and
+present on every entry back to 0.4.0 — and each cycle's punch list is
+preserved in its own tag's copy of this file
+([v0.6.0](https://github.com/caseywdunn/corpus/blob/v0.6.0/dev_docs/PLAN.md),
+[v1.0.0](https://github.com/caseywdunn/corpus/blob/v1.0.0/dev_docs/PLAN.md)).
+In one line each: v0.1 shipped the extraction → annotation → indexing →
+MCP-serving stack; v0.2 hardened internals; v0.3 collapsed the user
+surface into one CLI plus a per-corpuscle `config.yaml`; v0.4 closed
+silent-failure modes and gated the next cycle on tiered CI; v0.5 was the
+served-bundle quality cycle; **v0.6** froze the MCP surface at **38
+tools**, which every cycle since has held; **v1.0** made a green CI badge
+mean a fresh install works, validated by 1,769 of 1,769 documents on
+Bouchet with 0 stage failures; **v1.1.1** made `CITATION.cff` schema-valid,
+which is what had been silently blocking Zenodo archival since v0.3.0.
 
-**v0.6 (2026-06-04) was the API-freeze cycle and it landed.** The MCP
-surface is frozen at **38 tools** with a uniform error payload and a
-consistent pagination convention: the redundant singular tools were
-removed in favor of batched plurals, `lexicon_matrix` went
-summary-by-default, `get_citation_graph` gained breadth caps, the
-output-type profile ontology
-([#101](https://github.com/caseywdunn/corpus/issues/101)) shipped, and
-`tests/test_freeze_contract.py` now guards the surface mechanically.
-Ops work landed alongside: `/healthz` capability reporting
-([#91](https://github.com/caseywdunn/corpus/issues/91)), per-invocation
-run logs ([#90](https://github.com/caseywdunn/corpus/issues/90)),
-`corpus debug-pdf` ([#92](https://github.com/caseywdunn/corpus/issues/92)),
-and the `--figure-panels` selector
-([#102](https://github.com/caseywdunn/corpus/issues/102)). The v0.6
-punch list is preserved in the
-[v0.6.0 tag's history](https://github.com/caseywdunn/corpus/blob/v0.6.0/dev_docs/PLAN.md).
-
-**v1.0 (2026-08-05) was the installability cycle and it landed.** The
-organizing principle was that **a green CI badge must mean a fresh
-install works** — and that a *silent* badge means nothing at all. Both
-halves shipped: **T3**, a clean-room lane that installs from
-`environment.yaml` on a weekly clock with the HuggingFace cache disabled
-so a genuine first-run model download happens, and **T1-compose**, which
-boots the real `docker-compose.yml` on every push. Nothing had exercised
-the compose file before, which is how a default image that crash-looped
-on Apple Silicon ([#146](https://github.com/caseywdunn/corpus/issues/146))
-and a healthcheck probing for an absent `curl`
-([#157](https://github.com/caseywdunn/corpus/issues/157)) both reached
-users. `mcp` had gone unpinned into 2.0.0 and broken every clean install
-for 24 days ([#156](https://github.com/caseywdunn/corpus/issues/156));
-the remaining nine pip deps are now pinned exactly
-([#158](https://github.com/caseywdunn/corpus/issues/158)).
-
-The secondary through-line was **no silent wrongness** — code that
-produced plausible-looking bad output rather than errors. A bib parser
-that discarded all but 2,258 of 19,834 entries on one escaped brace
-([#141](https://github.com/caseywdunn/corpus/issues/141)), curated
-references stuck in the warning tier
-([#142](https://github.com/caseywdunn/corpus/issues/142),
-[#152](https://github.com/caseywdunn/corpus/issues/152)), a taxonomy
-stage that skipped into an empty `taxa.json` on compute nodes with no
-internet ([#139](https://github.com/caseywdunn/corpus/issues/139)), and
-OCR falling back to English on Cyrillic pages
-([#160](https://github.com/caseywdunn/corpus/issues/160)).
-`corpus prefetch` ([#159](https://github.com/caseywdunn/corpus/issues/159))
-closed the first-run model download for offline and rate-limited hosts.
-On the served surface, figure licensing stopped letting the client decide
-([#154](https://github.com/caseywdunn/corpus/issues/154)) and lexicon
-figure retrieval learned its own synonyms
-([#143](https://github.com/caseywdunn/corpus/issues/143)).
-
-Two external install reports drove much of it —
-[#145](https://github.com/caseywdunn/corpus/issues/145) (macOS Apple
-Silicon) and [#153](https://github.com/caseywdunn/corpus/issues/153)
-(HPC) — and the v0.6 38-tool freeze held throughout: no tool was added,
-and where 1.0 changed served behavior it was to make an existing tool
-honest. The formal API-stability policy deferred out of v0.6 shipped as
-[API_STABILITY.md](API_STABILITY.md), and distribution was settled
-explicitly rather than by omission: git + conda stays canonical, with
-Zenodo for citability. Validation was a full production run on Bouchet —
-**1,769 of 1,769 documents, 0 stage failures, 261,093 chunks embedded,
-934 of 934 eligible figures through the vision pass, and no job in the
-chain ending TIMEOUT.** The v1.0 punch list is preserved in the
-[v1.0.0 tag's history](https://github.com/caseywdunn/corpus/blob/v1.0.0/dev_docs/PLAN.md).
-
-**v1.1 (2026-08-07) was silent wrongness in OCR, and test signals that
-had stopped meaning anything.** It came out narrower than its candidate
-list, and the shape came from the material rather than the plan — as
-intended. The OCR half started as one issue about six viburnum papers
-([#176](https://github.com/caseywdunn/corpus/issues/176)) and turned out
-to be three defects, only one of which the issue had identified: a
-non-Latin Tesseract OSD verdict discarded a confident language detection
-outright; `tesseract_packs` in `scan_detection.json` recorded targeted
-resolution while the caller appended `eng` on top, so the field
-misdescribed the actual invocation and misled that issue's own diagnosis;
-and there was no per-document override at all, so an operator watching a
-Korean flora paper OCR as English had no recourse. `ocrlang` in the bib
-closed the third, and the plumbing it needed — per-document fingerprints
-across every stage descended from `processed.pdf` — is what
-[#186](https://github.com/caseywdunn/corpus/issues/186) and
-[#188](https://github.com/caseywdunn/corpus/issues/188) reuse. The
-testing half was [#185](https://github.com/caseywdunn/corpus/issues/185):
-the corpus-wide soft checks fired on 65% of a production corpus, which is
-indistinguishable from off, and now assert corpus rates instead of
-per-paper facts. Validation was a from-scratch **699-paper viburnum
-build** on macOS arm64 — 699/699 documents, 0 stage failures, 67,221
-chunks, 5,340 figures, 7h57m — which found two resume bugs that would
-have shipped a feature that silently did nothing, confirmed #184's figure
-shrinking at production scale (3.4 GB → 2.3 GB, −32.4%, against the
-−33.2% measured there), and produced #186, #187 and #188.
-
-**v1.1.1 (2026-08-08) was a one-fix patch**: `CITATION.cff` had failed
-CFF 1.2.0 validation since the day it was added, which is why Zenodo
-silently archived nothing from v0.3.0 through v1.1.0 — the webhook
-answered `202` and the deposit failed afterward, so a missing archive
-looked exactly like a successful release. `tests/test_citation_cff.py`
-now gates the file in T0.
+**v1.1 (2026-08-07) is the one v1.2 grows directly out of** — its theme
+paragraph is in the CHANGELOG; what matters here is the inheritance. Its
+699-paper viburnum validation build opened
+[#186](https://github.com/caseywdunn/corpus/issues/186),
+[#187](https://github.com/caseywdunn/corpus/issues/187) and
+[#188](https://github.com/caseywdunn/corpus/issues/188), three of the
+four items §1 picks up. And `ocrlang`
+([#176](https://github.com/caseywdunn/corpus/issues/176)) established the
+mechanism the feature half of v1.2 extends: a per-document bib directive,
+carried by per-stage fingerprints descended from `processed.pdf`.
 
 **v1.2 is the extraction-fidelity cycle.** Every quality signal the
 pipeline has ever had measures it against *itself*: the #185 soft rates
