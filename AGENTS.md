@@ -35,10 +35,15 @@ figure, and phrase anything derived from the size — walltimes, batch counts,
 disk sizing — as a rule that scales rather than a number measured once.
 
 This applies to the corpus size only. Genuinely fixed counts stay exact: the
-11-paper demo corpus, the MCP tool count, the 256-PDF `BATCH_SIZE`. Note
-`NUM_BATCHES` is *not* fixed — it is `ceil(unique PDFs / 256)`, so give the
-formula alongside any literal. `CHANGELOG.md` is exempt too: it records what
-was true at a release, so leave historical figures alone.
+4 + 1-paper demo corpus, the MCP tool count, the 64-PDF `BATCH_SIZE`. Note
+`NUM_BATCHES` is *not* fixed — it is `ceil(unique PDFs / BATCH_SIZE)`, so give
+the formula alongside any literal. And verify a "fixed" count before repeating
+it: every number in this paragraph was wrong when it was checked in Aug 2026 —
+the demo was slimmed 11 → 4 + 1 in v0.4, and 256 is `PASS3B_BATCH_SIZE` (the
+vision pass), not `BATCH_SIZE`, which defaults to 64.
+
+`CHANGELOG.md` is exempt too: it records what was true at a release, so leave
+historical figures alone.
 
 ### Don't cite `dev_docs/PLAN.md` from code comments
 

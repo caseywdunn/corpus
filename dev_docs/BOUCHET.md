@@ -475,7 +475,7 @@ sample. Unlike step 7's `corpus run --dry-run`, this is a real build: it submits
 real CPU and GPU jobs and writes real artifacts, which is the point — you
 inspect them below. It is also a different exercise from
 [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md), which checks that the *install* works
-across platforms against the 11-paper demo corpus; this checks that *your*
+across platforms against the 4-paper demo corpus; this checks that *your*
 production `config.yaml` and *your* PDFs survive the whole chain at small scale.
 
 **The sample is the 35 transcribed documents**, not an ad-hoc slice. The
