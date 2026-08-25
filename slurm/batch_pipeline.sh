@@ -10,8 +10,8 @@
 # Usage:
 #     bash batch_pipeline.sh
 #
-#     # Build a corpuscle other than corpuscles/current (e.g. a sample):
-#     CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml \
+#     # Build a corpuscle other than corpuscles/current (e.g. the smoke test):
+#     CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD/config.yaml \
 #         bash batch_pipeline.sh
 
 set -euo pipefail
