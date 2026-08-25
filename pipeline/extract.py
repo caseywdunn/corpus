@@ -145,7 +145,7 @@ def extract_docling_content(
                 "figure_id": figure_id,
                 "filename": figure_path.name,
                 "file_path": str(figure_path),
-                "caption_text": caption or "",  # canonical; see dev_docs/PLAN.md §3
+                "caption_text": caption or "",  # canonical; see OVERVIEW.md
             }
             entry.update(meta or {})
             figures_data.append(entry)

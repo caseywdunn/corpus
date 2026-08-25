@@ -105,8 +105,8 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
     point paying OCR cost on single-panel figures).
 
     OCR reliability on line-art scientific figures varies a lot —
-    dev_docs/PLAN.md §9 calls out vision-LLM fallback as Pass 3b for cases Pass 3a
-    can't resolve. For now, figures where OCR finds no labels keep
+    vision-LLM fallback is Pass 3b, for cases Pass 3a can't resolve (see
+    dev_docs/OVERVIEW.md). For now, figures where OCR finds no labels keep
     ``pass3_status = "no_labels_found"`` and no ROIs; downstream tools
     should fall back to whole-image retrieval + caption description.
     """

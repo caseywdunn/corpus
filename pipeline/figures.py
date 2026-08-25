@@ -1,8 +1,8 @@
 """Figure + caption joint-object utilities and the figures_report.html
 generator.
 
-Phase D (see dev_docs/PLAN.md §3 "Figure+caption as a first-class object"). Three
-concerns live here:
+Figure+caption as a first-class object; see dev_docs/OVERVIEW.md "Figure
+pipeline". Three concerns live here:
 
 1. :func:`extract_caption_info` — pull caption text, page, and bbox for a
    docling Picture, first via docling's own caption linker, then via a
@@ -103,7 +103,7 @@ def _roman_to_int(token: str) -> Optional[int]:
 
 
 # ---------------------------------------------------------------------------
-# Caption → panel parsing (Pass 2.5, dev_docs/PLAN.md §9)
+# Caption → panel parsing (Pass 2.5; dev_docs/OVERVIEW.md "Figure pipeline")
 # ---------------------------------------------------------------------------
 
 # Strips the leading "Fig. N" / "Figure N" / "Plate N" etc. from a caption
@@ -795,7 +795,8 @@ def extract_caption_info(picture, document) -> Dict:
 
 
 # ---------------------------------------------------------------------------
-# Pass 3a: OCR-based panel / embedded-figure ROI detection (dev_docs/PLAN.md §9)
+# Pass 3a: OCR-based panel / embedded-figure ROI detection
+# (dev_docs/OVERVIEW.md "Figure pipeline")
 # ---------------------------------------------------------------------------
 
 # Single capital letter used as a panel label, tolerates optional wrapping

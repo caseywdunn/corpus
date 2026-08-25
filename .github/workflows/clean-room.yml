@@ -42,7 +42,7 @@ name: T3 — clean-room install (scheduled)
 # returns `HTTP 404: Not Found`, and no weekly run fires. Learned the hard
 # way — the first attempt to dispatch this from a feature branch 404'd.
 #
-# That mattered because PLAN.md §0 makes a green clean-room run a gate on
+# That mattered because PLAN.md's standing gates make a green clean-room run a gate on
 # *tagging* 1.0, and a gate you cannot invoke before the release merge is
 # not a gate. Hence the two extra triggers below.
 on:
