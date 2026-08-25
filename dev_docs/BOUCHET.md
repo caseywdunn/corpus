@@ -486,7 +486,23 @@ were chosen to span the collection's hardest axes — Fraktur, Cyrillic, CJK,
 vertical Japanese, plate-only atlases, documents with no text layer at all —
 which is exactly what a smoke test wants to exercise, and they come with ground
 truth attached, so the same build serves three purposes: this rehearsal, the
-release drift reference (#187), and extraction-accuracy scoring.
+release drift reference (#187), and extraction-accuracy scoring (#192).
+
+**It is a cheaper build than the 30 PDFs it replaced, despite being 35** — 761
+pages against 1,290, and ~644 pages needing OCR against ~916. The old sample was
+never picked for speed: it carried a 235-page thesis plus four more 100-page
+monographs, three of them full-page scans. `BATCH_SIZE` defaults to 64, so 35
+PDFs is a single array task and wall-clock tracks total work.
+
+The one heavy document is **Totton1965a** — 314 pages at 100% raster coverage,
+so scan detection calls it a scan and `redo_ocr` re-OCRs every page whatever its
+text layer claims. That is half the set's entire OCR load, and it is kept on
+purpose: 314 scanned pages against 314 independently transcribed pages is the
+largest OCR ground truth available, in the exact document class this corpuscle
+exists to measure. **If it turns out to dominate wall-clock, split the roles
+rather than dropping it** — keep all 35 for scoring and #187, run the rehearsal
+on a subset. `input_pdfs` is a directory, so that costs a directory of symlinks
+and no code change. Dropping it from *scoring* is the one thing not to do.
 
 Under the config-driven flow (#138) it is just a second corpuscle — its own
 directory + `config.yaml` pointing at a slice of PDFs — selected by exporting

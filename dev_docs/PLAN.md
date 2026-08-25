@@ -251,7 +251,12 @@ README's directive table. Two more fields follow the same path.
   figure paths"; the gold 35 were picked to span the same axes, more
   deliberately, and come with truth attached. One corpuscle then serves
   three jobs: pre-production rehearsal, drift reference, and accuracy
-  scoring. **To file**, noting it supersedes part of #187.
+  scoring ([#192](https://github.com/caseywdunn/corpus/issues/192), which
+  supersedes the corpus-selection half of #187). It is also a *cheaper*
+  build than the sample: 761 pages / ~644 needing OCR, against 1,290 /
+  ~916. Totton1965a is half that OCR load on its own and is kept
+  deliberately — #192 records the trigger for splitting the rehearsal off
+  if it dominates wall-clock.
 - [ ] **Fingerprint-based regression reference**
   ([#187](https://github.com/caseywdunn/corpus/issues/187)), retargeted
   from `siphonophore_sample_YYYYMMDD` to `siphonophore_gold_YYYYMMDD`.
