@@ -34,7 +34,10 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_DIRS = ("pipeline", "mcpsrv", "bib")
+# `tools/` is in the list even though it ships no importable package: its
+# scripts are run by operators at release time, where a NameError costs a whole
+# manual run rather than a fast test failure (#75, #193).
+SOURCE_DIRS = ("pipeline", "mcpsrv", "bib", "tools")
 
 
 # pyflakes' undefined-name line looks like:
