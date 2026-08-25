@@ -1,0 +1,69 @@
+{
+ "schema_name": "DoclingDocument",
+ "version": "1.0.0",
+ "name": "DocThree",
+ "origin": {
+  "filename": "DocThree.pdf"
+ },
+ "furniture": {
+  "self_ref": "#/furniture",
+  "children": [],
+  "content_layer": "furniture",
+  "name": "_root_",
+  "label": "furniture"
+ },
+ "body": {
+  "self_ref": "#/body",
+  "children": [
+   {
+    "$ref": "#/texts/0"
+   }
+  ],
+  "content_layer": "body",
+  "name": "_root_",
+  "label": "unspecified"
+ },
+ "groups": [],
+ "texts": [
+  {
+   "self_ref": "#/texts/0",
+   "parent": {
+    "$ref": "#/body"
+   },
+   "children": [],
+   "content_layer": "body",
+   "label": "text",
+   "text": "Cnfoxodopbi npeacTaBnaroT co6oi KonoHnanbHbix rnaponpHbix nonnnoB wnpoko pacnpocTpaHeHHbix B TennbIx Bopax MnpoBoro oKeaHa n o6nagaroLnx cnoxHbIM cTpoeHneM 3oonpoB",
+   "orig": "Cnfoxodopbi npeacTaBnaroT co6oi KonoHnanbHbix rnaponpHbix nonnnoB wnpoko pacnpocTpaHeHHbix B TennbIx Bopax MnpoBoro oKeaHa n o6nagaroLnx cnoxHbIM cTpoeHneM 3oonpoB",
+   "prov": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 0,
+      "t": 0,
+      "r": 0,
+      "b": 0,
+      "coord_origin": "BOTTOMLEFT"
+     },
+     "charspan": [
+      0,
+      163
+     ]
+    }
+   ]
+  }
+ ],
+ "tables": [],
+ "pictures": [],
+ "key_value_items": [],
+ "form_items": [],
+ "pages": {
+  "1": {
+   "page_no": 1,
+   "size": {
+    "width": 612,
+    "height": 792
+   }
+  }
+ }
+}

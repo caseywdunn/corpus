@@ -1,0 +1,11 @@
+{
+ "schema_version": 1,
+ "filename": "DocOne.pdf",
+ "file_type": "scanned",
+ "has_text": false,
+ "needs_ocr": true,
+ "detected_language": "en",
+ "tesseract_packs": [
+  "eng"
+ ]
+}

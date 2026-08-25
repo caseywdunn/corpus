@@ -125,11 +125,13 @@ the same corpus; §6 is cleanup this cycle owes. No wave ordering — §1 is
 a precondition for *reading* §2 and §3's numbers, not for writing their
 code.
 
-### 1. The fidelity harness — `tools/qc/`, **to file**
+### 1. The fidelity harness — [#193](https://github.com/caseywdunn/corpus/issues/193), **landed**
 
-Scores a built corpuscle against the gold tree. Ships in this repo, not
-the library repo, so the evaluator is versioned with the extractor it
-grades.
+`tools/qc/fidelity.py` scores a built corpuscle against the gold tree.
+Ships in this repo, not the library repo, so the evaluator is versioned
+with the extractor it grades. Manual pre-release tier **T5**;
+`tests/test_fidelity_harness.py` covers its arithmetic in T0 against a
+committed fixture.
 
 - Resolve gold ↔ corpuscle documents through `transcriptions/sources.json`
   (stem → `library/<LETTER>/<stem>.pdf` + sha256) and the corpuscle's
@@ -164,6 +166,63 @@ grades.
   covers the scorer's own arithmetic with no corpus dependency. The full
   run is manual and release-time, alongside T3-bare/T4 — add the row to
   CONTRIBUTING.md's tier table when it lands.
+
+**The direction inversion is the part that had to be got right.**
+`crosscheck.py` scores gold against an extraction *to validate the gold*;
+this harness scores the corpuscle against gold *to validate the
+extractor*. So three of the report's five false positives are this
+harness's true positives — a garbage text layer, a plate whose lettering
+exists only as image, and text hallucinated from image texture are all
+real extraction findings once the extractor is what is on trial. That
+makes `coverage` primary here where `recall` is primary there, and it is
+why an empty extraction is scored 0.0 rather than excluded as "no
+signal": excluding it would delete the pipeline's worst pages from every
+median. The harness docstring tabulates the mapping.
+
+**First run, against the 35-document gold corpuscle** (761 pages, ~7 s).
+Corpus-wide median coverage 0.891, but the segments are the result:
+
+| axis | pages | median coverage | pages < 0.5 |
+| --- | --- | --- | --- |
+| CJK | 19 | **0.344** | 11 |
+| Cyrillic | 32 | 0.924 | 3 |
+| Latin | 710 | 0.897 | 98 |
+| pre-1800 | 26 | **0.645** | 4 |
+| 1800–1899 | 80 | 0.807 | 24 |
+| 1900–1949 | 99 | 0.881 | 19 |
+| 1950–1999 | 463 | 0.920 | 57 |
+| 2000– | 93 | 0.901 | 8 |
+| born-digital | 75 | 0.882 | 7 |
+| scanned | 686 | 0.892 | 105 |
+
+Three things this says immediately, and none of them was knowable before:
+
+- **CJK is the worst axis by a wide margin**, and vertical Japanese is
+  most of it. `Kawamura1911a` is bilingual — an English translation
+  followed by the 1911 vertical original — and scores 0.344 overall with
+  one page flagged `script_missing`. This is where #186's OCR-*mode*
+  override lands, and it is the strongest argument yet for scheduling it.
+- **The pipeline is dramatically better than poppler on Fraktur, and now
+  there is a number.** The library-side cross-check recorded roman OCR
+  over Fraktur at ~0.05–0.15 with nothing triageable;
+  `Eschscholtz1825` scores 0.830, `Keferstein_Ehlers1860` 0.801,
+  `DeHaan1827` 0.824. The OCR path is doing exactly what it was built
+  for. That comparison is only legible because the measures were kept
+  identical to `crosscheck.py`'s.
+- **54 pages extract to nothing at all**, concentrated in plate-heavy
+  documents (`Quoy_Gaimard1834Plates` at 0.216 median coverage is the
+  floor). That is §2's material, sized: it is figure and plate lettering,
+  not prose, and `gold_structural_share` per page separates the two.
+
+**A defect the harness found on its way in**, and the reason to validate
+a measuring instrument against a second source before trusting it: a
+docling table item has no `text` field at all — its content lives only in
+`data.table_cells[].text` — so a per-page walk reading `text` discarded
+every table on the page. Checking reconstruction against `text.json`
+rather than assuming it caught 8 of 35 documents short, the worst by 26%
+of its tokens. Unfixed, those pages would have been reported as the
+pipeline losing prose it had in fact extracted. All 35 now reconstruct
+≥95.8% of `text.json`'s tokens.
 
 ### 2. Figure and caption fidelity, **to file**
 
@@ -369,11 +428,13 @@ Issue-backed, in dependency-free groups.
   files independently, which is adjacent but not the same check.
 - [ ] **README is ambiguous about where `instructions.md` lives**
   ([#171](https://github.com/caseywdunn/corpus/issues/171)).
-- [ ] **Add `tools/` to the pyflakes gate** in
-  `tests/test_no_undefined_names.py`. It lints `pipeline/`, `mcpsrv/` and
-  `bib/` only, so the Python scripts under `tools/` never get the
-  NameError check [#75](https://github.com/caseywdunn/corpus/issues/75)
-  built it for — and v1.2 §1 adds another `tools/` script.
+- [x] **`tools/` is in the pyflakes gate.** Done alongside
+  [#193](https://github.com/caseywdunn/corpus/issues/193), which added
+  another script there. `tests/test_no_undefined_names.py` had linted
+  `pipeline/`, `mcpsrv/` and `bib/` only, so operator scripts never got
+  the NameError check [#75](https://github.com/caseywdunn/corpus/issues/75)
+  built it for — and those are run by hand at release time, where a
+  NameError costs a whole manual run rather than a fast test failure.
 
 **External contribution**
 

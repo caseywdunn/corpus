@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`tools/qc/fidelity.py` scores a built corpuscle against an independent
+  gold transcription set (#193).** Every quality signal this pipeline had
+  measured it against itself — the soft consistency rates are corpus-internal
+  agreement, the per-document quality gates are plausibility checks, and
+  fingerprint diffing compares one build to the next. None of them could say
+  whether the text was *right*. The gold set can: each page was transcribed
+  from a rendered page image alone, with the transcriber forbidden to open any
+  software extraction of the page, so an extractor scored against it is not
+  being compared to a cleaned-up version of itself.
+
+  The harness reports per page and per document, segmented by script, era and
+  scanned-vs-born-digital, because a single mean over 13 languages and five
+  centuries cannot distinguish a pipeline that handles born-digital PDFs well
+  and Fraktur not at all from one that is mediocre everywhere. Documents bind
+  on the source PDF's sha256, never its filename — two editions of the same
+  1594 travel narrative have shared a filename in this library while setting
+  the same passage on different folios.
+
+  Alignment needed no pipeline change: `text.json` carries a flat string and a
+  page count only, but `docling_doc.json` retains `prov[].page_no` on every
+  item, so per-page text is reconstructible from the persisted artifact.
+  Reconstruction follows `body.children`, which is the order
+  `export_to_markdown()` uses to build the string that reaches `text.json`, so
+  the reading order being scored is the one a consumer sees.
+
+  It runs in ~7 s over 761 pages and is a new manual pre-release tier (T5) in
+  CONTRIBUTING.md's tier table. `tests/test_fidelity_harness.py` covers the
+  arithmetic in T0 against a committed three-page fixture, with no corpus
+  dependency.
+
+  The reconstruction is validated against `text.json` rather than trusted:
+  all 35 gold documents recover at least 95.8% of its tokens. That check
+  earned its place immediately — the first version of the walk read only each
+  item's `text` field, and a docling table has none, keeping its content in
+  `data.table_cells[]` instead. Every table on the page was being dropped,
+  costing one document 26% of its tokens, and those pages would have been
+  reported as the pipeline losing prose it had in fact extracted. Nothing in
+  the pipeline was wrong; `text.json` had the tables all along.
+
+  **Direction matters and is easy to get backwards.** The gold set ships its
+  own `crosscheck.py`, which scores gold against a poppler layer *to validate
+  the gold*; this harness scores the corpuscle against gold *to validate the
+  extractor*. Several documented false positives there are true positives
+  here — a garbage text layer, a plate whose lettering exists only as image,
+  and text hallucinated from image texture are all real extraction findings
+  when the extractor is what is on trial. So `coverage` is the primary measure
+  here where `recall` is primary there.
+
+### Changed
+
+- **The pyflakes gate now covers `tools/` (#75, #193).** It linted
+  `pipeline/`, `mcpsrv/` and `bib/` only, so the operator scripts under
+  `tools/` never got the NameError check it was built for — and those are run
+  by hand at release time, where a NameError costs a whole manual run rather
+  than a fast test failure.
+
 ## [1.1.1] - 2026-08-08
 
 ### Fixed

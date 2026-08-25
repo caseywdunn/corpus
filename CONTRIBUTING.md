@@ -39,7 +39,7 @@ python -m pytest tests/test_biblio_cascade.py -v
 
 Badges above reflect the `dev` branch — the active development line — so contributors see immediately whether the next release is green. The README's badges are scoped to `main` for the release-state signal users care about.
 
-Five test tiers (#75); the first four run automatically in GitHub Actions — T0/T1/T2 on every push, T3 on a weekly schedule — and the last two are manual release-time checks.
+Six test tiers (#75, #193); the first four run automatically in GitHub Actions — T0/T1/T2 on every push, T3 on a weekly schedule — and the last three are manual release-time checks.
 
 **On caching, because it has misled us once:** `setup-miniconda` does *not* cache the solved conda environment, and this repo adds no `actions/cache` for it. Every T0/T1/T2 run re-resolves `environment.yaml` from scratch; the only caches are integration.yml's HuggingFace model-hub caches. So CI is a genuine dependency-drift detector — its weakness is *timeliness*, not blindness. `mcp` 2.0.0 broke every clean install and went unnoticed for 24 days purely because nobody pushed to `dev` between 2026-07-06 and 2026-07-30 (#156). T3's `schedule:` trigger is what closes that gap.
 
@@ -51,6 +51,7 @@ Five test tiers (#75); the first four run automatically in GitHub Actions — T0
 | **T3 — clean-room install** | **weekly (Mon 06:00 UTC)**, `workflow_dispatch`, **any PR targeting `main`**, or a push touching the lane itself | [`.github/workflows/clean-room.yml`](.github/workflows/clean-room.yml) | the same install → demo → serve path as T1 but on a *clock* rather than a push, and with the HuggingFace cache deliberately disabled so a genuine first-run model download is exercised (the path that 429'd in #140). Also drives the real `docker-compose.yml`. This is the [PLAN.md "Standing gates"](dev_docs/PLAN.md) release gate. **Note:** `schedule` and `workflow_dispatch` only work for workflows on the default branch, so on a feature branch this lane is unregistered (`gh workflow run` → 404) — that is why it also triggers on PRs to `main`, which is where the release gate actually needs it |
 | **T3-bare — clean-room EC2** | manual, pre-release | [`dev_docs/ec2_smoke.sh`](dev_docs/ec2_smoke.sh) | what T3 can't cover: the bare-host bootstrap (apt, miniforge install) from absolutely nothing on a real Ubuntu EC2 instance. Criteria in [`dev_docs/PLATFORM_SMOKE.md`](dev_docs/PLATFORM_SMOKE.md) |
 | **T4 — operator walkthrough** | manual, when CLI changes | [`dev_docs/clean_install_walkthrough.sh`](dev_docs/clean_install_walkthrough.sh) | every operator verb interactively (`completion`, `--cite`, `status --report`, full `bib export/import` round-trip) |
+| **T5 — extraction fidelity** | manual, pre-release | [`tools/qc/fidelity.py`](tools/qc/fidelity.py) | how much of what is actually printed on the page the pipeline recovered, scored against a gold set transcribed from page images alone by a transcriber forbidden to open any software extraction of the page. Every other signal in this repo — the soft consistency rates, the quality gates, fingerprint diffing — measures the pipeline against itself and cannot tell whether the text is *right*. Reports per page and per document, segmented by script, era and scanned-vs-born-digital, because a mean over 13 languages and five centuries is not actionable. `tests/test_fidelity_harness.py` covers the scorer's arithmetic in T0 against a committed fixture; only the run against a real corpuscle is manual (#193) |
 
 Local equivalents:
 
@@ -60,7 +61,18 @@ cd demo && corpus run --no-vision                          # T1/T2 round-1 corpu
 pytest -m corpus_required                                  #   ground-truth assertions
 cp tests/fixtures/round2_paper/Siebert_etal2011.pdf demo/  # T1/T2 round-2 setup
 cd demo && corpus run --no-vision                          #   resume scenario (needs Grobid + ~2 min)
+
+# T5 — score a built corpuscle against the gold transcription set
+tools/qc/fidelity.py --gold <transcriptions/> --corpuscle <corpuscle/> --out fidelity.json
 ```
+
+**Read the gold set's `CROSSCHECK_REPORT.md` before acting on a T5 number.** It
+documents five ways this class of signal misleads — but note that it scores gold
+against an extraction *to validate the gold*, where T5 runs the comparison in the
+opposite direction, so several of its false positives are T5's true positives.
+`tools/qc/fidelity.py`'s module docstring tabulates which are which. Two of its
+caveats do carry over unchanged: the comparison cannot detect invention, and a low
+volume ratio is not evidence of loss.
 
 ## Commit style
 
