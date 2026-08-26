@@ -372,7 +372,13 @@ candidate filter rather than assuming which field name sounds right:
 
 Surplus falls 67 → 13 for nine real figures lost. Taking `unclassified`
 as well is over-reach: it holds 49 real figures and recall drops ten
-points. Segments show why no single number would do — born-digital
+points. The two halves are split out because they have nothing in common:
+[#204](https://github.com/caseywdunn/corpus/issues/204) is the furniture
+decision, [#203](https://github.com/caseywdunn/corpus/issues/203) the
+recall hole — where `Vanhoeffen1906` alone is 33 of the 71 misses, its
+pages of six separately-numbered engravings each collapsing to one
+2430×4002 region captioned with one of the six labels and no panels
+split. Segments show why no single number would do — born-digital
 precision 0.562 against 0.890 for scans, because modern papers carry
 publisher furniture historical scans do not; and 1900–1949 recall 0.477,
 driven by `Vanhoeffen1906` (34 of 67 found) and `Kawamura1911a` (6 of
