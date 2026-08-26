@@ -113,6 +113,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is expected to get right. Measured the other way the corpus-wide figure
   moves by 0.002, so it is a naming choice rather than a lever.
 
+- **Vertically-set CJK: `ocrlang = {jpn_vert}` documented, and a build-time
+  hint pointing at it (#196).** Tesseract ships `jpn_vert`, `chi_sim_vert`,
+  `chi_tra_vert` and `kor_vert`; detection selects none of them, so a
+  vertically-set document is read by a horizontal model. On a 1911 Japanese
+  monograph scored against a hand transcription, pinning `jpn_vert` takes the
+  vertical pages from 0.246 to **0.574** median prose coverage.
+
+  The obvious fix — a Fraktur-style companion promotion, adding `jpn_vert`
+  beside `jpn` the way `deu_latf` is added beside `deu` — was measured and is
+  **wrong**: the union scores 0.186, worse than plain `jpn`, because the two
+  models compete for the same glyphs. An unconditional swap is worse still,
+  taking horizontal Japanese from 0.746 to 0.207. Since writing direction is a
+  per-page property and `ocrmypdf` takes one `-l` per document, no automatic
+  rule is available in this cycle; the directive is the answer, and the run
+  log now says so beside the `langs=` line, naming the pack and warning
+  against the union. `_VERTICAL_COMPANION` carries the measurement in a
+  comment so a later tidy-up does not merge it with the Fraktur promotion.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted

@@ -672,6 +672,33 @@ def _resolve_tesseract_packs(
     return chosen
 
 
+def _vertical_cjk_hint(langs, detection_result) -> Optional[str]:
+    """Tell the operator to consider a vertical CJK pack, or return ``None``.
+
+    A hint rather than an automatic swap, because the measurement says no
+    static rule is safe — see ``_VERTICAL_COMPANION``. Silent when the
+    operator has already pinned packs (they have made this call themselves)
+    and when the vertical model is not installed (advice to pin a pack that
+    is not there sends them in circles).
+    """
+    if detection_result.get("ocrlang_honored"):
+        return None
+    available = _available_tesseract_langs()
+    vertical = [
+        _VERTICAL_COMPANION[lang] for lang in langs
+        if lang in _VERTICAL_COMPANION and _VERTICAL_COMPANION[lang] in available
+    ]
+    if not vertical:
+        return None
+    return (
+        "OCR'ing with a horizontal CJK model. If this document is set "
+        "vertically, pin `ocrlang = {%s}` in the bib — worth about 2x the "
+        "words recovered on vertical pages. Do not pin it alongside %s; the "
+        "union scores worse than either alone."
+        % ("+".join(vertical), "+".join(langs))
+    )
+
+
 def _parse_ocrlang(raw: Optional[str]) -> List[str]:
     """Split an ``ocrlang`` bib value into Tesseract pack names.
 
@@ -1116,6 +1143,34 @@ _FULL_PAGE_IMAGE_FRAC = 0.50
 # scan end to end and rasterizing it costs nothing. Below it there is
 # real digital text worth preserving, so OCR uses --redo-ocr instead.
 _MOSTLY_SCANNED_FRAC = 0.95
+
+# Tesseract ships a separate model for vertically-set text in each CJK script.
+# Detection never reaches them: `_ISO_TO_TESSERACT` maps "ja" to `jpn` and
+# nothing downstream reconsiders it.
+#
+# This deliberately does NOT work like the Fraktur companion above, and the
+# difference is measured rather than assumed. `deu`+`deu_latf` are added
+# *together* because they degrade gracefully — a surplus pack costs little.
+# The vertical models do not. Scored against a hand transcription of the same
+# pages, as the fraction of printed words recovered:
+#
+#                        horizontal Japanese   vertical Japanese
+#     jpn                       0.75                 0.25
+#     jpn_vert                  0.21                 0.57
+#     jpn_vert+jpn               --                  0.19
+#
+# The union is worse than *either* pack alone, because the two models compete
+# for the same glyphs, and each pack is catastrophic on the other's direction.
+# So there is no static rule to add here — the choice has to match the
+# document, and `ocrmypdf` takes one pack list per document, so it cannot even
+# be made per page. The supported answer is the `ocrlang` bib directive
+# (#176), and this table exists only to tell the operator when to reach for it.
+_VERTICAL_COMPANION = {
+    "jpn": "jpn_vert",
+    "chi_sim": "chi_sim_vert",
+    "chi_tra": "chi_tra_vert",
+    "kor": "kor_vert",
+}
 
 
 def _scanned_page_fraction(pdf_path: Path, pages_to_check: int = 8) -> Optional[float]:
@@ -1717,6 +1772,10 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         )
         optimize_level = 1
     optimize_level = str(optimize_level)
+
+    hint = _vertical_cjk_hint(langs, detection_result)
+    if hint:
+        logger.info("%s: %s", input_pdf.name, hint)
 
     logger.info(
         "Running OCR on %s | file_type=%s mode=%s langs=%s timeout=%.0fs",
