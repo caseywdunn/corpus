@@ -125,11 +125,13 @@ the same corpus; §6 is cleanup this cycle owes. No wave ordering — §1 is
 a precondition for *reading* §2 and §3's numbers, not for writing their
 code.
 
-### 1. The fidelity harness — `tools/qc/`, **to file**
+### 1. The fidelity harness — [#193](https://github.com/caseywdunn/corpus/issues/193), **landed**
 
-Scores a built corpuscle against the gold tree. Ships in this repo, not
-the library repo, so the evaluator is versioned with the extractor it
-grades.
+`tools/qc/fidelity.py` scores a built corpuscle against the gold tree.
+Ships in this repo, not the library repo, so the evaluator is versioned
+with the extractor it grades. Manual pre-release tier **T5**;
+`tests/test_fidelity_harness.py` covers its arithmetic in T0 against a
+committed fixture.
 
 - Resolve gold ↔ corpuscle documents through `transcriptions/sources.json`
   (stem → `library/<LETTER>/<stem>.pdf` + sha256) and the corpuscle's
@@ -165,7 +167,172 @@ grades.
   run is manual and release-time, alongside T3-bare/T4 — add the row to
   CONTRIBUTING.md's tier table when it lands.
 
-### 2. Figure and caption fidelity, **to file**
+**Which side is on trial is the part that had to be got right — and it
+is not a matter of arithmetic.** `crosscheck.py` used a poppler text
+layer as the yardstick to validate the *transcription*; this harness uses
+the gold as the yardstick to validate the *extractor*. The measures
+themselves are symmetric and identical in both (`coverage` is
+`|gold ∩ other| / |gold|` either way), so nothing is mirrored. What
+changes is two judgement calls the arithmetic cannot make: which measure
+leads — `recall` there, `coverage` here — and what an unscorable page
+counts as. The report excludes a page whose comparison layer carries no
+signal, correctly for its purpose; here an empty extraction *is* the
+finding and is scored 0.0. Adopting the report's exclusion policy instead
+would drop 57 of 761 pages and lift the median from 0.891 to 0.908,
+hiding precisely the pages that need work. Those two calls are why three
+of the report's five false positives are this harness's true positives —
+a garbage text layer, a plate whose lettering exists only as image, and
+text hallucinated from image texture. The harness docstring tabulates the
+mapping.
+
+**First run, against the 35-document gold corpuscle** (761 pages, ~7 s).
+Corpus-wide median coverage 0.891, but the segments are the result:
+
+| axis | pages | median coverage | pages < 0.5 |
+| --- | --- | --- | --- |
+| CJK | 19 | **0.344** | 11 |
+| Cyrillic | 32 | 0.924 | 3 |
+| Latin | 710 | 0.897 | 98 |
+| pre-1800 | 26 | **0.645** | 4 |
+| 1800–1899 | 80 | 0.807 | 24 |
+| 1900–1949 | 99 | 0.881 | 19 |
+| 1950–1999 | 463 | 0.920 | 57 |
+| 2000– | 93 | 0.901 | 8 |
+| born-digital | 75 | 0.882 | 7 |
+| scanned | 686 | 0.892 | 105 |
+
+Three things this says immediately, and none of them was knowable before:
+
+- **CJK is the worst axis by a wide margin**, and vertical Japanese is
+  most of it. `Kawamura1911a` is bilingual — an English translation
+  followed by the 1911 vertical original — and scores 0.344 overall with
+  one page flagged `script_missing`. This is where #186's OCR-*mode*
+  override lands, and it is the strongest argument yet for scheduling it.
+- **The pipeline is dramatically better than poppler on Fraktur, and now
+  there is a number.** The library-side cross-check recorded roman OCR
+  over Fraktur at ~0.05–0.15 with nothing triageable;
+  `Eschscholtz1825` scores 0.830, `Keferstein_Ehlers1860` 0.801,
+  `DeHaan1827` 0.824. The OCR path is doing exactly what it was built
+  for. That comparison is only legible because the measures were kept
+  identical to `crosscheck.py`'s.
+- **54 pages extract to nothing at all**, concentrated in plate-heavy
+  documents (`Quoy_Gaimard1834Plates` at 0.216 median coverage is the
+  floor). That is §2's material, sized: it is figure and plate lettering,
+  not prose, and `gold_structural_share` per page separates the two.
+
+**Prose is the measure; figure text is reported, not optimised.**
+Scoring both together answered neither question. Text inside a
+`[FIGURE]`/`[PLATE]` block is engraved plate lettering and panel labels —
+12.3% of the gold set's words but about 70% of its worst pages — so a
+combined number is dragged down by the material the pipeline is least
+expected to recover, while body text, which is its actual job, vanishes
+into the average. Split: **0.946 prose**, 0.731 figure text, 0.898
+combined. `[TABLE]` counts as prose; measured the other way the corpus
+figure moves 0.002.
+
+The split changes what the run says to work on. The 1800–1899 band reads
+0.812 prose against 0.114 figure text, so its apparent weakness was
+almost entirely plate lettering, and `Chenetal2015` moves 0.667 → 0.812
+the same way. Two findings survive, and one was being hidden:
+
+| segment / document | prose | figure text |
+| --- | --- | --- |
+| CJK | **0.351** | 0.406 |
+| pre-1800 | **0.645** | 0.616 |
+| `Linnaeus1735` | **0.628** | 0.634 |
+
+**What the two survivors turned out to be** — investigated, and none of
+it was the long-s typography the cross-check report had primed us for:
+
+- **Vertical CJK has no model selected**
+  ([#196](https://github.com/caseywdunn/corpus/issues/196)).
+  `jpn_vert`, `chi_sim_vert`, `chi_tra_vert` and `kor_vert` are all
+  installed; `scan.py` can reach none of them. `Kawamura1911a` isolates
+  it exactly — same PDF, same scan, same OCR call — with its English
+  translation at ≈0.99 prose coverage over pages 1–13 and its vertical
+  Japanese at ≈0.25 over pages 14–23. The fix has a precedent in the same
+  file: `deu` → `deu_latf` on Fraktur, which is why Fraktur scores
+  0.80–0.85 here against poppler's recorded 0.05–0.15.
+- **`tesseract_packs` is recorded empty on three documents**
+  ([#197](https://github.com/caseywdunn/corpus/issues/197)) whose
+  language detection was untrusted. OCR itself was fine — `Linnaeus1735`
+  ran with `eng+deu+deu_latf+fra+lat+spa+por` — so the operator-facing
+  record disagrees with the invocation, which `scan.py` asserts cannot
+  happen. That record is what `corpus status` and #176's `ocrlang`
+  workflow tell an operator to consult.
+- **The untrusted fallback union is not the pre-1800 problem — tested
+  and refuted.** The hypothesis was that seven competing packs cost more
+  than they buy, since `_compose_ocr_langs`'s docstring says accuracy
+  degrades as packs multiply. `Linnaeus1735` was rebuilt with
+  `ocrlang = {lat}` pinned (#176), same config, same CPU accelerator, and
+  scored against the gold set: prose coverage **0.628 → 0.549**, recall
+  0.630 → 0.518, similarity 0.562 → 0.443, pages under 0.5 coverage 2 → 4.
+  Worse on 12 of 13 pages, with `excess_novel` up on 12 of 13. Pinning the
+  single correct language made it worse, so for antiqua-set early-modern
+  Latin the extra packs are evidently supplying character coverage `lat`
+  alone lacks. The fallback is doing its job, and whatever depresses
+  pre-1800 prose — 0.607, 0.628, 0.644 across the three worst — is not
+  pack over-selection. First real use of the #176 directive against ground
+  truth, and it cost one afternoon to kill a plausible hypothesis.
+
+  Unmeasured but suggestive: OCR ran 39 s on one pack against roughly 11
+  minutes on seven. Not comparable as they stand — the seven-pack run was
+  one of seven documents extracting in parallel — but if pack count
+  dominates, the union buys +0.08 coverage for a large wall-clock
+  multiple. Worth measuring properly before widening it.
+
+  Its score also depends on the table decision more than any other
+  document's:
+  0.628 with `[TABLE]` counted as prose against 0.400 with tables on the
+  figure side. *Systema Naturae* is largely tabular — 18,358 characters
+  of table-cell text — so it is the one document where that classification
+  is a lever rather than a rounding difference, and any number quoted for
+  it has to say which convention it used. Under the shipped convention the
+  worst pre-1800 document is `Hjortberg1769` at 0.607, and the worst prose
+  anywhere in the set is `Kawamura1911a` at 0.351.
+
+- **docling picks a GPU the pinned torch cannot use**
+  ([#198](https://github.com/caseywdunn/corpus/issues/198)), found while
+  running the experiment above. Same machine, same pinned set, 20 days
+  apart: `Accelerator device: 'cpu'` on 2026-08-06, `'cuda:0'` and 20 ×
+  `CUDA error: no kernel image is available` on 2026-08-26. The card is a
+  GTX 1080 at compute capability 6.1 and the pinned torch ships `sm_75`
+  and up. Nothing in the project changed — the GPU became visible to
+  torch, and `torch.cuda.is_available()` alone is what docling decides on.
+  A driver appearing turned a working install into a broken one, which is
+  precisely the reproducibility the #98 pins exist to provide. Nothing in
+  a corpuscle records which accelerator produced it.
+
+**Two defects the harness found on its way in**, and the reason to
+validate a measuring instrument against a second source before trusting
+it.
+
+The first was in reading the gold. The transcription convention uses `[`
+for markers, but pages print brackets too and notes discuss them, so a
+scanner that counts every `[` as a nesting level mis-parses three
+constructs the set actually contains — a note quoting the bracket
+character, a `[sic]` or `[21]` quoted inside a note, and one unterminated
+`[continued opposite`. The first alone leaked whole notes into 13 of one
+document's 17 pages, which is why it posted 0.767 coverage against 0.998
+recall: gold apparently holding text no extractor could find. Gating
+marker recognition on a known keyword vocabulary brings the structural
+tag counts to exactly the **348 `[FIGURE]` / 76 `[PLATE]` / 65 `[TABLE]`**
+the gold set documents — against 341 / 76 / 60 before — with no page left
+unbalanced. That agreement is the check: the parser and the set now count
+the same thing. The affected document moves to 0.927 and no other moves
+by more than 0.002. **This was a precondition for §2**, which scores
+against those very block boundaries.
+
+The second was in reading the corpuscle: a
+docling table item has no `text` field at all — its content lives only in
+`data.table_cells[].text` — so a per-page walk reading `text` discarded
+every table on the page. Checking reconstruction against `text.json`
+rather than assuming it caught 8 of 35 documents short, the worst by 26%
+of its tokens. Unfixed, those pages would have been reported as the
+pipeline losing prose it had in fact extracted. All 35 now reconstruct
+≥95.8% of `text.json`'s tokens.
+
+### 2. Figure fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194) detection, [#195](https://github.com/caseywdunn/corpus/issues/195) captions, **scoped**
 
 Score `figures.json` — `caption_text`, `page`, `figure_id`,
 `panels_from_caption` — against the gold `[FIGURE]` / `[PLATE]` blocks:
@@ -181,6 +348,37 @@ This is the first real measurement of the caption heuristic. OVERVIEW.md
 already calls caption association "the highest-value annotation per
 figure and the hardest in historical layouts"; the gold set is what turns
 that from an assertion into a number.
+
+**§1's run put the damage here**, which is what makes this the next
+piece of work rather than §3. Figure and plate text is 12.3% of gold
+tokens (36,470 of 295,745) and roughly 70% of the failures: 47 of the 54
+pages that extracted to nothing are >80% inside a structural block, as
+are 78 of the 112 pages under 0.5 coverage. `Totton1965a` contributes 40
+empty pages, every one a plate.
+
+**Counting figures measures the definition of "figure", not the
+extraction.** 420 entries against 424 gold blocks corpus-wide — but the
+totals agreeing is a coincidence. `Ahuja_etal2026` has 6 gold blocks
+against 31 entries because docling counts logos and icons;
+`Vanhoeffen1906` has 67 against 34. Caption binding is the measure that
+is well posed.
+
+**A naive caption-text match was tried and it lies — 44% is not the
+answer.** Token similarity at a 0.6 threshold reported 44% bound, 7%
+wrong page, 49% unmatched. Reading the pages showed most of that is
+artifact, in the same shape CROSSCHECK_REPORT.md warns about:
+`Chenetal2015` scored 0 of 10 because the document prints every caption
+twice and the extraction took the Chinese while the matcher was handed
+the English — every figure is in fact bound correctly;
+`Carre1969_Nanomia_tr` scored 1 of 18 because its plate pages carry only
+`FIG. 1` as printed matter, two tokens no threshold can bind, with the
+prose caption on another page. #194 therefore binds on the **figure
+number** first, which is language-independent, and classifies each gold
+block — prose caption, bare label, plate lettering, nothing printed —
+before scoring, so no rate is computed over blocks it does not apply to.
+One genuine finding did fall out of the exercise: `Chenetal2015`'s figure
+numerals OCR as `图 ;` and `图 <` for 3 and 4, which belongs to the OCR
+axis.
 
 ### 3. Grobid output and reference consolidation, **to file**
 
@@ -369,11 +567,13 @@ Issue-backed, in dependency-free groups.
   files independently, which is adjacent but not the same check.
 - [ ] **README is ambiguous about where `instructions.md` lives**
   ([#171](https://github.com/caseywdunn/corpus/issues/171)).
-- [ ] **Add `tools/` to the pyflakes gate** in
-  `tests/test_no_undefined_names.py`. It lints `pipeline/`, `mcpsrv/` and
-  `bib/` only, so the Python scripts under `tools/` never get the
-  NameError check [#75](https://github.com/caseywdunn/corpus/issues/75)
-  built it for — and v1.2 §1 adds another `tools/` script.
+- [x] **`tools/` is in the pyflakes gate.** Done alongside
+  [#193](https://github.com/caseywdunn/corpus/issues/193), which added
+  another script there. `tests/test_no_undefined_names.py` had linted
+  `pipeline/`, `mcpsrv/` and `bib/` only, so operator scripts never got
+  the NameError check [#75](https://github.com/caseywdunn/corpus/issues/75)
+  built it for — and those are run by hand at release time, where a
+  NameError costs a whole manual run rather than a fast test failure.
 
 **External contribution**
 

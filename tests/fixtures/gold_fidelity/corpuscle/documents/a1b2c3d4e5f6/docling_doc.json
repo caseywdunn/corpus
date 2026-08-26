@@ -1,0 +1,279 @@
+{
+ "schema_name": "DoclingDocument",
+ "version": "1.0.0",
+ "name": "DocOne",
+ "origin": {
+  "filename": "DocOne.pdf"
+ },
+ "furniture": {
+  "self_ref": "#/furniture",
+  "children": [],
+  "content_layer": "furniture",
+  "name": "_root_",
+  "label": "furniture"
+ },
+ "body": {
+  "self_ref": "#/body",
+  "children": [
+   {
+    "$ref": "#/texts/0"
+   },
+   {
+    "$ref": "#/texts/1"
+   },
+   {
+    "$ref": "#/texts/2"
+   },
+   {
+    "$ref": "#/texts/3"
+   },
+   {
+    "$ref": "#/tables/0"
+   }
+  ],
+  "content_layer": "body",
+  "name": "_root_",
+  "label": "unspecified"
+ },
+ "groups": [],
+ "texts": [
+  {
+   "self_ref": "#/texts/0",
+   "parent": {
+    "$ref": "#/body"
+   },
+   "children": [],
+   "content_layer": "body",
+   "label": "text",
+   "text": "Histoire Naturelle",
+   "orig": "Histoire Naturelle",
+   "prov": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 0,
+      "t": 0,
+      "r": 0,
+      "b": 0,
+      "coord_origin": "BOTTOMLEFT"
+     },
+     "charspan": [
+      0,
+      18
+     ]
+    }
+   ]
+  },
+  {
+   "self_ref": "#/texts/1",
+   "parent": {
+    "$ref": "#/body"
+   },
+   "children": [],
+   "content_layer": "body",
+   "label": "text",
+   "text": "The siphonophore floats upon the surface of the sea, its pneumatophore inflated with gas, and trails behind it a long train of tentacles armed with nematocysts of several distinct kinds.",
+   "orig": "The siphonophore floats upon the surface of the sea, its pneumatophore inflated with gas, and trails behind it a long train of tentacles armed with nematocysts of several distinct kinds.",
+   "prov": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 0,
+      "t": 0,
+      "r": 0,
+      "b": 0,
+      "coord_origin": "BOTTOMLEFT"
+     },
+     "charspan": [
+      0,
+      186
+     ]
+    }
+   ]
+  },
+  {
+   "self_ref": "#/texts/2",
+   "parent": {
+    "$ref": "#/body"
+   },
+   "children": [],
+   "content_layer": "body",
+   "label": "text",
+   "text": "Column two describes the siphosome and the nectophores borne upon it in two opposing rows.",
+   "orig": "Column two describes the siphosome and the nectophores borne upon it in two opposing rows.",
+   "prov": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 0,
+      "t": 0,
+      "r": 0,
+      "b": 0,
+      "coord_origin": "BOTTOMLEFT"
+     },
+     "charspan": [
+      0,
+      90
+     ]
+    }
+   ]
+  },
+  {
+   "self_ref": "#/texts/3",
+   "parent": {
+    "$ref": "#/body"
+   },
+   "children": [],
+   "content_layer": "body",
+   "label": "text",
+   "text": "Column one continues the account of the medusa and of its swimming bell, which contracts rhythmically.",
+   "orig": "Column one continues the account of the medusa and of its swimming bell, which contracts rhythmically.",
+   "prov": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 0,
+      "t": 0,
+      "r": 0,
+      "b": 0,
+      "coord_origin": "BOTTOMLEFT"
+     },
+     "charspan": [
+      0,
+      102
+     ]
+    }
+   ]
+  }
+ ],
+ "tables": [
+  {
+   "self_ref": "#/tables/0",
+   "parent": {
+    "$ref": "#/body"
+   },
+   "children": [],
+   "content_layer": "body",
+   "label": "table",
+   "captions": [],
+   "references": [],
+   "footnotes": [],
+   "annotations": [],
+   "prov": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 0,
+      "t": 0,
+      "r": 0,
+      "b": 0,
+      "coord_origin": "BOTTOMLEFT"
+     },
+     "charspan": [
+      0,
+      0
+     ]
+    }
+   ],
+   "data": {
+    "num_rows": 3,
+    "num_cols": 2,
+    "table_cells": [
+     {
+      "text": "0",
+      "start_row_offset_idx": 2,
+      "end_row_offset_idx": 3,
+      "start_col_offset_idx": 1,
+      "end_col_offset_idx": 2,
+      "row_span": 1,
+      "col_span": 1,
+      "column_header": false,
+      "row_header": false,
+      "row_section": false
+     },
+     {
+      "text": "Physalia physalis",
+      "start_row_offset_idx": 2,
+      "end_row_offset_idx": 3,
+      "start_col_offset_idx": 0,
+      "end_col_offset_idx": 1,
+      "row_span": 1,
+      "col_span": 1,
+      "column_header": false,
+      "row_header": false,
+      "row_section": false
+     },
+     {
+      "text": "200",
+      "start_row_offset_idx": 1,
+      "end_row_offset_idx": 2,
+      "start_col_offset_idx": 1,
+      "end_col_offset_idx": 2,
+      "row_span": 1,
+      "col_span": 1,
+      "column_header": false,
+      "row_header": false,
+      "row_section": false
+     },
+     {
+      "text": "Nanomia bijuga",
+      "start_row_offset_idx": 1,
+      "end_row_offset_idx": 2,
+      "start_col_offset_idx": 0,
+      "end_col_offset_idx": 1,
+      "row_span": 1,
+      "col_span": 1,
+      "column_header": false,
+      "row_header": false,
+      "row_section": false
+     },
+     {
+      "text": "Depth",
+      "start_row_offset_idx": 0,
+      "end_row_offset_idx": 1,
+      "start_col_offset_idx": 1,
+      "end_col_offset_idx": 2,
+      "row_span": 1,
+      "col_span": 1,
+      "column_header": true,
+      "row_header": false,
+      "row_section": false
+     },
+     {
+      "text": "Species",
+      "start_row_offset_idx": 0,
+      "end_row_offset_idx": 1,
+      "start_col_offset_idx": 0,
+      "end_col_offset_idx": 1,
+      "row_span": 1,
+      "col_span": 1,
+      "column_header": true,
+      "row_header": false,
+      "row_section": false
+     }
+    ],
+    "orientation": null,
+    "grid": []
+   }
+  }
+ ],
+ "pictures": [],
+ "key_value_items": [],
+ "form_items": [],
+ "pages": {
+  "1": {
+   "page_no": 1,
+   "size": {
+    "width": 612,
+    "height": 792
+   }
+  },
+  "2": {
+   "page_no": 2,
+   "size": {
+    "width": 612,
+    "height": 792
+   }
+  }
+ }
+}

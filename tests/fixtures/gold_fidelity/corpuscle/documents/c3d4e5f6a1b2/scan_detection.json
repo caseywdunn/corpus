@@ -1,0 +1,11 @@
+{
+ "schema_version": 1,
+ "filename": "DocThree.pdf",
+ "file_type": "born_digital",
+ "has_text": true,
+ "needs_ocr": false,
+ "detected_language": "ru",
+ "tesseract_packs": [
+  "rus"
+ ]
+}

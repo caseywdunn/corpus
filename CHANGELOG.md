@@ -7,6 +7,120 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`tools/qc/fidelity.py` scores a built corpuscle against an independent
+  gold transcription set (#193).** Every quality signal this pipeline had
+  measured it against itself — the soft consistency rates are corpus-internal
+  agreement, the per-document quality gates are plausibility checks, and
+  fingerprint diffing compares one build to the next. None of them could say
+  whether the text was *right*. The gold set can: each page was transcribed
+  from a rendered page image alone, with the transcriber forbidden to open any
+  software extraction of the page, so an extractor scored against it is not
+  being compared to a cleaned-up version of itself.
+
+  The harness reports per page and per document, segmented by script, era and
+  scanned-vs-born-digital, because a single mean over 13 languages and five
+  centuries cannot distinguish a pipeline that handles born-digital PDFs well
+  and Fraktur not at all from one that is mediocre everywhere. Documents bind
+  on the source PDF's sha256, never its filename — two editions of the same
+  1594 travel narrative have shared a filename in this library while setting
+  the same passage on different folios.
+
+  Alignment needed no pipeline change: `text.json` carries a flat string and a
+  page count only, but `docling_doc.json` retains `prov[].page_no` on every
+  item, so per-page text is reconstructible from the persisted artifact.
+  Reconstruction follows `body.children`, which is the order
+  `export_to_markdown()` uses to build the string that reaches `text.json`, so
+  the reading order being scored is the one a consumer sees.
+
+  It runs in ~7 s over 761 pages and is a new manual pre-release tier (T5) in
+  CONTRIBUTING.md's tier table. `tests/test_fidelity_harness.py` covers the
+  arithmetic in T0 against a committed three-page fixture, with no corpus
+  dependency.
+
+  The reconstruction is validated against `text.json` rather than trusted:
+  all 35 gold documents recover at least 95.8% of its tokens. That check
+  earned its place immediately — the first version of the walk read only each
+  item's `text` field, and a docling table has none, keeping its content in
+  `data.table_cells[]` instead. Every table on the page was being dropped,
+  costing one document 26% of its tokens, and those pages would have been
+  reported as the pipeline losing prose it had in fact extracted. Nothing in
+  the pipeline was wrong; `text.json` had the tables all along.
+
+  **Which side is on trial is easy to get backwards, and it is not the
+  arithmetic.** The gold set ships its own `crosscheck.py`, which used a
+  poppler text layer as the yardstick to validate the *transcription*; this
+  harness uses the gold as the yardstick to validate the *extractor*. The
+  measures are symmetric and identical in both — `coverage` is
+  `|gold ∩ other| / |gold|` either way — so nothing is mirrored or
+  transposed. What differs is two judgement calls: which measure leads
+  (`recall` there, `coverage` here), and whether a page that yielded nothing
+  is excluded as no-signal or scored as the failure it is. This harness scores
+  it; adopting the other policy would drop 57 of 761 pages and lift the median
+  coverage from 0.891 to 0.908, hiding exactly the pages that need work. Those
+  two calls are why several documented false positives there are findings
+  here — a garbage text layer, a plate whose lettering exists only as image,
+  and text hallucinated from image texture.
+
+- **The gold-markup parser distinguishes markers from brackets printed on the
+  page (#193).** The transcription convention uses `[` for markers, but the
+  pages print brackets too — citation numbers, units like `[°C]`, a
+  translator's `[sic]` — and notes talk *about* brackets. A scanner counting
+  every `[` as a nesting level gets all three wrong, and all three occur in
+  the gold set:
+
+  - `[NOTE: ... "[" is my marker.]` never closed, so the whole note leaked
+    into the compared page as though printed there. 13 of one document's 17
+    pages; it is why that document posted 0.767 coverage against 0.998 recall,
+    the signature of gold holding text no extractor could ever find.
+  - `[sic]` and `[21]` quoted inside a note closed it early, leaving a
+    `[FIGURE]` two paragraphs later parsed at the wrong nesting level.
+  - An unterminated `[continued opposite` swallowed the `[/FIGURE]` after it,
+    so the block never ended and the rest of the page scored as plate
+    lettering.
+
+  A `[` now opens a marker only when a known keyword follows it; a quote
+  immediately after it marks a mention of the character rather than an
+  expression. Structural tag counts now come out at exactly the 348 `[FIGURE]`
+  / 76 `[PLATE]` / 65 `[TABLE]` the gold set documents, against 341 / 76 / 60
+  before, and no page is left with unbalanced figure nesting. The affected
+  document moves 0.767 → 0.927 median coverage and every other document moves
+  by less than 0.002; corpus-wide 0.891 → 0.898, born-digital 0.882 → 0.919.
+  Brackets that open no marker are now counted and reported per page as a
+  gold-integrity signal rather than silently absorbed — four remain, each a
+  transcription detail worth an upstream look.
+
+- **Prose coverage and figure-text coverage are reported separately, and
+  prose is the headline (#193).** Scoring both together answered neither
+  question. Text inside a `[FIGURE]`/`[PLATE]` block is engraved plate
+  lettering and panel labels — 12.3% of the gold set's words but around 70%
+  of its worst pages — so a combined number is dragged down by the material
+  the pipeline is least expected to recover, and body text, which is the
+  pipeline's actual job, disappears into the average.
+
+  Split, corpus-wide median coverage is **0.946 for prose** against 0.731 for
+  figure text (0.898 combined). The split changes what the run says to work
+  on, not just the digits: the 1800–1899 band is 0.812 prose against 0.114
+  figure text, so its apparent weakness was almost entirely plate lettering;
+  `Chenetal2015` moves from 0.667 to 0.812. Two findings survive and are the
+  real ones — CJK at 0.351 prose, and pre-1800 at 0.645, where long-s
+  typography is the known cause. One gets *worse* and had been hidden:
+  `Linnaeus1735` reads 0.628 prose against 0.628 combined with its figure text
+  at 0.634, so its body text is genuinely as bad as its plates.
+
+  `[TABLE]` counts as prose, not figure: a table is body content the pipeline
+  is expected to get right. Measured the other way the corpus-wide figure
+  moves by 0.002, so it is a naming choice rather than a lever.
+
+### Changed
+
+- **The pyflakes gate now covers `tools/` (#75, #193).** It linted
+  `pipeline/`, `mcpsrv/` and `bib/` only, so the operator scripts under
+  `tools/` never got the NameError check it was built for — and those are run
+  by hand at release time, where a NameError costs a whole manual run rather
+  than a fast test failure.
+
 ## [1.1.1] - 2026-08-08
 
 ### Fixed
