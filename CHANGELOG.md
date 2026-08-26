@@ -48,14 +48,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reported as the pipeline losing prose it had in fact extracted. Nothing in
   the pipeline was wrong; `text.json` had the tables all along.
 
-  **Direction matters and is easy to get backwards.** The gold set ships its
-  own `crosscheck.py`, which scores gold against a poppler layer *to validate
-  the gold*; this harness scores the corpuscle against gold *to validate the
-  extractor*. Several documented false positives there are true positives
+  **Which side is on trial is easy to get backwards, and it is not the
+  arithmetic.** The gold set ships its own `crosscheck.py`, which used a
+  poppler text layer as the yardstick to validate the *transcription*; this
+  harness uses the gold as the yardstick to validate the *extractor*. The
+  measures are symmetric and identical in both — `coverage` is
+  `|gold ∩ other| / |gold|` either way — so nothing is mirrored or
+  transposed. What differs is two judgement calls: which measure leads
+  (`recall` there, `coverage` here), and whether a page that yielded nothing
+  is excluded as no-signal or scored as the failure it is. This harness scores
+  it; adopting the other policy would drop 57 of 761 pages and lift the median
+  coverage from 0.891 to 0.908, hiding exactly the pages that need work. Those
+  two calls are why several documented false positives there are findings
   here — a garbage text layer, a plate whose lettering exists only as image,
-  and text hallucinated from image texture are all real extraction findings
-  when the extractor is what is on trial. So `coverage` is the primary measure
-  here where `recall` is primary there.
+  and text hallucinated from image texture.
 
 ### Changed
 

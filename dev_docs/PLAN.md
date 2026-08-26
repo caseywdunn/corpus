@@ -167,17 +167,23 @@ committed fixture.
   run is manual and release-time, alongside T3-bare/T4 — add the row to
   CONTRIBUTING.md's tier table when it lands.
 
-**The direction inversion is the part that had to be got right.**
-`crosscheck.py` scores gold against an extraction *to validate the gold*;
-this harness scores the corpuscle against gold *to validate the
-extractor*. So three of the report's five false positives are this
-harness's true positives — a garbage text layer, a plate whose lettering
-exists only as image, and text hallucinated from image texture are all
-real extraction findings once the extractor is what is on trial. That
-makes `coverage` primary here where `recall` is primary there, and it is
-why an empty extraction is scored 0.0 rather than excluded as "no
-signal": excluding it would delete the pipeline's worst pages from every
-median. The harness docstring tabulates the mapping.
+**Which side is on trial is the part that had to be got right — and it
+is not a matter of arithmetic.** `crosscheck.py` used a poppler text
+layer as the yardstick to validate the *transcription*; this harness uses
+the gold as the yardstick to validate the *extractor*. The measures
+themselves are symmetric and identical in both (`coverage` is
+`|gold ∩ other| / |gold|` either way), so nothing is mirrored. What
+changes is two judgement calls the arithmetic cannot make: which measure
+leads — `recall` there, `coverage` here — and what an unscorable page
+counts as. The report excludes a page whose comparison layer carries no
+signal, correctly for its purpose; here an empty extraction *is* the
+finding and is scored 0.0. Adopting the report's exclusion policy instead
+would drop 57 of 761 pages and lift the median from 0.891 to 0.908,
+hiding precisely the pages that need work. Those two calls are why three
+of the report's five false positives are this harness's true positives —
+a garbage text layer, a plate whose lettering exists only as image, and
+text hallucinated from image texture. The harness docstring tabulates the
+mapping.
 
 **First run, against the 35-document gold corpuscle** (761 pages, ~7 s).
 Corpus-wide median coverage 0.891, but the segments are the result:

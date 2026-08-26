@@ -17,15 +17,32 @@ This script lives here rather than in the library repo that holds the
 transcriptions so that the evaluator is versioned with the extractor it
 grades.
 
-WHICH DIRECTION THIS RUNS, BECAUSE IT IS THE EASIEST THING TO GET BACKWARDS
-==========================================================================
-The library repo ships ``scripts/crosscheck.py``, which scores **gold against
-a poppler text layer in order to validate the gold**, and a companion
-``CROSSCHECK_REPORT.md`` documenting five ways that signal misleads. Read
-that report before trusting any number here — but read it knowing this script
-runs the comparison in the opposite direction. It scores **the corpuscle
-against gold in order to validate the extractor**, so several of the report's
-false positives are this script's true positives:
+WHICH SIDE IS ON TRIAL, BECAUSE IT IS THE EASIEST THING TO GET BACKWARDS
+========================================================================
+The library repo ships ``scripts/crosscheck.py``, which compared gold against
+a poppler text layer **in order to validate the gold**, and a companion
+``CROSSCHECK_REPORT.md`` documenting five ways that signal misleads. Read that
+report before trusting any number here — but read it knowing that the thing on
+trial has changed. There, poppler was the yardstick and the transcription was
+the subject; here the gold is the yardstick and **the corpuscle is the
+subject**.
+
+Note what does *not* change: the arithmetic. ``coverage`` is
+``|gold ∩ other| / |gold|`` in both scripts and ``recall`` is
+``|gold ∩ other| / |other|`` in both — the measures are symmetric and gold is
+the reference term on both sides. Nothing is mirrored, transposed or
+recomputed. What changes is two judgement calls that the arithmetic cannot
+make for you:
+
+  1. **Which measure you read first.** ``recall`` leads there, because "poppler
+     saw words the gold lacks" is the shape of a transcription omission.
+     ``coverage`` leads here, because "the page holds words the pipeline
+     missed" is the shape of an extraction failure.
+  2. **What an unscorable page counts as** — see the status handling in
+     ``score_page`` below, and the note on it further down.
+
+Those two calls are why several of the report's false positives are this
+script's true positives:
 
   * A garbage text layer (roman OCR over Fraktur, ~0.05-0.15) tells the report
     nothing about the gold page. Here it is a real extraction failure — OCR is
@@ -41,6 +58,15 @@ Consequently ``coverage`` is the primary measure in this script, where the
 report correctly names ``recall`` primary for its own purpose. Coverage asks
 how much of the true page the pipeline recovered; recall asks how much of what
 the pipeline emitted is actually on the page.
+
+The second judgement call is the one with teeth, and it is worth stating what
+it costs to get wrong. The report excludes a page whose comparison layer
+carries no usable signal, correctly: an empty poppler layer says nothing about
+the gold. Here an empty extraction is not an absence of evidence, it *is* the
+evidence, so it is scored 0.0 and stays in every median. Measured on the
+35-document set, adopting the report's exclusion policy instead would drop 57
+of 761 pages and move the median coverage from 0.891 to 0.908 — hiding, with
+precision, exactly the pages that need work.
 
 Two of the report's caveats do carry over unchanged, and no amount of
 arithmetic here escapes them:
@@ -611,12 +637,15 @@ def build_report(gold_root, corpuscle_root):
         "method": "token-level SequenceMatcher plus order-insensitive coverage and "
                   "recall; gold markup stripped, case/diacritic/punctuation "
                   "normalised, CJK compared per character",
-        "direction": "corpuscle extraction scored AGAINST gold; coverage is the "
-                     "primary measure (how much of the true page was recovered)",
+        "subject": "the corpuscle's extraction, measured against gold as the "
+                   "yardstick; coverage (how much of the true page was recovered) "
+                   "is the primary measure, and a page the pipeline failed to "
+                   "extract at all is scored 0.0 rather than excluded",
         "caveat": "Cannot detect invention, and a low volume ratio is not evidence "
                   "of loss. Read the gold set's CROSSCHECK_REPORT.md before acting "
-                  "on any number, noting that it runs the comparison in the "
-                  "opposite direction.",
+                  "on any number, noting that it puts the transcription on trial "
+                  "rather than the extractor: same arithmetic, different subject, "
+                  "so several of its false positives are findings here.",
         "gold_root": str(gold_root),
         "corpuscle_root": str(corpuscle_root),
         "documents_bound": len(bound),

@@ -67,9 +67,13 @@ tools/qc/fidelity.py --gold <transcriptions/> --corpuscle <corpuscle/> --out fid
 ```
 
 **Read the gold set's `CROSSCHECK_REPORT.md` before acting on a T5 number.** It
-documents five ways this class of signal misleads — but note that it scores gold
-against an extraction *to validate the gold*, where T5 runs the comparison in the
-opposite direction, so several of its false positives are T5's true positives.
+documents five ways this class of signal misleads — but note that it put the
+*transcription* on trial, using a poppler text layer as the yardstick, where T5
+puts the *extractor* on trial and uses the gold as the yardstick. The arithmetic
+is the same in both (`coverage` is `|gold ∩ other| / |gold|` either way); what
+differs is which measure leads and whether a page nothing could be extracted from
+is excluded as no-signal or scored as the failure it is. T5 scores it, which is
+why several of the report's false positives are T5's true positives.
 `tools/qc/fidelity.py`'s module docstring tabulates which are which. Two of its
 caveats do carry over unchanged: the comparison cannot detect invention, and a low
 volume ratio is not evidence of loss.
