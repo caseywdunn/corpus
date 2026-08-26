@@ -174,6 +174,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the caption-binding scorer (#195), which would otherwise have measured the
   number extractor rather than the caption heuristic.
 
+- **`figure_detection.py` counts figures, not panel images (#211).** It
+  compared raw `figures.json` entry counts against gold `[FIGURE]` block
+  counts, and those differ when a figure has panels — the pipeline emits one
+  image per panel, the gold records one block with the panels enumerated in
+  its caption. Correct panel splitting therefore scored as a false positive.
+
+  On `Totton1965a` this flipped the sign of the error: 198 entries against 195
+  gold blocks reads as over-counting by 3, while 191 distinct figures against
+  195 blocks is under-counting by 4. Corpus-wide on the reference corpuscle it
+  understated precision — **0.841 → 0.854** for all entries, 0.964 → 0.969
+  with the `graphical_element` filter — so #194's reported figures are
+  restated accordingly.
+
+  Panel siblings are now collapsed on `(page, figure_number)` before scoring,
+  and panel splitting is reported beside detection rather than folded into it,
+  which is where #195 will score it against the panels the gold caption
+  enumerates. Note `panel_letter` is set by `dedupe_figures` but not persisted
+  to `figures.json` — only the filename carries it.
+
+  Found by opening the two PNGs. Every hand-analysis of the JSON pointed the
+  wrong way first, including one that concluded the panel branch was inert
+  when the filenames showed it had lettered them all along.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
