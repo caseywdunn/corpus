@@ -136,6 +136,12 @@ KEEP_AFTER_TAG = ("RUNNING HEAD", "FOOTNOTE", "MARGIN", "STAMP", "HANDWRITTEN")
 # kept, but we track the nesting so a page's figure/plate/table share of the
 # text can be reported separately — see `_StrippedGold.structural`.
 STRUCTURAL_OPEN = ("FIGURE", "PLATE", "TABLE")
+
+# Which of those count as "inside a figure" when prose is separated from figure
+# text. Tables are body content — text the pipeline is expected to get right —
+# so they stay on the prose side. Measured either way the corpus-wide prose
+# coverage moves by 0.002, so this is a naming choice rather than a lever.
+FIGURE_TAGS = ("FIGURE", "PLATE")
 STRUCTURAL_CLOSE = tuple("/" + t for t in STRUCTURAL_OPEN)
 
 # `[PAGE 8]` records the printed folio; `[PAGE 12: unnumbered]` records that the
@@ -302,24 +308,30 @@ class _StrippedGold:
     over both is not actionable.
     """
 
-    __slots__ = ("text", "structural", "printed_page", "unnumbered")
+    __slots__ = ("text", "structural", "prose", "printed_page", "unnumbered")
 
-    def __init__(self, text, structural, printed_page, unnumbered):
+    def __init__(self, text, structural, prose, printed_page, unnumbered):
         self.text = text
         self.structural = structural
+        self.prose = prose
         self.printed_page = printed_page
         self.unnumbered = unnumbered
 
 
 def strip_markup(text):
     """Reduce a gold page to just the text printed on the page."""
-    out, structural_out, pos, depth = [], [], 0, 0
+    out, structural_out, prose_out, pos, depth = [], [], [], 0, 0
+    fig_depth = 0
     printed_page, unnumbered = None, False
 
     def emit(chunk):
         out.append(chunk)
+        # `structural` is everything inside any block, kept for the
+        # figure/prose share; `prose` excludes only figure and plate blocks.
         if depth:
             structural_out.append(chunk)
+        if not fig_depth:
+            prose_out.append(chunk)
 
     for a, b in spans(text):
         emit(text[pos:a])
@@ -331,8 +343,12 @@ def strip_markup(text):
             emit(inner[1:].split(":", 1)[-1] if inner.startswith("?reading:") else inner[1:])
         elif inner in STRUCTURAL_OPEN:
             depth += 1
+            if inner in FIGURE_TAGS:
+                fig_depth += 1
         elif inner in STRUCTURAL_CLOSE:
             depth = max(0, depth - 1)
+            if inner[1:] in FIGURE_TAGS:
+                fig_depth = max(0, fig_depth - 1)
         elif any(inner.startswith(d) for d in DROP_WHOLE):
             m = _PAGE_MARKER.match(inner)
             if m and printed_page is None:
@@ -343,7 +359,8 @@ def strip_markup(text):
         elif any(inner.startswith(k) for k in KEEP_AFTER_TAG):
             pass  # the tag is its own span; the text it labels is outside it
     emit(text[pos:])
-    return _StrippedGold("".join(out), "".join(structural_out), printed_page, unnumbered)
+    return _StrippedGold("".join(out), "".join(structural_out), "".join(prose_out),
+                         printed_page, unnumbered)
 
 
 # --- tokenisation -----------------------------------------------------------
@@ -592,6 +609,7 @@ def score_page(gold_raw, extracted):
     gt = tokens(gold.text)
     et = tokens(extracted)
     st = tokens(gold.structural)
+    pt = tokens(gold.prose)
 
     rec = {
         "printed_page": gold.printed_page,
@@ -599,6 +617,16 @@ def score_page(gold_raw, extracted):
         "gold_words": len(gt),
         "extracted_words": len(et),
         "gold_structural_share": round(len(st) / len(gt), 4) if gt else None,
+        "gold_prose_words": len(pt),
+        "gold_figure_words": len(st),
+        # The two coverages that matter separately. Body text is the pipeline's
+        # job; lettering engraved inside a plate is a different problem with a
+        # different value, and averaging them produces a number that answers
+        # neither question. Both use the gold side's own split — the extraction
+        # is a single blob per page, but that is fine for coverage, which only
+        # asks whether each true word turned up somewhere.
+        "prose_coverage": None,
+        "figure_coverage": None,
         "script": dominant_script(gold.text),
         "similarity": None,
         "coverage": None,
@@ -631,6 +659,10 @@ def score_page(gold_raw, extracted):
         rec["status"] = "extraction_empty"
         rec["coverage"] = 0.0
         rec["similarity"] = 0.0
+        if pt:
+            rec["prose_coverage"] = 0.0
+        if st:
+            rec["figure_coverage"] = 0.0
         return rec
 
     if script_missing(gold.text, extracted):
@@ -644,6 +676,10 @@ def score_page(gold_raw, extracted):
     # pipeline recover? Order-insensitive on purpose, so it is not contaminated
     # by column interleaving the way `similarity` is.
     rec["coverage"] = round(inter / len(gt), 4)
+    if pt:
+        rec["prose_coverage"] = round(sum((Counter(pt) & ec).values()) / len(pt), 4)
+    if st:
+        rec["figure_coverage"] = round(sum((Counter(st) & ec).values()) / len(st), 4)
     # The opposite question: how much of what the pipeline emitted is really on
     # the page? Low recall means the extraction carries material the page does
     # not — either text bled in from elsewhere, or invented from image texture.
@@ -693,6 +729,10 @@ def _aggregate(pages):
         "pages": len(pages),
         "scored": len(scored),
         "median_coverage": _median([p["coverage"] for p in scored]),
+        "median_prose_coverage": _median([p.get("prose_coverage") for p in scored]),
+        "median_figure_coverage": _median([p.get("figure_coverage") for p in scored]),
+        "prose_pages": sum(1 for p in scored if p.get("prose_coverage") is not None),
+        "figure_pages": sum(1 for p in scored if p.get("figure_coverage") is not None),
         "median_recall": _median([p["recall"] for p in scored]),
         "median_similarity": _median([p["similarity"] for p in scored]),
         "pages_below_0.5_coverage": sum(1 for p in scored if p["coverage"] < 0.5),
@@ -811,8 +851,11 @@ def print_summary(report, stream=sys.stdout):
     cw = report["corpus_wide"]
     w(f"\n{cw['pages']} gold pages, {cw['scored']} scored, "
       f"{cw['pages'] - cw['scored']} not comparable\n")
-    w(f"corpus-wide median coverage {_fmt(cw['median_coverage'])} "
-      f"(read the segments below, not this number)\n")
+    w(f"median coverage: PROSE {_fmt(cw['median_prose_coverage'])} over "
+      f"{cw['prose_pages']} pages | figure text {_fmt(cw['median_figure_coverage'])} "
+      f"over {cw['figure_pages']} | combined {_fmt(cw['median_coverage'])}\n")
+    w("prose is the measure that matters; figure text is reported, not optimised. "
+      "Read the segments, not these.\n")
     w(f"status: {cw['status_counts']}\n")
     if cw.get("unterminated_brackets"):
         offenders = sorted(
@@ -824,22 +867,25 @@ def print_summary(report, stream=sys.stdout):
 
     for axis, buckets in report["segments"].items():
         w(f"\n-- by {axis} " + "-" * (58 - len(axis)) + "\n")
-        w(f"{'':22}{'pages':>7}{'scored':>7}{'cover':>8}{'recall':>8}{'simil':>8}{'<0.5':>7}\n")
+        w(f"{'':22}{'pages':>7}{'PROSE':>8}{'figure':>8}{'recall':>8}{'all':>8}\n")
         for name, agg in buckets.items():
-            w(f"{name[:22]:22}{agg['pages']:>7}{agg['scored']:>7}"
-              f"{_fmt(agg['median_coverage'], 8)}{_fmt(agg['median_recall'], 8)}"
-              f"{_fmt(agg['median_similarity'], 8)}{agg['pages_below_0.5_coverage']:>7}\n")
+            w(f"{name[:22]:22}{agg['pages']:>7}"
+              f"{_fmt(agg['median_prose_coverage'], 8)}"
+              f"{_fmt(agg['median_figure_coverage'], 8)}"
+              f"{_fmt(agg['median_recall'], 8)}{_fmt(agg['median_coverage'], 8)}\n")
 
-    w("\n-- worst documents by median coverage " + "-" * 33 + "\n")
+    w("\n-- worst documents by PROSE coverage " + "-" * 35 + "\n")
     ranked = sorted(
         report["documents"].items(),
-        key=lambda kv: (kv[1]["median_coverage"] is None, kv[1]["median_coverage"] or 0),
+        key=lambda kv: (kv[1]["median_prose_coverage"] is None,
+                        kv[1]["median_prose_coverage"] or 0),
     )
-    w(f"{'':26}{'year':>6}{'pages':>7}{'cover':>8}{'recall':>8}  status\n")
+    w(f"{'':26}{'year':>6}{'pages':>7}{'PROSE':>8}{'figure':>8}{'recall':>8}\n")
     for stem, agg in ranked[:15]:
         w(f"{stem[:26]:26}{str(agg['year'] or '-'):>6}{agg['pages']:>7}"
-          f"{_fmt(agg['median_coverage'], 8)}{_fmt(agg['median_recall'], 8)}  "
-          f"{agg['status_counts']}\n")
+          f"{_fmt(agg['median_prose_coverage'], 8)}"
+          f"{_fmt(agg['median_figure_coverage'], 8)}"
+          f"{_fmt(agg['median_recall'], 8)}\n")
     w("\n")
 
 

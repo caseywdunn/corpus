@@ -91,6 +91,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gold-integrity signal rather than silently absorbed — four remain, each a
   transcription detail worth an upstream look.
 
+- **Prose coverage and figure-text coverage are reported separately, and
+  prose is the headline (#193).** Scoring both together answered neither
+  question. Text inside a `[FIGURE]`/`[PLATE]` block is engraved plate
+  lettering and panel labels — 12.3% of the gold set's words but around 70%
+  of its worst pages — so a combined number is dragged down by the material
+  the pipeline is least expected to recover, and body text, which is the
+  pipeline's actual job, disappears into the average.
+
+  Split, corpus-wide median coverage is **0.946 for prose** against 0.731 for
+  figure text (0.898 combined). The split changes what the run says to work
+  on, not just the digits: the 1800–1899 band is 0.812 prose against 0.114
+  figure text, so its apparent weakness was almost entirely plate lettering;
+  `Chenetal2015` moves from 0.667 to 0.812. Two findings survive and are the
+  real ones — CJK at 0.351 prose, and pre-1800 at 0.645, where long-s
+  typography is the known cause. One gets *worse* and had been hidden:
+  `Linnaeus1735` reads 0.628 prose against 0.628 combined with its figure text
+  at 0.634, so its body text is genuinely as bad as its plates.
+
+  `[TABLE]` counts as prose, not figure: a table is body content the pipeline
+  is expected to get right. Measured the other way the corpus-wide figure
+  moves by 0.002, so it is a naming choice rather than a lever.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
