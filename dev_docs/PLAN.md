@@ -220,8 +220,27 @@ Three things this says immediately, and none of them was knowable before:
   floor). That is §2's material, sized: it is figure and plate lettering,
   not prose, and `gold_structural_share` per page separates the two.
 
-**A defect the harness found on its way in**, and the reason to validate
-a measuring instrument against a second source before trusting it: a
+**Two defects the harness found on its way in**, and the reason to
+validate a measuring instrument against a second source before trusting
+it.
+
+The first was in reading the gold. The transcription convention uses `[`
+for markers, but pages print brackets too and notes discuss them, so a
+scanner that counts every `[` as a nesting level mis-parses three
+constructs the set actually contains — a note quoting the bracket
+character, a `[sic]` or `[21]` quoted inside a note, and one unterminated
+`[continued opposite`. The first alone leaked whole notes into 13 of one
+document's 17 pages, which is why it posted 0.767 coverage against 0.998
+recall: gold apparently holding text no extractor could find. Gating
+marker recognition on a known keyword vocabulary brings the structural
+tag counts to exactly the **348 `[FIGURE]` / 76 `[PLATE]` / 65 `[TABLE]`**
+the gold set documents — against 341 / 76 / 60 before — with no page left
+unbalanced. That agreement is the check: the parser and the set now count
+the same thing. The affected document moves to 0.927 and no other moves
+by more than 0.002. **This was a precondition for §2**, which scores
+against those very block boundaries.
+
+The second was in reading the corpuscle: a
 docling table item has no `text` field at all — its content lives only in
 `data.table_cells[].text` — so a per-page walk reading `text` discarded
 every table on the page. Checking reconstruction against `text.json`

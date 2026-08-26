@@ -230,6 +230,75 @@ def test_nested_markers_do_not_leak_commentary():
     assert fid.strip_markup(text).text.split() == ["before", "after"]
 
 
+# --- brackets that are not markup ---------------------------------------------
+#
+# The gold convention uses `[` for markers, but the pages themselves print
+# brackets too, and notes talk *about* brackets. Each case below was found by
+# parsing all 761 gold pages and asking which notes failed to close; together
+# they moved one document from 0.767 to 0.927 median coverage, and brought the
+# structural tag counts to exactly the 348 / 76 / 65 the gold set documents.
+
+
+def test_a_note_quoting_a_bracket_character_still_closes():
+    """`[NOTE: ... "[" is my marker.]` — a mention of the character itself.
+
+    A scanner counting every `[` as a level never closes this note, so the
+    whole of it leaks into the compared page as though it had been printed
+    there. That is what made one document post 0.767 coverage against 0.998
+    recall: gold apparently holding text no extractor could find, because the
+    page does not contain it. 13 of that document's 17 pages were affected.
+    """
+    text = 'printed [NOTE: everywhere else on this page "[" is my marker.] words'
+    assert fid.strip_markup(text).text.split() == ["printed", "words"]
+
+
+def test_a_bracket_pair_inside_a_note_does_not_close_it_early():
+    """`[sic]` and `[21]` are quoted from the page; their `]` is not the note's.
+
+    Treating it as the note's own ends the note early, and every marker after
+    it is then read at the wrong nesting level — which is how a `[FIGURE]` two
+    paragraphs later came to be counted as an unclosed block.
+    """
+    text = 'printed [NOTE: the bracketed "[sic]" is the translator\'s own] words'
+    assert fid.strip_markup(text).text.split() == ["printed", "words"]
+    text2 = "printed [NOTE: continuing from the citation [21]. on page 9] words"
+    assert fid.strip_markup(text2).text.split() == ["printed", "words"]
+
+
+def test_an_unterminated_bracket_does_not_swallow_the_marker_after_it():
+    """A transcription typo — `[continued opposite` with no `]`.
+
+    Consuming it takes the `[/FIGURE]` that follows with it, so the figure
+    block never ends and the rest of the page is scored as plate lettering.
+    """
+    text = "[FIGURE]\nFig. 1. A caption.\n[continued opposite\n[/FIGURE]\nbody text"
+    stripped = fid.strip_markup(text)
+    # The figure block closed, so the body text is outside it.
+    assert "body text" in stripped.text
+    assert "body" not in stripped.structural
+    # The tag itself never reaches the compared text.
+    assert "/FIGURE" not in stripped.text
+
+
+def test_unterminated_brackets_are_counted_not_absorbed():
+    """A gold-integrity signal: only inspection separates a typo from a note
+    mentioning the bracket character, so the count is surfaced per page."""
+    assert fid.unterminated_brackets("[FIGURE]\nclean\n[/FIGURE]") == 0
+    assert fid.unterminated_brackets("text [continued opposite\n[/FIGURE]") == 1
+    rec = fid.score_page("[PAGE 1]\n[continued opposite\n" + "word " * 40, "x " * 40)
+    assert rec["unterminated_brackets"] == 1
+
+
+def test_only_known_keywords_open_a_marker():
+    """The vocabulary is what separates markup from a printed bracket."""
+    assert fid._marker_at("[FIGURE]", 0)
+    assert fid._marker_at("[NOTE: something]", 0)
+    assert fid._marker_at("[?reading:gastrozooids]", 0)
+    assert fid._marker_at("[/PLATE]", 0)
+    assert not fid._marker_at("[21]", 0)          # a printed citation
+    assert not fid._marker_at("[ind. m^-3]", 0)   # a printed unit
+
+
 # --- tokenisation and segmentation --------------------------------------------
 
 

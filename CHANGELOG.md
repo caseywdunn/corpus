@@ -63,6 +63,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   here — a garbage text layer, a plate whose lettering exists only as image,
   and text hallucinated from image texture.
 
+- **The gold-markup parser distinguishes markers from brackets printed on the
+  page (#193).** The transcription convention uses `[` for markers, but the
+  pages print brackets too — citation numbers, units like `[°C]`, a
+  translator's `[sic]` — and notes talk *about* brackets. A scanner counting
+  every `[` as a nesting level gets all three wrong, and all three occur in
+  the gold set:
+
+  - `[NOTE: ... "[" is my marker.]` never closed, so the whole note leaked
+    into the compared page as though printed there. 13 of one document's 17
+    pages; it is why that document posted 0.767 coverage against 0.998 recall,
+    the signature of gold holding text no extractor could ever find.
+  - `[sic]` and `[21]` quoted inside a note closed it early, leaving a
+    `[FIGURE]` two paragraphs later parsed at the wrong nesting level.
+  - An unterminated `[continued opposite` swallowed the `[/FIGURE]` after it,
+    so the block never ended and the rest of the page scored as plate
+    lettering.
+
+  A `[` now opens a marker only when a known keyword follows it; a quote
+  immediately after it marks a mention of the character rather than an
+  expression. Structural tag counts now come out at exactly the 348 `[FIGURE]`
+  / 76 `[PLATE]` / 65 `[TABLE]` the gold set documents, against 341 / 76 / 60
+  before, and no page is left with unbalanced figure nesting. The affected
+  document moves 0.767 → 0.927 median coverage and every other document moves
+  by less than 0.002; corpus-wide 0.891 → 0.898, born-digital 0.882 → 0.919.
+  Brackets that open no marker are now counted and reported per page as a
+  gold-integrity signal rather than silently absorbed — four remain, each a
+  transcription detail worth an upstream look.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted

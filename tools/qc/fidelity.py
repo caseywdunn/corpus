@@ -145,23 +145,151 @@ STRUCTURAL_CLOSE = tuple("/" + t for t in STRUCTURAL_OPEN)
 _PAGE_MARKER = re.compile(r"^PAGE\s+(\d+)(?::\s*(.*))?$")
 
 
-def spans(text):
-    """Yield ``(start, end)`` of top-level bracketed spans, respecting nesting.
+# Every keyword that can legally open a marker. A ``[`` followed by anything
+# else is not markup — it is a bracket printed on the page, and this set is what
+# tells the two apart.
+#
+# Counting nesting over *every* bracket instead, as a naive scanner does, breaks
+# on two things this corpus actually contains. Both were found by checking the
+# 761 gold pages for brackets that never close:
+#
+#   * A note that quotes a bracket while explaining the convention —
+#     `[NOTE: ... Everywhere else on this page "[" is my marker.]` — leaves the
+#     scanner one level deep, so the note never closes and its entire text
+#     leaks into the compared page as though it had been printed there. 13 of
+#     one document's 17 pages, and the reason that document posted 0.767
+#     coverage against 0.998 recall: the gold appeared to hold text no
+#     extractor could ever find, because the page does not contain it.
+#   * A transcription typo — `[continued opposite` with no closing bracket —
+#     swallows the `[/FIGURE]` that follows it, so the figure block never ends.
+MARKER_PREFIXES = (
+    "NOTE", "PAGE", "BLANK PAGE", "illegible", "no lettering",
+    "RUNNING HEAD", "FOOTNOTE", "MARGIN", "/MARGIN", "STAMP", "HANDWRITTEN",
+    "FIGURE", "/FIGURE", "PLATE", "/PLATE", "TABLE", "/TABLE",
+    "?",
+)
 
-    Notes routinely quote other markers inside themselves, so a non-nesting
-    regex would end a ``[NOTE:]`` at the wrong bracket and leak transcriber
-    commentary into the compared text.
+
+def _marker_at(text, i):
+    """True if a marker keyword opens at ``text[i]``."""
+    return text.startswith("[", i) and any(
+        text.startswith(m, i + 1) for m in MARKER_PREFIXES)
+
+
+# A note's prose can contain a bracket that is not markup, and it comes in two
+# forms that need opposite handling. Both were found by parsing all 761 pages
+# and asking which notes failed to close:
+#
+#   * A bracketed expression the note quotes from the page — `[sic]` in a
+#     translator's insertion, `[21]` in a citation the note reproduces. It has
+#     a closing bracket, and that bracket must not be mistaken for the note's
+#     own: doing so ends the note early, and every marker after it is then read
+#     at the wrong nesting level.
+#   * A mention of the bracket *character*, always written quoted:
+#     `Everywhere else on this page "[" is my marker.` There is no partner to
+#     absorb, so it must simply be ignored.
+#
+# A quote immediately after the `[` is what tells them apart, and it is a
+# property of the convention rather than a guess. The width cap is a second
+# guard: a bracketed expression a note quotes is short, and refusing to skip a
+# long one keeps a single stray bracket from swallowing a whole note.
+_LITERAL_MAX_CHARS = 40
+_QUOTES = "\"'“”‘’"
+
+
+def _literal_pair_end(text, j):
+    """Index past the ``]`` of a non-marker bracket pair at ``j``, else ``None``."""
+    if j + 1 < len(text) and text[j + 1] in _QUOTES:
+        return None                      # `["` — a mention of the character
+    stop = min(len(text), j + 1 + _LITERAL_MAX_CHARS)
+    k = j + 1
+    while k < stop:
+        if text[k] == "]":
+            return k + 1
+        if text[k] == "[" and _marker_at(text, k):
+            return None                  # a real marker opens first
+        k += 1
+    return None
+
+
+def _span_end(text, i):
+    """Index just past the ``]`` closing the bracketed span opening at ``i``.
+
+    ``None`` when the span never closes, which is the case the caller must not
+    paper over: consuming an unterminated ``[`` swallows every marker after it.
     """
-    depth, start = 0, None
-    for i, ch in enumerate(text):
-        if ch == "[":
-            if depth == 0:
-                start = i
-            depth += 1
-        elif ch == "]" and depth:
-            depth -= 1
-            if depth == 0:
-                yield start, i + 1
+    if _marker_at(text, i):
+        # Markers nest inside markers — notes routinely quote a `[FIGURE]` —
+        # but only *markers* nest, and a non-marker bracket in the note's prose
+        # is handled by `_literal_pair_end` rather than counted as a level.
+        depth, j = 1, i + 1
+        while j < len(text):
+            ch = text[j]
+            if ch == "[":
+                if _marker_at(text, j):
+                    depth += 1
+                    j += 1
+                    continue
+                k = _literal_pair_end(text, j)
+                j = k if k is not None else j + 1
+                continue
+            if ch == "]":
+                depth -= 1
+                if depth == 0:
+                    return j + 1
+            j += 1
+        return None
+    # A non-marker bracket: printed content, or ad-hoc commentary. It does not
+    # nest, and if a real marker opens before its closing bracket then it never
+    # had one — it is a stray `[` and must be left as literal text.
+    j = i + 1
+    while j < len(text):
+        if text[j] == "]":
+            return j + 1
+        if text[j] == "[" and _marker_at(text, j):
+            return None
+        j += 1
+    return None
+
+
+def spans(text):
+    """Yield ``(start, end)`` of bracketed spans, in order and non-overlapping.
+
+    A ``[`` that opens nothing — an unterminated one — is skipped rather than
+    consumed, so the markers after it are still seen.
+    """
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] != "[":
+            i += 1
+            continue
+        end = _span_end(text, i)
+        if end is None:
+            i += 1
+            continue
+        yield i, end
+        i = end
+
+
+def unterminated_brackets(text):
+    """Count ``[`` characters that open no span — a gold-integrity signal.
+
+    Reported per page rather than silently tolerated. On this corpus the count
+    is a mix of the harmless (a note quoting a bracket, now handled) and the
+    genuine (a transcription typo), and only inspection tells them apart.
+    """
+    n, i = 0, 0
+    while i < len(text):
+        if text[i] == "[":
+            end = _span_end(text, i)
+            if end is None:
+                n += 1
+                i += 1
+                continue
+            i = end
+        else:
+            i += 1
+    return n
 
 
 class _StrippedGold:
@@ -480,6 +608,11 @@ def score_page(gold_raw, extracted):
         "volume_ratio": round(len(gt) / len(et), 3) if et else None,
         "uncertain": len(re.findall(r"\[\?", gold_raw)),
         "illegible": len(re.findall(r"\[illegible", gold_raw)),
+        # A gold-integrity signal, reported rather than absorbed. A bracket that
+        # opens nothing is either a transcription typo or a note mentioning the
+        # character; only inspection tells them apart, so the count is surfaced
+        # instead of being silently tolerated.
+        "unterminated_brackets": unterminated_brackets(gold_raw),
         "status": "ok",
     }
 
@@ -568,6 +701,7 @@ def _aggregate(pages):
         "extracted_words": sum(p["extracted_words"] for p in pages),
         "uncertain": sum(p["uncertain"] for p in pages),
         "illegible": sum(p["illegible"] for p in pages),
+        "unterminated_brackets": sum(p.get("unterminated_brackets", 0) for p in pages),
     }
 
 
@@ -680,6 +814,13 @@ def print_summary(report, stream=sys.stdout):
     w(f"corpus-wide median coverage {_fmt(cw['median_coverage'])} "
       f"(read the segments below, not this number)\n")
     w(f"status: {cw['status_counts']}\n")
+    if cw.get("unterminated_brackets"):
+        offenders = sorted(
+            (stem for stem, agg in report["documents"].items()
+             if agg.get("unterminated_brackets")))
+        w(f"gold integrity: {cw['unterminated_brackets']} bracket(s) opening no "
+          f"marker, in {', '.join(offenders)} — inspect before trusting those "
+          f"pages\n")
 
     for axis, buckets in report["segments"].items():
         w(f"\n-- by {axis} " + "-" * (58 - len(axis)) + "\n")
