@@ -220,6 +220,53 @@ Three things this says immediately, and none of them was knowable before:
   floor). That is §2's material, sized: it is figure and plate lettering,
   not prose, and `gold_structural_share` per page separates the two.
 
+**Prose is the measure; figure text is reported, not optimised.**
+Scoring both together answered neither question. Text inside a
+`[FIGURE]`/`[PLATE]` block is engraved plate lettering and panel labels —
+12.3% of the gold set's words but about 70% of its worst pages — so a
+combined number is dragged down by the material the pipeline is least
+expected to recover, while body text, which is its actual job, vanishes
+into the average. Split: **0.946 prose**, 0.731 figure text, 0.898
+combined. `[TABLE]` counts as prose; measured the other way the corpus
+figure moves 0.002.
+
+The split changes what the run says to work on. The 1800–1899 band reads
+0.812 prose against 0.114 figure text, so its apparent weakness was
+almost entirely plate lettering, and `Chenetal2015` moves 0.667 → 0.812
+the same way. Two findings survive, and one was being hidden:
+
+| segment / document | prose | figure text |
+| --- | --- | --- |
+| CJK | **0.351** | 0.406 |
+| pre-1800 | **0.645** | 0.616 |
+| `Linnaeus1735` | **0.628** | 0.634 |
+
+**What the two survivors turned out to be** — investigated, and none of
+it was the long-s typography the cross-check report had primed us for:
+
+- **Vertical CJK has no model selected**
+  ([#196](https://github.com/caseywdunn/corpus/issues/196)).
+  `jpn_vert`, `chi_sim_vert`, `chi_tra_vert` and `kor_vert` are all
+  installed; `scan.py` can reach none of them. `Kawamura1911a` isolates
+  it exactly — same PDF, same scan, same OCR call — with its English
+  translation at ≈0.99 prose coverage over pages 1–13 and its vertical
+  Japanese at ≈0.25 over pages 14–23. The fix has a precedent in the same
+  file: `deu` → `deu_latf` on Fraktur, which is why Fraktur scores
+  0.80–0.85 here against poppler's recorded 0.05–0.15.
+- **`tesseract_packs` is recorded empty on three documents**
+  ([#197](https://github.com/caseywdunn/corpus/issues/197)) whose
+  language detection was untrusted. OCR itself was fine — `Linnaeus1735`
+  ran with `eng+deu+deu_latf+fra+lat+spa+por` — so the operator-facing
+  record disagrees with the invocation, which `scan.py` asserts cannot
+  happen. That record is what `corpus status` and #176's `ocrlang`
+  workflow tell an operator to consult.
+- **The untrusted fallback union may itself be the pre-1800 problem**,
+  and is now testable. `Linnaeus1735` is 18th-century Latin, got seven
+  competing packs, and posts the worst prose score in the set at 0.400 —
+  while `_compose_ocr_langs`'s own docstring says accuracy degrades as
+  packs multiply. Pinning `ocrlang = {lat}` and re-scoring settles it, and
+  is the first real use of the #176 directive against ground truth.
+
 **Two defects the harness found on its way in**, and the reason to
 validate a measuring instrument against a second source before trusting
 it.
@@ -249,7 +296,7 @@ of its tokens. Unfixed, those pages would have been reported as the
 pipeline losing prose it had in fact extracted. All 35 now reconstruct
 ≥95.8% of `text.json`'s tokens.
 
-### 2. Figure and caption fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194), **scoped**
+### 2. Figure fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194) detection, [#195](https://github.com/caseywdunn/corpus/issues/195) captions, **scoped**
 
 Score `figures.json` — `caption_text`, `page`, `figure_id`,
 `panels_from_caption` — against the gold `[FIGURE]` / `[PLATE]` blocks:
