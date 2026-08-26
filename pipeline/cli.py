@@ -1419,13 +1419,21 @@ def _detect_accelerator() -> Optional[str]:
     properly ("[warn] GPU: none (CPU-only …)"); the raw warning adds
     nothing and makes a working install look broken.
     """
+    from pipeline.accelerator import unsupported_cuda_reason
+
     try:
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import torch
             if torch.cuda.is_available():
-                return "cuda"
+                # #198 — availability is not usability. A GPU whose compute
+                # capability this torch build ships no kernels for reports
+                # available and then fails every launch, so treating it as an
+                # accelerator here would route `vision-local` onto hardware
+                # that cannot run the model.
+                if unsupported_cuda_reason() is None:
+                    return "cuda"
             if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 return "mps"
     except Exception:

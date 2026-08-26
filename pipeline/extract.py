@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from . import stamp_artifact
+from .accelerator import resolve_device
 from .config import CONFIG
 from .figures import (
     detect_missing_figures,
@@ -61,7 +62,9 @@ def extract_docling_content(
     try:
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.datamodel.pipeline_options import (
+            AcceleratorDevice, AcceleratorOptions, PdfPipelineOptions,
+        )
         # Configure converter to generate picture images explicitly.
         # #121 — docling renders picture crops at 72 * images_scale dpi
         # and the saved PNG is never resized downstream, so this scale is
@@ -71,7 +74,19 @@ def extract_docling_content(
         images_scale = float(CONFIG.get("figures", {}).get("images_scale", 2.0))
         logger.info("docling images_scale=%.1f (figure dpi=%d)",
                     images_scale, round(72 * images_scale))
+        # #198 — pin the device rather than leaving docling on `auto`.
+        # `auto` resolves through `torch.cuda.is_available()`, which is true
+        # for any visible NVIDIA GPU including one whose compute capability
+        # this torch build ships no kernels for. When that happens every page
+        # fails with "no kernel image is available for execution on the
+        # device" rather than falling back, so a machine that built a
+        # corpuscle fine last month stops working because a driver appeared.
+        device = resolve_device(
+            CONFIG.get("compute", {}).get("accelerator", "auto"))
+        logger.info("docling accelerator=%s", device)
         pipeline_options = PdfPipelineOptions(
+            accelerator_options=AcceleratorOptions(
+                device=AcceleratorDevice(device)),
             do_ocr=False,
             do_table_structure=True,
             generate_picture_images=True,
@@ -103,6 +118,11 @@ def extract_docling_content(
 
         # Extract text from docling if available
         text_content = {
+            # #198 — record which device produced this. Two corpuscles that
+            # differ because one ran docling on CPU and one on CUDA were
+            # otherwise indistinguishable after the fact, which defeats the
+            # comparison the #98 version pins exist to make possible.
+            "accelerator": device,
             "title": document.name,
             "text": document.export_to_markdown(),
             "pages": len(document.pages) if hasattr(document, "pages") else None,

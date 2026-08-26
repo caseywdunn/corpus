@@ -214,8 +214,17 @@ def prefetch_docling(sample_pdf: Path, attempts: int = _ATTEMPTS) -> None:
     def _run() -> None:
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.datamodel.pipeline_options import (
+            AcceleratorDevice, AcceleratorOptions, PdfPipelineOptions,
+        )
+        # #198 — same device pin as extract.py. Warming the models on a
+        # device the real run won't use would defeat the point of prefetching.
+        from .accelerator import resolve_device
+        from .config import CONFIG as _CFG
         opts = PdfPipelineOptions(
+            accelerator_options=AcceleratorOptions(
+                device=AcceleratorDevice(
+                    resolve_device(_CFG.get("compute", {}).get("accelerator", "auto")))),
             do_ocr=False,
             do_table_structure=True,
             generate_picture_images=True,
