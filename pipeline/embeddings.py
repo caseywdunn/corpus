@@ -28,6 +28,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from .accelerator import resolve_device
+
 logger = logging.getLogger(__name__)
 
 
@@ -98,33 +100,25 @@ _LOCAL_MODEL_DIMS = {
 }
 
 
-def detect_device() -> str:
-    """Choose the best torch device available on this machine.
+def detect_device(configured: str = "auto") -> str:
+    """Choose the best torch device that this machine can actually use.
 
-    Order: cuda → mps → cpu. Honours ``CORPUS_DEVICE`` env var as an
-    override (set to ``"cpu"`` if you need to force CPU on a machine
-    where MPS misbehaves on a particular model).
+    Order: cuda → mps → cpu. ``CORPUS_DEVICE`` overrides everything, then
+    ``compute.accelerator`` from config; set either to ``"cpu"`` to force it
+    (e.g. where MPS misbehaves on a particular model).
+
+    **Availability is not usability** (#198). ``torch.cuda.is_available()`` is
+    true for any visible NVIDIA GPU, including one whose compute capability
+    this torch build ships no kernels for — and the encoder then dies on the
+    first batch with "no kernel image is available for execution on the
+    device". That is not hypothetical: a GTX 1080 becoming visible to torch
+    failed the embed stage on a machine where the identical pinned set had
+    built the same corpuscle three weeks earlier.
     """
     override = os.environ.get("CORPUS_DEVICE", "").strip().lower()
     if override in ("cuda", "mps", "cpu"):
         return override
-
-    try:
-        import torch
-    except ImportError:
-        return "cpu"
-
-    # Silence torch's driver/runtime-mismatch UserWarning; the caller
-    # reports CPU-only status itself. See pipeline/cli.py
-    # _detect_accelerator for the reasoning.
-    import warnings
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        if torch.cuda.is_available():
-            return "cuda"
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return "mps"
-    return "cpu"
+    return resolve_device(configured)
 
 
 class LocalBackend(EmbeddingBackend):
@@ -169,7 +163,16 @@ class LocalBackend(EmbeddingBackend):
             ) from e
 
         self._model_name = model_name
-        self.device = device or detect_device()
+        # `compute.accelerator` from config reaches the encoder here; the
+        # CORPUS_DEVICE env var still wins inside detect_device (#198).
+        if device is None:
+            try:
+                from .config import CONFIG
+                configured = CONFIG.get("compute", {}).get("accelerator", "auto")
+            except Exception:
+                configured = "auto"
+            device = detect_device(configured)
+        self.device = device
         self.batch_size = batch_size
         if fp16 is None:
             fp16 = self.device in ("cuda", "mps")
