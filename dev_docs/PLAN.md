@@ -249,7 +249,7 @@ of its tokens. Unfixed, those pages would have been reported as the
 pipeline losing prose it had in fact extracted. All 35 now reconstruct
 ≥95.8% of `text.json`'s tokens.
 
-### 2. Figure and caption fidelity, **to file**
+### 2. Figure and caption fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194), **scoped**
 
 Score `figures.json` — `caption_text`, `page`, `figure_id`,
 `panels_from_caption` — against the gold `[FIGURE]` / `[PLATE]` blocks:
@@ -265,6 +265,37 @@ This is the first real measurement of the caption heuristic. OVERVIEW.md
 already calls caption association "the highest-value annotation per
 figure and the hardest in historical layouts"; the gold set is what turns
 that from an assertion into a number.
+
+**§1's run put the damage here**, which is what makes this the next
+piece of work rather than §3. Figure and plate text is 12.3% of gold
+tokens (36,470 of 295,745) and roughly 70% of the failures: 47 of the 54
+pages that extracted to nothing are >80% inside a structural block, as
+are 78 of the 112 pages under 0.5 coverage. `Totton1965a` contributes 40
+empty pages, every one a plate.
+
+**Counting figures measures the definition of "figure", not the
+extraction.** 420 entries against 424 gold blocks corpus-wide — but the
+totals agreeing is a coincidence. `Ahuja_etal2026` has 6 gold blocks
+against 31 entries because docling counts logos and icons;
+`Vanhoeffen1906` has 67 against 34. Caption binding is the measure that
+is well posed.
+
+**A naive caption-text match was tried and it lies — 44% is not the
+answer.** Token similarity at a 0.6 threshold reported 44% bound, 7%
+wrong page, 49% unmatched. Reading the pages showed most of that is
+artifact, in the same shape CROSSCHECK_REPORT.md warns about:
+`Chenetal2015` scored 0 of 10 because the document prints every caption
+twice and the extraction took the Chinese while the matcher was handed
+the English — every figure is in fact bound correctly;
+`Carre1969_Nanomia_tr` scored 1 of 18 because its plate pages carry only
+`FIG. 1` as printed matter, two tokens no threshold can bind, with the
+prose caption on another page. #194 therefore binds on the **figure
+number** first, which is language-independent, and classifies each gold
+block — prose caption, bare label, plate lettering, nothing printed —
+before scoring, so no rate is computed over blocks it does not apply to.
+One genuine finding did fall out of the exercise: `Chenetal2015`'s figure
+numerals OCR as `图 ;` and `图 <` for 3 and 4, which belongs to the OCR
+axis.
 
 ### 3. Grobid output and reference consolidation, **to file**
 
