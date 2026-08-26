@@ -405,8 +405,31 @@ coverage, not correctness.
 
 Binding on a signal present for a third of the population would give the
 other two thirds a silent pass, which is precisely the error shape this
-cycle keeps catching. So [#205](https://github.com/caseywdunn/corpus/issues/205)
-comes first. Its largest single cause is pleasing: the opener word is
+cycle keeps catching. So
+[#205](https://github.com/caseywdunn/corpus/issues/205) came first, and
+has **landed**: coverage is now **67.6%** with precision *up* at 98.2%.
+The largest cause was pleasing — the opener word is OCR-damaged, `Fic.`
+and `Frc.` for `Fig.`, and across 320 captions the damaged spellings are
+**more common than the correct one**.
+
+It also surfaced a latent defect by amplifying it. `dedupe_figures`
+grouped same-numbered figures on number alone, and its bbox tests carry no
+page, so two figures at similar coordinates on different leaves read as
+redundant crops — routine in a document that is its own translation.
+Numbering more figures fed more of them into that grouping, and
+`Carre1969_Nanomia_tr` fell from 18 extracted figures to 13. Keying on
+`(page, number)` takes it to **22 — every figure docling detects, and
+exactly what the gold records** — with 16 numbered against 7. That is a
+direct dent in §2's recall hole
+([#203](https://github.com/caseywdunn/corpus/issues/203)), found from the
+number side rather than the detection side.
+
+Tracing it also turned up
+[#207](https://github.com/caseywdunn/corpus/issues/207): the
+whole-figure/subpanel branch of `dedupe_figures` is unreachable, because
+its overlap measure is symmetric and step 1's looser threshold always
+fires first. No figure in the reference corpuscle carries
+`figure_type: subpanel`, which corroborates it. Its largest single cause is pleasing: the opener word is
 OCR-damaged, `Fic.` and `Frc.` for `Fig.`, consistently and document-wide
 (53 of 185 captioned-but-unnumbered entries), on documents whose captions
 are otherwise extracted perfectly. Anchoring the label to the caption
