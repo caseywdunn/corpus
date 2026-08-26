@@ -332,7 +332,7 @@ of its tokens. Unfixed, those pages would have been reported as the
 pipeline losing prose it had in fact extracted. All 35 now reconstruct
 ≥95.8% of `text.json`'s tokens.
 
-### 2. Figure fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194) detection **landed**, [#195](https://github.com/caseywdunn/corpus/issues/195) captions scoped
+### 2. Figure fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194) detection **landed**; captions [#195](https://github.com/caseywdunn/corpus/issues/195) **blocked on [#205](https://github.com/caseywdunn/corpus/issues/205)**
 
 Score `figures.json` — `caption_text`, `page`, `figure_id`,
 `panels_from_caption` — against the gold `[FIGURE]` / `[PLATE]` blocks:
@@ -392,6 +392,25 @@ totals agreeing is a coincidence. `Ahuja_etal2026` has 6 gold blocks
 against 31 entries because docling counts logos and icons;
 `Vanhoeffen1906` has 67 against 34. Caption binding is the measure that
 is well posed.
+
+**Caption binding is blocked, and the block is worth stating.** §2's
+plan was to bind on the figure *number* rather than the caption text,
+because a number is language-independent. It only exists for a third of
+the figures: `figure_number` is populated on **135 of 420 entries
+(32.1%)**, with **15 of 35 documents carrying none at all**. Where it does
+fire it is right — 131 of 135 (**97.0%**) are genuinely printed on that
+page, allowing #16's Roman↔Arabic normalisation, which works. The gold
+says at least 88% of figure blocks carry a printed number, so the gap is
+coverage, not correctness.
+
+Binding on a signal present for a third of the population would give the
+other two thirds a silent pass, which is precisely the error shape this
+cycle keeps catching. So [#205](https://github.com/caseywdunn/corpus/issues/205)
+comes first. Its largest single cause is pleasing: the opener word is
+OCR-damaged, `Fic.` and `Frc.` for `Fig.`, consistently and document-wide
+(53 of 185 captioned-but-unnumbered entries), on documents whose captions
+are otherwise extracted perfectly. Anchoring the label to the caption
+start costs another 59, and `Figg.` and `第九圖` are unhandled spellings.
 
 **A naive caption-text match was tried and it lies — 44% is not the
 answer.** Token similarity at a 0.6 threshold reported 44% bound, 7%
