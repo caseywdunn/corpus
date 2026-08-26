@@ -126,7 +126,11 @@ def test_prefetch_succeeds_on_a_later_attempt(monkeypatch):
 
 def test_docling_prefetch_does_not_warm_the_picture_classifier(monkeypatch):
     """#140 removed do_picture_classification from the real pipeline, so
-    prefetch must not re-introduce the download it eliminated."""
+    prefetch must not re-introduce the download it eliminated.
+
+    Also guards #198: prefetch must warm the models on the *same* device the
+    real run will use, or the warm-up caches the wrong thing.
+    """
     seen = {}
 
     class _FakeOpts:
@@ -147,7 +151,12 @@ def test_docling_prefetch_does_not_warm_the_picture_classifier(monkeypatch):
         sys.modules, "docling.datamodel.pipeline_options",
         type(sys)("docling.datamodel.pipeline_options"),
     )
-    sys.modules["docling.datamodel.pipeline_options"].PdfPipelineOptions = _FakeOpts
+    _po = sys.modules["docling.datamodel.pipeline_options"]
+    _po.PdfPipelineOptions = _FakeOpts
+    # #198 pins the device rather than leaving docling on `auto`, so the
+    # double has to carry the accelerator types the real module exports.
+    _po.AcceleratorOptions = lambda **kw: kw
+    _po.AcceleratorDevice = lambda v: v
     mod_dc = type(sys)("docling.document_converter")
     mod_dc.DocumentConverter = _FakeConv
     mod_dc.PdfFormatOption = lambda **kw: None

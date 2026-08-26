@@ -196,6 +196,24 @@ class OcrConfig(BaseModel):
     probe_sample_pages: int = Field(default=5, ge=1, le=25)
 
 
+class ComputeConfig(BaseModel):
+    """Which accelerator the ML stages run on (#198).
+
+    ``auto`` checks that the visible GPU's compute capability is one this
+    torch build actually ships kernels for, which plain availability does not
+    — a GPU too old for the pinned torch fails every kernel launch rather
+    than falling back. Pin ``cpu`` to take the decision out of play entirely;
+    a pinned value is honoured verbatim.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    accelerator: Literal["auto", "cpu", "cuda", "mps"] = Field(
+        default="auto",
+        description="Device for docling layout/table models and embeddings.",
+    )
+
+
 class ChunkingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -282,6 +300,7 @@ class CorpuscleConfig(BaseModel):
 
     # System-wide tuning blocks (carried from v0.2 _DEFAULT_CONFIG).
     ocr: OcrConfig = Field(default_factory=OcrConfig)
+    compute: ComputeConfig = Field(default_factory=ComputeConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     stage_timeouts: StageTimeoutsConfig = Field(default_factory=StageTimeoutsConfig)
     huge_document: HugeDocumentConfig = Field(default_factory=HugeDocumentConfig)
