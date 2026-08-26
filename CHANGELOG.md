@@ -278,6 +278,40 @@ were deliberately left alone — see CONTRIBUTING.md's release ritual.)*
   x86_64 — and stays silent for a remote or Apptainer Grobid, a host
   without Docker, and a non-clone install with no compose file.
 
+- **A GPU too old for the pinned torch no longer breaks every build
+  (#198).** `torch.cuda.is_available()` answers "is there a visible NVIDIA
+  GPU", not "can this torch build run kernels on it", and the two differ on
+  exactly the hardware a lab workstation has. On the same machine with an
+  unchanged dependency set, 20 days apart:
+
+  ```
+  2026-08-06  Accelerator device: 'cpu'      → clean build
+  2026-08-26  Accelerator device: 'cuda:0'   → CUDA error: no kernel image
+                                               is available for execution
+  ```
+
+  A GTX 1080 (compute capability 6.1) became visible to torch, whose pinned
+  build ships `sm_75` and up. **Nothing in the project changed** — a driver
+  appeared and a working install stopped working, which is precisely the
+  reproducibility the #98 pins exist to provide.
+
+  `pipeline/accelerator.py` now checks capability rather than availability,
+  allowing both an exact binary kernel and forward PTX JIT so working
+  hardware is never pushed onto the CPU, and logs which card it rejected and
+  why. It is applied at all four call sites that made the same assumption
+  independently: docling in `extract.py` and `prefetch.py` (which previously
+  set no `accelerator_options` at all, leaving docling on `auto`), the
+  `vision-local` host gate in `cli.py`, and the embedding encoder in
+  `embeddings.py`. The last of those was only caught by running a real build
+  — the docling fix alone left `corpus run` failing at the embed stage.
+
+  New `compute.accelerator` config key (`auto` | `cpu` | `cuda` | `mps`); a
+  pinned value is honoured verbatim, since second-guessing it would make the
+  knob useless for the case it exists for. `CORPUS_DEVICE` still wins for
+  embeddings. The resolved device is recorded in `text.json`, so two
+  corpuscles that differ because one ran on CPU and one on CUDA are no longer
+  indistinguishable after the fact.
+
 ### Changed
 
 - **The corpus-wide soft consistency checks are now asserted as corpus
