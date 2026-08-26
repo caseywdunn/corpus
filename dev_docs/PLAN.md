@@ -260,15 +260,29 @@ it was the long-s typography the cross-check report had primed us for:
   record disagrees with the invocation, which `scan.py` asserts cannot
   happen. That record is what `corpus status` and #176's `ocrlang`
   workflow tell an operator to consult.
-- **The untrusted fallback union may itself be the pre-1800 problem**,
-  and is now testable. `Linnaeus1735` is 18th-century Latin, was given
-  seven competing packs by that fallback, and sits at 0.628 prose
-  coverage — while `_compose_ocr_langs`'s own docstring says accuracy
-  degrades as packs multiply. Pinning `ocrlang = {lat}` and re-scoring
-  settles it, and is the first real use of the #176 directive against
-  ground truth.
+- **The untrusted fallback union is not the pre-1800 problem — tested
+  and refuted.** The hypothesis was that seven competing packs cost more
+  than they buy, since `_compose_ocr_langs`'s docstring says accuracy
+  degrades as packs multiply. `Linnaeus1735` was rebuilt with
+  `ocrlang = {lat}` pinned (#176), same config, same CPU accelerator, and
+  scored against the gold set: prose coverage **0.628 → 0.549**, recall
+  0.630 → 0.518, similarity 0.562 → 0.443, pages under 0.5 coverage 2 → 4.
+  Worse on 12 of 13 pages, with `excess_novel` up on 12 of 13. Pinning the
+  single correct language made it worse, so for antiqua-set early-modern
+  Latin the extra packs are evidently supplying character coverage `lat`
+  alone lacks. The fallback is doing its job, and whatever depresses
+  pre-1800 prose — 0.607, 0.628, 0.644 across the three worst — is not
+  pack over-selection. First real use of the #176 directive against ground
+  truth, and it cost one afternoon to kill a plausible hypothesis.
 
-  It is worth noting how much its score depends on the table decision:
+  Unmeasured but suggestive: OCR ran 39 s on one pack against roughly 11
+  minutes on seven. Not comparable as they stand — the seven-pack run was
+  one of seven documents extracting in parallel — but if pack count
+  dominates, the union buys +0.08 coverage for a large wall-clock
+  multiple. Worth measuring properly before widening it.
+
+  Its score also depends on the table decision more than any other
+  document's:
   0.628 with `[TABLE]` counted as prose against 0.400 with tables on the
   figure side. *Systema Naturae* is largely tabular — 18,358 characters
   of table-cell text — so it is the one document where that classification
@@ -276,6 +290,18 @@ it was the long-s typography the cross-check report had primed us for:
   it has to say which convention it used. Under the shipped convention the
   worst pre-1800 document is `Hjortberg1769` at 0.607, and the worst prose
   anywhere in the set is `Kawamura1911a` at 0.351.
+
+- **docling picks a GPU the pinned torch cannot use**
+  ([#198](https://github.com/caseywdunn/corpus/issues/198)), found while
+  running the experiment above. Same machine, same pinned set, 20 days
+  apart: `Accelerator device: 'cpu'` on 2026-08-06, `'cuda:0'` and 20 ×
+  `CUDA error: no kernel image is available` on 2026-08-26. The card is a
+  GTX 1080 at compute capability 6.1 and the pinned torch ships `sm_75`
+  and up. Nothing in the project changed — the GPU became visible to
+  torch, and `torch.cuda.is_available()` alone is what docling decides on.
+  A driver appearing turned a working install into a broken one, which is
+  precisely the reproducibility the #98 pins exist to provide. Nothing in
+  a corpuscle records which accelerator produced it.
 
 **Two defects the harness found on its way in**, and the reason to
 validate a measuring instrument against a second source before trusting
