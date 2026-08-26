@@ -332,7 +332,7 @@ of its tokens. Unfixed, those pages would have been reported as the
 pipeline losing prose it had in fact extracted. All 35 now reconstruct
 ≥95.8% of `text.json`'s tokens.
 
-### 2. Figure fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194) detection, [#195](https://github.com/caseywdunn/corpus/issues/195) captions, **scoped**
+### 2. Figure fidelity — [#194](https://github.com/caseywdunn/corpus/issues/194) detection **landed**, [#195](https://github.com/caseywdunn/corpus/issues/195) captions scoped
 
 Score `figures.json` — `caption_text`, `page`, `figure_id`,
 `panels_from_caption` — against the gold `[FIGURE]` / `[PLATE]` blocks:
@@ -355,6 +355,30 @@ tokens (36,470 of 295,745) and roughly 70% of the failures: 47 of the 54
 pages that extracted to nothing are >80% inside a structural block, as
 are 78 of the 112 pages under 0.5 coverage. `Totton1965a` contributes 40
 empty pages, every one a plate.
+
+**Detection is measured: recall 0.833, precision 0.841.** 71 gold
+figures have no entry; 67 entries have no gold block. And
+`figure_type == "graphical_element"` turns out to be an actionable
+furniture predicate — established by scoring the corpuscle under each
+candidate filter rather than assuming which field name sounds right:
+
+| filter | recall | precision | F1 |
+| --- | --- | --- | --- |
+| all entries | 0.833 | 0.841 | 0.837 |
+| **drop `graphical_element`** | **0.811** | **0.964** | **0.881** |
+| drop uncaptioned `graphical_element` | 0.818 | 0.940 | 0.875 |
+| drop `graphical_element` + `unclassified` | 0.708 | 0.987 | 0.824 |
+| captioned only | 0.724 | 0.959 | 0.825 |
+
+Surplus falls 67 → 13 for nine real figures lost. Taking `unclassified`
+as well is over-reach: it holds 49 real figures and recall drops ten
+points. Segments show why no single number would do — born-digital
+precision 0.562 against 0.890 for scans, because modern papers carry
+publisher furniture historical scans do not; and 1900–1949 recall 0.477,
+driven by `Vanhoeffen1906` (34 of 67 found) and `Kawamura1911a` (6 of
+16). **What to do with the filter is a decision, not a measurement** —
+excluding those entries from the served bundle, or fixing classification
+upstream — and it is left open.
 
 **Counting figures measures the definition of "figure", not the
 extraction.** 420 entries against 424 gold blocks corpus-wide — but the

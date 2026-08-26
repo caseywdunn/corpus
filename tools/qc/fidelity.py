@@ -838,8 +838,11 @@ def _fmt(value, width=7):
     return f"{value:>{width}.3f}" if isinstance(value, float) else f"{'-':>{width}}"
 
 
-def print_summary(report, stream=sys.stdout):
-    w = stream.write
+def print_summary(report, stream=None):
+    # Resolved here, not as a default argument: a default binds
+    # `sys.stdout` at definition time, so the function would ignore
+    # any later redirection — including a test capturing it.
+    w = (stream or sys.stdout).write
     w(f"\ngold {report['gold_root']}\n")
     w(f"corpuscle {report['corpuscle_root']}\n")
     w(f"{report['documents_bound']} documents bound on sha256")

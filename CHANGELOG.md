@@ -113,6 +113,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is expected to get right. Measured the other way the corpus-wide figure
   moves by 0.002, so it is a naming choice rather than a lever.
 
+- **`tools/qc/figure_detection.py` measures whether the figure *objects* are
+  right (#194).** Separate from text fidelity and from caption association
+  (#195): is every figure found, and is publisher furniture being called a
+  figure? Against the 35-document gold set, **recall 0.833, precision 0.841**
+  — 71 gold figures with no entry, 67 surplus entries.
+
+  It counts per page, because the gold records no bounding boxes and because
+  the corpus-wide totals are a trap: 424 gold blocks against 420 entries looks
+  like agreement and is a coincidence, hiding one paper with 6 gold blocks
+  against 31 entries and another with 67 against 34.
+
+  **`figure_type == "graphical_element"` is an actionable furniture
+  predicate**, which the scorer establishes by scoring the same corpuscle
+  under each candidate filter rather than assuming it:
+
+  | filter | recall | precision | F1 |
+  |---|---|---|---|
+  | all entries | 0.833 | 0.841 | 0.837 |
+  | **drop `graphical_element`** | **0.811** | **0.964** | **0.881** |
+  | drop uncaptioned `graphical_element` | 0.818 | 0.940 | 0.875 |
+  | drop `graphical_element` + `unclassified` | 0.708 | 0.987 | 0.824 |
+  | captioned only | 0.724 | 0.959 | 0.825 |
+
+  Dropping `graphical_element` cuts surplus from 67 to 13 for nine real
+  figures lost. Also dropping `unclassified` is over-reach — it is a mixed
+  population holding 49 real figures, and recall falls ten points.
+
+  Segmenting shows why one corpus-wide number would mislead: born-digital
+  precision is 0.562 against 0.890 for scans, because modern papers carry
+  publisher furniture historical scans do not; and 1900–1949 recall is 0.477,
+  driven by two documents where figures are simply not found
+  (`Vanhoeffen1906` 34 of 67, `Kawamura1911a` 6 of 16).
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
