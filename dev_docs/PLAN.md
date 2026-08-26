@@ -261,11 +261,21 @@ it was the long-s typography the cross-check report had primed us for:
   happen. That record is what `corpus status` and #176's `ocrlang`
   workflow tell an operator to consult.
 - **The untrusted fallback union may itself be the pre-1800 problem**,
-  and is now testable. `Linnaeus1735` is 18th-century Latin, got seven
-  competing packs, and posts the worst prose score in the set at 0.400 —
-  while `_compose_ocr_langs`'s own docstring says accuracy degrades as
-  packs multiply. Pinning `ocrlang = {lat}` and re-scoring settles it, and
-  is the first real use of the #176 directive against ground truth.
+  and is now testable. `Linnaeus1735` is 18th-century Latin, was given
+  seven competing packs by that fallback, and sits at 0.628 prose
+  coverage — while `_compose_ocr_langs`'s own docstring says accuracy
+  degrades as packs multiply. Pinning `ocrlang = {lat}` and re-scoring
+  settles it, and is the first real use of the #176 directive against
+  ground truth.
+
+  It is worth noting how much its score depends on the table decision:
+  0.628 with `[TABLE]` counted as prose against 0.400 with tables on the
+  figure side. *Systema Naturae* is largely tabular — 18,358 characters
+  of table-cell text — so it is the one document where that classification
+  is a lever rather than a rounding difference, and any number quoted for
+  it has to say which convention it used. Under the shipped convention the
+  worst pre-1800 document is `Hjortberg1769` at 0.607, and the worst prose
+  anywhere in the set is `Kawamura1911a` at 0.351.
 
 **Two defects the harness found on its way in**, and the reason to
 validate a measuring instrument against a second source before trusting
