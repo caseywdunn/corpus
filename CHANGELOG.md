@@ -163,6 +163,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   driven by two documents where figures are simply not found
   (`Vanhoeffen1906` 34 of 67, `Kawamura1911a` 6 of 16).
 
+- **Figure-number extraction measured: 97% precise, 32% available (#205).**
+  `parse_figure_number` fires for 135 of 420 figures, with 15 of 35 documents
+  getting none at all — but where it fires, 131 of 135 numbers are genuinely
+  printed on that page, allowing #16's Roman↔Arabic normalisation. Coverage,
+  not correctness, is the gap. The largest single cause is the opener word
+  being OCR-damaged — `Fic.` and `Frc.` for `Fig.`, consistently and
+  document-wide — on documents whose captions are otherwise extracted
+  perfectly. No behaviour change here; this is the measurement, and it blocks
+  the caption-binding scorer (#195), which would otherwise have measured the
+  number extractor rather than the caption heuristic.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
