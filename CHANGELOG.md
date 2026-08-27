@@ -256,6 +256,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong way first, including one that concluded the panel branch was inert
   when the filenames showed it had lettered them all along.
 
+- **`--config` with a relative path no longer silently discards every tuned
+  setting (#210).** Reported by @ejedwards against 1.1.1.
+  `corpus --config <relative-path> run` kept `input_pdfs`, `bib`, `lexicon`
+  and `taxonomy` — the CLI resolves those itself and passes them as absolute
+  arguments — while `ocr`, `chunking`, `stage_timeouts`, `huge_document` and
+  `quality_gates` were replaced by built-in defaults. The run looked entirely
+  normal; one INFO line was the only trace.
+
+  Two independent causes, both fixed. `_resolve_config_path` returned the flag
+  value verbatim, and it is forwarded to each stage subprocess, which the
+  orchestrator runs from `REPO_ROOT` rather than the operator's directory — so
+  a relative path missed. `CORPUS_CONFIG` had the same hole. Both are now
+  resolved to absolute, with `~` expanded.
+
+  Separately, a **named** config that cannot be read is now an error rather
+  than a fallback. `load_config` treats a missing file as "use defaults",
+  which is correct for the implicit `./config.yaml` and wrong for a file the
+  operator asked for by name; a typo would otherwise run to completion on
+  defaults.
+
+  This had been masking #209: an `ocr.jobs` setting appeared to have no effect
+  because the file carrying it was never read.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
