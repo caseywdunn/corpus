@@ -393,6 +393,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Only pages where the legend names *more* figures than were extracted are
   expanded, so a modern paper docling has already separated is untouched.
 
+- **Grobid consolidation is reachable from config, with a measured default
+  (PLAN v1.2 §3).** `consolidateCitations` had never run in this project's
+  history: `process_fulltext` defaulted it to 0, `metadata.py` called that
+  method overriding nothing, and the `grobid:` block exposed only `url` and
+  `disable`. The setting existed and could not be changed.
+
+  It stays off, but now on evidence rather than assumption. Same PDFs, flag
+  off then on, against the gold corpuscle:
+
+  | document | era | DOI rate | Grobid time |
+  |---|---|---|---|
+  | `Ahuja_etal2026` | 2026 | 86.1% → 88.9% | 3.1s → 6.4s |
+  | `Stepanjants2014` | 2014 | 0% → 6.9% | 2.0s → 2.7s |
+  | `Bernstein1934` | 1934 | 0% → 3.6% | 2.3s → 3.4s |
+  | `Benasso_Stroiazzo1976` | 1976 | 0% → 0% | 1.7s → 2.6s |
+
+  Six DOIs recovered across 194 references, for 1.4× to 2× the Grobid time.
+  The split is by era rather than by anything the flag controls — modern
+  reference lists already carry DOIs and CrossRef holds the rest, while the
+  historical works this corpus is mostly made of are not in it. Which is why
+  both flags are now exposed rather than hard-coded: the arithmetic is a
+  property of the library, not of the pipeline. A corpus of modern papers may
+  well find it worth the round trips.
+
+  Baseline for context: 719 references across the corpuscle, 32.4% carrying a
+  DOI — 69–86% in papers from 2020 on, and **0%** in every document before
+  1980.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
