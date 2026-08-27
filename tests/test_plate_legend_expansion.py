@@ -16,13 +16,21 @@ Asking for Figure 33 returned nothing.
 
 The records share the plate's image, because locating an individual engraving
 needs OCR of the lettering printed on the plate and that is a separate problem.
-What this fixes is retrieval and counting, and it is worth 0.849 -> 0.917
-figure recall across the reference corpus, with no document regressing.
+What this fixes is retrieval and counting: figure recall across the reference
+corpus goes 0.849 -> 0.910, and on the served surface 0.833 -> 0.894.
+
+The first version of this claimed the recall with no cost, which the gold set
+did not bear out — it also read the cross-references in running prose as legend
+entries, putting 34 wrong figures into one monograph. What the line has to
+open with is the point, and the tests at the foot of this file are about that.
 """
 from __future__ import annotations
 
+import pytest
+
 from pipeline.figures import (
     FIGURE_TYPE_FIGURE,
+    _LEGEND_OPENER,
     _MIN_PLATE_LEGEND_ENTRIES,
     expand_plate_figures,
     plate_legend_entries,
@@ -137,3 +145,72 @@ def test_siblings_reuse_the_plate_file_instead_of_copying_it():
     src = inspect.getsource(extract.extract_docling_content)
     assert "saved_filenames[shares]" in src
     assert "shares in saved_filenames" in src
+
+
+# ---------------------------------------------------------------------------
+# A legend line opens with its figure's label; a cross-reference doesn't.
+#
+# The first version of #203 scanned every text item on a page for a figure
+# number anywhere in it. On a plate page that is right. On a page of running
+# prose it reads the monograph's own cross-references as legend entries, and
+# the expansion then serves *some other figure's image* under the referenced
+# number — 34 of them in Totton 1965, which is worse than not finding the
+# figure at all. Measured against the gold set, anchoring the label recovers
+# the precision that cost (0.892 -> 0.962 on the served surface) while
+# keeping essentially all of the recall it bought (0.901 -> 0.894).
+# ---------------------------------------------------------------------------
+
+# Lines lifted verbatim from Totton 1965 pages the unanchored rule expanded.
+TOTTON_CROSS_REFERENCES = [
+    "Plate XX, figures 1, 2",                    # a species heading
+    "Plate XXXIX",
+    "Plate XIII, figures 1-3",
+    "figured by Bigelow (1911b, PL. 21, as Anthophysa rosea) and by Leloup "
+    "(1941, Pl. 11). Bigelow shows the giant cells in the septa",
+]
+
+# Lines from plates the rule is meant to expand — Vanhoeffen 1906 sets three
+# separately-numbered engravings under one legend block.
+REAL_LEGEND_LINES = [
+    "Figur 55. Physalia arethusa Browne nach Agassiz.",
+    "Figur 56. Physalialarve nach Huxley.",
+    "Figur 57. Ältere Physalialarve nach Chun.",
+]
+
+
+@pytest.mark.parametrize("line", TOTTON_CROSS_REFERENCES)
+def test_a_cross_reference_is_not_a_legend_entry(line):
+    assert plate_legend_entries([{"text": line, "bbox": [0, 0, 100, 10]},
+                                 {"text": line, "bbox": [0, 20, 100, 30]}]) == []
+
+
+def test_a_real_legend_block_still_expands():
+    page = [{"text": t, "bbox": [0, i * 20, 200, i * 20 + 10]}
+            for i, t in enumerate(REAL_LEGEND_LINES)]
+    entries = plate_legend_entries(page)
+    assert [e["figure_number"] for e in entries] == ["55", "56", "57"]
+
+
+def test_prose_mentioning_figures_does_not_become_a_legend():
+    """The failing page: ordinary text, one text-figure, two cross-references."""
+    page = [
+        {"text": "Forskalia edwardsi Kolliker, 1853", "bbox": [0, 0, 200, 10]},
+        {"text": "Plate XX, figures 1, 2", "bbox": [0, 20, 200, 30]},
+        {"text": "Nectophores (text-figs. 52, 53): The nectosome consists of "
+                 "a conical or more cylindrical structure", "bbox": [0, 40, 200, 60]},
+        {"text": "FIG. 53. Forskalia edwardsi Kolliker", "bbox": [0, 80, 200, 90]},
+    ]
+    entries = plate_legend_entries(page)
+    # Only the actual caption qualifies, which is one entry — below the
+    # threshold, so the page is left alone entirely.
+    assert entries == []
+
+
+def test_the_label_must_be_followed_by_the_number():
+    """`figured by Bigelow` opens with "fig" and is not a figure label."""
+    assert not _LEGEND_OPENER.match("figured by Bigelow (1911b, PL. 21)")
+    assert _LEGEND_OPENER.match("Fig. 33.")
+    assert _LEGEND_OPENER.match("FiG. 128. Eudoxoides spiralis")
+    assert _LEGEND_OPENER.match("Abb. 7. Physalia")
+    assert _LEGEND_OPENER.match("Text-figure 24")
+    assert _LEGEND_OPENER.match("Figuren 55 und 56.")
