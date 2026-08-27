@@ -210,3 +210,44 @@ def test_body_text_reference_matching_was_not_loosened():
     # The damaged spellings are NOT accepted in body text.
     assert not _FIGURE_REF_RE.search("as shown in Fic. 4 above")
     assert not _FIGURE_REF_RE.search("we counted for 3 specimens")
+
+
+# ---------------------------------------------------------------------------
+# The tolerant opener must not read ordinary prose as a figure number (#204)
+# ---------------------------------------------------------------------------
+#
+# A regression introduced with the tolerant opener and caught by inspecting a
+# promoted image, which turned out to be a handwritten marginal scribble. The
+# caption bound to it began "from  the  coasts  of  British  Columbia" — the
+# opener matched "fro" and the capture then read the "m" of "from" as Roman
+# numeral M, giving it figure number 1000.
+#
+# The fix separates the two opener classes. A correctly spelled prefix may be
+# followed by a Roman numeral with no separator ("PLATE XXI"); an OCR-damaged
+# one must be followed by a period. Every damaged spelling in the corpus
+# carries the period, so requiring it costs nothing.
+
+
+@pytest.mark.parametrize("caption", [
+    "from  the  coasts  of  British  Columbia «  5 (after  Bigelow)",
+    "from 1000 specimens",
+    "for the rest of the section",
+    "found in shallow water",
+])
+def test_prose_beginning_with_an_f_word_is_not_a_figure_number(caption):
+    assert parse_figure_number(caption) is None
+
+
+def test_a_damaged_opener_still_needs_its_period():
+    """`Fic. 4` is a caption; `Fic 4` without the period is not distinguishable
+    from prose, and every damaged spelling observed carries the period."""
+    assert parse_figure_number("Fic. 4 Différenciation") == "4"
+    assert parse_figure_number("Fic 4 Différenciation") is None
+
+
+def test_a_correct_prefix_still_needs_no_period():
+    """The exact branch keeps its freedom — plate captions are routinely
+    written without one."""
+    assert parse_figure_number("PLATE XXI") == "21"
+    assert parse_figure_number("Figur  23. Diphyopsis") == "23"
+    assert parse_figure_number("Figure 5 Caption") == "5"
