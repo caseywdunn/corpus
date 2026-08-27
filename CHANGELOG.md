@@ -255,6 +255,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Found by opening the two PNGs. Every hand-analysis of the JSON pointed the
   wrong way first, including one that concluded the panel branch was inert
   when the filenames showed it had lettered them all along.
+- **Vertically-set CJK is now detected and OCR'd with the right model
+  (#196).** Tesseract ships `jpn_vert`, `chi_sim_vert`, `chi_tra_vert` and
+  `kor_vert`; detection could never reach them, so a vertically-set document
+  was read by a horizontal model. On the 1911 Japanese monograph in the gold
+  set, its vertical pages go from **0.250 to 0.572** prose coverage and the
+  document from 0.352 to **0.640** — with no operator intervention. Its
+  English half is byte-identical, which is the control: `--redo-ocr` preserves
+  born-digital text so the pack never touches those pages.
+
+  Selection is **geometric, not confidence-based**. The obvious approach — OCR
+  a sample with each pack and keep the more confident result — was tried and
+  fails: Tesseract reads a vertical column as a stack of single characters and
+  is *confident* about each, preferring plain `jpn` at 61.4 against
+  `jpn_vert`'s 58.1 on pages where `jpn_vert` is more than twice as accurate.
+  A line *box* is tall or wide whatever the glyphs inside were read as, and
+  the separation is about three orders of magnitude: median line width/height
+  0.04 on vertically-set pages against 21–53 on horizontal ones.
+
+  The vote counts **only raster pages**, because `ocrmypdf` takes one `-l` per
+  document while writing direction is per page. Born-digital pages are
+  preserved by `--redo-ocr` and cannot be affected by the choice, so letting
+  them vote would decide the question on pages the decision cannot reach —
+  counting every page gives an ambiguous 40% on that document, counting only
+  the pages OCR rewrites gives an unambiguous majority. Both directions are
+  equally costly to get wrong, so it is a plain majority with no tuned
+  threshold, and horizontal Japanese is verified unchanged to 0.000.
+
+  The vertical pack goes in **alone**. Anything else competes for the same
+  glyphs, `eng` included: `jpn_vert+eng` scores 0.176, worse than doing
+  nothing, and that was the first version of this fix. The `ocrlang` override
+  from the previous release remains as the operator escape hatch.
 
 - **Small figures are no longer misclassified as publisher furniture
   (#204).** `figure_type` is not cosmetic — `_REAL_FIGURE_TYPES` in the served

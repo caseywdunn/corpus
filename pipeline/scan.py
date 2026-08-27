@@ -801,6 +801,155 @@ def _vertical_cjk_hint(langs, detection_result) -> Optional[str]:
     )
 
 
+# Below this many detected text lines a page does not get a vote on writing
+# direction. A plate carrying two stray labels would otherwise swing the
+# decision for a whole document.
+_MIN_LINES_FOR_ORIENTATION_VOTE = 5
+
+# A line this much wider than tall is horizontal; this much taller than wide is
+# vertical. The gap between them is dead space, so a page of near-square blocks
+# abstains rather than voting noise.
+_HORIZONTAL_LINE_ASPECT = 1.6
+_VERTICAL_LINE_ASPECT = 0.6
+
+
+def _page_line_orientation(png_bytes: bytes, pack: str) -> tuple:
+    """``(tall, wide)`` counts of Tesseract's detected text-line boxes.
+
+    **Geometry, not recognition.** The obvious way to choose between `jpn` and
+    `jpn_vert` is to OCR a page with each and keep the more confident result.
+    Measured, that does not work: Tesseract reads a vertical column as a stack
+    of single characters and is *confident* about each one, so on this corpus's
+    vertical pages plain `jpn` scores 61.4 mean confidence against `jpn_vert`'s
+    58.1 — it prefers the wrong model, and by enough to be decisive. (It does
+    correctly reject `jpn_vert` on horizontal pages, 80.9 against 20.4, so the
+    signal is not merely weak; it is asymmetric and misleading.)
+
+    A line *box*, by contrast, is tall or wide whatever the glyphs inside it
+    were read as. The separation is about three orders of magnitude — median
+    width/height 0.04 on vertically-set pages against 21-53 on horizontal ones,
+    including horizontal pages of the same document read with the same pack.
+    """
+    try:
+        result = subprocess.run(
+            ["tesseract", "-", "-", "-l", pack, "tsv"],
+            input=png_bytes, capture_output=True, timeout=180,
+        )
+    except Exception as e:
+        logger.debug("Orientation probe failed: %s", e)
+        return 0, 0
+    tall = wide = 0
+    for line in result.stdout.decode("utf8", "replace").splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) < 12 or parts[0] != "4":     # tsv level 4 == text line
+            continue
+        try:
+            w, h = int(parts[8]), int(parts[9])
+        except ValueError:
+            continue
+        if w < 20 or h < 20:                       # specks, not lines
+            continue
+        if w / h < _VERTICAL_LINE_ASPECT:
+            tall += 1
+        elif w / h > _HORIZONTAL_LINE_ASPECT:
+            wide += 1
+    return tall, wide
+
+
+def _is_raster_page(page) -> bool:
+    """True if the page is a full-bleed bitmap — i.e. a scan.
+
+    Same test :func:`_scanned_page_fraction` applies, at page granularity.
+    """
+    area = abs(page.rect.width * page.rect.height)
+    if not area:
+        return False
+    biggest = 0.0
+    for block in page.get_text("dict").get("blocks", []):
+        if block.get("type") == 1:
+            x0, y0, x1, y1 = block.get("bbox", (0, 0, 0, 0))
+            biggest = max(biggest, abs((x1 - x0) * (y1 - y0)))
+    return biggest / area >= _FULL_PAGE_IMAGE_FRAC
+
+
+def detect_vertical_cjk(pdf_path: Path, langs: List[str]) -> Optional[str]:
+    """Return the ``_vert`` pack this document should use, or ``None``.
+
+    Tesseract ships a separate model for vertically-set CJK and detection never
+    reached it, so a vertically-set document was read by a horizontal model —
+    worth about half the words on those pages (#196). The two packs cannot be
+    combined: measured against a hand transcription, ``jpn_vert`` alone scores
+    0.574 on vertical pages where ``jpn`` scores 0.246, while the union of both
+    scores 0.186 — *worse than either* — because the models compete for the
+    same glyphs. So this is an exclusive choice and it has to be made right.
+
+    **The vote counts only raster pages.** Writing direction is a property of
+    the page, not the document, and mixed volumes are routine here — an English
+    typescript bound in front of a Japanese scan. But ``ocrmypdf`` takes one
+    ``-l`` for the whole document, so one choice must serve. Born-digital pages
+    resolve that: ``--redo-ocr`` preserves their existing text and the pack
+    never touches them, so they should not get a vote on it. Counting only the
+    pages OCR will actually rewrite turns an ambiguous 40% document-wide into
+    an unambiguous majority.
+
+    Both directions are equally costly to get wrong — the wrong pack scores
+    ~0.21 either way — so this is a plain majority with no threshold to tune.
+    """
+    if shutil.which("tesseract") is None:
+        return None
+    candidates = [(lang, _VERTICAL_COMPANION[lang]) for lang in langs
+                  if lang in _VERTICAL_COMPANION]
+    if not candidates:
+        return None                      # not a CJK document; nothing to decide
+    available = _available_tesseract_langs()
+    candidates = [(h, v) for h, v in candidates if v in available]
+    if not candidates:
+        return None
+    horizontal_pack, vertical_pack = candidates[0]
+
+    try:
+        import fitz
+    except ImportError:
+        return None
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception as e:
+        logger.debug("Could not open %s for orientation probe: %s", pdf_path, e)
+        return None
+    try:
+        cfg = CONFIG.get("ocr", {})
+        pages = int(cfg.get("probe_sample_pages", 5))
+        dpi = int(cfg.get("probe_dpi", 300))
+        vertical = horizontal = 0
+        for idx in _probe_sample_pages(len(doc), pages):
+            page = doc[idx]
+            if not _is_raster_page(page):
+                continue                 # born-digital: --redo-ocr keeps it
+            try:
+                img = page.get_pixmap(dpi=dpi).tobytes("png")
+            except Exception:
+                continue
+            tall, wide = _page_line_orientation(img, horizontal_pack)
+            if tall + wide < _MIN_LINES_FOR_ORIENTATION_VOTE:
+                continue                 # too little on the page to judge
+            if tall > wide:
+                vertical += 1
+            else:
+                horizontal += 1
+    finally:
+        doc.close()
+
+    if vertical > horizontal:
+        logger.info(
+            "%s: %d of %d sampled scan pages are set vertically; using %s "
+            "instead of %s",
+            pdf_path.name, vertical, vertical + horizontal,
+            vertical_pack, horizontal_pack,
+        )
+        return vertical_pack
+    return None
+
+
 def _parse_ocrlang(raw: Optional[str]) -> List[str]:
     """Split an ``ocrlang`` bib value into Tesseract pack names.
 
@@ -1120,7 +1269,8 @@ def create_cell_visualizations(
 
 
 
-def _annotate_pack_availability(ocrlang: Optional[str], result: Dict) -> Dict:
+def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
+                                pdf_path: Optional[Path] = None) -> Dict:
     """Tag a :func:`detect_scan_type` result with Tesseract pack availability.
 
     ``ocrlang`` is the operator's per-document override from the bib
@@ -1193,6 +1343,31 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict) -> Dict:
         restrict_to_script=result.get("script_hint"),
         extra_isos=extra_isos,
     )
+    # #196 — swap a horizontal CJK pack for its vertical counterpart when the
+    # page geometry says the text is set vertically. Only reached when a CJK
+    # pack was resolved, so it costs nothing on the rest of the corpus, and it
+    # is a *replacement* rather than an addition: the union of both packs
+    # measures worse than either alone.
+    if pdf_path is not None:
+        vertical_pack = detect_vertical_cjk(pdf_path, result["tesseract_packs"])
+        if vertical_pack:
+            horizontal = next(h for h, v in _VERTICAL_COMPANION.items()
+                              if v == vertical_pack)
+            # The vertical pack goes in ALONE — not merely in place of its
+            # horizontal counterpart. Any other model competes for the same
+            # glyphs and undoes it, and that includes `eng`. Measured on the
+            # vertical pages of the document this was built for:
+            #
+            #     jpn+eng           0.246      (what detection used to pick)
+            #     jpn_vert+jpn+eng  0.186
+            #     jpn_vert+eng      0.176      (first attempt at this fix)
+            #     jpn_vert          0.574
+            #
+            # Dropping `eng` is safe precisely because the vote counted only
+            # raster pages: any born-digital Latin text in the volume is
+            # preserved by --redo-ocr and never reaches Tesseract at all.
+            result["tesseract_packs"] = [vertical_pack]
+            result["vertical_cjk"] = True
     if iso is None and visual is None:
         result["tesseract_pack_available"] = None
     else:
@@ -1399,7 +1574,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "language_confidence": 0.0,
             "gibberish_score": 0.0,
             "ocr_mode": None,
-        })
+        }, pdf_path)
 
     # Read up to the first 5 pages (or all pages if the doc is shorter) —
     # enough text for language detection and gibberish scoring without
@@ -1422,7 +1597,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "language_confidence": 0.0,
             "gibberish_score": 0.0,
             "ocr_mode": "skip_text",
-        })
+        }, pdf_path)
 
     stripped = total_text.strip()
     total_chars = len(stripped)
@@ -1470,7 +1645,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             "ocr_mode": "skip_text",
-        })
+        }, pdf_path)
 
     # Has enough text — now triage born_digital vs broken_text_layer.
     lang, conf = _detect_language(total_text)
@@ -1506,7 +1681,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "pages_checked": pages_to_check,
             "ocr_mode": "skip_text",
             "vendor_marker": matched,
-        })
+        }, pdf_path)
 
     # --- Raster-page cross-check -------------------------------------
     # Everything below this point reasons about the *content* of the text
@@ -1614,7 +1789,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                     "force_ocr" if coverage >= _MOSTLY_SCANNED_FRAC
                     else "redo_ocr"
                 ),
-            })
+            }, pdf_path)
 
     threshold = float(_ocr_cfg.get("gibberish_threshold", 0.65))
 
@@ -1636,7 +1811,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             "ocr_mode": "force_ocr",
-        })
+        }, pdf_path)
 
     # --- Visual-vs-text cross-check ---
     # If the text layer is almost entirely Latin-family characters *and*
@@ -1678,7 +1853,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                 "total_chars_sampled": total_chars,
                 "pages_checked": pages_to_check,
                 "ocr_mode": "force_ocr",
-            })
+            }, pdf_path)
 
     return _annotate_pack_availability(ocrlang, {
         "filename": pdf_path.name,
@@ -1698,7 +1873,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
         "total_chars_sampled": total_chars,
         "pages_checked": pages_to_check,
         "ocr_mode": None,
-    })
+    }, pdf_path)
 
 
 # ocrmypdf reports per-page trouble on stderr and still exits 0. These
@@ -1837,7 +2012,16 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         "redo_ocr": "--redo-ocr",
     }.get(ocr_mode, "--skip-text")
 
-    if detection_result.get("ocrlang_honored"):
+    if detection_result.get("vertical_cjk"):
+        # #196 — the vertical/horizontal CJK choice was made from page
+        # geometry during detection and is already applied to the recorded
+        # packs. Take them verbatim rather than recomputing, which resolves
+        # `ja` straight back to `jpn` and silently discards the decision.
+        # Recomputing here is what made the run log disagree with
+        # scan_detection.json on the first attempt: detection logged
+        # "using jpn_vert" and OCR then ran `langs=jpn+eng`.
+        langs = list(detection_result.get("tesseract_packs") or [])
+    elif detection_result.get("ocrlang_honored"):
         # #176 — the operator pinned the packs in the bib. detect_scan_type
         # already validated them against `tesseract --list-langs` and wrote
         # the survivors here, so use them verbatim. No `eng` is appended:
