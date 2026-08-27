@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 from bib import bib_entry_to_metadata
 
 from . import stamp_artifact
+from .config import CONFIG
 from .grobid_client import (
     GrobidClient,
     GrobidUnavailableError,
@@ -163,7 +164,12 @@ def extract_metadata(
     if tei_xml is None and grobid_client is not None:
         try:
             logger.info("Calling Grobid on %s ...", pdf_path.name)
-            tei_xml = grobid_client.process_fulltext(pdf_path)
+            _g = CONFIG.get("grobid", {})
+            tei_xml = grobid_client.process_fulltext(
+                pdf_path,
+                consolidate_header=int(_g.get("consolidate_header", 1)),
+                consolidate_citations=int(_g.get("consolidate_citations", 0)),
+            )
             tei_output.write_text(tei_xml, encoding="utf-8")
             logger.info("Wrote Grobid TEI to %s", tei_output)
         except GrobidUnavailableError as e:
