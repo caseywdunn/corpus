@@ -288,6 +288,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   followed by a period. Every damaged spelling observed in the corpus carries
   one, so coverage moves only 67.6% → 66.9% while precision holds at 98.2%,
   and the three lost captions are exactly the false matches.
+- **`--config` with a relative path no longer silently discards every tuned
+  setting (#210).** Reported by @ejedwards against 1.1.1.
+  `corpus --config <relative-path> run` kept `input_pdfs`, `bib`, `lexicon`
+  and `taxonomy` — the CLI resolves those itself and passes them as absolute
+  arguments — while `ocr`, `chunking`, `stage_timeouts`, `huge_document` and
+  `quality_gates` were replaced by built-in defaults. The run looked entirely
+  normal; one INFO line was the only trace.
+
+  Two independent causes, both fixed. `_resolve_config_path` returned the flag
+  value verbatim, and it is forwarded to each stage subprocess, which the
+  orchestrator runs from `REPO_ROOT` rather than the operator's directory — so
+  a relative path missed. `CORPUS_CONFIG` had the same hole. Both are now
+  resolved to absolute, with `~` expanded.
+
+  Separately, a **named** config that cannot be read is now an error rather
+  than a fallback. `load_config` treats a missing file as "use defaults",
+  which is correct for the implicit `./config.yaml` and wrong for a file the
+  operator asked for by name; a typo would otherwise run to completion on
+  defaults.
+
+  This had been masking #209: an `ocr.jobs` setting appeared to have no effect
+  because the file carrying it was never read.
 
 ### Changed
 
