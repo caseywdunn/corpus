@@ -393,6 +393,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Only pages where the legend names *more* figures than were extracted are
   expanded, so a modern paper docling has already separated is untouched.
 
+- **`tools/qc/caption_binding.py` measures whether captions are bound to the
+  right figure (#195).** The third of the three questions the gold set was
+  brought in for, after text fidelity (#193) and figure detection (#194).
+  Against the reference corpuscle: **binding recall 0.527, precision 0.870** —
+  when the pipeline reports a figure number it is right about the page 87% of
+  the time, but it finds a number for only about half the figures that print
+  one.
+
+  It binds on the **figure number**, not the caption text. A caption-similarity
+  matcher was built first and reports 44%, which is mostly artifact: one paper
+  prints every caption twice, in Chinese and English, and scores 0 of 10 while
+  every figure is in fact bound correctly; plate pages carry `FIG. 1` and
+  nothing else; and a document that is its own translation prints `Fig. 1`
+  twice, legitimately.
+
+  The denominator matters as much as the measure. Gold pages are full of
+  figure numbers that are *references* — "see Fig. 18", "figured by Bigelow
+  (op. cit., fig. 34)". Counting those gives 939 numbers and a recall of
+  0.296, which measures nothing. Restricted to numbers printed *inside* a
+  `[FIGURE]`/`[PLATE]` block the denominator is 482.
+
+  Each gold block is classified before scoring — prose caption 123, bare label
+  **236**, lettering only 59, nothing printed 6 — so no rate is computed over
+  blocks it does not apply to. That bare-label majority is itself the finding:
+  most figure blocks in this material print a label and nothing more, which is
+  why text similarity was never going to work.
+
+- **`dedupe_figures`' whole-figure/subpanel branch is reachable (#207).** Its
+  two stages shared one measure. `_bbox_overlap_fraction` divides by the
+  *smaller* box and is therefore symmetric, so a fully contained panel scored
+  1.0 — tripping stage 1's 0.5 redundancy threshold and being discarded before
+  stage 2's 0.8 containment test could classify it. Anything stage 2 would
+  have accepted, stage 1 had already thrown away. `FIGURE_TYPE_SUBPANEL` was
+  never assigned by that path, which the data confirms: none of the 420
+  figures in the reference corpuscle carried it.
+
+  The stages ask different questions and now use different measures. "Are
+  these the same box?" is intersection over *union*, which punishes a size
+  difference so a nested panel is not mistaken for a duplicate crop. "Does
+  this box contain that one?" keeps the original formula.
+
+  **This changes nothing on the reference corpus, and that is stated rather
+  than glossed.** Across its 97 same-page picture pairs, zero merge decisions
+  differ and zero pairs are nested-but-not-duplicate — docling does not emit a
+  whole-figure crop alongside nested panel crops on this material. The fix
+  removes a documented mode that could not execute, and will work if a corpus
+  does produce that shape; it is not an improvement to any current number.
 - **Grobid consolidation is reachable from config, with a measured default
   (PLAN v1.2 §3).** `consolidateCitations` had never run in this project's
   history: `process_fulltext` defaulted it to 0, `metadata.py` called that
