@@ -420,6 +420,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   most figure blocks in this material print a label and nothing more, which is
   why text similarity was never going to work.
 
+- **`dedupe_figures`' whole-figure/subpanel branch is reachable (#207).** Its
+  two stages shared one measure. `_bbox_overlap_fraction` divides by the
+  *smaller* box and is therefore symmetric, so a fully contained panel scored
+  1.0 — tripping stage 1's 0.5 redundancy threshold and being discarded before
+  stage 2's 0.8 containment test could classify it. Anything stage 2 would
+  have accepted, stage 1 had already thrown away. `FIGURE_TYPE_SUBPANEL` was
+  never assigned by that path, which the data confirms: none of the 420
+  figures in the reference corpuscle carried it.
+
+  The stages ask different questions and now use different measures. "Are
+  these the same box?" is intersection over *union*, which punishes a size
+  difference so a nested panel is not mistaken for a duplicate crop. "Does
+  this box contain that one?" keeps the original formula.
+
+  **This changes nothing on the reference corpus, and that is stated rather
+  than glossed.** Across its 97 same-page picture pairs, zero merge decisions
+  differ and zero pairs are nested-but-not-duplicate — docling does not emit a
+  whole-figure crop alongside nested panel crops on this material. The fix
+  removes a documented mode that could not execute, and will work if a corpus
+  does produce that shape; it is not an improvement to any current number.
 - **`tesseract_packs` no longer records "unknown" as "none" (#197).** Three
   documents in the reference corpuscle once recorded `"tesseract_packs": []`
   while OCR ran with seven. `_compose_ocr_langs` returns early when

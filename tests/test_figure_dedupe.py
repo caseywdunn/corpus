@@ -72,28 +72,43 @@ def test_coequal_panels_on_one_page_get_letters():
     assert sorted(k["panel_letter"] for k in kept) == ["a", "b", "c", "d"]
 
 
-def test_contained_panels_are_dropped_not_labelled_as_subpanels():
-    """Pins *actual* behaviour, which is not what the docstring describes.
+def test_whole_figure_plus_subpanels_is_now_reachable():
+    """The branch that could never fire (#207).
 
-    `dedupe_figures` documents a "whole figure plus subpanels" mode that
-    relabels contained items `subpanel`. That branch is unreachable:
-    `_bbox_overlap_fraction` divides by the *smaller* box, so a fully
-    contained panel scores 1.0 against its parent — over step 1's 0.5
-    overlap-duplicate threshold, which drops it before step 2's 0.8
-    "encompassed" test is ever consulted. Since the measure is symmetric,
-    anything step 2 would accept step 1 has already removed.
+    Both stages used to share `_bbox_overlap_fraction`, which divides by the
+    *smaller* box and is therefore symmetric: a fully contained panel scored
+    1.0, tripping stage 1's 0.5 redundancy threshold and being discarded
+    before stage 2's 0.8 containment test could classify it. Anything stage 2
+    would have accepted, stage 1 had already thrown away — so
+    `FIGURE_TYPE_SUBPANEL` was never assigned, and no figure among the 420 in
+    the reference corpuscle carried it.
 
-    Consistent with the reference corpuscle, where none of 420 figures
-    carries `figure_type: subpanel`. Tracked separately; this test exists so
-    that whoever fixes it sees a failure here rather than a silent change.
+    The two stages ask different questions and now use different measures.
+    "Are these the same box?" is intersection over *union*, which punishes a
+    size difference. "Does this box contain that one?" keeps the original
+    formula, which is right for containment.
     """
     items = [fig(0, 5, (0, 0, 100, 100)),
              fig(1, 5, (5, 5, 45, 45)), fig(2, 5, (55, 55, 95, 95))]
     kept = dedupe_figures(items)
-    assert len(kept) == 1
-    assert kept[0]["docling_idx"] == 0
-    assert kept[0]["figure_type"] == FIGURE_TYPE_FIGURE
-    assert not any(k["figure_type"] == FIGURE_TYPE_SUBPANEL for k in kept)
+    primary = [k for k in kept if k["figure_type"] == FIGURE_TYPE_FIGURE]
+    subs = [k for k in kept if k["figure_type"] == FIGURE_TYPE_SUBPANEL]
+    assert len(primary) == 1 and primary[0]["docling_idx"] == 0
+    assert len(subs) == 2
+    assert sorted(s["panel_letter"] for s in subs) == ["a", "b"]
+    assert all(s["primary_figure_docling_idx"] == 0 for s in subs)
+
+
+def test_the_two_measures_answer_different_questions():
+    """The distinction the fix rests on, stated directly."""
+    from pipeline.figures import _bbox_iou, _bbox_overlap_fraction
+    big, nested = [0, 0, 100, 100], [5, 5, 45, 45]
+    # A nested panel is *contained* but is not the same box.
+    assert _bbox_overlap_fraction(big, nested) == 1.0
+    assert _bbox_iou(big, nested) < 0.5
+    # A near-identical crop is both.
+    dup = [2, 2, 98, 98]
+    assert _bbox_iou(big, dup) > 0.5
 
 
 # --- what must never be grouped ----------------------------------------------

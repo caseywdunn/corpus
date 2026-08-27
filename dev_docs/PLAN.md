@@ -452,12 +452,25 @@ One genuine finding did fall out of the exercise: `Chenetal2015`'s figure
 numerals OCR as `图 ;` and `图 <` for 3 and 4, which belongs to the OCR
 axis.
 
-### 3. Grobid output and reference consolidation, **to file**
+### 3. Grobid output and reference consolidation — two of three answered
 
 Three questions that sound like one, and the code gives them different
 answers:
 
-- **`consolidateCitations` has never run.**
+- **`consolidateCitations` — answered, and now reachable.** It had never
+  run: `grobid_client.py` defaulted it to 0, `metadata.py` overrode
+  nothing, and config exposed only `url` and `disable`. Measured off
+  against on, same PDFs: `Ahuja_etal2026` 86.1% → 88.9% DOIs at 3.1s →
+  6.4s; `Stepanjants2014` 0% → 6.9%; `Bernstein1934` 0% → 3.6%;
+  `Benasso_Stroiazzo1976` 0% → 0%. **Six DOIs across 194 references for
+  1.4–2× the Grobid time**, so the default stays off — but weighed rather
+  than unexamined. The split is by era, not by the flag: corpus-wide 719
+  references are 32.4% DOI-bearing, 69–86% in papers from 2020 on and
+  **0% in every document before 1980**, because the historical works are
+  not in CrossRef at all. Both flags are now settable from `grobid:`,
+  since that arithmetic belongs to the library.
+
+  Original framing: **`consolidateCitations` has never run.**
   `pipeline/grobid_client.py` defaults `consolidate_header=1` and
   `consolidate_citations=0`, `pipeline/metadata.py` calls
   `process_fulltext()` overriding neither, and the `grobid:` block in
@@ -465,11 +478,18 @@ answers:
   reference consolidation against CrossRef is off and always has been.
   Measure what enabling it costs (a network round-trip per reference) and
   buys, then expose both flags in config with the measured default.
-- **In-corpus references.** Do references to papers that are themselves
-  in the corpuscle resolve to the canonical work? `references_match_corpus_papers`
-  is flagged in `tests/test_corpus_wide.py` as "the outlier, deliberately
-  set" — that looseness is a measurement of something, and the gold
-  reference sections can now say whether it is justified.
+- **In-corpus references — answered: the looseness is justified.** The
+  gold carries the reference sections as printed, so reference *parsing*
+  can be measured directly, separately from corpus cohesion. Of 659
+  references Grobid extracted, **94.8% have a title appearing in that
+  document's gold text** — it is not inventing references. Modern papers
+  score 100%, `Totton1965a` 95.5%, `Benasso1976` 83.9%,
+  `Eschscholtz1825` 50% and `Linnaeus1735` 0%: the same Fraktur and
+  pre-1800 axes that limit everything else. So the loose ceiling on
+  `references_match_corpus_papers` is right — parsing is good, and what
+  that check varies with is how tightly a corpus cites itself, which is
+  an assembly property rather than a pipeline one. The evidence is now
+  recorded beside the ceiling it justifies.
 - **Out-of-corpus references** — this is
   [#155](https://github.com/caseywdunn/corpus/issues/155).
   `get_missing_references` is dominated by unreconciled citation-string
@@ -478,10 +498,27 @@ answers:
   variants. Full reconciliation is a cycle of its own (DOI normalization,
   block-and-cluster canonicalization, alternate-DOI aliasing, junk
   filtering, probably an auditable LLM adjudication pass) and stays
-  unscheduled. **v1.2 takes the cheap slice**: collapse candidates by
-  normalized (author, year, title) before ranking, so one work stops
-  appearing as N rows. Makes the tool honest without pretending to fix
-  reconciliation, and it is additive under the freeze.
+  unscheduled. **The cheap slice was scoped, measured, and does not
+  survive contact with the data**
+  ([#225](https://github.com/caseywdunn/corpus/issues/225)). Collapsing
+  on normalized (title, year) merges *different papers*: six viburnum
+  works titled `phytochemistry` in 1989 are six papers by six author
+  teams, and the rule loses five of them. Even with the author
+  component it needs order-insensitive author-set agreement and
+  DOI-aware canonical selection — which is the full reconciliation
+  cycle #155 puts out of scope.
+
+  The reported symptom is not reproducible on either corpus here: the
+  gold 35 show 4 duplicate groups in 865 works, and viburnum's high-row
+  cases (`Wang 2020` → 70 rows) are seventy different people sharing a
+  surname, not one work. A fix wants measuring against the
+  1,769-document production corpus that exhibits it.
+
+  Upstream of it, and probably the larger contributor:
+  [#226](https://github.com/caseywdunn/corpus/issues/226) — journal
+  names recorded as work titles, `phytochemistry` ×62, `nature` ×7,
+  `kb` ×19 across 229 works — which manufactures the duplicate groups a
+  de-duplication rule would then have to clean up.
 
 ### 4. Per-document bib directives
 
