@@ -166,3 +166,62 @@ def test_summary_renders_without_a_rate(report, capsys):
     fd.print_summary(report)
     out = capsys.readouterr().out
     assert "recall" in out and "precis" in out
+
+
+# --- panel siblings are one figure, not several (#211) -------------------------
+#
+# A figure with panels produces one image per panel — `fig_99_a.png`,
+# `fig_99_b.png` — while the gold records one `[FIGURE]` block carrying both,
+# with the panels enumerated inside its caption. Counting entries against
+# blocks penalises the pipeline for splitting panels correctly, and it flips
+# the sign of the error: `Totton1965a` reads as over-counting by 3 entries
+# when it is in fact under-counting by 4 figures.
+
+
+def _entry(page, num, fid):
+    return {"page": page, "figure_number": num, "figure_id": fid,
+            "figure_type": "figure", "caption_text": "x"}
+
+
+def test_panel_siblings_collapse_to_one_figure():
+    figures, groups = fd.collapse_panels([
+        _entry(168, "99", "a"), _entry(168, "99", "b"), _entry(169, "100", "c"),
+    ])
+    assert len(figures) == 2
+    assert groups == {(168, "99"): 2}
+
+
+def test_same_number_on_different_pages_stays_two_figures():
+    """The translation case again — collapsing must key on page as well."""
+    figures, groups = fd.collapse_panels([_entry(3, "4", "a"), _entry(24, "4", "b")])
+    assert len(figures) == 2
+    assert groups == {}
+
+
+def test_unnumbered_entries_are_never_merged():
+    """Without a number there is nothing to group on, and merging two real
+    figures is worse than counting one twice."""
+    figures, groups = fd.collapse_panels([
+        {"page": 5, "figure_number": None, "figure_type": "figure"},
+        {"page": 5, "figure_number": "", "figure_type": "figure"},
+    ])
+    assert len(figures) == 2 and groups == {}
+
+
+def test_a_correctly_split_panel_is_not_scored_as_surplus():
+    """The defect in one assertion: one gold block, two panel images, and the
+    page must score as matched rather than one match plus one false positive."""
+    gold = {168: Counter({"FIGURE": 1})}
+    entries = [_entry(168, "99", "a"), _entry(168, "99", "b")]
+    t = fd.score(gold, entries, lambda f: True)
+    assert t["found"] == 1
+    assert t["matched"] == 1
+    assert t["surplus"] == 0
+    assert t["missed"] == 0
+
+
+def test_panel_splitting_is_reported_beside_detection(report):
+    """Not discarded — a split panel is a correct extra image, and #195 scores
+    whether the split matches the panels the gold caption enumerates."""
+    for d in report["documents"].values():
+        assert "entries" in d and "panel_groups" in d and "panel_images" in d

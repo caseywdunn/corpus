@@ -113,11 +113,47 @@ FILTERS = {
 }
 
 
-def score(gold_pages, entries, keep):
-    """Page-level recall/precision counts for one document under one filter."""
-    found = Counter()
+def collapse_panels(entries):
+    """Group panel siblings into one figure, and return (figures, panel_groups).
+
+    A figure with panels produces one image *per panel* — `fig_99_a.png` and
+    `fig_99_b.png` — while the gold records one `[FIGURE]` block carrying both,
+    with the panels enumerated inside its caption. Comparing raw entry counts
+    against gold block counts therefore penalises the pipeline for splitting
+    panels correctly (#211), and it flips the sign of the error: `Totton1965a`
+    reads as over-counting by 3 entries when it is in fact under-counting by 4
+    figures.
+
+    Siblings are identified by a shared ``(page, figure_number)``, which is
+    exactly the key ``dedupe_figures`` groups on. ``panel_letter`` would be the
+    more direct signal but is not persisted into ``figures.json`` — only the
+    filename carries it.
+    """
+    by_key, loose = defaultdict(list), []
     for f in entries:
-        if keep(f) and f.get("page"):
+        num = f.get("figure_number")
+        if f.get("page") and num is not None and str(num).strip():
+            by_key[(int(f["page"]), str(num))].append(f)
+        else:
+            # No number to group on. Counted as its own figure, which is the
+            # conservative choice: it cannot silently merge two real figures.
+            loose.append(f)
+    figures = [v[0] for v in by_key.values()] + loose
+    panel_groups = {k: len(v) for k, v in by_key.items() if len(v) > 1}
+    return figures, panel_groups
+
+
+def score(gold_pages, entries, keep):
+    """Page-level recall/precision counts for one document under one filter.
+
+    Counts *figures*, not entries — panel siblings are collapsed first, so a
+    correctly split multi-panel figure counts once, as the gold counts it.
+    """
+    kept_entries = [f for f in entries if keep(f)]
+    collapsed, _ = collapse_panels(kept_entries)
+    found = Counter()
+    for f in collapsed:
+        if f.get("page"):
             found[int(f["page"])] += 1
     tally = Counter()
     for page in set(gold_pages) | set(found):
@@ -159,6 +195,7 @@ def build_report(gold_root, corpuscle_root):
             kind_tally.update(kinds)
 
         base = score(gold_pages, figs, FILTERS["all entries"])
+        _, panel_groups = collapse_panels(figs)
         for name, keep in FILTERS.items():
             t = score(gold_pages, figs, keep)
             per_filter[name].update(t)
@@ -188,6 +225,12 @@ def build_report(gold_root, corpuscle_root):
             "recall": round(r, 4) if r is not None else None,
             "precision": round(p, 4) if p is not None else None,
             "pages_exact": base["pages_exact"], "pages": base["pages"],
+            # Reported beside detection rather than folded into it: a split
+            # panel is a *correct* extra image, and #195 scores whether the
+            # split matches the panels the gold caption enumerates.
+            "entries": len(figs),
+            "panel_groups": len(panel_groups),
+            "panel_images": sum(panel_groups.values()),
         }
 
     def pack(t):
@@ -234,6 +277,12 @@ def print_summary(report, stream=None):
     w = (stream or sys.stdout).write
     w(f"\n{report['documents_bound']} documents bound on sha256; gold blocks "
       f"{report['gold_block_kinds']}\n")
+    pg = sum(d["panel_groups"] for d in report["documents"].values())
+    pi = sum(d["panel_images"] for d in report["documents"].values())
+    en = sum(d["entries"] for d in report["documents"].values())
+    w(f"{en} figures.json entries collapse to {en - (pi - pg)} figures "
+      f"({pg} multi-panel groups holding {pi} images) — counted as the gold "
+      f"counts them\n")
 
     w("\n-- does a furniture filter help? " + "-" * 38 + "\n")
     w(f"{'filter':38}{'found':>7}{'recall':>8}{'precis':>8}{'F1':>8}"
