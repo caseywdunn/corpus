@@ -478,10 +478,27 @@ answers:
   variants. Full reconciliation is a cycle of its own (DOI normalization,
   block-and-cluster canonicalization, alternate-DOI aliasing, junk
   filtering, probably an auditable LLM adjudication pass) and stays
-  unscheduled. **v1.2 takes the cheap slice**: collapse candidates by
-  normalized (author, year, title) before ranking, so one work stops
-  appearing as N rows. Makes the tool honest without pretending to fix
-  reconciliation, and it is additive under the freeze.
+  unscheduled. **The cheap slice was scoped, measured, and does not
+  survive contact with the data**
+  ([#225](https://github.com/caseywdunn/corpus/issues/225)). Collapsing
+  on normalized (title, year) merges *different papers*: six viburnum
+  works titled `phytochemistry` in 1989 are six papers by six author
+  teams, and the rule loses five of them. Even with the author
+  component it needs order-insensitive author-set agreement and
+  DOI-aware canonical selection — which is the full reconciliation
+  cycle #155 puts out of scope.
+
+  The reported symptom is not reproducible on either corpus here: the
+  gold 35 show 4 duplicate groups in 865 works, and viburnum's high-row
+  cases (`Wang 2020` → 70 rows) are seventy different people sharing a
+  surname, not one work. A fix wants measuring against the
+  1,769-document production corpus that exhibits it.
+
+  Upstream of it, and probably the larger contributor:
+  [#226](https://github.com/caseywdunn/corpus/issues/226) — journal
+  names recorded as work titles, `phytochemistry` ×62, `nature` ×7,
+  `kb` ×19 across 229 works — which manufactures the duplicate groups a
+  de-duplication rule would then have to clean up.
 
 ### 4. Per-document bib directives
 
