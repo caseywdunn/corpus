@@ -393,6 +393,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Only pages where the legend names *more* figures than were extracted are
   expanded, so a modern paper docling has already separated is untouched.
 
+- **`tools/qc/caption_binding.py` measures whether captions are bound to the
+  right figure (#195).** The third of the three questions the gold set was
+  brought in for, after text fidelity (#193) and figure detection (#194).
+  Against the reference corpuscle: **binding recall 0.527, precision 0.870** —
+  when the pipeline reports a figure number it is right about the page 87% of
+  the time, but it finds a number for only about half the figures that print
+  one.
+
+  It binds on the **figure number**, not the caption text. A caption-similarity
+  matcher was built first and reports 44%, which is mostly artifact: one paper
+  prints every caption twice, in Chinese and English, and scores 0 of 10 while
+  every figure is in fact bound correctly; plate pages carry `FIG. 1` and
+  nothing else; and a document that is its own translation prints `Fig. 1`
+  twice, legitimately.
+
+  The denominator matters as much as the measure. Gold pages are full of
+  figure numbers that are *references* — "see Fig. 18", "figured by Bigelow
+  (op. cit., fig. 34)". Counting those gives 939 numbers and a recall of
+  0.296, which measures nothing. Restricted to numbers printed *inside* a
+  `[FIGURE]`/`[PLATE]` block the denominator is 482.
+
+  Each gold block is classified before scoring — prose caption 123, bare label
+  **236**, lettering only 59, nothing printed 6 — so no rate is computed over
+  blocks it does not apply to. That bare-label majority is itself the finding:
+  most figure blocks in this material print a label and nothing more, which is
+  why text similarity was never going to work.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
