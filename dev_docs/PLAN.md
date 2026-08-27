@@ -452,6 +452,51 @@ One genuine finding did fall out of the exercise: `Chenetal2015`'s figure
 numerals OCR as `图 ;` and `图 <` for 3 and 4, which belongs to the OCR
 axis.
 
+**The cycle's fixes were rebuilt and rescored, and one of them was wrong.**
+A full 35-document rebuild on `dev` including
+[#203](https://github.com/caseywdunn/corpus/issues/203) confirms the
+recall it was written for — corpus-wide figure recall **0.849 → 0.917**,
+`Vanhoeffen1906` alone recovering 23 of its 33 missing figures. It also
+cost precision, 0.861 → 0.807, and **the whole of that loss is one
+document**: `Totton1965a` gained 31 spurious records against 3 real ones.
+
+Every one of them is a cross-reference read as a legend entry.
+`plate_legend_entries` took a figure number from anywhere in a text item,
+and a 226-page monograph of running prose is full of them — a species
+heading reading `Plate XX, figures 1, 2`, a parenthetical `Text-figure
+106 (see p. 170)`, a citation of someone else's plate. Two on a page
+cleared the threshold and the page's one real text-figure was cloned
+under the referenced number. **33 of that document's 232 records shared
+an image file with another record under a different number**, so asking
+for figure 20 returned the picture of figure 53 — a confident wrong
+answer, which is worse than a miss.
+
+The evidence that settled it was the page image, not the JSON. Three
+rounds of counting said the surplus was concentrated in one document;
+rendering p. 105 said why, in one look.
+[#231](https://github.com/caseywdunn/corpus/issues/231) anchors a legend
+entry to a line that *opens* with a figure label, with the number
+required to follow it. On the served surface (`drop graphical_element`):
+
+| build | recall | precision | F1 |
+| --- | --- | --- | --- |
+| pre-#203 | 0.833 | 0.970 | 0.896 |
+| #203 as built | 0.901 | 0.892 | 0.897 |
+| **#203 + anchor** | **0.894** | **0.962** | **0.927** |
+
+Caption binding moves the same way — recall 0.587 → 0.581, precision
+**0.795 → 0.870**, which is exactly the precision the corpus had before
+#203, with binding recall up from 0.527. Prose fidelity is untouched at
+0.947 median coverage, as it should be: none of this cycle's figure work
+goes anywhere near the text.
+
+Two things this is worth recording for. #203 shipped on a real measured
+gain and still regressed the corpus, because the measurement it shipped
+on was recall and the cost landed in precision — the harness reports both
+and the summary quoted one. And requiring *description* after the number
+as well was tried as a second guard and rejected on measurement: it costs
+8 of `Vanhoeffen1906`'s 24 real entries for no further precision.
+
 ### 3. Grobid output and reference consolidation — two of three answered
 
 Three questions that sound like one, and the code gives them different
