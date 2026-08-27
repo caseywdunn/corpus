@@ -478,11 +478,40 @@ def _bbox_area(bbox: Optional[List[float]]) -> float:
     return max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
 
 
+def _bbox_iou(a: List[float], b: List[float]) -> float:
+    """Intersection over **union** — "are these two boxes the same box?".
+
+    The right measure for *redundancy*, because it punishes a size
+    difference: a panel nested inside its parent scores low here however
+    completely it is contained, so it is not mistaken for a duplicate crop
+    of it.
+
+    That distinction is what makes :func:`dedupe_figures`' second stage
+    reachable at all (#207). Both stages used to share
+    :func:`_bbox_overlap_fraction`, which divides by the *smaller* box and is
+    therefore symmetric: a contained panel scored 1.0, tripping the 0.5
+    redundancy threshold and being discarded before the 0.8 containment test
+    could ever classify it. `FIGURE_TYPE_SUBPANEL` was consequently never
+    assigned — no figure among the 420 in the reference corpuscle carried it.
+    """
+    if not (a and b and len(a) == 4 and len(b) == 4):
+        return 0.0
+    ix0, iy0 = max(a[0], b[0]), max(a[1], b[1])
+    ix1, iy1 = min(a[2], b[2]), min(a[3], b[3])
+    if ix1 <= ix0 or iy1 <= iy0:
+        return 0.0
+    inter = (ix1 - ix0) * (iy1 - iy0)
+    union = _bbox_area(a) + _bbox_area(b) - inter
+    return inter / union if union else 0.0
+
+
 def _bbox_overlap_fraction(a: List[float], b: List[float]) -> float:
-    """Intersection area / smaller bbox area. Returns 0 when either bbox is
-    missing or has zero area. Used to decide whether two same-numbered
-    figures are redundant crops of the same panel or genuinely distinct
-    subpanels."""
+    """Intersection area / smaller bbox area — "does one contain the other?".
+
+    Asymmetric in effect: a box fully inside another scores 1.0 regardless of
+    how much larger the parent is. That is the right measure for the
+    whole-figure-plus-subpanels test and the wrong one for redundancy, which
+    is what :func:`_bbox_iou` is for."""
     if not (a and b and len(a) == 4 and len(b) == 4):
         return 0.0
     ix0 = max(a[0], b[0])
@@ -802,7 +831,7 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         unique: List[Dict] = []
         for cand in sorted_group:
             if any(
-                _bbox_overlap_fraction(cand.get("bbox"), u.get("bbox")) > 0.5
+                _bbox_iou(cand.get("bbox"), u.get("bbox")) > 0.5
                 for u in unique
             ):
                 logger.debug(
