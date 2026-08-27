@@ -80,26 +80,32 @@ _FIGURE_REF_RE = re.compile(
 # So `F` plus up to four letters, then a number. `Figur` is not damage at all —
 # it is the German spelling, which `fig(?:ure|\.?)` could not reach either.
 # `Puc` is `Рис` read as Latin lookalikes (Р→P, и→u, с→c).
-_CAPTION_OPENER = (
-    # Digits are allowed *inside* the opener because OCR inserts them there:
-    # "FIG." comes back as "Fi1G." and "Fi16.". Without this the opener stops
-    # at "Fi" and the inserted noise is captured as the figure number.
-    # Backtracking keeps "Fig5" working — the class cannot cross a space, and
-    # a trailing digit is given up when no number follows it.
-    r"f[a-z0-9]{1,5}"                    # fig, figure, figur, figg, fic, fi, frc, fi1g
-    r"|p[a-z]?[uy]c"                     # Рис mis-OCR'd into Latin
-    r"|abb(?:ildung)?|pl(?:ate)?|plate|рис(?:унок)?|taf(?:el)?|tab(?:ula)?"
-    r"|lám(?:ina)?|tav(?:ola)?|bild|image|illustration"
+# Openers spelled correctly. These may be followed by an Arabic or a Roman
+# number with no separator — "PLATE XXI", "Plate IV.", "Figur 23".
+_CAPTION_OPENER_EXACT = (
+    r"fig(?:ure|ur|s)?|figg|abb(?:ildung)?|pl(?:ate)?|plate|рис(?:унок)?"
+    r"|taf(?:el)?|tab(?:ula)?|lám(?:ina)?|tav(?:ola)?|bild|image|illustration"
     r"|text[\-\s]?fig(?:ure)?"
 )
 
-# Used only on caption text (the *leading* figure label). Accepts sub-numbering
-# like "3a", "3.1" (multi-panel figures) and Roman numerals (e.g. "Plate IV.",
-# common on 19th-c. plate captions; #16). A trailing range — "Figg. 2-5." for a
-# group of figures under one caption — yields the first number, which is what
-# joins to a body-text reference.
+# Openers mangled by OCR. "FIG." set in small caps comes back as "Fic.",
+# "Frc.", "Fi.", "Fi1G.", "Fi16." — and on this corpus the damaged spellings
+# outnumber the correct one. Digits are allowed inside because OCR inserts
+# them there; "Puc" is "Рис" read as Latin lookalikes.
+#
+# This branch REQUIRES a following period, and the exact branch above does
+# not. Without that, the pattern is far too eager: "from  the  coasts of
+# British Columbia" matched opener "fro" and then read the "m" of "from" as
+# Roman numeral M, giving a handwritten marginal scribble the figure number
+# 1000. Every damaged spelling observed in the corpus carries the period, so
+# requiring it costs nothing and closes the hole.
+_CAPTION_OPENER_FUZZY = r"f[a-z0-9]{1,5}|p[a-z]?[uy]c"
+
 _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
-    r"^\s*(?:" + _CAPTION_OPENER + r")\s*\.?\s*"
+    r"^\s*(?:"
+    r"(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
+    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*\.\s*"      # period required
+    r")"
     r"(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z]))",
     re.IGNORECASE,
 )
@@ -503,7 +509,47 @@ FIGURE_TYPE_GRAPHICAL = "graphical_element"
 FIGURE_TYPE_UNCLASSIFIED = "unclassified"
 
 
-def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -> str:
+# Bbox coordinates are quantised to this many points before two items are
+# called "the same position". Loose enough for sub-point jitter between pages,
+# tight enough that two different figures never collide.
+_POSITION_TOLERANCE_PTS = 12
+
+# A position recurring on at least this many pages is running furniture. No
+# real figure in the 35-document reference corpus repeats a position even
+# twice; the journal logo in its one born-digital paper repeats on 24 of 25
+# pages. The gap is wide enough that the exact value is not delicate.
+_FURNITURE_RECURRENCE_PAGES = 5
+
+
+def _position_key(bbox):
+    """Quantised bbox, for asking whether two items sit in the same place."""
+    if not bbox or len(bbox) != 4:
+        return None
+    return tuple(round(v / _POSITION_TOLERANCE_PTS) for v in bbox)
+
+
+def furniture_positions(items: List[Dict]) -> frozenset:
+    """Page positions that recur often enough to be running furniture.
+
+    A journal masthead, a rule, an ORCID icon: printed at the same place on
+    every page. A figure is not. This is the evidence that lets
+    :func:`classify_figure` trust a caption on a small item without also
+    trusting one that the caption-proximity heuristic wrongly attached to a
+    logo — which it does, giving the masthead of one paper in the reference
+    corpus the caption and number of a real figure.
+    """
+    pages_at = {}
+    for it in items:
+        key = _position_key(it.get("bbox"))
+        if key is None:
+            continue
+        pages_at.setdefault(key, set()).add(it.get("page"))
+    return frozenset(k for k, pages in pages_at.items()
+                     if len(pages) >= _FURNITURE_RECURRENCE_PAGES)
+
+
+def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS,
+                    recurring: frozenset = frozenset()) -> str:
     """Classify one raw figure item into a ``figure_type``.
 
     ``item`` is the in-memory dict the two-pass extractor builds per picture:
@@ -532,7 +578,25 @@ def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -
     caption = item.get("caption_text") or ""
     fig_num = item.get("figure_number")
 
-    if w and h and (w < _MIN_FIGURE_DIM_PTS or h < _MIN_FIGURE_DIM_PTS):
+    # A small item is furniture *unless* the page tells us otherwise. A caption
+    # carrying a parseable figure number is that evidence, and it is strong:
+    # journal furniture does not get numbered by its own publisher.
+    #
+    # This matters more than the size of the exception suggests, because
+    # `figure_type` is what the served surface filters on — `_REAL_FIGURE_TYPES`
+    # in `mcpsrv/tools/figures.py` excludes `graphical_element` from every tool
+    # that returns figures. Misclassifying a real figure does not merely
+    # mislabel it; it makes it unreachable.
+    #
+    # Measured against the gold set, four figures were condemned this way,
+    # among them Vanhoeffen 1906 Fig. 11 — an engraved nectophore 49 pts wide
+    # against a 50 pt floor, captioned "Fig. 11." and numbered. No figure was
+    # wrongly promoted: publisher furniture in the reference corpus is either
+    # uncaptioned or, where caption-proximity wrongly attached one, caught by
+    # the recurrence rule below.
+    numbered = bool(caption and fig_num) and _position_key(bbox) not in recurring
+    if (w and h and (w < _MIN_FIGURE_DIM_PTS or h < _MIN_FIGURE_DIM_PTS)
+            and not numbered):
         return FIGURE_TYPE_GRAPHICAL
     if area and area < _MIN_FIGURE_AREA_FRAC * page_area_pts and not caption:
         return FIGURE_TYPE_GRAPHICAL

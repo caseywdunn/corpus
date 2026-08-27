@@ -256,6 +256,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong way first, including one that concluded the panel branch was inert
   when the filenames showed it had lettered them all along.
 
+- **Small figures are no longer misclassified as publisher furniture
+  (#204).** `figure_type` is not cosmetic — `_REAL_FIGURE_TYPES` in the served
+  layer excludes `graphical_element` from *every* tool that returns figures,
+  so misclassifying a real figure makes it unreachable rather than merely
+  mislabelled. `classify_figure` condemned any item under 50 pts in either
+  dimension on size alone; Vanhoeffen 1906 Fig. 11 is an engraved nectophore
+  **49 pts wide**, captioned and numbered, and was invisible to every figure
+  tool because of it.
+
+  A caption carrying a parseable figure number now overrides the size floor —
+  publishers do not number their own mastheads. That evidence is guarded by
+  **position recurrence**: running furniture sits at the same place page after
+  page, and in the 35-document reference corpus no real figure repeats a
+  position even twice while one paper's logo repeats on 24 of 25 pages.
+  Without the guard the relaxation promotes that logo ten times, because
+  caption proximity had attached a real figure's caption to it.
+
+  Net effect on the reference corpus: **3 real figures recovered, 0
+  regressions**, each verified by opening the image.
+
+- **The tolerant caption opener no longer reads prose as a figure number
+  (#204).** A regression from the previous release, found by inspecting a
+  promoted image that turned out to be a handwritten marginal scribble: its
+  caption began `"from  the  coasts  of  British  Columbia"`, the opener
+  matched `fro`, and the capture read the `m` of `from` as Roman numeral M —
+  figure number **1000**.
+
+  Correctly spelled prefixes may still be followed by a Roman numeral with no
+  separator (`PLATE XXI`, `Figur 23`); an OCR-damaged opener must now be
+  followed by a period. Every damaged spelling observed in the corpus carries
+  one, so coverage moves only 67.6% → 66.9% while precision holds at 98.2%,
+  and the three lost captions are exactly the false matches.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
