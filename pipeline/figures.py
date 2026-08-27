@@ -63,11 +63,44 @@ _FIGURE_REF_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# Tighter version used only on caption text (the *leading* figure label).
-# Accepts sub-numbering like "3a", "3.1" (multi-panel figures) and Roman
-# numerals (e.g. "Plate IV.", common on 19th-c. plate captions; #16).
+# The opener a *caption* may begin with. Deliberately more tolerant than
+# `_FIGURE_PREFIX`, and deliberately not shared with it: `_FIGURE_REF_RE` scans
+# running body text, where a loose prefix would bind prose to figure numbers.
+# This one is anchored to the start of a caption and must be followed by a
+# number, which is a far tighter context.
+#
+# The tolerance is for OCR damage, and it is the single largest cause of
+# missing figure numbers (#205). "FIG." set in small caps is misread
+# document-wide, and on this corpus the damaged spellings are *more* common
+# than the correct one — leading tokens across 320 captions:
+#
+#     Fic 65   Fig 53   PLATE 35   Figur 17   FIGURE 9   FIG 8
+#     Fi   8   FiG   6  Plate  3   Figg   1   Frc    1   Fie 1   Puc 1
+#
+# So `F` plus up to four letters, then a number. `Figur` is not damage at all —
+# it is the German spelling, which `fig(?:ure|\.?)` could not reach either.
+# `Puc` is `Рис` read as Latin lookalikes (Р→P, и→u, с→c).
+_CAPTION_OPENER = (
+    # Digits are allowed *inside* the opener because OCR inserts them there:
+    # "FIG." comes back as "Fi1G." and "Fi16.". Without this the opener stops
+    # at "Fi" and the inserted noise is captured as the figure number.
+    # Backtracking keeps "Fig5" working — the class cannot cross a space, and
+    # a trailing digit is given up when no number follows it.
+    r"f[a-z0-9]{1,5}"                    # fig, figure, figur, figg, fic, fi, frc, fi1g
+    r"|p[a-z]?[uy]c"                     # Рис mis-OCR'd into Latin
+    r"|abb(?:ildung)?|pl(?:ate)?|plate|рис(?:унок)?|taf(?:el)?|tab(?:ula)?"
+    r"|lám(?:ina)?|tav(?:ola)?|bild|image|illustration"
+    r"|text[\-\s]?fig(?:ure)?"
+)
+
+# Used only on caption text (the *leading* figure label). Accepts sub-numbering
+# like "3a", "3.1" (multi-panel figures) and Roman numerals (e.g. "Plate IV.",
+# common on 19th-c. plate captions; #16). A trailing range — "Figg. 2-5." for a
+# group of figures under one caption — yields the first number, which is what
+# joins to a body-text reference.
 _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
-    r"^\s*(?:" + _FIGURE_PREFIX + r")\s*(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+)",
+    r"^\s*(?:" + _CAPTION_OPENER + r")\s*\.?\s*"
+    r"(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z]))",
     re.IGNORECASE,
 )
 
@@ -401,6 +434,12 @@ def parse_figure_number(caption_text: str) -> Optional[str]:
     return str(arabic) if arabic is not None else num
 
 
+# The Roman branch is guarded by `(?![A-Za-z])` because `[IVXLCDM]` overlaps
+# with ordinary words: without it, "Fig5 caption" reads the "c" of "caption"
+# as Roman 100. The digit branch keeps its optional trailing letter, which is
+# real sub-numbering ("3a"), so the guard applies to the Roman branch only.
+
+
 def _prov_to_bbox_and_page(prov_item) -> Tuple[Optional[List[float]], Optional[int]]:
     """Normalize a docling ProvenanceItem to (bbox_list, page_no) or Nones."""
     page_no = getattr(prov_item, "page_no", None)
@@ -565,7 +604,18 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         return items
     from collections import defaultdict
 
-    by_num: Dict[str, List[Dict]] = defaultdict(list)
+    # Keyed on (page, number), not number alone (#205). Both tests below
+    # compare bounding boxes, and a bbox carries no page — so two figures at
+    # similar coordinates on *different* pages were being read as redundant
+    # crops of one another and one of them dropped.
+    #
+    # That is not a corner case in this material. A document that is its own
+    # translation prints "Fig. 4" once in the original and again in the
+    # translation, and the two are genuinely different figures; Carre 1969
+    # loses nine of twenty-two figures that way. Every legitimate grouping
+    # this function performs — coequal panels, whole-figure plus subpanels —
+    # is within a single page, so narrowing the key costs nothing.
+    by_num: Dict[tuple, List[Dict]] = defaultdict(list)
     passthrough: List[Dict] = []
     for it in items:
         num = it.get("figure_number")
@@ -575,13 +625,13 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         # figure_number via the caption-proximity heuristic keep their
         # downgraded classification.
         if num and str(num) and ftype in (FIGURE_TYPE_FIGURE, FIGURE_TYPE_PLATE):
-            by_num[str(num)].append(it)
+            by_num[(it.get("page"), str(num))].append(it)
         else:
             passthrough.append(it)
 
     kept: List[Dict] = list(passthrough)
 
-    for num, group in by_num.items():
+    for (_page, num), group in by_num.items():
         if len(group) == 1:
             kept.append(group[0])
             continue

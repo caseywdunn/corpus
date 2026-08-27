@@ -174,6 +174,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the caption-binding scorer (#195), which would otherwise have measured the
   number extractor rather than the caption heuristic.
 
+- **Figure numbers are recovered from OCR-damaged captions: coverage
+  32.1% → 67.6% (#205).** `parse_figure_number` fired for 135 of 420 captions
+  in the reference corpuscle, with 20 of 35 documents getting no figure number
+  at all. It now fires for 284, and precision went *up* — 97.0% → **98.2%** of
+  extracted numbers are genuinely printed on that page.
+
+  The cause was not a language gap. `FIG.` set in small caps is misread
+  document-wide, and across 320 stored captions the damaged spellings are more
+  common than the correct one:
+
+  ```
+  Fic 65   Fig 53   PLATE 35   Figur 17   FIGURE 9   FIG 8
+  Fi   8   FiG   6  Plate  3   Figg   1   Frc    1   Fie 1   Puc 1
+  ```
+
+  A caption-only tolerant opener now accepts `F` plus up to five alphanumerics
+  before the number. Digits are allowed *inside* the opener because OCR puts
+  them there — `Fi1G.` and `Fi16.` for `FIG.` — and without that the match
+  stopped at `Fi` and captured the noise as the figure number, which is worse
+  than finding nothing. Also picked up: `Figur` (German, which the old prefix
+  could not reach), `Figg. 2-5` (Italian plural with a range, yielding the
+  first number), and `Puc` (Cyrillic `Рис` read as Latin lookalikes).
+
+  **The tolerance is confined to captions.** `_FIGURE_REF_RE`, which scans
+  running body text where a loose prefix would bind ordinary prose to figure
+  numbers, is unchanged; the caption regex stays anchored to the caption
+  start, so a figure mentioned mid-sentence is still correctly refused.
+
+  One latent bug fixed on the way: `[IVXLCDM]` overlaps with ordinary words,
+  so `"Fig5 caption"` read the `c` of "caption" as Roman 100. The old
+  docstring predicted this and the tolerant opener made it reachable; the
+  Roman branch now requires a non-letter after it.
+
+  `figure_number` feeds `get_figures_for_*` and `get_figure_dossier_*`, so
+  more figures become reachable by number — but `figures.json` is persisted,
+  so an existing corpuscle needs a rebuild to pick this up.
+
+- **Figures with the same number on different pages are no longer merged
+  (#205).** `dedupe_figures` grouped on figure number alone, and both of its
+  tests compare bounding boxes — which carry no page. Two figures at similar
+  coordinates on different leaves therefore read as redundant crops of one
+  another, and one was dropped.
+
+  That is routine here: a document that is its own translation prints
+  "Fig. 4" once in the original and again in the translation.
+  `Carre1969_Nanomia_tr` lost nine of its twenty-two figures that way. Keying
+  on `(page, number)` costs nothing, because every legitimate grouping the
+  function performs — coequal panels, whole figure plus subpanels — is within
+  a single page.
+
+  Found because the tolerant opener above *amplified* it: numbering more
+  figures fed more of them into the faulty grouping, taking that document
+  from 18 extracted figures to 13. With both changes it extracts **22 — every
+  figure docling detects, and exactly what the gold transcription records** —
+  with 16 of them numbered against 7 before.
+
+  `dedupe_figures` had no direct tests; `tests/test_figure_dedupe.py` adds
+  nine, including the cross-page case and the panel-grouping behaviour the
+  function exists for.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
