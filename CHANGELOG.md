@@ -420,6 +420,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   most figure blocks in this material print a label and nothing more, which is
   why text similarity was never going to work.
 
+- **Vendor wrapper detection covers JSTOR and Google Books (#216).**
+  `_VENDOR_BOILERPLATE` held three markers and missed the two most common
+  wrappers in a scanned library. Measured over the 1,772-document
+  siphonophore library, pages 1–2: JSTOR 20 documents, ResearchGate 6, BHL 6,
+  blank notice 5, ProQuest 1, Google Books 1 — **34 with any wrapper**.
+
+  **Wrappers only; publisher imprints are deliberately excluded.** A wrapper
+  is a cover sheet or rights notice that is not the paper; an imprint is
+  branding on the paper's own pages — a ScienceDirect header, a Springer
+  footer. In the same library **373 documents carry an imprint** against 34 a
+  wrapper. Here a false match costs a wasteful re-OCR; it would be
+  destructive for #188, where a marker is evidence to *drop* a page, and
+  dropping a ScienceDirect header page deletes the article's first page.
+
+  Effect is small and that is worth stating: of 27 documents matching a new
+  string, **2 actually re-route** — the rest are born-digital papers carrying
+  a JSTOR cover, with 9.8K–21.8K characters of real text, correctly held back
+  by the existing `total_chars < 5000` gate. Rasterising those would be wrong.
+
+  The list stays high-precision and low-recall, and no string can fix that:
+  74 bib entries record a BHL origin while only 6 carry a BHL string on pages
+  1–2, because the wrapper page is usually still there as an image with no
+  text layer. The commonest front matter of all — a bound volume's own
+  journal title page — carries no vendor string whatsoever.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
