@@ -256,6 +256,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong way first, including one that concluded the panel branch was inert
   when the filenames showed it had lettered them all along.
 
+- **OCR no longer OOM-kills a workstation (#209).** Reported by @ejedwards
+  with a process table: `ocrmypdf` was never passed `--jobs`, so it ran one
+  Tesseract worker per CPU at ~1.9 GB each. A 12-core host reached for ~20 GB
+  of Tesseract, plus 3.4 GB for the Grobid JVM, and was killed on a 532-page
+  scan.
+
+  It could not be worked around from outside. `ocrmypdf` takes its worker
+  count from `multiprocessing.cpu_count()`, which **ignores CPU affinity** —
+  so neither `taskset` nor a cgroup CPU limit reaches it, and #182's
+  `systemd-run` memory limit only contains the blast radius while the build
+  still dies.
+
+  New `ocr.jobs` config key. Left unset, the cap is derived from host RAM
+  using the components measured in that issue — ocrmypdf's own parent process,
+  per-worker resident set, and a reserve for the Grobid JVM, docling and the
+  page cache — and it only ever *lowers* the worker count: where RAM is not
+  the binding constraint it returns nothing and ocrmypdf's default stands, so
+  no large host gets slower. An explicit value is honoured verbatim, including
+  above the derived cap. The chosen value appears on the `Running OCR` line.
+
+- **A timed-out OCR no longer orphans its Tesseract workers (#209).**
+  `subprocess.run(timeout=)` kills the direct child; ocrmypdf's workers are
+  grandchildren, so they were reparented to PID 1 and kept ~20 GB allocated
+  after the pipeline had given up on the document. OCR now runs in its own
+  process group and the whole tree is killed together, with `KeyboardInterrupt`
+  forwarded explicitly since a new session no longer receives terminal signals
+  by itself. A `SIGKILL` delivered to the pipeline from outside remains
+  unhandleable, but is now the only path that orphans the tree.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
