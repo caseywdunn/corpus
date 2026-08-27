@@ -468,6 +468,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DOI — 69–86% in papers from 2020 on, and **0%** in every document before
   1980.
 
+- **Plate legend expansion read cross-references as legend entries (#231).**
+  #203 gives a plate one record per figure its legend names, and shipped on a
+  measured recall gain (0.849 → 0.917). Scoring the rebuild showed it also
+  cost precision — 0.970 → 0.892 on the served surface — and the whole of the
+  loss was one 226-page monograph of running prose.
+
+  The scan took a figure number from anywhere in a text item. A legend line
+  qualifies; so does a cross-reference, and a monograph is full of them — a
+  species heading reading `Plate XX, figures 1, 2`, a parenthetical
+  `Text-figure 106 (see p. 170)`, a citation of someone else's plate. Two on
+  a page cleared the threshold, and the page's one real text-figure was then
+  cloned under the referenced number. **33 of that document's 232 records
+  shared an image file with another record under a different number**: asking
+  for figure 20 returned the picture of figure 53, which is worse than a miss.
+
+  A legend line opens with the label of the figure it describes. Anchoring to
+  that, with the number required to follow the label and only punctuation
+  between (so `figured by` is not `fig. 53`), gives back the precision without
+  giving back the recall — 0.894 / 0.962 on the served surface, against
+  0.833 / 0.970 before #203 and 0.901 / 0.892 as it shipped. The offending
+  document goes from 34 spurious records to none, and the plate volume #203
+  was written for keeps all 24 of its real ones.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
