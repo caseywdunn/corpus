@@ -103,6 +103,140 @@ _ISO_TO_TESSERACT = {
 }
 
 
+# Tags whose *script* subtag picks a different pack than the language alone
+# would. This is the whole reason the public resolver takes BCP-47 rather than
+# ISO 639: Tesseract ships separate packs for Fraktur German, the two Chinese
+# script variants and Latin-script Serbian, and ISO has no way to name the
+# distinction. `de` can only ever mean `deu`; `de-Latf` can mean `deu_latf`.
+_BCP47_SCRIPT_PACKS = {
+    # 19th-c. German set in Fraktur. `deu` follows as a fallback because a
+    # Fraktur document's running heads, tables and citations are often set in
+    # roman, and because `deu_latf` is a modern rename — a host carrying only
+    # the older `frk` drops `deu_latf` at availability time and would
+    # otherwise be left with nothing.
+    ("de", "Latf"): ["deu_latf", "deu"],
+    ("zh", "Hans"): ["chi_sim"],
+    ("zh", "Hant"): ["chi_tra"],
+    ("sr", "Latn"): ["srp_latn"],
+    ("sr", "Cyrl"): ["srp"],
+}
+
+# langdetect emits `zh-cn` / `zh-tw`, which encode script as region and are
+# not really ISO at all. They are still what `scan_detection.json` records, so
+# they have to keep resolving; the region forms below exist for that
+# compatibility and for tags copied out of a detection record by hand.
+_BCP47_REGION_PACKS = {
+    ("zh", "CN"): ["chi_sim"],
+    ("zh", "SG"): ["chi_sim"],
+    ("zh", "TW"): ["chi_tra"],
+    ("zh", "HK"): ["chi_tra"],
+    ("zh", "MO"): ["chi_tra"],
+}
+
+# Languages Tesseract has a pack for that `_ISO_TO_TESSERACT` cannot key,
+# because they have no ISO 639-1 code. `grc` is the load-bearing one: a
+# pre-1900 systematics paper quoting Aristotle needs it, and langdetect's
+# vocabulary tops out at `el` (modern Greek).
+_BCP47_LANG_PACKS = {
+    "grc": ["grc"],
+    "sr": ["srp"],
+}
+
+# No ISO 639-1 code, so a bare `zh` names a language with two scripts and no
+# single pack. The union mirrors what the OSD branch already does for a `Han`
+# verdict (`_SCRIPT_TO_TESSERACT`): when the script genuinely is unknown, both
+# packs is the honest answer. Prefer `zh-Hans` / `zh-Hant` when it is known.
+_BCP47_AMBIGUOUS = {
+    "zh": ["chi_sim", "chi_tra"],
+}
+
+
+def _parse_bcp47(tag: str):
+    """Return ``(language, script, region)`` from a BCP-47 tag, case-folded.
+
+    Subtags are identified by shape, per BCP-47 itself: 4 alphabetic
+    characters is a script, 2 alphabetic or 3 numeric is a region. Variants,
+    extensions and private-use subtags are ignored — none of them bear on
+    which Tesseract pack to load. Underscores are accepted because that is
+    how the tag tends to come back from tooling that treats it as a locale.
+    """
+    parts = [p for p in re.split(r"[-_]", (tag or "").strip()) if p]
+    if not parts:
+        return "", None, None
+    language = parts[0].lower()
+    script = region = None
+    for part in parts[1:]:
+        if script is None and len(part) == 4 and part.isalpha():
+            script = part.capitalize()
+        elif region is None and (
+            (len(part) == 2 and part.isalpha()) or (len(part) == 3 and part.isdigit())
+        ):
+            region = part.upper()
+    return language, script, region
+
+
+def bcp47_to_tesseract(tag: str) -> List[str]:
+    """Map a BCP-47 language tag to the Tesseract packs that should read it.
+
+    Public because the mapping is generic knowledge about PDFs and OCR, not
+    about any one collection: a library's annotation pass resolves its
+    per-document language into the `ocrlang` bib directive (#176) and needs
+    this exact table. Duplicating it into each library repo is how the copies
+    come to disagree with what `scan.py` actually loads, with nothing
+    checking that they still agree.
+
+    >>> bcp47_to_tesseract("ru")
+    ['rus']
+    >>> bcp47_to_tesseract("de-Latf")
+    ['deu_latf', 'deu']
+    >>> bcp47_to_tesseract("zh-Hant")
+    ['chi_tra']
+    >>> bcp47_to_tesseract("grc")
+    ['grc']
+    >>> bcp47_to_tesseract("xx")
+    []
+
+    Three things this deliberately does not do:
+
+    **It does not check whether a pack is installed.** The caller is usually
+    annotating a bib on a machine that will never run OCR. Availability is a
+    property of the *build* host and is applied there, by
+    :func:`_resolve_ocrlang_pin`, which drops missing packs with a warning.
+
+    **It does not return vertical CJK companions.** BCP-47 describes language
+    and script; vertical setting is typesetting, and `jpn_vert` is a different
+    *model*, not a different language. It also must not be unioned with its
+    horizontal sibling — measured against the gold set, `jpn_vert` alone
+    scores 0.574 on vertical pages, `jpn` alone 0.246, and `jpn_vert+jpn`
+    0.186, worse than either. See :func:`detect_vertical_cjk` (#196), which
+    finds vertical pages geometrically instead.
+
+    **Nothing calls it at run time.** The OCR language decision stays two
+    tiers — an explicit `ocrlang` pin, else detection. Deriving packs from a
+    bib field during a build would make *this table* an input to
+    `processed.pdf` without being part of any fingerprint: improve the table
+    and nothing invalidates, so documents keep their old OCR while the log
+    reports the new `-l`. Resolving at annotation time instead leaves
+    `ocrlang` a literal, directly-fingerprinted value, and a table change
+    does nothing until the bib is rewritten — which invalidates visibly.
+    """
+    language, script, region = _parse_bcp47(tag)
+    if not language:
+        return []
+    if script and (language, script) in _BCP47_SCRIPT_PACKS:
+        return list(_BCP47_SCRIPT_PACKS[(language, script)])
+    if region and (language, region) in _BCP47_REGION_PACKS:
+        return list(_BCP47_REGION_PACKS[(language, region)])
+    if language in _BCP47_LANG_PACKS:
+        return list(_BCP47_LANG_PACKS[language])
+    pack = _ISO_TO_TESSERACT.get(language)
+    if pack:
+        return [pack]
+    if language in _BCP47_AMBIGUOUS:
+        return list(_BCP47_AMBIGUOUS[language])
+    return []
+
+
 def _detect_language(text: str):
     """Return (iso_code, confidence) for the dominant language of ``text``.
 
@@ -1351,8 +1485,6 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
     if pdf_path is not None:
         vertical_pack = detect_vertical_cjk(pdf_path, result["tesseract_packs"])
         if vertical_pack:
-            horizontal = next(h for h, v in _VERTICAL_COMPANION.items()
-                              if v == vertical_pack)
             # The vertical pack goes in ALONE — not merely in place of its
             # horizontal counterpart. Any other model competes for the same
             # glyphs and undoes it, and that includes `eng`. Measured on the
