@@ -125,7 +125,38 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 | `bib/` | BibTeX round-trip + biblio authority + reconcile (`bib.parser`, `bib.export`, `bib.importer`, `bib.authority`, `bib.reconcile`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx, systemd, sync + update scripts. |
+| `tools/` | Operator and measurement tooling. Reads corpuscle artifacts; **never imported by `pipeline/`**. `tools/qc/` scores a build against the gold transcription set. |
 | `tests/` | Ground-truth + corpus-wide consistency tests. |
+
+### Where library-facing work goes
+
+A *library* is the upstream collection of PDFs and a `.bib`; a *corpuscle* is
+what corpus builds from one. Code that helps curate a library — resolving a
+language tag to OCR packs, inspecting pages to decide a page range — has an
+obvious pull toward living in the library repo that needs it. It should not,
+because two libraries then carry two copies of the same knowledge and they
+drift. The siphonophore library already carries a temporary local copy of the
+BCP-47 → Tesseract table for exactly this reason.
+
+Three tiers, and the question that sorts them is **does this encode knowledge
+about PDFs and OCR, or knowledge about one particular collection?**
+
+| kind | example | home |
+| --- | --- | --- |
+| Generic PDF/OCR knowledge | `bcp47_to_tesseract` (#215) | `pipeline/` — public function, no wall needed |
+| Read-only inspection over a library | per-page evidence for `keeppages` (#217) | `tools/` |
+| A judgment about *this* collection | "this document is `de-Latf`"; "pages 1–2 are a wrapper" | `skills/` (#178), or the library repo |
+
+**`pipeline/` may never import from `tools/` or `skills/`.** That is the rule
+that keeps the tiers real, and `tests/test_import_direction.py` enforces it.
+Dependencies point one way: a skill may import from `pipeline/`, never the
+reverse.
+
+The trap this avoids is not tidiness. A mapping table duplicated into a
+library repo has to agree with what `scan.py` actually does, and nothing
+checks that it still does — the same shape as `consolidateCitations` being
+settable and never read, or `tesseract_packs` being recorded and then
+recomputed by a different route.
 
 ## Implementation notes for contributors
 
