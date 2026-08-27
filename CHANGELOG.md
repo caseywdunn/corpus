@@ -287,6 +287,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nothing, and that was the first version of this fix. The `ocrlang` override
   from the previous release remains as the operator escape hatch.
 
+- **Small figures are no longer misclassified as publisher furniture
+  (#204).** `figure_type` is not cosmetic — `_REAL_FIGURE_TYPES` in the served
+  layer excludes `graphical_element` from *every* tool that returns figures,
+  so misclassifying a real figure makes it unreachable rather than merely
+  mislabelled. `classify_figure` condemned any item under 50 pts in either
+  dimension on size alone; Vanhoeffen 1906 Fig. 11 is an engraved nectophore
+  **49 pts wide**, captioned and numbered, and was invisible to every figure
+  tool because of it.
+
+  A caption carrying a parseable figure number now overrides the size floor —
+  publishers do not number their own mastheads. That evidence is guarded by
+  **position recurrence**: running furniture sits at the same place page after
+  page, and in the 35-document reference corpus no real figure repeats a
+  position even twice while one paper's logo repeats on 24 of 25 pages.
+  Without the guard the relaxation promotes that logo ten times, because
+  caption proximity had attached a real figure's caption to it.
+
+  Net effect on the reference corpus: **3 real figures recovered, 0
+  regressions**, each verified by opening the image.
+
+- **The tolerant caption opener no longer reads prose as a figure number
+  (#204).** A regression from the previous release, found by inspecting a
+  promoted image that turned out to be a handwritten marginal scribble: its
+  caption began `"from  the  coasts  of  British  Columbia"`, the opener
+  matched `fro`, and the capture read the `m` of `from` as Roman numeral M —
+  figure number **1000**.
+
+  Correctly spelled prefixes may still be followed by a Roman numeral with no
+  separator (`PLATE XXI`, `Figur 23`); an OCR-damaged opener must now be
+  followed by a period. Every damaged spelling observed in the corpus carries
+  one, so coverage moves only 67.6% → 66.9% while precision holds at 98.2%,
+  and the three lost captions are exactly the false matches.
+- **`--config` with a relative path no longer silently discards every tuned
+  setting (#210).** Reported by @ejedwards against 1.1.1.
+  `corpus --config <relative-path> run` kept `input_pdfs`, `bib`, `lexicon`
+  and `taxonomy` — the CLI resolves those itself and passes them as absolute
+  arguments — while `ocr`, `chunking`, `stage_timeouts`, `huge_document` and
+  `quality_gates` were replaced by built-in defaults. The run looked entirely
+  normal; one INFO line was the only trace.
+
+  Two independent causes, both fixed. `_resolve_config_path` returned the flag
+  value verbatim, and it is forwarded to each stage subprocess, which the
+  orchestrator runs from `REPO_ROOT` rather than the operator's directory — so
+  a relative path missed. `CORPUS_CONFIG` had the same hole. Both are now
+  resolved to absolute, with `~` expanded.
+
+  Separately, a **named** config that cannot be read is now an error rather
+  than a fallback. `load_config` treats a missing file as "use defaults",
+  which is correct for the implicit `./config.yaml` and wrong for a file the
+  operator asked for by name; a typo would otherwise run to completion on
+  defaults.
+
+  This had been masking #209: an `ocr.jobs` setting appeared to have no effect
+  because the file carrying it was never read.
+- **OCR no longer OOM-kills a workstation (#209).** Reported by @ejedwards
+  with a process table: `ocrmypdf` was never passed `--jobs`, so it ran one
+  Tesseract worker per CPU at ~1.9 GB each. A 12-core host reached for ~20 GB
+  of Tesseract, plus 3.4 GB for the Grobid JVM, and was killed on a 532-page
+  scan.
+
+  It could not be worked around from outside. `ocrmypdf` takes its worker
+  count from `multiprocessing.cpu_count()`, which **ignores CPU affinity** —
+  so neither `taskset` nor a cgroup CPU limit reaches it, and #182's
+  `systemd-run` memory limit only contains the blast radius while the build
+  still dies.
+
+  New `ocr.jobs` config key. Left unset, the cap is derived from host RAM
+  using the components measured in that issue — ocrmypdf's own parent process,
+  per-worker resident set, and a reserve for the Grobid JVM, docling and the
+  page cache — and it only ever *lowers* the worker count: where RAM is not
+  the binding constraint it returns nothing and ocrmypdf's default stands, so
+  no large host gets slower. An explicit value is honoured verbatim, including
+  above the derived cap. The chosen value appears on the `Running OCR` line.
+
+- **A timed-out OCR no longer orphans its Tesseract workers (#209).**
+  `subprocess.run(timeout=)` kills the direct child; ocrmypdf's workers are
+  grandchildren, so they were reparented to PID 1 and kept ~20 GB allocated
+  after the pipeline had given up on the document. OCR now runs in its own
+  process group and the whole tree is killed together, with `KeyboardInterrupt`
+  forwarded explicitly since a new session no longer receives terminal signals
+  by itself. A `SIGKILL` delivered to the pipeline from outside remains
+  unhandleable, but is now the only path that orphans the tree.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted

@@ -215,6 +215,7 @@ def extract_docling_content(
         from .figures import (
             classify_figure,
             dedupe_figures,
+            furniture_positions,
             compose_figure_filename,
             FIGURE_TYPE_FIGURE,
             FIGURE_TYPE_PLATE,
@@ -254,9 +255,13 @@ def extract_docling_content(
         # identified during dedupe and we don't want the initial
         # classify_figure() to call them "figure" and then the dedup pass
         # relabel them.
+        # Which page positions recur often enough to be running furniture. Needs
+        # the whole document, so it is computed once here and handed to each
+        # classification (#204).
+        recurring = furniture_positions(raw_items)
         for it in raw_items:
             if "figure_type" not in it:
-                it["figure_type"] = classify_figure(it)
+                it["figure_type"] = classify_figure(it, recurring=recurring)
         items = dedupe_figures(raw_items)
 
         # Pass 3: save surviving images, record metadata.
