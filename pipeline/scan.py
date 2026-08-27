@@ -20,7 +20,9 @@ Outputs: ``scan_detection.json`` (from detect_scan_type) and
 from __future__ import annotations
 
 import logging
+import os
 import re
+import signal
 import shutil
 import subprocess
 from pathlib import Path
@@ -670,6 +672,106 @@ def _resolve_tesseract_packs(
             if tess == "deu" and "deu_latf" in available and "deu_latf" not in chosen:
                 chosen.append("deu_latf")
     return chosen
+
+
+# Memory model for the OCR worker pool (#209), in GB. Each term was measured
+# on a 12-core / 30 GB host building a 93-PDF corpuscle, reported with a
+# process table in that issue:
+#
+#   ocrmypdf's own parent process      ~6.0    grows with document length
+#   one Tesseract worker               ~1.9    on a dense 300-dpi scan
+#   the Grobid JVM, for the whole run  ~3.4    -Xmx4g in docker-compose.yml
+#
+# plus headroom for docling's models, the page cache and the OS. A worker is
+# budgeted at 2.5 rather than the measured 1.9 because the measurement is a
+# single host and the failure mode is an OOM kill, not a slowdown.
+_OCR_PARENT_GB = 6.0
+_OCR_WORKER_GB = 2.5
+_OCR_RESERVED_GB = 10.0          # Grobid JVM + docling + page cache + OS
+
+
+def _host_ram_gb() -> Optional[float]:
+    """Total physical RAM in GB, or ``None`` where it cannot be determined.
+
+    ``os.sysconf`` rather than ``psutil``: psutil is present in the
+    environment only as a transitive dependency of other packages, and this
+    must not start failing because one of them drops it.
+    """
+    try:
+        return (os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")) / 2 ** 30
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+def _run_ocr(cmd: List[str], timeout: float):
+    """Run ocrmypdf, and take its Tesseract workers down with it (#209).
+
+    ``subprocess.run(..., timeout=)`` kills the direct child only. ocrmypdf's
+    Tesseract workers are *grandchildren*, so on a timeout they were reparented
+    to PID 1 and kept running — holding ~20 GB on the host that reported this,
+    long after the pipeline had given up on the document.
+
+    Running ocrmypdf in its own process group makes the whole tree killable in
+    one call. The cost is that a terminal signal no longer reaches it by
+    itself, so ``KeyboardInterrupt`` is forwarded explicitly; without that,
+    Ctrl-C would leave exactly the orphans this is meant to prevent.
+
+    A ``SIGKILL`` delivered to the pipeline from outside still cannot be
+    handled here — nothing can — but that is now the only path that orphans
+    the tree.
+    """
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        start_new_session=True,
+    )
+
+    def _kill_tree():
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass                          # already gone
+
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree()
+        proc.communicate()                # reap, so no zombie is left behind
+        raise
+    except BaseException:                 # KeyboardInterrupt, SystemExit, ...
+        _kill_tree()
+        proc.communicate()
+        raise
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+
+
+def _resolve_ocr_jobs() -> Optional[int]:
+    """How many Tesseract workers ocrmypdf may run, or ``None`` for its default.
+
+    ocrmypdf runs one worker per CPU and offers no way to reduce it from
+    outside: it reads ``multiprocessing.cpu_count()``, which ignores CPU
+    affinity, so neither ``taskset`` nor a cgroup CPU limit reaches it. A
+    12-core host therefore reaches for ~20 GB of Tesseract on a dense scan and
+    is OOM-killed. A cgroup memory limit contains the blast radius but does not
+    prevent the overrun — the build still dies, just tidily.
+
+    So the cap has to come from here. ``ocr.jobs`` sets it explicitly;
+    otherwise it is derived from host RAM, and only ever *lowers* the worker
+    count — on a machine with memory to spare this returns ``None`` and
+    ocrmypdf's own default stands, so nothing gets slower.
+    """
+    configured = CONFIG.get("ocr", {}).get("jobs")
+    if configured:
+        return int(configured)
+
+    ram = _host_ram_gb()
+    cpus = os.cpu_count() or 1
+    if ram is None:
+        return None                       # unknown host; do not second-guess
+    budget = ram - _OCR_RESERVED_GB - _OCR_PARENT_GB
+    affordable = max(1, int(budget // _OCR_WORKER_GB))
+    if affordable >= cpus:
+        return None                       # RAM is not the binding constraint
+    return affordable
 
 
 def _vertical_cjk_hint(langs, detection_result) -> Optional[str]:
@@ -1777,13 +1879,20 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
     if hint:
         logger.info("%s: %s", input_pdf.name, hint)
 
+    # #209 — ocrmypdf otherwise runs one Tesseract worker per CPU, ~1.9 GB
+    # each on a dense scan, and there is no way to reduce it from outside: it
+    # reads multiprocessing.cpu_count(), which ignores CPU affinity, so neither
+    # taskset nor a cgroup CPU limit reaches it.
+    ocr_jobs = _resolve_ocr_jobs()
+
     logger.info(
-        "Running OCR on %s | file_type=%s mode=%s langs=%s timeout=%.0fs",
+        "Running OCR on %s | file_type=%s mode=%s langs=%s timeout=%.0fs%s",
         input_pdf.name,
         detection_result.get("file_type"),
         mode_flag,
         lang_arg,
         _ocr_timeout_for(input_pdf, len(langs)),
+        f" jobs={ocr_jobs}" if ocr_jobs else "",
     )
     # Per-page OCR timeout. ocrmypdf's default is far too tight for what
     # this pipeline asks of Tesseract: on a dense 300-dpi historical scan
@@ -1806,6 +1915,9 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         str(input_pdf),
         str(output_pdf),
     ]
+
+    if ocr_jobs:
+        cmd += ["--jobs", str(ocr_jobs)]
 
     ocr_timeout = _ocr_timeout_for(input_pdf, len(langs))
     try:
@@ -1833,9 +1945,7 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
             logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
         cmd[1] = mode_flag = "--force-ocr"
         try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=ocr_timeout,
-            )
+            result = _run_ocr(cmd, ocr_timeout)
         except subprocess.TimeoutExpired:
             logger.warning(
                 "OCR timed out after %.0fs on %s", ocr_timeout, input_pdf.name
