@@ -528,6 +528,100 @@ def _position_key(bbox):
     return tuple(round(v / _POSITION_TOLERANCE_PTS) for v in bbox)
 
 
+# A page's legend has to name at least this many distinct figures before the
+# page is treated as a plate holding several. Two is a caption that mentions a
+# neighbour; a run of them is a legend.
+_MIN_PLATE_LEGEND_ENTRIES = 2
+
+
+def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
+    """Legend lines on one page, each naming a different figure (#203).
+
+    ``page_texts`` is ``[{"text": str, "bbox": [...]}, ...]`` for a single
+    page, in document order.
+
+    Historical plates carry several separately-numbered engravings under one
+    legend, printed as a run of lines:
+
+        Fig. 31.   Agalmopsis elegans Sars.
+        Fig. 32.   Schwimmglocke.
+        Fig. 33.   Deckstück.
+        ...
+
+    docling emits those as separate text items and extracts the plate itself
+    as a *single* picture. Caption association then binds whichever labelled
+    line is vertically nearest — on the page this was written for, the bare
+    "Fig. 36." at the foot — and the other five figures exist nowhere in the
+    output. Nine such pages in one monograph of the reference corpus.
+
+    Returns one entry per distinct figure number, in the order the numbers
+    appear. Empty when the page carries fewer than
+    ``_MIN_PLATE_LEGEND_ENTRIES`` distinct numbers, which is the ordinary
+    case of a page with one figure and its caption.
+    """
+    seen = {}
+    for t in page_texts:
+        text = " ".join((t.get("text") or "").split())
+        num = parse_figure_number(text)
+        if not num or num in seen:
+            continue
+        seen[num] = {"figure_number": num, "caption_text": text,
+                     "caption_bbox": t.get("bbox")}
+    if len(seen) < _MIN_PLATE_LEGEND_ENTRIES:
+        return []
+    return list(seen.values())
+
+
+def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
+    """Give a plate one record per figure its legend names (#203).
+
+    ``legends`` maps page number to the result of :func:`plate_legend_entries`.
+
+    The records **share the plate's image and bbox** — the individual
+    engravings are not cropped out, because locating them needs OCR of the
+    lettering printed on the plate itself and that is a separate problem. What
+    this fixes is retrieval: asking for "Fig. 33" returned nothing at all, and
+    now returns the plate that contains it, carrying Fig. 33's own caption and
+    number instead of a sibling's.
+
+    Only expands a page whose legend names *more* figures than were extracted
+    from it, so an ordinary multi-figure page that docling already separated is
+    left alone. `shares_image_with` marks the siblings so a consumer can tell
+    that three records pointing at one file is deliberate rather than
+    duplication.
+    """
+    by_page = {}
+    for it in items:
+        by_page.setdefault(it.get("page"), []).append(it)
+
+    out: List[Dict] = []
+    for it in items:
+        out.append(it)
+    for page, entries in legends.items():
+        on_page = by_page.get(page) or []
+        if not on_page or len(entries) <= len(on_page):
+            continue
+        # The plate is the largest picture on the page; the legend describes
+        # what is drawn on it.
+        plate = max(on_page, key=lambda x: _bbox_area(x.get("bbox")))
+        already = {str(x.get("figure_number")) for x in on_page
+                   if x.get("figure_number")}
+        for entry in entries:
+            if entry["figure_number"] in already:
+                continue
+            sibling = dict(plate)
+            sibling.update({
+                "figure_number": entry["figure_number"],
+                "caption_text": entry["caption_text"],
+                "caption_bbox": entry.get("caption_bbox"),
+                "caption_source": "plate_legend",
+                "shares_image_with": plate.get("docling_idx"),
+                "figure_type": FIGURE_TYPE_FIGURE,
+            })
+            out.append(sibling)
+    return out
+
+
 def furniture_positions(items: List[Dict]) -> frozenset:
     """Page positions that recur often enough to be running furniture.
 
