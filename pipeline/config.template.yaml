@@ -104,6 +104,12 @@ figures:
 grobid:
   url: http://localhost:8070
   # disable: true   # skip Grobid even if reachable
+  # Consolidation against CrossRef: 0 = off, 1 = look the record up.
+  # consolidate_header: 1      # on by default; improves per-paper metadata
+  # consolidate_citations: 0   # off by default, and that default is measured:
+  #   across four documents and 194 references it recovered six DOIs for
+  #   1.4-2x the Grobid time. Worth turning on for a library of modern papers
+  #   whose references CrossRef actually holds; not for a historical one.
 
 # Bibliography-build options.
 bibliography:

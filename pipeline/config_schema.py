@@ -134,6 +134,18 @@ class GrobidConfig(BaseModel):
         default=False,
         description="Skip Grobid even if reachable.",
     )
+    # Grobid consolidation levels: 0 = off, 1 = look the record up in CrossRef.
+    #
+    # Header consolidation is on because it meaningfully improves per-paper
+    # metadata. Citation consolidation is off, and that default is measured
+    # rather than assumed — see the note in `pipeline/grobid_client.py`. On
+    # this material it buys almost nothing: across four documents and 194
+    # references it recovered six DOIs, for 1.4x to 2x the Grobid time. It is
+    # exposed because the arithmetic depends on the corpus. A library of
+    # modern papers, whose reference lists CrossRef actually holds, may find
+    # it worth the round trips; a historical one will not.
+    consolidate_header: int = Field(default=1, ge=0, le=2)
+    consolidate_citations: int = Field(default=0, ge=0, le=2)
 
 
 class BibliographyConfig(BaseModel):

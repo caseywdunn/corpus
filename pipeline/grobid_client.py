@@ -114,8 +114,23 @@ class GrobidClient:
         consolidate_header, consolidate_citations:
             Grobid consolidation levels (0=off, 1=CrossRef lookup). Header
             consolidation meaningfully improves metadata quality for papers
-            with recoverable DOIs; citation consolidation is slower and
-            mostly useful at corpus scale — leave off by default.
+            with recoverable DOIs.
+
+            Citation consolidation is off, and that default is **measured**.
+            Against the gold corpuscle, same PDFs with the flag off and on:
+
+              Ahuja 2026            86.1% -> 88.9% DOIs    3.1s -> 6.4s
+              Stepanjants 2014       0.0% ->  6.9%         2.0s -> 2.7s
+              Bernstein 1934         0.0% ->  3.6%         2.3s -> 3.4s
+              Benasso 1976           0.0% ->  0.0%         1.7s -> 2.6s
+
+            Six DOIs recovered across 194 references, for 1.4x to 2x the
+            Grobid time. The split is by era rather than by anything the flag
+            controls: modern reference lists already carry DOIs and CrossRef
+            holds the rest, while the historical works this corpus is mostly
+            made of are simply not in it. Both flags are settable from
+            ``grobid:`` in config, because that arithmetic is a property of
+            the library rather than of the pipeline.
         include_raw_citations:
             Add the ``includeRawCitations=1`` flag so the original citation
             string is preserved in the TEI.
