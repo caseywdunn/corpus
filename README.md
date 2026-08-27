@@ -91,9 +91,11 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 
 Write Tesseract pack names joined by `+` — the same spelling ocrmypdf's `-l` uses, and the same string the run log prints as `langs=`. They are pack names, not ISO codes: `deu`, `fra`, `ell`, not `de`, `fr`, `el`. Run `tesseract --list-langs` to see what's installed. Names that aren't installed are dropped with a warning rather than passed through, and if none survive the tag is ignored and detection decides as usual.
 
+If you generate the bib from a script and hold each document's language as a tag rather than as pack names, `pipeline.scan.bcp47_to_tesseract` does the translation — `"de-Latf"` to `["deu_latf", "deu"]`, `"zh-Hant"` to `["chi_tra"]`, `"grc"` to `["grc"]`. It is public so that a library's tooling doesn't have to keep its own copy of the table and watch it drift from this one.
+
 The tag pins language packs only — it does not force OCR, so adding it to a born-digital paper changes nothing. Adding, changing, or removing it re-runs OCR for that paper on the next `corpus run`; papers you didn't touch are left alone.
 
-**Vertically-set CJK needs `ocrlang`, and this is currently the only way to get it right.** Tesseract ships separate models for vertical text — `jpn_vert`, `chi_sim_vert`, `chi_tra_vert`, `kor_vert` — and detection never selects them, so a vertically-set Japanese or Chinese document is read by a horizontal model. Measured on a 1911 Japanese monograph against a hand transcription of the same pages:
+**Vertically-set CJK is detected automatically, and `ocrlang` overrides it.** Tesseract ships separate models for vertical text — `jpn_vert`, `chi_sim_vert`, `chi_tra_vert`, `kor_vert` — and a vertically-set document read by a horizontal model loses about half its words. Measured on a 1911 Japanese monograph against a hand transcription of the same pages:
 
 | packs | horizontal Japanese | vertical Japanese |
 |---|---|---|
@@ -103,9 +105,11 @@ The tag pins language packs only — it does not force OCR, so adding it to a bo
 
 Numbers are the fraction of the words actually printed on the page that the pipeline recovered.
 
-Two things to take from that table. Pinning `jpn_vert` on a vertically-set document **more than doubles** what is recovered. And **do not pin both** — the union scores worse than either pack alone, because the two models compete for the same glyphs. That is the opposite of how the Fraktur packs behave, where `deu+deu_latf` together is the right answer.
+Two things to take from that table. Using `jpn_vert` on a vertically-set document **more than doubles** what is recovered. And **never use both** — the union scores worse than either pack alone, because the two models compete for the same glyphs. That is the opposite of how the Fraktur packs behave, where `deu+deu_latf` together is the right answer.
 
-So the pack has to match the document's writing direction, and you have to tell it which:
+When detection resolves a CJK pack, corpus rasterises a sample of the document's *scanned* pages and measures which way the text lines run, then swaps in the `_vert` counterpart on a majority vote. Born-digital pages don't vote: `--redo-ocr` preserves their existing text, so no pack ever touches them, and letting an English typescript bound in front of a Japanese scan decide the Japanese pages' model is how the choice went wrong before. The verdict is recorded as `vertical_cjk` in the document's `scan_detection.json`.
+
+`ocrmypdf` takes one pack list per document, so one choice has to serve the whole file. Pin `ocrlang` when you disagree with the one made — a mixed volume where the sample landed on the wrong side, or a host where the vertical pack isn't installed:
 
 ```bibtex
 @article{Kawamura1911a,
@@ -113,8 +117,6 @@ So the pack has to match the document's writing direction, and you have to tell 
   ocrlang = {jpn_vert},
 }
 ```
-
-If a document is *mixed* — a horizontal translation bound in front of a vertical original is common in this material — pin the direction that dominates the pages needing OCR. `ocrmypdf` takes one pack list per document, so there is no per-page choice available.
 
 ### External taxonomic data (optional)
 

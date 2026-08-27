@@ -492,7 +492,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   text layer. The commonest front matter of all — a bound volume's own
   journal title page — carries no vendor string whatsoever.
 
+- **A public BCP-47 → Tesseract pack resolver (#215).** `_ISO_TO_TESSERACT`
+  was the bridge between a detected language and an OCR pack, and it was
+  private, so anything outside `scan.py` needing that mapping had to
+  reimplement it — a library's annotation pass, resolving a per-document
+  language into an `ocrlang` directive, already carried a copy marked
+  temporary. `bcp47_to_tesseract` is that copy's exit path.
+
+  BCP-47 subsumes what the table held — bare ISO 639-1 codes are already valid
+  tags, so nothing regresses — and reaches two packs no key could name before.
+  `grc` existed only inside the Greek fallback union; `deu_latf` was reachable
+  only via a visual OSD verdict or a `deu` special case, and langdetect can
+  only ever say `de`. There was no way to state "German, set in Fraktur".
+
+  **Deliberately not wired into the build.** The OCR language decision stays
+  two tiers — an explicit `ocrlang` pin, else detection. Deriving packs from a
+  bib field at run time would make the derivation table an input to
+  `processed.pdf` without being part of any fingerprint: improve the table and
+  nothing invalidates, so documents keep their old OCR while the log reports
+  the new `-l`. Resolving at annotation time leaves `ocrlang` a literal,
+  directly-fingerprinted value.
+
+  Vertical CJK stays out. BCP-47 describes language and script; vertical
+  setting is typesetting, and `jpn_vert` must not be unioned with `jpn` —
+  0.574 and 0.246 alone, 0.186 together. A test asserts no `_vert` pack is
+  ever returned, because making the CJK entries symmetric with the Fraktur one
+  would look like tidying and would regress #196.
+
+- **`AGENTS.md` says where library-facing code goes, and a test enforces it.**
+  Three tiers, sorted by whether the code encodes knowledge about PDFs and OCR
+  or knowledge about one collection: generic goes in `pipeline/` as a public
+  function, read-only inspection in `tools/`, collection-specific judgment in
+  `skills/`. `pipeline/` may never import from `tools/` or `skills/`, which
+  was true by convention and is now `tests/test_import_direction.py`.
+
 ### Changed
+
+- **The vertical-CJK section of the README predated #196.** It said detection
+  never selects the vertical models and that `ocrlang` is "currently the only
+  way to get it right"; neither has been true since #196 landed. Rewritten to
+  describe what happens — a sample of the scanned pages is rasterised, line
+  orientation measured, and the `_vert` pack swapped in on a majority vote —
+  and to recast `ocrlang` as the override for disagreeing with that choice.
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
   `pipeline/`, `mcpsrv/` and `bib/` only, so the operator scripts under
