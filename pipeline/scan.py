@@ -608,15 +608,46 @@ _SCRIPT_TO_TESSERACT = {
 }
 
 
-# Vendor watermark / wrapper signatures. When a PDF's text layer contains
-# nothing but one of these markers (and below 5K chars across the sample),
-# treat it as a scanned PDF whose actual content is image-only — even
-# though docling/PyMuPDF can read the boilerplate banner. See
-# detect_scan_type's vendor cross-check.
+# Vendor **wrapper** signatures — text belonging to a cover sheet, rights
+# notice or scan banner that is not part of the paper. When a PDF's text layer
+# contains nothing but one of these (and below 5K chars across the sample),
+# the real content is raster underneath, so detect_scan_type re-routes it to
+# OCR. See detect_scan_type's vendor cross-check.
+#
+# WRAPPERS ONLY — publisher **imprints** are deliberately absent (#216).
+# An imprint is branding printed on the paper's own pages: a ScienceDirect
+# header, a Springer footer, a JSTOR "This content downloaded" running line.
+# Measured over the 1,772-document siphonophore library, the two populations
+# are nothing alike:
+#
+#     34 documents carry a wrapper string
+#    373 documents carry an imprint string
+#
+# Here the distinction is mild, because a match only costs a wasteful re-OCR.
+# It is not mild for #188, where a marker is evidence a page should be
+# *dropped* — and dropping a ScienceDirect header page deletes the article's
+# first page. If these lists are ever shared, they must stay separate; a flat
+# list offers up all 373 alike.
+#
+# High precision, low recall, and that cannot be fixed by adding strings. In
+# the same library 74 bib entries record a BHL origin while only 6 carry a BHL
+# wrapper string on pages 1-2: the wrapper page is usually still physically
+# there, as an image with no text layer, which a grep cannot see. The most
+# common front matter of all — a bound volume's own journal title page,
+# scanned ahead of the article — carries no vendor string whatsoever.
 _VENDOR_BOILERPLATE = (
     "ProQuest ebrary",
     "biodiversitylibrary.org",
     "This page intentionally left blank",
+    # JSTOR cover sheet — 20 documents, the most common wrapper here.
+    "links.jstor.org",
+    "Your use of the JSTOR archive",
+    # Google Books, including the localised variant that appears on German
+    # scans and is 3.7 KB on its own, still inside the 5K gate.
+    "books.google.com",
+    "digitized by Google",
+    "Über dieses Buch",
+    "researchgate.net",
 )
 
 
