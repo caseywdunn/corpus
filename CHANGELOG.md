@@ -370,6 +370,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   by itself. A `SIGKILL` delivered to the pipeline from outside remains
   unhandleable, but is now the only path that orphans the tree.
 
+- **A plate holding several numbered engravings now yields one figure per
+  engraving (#203).** Historical plates carry several separately-numbered
+  figures under a single legend. docling extracts the plate as *one* picture
+  and emits the legend as separate text items; caption association then bound
+  whichever labelled line was vertically nearest — on the page this was built
+  for, a bare `Fig. 36.` at the foot — and Figures 31 to 35 existed nowhere in
+  the output. Asking for Figure 33 returned nothing.
+
+  A page whose text carries several distinct figure numbers, more than were
+  extracted from it, now gets one record per number, each with its own caption
+  line. Corpus-wide figure recall **0.849 → 0.917**; `Vanhoeffen1906` alone
+  goes 0.463 → 0.806 with 23 figures recovered, and no document regresses.
+
+  The records **share the plate's image**, marked `shares_image_with`, rather
+  than copying it — cropping an individual engraving needs OCR of the
+  lettering printed on the plate and is a separate problem. Sharing rather
+  than duplicating matters: written naively it produced six byte-identical
+  copies of a 987 KB plate and took one document's figures directory from 13
+  MB to 30 MB.
+
+  Only pages where the legend names *more* figures than were extracted are
+  expanded, so a modern paper docling has already separated is untouched.
+
 ### Changed
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted

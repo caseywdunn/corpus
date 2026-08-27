@@ -215,7 +215,9 @@ def extract_docling_content(
         from .figures import (
             classify_figure,
             dedupe_figures,
+            expand_plate_figures,
             furniture_positions,
+            plate_legend_entries,
             compose_figure_filename,
             FIGURE_TYPE_FIGURE,
             FIGURE_TYPE_PLATE,
@@ -251,6 +253,31 @@ def extract_docling_content(
                 "bbox_coord_system": bbox_meta.get("bbox_coord_system"),
             })
 
+        # #203 — a historical plate carries several separately-numbered
+        # engravings under one legend, and docling extracts it as a single
+        # picture. Give each figure the legend names its own record, sharing
+        # the plate's image, so it is retrievable at all. Runs before
+        # classification so the new records are classified like any other.
+        page_texts = {}
+        for t in (getattr(document, "texts", None) or []):
+            meta = _docling_prov_to_bbox_page(t)
+            page_no = meta.get("page")
+            if page_no is None:
+                continue
+            page_texts.setdefault(page_no, []).append(
+                {"text": getattr(t, "text", "") or "", "bbox": meta.get("bbox")})
+        legends = {pg: plate_legend_entries(ts) for pg, ts in page_texts.items()}
+        legends = {pg: e for pg, e in legends.items() if e}
+        if legends:
+            before = len(raw_items)
+            raw_items = expand_plate_figures(raw_items, legends)
+            if len(raw_items) > before:
+                logger.info(
+                    "Plate legends: %d figure(s) added from %d multi-figure "
+                    "legend(s); they share the plate image",
+                    len(raw_items) - before, len(legends),
+                )
+
         # Pass 2: classify, then dedupe. Order matters — subpanels are
         # identified during dedupe and we don't want the initial
         # classify_figure() to call them "figure" and then the dedup pass
@@ -266,7 +293,35 @@ def extract_docling_content(
 
         # Pass 3: save surviving images, record metadata.
         saved_count = 0
+        # Filenames of already-saved primaries, so a plate-legend sibling can
+        # point at the plate's existing file instead of writing a byte-identical
+        # copy of it (#203). Siblings are appended after their primary, so it is
+        # always present by the time one is reached.
+        saved_filenames: Dict = {}
         for it in items:
+            shares = it.get("shares_image_with")
+            if shares is not None and shares in saved_filenames:
+                # Same picture, another figure drawn on it. Record it through
+                # the same helper as any other figure, pointing at the plate's
+                # existing file rather than writing a byte-identical copy.
+                append_figure(
+                    figure_id=f"docling_{it['docling_idx']}_fig{it.get('figure_number')}",
+                    figure_path=figures_dir / saved_filenames[shares],
+                    caption=it.get("caption_text") or "",
+                    meta={
+                        "extraction_method": "docling",
+                        "figure_type": it.get("figure_type"),
+                        "figure_number": it.get("figure_number"),
+                        "page": it.get("page"),
+                        "bbox": it.get("bbox"),
+                        "bbox_coord_system": it.get("bbox_coord_system"),
+                        "caption_page": it.get("caption_page"),
+                        "caption_bbox": it.get("caption_bbox"),
+                        "caption_source": it.get("caption_source"),
+                        "shares_image_with": shares,
+                    },
+                )
+                continue
             image = it.get("image")
             if image is None or not hasattr(image, "save"):
                 logger.warning(
@@ -288,6 +343,7 @@ def extract_docling_content(
                 logger.warning("Could not save figure %s: %s", filename, e)
                 continue
             saved_count += 1
+            saved_filenames[it.get("docling_idx")] = out_path.name
 
             meta: Dict = {
                 "extraction_method": "docling",
