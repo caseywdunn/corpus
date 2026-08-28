@@ -491,9 +491,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   library — a reader working from rendered pages rather than strings — found
   34 documents with a vendor wrapper, which is what the list finds. The
   inference that BHL wrapper pages were sitting there as un-OCR'd images was
-  wrong: 220 of these PDFs carry BHL or Internet Archive provenance in their
-  *embedded metadata*, and only 8 of the 220 have a cover page in the file at
-  all. Provenance is not a wrapper.
+  wrong, but so is the simplest replacement for it. 220 of these PDFs carry
+  BHL or Internet Archive provenance in their *embedded metadata* and only 8
+  still have a cover page — because the covers were stripped by hand when the
+  library was assembled, not because BHL never shipped them. 210 of the 212
+  without one have a ModDate later than their CreationDate, against 4 of the
+  8 that kept theirs. So this recall is partly borrowed from someone else's
+  editing: a corpus built from fresh BHL downloads would carry 220 cover
+  sheets and would need the list to fire on all of them. It would — the 8
+  survivors match — but 34-of-1,773 is a fact about a curated library, not a
+  bound on what wrappers cost.
 
   What the annotation does show is that wrappers are the small part of the
   problem — a title page in 391 documents against a wrapper in 34. Front
