@@ -78,6 +78,7 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 | `license`, `licenseurl` | Figure licensing for the served bundle — see [dev_docs/LICENSING.md](dev_docs/LICENSING.md) |
 | `serve`, `servereason` | Exclude a paper from the served bundle — see [dev_docs/QC.md](dev_docs/QC.md) |
 | `ocrlang` | Pin which Tesseract packs OCR this paper |
+| `doclang`, `pagemap` | Record what the paper *is* and how the scan is put together — read by nothing |
 
 `ocrlang` is the escape hatch for a paper whose language the pipeline gets confidently wrong. Language detection normally does the right thing, but when it doesn't there is otherwise no way to correct one document — the corpus-wide `ocr.ocr_languages_default` is only consulted when detection finds nothing at all, which a confident-but-wrong detection never reaches.
 
@@ -117,6 +118,26 @@ When detection resolves a CJK pack, corpus rasterises a sample of the document's
   ocrlang = {jpn_vert},
 }
 ```
+
+### Recording what a document is: `doclang` and `pagemap`
+
+`ocrlang` says what to *do*; these two say what the paper *is*. Both are read by nothing — not by any stage, not by any fingerprint — so they exist purely as the curator's record, and correcting one never reprocesses a document.
+
+```bibtex
+@article{Stepanjants1970,
+  file      = {Stepanjants1970.pdf},
+  doclang   = {ru},
+  pagemap   = {1--2 BHL wrapper; 3--20 Russian original;
+               21--40 English translation; 41--43 blank},
+  ocrlang   = {rus+eng},
+}
+```
+
+`doclang` is a [BCP-47](https://www.rfc-editor.org/info/bcp47) language tag. BCP-47 rather than a plain ISO code because it is the only vocabulary that can say what a scanned library needs to say: `de-Latf` is *German set in Fraktur*, which decides whether the paper OCRs to text or to whitespace, and which language detection cannot express at all — langdetect can only ever say `de`. Likewise `zh-Hant` against `zh-Hans`, and `grc` for Ancient Greek, which has no two-letter code. Bare codes like `ru` are already valid tags, so nothing forces you to be more specific than you are sure of.
+
+To turn a tag into pack names, `pipeline.scan.bcp47_to_tesseract` is public — `"de-Latf"` gives `["deu_latf", "deu"]`. Writing the result into `ocrlang` is a deliberate extra step rather than something the build does for you: `ocrlang` is fingerprinted, and if it were derived at run time then improving the mapping table would change what `-l` the log reports without invalidating any document's existing OCR.
+
+`pagemap` is free text, never parsed. It exists so that a page-range directive is reviewable — a bare range tells the next reader nothing about whether pages 1–2 were a scanner wrapper, a blank verso, or a mistake.
 
 ### External taxonomic data (optional)
 

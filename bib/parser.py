@@ -410,6 +410,15 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
     # scan stage reads it off the BibIndex directly, since it runs long
     # before metadata.json exists.
     ocrlang = _strip_outer_braces(entry.get("ocrlang", ""))
+    # #214 — curation fields, recorded by a human or an annotation pass and
+    # read by neither the pipeline nor any fingerprint. `doclang` is the
+    # *fact* ("this paper is 19th-c. German set in Fraktur", `de-Latf`) where
+    # `ocrlang` above is an *instruction* to Tesseract; `pagemap` is free
+    # text describing the scan's structure, so a `keeppages` range is
+    # auditable by eye. They stop at the metadata dict — no accessor, no
+    # `_for_pdf` helper — because nothing downstream may act on them.
+    doclang = _strip_outer_braces(entry.get("doclang", ""))
+    pagemap = _strip_outer_braces(entry.get("pagemap", ""))
 
     return {
         "filename": filename,
@@ -425,6 +434,8 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
         "serve": serve_v,
         "serve_reason": serve_reason or None,
         "ocrlang": ocrlang or None,
+        "doclang": doclang or None,
+        "pagemap": pagemap or None,
         "extraction_method": "bib",
         "bib_key": entry.get("_key", ""),
     }

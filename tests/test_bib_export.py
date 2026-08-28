@@ -119,6 +119,7 @@ def _make_min_db(path: Path) -> None:
             publishable INTEGER,
             serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
             ocrlang TEXT,
+            doclang TEXT, pagemap TEXT,
             created_at REAL, updated_at REAL
         );
         CREATE TABLE work_authors (

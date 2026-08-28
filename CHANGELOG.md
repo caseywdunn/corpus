@@ -549,6 +549,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   document goes from 34 spurious records to none, and the plate volume #203
   was written for keeps all 24 of its real ones.
 
+- **Two inert bib fields for curation: `doclang` and `pagemap` (#214).**
+  Curating a scanned library means recording two things the pipeline had no
+  way to hold. `ocrlang` (#176) is an *instruction* to Tesseract, meaningful
+  only when OCR runs; what was missing is the *fact* — this paper is Russian,
+  this one is 19th-c. German set in Fraktur, this one is Ancient Greek. That
+  is what a person or an annotation pass determines by looking, it is worth
+  recording for born-digital papers too, and it is in a different vocabulary
+  from Tesseract's. `doclang` holds a BCP-47 tag, which is the only candidate
+  that can express `de-Latf`, `zh-Hant` and `grc` — and `de-Latf` decides
+  whether a scanned paper OCRs to text or to whitespace.
+
+  `pagemap` is free text describing the scan's physical structure. It exists
+  so a page-range directive is reviewable: a bare `keeppages = {3--20}` tells
+  the next reader nothing about whether pages 1–2 were a scanner wrapper, a
+  blank verso, or a mistake.
+
+  **Both are read by nothing** — no stage, no fingerprint — and that is the
+  feature rather than a limitation. Correcting a language label or fixing a
+  typo in a note must not reprocess a document, where `ocrlang` rewrites
+  `processed.pdf` and rightly invalidates every OCR-dependent stage. Tests
+  assert the absence directly, including that the fingerprint builder takes
+  no such argument and that no `entry_doclang()` accessor exists, because the
+  instinct when adding a bib field is to copy the `ocrlang` template whole and
+  that template fingerprints.
+
+  Deliberately not the standard BibTeX `language` field, for the reason
+  `ocrlang` isn't either: reference managers populate it by default, and an
+  ordinary Zotero export must not silently start steering anything.
+
 ### Changed
 
 - **The vertical-CJK section of the README predated #196.** It said detection
