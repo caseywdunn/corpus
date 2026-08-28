@@ -39,15 +39,19 @@ def _annotate(ocrlang, detected, monkeypatch, available=None):
     return scan._annotate_pack_availability(ocrlang, result)
 
 
-def test_pinning_over_a_bare_fallback_is_not_narrowing(monkeypatch):
-    """Detection found nothing, so there is nothing to narrow.
+def test_pinning_over_a_fallback_union_is_still_narrowing(monkeypatch):
+    """Detection had no targeted resolution, but packs were still displaced.
 
-    `tesseract_packs` still holds the configured default union in that
-    case, and reporting it as displaced would fire on exactly the documents
-    `ocrlang` exists for.
+    `Linnaeus1735`'s shape, and the case the first version of this missed:
+    seven packs would have been used, `lat` was pinned, and the document lost
+    0.079. Reporting only targeted displacement flagged 4 of the 22 documents
+    whose pack list the pin changed, and missed the largest regression in the
+    set. What was displaced is the fact worth acting on; whether detection
+    was confident about it is a qualifier, kept separately.
     """
-    out = _annotate("por", [], monkeypatch)
-    assert "ocrlang_narrowed_from" not in out
+    out = _annotate("lat", [], monkeypatch)
+    assert out["ocrlang_narrowed_from"]                  # the fallback union
+    assert "ocrlang_narrowed_from_targeted" not in out   # none of it targeted
 
 
 def test_a_narrowing_pin_records_what_it_displaced(monkeypatch):
@@ -55,19 +59,33 @@ def test_a_narrowing_pin_records_what_it_displaced(monkeypatch):
     out = _annotate("lat", ["eng", "deu", "deu_latf", "fra", "lat", "por"],
                     monkeypatch)
     assert out["tesseract_packs"] == ["lat"]          # the pin still wins
-    assert out["ocrlang_narrowed_from"] == ["eng", "deu", "deu_latf", "fra", "por"]
+    assert set(out["ocrlang_narrowed_from"]) >= {"eng", "deu", "deu_latf", "fra", "por"}
+    # Detection resolved these from the document's own evidence, so they are
+    # a stronger signal than packs the configured fallback contributed.
+    assert set(out["ocrlang_narrowed_from_targeted"]) == {"eng", "deu", "deu_latf",
+                                                          "fra", "por"}
 
 
-def test_a_pin_that_adds_packs_is_not_narrowing(monkeypatch):
-    """`deu` detected, `deu+deu_latf` pinned — nothing was discarded."""
-    out = _annotate("deu+deu_latf", ["deu"], monkeypatch)
-    assert out["tesseract_packs"] == ["deu", "deu_latf"]
+def test_a_pin_naming_everything_that_would_have_run_is_silent(monkeypatch):
+    """Nothing displaced, nothing reported."""
+    out = _annotate("por+eng", ["por"], monkeypatch)
+    assert out["tesseract_packs"] == ["por", "eng"]
     assert "ocrlang_narrowed_from" not in out
 
 
-def test_a_pin_matching_detection_is_silent(monkeypatch):
+def test_dropping_the_automatic_eng_suffix_counts_as_narrowing(monkeypatch):
+    """`Candeias1932`'s shape, and worth 0.048.
+
+    Detection targets `por`, composition adds `eng`, and a pin of `por`
+    alone silently drops it. That the dropped pack came from composition
+    rather than from targeted resolution does not make it cost less — this
+    document lost 0.048 — so it is reported, with the provenance kept as a
+    separate qualifier.
+    """
     out = _annotate("por", ["por"], monkeypatch)
-    assert "ocrlang_narrowed_from" not in out
+    assert out["tesseract_packs"] == ["por"]
+    assert out["ocrlang_narrowed_from"] == ["eng"]
+    assert "ocrlang_narrowed_from_targeted" not in out
 
 
 def test_a_pin_that_swaps_records_the_displaced_pack(monkeypatch):
@@ -84,7 +102,7 @@ def test_the_log_line_names_both_sides_and_points_at_the_evidence(monkeypatch, c
     with caplog.at_level(logging.INFO, logger="pipeline.scan"):
         _annotate("lat", ["eng", "lat", "fra"], monkeypatch)
     text = caplog.text
-    assert "eng+lat+fra" in text          # what detection resolved
+    assert "eng+lat+fra" in text          # what OCR would have used
     assert "eng+fra" in text              # what the pin drops
     assert "OCR_LANGUAGES" in text        # where the measurement lives
 

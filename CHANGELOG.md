@@ -713,10 +713,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plus one INFO line. What was wrong is that a directive costing 0.05 looked
   identical to one gaining it.
 
-  The comparison is against *targeted* resolution, not the composed pack list.
-  The latter folds in the configured fallback union when detection found
-  nothing to go on, and pinning over a guess is not narrowing — it is the case
-  `ocrlang` exists for. A test caught that distinction.
+  The comparison is against the list OCR would actually have used. An earlier
+  version compared against *targeted* resolution instead, reasoning that
+  pinning over a fallback union is not narrowing but the case `ocrlang` exists
+  for. Run against the reference corpuscle that flagged 4 of the 22 documents
+  whose pack list the pin changed, and missed the largest regression in the
+  set — `Linnaeus1735`, seven packs down to `lat`, −0.079, with no targeted
+  resolution recorded at all. The distinction was real but not the one worth
+  acting on; it survives as `ocrlang_narrowed_from_targeted`.
 - **`fidelity.py` reports taxon-token coverage beside prose coverage (#244).**
   Coverage weighted every token equally, and for this literature that
   undervalues exactly what retrieval keys on: replacing `por` with `eng` on a
