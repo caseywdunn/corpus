@@ -763,12 +763,25 @@ _SCRIPT_TO_TESSERACT = {
 # first page. If these lists are ever shared, they must stay separate; a flat
 # list offers up all 373 alike.
 #
-# High precision, low recall, and that cannot be fixed by adding strings. In
-# the same library 74 bib entries record a BHL origin while only 6 carry a BHL
-# wrapper string on pages 1-2: the wrapper page is usually still physically
-# there, as an image with no text layer, which a grep cannot see. The most
-# common front matter of all — a bound volume's own journal title page,
-# scanned ahead of the article — carries no vendor string whatsoever.
+# High precision, and the recall is better than the first reading of it. That
+# reading was: 74 bib entries record a BHL origin while only 6 carry a BHL
+# string on pages 1-2, so the wrapper page must still be there as an image
+# with no text layer. It isn't. An independent page-by-page annotation of the
+# same library — a reader working from rendered pages rather than from strings
+# — found 34 documents with a vendor wrapper, which is what this list finds.
+#
+# Scan provenance is not a wrapper. 220 of these PDFs carry BHL or Internet
+# Archive provenance in their *embedded metadata* (Creator, Producer), and
+# only 8 of the 220 have a BHL cover page in the file at all: BHL renders from
+# page images and mostly ships no cover sheet.
+#
+# What that annotation does show is that wrappers are the small part of the
+# problem. It recorded a title page in 391 documents against a wrapper in 34 —
+# front covers, flyleaves, bookplates, a bound volume's own title page. None
+# carries a vendor string because there is no vendor; those pages are the
+# book. No addition to this list can reach them, which is why #188 needs a
+# structural signal — is this page raster, blank, or text? — and not a longer
+# table.
 _VENDOR_BOILERPLATE = (
     "ProQuest ebrary",
     "biodiversitylibrary.org",

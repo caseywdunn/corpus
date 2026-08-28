@@ -486,11 +486,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a JSTOR cover, with 9.8K–21.8K characters of real text, correctly held back
   by the existing `total_chars < 5000` gate. Rasterising those would be wrong.
 
-  The list stays high-precision and low-recall, and no string can fix that:
-  74 bib entries record a BHL origin while only 6 carry a BHL string on pages
-  1–2, because the wrapper page is usually still there as an image with no
-  text layer. The commonest front matter of all — a bound volume's own
-  journal title page — carries no vendor string whatsoever.
+  The list is high-precision, and its recall is better than that first
+  reading suggested. An independent page-by-page annotation of the same
+  library — a reader working from rendered pages rather than strings — found
+  34 documents with a vendor wrapper, which is what the list finds. The
+  inference that BHL wrapper pages were sitting there as un-OCR'd images was
+  wrong: 220 of these PDFs carry BHL or Internet Archive provenance in their
+  *embedded metadata*, and only 8 of the 220 have a cover page in the file at
+  all. Provenance is not a wrapper.
+
+  What the annotation does show is that wrappers are the small part of the
+  problem — a title page in 391 documents against a wrapper in 34. Front
+  covers, flyleaves, bookplates, a bound volume's own title page: no vendor
+  string, because there is no vendor. Those pages are the book, and no
+  addition to this list can reach them, which is why #188 needs a structural
+  signal rather than a longer table.
 
 - **A public BCP-47 → Tesseract pack resolver (#215).** `_ISO_TO_TESSERACT`
   was the bridge between a detected language and an OCR pack, and it was
