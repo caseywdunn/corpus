@@ -467,6 +467,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Baseline for context: 719 references across the corpuscle, 32.4% carrying a
   DOI — 69–86% in papers from 2020 on, and **0%** in every document before
   1980.
+- **Vendor wrapper detection covers JSTOR and Google Books (#216).**
+  `_VENDOR_BOILERPLATE` held three markers and missed the two most common
+  wrappers in a scanned library. Measured over the 1,772-document
+  siphonophore library, pages 1–2: JSTOR 20 documents, ResearchGate 6, BHL 6,
+  blank notice 5, ProQuest 1, Google Books 1 — **34 with any wrapper**.
+
+  **Wrappers only; publisher imprints are deliberately excluded.** A wrapper
+  is a cover sheet or rights notice that is not the paper; an imprint is
+  branding on the paper's own pages — a ScienceDirect header, a Springer
+  footer. In the same library **373 documents carry an imprint** against 34 a
+  wrapper. Here a false match costs a wasteful re-OCR; it would be
+  destructive for #188, where a marker is evidence to *drop* a page, and
+  dropping a ScienceDirect header page deletes the article's first page.
+
+  Effect is small and that is worth stating: of 27 documents matching a new
+  string, **2 actually re-route** — the rest are born-digital papers carrying
+  a JSTOR cover, with 9.8K–21.8K characters of real text, correctly held back
+  by the existing `total_chars < 5000` gate. Rasterising those would be wrong.
+
+  The list stays high-precision and low-recall, and no string can fix that:
+  74 bib entries record a BHL origin while only 6 carry a BHL string on pages
+  1–2, because the wrapper page is usually still there as an image with no
+  text layer. The commonest front matter of all — a bound volume's own
+  journal title page — carries no vendor string whatsoever.
+
+- **A public BCP-47 → Tesseract pack resolver (#215).** `_ISO_TO_TESSERACT`
+  was the bridge between a detected language and an OCR pack, and it was
+  private, so anything outside `scan.py` needing that mapping had to
+  reimplement it — a library's annotation pass, resolving a per-document
+  language into an `ocrlang` directive, already carried a copy marked
+  temporary. `bcp47_to_tesseract` is that copy's exit path.
+
+  BCP-47 subsumes what the table held — bare ISO 639-1 codes are already valid
+  tags, so nothing regresses — and reaches two packs no key could name before.
+  `grc` existed only inside the Greek fallback union; `deu_latf` was reachable
+  only via a visual OSD verdict or a `deu` special case, and langdetect can
+  only ever say `de`. There was no way to state "German, set in Fraktur".
+
+  **Deliberately not wired into the build.** The OCR language decision stays
+  two tiers — an explicit `ocrlang` pin, else detection. Deriving packs from a
+  bib field at run time would make the derivation table an input to
+  `processed.pdf` without being part of any fingerprint: improve the table and
+  nothing invalidates, so documents keep their old OCR while the log reports
+  the new `-l`. Resolving at annotation time leaves `ocrlang` a literal,
+  directly-fingerprinted value.
+
+  Vertical CJK stays out. BCP-47 describes language and script; vertical
+  setting is typesetting, and `jpn_vert` must not be unioned with `jpn` —
+  0.574 and 0.246 alone, 0.186 together. A test asserts no `_vert` pack is
+  ever returned, because making the CJK entries symmetric with the Fraktur one
+  would look like tidying and would regress #196.
+
+- **`AGENTS.md` says where library-facing code goes, and a test enforces it.**
+  Three tiers, sorted by whether the code encodes knowledge about PDFs and OCR
+  or knowledge about one collection: generic goes in `pipeline/` as a public
+  function, read-only inspection in `tools/`, collection-specific judgment in
+  `skills/`. `pipeline/` may never import from `tools/` or `skills/`, which
+  was true by convention and is now `tests/test_import_direction.py`.
+
+- **Plate legend expansion read cross-references as legend entries (#231).**
+  #203 gives a plate one record per figure its legend names, and shipped on a
+  measured recall gain (0.849 → 0.917). Scoring the rebuild showed it also
+  cost precision — 0.970 → 0.892 on the served surface — and the whole of the
+  loss was one 226-page monograph of running prose.
+
+  The scan took a figure number from anywhere in a text item. A legend line
+  qualifies; so does a cross-reference, and a monograph is full of them — a
+  species heading reading `Plate XX, figures 1, 2`, a parenthetical
+  `Text-figure 106 (see p. 170)`, a citation of someone else's plate. Two on
+  a page cleared the threshold, and the page's one real text-figure was then
+  cloned under the referenced number. **33 of that document's 232 records
+  shared an image file with another record under a different number**: asking
+  for figure 20 returned the picture of figure 53, which is worse than a miss.
+
+  A legend line opens with the label of the figure it describes. Anchoring to
+  that, with the number required to follow the label and only punctuation
+  between (so `figured by` is not `fig. 53`), gives back the precision without
+  giving back the recall — 0.894 / 0.962 on the served surface, against
+  0.833 / 0.970 before #203 and 0.901 / 0.892 as it shipped. The offending
+  document goes from 34 spurious records to none, and the plate volume #203
+  was written for keeps all 24 of its real ones.
+
+- **Two inert bib fields for curation: `doclang` and `pagemap` (#214).**
+  Curating a scanned library means recording two things the pipeline had no
+  way to hold. `ocrlang` (#176) is an *instruction* to Tesseract, meaningful
+  only when OCR runs; what was missing is the *fact* — this paper is Russian,
+  this one is 19th-c. German set in Fraktur, this one is Ancient Greek. That
+  is what a person or an annotation pass determines by looking, it is worth
+  recording for born-digital papers too, and it is in a different vocabulary
+  from Tesseract's. `doclang` holds a BCP-47 tag, which is the only candidate
+  that can express `de-Latf`, `zh-Hant` and `grc` — and `de-Latf` decides
+  whether a scanned paper OCRs to text or to whitespace.
+
+  `pagemap` is free text describing the scan's physical structure. It exists
+  so a page-range directive is reviewable: a bare `keeppages = {3--20}` tells
+  the next reader nothing about whether pages 1–2 were a scanner wrapper, a
+  blank verso, or a mistake.
+
+  **Both are read by nothing** — no stage, no fingerprint — and that is the
+  feature rather than a limitation. Correcting a language label or fixing a
+  typo in a note must not reprocess a document, where `ocrlang` rewrites
+  `processed.pdf` and rightly invalidates every OCR-dependent stage. Tests
+  assert the absence directly, including that the fingerprint builder takes
+  no such argument and that no `entry_doclang()` accessor exists, because the
+  instinct when adding a bib field is to copy the `ocrlang` template whole and
+  that template fingerprints.
+
+  Deliberately not the standard BibTeX `language` field, for the reason
+  `ocrlang` isn't either: reference managers populate it by default, and an
+  ordinary Zotero export must not silently start steering anything.
 - **`tesseract_packs` no longer records "unknown" as "none" (#197).** Three
   documents in the reference corpuscle once recorded `"tesseract_packs": []`
   while OCR ran with seven. `_compose_ocr_langs` returns early when
@@ -489,6 +599,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nothing.
 
 ### Changed
+
+- **The vertical-CJK section of the README predated #196.** It said detection
+  never selects the vertical models and that `ocrlang` is "currently the only
+  way to get it right"; neither has been true since #196 landed. Rewritten to
+  describe what happens — a sample of the scanned pages is rasterised, line
+  orientation measured, and the `_vert` pack swapped in on a majority vote —
+  and to recast `ocrlang` as the override for disagreeing with that choice.
 
 - **The pyflakes gate now covers `tools/` (#75, #193).** It linted
   `pipeline/`, `mcpsrv/` and `bib/` only, so the operator scripts under

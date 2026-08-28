@@ -562,6 +562,27 @@ def _position_key(bbox):
 # neighbour; a run of them is a legend.
 _MIN_PLATE_LEGEND_ENTRIES = 2
 
+# A legend line *opens* with the label of the figure it describes. A line that
+# merely mentions a figure number somewhere in its middle is a cross-reference,
+# and a monograph is full of them: species headings ("Plate XX, figures 1, 2"),
+# parenthetical pointers ("text-figs. 52, 53"), citations of other people's
+# plates ("figured by Bigelow (1911b, Pl. 21)"). Reading those as legend
+# entries put 34 spurious figures into one 226-page monograph — each one a
+# *different* figure's image served under the cross-referenced number, which
+# is worse than not finding the figure at all.
+#
+# The lookahead is what separates "Fig. 53" from "figured by": the number has
+# to follow the label immediately, with only punctuation between.
+_LEGEND_OPENER = re.compile(
+    r"""^\s*
+        (?:text[\s\-]*)?                # Totton's "Text-figure 53"
+        (?:fig|figs|figur|figure|figures|figuren|abb|abbildung)
+        \s*\.?\s*
+        (?=[\dIVXLCMivxlcm])
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 
 def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
     """Legend lines on one page, each naming a different figure (#203).
@@ -583,6 +604,12 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
     "Fig. 36." at the foot — and the other five figures exist nowhere in the
     output. Nine such pages in one monograph of the reference corpus.
 
+    Only lines that *open* with a figure label count — see
+    ``_LEGEND_OPENER``. Without that anchor the scan reads every
+    cross-reference in running prose as a legend entry, which is how a page
+    of ordinary text under the heading "Plate XX, figures 1, 2" came to serve
+    its one text-figure a second time as "figure 20".
+
     Returns one entry per distinct figure number, in the order the numbers
     appear. Empty when the page carries fewer than
     ``_MIN_PLATE_LEGEND_ENTRIES`` distinct numbers, which is the ordinary
@@ -591,6 +618,8 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
     seen = {}
     for t in page_texts:
         text = " ".join((t.get("text") or "").split())
+        if not _LEGEND_OPENER.match(text):
+            continue
         num = parse_figure_number(text)
         if not num or num in seen:
             continue
