@@ -763,12 +763,34 @@ _SCRIPT_TO_TESSERACT = {
 # first page. If these lists are ever shared, they must stay separate; a flat
 # list offers up all 373 alike.
 #
-# High precision, low recall, and that cannot be fixed by adding strings. In
-# the same library 74 bib entries record a BHL origin while only 6 carry a BHL
-# wrapper string on pages 1-2: the wrapper page is usually still physically
-# there, as an image with no text layer, which a grep cannot see. The most
-# common front matter of all — a bound volume's own journal title page,
-# scanned ahead of the article — carries no vendor string whatsoever.
+# High precision, and the recall is better than the first reading of it. That
+# reading was: 74 bib entries record a BHL origin while only 6 carry a BHL
+# string on pages 1-2, so the wrapper page must still be there as an image
+# with no text layer. It isn't. An independent page-by-page annotation of the
+# same library — a reader working from rendered pages rather than from strings
+# — found 34 documents with a vendor wrapper, which is what this list finds.
+#
+# Scan provenance is not a wrapper *here*, and the reason is a curator, not
+# BHL. 220 of these PDFs carry BHL or Internet Archive provenance in their
+# embedded metadata (Creator, Producer); only 8 still have a cover page. The
+# rest were stripped by hand when the library was assembled — 210 of those 212
+# have a ModDate later than their CreationDate, against 4 of the 8 that kept
+# theirs.
+#
+# So this list's recall on *this* library is partly borrowed from someone
+# else's editing, and must not be read as a property of the strings. A corpus
+# built from fresh BHL downloads would carry a cover sheet on every one of
+# those 220, and would need this list to fire on all of them. It would: the
+# 8 survivors match. But the 34-of-1,773 figure above is a fact about a
+# curated library, not a bound on what wrappers cost.
+#
+# What that annotation does show is that wrappers are the small part of the
+# problem. It recorded a title page in 391 documents against a wrapper in 34 —
+# front covers, flyleaves, bookplates, a bound volume's own title page. None
+# carries a vendor string because there is no vendor; those pages are the
+# book. No addition to this list can reach them, which is why #188 needs a
+# structural signal — is this page raster, blank, or text? — and not a longer
+# table.
 _VENDOR_BOILERPLATE = (
     "ProQuest ebrary",
     "biodiversitylibrary.org",
