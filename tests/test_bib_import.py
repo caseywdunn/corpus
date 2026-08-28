@@ -41,7 +41,7 @@ def _make_db(path: Path) -> None:
             serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
             bib_imported_at REAL,
             ocrlang TEXT,
-            doclang TEXT, pagemap TEXT,
+            doclang TEXT, pagemap TEXT, keeppages TEXT,
             created_at REAL, updated_at REAL
         );
         CREATE TABLE work_authors (

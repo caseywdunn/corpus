@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from bib import BibIndex, ocrlang_for_pdf
+from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf
 
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_lexicons
@@ -548,6 +548,7 @@ def main():
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, pdf_map[h][0].name),
+                    keeppages=keeppages_for_pdf(bib_index, pdf_map[h][0].name),
                 ),
             )
         )
@@ -583,6 +584,7 @@ def main():
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, label),
+                    keeppages=keeppages_for_pdf(bib_index, label),
                 ),
             ):
                 would_skip.append(entry)
@@ -688,6 +690,7 @@ def main():
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,
                         ocrlang=ocrlang_for_pdf(bib_index, pdf_paths[0].name),
+                        keeppages=keeppages_for_pdf(bib_index, pdf_paths[0].name),
                     ),
                 ):
                     logger.info(

@@ -188,7 +188,7 @@ def export_bibtex(
     works_sql = f"""
         SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus,
                license, license_url, serve, serve_reason, ocrlang,
-               doclang, pagemap
+               doclang, pagemap, keeppages
         FROM works
         {where}
         ORDER BY year, work_id
@@ -252,6 +252,9 @@ def export_bibtex(
             # why a directive was set, which is the only copy there is.
             "doclang": r["doclang"],
             "pagemap": r["pagemap"],
+            # #188 — the page selection *is* the document's definition;
+            # losing it on a round-trip silently restores the front matter.
+            "keeppages": r["keeppages"],
             # corpus_hash is opaque but lets future bib_import match
             # entries back to per-paper artifacts even after a rename.
             "corpus_hash": r["corpus_hash"],
