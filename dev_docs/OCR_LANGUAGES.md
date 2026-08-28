@@ -83,8 +83,31 @@ complementary one wins the words the first gets wrong.
 vertically set pages; `jpn_vert+eng` scores 0.176. Nor should you pin
 `jpn_vert+jpn` (0.186). Vertical models are exclusive.
 
-**Do not pad beyond that.** Add packs for languages you know are on the page,
-not for insurance — seven packs on a monolingual Latin text scored below one.
+**Do not pad beyond that, and be strict about what counts as "on the page".**
+Adding a second language the annotator had actually observed measured
+*slightly negative* on every document where it was tried:
+
+| document | change | Δ |
+| --- | --- | --- |
+| `Eschscholtz1825` | `deu_latf+deu` → `+lat` | −0.015 |
+| `Carre1969_Nanomia_tr` | `fra` → `fra+deu` | −0.011 |
+| `Tilesius1814` | `swe` → `swe+lat` | −0.008 |
+| `Carre1968_Hippopodius_tr` | `fra` → `fra+deu` | 0.000 |
+
+These are small and it is four documents, but the direction is consistent and
+it is the opposite of the `+eng` result. Two things distinguish them. The
+second language is present on *few* pages — `Carre1969` is one page of German
+Zusammenfassung in twenty-one of French, so the extra model competes on twenty
+pages to help on one. And the packs added are weak: `lat` loses to `eng` even
+on a document that is entirely Latin (0.562 against 0.600).
+
+So the rule is not "name every language present". It is **add a model that
+will win words on a substantial share of the pages** — which `eng` does
+because it is strong and this literature's apparatus is English, and which a
+one-page summary language does not.
+
+Seven packs on a monolingual Latin text scored below one, for the same reason
+at larger scale.
 
 ### Do not bother pinning born-digital papers
 
