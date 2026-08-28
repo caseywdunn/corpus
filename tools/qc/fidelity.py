@@ -593,7 +593,56 @@ def era_bucket(year):
 # --- scoring ----------------------------------------------------------------
 
 
-def score_page(gold_raw, extracted):
+# A taxonomic name has to be at least this long to count. Shorter strings are
+# abbreviations and rank words — `sp`, `var`, `f` — which collide with ordinary
+# vocabulary and would inflate the rate with tokens nobody is retrieving on.
+_MIN_TAXON_TOKEN = 4
+
+# Below this many taxon tokens on a page, the rate is noise and is not
+# reported. The gold set spans all of nature while a corpuscle's taxonomy is
+# one clade: the 801-taxon siphonophore snapshot labels 58 tokens in the whole
+# of *Systema Naturae*. A recall over three tokens is a coin flip printed to
+# four decimals.
+_MIN_TAXON_TOKENS_FOR_RATE = 10
+
+# A page whose taxon coverage trails its prose coverage by more than this is
+# worth looking at: the headline says the page came out well and the names it
+# is retrieved by did not.
+_TAXON_TRAILS_BY = 0.20
+
+
+def taxon_vocabulary(corpuscle_root):
+    """Every word of every name in the corpuscle's taxonomy, normalised.
+
+    Word-level rather than name-level because the gold is compared token by
+    token: a page printing *Agalmopsis elegans* contributes two tokens, and
+    partial recovery of a binomial is a real, gradable outcome.
+
+    Returns an empty set when there is no taxonomy — the rate is then omitted
+    rather than reported as zero.
+    """
+    db = pathlib.Path(corpuscle_root) / "taxonomy.sqlite"
+    if not db.exists():
+        return frozenset()
+    try:
+        import sqlite3
+        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        try:
+            rows = conn.execute("SELECT name_lowercase FROM names").fetchall()
+        finally:
+            conn.close()
+    except Exception as e:                       # pragma: no cover
+        print(f"warning: could not read {db}: {e}", file=sys.stderr)
+        return frozenset()
+    vocab = set()
+    for (name,) in rows:
+        for word in tokens(name or ""):
+            if len(word) >= _MIN_TAXON_TOKEN:
+                vocab.add(word)
+    return frozenset(vocab)
+
+
+def score_page(gold_raw, extracted, taxon_vocab=frozenset()):
     """Score one page of extraction against one gold page.
 
     ``coverage`` is the headline: the fraction of the gold page's words that
@@ -604,6 +653,14 @@ def score_page(gold_raw, extracted):
 
         low similarity + high coverage -> reading-order difference only
         low similarity + low  coverage -> genuine content loss
+
+    ``taxon_coverage`` answers a different question than ``coverage`` and is
+    reported beside it rather than folded in. Coverage weights every token
+    equally, and for this literature that undervalues exactly what retrieval
+    keys on: replacing `por` with `eng` on a Portuguese paper costs 0.010 on
+    English-wordlist tokens and 0.129 on everything else, which is where the
+    binomials live. A change can look neutral in the headline while damaging
+    the corpus's whole purpose. See dev_docs/OCR_LANGUAGES.md.
     """
     gold = strip_markup(gold_raw)
     gt = tokens(gold.text)
@@ -627,6 +684,11 @@ def score_page(gold_raw, extracted):
         # asks whether each true word turned up somewhere.
         "prose_coverage": None,
         "figure_coverage": None,
+        # Reported with its denominator, never as a bare rate: a corpuscle's
+        # taxonomy covers one clade and the gold spans all of nature, so most
+        # pages carry too few taxon tokens for a rate to mean anything.
+        "taxon_tokens": 0,
+        "taxon_coverage": None,
         "script": dominant_script(gold.text),
         "similarity": None,
         "coverage": None,
@@ -663,6 +725,12 @@ def score_page(gold_raw, extracted):
             rec["prose_coverage"] = 0.0
         if st:
             rec["figure_coverage"] = 0.0
+        if taxon_vocab:
+            tx = [w for w in gt if w in taxon_vocab]
+            rec["taxon_tokens"] = len(tx)
+            if len(tx) >= _MIN_TAXON_TOKENS_FOR_RATE:
+                # A page the pipeline lost entirely lost its taxa with it.
+                rec["taxon_coverage"] = 0.0
         return rec
 
     if script_missing(gold.text, extracted):
@@ -678,6 +746,12 @@ def score_page(gold_raw, extracted):
     rec["coverage"] = round(inter / len(gt), 4)
     if pt:
         rec["prose_coverage"] = round(sum((Counter(pt) & ec).values()) / len(pt), 4)
+    if taxon_vocab:
+        tx = [w for w in gt if w in taxon_vocab]
+        rec["taxon_tokens"] = len(tx)
+        if len(tx) >= _MIN_TAXON_TOKENS_FOR_RATE:
+            rec["taxon_coverage"] = round(
+                sum((Counter(tx) & ec).values()) / len(tx), 4)
     if st:
         rec["figure_coverage"] = round(sum((Counter(st) & ec).values()) / len(st), 4)
     # The opposite question: how much of what the pipeline emitted is really on
@@ -714,6 +788,19 @@ def _median(values):
         return round(vals[mid], 4)
     return round((vals[mid - 1] + vals[mid]) / 2, 4)
 
+def _mean(values):
+    vals = [v for v in values if v is not None]
+    return round(sum(vals) / len(vals), 4) if vals else None
+
+
+def _percentile(values, q):
+    """Nearest-rank percentile, for measures whose median is saturated."""
+    vals = sorted(v for v in values if v is not None)
+    if not vals:
+        return None
+    return round(vals[min(len(vals) - 1, int(q * len(vals)))], 4)
+
+
 
 def _aggregate(pages):
     """Summarise a set of page records.
@@ -730,6 +817,25 @@ def _aggregate(pages):
         "scored": len(scored),
         "median_coverage": _median([p["coverage"] for p in scored]),
         "median_prose_coverage": _median([p.get("prose_coverage") for p in scored]),
+        # Mean and a low percentile, deliberately NOT the median used
+        # everywhere else. 53% of qualifying pages recover every taxon token,
+        # so the median sits at exactly 1.000 and cannot move — a metric
+        # pinned at its ceiling cannot detect the regressions it exists for.
+        # The tail is where the signal is: p10 = 0.643 on the same set.
+        "mean_taxon_coverage": _mean([p.get("taxon_coverage") for p in scored]),
+        "p10_taxon_coverage": _percentile(
+            [p.get("taxon_coverage") for p in scored], 0.10),
+        "taxon_scored_pages": sum(1 for p in scored
+                                  if p.get("taxon_coverage") is not None),
+        # The actionable count: pages the headline calls fine while the tokens
+        # retrieval depends on are being lost. This is the shape #244 was
+        # filed about, and it is real — Hosiaetal2024 p6 scores prose 0.976
+        # and taxon 0.140.
+        "taxon_trails_prose": sum(
+            1 for p in scored
+            if p.get("taxon_coverage") is not None
+            and p.get("prose_coverage") is not None
+            and p["prose_coverage"] - p["taxon_coverage"] > _TAXON_TRAILS_BY),
         "median_figure_coverage": _median([p.get("figure_coverage") for p in scored]),
         "prose_pages": sum(1 for p in scored if p.get("prose_coverage") is not None),
         "figure_pages": sum(1 for p in scored if p.get("figure_coverage") is not None),
@@ -738,6 +844,7 @@ def _aggregate(pages):
         "pages_below_0.5_coverage": sum(1 for p in scored if p["coverage"] < 0.5),
         "status_counts": dict(sorted(statuses.items())),
         "gold_words": sum(p["gold_words"] for p in pages),
+        "taxon_tokens": sum(p.get("taxon_tokens", 0) for p in pages),
         "extracted_words": sum(p["extracted_words"] for p in pages),
         "uncertain": sum(p["uncertain"] for p in pages),
         "illegible": sum(p["illegible"] for p in pages),
@@ -778,7 +885,7 @@ def rebase_gold_pages(gold_by_page, scan):
     return {mapping[p]: v for p, v in gold_by_page.items() if p in mapping}
 
 
-def score_document(gold_dir, corpus_dir):
+def score_document(gold_dir, corpus_dir, taxon_vocab=frozenset()):
     """Score every gold page of one document against the corpuscle's extraction."""
     doc_json = _read_json(corpus_dir / "docling_doc.json")
     extracted = page_texts_from_docling(doc_json) if doc_json else {}
@@ -813,7 +920,7 @@ def score_document(gold_dir, corpus_dir):
         else:
             extracted_page = n
         rec = score_page(gf.read_text(encoding="utf-8"),
-                         extracted.get(extracted_page, ""))
+                         extracted.get(extracted_page, ""), taxon_vocab)
         rec["page"] = n
         if selected:
             rec["subset_page"] = extracted_page
@@ -893,9 +1000,10 @@ def _bib_keeppages(bib_path):
 def build_report(gold_root, corpuscle_root, bib_path=None):
     bound, unmatched = bind_documents(gold_root, corpuscle_root)
     bib_keeppages = _bib_keeppages(bib_path)
+    taxon_vocab = taxon_vocabulary(corpuscle_root)
     documents, all_pages, detail, stale = {}, [], [], []
     for stem, sha, gold_dir, corpus_dir in bound:
-        summary, records = score_document(gold_dir, corpus_dir)
+        summary, records = score_document(gold_dir, corpus_dir, taxon_vocab)
         # Cross-check the directive against what the build actually applied.
         # The dangerous case is scoring a corpuscle built *before* the
         # directive was written: nothing in its artifacts says a selection
@@ -994,6 +1102,23 @@ def print_summary(report, stream=None):
       f"over {cw['figure_pages']} | combined {_fmt(cw['median_coverage'])}\n")
     w("prose is the measure that matters; figure text is reported, not optimised. "
       "Read the segments, not these.\n")
+    if cw.get("mean_taxon_coverage") is not None:
+        w(f"TAXON coverage: mean {_fmt(cw['mean_taxon_coverage'])} "
+          f"p10 {_fmt(cw['p10_taxon_coverage'])} over "
+          f"{cw['taxon_scored_pages']} page(s) with >= "
+          f"{_MIN_TAXON_TOKENS_FOR_RATE} taxon tokens "
+          f"({cw['taxon_tokens']} tokens corpus-wide)\n")
+        w("  mean and p10, not median: half these pages recover every taxon "
+          "token, so a median\n  sits at 1.000 and cannot move. A separate "
+          "question from coverage, not a component.\n")
+        if cw.get("taxon_trails_prose"):
+            w(f"  !! {cw['taxon_trails_prose']} page(s) score >"
+              f"{_TAXON_TRAILS_BY} better on prose than on taxa — the "
+              f"headline calls them fine\n     while the names they are "
+              f"retrieved by are being lost.\n")
+    elif cw.get("taxon_tokens"):
+        w(f"taxon tokens seen: {cw['taxon_tokens']}, but no page carries "
+          f"{_MIN_TAXON_TOKENS_FOR_RATE} — no rate reported\n")
     w(f"status: {cw['status_counts']}\n")
     if cw.get("unterminated_brackets"):
         offenders = sorted(
