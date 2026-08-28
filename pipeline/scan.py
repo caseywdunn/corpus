@@ -770,10 +770,19 @@ _SCRIPT_TO_TESSERACT = {
 # same library — a reader working from rendered pages rather than from strings
 # — found 34 documents with a vendor wrapper, which is what this list finds.
 #
-# Scan provenance is not a wrapper. 220 of these PDFs carry BHL or Internet
-# Archive provenance in their *embedded metadata* (Creator, Producer), and
-# only 8 of the 220 have a BHL cover page in the file at all: BHL renders from
-# page images and mostly ships no cover sheet.
+# Scan provenance is not a wrapper *here*, and the reason is a curator, not
+# BHL. 220 of these PDFs carry BHL or Internet Archive provenance in their
+# embedded metadata (Creator, Producer); only 8 still have a cover page. The
+# rest were stripped by hand when the library was assembled — 210 of those 212
+# have a ModDate later than their CreationDate, against 4 of the 8 that kept
+# theirs.
+#
+# So this list's recall on *this* library is partly borrowed from someone
+# else's editing, and must not be read as a property of the strings. A corpus
+# built from fresh BHL downloads would carry a cover sheet on every one of
+# those 220, and would need this list to fire on all of them. It would: the
+# 8 survivors match. But the 34-of-1,773 figure above is a fact about a
+# curated library, not a bound on what wrappers cost.
 #
 # What that annotation does show is that wrappers are the small part of the
 # problem. It recorded a title page in 391 documents against a wrapper in 34 —
