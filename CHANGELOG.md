@@ -742,6 +742,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names it is retrieved by are lost.
 
 
+- **`dev_docs/FIGURE_PARSING.md` — what the gold set says about figures.**
+  Companion to `OCR_LANGUAGES.md`, covering the three questions this cycle
+  learned to keep separate: are all the figures found and is furniture being
+  called one, is each caption bound to the right figure, and is the text
+  inside a figure recovered.
+
+  Records where the numbers are strong — 1950–1999 scans at recall 0.975 /
+  precision 0.964, `Totton1965a` at 0.974 / 0.995 over 195 figures — and where
+  they are not: born-digital precision 0.607 raw against 0.919 for scans,
+  because publisher logos are figures as far as a layout model is concerned;
+  caption binding before 1900 at recall 0.091, because the numbers are
+  engraved on the plates rather than typeset.
+
+  Also why each measure has the shape it does. Detection is counted per page
+  rather than matched figure by figure, because the gold carries no bounding
+  boxes and per-page counting is the strongest claim the data supports.
+  Captions bind on the figure *number*, never on caption text, because a naive
+  text match reports 44% and is mostly artifact. And gold blocks are
+  classified before scoring — 229 of 376 are a bare label, so caption text is
+  computable for 86 pairs out of 465 and is reported rather than headlined.
+
+
 ### Changed
 
 - **The vertical-CJK section of the README predated #196.** It said detection
