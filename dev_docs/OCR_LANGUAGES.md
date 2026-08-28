@@ -15,6 +15,124 @@ Two measurement notes, because both cut against the conclusions:
   `från` is not penalised. That biases every result below **in favour of
   `eng`**, and `eng` still loses where the tables say it loses.
 
+## Guidance: how to approach this
+
+Read this part if you are choosing what to put in a `.bib`; the sections after
+it are the evidence.
+
+### Most of the time, do nothing
+
+Detection is good, and pinning is not automatically better than it. Pinning 31
+of 35 gold documents from correct language labels moved corpus-wide prose
+coverage **0.9474 → 0.9450**. Per document: the pin was better on 5, detection
+was better on 7, and on 23 the two were within 0.005 of each other.
+
+That last number is the useful one. **For a document with a readable text
+layer, detection and a well-formed pin converge on the same pack list** —
+detection resolving Portuguese composes `por+eng`, which is exactly what a
+`pt` pin should derive. There is no accuracy to be won.
+
+So a pin is worth writing for one of two reasons, and "being explicit" on its
+own is not really one of them.
+
+### Reason 1: you know something detection cannot infer
+
+| you know | detection cannot |
+| --- | --- |
+| this German is set in **Fraktur** | langdetect can only ever say `de`, and without `deu_latf` the page OCRs to whitespace |
+| this Chinese is **Traditional**, not Simplified | it guesses from a region subtag |
+| this is **Ancient** Greek | `grc` has no ISO 639-1 code |
+| detection is **confidently wrong** here | by definition |
+
+These are the pins that earn their keep. In the siphonophore library they are
+about 30 entries out of 1,216.
+
+### Reason 2: detection had nothing to go on
+
+Detection's failure mode is not misreading a language — it is having no
+readable text to read. When targeted resolution finds nothing it falls back to
+the configured union, and that union is often too wide to help:
+`Linnaeus1735` resolved to `eng+deu+deu_latf+fra+lat+spa+por` and scored
+**0.552**, below `lat` alone at 0.562 and well below `lat+eng` at 0.624.
+
+This is visible rather than guessable. `scan_detection.json` records
+`tesseract_pack_available: false` when targeted resolution came up empty, and
+`ocrlang_narrowed_from_targeted` is absent when a pin displaced only fallback
+packs. **A document whose detection fell back to the union is a document worth
+pinning**, and one whose detection targeted packs from real evidence usually
+is not.
+
+### If you do pin, add `eng` — unless the pin is vertical CJK
+
+corpus takes a pin **verbatim**. It appends `eng` when *detection* composes a
+pack list, and never to a pin, so a single-pack pin is strictly narrower than
+no pin at all. That is the one way pinning reliably makes things worse:
+
+    lat -> lat+eng   0.562 -> 0.624
+    nld -> nld+eng   0.789 -> 0.818
+    por -> por+eng   0.931 -> 0.944
+    swe -> swe+eng   0.837 -> 0.833
+
+Three gains and one wash, on four documents — enough to act on, not enough to
+be sure of. The reason is not that English is on every page, nor that `eng` is
+a better model: alone it *loses* to `swe` (0.751) and `por` (0.850). It is that
+Tesseract arbitrates per word between the models you give it, so a second
+complementary one wins the words the first gets wrong.
+
+**Never add `eng` to a `*_vert` pin.** `jpn_vert` alone scores 0.574 on
+vertically set pages; `jpn_vert+eng` scores 0.176. Nor should you pin
+`jpn_vert+jpn` (0.186). Vertical models are exclusive.
+
+**Do not pad beyond that, and be strict about what counts as "on the page".**
+Adding a second language the annotator had actually observed measured
+*slightly negative* on every document where it was tried:
+
+| document | change | Δ |
+| --- | --- | --- |
+| `Eschscholtz1825` | `deu_latf+deu` → `+lat` | −0.015 |
+| `Carre1969_Nanomia_tr` | `fra` → `fra+deu` | −0.011 |
+| `Tilesius1814` | `swe` → `swe+lat` | −0.008 |
+| `Carre1968_Hippopodius_tr` | `fra` → `fra+deu` | 0.000 |
+
+These are small and it is four documents, but the direction is consistent and
+it is the opposite of the `+eng` result. Two things distinguish them. The
+second language is present on *few* pages — `Carre1969` is one page of German
+Zusammenfassung in twenty-one of French, so the extra model competes on twenty
+pages to help on one. And the packs added are weak: `lat` loses to `eng` even
+on a document that is entirely Latin (0.562 against 0.600).
+
+So the rule is not "name every language present". It is **add a model that
+will win words on a substantial share of the pages** — which `eng` does
+because it is strong and this literature's apparatus is English, and which a
+one-page summary language does not.
+
+Seven packs on a monolingual Latin text scored below one, for the same reason
+at larger scale.
+
+### Do not bother pinning born-digital papers
+
+`ocrlang` is inert where no OCR runs. In the siphonophore library, 1,166 of
+1,216 pins sit on scans and 483 born-digital papers carry none, which is the
+right shape. Whether a document is a scan is not a property of its text
+volume — most of these PDFs carry a text layer from someone else's earlier OCR
+pass and look text-rich while every page is a raster image. corpus decides
+from the raster layer and records `detection_reason: raster_page_images`.
+
+### The real reason to pin everything
+
+Determinism, not accuracy. A pin makes the OCR language a recorded,
+fingerprinted input instead of a run-time inference, so a langdetect upgrade
+cannot silently rewrite your corpus years later. That is a legitimate reason to
+pin all 1,216, and it is roughly free once the pins are as wide as what
+detection would have composed. Just do not expect it to raise a score.
+
+### One thing that is not a language problem
+
+If detection gets a document wrong, check what is on the front of it before
+reaching for `ocrlang`. Scan detection samples pages, so forty pages of library
+front matter or a bound-in English translation decide the language for the
+paper behind them. `keeppages` fixes the cause; a pin only papers over it.
+
 ## 1. Availability dominates every other choice
 
 19th-century German set in Fraktur, same pages:

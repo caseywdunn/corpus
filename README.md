@@ -91,7 +91,7 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 }
 ```
 
-What the gold set says about choosing packs — when a union helps, when it hurts, and why the native pack matters — is in [dev_docs/OCR_LANGUAGES.md](dev_docs/OCR_LANGUAGES.md).
+**Before writing one, read [dev_docs/OCR_LANGUAGES.md](dev_docs/OCR_LANGUAGES.md).** Measured against the gold set, pinning is not automatically better than letting detection decide — on 23 of 35 documents the two agreed within 0.005 — and a single-pack pin is strictly *narrower* than no pin at all, because corpus appends `eng` when it composes a list itself and never to a pin. That page says when a pin earns its keep and what to put in it.
 
 Write Tesseract pack names joined by `+` — the same spelling ocrmypdf's `-l` uses, and the same string the run log prints as `langs=`. They are pack names, not ISO codes: `deu`, `fra`, `ell`, not `de`, `fr`, `el`. Run `tesseract --list-langs` to see what's installed. Names that aren't installed are dropped with a warning rather than passed through, and if none survive the tag is ignored and detection decides as usual.
 
