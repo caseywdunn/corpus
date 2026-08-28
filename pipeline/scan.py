@@ -1508,6 +1508,32 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
         restrict_to_script=result.get("script_hint"),
         extra_isos=extra_isos,
     )
+    # #197 — "no packs resolved" and "could not ask" are different facts and
+    # were recorded identically, as an empty list. Three documents in the
+    # reference corpuscle once recorded `tesseract_packs: []` while OCR ran
+    # with seven packs, because `_available_tesseract_langs()` returned empty
+    # at detection time and `_compose_ocr_langs` exits early on that before
+    # the configured fallback union is ever reached.
+    #
+    # `scan_detection.json` is the operator-facing record — `corpus status`
+    # reads it, and #176's `ocrlang` workflow tells an operator to consult it
+    # when choosing a pack to pin. A document whose record says "no packs"
+    # when seven were used sends that diagnosis in the wrong direction, and
+    # these are exactly the documents an operator would be investigating.
+    #
+    # The symptom no longer reproduces on current code — every document in the
+    # 35-document corpuscle now records what OCR actually ran. The flag is the
+    # guard: if the probe ever comes back empty again, the record says so
+    # instead of looking like a resolution that found nothing.
+    if not _available_tesseract_langs():
+        result["tesseract_langs_unavailable"] = True
+        logger.warning(
+            "%s: could not enumerate Tesseract languages, so the recorded "
+            "tesseract_packs is 'unknown' rather than 'none'. OCR may still "
+            "run with the configured default union — check the Running OCR "
+            "line for what it actually used.",
+            result.get("filename", "?"),
+        )
     # #196 — swap a horizontal CJK pack for its vertical counterpart when the
     # page geometry says the text is set vertically. Only reached when a CJK
     # pack was resolved, so it costs nothing on the rest of the corpus, and it

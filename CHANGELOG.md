@@ -577,6 +577,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Deliberately not the standard BibTeX `language` field, for the reason
   `ocrlang` isn't either: reference managers populate it by default, and an
   ordinary Zotero export must not silently start steering anything.
+- **`tesseract_packs` no longer records "unknown" as "none" (#197).** Three
+  documents in the reference corpuscle once recorded `"tesseract_packs": []`
+  while OCR ran with seven. `_compose_ocr_langs` returns early when
+  `_available_tesseract_langs()` is empty — before the configured fallback
+  union is reached — so a failure to *enumerate* the installed languages was
+  written down as a resolution that found nothing.
+
+  `scan_detection.json` is the operator-facing record: `corpus status` reads
+  it, and #176's `ocrlang` workflow tells an operator to consult it when
+  choosing a pack to pin. A record saying "no packs" when seven were used
+  sends that diagnosis backwards, on exactly the documents an operator would
+  be investigating.
+
+  **The symptom no longer reproduces** — checked across all 35 documents by
+  comparing each `scan_detection.json` against the `Running OCR` line in its
+  own log, and record and invocation now agree everywhere. So this ships the
+  guard rather than a fix: if the probe comes back empty again, the record
+  says `tesseract_langs_unavailable` and a warning points at the log line
+  that holds the truth, instead of looking like a resolution that found
+  nothing.
 
 ### Changed
 
