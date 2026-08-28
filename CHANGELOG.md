@@ -676,6 +676,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong so the generator gets fixed rather than one bib entry.
 
 
+- **`dev_docs/OCR_LANGUAGES.md` — what the gold set says about choosing
+  Tesseract packs.** The cycle produced a lot of measurement about pack
+  selection, spread across the README, four issue threads and a working
+  session. Collected into one stable page that code comments can cite.
+
+  It also records a correction. The obvious explanation for why a mismatched
+  pack damages this literature is dictionaries — Tesseract exposes
+  `language_model_penalty_non_dict_word` and loads six dawgs per language, and
+  89–92% of these tokens fall outside any English word list. Measured, that is
+  wrong: re-running with every dawg disabled changed **zero of 2,236
+  recognised tokens**, because those parameters govern the legacy word
+  permuter and Tesseract 5 runs the LSTM engine.
+
+  What differs is the character repertoire the model was trained on. Of the
+  tokens `por` recovers and `eng` loses on the same pages, **83.5% carry a
+  diacritic** in the original against 11.4% of those both recover — and
+  native-pack advantage tracks diacritic density, from Dutch at 0.4% where
+  `eng` ties to Portuguese at 3.4% where it loses 0.08.
+
+  The two failure modes that bracket the problem are recorded with numbers:
+  models contesting the same glyphs (`jpn_vert+jpn` 0.186 against 0.574 for
+  `jpn_vert` alone; seven packs on monolingual Latin below `lat` alone), and
+  substituting rather than adding a pack (13× the damage on out-of-wordlist
+  vocabulary, which is the vocabulary retrieval depends on).
 - **A pin that narrows what detection resolved is now recorded (#245).** An
   `ocrlang` pin does not merely choose packs, it *discards* the ones detection
   had resolved — and that was invisible. Pinning 31 of 35 gold documents from
