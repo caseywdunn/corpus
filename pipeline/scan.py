@@ -1595,6 +1595,37 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
         if dropped:
             result["ocrlang_dropped"] = dropped
     if honored:
+        # The geometric verdict (#196) was reached above, on the packs
+        # detection resolved, and is still recorded. If it said this document
+        # is set vertically and the pin names the horizontal sibling, the pin
+        # still wins — `ocrlang` is documented to beat every inferred signal,
+        # and silently overriding an explicit operator instruction is worse
+        # than obeying a bad one. But it must not be silent.
+        #
+        # This case is not hypothetical and is not operator carelessness. An
+        # annotation pass that derives `ocrlang` from a `doclang` tag (#214,
+        # #215) *cannot* get it right: BCP-47 describes language and script,
+        # and vertical setting is typesetting — deliberately out of scope for
+        # `bcp47_to_tesseract`. So the derivation produces `jpn` for a
+        # vertically-set Japanese paper, every time, and the hint below is
+        # silenced precisely because a pin exists. Measured on the document
+        # #196 was written for: `jpn_vert` 0.574 against `jpn` 0.246.
+        if result.get("vertical_cjk"):
+            displaced = [p for p in honored if p in _VERTICAL_COMPANION]
+            if displaced:
+                wanted = "+".join(_VERTICAL_COMPANION[p] for p in displaced)
+                result["ocrlang_overrides_vertical_cjk"] = wanted
+                logger.warning(
+                    "ocrlang=%r on %s pins a horizontal CJK model, but the "
+                    "page geometry says this document is set vertically. "
+                    "Honoring the pin, as documented — but `ocrlang = {%s}` "
+                    "is worth about 2x the words on those pages. Pin it "
+                    "alone: the union with %s scores worse than either. "
+                    "If this tag was derived from `doclang`, note that "
+                    "BCP-47 cannot express writing direction.",
+                    ocrlang, result.get("filename"), wanted,
+                    "+".join(displaced),
+                )
         result["tesseract_packs"] = honored
         result["tesseract_pack_available"] = True
         if dropped:
