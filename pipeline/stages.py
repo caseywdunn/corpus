@@ -336,6 +336,7 @@ def _all_stage_artifacts_complete(
 def _expected_fingerprints_for_run(
     *,
     ocrlang: Optional[str],
+    keeppages: Optional[str],
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
@@ -376,6 +377,14 @@ def _expected_fingerprints_for_run(
     that omission into a TypeError at the call site. Pass ``None``
     explicitly where a per-document value genuinely doesn't apply.
 
+    ``keeppages`` (#188) follows the same contract and for a stronger
+    reason: it does not merely change how the PDF is read, it changes which
+    pages the PDF *is*. A page-range edit invalidates strictly more than an
+    ocrlang edit does, so nothing derived from the old selection may survive
+    a resume. It is also required rather than defaulted, for the same
+    fast-path reason — a default here reproduces the shipped #176 bug where
+    an added directive was skipped before anything could see it.
+
     Note the empty dict, not None, when no override is set. ``{}`` is what
     :func:`_record_stage_completion` writes for a stage with no
     fingerprint, so an untagged document still compares equal to its
@@ -397,6 +406,8 @@ def _expected_fingerprints_for_run(
         fp = dict(fps.get(stage, {}))
         if ocrlang:
             fp["ocrlang"] = ocrlang
+        if keeppages:
+            fp["keeppages"] = keeppages
         fps[stage] = fp
     return fps
 

@@ -190,6 +190,12 @@ def build_report(gold_root, corpuscle_root):
         figs = (fid._read_json(corpus_dir / "figures.json") or {}).get("figures") or []
         meta = fid._read_json(corpus_dir / "metadata.json") or {}
         scan = fid._read_json(corpus_dir / "scan_detection.json") or {}
+        # #188 — figure `page` is a position in the subset when a selection
+        # is active; the gold was transcribed over the whole file. Restate
+        # the gold in subset coordinates and drop the pages the operator
+        # excluded, so a deliberately-dropped plate atlas title page is not
+        # counted as a figure corpus failed to find.
+        gold_pages = fid.rebase_gold_pages(gold_pages, scan)
 
         for page, kinds in gold_pages.items():
             kind_tally.update(kinds)

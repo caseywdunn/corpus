@@ -79,6 +79,7 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 | `serve`, `servereason` | Exclude a paper from the served bundle — see [dev_docs/QC.md](dev_docs/QC.md) |
 | `ocrlang` | Pin which Tesseract packs OCR this paper |
 | `doclang`, `pagemap` | Record what the paper *is* and how the scan is put together — read by nothing |
+| `keeppages` | Which physical pages of the file are the paper |
 
 `ocrlang` is the escape hatch for a paper whose language the pipeline gets confidently wrong. Language detection normally does the right thing, but when it doesn't there is otherwise no way to correct one document — the corpus-wide `ocr.ocr_languages_default` is only consulted when detection finds nothing at all, which a confident-but-wrong detection never reaches.
 
@@ -138,6 +139,36 @@ When detection resolves a CJK pack, corpus rasterises a sample of the document's
 To turn a tag into pack names, `pipeline.scan.bcp47_to_tesseract` is public — `"de-Latf"` gives `["deu_latf", "deu"]`. Writing the result into `ocrlang` is a deliberate extra step rather than something the build does for you: `ocrlang` is fingerprinted, and if it were derived at run time then improving the mapping table would change what `-l` the log reports without invalidating any document's existing OCR.
 
 `pagemap` is free text, never parsed. It exists so that a page-range directive is reviewable — a bare range tells the next reader nothing about whether pages 1–2 were a scanner wrapper, a blank verso, or a mistake.
+
+### Trimming a scan to the paper: `keeppages`
+
+A PDF in a scanned library is frequently not just the paper. Library cover sheets and colour calibration targets get prepended by the digitiser; a Russian original is bound in front of its English translation; runs of blank versos pad the plates. The costs compound rather than add — scan detection samples pages to choose the OCR mode *and* the language pack, so forty pages of scanner filler ahead of the body decide how the body is read; then OCR pays full price for the filler, and a calibration target becomes a figure.
+
+```bibtex
+@article{Stepanjants1970,
+  file      = {Stepanjants1970.pdf},
+  pages     = {41--118},
+  keeppages = {3--20},
+  ocrlang   = {rus+eng},
+}
+```
+
+**These are physical, 1-based positions in the file — never printed page numbers.** The printed number is often absent, wrong, or restarts mid-volume, and on the documents this feature targets it is precisely the front matter that has none. The two page fields above will routinely disagree, and that is correct rather than a data error: `pages` is where the article sits in its journal, `keeppages` is where it sits in the scan.
+
+Format follows BibTeX page conventions — `--` for a range, commas between terms, singles and ranges mixed freely, and a trailing `--` for "to the end":
+
+```
+keeppages = {2,4,8--20,22--40,55}
+keeppages = {40--}
+```
+
+The selection is normalised to a sorted, deduplicated set, so `{40--50,10--20}` is not a way to reorder a document. A range running past the last page is clamped with a warning rather than failing; a range that can't be parsed at all is an error, because silently keeping every page would look exactly like success.
+
+It applies **before** scan detection, so detection, OCR, chunking and figure extraction all see only the selected pages. That also makes it the supported way to bring an oversized bound volume into scope — the huge-document gate counts the selection, not the file.
+
+**Page numbers after a selection.** `page` in `figures.json` and `text.json` is a position in the *subset*, because that is what indexes the artifacts on disk. Alongside it, `source_page` gives the position in the original file, so a served figure stays citable against the PDF you hold. The resolved selection is recorded in `scan_detection.json` as `keeppages_selected`, which is itself the complete map — subset page *i* is `keeppages_selected[i-1]`.
+
+Editing `keeppages` re-runs OCR and everything downstream of it for that paper, since the change alters what the document is.
 
 ### External taxonomic data (optional)
 

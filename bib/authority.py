@@ -254,6 +254,10 @@ def create_schema(conn: sqlite3.Connection) -> None:
             -- and read by nothing — no pipeline stage and no fingerprint.
             doclang        TEXT,
             pagemap        TEXT,
+            -- #188 — physical page selection, e.g. `3--20`. Unlike the two
+            -- above this one changes the document: every later stage sees
+            -- only the selected pages, so it is fingerprinted.
+            keeppages      TEXT,
             created_at     REAL NOT NULL,
             updated_at     REAL NOT NULL
         );
@@ -360,8 +364,9 @@ _V11_WORKS_COLUMNS = [
     ("ocrlang", "TEXT"),  # #176
 ]
 _V12_WORKS_COLUMNS = [
-    ("doclang", "TEXT"),  # #214
-    ("pagemap", "TEXT"),  # #214
+    ("doclang", "TEXT"),    # #214
+    ("pagemap", "TEXT"),    # #214
+    ("keeppages", "TEXT"),  # #188
 ]
 
 
@@ -412,6 +417,7 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     ocrlang = meta.get("ocrlang")
     doclang = meta.get("doclang")
     pagemap = meta.get("pagemap")
+    keeppages = meta.get("keeppages")
 
     # Build the SET clause only for fields we have a value for.
     sets, params = [], []
@@ -438,6 +444,9 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     if pagemap:
         sets.append("pagemap = ?")
         params.append(pagemap)
+    if keeppages:
+        sets.append("keeppages = ?")
+        params.append(keeppages)
     if sets:
         params.append(work_id)
         conn.execute(
