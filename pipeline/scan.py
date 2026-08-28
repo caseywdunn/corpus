@@ -1609,20 +1609,35 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
         # document at once, with no per-document symptom. It took a
         # per-document comparison against ground truth to find, and most
         # corpora have none.
-        # Compare against *targeted* resolution, not `tesseract_packs`.
-        # The latter includes the configured fallback union when detection
-        # found nothing to go on, and pinning over a guess is not narrowing —
-        # it is the case `ocrlang` exists for.
-        displaced_packs = [p for p in targeted if p not in honored]
+        # Compare against the list that would actually have been used —
+        # `tesseract_packs`, the same value `prepare_pdf` reads — not against
+        # targeted resolution.
+        #
+        # The first version of this compared against `targeted`, reasoning
+        # that pinning over a fallback union is not narrowing but the case
+        # `ocrlang` exists for. Run against the reference corpuscle, that
+        # flagged 4 documents of the 22 whose pack list the pin changed, and
+        # missed the largest regression in the set: `Linnaeus1735` went from
+        # seven packs to `lat` alone and lost 0.079, with detection reporting
+        # no targeted resolution at all. The distinction was real but it is
+        # not the one worth acting on — what displaced what is.
+        #
+        # `ocrlang_narrowed_from_targeted` keeps the distinction as a
+        # qualifier: those are the packs detection resolved from the
+        # document's own evidence rather than from the configured fallback.
+        would_use = result.get("tesseract_packs") or []
+        displaced_packs = [p for p in would_use if p not in honored]
+        displaced_targeted = [p for p in targeted if p not in honored]
         if displaced_packs:
             result["ocrlang_narrowed_from"] = displaced_packs
+            if displaced_targeted:
+                result["ocrlang_narrowed_from_targeted"] = displaced_targeted
             logger.info(
-                "ocrlang=%r on %s: detection had resolved %s from the "
-                "document's own evidence; the pin drops "
+                "ocrlang=%r on %s: OCR would have used %s; the pin drops "
                 "%s. Tesseract arbitrates per word, so a complementary pack "
                 "usually adds rather than competes — see "
                 "dev_docs/OCR_LANGUAGES.md.",
-                ocrlang, result.get("filename"), "+".join(targeted),
+                ocrlang, result.get("filename"), "+".join(would_use),
                 "+".join(displaced_packs),
             )
         # The geometric verdict (#196) was reached above, on the packs
