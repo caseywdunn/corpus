@@ -857,11 +857,55 @@ def segment(all_pages):
     return out
 
 
-def build_report(gold_root, corpuscle_root):
+def _pdf_name(summary, stem):
+    """The PDF basename for a scored document, for bib lookup."""
+    return (summary.get("filename") or f"{stem}.pdf").lower()
+
+
+def _bib_keeppages(bib_path):
+    """``{pdf_basename_lower: keeppages}`` from a .bib, or ``{}``.
+
+    Read to *cross-check*, never to shift page numbers. The shift uses
+    `keeppages_selected` from `scan_detection.json`, which is the directive
+    already resolved against the document's real page count — clamped,
+    deduplicated, ordered. Re-parsing the raw string here would mean a second
+    implementation of that resolution, and the two would disagree the first
+    time either changed. Same argument as #215's mapping table.
+    """
+    if not bib_path:
+        return {}
+    import re
+    try:
+        text = pathlib.Path(bib_path).expanduser().read_text(
+            encoding="utf-8", errors="replace")
+    except OSError as e:
+        print(f"warning: could not read {bib_path}: {e}", file=sys.stderr)
+        return {}
+    out = {}
+    for entry in re.split(r"\n(?=@)", text):
+        f = re.search(r"\bfile\s*=\s*\{([^}]*)\}", entry)
+        k = re.search(r"\bkeeppages\s*=\s*\{([^}]*)\}", entry)
+        if f and k:
+            out[pathlib.Path(f.group(1).strip()).name.lower()] = k.group(1).strip()
+    return out
+
+
+def build_report(gold_root, corpuscle_root, bib_path=None):
     bound, unmatched = bind_documents(gold_root, corpuscle_root)
-    documents, all_pages, detail = {}, [], []
+    bib_keeppages = _bib_keeppages(bib_path)
+    documents, all_pages, detail, stale = {}, [], [], []
     for stem, sha, gold_dir, corpus_dir in bound:
         summary, records = score_document(gold_dir, corpus_dir)
+        # Cross-check the directive against what the build actually applied.
+        # The dangerous case is scoring a corpuscle built *before* the
+        # directive was written: nothing in its artifacts says a selection
+        # was intended, the page numbers line up 1:1 with the gold, and the
+        # scores look perfectly reasonable — they are simply answering a
+        # different question than the operator now thinks they are.
+        declared = bib_keeppages.get(_pdf_name(summary, stem))
+        if declared and not summary.get("keeppages"):
+            stale.append({"document": stem, "bib_keeppages": declared})
+            summary["keeppages_not_applied"] = declared
         documents[stem] = summary
         for r in records:
             # Carry the document's axes onto each page so segmentation is a
@@ -886,6 +930,10 @@ def build_report(gold_root, corpuscle_root):
                   "so several of its false positives are findings here.",
         "gold_root": str(gold_root),
         "corpuscle_root": str(corpuscle_root),
+        # Non-empty means the corpuscle predates a keeppages directive now in
+        # the bib. The scores are still internally consistent, they just
+        # describe the untrimmed documents.
+        "keeppages_declared_but_not_applied": stale,
         "documents_bound": len(bound),
         "documents_unmatched": unmatched,
         "corpus_wide": _aggregate(all_pages),
@@ -914,6 +962,29 @@ def print_summary(report, stream=None):
         w(f"; {len(report['documents_unmatched'])} not in this corpuscle: "
           f"{', '.join(report['documents_unmatched'])}")
     w("\n")
+
+    stale = report.get("keeppages_declared_but_not_applied") or []
+    if stale:
+        w(f"\n!! {len(stale)} document(s) carry a keeppages directive this "
+          f"build did not apply.\n")
+        w("   The scores below describe the untrimmed documents — the gold "
+          "pages and the\n   extraction still line up 1:1, so nothing is "
+          "misaligned, but the front matter\n   the operator excluded is "
+          "still being scored. Rebuild to measure what was asked for.\n")
+        for e in stale[:10]:
+            w(f"     {e['document']:28s} keeppages={e['bib_keeppages']}\n")
+        if len(stale) > 10:
+            w(f"     ... and {len(stale) - 10} more\n")
+
+    selected_docs = [d for d, v in (report.get("documents") or {}).items()
+                     if v.get("keeppages")]
+    if selected_docs:
+        dropped = sum(len(report["documents"][d].get("pages_excluded_by_selection") or [])
+                      for d in selected_docs)
+        w(f"\nkeeppages active on {len(selected_docs)} document(s); "
+          f"{dropped} gold page(s) excluded from scoring as not-the-paper.\n"
+          "  Scores are therefore over a different, smaller page set than an "
+          "untrimmed build's.\n")
 
     cw = report["corpus_wide"]
     w(f"\n{cw['pages']} gold pages, {cw['scored']} scored, "
@@ -964,6 +1035,10 @@ def main(argv=None):
     ap.add_argument("--corpuscle", required=True,
                     help="a built corpuscle; either its root or the output/ "
                          "directory that holds documents/")
+    ap.add_argument("--bib", default=None,
+                    help="optional .bib; cross-checks that a keeppages "
+                         "directive was actually applied by the build being "
+                         "scored, and warns when it was not")
     ap.add_argument("--out", default=None, help="write the full JSON report here")
     ap.add_argument("--quiet", action="store_true", help="suppress the stdout summary")
     a = ap.parse_args(argv)
@@ -975,7 +1050,7 @@ def main(argv=None):
     if not (corpuscle_root / "documents").is_dir() and (corpuscle_root / "output" / "documents").is_dir():
         corpuscle_root = corpuscle_root / "output"
 
-    report = build_report(gold_root, corpuscle_root)
+    report = build_report(gold_root, corpuscle_root, bib_path=a.bib)
     if a.out:
         out = pathlib.Path(a.out).expanduser()
         out.write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")

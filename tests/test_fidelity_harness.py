@@ -452,3 +452,40 @@ def test_a_discontinuous_selection_maps_correctly():
     from tools.qc.fidelity import keeppages_map
 
     assert keeppages_map({"keeppages_selected": [2, 3, 4, 5, 6, 7, 8, 9, 11]})[11] == 9
+
+
+def test_the_bib_is_read_to_cross_check_not_to_shift(tmp_path):
+    """`--bib` catches the failure that has no other symptom.
+
+    Scoring a corpuscle built *before* a keeppages directive was written
+    produces numbers that look entirely reasonable: gold and extraction line
+    up 1:1, nothing is misaligned, every page scores. They simply answer a
+    different question than the operator now believes — the front matter they
+    excluded is still in the average. Nothing in the corpuscle records an
+    intention that was never applied, so the bib is the only place the
+    discrepancy is visible.
+
+    The shift itself still comes from `keeppages_selected`, which is the
+    directive already resolved against the document's real page count.
+    Re-parsing the raw string here would be a second implementation of that
+    resolution, and the two would disagree the first time either changed.
+    """
+    from tools.qc.fidelity import _bib_keeppages
+
+    bib = tmp_path / "x.bib"
+    bib.write_text(
+        "@article{A,\n  file = {Beklemishev1969.pdf},\n"
+        "  pages = {41--118},\n  keeppages = {2--45},\n}\n\n"
+        "@article{B,\n  file = {NoDirective.pdf},\n  pages = {1--9},\n}\n")
+    got = _bib_keeppages(bib)
+    assert got == {"beklemishev1969.pdf": "2--45"}
+    # The standard `pages` field must never be mistaken for the selection.
+    assert "41--118" not in got.values()
+
+
+def test_missing_or_unreadable_bib_is_not_fatal(tmp_path):
+    """The cross-check is optional; scoring must not depend on it."""
+    from tools.qc.fidelity import _bib_keeppages
+
+    assert _bib_keeppages(None) == {}
+    assert _bib_keeppages(tmp_path / "nope.bib") == {}
