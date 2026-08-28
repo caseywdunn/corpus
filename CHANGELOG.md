@@ -676,6 +676,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong so the generator gets fixed rather than one bib entry.
 
 
+- **A pin that narrows what detection resolved is now recorded (#245).** An
+  `ocrlang` pin does not merely choose packs, it *discards* the ones detection
+  had resolved — and that was invisible. Pinning 31 of 35 gold documents from
+  a derived `doclang` tag moved corpus-wide prose coverage 0.9474 → 0.9450
+  with every language correct, because each pin replaced a union with a single
+  pack: `eng+deu+deu_latf+fra+lat+spa+por` → `lat` cost 0.079,
+  `swe+cat+fra+eng` → `swe` cost 0.063.
+
+  Narrowing is not uniformly bad — two documents improved — so the pin still
+  wins, and the record is `ocrlang_narrowed_from` in `scan_detection.json`
+  plus one INFO line. What was wrong is that a directive costing 0.05 looked
+  identical to one gaining it.
+
+  The comparison is against *targeted* resolution, not the composed pack list.
+  The latter folds in the configured fallback union when detection found
+  nothing to go on, and pinning over a guess is not narrowing — it is the case
+  `ocrlang` exists for. A test caught that distinction.
+
+
 ### Changed
 
 - **The vertical-CJK section of the README predated #196.** It said detection

@@ -1595,6 +1595,36 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
         if dropped:
             result["ocrlang_dropped"] = dropped
     if honored:
+        # #245 — a pin does not merely choose packs, it *discards* the ones
+        # detection had resolved, and that is invisible today. Pinning 31 of
+        # 35 gold documents from a derived `doclang` tag moved corpus-wide
+        # prose coverage 0.9474 -> 0.9450 with every language correct: each
+        # pin replaced a union with a single pack. Narrowing is not uniformly
+        # bad — two documents improved — so the pin still wins. But a
+        # directive that silently costs 0.05 should not look identical to one
+        # that gains it.
+        #
+        # An annotation pass deriving `ocrlang` from `doclang` emits one pack
+        # per language by construction, so it narrows every multilingual
+        # document at once, with no per-document symptom. It took a
+        # per-document comparison against ground truth to find, and most
+        # corpora have none.
+        # Compare against *targeted* resolution, not `tesseract_packs`.
+        # The latter includes the configured fallback union when detection
+        # found nothing to go on, and pinning over a guess is not narrowing —
+        # it is the case `ocrlang` exists for.
+        displaced_packs = [p for p in targeted if p not in honored]
+        if displaced_packs:
+            result["ocrlang_narrowed_from"] = displaced_packs
+            logger.info(
+                "ocrlang=%r on %s: detection had resolved %s from the "
+                "document's own evidence; the pin drops "
+                "%s. Tesseract arbitrates per word, so a complementary pack "
+                "usually adds rather than competes — see "
+                "dev_docs/OCR_LANGUAGES.md.",
+                ocrlang, result.get("filename"), "+".join(targeted),
+                "+".join(displaced_packs),
+            )
         # The geometric verdict (#196) was reached above, on the packs
         # detection resolved, and is still recorded. If it said this document
         # is set vertically and the pin names the horizontal sibling, the pin
