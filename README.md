@@ -91,6 +91,8 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 }
 ```
 
+What the gold set says about choosing packs — when a union helps, when it hurts, and why the native pack matters — is in [dev_docs/OCR_LANGUAGES.md](dev_docs/OCR_LANGUAGES.md).
+
 Write Tesseract pack names joined by `+` — the same spelling ocrmypdf's `-l` uses, and the same string the run log prints as `langs=`. They are pack names, not ISO codes: `deu`, `fra`, `ell`, not `de`, `fr`, `el`. Run `tesseract --list-langs` to see what's installed. Names that aren't installed are dropped with a warning rather than passed through, and if none survive the tag is ignored and detection decides as usual.
 
 If you generate the bib from a script and hold each document's language as a tag rather than as pack names, `pipeline.scan.bcp47_to_tesseract` does the translation — `"de-Latf"` to `["deu_latf", "deu"]`, `"zh-Hant"` to `["chi_tra"]`, `"grc"` to `["grc"]`. It is public so that a library's tooling doesn't have to keep its own copy of the table and watch it drift from this one.
