@@ -745,6 +745,39 @@ def _aggregate(pages):
     }
 
 
+def keeppages_map(scan):
+    """``{source_page: subset_page}`` for a document, or ``{}`` if unselected.
+
+    The gold set was transcribed over the whole file — `Beklemishev1969`'s
+    gold page 1 is an ownership endpaper, `Kawamura1911a`'s is twelve pages
+    of English typescript — while a `keeppages` document's extracted page
+    numbers are positions in the subset (#188). Every scorer here binds gold
+    to extraction by page number, so without this the two coordinate systems
+    silently disagree and a selected document scores near zero: a numbering
+    artifact that looks exactly like a catastrophic regression.
+
+    `scan_detection.json`'s `keeppages_selected` is the forward map (subset
+    page i is source page ``selected[i-1]``); this inverts it.
+    """
+    selected = (scan or {}).get("keeppages_selected") or []
+    return {src: i + 1 for i, src in enumerate(selected)}
+
+
+def rebase_gold_pages(gold_by_page, scan):
+    """Restate a ``{source_page: X}`` gold mapping in subset coordinates.
+
+    Pages the operator excluded are dropped rather than scored as misses:
+    corpus was told they are not the paper, so counting a deliberately
+    removed library title page as a figure it failed to find would penalise
+    the selection for working. Returns the input unchanged when no selection
+    is active, which is the ordinary case.
+    """
+    mapping = keeppages_map(scan)
+    if not mapping:
+        return gold_by_page
+    return {mapping[p]: v for p, v in gold_by_page.items() if p in mapping}
+
+
 def score_document(gold_dir, corpus_dir):
     """Score every gold page of one document against the corpuscle's extraction."""
     doc_json = _read_json(corpus_dir / "docling_doc.json")
@@ -752,11 +785,38 @@ def score_document(gold_dir, corpus_dir):
     meta = _read_json(corpus_dir / "metadata.json") or {}
     scan = _read_json(corpus_dir / "scan_detection.json") or {}
 
-    records = []
+    # #188 — a `keeppages` selection makes the extracted page numbers
+    # positions in a *subset*, while the gold set was transcribed over the
+    # whole file: `Beklemishev1969`'s gold page 1 is an ownership endpaper
+    # the operator has since declared not part of the paper. Binding by
+    # position would shift every page by one and score the document at
+    # roughly zero — a numbering artifact indistinguishable from a
+    # catastrophic regression.
+    #
+    # `keeppages_selected` is the map: extracted page i is source page
+    # selected[i-1]. Invert it to look the other way.
+    selected = scan.get("keeppages_selected") or []
+    gold_to_extracted = keeppages_map(scan)
+
+    records, excluded = [], []
     for gf in sorted(gold_dir.glob("page_*.txt")):
         n = int(gf.stem.split("_")[1])
-        rec = score_page(gf.read_text(encoding="utf-8"), extracted.get(n, ""))
+        if selected:
+            if n not in gold_to_extracted:
+                # The operator said this page is not the paper. Scoring it as
+                # a miss would penalise the selection for doing its job — but
+                # it is counted and reported, never silently dropped, or the
+                # harness looks like it scored pages it never opened.
+                excluded.append(n)
+                continue
+            extracted_page = gold_to_extracted[n]
+        else:
+            extracted_page = n
+        rec = score_page(gf.read_text(encoding="utf-8"),
+                         extracted.get(extracted_page, ""))
         rec["page"] = n
+        if selected:
+            rec["subset_page"] = extracted_page
         records.append(rec)
 
     year = meta.get("year")
@@ -773,6 +833,10 @@ def score_document(gold_dir, corpus_dir):
         "scripts": dict(sorted(Counter(r["script"] for r in records).items())),
         "docling_pages_seen": len(extracted),
     })
+    if selected:
+        summary["keeppages"] = scan.get("keeppages")
+        summary["pages_excluded_by_selection"] = excluded
+        summary["gold_pages_scored"] = len(records)
     return summary, records
 
 

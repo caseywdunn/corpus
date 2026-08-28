@@ -392,3 +392,63 @@ def test_median_ignores_unscored_pages():
     assert fid._median([0.2, 0.4, 0.6]) == 0.4
     assert fid._median([0.2, None, 0.6]) == 0.4      # even count after filtering
     assert fid._median([None, None]) is None
+
+
+# ---------------------------------------------------------------------------
+# keeppages and the gold set use different page coordinates (#188)
+# ---------------------------------------------------------------------------
+#
+# The gold transcriptions were made over the *whole* PDF — `Beklemishev1969`'s
+# gold page 1 is an ownership endpaper carrying a collector's stamp,
+# `Kawamura1911a`'s is twelve pages of English typescript bound in front of
+# the Japanese original. A `keeppages` document's extracted page numbers are
+# positions in the subset. 20 of the 35 gold documents carry a selection, so
+# binding by raw page number shifts every one of them and scores near zero —
+# a numbering artifact indistinguishable from a catastrophic regression.
+
+def test_no_selection_leaves_page_numbers_alone():
+    """The ordinary case must be untouched."""
+    from tools.qc.fidelity import keeppages_map, rebase_gold_pages
+
+    assert keeppages_map({}) == {}
+    assert keeppages_map({"file_type": "scanned"}) == {}
+    gold = {1: "a", 2: "b", 3: "c"}
+    assert rebase_gold_pages(gold, {}) is gold
+
+
+def test_the_recorded_selection_inverts_to_a_gold_to_subset_map():
+    from tools.qc.fidelity import keeppages_map
+
+    scan = {"keeppages_selected": [2, 3, 4, 5]}
+    assert keeppages_map(scan) == {2: 1, 3: 2, 4: 3, 5: 4}
+
+
+def test_gold_pages_are_restated_in_subset_coordinates():
+    from tools.qc.fidelity import rebase_gold_pages
+
+    # Beklemishev1969's shape: keeppages = {2--45}, so gold page 2 is the
+    # extraction's page 1.
+    gold = {1: "endpaper", 2: "title", 3: "body"}
+    assert rebase_gold_pages(gold, {"keeppages_selected": [2, 3]}) == {1: "title", 2: "body"}
+
+
+def test_excluded_pages_are_dropped_not_scored_as_misses():
+    """Counting them would penalise the selection for doing its job.
+
+    Corpus was *told* the ownership endpaper is not the paper. Scoring it as
+    a page whose text corpus failed to recover would make `keeppages` look
+    like a regression on exactly the documents it helps most.
+    """
+    from tools.qc.fidelity import rebase_gold_pages
+
+    gold = {1: "endpaper", 2: "body", 3: "body", 9: "appended translation"}
+    out = rebase_gold_pages(gold, {"keeppages_selected": [2, 3]})
+    assert set(out.values()) == {"body"}
+    assert len(out) == 2
+
+
+def test_a_discontinuous_selection_maps_correctly():
+    """Eschscholtz1825's shape: keeppages = {2--9,11}."""
+    from tools.qc.fidelity import keeppages_map
+
+    assert keeppages_map({"keeppages_selected": [2, 3, 4, 5, 6, 7, 8, 9, 11]})[11] == 9
