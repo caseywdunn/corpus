@@ -5,7 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] - 2026-08-28
+
+### Theme — v1.2 extraction fidelity, measured against ground truth
+
+Every quality signal this pipeline had measured it against itself. The soft
+consistency rates are corpus-internal agreement, the per-document quality
+gates are plausibility checks, and fingerprint diffing compares one build to
+the next. None of them could say whether the text was *right*.
+
+This cycle built an instrument that can. The gold set is 35 documents, 761
+pages, 1594–2026, 13 languages, every page transcribed from a rendered image
+with the transcriber forbidden to open any software extraction of the page in
+front of them. That independence is the whole value: an extractor scored
+against it is not being compared to a cleaned-up version of itself.
+
+Then it acted on what the instrument said, which turned out to be the larger
+half of the work. Four defects were found only by building and scoring, not by
+any test: docling selecting a CUDA device its pinned torch had no kernels for
+and failing every page instead of falling back; vertical Japanese read by a
+horizontal model, worth half the words on those pages; figure numbers missed
+because the OCR-damaged spellings of "Fig." are *more common* than the correct
+one; and plate legends whose separately-numbered engravings existed nowhere in
+the output.
+
+The instrument also caught its own repairs. The plate-legend fix shipped on a
+measured recall gain and quietly cost precision, putting 33 records into one
+monograph that served another figure's image under a wrong number — found by
+scoring the rebuild, and then by opening a page image after three rounds of
+JSON analysis had pointed the wrong way. That pattern recurs often enough to
+be the cycle's real lesson: a measurement is not a result until you have
+looked at what it is measuring.
+
+Alongside the fixes, the per-document bib directives grew to cover what a
+curator knows and detection cannot infer — `keeppages` for the physical pages
+that are the paper, `doclang` and `pagemap` for what the document is, and a
+public BCP-47 resolver so a library does not keep its own copy of the mapping.
+Two reference documents, `dev_docs/OCR_LANGUAGES.md` and
+`dev_docs/FIGURE_PARSING.md`, record what the gold set says about choosing OCR
+packs and about figures, including the several places where the obvious
+explanation was measured and turned out to be wrong.
+
+Where it ended up, on the 35 documents: prose coverage 0.945, figure detection
+0.923 recall at 0.967 precision on the served surface, caption binding 0.574
+at 0.878, and reference parsing at 94.8%. Those are the first numbers this
+project has had that mean anything outside itself.
 
 ### Added
 

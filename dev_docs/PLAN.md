@@ -115,7 +115,12 @@ flags, T1 now runs bare `-m corpus_required`, and T2 additionally ignores
 `test_reference_extraction.py` because Grobid is disabled there. Both
 workflow files state the reasoning inline.
 
-## v1.2 — extraction fidelity, measured against ground truth
+## v1.2 — extraction fidelity, measured against ground truth — **released**
+
+Kept here through the release commit because the sections below record *why*
+each decision went the way it did, and several were reversed by measurement
+along the way. The CHANGELOG says what shipped; prune this section at the
+head of v1.3.
 
 **The release under work.** Six goals, numbered below and referred to as
 §1–§6 elsewhere in this file. §1 is the instrument; §2 and §3 point it at
@@ -603,7 +608,10 @@ README's directive table. Two more fields follow the same path.
 
 ### 5. The gold corpuscle, and #187 rebased on it
 
-- [ ] **The gold 35 become the smoke-test corpuscle.**
+- [x] **The gold 35 become the smoke-test corpuscle** — **landed.**
+  `siphonophores_sample` has no references left in the tree; BOUCHET.md and
+  both SLURM scripts point at `siphonophore_gold_YYYYMMDD`, and the cycle
+  built it a dozen times. Original framing:
   `siphonophores_sample/library` (30 PDFs, **zero overlap** with the gold
   set) is retired. The selection criteria already coincide —
   [BOUCHET.md](BOUCHET.md) picked its 30 to span "born-digital modern +
@@ -618,10 +626,13 @@ README's directive table. Two more fields follow the same path.
   deliberately — #192 records the trigger for splitting the rehearsal off
   if it dominates wall-clock.
 - [ ] **Fingerprint-based regression reference**
-  ([#187](https://github.com/caseywdunn/corpus/issues/187)), retargeted
-  from `siphonophore_sample_YYYYMMDD` to `siphonophore_gold_YYYYMMDD`.
-  Complements A rather than duplicating it: **A measures accuracy against
-  truth, #187 measures drift between builds.**
+  ([#187](https://github.com/caseywdunn/corpus/issues/187)) — **slipped to
+  v1.3**, and worth saying so rather than quietly dropping the box. The
+  accuracy half of this section landed and was used all cycle; the drift half
+  was never started, and `tools/` still has no fingerprint diff. **A measures
+  accuracy against truth, #187 measures drift between builds** — the second is
+  what tells you a rebuild changed something you did not intend, which this
+  cycle answered by hand each time.
 - **Recalibration this forces.** `_SOFT_RATE_CEILINGS` in
   `tests/test_corpus_wide.py` is calibrated across two deliberately
   unalike corpora. A hardest-cases set will legitimately post worse rates
@@ -656,6 +667,26 @@ not inside the API contract.
 - [ ] **A README quick start**
   ([#180](https://github.com/caseywdunn/corpus/issues/180)) — the
   shortest path from clone to a served answer.
+- [ ] **Fingerprint-based regression reference**
+  ([#187](https://github.com/caseywdunn/corpus/issues/187)) — carried from
+  v1.2 §5, where the accuracy half landed and this did not.
+- [ ] **`corpus bib inspect-pages`**
+  ([#217](https://github.com/caseywdunn/corpus/issues/217)) — read-only
+  per-page evidence for curating `keeppages` and `doclang`. Deferred in v1.2
+  and now has a working prototype with a caller: the siphonophore library's
+  `scripts/inspect_pages.py`, written free of clade-specific knowledge so
+  upstreaming is a move rather than a rewrite. It produced the 515 `keeppages`
+  and 1,773 `pagemap` values v1.2's #188 consumes.
+- [ ] **The reconciliation rework**
+  ([#240](https://github.com/caseywdunn/corpus/issues/240)) — **a release
+  theme of its own, not an item here.** v1.2 measured what the current
+  cascade does and where it fails: 58% of duplicate ghosts with *identical*
+  titles escape the `(first author, year)` block, nothing ever re-reconciles,
+  and a corrupted DOI short-circuits the whole cascade
+  ([#239](https://github.com/caseywdunn/corpus/issues/239)). The fix is a
+  data-model change — observations separated from canonical works — plus a
+  model dependency, touching the served MCP surface. #226 and #239 should land
+  before it; both corrupt the evidence any clustering pass would consume.
 - **Also in scope for the cycle, if it earns its way in:**
   **`export_to_disk` + `suggest_command`**
   ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2) and the
