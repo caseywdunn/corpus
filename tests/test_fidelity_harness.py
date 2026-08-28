@@ -489,3 +489,104 @@ def test_missing_or_unreadable_bib_is_not_fatal(tmp_path):
 
     assert _bib_keeppages(None) == {}
     assert _bib_keeppages(tmp_path / "nope.bib") == {}
+
+
+# ---------------------------------------------------------------------------
+# Taxon-token coverage (#244)
+# ---------------------------------------------------------------------------
+#
+# Coverage weights every token equally, and for this literature that
+# undervalues exactly what retrieval keys on. Replacing `por` with `eng` on a
+# Portuguese paper costs 0.010 on English-wordlist tokens and 0.129 on
+# everything else — and the binomials live in the second bucket. A change can
+# look neutral in the headline while damaging the corpus's whole purpose.
+
+def test_taxon_coverage_is_reported_beside_coverage_not_folded_in():
+    from tools.qc.fidelity import score_page
+
+    vocab = frozenset({"agalmopsis", "elegans", "physalia", "arethusa"})
+    gold = ("Agalmopsis elegans Sars was taken with Physalia arethusa "
+            "Browne in the same haul, and Agalmopsis elegans again "
+            "later that week near Physalia arethusa beds, as were "
+            "Agalmopsis elegans and Physalia arethusa in the bay.")
+    # Everything recovered except the taxa.
+    extracted = gold.replace("Agalmopsis", "Agaimopsis").replace("Physalia", "Phvsalia")
+    rec = score_page(gold, extracted, vocab)
+    assert rec["taxon_tokens"] >= 10
+    assert rec["taxon_coverage"] < rec["prose_coverage"]
+
+
+def test_no_rate_when_too_few_taxon_tokens():
+    """A corpuscle's taxonomy is one clade; the gold spans all of nature.
+
+    The 801-taxon siphonophore snapshot labels 58 tokens in the whole of
+    *Systema Naturae*. A recall over three tokens is a coin flip printed to
+    four decimals, so the tally is reported and the rate is not.
+    """
+    from tools.qc.fidelity import score_page
+
+    rec = score_page("Physalia was observed.", "Physalia was observed.",
+                     frozenset({"physalia"}))
+    assert rec["taxon_tokens"] == 1
+    assert rec["taxon_coverage"] is None
+
+
+def test_no_taxonomy_means_no_tally_at_all():
+    """Absent a taxonomy the measure is omitted, never reported as zero."""
+    from tools.qc.fidelity import score_page
+
+    rec = score_page("Physalia arethusa Browne.", "Physalia arethusa Browne.")
+    assert rec["taxon_coverage"] is None
+    assert rec["taxon_tokens"] == 0
+
+
+def test_a_lost_page_loses_its_taxa_with_it():
+    from tools.qc.fidelity import score_page
+
+    vocab = frozenset({"physalia", "arethusa"})
+    gold = " ".join(["Physalia arethusa"] * 8)
+    rec = score_page(gold, "")
+    assert rec["status"] == "extraction_empty"
+    rec = score_page(gold, "", vocab)
+    assert rec["taxon_coverage"] == 0.0
+
+
+def test_short_tokens_are_excluded_from_the_vocabulary(tmp_path):
+    """`sp`, `var`, `f` collide with ordinary vocabulary.
+
+    Counting them would inflate the rate with tokens nobody retrieves on.
+    """
+    import sqlite3
+    from tools.qc.fidelity import taxon_vocabulary
+
+    db = tmp_path / "taxonomy.sqlite"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE names (name TEXT, name_lowercase TEXT, "
+                 "taxon_id TEXT, name_type TEXT)")
+    conn.executemany("INSERT INTO names VALUES (?,?,?,?)",
+                     [("Physalia sp.", "physalia sp.", "1", "sci"),
+                      ("Agalma var. elegans", "agalma var. elegans", "2", "sci")])
+    conn.commit(); conn.close()
+    vocab = taxon_vocabulary(tmp_path)
+    assert "physalia" in vocab and "agalma" in vocab and "elegans" in vocab
+    assert "sp" not in vocab and "var" not in vocab
+
+
+def test_missing_taxonomy_file_is_not_fatal(tmp_path):
+    from tools.qc.fidelity import taxon_vocabulary
+    assert taxon_vocabulary(tmp_path) == frozenset()
+
+
+def test_the_summary_uses_mean_and_p10_not_median():
+    """A median pinned at its ceiling cannot detect a regression.
+
+    53% of qualifying pages in the reference corpuscle recover every taxon
+    token, so the median is exactly 1.000 and stays there while the tail
+    moves. p10 on the same set is 0.643.
+    """
+    from tools.qc.fidelity import _mean, _median, _percentile
+
+    vals = [1.0] * 6 + [0.9, 0.5, 0.2, 0.0]
+    assert _median(vals) == 1.0            # saturated, useless here
+    assert _mean(vals) < 1.0
+    assert _percentile(vals, 0.10) < 0.5

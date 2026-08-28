@@ -676,6 +676,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong so the generator gets fixed rather than one bib entry.
 
 
+- **`fidelity.py` reports taxon-token coverage beside prose coverage (#244).**
+  Coverage weighted every token equally, and for this literature that
+  undervalues exactly what retrieval keys on: replacing `por` with `eng` on a
+  Portuguese paper costs 0.010 on English-wordlist tokens and 0.129 on
+  everything else, and the binomials live in the second bucket. Every
+  extraction decision this cycle was made by reading this instrument, so a
+  systematic bias in it was in all of them.
+
+  Scored against the corpuscle's own `taxonomy.sqlite`, word by word, with the
+  denominator always reported and no rate below 10 taxon tokens on a page — a
+  corpuscle's taxonomy covers one clade while the gold spans all of nature, and
+  the 801-taxon siphonophore snapshot labels 58 tokens in the whole of
+  *Systema Naturae*.
+
+  **Summarised by mean and p10, not the median used everywhere else.** 53% of
+  qualifying pages recover every taxon token, so a median sits at exactly 1.000
+  and cannot move while the tail does: mean 0.885, p10 0.643 on the same 229
+  pages.
+
+  It found what it was built to find on the first run. **17 pages score more
+  than 0.2 better on prose than on taxa** — `Hosiaetal2024` p6 is prose 0.976
+  and taxon 0.140, a page the headline calls near-perfect while 86% of the
+  names it is retrieved by are lost.
+
+
 ### Changed
 
 - **The vertical-CJK section of the README predated #196.** It said detection
