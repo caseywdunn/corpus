@@ -615,6 +615,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that holds the truth, instead of looking like a resolution that found
   nothing.
 
+- **An `ocrlang` pin that contradicts measured page geometry is now
+  recorded and warned about.** The vertical-CJK hint went silent as soon as
+  a pin was honored, reasoning that the operator had made the call
+  themselves. That holds for a hand-written tag and fails completely for a
+  derived one.
+
+  An annotation pass deriving `ocrlang` from `doclang` (#214, #215) *cannot*
+  get this right: BCP-47 describes language and script, and vertical setting
+  is typesetting — deliberately out of `bcp47_to_tesseract`'s scope. So the
+  derivation emits `jpn` for a vertically-set Japanese paper every time, the
+  pin overrides #196's geometric verdict, and the one mechanism that would
+  have said so is disabled *by the thing that caused it*. Found on
+  `Kawamura1911a`, the document #196 was written for, where the pin costs
+  more than half the words on those pages — `jpn_vert` 0.574 against `jpn`
+  0.246.
+
+  The pin still wins, because `ocrlang` is documented to beat every inferred
+  signal and silently overriding an explicit instruction is worse than
+  obeying a bad one. But the conflict is now `ocrlang_overrides_vertical_cjk`
+  in `scan_detection.json` rather than only a log line that scrolled past
+  during a 40-minute build, and the warning says why a derived tag gets it
+  wrong so the generator gets fixed rather than one bib entry.
+
+
 ### Changed
 
 - **The vertical-CJK section of the README predated #196.** It said detection
