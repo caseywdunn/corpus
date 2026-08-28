@@ -572,8 +572,16 @@ entry whose `file = {…}` matches the PDF, parsed in `bib/parser.py`,
 carried through `bib/importer.py` and `bib/export.py`, documented in the
 README's directive table. Two more fields follow the same path.
 
-- [ ] **Per-document page-range selection**
-  ([#188](https://github.com/caseywdunn/corpus/issues/188)) — scanner
+- [x] **Per-document page-range selection**
+  ([#188](https://github.com/caseywdunn/corpus/issues/188)) — **landed.**
+  `keeppages` applies before scan detection by rebinding the temp PDF the
+  later stages already read, so `scan.py` needed no change. The page-number
+  question was settled as the issue proposed: `page` stays subset-relative
+  because it indexes the artifacts on disk, `source_page` rides beside it,
+  and the resolved selection recorded in `scan_detection.json` *is* the map.
+  #174 turned out not to be a precondition — `keeppages` rides the same
+  per-document fingerprint path `ocrlang` established, across every
+  OCR-dependent stage. Original framing: scanner
   front matter, prepended translations and blank runs skew scan detection
   before they waste OCR. The open design question is page-number
   provenance on served figures, and the gold set is unusually well placed

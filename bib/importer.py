@@ -143,6 +143,7 @@ _WORK_FIELDS = (
     "license", "license_url", "serve", "serve_reason",
     "ocrlang",   # #176 — flat BibTeX name, no rename needed
     "doclang", "pagemap",   # #214 — likewise flat, and read by nothing
+    "keeppages",            # #188 — flat too, and this one acts
 )
 _BIBTEX_TO_WORKS = {
     "licenseurl":   "license_url",   # #51 — flat BibTeX → snake_case SQL

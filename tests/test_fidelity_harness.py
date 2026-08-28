@@ -392,3 +392,100 @@ def test_median_ignores_unscored_pages():
     assert fid._median([0.2, 0.4, 0.6]) == 0.4
     assert fid._median([0.2, None, 0.6]) == 0.4      # even count after filtering
     assert fid._median([None, None]) is None
+
+
+# ---------------------------------------------------------------------------
+# keeppages and the gold set use different page coordinates (#188)
+# ---------------------------------------------------------------------------
+#
+# The gold transcriptions were made over the *whole* PDF — `Beklemishev1969`'s
+# gold page 1 is an ownership endpaper carrying a collector's stamp,
+# `Kawamura1911a`'s is twelve pages of English typescript bound in front of
+# the Japanese original. A `keeppages` document's extracted page numbers are
+# positions in the subset. 20 of the 35 gold documents carry a selection, so
+# binding by raw page number shifts every one of them and scores near zero —
+# a numbering artifact indistinguishable from a catastrophic regression.
+
+def test_no_selection_leaves_page_numbers_alone():
+    """The ordinary case must be untouched."""
+    from tools.qc.fidelity import keeppages_map, rebase_gold_pages
+
+    assert keeppages_map({}) == {}
+    assert keeppages_map({"file_type": "scanned"}) == {}
+    gold = {1: "a", 2: "b", 3: "c"}
+    assert rebase_gold_pages(gold, {}) is gold
+
+
+def test_the_recorded_selection_inverts_to_a_gold_to_subset_map():
+    from tools.qc.fidelity import keeppages_map
+
+    scan = {"keeppages_selected": [2, 3, 4, 5]}
+    assert keeppages_map(scan) == {2: 1, 3: 2, 4: 3, 5: 4}
+
+
+def test_gold_pages_are_restated_in_subset_coordinates():
+    from tools.qc.fidelity import rebase_gold_pages
+
+    # Beklemishev1969's shape: keeppages = {2--45}, so gold page 2 is the
+    # extraction's page 1.
+    gold = {1: "endpaper", 2: "title", 3: "body"}
+    assert rebase_gold_pages(gold, {"keeppages_selected": [2, 3]}) == {1: "title", 2: "body"}
+
+
+def test_excluded_pages_are_dropped_not_scored_as_misses():
+    """Counting them would penalise the selection for doing its job.
+
+    Corpus was *told* the ownership endpaper is not the paper. Scoring it as
+    a page whose text corpus failed to recover would make `keeppages` look
+    like a regression on exactly the documents it helps most.
+    """
+    from tools.qc.fidelity import rebase_gold_pages
+
+    gold = {1: "endpaper", 2: "body", 3: "body", 9: "appended translation"}
+    out = rebase_gold_pages(gold, {"keeppages_selected": [2, 3]})
+    assert set(out.values()) == {"body"}
+    assert len(out) == 2
+
+
+def test_a_discontinuous_selection_maps_correctly():
+    """Eschscholtz1825's shape: keeppages = {2--9,11}."""
+    from tools.qc.fidelity import keeppages_map
+
+    assert keeppages_map({"keeppages_selected": [2, 3, 4, 5, 6, 7, 8, 9, 11]})[11] == 9
+
+
+def test_the_bib_is_read_to_cross_check_not_to_shift(tmp_path):
+    """`--bib` catches the failure that has no other symptom.
+
+    Scoring a corpuscle built *before* a keeppages directive was written
+    produces numbers that look entirely reasonable: gold and extraction line
+    up 1:1, nothing is misaligned, every page scores. They simply answer a
+    different question than the operator now believes — the front matter they
+    excluded is still in the average. Nothing in the corpuscle records an
+    intention that was never applied, so the bib is the only place the
+    discrepancy is visible.
+
+    The shift itself still comes from `keeppages_selected`, which is the
+    directive already resolved against the document's real page count.
+    Re-parsing the raw string here would be a second implementation of that
+    resolution, and the two would disagree the first time either changed.
+    """
+    from tools.qc.fidelity import _bib_keeppages
+
+    bib = tmp_path / "x.bib"
+    bib.write_text(
+        "@article{A,\n  file = {Beklemishev1969.pdf},\n"
+        "  pages = {41--118},\n  keeppages = {2--45},\n}\n\n"
+        "@article{B,\n  file = {NoDirective.pdf},\n  pages = {1--9},\n}\n")
+    got = _bib_keeppages(bib)
+    assert got == {"beklemishev1969.pdf": "2--45"}
+    # The standard `pages` field must never be mistaken for the selection.
+    assert "41--118" not in got.values()
+
+
+def test_missing_or_unreadable_bib_is_not_fatal(tmp_path):
+    """The cross-check is optional; scoring must not depend on it."""
+    from tools.qc.fidelity import _bib_keeppages
+
+    assert _bib_keeppages(None) == {}
+    assert _bib_keeppages(tmp_path / "nope.bib") == {}

@@ -70,10 +70,21 @@ GOLD_FIGURE_TAGS = ("FIGURE", "PLATE")
 _PROSE_CAPTION_MIN_TOKENS = 8
 
 
-def gold_blocks(gold_dir):
-    """Yield ``(page, kind, body)`` for each top-level figure/plate block."""
+def gold_blocks(gold_dir, scan=None):
+    """Yield ``(page, kind, body)`` for each top-level figure/plate block.
+
+    ``page`` is restated in subset coordinates when a `keeppages` selection
+    is active (#188), and blocks on excluded pages are not yielded at all —
+    the operator said those pages are not the paper, so a caption printed on
+    one is not a caption corpus failed to bind.
+    """
+    mapping = fid.keeppages_map(scan)
     for gf in sorted(gold_dir.glob("page_*.txt")):
         page = int(gf.stem.split("_")[1])
+        if mapping:
+            if page not in mapping:
+                continue
+            page = mapping[page]
         text = gf.read_text(encoding="utf-8")
         depth, kind, start = 0, None, None
         for a, b in fid.spans(text):
@@ -118,6 +129,7 @@ def classify_block(body):
 
 def score_document(gold_dir, corpus_dir):
     figs = (fid._read_json(corpus_dir / "figures.json") or {}).get("figures") or []
+    scan = fid._read_json(corpus_dir / "scan_detection.json") or {}
     by_page = defaultdict(list)
     for f in figs:
         if f.get("page"):
@@ -127,7 +139,7 @@ def score_document(gold_dir, corpus_dir):
     gold_nums, found_nums, matched = defaultdict(set), defaultdict(set), 0
     captions = []                      # (gold_caption, extracted_caption)
 
-    for page, _kind, body in gold_blocks(gold_dir):
+    for page, _kind, body in gold_blocks(gold_dir, scan):
         kind, numbers, first_line = classify_block(body)
         kinds[kind] += 1
         gold_nums[page] |= numbers

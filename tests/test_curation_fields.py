@@ -145,6 +145,7 @@ def test_no_stage_fingerprint_mentions_the_curation_fields():
     """
     fps = _expected_fingerprints_for_run(
         ocrlang="rus+eng",
+        keeppages=None,
         taxonomy_fingerprint={"sha256": "abc"},
         lexicon_fingerprints={"anatomy": {"sha256": "def"}},
     )

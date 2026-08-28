@@ -615,6 +615,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that holds the truth, instead of looking like a resolution that found
   nothing.
 
+- **`keeppages`: which physical pages of a file are the paper (#188).** A PDF
+  in a scanned library is frequently not just the paper — a library cover
+  sheet, a Russian original bound in front of its English translation, runs of
+  blank versos. The costs compound rather than add: `detect_scan_type` samples
+  pages to choose the OCR mode *and* the language pack, so front matter
+  decides how the body behind it is read; then OCR pays full price for the
+  filler, and a calibration target becomes a figure.
+
+  Physical 1-based positions, never printed folios — on the documents this
+  targets it is precisely the front matter that has no printed number. An
+  entry routinely carries both `pages = {41--118}` (the journal pagination)
+  and a `keeppages` that disagrees, and that is correct. BibTeX page syntax
+  throughout: `2,4,8--20,22--40,55`, and `40--` for "to the end". Normalised
+  to a sorted, deduplicated set, so a selection cannot reorder a document. A
+  range past the last page is clamped with a warning, recorded in
+  `scan_detection.json`; an unparseable range is an error, because silently
+  keeping every page looks exactly like success.
+
+  Applied **before** scan detection, by rebinding the temp PDF the later
+  stages already read — so `scan.py` needed no change at all. It runs before
+  the huge-document gate too, which makes a selection the supported way to
+  bring an oversized bound volume into scope, exactly as that gate's own
+  error text asks.
+
+  **Page-number provenance is the part that needed care.** Once pages are
+  dropped, `page` in `figures.json` and `text.json` is a position in the
+  subset, and that is the number served to a client — a figure reported as
+  page 3 that is page 44 of the scan is a citation error nothing downstream
+  can detect. Both are carried: `page` stays subset-relative because it is
+  what indexes the artifacts on disk, and `source_page` says where it came
+  from. The resolved selection recorded as `keeppages_selected` *is* the map,
+  so there is no second structure to keep in sync.
+
+  Fingerprinted across every OCR-dependent stage, and required rather than
+  defaulted at all four call sites — a page-range edit invalidates strictly
+  more than an `ocrlang` edit, since it changes not how the PDF is read but
+  which pages it consists of.
+
+
 ### Changed
 
 - **The vertical-CJK section of the README predated #196.** It said detection

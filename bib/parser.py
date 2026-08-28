@@ -419,6 +419,10 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
     # `_for_pdf` helper — because nothing downstream may act on them.
     doclang = _strip_outer_braces(entry.get("doclang", ""))
     pagemap = _strip_outer_braces(entry.get("pagemap", ""))
+    # #188 — physical page selection. Unlike doclang/pagemap this one *acts*:
+    # it decides which pages the document consists of, before detection sees
+    # any of them, so it is fingerprinted across every OCR-dependent stage.
+    keeppages = _strip_outer_braces(entry.get("keeppages", ""))
 
     return {
         "filename": filename,
@@ -436,6 +440,7 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
         "ocrlang": ocrlang or None,
         "doclang": doclang or None,
         "pagemap": pagemap or None,
+        "keeppages": keeppages or None,
         "extraction_method": "bib",
         "bib_key": entry.get("_key", ""),
     }
@@ -453,6 +458,33 @@ def entry_ocrlang(entry: Optional[Dict]) -> Optional[str]:
     if not entry:
         return None
     return _strip_outer_braces(entry.get("ocrlang", "") or "").strip() or None
+
+
+def entry_keeppages(entry: Optional[Dict]) -> Optional[str]:
+    """Return the ``keeppages`` physical page selection from a bib entry.
+
+    Deliberately not the standard BibTeX ``pages`` field, which means the
+    article's range *within its journal volume* and is already consumed by
+    ``bib/format.py``. The printed pagination and the physical position of
+    the paper inside a scan are different numbers, and for an offprint they
+    are wildly different — an entry routinely carries both and they disagree.
+    """
+    if not entry:
+        return None
+    return _strip_outer_braces(entry.get("keeppages", "") or "").strip() or None
+
+
+def keeppages_for_pdf(bib_index: Optional["BibIndex"], filename: str) -> Optional[str]:
+    """``keeppages`` for a PDF basename, or None.
+
+    One function called from both resume gates, for the reason given in
+    :func:`ocrlang_for_pdf`: if the outer fast path and the per-stage gate
+    derive this differently they disagree about staleness, and the fast path
+    skips a document the inner gate wanted to rebuild.
+    """
+    if bib_index is None:
+        return None
+    return entry_keeppages(bib_index.lookup(filename))
 
 
 def ocrlang_for_pdf(bib_index: Optional["BibIndex"], filename: str) -> Optional[str]:
