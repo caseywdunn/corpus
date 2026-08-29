@@ -34,7 +34,7 @@ corpus status --sort-by stage_failure_count --tail 20
 Lists the 20 papers carrying the most quality_flag entries (or stage
 failures). The `quality_flag` set comes from v0.2's silent-failure
 detectors (#36): `empty_text`, `low_text_density`,
-`gibberish_after_ocr`, `zero_references_unexpected`,
+`gibberish_after_ocr`, `ocr_pages_blanked`, `zero_references_unexpected`,
 `single_token_chunks`, `all_black_figures`. Per-paper QC metrics
 (citation_resolution_rate, dictionary_hit_rate, headfoot_pollution_score,
 …) are a #54 follow-up; gate counts are the proxy until those land.
@@ -108,6 +108,33 @@ This clears `pipeline_state.json` for every paper carrying the named
 gate, so the per-stage resume logic re-extracts them on the upcoming
 run. Other papers stay cached. The `--re-process-flagged` flag is
 typed as a single gate per invocation; chain runs for multiple gates.
+
+### `ocr_pages_blanked` is the one that needs a config change first
+
+Most gates describe the document. This one describes the *machine that
+built it*, so re-running without changing anything reproduces it — on a
+different, load-dependent set of documents. Comparing two full builds of
+the same library, 31 documents lost >80% of their text while 28
+independently gained it back (#254).
+
+The cause is worker oversubscription: ocrmypdf sizes its Tesseract pool
+from `multiprocessing.cpu_count()`, which reports the whole machine even
+inside an 8-CPU allocation. Every page then runs on a sliver of a core,
+crosses `ocr.tesseract_page_timeout`, and is copied into the output blank
+while ocrmypdf exits 0. The pipeline now derives `--jobs` from the
+allocation rather than the host, so on a build from v1.2 onward this gate
+firing means either an explicit `ocr.jobs` that is too high or a
+genuinely slow page. On an older build, or where the allocation cannot be
+read, set it by hand to match the CPUs the job requested:
+
+```yaml
+ocr:
+  jobs: 8          # match --cpus-per-task
+```
+
+then `corpus run --re-process-flagged ocr_pages_blanked`. Raising
+`ocr.tesseract_page_timeout` treats the symptom — the page is still
+running at 1/8 speed, just for longer.
 
 ## Skipped papers in the system
 

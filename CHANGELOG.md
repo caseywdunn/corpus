@@ -37,6 +37,16 @@ JSON analysis had pointed the wrong way. That pattern recurs often enough to
 be the cycle's real lesson: a measurement is not a result until you have
 looked at what it is measuring.
 
+A fifth defect came from a different comparison entirely — not the gold set
+but two full cluster builds of the same library, run a month apart from an
+identical config. OCR had been silently blanking pages on ~9.5% of documents
+in each, a different set every time, because ocrmypdf sized its worker pool
+from the host's CPU count rather than the SLURM allocation and the pages
+starved past their per-page timeout. Nothing failed; every affected document
+recorded `status=success`. It is in `### Fixed` below, and it is the same
+lesson from the other side: the pipeline's own account of a run is only as
+good as what it was built to notice.
+
 Alongside the fixes, the per-document bib directives grew to cover what a
 curator knows and detection cannot infer — `keeppages` for the physical pages
 that are the paper, `doclang` and `pagemap` for what the document is, and a
@@ -826,6 +836,66 @@ project has had that mean anything outside itself.
   `tools/` never got the NameError check it was built for — and those are run
   by hand at release time, where a NameError costs a whole manual run rather
   than a fast test failure.
+
+### Fixed
+
+- **OCR sized its worker pool from the host, not the allocation, and
+  silently blanked ~10% of a cluster build's documents (#254).**
+  `--tesseract-timeout` does not fail a page. Its documented behaviour is to
+  give up on OCR, copy the un-OCR'd image into the output and exit 0 — so the
+  page survives visually, carries an empty text layer, and the document is
+  recorded `status=success` with an empty `stage_failures[]`. The only trace
+  was a `WARNING` in the SLURM log of whichever array task happened to
+  process it.
+
+  The cap added in #209 only ever fired when *memory* bound. On a Bouchet
+  stage1 node — `CPUTot=64`, 991 GiB — an 8-CPU step could afford 390
+  workers, so the cap returned `None`, and `None` hands the decision back to
+  ocrmypdf's `multiprocessing.cpu_count()`: 64 Tesseract workers inside an
+  8-CPU cgroup, every page on a sliver of a core, until the per-page timeout
+  fired and blanked it. Nothing OOMs; the pages just starve.
+
+  `_resolve_ocr_jobs` now reads the allocation — `ocr.jobs`, then
+  `$SLURM_CPUS_PER_TASK`, then the CPU affinity mask, then a cgroup `cpu.max`
+  quota, then the host — with the memory budget derived the same way
+  (`$SLURM_MEM_PER_NODE`, cgroup `memory.max`, physical RAM, smallest wins),
+  and **always passes `--jobs` when it knows the number**. Returning `None`
+  is now reserved for a host nothing could be determined about. On a
+  workstation the value it passes *is* ocrmypdf's own default, so nothing
+  gets slower.
+
+  Found by comparing two full builds of the same 1,769-document library.
+  Because the condition is load-dependent it selects a different set each
+  run: 31 documents lost >80% of their text between builds while 28
+  independently gained it back. `Johnson_Widder2001.pdf` went from 83,293
+  characters to 671, with `OCR completed successfully` logged both times.
+
+- **Blanked pages are recorded and gated instead of counted and discarded
+  (#254).** ocrmypdf names the pages it abandons, one line each, page number
+  first; `_log_ocr_warnings` reduced that to `stderr.count(needle)` and
+  kept only the total, while a separate end-state check found pages with no
+  text and conceded in its own docstring that it could not tell why. Joining
+  them removes the ambiguity exactly, with no heuristic: a page that is empty
+  **and** was named by Tesseract is lost text; a page that is empty and was
+  not named is a plate, a blank verso or a figure-only page. The first is a
+  new `error`-severity quality gate, `ocr_pages_blanked`; the second stays
+  expected, which matters in a corpus this full of plates. The page list is
+  persisted to `scan_detection.json` as `pages_blanked`, so it reaches
+  `summary.json` and is queryable after the fact rather than living in one
+  array task's log. Selectable like any other gate:
+  `corpus status --filter-gate ocr_pages_blanked`,
+  `corpus run --re-process-flagged ocr_pages_blanked`.
+
+  The gate fails the *document*, not the run. Aborting would kill a 28-task
+  array over a transient condition affecting ~10% of documents while the rest
+  of that task's documents are fine.
+
+- **The main OCR invocation now goes through `_run_ocr`, so a timeout takes
+  the Tesseract workers with it.** #209 added the process-group kill but
+  wired it only into the `--redo-ocr` retry path; the common path still used
+  `subprocess.run(timeout=)`, which kills the direct child and leaves its
+  grandchildren reparented to PID 1 — burning the cores the *next* document
+  needs, which is the same starvation #254 is about.
 
 ## [1.1.1] - 2026-08-08
 

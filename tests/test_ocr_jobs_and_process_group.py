@@ -1,4 +1,4 @@
-"""OCR worker cap and process-group cleanup (#209).
+"""OCR worker cap and process-group cleanup (#209, #254).
 
 Reported by @ejedwards with a process table: on a 12-core / 30 GB host,
 ocrmypdf spawned one ~1.9 GB Tesseract worker per CPU and the build was
@@ -11,6 +11,15 @@ OOM-killed. Two things made it unfixable from outside:
 * Killing the pipeline left ocrmypdf reparented to PID 1 with its Tesseract
   children still holding ~20 GB, because ``subprocess.run(timeout=)`` kills
   the direct child and not its grandchildren.
+
+#254 is the same root cause with a different symptom, found on a cluster where
+memory was never the constraint. The #209 cap only ever fired when RAM bound,
+so on a node with 991 GB it returned ``None`` — and ``None`` hands the decision
+straight back to ``multiprocessing.cpu_count()``. An 8-CPU SLURM step on a
+64-core node ran 64 Tesseract workers, every page crawled, and ~9.5% of
+documents in a full build crossed ``--tesseract-timeout`` and were blanked
+without a single failure recorded anywhere. So the cap is now sized from the
+*allocation*, and it is always passed explicitly.
 """
 from __future__ import annotations
 
@@ -24,10 +33,25 @@ from pipeline.scan import (
     _OCR_PARENT_GB,
     _OCR_RESERVED_GB,
     _OCR_WORKER_GB,
+    _allocated_cpus,
+    _available_ram_gb,
     _host_ram_gb,
     _resolve_ocr_jobs,
     _run_ocr,
 )
+
+
+@pytest.fixture
+def unconfigured(monkeypatch):
+    """No `ocr.jobs`, and neither host probe answering by accident."""
+    from pipeline import scan
+    monkeypatch.setitem(scan.CONFIG, "ocr", {})
+    return scan
+
+
+def _host(monkeypatch, scan, *, cpus, ram):
+    monkeypatch.setattr(scan, "_allocated_cpus", lambda: cpus)
+    monkeypatch.setattr(scan, "_available_ram_gb", lambda: ram)
 
 
 # --- choosing the cap ---------------------------------------------------------
@@ -36,6 +60,7 @@ from pipeline.scan import (
 def test_an_explicit_setting_is_honoured(monkeypatch):
     from pipeline import scan
     monkeypatch.setitem(scan.CONFIG, "ocr", {"jobs": 4})
+
     assert _resolve_ocr_jobs() == 4
 
 
@@ -47,41 +72,92 @@ def test_an_explicit_setting_may_exceed_the_derived_cap(monkeypatch):
     assert _resolve_ocr_jobs() == 64
 
 
-def test_ram_that_is_not_the_binding_constraint_leaves_ocrmypdf_alone(monkeypatch):
-    """On a large host this must return None so nothing gets slower — the cap
-    only ever *lowers* the worker count."""
-    from pipeline import scan
-    monkeypatch.setitem(scan.CONFIG, "ocr", {})
-    monkeypatch.setattr(scan, "_host_ram_gb", lambda: 512.0)
-    monkeypatch.setattr(scan.os, "cpu_count", lambda: 8)
-    assert _resolve_ocr_jobs() is None
+def test_ram_that_is_not_the_binding_constraint_yields_the_cpu_count(
+        monkeypatch, unconfigured):
+    """With memory to spare the CPU count stands, and it is passed explicitly.
+
+    It used to return None here, meaning "ocrmypdf, you decide" — which is
+    how #254 happened, because what ocrmypdf decides is
+    multiprocessing.cpu_count(). On a workstation this value *is* its
+    default, so nothing gets slower; on a cluster it is the fix.
+    """
+    _host(monkeypatch, unconfigured, cpus=8, ram=512.0)
+    assert _resolve_ocr_jobs() == 8
 
 
-def test_a_small_host_is_capped(monkeypatch):
-    from pipeline import scan
-    monkeypatch.setitem(scan.CONFIG, "ocr", {})
-    monkeypatch.setattr(scan, "_host_ram_gb", lambda: 30.0)
-    monkeypatch.setattr(scan.os, "cpu_count", lambda: 12)
+def test_a_small_host_is_capped(monkeypatch, unconfigured):
+    _host(monkeypatch, unconfigured, cpus=12, ram=30.0)
     jobs = _resolve_ocr_jobs()
     # The reporter's host: OOM-killed at 8 concurrent workers, proceeded at 4.
     assert jobs is not None
     assert 1 <= jobs < 8
 
 
-def test_the_cap_never_reaches_zero(monkeypatch):
+def test_the_cap_never_reaches_zero(monkeypatch, unconfigured):
     """A tiny host still has to make progress, one page at a time."""
-    from pipeline import scan
-    monkeypatch.setitem(scan.CONFIG, "ocr", {})
-    monkeypatch.setattr(scan, "_host_ram_gb", lambda: 2.0)
-    monkeypatch.setattr(scan.os, "cpu_count", lambda: 16)
+    _host(monkeypatch, unconfigured, cpus=16, ram=2.0)
     assert _resolve_ocr_jobs() == 1
 
 
-def test_an_unknown_host_is_not_second_guessed(monkeypatch):
-    from pipeline import scan
-    monkeypatch.setitem(scan.CONFIG, "ocr", {})
-    monkeypatch.setattr(scan, "_host_ram_gb", lambda: None)
+def test_an_unknown_host_is_not_second_guessed(monkeypatch, unconfigured):
+    _host(monkeypatch, unconfigured, cpus=None, ram=None)
     assert _resolve_ocr_jobs() is None
+
+
+# --- sizing from the allocation, not the machine (#254) -----------------------
+
+
+def test_a_slurm_allocation_beats_the_host_cpu_count(monkeypatch, unconfigured):
+    """The whole of #254: 8 allocated CPUs on a 64-core node must not become
+    64 Tesseract workers."""
+    monkeypatch.setenv("SLURM_CPUS_PER_TASK", "8")
+    monkeypatch.setattr(unconfigured.os, "cpu_count", lambda: 64)
+    monkeypatch.setattr(unconfigured, "_available_ram_gb", lambda: 991.0)
+    assert _allocated_cpus() == 8
+    assert _resolve_ocr_jobs() == 8
+
+
+def test_the_cpu_cap_binds_even_when_ram_is_abundant(monkeypatch, unconfigured):
+    """991 GB affords 390 workers. The allocation still says 8.
+
+    A memory-only cap returned None here and let ocrmypdf run 64 workers
+    inside an 8-CPU cgroup — nothing OOMs, the pages just starve.
+    """
+    _host(monkeypatch, unconfigured, cpus=8, ram=991.0)
+    assert _resolve_ocr_jobs() == 8
+
+
+def test_the_affinity_mask_is_used_when_slurm_is_silent(monkeypatch, unconfigured):
+    monkeypatch.delenv("SLURM_CPUS_PER_TASK", raising=False)
+    monkeypatch.delenv("SLURM_CPUS_ON_NODE", raising=False)
+    monkeypatch.setattr(unconfigured.os, "sched_getaffinity", lambda pid: {0, 1, 2, 3})
+    monkeypatch.setattr(unconfigured.os, "cpu_count", lambda: 64)
+    assert _allocated_cpus() == 4
+
+
+def test_a_slurm_memory_allocation_lowers_the_worker_budget(monkeypatch, unconfigured):
+    """--mem=32G on a 991 GB node is 32 GB, not 991."""
+    monkeypatch.setenv("SLURM_MEM_PER_NODE", str(32 * 1024))
+    monkeypatch.setattr(unconfigured, "_host_ram_gb", lambda: 991.0)
+    monkeypatch.setattr(unconfigured, "_cgroup_ram_gb", lambda: None)
+    assert _available_ram_gb() == pytest.approx(32.0)
+
+
+def test_an_explicit_setting_still_wins_over_the_allocation(monkeypatch, unconfigured):
+    monkeypatch.setitem(unconfigured.CONFIG, "ocr", {"jobs": 16})
+    monkeypatch.setenv("SLURM_CPUS_PER_TASK", "8")
+    assert _resolve_ocr_jobs() == 16
+
+
+def test_the_probes_survive_a_host_with_none_of_these(monkeypatch):
+    """No SLURM, maybe no cgroup: still a usable number, never a crash."""
+    for var in ("SLURM_CPUS_PER_TASK", "SLURM_CPUS_ON_NODE",
+                "SLURM_MEM_PER_NODE", "SLURM_MEM_PER_CPU"):
+        monkeypatch.delenv(var, raising=False)
+    cpus = _allocated_cpus()
+    assert cpus is None or cpus >= 1
+    ram = _available_ram_gb()
+    assert ram is None or ram > 0
 
 
 def test_ram_is_read_without_psutil():

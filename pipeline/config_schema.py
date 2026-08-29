@@ -206,10 +206,13 @@ class OcrConfig(BaseModel):
     probe_max_gibberish: float = Field(default=0.50, ge=0.0, le=1.0)
     probe_dpi: int = Field(default=300, ge=72, le=600)
     probe_sample_pages: int = Field(default=5, ge=1, le=25)
-    # None = derive from host RAM (see pipeline.scan._resolve_ocr_jobs). An
-    # explicit value is honoured verbatim, including one larger than the
-    # derived cap — an operator who knows their pages are light should be able
-    # to say so (#209).
+    # None = derive from the allocation this process is actually running
+    # inside — SLURM env, affinity mask, cgroup quota, then the machine —
+    # and from the memory those same sources allow. See
+    # pipeline.scan._resolve_ocr_jobs; deriving it from the *host* is how
+    # #254 blanked ~9.5% of a cluster build. An explicit value is honoured
+    # verbatim, including one larger than the derived cap — an operator who
+    # knows their pages are light should be able to say so (#209).
     jobs: Optional[int] = Field(default=None, ge=1, le=256)
 
 

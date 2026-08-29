@@ -26,7 +26,7 @@ import signal
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .config import CONFIG
 
@@ -883,11 +883,128 @@ def _host_ram_gb() -> Optional[float]:
     ``os.sysconf`` rather than ``psutil``: psutil is present in the
     environment only as a transitive dependency of other packages, and this
     must not start failing because one of them drops it.
+
+    This is the *machine*, which on a shared cluster node is not what this
+    process may use. Size the worker pool from :func:`_available_ram_gb`.
     """
     try:
         return (os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")) / 2 ** 30
     except (ValueError, OSError, AttributeError):
         return None
+
+
+def _read_int(path: str) -> Optional[int]:
+    """First whitespace-delimited integer in a sysfs file, or ``None``."""
+    try:
+        with open(path) as f:
+            return int(f.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _cgroup_cpus() -> Optional[float]:
+    """CPUs this cgroup may use, from a CPU quota, or ``None`` if unlimited.
+
+    cgroup v2 writes ``"<quota> <period>"`` into ``cpu.max`` with the
+    literal ``max`` for no limit; v1 splits the same pair across
+    ``cpu.cfs_quota_us`` (``-1`` for no limit) and ``cpu.cfs_period_us``.
+    """
+    try:
+        with open("/sys/fs/cgroup/cpu.max") as f:
+            quota_s, _, period_s = f.read().strip().partition(" ")
+        if quota_s != "max":
+            quota, period = int(quota_s), int(period_s or 100000)
+            if quota > 0 and period > 0:
+                return quota / period
+        return None
+    except (OSError, ValueError):
+        pass
+    quota = _read_int("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
+    period = _read_int("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
+    if quota and quota > 0 and period and period > 0:
+        return quota / period
+    return None
+
+
+def _allocated_cpus() -> Optional[int]:
+    """CPUs this *process* may use, not the ones the machine has (#254).
+
+    ``os.cpu_count()`` describes the host. Inside a SLURM allocation or a
+    container that is the wrong number by an order of magnitude — a
+    ``--cpus-per-task=8`` step on a 64-core node reads 64 — and handing it
+    to ocrmypdf spawns 64 Tesseract workers onto 8 cores. Nothing OOMs;
+    the pages simply starve until ``--tesseract-timeout`` fires and blanks
+    them.
+
+    Preference order, most authoritative first: the batch system's own
+    statement of the allocation, then the scheduler-enforced affinity mask,
+    then a cgroup CPU quota (which affinity does not reflect), then the
+    host as a last resort.
+    """
+    for var in ("SLURM_CPUS_PER_TASK", "SLURM_CPUS_ON_NODE"):
+        try:
+            n = int(os.environ[var])
+            if n > 0:
+                return n
+        except (KeyError, ValueError):
+            pass
+    try:
+        n = len(os.sched_getaffinity(0))
+        if n > 0:
+            return n
+    except (AttributeError, OSError):
+        pass
+    quota = _cgroup_cpus()
+    if quota:
+        return max(1, int(quota))
+    return os.cpu_count()
+
+
+def _cgroup_ram_gb() -> Optional[float]:
+    """Memory limit on this cgroup in GB, or ``None`` if unlimited.
+
+    A v1 limit of "unlimited" is not absent but a number near 2^63, so
+    anything at or above the host's physical RAM is discarded rather than
+    trusted as a limit.
+    """
+    limit = None
+    try:
+        with open("/sys/fs/cgroup/memory.max") as f:
+            raw = f.read().strip()
+        limit = None if raw == "max" else int(raw)
+    except (OSError, ValueError):
+        limit = _read_int("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+    if not limit or limit <= 0:
+        return None
+    gb = limit / 2 ** 30
+    host = _host_ram_gb()
+    if host is not None and gb >= host:
+        return None                       # the "no limit" sentinel
+    return gb
+
+
+def _available_ram_gb() -> Optional[float]:
+    """RAM this process may use: the smallest limit that actually binds.
+
+    The allocation first (``$SLURM_MEM_PER_NODE``, in MB, or
+    ``$SLURM_MEM_PER_CPU`` times the allocated CPUs), then a cgroup limit,
+    then the machine. Whichever is smallest is the one that will kill the
+    build, so that is the one the worker pool is sized against.
+    """
+    limits = []
+    mem_per_node = os.environ.get("SLURM_MEM_PER_NODE")
+    mem_per_cpu = os.environ.get("SLURM_MEM_PER_CPU")
+    try:
+        if mem_per_node:
+            limits.append(int(mem_per_node) / 1024)
+        elif mem_per_cpu:
+            limits.append(int(mem_per_cpu) / 1024 * (_allocated_cpus() or 1))
+    except ValueError:
+        pass
+    for value in (_cgroup_ram_gb(), _host_ram_gb()):
+        if value is not None:
+            limits.append(value)
+    return min(limits) if limits else None
 
 
 def _run_ocr(cmd: List[str], timeout: float):
@@ -939,26 +1056,38 @@ def _resolve_ocr_jobs() -> Optional[int]:
     affinity, so neither ``taskset`` nor a cgroup CPU limit reaches it. A
     12-core host therefore reaches for ~20 GB of Tesseract on a dense scan and
     is OOM-killed. A cgroup memory limit contains the blast radius but does not
-    prevent the overrun — the build still dies, just tidily.
+    prevent the overrun — the build still dies, just tidily (#209).
 
-    So the cap has to come from here. ``ocr.jobs`` sets it explicitly;
-    otherwise it is derived from host RAM, and only ever *lowers* the worker
-    count — on a machine with memory to spare this returns ``None`` and
-    ocrmypdf's own default stands, so nothing gets slower.
+    Two things bind, and the smaller wins: how many CPUs this process may
+    actually use, and how many workers its memory pays for.
+
+    **Always pass the number when it is known** (#254). Returning ``None``
+    to mean "you decide" hands the decision back to
+    ``multiprocessing.cpu_count()``, which is the thing that is wrong on a
+    cluster: an 8-CPU SLURM step on a 64-core node ran 64 Tesseract workers,
+    each on an eighth of a core, and ~9.5% of documents in a full build
+    crossed ``--tesseract-timeout`` and were silently blanked. RAM was never
+    the constraint there — 64 x 2.5 GB fits inside a 256 G request — so a
+    memory-only cap returned ``None`` and let it happen twice. ``None`` now
+    means only that nothing could be determined about this host at all.
+
+    On a workstation, where the allocation *is* the machine, passing
+    ``--jobs $(nproc)`` is exactly ocrmypdf's own default, so nothing
+    changes and nothing gets slower.
     """
     configured = CONFIG.get("ocr", {}).get("jobs")
     if configured:
         return int(configured)
 
-    ram = _host_ram_gb()
-    cpus = os.cpu_count() or 1
+    cpus = _allocated_cpus()
+    ram = _available_ram_gb()
     if ram is None:
-        return None                       # unknown host; do not second-guess
+        return cpus                       # unknown memory; the CPU cap still holds
     budget = ram - _OCR_RESERVED_GB - _OCR_PARENT_GB
     affordable = max(1, int(budget // _OCR_WORKER_GB))
-    if affordable >= cpus:
-        return None                       # RAM is not the binding constraint
-    return affordable
+    if cpus is None:
+        return affordable                 # unknown CPUs; the RAM cap still holds
+    return max(1, min(cpus, affordable))
 
 
 def _vertical_cjk_hint(langs, detection_result) -> Optional[str]:
@@ -2232,31 +2361,108 @@ def _log_ocr_warnings(stderr: Optional[str], name: str) -> None:
             level("[%s] ocrmypdf: %d %s", name, n, explanation)
 
 
-def _warn_on_empty_ocr_pages(output_pdf: Path, name: str) -> None:
-    """Warn when OCR produced no text at all on some pages.
+# ocrmypdf's PageNumberFilter prefixes each per-page log line with the page
+# that emitted it, so the pages it gave up on are named rather than merely
+# counted:
+#
+#        12 [tesseract] took too long to OCR - skipping
+#
+# The number is matched where it sits — immediately before the message —
+# rather than at the start of the line, because ocrmypdf's verbose format
+# puts a level and logger name in front of it. The bracketed tag is optional
+# for the same reason: what identifies the line is the page number and the
+# message, and both of the other two fields have moved between releases.
+_OCR_TIMEOUT_PAGE_RE = re.compile(
+    r"(\d+)\s+(?:\[[^\]\n]*\]\s*)?took too long to OCR"
+)
 
-    The end-state check, independent of whatever ocrmypdf said: a page
-    that came out of OCR with zero characters is either genuinely blank,
-    a plate, or a page we lost. Worth a line in the log either way,
-    because the alternative is discovering it in the embeddings.
+
+def _ocr_timeout_pages(stderr: Optional[str]) -> List[int]:
+    """1-based page numbers ocrmypdf abandoned to ``--tesseract-timeout``.
+
+    Counting these lines is not enough (#254): the count says how much was
+    lost but not *where*, and without the page numbers a blanked page is
+    indistinguishable from a blank verso.
     """
+    if not stderr:
+        return []
+    return sorted({int(m.group(1)) for m in _OCR_TIMEOUT_PAGE_RE.finditer(stderr)})
+
+
+def _pages_without_text(output_pdf: Path) -> Optional[Tuple[List[int], int]]:
+    """``(1-based pages with no text, total pages)``, or ``None`` unreadable."""
     try:
         import fitz
         with fitz.open(output_pdf) as doc:
-            empty = [i + 1 for i, pg in enumerate(doc) if not pg.get_text("text").strip()]
-            total = len(doc)
+            empty = [i + 1 for i, pg in enumerate(doc)
+                     if not pg.get_text("text").strip()]
+            return empty, len(doc)
     except Exception:
-        return
+        return None
+
+
+def _page_list(pages: List[int], limit: int = 12) -> str:
+    return ", ".join(str(p) for p in pages[:limit]) + ("…" if len(pages) > limit else "")
+
+
+def _report_ocr_page_loss(
+    output_pdf: Path, name: str, stderr: Optional[str],
+) -> Dict[str, Any]:
+    """Separate pages OCR *lost* from pages that were always empty (#254).
+
+    Two signals, each ambiguous alone. ocrmypdf names the pages it gave up
+    on, but ``--tesseract-timeout`` is documented to copy the un-OCR'd image
+    through and exit 0, so a named page may still carry a pre-existing text
+    layer and be fine. The end-state check finds pages with no text, but a
+    plate, a blank verso and a page we lost all look identical to it.
+
+    Intersect them and the ambiguity goes away, exactly and without a
+    heuristic:
+
+    ==============================  ==========================  ============
+    page                            meaning                     disposition
+    ==============================  ==========================  ============
+    empty AND named by Tesseract    blanked — known data loss   gate at error
+    empty, not named                blank verso, plate, figure  expected
+    ==============================  ==========================  ============
+
+    Returns the record persisted into ``scan_detection.json``, so the loss
+    survives the run and is queryable after the fact rather than living only
+    in the log of whichever array task happened to process the document.
+    """
+    timed_out = _ocr_timeout_pages(stderr)
+    seen = _pages_without_text(output_pdf)
+    if seen is None:
+        # The PDF cannot be read; the stderr half still stands on its own.
+        return {"pages_blanked": timed_out, "pages_ocr_timed_out": timed_out}
+    empty, total = seen
+    blanked = sorted(set(timed_out) & set(empty))
+
     if empty and total:
         logger.warning(
             "[%s] %d/%d page(s) have no text after OCR (pages %s). Blank pages "
             "and plates are expected; a run of them is not.",
-            name, len(empty), total,
-            ", ".join(str(p) for p in empty[:12]) + ("…" if len(empty) > 12 else ""),
+            name, len(empty), total, _page_list(empty),
         )
+    if blanked:
+        logger.error(
+            "[%s] %d/%d page(s) were blanked by the per-page OCR timeout "
+            "(pages %s) — this is lost text, not empty pages. Cap ocr.jobs to "
+            "the CPUs this process actually has, or raise "
+            "ocr.tesseract_page_timeout.",
+            name, len(blanked), total, _page_list(blanked),
+        )
+    return {
+        "pages_blanked": blanked,
+        "pages_ocr_timed_out": timed_out,
+        "pages_without_text": empty,
+        "page_count": total,
+    }
 
 
-def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
+def prepare_pdf(
+    input_pdf: Path, detection_result: Dict, output_pdf: Path,
+) -> Dict[str, Any]:
     """Run OCR if the detection result calls for it, else copy straight through.
 
     OCR behavior is driven by ``detection_result["ocr_mode"]``:
@@ -2277,17 +2483,22 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
     On any OCR failure we copy the original PDF through and log the error
     — downstream stages should still run on the untouched PDF rather than
     the pipeline aborting.
+
+    Returns the OCR outcome — most importantly ``pages_blanked``, the pages
+    the per-page timeout gave up on and left with no text (#254). The caller
+    merges it into ``scan_detection.json``; ``_run_quality_gates`` reads it
+    back as the ``ocr_pages_blanked`` gate. Empty dict when no OCR ran.
     """
     if not detection_result.get("needs_ocr"):
         logger.info("Copying %s (detected as %s)",
                     input_pdf.name, detection_result.get("file_type"))
         shutil.copy2(input_pdf, output_pdf)
-        return
+        return {}
 
     if shutil.which("ocrmypdf") is None:
         logger.warning("ocrmypdf not found on PATH, copying original PDF")
         shutil.copy2(input_pdf, output_pdf)
-        return
+        return {}
 
     ocr_mode = detection_result.get("ocr_mode", "skip_text")
     mode_flag = {
@@ -2329,7 +2540,7 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
             "No Tesseract languages available; copying original PDF (OCR skipped)"
         )
         shutil.copy2(input_pdf, output_pdf)
-        return
+        return {}
     lang_arg = "+".join(langs)
 
     # Auto-degrade --optimize when pngquant isn't installed. ocrmypdf
@@ -2350,10 +2561,12 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
     if hint:
         logger.info("%s: %s", input_pdf.name, hint)
 
-    # #209 — ocrmypdf otherwise runs one Tesseract worker per CPU, ~1.9 GB
-    # each on a dense scan, and there is no way to reduce it from outside: it
-    # reads multiprocessing.cpu_count(), which ignores CPU affinity, so neither
-    # taskset nor a cgroup CPU limit reaches it.
+    # #209/#254 — ocrmypdf otherwise runs one Tesseract worker per *host* CPU,
+    # ~1.9 GB each on a dense scan, and there is no way to reduce it from
+    # outside: it reads multiprocessing.cpu_count(), which ignores CPU
+    # affinity, so neither taskset nor a cgroup CPU limit reaches it. Left
+    # alone that is an OOM on a small host and, on a cluster node whose CPU
+    # count is nothing like the allocation, silent page loss.
     ocr_jobs = _resolve_ocr_jobs()
 
     logger.info(
@@ -2392,9 +2605,12 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
 
     ocr_timeout = _ocr_timeout_for(input_pdf, len(langs))
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=ocr_timeout,
-        )
+        # _run_ocr, not subprocess.run: a plain timeout kills ocrmypdf and
+        # reparents its Tesseract workers to PID 1, where they keep burning
+        # the cores the *next* document needs. Only the --redo-ocr retry
+        # below went through it when #209 added it, so the common path still
+        # seeded the node with the load that starves later OCR runs (#254).
+        result = _run_ocr(cmd, ocr_timeout)
     except subprocess.TimeoutExpired:
         # Re-raise so the wrapping _stage records reason_code=timeout.
         # The pipeline-level try/except still catches and continues to
@@ -2433,9 +2649,12 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         if result.stderr:
             logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
         shutil.copy2(input_pdf, output_pdf)
-    else:
-        logger.info(
-            "OCR completed successfully (mode=%s langs=%s)", mode_flag, lang_arg
-        )
-        _log_ocr_warnings(result.stderr, input_pdf.name)
-        _warn_on_empty_ocr_pages(output_pdf, input_pdf.name)
+        return {}
+
+    logger.info(
+        "OCR completed successfully (mode=%s langs=%s)", mode_flag, lang_arg
+    )
+    _log_ocr_warnings(result.stderr, input_pdf.name)
+    outcome = _report_ocr_page_loss(output_pdf, input_pdf.name, result.stderr)
+    outcome["ocr_jobs"] = ocr_jobs
+    return outcome

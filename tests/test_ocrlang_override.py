@@ -267,8 +267,10 @@ def _capture_ocr_cmd(monkeypatch, tmp_path, detection_result):
         return _Result()
 
     monkeypatch.setattr(scan.shutil, "which", lambda n: f"/usr/bin/{n}")
-    monkeypatch.setattr(scan.subprocess, "run", fake_run)
-    monkeypatch.setattr(scan, "_warn_on_empty_ocr_pages", lambda *a, **k: None)
+    # prepare_pdf runs ocrmypdf through _run_ocr, not subprocess.run, so the
+    # Tesseract grandchildren die with it on a timeout (#209, #254).
+    monkeypatch.setattr(scan, "_run_ocr", lambda cmd, timeout: fake_run(cmd))
+    monkeypatch.setattr(scan, "_report_ocr_page_loss", lambda *a, **k: {})
 
     src = tmp_path / "in.pdf"
     src.write_bytes(b"%PDF-1.4\n")

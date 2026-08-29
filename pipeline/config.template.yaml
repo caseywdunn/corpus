@@ -201,6 +201,19 @@ ocr:
   # pages (56,631 chars -> 15,292) between two identical runs, purely on
   # machine load.
   tesseract_page_timeout: 900
+  # How many Tesseract workers ocrmypdf may run at once. Leave unset and
+  # the pipeline sizes the pool from what this *process* may use — the
+  # SLURM allocation, then the CPU affinity mask, then a cgroup quota,
+  # then the machine — capped by the memory the same sources allow.
+  #
+  # It is set here rather than left to ocrmypdf because ocrmypdf reads
+  # `multiprocessing.cpu_count()`, which sees the whole machine. An
+  # 8-CPU SLURM step on a 64-core node ran 64 workers, every page got a
+  # sliver of a core, and ~9.5% of documents in a full build crossed
+  # tesseract_page_timeout and were silently blanked (#254). Set it
+  # explicitly only to override that reasoning — a value above the
+  # derived cap is honoured verbatim (#209).
+  # jobs: 8
 
 chunking:
   max_tokens: 8191
