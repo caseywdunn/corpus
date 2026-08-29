@@ -719,6 +719,39 @@ tasks spread the OCR-heavy tail instead of concentrating it in one slice.
 Empty and already-complete tasks cost ~4 min each, so over-provisioning is
 cheap; under-provisioning silently leaves papers unprocessed.
 
+### The OCR worker pool is sized from the allocation, not the node
+
+Bouchet's stage1 nodes are large — `a1130u24n01` reports `CPUTot=64` and
+991 GiB — and Stage 1 requests `--cpus-per-task=8`. ocrmypdf, left to
+itself, reads `multiprocessing.cpu_count()` and sees the 64. It then runs
+64 Tesseract workers inside an 8-CPU cgroup, each page gets an eighth of a
+core, and pages cross `ocr.tesseract_page_timeout` — at which point
+ocrmypdf copies the un-OCR'd image into the output and exits 0. The page
+survives visually with an empty text layer.
+
+Two full builds of the same library lost text this way on ~9.5% of
+documents each. It is load-dependent, so it takes a *different* set every
+run: 31 documents lost >80% of their text between one build and the next
+while 28 independently gained it back. Nothing OOMs — 64 × 2.5 GB fits
+comfortably inside a 256 G request — which is why a memory-based cap never
+fired (#254).
+
+`corpus` now reads `$SLURM_CPUS_PER_TASK` (then the affinity mask, then a
+cgroup quota) and passes `--jobs` explicitly, so nothing is needed in the
+config for this. Check the `Running OCR on …` line in a Stage 1 log: it
+prints `jobs=` and it should equal `--cpus-per-task`. Pin `ocr.jobs` in
+the corpuscle config only if you are running an older build, or if you
+change `--cpus-per-task` in a way the env doesn't reflect.
+
+Blanked pages are now recorded per document as
+`scan_detection.json`'s `pages_blanked` and gated at `error` as
+`ocr_pages_blanked`, so a build that still hits this says so:
+
+```bash
+corpus status --filter-gate ocr_pages_blanked --list-hashes
+corpus run --only extract --re-process-flagged ocr_pages_blanked
+```
+
 ### Chain integrity
 
 `afterok` on a job *array* requires **every** task to exit 0. One TIMEOUT
@@ -886,6 +919,7 @@ partition for interactive GPU checks.
 
 ## Common pitfalls
 
+- **`jobs=` in the Stage 1 log should equal `--cpus-per-task`.** If it says 64 on an 8-CPU task, the allocation isn't being read and OCR is oversubscribing the cgroup — pages will be silently blanked rather than fail. See "The OCR worker pool is sized from the allocation" above.
 - **Missing Tesseract language packs.** The most likely way to get a subtly bad build. `conda env create` alone leaves you with **English-only** OCR; `bash tools/install_tessdata.sh` is a required setup step (see §2). Non-English papers don't error — they just OCR badly as English. Check with `ls $CONDA_PREFIX/share/tessdata/`.
 - **Stale `HF_HOME`.** If a job re-downloads a model, `HF_HOME` isn't being honored — check that the export in the SLURM script points to a path you actually populated.
 - **Grobid URL.** SLURM compute nodes can't talk to your laptop's `localhost:8070` — `$GROBID_URL` (which overrides the config's `grobid.url`) must resolve to a host visible from the job's node. If the Grobid node goes down mid-run, subsequent papers get placeholder metadata; a re-run's implicit resume won't retry them unless their inputs changed — force it with `corpus run --only extract --re-process-flagged <gate>` or by deleting the affected `metadata.json`.

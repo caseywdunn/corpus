@@ -69,6 +69,24 @@ _GATE_INFO: Dict[str, Tuple[str, str]] = {
         "mostly numeric tables can also be the metric, not the text: "
         "read a sample before acting.",
     ),
+    "ocr_pages_blanked": (
+        "error",
+        "The per-page OCR timeout fired on these pages and ocrmypdf "
+        "copied the un-OCR'd image through, so the page survives "
+        "visually with an empty text layer. This is lost text, not a "
+        "blank page — the gate only counts pages ocrmypdf itself named. "
+        "Almost always starvation rather than a genuinely slow page: "
+        "ocrmypdf sizes its worker pool from the host's CPU count, so "
+        "inside a SLURM allocation or a container it oversubscribes and "
+        "every page runs on a sliver of a core. The pipeline now derives "
+        "`--jobs` from the allocation instead (#254), so on a current "
+        "build check `ocr.jobs` isn't pinned too high; on an older one, "
+        "or where the allocation can't be read, set it by hand to the "
+        "CPUs the job requested. Then re-extract: "
+        "`corpus run --re-process-flagged ocr_pages_blanked`. Raising "
+        "`ocr.tesseract_page_timeout` treats the symptom — the page is "
+        "still running at a fraction of a core, just for longer.",
+    ),
     "zero_references_unexpected": (
         "warn",
         "Multi-page paper with an empty references.json. Almost always "

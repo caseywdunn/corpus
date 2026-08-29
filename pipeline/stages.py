@@ -484,6 +484,33 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
                 "metric": round(score, 3),
             })
 
+    # ocr_pages_blanked — pages the per-page OCR timeout gave up on and
+    # left with no text (#254). Distinct from empty_text: a document can
+    # read as "mostly fine" on every other gate while a third of it is
+    # gone, which is exactly how ~9.5% of a full cluster build passed
+    # unnoticed through two rebuilds. Not a heuristic — this is the
+    # intersection of the pages ocrmypdf *named* on stderr with the pages
+    # that ended up with no text, so plates and blank versos are excluded
+    # by construction rather than by threshold. See pipeline/scan.py
+    # `_report_ocr_page_loss`.
+    is_scan = isinstance(scan, dict)
+    blanked = (scan.get("pages_blanked") or []) if is_scan else []
+    if blanked:
+        # text.json's page count is the one the operator sees elsewhere;
+        # scan_detection's is the fallback when extraction produced nothing.
+        total = pages or (scan.get("page_count") if is_scan else None) or "?"
+        shown = ", ".join(str(p) for p in blanked[:12])
+        flags.append({
+            "gate": "ocr_pages_blanked",
+            "severity": "error",
+            "detail": (
+                f"{len(blanked)}/{total} page(s) hit the per-page OCR timeout "
+                f"and were left blank: {shown}"
+                f"{'…' if len(blanked) > 12 else ''}"
+            ),
+            "metric": len(blanked),
+        })
+
     # zero_references_unexpected — multi-page paper with no references
     min_pages_for_refs = int(cfg.get("zero_refs_min_pages", 5))
     if pages >= min_pages_for_refs and ref_count == 0:
