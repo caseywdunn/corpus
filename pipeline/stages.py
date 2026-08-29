@@ -336,6 +336,7 @@ def _all_stage_artifacts_complete(
 def _expected_fingerprints_for_run(
     *,
     ocrlang: Optional[str],
+    keeppages: Optional[str],
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
@@ -376,6 +377,14 @@ def _expected_fingerprints_for_run(
     that omission into a TypeError at the call site. Pass ``None``
     explicitly where a per-document value genuinely doesn't apply.
 
+    ``keeppages`` (#188) follows the same contract and for a stronger
+    reason: it does not merely change how the PDF is read, it changes which
+    pages the PDF *is*. A page-range edit invalidates strictly more than an
+    ocrlang edit does, so nothing derived from the old selection may survive
+    a resume. It is also required rather than defaulted, for the same
+    fast-path reason — a default here reproduces the shipped #176 bug where
+    an added directive was skipped before anything could see it.
+
     Note the empty dict, not None, when no override is set. ``{}`` is what
     :func:`_record_stage_completion` writes for a stage with no
     fingerprint, so an untagged document still compares equal to its
@@ -397,6 +406,8 @@ def _expected_fingerprints_for_run(
         fp = dict(fps.get(stage, {}))
         if ocrlang:
             fp["ocrlang"] = ocrlang
+        if keeppages:
+            fp["keeppages"] = keeppages
         fps[stage] = fp
     return fps
 
@@ -472,6 +483,33 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
                 "detail": f"gibberish_score={score:.2f} on extracted text (max: {max_gibberish})",
                 "metric": round(score, 3),
             })
+
+    # ocr_pages_blanked — pages the per-page OCR timeout gave up on and
+    # left with no text (#254). Distinct from empty_text: a document can
+    # read as "mostly fine" on every other gate while a third of it is
+    # gone, which is exactly how ~9.5% of a full cluster build passed
+    # unnoticed through two rebuilds. Not a heuristic — this is the
+    # intersection of the pages ocrmypdf *named* on stderr with the pages
+    # that ended up with no text, so plates and blank versos are excluded
+    # by construction rather than by threshold. See pipeline/scan.py
+    # `_report_ocr_page_loss`.
+    is_scan = isinstance(scan, dict)
+    blanked = (scan.get("pages_blanked") or []) if is_scan else []
+    if blanked:
+        # text.json's page count is the one the operator sees elsewhere;
+        # scan_detection's is the fallback when extraction produced nothing.
+        total = pages or (scan.get("page_count") if is_scan else None) or "?"
+        shown = ", ".join(str(p) for p in blanked[:12])
+        flags.append({
+            "gate": "ocr_pages_blanked",
+            "severity": "error",
+            "detail": (
+                f"{len(blanked)}/{total} page(s) hit the per-page OCR timeout "
+                f"and were left blank: {shown}"
+                f"{'…' if len(blanked) > 12 else ''}"
+            ),
+            "metric": len(blanked),
+        })
 
     # zero_references_unexpected — multi-page paper with no references
     min_pages_for_refs = int(cfg.get("zero_refs_min_pages", 5))

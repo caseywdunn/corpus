@@ -73,20 +73,34 @@ EXIT_PRECONDITION = 3
 
 
 def _resolve_config_path(flag_value: Optional[Path]) -> Optional[Path]:
-    """Resolve which config.yaml to load.
+    """Resolve which config.yaml to load, as an **absolute** path.
 
     Precedence (#61): --config flag > $CORPUS_CONFIG env var > ./config.yaml.
     Returns None if no config file is found anywhere; the caller decides
     whether that's an error (corpus run errors; corpus init doesn't).
+
+    Absolute matters (#210). This path is forwarded to every stage subprocess
+    as ``--config <path>``, and the orchestrator runs those from ``REPO_ROOT``
+    rather than the operator's directory. A relative path therefore resolved
+    against the wrong directory, was not found, and the subprocess fell back
+    to built-in defaults for every block *it* reads — ``ocr``, ``chunking``,
+    ``stage_timeouts``, ``huge_document``, ``quality_gates``.
+
+    Nothing failed. ``input_pdfs``, ``bib``, ``lexicon`` and ``taxonomy``
+    survived because the CLI resolves those itself and passes them as absolute
+    arguments, so the run looked entirely normal while silently ignoring
+    everything the operator had tuned. It masked #209 for the reporter, whose
+    ``ocr.jobs`` setting appeared to have no effect because the file carrying
+    it was never read.
     """
     if flag_value is not None:
-        return flag_value
+        return Path(flag_value).expanduser().resolve()
     env = os.environ.get("CORPUS_CONFIG")
     if env:
-        return Path(env)
+        return Path(env).expanduser().resolve()
     default = Path.cwd() / "config.yaml"
     if default.exists():
-        return default
+        return default.resolve()
     return None
 
 
@@ -1419,13 +1433,21 @@ def _detect_accelerator() -> Optional[str]:
     properly ("[warn] GPU: none (CPU-only …)"); the raw warning adds
     nothing and makes a working install look broken.
     """
+    from pipeline.accelerator import unsupported_cuda_reason
+
     try:
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import torch
             if torch.cuda.is_available():
-                return "cuda"
+                # #198 — availability is not usability. A GPU whose compute
+                # capability this torch build ships no kernels for reports
+                # available and then fails every launch, so treating it as an
+                # accelerator here would route `vision-local` onto hardware
+                # that cannot run the model.
+                if unsupported_cuda_reason() is None:
+                    return "cuda"
             if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 return "mps"
     except Exception:

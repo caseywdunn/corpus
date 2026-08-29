@@ -246,6 +246,18 @@ def create_schema(conn: sqlite3.Connection) -> None:
             -- which Zotero populates by default — an imported .bib must
             -- not silently start steering OCR. NULL for almost every row.
             ocrlang        TEXT,
+            -- #214 — curation fields. `doclang` is a BCP-47 tag recording
+            -- what the paper *is* ("de-Latf": German set in Fraktur) where
+            -- `ocrlang` above records what to *do* about it; `pagemap` is
+            -- free text describing the scan's physical structure, so a
+            -- `keeppages` range is auditable by eye. Both are round-tripped
+            -- and read by nothing — no pipeline stage and no fingerprint.
+            doclang        TEXT,
+            pagemap        TEXT,
+            -- #188 — physical page selection, e.g. `3--20`. Unlike the two
+            -- above this one changes the document: every later stage sees
+            -- only the selected pages, so it is fingerprinted.
+            keeppages      TEXT,
             created_at     REAL NOT NULL,
             updated_at     REAL NOT NULL
         );
@@ -351,13 +363,18 @@ _V05_WORKS_COLUMNS = [
 _V11_WORKS_COLUMNS = [
     ("ocrlang", "TEXT"),  # #176
 ]
+_V12_WORKS_COLUMNS = [
+    ("doclang", "TEXT"),    # #214
+    ("pagemap", "TEXT"),    # #214
+    ("keeppages", "TEXT"),  # #188
+]
 
 
 def _migrate_works_columns(conn: sqlite3.Connection) -> None:
     """Idempotent ALTER TABLE for works.* additions from past releases."""
     have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
     for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS,
-                       *_V11_WORKS_COLUMNS):
+                       *_V11_WORKS_COLUMNS, *_V12_WORKS_COLUMNS):
         if name not in have:
             conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
@@ -379,19 +396,28 @@ _NON_PUBLISHABLE_LICENSES = frozenset({
 
 
 def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) -> None:
-    """Copy bib-derived license + serve + ocrlang fields from metadata.json
-    into works.*.
+    """Copy bib-derived license + serve + ocrlang + curation fields from
+    metadata.json into works.*.
 
     ``ocrlang`` (#176) rides along here purely so ``corpus bib export``
     can round-trip it. Nothing in the pipeline reads it back from this
     table — the scan stage reads it straight off the BibIndex, because it
     has to run before the authority DB exists.
+
+    ``doclang`` and ``pagemap`` (#214) ride along for the same reason and
+    go one step further: nothing reads them *at all*. They are a curator's
+    record of what a document is and how the scan is put together, and
+    keeping them inert is what makes them safe to correct — fixing a typo
+    in a note must not reprocess a document.
     """
     license_v = meta.get("license")
     license_url = meta.get("license_url")
     serve_v = meta.get("serve")
     serve_reason = meta.get("serve_reason")
     ocrlang = meta.get("ocrlang")
+    doclang = meta.get("doclang")
+    pagemap = meta.get("pagemap")
+    keeppages = meta.get("keeppages")
 
     # Build the SET clause only for fields we have a value for.
     sets, params = [], []
@@ -412,6 +438,15 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     if ocrlang:
         sets.append("ocrlang = ?")
         params.append(ocrlang)
+    if doclang:
+        sets.append("doclang = ?")
+        params.append(doclang)
+    if pagemap:
+        sets.append("pagemap = ?")
+        params.append(pagemap)
+    if keeppages:
+        sets.append("keeppages = ?")
+        params.append(keeppages)
     if sets:
         params.append(work_id)
         conn.execute(

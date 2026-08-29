@@ -351,6 +351,23 @@ _SOFT_RATE_MIN_DOCS = _CITATION_GRAPH_MIN_DOCS
 # as ~100%, which 90/95 catches; anything subtler this check cannot see on
 # a loosely-coupled corpus and should not pretend to.
 #
+# That reasoning is now confirmed rather than argued (PLAN v1.2 §3). The
+# gold transcriptions carry the reference sections as printed, so reference
+# *parsing* can be measured directly: of 659 references Grobid extracted
+# across the gold corpuscle, **94.8% have a title that appears in the gold
+# text of that document**. Grobid is not inventing references, and the
+# residue falls on the same axes as everything else —
+#
+#     Ahuja 2026, Mańko 2020, Hosia 2024, Stepanjants 2014   100%
+#     Totton 1965a                                            95.5%
+#     Benasso 1976                                            83.9%
+#     Eschscholtz 1825 (Fraktur)                              50.0%
+#     Linnaeus 1735                                            0.0%
+#
+# So the loose ceiling above is justified: parsing is good, and the thing
+# this check actually varies with is how tightly the corpus cites itself.
+# Tightening it would catch corpus assembly, not a pipeline regression.
+#
 # The OCR rows were measured before the #176 fix and should tighten once
 # affected papers are re-ingested.
 _SOFT_RATE_CEILINGS = {

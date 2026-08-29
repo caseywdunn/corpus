@@ -134,6 +134,18 @@ class GrobidConfig(BaseModel):
         default=False,
         description="Skip Grobid even if reachable.",
     )
+    # Grobid consolidation levels: 0 = off, 1 = look the record up in CrossRef.
+    #
+    # Header consolidation is on because it meaningfully improves per-paper
+    # metadata. Citation consolidation is off, and that default is measured
+    # rather than assumed — see the note in `pipeline/grobid_client.py`. On
+    # this material it buys almost nothing: across four documents and 194
+    # references it recovered six DOIs, for 1.4x to 2x the Grobid time. It is
+    # exposed because the arithmetic depends on the corpus. A library of
+    # modern papers, whose reference lists CrossRef actually holds, may find
+    # it worth the round trips; a historical one will not.
+    consolidate_header: int = Field(default=1, ge=0, le=2)
+    consolidate_citations: int = Field(default=0, ge=0, le=2)
 
 
 class BibliographyConfig(BaseModel):
@@ -194,6 +206,32 @@ class OcrConfig(BaseModel):
     probe_max_gibberish: float = Field(default=0.50, ge=0.0, le=1.0)
     probe_dpi: int = Field(default=300, ge=72, le=600)
     probe_sample_pages: int = Field(default=5, ge=1, le=25)
+    # None = derive from the allocation this process is actually running
+    # inside — SLURM env, affinity mask, cgroup quota, then the machine —
+    # and from the memory those same sources allow. See
+    # pipeline.scan._resolve_ocr_jobs; deriving it from the *host* is how
+    # #254 blanked ~9.5% of a cluster build. An explicit value is honoured
+    # verbatim, including one larger than the derived cap — an operator who
+    # knows their pages are light should be able to say so (#209).
+    jobs: Optional[int] = Field(default=None, ge=1, le=256)
+
+
+class ComputeConfig(BaseModel):
+    """Which accelerator the ML stages run on (#198).
+
+    ``auto`` checks that the visible GPU's compute capability is one this
+    torch build actually ships kernels for, which plain availability does not
+    — a GPU too old for the pinned torch fails every kernel launch rather
+    than falling back. Pin ``cpu`` to take the decision out of play entirely;
+    a pinned value is honoured verbatim.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    accelerator: Literal["auto", "cpu", "cuda", "mps"] = Field(
+        default="auto",
+        description="Device for docling layout/table models and embeddings.",
+    )
 
 
 class ChunkingConfig(BaseModel):
@@ -282,6 +320,7 @@ class CorpuscleConfig(BaseModel):
 
     # System-wide tuning blocks (carried from v0.2 _DEFAULT_CONFIG).
     ocr: OcrConfig = Field(default_factory=OcrConfig)
+    compute: ComputeConfig = Field(default_factory=ComputeConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     stage_timeouts: StageTimeoutsConfig = Field(default_factory=StageTimeoutsConfig)
     huge_document: HugeDocumentConfig = Field(default_factory=HugeDocumentConfig)

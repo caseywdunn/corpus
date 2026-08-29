@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from bib import BibIndex, ocrlang_for_pdf
+from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf
 
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_lexicons
@@ -295,6 +295,19 @@ def main():
     # Reassignment via ``global CONFIG = ...`` would only rebind the
     # local re-export — the canonical dict in pipeline.config would
     # stay at defaults.
+    # An explicitly requested config that cannot be read is an error, not a
+    # fallback (#210). `load_config` treats a missing file as "use defaults",
+    # which is right for the implicit ./config.yaml but silently discards
+    # everything the operator tuned when they named a file and it was not
+    # found. That is how a relative --config path used to fail: forwarded
+    # verbatim to a subprocess running from a different directory, missed, and
+    # replaced by defaults with a single INFO line as the only trace.
+    if args.config is not None and not Path(args.config).exists():
+        parser.error(
+            f"--config {args.config}: no such file. Every setting in it would "
+            f"be silently replaced by built-in defaults, so this is refused "
+            f"rather than run."
+        )
     loaded = load_config(args.config)
     _pipeline_config.CONFIG.clear()
     _pipeline_config.CONFIG.update(loaded)
@@ -535,6 +548,7 @@ def main():
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, pdf_map[h][0].name),
+                    keeppages=keeppages_for_pdf(bib_index, pdf_map[h][0].name),
                 ),
             )
         )
@@ -570,6 +584,7 @@ def main():
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, label),
+                    keeppages=keeppages_for_pdf(bib_index, label),
                 ),
             ):
                 would_skip.append(entry)
@@ -675,6 +690,7 @@ def main():
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,
                         ocrlang=ocrlang_for_pdf(bib_index, pdf_paths[0].name),
+                        keeppages=keeppages_for_pdf(bib_index, pdf_paths[0].name),
                     ),
                 ):
                     logger.info(

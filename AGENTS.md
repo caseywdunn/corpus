@@ -18,6 +18,8 @@ them as requirements or as the only supported workflow**.
 | `DEPLOY.md` | General | AWS deploy runbook; any corpus |
 | `dev_docs/OVERVIEW.md`, `dev_docs/PLAN.md`, `dev_docs/MCP_TOOLS.md` | General | Architecture, roadmap, tool reference |
 | `dev_docs/TESTING.md` | General | Quality test suite (ground truth, eval workflow) |
+| `dev_docs/OCR_LANGUAGES.md` | General | What the gold set says about choosing Tesseract packs: when a union helps, when it hurts, why the native pack matters (character coverage, not dictionaries), and pinning vs detection. Stable — cite this from code comments rather than PLAN.md. |
+| `dev_docs/FIGURE_PARSING.md` | General | What the gold set says about figure detection, furniture filtering and caption binding: the three questions, how each is measured and why in that shape, and where the numbers are weak. Stable — cite this from code comments rather than PLAN.md. |
 | `tools/smoke_test_sse.py` | General | Programmatic MCP smoke test; works on any corpuscle. Requires a compute node (not login) for full Layer 3 coverage — Layer 3 loads the ~600 MB BGE-M3 embedder for semantic search. |
 | `dev_docs/BOUCHET.md` | **Siphonophore + Yale Bouchet (example)** | Runbook for the Dunn-lab siphonophore corpus on Yale's Bouchet HPC. The SLURM scripts, paths, and partition names are Bouchet-specific; the pattern (config-driven `corpus run`, job arrays, pre-download models) is general. Use as a template, not a literal guide. |
 | `dev_docs/ACCEPTANCE_PROMPTS.md` | **Siphonophore (example)** | Manual acceptance prompts for the siphonophore corpuscle. Taxon names are siphonophore-specific; adapt for other groups. Referenced from BOUCHET.md. |
@@ -35,10 +37,30 @@ figure, and phrase anything derived from the size — walltimes, batch counts,
 disk sizing — as a rule that scales rather than a number measured once.
 
 This applies to the corpus size only. Genuinely fixed counts stay exact: the
-11-paper demo corpus, the MCP tool count, the 256-PDF `BATCH_SIZE`. Note
-`NUM_BATCHES` is *not* fixed — it is `ceil(unique PDFs / 256)`, so give the
-formula alongside any literal. `CHANGELOG.md` is exempt too: it records what
-was true at a release, so leave historical figures alone.
+4 + 1-paper demo corpus, the MCP tool count, the 64-PDF `BATCH_SIZE`. Note
+`NUM_BATCHES` is *not* fixed — it is `ceil(unique PDFs / BATCH_SIZE)`, so give
+the formula alongside any literal. And verify a "fixed" count before repeating
+it: every number in this paragraph was wrong when it was checked in Aug 2026 —
+the demo was slimmed 11 → 4 + 1 in v0.4, and 256 is `PASS3B_BATCH_SIZE` (the
+vision pass), not `BATCH_SIZE`, which defaults to 64.
+
+`CHANGELOG.md` is exempt too: it records what was true at a release, so leave
+historical figures alone.
+
+### Don't cite `dev_docs/PLAN.md` from code comments
+
+PLAN.md is ephemeral. It is pruned and renumbered at every release
+(CONTRIBUTING.md's release ritual, step 8), so a comment reading
+`see dev_docs/PLAN.md §10` points at a section that no longer exists — and says
+nothing about what the code does. This has already happened twice: 16 such
+comments across `mcpsrv/`, `pipeline/`, `tests/` and BOUCHET.md were left
+pointing at a v0.1-era numbering.
+
+Cite a **stable** doc instead — `dev_docs/OVERVIEW.md` for architecture and
+stage internals, `DEPLOY.md` for the served surface, `dev_docs/MCP_TOOLS.md` for
+the tool catalog — or drop the pointer and say the thing. Link by *section
+title*, not number, since those move too. Issue numbers (`#176`) are fine and
+preferred: they are permanent and carry the reasoning.
 
 ### Keep Yale specifics out of the public docs
 
@@ -63,7 +85,7 @@ Everything site-specific belongs in `dev_docs/BOUCHET.md` and `slurm/`.
 - [README.md](README.md) — installation, usage, MCP server setup, examples
 - [CONTRIBUTING.md](CONTRIBUTING.md) — branching model, release ritual, version bumps
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release
-- [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version
+- [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions for the active version. Turns over every release — never cite it from code comments (see above)
 - [dev_docs/OVERVIEW.md](dev_docs/OVERVIEW.md) — pipeline architecture, stage internals, figure pipeline, key files
 - [dev_docs/MCP_TOOLS.md](dev_docs/MCP_TOOLS.md) — full MCP tool surface + count
 - [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) — HPC runbook for siphonophore corpus on Yale Bouchet (example; adapt for other clusters/corpora)
@@ -105,7 +127,38 @@ NUM_BATCHES=8 bash slurm/batch_pipeline.sh
 | `bib/` | BibTeX round-trip + biblio authority + reconcile (`bib.parser`, `bib.export`, `bib.importer`, `bib.authority`, `bib.reconcile`). |
 | `slurm/` | SLURM batch scripts (Bouchet). |
 | `deploy/` | CloudFormation, nginx, systemd, sync + update scripts. |
+| `tools/` | Operator and measurement tooling. Reads corpuscle artifacts; **never imported by `pipeline/`**. `tools/qc/` scores a build against the gold transcription set. |
 | `tests/` | Ground-truth + corpus-wide consistency tests. |
+
+### Where library-facing work goes
+
+A *library* is the upstream collection of PDFs and a `.bib`; a *corpuscle* is
+what corpus builds from one. Code that helps curate a library — resolving a
+language tag to OCR packs, inspecting pages to decide a page range — has an
+obvious pull toward living in the library repo that needs it. It should not,
+because two libraries then carry two copies of the same knowledge and they
+drift. The siphonophore library already carries a temporary local copy of the
+BCP-47 → Tesseract table for exactly this reason.
+
+Three tiers, and the question that sorts them is **does this encode knowledge
+about PDFs and OCR, or knowledge about one particular collection?**
+
+| kind | example | home |
+| --- | --- | --- |
+| Generic PDF/OCR knowledge | `bcp47_to_tesseract` (#215) | `pipeline/` — public function, no wall needed |
+| Read-only inspection over a library | per-page evidence for `keeppages` (#217) | `tools/` |
+| A judgment about *this* collection | "this document is `de-Latf`"; "pages 1–2 are a wrapper" | `skills/` (#178), or the library repo |
+
+**`pipeline/` may never import from `tools/` or `skills/`.** That is the rule
+that keeps the tiers real, and `tests/test_import_direction.py` enforces it.
+Dependencies point one way: a skill may import from `pipeline/`, never the
+reverse.
+
+The trap this avoids is not tidiness. A mapping table duplicated into a
+library repo has to agree with what `scan.py` actually does, and nothing
+checks that it still does — the same shape as `consolidateCitations` being
+settable and never read, or `tesseract_packs` being recorded and then
+recomputed by a different route.
 
 ## Implementation notes for contributors
 

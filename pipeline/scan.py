@@ -20,11 +20,13 @@ Outputs: ``scan_detection.json`` (from detect_scan_type) and
 from __future__ import annotations
 
 import logging
+import os
 import re
+import signal
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .config import CONFIG
 
@@ -99,6 +101,140 @@ _ISO_TO_TESSERACT = {
     "zh-cn": "chi_sim",
     "zh-tw": "chi_tra",
 }
+
+
+# Tags whose *script* subtag picks a different pack than the language alone
+# would. This is the whole reason the public resolver takes BCP-47 rather than
+# ISO 639: Tesseract ships separate packs for Fraktur German, the two Chinese
+# script variants and Latin-script Serbian, and ISO has no way to name the
+# distinction. `de` can only ever mean `deu`; `de-Latf` can mean `deu_latf`.
+_BCP47_SCRIPT_PACKS = {
+    # 19th-c. German set in Fraktur. `deu` follows as a fallback because a
+    # Fraktur document's running heads, tables and citations are often set in
+    # roman, and because `deu_latf` is a modern rename — a host carrying only
+    # the older `frk` drops `deu_latf` at availability time and would
+    # otherwise be left with nothing.
+    ("de", "Latf"): ["deu_latf", "deu"],
+    ("zh", "Hans"): ["chi_sim"],
+    ("zh", "Hant"): ["chi_tra"],
+    ("sr", "Latn"): ["srp_latn"],
+    ("sr", "Cyrl"): ["srp"],
+}
+
+# langdetect emits `zh-cn` / `zh-tw`, which encode script as region and are
+# not really ISO at all. They are still what `scan_detection.json` records, so
+# they have to keep resolving; the region forms below exist for that
+# compatibility and for tags copied out of a detection record by hand.
+_BCP47_REGION_PACKS = {
+    ("zh", "CN"): ["chi_sim"],
+    ("zh", "SG"): ["chi_sim"],
+    ("zh", "TW"): ["chi_tra"],
+    ("zh", "HK"): ["chi_tra"],
+    ("zh", "MO"): ["chi_tra"],
+}
+
+# Languages Tesseract has a pack for that `_ISO_TO_TESSERACT` cannot key,
+# because they have no ISO 639-1 code. `grc` is the load-bearing one: a
+# pre-1900 systematics paper quoting Aristotle needs it, and langdetect's
+# vocabulary tops out at `el` (modern Greek).
+_BCP47_LANG_PACKS = {
+    "grc": ["grc"],
+    "sr": ["srp"],
+}
+
+# No ISO 639-1 code, so a bare `zh` names a language with two scripts and no
+# single pack. The union mirrors what the OSD branch already does for a `Han`
+# verdict (`_SCRIPT_TO_TESSERACT`): when the script genuinely is unknown, both
+# packs is the honest answer. Prefer `zh-Hans` / `zh-Hant` when it is known.
+_BCP47_AMBIGUOUS = {
+    "zh": ["chi_sim", "chi_tra"],
+}
+
+
+def _parse_bcp47(tag: str):
+    """Return ``(language, script, region)`` from a BCP-47 tag, case-folded.
+
+    Subtags are identified by shape, per BCP-47 itself: 4 alphabetic
+    characters is a script, 2 alphabetic or 3 numeric is a region. Variants,
+    extensions and private-use subtags are ignored — none of them bear on
+    which Tesseract pack to load. Underscores are accepted because that is
+    how the tag tends to come back from tooling that treats it as a locale.
+    """
+    parts = [p for p in re.split(r"[-_]", (tag or "").strip()) if p]
+    if not parts:
+        return "", None, None
+    language = parts[0].lower()
+    script = region = None
+    for part in parts[1:]:
+        if script is None and len(part) == 4 and part.isalpha():
+            script = part.capitalize()
+        elif region is None and (
+            (len(part) == 2 and part.isalpha()) or (len(part) == 3 and part.isdigit())
+        ):
+            region = part.upper()
+    return language, script, region
+
+
+def bcp47_to_tesseract(tag: str) -> List[str]:
+    """Map a BCP-47 language tag to the Tesseract packs that should read it.
+
+    Public because the mapping is generic knowledge about PDFs and OCR, not
+    about any one collection: a library's annotation pass resolves its
+    per-document language into the `ocrlang` bib directive (#176) and needs
+    this exact table. Duplicating it into each library repo is how the copies
+    come to disagree with what `scan.py` actually loads, with nothing
+    checking that they still agree.
+
+    >>> bcp47_to_tesseract("ru")
+    ['rus']
+    >>> bcp47_to_tesseract("de-Latf")
+    ['deu_latf', 'deu']
+    >>> bcp47_to_tesseract("zh-Hant")
+    ['chi_tra']
+    >>> bcp47_to_tesseract("grc")
+    ['grc']
+    >>> bcp47_to_tesseract("xx")
+    []
+
+    Three things this deliberately does not do:
+
+    **It does not check whether a pack is installed.** The caller is usually
+    annotating a bib on a machine that will never run OCR. Availability is a
+    property of the *build* host and is applied there, by
+    :func:`_resolve_ocrlang_pin`, which drops missing packs with a warning.
+
+    **It does not return vertical CJK companions.** BCP-47 describes language
+    and script; vertical setting is typesetting, and `jpn_vert` is a different
+    *model*, not a different language. It also must not be unioned with its
+    horizontal sibling — measured against the gold set, `jpn_vert` alone
+    scores 0.574 on vertical pages, `jpn` alone 0.246, and `jpn_vert+jpn`
+    0.186, worse than either. See :func:`detect_vertical_cjk` (#196), which
+    finds vertical pages geometrically instead.
+
+    **Nothing calls it at run time.** The OCR language decision stays two
+    tiers — an explicit `ocrlang` pin, else detection. Deriving packs from a
+    bib field during a build would make *this table* an input to
+    `processed.pdf` without being part of any fingerprint: improve the table
+    and nothing invalidates, so documents keep their old OCR while the log
+    reports the new `-l`. Resolving at annotation time instead leaves
+    `ocrlang` a literal, directly-fingerprinted value, and a table change
+    does nothing until the bib is rewritten — which invalidates visibly.
+    """
+    language, script, region = _parse_bcp47(tag)
+    if not language:
+        return []
+    if script and (language, script) in _BCP47_SCRIPT_PACKS:
+        return list(_BCP47_SCRIPT_PACKS[(language, script)])
+    if region and (language, region) in _BCP47_REGION_PACKS:
+        return list(_BCP47_REGION_PACKS[(language, region)])
+    if language in _BCP47_LANG_PACKS:
+        return list(_BCP47_LANG_PACKS[language])
+    pack = _ISO_TO_TESSERACT.get(language)
+    if pack:
+        return [pack]
+    if language in _BCP47_AMBIGUOUS:
+        return list(_BCP47_AMBIGUOUS[language])
+    return []
 
 
 def _detect_language(text: str):
@@ -606,15 +742,68 @@ _SCRIPT_TO_TESSERACT = {
 }
 
 
-# Vendor watermark / wrapper signatures. When a PDF's text layer contains
-# nothing but one of these markers (and below 5K chars across the sample),
-# treat it as a scanned PDF whose actual content is image-only — even
-# though docling/PyMuPDF can read the boilerplate banner. See
-# detect_scan_type's vendor cross-check.
+# Vendor **wrapper** signatures — text belonging to a cover sheet, rights
+# notice or scan banner that is not part of the paper. When a PDF's text layer
+# contains nothing but one of these (and below 5K chars across the sample),
+# the real content is raster underneath, so detect_scan_type re-routes it to
+# OCR. See detect_scan_type's vendor cross-check.
+#
+# WRAPPERS ONLY — publisher **imprints** are deliberately absent (#216).
+# An imprint is branding printed on the paper's own pages: a ScienceDirect
+# header, a Springer footer, a JSTOR "This content downloaded" running line.
+# Measured over the 1,772-document siphonophore library, the two populations
+# are nothing alike:
+#
+#     34 documents carry a wrapper string
+#    373 documents carry an imprint string
+#
+# Here the distinction is mild, because a match only costs a wasteful re-OCR.
+# It is not mild for #188, where a marker is evidence a page should be
+# *dropped* — and dropping a ScienceDirect header page deletes the article's
+# first page. If these lists are ever shared, they must stay separate; a flat
+# list offers up all 373 alike.
+#
+# High precision, and the recall is better than the first reading of it. That
+# reading was: 74 bib entries record a BHL origin while only 6 carry a BHL
+# string on pages 1-2, so the wrapper page must still be there as an image
+# with no text layer. It isn't. An independent page-by-page annotation of the
+# same library — a reader working from rendered pages rather than from strings
+# — found 34 documents with a vendor wrapper, which is what this list finds.
+#
+# Scan provenance is not a wrapper *here*, and the reason is a curator, not
+# BHL. 220 of these PDFs carry BHL or Internet Archive provenance in their
+# embedded metadata (Creator, Producer); only 8 still have a cover page. The
+# rest were stripped by hand when the library was assembled — 210 of those 212
+# have a ModDate later than their CreationDate, against 4 of the 8 that kept
+# theirs.
+#
+# So this list's recall on *this* library is partly borrowed from someone
+# else's editing, and must not be read as a property of the strings. A corpus
+# built from fresh BHL downloads would carry a cover sheet on every one of
+# those 220, and would need this list to fire on all of them. It would: the
+# 8 survivors match. But the 34-of-1,773 figure above is a fact about a
+# curated library, not a bound on what wrappers cost.
+#
+# What that annotation does show is that wrappers are the small part of the
+# problem. It recorded a title page in 391 documents against a wrapper in 34 —
+# front covers, flyleaves, bookplates, a bound volume's own title page. None
+# carries a vendor string because there is no vendor; those pages are the
+# book. No addition to this list can reach them, which is why #188 needs a
+# structural signal — is this page raster, blank, or text? — and not a longer
+# table.
 _VENDOR_BOILERPLATE = (
     "ProQuest ebrary",
     "biodiversitylibrary.org",
     "This page intentionally left blank",
+    # JSTOR cover sheet — 20 documents, the most common wrapper here.
+    "links.jstor.org",
+    "Your use of the JSTOR archive",
+    # Google Books, including the localised variant that appears on German
+    # scans and is 3.7 KB on its own, still inside the 5K gate.
+    "books.google.com",
+    "digitized by Google",
+    "Über dieses Buch",
+    "researchgate.net",
 )
 
 
@@ -670,6 +859,411 @@ def _resolve_tesseract_packs(
             if tess == "deu" and "deu_latf" in available and "deu_latf" not in chosen:
                 chosen.append("deu_latf")
     return chosen
+
+
+# Memory model for the OCR worker pool (#209), in GB. Each term was measured
+# on a 12-core / 30 GB host building a 93-PDF corpuscle, reported with a
+# process table in that issue:
+#
+#   ocrmypdf's own parent process      ~6.0    grows with document length
+#   one Tesseract worker               ~1.9    on a dense 300-dpi scan
+#   the Grobid JVM, for the whole run  ~3.4    -Xmx4g in docker-compose.yml
+#
+# plus headroom for docling's models, the page cache and the OS. A worker is
+# budgeted at 2.5 rather than the measured 1.9 because the measurement is a
+# single host and the failure mode is an OOM kill, not a slowdown.
+_OCR_PARENT_GB = 6.0
+_OCR_WORKER_GB = 2.5
+_OCR_RESERVED_GB = 10.0          # Grobid JVM + docling + page cache + OS
+
+
+def _host_ram_gb() -> Optional[float]:
+    """Total physical RAM in GB, or ``None`` where it cannot be determined.
+
+    ``os.sysconf`` rather than ``psutil``: psutil is present in the
+    environment only as a transitive dependency of other packages, and this
+    must not start failing because one of them drops it.
+
+    This is the *machine*, which on a shared cluster node is not what this
+    process may use. Size the worker pool from :func:`_available_ram_gb`.
+    """
+    try:
+        return (os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")) / 2 ** 30
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+def _read_int(path: str) -> Optional[int]:
+    """First whitespace-delimited integer in a sysfs file, or ``None``."""
+    try:
+        with open(path) as f:
+            return int(f.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _cgroup_cpus() -> Optional[float]:
+    """CPUs this cgroup may use, from a CPU quota, or ``None`` if unlimited.
+
+    cgroup v2 writes ``"<quota> <period>"`` into ``cpu.max`` with the
+    literal ``max`` for no limit; v1 splits the same pair across
+    ``cpu.cfs_quota_us`` (``-1`` for no limit) and ``cpu.cfs_period_us``.
+    """
+    try:
+        with open("/sys/fs/cgroup/cpu.max") as f:
+            quota_s, _, period_s = f.read().strip().partition(" ")
+        if quota_s != "max":
+            quota, period = int(quota_s), int(period_s or 100000)
+            if quota > 0 and period > 0:
+                return quota / period
+        return None
+    except (OSError, ValueError):
+        pass
+    quota = _read_int("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
+    period = _read_int("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
+    if quota and quota > 0 and period and period > 0:
+        return quota / period
+    return None
+
+
+def _allocated_cpus() -> Optional[int]:
+    """CPUs this *process* may use, not the ones the machine has (#254).
+
+    ``os.cpu_count()`` describes the host. Inside a SLURM allocation or a
+    container that is the wrong number by an order of magnitude — a
+    ``--cpus-per-task=8`` step on a 64-core node reads 64 — and handing it
+    to ocrmypdf spawns 64 Tesseract workers onto 8 cores. Nothing OOMs;
+    the pages simply starve until ``--tesseract-timeout`` fires and blanks
+    them.
+
+    Preference order, most authoritative first: the batch system's own
+    statement of the allocation, then the scheduler-enforced affinity mask,
+    then a cgroup CPU quota (which affinity does not reflect), then the
+    host as a last resort.
+    """
+    for var in ("SLURM_CPUS_PER_TASK", "SLURM_CPUS_ON_NODE"):
+        try:
+            n = int(os.environ[var])
+            if n > 0:
+                return n
+        except (KeyError, ValueError):
+            pass
+    try:
+        n = len(os.sched_getaffinity(0))
+        if n > 0:
+            return n
+    except (AttributeError, OSError):
+        pass
+    quota = _cgroup_cpus()
+    if quota:
+        return max(1, int(quota))
+    return os.cpu_count()
+
+
+def _cgroup_ram_gb() -> Optional[float]:
+    """Memory limit on this cgroup in GB, or ``None`` if unlimited.
+
+    A v1 limit of "unlimited" is not absent but a number near 2^63, so
+    anything at or above the host's physical RAM is discarded rather than
+    trusted as a limit.
+    """
+    limit = None
+    try:
+        with open("/sys/fs/cgroup/memory.max") as f:
+            raw = f.read().strip()
+        limit = None if raw == "max" else int(raw)
+    except (OSError, ValueError):
+        limit = _read_int("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+    if not limit or limit <= 0:
+        return None
+    gb = limit / 2 ** 30
+    host = _host_ram_gb()
+    if host is not None and gb >= host:
+        return None                       # the "no limit" sentinel
+    return gb
+
+
+def _available_ram_gb() -> Optional[float]:
+    """RAM this process may use: the smallest limit that actually binds.
+
+    The allocation first (``$SLURM_MEM_PER_NODE``, in MB, or
+    ``$SLURM_MEM_PER_CPU`` times the allocated CPUs), then a cgroup limit,
+    then the machine. Whichever is smallest is the one that will kill the
+    build, so that is the one the worker pool is sized against.
+    """
+    limits = []
+    mem_per_node = os.environ.get("SLURM_MEM_PER_NODE")
+    mem_per_cpu = os.environ.get("SLURM_MEM_PER_CPU")
+    try:
+        if mem_per_node:
+            limits.append(int(mem_per_node) / 1024)
+        elif mem_per_cpu:
+            limits.append(int(mem_per_cpu) / 1024 * (_allocated_cpus() or 1))
+    except ValueError:
+        pass
+    for value in (_cgroup_ram_gb(), _host_ram_gb()):
+        if value is not None:
+            limits.append(value)
+    return min(limits) if limits else None
+
+
+def _run_ocr(cmd: List[str], timeout: float):
+    """Run ocrmypdf, and take its Tesseract workers down with it (#209).
+
+    ``subprocess.run(..., timeout=)`` kills the direct child only. ocrmypdf's
+    Tesseract workers are *grandchildren*, so on a timeout they were reparented
+    to PID 1 and kept running — holding ~20 GB on the host that reported this,
+    long after the pipeline had given up on the document.
+
+    Running ocrmypdf in its own process group makes the whole tree killable in
+    one call. The cost is that a terminal signal no longer reaches it by
+    itself, so ``KeyboardInterrupt`` is forwarded explicitly; without that,
+    Ctrl-C would leave exactly the orphans this is meant to prevent.
+
+    A ``SIGKILL`` delivered to the pipeline from outside still cannot be
+    handled here — nothing can — but that is now the only path that orphans
+    the tree.
+    """
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        start_new_session=True,
+    )
+
+    def _kill_tree():
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass                          # already gone
+
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree()
+        proc.communicate()                # reap, so no zombie is left behind
+        raise
+    except BaseException:                 # KeyboardInterrupt, SystemExit, ...
+        _kill_tree()
+        proc.communicate()
+        raise
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+
+
+def _resolve_ocr_jobs() -> Optional[int]:
+    """How many Tesseract workers ocrmypdf may run, or ``None`` for its default.
+
+    ocrmypdf runs one worker per CPU and offers no way to reduce it from
+    outside: it reads ``multiprocessing.cpu_count()``, which ignores CPU
+    affinity, so neither ``taskset`` nor a cgroup CPU limit reaches it. A
+    12-core host therefore reaches for ~20 GB of Tesseract on a dense scan and
+    is OOM-killed. A cgroup memory limit contains the blast radius but does not
+    prevent the overrun — the build still dies, just tidily (#209).
+
+    Two things bind, and the smaller wins: how many CPUs this process may
+    actually use, and how many workers its memory pays for.
+
+    **Always pass the number when it is known** (#254). Returning ``None``
+    to mean "you decide" hands the decision back to
+    ``multiprocessing.cpu_count()``, which is the thing that is wrong on a
+    cluster: an 8-CPU SLURM step on a 64-core node ran 64 Tesseract workers,
+    each on an eighth of a core, and ~9.5% of documents in a full build
+    crossed ``--tesseract-timeout`` and were silently blanked. RAM was never
+    the constraint there — 64 x 2.5 GB fits inside a 256 G request — so a
+    memory-only cap returned ``None`` and let it happen twice. ``None`` now
+    means only that nothing could be determined about this host at all.
+
+    On a workstation, where the allocation *is* the machine, passing
+    ``--jobs $(nproc)`` is exactly ocrmypdf's own default, so nothing
+    changes and nothing gets slower.
+    """
+    configured = CONFIG.get("ocr", {}).get("jobs")
+    if configured:
+        return int(configured)
+
+    cpus = _allocated_cpus()
+    ram = _available_ram_gb()
+    if ram is None:
+        return cpus                       # unknown memory; the CPU cap still holds
+    budget = ram - _OCR_RESERVED_GB - _OCR_PARENT_GB
+    affordable = max(1, int(budget // _OCR_WORKER_GB))
+    if cpus is None:
+        return affordable                 # unknown CPUs; the RAM cap still holds
+    return max(1, min(cpus, affordable))
+
+
+def _vertical_cjk_hint(langs, detection_result) -> Optional[str]:
+    """Tell the operator to consider a vertical CJK pack, or return ``None``.
+
+    A hint rather than an automatic swap, because the measurement says no
+    static rule is safe — see ``_VERTICAL_COMPANION``. Silent when the
+    operator has already pinned packs (they have made this call themselves)
+    and when the vertical model is not installed (advice to pin a pack that
+    is not there sends them in circles).
+    """
+    if detection_result.get("ocrlang_honored"):
+        return None
+    available = _available_tesseract_langs()
+    vertical = [
+        _VERTICAL_COMPANION[lang] for lang in langs
+        if lang in _VERTICAL_COMPANION and _VERTICAL_COMPANION[lang] in available
+    ]
+    if not vertical:
+        return None
+    return (
+        "OCR'ing with a horizontal CJK model. If this document is set "
+        "vertically, pin `ocrlang = {%s}` in the bib — worth about 2x the "
+        "words recovered on vertical pages. Do not pin it alongside %s; the "
+        "union scores worse than either alone."
+        % ("+".join(vertical), "+".join(langs))
+    )
+
+
+# Below this many detected text lines a page does not get a vote on writing
+# direction. A plate carrying two stray labels would otherwise swing the
+# decision for a whole document.
+_MIN_LINES_FOR_ORIENTATION_VOTE = 5
+
+# A line this much wider than tall is horizontal; this much taller than wide is
+# vertical. The gap between them is dead space, so a page of near-square blocks
+# abstains rather than voting noise.
+_HORIZONTAL_LINE_ASPECT = 1.6
+_VERTICAL_LINE_ASPECT = 0.6
+
+
+def _page_line_orientation(png_bytes: bytes, pack: str) -> tuple:
+    """``(tall, wide)`` counts of Tesseract's detected text-line boxes.
+
+    **Geometry, not recognition.** The obvious way to choose between `jpn` and
+    `jpn_vert` is to OCR a page with each and keep the more confident result.
+    Measured, that does not work: Tesseract reads a vertical column as a stack
+    of single characters and is *confident* about each one, so on this corpus's
+    vertical pages plain `jpn` scores 61.4 mean confidence against `jpn_vert`'s
+    58.1 — it prefers the wrong model, and by enough to be decisive. (It does
+    correctly reject `jpn_vert` on horizontal pages, 80.9 against 20.4, so the
+    signal is not merely weak; it is asymmetric and misleading.)
+
+    A line *box*, by contrast, is tall or wide whatever the glyphs inside it
+    were read as. The separation is about three orders of magnitude — median
+    width/height 0.04 on vertically-set pages against 21-53 on horizontal ones,
+    including horizontal pages of the same document read with the same pack.
+    """
+    try:
+        result = subprocess.run(
+            ["tesseract", "-", "-", "-l", pack, "tsv"],
+            input=png_bytes, capture_output=True, timeout=180,
+        )
+    except Exception as e:
+        logger.debug("Orientation probe failed: %s", e)
+        return 0, 0
+    tall = wide = 0
+    for line in result.stdout.decode("utf8", "replace").splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) < 12 or parts[0] != "4":     # tsv level 4 == text line
+            continue
+        try:
+            w, h = int(parts[8]), int(parts[9])
+        except ValueError:
+            continue
+        if w < 20 or h < 20:                       # specks, not lines
+            continue
+        if w / h < _VERTICAL_LINE_ASPECT:
+            tall += 1
+        elif w / h > _HORIZONTAL_LINE_ASPECT:
+            wide += 1
+    return tall, wide
+
+
+def _is_raster_page(page) -> bool:
+    """True if the page is a full-bleed bitmap — i.e. a scan.
+
+    Same test :func:`_scanned_page_fraction` applies, at page granularity.
+    """
+    area = abs(page.rect.width * page.rect.height)
+    if not area:
+        return False
+    biggest = 0.0
+    for block in page.get_text("dict").get("blocks", []):
+        if block.get("type") == 1:
+            x0, y0, x1, y1 = block.get("bbox", (0, 0, 0, 0))
+            biggest = max(biggest, abs((x1 - x0) * (y1 - y0)))
+    return biggest / area >= _FULL_PAGE_IMAGE_FRAC
+
+
+def detect_vertical_cjk(pdf_path: Path, langs: List[str]) -> Optional[str]:
+    """Return the ``_vert`` pack this document should use, or ``None``.
+
+    Tesseract ships a separate model for vertically-set CJK and detection never
+    reached it, so a vertically-set document was read by a horizontal model —
+    worth about half the words on those pages (#196). The two packs cannot be
+    combined: measured against a hand transcription, ``jpn_vert`` alone scores
+    0.574 on vertical pages where ``jpn`` scores 0.246, while the union of both
+    scores 0.186 — *worse than either* — because the models compete for the
+    same glyphs. So this is an exclusive choice and it has to be made right.
+
+    **The vote counts only raster pages.** Writing direction is a property of
+    the page, not the document, and mixed volumes are routine here — an English
+    typescript bound in front of a Japanese scan. But ``ocrmypdf`` takes one
+    ``-l`` for the whole document, so one choice must serve. Born-digital pages
+    resolve that: ``--redo-ocr`` preserves their existing text and the pack
+    never touches them, so they should not get a vote on it. Counting only the
+    pages OCR will actually rewrite turns an ambiguous 40% document-wide into
+    an unambiguous majority.
+
+    Both directions are equally costly to get wrong — the wrong pack scores
+    ~0.21 either way — so this is a plain majority with no threshold to tune.
+    """
+    if shutil.which("tesseract") is None:
+        return None
+    candidates = [(lang, _VERTICAL_COMPANION[lang]) for lang in langs
+                  if lang in _VERTICAL_COMPANION]
+    if not candidates:
+        return None                      # not a CJK document; nothing to decide
+    available = _available_tesseract_langs()
+    candidates = [(h, v) for h, v in candidates if v in available]
+    if not candidates:
+        return None
+    horizontal_pack, vertical_pack = candidates[0]
+
+    try:
+        import fitz
+    except ImportError:
+        return None
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception as e:
+        logger.debug("Could not open %s for orientation probe: %s", pdf_path, e)
+        return None
+    try:
+        cfg = CONFIG.get("ocr", {})
+        pages = int(cfg.get("probe_sample_pages", 5))
+        dpi = int(cfg.get("probe_dpi", 300))
+        vertical = horizontal = 0
+        for idx in _probe_sample_pages(len(doc), pages):
+            page = doc[idx]
+            if not _is_raster_page(page):
+                continue                 # born-digital: --redo-ocr keeps it
+            try:
+                img = page.get_pixmap(dpi=dpi).tobytes("png")
+            except Exception:
+                continue
+            tall, wide = _page_line_orientation(img, horizontal_pack)
+            if tall + wide < _MIN_LINES_FOR_ORIENTATION_VOTE:
+                continue                 # too little on the page to judge
+            if tall > wide:
+                vertical += 1
+            else:
+                horizontal += 1
+    finally:
+        doc.close()
+
+    if vertical > horizontal:
+        logger.info(
+            "%s: %d of %d sampled scan pages are set vertically; using %s "
+            "instead of %s",
+            pdf_path.name, vertical, vertical + horizontal,
+            vertical_pack, horizontal_pack,
+        )
+        return vertical_pack
+    return None
 
 
 def _parse_ocrlang(raw: Optional[str]) -> List[str]:
@@ -991,7 +1585,8 @@ def create_cell_visualizations(
 
 
 
-def _annotate_pack_availability(ocrlang: Optional[str], result: Dict) -> Dict:
+def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
+                                pdf_path: Optional[Path] = None) -> Dict:
     """Tag a :func:`detect_scan_type` result with Tesseract pack availability.
 
     ``ocrlang`` is the operator's per-document override from the bib
@@ -1064,6 +1659,55 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict) -> Dict:
         restrict_to_script=result.get("script_hint"),
         extra_isos=extra_isos,
     )
+    # #197 — "no packs resolved" and "could not ask" are different facts and
+    # were recorded identically, as an empty list. Three documents in the
+    # reference corpuscle once recorded `tesseract_packs: []` while OCR ran
+    # with seven packs, because `_available_tesseract_langs()` returned empty
+    # at detection time and `_compose_ocr_langs` exits early on that before
+    # the configured fallback union is ever reached.
+    #
+    # `scan_detection.json` is the operator-facing record — `corpus status`
+    # reads it, and #176's `ocrlang` workflow tells an operator to consult it
+    # when choosing a pack to pin. A document whose record says "no packs"
+    # when seven were used sends that diagnosis in the wrong direction, and
+    # these are exactly the documents an operator would be investigating.
+    #
+    # The symptom no longer reproduces on current code — every document in the
+    # 35-document corpuscle now records what OCR actually ran. The flag is the
+    # guard: if the probe ever comes back empty again, the record says so
+    # instead of looking like a resolution that found nothing.
+    if not _available_tesseract_langs():
+        result["tesseract_langs_unavailable"] = True
+        logger.warning(
+            "%s: could not enumerate Tesseract languages, so the recorded "
+            "tesseract_packs is 'unknown' rather than 'none'. OCR may still "
+            "run with the configured default union — check the Running OCR "
+            "line for what it actually used.",
+            result.get("filename", "?"),
+        )
+    # #196 — swap a horizontal CJK pack for its vertical counterpart when the
+    # page geometry says the text is set vertically. Only reached when a CJK
+    # pack was resolved, so it costs nothing on the rest of the corpus, and it
+    # is a *replacement* rather than an addition: the union of both packs
+    # measures worse than either alone.
+    if pdf_path is not None:
+        vertical_pack = detect_vertical_cjk(pdf_path, result["tesseract_packs"])
+        if vertical_pack:
+            # The vertical pack goes in ALONE — not merely in place of its
+            # horizontal counterpart. Any other model competes for the same
+            # glyphs and undoes it, and that includes `eng`. Measured on the
+            # vertical pages of the document this was built for:
+            #
+            #     jpn+eng           0.246      (what detection used to pick)
+            #     jpn_vert+jpn+eng  0.186
+            #     jpn_vert+eng      0.176      (first attempt at this fix)
+            #     jpn_vert          0.574
+            #
+            # Dropping `eng` is safe precisely because the vote counted only
+            # raster pages: any born-digital Latin text in the volume is
+            # preserved by --redo-ocr and never reaches Tesseract at all.
+            result["tesseract_packs"] = [vertical_pack]
+            result["vertical_cjk"] = True
     if iso is None and visual is None:
         result["tesseract_pack_available"] = None
     else:
@@ -1080,6 +1724,82 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict) -> Dict:
         if dropped:
             result["ocrlang_dropped"] = dropped
     if honored:
+        # #245 — a pin does not merely choose packs, it *discards* the ones
+        # detection had resolved, and that is invisible today. Pinning 31 of
+        # 35 gold documents from a derived `doclang` tag moved corpus-wide
+        # prose coverage 0.9474 -> 0.9450 with every language correct: each
+        # pin replaced a union with a single pack. Narrowing is not uniformly
+        # bad — two documents improved — so the pin still wins. But a
+        # directive that silently costs 0.05 should not look identical to one
+        # that gains it.
+        #
+        # An annotation pass deriving `ocrlang` from `doclang` emits one pack
+        # per language by construction, so it narrows every multilingual
+        # document at once, with no per-document symptom. It took a
+        # per-document comparison against ground truth to find, and most
+        # corpora have none.
+        # Compare against the list that would actually have been used —
+        # `tesseract_packs`, the same value `prepare_pdf` reads — not against
+        # targeted resolution.
+        #
+        # The first version of this compared against `targeted`, reasoning
+        # that pinning over a fallback union is not narrowing but the case
+        # `ocrlang` exists for. Run against the reference corpuscle, that
+        # flagged 4 documents of the 22 whose pack list the pin changed, and
+        # missed the largest regression in the set: `Linnaeus1735` went from
+        # seven packs to `lat` alone and lost 0.079, with detection reporting
+        # no targeted resolution at all. The distinction was real but it is
+        # not the one worth acting on — what displaced what is.
+        #
+        # `ocrlang_narrowed_from_targeted` keeps the distinction as a
+        # qualifier: those are the packs detection resolved from the
+        # document's own evidence rather than from the configured fallback.
+        would_use = result.get("tesseract_packs") or []
+        displaced_packs = [p for p in would_use if p not in honored]
+        displaced_targeted = [p for p in targeted if p not in honored]
+        if displaced_packs:
+            result["ocrlang_narrowed_from"] = displaced_packs
+            if displaced_targeted:
+                result["ocrlang_narrowed_from_targeted"] = displaced_targeted
+            logger.info(
+                "ocrlang=%r on %s: OCR would have used %s; the pin drops "
+                "%s. Tesseract arbitrates per word, so a complementary pack "
+                "usually adds rather than competes — see "
+                "dev_docs/OCR_LANGUAGES.md.",
+                ocrlang, result.get("filename"), "+".join(would_use),
+                "+".join(displaced_packs),
+            )
+        # The geometric verdict (#196) was reached above, on the packs
+        # detection resolved, and is still recorded. If it said this document
+        # is set vertically and the pin names the horizontal sibling, the pin
+        # still wins — `ocrlang` is documented to beat every inferred signal,
+        # and silently overriding an explicit operator instruction is worse
+        # than obeying a bad one. But it must not be silent.
+        #
+        # This case is not hypothetical and is not operator carelessness. An
+        # annotation pass that derives `ocrlang` from a `doclang` tag (#214,
+        # #215) *cannot* get it right: BCP-47 describes language and script,
+        # and vertical setting is typesetting — deliberately out of scope for
+        # `bcp47_to_tesseract`. So the derivation produces `jpn` for a
+        # vertically-set Japanese paper, every time, and the hint below is
+        # silenced precisely because a pin exists. Measured on the document
+        # #196 was written for: `jpn_vert` 0.574 against `jpn` 0.246.
+        if result.get("vertical_cjk"):
+            displaced = [p for p in honored if p in _VERTICAL_COMPANION]
+            if displaced:
+                wanted = "+".join(_VERTICAL_COMPANION[p] for p in displaced)
+                result["ocrlang_overrides_vertical_cjk"] = wanted
+                logger.warning(
+                    "ocrlang=%r on %s pins a horizontal CJK model, but the "
+                    "page geometry says this document is set vertically. "
+                    "Honoring the pin, as documented — but `ocrlang = {%s}` "
+                    "is worth about 2x the words on those pages. Pin it "
+                    "alone: the union with %s scores worse than either. "
+                    "If this tag was derived from `doclang`, note that "
+                    "BCP-47 cannot express writing direction.",
+                    ocrlang, result.get("filename"), wanted,
+                    "+".join(displaced),
+                )
         result["tesseract_packs"] = honored
         result["tesseract_pack_available"] = True
         if dropped:
@@ -1116,6 +1836,34 @@ _FULL_PAGE_IMAGE_FRAC = 0.50
 # scan end to end and rasterizing it costs nothing. Below it there is
 # real digital text worth preserving, so OCR uses --redo-ocr instead.
 _MOSTLY_SCANNED_FRAC = 0.95
+
+# Tesseract ships a separate model for vertically-set text in each CJK script.
+# Detection never reaches them: `_ISO_TO_TESSERACT` maps "ja" to `jpn` and
+# nothing downstream reconsiders it.
+#
+# This deliberately does NOT work like the Fraktur companion above, and the
+# difference is measured rather than assumed. `deu`+`deu_latf` are added
+# *together* because they degrade gracefully — a surplus pack costs little.
+# The vertical models do not. Scored against a hand transcription of the same
+# pages, as the fraction of printed words recovered:
+#
+#                        horizontal Japanese   vertical Japanese
+#     jpn                       0.75                 0.25
+#     jpn_vert                  0.21                 0.57
+#     jpn_vert+jpn               --                  0.19
+#
+# The union is worse than *either* pack alone, because the two models compete
+# for the same glyphs, and each pack is catastrophic on the other's direction.
+# So there is no static rule to add here — the choice has to match the
+# document, and `ocrmypdf` takes one pack list per document, so it cannot even
+# be made per page. The supported answer is the `ocrlang` bib directive
+# (#176), and this table exists only to tell the operator when to reach for it.
+_VERTICAL_COMPANION = {
+    "jpn": "jpn_vert",
+    "chi_sim": "chi_sim_vert",
+    "chi_tra": "chi_tra_vert",
+    "kor": "kor_vert",
+}
 
 
 def _scanned_page_fraction(pdf_path: Path, pages_to_check: int = 8) -> Optional[float]:
@@ -1242,7 +1990,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "language_confidence": 0.0,
             "gibberish_score": 0.0,
             "ocr_mode": None,
-        })
+        }, pdf_path)
 
     # Read up to the first 5 pages (or all pages if the doc is shorter) —
     # enough text for language detection and gibberish scoring without
@@ -1265,7 +2013,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "language_confidence": 0.0,
             "gibberish_score": 0.0,
             "ocr_mode": "skip_text",
-        })
+        }, pdf_path)
 
     stripped = total_text.strip()
     total_chars = len(stripped)
@@ -1313,7 +2061,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             "ocr_mode": "skip_text",
-        })
+        }, pdf_path)
 
     # Has enough text — now triage born_digital vs broken_text_layer.
     lang, conf = _detect_language(total_text)
@@ -1349,7 +2097,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "pages_checked": pages_to_check,
             "ocr_mode": "skip_text",
             "vendor_marker": matched,
-        })
+        }, pdf_path)
 
     # --- Raster-page cross-check -------------------------------------
     # Everything below this point reasons about the *content* of the text
@@ -1457,7 +2205,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                     "force_ocr" if coverage >= _MOSTLY_SCANNED_FRAC
                     else "redo_ocr"
                 ),
-            })
+            }, pdf_path)
 
     threshold = float(_ocr_cfg.get("gibberish_threshold", 0.65))
 
@@ -1479,7 +2227,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             "ocr_mode": "force_ocr",
-        })
+        }, pdf_path)
 
     # --- Visual-vs-text cross-check ---
     # If the text layer is almost entirely Latin-family characters *and*
@@ -1521,7 +2269,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                 "total_chars_sampled": total_chars,
                 "pages_checked": pages_to_check,
                 "ocr_mode": "force_ocr",
-            })
+            }, pdf_path)
 
     return _annotate_pack_availability(ocrlang, {
         "filename": pdf_path.name,
@@ -1541,7 +2289,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
         "total_chars_sampled": total_chars,
         "pages_checked": pages_to_check,
         "ocr_mode": None,
-    })
+    }, pdf_path)
 
 
 # ocrmypdf reports per-page trouble on stderr and still exits 0. These
@@ -1613,31 +2361,108 @@ def _log_ocr_warnings(stderr: Optional[str], name: str) -> None:
             level("[%s] ocrmypdf: %d %s", name, n, explanation)
 
 
-def _warn_on_empty_ocr_pages(output_pdf: Path, name: str) -> None:
-    """Warn when OCR produced no text at all on some pages.
+# ocrmypdf's PageNumberFilter prefixes each per-page log line with the page
+# that emitted it, so the pages it gave up on are named rather than merely
+# counted:
+#
+#        12 [tesseract] took too long to OCR - skipping
+#
+# The number is matched where it sits — immediately before the message —
+# rather than at the start of the line, because ocrmypdf's verbose format
+# puts a level and logger name in front of it. The bracketed tag is optional
+# for the same reason: what identifies the line is the page number and the
+# message, and both of the other two fields have moved between releases.
+_OCR_TIMEOUT_PAGE_RE = re.compile(
+    r"(\d+)\s+(?:\[[^\]\n]*\]\s*)?took too long to OCR"
+)
 
-    The end-state check, independent of whatever ocrmypdf said: a page
-    that came out of OCR with zero characters is either genuinely blank,
-    a plate, or a page we lost. Worth a line in the log either way,
-    because the alternative is discovering it in the embeddings.
+
+def _ocr_timeout_pages(stderr: Optional[str]) -> List[int]:
+    """1-based page numbers ocrmypdf abandoned to ``--tesseract-timeout``.
+
+    Counting these lines is not enough (#254): the count says how much was
+    lost but not *where*, and without the page numbers a blanked page is
+    indistinguishable from a blank verso.
     """
+    if not stderr:
+        return []
+    return sorted({int(m.group(1)) for m in _OCR_TIMEOUT_PAGE_RE.finditer(stderr)})
+
+
+def _pages_without_text(output_pdf: Path) -> Optional[Tuple[List[int], int]]:
+    """``(1-based pages with no text, total pages)``, or ``None`` unreadable."""
     try:
         import fitz
         with fitz.open(output_pdf) as doc:
-            empty = [i + 1 for i, pg in enumerate(doc) if not pg.get_text("text").strip()]
-            total = len(doc)
+            empty = [i + 1 for i, pg in enumerate(doc)
+                     if not pg.get_text("text").strip()]
+            return empty, len(doc)
     except Exception:
-        return
+        return None
+
+
+def _page_list(pages: List[int], limit: int = 12) -> str:
+    return ", ".join(str(p) for p in pages[:limit]) + ("…" if len(pages) > limit else "")
+
+
+def _report_ocr_page_loss(
+    output_pdf: Path, name: str, stderr: Optional[str],
+) -> Dict[str, Any]:
+    """Separate pages OCR *lost* from pages that were always empty (#254).
+
+    Two signals, each ambiguous alone. ocrmypdf names the pages it gave up
+    on, but ``--tesseract-timeout`` is documented to copy the un-OCR'd image
+    through and exit 0, so a named page may still carry a pre-existing text
+    layer and be fine. The end-state check finds pages with no text, but a
+    plate, a blank verso and a page we lost all look identical to it.
+
+    Intersect them and the ambiguity goes away, exactly and without a
+    heuristic:
+
+    ==============================  ==========================  ============
+    page                            meaning                     disposition
+    ==============================  ==========================  ============
+    empty AND named by Tesseract    blanked — known data loss   gate at error
+    empty, not named                blank verso, plate, figure  expected
+    ==============================  ==========================  ============
+
+    Returns the record persisted into ``scan_detection.json``, so the loss
+    survives the run and is queryable after the fact rather than living only
+    in the log of whichever array task happened to process the document.
+    """
+    timed_out = _ocr_timeout_pages(stderr)
+    seen = _pages_without_text(output_pdf)
+    if seen is None:
+        # The PDF cannot be read; the stderr half still stands on its own.
+        return {"pages_blanked": timed_out, "pages_ocr_timed_out": timed_out}
+    empty, total = seen
+    blanked = sorted(set(timed_out) & set(empty))
+
     if empty and total:
         logger.warning(
             "[%s] %d/%d page(s) have no text after OCR (pages %s). Blank pages "
             "and plates are expected; a run of them is not.",
-            name, len(empty), total,
-            ", ".join(str(p) for p in empty[:12]) + ("…" if len(empty) > 12 else ""),
+            name, len(empty), total, _page_list(empty),
         )
+    if blanked:
+        logger.error(
+            "[%s] %d/%d page(s) were blanked by the per-page OCR timeout "
+            "(pages %s) — this is lost text, not empty pages. Cap ocr.jobs to "
+            "the CPUs this process actually has, or raise "
+            "ocr.tesseract_page_timeout.",
+            name, len(blanked), total, _page_list(blanked),
+        )
+    return {
+        "pages_blanked": blanked,
+        "pages_ocr_timed_out": timed_out,
+        "pages_without_text": empty,
+        "page_count": total,
+    }
 
 
-def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
+def prepare_pdf(
+    input_pdf: Path, detection_result: Dict, output_pdf: Path,
+) -> Dict[str, Any]:
     """Run OCR if the detection result calls for it, else copy straight through.
 
     OCR behavior is driven by ``detection_result["ocr_mode"]``:
@@ -1658,17 +2483,22 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
     On any OCR failure we copy the original PDF through and log the error
     — downstream stages should still run on the untouched PDF rather than
     the pipeline aborting.
+
+    Returns the OCR outcome — most importantly ``pages_blanked``, the pages
+    the per-page timeout gave up on and left with no text (#254). The caller
+    merges it into ``scan_detection.json``; ``_run_quality_gates`` reads it
+    back as the ``ocr_pages_blanked`` gate. Empty dict when no OCR ran.
     """
     if not detection_result.get("needs_ocr"):
         logger.info("Copying %s (detected as %s)",
                     input_pdf.name, detection_result.get("file_type"))
         shutil.copy2(input_pdf, output_pdf)
-        return
+        return {}
 
     if shutil.which("ocrmypdf") is None:
         logger.warning("ocrmypdf not found on PATH, copying original PDF")
         shutil.copy2(input_pdf, output_pdf)
-        return
+        return {}
 
     ocr_mode = detection_result.get("ocr_mode", "skip_text")
     mode_flag = {
@@ -1680,7 +2510,16 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         "redo_ocr": "--redo-ocr",
     }.get(ocr_mode, "--skip-text")
 
-    if detection_result.get("ocrlang_honored"):
+    if detection_result.get("vertical_cjk"):
+        # #196 — the vertical/horizontal CJK choice was made from page
+        # geometry during detection and is already applied to the recorded
+        # packs. Take them verbatim rather than recomputing, which resolves
+        # `ja` straight back to `jpn` and silently discards the decision.
+        # Recomputing here is what made the run log disagree with
+        # scan_detection.json on the first attempt: detection logged
+        # "using jpn_vert" and OCR then ran `langs=jpn+eng`.
+        langs = list(detection_result.get("tesseract_packs") or [])
+    elif detection_result.get("ocrlang_honored"):
         # #176 — the operator pinned the packs in the bib. detect_scan_type
         # already validated them against `tesseract --list-langs` and wrote
         # the survivors here, so use them verbatim. No `eng` is appended:
@@ -1701,7 +2540,7 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
             "No Tesseract languages available; copying original PDF (OCR skipped)"
         )
         shutil.copy2(input_pdf, output_pdf)
-        return
+        return {}
     lang_arg = "+".join(langs)
 
     # Auto-degrade --optimize when pngquant isn't installed. ocrmypdf
@@ -1718,13 +2557,26 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         optimize_level = 1
     optimize_level = str(optimize_level)
 
+    hint = _vertical_cjk_hint(langs, detection_result)
+    if hint:
+        logger.info("%s: %s", input_pdf.name, hint)
+
+    # #209/#254 — ocrmypdf otherwise runs one Tesseract worker per *host* CPU,
+    # ~1.9 GB each on a dense scan, and there is no way to reduce it from
+    # outside: it reads multiprocessing.cpu_count(), which ignores CPU
+    # affinity, so neither taskset nor a cgroup CPU limit reaches it. Left
+    # alone that is an OOM on a small host and, on a cluster node whose CPU
+    # count is nothing like the allocation, silent page loss.
+    ocr_jobs = _resolve_ocr_jobs()
+
     logger.info(
-        "Running OCR on %s | file_type=%s mode=%s langs=%s timeout=%.0fs",
+        "Running OCR on %s | file_type=%s mode=%s langs=%s timeout=%.0fs%s",
         input_pdf.name,
         detection_result.get("file_type"),
         mode_flag,
         lang_arg,
         _ocr_timeout_for(input_pdf, len(langs)),
+        f" jobs={ocr_jobs}" if ocr_jobs else "",
     )
     # Per-page OCR timeout. ocrmypdf's default is far too tight for what
     # this pipeline asks of Tesseract: on a dense 300-dpi historical scan
@@ -1748,11 +2600,17 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         str(output_pdf),
     ]
 
+    if ocr_jobs:
+        cmd += ["--jobs", str(ocr_jobs)]
+
     ocr_timeout = _ocr_timeout_for(input_pdf, len(langs))
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=ocr_timeout,
-        )
+        # _run_ocr, not subprocess.run: a plain timeout kills ocrmypdf and
+        # reparents its Tesseract workers to PID 1, where they keep burning
+        # the cores the *next* document needs. Only the --redo-ocr retry
+        # below went through it when #209 added it, so the common path still
+        # seeded the node with the load that starves later OCR runs (#254).
+        result = _run_ocr(cmd, ocr_timeout)
     except subprocess.TimeoutExpired:
         # Re-raise so the wrapping _stage records reason_code=timeout.
         # The pipeline-level try/except still catches and continues to
@@ -1774,9 +2632,7 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
             logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
         cmd[1] = mode_flag = "--force-ocr"
         try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=ocr_timeout,
-            )
+            result = _run_ocr(cmd, ocr_timeout)
         except subprocess.TimeoutExpired:
             logger.warning(
                 "OCR timed out after %.0fs on %s", ocr_timeout, input_pdf.name
@@ -1793,9 +2649,12 @@ def prepare_pdf(input_pdf: Path, detection_result: Dict, output_pdf: Path):
         if result.stderr:
             logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
         shutil.copy2(input_pdf, output_pdf)
-    else:
-        logger.info(
-            "OCR completed successfully (mode=%s langs=%s)", mode_flag, lang_arg
-        )
-        _log_ocr_warnings(result.stderr, input_pdf.name)
-        _warn_on_empty_ocr_pages(output_pdf, input_pdf.name)
+        return {}
+
+    logger.info(
+        "OCR completed successfully (mode=%s langs=%s)", mode_flag, lang_arg
+    )
+    _log_ocr_warnings(result.stderr, input_pdf.name)
+    outcome = _report_ocr_page_loss(output_pdf, input_pdf.name, result.stderr)
+    outcome["ocr_jobs"] = ocr_jobs
+    return outcome

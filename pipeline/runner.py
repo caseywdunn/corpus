@@ -21,9 +21,9 @@ import logging
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from bib import BibIndex, ocrlang_for_pdf
+from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf
 
 from . import stamp_artifact
 from .annotate import _extract_taxa_and_lexicons
@@ -39,6 +39,7 @@ from .figure_passes import (
 from .figures import generate_figures_report, resolve_compound_figures
 from .grobid_client import GrobidClient
 from .metadata import extract_metadata
+from .pageselect import annotate_source_pages, selection_for, write_subset
 from .scan import detect_scan_type, prepare_pdf
 from .taxa import TaxonomyDB
 from .stages import (
@@ -162,8 +163,37 @@ def run_pdf_processing_pipeline(
     }
 
     try:
+        # Page selection (#188) — before anything looks at the document,
+        # because the whole point is that front matter distorts what
+        # detection concludes about the body behind it. Rebinding `temp_pdf`
+        # is the entire mechanism: `detect_scan_type` and `prepare_pdf` both
+        # read that name, so no change to scan.py is needed.
+        #
+        # Not gated with `_should_run_stage`. Gating would mean adding it to
+        # `_CORE_STAGES`, which invalidates the outer gate of every corpus
+        # already built. The subset is cheap and deterministic, and the
+        # `keeppages` fingerprint on the OCR-dependent stages is what
+        # actually drives re-runs.
+        keeppages = keeppages_for_pdf(bib_index, pdf_path.name)
+        page_selection: List[int] = []
+        selection_warnings: List[str] = []
+        if keeppages:
+            with _stage(processing_summary, "page_selection", hash_dir=hash_dir):
+                page_selection, selection_warnings = selection_for(
+                    keeppages, temp_pdf, name=pdf_name)
+                subset_pdf = temp_dir / f"{pdf_name}.subset.pdf"
+                if write_subset(temp_pdf, subset_pdf, page_selection):
+                    temp_pdf = subset_pdf
+                    plog.info("keeppages=%s: keeping %d of the file's pages",
+                              keeppages, len(page_selection))
+                else:
+                    # Empty selection, or one that covers the whole file.
+                    page_selection = []
+
         # Huge-document gate (#35) — skip-and-flag PDFs above max_pages
-        # before any expensive stage runs.
+        # before any expensive stage runs. Runs *after* the selection so a
+        # 6,000-page bound volume can be brought into scope by selecting the
+        # paper out of it — which is what the gate's own error text asks for.
         with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir):
             max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 5000))
             n_pages = _pdf_page_count(temp_pdf)
@@ -189,7 +219,8 @@ def run_pdf_processing_pipeline(
         # edits the bib, re-runs, and the stage is skipped because its
         # artifact is already on disk.
         ocrlang = ocrlang_for_pdf(bib_index, pdf_path.name)
-        ocr_fingerprints = _expected_fingerprints_for_run(ocrlang=ocrlang)
+        ocr_fingerprints = _expected_fingerprints_for_run(
+            ocrlang=ocrlang, keeppages=keeppages)
         scan_fingerprint = ocr_fingerprints.get("scan_detection", {})
         prep_fingerprint = ocr_fingerprints.get("pdf_preparation", {})
 
@@ -203,6 +234,16 @@ def run_pdf_processing_pipeline(
                 if ocrlang:
                     plog.info("OCR language pinned by bib: %s", ocrlang)
                 detection_result = detect_scan_type(temp_pdf, ocrlang=ocrlang)
+                if page_selection:
+                    # The resolved list *is* the subset->source map: subset
+                    # page i is keeppages_selected[i - 1]. Recording it here
+                    # rather than an offset structure means there is nothing
+                    # to keep in sync, and it makes a clamp visible instead
+                    # of something a reader has to infer from a page count.
+                    detection_result["keeppages"] = keeppages
+                    detection_result["keeppages_selected"] = page_selection
+                    if selection_warnings:
+                        detection_result["keeppages_warnings"] = selection_warnings
                 with open(detection_file, "w") as f:
                     json.dump(stamp_artifact(detection_result), f, indent=2)
                 processing_summary["files_created"].append(str(detection_file))
@@ -219,7 +260,18 @@ def run_pdf_processing_pipeline(
             with _stage(processing_summary, "pdf_preparation", hash_dir=hash_dir,
                         input_fingerprint=prep_fingerprint):
                 plog.info("Preparing PDF...")
-                prepare_pdf(temp_pdf, detection_result, processed_pdf)
+                ocr_outcome = prepare_pdf(temp_pdf, detection_result, processed_pdf)
+                # #254 — pages the per-page OCR timeout gave up on. ocrmypdf
+                # copies the un-OCR'd image through and exits 0, so without
+                # this the loss reaches summary.json as nothing at all: the
+                # document records status=success with no stage_failures, and
+                # the only trace is a warning in one array task's log.
+                # scan_detection.json is where OCR's account of the document
+                # already lives, and it is what _run_quality_gates reads.
+                if ocr_outcome:
+                    detection_result.update(ocr_outcome)
+                    with open(detection_file, "w") as f:
+                        json.dump(stamp_artifact(detection_result), f, indent=2)
                 processing_summary["files_created"].append(str(processed_pdf))
                 processing_summary["processing_steps"].append("pdf_preparation")
 
@@ -338,6 +390,7 @@ def run_pdf_processing_pipeline(
             # so a language change invalidates the taxa pulled out of them.
             taxa_anat_fingerprint = _expected_fingerprints_for_run(
                 ocrlang=ocrlang,
+                keeppages=keeppages,
                 taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
                 lexicon_fingerprints=lexicon_fingerprints,
             ).get("taxa_and_lexicon_extraction", {})
@@ -362,6 +415,17 @@ def run_pdf_processing_pipeline(
                     processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
                     if taxa_anat_files:
                         processing_summary["processing_steps"].append("taxa_and_lexicon_extraction")
+
+        # #188 — with pages dropped, `page` is a position in the subset, and
+        # that is the number served to a client. Carry `source_page` beside
+        # it so a figure is citable against the file the operator holds.
+        # After every pass that rewrites figures.json, before the report
+        # renders from it.
+        if page_selection:
+            with _stage(processing_summary, "source_page_mapping", hash_dir=hash_dir):
+                n = annotate_source_pages([figures_file, text_file, chunks_file],
+                                          page_selection)
+                plog.info("keeppages: mapped %d page number(s) back to the source", n)
 
         with _stage(processing_summary, "figures_report", hash_dir=hash_dir):
             plog.info("Generating figures report...")

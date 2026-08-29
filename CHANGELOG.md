@@ -5,6 +5,898 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-29
+
+### Theme — v1.2 extraction fidelity, measured against ground truth
+
+Every quality signal this pipeline had measured it against itself. The soft
+consistency rates are corpus-internal agreement, the per-document quality
+gates are plausibility checks, and fingerprint diffing compares one build to
+the next. None of them could say whether the text was *right*.
+
+This cycle built an instrument that can. The gold set is 35 documents, 761
+pages, 1594–2026, 13 languages, every page transcribed from a rendered image
+with the transcriber forbidden to open any software extraction of the page in
+front of them. That independence is the whole value: an extractor scored
+against it is not being compared to a cleaned-up version of itself.
+
+Then it acted on what the instrument said, which turned out to be the larger
+half of the work. Four defects were found only by building and scoring, not by
+any test: docling selecting a CUDA device its pinned torch had no kernels for
+and failing every page instead of falling back; vertical Japanese read by a
+horizontal model, worth half the words on those pages; figure numbers missed
+because the OCR-damaged spellings of "Fig." are *more common* than the correct
+one; and plate legends whose separately-numbered engravings existed nowhere in
+the output.
+
+The instrument also caught its own repairs. The plate-legend fix shipped on a
+measured recall gain and quietly cost precision, putting 33 records into one
+monograph that served another figure's image under a wrong number — found by
+scoring the rebuild, and then by opening a page image after three rounds of
+JSON analysis had pointed the wrong way. That pattern recurs often enough to
+be the cycle's real lesson: a measurement is not a result until you have
+looked at what it is measuring.
+
+A fifth defect came from a different comparison entirely — not the gold set
+but two full cluster builds of the same library, run a month apart from an
+identical config. OCR had been silently blanking pages on ~9.5% of documents
+in each, a different set every time, because ocrmypdf sized its worker pool
+from the host's CPU count rather than the SLURM allocation and the pages
+starved past their per-page timeout. Nothing failed; every affected document
+recorded `status=success`. It is in `### Fixed` below, and it is the same
+lesson from the other side: the pipeline's own account of a run is only as
+good as what it was built to notice.
+
+Alongside the fixes, the per-document bib directives grew to cover what a
+curator knows and detection cannot infer — `keeppages` for the physical pages
+that are the paper, `doclang` and `pagemap` for what the document is, and a
+public BCP-47 resolver so a library does not keep its own copy of the mapping.
+Two reference documents, `dev_docs/OCR_LANGUAGES.md` and
+`dev_docs/FIGURE_PARSING.md`, record what the gold set says about choosing OCR
+packs and about figures, including the several places where the obvious
+explanation was measured and turned out to be wrong.
+
+Where it ended up, on the 35 documents: prose coverage 0.945, figure detection
+0.923 recall at 0.967 precision on the served surface, caption binding 0.574
+at 0.878, and reference parsing at 94.8%. Those are the first numbers this
+project has had that mean anything outside itself.
+
+### Added
+
+- **`tools/qc/fidelity.py` scores a built corpuscle against an independent
+  gold transcription set (#193).** Every quality signal this pipeline had
+  measured it against itself — the soft consistency rates are corpus-internal
+  agreement, the per-document quality gates are plausibility checks, and
+  fingerprint diffing compares one build to the next. None of them could say
+  whether the text was *right*. The gold set can: each page was transcribed
+  from a rendered page image alone, with the transcriber forbidden to open any
+  software extraction of the page, so an extractor scored against it is not
+  being compared to a cleaned-up version of itself.
+
+  The harness reports per page and per document, segmented by script, era and
+  scanned-vs-born-digital, because a single mean over 13 languages and five
+  centuries cannot distinguish a pipeline that handles born-digital PDFs well
+  and Fraktur not at all from one that is mediocre everywhere. Documents bind
+  on the source PDF's sha256, never its filename — two editions of the same
+  1594 travel narrative have shared a filename in this library while setting
+  the same passage on different folios.
+
+  Alignment needed no pipeline change: `text.json` carries a flat string and a
+  page count only, but `docling_doc.json` retains `prov[].page_no` on every
+  item, so per-page text is reconstructible from the persisted artifact.
+  Reconstruction follows `body.children`, which is the order
+  `export_to_markdown()` uses to build the string that reaches `text.json`, so
+  the reading order being scored is the one a consumer sees.
+
+  It runs in ~7 s over 761 pages and is a new manual pre-release tier (T5) in
+  CONTRIBUTING.md's tier table. `tests/test_fidelity_harness.py` covers the
+  arithmetic in T0 against a committed three-page fixture, with no corpus
+  dependency.
+
+  The reconstruction is validated against `text.json` rather than trusted:
+  all 35 gold documents recover at least 95.8% of its tokens. That check
+  earned its place immediately — the first version of the walk read only each
+  item's `text` field, and a docling table has none, keeping its content in
+  `data.table_cells[]` instead. Every table on the page was being dropped,
+  costing one document 26% of its tokens, and those pages would have been
+  reported as the pipeline losing prose it had in fact extracted. Nothing in
+  the pipeline was wrong; `text.json` had the tables all along.
+
+  **Which side is on trial is easy to get backwards, and it is not the
+  arithmetic.** The gold set ships its own `crosscheck.py`, which used a
+  poppler text layer as the yardstick to validate the *transcription*; this
+  harness uses the gold as the yardstick to validate the *extractor*. The
+  measures are symmetric and identical in both — `coverage` is
+  `|gold ∩ other| / |gold|` either way — so nothing is mirrored or
+  transposed. What differs is two judgement calls: which measure leads
+  (`recall` there, `coverage` here), and whether a page that yielded nothing
+  is excluded as no-signal or scored as the failure it is. This harness scores
+  it; adopting the other policy would drop 57 of 761 pages and lift the median
+  coverage from 0.891 to 0.908, hiding exactly the pages that need work. Those
+  two calls are why several documented false positives there are findings
+  here — a garbage text layer, a plate whose lettering exists only as image,
+  and text hallucinated from image texture.
+
+- **The gold-markup parser distinguishes markers from brackets printed on the
+  page (#193).** The transcription convention uses `[` for markers, but the
+  pages print brackets too — citation numbers, units like `[°C]`, a
+  translator's `[sic]` — and notes talk *about* brackets. A scanner counting
+  every `[` as a nesting level gets all three wrong, and all three occur in
+  the gold set:
+
+  - `[NOTE: ... "[" is my marker.]` never closed, so the whole note leaked
+    into the compared page as though printed there. 13 of one document's 17
+    pages; it is why that document posted 0.767 coverage against 0.998 recall,
+    the signature of gold holding text no extractor could ever find.
+  - `[sic]` and `[21]` quoted inside a note closed it early, leaving a
+    `[FIGURE]` two paragraphs later parsed at the wrong nesting level.
+  - An unterminated `[continued opposite` swallowed the `[/FIGURE]` after it,
+    so the block never ended and the rest of the page scored as plate
+    lettering.
+
+  A `[` now opens a marker only when a known keyword follows it; a quote
+  immediately after it marks a mention of the character rather than an
+  expression. Structural tag counts now come out at exactly the 348 `[FIGURE]`
+  / 76 `[PLATE]` / 65 `[TABLE]` the gold set documents, against 341 / 76 / 60
+  before, and no page is left with unbalanced figure nesting. The affected
+  document moves 0.767 → 0.927 median coverage and every other document moves
+  by less than 0.002; corpus-wide 0.891 → 0.898, born-digital 0.882 → 0.919.
+  Brackets that open no marker are now counted and reported per page as a
+  gold-integrity signal rather than silently absorbed — four remain, each a
+  transcription detail worth an upstream look.
+
+- **Prose coverage and figure-text coverage are reported separately, and
+  prose is the headline (#193).** Scoring both together answered neither
+  question. Text inside a `[FIGURE]`/`[PLATE]` block is engraved plate
+  lettering and panel labels — 12.3% of the gold set's words but around 70%
+  of its worst pages — so a combined number is dragged down by the material
+  the pipeline is least expected to recover, and body text, which is the
+  pipeline's actual job, disappears into the average.
+
+  Split, corpus-wide median coverage is **0.946 for prose** against 0.731 for
+  figure text (0.898 combined). The split changes what the run says to work
+  on, not just the digits: the 1800–1899 band is 0.812 prose against 0.114
+  figure text, so its apparent weakness was almost entirely plate lettering;
+  `Chenetal2015` moves from 0.667 to 0.812. Two findings survive and are the
+  real ones — CJK at 0.351 prose, and pre-1800 at 0.645, where long-s
+  typography is the known cause. One gets *worse* and had been hidden:
+  `Linnaeus1735` reads 0.628 prose against 0.628 combined with its figure text
+  at 0.634, so its body text is genuinely as bad as its plates.
+
+  `[TABLE]` counts as prose, not figure: a table is body content the pipeline
+  is expected to get right. Measured the other way the corpus-wide figure
+  moves by 0.002, so it is a naming choice rather than a lever.
+
+- **Vertically-set CJK: `ocrlang = {jpn_vert}` documented, and a build-time
+  hint pointing at it (#196).** Tesseract ships `jpn_vert`, `chi_sim_vert`,
+  `chi_tra_vert` and `kor_vert`; detection selects none of them, so a
+  vertically-set document is read by a horizontal model. On a 1911 Japanese
+  monograph scored against a hand transcription, pinning `jpn_vert` takes the
+  vertical pages from 0.246 to **0.574** median prose coverage.
+
+  The obvious fix — a Fraktur-style companion promotion, adding `jpn_vert`
+  beside `jpn` the way `deu_latf` is added beside `deu` — was measured and is
+  **wrong**: the union scores 0.186, worse than plain `jpn`, because the two
+  models compete for the same glyphs. An unconditional swap is worse still,
+  taking horizontal Japanese from 0.746 to 0.207. Since writing direction is a
+  per-page property and `ocrmypdf` takes one `-l` per document, no automatic
+  rule is available in this cycle; the directive is the answer, and the run
+  log now says so beside the `langs=` line, naming the pack and warning
+  against the union. `_VERTICAL_COMPANION` carries the measurement in a
+  comment so a later tidy-up does not merge it with the Fraktur promotion.
+- **`tools/qc/figure_detection.py` measures whether the figure *objects* are
+  right (#194).** Separate from text fidelity and from caption association
+  (#195): is every figure found, and is publisher furniture being called a
+  figure? Against the 35-document gold set, **recall 0.833, precision 0.841**
+  — 71 gold figures with no entry, 67 surplus entries.
+
+  It counts per page, because the gold records no bounding boxes and because
+  the corpus-wide totals are a trap: 424 gold blocks against 420 entries looks
+  like agreement and is a coincidence, hiding one paper with 6 gold blocks
+  against 31 entries and another with 67 against 34.
+
+  **`figure_type == "graphical_element"` is an actionable furniture
+  predicate**, which the scorer establishes by scoring the same corpuscle
+  under each candidate filter rather than assuming it:
+
+  | filter | recall | precision | F1 |
+  |---|---|---|---|
+  | all entries | 0.833 | 0.841 | 0.837 |
+  | **drop `graphical_element`** | **0.811** | **0.964** | **0.881** |
+  | drop uncaptioned `graphical_element` | 0.818 | 0.940 | 0.875 |
+  | drop `graphical_element` + `unclassified` | 0.708 | 0.987 | 0.824 |
+  | captioned only | 0.724 | 0.959 | 0.825 |
+
+  Dropping `graphical_element` cuts surplus from 67 to 13 for nine real
+  figures lost. Also dropping `unclassified` is over-reach — it is a mixed
+  population holding 49 real figures, and recall falls ten points.
+
+  Segmenting shows why one corpus-wide number would mislead: born-digital
+  precision is 0.562 against 0.890 for scans, because modern papers carry
+  publisher furniture historical scans do not; and 1900–1949 recall is 0.477,
+  driven by two documents where figures are simply not found
+  (`Vanhoeffen1906` 34 of 67, `Kawamura1911a` 6 of 16).
+
+- **Figure-number extraction measured: 97% precise, 32% available (#205).**
+  `parse_figure_number` fires for 135 of 420 figures, with 15 of 35 documents
+  getting none at all — but where it fires, 131 of 135 numbers are genuinely
+  printed on that page, allowing #16's Roman↔Arabic normalisation. Coverage,
+  not correctness, is the gap. The largest single cause is the opener word
+  being OCR-damaged — `Fic.` and `Frc.` for `Fig.`, consistently and
+  document-wide — on documents whose captions are otherwise extracted
+  perfectly. No behaviour change here; this is the measurement, and it blocks
+  the caption-binding scorer (#195), which would otherwise have measured the
+  number extractor rather than the caption heuristic.
+
+- **Figure numbers are recovered from OCR-damaged captions: coverage
+  32.1% → 67.6% (#205).** `parse_figure_number` fired for 135 of 420 captions
+  in the reference corpuscle, with 20 of 35 documents getting no figure number
+  at all. It now fires for 284, and precision went *up* — 97.0% → **98.2%** of
+  extracted numbers are genuinely printed on that page.
+
+  The cause was not a language gap. `FIG.` set in small caps is misread
+  document-wide, and across 320 stored captions the damaged spellings are more
+  common than the correct one:
+
+  ```
+  Fic 65   Fig 53   PLATE 35   Figur 17   FIGURE 9   FIG 8
+  Fi   8   FiG   6  Plate  3   Figg   1   Frc    1   Fie 1   Puc 1
+  ```
+
+  A caption-only tolerant opener now accepts `F` plus up to five alphanumerics
+  before the number. Digits are allowed *inside* the opener because OCR puts
+  them there — `Fi1G.` and `Fi16.` for `FIG.` — and without that the match
+  stopped at `Fi` and captured the noise as the figure number, which is worse
+  than finding nothing. Also picked up: `Figur` (German, which the old prefix
+  could not reach), `Figg. 2-5` (Italian plural with a range, yielding the
+  first number), and `Puc` (Cyrillic `Рис` read as Latin lookalikes).
+
+  **The tolerance is confined to captions.** `_FIGURE_REF_RE`, which scans
+  running body text where a loose prefix would bind ordinary prose to figure
+  numbers, is unchanged; the caption regex stays anchored to the caption
+  start, so a figure mentioned mid-sentence is still correctly refused.
+
+  One latent bug fixed on the way: `[IVXLCDM]` overlaps with ordinary words,
+  so `"Fig5 caption"` read the `c` of "caption" as Roman 100. The old
+  docstring predicted this and the tolerant opener made it reachable; the
+  Roman branch now requires a non-letter after it.
+
+  `figure_number` feeds `get_figures_for_*` and `get_figure_dossier_*`, so
+  more figures become reachable by number — but `figures.json` is persisted,
+  so an existing corpuscle needs a rebuild to pick this up.
+
+- **Figures with the same number on different pages are no longer merged
+  (#205).** `dedupe_figures` grouped on figure number alone, and both of its
+  tests compare bounding boxes — which carry no page. Two figures at similar
+  coordinates on different leaves therefore read as redundant crops of one
+  another, and one was dropped.
+
+  That is routine here: a document that is its own translation prints
+  "Fig. 4" once in the original and again in the translation.
+  `Carre1969_Nanomia_tr` lost nine of its twenty-two figures that way. Keying
+  on `(page, number)` costs nothing, because every legitimate grouping the
+  function performs — coequal panels, whole figure plus subpanels — is within
+  a single page.
+
+  Found because the tolerant opener above *amplified* it: numbering more
+  figures fed more of them into the faulty grouping, taking that document
+  from 18 extracted figures to 13. With both changes it extracts **22 — every
+  figure docling detects, and exactly what the gold transcription records** —
+  with 16 of them numbered against 7 before.
+
+  `dedupe_figures` had no direct tests; `tests/test_figure_dedupe.py` adds
+  nine, including the cross-page case and the panel-grouping behaviour the
+  function exists for.
+- **`figure_detection.py` counts figures, not panel images (#211).** It
+  compared raw `figures.json` entry counts against gold `[FIGURE]` block
+  counts, and those differ when a figure has panels — the pipeline emits one
+  image per panel, the gold records one block with the panels enumerated in
+  its caption. Correct panel splitting therefore scored as a false positive.
+
+  On `Totton1965a` this flipped the sign of the error: 198 entries against 195
+  gold blocks reads as over-counting by 3, while 191 distinct figures against
+  195 blocks is under-counting by 4. Corpus-wide on the reference corpuscle it
+  understated precision — **0.841 → 0.854** for all entries, 0.964 → 0.969
+  with the `graphical_element` filter — so #194's reported figures are
+  restated accordingly.
+
+  Panel siblings are now collapsed on `(page, figure_number)` before scoring,
+  and panel splitting is reported beside detection rather than folded into it,
+  which is where #195 will score it against the panels the gold caption
+  enumerates. Note `panel_letter` is set by `dedupe_figures` but not persisted
+  to `figures.json` — only the filename carries it.
+
+  Found by opening the two PNGs. Every hand-analysis of the JSON pointed the
+  wrong way first, including one that concluded the panel branch was inert
+  when the filenames showed it had lettered them all along.
+- **Vertically-set CJK is now detected and OCR'd with the right model
+  (#196).** Tesseract ships `jpn_vert`, `chi_sim_vert`, `chi_tra_vert` and
+  `kor_vert`; detection could never reach them, so a vertically-set document
+  was read by a horizontal model. On the 1911 Japanese monograph in the gold
+  set, its vertical pages go from **0.250 to 0.572** prose coverage and the
+  document from 0.352 to **0.640** — with no operator intervention. Its
+  English half is byte-identical, which is the control: `--redo-ocr` preserves
+  born-digital text so the pack never touches those pages.
+
+  Selection is **geometric, not confidence-based**. The obvious approach — OCR
+  a sample with each pack and keep the more confident result — was tried and
+  fails: Tesseract reads a vertical column as a stack of single characters and
+  is *confident* about each, preferring plain `jpn` at 61.4 against
+  `jpn_vert`'s 58.1 on pages where `jpn_vert` is more than twice as accurate.
+  A line *box* is tall or wide whatever the glyphs inside were read as, and
+  the separation is about three orders of magnitude: median line width/height
+  0.04 on vertically-set pages against 21–53 on horizontal ones.
+
+  The vote counts **only raster pages**, because `ocrmypdf` takes one `-l` per
+  document while writing direction is per page. Born-digital pages are
+  preserved by `--redo-ocr` and cannot be affected by the choice, so letting
+  them vote would decide the question on pages the decision cannot reach —
+  counting every page gives an ambiguous 40% on that document, counting only
+  the pages OCR rewrites gives an unambiguous majority. Both directions are
+  equally costly to get wrong, so it is a plain majority with no tuned
+  threshold, and horizontal Japanese is verified unchanged to 0.000.
+
+  The vertical pack goes in **alone**. Anything else competes for the same
+  glyphs, `eng` included: `jpn_vert+eng` scores 0.176, worse than doing
+  nothing, and that was the first version of this fix. The `ocrlang` override
+  from the previous release remains as the operator escape hatch.
+
+- **Small figures are no longer misclassified as publisher furniture
+  (#204).** `figure_type` is not cosmetic — `_REAL_FIGURE_TYPES` in the served
+  layer excludes `graphical_element` from *every* tool that returns figures,
+  so misclassifying a real figure makes it unreachable rather than merely
+  mislabelled. `classify_figure` condemned any item under 50 pts in either
+  dimension on size alone; Vanhoeffen 1906 Fig. 11 is an engraved nectophore
+  **49 pts wide**, captioned and numbered, and was invisible to every figure
+  tool because of it.
+
+  A caption carrying a parseable figure number now overrides the size floor —
+  publishers do not number their own mastheads. That evidence is guarded by
+  **position recurrence**: running furniture sits at the same place page after
+  page, and in the 35-document reference corpus no real figure repeats a
+  position even twice while one paper's logo repeats on 24 of 25 pages.
+  Without the guard the relaxation promotes that logo ten times, because
+  caption proximity had attached a real figure's caption to it.
+
+  Net effect on the reference corpus: **3 real figures recovered, 0
+  regressions**, each verified by opening the image.
+
+- **The tolerant caption opener no longer reads prose as a figure number
+  (#204).** A regression from the previous release, found by inspecting a
+  promoted image that turned out to be a handwritten marginal scribble: its
+  caption began `"from  the  coasts  of  British  Columbia"`, the opener
+  matched `fro`, and the capture read the `m` of `from` as Roman numeral M —
+  figure number **1000**.
+
+  Correctly spelled prefixes may still be followed by a Roman numeral with no
+  separator (`PLATE XXI`, `Figur 23`); an OCR-damaged opener must now be
+  followed by a period. Every damaged spelling observed in the corpus carries
+  one, so coverage moves only 67.6% → 66.9% while precision holds at 98.2%,
+  and the three lost captions are exactly the false matches.
+- **`--config` with a relative path no longer silently discards every tuned
+  setting (#210).** Reported by @ejedwards against 1.1.1.
+  `corpus --config <relative-path> run` kept `input_pdfs`, `bib`, `lexicon`
+  and `taxonomy` — the CLI resolves those itself and passes them as absolute
+  arguments — while `ocr`, `chunking`, `stage_timeouts`, `huge_document` and
+  `quality_gates` were replaced by built-in defaults. The run looked entirely
+  normal; one INFO line was the only trace.
+
+  Two independent causes, both fixed. `_resolve_config_path` returned the flag
+  value verbatim, and it is forwarded to each stage subprocess, which the
+  orchestrator runs from `REPO_ROOT` rather than the operator's directory — so
+  a relative path missed. `CORPUS_CONFIG` had the same hole. Both are now
+  resolved to absolute, with `~` expanded.
+
+  Separately, a **named** config that cannot be read is now an error rather
+  than a fallback. `load_config` treats a missing file as "use defaults",
+  which is correct for the implicit `./config.yaml` and wrong for a file the
+  operator asked for by name; a typo would otherwise run to completion on
+  defaults.
+
+  This had been masking #209: an `ocr.jobs` setting appeared to have no effect
+  because the file carrying it was never read.
+- **OCR no longer OOM-kills a workstation (#209).** Reported by @ejedwards
+  with a process table: `ocrmypdf` was never passed `--jobs`, so it ran one
+  Tesseract worker per CPU at ~1.9 GB each. A 12-core host reached for ~20 GB
+  of Tesseract, plus 3.4 GB for the Grobid JVM, and was killed on a 532-page
+  scan.
+
+  It could not be worked around from outside. `ocrmypdf` takes its worker
+  count from `multiprocessing.cpu_count()`, which **ignores CPU affinity** —
+  so neither `taskset` nor a cgroup CPU limit reaches it, and #182's
+  `systemd-run` memory limit only contains the blast radius while the build
+  still dies.
+
+  New `ocr.jobs` config key. Left unset, the cap is derived from host RAM
+  using the components measured in that issue — ocrmypdf's own parent process,
+  per-worker resident set, and a reserve for the Grobid JVM, docling and the
+  page cache — and it only ever *lowers* the worker count: where RAM is not
+  the binding constraint it returns nothing and ocrmypdf's default stands, so
+  no large host gets slower. An explicit value is honoured verbatim, including
+  above the derived cap. The chosen value appears on the `Running OCR` line.
+
+- **A timed-out OCR no longer orphans its Tesseract workers (#209).**
+  `subprocess.run(timeout=)` kills the direct child; ocrmypdf's workers are
+  grandchildren, so they were reparented to PID 1 and kept ~20 GB allocated
+  after the pipeline had given up on the document. OCR now runs in its own
+  process group and the whole tree is killed together, with `KeyboardInterrupt`
+  forwarded explicitly since a new session no longer receives terminal signals
+  by itself. A `SIGKILL` delivered to the pipeline from outside remains
+  unhandleable, but is now the only path that orphans the tree.
+
+- **A plate holding several numbered engravings now yields one figure per
+  engraving (#203).** Historical plates carry several separately-numbered
+  figures under a single legend. docling extracts the plate as *one* picture
+  and emits the legend as separate text items; caption association then bound
+  whichever labelled line was vertically nearest — on the page this was built
+  for, a bare `Fig. 36.` at the foot — and Figures 31 to 35 existed nowhere in
+  the output. Asking for Figure 33 returned nothing.
+
+  A page whose text carries several distinct figure numbers, more than were
+  extracted from it, now gets one record per number, each with its own caption
+  line. Corpus-wide figure recall **0.849 → 0.917**; `Vanhoeffen1906` alone
+  goes 0.463 → 0.806 with 23 figures recovered, and no document regresses.
+
+  The records **share the plate's image**, marked `shares_image_with`, rather
+  than copying it — cropping an individual engraving needs OCR of the
+  lettering printed on the plate and is a separate problem. Sharing rather
+  than duplicating matters: written naively it produced six byte-identical
+  copies of a 987 KB plate and took one document's figures directory from 13
+  MB to 30 MB.
+
+  Only pages where the legend names *more* figures than were extracted are
+  expanded, so a modern paper docling has already separated is untouched.
+
+- **`tools/qc/caption_binding.py` measures whether captions are bound to the
+  right figure (#195).** The third of the three questions the gold set was
+  brought in for, after text fidelity (#193) and figure detection (#194).
+  Against the reference corpuscle: **binding recall 0.527, precision 0.870** —
+  when the pipeline reports a figure number it is right about the page 87% of
+  the time, but it finds a number for only about half the figures that print
+  one.
+
+  It binds on the **figure number**, not the caption text. A caption-similarity
+  matcher was built first and reports 44%, which is mostly artifact: one paper
+  prints every caption twice, in Chinese and English, and scores 0 of 10 while
+  every figure is in fact bound correctly; plate pages carry `FIG. 1` and
+  nothing else; and a document that is its own translation prints `Fig. 1`
+  twice, legitimately.
+
+  The denominator matters as much as the measure. Gold pages are full of
+  figure numbers that are *references* — "see Fig. 18", "figured by Bigelow
+  (op. cit., fig. 34)". Counting those gives 939 numbers and a recall of
+  0.296, which measures nothing. Restricted to numbers printed *inside* a
+  `[FIGURE]`/`[PLATE]` block the denominator is 482.
+
+  Each gold block is classified before scoring — prose caption 123, bare label
+  **236**, lettering only 59, nothing printed 6 — so no rate is computed over
+  blocks it does not apply to. That bare-label majority is itself the finding:
+  most figure blocks in this material print a label and nothing more, which is
+  why text similarity was never going to work.
+
+- **`dedupe_figures`' whole-figure/subpanel branch is reachable (#207).** Its
+  two stages shared one measure. `_bbox_overlap_fraction` divides by the
+  *smaller* box and is therefore symmetric, so a fully contained panel scored
+  1.0 — tripping stage 1's 0.5 redundancy threshold and being discarded before
+  stage 2's 0.8 containment test could classify it. Anything stage 2 would
+  have accepted, stage 1 had already thrown away. `FIGURE_TYPE_SUBPANEL` was
+  never assigned by that path, which the data confirms: none of the 420
+  figures in the reference corpuscle carried it.
+
+  The stages ask different questions and now use different measures. "Are
+  these the same box?" is intersection over *union*, which punishes a size
+  difference so a nested panel is not mistaken for a duplicate crop. "Does
+  this box contain that one?" keeps the original formula.
+
+  **This changes nothing on the reference corpus, and that is stated rather
+  than glossed.** Across its 97 same-page picture pairs, zero merge decisions
+  differ and zero pairs are nested-but-not-duplicate — docling does not emit a
+  whole-figure crop alongside nested panel crops on this material. The fix
+  removes a documented mode that could not execute, and will work if a corpus
+  does produce that shape; it is not an improvement to any current number.
+- **Grobid consolidation is reachable from config, with a measured default
+  (PLAN v1.2 §3).** `consolidateCitations` had never run in this project's
+  history: `process_fulltext` defaulted it to 0, `metadata.py` called that
+  method overriding nothing, and the `grobid:` block exposed only `url` and
+  `disable`. The setting existed and could not be changed.
+
+  It stays off, but now on evidence rather than assumption. Same PDFs, flag
+  off then on, against the gold corpuscle:
+
+  | document | era | DOI rate | Grobid time |
+  |---|---|---|---|
+  | `Ahuja_etal2026` | 2026 | 86.1% → 88.9% | 3.1s → 6.4s |
+  | `Stepanjants2014` | 2014 | 0% → 6.9% | 2.0s → 2.7s |
+  | `Bernstein1934` | 1934 | 0% → 3.6% | 2.3s → 3.4s |
+  | `Benasso_Stroiazzo1976` | 1976 | 0% → 0% | 1.7s → 2.6s |
+
+  Six DOIs recovered across 194 references, for 1.4× to 2× the Grobid time.
+  The split is by era rather than by anything the flag controls — modern
+  reference lists already carry DOIs and CrossRef holds the rest, while the
+  historical works this corpus is mostly made of are not in it. Which is why
+  both flags are now exposed rather than hard-coded: the arithmetic is a
+  property of the library, not of the pipeline. A corpus of modern papers may
+  well find it worth the round trips.
+
+  Baseline for context: 719 references across the corpuscle, 32.4% carrying a
+  DOI — 69–86% in papers from 2020 on, and **0%** in every document before
+  1980.
+- **Vendor wrapper detection covers JSTOR and Google Books (#216).**
+  `_VENDOR_BOILERPLATE` held three markers and missed the two most common
+  wrappers in a scanned library. Measured over the 1,772-document
+  siphonophore library, pages 1–2: JSTOR 20 documents, ResearchGate 6, BHL 6,
+  blank notice 5, ProQuest 1, Google Books 1 — **34 with any wrapper**.
+
+  **Wrappers only; publisher imprints are deliberately excluded.** A wrapper
+  is a cover sheet or rights notice that is not the paper; an imprint is
+  branding on the paper's own pages — a ScienceDirect header, a Springer
+  footer. In the same library **373 documents carry an imprint** against 34 a
+  wrapper. Here a false match costs a wasteful re-OCR; it would be
+  destructive for #188, where a marker is evidence to *drop* a page, and
+  dropping a ScienceDirect header page deletes the article's first page.
+
+  Effect is small and that is worth stating: of 27 documents matching a new
+  string, **2 actually re-route** — the rest are born-digital papers carrying
+  a JSTOR cover, with 9.8K–21.8K characters of real text, correctly held back
+  by the existing `total_chars < 5000` gate. Rasterising those would be wrong.
+
+  The list is high-precision, and its recall is better than that first
+  reading suggested. An independent page-by-page annotation of the same
+  library — a reader working from rendered pages rather than strings — found
+  34 documents with a vendor wrapper, which is what the list finds. The
+  inference that BHL wrapper pages were sitting there as un-OCR'd images was
+  wrong, but so is the simplest replacement for it. 220 of these PDFs carry
+  BHL or Internet Archive provenance in their *embedded metadata* and only 8
+  still have a cover page — because the covers were stripped by hand when the
+  library was assembled, not because BHL never shipped them. 210 of the 212
+  without one have a ModDate later than their CreationDate, against 4 of the
+  8 that kept theirs. So this recall is partly borrowed from someone else's
+  editing: a corpus built from fresh BHL downloads would carry 220 cover
+  sheets and would need the list to fire on all of them. It would — the 8
+  survivors match — but 34-of-1,773 is a fact about a curated library, not a
+  bound on what wrappers cost.
+
+  What the annotation does show is that wrappers are the small part of the
+  problem — a title page in 391 documents against a wrapper in 34. Front
+  covers, flyleaves, bookplates, a bound volume's own title page: no vendor
+  string, because there is no vendor. Those pages are the book, and no
+  addition to this list can reach them, which is why #188 needs a structural
+  signal rather than a longer table.
+
+- **A public BCP-47 → Tesseract pack resolver (#215).** `_ISO_TO_TESSERACT`
+  was the bridge between a detected language and an OCR pack, and it was
+  private, so anything outside `scan.py` needing that mapping had to
+  reimplement it — a library's annotation pass, resolving a per-document
+  language into an `ocrlang` directive, already carried a copy marked
+  temporary. `bcp47_to_tesseract` is that copy's exit path.
+
+  BCP-47 subsumes what the table held — bare ISO 639-1 codes are already valid
+  tags, so nothing regresses — and reaches two packs no key could name before.
+  `grc` existed only inside the Greek fallback union; `deu_latf` was reachable
+  only via a visual OSD verdict or a `deu` special case, and langdetect can
+  only ever say `de`. There was no way to state "German, set in Fraktur".
+
+  **Deliberately not wired into the build.** The OCR language decision stays
+  two tiers — an explicit `ocrlang` pin, else detection. Deriving packs from a
+  bib field at run time would make the derivation table an input to
+  `processed.pdf` without being part of any fingerprint: improve the table and
+  nothing invalidates, so documents keep their old OCR while the log reports
+  the new `-l`. Resolving at annotation time leaves `ocrlang` a literal,
+  directly-fingerprinted value.
+
+  Vertical CJK stays out. BCP-47 describes language and script; vertical
+  setting is typesetting, and `jpn_vert` must not be unioned with `jpn` —
+  0.574 and 0.246 alone, 0.186 together. A test asserts no `_vert` pack is
+  ever returned, because making the CJK entries symmetric with the Fraktur one
+  would look like tidying and would regress #196.
+
+- **`AGENTS.md` says where library-facing code goes, and a test enforces it.**
+  Three tiers, sorted by whether the code encodes knowledge about PDFs and OCR
+  or knowledge about one collection: generic goes in `pipeline/` as a public
+  function, read-only inspection in `tools/`, collection-specific judgment in
+  `skills/`. `pipeline/` may never import from `tools/` or `skills/`, which
+  was true by convention and is now `tests/test_import_direction.py`.
+
+- **Plate legend expansion read cross-references as legend entries (#231).**
+  #203 gives a plate one record per figure its legend names, and shipped on a
+  measured recall gain (0.849 → 0.917). Scoring the rebuild showed it also
+  cost precision — 0.970 → 0.892 on the served surface — and the whole of the
+  loss was one 226-page monograph of running prose.
+
+  The scan took a figure number from anywhere in a text item. A legend line
+  qualifies; so does a cross-reference, and a monograph is full of them — a
+  species heading reading `Plate XX, figures 1, 2`, a parenthetical
+  `Text-figure 106 (see p. 170)`, a citation of someone else's plate. Two on
+  a page cleared the threshold, and the page's one real text-figure was then
+  cloned under the referenced number. **33 of that document's 232 records
+  shared an image file with another record under a different number**: asking
+  for figure 20 returned the picture of figure 53, which is worse than a miss.
+
+  A legend line opens with the label of the figure it describes. Anchoring to
+  that, with the number required to follow the label and only punctuation
+  between (so `figured by` is not `fig. 53`), gives back the precision without
+  giving back the recall — 0.894 / 0.962 on the served surface, against
+  0.833 / 0.970 before #203 and 0.901 / 0.892 as it shipped. The offending
+  document goes from 34 spurious records to none, and the plate volume #203
+  was written for keeps all 24 of its real ones.
+
+- **Two inert bib fields for curation: `doclang` and `pagemap` (#214).**
+  Curating a scanned library means recording two things the pipeline had no
+  way to hold. `ocrlang` (#176) is an *instruction* to Tesseract, meaningful
+  only when OCR runs; what was missing is the *fact* — this paper is Russian,
+  this one is 19th-c. German set in Fraktur, this one is Ancient Greek. That
+  is what a person or an annotation pass determines by looking, it is worth
+  recording for born-digital papers too, and it is in a different vocabulary
+  from Tesseract's. `doclang` holds a BCP-47 tag, which is the only candidate
+  that can express `de-Latf`, `zh-Hant` and `grc` — and `de-Latf` decides
+  whether a scanned paper OCRs to text or to whitespace.
+
+  `pagemap` is free text describing the scan's physical structure. It exists
+  so a page-range directive is reviewable: a bare `keeppages = {3--20}` tells
+  the next reader nothing about whether pages 1–2 were a scanner wrapper, a
+  blank verso, or a mistake.
+
+  **Both are read by nothing** — no stage, no fingerprint — and that is the
+  feature rather than a limitation. Correcting a language label or fixing a
+  typo in a note must not reprocess a document, where `ocrlang` rewrites
+  `processed.pdf` and rightly invalidates every OCR-dependent stage. Tests
+  assert the absence directly, including that the fingerprint builder takes
+  no such argument and that no `entry_doclang()` accessor exists, because the
+  instinct when adding a bib field is to copy the `ocrlang` template whole and
+  that template fingerprints.
+
+  Deliberately not the standard BibTeX `language` field, for the reason
+  `ocrlang` isn't either: reference managers populate it by default, and an
+  ordinary Zotero export must not silently start steering anything.
+- **`tesseract_packs` no longer records "unknown" as "none" (#197).** Three
+  documents in the reference corpuscle once recorded `"tesseract_packs": []`
+  while OCR ran with seven. `_compose_ocr_langs` returns early when
+  `_available_tesseract_langs()` is empty — before the configured fallback
+  union is reached — so a failure to *enumerate* the installed languages was
+  written down as a resolution that found nothing.
+
+  `scan_detection.json` is the operator-facing record: `corpus status` reads
+  it, and #176's `ocrlang` workflow tells an operator to consult it when
+  choosing a pack to pin. A record saying "no packs" when seven were used
+  sends that diagnosis backwards, on exactly the documents an operator would
+  be investigating.
+
+  **The symptom no longer reproduces** — checked across all 35 documents by
+  comparing each `scan_detection.json` against the `Running OCR` line in its
+  own log, and record and invocation now agree everywhere. So this ships the
+  guard rather than a fix: if the probe comes back empty again, the record
+  says `tesseract_langs_unavailable` and a warning points at the log line
+  that holds the truth, instead of looking like a resolution that found
+  nothing.
+
+- **`keeppages`: which physical pages of a file are the paper (#188).** A PDF
+  in a scanned library is frequently not just the paper — a library cover
+  sheet, a Russian original bound in front of its English translation, runs of
+  blank versos. The costs compound rather than add: `detect_scan_type` samples
+  pages to choose the OCR mode *and* the language pack, so front matter
+  decides how the body behind it is read; then OCR pays full price for the
+  filler, and a calibration target becomes a figure.
+
+  Physical 1-based positions, never printed folios — on the documents this
+  targets it is precisely the front matter that has no printed number. An
+  entry routinely carries both `pages = {41--118}` (the journal pagination)
+  and a `keeppages` that disagrees, and that is correct. BibTeX page syntax
+  throughout: `2,4,8--20,22--40,55`, and `40--` for "to the end". Normalised
+  to a sorted, deduplicated set, so a selection cannot reorder a document. A
+  range past the last page is clamped with a warning, recorded in
+  `scan_detection.json`; an unparseable range is an error, because silently
+  keeping every page looks exactly like success.
+
+  Applied **before** scan detection, by rebinding the temp PDF the later
+  stages already read — so `scan.py` needed no change at all. It runs before
+  the huge-document gate too, which makes a selection the supported way to
+  bring an oversized bound volume into scope, exactly as that gate's own
+  error text asks.
+
+  **Page-number provenance is the part that needed care.** Once pages are
+  dropped, `page` in `figures.json` and `text.json` is a position in the
+  subset, and that is the number served to a client — a figure reported as
+  page 3 that is page 44 of the scan is a citation error nothing downstream
+  can detect. Both are carried: `page` stays subset-relative because it is
+  what indexes the artifacts on disk, and `source_page` says where it came
+  from. The resolved selection recorded as `keeppages_selected` *is* the map,
+  so there is no second structure to keep in sync.
+
+  Fingerprinted across every OCR-dependent stage, and required rather than
+  defaulted at all four call sites — a page-range edit invalidates strictly
+  more than an `ocrlang` edit, since it changes not how the PDF is read but
+  which pages it consists of.
+- **An `ocrlang` pin that contradicts measured page geometry is now
+  recorded and warned about.** The vertical-CJK hint went silent as soon as
+  a pin was honored, reasoning that the operator had made the call
+  themselves. That holds for a hand-written tag and fails completely for a
+  derived one.
+
+  An annotation pass deriving `ocrlang` from `doclang` (#214, #215) *cannot*
+  get this right: BCP-47 describes language and script, and vertical setting
+  is typesetting — deliberately out of `bcp47_to_tesseract`'s scope. So the
+  derivation emits `jpn` for a vertically-set Japanese paper every time, the
+  pin overrides #196's geometric verdict, and the one mechanism that would
+  have said so is disabled *by the thing that caused it*. Found on
+  `Kawamura1911a`, the document #196 was written for, where the pin costs
+  more than half the words on those pages — `jpn_vert` 0.574 against `jpn`
+  0.246.
+
+  The pin still wins, because `ocrlang` is documented to beat every inferred
+  signal and silently overriding an explicit instruction is worse than
+  obeying a bad one. But the conflict is now `ocrlang_overrides_vertical_cjk`
+  in `scan_detection.json` rather than only a log line that scrolled past
+  during a 40-minute build, and the warning says why a derived tag gets it
+  wrong so the generator gets fixed rather than one bib entry.
+
+
+- **`dev_docs/OCR_LANGUAGES.md` — what the gold set says about choosing
+  Tesseract packs.** The cycle produced a lot of measurement about pack
+  selection, spread across the README, four issue threads and a working
+  session. Collected into one stable page that code comments can cite.
+
+  It also records a correction. The obvious explanation for why a mismatched
+  pack damages this literature is dictionaries — Tesseract exposes
+  `language_model_penalty_non_dict_word` and loads six dawgs per language, and
+  89–92% of these tokens fall outside any English word list. Measured, that is
+  wrong: re-running with every dawg disabled changed **zero of 2,236
+  recognised tokens**, because those parameters govern the legacy word
+  permuter and Tesseract 5 runs the LSTM engine.
+
+  What differs is the character repertoire the model was trained on. Of the
+  tokens `por` recovers and `eng` loses on the same pages, **83.5% carry a
+  diacritic** in the original against 11.4% of those both recover — and
+  native-pack advantage tracks diacritic density, from Dutch at 0.4% where
+  `eng` ties to Portuguese at 3.4% where it loses 0.08.
+
+  The two failure modes that bracket the problem are recorded with numbers:
+  models contesting the same glyphs (`jpn_vert+jpn` 0.186 against 0.574 for
+  `jpn_vert` alone; seven packs on monolingual Latin below `lat` alone), and
+  substituting rather than adding a pack (13× the damage on out-of-wordlist
+  vocabulary, which is the vocabulary retrieval depends on).
+- **A pin that narrows what detection resolved is now recorded (#245).** An
+  `ocrlang` pin does not merely choose packs, it *discards* the ones detection
+  had resolved — and that was invisible. Pinning 31 of 35 gold documents from
+  a derived `doclang` tag moved corpus-wide prose coverage 0.9474 → 0.9450
+  with every language correct, because each pin replaced a union with a single
+  pack: `eng+deu+deu_latf+fra+lat+spa+por` → `lat` cost 0.079,
+  `swe+cat+fra+eng` → `swe` cost 0.063.
+
+  Narrowing is not uniformly bad — two documents improved — so the pin still
+  wins, and the record is `ocrlang_narrowed_from` in `scan_detection.json`
+  plus one INFO line. What was wrong is that a directive costing 0.05 looked
+  identical to one gaining it.
+
+  The comparison is against the list OCR would actually have used. An earlier
+  version compared against *targeted* resolution instead, reasoning that
+  pinning over a fallback union is not narrowing but the case `ocrlang` exists
+  for. Run against the reference corpuscle that flagged 4 of the 22 documents
+  whose pack list the pin changed, and missed the largest regression in the
+  set — `Linnaeus1735`, seven packs down to `lat`, −0.079, with no targeted
+  resolution recorded at all. The distinction was real but not the one worth
+  acting on; it survives as `ocrlang_narrowed_from_targeted`.
+- **`fidelity.py` reports taxon-token coverage beside prose coverage (#244).**
+  Coverage weighted every token equally, and for this literature that
+  undervalues exactly what retrieval keys on: replacing `por` with `eng` on a
+  Portuguese paper costs 0.010 on English-wordlist tokens and 0.129 on
+  everything else, and the binomials live in the second bucket. Every
+  extraction decision this cycle was made by reading this instrument, so a
+  systematic bias in it was in all of them.
+
+  Scored against the corpuscle's own `taxonomy.sqlite`, word by word, with the
+  denominator always reported and no rate below 10 taxon tokens on a page — a
+  corpuscle's taxonomy covers one clade while the gold spans all of nature, and
+  the 801-taxon siphonophore snapshot labels 58 tokens in the whole of
+  *Systema Naturae*.
+
+  **Summarised by mean and p10, not the median used everywhere else.** 53% of
+  qualifying pages recover every taxon token, so a median sits at exactly 1.000
+  and cannot move while the tail does: mean 0.885, p10 0.643 on the same 229
+  pages.
+
+  It found what it was built to find on the first run. **17 pages score more
+  than 0.2 better on prose than on taxa** — `Hosiaetal2024` p6 is prose 0.976
+  and taxon 0.140, a page the headline calls near-perfect while 86% of the
+  names it is retrieved by are lost.
+
+
+- **`dev_docs/FIGURE_PARSING.md` — what the gold set says about figures.**
+  Companion to `OCR_LANGUAGES.md`, covering the three questions this cycle
+  learned to keep separate: are all the figures found and is furniture being
+  called one, is each caption bound to the right figure, and is the text
+  inside a figure recovered.
+
+  Records where the numbers are strong — 1950–1999 scans at recall 0.975 /
+  precision 0.964, `Totton1965a` at 0.974 / 0.995 over 195 figures — and where
+  they are not: born-digital precision 0.607 raw against 0.919 for scans,
+  because publisher logos are figures as far as a layout model is concerned;
+  caption binding before 1900 at recall 0.091, because the numbers are
+  engraved on the plates rather than typeset.
+
+  Also why each measure has the shape it does. Detection is counted per page
+  rather than matched figure by figure, because the gold carries no bounding
+  boxes and per-page counting is the strongest claim the data supports.
+  Captions bind on the figure *number*, never on caption text, because a naive
+  text match reports 44% and is mostly artifact. And gold blocks are
+  classified before scoring — 229 of 376 are a bare label, so caption text is
+  computable for 86 pairs out of 465 and is reported rather than headlined.
+
+
+### Changed
+
+- **The vertical-CJK section of the README predated #196.** It said detection
+  never selects the vertical models and that `ocrlang` is "currently the only
+  way to get it right"; neither has been true since #196 landed. Rewritten to
+  describe what happens — a sample of the scanned pages is rasterised, line
+  orientation measured, and the `_vert` pack swapped in on a majority vote —
+  and to recast `ocrlang` as the override for disagreeing with that choice.
+
+- **The pyflakes gate now covers `tools/` (#75, #193).** It linted
+  `pipeline/`, `mcpsrv/` and `bib/` only, so the operator scripts under
+  `tools/` never got the NameError check it was built for — and those are run
+  by hand at release time, where a NameError costs a whole manual run rather
+  than a fast test failure.
+
+### Fixed
+
+- **OCR sized its worker pool from the host, not the allocation, and
+  silently blanked ~10% of a cluster build's documents (#254).**
+  `--tesseract-timeout` does not fail a page. Its documented behaviour is to
+  give up on OCR, copy the un-OCR'd image into the output and exit 0 — so the
+  page survives visually, carries an empty text layer, and the document is
+  recorded `status=success` with an empty `stage_failures[]`. The only trace
+  was a `WARNING` in the SLURM log of whichever array task happened to
+  process it.
+
+  The cap added in #209 only ever fired when *memory* bound. On a Bouchet
+  stage1 node — `CPUTot=64`, 991 GiB — an 8-CPU step could afford 390
+  workers, so the cap returned `None`, and `None` hands the decision back to
+  ocrmypdf's `multiprocessing.cpu_count()`: 64 Tesseract workers inside an
+  8-CPU cgroup, every page on a sliver of a core, until the per-page timeout
+  fired and blanked it. Nothing OOMs; the pages just starve.
+
+  `_resolve_ocr_jobs` now reads the allocation — `ocr.jobs`, then
+  `$SLURM_CPUS_PER_TASK`, then the CPU affinity mask, then a cgroup `cpu.max`
+  quota, then the host — with the memory budget derived the same way
+  (`$SLURM_MEM_PER_NODE`, cgroup `memory.max`, physical RAM, smallest wins),
+  and **always passes `--jobs` when it knows the number**. Returning `None`
+  is now reserved for a host nothing could be determined about. On a
+  workstation the value it passes *is* ocrmypdf's own default, so nothing
+  gets slower.
+
+  Found by comparing two full builds of the same 1,769-document library.
+  Because the condition is load-dependent it selects a different set each
+  run: 31 documents lost >80% of their text between builds while 28
+  independently gained it back. `Johnson_Widder2001.pdf` went from 83,293
+  characters to 671, with `OCR completed successfully` logged both times.
+
+- **Blanked pages are recorded and gated instead of counted and discarded
+  (#254).** ocrmypdf names the pages it abandons, one line each, page number
+  first; `_log_ocr_warnings` reduced that to `stderr.count(needle)` and
+  kept only the total, while a separate end-state check found pages with no
+  text and conceded in its own docstring that it could not tell why. Joining
+  them removes the ambiguity exactly, with no heuristic: a page that is empty
+  **and** was named by Tesseract is lost text; a page that is empty and was
+  not named is a plate, a blank verso or a figure-only page. The first is a
+  new `error`-severity quality gate, `ocr_pages_blanked`; the second stays
+  expected, which matters in a corpus this full of plates. The page list is
+  persisted to `scan_detection.json` as `pages_blanked`, so it reaches
+  `summary.json` and is queryable after the fact rather than living in one
+  array task's log. Selectable like any other gate:
+  `corpus status --filter-gate ocr_pages_blanked`,
+  `corpus run --re-process-flagged ocr_pages_blanked`.
+
+  The gate fails the *document*, not the run. Aborting would kill a 28-task
+  array over a transient condition affecting ~10% of documents while the rest
+  of that task's documents are fine.
+
+- **The main OCR invocation now goes through `_run_ocr`, so a timeout takes
+  the Tesseract workers with it.** #209 added the process-group kill but
+  wired it only into the `--redo-ocr` retry path; the common path still used
+  `subprocess.run(timeout=)`, which kills the direct child and leaves its
+  grandchildren reparented to PID 1 — burning the cores the *next* document
+  needs, which is the same starvation #254 is about.
+
 ## [1.1.1] - 2026-08-08
 
 ### Fixed
@@ -29,6 +921,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pointed at v0.2.0 from May while seven newer releases existed.
 
 ## [1.1.0] - 2026-08-08
+
+### Theme — v1.1 post-1.0 correctness
+
+v1.1 was triaged out of the 1.0 release rather than absorbed into it:
+the pre-release UX review, the viburnum production build, and two items
+carried across several cycles. Nothing in it blocked an install, which
+is the bar 1.0 set, and the v0.6 38-tool freeze permitted all of it —
+every item is a bug fix or an additive change under
+[API_STABILITY.md](dev_docs/API_STABILITY.md).
+
+**What it turned out to be: silent wrongness in OCR, and test signals
+that had stopped meaning anything.** A narrower cycle than its candidate
+list, with the shape coming from the material rather than the plan. The
+OCR half began as one issue about six viburnum papers (#176) and proved
+to be three defects, only one of which that issue had identified — the
+third being that there was no per-document override at all, so an
+operator watching a Korean flora paper OCR as English had no recourse.
+The testing half was #185: corpus-wide soft checks firing on 65% of a
+production corpus, which is indistinguishable from off.
+
+Validation was a from-scratch **699-paper viburnum build** on macOS
+arm64 — 699/699 documents, 0 stage failures, 67,221 chunks, 5,340
+figures, 7h57m. It found two resume bugs that would have shipped a
+feature that silently did nothing, confirmed #184's figure shrinking at
+production scale (3.4 GB → 2.3 GB, −32.4%, against the −33.2% measured
+on the siphonophore sample), and opened #186, #187 and #188.
+
+*(Backfilled 2026-08-25, from this cycle's own PLAN.md write-up rather
+than reconstructed from the diff. Older entries without a theme section
+were deliberately left alone — see CONTRIBUTING.md's release ritual.)*
 
 ### Added
 
@@ -113,6 +1035,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not a failure — DeLFT is a supported opt-in on AVX-capable Linux
   x86_64 — and stays silent for a remote or Apptainer Grobid, a host
   without Docker, and a non-clone install with no compose file.
+
+- **A GPU too old for the pinned torch no longer breaks every build
+  (#198).** `torch.cuda.is_available()` answers "is there a visible NVIDIA
+  GPU", not "can this torch build run kernels on it", and the two differ on
+  exactly the hardware a lab workstation has. On the same machine with an
+  unchanged dependency set, 20 days apart:
+
+  ```
+  2026-08-06  Accelerator device: 'cpu'      → clean build
+  2026-08-26  Accelerator device: 'cuda:0'   → CUDA error: no kernel image
+                                               is available for execution
+  ```
+
+  A GTX 1080 (compute capability 6.1) became visible to torch, whose pinned
+  build ships `sm_75` and up. **Nothing in the project changed** — a driver
+  appeared and a working install stopped working, which is precisely the
+  reproducibility the #98 pins exist to provide.
+
+  `pipeline/accelerator.py` now checks capability rather than availability,
+  allowing both an exact binary kernel and forward PTX JIT so working
+  hardware is never pushed onto the CPU, and logs which card it rejected and
+  why. It is applied at all four call sites that made the same assumption
+  independently: docling in `extract.py` and `prefetch.py` (which previously
+  set no `accelerator_options` at all, leaving docling on `auto`), the
+  `vision-local` host gate in `cli.py`, and the embedding encoder in
+  `embeddings.py`. The last of those was only caught by running a real build
+  — the docling fix alone left `corpus run` failing at the embed stage.
+
+  New `compute.accelerator` config key (`auto` | `cpu` | `cuda` | `mps`); a
+  pinned value is honoured verbatim, since second-guessing it would make the
+  knob useless for the case it exists for. `CORPUS_DEVICE` still wins for
+  embeddings. The resolved device is recorded in `text.json`, so two
+  corpuscles that differ because one ran on CPU and one on CUDA are no longer
+  indistinguishable after the fact.
 
 ### Changed
 

@@ -1,0 +1,54 @@
+{
+ "schema_version": 1,
+ "pipeline_version": "test",
+ "figures_directory": "figures",
+ "figures": [
+  {
+   "figure_id": "docling_0",
+   "filename": "docling_0.png",
+   "caption_text": "Taf. III. Physalia arethusa.",
+   "extraction_method": "docling",
+   "figure_type": "figure",
+   "page": 3,
+   "resolution_mode": "native",
+   "figure_number": null,
+   "panels_from_caption": []
+  },
+  {
+   "figure_id": "docling_1",
+   "filename": "docling_1.png",
+   "caption_text": "",
+   "extraction_method": "docling",
+   "figure_type": "graphical_element",
+   "page": 1,
+   "resolution_mode": "vector_fallback",
+   "figure_number": null,
+   "panels_from_caption": []
+  },
+  {
+   "figure_id": "docling_2",
+   "filename": "docling_2.png",
+   "caption_text": "",
+   "extraction_method": "docling",
+   "figure_type": "graphical_element",
+   "page": 1,
+   "resolution_mode": "vector_fallback",
+   "figure_number": null,
+   "panels_from_caption": []
+  },
+  {
+   "figure_id": "docling_3",
+   "filename": "docling_3.png",
+   "caption_text": "",
+   "extraction_method": "docling",
+   "figure_type": "unclassified",
+   "page": 2,
+   "resolution_mode": "native",
+   "figure_number": null,
+   "panels_from_caption": []
+  }
+ ],
+ "total_figures": 4,
+ "missing_figures": [],
+ "total_missing_figures": 0
+}

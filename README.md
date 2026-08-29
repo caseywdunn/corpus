@@ -78,6 +78,8 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 | `license`, `licenseurl` | Figure licensing for the served bundle — see [dev_docs/LICENSING.md](dev_docs/LICENSING.md) |
 | `serve`, `servereason` | Exclude a paper from the served bundle — see [dev_docs/QC.md](dev_docs/QC.md) |
 | `ocrlang` | Pin which Tesseract packs OCR this paper |
+| `doclang`, `pagemap` | Record what the paper *is* and how the scan is put together — read by nothing |
+| `keeppages` | Which physical pages of the file are the paper |
 
 `ocrlang` is the escape hatch for a paper whose language the pipeline gets confidently wrong. Language detection normally does the right thing, but when it doesn't there is otherwise no way to correct one document — the corpus-wide `ocr.ocr_languages_default` is only consulted when detection finds nothing at all, which a confident-but-wrong detection never reaches.
 
@@ -89,9 +91,86 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 }
 ```
 
+**Before writing one, read [dev_docs/OCR_LANGUAGES.md](dev_docs/OCR_LANGUAGES.md).** Measured against the gold set, pinning is not automatically better than letting detection decide — on 23 of 35 documents the two agreed within 0.005 — and a single-pack pin is strictly *narrower* than no pin at all, because corpus appends `eng` when it composes a list itself and never to a pin. That page says when a pin earns its keep and what to put in it.
+
 Write Tesseract pack names joined by `+` — the same spelling ocrmypdf's `-l` uses, and the same string the run log prints as `langs=`. They are pack names, not ISO codes: `deu`, `fra`, `ell`, not `de`, `fr`, `el`. Run `tesseract --list-langs` to see what's installed. Names that aren't installed are dropped with a warning rather than passed through, and if none survive the tag is ignored and detection decides as usual.
 
+If you generate the bib from a script and hold each document's language as a tag rather than as pack names, `pipeline.scan.bcp47_to_tesseract` does the translation — `"de-Latf"` to `["deu_latf", "deu"]`, `"zh-Hant"` to `["chi_tra"]`, `"grc"` to `["grc"]`. It is public so that a library's tooling doesn't have to keep its own copy of the table and watch it drift from this one.
+
 The tag pins language packs only — it does not force OCR, so adding it to a born-digital paper changes nothing. Adding, changing, or removing it re-runs OCR for that paper on the next `corpus run`; papers you didn't touch are left alone.
+
+**Vertically-set CJK is detected automatically, and `ocrlang` overrides it.** Tesseract ships separate models for vertical text — `jpn_vert`, `chi_sim_vert`, `chi_tra_vert`, `kor_vert` — and a vertically-set document read by a horizontal model loses about half its words. Measured on a 1911 Japanese monograph against a hand transcription of the same pages:
+
+| packs | horizontal Japanese | vertical Japanese |
+|---|---|---|
+| `jpn` (what detection picks) | **0.75** | 0.25 |
+| `jpn_vert` | 0.21 | **0.57** |
+| `jpn_vert+jpn` | — | 0.19 |
+
+Numbers are the fraction of the words actually printed on the page that the pipeline recovered.
+
+Two things to take from that table. Using `jpn_vert` on a vertically-set document **more than doubles** what is recovered. And **never use both** — the union scores worse than either pack alone, because the two models compete for the same glyphs. That is the opposite of how the Fraktur packs behave, where `deu+deu_latf` together is the right answer.
+
+When detection resolves a CJK pack, corpus rasterises a sample of the document's *scanned* pages and measures which way the text lines run, then swaps in the `_vert` counterpart on a majority vote. Born-digital pages don't vote: `--redo-ocr` preserves their existing text, so no pack ever touches them, and letting an English typescript bound in front of a Japanese scan decide the Japanese pages' model is how the choice went wrong before. The verdict is recorded as `vertical_cjk` in the document's `scan_detection.json`.
+
+`ocrmypdf` takes one pack list per document, so one choice has to serve the whole file. Pin `ocrlang` when you disagree with the one made — a mixed volume where the sample landed on the wrong side, or a host where the vertical pack isn't installed:
+
+```bibtex
+@article{Kawamura1911a,
+  file    = {Kawamura1911a.pdf},
+  ocrlang = {jpn_vert},
+}
+```
+
+### Recording what a document is: `doclang` and `pagemap`
+
+`ocrlang` says what to *do*; these two say what the paper *is*. Both are read by nothing — not by any stage, not by any fingerprint — so they exist purely as the curator's record, and correcting one never reprocesses a document.
+
+```bibtex
+@article{Stepanjants1970,
+  file      = {Stepanjants1970.pdf},
+  doclang   = {ru},
+  pagemap   = {1--2 BHL wrapper; 3--20 Russian original;
+               21--40 English translation; 41--43 blank},
+  ocrlang   = {rus+eng},
+}
+```
+
+`doclang` is a [BCP-47](https://www.rfc-editor.org/info/bcp47) language tag. BCP-47 rather than a plain ISO code because it is the only vocabulary that can say what a scanned library needs to say: `de-Latf` is *German set in Fraktur*, which decides whether the paper OCRs to text or to whitespace, and which language detection cannot express at all — langdetect can only ever say `de`. Likewise `zh-Hant` against `zh-Hans`, and `grc` for Ancient Greek, which has no two-letter code. Bare codes like `ru` are already valid tags, so nothing forces you to be more specific than you are sure of.
+
+To turn a tag into pack names, `pipeline.scan.bcp47_to_tesseract` is public — `"de-Latf"` gives `["deu_latf", "deu"]`. Writing the result into `ocrlang` is a deliberate extra step rather than something the build does for you: `ocrlang` is fingerprinted, and if it were derived at run time then improving the mapping table would change what `-l` the log reports without invalidating any document's existing OCR.
+
+`pagemap` is free text, never parsed. It exists so that a page-range directive is reviewable — a bare range tells the next reader nothing about whether pages 1–2 were a scanner wrapper, a blank verso, or a mistake.
+
+### Trimming a scan to the paper: `keeppages`
+
+A PDF in a scanned library is frequently not just the paper. Library cover sheets and colour calibration targets get prepended by the digitiser; a Russian original is bound in front of its English translation; runs of blank versos pad the plates. The costs compound rather than add — scan detection samples pages to choose the OCR mode *and* the language pack, so forty pages of scanner filler ahead of the body decide how the body is read; then OCR pays full price for the filler, and a calibration target becomes a figure.
+
+```bibtex
+@article{Stepanjants1970,
+  file      = {Stepanjants1970.pdf},
+  pages     = {41--118},
+  keeppages = {3--20},
+  ocrlang   = {rus+eng},
+}
+```
+
+**These are physical, 1-based positions in the file — never printed page numbers.** The printed number is often absent, wrong, or restarts mid-volume, and on the documents this feature targets it is precisely the front matter that has none. The two page fields above will routinely disagree, and that is correct rather than a data error: `pages` is where the article sits in its journal, `keeppages` is where it sits in the scan.
+
+Format follows BibTeX page conventions — `--` for a range, commas between terms, singles and ranges mixed freely, and a trailing `--` for "to the end":
+
+```
+keeppages = {2,4,8--20,22--40,55}
+keeppages = {40--}
+```
+
+The selection is normalised to a sorted, deduplicated set, so `{40--50,10--20}` is not a way to reorder a document. A range running past the last page is clamped with a warning rather than failing; a range that can't be parsed at all is an error, because silently keeping every page would look exactly like success.
+
+It applies **before** scan detection, so detection, OCR, chunking and figure extraction all see only the selected pages. That also makes it the supported way to bring an oversized bound volume into scope — the huge-document gate counts the selection, not the file.
+
+**Page numbers after a selection.** `page` in `figures.json` and `text.json` is a position in the *subset*, because that is what indexes the artifacts on disk. Alongside it, `source_page` gives the position in the original file, so a served figure stays citable against the PDF you hold. The resolved selection is recorded in `scan_detection.json` as `keeppages_selected`, which is itself the complete map — subset page *i* is `keeppages_selected[i-1]`.
+
+Editing `keeppages` re-runs OCR and everything downstream of it for that paper, since the change alters what the document is.
 
 ### External taxonomic data (optional)
 

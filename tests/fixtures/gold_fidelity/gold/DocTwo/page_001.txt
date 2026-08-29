@@ -1,0 +1,4 @@
+[PAGE 1]
+
+This document is transcribed but was never built into the corpuscle under
+test, so there is nothing whatever to score it against.

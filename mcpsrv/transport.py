@@ -1,7 +1,7 @@
 """Transport + auth for the MCP server.
 
 * :class:`_BearerAuthASGI` — middleware that gates SSE traffic on a
-  shared bearer token (dev_docs/PLAN.md §10).
+  shared bearer token (DEPLOY.md).
 * :func:`_load_auth_token` — resolves the active token from
   ``--auth-token-file``, ``CORPUS_MCP_TOKEN``, or ``/etc/corpus/token``.
 * :func:`_run_sse` — wires the MCPServer SSE app behind the auth

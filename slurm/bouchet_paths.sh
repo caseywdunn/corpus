@@ -6,7 +6,7 @@
 # require editing a tracked file. Point at a different build either by
 # moving the `corpuscles/current` symlink or by exporting $CORPUS_CONFIG
 # for one-off runs, e.g.:
-#     CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_sample_20260801/config.yaml \
+#     CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_gold_20260825/config.yaml \
 #         bash batch_pipeline.sh
 
 # Lab project storage (PI Casey Dunn). All persistent state lives under

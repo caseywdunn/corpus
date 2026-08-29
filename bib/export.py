@@ -187,7 +187,8 @@ def export_bibtex(
     where = "WHERE in_corpus = 1" if corpus_only else ""
     works_sql = f"""
         SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus,
-               license, license_url, serve, serve_reason, ocrlang
+               license, license_url, serve, serve_reason, ocrlang,
+               doclang, pagemap, keeppages
         FROM works
         {where}
         ORDER BY year, work_id
@@ -246,6 +247,14 @@ def export_bibtex(
             # #176 — round-trip the OCR language override so an
             # export/hand-edit/import cycle doesn't silently drop it.
             "ocrlang": r["ocrlang"],
+            # #214 — round-trip the curation fields. They steer nothing, so
+            # losing them costs no output; it costs the curator's record of
+            # why a directive was set, which is the only copy there is.
+            "doclang": r["doclang"],
+            "pagemap": r["pagemap"],
+            # #188 — the page selection *is* the document's definition;
+            # losing it on a round-trip silently restores the front matter.
+            "keeppages": r["keeppages"],
             # corpus_hash is opaque but lets future bib_import match
             # entries back to per-paper artifacts even after a rename.
             "corpus_hash": r["corpus_hash"],

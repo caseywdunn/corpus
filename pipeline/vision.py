@@ -1,6 +1,7 @@
 """Vision-model backends for Pass 3b figure panel / sub-figure detection.
 
-dev_docs/PLAN.md §9. Pass 3a (Tesseract OCR in pipeline/figures.py) has low recall on
+See dev_docs/OVERVIEW.md "Figure pipeline". Pass 3a (Tesseract OCR in
+pipeline/figures.py) has low recall on
 line-art scientific figures — around 20–40% of panels on the demo set.
 Pass 3b escalates to a vision-language model that can read embedded
 labels (``A``, ``B``, ``C``) and detect compound figures (``Fig. 3`` +

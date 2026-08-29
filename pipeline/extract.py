@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from . import stamp_artifact
+from .accelerator import resolve_device
 from .config import CONFIG
 from .figures import (
     detect_missing_figures,
@@ -61,7 +62,9 @@ def extract_docling_content(
     try:
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.datamodel.pipeline_options import (
+            AcceleratorDevice, AcceleratorOptions, PdfPipelineOptions,
+        )
         # Configure converter to generate picture images explicitly.
         # #121 — docling renders picture crops at 72 * images_scale dpi
         # and the saved PNG is never resized downstream, so this scale is
@@ -71,7 +74,19 @@ def extract_docling_content(
         images_scale = float(CONFIG.get("figures", {}).get("images_scale", 2.0))
         logger.info("docling images_scale=%.1f (figure dpi=%d)",
                     images_scale, round(72 * images_scale))
+        # #198 — pin the device rather than leaving docling on `auto`.
+        # `auto` resolves through `torch.cuda.is_available()`, which is true
+        # for any visible NVIDIA GPU including one whose compute capability
+        # this torch build ships no kernels for. When that happens every page
+        # fails with "no kernel image is available for execution on the
+        # device" rather than falling back, so a machine that built a
+        # corpuscle fine last month stops working because a driver appeared.
+        device = resolve_device(
+            CONFIG.get("compute", {}).get("accelerator", "auto"))
+        logger.info("docling accelerator=%s", device)
         pipeline_options = PdfPipelineOptions(
+            accelerator_options=AcceleratorOptions(
+                device=AcceleratorDevice(device)),
             do_ocr=False,
             do_table_structure=True,
             generate_picture_images=True,
@@ -103,6 +118,11 @@ def extract_docling_content(
 
         # Extract text from docling if available
         text_content = {
+            # #198 — record which device produced this. Two corpuscles that
+            # differ because one ran docling on CPU and one on CUDA were
+            # otherwise indistinguishable after the fact, which defeats the
+            # comparison the #98 version pins exist to make possible.
+            "accelerator": device,
             "title": document.name,
             "text": document.export_to_markdown(),
             "pages": len(document.pages) if hasattr(document, "pages") else None,
@@ -145,7 +165,7 @@ def extract_docling_content(
                 "figure_id": figure_id,
                 "filename": figure_path.name,
                 "file_path": str(figure_path),
-                "caption_text": caption or "",  # canonical; see dev_docs/PLAN.md §3
+                "caption_text": caption or "",  # canonical; see OVERVIEW.md
             }
             entry.update(meta or {})
             figures_data.append(entry)
@@ -195,6 +215,9 @@ def extract_docling_content(
         from .figures import (
             classify_figure,
             dedupe_figures,
+            expand_plate_figures,
+            furniture_positions,
+            plate_legend_entries,
             compose_figure_filename,
             FIGURE_TYPE_FIGURE,
             FIGURE_TYPE_PLATE,
@@ -230,18 +253,75 @@ def extract_docling_content(
                 "bbox_coord_system": bbox_meta.get("bbox_coord_system"),
             })
 
+        # #203 — a historical plate carries several separately-numbered
+        # engravings under one legend, and docling extracts it as a single
+        # picture. Give each figure the legend names its own record, sharing
+        # the plate's image, so it is retrievable at all. Runs before
+        # classification so the new records are classified like any other.
+        page_texts = {}
+        for t in (getattr(document, "texts", None) or []):
+            meta = _docling_prov_to_bbox_page(t)
+            page_no = meta.get("page")
+            if page_no is None:
+                continue
+            page_texts.setdefault(page_no, []).append(
+                {"text": getattr(t, "text", "") or "", "bbox": meta.get("bbox")})
+        legends = {pg: plate_legend_entries(ts) for pg, ts in page_texts.items()}
+        legends = {pg: e for pg, e in legends.items() if e}
+        if legends:
+            before = len(raw_items)
+            raw_items = expand_plate_figures(raw_items, legends)
+            if len(raw_items) > before:
+                logger.info(
+                    "Plate legends: %d figure(s) added from %d multi-figure "
+                    "legend(s); they share the plate image",
+                    len(raw_items) - before, len(legends),
+                )
+
         # Pass 2: classify, then dedupe. Order matters — subpanels are
         # identified during dedupe and we don't want the initial
         # classify_figure() to call them "figure" and then the dedup pass
         # relabel them.
+        # Which page positions recur often enough to be running furniture. Needs
+        # the whole document, so it is computed once here and handed to each
+        # classification (#204).
+        recurring = furniture_positions(raw_items)
         for it in raw_items:
             if "figure_type" not in it:
-                it["figure_type"] = classify_figure(it)
+                it["figure_type"] = classify_figure(it, recurring=recurring)
         items = dedupe_figures(raw_items)
 
         # Pass 3: save surviving images, record metadata.
         saved_count = 0
+        # Filenames of already-saved primaries, so a plate-legend sibling can
+        # point at the plate's existing file instead of writing a byte-identical
+        # copy of it (#203). Siblings are appended after their primary, so it is
+        # always present by the time one is reached.
+        saved_filenames: Dict = {}
         for it in items:
+            shares = it.get("shares_image_with")
+            if shares is not None and shares in saved_filenames:
+                # Same picture, another figure drawn on it. Record it through
+                # the same helper as any other figure, pointing at the plate's
+                # existing file rather than writing a byte-identical copy.
+                append_figure(
+                    figure_id=f"docling_{it['docling_idx']}_fig{it.get('figure_number')}",
+                    figure_path=figures_dir / saved_filenames[shares],
+                    caption=it.get("caption_text") or "",
+                    meta={
+                        "extraction_method": "docling",
+                        "figure_type": it.get("figure_type"),
+                        "figure_number": it.get("figure_number"),
+                        "page": it.get("page"),
+                        "bbox": it.get("bbox"),
+                        "bbox_coord_system": it.get("bbox_coord_system"),
+                        "caption_page": it.get("caption_page"),
+                        "caption_bbox": it.get("caption_bbox"),
+                        "caption_source": it.get("caption_source"),
+                        "shares_image_with": shares,
+                    },
+                )
+                continue
             image = it.get("image")
             if image is None or not hasattr(image, "save"):
                 logger.warning(
@@ -263,6 +343,7 @@ def extract_docling_content(
                 logger.warning("Could not save figure %s: %s", filename, e)
                 continue
             saved_count += 1
+            saved_filenames[it.get("docling_idx")] = out_path.name
 
             meta: Dict = {
                 "extraction_method": "docling",

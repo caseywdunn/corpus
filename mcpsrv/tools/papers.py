@@ -308,6 +308,6 @@ def get_papers(
 
 
 # ---------------------------------------------------------------------------
-# HTTP transport + bearer-token auth (dev_docs/PLAN.md §10)
+# HTTP transport + bearer-token auth (DEPLOY.md)
 # ---------------------------------------------------------------------------
 

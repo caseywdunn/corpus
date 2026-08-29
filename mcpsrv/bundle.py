@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Distill a Bouchet build bundle into a served bundle for AWS.
 
-dev_docs/PLAN.md §10 separates the "build bundle" (everything `process_corpus.py`
+DEPLOY.md separates the "build bundle" (everything `process_corpus.py`
 emits — includes processed.pdf, raw docling dumps, QC visualizations,
 per-paper logs) from the "served bundle" (just what MCP tools read
 plus the precompiled indices).  For 2000 papers the served bundle is
@@ -388,7 +388,7 @@ def _citation_for_manifest() -> Optional[dict]:
     }
 
 
-# ── Path scrubbing (dev_docs/PLAN.md §10) ────────────────────────────────────
+# ── Path scrubbing (see DEPLOY.md) ───────────────────────────────────────────
 #
 # `process_corpus.py` writes summary.json with absolute Bouchet paths in
 # input_dir / output_directory / processing_summary.original_pdf /

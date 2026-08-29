@@ -47,7 +47,8 @@ corpuscles/                      ← all siphonophore corpuscle builds
     documents/<HASH>/…           ← per-paper artifacts (created by extract)
     *.sqlite, vector_db/         ← cross-paper DBs + LanceDB (created by embed/post)
     _serve/                      ← distilled served bundle (created by bundle)
-  siphonophore_sample_YYYYMMDD/  ← sample/smoke-test builds (same structure)
+  siphonophore_gold_YYYYMMDD/    ← smoke-test builds over the 35 transcribed
+                                   documents (same structure; see below)
 cache/huggingface/               ← model cache (see below)
 cache/grobid.sif                 ← Grobid Singularity image (step 6)
 cache/grobid_{tmp,logs}/<jobid>/ ← per-job Grobid scratch; each submit sweeps
@@ -88,7 +89,7 @@ symlink change, no edit:
 
 ```bash
 cd "$BOUCHET_PROJECT/corpus"
-CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml \
+CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD/config.yaml \
     bash slurm/batch_pipeline.sh
 ```
 
@@ -467,34 +468,73 @@ produces. The dry run still exits 0.
 *(Steps 1–7 verified end-to-end on the cluster 2026-08-01, against
 `corpuscles/siphonophore_20260731`.)*
 
-## Smoke test (20–50 papers) before the full corpus
+## Smoke test: the gold corpuscle, before the full corpus
 
 Before committing to the full-corpus run, smoke-test end-to-end on a small
 sample. Unlike step 7's `corpus run --dry-run`, this is a real build: it submits
 real CPU and GPU jobs and writes real artifacts, which is the point — you
 inspect them below. It is also a different exercise from
 [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md), which checks that the *install* works
-across platforms against the 11-paper demo corpus; this checks that *your*
+across platforms against the 4-paper demo corpus; this checks that *your*
 production `config.yaml` and *your* PDFs survive the whole chain at small scale.
 
-Under the config-driven flow (#138) a sample is just a second corpuscle — its
-own directory + `config.yaml` pointing at a slice of PDFs — selected by
-exporting `CORPUS_CONFIG`:
+**The sample is the 35 transcribed documents**, not an ad-hoc slice. The
+siphonophore library's `transcriptions/` tree holds verbatim, page-by-page
+transcriptions of 35 documents (761 pages, 1594–2026, 13 languages), made from
+rendered page images only and never by correcting an extractor's output. They
+were chosen to span the collection's hardest axes — Fraktur, Cyrillic, CJK,
+vertical Japanese, plate-only atlases, documents with no text layer at all —
+which is exactly what a smoke test wants to exercise, and they come with ground
+truth attached, so the same build serves three purposes: this rehearsal, the
+release drift reference (#187), and extraction-accuracy scoring (#192).
+
+**It is a cheaper build than the 30 PDFs it replaced, despite being 35** — 761
+pages against 1,290, and ~644 pages needing OCR against ~916. The old sample was
+never picked for speed: it carried a 235-page thesis plus four more 100-page
+monographs, three of them full-page scans. `BATCH_SIZE` defaults to 64, so 35
+PDFs is a single array task and wall-clock tracks total work.
+
+The one heavy document is **Totton1965a** — 314 pages at 100% raster coverage,
+so scan detection calls it a scan and `redo_ocr` re-OCRs every page whatever its
+text layer claims. That is half the set's entire OCR load, and it is kept on
+purpose: 314 scanned pages against 314 independently transcribed pages is the
+largest OCR ground truth available, in the exact document class this corpuscle
+exists to measure. **If it turns out to dominate wall-clock, split the roles
+rather than dropping it** — keep all 35 for scoring and #187, run the rehearsal
+on a subset. `input_pdfs` is a directory, so that costs a directory of symlinks
+and no code change. Dropping it from *scoring* is the one thing not to do.
+
+Under the config-driven flow (#138) it is just a second corpuscle — its own
+directory + `config.yaml` pointing at a slice of PDFs — selected by exporting
+`CORPUS_CONFIG`:
 
 ```bash
-# 1. A handful of PDFs spanning born-digital modern + historical scans +
-#    German Fraktur to exercise the OCR / language / figure paths.
-mkdir -p "$BOUCHET_PROJECT/siphonophores_sample/library"
-# …copy ~30 PDFs into siphonophores_sample/library/
+# 1. Materialise the 35 gold PDFs. sources.json maps each transcription stem
+#    to its PDF and that file's sha256 — resolve through the file and verify
+#    the checksum rather than guessing a shelf letter. (The library holds two
+#    editions of Lery, both once named Lery1594.pdf; only the 1594 is
+#    transcribed, and they are not interchangeable.)
+mkdir -p "$BOUCHET_PROJECT/siphonophores_gold/library"
+python - <<'PY'
+import hashlib, json, pathlib, shutil
+lib  = pathlib.Path("siphonophores")           # the library repo
+dest = pathlib.Path("siphonophores_gold/library"); dest.mkdir(parents=True, exist_ok=True)
+for stem, rec in json.loads((lib / "transcriptions/sources.json").read_text()).items():
+    src = lib / rec["pdf"]
+    got = hashlib.sha256(src.read_bytes()).hexdigest()
+    assert got == rec["sha256"], f"{stem}: checksum mismatch, refusing to copy"
+    shutil.copy2(src, dest / src.name)
+PY
 
-# 2. A sample corpuscle. Use today's date, e.g. 20260603.
-mkdir -p "$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD"
-cd "$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD"
+# 2. A gold corpuscle. Use today's date, e.g. 20260825.
+mkdir -p "$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD"
+cd "$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD"
 # Copy the production config and repoint input_pdfs; output_dir: . keeps
-# the sample's artifacts out of the production tree.
+# the sample's artifacts out of the production tree. `bib:` stays pointed at
+# the production siphonophores.bib — per-document directives live there.
 cp "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/config.yaml" .
-#   edit:  input_pdfs: ../../siphonophores_sample/library
-export CORPUS_CONFIG="$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/config.yaml"
+#   edit:  input_pdfs: ../../siphonophores_gold/library
+export CORPUS_CONFIG="$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD/config.yaml"
 
 # 3. Run the phases, from the repo (the slurm/ paths are relative to it).
 #    The simplest path is the orchestrator, which inherits $CORPUS_CONFIG
@@ -509,13 +549,19 @@ bash slurm/batch_pipeline.sh
 # sbatch slurm/batch_finalize.sh           # post + bundle (CPU)
 ```
 
-Inspect `$BOUCHET_PROJECT/corpuscles/siphonophore_sample_YYYYMMDD/documents/<HASH>/summary.json` and `figures_report.html` for a handful of papers. Confirm:
+Inspect `$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD/documents/<HASH>/summary.json` and `figures_report.html` for a handful of papers. Confirm:
 
 - Grobid metadata populated (`metadata.json`)
 - Figures extracted + captioned, panels listed in `figures.json`
 - Pass 3b ROIs populated, compounds detected where expected
 - Pass 3c renamed compound images to range notation (e.g., `fig_3-4.png`)
 - `chunks.json` has reasonable content, embedded into `vector_db/lancedb`
+
+**Expect worse rates here than on the production corpus, and don't loosen the
+shipped ceilings for it.** `tests/test_corpus_wide.py`'s soft-rate ceilings are
+calibrated across two ordinary corpora; a hardest-cases set will legitimately
+exceed some of them. Use the `CORPUS_SOFT_RATE_CEILINGS` env override, which
+exists for precisely this third corpus.
 
 Only then submit the production run against the full input.
 
@@ -600,7 +646,7 @@ If you kept the shell from §6, `scancel "$GROBID_JOB"` does it directly.
 **Confirm the thing that still fails silently rather than loudly:**
 
 ```bash
-# A leftover `export CORPUS_CONFIG=…sample…` from a smoke test will
+# A leftover `export CORPUS_CONFIG=…gold…` from a smoke test will
 # redirect a production submit into the sample corpuscle.
 echo "${CORPUS_CONFIG:-<unset — will use corpuscles/current>}"
 ls -l "$BOUCHET_PROJECT/corpuscles/current"
@@ -672,6 +718,39 @@ mail and no queue entry. See "Chain integrity" below.
 tasks spread the OCR-heavy tail instead of concentrating it in one slice.
 Empty and already-complete tasks cost ~4 min each, so over-provisioning is
 cheap; under-provisioning silently leaves papers unprocessed.
+
+### The OCR worker pool is sized from the allocation, not the node
+
+Bouchet's stage1 nodes are large — `a1130u24n01` reports `CPUTot=64` and
+991 GiB — and Stage 1 requests `--cpus-per-task=8`. ocrmypdf, left to
+itself, reads `multiprocessing.cpu_count()` and sees the 64. It then runs
+64 Tesseract workers inside an 8-CPU cgroup, each page gets an eighth of a
+core, and pages cross `ocr.tesseract_page_timeout` — at which point
+ocrmypdf copies the un-OCR'd image into the output and exits 0. The page
+survives visually with an empty text layer.
+
+Two full builds of the same library lost text this way on ~9.5% of
+documents each. It is load-dependent, so it takes a *different* set every
+run: 31 documents lost >80% of their text between one build and the next
+while 28 independently gained it back. Nothing OOMs — 64 × 2.5 GB fits
+comfortably inside a 256 G request — which is why a memory-based cap never
+fired (#254).
+
+`corpus` now reads `$SLURM_CPUS_PER_TASK` (then the affinity mask, then a
+cgroup quota) and passes `--jobs` explicitly, so nothing is needed in the
+config for this. Check the `Running OCR on …` line in a Stage 1 log: it
+prints `jobs=` and it should equal `--cpus-per-task`. Pin `ocr.jobs` in
+the corpuscle config only if you are running an older build, or if you
+change `--cpus-per-task` in a way the env doesn't reflect.
+
+Blanked pages are now recorded per document as
+`scan_detection.json`'s `pages_blanked` and gated at `error` as
+`ocr_pages_blanked`, so a build that still hits this says so:
+
+```bash
+corpus status --filter-gate ocr_pages_blanked --list-hashes
+corpus run --only extract --re-process-flagged ocr_pages_blanked
+```
 
 ### Chain integrity
 
@@ -794,7 +873,7 @@ python "$BOUCHET_PROJECT/corpus/tools/smoke_test_sse.py" \
 > **Note:** `ACCEPTANCE_PROMPTS.md` is a siphonophore-specific example.
 > For a different corpus, copy it and substitute taxon/author names.
 
-## Partition reference (from dev_docs/PLAN.md §7)
+## Partition reference
 
 | Phase (`--only`) | Script | Partition | GPU? | Walltime |
 |---|---|---|---|---|
@@ -840,11 +919,12 @@ partition for interactive GPU checks.
 
 ## Common pitfalls
 
+- **`jobs=` in the Stage 1 log should equal `--cpus-per-task`.** If it says 64 on an 8-CPU task, the allocation isn't being read and OCR is oversubscribing the cgroup — pages will be silently blanked rather than fail. See "The OCR worker pool is sized from the allocation" above.
 - **Missing Tesseract language packs.** The most likely way to get a subtly bad build. `conda env create` alone leaves you with **English-only** OCR; `bash tools/install_tessdata.sh` is a required setup step (see §2). Non-English papers don't error — they just OCR badly as English. Check with `ls $CONDA_PREFIX/share/tessdata/`.
 - **Stale `HF_HOME`.** If a job re-downloads a model, `HF_HOME` isn't being honored — check that the export in the SLURM script points to a path you actually populated.
 - **Grobid URL.** SLURM compute nodes can't talk to your laptop's `localhost:8070` — `$GROBID_URL` (which overrides the config's `grobid.url`) must resolve to a host visible from the job's node. If the Grobid node goes down mid-run, subsequent papers get placeholder metadata; a re-run's implicit resume won't retry them unless their inputs changed — force it with `corpus run --only extract --re-process-flagged <gate>` or by deleting the affected `metadata.json`.
 - **`corpus check` and Grobid.** `check` honors `$GROBID_URL` exactly as `run` does, so the two always agree about which Grobid they mean. If `check` reports `localhost:8070`, `GROBID_URL` simply isn't exported in that shell — the check is right, and the extract job you were about to submit would have used the same wrong address. Re-do the export from §6 and re-run.
-- **Config not found / wrong corpuscle.** Every phase script reads `$CORPUS_CONFIG`. If a job dies with "no config.yaml" or builds the wrong tree, confirm `$CORPUS_CONFIG` points at the intended `config.yaml` (default is the production corpuscle; a leftover `export CORPUS_CONFIG=…sample…` from a smoke test will silently redirect a production submit).
+- **Config not found / wrong corpuscle.** Every phase script reads `$CORPUS_CONFIG`. If a job dies with "no config.yaml" or builds the wrong tree, confirm `$CORPUS_CONFIG` points at the intended `config.yaml` (default is the production corpuscle; a leftover `export CORPUS_CONFIG=…gold…` from a smoke test will silently redirect a production submit).
 - **LFS on extract.** If extract can't see the full PDFs (only LFS pointers), re-run `git lfs pull` in `$BOUCHET_PROJECT/siphonophores`.
 - **Don't downgrade torch to "fix" a GPU problem.** The pinned `torch==2.12.0` works on every GPU type on the cluster — all of them run driver 580.159.04 / CUDA 13.0. Older cu128 builds cannot target the Blackwell cards (`b200` sm_100, `rtx_pro_6000_blackwell` sm_120) at all, so a well-meant downgrade silently costs you that hardware and breaks the #98 pin. `batch_pass3b.sh` targets `gpu_h200` for VRAM headroom and throughput on Qwen2.5-VL-7B, **not** because other cards fail; its preflight `torch.cuda.is_available()` guard stays as a cheap regression check.
 - **lmod module cache flakiness.** `module load CUDA/12.6.0` occasionally errors with `CUDA/12.6.0.lua: Empty or non-existent file` even though `module spider CUDA` lists it. `slurm/batch_pass3b.sh` skips the explicit CUDA module entirely — torch ships bundled CUDA userspace libs in `site-packages/nvidia/`, so no CUDA module is needed for the GPU phases at all. If another script hits this, retry with `module --ignore-cache load …`.

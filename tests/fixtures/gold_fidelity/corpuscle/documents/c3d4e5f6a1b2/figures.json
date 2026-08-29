@@ -1,0 +1,21 @@
+{
+ "schema_version": 1,
+ "pipeline_version": "test",
+ "figures_directory": "figures",
+ "figures": [
+  {
+   "figure_id": "docling_0",
+   "filename": "docling_0.png",
+   "caption_text": "",
+   "extraction_method": "docling",
+   "figure_type": "graphical_element",
+   "page": 1,
+   "resolution_mode": "vector_fallback",
+   "figure_number": null,
+   "panels_from_caption": []
+  }
+ ],
+ "total_figures": 1,
+ "missing_figures": [],
+ "total_missing_figures": 0
+}

@@ -93,7 +93,7 @@ def main() -> int:
         help="MCP transport. stdio (default) is for local MCP clients "
              "that launch this process themselves (Claude Desktop, Claude "
              "Code, Cursor). sse serves over HTTP/Server-Sent-Events for "
-             "remote deployments (dev_docs/PLAN.md §10).",
+             "remote deployments (DEPLOY.md).",
     )
     parser.add_argument(
         "--host", default="127.0.0.1",

@@ -1,8 +1,8 @@
 """Figure + caption joint-object utilities and the figures_report.html
 generator.
 
-Phase D (see dev_docs/PLAN.md §3 "Figure+caption as a first-class object"). Three
-concerns live here:
+Figure+caption as a first-class object; see dev_docs/OVERVIEW.md "Figure
+pipeline". Three concerns live here:
 
 1. :func:`extract_caption_info` — pull caption text, page, and bbox for a
    docling Picture, first via docling's own caption linker, then via a
@@ -63,11 +63,50 @@ _FIGURE_REF_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# Tighter version used only on caption text (the *leading* figure label).
-# Accepts sub-numbering like "3a", "3.1" (multi-panel figures) and Roman
-# numerals (e.g. "Plate IV.", common on 19th-c. plate captions; #16).
+# The opener a *caption* may begin with. Deliberately more tolerant than
+# `_FIGURE_PREFIX`, and deliberately not shared with it: `_FIGURE_REF_RE` scans
+# running body text, where a loose prefix would bind prose to figure numbers.
+# This one is anchored to the start of a caption and must be followed by a
+# number, which is a far tighter context.
+#
+# The tolerance is for OCR damage, and it is the single largest cause of
+# missing figure numbers (#205). "FIG." set in small caps is misread
+# document-wide, and on this corpus the damaged spellings are *more* common
+# than the correct one — leading tokens across 320 captions:
+#
+#     Fic 65   Fig 53   PLATE 35   Figur 17   FIGURE 9   FIG 8
+#     Fi   8   FiG   6  Plate  3   Figg   1   Frc    1   Fie 1   Puc 1
+#
+# So `F` plus up to four letters, then a number. `Figur` is not damage at all —
+# it is the German spelling, which `fig(?:ure|\.?)` could not reach either.
+# `Puc` is `Рис` read as Latin lookalikes (Р→P, и→u, с→c).
+# Openers spelled correctly. These may be followed by an Arabic or a Roman
+# number with no separator — "PLATE XXI", "Plate IV.", "Figur 23".
+_CAPTION_OPENER_EXACT = (
+    r"fig(?:ure|ur|s)?|figg|abb(?:ildung)?|pl(?:ate)?|plate|рис(?:унок)?"
+    r"|taf(?:el)?|tab(?:ula)?|lám(?:ina)?|tav(?:ola)?|bild|image|illustration"
+    r"|text[\-\s]?fig(?:ure)?"
+)
+
+# Openers mangled by OCR. "FIG." set in small caps comes back as "Fic.",
+# "Frc.", "Fi.", "Fi1G.", "Fi16." — and on this corpus the damaged spellings
+# outnumber the correct one. Digits are allowed inside because OCR inserts
+# them there; "Puc" is "Рис" read as Latin lookalikes.
+#
+# This branch REQUIRES a following period, and the exact branch above does
+# not. Without that, the pattern is far too eager: "from  the  coasts of
+# British Columbia" matched opener "fro" and then read the "m" of "from" as
+# Roman numeral M, giving a handwritten marginal scribble the figure number
+# 1000. Every damaged spelling observed in the corpus carries the period, so
+# requiring it costs nothing and closes the hole.
+_CAPTION_OPENER_FUZZY = r"f[a-z0-9]{1,5}|p[a-z]?[uy]c"
+
 _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
-    r"^\s*(?:" + _FIGURE_PREFIX + r")\s*(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+)",
+    r"^\s*(?:"
+    r"(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
+    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*\.\s*"      # period required
+    r")"
+    r"(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z]))",
     re.IGNORECASE,
 )
 
@@ -103,7 +142,7 @@ def _roman_to_int(token: str) -> Optional[int]:
 
 
 # ---------------------------------------------------------------------------
-# Caption → panel parsing (Pass 2.5, dev_docs/PLAN.md §9)
+# Caption → panel parsing (Pass 2.5; dev_docs/OVERVIEW.md "Figure pipeline")
 # ---------------------------------------------------------------------------
 
 # Strips the leading "Fig. N" / "Figure N" / "Plate N" etc. from a caption
@@ -401,6 +440,12 @@ def parse_figure_number(caption_text: str) -> Optional[str]:
     return str(arabic) if arabic is not None else num
 
 
+# The Roman branch is guarded by `(?![A-Za-z])` because `[IVXLCDM]` overlaps
+# with ordinary words: without it, "Fig5 caption" reads the "c" of "caption"
+# as Roman 100. The digit branch keeps its optional trailing letter, which is
+# real sub-numbering ("3a"), so the guard applies to the Roman branch only.
+
+
 def _prov_to_bbox_and_page(prov_item) -> Tuple[Optional[List[float]], Optional[int]]:
     """Normalize a docling ProvenanceItem to (bbox_list, page_no) or Nones."""
     page_no = getattr(prov_item, "page_no", None)
@@ -433,11 +478,40 @@ def _bbox_area(bbox: Optional[List[float]]) -> float:
     return max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
 
 
+def _bbox_iou(a: List[float], b: List[float]) -> float:
+    """Intersection over **union** — "are these two boxes the same box?".
+
+    The right measure for *redundancy*, because it punishes a size
+    difference: a panel nested inside its parent scores low here however
+    completely it is contained, so it is not mistaken for a duplicate crop
+    of it.
+
+    That distinction is what makes :func:`dedupe_figures`' second stage
+    reachable at all (#207). Both stages used to share
+    :func:`_bbox_overlap_fraction`, which divides by the *smaller* box and is
+    therefore symmetric: a contained panel scored 1.0, tripping the 0.5
+    redundancy threshold and being discarded before the 0.8 containment test
+    could ever classify it. `FIGURE_TYPE_SUBPANEL` was consequently never
+    assigned — no figure among the 420 in the reference corpuscle carried it.
+    """
+    if not (a and b and len(a) == 4 and len(b) == 4):
+        return 0.0
+    ix0, iy0 = max(a[0], b[0]), max(a[1], b[1])
+    ix1, iy1 = min(a[2], b[2]), min(a[3], b[3])
+    if ix1 <= ix0 or iy1 <= iy0:
+        return 0.0
+    inter = (ix1 - ix0) * (iy1 - iy0)
+    union = _bbox_area(a) + _bbox_area(b) - inter
+    return inter / union if union else 0.0
+
+
 def _bbox_overlap_fraction(a: List[float], b: List[float]) -> float:
-    """Intersection area / smaller bbox area. Returns 0 when either bbox is
-    missing or has zero area. Used to decide whether two same-numbered
-    figures are redundant crops of the same panel or genuinely distinct
-    subpanels."""
+    """Intersection area / smaller bbox area — "does one contain the other?".
+
+    Asymmetric in effect: a box fully inside another scores 1.0 regardless of
+    how much larger the parent is. That is the right measure for the
+    whole-figure-plus-subpanels test and the wrong one for redundancy, which
+    is what :func:`_bbox_iou` is for."""
     if not (a and b and len(a) == 4 and len(b) == 4):
         return 0.0
     ix0 = max(a[0], b[0])
@@ -464,7 +538,170 @@ FIGURE_TYPE_GRAPHICAL = "graphical_element"
 FIGURE_TYPE_UNCLASSIFIED = "unclassified"
 
 
-def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -> str:
+# Bbox coordinates are quantised to this many points before two items are
+# called "the same position". Loose enough for sub-point jitter between pages,
+# tight enough that two different figures never collide.
+_POSITION_TOLERANCE_PTS = 12
+
+# A position recurring on at least this many pages is running furniture. No
+# real figure in the 35-document reference corpus repeats a position even
+# twice; the journal logo in its one born-digital paper repeats on 24 of 25
+# pages. The gap is wide enough that the exact value is not delicate.
+_FURNITURE_RECURRENCE_PAGES = 5
+
+
+def _position_key(bbox):
+    """Quantised bbox, for asking whether two items sit in the same place."""
+    if not bbox or len(bbox) != 4:
+        return None
+    return tuple(round(v / _POSITION_TOLERANCE_PTS) for v in bbox)
+
+
+# A page's legend has to name at least this many distinct figures before the
+# page is treated as a plate holding several. Two is a caption that mentions a
+# neighbour; a run of them is a legend.
+_MIN_PLATE_LEGEND_ENTRIES = 2
+
+# A legend line *opens* with the label of the figure it describes. A line that
+# merely mentions a figure number somewhere in its middle is a cross-reference,
+# and a monograph is full of them: species headings ("Plate XX, figures 1, 2"),
+# parenthetical pointers ("text-figs. 52, 53"), citations of other people's
+# plates ("figured by Bigelow (1911b, Pl. 21)"). Reading those as legend
+# entries put 34 spurious figures into one 226-page monograph — each one a
+# *different* figure's image served under the cross-referenced number, which
+# is worse than not finding the figure at all.
+#
+# The lookahead is what separates "Fig. 53" from "figured by": the number has
+# to follow the label immediately, with only punctuation between.
+_LEGEND_OPENER = re.compile(
+    r"""^\s*
+        (?:text[\s\-]*)?                # Totton's "Text-figure 53"
+        (?:fig|figs|figur|figure|figures|figuren|abb|abbildung)
+        \s*\.?\s*
+        (?=[\dIVXLCMivxlcm])
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
+    """Legend lines on one page, each naming a different figure (#203).
+
+    ``page_texts`` is ``[{"text": str, "bbox": [...]}, ...]`` for a single
+    page, in document order.
+
+    Historical plates carry several separately-numbered engravings under one
+    legend, printed as a run of lines:
+
+        Fig. 31.   Agalmopsis elegans Sars.
+        Fig. 32.   Schwimmglocke.
+        Fig. 33.   Deckstück.
+        ...
+
+    docling emits those as separate text items and extracts the plate itself
+    as a *single* picture. Caption association then binds whichever labelled
+    line is vertically nearest — on the page this was written for, the bare
+    "Fig. 36." at the foot — and the other five figures exist nowhere in the
+    output. Nine such pages in one monograph of the reference corpus.
+
+    Only lines that *open* with a figure label count — see
+    ``_LEGEND_OPENER``. Without that anchor the scan reads every
+    cross-reference in running prose as a legend entry, which is how a page
+    of ordinary text under the heading "Plate XX, figures 1, 2" came to serve
+    its one text-figure a second time as "figure 20".
+
+    Returns one entry per distinct figure number, in the order the numbers
+    appear. Empty when the page carries fewer than
+    ``_MIN_PLATE_LEGEND_ENTRIES`` distinct numbers, which is the ordinary
+    case of a page with one figure and its caption.
+    """
+    seen = {}
+    for t in page_texts:
+        text = " ".join((t.get("text") or "").split())
+        if not _LEGEND_OPENER.match(text):
+            continue
+        num = parse_figure_number(text)
+        if not num or num in seen:
+            continue
+        seen[num] = {"figure_number": num, "caption_text": text,
+                     "caption_bbox": t.get("bbox")}
+    if len(seen) < _MIN_PLATE_LEGEND_ENTRIES:
+        return []
+    return list(seen.values())
+
+
+def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
+    """Give a plate one record per figure its legend names (#203).
+
+    ``legends`` maps page number to the result of :func:`plate_legend_entries`.
+
+    The records **share the plate's image and bbox** — the individual
+    engravings are not cropped out, because locating them needs OCR of the
+    lettering printed on the plate itself and that is a separate problem. What
+    this fixes is retrieval: asking for "Fig. 33" returned nothing at all, and
+    now returns the plate that contains it, carrying Fig. 33's own caption and
+    number instead of a sibling's.
+
+    Only expands a page whose legend names *more* figures than were extracted
+    from it, so an ordinary multi-figure page that docling already separated is
+    left alone. `shares_image_with` marks the siblings so a consumer can tell
+    that three records pointing at one file is deliberate rather than
+    duplication.
+    """
+    by_page = {}
+    for it in items:
+        by_page.setdefault(it.get("page"), []).append(it)
+
+    out: List[Dict] = []
+    for it in items:
+        out.append(it)
+    for page, entries in legends.items():
+        on_page = by_page.get(page) or []
+        if not on_page or len(entries) <= len(on_page):
+            continue
+        # The plate is the largest picture on the page; the legend describes
+        # what is drawn on it.
+        plate = max(on_page, key=lambda x: _bbox_area(x.get("bbox")))
+        already = {str(x.get("figure_number")) for x in on_page
+                   if x.get("figure_number")}
+        for entry in entries:
+            if entry["figure_number"] in already:
+                continue
+            sibling = dict(plate)
+            sibling.update({
+                "figure_number": entry["figure_number"],
+                "caption_text": entry["caption_text"],
+                "caption_bbox": entry.get("caption_bbox"),
+                "caption_source": "plate_legend",
+                "shares_image_with": plate.get("docling_idx"),
+                "figure_type": FIGURE_TYPE_FIGURE,
+            })
+            out.append(sibling)
+    return out
+
+
+def furniture_positions(items: List[Dict]) -> frozenset:
+    """Page positions that recur often enough to be running furniture.
+
+    A journal masthead, a rule, an ORCID icon: printed at the same place on
+    every page. A figure is not. This is the evidence that lets
+    :func:`classify_figure` trust a caption on a small item without also
+    trusting one that the caption-proximity heuristic wrongly attached to a
+    logo — which it does, giving the masthead of one paper in the reference
+    corpus the caption and number of a real figure.
+    """
+    pages_at = {}
+    for it in items:
+        key = _position_key(it.get("bbox"))
+        if key is None:
+            continue
+        pages_at.setdefault(key, set()).add(it.get("page"))
+    return frozenset(k for k, pages in pages_at.items()
+                     if len(pages) >= _FURNITURE_RECURRENCE_PAGES)
+
+
+def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS,
+                    recurring: frozenset = frozenset()) -> str:
     """Classify one raw figure item into a ``figure_type``.
 
     ``item`` is the in-memory dict the two-pass extractor builds per picture:
@@ -493,7 +730,25 @@ def classify_figure(item: Dict, page_area_pts: float = _DEFAULT_PAGE_AREA_PTS) -
     caption = item.get("caption_text") or ""
     fig_num = item.get("figure_number")
 
-    if w and h and (w < _MIN_FIGURE_DIM_PTS or h < _MIN_FIGURE_DIM_PTS):
+    # A small item is furniture *unless* the page tells us otherwise. A caption
+    # carrying a parseable figure number is that evidence, and it is strong:
+    # journal furniture does not get numbered by its own publisher.
+    #
+    # This matters more than the size of the exception suggests, because
+    # `figure_type` is what the served surface filters on — `_REAL_FIGURE_TYPES`
+    # in `mcpsrv/tools/figures.py` excludes `graphical_element` from every tool
+    # that returns figures. Misclassifying a real figure does not merely
+    # mislabel it; it makes it unreachable.
+    #
+    # Measured against the gold set, four figures were condemned this way,
+    # among them Vanhoeffen 1906 Fig. 11 — an engraved nectophore 49 pts wide
+    # against a 50 pt floor, captioned "Fig. 11." and numbered. No figure was
+    # wrongly promoted: publisher furniture in the reference corpus is either
+    # uncaptioned or, where caption-proximity wrongly attached one, caught by
+    # the recurrence rule below.
+    numbered = bool(caption and fig_num) and _position_key(bbox) not in recurring
+    if (w and h and (w < _MIN_FIGURE_DIM_PTS or h < _MIN_FIGURE_DIM_PTS)
+            and not numbered):
         return FIGURE_TYPE_GRAPHICAL
     if area and area < _MIN_FIGURE_AREA_FRAC * page_area_pts and not caption:
         return FIGURE_TYPE_GRAPHICAL
@@ -565,7 +820,18 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         return items
     from collections import defaultdict
 
-    by_num: Dict[str, List[Dict]] = defaultdict(list)
+    # Keyed on (page, number), not number alone (#205). Both tests below
+    # compare bounding boxes, and a bbox carries no page — so two figures at
+    # similar coordinates on *different* pages were being read as redundant
+    # crops of one another and one of them dropped.
+    #
+    # That is not a corner case in this material. A document that is its own
+    # translation prints "Fig. 4" once in the original and again in the
+    # translation, and the two are genuinely different figures; Carre 1969
+    # loses nine of twenty-two figures that way. Every legitimate grouping
+    # this function performs — coequal panels, whole-figure plus subpanels —
+    # is within a single page, so narrowing the key costs nothing.
+    by_num: Dict[tuple, List[Dict]] = defaultdict(list)
     passthrough: List[Dict] = []
     for it in items:
         num = it.get("figure_number")
@@ -575,13 +841,13 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         # figure_number via the caption-proximity heuristic keep their
         # downgraded classification.
         if num and str(num) and ftype in (FIGURE_TYPE_FIGURE, FIGURE_TYPE_PLATE):
-            by_num[str(num)].append(it)
+            by_num[(it.get("page"), str(num))].append(it)
         else:
             passthrough.append(it)
 
     kept: List[Dict] = list(passthrough)
 
-    for num, group in by_num.items():
+    for (_page, num), group in by_num.items():
         if len(group) == 1:
             kept.append(group[0])
             continue
@@ -594,7 +860,7 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         unique: List[Dict] = []
         for cand in sorted_group:
             if any(
-                _bbox_overlap_fraction(cand.get("bbox"), u.get("bbox")) > 0.5
+                _bbox_iou(cand.get("bbox"), u.get("bbox")) > 0.5
                 for u in unique
             ):
                 logger.debug(
@@ -795,7 +1061,8 @@ def extract_caption_info(picture, document) -> Dict:
 
 
 # ---------------------------------------------------------------------------
-# Pass 3a: OCR-based panel / embedded-figure ROI detection (dev_docs/PLAN.md §9)
+# Pass 3a: OCR-based panel / embedded-figure ROI detection
+# (dev_docs/OVERVIEW.md "Figure pipeline")
 # ---------------------------------------------------------------------------
 
 # Single capital letter used as a panel label, tolerates optional wrapping

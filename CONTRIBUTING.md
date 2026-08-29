@@ -39,7 +39,7 @@ python -m pytest tests/test_biblio_cascade.py -v
 
 Badges above reflect the `dev` branch — the active development line — so contributors see immediately whether the next release is green. The README's badges are scoped to `main` for the release-state signal users care about.
 
-Five test tiers (#75); the first four run automatically in GitHub Actions — T0/T1/T2 on every push, T3 on a weekly schedule — and the last two are manual release-time checks.
+Six test tiers (#75, #193); the first four run automatically in GitHub Actions — T0/T1/T2 on every push, T3 on a weekly schedule — and the last three are manual release-time checks.
 
 **On caching, because it has misled us once:** `setup-miniconda` does *not* cache the solved conda environment, and this repo adds no `actions/cache` for it. Every T0/T1/T2 run re-resolves `environment.yaml` from scratch; the only caches are integration.yml's HuggingFace model-hub caches. So CI is a genuine dependency-drift detector — its weakness is *timeliness*, not blindness. `mcp` 2.0.0 broke every clean install and went unnoticed for 24 days purely because nobody pushed to `dev` between 2026-07-06 and 2026-07-30 (#156). T3's `schedule:` trigger is what closes that gap.
 
@@ -48,9 +48,10 @@ Five test tiers (#75); the first four run automatically in GitHub Actions — T0
 | **T0 — lint + unit** | every push, every branch | [`.github/workflows/lint.yml`](.github/workflows/lint.yml) | pyflakes (NameError-class bugs) + ~314 unit tests with no corpus dependency |
 | **T1 — demo build + serve, Linux** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | `corpus run` on the 4-paper demo against real Grobid + LanceDB, bundle-manifest shape, audit-clean, SSE round-trip, all `corpus_required` parametrized tests, then the 4 + 1 implicit-resume scenario (copy [`tests/fixtures/round2_paper/Siebert_etal2011.pdf`](tests/fixtures/round2_paper/) into `demo/`, re-run, assert `skipped=4, embedded≥1, failed=0` — regression check for #71) |
 | **T2 — demo build + serve, macOS arm64** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | same as T1 on `macos-15`, with `grobid.disable: true` (Docker Desktop isn't on GHA macOS runners) — catches macOS-specific regressions including darwin-specific LanceDB resume behavior |
-| **T3 — clean-room install** | **weekly (Mon 06:00 UTC)**, `workflow_dispatch`, **any PR targeting `main`**, or a push touching the lane itself | [`.github/workflows/clean-room.yml`](.github/workflows/clean-room.yml) | the same install → demo → serve path as T1 but on a *clock* rather than a push, and with the HuggingFace cache deliberately disabled so a genuine first-run model download is exercised (the path that 429'd in #140). Also drives the real `docker-compose.yml`. This is the [PLAN.md §0](dev_docs/PLAN.md) release gate. **Note:** `schedule` and `workflow_dispatch` only work for workflows on the default branch, so on a feature branch this lane is unregistered (`gh workflow run` → 404) — that is why it also triggers on PRs to `main`, which is where the release gate actually needs it |
+| **T3 — clean-room install** | **weekly (Mon 06:00 UTC)**, `workflow_dispatch`, **any PR targeting `main`**, or a push touching the lane itself | [`.github/workflows/clean-room.yml`](.github/workflows/clean-room.yml) | the same install → demo → serve path as T1 but on a *clock* rather than a push, and with the HuggingFace cache deliberately disabled so a genuine first-run model download is exercised (the path that 429'd in #140). Also drives the real `docker-compose.yml`. This is the [PLAN.md "Standing gates"](dev_docs/PLAN.md) release gate. **Note:** `schedule` and `workflow_dispatch` only work for workflows on the default branch, so on a feature branch this lane is unregistered (`gh workflow run` → 404) — that is why it also triggers on PRs to `main`, which is where the release gate actually needs it |
 | **T3-bare — clean-room EC2** | manual, pre-release | [`dev_docs/ec2_smoke.sh`](dev_docs/ec2_smoke.sh) | what T3 can't cover: the bare-host bootstrap (apt, miniforge install) from absolutely nothing on a real Ubuntu EC2 instance. Criteria in [`dev_docs/PLATFORM_SMOKE.md`](dev_docs/PLATFORM_SMOKE.md) |
 | **T4 — operator walkthrough** | manual, when CLI changes | [`dev_docs/clean_install_walkthrough.sh`](dev_docs/clean_install_walkthrough.sh) | every operator verb interactively (`completion`, `--cite`, `status --report`, full `bib export/import` round-trip) |
+| **T5 — extraction fidelity** | manual, pre-release | [`tools/qc/fidelity.py`](tools/qc/fidelity.py) | how much of what is actually printed on the page the pipeline recovered, scored against a gold set transcribed from page images alone by a transcriber forbidden to open any software extraction of the page. Every other signal in this repo — the soft consistency rates, the quality gates, fingerprint diffing — measures the pipeline against itself and cannot tell whether the text is *right*. Reports per page and per document, segmented by script, era and scanned-vs-born-digital, because a mean over 13 languages and five centuries is not actionable. `tests/test_fidelity_harness.py` covers the scorer's arithmetic in T0 against a committed fixture; only the run against a real corpuscle is manual (#193). [`tools/qc/figure_detection.py`](tools/qc/figure_detection.py) runs beside it and answers the separate question of whether the figure *objects* are right — every figure found (recall), and publisher furniture not called a figure (precision) — by counting per page, since the gold set records no bounding boxes (#194). [`tools/qc/caption_binding.py`](tools/qc/caption_binding.py) answers the third question — is the caption bound to the figure it belongs to — by comparing figure *numbers*, which are language-independent, rather than caption text, which mostly measures translation (#195) |
 
 Local equivalents:
 
@@ -60,7 +61,24 @@ cd demo && corpus run --no-vision                          # T1/T2 round-1 corpu
 pytest -m corpus_required                                  #   ground-truth assertions
 cp tests/fixtures/round2_paper/Siebert_etal2011.pdf demo/  # T1/T2 round-2 setup
 cd demo && corpus run --no-vision                          #   resume scenario (needs Grobid + ~2 min)
+
+# T5 — score a built corpuscle against the gold transcription set
+tools/qc/fidelity.py        --gold <transcriptions/> --corpuscle <corpuscle/> --out fidelity.json
+tools/qc/figure_detection.py --gold <transcriptions/> --corpuscle <corpuscle/> --out figures.json
+tools/qc/caption_binding.py   --gold <transcriptions/> --corpuscle <corpuscle/> --out captions.json
 ```
+
+**Read the gold set's `CROSSCHECK_REPORT.md` before acting on a T5 number.** It
+documents five ways this class of signal misleads — but note that it put the
+*transcription* on trial, using a poppler text layer as the yardstick, where T5
+puts the *extractor* on trial and uses the gold as the yardstick. The arithmetic
+is the same in both (`coverage` is `|gold ∩ other| / |gold|` either way); what
+differs is which measure leads and whether a page nothing could be extracted from
+is excluded as no-signal or scored as the failure it is. T5 scores it, which is
+why several of the report's false positives are T5's true positives.
+`tools/qc/fidelity.py`'s module docstring tabulates which are which. Two of its
+caveats do carry over unchanged: the comparison cannot detect invention, and a low
+volume ratio is not evidence of loss.
 
 ## Commit style
 
@@ -133,7 +151,23 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
    answer `202`.
 2. On `dev`, set `__version__` in [pipeline/version.py](pipeline/version.py) to the release
    string (e.g. `"0.2.0"`) and confirm `CHANGELOG.md` has a dated entry
-   for it. Bump the release-pinned install line in
+   for it.
+
+   **A minor or major entry opens with a `### Theme — vX.Y <name>`
+   paragraph** stating the cycle's organizing principle: what it was
+   *for*, in a few sentences, before the Added/Changed/Fixed lists say
+   what it did. Patch releases are exempt — a one-fix patch's theme is
+   its fix, and demanding a section there produces filler.
+
+   This is the CHANGELOG's job, not [PLAN.md](dev_docs/PLAN.md)'s. PLAN
+   records what's *next* and is pruned every release (step 8), so any
+   history left in it is both duplicated and on its way to being deleted.
+   The rule exists because the sections were written inconsistently —
+   1.0.0, 0.6.0, 0.5.0 and 0.4.0 have one; 1.1.0 did not until it was
+   backfilled — and each gap pulled a cycle summary into PLAN.md's
+   preamble, which had grown to ~100 lines of duplicated history by v1.2.
+
+   Bump the release-pinned install line in
    [INSTALL.md](INSTALL.md) (`pip install git+…@vX.Y.Z`) to the same tag —
    it names a tag that only exists once you reach step 4, so nothing
    catches it going stale, and it has now drifted twice
@@ -142,7 +176,7 @@ If a bug is found in v0.1 while v0.2 is in development on `dev`:
    then merge. Do **not** push `main` directly: T3's `push` trigger is
    path-filtered to the clean-room workflow file, so a direct merge runs
    T0/T1/T2 and silently skips **T3 — clean-room install**, which is the
-   [PLAN.md §0](dev_docs/PLAN.md) release gate. `main` goes green either
+   [PLAN.md "Standing gates"](dev_docs/PLAN.md) release gate. `main` goes green either
    way, so the omission is invisible. A PR targeting `main` is the only
    trigger that runs T3 on a release that does not happen to edit that
    workflow — v1.0.0 fired it on push only because that merge *added*

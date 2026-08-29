@@ -25,7 +25,9 @@ if _log_level in {"WARNING", "INFO", "DEBUG"}:
 from .parser import (  # noqa: E402
     BibIndex,
     bib_entry_to_metadata,
+    entry_keeppages,
     entry_ocrlang,
+    keeppages_for_pdf,
     ocrlang_for_pdf,
     parse_bibtex,
 )
@@ -51,7 +53,9 @@ def __getattr__(name):  # noqa: E402
 __all__ = [
     "BibIndex",
     "bib_entry_to_metadata",
+    "entry_keeppages",
     "entry_ocrlang",
+    "keeppages_for_pdf",
     "ocrlang_for_pdf",
     "parse_bibtex",
     "export_bibtex",
