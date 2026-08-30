@@ -261,9 +261,15 @@ def _capture_ocr_cmd(monkeypatch, tmp_path, detection_result):
         stdout = ""
         stderr = ""
 
+    out = tmp_path / "out.pdf"
+
     def fake_run(cmd, **kw):
         captured["cmd"] = cmd
-        Path(cmd[-1]).write_bytes(b"%PDF-1.4\n")
+        # Write the output path this test asked for. Deriving it from
+        # `cmd[-1]` created a file named after whatever argument happened to
+        # land last — `--jobs 6` put a stray `6` in the repo root, tracked,
+        # for three days.
+        out.write_bytes(b"%PDF-1.4\n")
         return _Result()
 
     monkeypatch.setattr(scan.shutil, "which", lambda n: f"/usr/bin/{n}")
@@ -274,7 +280,7 @@ def _capture_ocr_cmd(monkeypatch, tmp_path, detection_result):
 
     src = tmp_path / "in.pdf"
     src.write_bytes(b"%PDF-1.4\n")
-    scan.prepare_pdf(src, detection_result, tmp_path / "out.pdf")
+    scan.prepare_pdf(src, detection_result, out)
     return captured["cmd"]
 
 

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The test suite wrote a stray file into the working directory on every
+  run (#257).** `tests/test_ocrlang_override.py`'s ocrmypdf stub wrote to
+  `cmd[-1]` on the assumption it was the output path, but `prepare_pdf`
+  appended `--jobs N` *after* the positional output argument — so the stub
+  created a file named after the resolved worker count. The name varies by
+  machine: `6` here, `3` on the 4-CPU allocation that reported it. The tests
+  passed throughout.
+
+  **#254 is what made it constant.** Before it, `_resolve_ocr_jobs()`
+  returned `None` whenever RAM was not the binding constraint, so on a
+  large-memory host the `if ocr_jobs:` branch usually did not fire and
+  `cmd[-1]` really was the output path. Making the resolver always pass the
+  number turned an occasional stray into one on every run.
+
+  Two fixes, because either alone would leave the trap set: the stub now
+  writes the output path it was given rather than deriving it positionally,
+  and `--jobs` moved in front of the positionals where it belongs. This also
+  corrects the record — `3bd5cf9` removed one of these files calling it "a
+  shell typo", which it was not.
+
+- **Nothing in CI looked at the repo root (#257).** One of those stray files
+  was committed in `ec63c92` and survived four green CI runs and two release
+  PRs, caught by eye at the v1.2.0 tag boundary — one merge from a permanent
+  Zenodo archive, since the release archives the tree under a DOI that
+  `CITATION.cff`'s concept DOI resolves to. `tests/test_repo_root_is_clean.py`
+  now holds an allowlist of the files that belong at the top level, and a
+  second test fails if that allowlist rots. An allowlist rather than a
+  pattern because the offending name is machine-dependent.
+
 ## [1.2.0] - 2026-08-29
 
 ### Theme — v1.2 extraction fidelity, measured against ground truth
