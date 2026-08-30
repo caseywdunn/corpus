@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Pass 3b dropped panel bboxes that arrived as pixels rather than
+  normalized floats, and counted some of them as successes (#253).** The
+  prompt demands "each coordinate is a float in 0.0 .. 1.0" and both
+  backends multiplied by the image dimensions on that assurance.
+  Qwen2.5-VL frequently ignores it: measured across every Pass 3b log on
+  one cluster, 130 of 142 observable responses carried absolute pixels, and
+  100% of them since 2026-05-30.
+
+  That produced silent loss two different ways, neither logged:
+
+  - `[17, 808, 150, 1365]` → `x0 = 17*w = 8432` while `x1 = min(1.0, 150)*w
+    = w`, so `x1 <= x0` and the panel was dropped. Any pixel bbox with a
+    non-zero origin was lost this way, 100% of the time.
+  - `[0, 0, 487, 606]` → the guard passes and you get a "panel" spanning the
+    whole figure. Wrong data rather than missing data, and it lands in the
+    `completed` counter where nothing looks at it.
+
+  A coordinate above 1.0 cannot be normalized, so the units are recoverable
+  without guessing. Pixel bboxes are now used as pixels, which strictly
+  dominates dropping them and removes the whole-figure impostor. Every
+  disposition — normalized, pixels, out-of-range, malformed, degenerate — is
+  counted and logged per figure, so a build reports what its model actually
+  emitted instead of discarding the evidence. That reporting is what the
+  units question needed: the old code left no trace on any drop path, so the
+  rate could only be inferred from the handful of responses that failed to
+  parse, which is a biased sample of exactly the wrong population.
+
+  The converter was duplicated in both backends, so this defect had to be
+  found twice; there is now one `_bbox_to_px` and a test that fails if it is
+  inlined again.
+
+- **Pass 3b logs did not record the corpus version (#253).** They carry the
+  GPU and the config path, so a vision pass could not be attributed to a
+  build afterwards — the `siphonophore_20260828` run could not be tied to a
+  version at all, because `runs/` held only records written after it and
+  `run.log` attested to a different, later run.
+
 - **`corpus check` promised a taxonomy that `run --only` will not build, and
   the promise cost two SLURM chains (#251).** A missing `taxonomy.sqlite` was
   reported as "will be created on first run" — true for a full `corpus run`,

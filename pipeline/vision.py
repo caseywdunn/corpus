@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+from collections import Counter
 import logging
 import os
 import re
@@ -191,6 +192,100 @@ def _extract_json(text: str) -> Optional[dict]:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Model bboxes → pixels (#253)
+# ---------------------------------------------------------------------------
+
+# What units did the model actually emit? The prompt demands "each coordinate
+# is a float in 0.0 .. 1.0", and both backends multiplied by the image
+# dimensions on that assumption. Qwen2.5-VL frequently ignores it and emits
+# absolute pixels instead — measured at 130 of 142 observable responses on
+# one cluster, and 100% of those since 2026-05-30.
+#
+# The old conversion turned that into silent loss, two different ways:
+#
+#   [17, 808, 150, 1365] -> x0 = 17*w = 8432, x1 = min(1.0,150)*w = w
+#                           x1 <= x0, so the panel was dropped, no warning.
+#   [0, 0, 487, 606]     -> x0 = 0, x1 = w, y1 = h
+#                           the guard passes and you get a "panel" spanning
+#                           the whole figure — wrong data, not missing data,
+#                           and it lands in the `completed` counter.
+#
+# A coordinate above 1.0 cannot be normalized, so the units are recoverable
+# without guessing: use the values as pixels. Repairing strictly dominates
+# dropping, and it removes the whole-figure impostor above.
+_BBOX_NORMALIZED = "normalized"
+_BBOX_PIXELS = "pixels"
+_BBOX_OUT_OF_RANGE = "out_of_range"
+_BBOX_MALFORMED = "malformed"
+_BBOX_DEGENERATE = "degenerate"
+
+
+def _bbox_to_px(bbox, w: int, h: int):
+    """``(bbox_px | None, disposition)`` for one model-emitted bbox.
+
+    ``disposition`` is one of the ``_BBOX_*`` constants and is counted by the
+    caller, so a build reports what its model actually emitted instead of
+    discarding the evidence. A bbox that survives is always ``[x0, y0, x1,
+    y1]`` in pixels, clamped to the image.
+    """
+    if not (isinstance(bbox, list) and len(bbox) == 4):
+        return None, _BBOX_MALFORMED
+    try:
+        vals = [float(v) for v in bbox]
+    except (TypeError, ValueError):
+        return None, _BBOX_MALFORMED
+
+    if all(0.0 <= v <= 1.0 for v in vals):
+        units = _BBOX_NORMALIZED
+        x0, y0, x1, y1 = (vals[0] * w, vals[1] * h, vals[2] * w, vals[3] * h)
+    elif all(0.0 <= v <= max(w, h) for v in vals):
+        # Above 1.0 but inside the image: pixels. Note a bbox mixing the two
+        # conventions reads as pixels and its sub-1.0 members collapse to 0 —
+        # accepted, because a mixed bbox is not recoverable either way and
+        # this at least keeps the panel.
+        units = _BBOX_PIXELS
+        x0, y0, x1, y1 = vals
+    else:
+        return None, _BBOX_OUT_OF_RANGE
+
+    x0 = int(max(0, min(w, x0)))
+    y0 = int(max(0, min(h, y0)))
+    x1 = int(max(0, min(w, x1)))
+    y1 = int(max(0, min(h, y1)))
+    if x1 <= x0 or y1 <= y0:
+        return None, _BBOX_DEGENERATE
+    return [x0, y0, x1, y1], units
+
+
+def _log_bbox_dispositions(counts, name: str, backend: str) -> None:
+    """Say what the model emitted and what it cost, once per figure.
+
+    The drop paths had no logging at all, which is why the units question
+    could only be answered from the handful of responses that failed to
+    parse — see #253. Pixel repairs log at info (they worked); anything lost
+    logs at warning (it did not).
+    """
+    if not counts:
+        return
+    lost = sum(counts.get(k, 0) for k in
+               (_BBOX_OUT_OF_RANGE, _BBOX_MALFORMED, _BBOX_DEGENERATE))
+    repaired = counts.get(_BBOX_PIXELS, 0)
+    if repaired:
+        logger.info(
+            "[%s] %s: %d bbox(es) arrived as pixels rather than the 0-1 "
+            "floats the prompt asks for; converted. (%d normalized.)",
+            name, backend, repaired, counts.get(_BBOX_NORMALIZED, 0),
+        )
+    if lost:
+        logger.warning(
+            "[%s] %s: dropped %d bbox(es) — %s. These become missing panel "
+            "ROIs and the figure may be recorded as no-labels.",
+            name, backend, lost,
+            ", ".join(f"{k}={counts[k]}" for k in sorted(counts) if counts[k]),
+        )
+
+
 class ClaudeVisionBackend(VisionBackend):
     """Pass 3b backend using Anthropic Claude's vision-enabled Messages API.
 
@@ -305,19 +400,16 @@ class ClaudeVisionBackend(VisionBackend):
             )
             return []
 
+        # One shared converter for both backends (#253). It was duplicated
+        # here and in the local-VLM path, so the pixel-coordinate defect had
+        # to be found and fixed twice.
+        bbox_counts: Counter = Counter()
+
         def _norm_to_px(bbox_norm):
-            if not (isinstance(bbox_norm, list) and len(bbox_norm) == 4):
-                return None
-            try:
-                x0 = int(max(0.0, float(bbox_norm[0])) * w)
-                y0 = int(max(0.0, float(bbox_norm[1])) * h)
-                x1 = int(min(1.0, float(bbox_norm[2])) * w)
-                y1 = int(min(1.0, float(bbox_norm[3])) * h)
-            except (TypeError, ValueError):
-                return None
-            if x1 <= x0 or y1 <= y0:
-                return None
-            return [x0, y0, x1, y1]
+            px, disposition = _bbox_to_px(bbox_norm, w, h)
+            if bbox_norm is not None:
+                bbox_counts[disposition] += 1
+            return px
 
         out: List[Dict] = []
         src = self.name
@@ -350,6 +442,7 @@ class ClaudeVisionBackend(VisionBackend):
                 "confidence": float(f.get("confidence", 0.0)),
                 "source": src,
             })
+        _log_bbox_dispositions(bbox_counts, image_path.name, self.name)
         return out
 
 
@@ -602,19 +695,16 @@ class LocalVLMBackend(VisionBackend):
 
         # Convert normalized bboxes to pixel coordinates — same logic as
         # the Claude backend.
+        # One shared converter for both backends (#253). It was duplicated
+        # here and in the local-VLM path, so the pixel-coordinate defect had
+        # to be found and fixed twice.
+        bbox_counts: Counter = Counter()
+
         def _norm_to_px(bbox_norm):
-            if not (isinstance(bbox_norm, list) and len(bbox_norm) == 4):
-                return None
-            try:
-                x0 = int(max(0.0, float(bbox_norm[0])) * w)
-                y0 = int(max(0.0, float(bbox_norm[1])) * h)
-                x1 = int(min(1.0, float(bbox_norm[2])) * w)
-                y1 = int(min(1.0, float(bbox_norm[3])) * h)
-            except (TypeError, ValueError):
-                return None
-            if x1 <= x0 or y1 <= y0:
-                return None
-            return [x0, y0, x1, y1]
+            px, disposition = _bbox_to_px(bbox_norm, w, h)
+            if bbox_norm is not None:
+                bbox_counts[disposition] += 1
+            return px
 
         out: List[Dict] = []
         src = self.name
@@ -647,6 +737,7 @@ class LocalVLMBackend(VisionBackend):
                 "confidence": float(f.get("confidence", 0.0)),
                 "source": src,
             })
+        _log_bbox_dispositions(bbox_counts, image_path.name, self.name)
         return out
 
 
