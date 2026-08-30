@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Every SLURM job opened its stderr with two alarming, meaningless lines
+  (#252).** All four batch scripts began with `module purge`. Because
+  `sbatch --export=ALL` propagates `LOADEDMODULES` / `_LMFILES_`, a batch job
+  starts believing miniconda is already loaded; `purge` unloads it and the
+  modulefile's hook calls `conda`, which is a shell function that is not
+  exported and does not exist in a non-interactive shell. Hence
+  `conda: command not found` and a `CondaError` at the head of every task,
+  on jobs that then ran correctly.
+
+  Cosmetic, but it cost real diagnosis time: during a failed Stage 1 launch
+  the actual cause was the missing `taxonomy.sqlite` of #251, and this noise
+  sat above it and drew the first hypothesis. `module purge` also does not do
+  what its presence implies — `StdEnv` is sticky and survives it — so the
+  line neither achieved a clean environment nor was needed for one.
+  `module reset` restores the same sticky default, matches YCRC's documented
+  convention, and emits one informational line. Verified equivalent on
+  Bouchet: same resolved `python`, same successful `docling` + `torch`
+  import, including from a shell with no environment active.
+
 - **Pass 3b dropped panel bboxes that arrived as pixels rather than
   normalized floats, and counted some of them as successes (#253).** The
   prompt demands "each coordinate is a float in 0.0 .. 1.0" and both
