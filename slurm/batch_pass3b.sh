@@ -67,7 +67,18 @@ echo "HuggingFace cache: $HF_HOME"
 # that module file occasionally vanishes from the 2024a tree's lmod
 # cache (observed job 8485894, 2026-04-16) — skipping it eliminates
 # that failure mode.
-module purge
+# `module reset`, not `module purge` (#252). sbatch --export=ALL propagates
+# LOADEDMODULES / _LMFILES_, so a batch job starts believing miniconda is
+# loaded; purge unloads it and the modulefile's hook calls `conda`, which is
+# a shell function that is not exported and does not exist in a
+# non-interactive shell. Result: two alarming lines at the head of every
+# job's stderr -- `conda: command not found` and a CondaError -- for jobs
+# that then run fine. That noise cost real time once already, sitting above
+# the actual cause of a failed Stage 1 launch (#251) and drawing the first
+# hypothesis. Purge also does not do what it implies: StdEnv is sticky and
+# survives it. `module reset` restores that same sticky default, matches
+# YCRC's documented convention, and emits one informational line.
+module reset
 module load miniconda/24.7.1
 eval "$(conda shell.bash hook)"
 conda activate corpus
