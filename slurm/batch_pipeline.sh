@@ -113,6 +113,29 @@ if [ -z "${NUM_BATCHES:-}" ]; then
     echo "Auto-sized Stage 1: $_n_pdfs PDFs / $BATCH_SIZE per task = $NUM_BATCHES tasks"
 fi
 
+# Pre-build the taxonomy before anything is submitted (#251).
+#
+# The array tasks run `corpus run --only extract`, and that path does NOT
+# build taxonomy.sqlite the way a full `corpus run` does — the orchestrator
+# hard-errors before any work starts when it is missing. Two consecutive
+# siphonophore builds lost their whole chain to this: `corpus check` had
+# called the missing sqlite self-resolving, 26 of 28 array tasks died ~60s
+# in, and `afterok` took Pass 3b, Embed and Finalize down with them.
+#
+# Doing it here, on the login node, rather than trusting the operator to
+# have read a warning. `corpus taxonomy ingest` no-ops when the sqlite is
+# already present and no --force-rebuild flag is set, so this costs about a
+# second on every subsequent run and is safe to repeat.
+if [ -n "$CORPUS_CONFIG" ]; then
+    echo "Ensuring taxonomy.sqlite is built..."
+    if ! corpus taxonomy ingest; then
+        echo "ERROR: taxonomy ingest failed. Stage 1 would fail the same way" >&2
+        echo "       ~60s into every array task, taking the chain with it." >&2
+        echo "       Fix the taxonomy config before resubmitting." >&2
+        exit 1
+    fi
+fi
+
 echo "Submitting Stage 1 ($NUM_BATCHES batch(es) of $BATCH_SIZE)..."
 if [ "$NUM_BATCHES" -gt 1 ]; then
     STAGE1_JOB=$(GROBID_URL="$GROBID_URL" sbatch --parsable \
