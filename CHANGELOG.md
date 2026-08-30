@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`corpus check` promised a taxonomy that `run --only` will not build, and
+  the promise cost two SLURM chains (#251).** A missing `taxonomy.sqlite` was
+  reported as "will be created on first run" — true for a full `corpus run`,
+  false for the phase-split `run --only <phase>` path the `slurm/` scripts
+  use, where the orchestrator hard-errors before any work starts. Two
+  consecutive siphonophore builds passed `check` clean and then lost every
+  Stage 1 array task about a minute in; `afterok` took Pass 3b, Embed and
+  Finalize down with them.
+
+  Fixed at four sites, because the wording alone only helps an operator who
+  reads `check` — and both lost builds had its output on screen:
+
+  - `corpus check`'s dwca/dwc branch now says what the orchestrator requires,
+    matching what the WoRMS branch has said since #139. It was simply never
+    brought into line.
+  - `pipeline/config.template.yaml` carried the same claim, and `corpus init`
+    copies it verbatim, so a new corpuscle asserted it before `check` did.
+  - `slurm/batch_pipeline.sh` pre-builds the taxonomy before the first
+    `sbatch`. `corpus taxonomy ingest` no-ops when the sqlite exists, so this
+    costs about a second on every subsequent run.
+  - The fatal precondition now prints to stdout as well as the log. SLURM
+    routes the logger's stderr to a sibling `.err` file, so from the vantage
+    points an operator uses — the `.out` file, `squeue`, a `documents/`
+    directory filling up — a dead chain looked like slow first documents.
+    26 of 28 tasks were `FAILED` while `squeue` still showed `RUNNING`.
+
+### Changed
+
+- **`corpus taxonomy ingest` reads `taxonomy.source`, `path` and `root_id`
+  from `config.yaml` (#251).** It required `--source` explicitly, which made
+  it the one verb that could not be driven from the corpuscle's own config —
+  so the SLURM pre-build above would have had to parse YAML in bash. Explicit
+  flags still override, per the house rule. `corpus taxonomy ingest` with no
+  arguments now does the right thing inside a corpuscle.
+
 - **Pass 3b recorded a truncated VLM response as "this figure has no panels"
   (#253).** The local backend capped generation at a fixed 1024 tokens while
   the panel prompt asks for one six-field JSON object per panel at roughly

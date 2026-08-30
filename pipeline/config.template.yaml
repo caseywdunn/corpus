@@ -33,8 +33,18 @@ output_dir: ./output
 # Comment out to skip lexicon annotation entirely.
 # lexicon: ./lexicon.yaml
 
-# External taxonomy snapshot. Auto-built into <output_dir>/taxonomy.sqlite
-# on the first `corpus run`. Three sources to pick from:
+# External taxonomy snapshot, built into <output_dir>/taxonomy.sqlite.
+#
+# A full `corpus run` builds it for you. The phase-split `corpus run --only
+# <phase>` path — which the slurm/ scripts use — does NOT, and fails before
+# any work starts if it is missing (#251). On a cluster, or any time you
+# submit phases separately, pre-build it once:
+#
+#   corpus taxonomy ingest --source <source> --input <path>
+#
+# It is idempotent and takes about a second, so it is safe to run every time.
+#
+# Three sources to pick from:
 #
 #   worms — fetch a WoRMS (World Register of Marine Species) subtree by
 #           AphiaID. Best for marine groups. Set `source: worms` and
