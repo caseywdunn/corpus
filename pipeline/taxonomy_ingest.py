@@ -144,7 +144,50 @@ def create_schema(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    _dedupe_names(conn)
     conn.commit()
+
+
+def _dedupe_names(conn: sqlite3.Connection) -> int:
+    """Collapse duplicate ``names`` rows, then make duplicates impossible (#262).
+
+    ``names`` shipped with no PRIMARY KEY and no UNIQUE constraint, and both
+    writes were plain ``INSERT``. The only dedup was a ``set`` built inside
+    :func:`insert_records`, which knows nothing about rows already on disk —
+    so re-ingesting into an existing database appended a complete duplicate
+    set of name rows. 801 names became 1,602, then 2,403.
+
+    Latent until v1.2.1, which added an unconditional pre-build to
+    ``slurm/batch_pipeline.sh`` on the claim — mine, and wrong — that the
+    ingest no-ops. That made it fire on every launch.
+
+    The repair has to precede the constraint: a corpuscle built since v1.2.1
+    already holds duplicates, and ``CREATE UNIQUE INDEX`` would fail on it.
+    Deduping first means an existing database is fixed in place on the next
+    ingest rather than needing to be rebuilt. Returns the number of rows
+    removed, so the caller can say whether a repair happened.
+    """
+    before = conn.execute("SELECT count(*) FROM names").fetchone()[0]
+    conn.execute(
+        """
+        DELETE FROM names WHERE rowid NOT IN (
+            SELECT min(rowid) FROM names
+            GROUP BY name_lowercase, taxon_id, name_type
+        )
+        """
+    )
+    removed = before - conn.execute("SELECT count(*) FROM names").fetchone()[0]
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_names_unique "
+        "ON names(name_lowercase, taxon_id, name_type)"
+    )
+    if removed:
+        logger.warning(
+            "Removed %d duplicate name row(s) left by a pre-1.2.2 re-ingest "
+            "(#262) and added a uniqueness constraint; lookups were correct "
+            "but the table was growing on every run.", removed,
+        )
+    return removed
 
 
 # ---------------------------------------------------------------------------
@@ -597,7 +640,13 @@ def prune_to_subgraph(records: List[Dict], root_id: str) -> List[Dict]:
 
 
 def insert_records(conn: sqlite3.Connection, records: Iterable[Dict]) -> Dict[str, int]:
-    """Write canonical records to taxa + names. Idempotent (REPLACE).
+    """Write canonical records to taxa + names. Idempotent.
+
+    ``taxa`` has always been, via ``INSERT OR REPLACE`` on its primary key.
+    ``names`` was not until #262: it carried no uniqueness constraint and
+    plain ``INSERT``, so a re-ingest doubled it. It is now ``INSERT OR
+    IGNORE`` against the unique index :func:`_dedupe_names` maintains, and
+    ``n_names`` counts rows actually written rather than attempts.
 
     Synonym names attached via ``extra_names`` are inserted into
     ``names`` against the *accepted* taxon row, so a single name lookup
@@ -662,13 +711,17 @@ def insert_records(conn: sqlite3.Connection, records: Iterable[Dict]) -> Dict[st
                          else rec["taxon_id"])
             key = (primary_name.lower(), target_id, primary_type)
             if key not in seen_name_keys:
-                conn.execute(
-                    "INSERT INTO names (name, name_lowercase, taxon_id, name_type) "
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO names (name, name_lowercase, taxon_id, name_type) "
                     "VALUES (?, ?, ?, ?)",
                     (primary_name, primary_name.lower(), target_id, primary_type),
                 )
                 seen_name_keys.add(key)
-                n_names += 1
+                # rowcount, not an unconditional bump: with OR IGNORE a row
+                # already on disk inserts nothing, and counting the attempt
+                # made the log report "801 names" against a table holding
+                # 1,602 (#262).
+                n_names += cur.rowcount
 
         # Extra names (e.g. synonyms attached to an accepted record by
         # the WoRMS walker). All filed against this record's taxon_id as
@@ -676,13 +729,13 @@ def insert_records(conn: sqlite3.Connection, records: Iterable[Dict]) -> Dict[st
         for extra in rec.get("extra_names") or []:
             key = (extra.lower(), rec["taxon_id"], "synonym")
             if key not in seen_name_keys:
-                conn.execute(
-                    "INSERT INTO names (name, name_lowercase, taxon_id, name_type) "
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO names (name, name_lowercase, taxon_id, name_type) "
                     "VALUES (?, ?, ?, ?)",
                     (extra, extra.lower(), rec["taxon_id"], "synonym"),
                 )
                 seen_name_keys.add(key)
-                n_names += 1
+                n_names += cur.rowcount
 
     conn.commit()
     return {"taxa": n_taxa, "names": n_names}
