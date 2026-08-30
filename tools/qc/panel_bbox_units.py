@@ -15,9 +15,16 @@ Fixing truncation alone and re-measuring would look like the fix
 underperforming, when the residue is a second, unrelated cause.
 
 This script does not fix anything and does not need a GPU. It reads the
-`figures.json` a build already produced and answers one question: **of the
-panels the model emitted, how many were dropped for a reason consistent
-with pixel coordinates?**
+`figures.json` a build already produced and reports the `pass3_status`
+breakdown bucketed by caption-derived panel count.
+
+**On the document count:** `figure_passes.py` writes `pass3_status` only on
+figures whose caption yields more than one panel, so a document with no
+multi-panel figure carries no status at all. The "documents with >=1
+multi-panel figure" line is therefore the *eligible* population, not a
+partial sample — Pass 3b ran over everything and had nothing to do on the
+rest. Reported that way because the earlier wording ("reached Pass 3b")
+read as though 84% of a finished build had been skipped.
 
 Read-only. Safe against a build that is still running — it skips documents
 that have not reached Pass 3b yet.
@@ -135,7 +142,12 @@ def main() -> int:
             n_pass3b += 1
 
     print(f"corpuscle : {args.corpuscle}")
-    print(f"documents : {n_docs} total, {n_pass3b} reached Pass 3b")
+    print(f"documents : {n_docs} total, {n_pass3b} with >=1 multi-panel figure")
+    print("            (Pass 3b writes pass3_status only on figures whose "
+          "caption\n"
+          "             yields >1 panel, so the rest are not a missing "
+          "sample --\n"
+          "             Pass 3b ran and had nothing to do on them.)")
     print(f"rois kept : {surviving_rois}")
     print()
     print("pass3_status:")
