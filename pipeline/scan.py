@@ -2596,12 +2596,16 @@ def prepare_pdf(
         "--optimize", optimize_level,
         "--color-conversion-strategy", "RGB",
         "--output-type", "pdf",
-        str(input_pdf),
-        str(output_pdf),
     ]
 
+    # Before the positionals, not after. argparse tolerates a trailing
+    # option, but appending it left the *output path* in the middle of the
+    # argv and `cmd[-1]` meaning "6" — which is how a file named `6` came to
+    # sit in the repo root for three days (#254 follow-up).
     if ocr_jobs:
         cmd += ["--jobs", str(ocr_jobs)]
+
+    cmd += [str(input_pdf), str(output_pdf)]
 
     ocr_timeout = _ocr_timeout_for(input_pdf, len(langs))
     try:

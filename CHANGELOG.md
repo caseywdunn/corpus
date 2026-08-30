@@ -5,6 +5,157 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-08-30
+
+### Fixed
+
+- **Every SLURM job opened its stderr with two alarming, meaningless lines
+  (#252).** All four batch scripts began with `module purge`. Because
+  `sbatch --export=ALL` propagates `LOADEDMODULES` / `_LMFILES_`, a batch job
+  starts believing miniconda is already loaded; `purge` unloads it and the
+  modulefile's hook calls `conda`, which is a shell function that is not
+  exported and does not exist in a non-interactive shell. Hence
+  `conda: command not found` and a `CondaError` at the head of every task,
+  on jobs that then ran correctly.
+
+  Cosmetic, but it cost real diagnosis time: during a failed Stage 1 launch
+  the actual cause was the missing `taxonomy.sqlite` of #251, and this noise
+  sat above it and drew the first hypothesis. `module purge` also does not do
+  what its presence implies — `StdEnv` is sticky and survives it — so the
+  line neither achieved a clean environment nor was needed for one.
+  `module reset` restores the same sticky default, matches YCRC's documented
+  convention, and emits one informational line. Verified equivalent on
+  Bouchet: same resolved `python`, same successful `docling` + `torch`
+  import, including from a shell with no environment active.
+
+- **Pass 3b dropped panel bboxes that arrived as pixels rather than
+  normalized floats, and counted some of them as successes (#253).** The
+  prompt demands "each coordinate is a float in 0.0 .. 1.0" and both
+  backends multiplied by the image dimensions on that assurance.
+  Qwen2.5-VL frequently ignores it: measured across every Pass 3b log on
+  one cluster, 130 of 142 observable responses carried absolute pixels, and
+  100% of them since 2026-05-30.
+
+  That produced silent loss two different ways, neither logged:
+
+  - `[17, 808, 150, 1365]` → `x0 = 17*w = 8432` while `x1 = min(1.0, 150)*w
+    = w`, so `x1 <= x0` and the panel was dropped. Any pixel bbox with a
+    non-zero origin was lost this way, 100% of the time.
+  - `[0, 0, 487, 606]` → the guard passes and you get a "panel" spanning the
+    whole figure. Wrong data rather than missing data, and it lands in the
+    `completed` counter where nothing looks at it.
+
+  A coordinate above 1.0 cannot be normalized, so the units are recoverable
+  without guessing. Pixel bboxes are now used as pixels, which strictly
+  dominates dropping them and removes the whole-figure impostor. Every
+  disposition — normalized, pixels, out-of-range, malformed, degenerate — is
+  counted and logged per figure, so a build reports what its model actually
+  emitted instead of discarding the evidence. That reporting is what the
+  units question needed: the old code left no trace on any drop path, so the
+  rate could only be inferred from the handful of responses that failed to
+  parse, which is a biased sample of exactly the wrong population.
+
+  The converter was duplicated in both backends, so this defect had to be
+  found twice; there is now one `_bbox_to_px` and a test that fails if it is
+  inlined again.
+
+- **Pass 3b logs did not record the corpus version (#253).** They carry the
+  GPU and the config path, so a vision pass could not be attributed to a
+  build afterwards — the `siphonophore_20260828` run could not be tied to a
+  version at all, because `runs/` held only records written after it and
+  `run.log` attested to a different, later run.
+
+- **`corpus check` promised a taxonomy that `run --only` will not build, and
+  the promise cost two SLURM chains (#251).** A missing `taxonomy.sqlite` was
+  reported as "will be created on first run" — true for a full `corpus run`,
+  false for the phase-split `run --only <phase>` path the `slurm/` scripts
+  use, where the orchestrator hard-errors before any work starts. Two
+  consecutive siphonophore builds passed `check` clean and then lost every
+  Stage 1 array task about a minute in; `afterok` took Pass 3b, Embed and
+  Finalize down with them.
+
+  Fixed at four sites, because the wording alone only helps an operator who
+  reads `check` — and both lost builds had its output on screen:
+
+  - `corpus check`'s dwca/dwc branch now says what the orchestrator requires,
+    matching what the WoRMS branch has said since #139. It was simply never
+    brought into line.
+  - `pipeline/config.template.yaml` carried the same claim, and `corpus init`
+    copies it verbatim, so a new corpuscle asserted it before `check` did.
+  - `slurm/batch_pipeline.sh` pre-builds the taxonomy before the first
+    `sbatch`. `corpus taxonomy ingest` no-ops when the sqlite exists, so this
+    costs about a second on every subsequent run.
+  - The fatal precondition now prints to stdout as well as the log. SLURM
+    routes the logger's stderr to a sibling `.err` file, so from the vantage
+    points an operator uses — the `.out` file, `squeue`, a `documents/`
+    directory filling up — a dead chain looked like slow first documents.
+    26 of 28 tasks were `FAILED` while `squeue` still showed `RUNNING`.
+
+### Changed
+
+- **`corpus taxonomy ingest` reads `taxonomy.source`, `path` and `root_id`
+  from `config.yaml` (#251).** It required `--source` explicitly, which made
+  it the one verb that could not be driven from the corpuscle's own config —
+  so the SLURM pre-build above would have had to parse YAML in bash. Explicit
+  flags still override, per the house rule. `corpus taxonomy ingest` with no
+  arguments now does the right thing inside a corpuscle.
+
+- **Pass 3b recorded a truncated VLM response as "this figure has no panels"
+  (#253).** The local backend capped generation at a fixed 1024 tokens while
+  the panel prompt asks for one six-field JSON object per panel at roughly
+  60–90 tokens each, so panel-rich figures ran out mid-object. `_extract_json`
+  found no balanced `{...}`, the backend returned `[]`, and `[]` maps to
+  `no_labels_found` — a clean result, indistinguishable from a figure the
+  model genuinely found nothing in. The figures it cost most were the ones
+  panel ROIs matter most for: measured over 1,772 documents, ROI coverage
+  fell from 47.8% at 2–3 panels to 13.6% at 10+, which is the signature of a
+  fixed output budget rather than a vision failure.
+
+  Three changes. The token budget now scales with the panel count Pass 3b
+  already knows from the caption, with the configured `max_new_tokens` kept
+  as a floor so a raised value is still honoured. A response that stops at
+  the cap with nothing parseable now raises, landing in the
+  `vision_backend_failed` counter instead of the clean one; a response that
+  stops at the cap *after* a complete object logs a warning, which previously
+  produced a partial ROI set silently. And `_extract_json` no longer returns
+  `None` on the first `json.JSONDecodeError` — it keeps scanning, so one
+  malformed leading object stops discarding every well-formed one after it.
+
+  Same defect class as #254: silent loss recorded as success. **The budget's
+  adequacy is not covered by tests and cannot be** — that needs a real Pass 3b
+  run on a GPU. What is covered is the reasoning around the call: budget
+  arithmetic, JSON salvage against the response captured in the issue, and the
+  truncated-vs-absent distinction at the status boundary.
+
+- **The test suite wrote a stray file into the working directory on every
+  run (#257).** `tests/test_ocrlang_override.py`'s ocrmypdf stub wrote to
+  `cmd[-1]` on the assumption it was the output path, but `prepare_pdf`
+  appended `--jobs N` *after* the positional output argument — so the stub
+  created a file named after the resolved worker count. The name varies by
+  machine: `6` here, `3` on the 4-CPU allocation that reported it. The tests
+  passed throughout.
+
+  **#254 is what made it constant.** Before it, `_resolve_ocr_jobs()`
+  returned `None` whenever RAM was not the binding constraint, so on a
+  large-memory host the `if ocr_jobs:` branch usually did not fire and
+  `cmd[-1]` really was the output path. Making the resolver always pass the
+  number turned an occasional stray into one on every run.
+
+  Two fixes, because either alone would leave the trap set: the stub now
+  writes the output path it was given rather than deriving it positionally,
+  and `--jobs` moved in front of the positionals where it belongs. This also
+  corrects the record — `3bd5cf9` removed one of these files calling it "a
+  shell typo", which it was not.
+
+- **Nothing in CI looked at the repo root (#257).** One of those stray files
+  was committed in `ec63c92` and survived four green CI runs and two release
+  PRs, caught by eye at the v1.2.0 tag boundary — one merge from a permanent
+  Zenodo archive, since the release archives the tree under a DOI that
+  `CITATION.cff`'s concept DOI resolves to. `tests/test_repo_root_is_clean.py`
+  now holds an allowlist of the files that belong at the top level, and a
+  second test fails if that allowlist rots. An allowlist rather than a
+  pattern because the offending name is machine-dependent.
+
 ## [1.2.0] - 2026-08-29
 
 ### Theme — v1.2 extraction fidelity, measured against ground truth

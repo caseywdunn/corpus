@@ -172,6 +172,17 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         return
     figures = data.get("figures", []) or []
 
+    # Stamp the version into the Pass 3b log (#253). These logs recorded the
+    # GPU and the config path but not the corpus version, so a run could not
+    # be attributed to a build afterwards: the siphonophore_20260828 vision
+    # pass could not be tied to a version at all, because `runs/` held only
+    # records written after it and run.log attested to a different, later
+    # run. One line makes the log self-describing.
+    from . import PIPELINE_VERSION
+    logger.info("Pass 3b starting | corpus %s | backend=%s | %d figure(s)",
+                PIPELINE_VERSION, getattr(vision_backend, "name", "?"),
+                len(figures))
+
     n_ok = n_partial = n_none = n_compound = n_skipped = n_failed = 0
     for fig in figures:
         if fig.get("figure_type") not in ("figure", "plate", "subpanel"):

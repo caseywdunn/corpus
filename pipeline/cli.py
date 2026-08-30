@@ -880,9 +880,38 @@ def _cmd_taxonomy_export(args: argparse.Namespace) -> int:
 
 
 def _cmd_taxonomy_ingest(args: argparse.Namespace) -> int:
+    """Build taxonomy.sqlite, defaulting source/input/root-id from config.
+
+    The underlying module requires ``--source`` explicitly, which made this
+    the one verb that could not be driven from ``config.yaml`` alone — so a
+    SLURM submit script could not pre-build the taxonomy without parsing
+    YAML in bash. Since the corpuscle's config already states the source and
+    path, read them from there and let explicit flags override, which is the
+    house rule everywhere else (#251).
+    """
     output_dir = _resolve_output_dir(args)
+    passthrough = list(args.passthrough)
+
+    if not any(a == "--source" or a.startswith("--source=") for a in passthrough):
+        config_path = _resolve_config_path(args.config)
+        if config_path is not None and config_path.exists():
+            cfg = _load_validated(config_path)
+            tx = cfg.taxonomy
+            if tx.source is None:
+                print_status(
+                    "config.yaml sets no taxonomy.source; nothing to ingest. "
+                    "Pass --source explicitly to override.",
+                    status="warn",
+                )
+                return 0
+            passthrough += ["--source", str(tx.source)]
+            if tx.path is not None:
+                passthrough += ["--input", str(_resolve_against(config_path, tx.path))]
+            if getattr(tx, "root_id", None) is not None:
+                passthrough += ["--root-id", str(tx.root_id)]
+
     return _passthrough("pipeline.taxonomy_ingest",
-                        [str(output_dir), *args.passthrough])
+                        [str(output_dir), *passthrough])
 
 
 # ---------------------------------------------------------------------------
@@ -1255,11 +1284,25 @@ def _cmd_check(args: argparse.Namespace) -> int:
                     status="ok",
                 )
             else:
-                # Archive/dir is present but sqlite not yet built — the next
-                # full `corpus run` will build it via ingest_taxonomy.
+                # Archive is present but sqlite is not built yet. A *full*
+                # `corpus run` builds it via ingest_taxonomy — but the
+                # phase-split `run --only <phase>` path the slurm/ scripts
+                # use does not, and `_check_taxonomy_available` hard-errors
+                # before any work starts. Promising it would appear "on
+                # first run" cost two consecutive siphonophore builds their
+                # entire SLURM chain: check was clean, 26 of 28 array tasks
+                # died ~60s in, and `afterok` took Pass 3b, Embed and
+                # Finalize down with them (#251).
+                #
+                # So: say what the orchestrator actually requires. This is
+                # the wording the WoRMS branch above has carried since #139;
+                # this branch was simply never brought into line with it.
                 pstatus(
-                    f"Taxonomy: {tx_path.name} found, "
-                    f"{db_path.name} not yet built (will be created on first run)",
+                    f"Taxonomy: {tx_path.name} found, {db_path.name} not yet "
+                    f"built. A full `corpus run` builds it; `run --only "
+                    f"<phase>` (the slurm/ scripts) fails without it. "
+                    f"Pre-build once with: corpus taxonomy ingest --source "
+                    f"{cfg.taxonomy.source} --input {tx_path}",
                     status="warn",
                 )
 

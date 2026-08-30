@@ -521,6 +521,14 @@ def main() -> int:
     taxonomy_err = _check_taxonomy_available(args, selected)
     if taxonomy_err:
         logger.error(taxonomy_err)
+        # Also to stdout (#251). SLURM sends the logger's stderr to the
+        # sibling .err file, so from the vantage points an operator actually
+        # uses — the .out file, `squeue`, a documents/ dir being written —
+        # a chain dying on this looked like slow first documents. Two
+        # siphonophore builds were diagnosed late for exactly that reason;
+        # 26 of 28 tasks were FAILED while squeue still showed RUNNING.
+        # One duplicated line collapses that gap.
+        print(f"FATAL: {taxonomy_err}", flush=True)
         return 1
 
     logger.info("Running %d step(s):", len(selected))

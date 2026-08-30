@@ -231,10 +231,25 @@ precedence over the symlink.
 
 ### 4. Pre-build the taxonomy
 
-**Do this before submitting any batch jobs.** Not for connectivity reasons —
-login and batch nodes both reach WoRMS — but because you do not want one extract
-task per paper each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
-front:
+**Required, not an optimization — do it before submitting any batch jobs.**
+The array tasks run `corpus run --only extract`, and that path does *not*
+build `taxonomy.sqlite` the way a full `corpus run` does: the orchestrator
+hard-errors ~60 s in, and `afterok` then takes Pass 3b, Embed and Finalize
+down with it. Two consecutive siphonophore builds lost their whole chain this
+way (#251). `slurm/batch_pipeline.sh` now pre-builds it for you before the
+first `sbatch`, so following the runbook is enough — but if you submit
+`batch_process_corpus.sh` by hand, this step is yours.
+
+The second reason is the original one: you do not want one extract task per
+paper each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
+front — it reads the source and path straight from `config.yaml`, and
+no-ops when the file already exists:
+
+```bash
+corpus taxonomy ingest      # reads taxonomy.{source,path,root_id} from config.yaml
+```
+
+or spell the source out explicitly:
 
 ```bash
 conda activate corpus
