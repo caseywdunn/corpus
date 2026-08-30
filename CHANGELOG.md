@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`corpus taxonomy ingest` doubled the `names` table on every re-run, and
+  v1.2.1 made it fire automatically (#262).** `names` shipped with no PRIMARY
+  KEY and no UNIQUE constraint, and both writes were plain `INSERT`. The only
+  dedup was a `set` built inside `insert_records`, which knows nothing about
+  rows already on disk. Re-ingesting therefore appended a complete duplicate
+  set: 801 names became 1,602, then 2,403.
+
+  Latent for as long as the code existed, because a re-ingest was an operator
+  choice. v1.2.1's #251 fix added an unconditional pre-build to
+  `slurm/batch_pipeline.sh` — justified by the claim that the ingest no-ops,
+  which was asserted without checking a row count and was false — so it began
+  firing on every launch, on the exact workflow that release existed to
+  unblock.
+
+  `names` now carries a unique index on `(name_lowercase, taxon_id,
+  name_type)` and both writes are `INSERT OR IGNORE`. Because
+  `CREATE UNIQUE INDEX` would fail on a database that already holds
+  duplicates, `create_schema` deduplicates first and logs how many rows it
+  removed — so **a corpuscle built with v1.2.1 is repaired in place on its
+  next ingest**, rather than needing a rebuild. `n_names` now counts rows
+  actually written instead of attempts, so the log stops reporting "801
+  names" against a table holding 1,602.
+
+  Lookups were correct throughout — `name_set()` uses `SELECT DISTINCT` and
+  `lookup()` chooses among identical rows — which is why nothing surfaced
+  this except the file growing. The three places that claimed idempotence now
+  say what changed and when.
+
 ## [1.2.1] - 2026-08-30
 
 ### Fixed

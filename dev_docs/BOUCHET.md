@@ -243,7 +243,12 @@ first `sbatch`, so following the runbook is enough — but if you submit
 The second reason is the original one: you do not want one extract task per
 paper each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
 front — it reads the source and path straight from `config.yaml`, and
-no-ops when the file already exists:
+no-ops when the file already exists.
+
+**If this corpuscle was built with 1.2.1**, run it once on 1.2.2 or later:
+that release's automatic pre-build doubled the `names` table on every launch
+(#262), and the next ingest deduplicates it in place and logs how many rows
+it removed. Lookups were correct throughout; the table was just growing.
 
 ```bash
 corpus taxonomy ingest      # reads taxonomy.{source,path,root_id} from config.yaml

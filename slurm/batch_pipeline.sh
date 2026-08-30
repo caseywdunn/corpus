@@ -123,9 +123,14 @@ fi
 # in, and `afterok` took Pass 3b, Embed and Finalize down with them.
 #
 # Doing it here, on the login node, rather than trusting the operator to
-# have read a warning. `corpus taxonomy ingest` no-ops when the sqlite is
-# already present and no --force-rebuild flag is set, so this costs about a
-# second on every subsequent run and is safe to repeat.
+# have read a warning.
+#
+# Safe to repeat, which was asserted before it was true (#262): `names` had
+# no uniqueness constraint and plain INSERTs, so this call doubled that table
+# on every launch -- 801 rows to 1,602 to 2,403. Since 1.2.2 the ingest holds
+# a unique index and INSERT OR IGNORE, and it deduplicates on open, so an
+# unconditional call is genuinely a no-op *and* repairs a corpuscle damaged
+# by 1.2.1 the next time this runs. About a second either way.
 if [ -n "$CORPUS_CONFIG" ]; then
     echo "Ensuring taxonomy.sqlite is built..."
     if ! corpus taxonomy ingest; then

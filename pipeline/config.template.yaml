@@ -43,6 +43,9 @@ output_dir: ./output
 #   corpus taxonomy ingest --source <source> --input <path>
 #
 # It is idempotent and takes about a second, so it is safe to run every time.
+# (Idempotent for real since 1.2.2 -- before that a re-ingest silently doubled
+# the `names` table, #262. Re-running once on a corpuscle built with 1.2.1
+# repairs it.)
 #
 # Three sources to pick from:
 #
