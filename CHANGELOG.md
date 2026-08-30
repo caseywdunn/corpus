@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Pass 3b recorded a truncated VLM response as "this figure has no panels"
+  (#253).** The local backend capped generation at a fixed 1024 tokens while
+  the panel prompt asks for one six-field JSON object per panel at roughly
+  60–90 tokens each, so panel-rich figures ran out mid-object. `_extract_json`
+  found no balanced `{...}`, the backend returned `[]`, and `[]` maps to
+  `no_labels_found` — a clean result, indistinguishable from a figure the
+  model genuinely found nothing in. The figures it cost most were the ones
+  panel ROIs matter most for: measured over 1,772 documents, ROI coverage
+  fell from 47.8% at 2–3 panels to 13.6% at 10+, which is the signature of a
+  fixed output budget rather than a vision failure.
+
+  Three changes. The token budget now scales with the panel count Pass 3b
+  already knows from the caption, with the configured `max_new_tokens` kept
+  as a floor so a raised value is still honoured. A response that stops at
+  the cap with nothing parseable now raises, landing in the
+  `vision_backend_failed` counter instead of the clean one; a response that
+  stops at the cap *after* a complete object logs a warning, which previously
+  produced a partial ROI set silently. And `_extract_json` no longer returns
+  `None` on the first `json.JSONDecodeError` — it keeps scanning, so one
+  malformed leading object stops discarding every well-formed one after it.
+
+  Same defect class as #254: silent loss recorded as success. **The budget's
+  adequacy is not covered by tests and cannot be** — that needs a real Pass 3b
+  run on a GPU. What is covered is the reasoning around the call: budget
+  arithmetic, JSON salvage against the response captured in the issue, and the
+  truncated-vs-absent distinction at the status boundary.
+
 - **The test suite wrote a stray file into the working directory on every
   run (#257).** `tests/test_ocrlang_override.py`'s ocrmypdf stub wrote to
   `cmd[-1]` on the assumption it was the output path, but `prepare_pdf`
