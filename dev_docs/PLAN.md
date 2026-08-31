@@ -149,6 +149,38 @@ v0.6 froze.
   export surface for "the LLM isn't the consumer" workflows, which is a
   usage question wearing a tooling hat.
 
+### Housekeeping, in-cycle
+
+Three carried in from the v1.2 patch cycle. None is urgent; all three are
+small, self-contained, and were found by running the pipeline rather than by
+a test.
+
+- [ ] **The local VLM loads in float32 on MPS**
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — the dtype
+  branches on `== "cuda"` rather than on what the device supports, so Apple
+  Silicon needs ~30 GB for Qwen2.5-VL-7B instead of ~15. The rest of the MPS
+  path is already in place. **Needs Apple-Silicon hardware to validate**, and
+  a machine that can do that would also unblock the `docling==2.94.0` pin
+  below — the same hardware gates both, so they are worth scheduling
+  together.
+- [ ] **Migrate the lint gate to Ruff**
+  ([#259](https://github.com/caseywdunn/corpus/issues/259)) — bare `pyflakes`
+  does not implement `# noqa`, so the suppression already written into
+  `mcpsrv/tools/__init__.py` has never had any effect and F401 cannot be
+  gated without deleting the side-effect imports that register the MCP tools.
+  That tooling mismatch, not the cleanup itself, is why the 37 outstanding
+  findings have stayed deferred. **Keep `F821` as its own hard gate** when
+  rewriting: `tests/test_no_undefined_names.py` exists because two real
+  NameErrors shipped, and a broad lint suite that can be silenced wholesale
+  is a weaker guarantee than the narrow one it replaces.
+- [ ] **`--enrich-bhl` reports no hit rate**
+  ([#260](https://github.com/caseywdunn/corpus/issues/260)) — three counters
+  are initialized and never touched, so a multi-hour rate-limited pass
+  answers nothing about whether it was worth running. The pattern to copy is
+  forty lines away in the same file. Deleting the variables, which is what a
+  lint sweep would do, is the wrong fix: it removes the only evidence the
+  measurement was intended.
+
 ## Unscheduled
 
 Not claimed by a cycle, and none blocks another. Carried so nothing is
@@ -216,16 +248,18 @@ Issue-backed, in dependency-free groups.
   files independently, which is adjacent but not the same check.
 - [ ] **README is ambiguous about where `instructions.md` lives**
   ([#171](https://github.com/caseywdunn/corpus/issues/171)).
-- [ ] **Nothing in CI looks at the repo root.** A stray 9-byte file named
-  `6` — a `%PDF-1.4` fragment from a shell redirect typo in `ec63c92` —
-  sat next to `README.md` through four green CI runs and a full release
-  PR, and was caught by eye at the v1.2.0 tag boundary, one merge from
-  being in a citable Zenodo archive permanently. T0 lints `pipeline/`,
-  `mcpsrv/`, `bib/` and `tools/` for undefined names; no check has an
-  opinion about the top level. An allowlist test over `git ls-files |
-  grep -v /` is cheap and would have failed on the offending commit.
-  Same shape as the `tools/` pyflakes gap below: the check that would
-  have caught it did not exist because nobody had been bitten yet.
+- [x] **CI now looks at the repo root.** Shipped in v1.2.1 as
+  `tests/test_repo_root_is_clean.py`, an allowlist over `git ls-files`.
+  A stray 9-byte `%PDF-1.4` fragment named `6` sat next to `README.md`
+  through four green CI runs and a full release PR, caught by eye at the
+  v1.2.0 tag boundary — one merge from a citable Zenodo archive. T0 lints
+  `pipeline/`, `mcpsrv/`, `bib/` and `tools/` for undefined names; nothing
+  had an opinion about the top level. Note the file was *not* a shell typo
+  as first assumed: the test suite regenerated it on every run
+  ([#257](https://github.com/caseywdunn/corpus/issues/257)), which is why
+  deleting it once did not hold. Same shape as the `tools/` pyflakes gap
+  below — the check that would have caught it did not exist because nobody
+  had been bitten yet.
 - [x] **`tools/` is in the pyflakes gate.** Done alongside
   [#193](https://github.com/caseywdunn/corpus/issues/193), which added
   another script there. `tests/test_no_undefined_names.py` had linted
