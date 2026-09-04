@@ -865,6 +865,17 @@ FIGURE_TYPE_SUBPANEL = "subpanel"
 FIGURE_TYPE_GRAPHICAL = "graphical_element"
 FIGURE_TYPE_UNCLASSIFIED = "unclassified"
 
+# Types backed by enough evidence to appear in default figure retrieval.
+# This is a property of the built record rather than an MCP implementation
+# detail: the server and offline fidelity scorer must make the same cut.
+# Keep the review-bucket types in figures.json, but require an explicit
+# include_all request before returning them as ordinary figure evidence.
+EVIDENCE_FIGURE_TYPES = frozenset({
+    FIGURE_TYPE_FIGURE,
+    FIGURE_TYPE_PLATE,
+    FIGURE_TYPE_SUBPANEL,
+})
+
 
 # Bbox coordinates are quantised to this many points before two items are
 # called "the same position". Loose enough for sub-point jitter between pages,

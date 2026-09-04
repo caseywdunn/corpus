@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.mcpserver import Image
-from pipeline.figures import caption_evidence_summary
+from pipeline.figures import EVIDENCE_FIGURE_TYPES, caption_evidence_summary
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
 from ..profiles import get_profile, resolve_profile, unknown_profile_error
@@ -80,7 +80,7 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
 
 # Restricted to the figure types that get returned by get_figures_for_*.
 # Excludes graphical_element, plate_label, furniture, etc.
-_REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
+_REAL_FIGURE_TYPES = EVIDENCE_FIGURE_TYPES
 
 
 def _resolve_lexicon_surfaces(idx, category: str, term: str) -> Dict:

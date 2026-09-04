@@ -157,7 +157,7 @@ of what those numbers mean.
   reads `docling_doc.json`, and never ships in the served bundle. Decide in
   the same change whether the existing unconditional visualization PNGs become
   opt-in or on-demand; do not replace them with another corpus-wide raster set.
-- [ ] **Close the completed figure-measurement issue**
+- [x] **Close the completed figure-measurement issue**
   ([#194](https://github.com/caseywdunn/corpus/issues/194)) after confirming
   the scorer and recorded result still match the current gold set. Remaining
   caption behavior belongs to #195/#203 rather than another measurement task.
@@ -536,7 +536,7 @@ Generic shapes; concrete instantiations live in the corpuscle's
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer ([#13](https://github.com/caseywdunn/corpus/issues/13), deferred to v2.0+) |
 | Q2 | "Compose a monographic review of `<genus>`." | Indices in place; v1.3 repairs caption/reference evidence and makes uncertainty inspectable before v1.4 adds the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
 | Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14)) |
-| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; a corpus-scale vision run landed in v1.0 and figure detection became measurable against truth in v1.2 (0.923 recall at 0.967 precision on the served surface). Caption binding remains the conspicuous evidence error and is v1.3's primary fidelity gate |
+| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; a corpus-scale vision run landed in v1.0 and figure detection became measurable against truth in v1.2. On the current gold corpuscle the raw artifact is 0.936 recall / 0.876 precision, while the stricter default MCP type filter is 0.875 / 0.985. Caption binding remains the conspicuous evidence error and is v1.3's primary fidelity gate |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |
 | Q6 | "Summarize `<topic>` across the corpus." | Indices in place; cache cost addressed by dossier tools [#76](https://github.com/caseywdunn/corpus/issues/76) in v0.5 |
 | Q7 | "Plot species described per decade." | Indices in place |

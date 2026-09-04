@@ -62,6 +62,13 @@ _spec = importlib.util.spec_from_file_location("qc_fidelity", _HERE / "fidelity.
 fid = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(fid)
 
+# The default MCP surface is part of the measurement. Import its semantic
+# type set from the producer rather than maintaining a lookalike filter here;
+# otherwise a server policy change can silently leave the reported "served"
+# precision describing a surface that no longer exists.
+sys.path.insert(0, str(_HERE.parent.parent))
+from pipeline.figures import EVIDENCE_FIGURE_TYPES  # noqa: E402
+
 # Only these are figures. `[TABLE]` is body content — `fidelity.py` scores it
 # as prose for the same reason — and docling reports tables separately from
 # pictures, so counting them here would compare two different populations.
@@ -107,8 +114,7 @@ FILTERS = {
     "drop graphical_element": lambda f: f.get("figure_type") != "graphical_element",
     "drop uncaptioned graphical_element":
         lambda f: f.get("figure_type") != "graphical_element" or _captioned(f),
-    "drop graphical_element + unclassified":
-        lambda f: f.get("figure_type") not in ("graphical_element", "unclassified"),
+    "served MCP types": lambda f: f.get("figure_type") in EVIDENCE_FIGURE_TYPES,
     "captioned only": _captioned,
 }
 

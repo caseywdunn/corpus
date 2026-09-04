@@ -17,13 +17,15 @@ Three separate questions, deliberately not averaged into one:
 
 ## Guidance
 
-**The served surface is in good shape; the raw record is noisier than it
-looks.** Every MCP tool filters on `_REAL_FIGURE_TYPES` (`figure`, `plate`,
-`subpanel`), so `graphical_element` never reaches a client. Read the served
-numbers, not the raw ones — the gap between them is 0.10 of precision.
+**The default served surface favors precision; the raw record is noisier than
+it looks.** Every MCP tool filters on the shared evidence-type set (`figure`,
+`plate`, `subpanel`), so neither `graphical_element` nor the `unclassified`
+review bucket reaches a client unless it explicitly asks for `include_all`.
+Read the row for the surface you mean: excluding only `graphical_element` is a
+useful classifier diagnostic, but it is not the default MCP surface.
 
 **If you are building a corpus of modern papers, expect furniture.** Precision
-on born-digital documents is 0.607 raw against 0.919 for scans, because
+on born-digital documents is 0.622 raw against 0.941 for scans, because
 publisher logos, ORCID icons and journal rules are figures as far as a layout
 model is concerned. The `graphical_element` filter handles it; historical scans
 barely need it.
@@ -33,10 +35,12 @@ documents here carry fewer than ten gold figures, and two carry one. The
 corpus-wide numbers are meaningful; `Chun1882c` at precision 0.25 is three
 surplus records on a one-figure document.
 
-**Front matter costs figures twice.** Trimming it with `keeppages` improved
-both recall *and* precision (0.894 → 0.923, 0.962 → 0.967), because a plate
-atlas's duplicate captures and a bound volume's title page are surplus figures
-that no classifier can recognise as not-the-paper.
+**Front matter costs figures twice.** In the classifier diagnostic that drops
+only `graphical_element`, trimming it with `keeppages` improved both recall
+*and* precision (0.894 → 0.923, 0.962 → 0.967), because a plate atlas's
+duplicate captures and a bound volume's title page are surplus figures that no
+classifier can recognise as not-the-paper. Those are the release-candidate
+comparison values, not the stricter default-MCP row below.
 
 ## Where it stands
 
@@ -45,11 +49,11 @@ Release candidate, 35 documents, 376 gold figure blocks (316 `[FIGURE]`,
 
 | filter | recall | precision | F1 |
 | --- | --- | --- | --- |
-| all entries | 0.939 | 0.872 | 0.904 |
-| **drop `graphical_element`** (the served surface) | **0.923** | **0.967** | **0.944** |
-| drop uncaptioned `graphical_element` | 0.928 | 0.961 | 0.945 |
-| drop `graphical_element` + `unclassified` | 0.875 | 0.979 | 0.924 |
-| captioned only | 0.880 | 0.974 | 0.925 |
+| all entries | 0.936 | 0.876 | 0.905 |
+| drop `graphical_element` | 0.920 | 0.972 | 0.945 |
+| drop uncaptioned `graphical_element` | 0.926 | 0.967 | 0.946 |
+| **shared evidence types** (default MCP surface) | **0.875** | **0.985** | **0.927** |
+| captioned only | 0.880 | 0.979 | 0.927 |
 
 Caption binding on the current served reference build, scored on figure
 *numbers*: **recall 0.538, precision 0.887**. This uses the corrected v1.3
@@ -96,7 +100,7 @@ gold numbers, which is why it is reported and not headlined.
 1950–1999: recall 0.975, precision 0.964. `Totton1965a` — 226 pages, 195 gold
 figures — scores recall 0.974 and precision 0.995.
 
-**Scans generally**: 0.935 / 0.919, against born-digital at 0.974 / 0.607.
+**Scans generally**: 0.932 / 0.941 raw, against born-digital at 0.962 / 0.622.
 That inversion is worth internalising. The modern papers are easier to *read*
 and harder to *count*.
 
@@ -143,9 +147,10 @@ against sixteen. Real, but not a rate.
 
 Established by scoring the corpuscle under each candidate filter rather than
 by assuming which field name sounded right. Dropping `graphical_element` takes
-precision from 0.872 to 0.967 for 0.016 of recall. Taking `unclassified` as
-well is over-reach — it holds real figures and costs five points of recall for
-one of precision.
+precision from 0.876 to 0.972 for 0.016 of recall. The default MCP surface also
+hides `unclassified`: precision reaches 0.985, but recall falls to 0.875. That
+is an intentional review-state policy, not evidence that those records are all
+furniture; the raw artifact and `include_all` retain them for inspection.
 
 Position recurrence is the other signal, and it separates cleanly:
 `furniture_positions()` treats a bbox recurring on ≥5 pages as running

@@ -30,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The figure-detection scorer now measures the actual default MCP type
+  filter (#194), not a looser proxy.** The documentation called “drop
+  `graphical_element`” the served surface, but default retrieval also excludes
+  the `unclassified` review bucket. Both paths now consume one shared evidence
+  type set. On the current 35-document gold corpuscle the raw record scores
+  0.936 recall / 0.876 precision, the useful drop-graphical diagnostic scores
+  0.920 / 0.972, and the real default MCP surface scores 0.875 / 0.985. Raw and
+  `include_all` records remain available for review.
+
 - **Whole-document OCR failures now fail visibly instead of satisfying clean
   success paths (#264, #266–#268).** Documents with no content layer or only a
   vendor wrapper use forced OCR rather than the self-defeating `--skip-text`.

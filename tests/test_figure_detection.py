@@ -106,6 +106,16 @@ def test_filters_are_scored_side_by_side(report):
     assert set(report["filters"]) == set(fd.FILTERS)
 
 
+def test_served_filter_uses_the_same_type_contract_as_the_server():
+    keep = fd.FILTERS["served MCP types"]
+    assert keep({"figure_type": "figure"})
+    assert keep({"figure_type": "plate"})
+    assert keep({"figure_type": "subpanel"})
+    assert not keep({"figure_type": "graphical_element"})
+    assert not keep({"figure_type": "unclassified"})
+    assert not keep({"figure_type": "future_review_bucket"})
+
+
 def test_dropping_graphical_element_raises_precision(report):
     """On the fixture, three of the four surplus entries are
     `graphical_element` — journal-furniture marks on pages the gold says carry
