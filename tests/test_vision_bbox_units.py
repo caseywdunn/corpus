@@ -29,6 +29,7 @@ from pipeline.vision import (
     _BBOX_OUT_OF_RANGE,
     _BBOX_PIXELS,
     _bbox_to_px,
+    VisionBackendError,
 )
 
 W, H = 496, 1400
@@ -137,7 +138,7 @@ PIXEL_RESPONSE = """{"panels": [
 ], "embedded_figures": []}"""
 
 
-def _claude_backend_returning(text, tmp_path, monkeypatch):
+def _claude_backend_returning(text, tmp_path, monkeypatch, stop_reason="end_turn"):
     """A real ClaudeVisionBackend with only the network call stubbed, so the
     conversion under test is the shipped one."""
     from types import SimpleNamespace
@@ -152,7 +153,8 @@ def _claude_backend_returning(text, tmp_path, monkeypatch):
     be.max_tokens = 4096
     be.client = SimpleNamespace(messages=SimpleNamespace(
         create=lambda **kw: SimpleNamespace(
-            content=[SimpleNamespace(text=text, type="text")])))
+            content=[SimpleNamespace(text=text, type="text")],
+            stop_reason=stop_reason)))
     return be, img
 
 
@@ -168,3 +170,13 @@ def test_a_pixel_coordinate_response_now_yields_rois(tmp_path, monkeypatch):
         x0, y0, x1, y1 = p["bbox_px"]
         assert x1 > x0 and y1 > y0
         assert [x0, y0, x1, y1] != [0, 0, 496, 1400], "not the whole figure"
+
+
+def test_claude_max_tokens_stop_is_failure_even_when_json_parses(
+    tmp_path, monkeypatch,
+):
+    be, img = _claude_backend_returning(
+        PIXEL_RESPONSE, tmp_path, monkeypatch, stop_reason="max_tokens",
+    )
+    with pytest.raises(VisionBackendError, match="token-truncated"):
+        be.detect_figure_panels(img, "(A) left (B) right", ["A", "B"])

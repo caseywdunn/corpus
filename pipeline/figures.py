@@ -1970,7 +1970,11 @@ def detect_figure_rois_via_vision(
         logger.warning("Vision backend %s failed on %s: %s",
                        backend.name, image_path.name, e)
         return {"rois": [], "pass3_status": "vision_backend_failed",
-                "pass3_backend": backend.name}
+                "pass3_backend": backend.name,
+                # Persist the diagnosis: logs are easy to lose when Pass 3b
+                # runs separately on a cluster, while figures.json is the
+                # evidence artifact operators actually inspect (#269).
+                "pass3_error": str(e)[:500]}
 
     if not backend_rois:
         return {"rois": [], "pass3_status": "no_labels_found",

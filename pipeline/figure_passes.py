@@ -210,6 +210,11 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         fig["rois"] = result.get("rois") or []
         fig["pass3_status"] = result.get("pass3_status")
         fig["pass3_backend"] = result.get("pass3_backend")
+        if result.get("pass3_error"):
+            fig["pass3_error"] = result["pass3_error"]
+        else:
+            # A successful retry must not retain the prior failure reason.
+            fig.pop("pass3_error", None)
         if result.get("image_size_px"):
             fig["image_size_px"] = result["image_size_px"]
         s = result.get("pass3_status") or ""

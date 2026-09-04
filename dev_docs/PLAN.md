@@ -146,7 +146,7 @@ of what those numbers mean.
   panels, admit those plates to ROI splitting, and cross-check the proposed
   split against `missing_figures`. Scope is the measured layout family, not a
   general segmentation rewrite.
-- [ ] **Make vision output completeness a hard fact**
+- [x] **Make vision output completeness a hard fact**
   ([#269](https://github.com/caseywdunn/corpus/issues/269)). A response clipped
   by the token budget is incomplete, never a successful panel result; size the
   budget from emitted structure or fail/retry explicitly.

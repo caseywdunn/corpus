@@ -1,4 +1,4 @@
-"""Pass 3b must not report a truncated VLM response as "no panels" (#253).
+"""Pass 3b must not report incomplete model output as "no panels" (#253/#269).
 
 The local VLM backend capped generation at a fixed 1024 tokens. The panel
 prompt asks for one six-field JSON object per panel at roughly 60–90 tokens
@@ -7,7 +7,7 @@ balanced `{...}`, the backend returned `[]`, and `[]` maps to
 `no_labels_found` — a clean result, indistinguishable from a figure the
 model genuinely found nothing in.
 
-Measured over 1,772 documents (Qwen2.5-VL-7B, job 24083450), ROI coverage
+In one full reference run (Qwen2.5-VL-7B, job 24083450), ROI coverage
 fell monotonically with panel count — 47.8% at 2–3 panels, 32.1% at 4–5,
 22.7% at 6–7, 13.6% at 10+. That shape is a fixed output budget, not a
 vision failure, and the figures it costs most are the ones panel ROIs
@@ -20,17 +20,21 @@ not tested here and cannot be**: that needs a real Pass 3b run.
 """
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
 
+from pipeline.figure_passes import _pass3b_annotate_rois
 from pipeline.figures import detect_figure_rois_via_vision
 from pipeline.vision import (
+    ClaudeVisionBackend,
     _VLM_TOKEN_BASE,
     _VLM_TOKENS_PER_PANEL,
     LocalVLMBackend,
     VisionBackendError,
     _extract_json,
+    _parse_complete_vision_response,
 )
 
 
@@ -76,6 +80,30 @@ def test_empty_and_junk_are_still_none():
     assert _extract_json("no json here at all") is None
 
 
+def test_only_an_explicit_complete_empty_payload_means_no_labels():
+    assert _parse_complete_vision_response(
+        '{"panels": [], "embedded_figures": []}', backend="test",
+    ) == {"panels": [], "embedded_figures": []}
+
+
+@pytest.mark.parametrize("text", [
+    "not json",
+    '{"panels": []}',
+    '{"panels": {}, "embedded_figures": []}',
+])
+def test_malformed_or_incomplete_payload_is_a_backend_failure(text):
+    with pytest.raises(VisionBackendError):
+        _parse_complete_vision_response(text, backend="test")
+
+
+def test_even_parseable_json_is_rejected_when_generation_hit_the_cap():
+    with pytest.raises(VisionBackendError, match="token-truncated"):
+        _parse_complete_vision_response(
+            '{"panels": [], "embedded_figures": []}',
+            backend="test", truncated=True, truncation_detail="at cap",
+        )
+
+
 # --- sizing the budget to the work -------------------------------------------
 
 
@@ -118,6 +146,12 @@ def test_the_budget_grows_with_panels():
     assert b._token_budget([]) == _VLM_TOKEN_BASE
 
 
+def test_claude_uses_the_same_structure_sized_budget():
+    stand_in = SimpleNamespace(max_tokens=1024)
+    budget = ClaudeVisionBackend._token_budget(stand_in, ["A"] * 10)
+    assert budget >= 1400
+
+
 # --- and out through the status the operator reads ---------------------------
 
 
@@ -154,6 +188,7 @@ def test_a_truncated_backend_is_a_failure_not_a_clean_result(figure):
         caption_text="(A) x (B) y")
     assert r["pass3_status"] == "vision_backend_failed"
     assert r["pass3_status"] != "no_labels_found"
+    assert "truncated" in r["pass3_error"]
     assert r["rois"] == []
 
 
@@ -166,6 +201,28 @@ def test_a_genuinely_empty_result_is_still_no_labels_found(figure):
     assert r["pass3_status"] == "no_labels_found"
 
 
+def test_failure_reason_is_persisted_and_cleared_after_a_clean_retry(figure):
+    figures_file = figure.parent / "figures.json"
+    figures_file.write_text(json.dumps({"figures": [{
+        "figure_type": "figure",
+        "file_path": str(figure),
+        "panels_from_caption": [{"label": "A"}, {"label": "B"}],
+    }]}))
+
+    def truncate():
+        raise VisionBackendError("response token-truncated at the budget")
+
+    _pass3b_annotate_rois(figures_file, _Backend(truncate))
+    failed = json.loads(figures_file.read_text())["figures"][0]
+    assert failed["pass3_status"] == "vision_backend_failed"
+    assert "token-truncated" in failed["pass3_error"]
+
+    _pass3b_annotate_rois(figures_file, _Backend(lambda: []))
+    retried = json.loads(figures_file.read_text())["figures"][0]
+    assert retried["pass3_status"] == "no_labels_found"
+    assert "pass3_error" not in retried
+
+
 def test_truncation_detection_reads_the_generated_length():
     """`generate()` stopping exactly at the budget is the signal; one token
     short of it is a model that finished on its own."""
@@ -174,3 +231,11 @@ def test_truncation_detection_reads_the_generated_length():
     assert budget >= 1400
     assert (budget >= budget) is True          # at the cap  -> truncated
     assert ((budget - 1) >= budget) is False   # under it    -> finished
+
+
+def test_both_backends_use_the_hard_completion_gate():
+    import inspect
+    from pipeline import vision
+
+    source = inspect.getsource(vision)
+    assert source.count("_parse_complete_vision_response(") == 3

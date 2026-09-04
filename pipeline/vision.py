@@ -62,9 +62,12 @@ logger = logging.getLogger(__name__)
 
 
 class VisionBackendError(RuntimeError):
-    """Raised when the vision backend fails irrecoverably (bad API key,
-    model not loadable, non-retryable API error). The caller typically
-    records ``pass3_status = "vision_backend_failed"`` and moves on."""
+    """Raised when a backend cannot return a complete usable answer.
+
+    This includes setup/API failures, malformed output, and token-budget
+    truncation. The caller records ``pass3_status = "vision_backend_failed"``
+    rather than confusing any of those with a clean no-label result.
+    """
 
 
 class VisionBackend(ABC):
@@ -166,8 +169,7 @@ def _extract_json(text: str) -> Optional[dict]:
     ``None`` on the first :class:`json.JSONDecodeError` and stop, so one
     malformed leading object discarded every well-formed one after it. A
     truncated response has no balanced span at all and still yields
-    ``None`` — that case is the caller's to distinguish, and the local VLM
-    backend now does.
+    ``None`` — completion metadata is checked separately by the caller.
     """
     if not text:
         return None
@@ -190,6 +192,51 @@ def _extract_json(text: str) -> Optional[dict]:
                 except json.JSONDecodeError:
                     start = None          # keep scanning for a later span
     return None
+
+
+# Output-budget model for the panel prompt (#253 / #269). One panel object
+# carries six fields and measured 60–90 tokens; 120 is that worst case plus
+# margin. The base covers the enclosing object and any unwanted preamble.
+# Both backends use the same calculation: configured values are floors, not
+# ceilings independent of the requested structure.
+_VLM_TOKENS_PER_PANEL = 120
+_VLM_TOKEN_BASE = 256
+
+
+def _vision_token_budget(floor: int, expected_labels) -> int:
+    return max(int(floor), _VLM_TOKEN_BASE + _VLM_TOKENS_PER_PANEL * len(
+        expected_labels or []
+    ))
+
+
+def _parse_complete_vision_response(
+    response_text: str,
+    *,
+    backend: str,
+    truncated: bool = False,
+    truncation_detail: str = "",
+) -> Dict:
+    """Return a complete response payload or fail visibly (#269).
+
+    A real empty detection is the explicit two-list object. Invalid JSON,
+    a missing output collection, or a provider/model stop at its token cap is
+    not evidence that the image contains no labels.
+    """
+    if truncated:
+        detail = f" ({truncation_detail})" if truncation_detail else ""
+        raise VisionBackendError(f"{backend} response was token-truncated{detail}")
+    parsed = _extract_json(response_text)
+    if not isinstance(parsed, dict):
+        raise VisionBackendError(
+            f"{backend} returned no complete JSON object; response head: "
+            f"{response_text[:200]!r}"
+        )
+    for field in ("panels", "embedded_figures"):
+        if not isinstance(parsed.get(field), list):
+            raise VisionBackendError(
+                f"{backend} returned an incomplete schema: {field!r} must be a list"
+            )
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +391,10 @@ class ClaudeVisionBackend(VisionBackend):
             b64 = base64.standard_b64encode(buf.getvalue()).decode()
         return b64, w, h
 
+    def _token_budget(self, expected_labels) -> int:
+        """Scale the configured floor by the response structure requested."""
+        return _vision_token_budget(self.max_tokens, expected_labels)
+
     def detect_figure_panels(
         self,
         image_path: Path,
@@ -364,10 +415,11 @@ class ClaudeVisionBackend(VisionBackend):
             f"Image dimensions (px): {w} × {h}."
         )
 
+        budget = self._token_budget(expected_labels)
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=self.max_tokens,
+                max_tokens=budget,
                 system=_CLAUDE_SYSTEM_PROMPT,
                 messages=[{
                     "role": "user",
@@ -391,14 +443,16 @@ class ClaudeVisionBackend(VisionBackend):
         response_text = "".join(
             b.text for b in response.content if getattr(b, "type", None) == "text"
         )
-        parsed = _extract_json(response_text)
-        if not parsed:
-            logger.warning(
-                "Could not extract JSON from Claude response for %s; "
-                "response head: %r",
-                image_path.name, response_text[:200],
-            )
-            return []
+        stop_reason = getattr(response, "stop_reason", None)
+        parsed = _parse_complete_vision_response(
+            response_text,
+            backend="Claude vision",
+            truncated=stop_reason == "max_tokens",
+            truncation_detail=(
+                f"stopped at max_tokens={budget} on {image_path.name}; "
+                f"{len(expected_labels)} panel(s) expected"
+            ),
+        )
 
         # One shared converter for both backends (#253). It was duplicated
         # here and in the local-VLM path, so the pixel-coordinate defect had
@@ -453,14 +507,6 @@ class ClaudeVisionBackend(VisionBackend):
 
 _DEFAULT_LOCAL_VLM = "Qwen/Qwen2.5-VL-7B-Instruct"
 
-# Output-budget model for the panel prompt (#253). One panel object carries
-# six fields and measured 60–90 tokens; 120 is that worst case plus margin,
-# because the failure mode is silent truncation rather than a slow call. The
-# base covers the enclosing {"panels": [...], "embedded_figures": [...]}
-# scaffolding and any preamble the model adds despite being told not to.
-_VLM_TOKENS_PER_PANEL = 120
-_VLM_TOKEN_BASE = 256
-
 # Models smaller than 7B work on MPS / smaller GPUs.
 _LOCAL_VLM_VARIANTS = {
     "Qwen/Qwen2.5-VL-7B-Instruct",
@@ -498,9 +544,9 @@ class LocalVLMBackend(VisionBackend):
     panel-rich figures, and a response that stops mid-object has no
     balanced ``{...}`` to extract, so the backend returned ``[]`` and the
     figure was recorded as *no-labels*: indistinguishable from a figure
-    the model genuinely found nothing in. Measured over 1,772 documents,
-    ROI coverage fell from 47.8% at 2–3 panels to 13.6% at 10+, which is
-    the signature of a fixed output budget rather than a vision failure.
+    the model genuinely found nothing in. In one full reference run, ROI
+    coverage fell from 47.8% at 2–3 panels to 13.6% at 10+, which is the
+    signature of a fixed output budget rather than a vision failure.
     """
 
     def __init__(
@@ -570,8 +616,7 @@ class LocalVLMBackend(VisionBackend):
         A figure with no caption-derived labels gets the floor too — there is
         nothing to scale by, and those are not the ones that overflowed.
         """
-        n = len(expected_labels or [])
-        return max(self._max_new_tokens, _VLM_TOKEN_BASE + _VLM_TOKENS_PER_PANEL * n)
+        return _vision_token_budget(self._max_new_tokens, expected_labels)
 
     @staticmethod
     def _probe_device() -> str:
@@ -664,34 +709,15 @@ class LocalVLMBackend(VisionBackend):
         # this exists to catch is the silent one.
         truncated = int(generated.shape[1]) >= budget
 
-        parsed = _extract_json(response_text)
-        if not parsed:
-            if truncated:
-                # Raise rather than return []. `[]` maps to
-                # `no_labels_found`, a clean result; this is data loss and
-                # belongs in the vision_backend_failed counter where an
-                # operator will see it.
-                raise VisionBackendError(
-                    f"Local VLM response truncated at the {budget}-token "
-                    f"budget on {image_path.name} "
-                    f"({len(expected_labels)} panel(s) expected) and no "
-                    f"complete JSON object survived. Raise the budget: see "
-                    f"_VLM_TOKENS_PER_PANEL."
-                )
-            logger.warning(
-                "Could not extract JSON from local VLM response for %s; "
-                "response head: %r",
-                image_path.name, response_text[:200],
-            )
-            return []
-        if truncated:
-            # Parsed, but the tail was cut — a partial panel set, which the
-            # old code reported as a clean result with no warning at all.
-            logger.warning(
-                "Local VLM response truncated at the %d-token budget on %s "
-                "(%d panel(s) expected); the panel list is incomplete.",
-                budget, image_path.name, len(expected_labels),
-            )
+        parsed = _parse_complete_vision_response(
+            response_text,
+            backend="Local VLM",
+            truncated=truncated,
+            truncation_detail=(
+                f"reached max_new_tokens={budget} on {image_path.name}; "
+                f"{len(expected_labels)} panel(s) expected"
+            ),
+        )
 
         # Convert normalized bboxes to pixel coordinates — same logic as
         # the Claude backend.

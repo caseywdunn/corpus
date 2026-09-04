@@ -115,6 +115,14 @@ Stage 1 supports SLURM job-array parallelization via `--batch-index` / `--batch-
 
 This is **Pass 3b** of the figure pipeline — the only figure pass that needs a GPU or a paid API, which is why it is called out at stage level here. It runs a vision-language model (Qwen2.5-VL-7B-Instruct locally, or Claude via API; selected by `--figure-panels {vision-local|vision-claude}`) over extracted figures to detect multi-panel structure, compound plates spanning several figure numbers, and per-panel ROI boxes, writing the results back into `figures.json`. **Pass 3c** (compound-figure resolution + range-notation renaming, e.g. `fig_3-4.png`) is a CPU follow-on that runs automatically in the same invocation whenever Pass 3b — or the OCR-based Pass 3a — flagged a compound.
 
+Both vision backends size their output-token budget from the caption-declared
+panel count, treating the configured token value as a floor. Completion is a
+data-integrity boundary: a response that stops at its token cap, cannot be
+parsed, or omits either required output list is recorded as
+`vision_backend_failed` with `pass3_error`; it is never treated as an empty
+detection. Only an explicit complete response with empty `panels` and
+`embedded_figures` lists becomes `no_labels_found` (#269).
+
 By default both run inline inside the Stage 1 per-paper runner; on HPC the GPU-bound Pass 3b is commonly split into its own scheduled job (`slurm/batch_pass3b.sh`) after the CPU stage completes. See [Figure pipeline](#figure-pipeline) for the full pass-by-pass behavior and what is lost when the vision pass is skipped.
 
 ### Stage 2: Embedding (`pipeline/embed.py`)
