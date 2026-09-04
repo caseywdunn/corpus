@@ -150,9 +150,9 @@ The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "St
 | 4 | **Classification** — figure / plate / subpanel / graphical_element / unclassified | `pipeline/figures.py:classify_figure` `:425-471` | Stage 1 · always | `figure_type` |
 | 5 | **PyMuPDF fallback** — raw embedded-image extraction when docling finds nothing | `pipeline/extract.py:273-354` (gated `:277`, `fitz.Pixmap` `:310`) | Stage 1 · only if docling yields 0 figures and the PDF is not a scan | `width`, `height`, `extraction_method: pymupdf` |
 | 6 | **Deduplication + panel grouping** — bbox-overlap merge, whole-figure-vs-subpanel split, panel-letter assignment in reading order | `pipeline/figures.py:dedupe_figures` `:494-599` (overlap `:394-413`, reading order `:474-491`) | Stage 1 · always | `panel_letter`, refined `figure_type` |
-| 7 | **Pass 2.5** — caption panels + missing-figure detection | `pipeline/figure_passes.py:36-95`; `detect_missing_figures` `pipeline/figures.py:269-331` | Stage 1 · always | `panels_from_caption`, top-level `missing_figures[]` |
-| 8 | **Pass 3a** — OCR panel ROIs | `pipeline/figure_passes.py:98-151`; `detect_figure_rois` `:1083-1138` | Stage 1 · default floor (`--figure-panels ocr`) | `rois[]` (`source: ocr:tesseract`), `pass3_status` |
-| 9 | **Pass 3b** — vision-LLM panel + compound detection (replaces 3a when selected) | `pipeline/figure_passes.py:154-213`; backends in `pipeline/vision.py` | Vision pass · `--figure-panels vision-local\|vision-claude`; GPU/API, separable on HPC | `rois[]` (`source: vision:…`), `parent_figure_index`, `pass3_backend` |
+| 7 | **Pass 2.5** — caption panels, grouped-plate figure targets + missing-figure detection | `pipeline/figure_passes.py`; `detect_missing_figures` in `pipeline/figures.py` | Stage 1 · always | `panels_from_caption`, `plate_figures_from_caption`, top-level `missing_figures[]` |
+| 8 | **Pass 3a** — OCR panel / known grouped-plate ROIs | `pipeline/figure_passes.py`; `detect_figure_rois` in `pipeline/figures.py` | Stage 1 · default floor (`--figure-panels ocr`) | `rois[]` (`source: ocr:tesseract`), `pass3_status`, `pass3_target_kind` |
+| 9 | **Pass 3b** — vision-LLM panel, grouped-plate + compound detection (replaces 3a when selected) | `pipeline/figure_passes.py`; backends in `pipeline/vision.py` | Vision pass · `--figure-panels vision-local\|vision-claude`; GPU/API, separable on HPC | `rois[]` (`source: vision:…`), `parent_figure_index`, `pass3_backend` |
 | 10 | **Pass 3c** — compound-figure resolution | `pipeline/figures.py:1298-1502` (trigger `runner.py:282-293`) | Stage 1 · auto when a 3a/3b status ends in `_compound` | renames PNG to `fig_3-4.png`, new `image_shared_with` sub-figure records |
 | 11 | **Chunk-figure linking** | `pipeline/figures.py:link_chunks_to_figures` `:1510-1581` | Stage 1 · always | `figure_refs` (on chunks), `referenced_in_chunks` (on figures) |
 
@@ -206,7 +206,11 @@ not just as a string:
    a one-to-one mapping. An entry matching a bare-label figure on the preceding
    page enriches that record instead of being attached to the current page's
    plate. The exact number match is `bound` / `medium`, even though its page
-   distance is one.
+   distance is one. When several logical records share one plate image, Pass
+   2.5 stores their numbers as `plate_figures_from_caption`, records which were
+   independently cited as missing before expansion, and admits the host image
+   to one numeric ROI pass. The resulting regions are distributed back to the
+   individual records; they never enter `panels_from_caption` as fake letters.
 
 The selected text stays complete. `caption_candidates` retains at most five
 chosen/rejected records with candidate text capped at 600 characters, bbox,
@@ -234,9 +238,9 @@ Panel detection is selected by **`figures.panel_detection`** in the corpuscle's 
 
 Since #102 the default is **`ocr`** — Pass 3a is the CPU floor and runs on a plain `corpus run`. So the default output now includes OCR `rois`; only `panel_detection: off` reproduces the pre-#102 "no panel geometry" behavior.
 
-- **With `off` (no Pass 3a or 3b → no `rois`):** there is no geometric segmentation of multi-panel figures. `get_figure_image(label="B")` can only fall back to the whole figure; panel-level retrieval degrades to the caption-derived `panels_from_caption` descriptions (text, not crops).
-- **Pass 3a (OCR, the `ocr` default) vs Pass 3b (vision):** 3a (Tesseract on a 3×-upscaled crop) detects only printed letter labels and has low recall on line-art/engraved plates; 3b (Qwen2.5-VL locally or Claude Haiku via API, the `vision-local` / `vision-claude` modes) is substantially more reliable and is the **only** pass that detects *compound* figures — a single extracted image that actually contains several numbered figures (common in plate-heavy monographs). The two are mutually exclusive.
-- **Without Pass 3b → no Pass 3c:** compound plates are never split. A `fig_3-4.png`-style image stays a single record with an ambiguous `figure_number`, its embedded sub-figures remain invisible to `figure_number`-keyed queries, and the `missing_figures[]` entries that 3c would have matched to recovered sub-figures (`image_shared_with` links, real numbers + captions) are left unresolved. The `missing_figures` list itself is still produced (Pass 2.5) as a coverage signal.
+- **With `off` (no Pass 3a or 3b → no `rois`):** there is no geometric segmentation of multi-panel figures or known grouped plates. Region retrieval can only fall back to the whole image plus the caption-derived `panels_from_caption` / `plate_figures_from_caption` descriptions.
+- **Pass 3a (OCR, the `ocr` default) vs Pass 3b (vision):** 3a runs Tesseract on a 3×-upscaled image. It searches an ordinary figure only for its caption-declared A/B/C labels; on a known grouped plate it instead searches for the exact caption-declared number allow-list. This avoids treating arbitrary chart numbers as figures. It has low recall on line art and engravings. 3b (Qwen2.5-VL locally or Claude via API, the `vision-local` / `vision-claude` modes) handles both target kinds more reliably and is the **only** pass that discovers an *unexpected compound* — several logical figures in an image that caption analysis had not already expanded. The two passes are mutually exclusive.
+- **Without Pass 3b → no unexpected-compound recovery in Pass 3c:** a previously unknown `fig_3-4.png`-style image stays a single record with an ambiguous `figure_number`, and `missing_figures[]` entries that 3c would have matched remain unresolved. A caption-enumerated historical plate is different: Pass 2.5 has already created its logical records, and the default OCR pass may locate their regions without invoking 3c.
 
 Because these passes are GPU/API-cost-bearing, the corpus-scale validation of figure coverage is tracked separately ([#11](https://github.com/caseywdunn/corpus/issues/11)), and figure-number recovery on old/scanned papers is an open gap ([#16](https://github.com/caseywdunn/corpus/issues/16)). When a new layout exposes a new failure mode, capture it as a ground-truth fixture under `tests/` so the fix is guarded against regression.
 

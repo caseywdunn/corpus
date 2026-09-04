@@ -24,14 +24,153 @@ from .figures import (
     detect_figure_rois,
     detect_figure_rois_via_vision,
     detect_missing_figures,
-    extract_caption_info,
     link_chunks_to_figures,
-    parse_figure_number,
     parse_panels_from_caption,
     reconcile_plate_legend_numbers,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _annotate_plate_figure_groups(figures, running_text: str) -> int:
+    """Attach caption-derived numeric ROI targets to shared plates (#203).
+
+    ``expand_plate_figures`` has already emitted one logical record per
+    legend entry, all pointing at one image. This pass makes that relationship
+    explicit without pretending the numbers are panel letters. The host alone
+    is marked for one Pass 3 invocation; every sibling retains the same target
+    list so the evidence is inspectable from any record.
+
+    The running-text check deliberately excludes virtual siblings when it
+    computes extracted numbers. That reconstructs the independent
+    ``missing_figures`` signal that existed before plate expansion and records
+    which proposed regions it corroborates.
+    """
+    for figure in figures:
+        for field in (
+            "plate_figures_from_caption",
+            "plate_figure_count_from_caption",
+            "plate_missing_figure_crosscheck",
+            "plate_roi_host",
+        ):
+            figure.pop(field, None)
+
+    pre_expansion_numbers = {
+        str(figure.get("figure_number"))
+        for figure in figures
+        if figure.get("figure_number")
+        and figure.get("shares_image_with") is None
+    }
+    independently_missing = {
+        str(item.get("figure_number"))
+        for item in detect_missing_figures(running_text, pre_expansion_numbers)
+        if item.get("figure_number")
+    }
+
+    by_id = {
+        figure.get("figure_id"): figure
+        for figure in figures if figure.get("figure_id")
+    }
+    sibling_groups = {}
+    for figure in figures:
+        shared = figure.get("shares_image_with")
+        if shared is not None:
+            sibling_groups.setdefault(shared, []).append(figure)
+
+    annotated = 0
+    for shared, siblings in sibling_groups.items():
+        host = by_id.get(f"docling_{shared}")
+        if host is None:
+            # Defensive fallback for an older/custom extractor that used a
+            # different figure_id but preserved the shared filename.
+            sibling_filename = siblings[0].get("filename")
+            host = next((
+                figure for figure in figures
+                if figure.get("shares_image_with") is None
+                and figure.get("filename") == sibling_filename
+            ), None)
+        if host is None:
+            continue
+
+        records = [host, *siblings]
+        targets = []
+        seen = set()
+        for record in records:
+            number = str(record.get("figure_number") or "").strip()
+            if not number or number in seen:
+                continue
+            seen.add(number)
+            targets.append({
+                "label": number,
+                "figure_number": number,
+                "description": (
+                    record.get("caption_text") or record.get("caption") or ""
+                ),
+                "kind": "figure",
+                "figure_id": record.get("figure_id"),
+                "missing_figure_crosscheck": number in independently_missing,
+            })
+        if len(targets) <= 1:
+            continue
+
+        corroborated = [
+            target["figure_number"] for target in targets
+            if target["missing_figure_crosscheck"]
+        ]
+        for record in records:
+            record["plate_figures_from_caption"] = targets
+            record["plate_figure_count_from_caption"] = len(targets)
+            record["plate_missing_figure_crosscheck"] = corroborated
+        host["plate_roi_host"] = True
+        annotated += 1
+    return annotated
+
+
+def _roi_request(figure):
+    """Return ``(targets, kind)`` for one Pass 3 invocation."""
+    plate_targets = figure.get("plate_figures_from_caption") or []
+    if figure.get("plate_roi_host") and len(plate_targets) > 1:
+        return plate_targets, "figure"
+    panels = figure.get("panels_from_caption") or []
+    return panels, "panel"
+
+
+def _plate_caption_text(targets) -> str:
+    return "\n".join(
+        f"Figure {target.get('figure_number')}: {target.get('description') or ''}"
+        for target in targets
+    )
+
+
+def _apply_plate_roi_result(figures, host, targets, result) -> None:
+    """Put each shared-plate ROI on its logical figure record."""
+    by_id = {
+        figure.get("figure_id"): figure
+        for figure in figures if figure.get("figure_id")
+    }
+    rois = result.get("rois") or []
+    for target in targets:
+        record = by_id.get(target.get("figure_id"))
+        if record is None:
+            continue
+        number = str(target.get("figure_number") or "")
+        record["rois"] = [
+            dict(roi) for roi in rois
+            if str(roi.get("figure_number") or roi.get("label") or "") == number
+        ]
+        record["pass3_status"] = result.get("pass3_status")
+        record["pass3_target_kind"] = "figure"
+        record["plate_roi_source_figure_id"] = host.get("figure_id")
+        if result.get("pass3_backend"):
+            record["pass3_backend"] = result["pass3_backend"]
+        if result.get("pass3_error"):
+            record["pass3_error"] = result["pass3_error"]
+        else:
+            record.pop("pass3_error", None)
+        if result.get("ocr_token_count") is not None:
+            record["ocr_token_count"] = result["ocr_token_count"]
+        if result.get("image_size_px"):
+            record["image_size_px"] = result["image_size_px"]
 
 
 def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
@@ -89,6 +228,7 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
             fig.get("figure_number") for fig in figures if fig.get("figure_number")
         }
         missing = detect_missing_figures(running_text, extracted_nums)
+    plate_groups = _annotate_plate_figure_groups(figures, running_text)
     figures_data["missing_figures"] = missing
     figures_data["total_missing_figures"] = len(missing)
 
@@ -100,8 +240,9 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
     n_panelled = sum(1 for f in figures if f.get("panel_count_from_caption", 0) > 1)
     logger.info(
         "Pass 2.5: %d/%d figures have multi-panel captions; %d missing-figure(s) "
-        "inferred from text; %d plate-legend OCR number(s) reconciled",
-        n_panelled, len(figures), len(missing), repaired_numbers,
+        "inferred from text; %d plate-legend OCR number(s) reconciled; "
+        "%d shared plate(s) admitted to ROI detection",
+        n_panelled, len(figures), len(missing), repaired_numbers, plate_groups,
     )
 
 
@@ -111,8 +252,8 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
 
     Opt-in. In-place modifies ``figures.json`` to add ``rois`` +
     ``pass3_status`` per figure, and ``image_size_px`` for figures whose
-    images we opened. Skips figures with no multi-panel caption (no
-    point paying OCR cost on single-panel figures).
+    images we opened. Skips figures with neither a multi-panel caption nor a
+    caption-enumerated shared plate (no point paying OCR cost otherwise).
 
     OCR reliability on line-art scientific figures varies a lot —
     vision-LLM fallback is Pass 3b, for cases Pass 3a can't resolve (see
@@ -130,20 +271,32 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
     figures = data.get("figures", []) or []
     n_ok = n_partial = n_none = n_skipped = 0
     for fig in figures:
-        if fig.get("figure_type") not in ("figure", "plate", "subpanel"):
+        if (fig.get("figure_type") not in ("figure", "plate", "subpanel")
+                and not fig.get("plate_roi_host")):
             continue
-        panels = fig.get("panels_from_caption") or []
-        if len(panels) <= 1:
+        # A virtual plate sibling points at the host's image. The host invokes
+        # OCR once and distributes the numbered regions to all siblings.
+        if (fig.get("shares_image_with") is not None
+                and fig.get("plate_figures_from_caption")):
+            continue
+        targets, target_kind = _roi_request(fig)
+        if len(targets) <= 1:
             continue
         img_path = Path(fig.get("file_path", ""))
         if not img_path.exists():
             continue
-        result = detect_figure_rois(img_path, panels)
-        fig["rois"] = result.get("rois") or []
-        fig["pass3_status"] = result.get("pass3_status")
-        fig["ocr_token_count"] = result.get("ocr_token_count", 0)
-        if result.get("image_size_px"):
-            fig["image_size_px"] = result["image_size_px"]
+        result = detect_figure_rois(
+            img_path, targets, target_kind=target_kind,
+        )
+        if target_kind == "figure":
+            _apply_plate_roi_result(figures, fig, targets, result)
+        else:
+            fig["rois"] = result.get("rois") or []
+            fig["pass3_status"] = result.get("pass3_status")
+            fig["pass3_target_kind"] = "panel"
+            fig["ocr_token_count"] = result.get("ocr_token_count", 0)
+            if result.get("image_size_px"):
+                fig["image_size_px"] = result["image_size_px"]
         s = result.get("pass3_status")
         if s == "completed":
             n_ok += 1
@@ -165,7 +318,8 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
     """Pass 3b — vision-model-driven panel + compound-figure detection.
 
     Same contract as :func:`_pass3a_annotate_rois`: reads ``figures.json``,
-    runs the backend on every real figure with a multi-panel caption,
+    runs the backend on every real figure with a multi-panel caption or
+    caption-enumerated shared plate,
     writes ROIs + ``pass3_status`` back in place.
 
     Runs INSTEAD of Pass 3a when both flags are set (Pass 3b supersedes
@@ -195,28 +349,40 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
 
     n_ok = n_partial = n_none = n_compound = n_skipped = n_failed = 0
     for fig in figures:
-        if fig.get("figure_type") not in ("figure", "plate", "subpanel"):
+        if (fig.get("figure_type") not in ("figure", "plate", "subpanel")
+                and not fig.get("plate_roi_host")):
             continue
-        panels = fig.get("panels_from_caption") or []
-        if len(panels) <= 1:
+        if (fig.get("shares_image_with") is not None
+                and fig.get("plate_figures_from_caption")):
+            continue
+        targets, target_kind = _roi_request(fig)
+        if len(targets) <= 1:
             continue
         img_path = Path(fig.get("file_path", ""))
         if not img_path.exists():
             continue
         result = detect_figure_rois_via_vision(
-            img_path, panels, vision_backend,
-            caption_text=fig.get("caption_text") or fig.get("caption") or "",
+            img_path, targets, vision_backend,
+            caption_text=(
+                _plate_caption_text(targets) if target_kind == "figure"
+                else fig.get("caption_text") or fig.get("caption") or ""
+            ),
+            target_kind=target_kind,
         )
-        fig["rois"] = result.get("rois") or []
-        fig["pass3_status"] = result.get("pass3_status")
-        fig["pass3_backend"] = result.get("pass3_backend")
-        if result.get("pass3_error"):
-            fig["pass3_error"] = result["pass3_error"]
+        if target_kind == "figure":
+            _apply_plate_roi_result(figures, fig, targets, result)
         else:
-            # A successful retry must not retain the prior failure reason.
-            fig.pop("pass3_error", None)
-        if result.get("image_size_px"):
-            fig["image_size_px"] = result["image_size_px"]
+            fig["rois"] = result.get("rois") or []
+            fig["pass3_status"] = result.get("pass3_status")
+            fig["pass3_target_kind"] = "panel"
+            fig["pass3_backend"] = result.get("pass3_backend")
+            if result.get("pass3_error"):
+                fig["pass3_error"] = result["pass3_error"]
+            else:
+                # A successful retry must not retain the prior failure reason.
+                fig.pop("pass3_error", None)
+            if result.get("image_size_px"):
+                fig["image_size_px"] = result["image_size_px"]
         s = result.get("pass3_status") or ""
         if s.endswith("_compound"):
             n_compound += 1

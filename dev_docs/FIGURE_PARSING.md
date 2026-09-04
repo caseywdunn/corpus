@@ -55,11 +55,20 @@ Release candidate, 35 documents, 376 gold figure blocks (316 `[FIGURE]`,
 | **shared evidence types** (default MCP surface) | **0.875** | **0.985** | **0.927** |
 | captioned only | 0.880 | 0.979 | 0.927 |
 
-Caption binding on the current served reference build, scored on figure
-*numbers*: **recall 0.538, precision 0.887**. This uses the corrected v1.3
-scorer, which counts every number in a line such as ``Figur 8 und 9`` rather
-than only the first; that stricter denominator is not directly comparable to
-the earlier 0.574 recall.
+Caption binding on the full 35-document regression replay, scored on figure
+*numbers* over the default MCP evidence types: **recall 0.580, precision
+0.910** (282 matches, 310 reported, 486 gold). Before the v1.3 association
+repairs, replaying the same persisted Docling documents produced **0.551 /
+0.890**. No extraction or gold input changed between those two measurements,
+and every defined era, file-type and layout bucket improved in both recall and
+precision. This isolates the association change; a clean source-PDF rebuild is
+still required at the release gate.
+
+The scorer now parses hand-transcribed gold labels independently of the
+production parser and reports the raw artifact and default MCP surface
+separately. That separation is load-bearing: an earlier version reused
+production's fuzzy OCR parser, so changing the extractor silently changed the
+supposedly fixed gold denominator from 496 to 486.
 
 ## How it is measured, and why in that shape
 
@@ -118,14 +127,18 @@ them from the served surface, but the raw record still carries them, and
 `figures_report.html` shows them.
 
 **Historical plates carrying several engravings under one legend.** On the
-current served bundle, `Vanhoeffen1906` scores 0.781 recall / 0.943 precision.
-The v1.3 regression replay over its stored Docling artifact scores **0.922 /
-0.967**: enumerating caption blocks are split into per-number entries,
-duplicate picture assignments are reconciled when the counts form a complete
-bijection, and collected prose on the following page enriches already-found
-bare labels instead of being cloned onto the wrong plate. The engravings still
-share a plate image; locating their individual regions remains a separate ROI
-problem.
+pre-repair served bundle, `Vanhoeffen1906` scores 0.781 recall / 0.943
+precision. The v1.3 regression replay over its stored Docling artifact scores
+**0.922 / 0.967**: enumerating caption blocks are split into per-number
+entries, duplicate picture assignments are reconciled when the counts form a
+complete bijection, and collected prose on the following page enriches
+already-found bare labels instead of being cloned onto the wrong plate.
+Pass 2.5 now also admits the shared plate to ROI detection with numeric figure
+targets kept separate from panel letters. Pass 3 runs once on the plate and
+puts each detected region on its logical figure record; the default OCR path
+uses an exact caption-derived number allow-list, while vision consumes the
+same targets. ROI accuracy still needs a corpus run with the selected backend;
+the caption-binding rate measures ownership and numbering, not crop geometry.
 
 The other two conspicuous acceptance failures move in the same replay:
 `Hosiaetal2024` goes from 0.692 / 0.900 to **0.923 / 1.000**, and
@@ -133,11 +146,10 @@ The other two conspicuous acceptance failures move in the same replay:
 artifact replays, not a substitute for the full-corpus rebuild required before
 release.
 
-**Caption binding before 1900: recall 0.091** (3 of 33 numbers). The numbers
+**Caption binding before 1900: recall 0.152** (5 of 33 numbers). The numbers
 are printed on the plates as engraved lettering, not as text, so there is
-nothing for a text-based parser to find. Five documents score zero:
-`Bernstein1934`, `Chenetal2015`, `Eschscholtz1825`, `Tilesius1814`, and
-`Totton1965b`.
+nothing for a text-based parser to find. Four documents score zero:
+`Bernstein1934`, `Chenetal2015`, `Eschscholtz1825`, and `Tilesius1814`.
 
 **Small-denominator eras look worse than they are.** pre-1800 precision 0.400
 is four gold figures against ten records; 1800–1899 precision 0.438 is nine
@@ -178,11 +190,13 @@ image after three rounds of JSON analysis had pointed the wrong way.
 
 ## Known gaps
 
-- **Panels are not split.** A plate's engravings share one image; a
-  multi-panel modern figure is one record. #207 found the
-  whole-figure/subpanel branch of `dedupe_figures` unreachable — its overlap
-  measure is symmetric and the looser threshold always fires first — which is
-  corroborated by no figure in the reference corpuscle carrying
+- **ROI detection is not extraction-time physical splitting.** A grouped
+  plate's logical records point at one source image, with per-record ROI crops
+  available only when Pass 3 locates their printed numbers. A multi-panel
+  modern figure likewise remains one record with optional panel ROIs. #207
+  found the whole-figure/subpanel branch of `dedupe_figures` unreachable — its
+  overlap measure is symmetric and the looser threshold always fires first —
+  which is corroborated by no figure in the reference corpuscle carrying
   `figure_type: subpanel`.
 - **Counting figures measures the definition of "figure" as much as the
   extraction.** `Ahuja_etal2026` has 6 gold blocks against 27 records because

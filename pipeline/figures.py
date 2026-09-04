@@ -116,7 +116,10 @@ _FIGURE_ENUM_CONNECTOR = (
     r"(?:,\s*(?:&|und|and|et|u\.?)?|&|und|and|et|u\.?|[-\u2013\u2014])"
 )
 _CAPTION_FIGURE_ENTRY_RE = re.compile(
-    r"(?<![A-Za-z])(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
+    r"(?<![A-Za-z])(?:"
+    r"(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
+    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*\.\s*"
+    r")"
     r"(?P<first>" + _FIGURE_ENUM_TOKEN + r")"
     r"(?P<tail>(?:\s*" + _FIGURE_ENUM_CONNECTOR + r"\s*"
     + _FIGURE_ENUM_TOKEN + r")*)",
@@ -491,7 +494,13 @@ def caption_figure_entries(caption_text: str) -> List[Dict]:
             matches.append(match)
             continue
         previous = before.rstrip()[-1:]
-        if previous in ".;,:":
+        # A comma or colon is not a new caption boundary. In particular,
+        # historical captions routinely end with source citations such as
+        # ``(from Totton, 1954, fig. 36)``; admitting the comma cloned or
+        # reassigned the current picture under 36 during plate reconciliation.
+        # Enumerated prose entries are sentence/semicolon separated; compact
+        # numeric lists are already parsed from the first opener's tail.
+        if previous in ".;":
             matches.append(match)
     entries: List[Dict] = []
     seen = set()
@@ -1741,6 +1750,9 @@ def extract_caption_info(picture, document) -> Dict:
 # Single capital letter used as a panel label, tolerates optional wrapping
 # punctuation (``(A)``, ``A.``, ``[A]``). We match on cleaned OCR tokens.
 _OCR_PANEL_LABEL_RE = re.compile(r"^[\(\[]?\s*([A-Z])\s*[\)\]]?\.?$")
+_OCR_FIGURE_LABEL_RE = re.compile(
+    r"^[\(\[]?\s*(\d+(?:\.\d+)?[A-Za-z]?)\s*[\)\]]?[.,:]?$",
+)
 
 # Embedded "Fig. N" string — used to detect compound images containing
 # multiple labelled figures. Uppercase to support historical variants.
@@ -1803,15 +1815,37 @@ def _ocr_figure_tokens(image_path: Path, upscale: int = 3,
     return out
 
 
-def _extract_label_candidates(tokens: List[Dict]) -> List[Dict]:
-    """Filter OCR tokens for single-letter panel labels."""
+def _extract_label_candidates(
+    tokens: List[Dict],
+    *,
+    expected_labels: List[str] | None = None,
+    target_kind: str = "panel",
+) -> List[Dict]:
+    """Return OCR tokens that can locate caption-declared regions.
+
+    Lettered panels and numbered figures deliberately use different
+    recognizers. Bare numbers would be far too permissive on an ordinary
+    chart, so they are considered only for a grouped plate whose caption has
+    already supplied an exact allow-list of figure numbers (#203).
+    """
+    expected = {str(label) for label in (expected_labels or [])}
+    expected_casefold = {label.casefold(): label for label in expected}
+    matcher = (
+        _OCR_FIGURE_LABEL_RE if target_kind == "figure"
+        else _OCR_PANEL_LABEL_RE
+    )
     out: List[Dict] = []
     for tok in tokens:
-        m = _OCR_PANEL_LABEL_RE.match(tok["text"])
+        m = matcher.match(tok["text"])
         if not m:
             continue
+        label = m.group(1)
+        if expected:
+            label = expected_casefold.get(label.casefold())
+            if label is None:
+                continue
         out.append({
-            "label": m.group(1),
+            "label": label,
             "conf": tok["conf"],
             "bbox_px": tok["bbox_px"],
         })
@@ -1822,6 +1856,8 @@ def _approximate_panel_rois(
     image_size_px: tuple,
     labels: List[Dict],
     expected_labels: List[str],
+    *,
+    target_kind: str = "panel",
 ) -> List[Dict]:
     """Compute approximate ROIs from detected label bboxes.
 
@@ -1910,14 +1946,17 @@ def _approximate_panel_rois(
         return [int(left), int(top), int(right), int(bottom)]
 
     for i, lbl in enumerate(ordered_det):
-        rois.append({
-            "type": "panel",
+        roi = {
+            "type": target_kind,
             "label": lbl["label"],
             "roi_px": panel_roi(i),
             "source": "ocr:tesseract",
             "ocr_confidence": lbl["conf"],
             "label_bbox_px": lbl["bbox_px"],
-        })
+        }
+        if target_kind == "figure":
+            roi["figure_number"] = lbl["label"]
+        rois.append(roi)
 
     # Report expected-but-not-detected labels as stub ROIs for
     # observability. No roi_px — the crop-on-demand tool can fall back
@@ -1925,12 +1964,15 @@ def _approximate_panel_rois(
     detected_letters = {r["label"] for r in rois}
     for exp in expected_labels:
         if exp not in detected_letters:
-            rois.append({
-                "type": "panel",
+            roi = {
+                "type": target_kind,
                 "label": exp,
                 "roi_px": None,
                 "source": "expected_from_caption",
-            })
+            }
+            if target_kind == "figure":
+                roi["figure_number"] = exp
+            rois.append(roi)
 
     return rois
 
@@ -1940,6 +1982,8 @@ def detect_figure_rois_via_vision(
     panels_from_caption: List[Dict],
     backend,
     caption_text: str = "",
+    *,
+    target_kind: str = "panel",
 ) -> Dict:
     """Pass 3b entry point — same contract as :func:`detect_figure_rois`
     but using a vision-language-model backend instead of Tesseract OCR.
@@ -1959,7 +2003,8 @@ def detect_figure_rois_via_vision(
     different ``parent_figure_index`` values, the ROIs array includes an
     ``embedded_figure`` entry per sub-figure in addition to the panels.
     """
-    expected_labels = [p["label"] for p in (panels_from_caption or [])]
+    expected_labels = [str(p["label"]) for p in (panels_from_caption or [])]
+    expected_casefold = {label.casefold(): label for label in expected_labels}
     if len(expected_labels) <= 1:
         return {"rois": [], "pass3_status": "skipped_no_panels",
                 "pass3_backend": backend.name}
@@ -1999,9 +2044,30 @@ def detect_figure_rois_via_vision(
     out: List[Dict] = []
     for r in backend_rois:
         if r["type"] == "panel":
+            label = str(r.get("label", ""))
+            # Some models put visible plate numbers in ``panels`` rather than
+            # ``embedded_figures``. For a grouped plate, accept only numbers
+            # independently enumerated by the caption.
+            if target_kind == "figure":
+                label = expected_casefold.get(label.casefold())
+                if label is None:
+                    continue
+                entry = {
+                    "type": "figure",
+                    "label": label,
+                    "figure_number": label,
+                    "roi_px": r.get("bbox_px"),
+                    "source": r.get("source") or backend.name,
+                    "confidence": r.get("confidence"),
+                    "description_from_vision": r.get("description", ""),
+                }
+                if r.get("label_bbox_px"):
+                    entry["label_bbox_px"] = r["label_bbox_px"]
+                out.append(entry)
+                continue
             entry = {
                 "type": "panel",
-                "label": r.get("label", ""),
+                "label": label,
                 "roi_px": r.get("bbox_px"),
                 "source": r.get("source") or backend.name,
                 "confidence": r.get("confidence"),
@@ -2013,19 +2079,35 @@ def detect_figure_rois_via_vision(
                 entry["label_bbox_px"] = r["label_bbox_px"]
             out.append(entry)
         elif r["type"] == "embedded_figure":
-            out.append({
+            figure_number = str(r.get("figure_number") or "").strip()
+            if target_kind == "figure" and figure_number:
+                figure_number = expected_casefold.get(
+                    figure_number.casefold(), figure_number,
+                )
+            entry = {
                 "type": "figure",
-                "figure_number": r.get("figure_number"),
+                "figure_number": figure_number or None,
                 "parent_figure_index": r.get("parent_figure_index"),
                 "roi_px": r.get("bbox_px"),
                 "source": r.get("source") or backend.name,
                 "confidence": r.get("confidence"),
-            })
+            }
+            if figure_number:
+                entry["label"] = figure_number
+            out.append(entry)
 
     # Decide pass3_status from what the backend returned vs. expectations.
-    panel_labels_list = [e.get("label") for e in out
-                         if e.get("type") == "panel" and e.get("label")]
-    detected_labels = set(panel_labels_list)
+    if target_kind == "figure":
+        detected_labels_list = [
+            str(e.get("figure_number")) for e in out
+            if e.get("type") == "figure" and e.get("figure_number")
+        ]
+    else:
+        detected_labels_list = [
+            e.get("label") for e in out
+            if e.get("type") == "panel" and e.get("label")
+        ]
+    detected_labels = set(detected_labels_list)
     expected_set = set(expected_labels)
     if detected_labels >= expected_set:
         status = "completed"
@@ -2048,11 +2130,13 @@ def detect_figure_rois_via_vision(
     parent_indices = {e.get("parent_figure_index", 0) for e in out}
     if len(parent_indices) > 1:
         is_compound = True
-    if len(panel_labels_list) != len(detected_labels):
+    if len(detected_labels_list) != len(detected_labels):
         is_compound = True
-    if len(panel_labels_list) > len(expected_set):
+    if len(detected_labels_list) > len(expected_set):
         is_compound = True
-    if is_compound and status != "no_labels_found":
+    # A grouped plate is already known to contain several figures. It must not
+    # enter Pass 3c's *unexpected* compound-recovery path.
+    if target_kind == "panel" and is_compound and status != "no_labels_found":
         # Record the compound-ness at the figure level so the caller can
         # decide whether to rename the file (fig_3-4.png). Renaming is
         # Phase 3c; for now we signal via the status suffix.
@@ -2069,8 +2153,10 @@ def detect_figure_rois_via_vision(
 def detect_figure_rois(
     image_path: Path,
     panels_from_caption: List[Dict],
+    *,
+    target_kind: str = "panel",
 ) -> Dict:
-    """Pass 3a entry point for one figure image.
+    """Pass 3a entry point for caption-declared regions in one image.
 
     Returns ``{"rois": [...], "pass3_status": ..., "ocr_token_count": ...}``.
     ``pass3_status`` is one of:
@@ -2084,10 +2170,11 @@ def detect_figure_rois(
       panels.
     * ``"completed"`` — every caption-expected label was detected.
 
-    Image OCR is skipped entirely for figures whose caption has no panel
-    labels — no point paying the OCR cost on a single-panel figure.
+    ``target_kind`` keeps ordinary A/B/C panels separate from figures
+    enumerated on one shared plate. Image OCR is skipped entirely when the
+    caption declares fewer than two targets.
     """
-    expected_labels = [p["label"] for p in (panels_from_caption or [])]
+    expected_labels = [str(p["label"]) for p in (panels_from_caption or [])]
     if len(expected_labels) <= 1:
         return {"rois": [], "pass3_status": "skipped_no_panels",
                 "ocr_token_count": 0}
@@ -2102,7 +2189,11 @@ def detect_figure_rois(
                 "ocr_token_count": 0}
 
     tokens = _ocr_figure_tokens(image_path)
-    label_candidates = _extract_label_candidates(tokens)
+    label_candidates = _extract_label_candidates(
+        tokens,
+        expected_labels=expected_labels,
+        target_kind=target_kind,
+    )
     # Drop candidates that don't match any expected label — OCR will
     # sometimes misread axis labels or internal annotations as single
     # capital letters, and we want to avoid emitting ROIs for those.
@@ -2113,7 +2204,12 @@ def detect_figure_rois(
         return {"rois": [], "pass3_status": "no_labels_found",
                 "ocr_token_count": len(tokens)}
 
-    rois = _approximate_panel_rois(image_size, label_candidates, expected_labels)
+    rois = _approximate_panel_rois(
+        image_size,
+        label_candidates,
+        expected_labels,
+        target_kind=target_kind,
+    )
 
     detected = {r["label"] for r in rois if r.get("roi_px")}
     status = ("completed" if set(expected_labels).issubset(detected)

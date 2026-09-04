@@ -77,7 +77,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   records, reconcile duplicate assignments only when the counts form a full
   bijection, and use exact next-page legend matches to enrich preceding bare
   labels. The figure MCP responses expose the summary fields without moving
-  association work into the server.
+  association work into the server. On the 35-document regression replay,
+  the default served surface improves from 0.551 recall / 0.890 precision to
+  0.580 / 0.910 over identical persisted Docling inputs; every defined era,
+  file-type and layout segment improves on both measures. The scorer now uses
+  an independent gold-label parser and reports raw and default-MCP surfaces,
+  so an extractor-parser change cannot move its own gold denominator.
+
+  Shared historical plates now proceed beyond logical record expansion:
+  Pass 2.5 records their numeric figure targets separately from lettered
+  panels, preserves an independent pre-expansion `missing_figures`
+  cross-check, and admits the host image to one Pass 3 ROI invocation. OCR
+  accepts bare numbers only through the exact caption-derived allow-list;
+  vision uses the same target set. Detected regions are distributed back to
+  the individual figure records, while the MCP server only reads and crops
+  that build-time evidence.
 
 - **`corpus taxonomy ingest` doubled the `names` table on every re-run, and
   v1.2.1 made it fire automatically (#262).** `names` shipped with no PRIMARY

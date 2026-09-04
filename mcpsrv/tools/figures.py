@@ -795,14 +795,16 @@ def get_figure(
 
 @mcp.tool()
 def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
-    """Return the per-panel / per-subfigure ROIs annotated on a figure.
+    """Return the per-panel / per-figure ROIs annotated on an image.
 
     ROIs are populated by Pass 2.5 (caption-derived ``panels_from_caption``)
-    and Pass 3a (OCR-derived ``rois`` with pixel bboxes). The caption-
-    derived list gives labels + descriptions even when Pass 3a wasn't
-    run or OCR didn't find the panel; ``rois`` gives pixel coordinates
-    when available for :func:`get_figure_roi_image`. The result also carries
-    the caption status/confidence/kind/page-distance summary.
+    or ``plate_figures_from_caption``) and Pass 3a/3b (``rois`` with pixel
+    bboxes). The caption-derived lists give labels + descriptions even when
+    region detection wasn't run or found nothing; ``rois`` gives pixel
+    coordinates when available for :func:`get_figure_roi_image`. Numbered
+    figures on a shared historical plate remain distinct from lettered panels.
+    The result also carries the caption status/confidence/kind/page-distance
+    summary.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
@@ -818,8 +820,19 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
                 "filename": f.get("filename"),
                 "panels_from_caption": f.get("panels_from_caption") or [],
                 "panel_count_from_caption": f.get("panel_count_from_caption", 0),
+                "plate_figures_from_caption": (
+                    f.get("plate_figures_from_caption") or []
+                ),
+                "plate_figure_count_from_caption": (
+                    f.get("plate_figure_count_from_caption", 0)
+                ),
+                "plate_missing_figure_crosscheck": (
+                    f.get("plate_missing_figure_crosscheck") or []
+                ),
                 "rois": f.get("rois") or [],
                 "pass3_status": f.get("pass3_status"),
+                "pass3_target_kind": f.get("pass3_target_kind"),
+                "plate_roi_source_figure_id": f.get("plate_roi_source_figure_id"),
                 "image_size_px": f.get("image_size_px"),
                 **_caption_evidence_fields(f),
             }]
@@ -833,19 +846,19 @@ def get_figure_roi_image(
     label: str,
     profile: Optional[str] = None,
 ) -> Dict:
-    """Crop a panel ROI out of a figure image and return the crop's path.
+    """Crop a panel or numbered-figure ROI and return the crop's path.
 
-    ``label`` is the panel letter (e.g. ``"A"``, ``"B"``) as stored in
-    ``figures.json`` ``rois[*].label``. If Pass 3a found a pixel ROI
-    for that label, we crop the figure PNG to that region and cache the
-    result under ``<hash_dir>/figures/crops/{figure_id}__{label}.png``
-    so repeated asks are free.
+    ``label`` is the panel letter (e.g. ``"A"``) or a grouped-plate figure
+    number (e.g. ``"32"``) stored in ``figures.json`` ``rois[*].label``.
+    If Pass 3 found a pixel ROI for that label, we crop the figure PNG to that
+    region and cache the result under
+    ``<hash_dir>/figures/crops/{figure_id}__{label}.png`` so repeated asks are
+    free.
 
-    Returns the crop path + caption description. If the label exists in
-    ``panels_from_caption`` but Pass 3a couldn't find a pixel ROI for it
-    (OCR missed the label), returns the whole figure's image path with
-    ``crop: false`` — the LLM can still display the whole figure and
-    reason about which region is which panel using the caption.
+    Returns the crop path + caption description. If the label exists in the
+    relevant caption target list but Pass 3 couldn't find a pixel ROI, returns
+    the whole figure's image path with ``crop: false`` — the client can still
+    display the whole image and reason from the caption.
 
     Caption status/confidence/kind/page distance qualify that description;
     callers should preserve the uncertainty when the binding is not strong.
@@ -886,6 +899,12 @@ def get_figure_roi_image(
          if p.get("label") == label),
         None,
     )
+    if description_from_caption is None:
+        description_from_caption = next(
+            (p["description"] for p in fig.get("plate_figures_from_caption") or []
+             if str(p.get("label")) == str(label)),
+            None,
+        )
     roi_entry = next(
         (r for r in fig.get("rois") or []
          if r.get("label") == label and r.get("roi_px")),
@@ -905,7 +924,7 @@ def get_figure_roi_image(
             "caption_text": caption_text,
             **_caption_evidence_fields(fig),
             "description_from_caption": description_from_caption,
-            "reason": "no_pixel_roi — Pass 3a didn't locate this label in the image",
+            "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image",
         }
 
     # Cache crops so a second retrieval is free.

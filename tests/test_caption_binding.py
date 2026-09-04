@@ -91,6 +91,24 @@ def test_several_captions_on_one_line_are_all_counted():
     assert nums == {"10", "11", "12"}
 
 
+def test_gold_parser_handles_lists_ranges_and_roman_labels():
+    assert cb.gold_caption_entries("Figs. 1, 2, and 3. Stages.") == ["1", "2", "3"]
+    assert cb.gold_caption_entries("Figg. 2-5. Sezioni.") == ["2", "3", "4", "5"]
+    assert cb.gold_caption_entries("Fig. 58-60. Stages.") == ["58", "59", "60"]
+    assert cb.gold_caption_entries("Plate IV. Colony.") == ["4"]
+
+
+def test_gold_parser_rejects_caption_internal_source_citations():
+    assert cb.gold_caption_entries(
+        "Fig. 77. Nectopyramis, from Totton, 1954, fig. 36)",
+    ) == ["77"]
+
+
+def test_gold_parser_does_not_accept_production_only_ocr_damage():
+    """A hand-transcription oracle must not inherit extractor heuristics."""
+    assert cb.gold_caption_entries("F16. 1. OCR-damaged extraction") == []
+
+
 def test_transcriber_commentary_does_not_contribute_numbers():
     """A note mentioning Fig. 4 is not a figure on the page."""
     _kind, nums, _ = cb.classify_block(
@@ -177,6 +195,16 @@ def test_segments_include_rates_by_era_file_type_and_layout(report):
     plate = report["segments"]["layout"]["plate_blocks"]
     assert plate["gold_numbers"] > 0
     assert "number_recall" in plate and "number_precision" in plate
+
+
+def test_raw_and_default_mcp_surfaces_are_reported_separately(report):
+    assert set(report["surfaces"]) == {"all entries", "default MCP types"}
+    raw = report["surfaces"]["all entries"]["totals"]
+    served = report["surfaces"]["default MCP types"]["totals"]
+    assert served["found_numbers"] <= raw["found_numbers"]
+    assert set(report["surfaces"]["default MCP types"]["segments"]) == {
+        "era", "file_type", "layout",
+    }
 
 
 def test_page_diagnostics_name_missing_and_reported_evidence(report):

@@ -140,7 +140,10 @@ of what those numbers mean.
   bare label, and record the chosen candidate, rejected candidates, source,
   page distance and confidence. A weak association must be exposed as weak in
   the stored artifact and MCP result, not presented as an ordinary caption.
-- [ ] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
+  Full regression replay now moves the default served surface from 0.551 /
+  0.890 to 0.580 / 0.910 over the same persisted Docling inputs; keep this open
+  until the remaining panel-split acceptance check and clean rebuild are done.
+- [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered
   panels, admit those plates to ROI splitting, and cross-check the proposed

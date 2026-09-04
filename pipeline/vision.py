@@ -87,7 +87,12 @@ class VisionBackend(ABC):
         caption_text: str,
         expected_labels: List[str],
     ) -> List[Dict]:
-        """Return the panel / embedded-figure ROI list for one image."""
+        """Return the panel / embedded-figure ROI list for one image.
+
+        ``expected_labels`` is normally a list of panel letters. For a known
+        grouped plate it is instead a list of caption-enumerated figure
+        numbers; those belong in ``embedded_figures``, not ``panels``.
+        """
 
 
 # ---------------------------------------------------------------------------
@@ -105,12 +110,12 @@ Your task has two parts:
 
   (1) Panel labels — single capital letters (A, B, C, ...) that label sub-panels
       within a single figure.
-  (2) Compound detection — when the image actually contains two or more separate
-      figures merged into one extracted image (e.g., Fig. 3 and Fig. 4 side by
-      side). Signals: the number of panel labels is LARGER than the caption's
-      expected panel count, or duplicate panel letters appear in the image (two
-      separate As, two Bs, etc.), or visible "Fig. N" text labels with different
-      N values.
+  (2) Figure regions — when the image contains two or more separately numbered
+      figures (e.g., Fig. 3 and Fig. 4 side by side), return each region under
+      embedded_figures. This includes known grouped plates whose expected list
+      contains figure numbers instead of panel letters. Other signals are more
+      panel labels than the caption expects, duplicate panel letters (two As,
+      two Bs), or visible figure-number labels.
 
 Return STRICTLY VALID JSON:
 
@@ -149,6 +154,9 @@ Coordinate rules:
 Interpretation rules:
 - ONLY emit a panel when the letter label is actually visible in the image.
   Do not infer panels from the caption alone.
+- When the expected list contains numbers, look for those visible numbers and
+  emit their whole numbered regions under embedded_figures. Do not reinterpret
+  the numbers as panel letters and do not infer an unseen region.
 - If the caption expects panels A-B (2) but you see labels A, B, A, B in the
   image, this is a compound of two separate figures. Assign
   parent_figure_index = 0 to the first {A, B} set and parent_figure_index = 1
@@ -410,8 +418,8 @@ class ClaudeVisionBackend(VisionBackend):
         # can ground its bbox hunt in what's supposed to be there.
         user_text = (
             f"Caption of this figure: {caption_text!r}\n\n"
-            f"Expected panel labels from the caption (confirm visibility before "
-            f"emitting): {expected_labels}\n\n"
+            f"Expected panel letters OR grouped-plate figure numbers from the "
+            f"caption (confirm visibility before emitting): {expected_labels}\n\n"
             f"Image dimensions (px): {w} × {h}."
         )
 
@@ -462,7 +470,7 @@ class ClaudeVisionBackend(VisionBackend):
                 truncation_detail=(
                     f"stopped at max_tokens={budget} on {image_path.name} "
                     f"after {attempt} attempt(s); "
-                    f"{len(expected_labels)} panel(s) expected"
+                    f"{len(expected_labels)} region label(s) expected"
                 ),
             )
             break
@@ -667,8 +675,8 @@ class LocalVLMBackend(VisionBackend):
 
         user_text = (
             f"Caption of this figure: {caption_text!r}\n\n"
-            f"Expected panel labels from the caption (confirm visibility "
-            f"before emitting): {expected_labels}\n\n"
+            f"Expected panel letters OR grouped-plate figure numbers from the "
+            f"caption (confirm visibility before emitting): {expected_labels}\n\n"
             f"Image dimensions (px): {w} × {h}."
         )
 
@@ -739,7 +747,7 @@ class LocalVLMBackend(VisionBackend):
                 truncation_detail=(
                     f"reached max_new_tokens={budget} on {image_path.name} "
                     f"after {attempt} attempt(s); "
-                    f"{len(expected_labels)} panel(s) expected"
+                    f"{len(expected_labels)} region label(s) expected"
                 ),
             )
             break

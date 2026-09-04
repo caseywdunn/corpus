@@ -107,6 +107,35 @@ def test_reference_inside_caption_prose_is_not_an_enumerated_entry():
     assert [entry["figure_number"] for entry in entries] == ["1", "2"]
 
 
+@pytest.mark.parametrize("caption,expected", [
+    (
+        "F16. 1. Cystonect larva (from Totton, 1960, fig. 24C).",
+        ["1"],
+    ),
+    (
+        "Fic. 19. Agalma larva (from Totton, 1956, fig. 9).",
+        ["19"],
+    ),
+])
+def test_fuzzy_primary_does_not_promote_a_source_citation(caption, expected):
+    """Totton1965a: the damaged true label must remain the first entry.
+
+    The enumerating regex once recognized only exact openers, so it skipped
+    ``F16. 1`` / ``Fic. 19`` and promoted the lowercase source citation after
+    a comma. Plate reconciliation then replaced the right figure number with
+    the cited paper's number.
+    """
+    assert [entry["figure_number"] for entry in caption_figure_entries(caption)] \
+        == expected
+
+
+def test_comma_delimited_figure_reference_is_not_a_new_entry():
+    entries = caption_figure_entries(
+        "Fig. 77. Nectopyramis, from Totton, 1954, fig. 36)",
+    )
+    assert [entry["figure_number"] for entry in entries] == ["77"]
+
+
 def test_numeric_range_expands_but_panel_range_does_not():
     entries = caption_figure_entries("Fig. 58-63. Velella, panels A-C.")
     assert [e["figure_number"] for e in entries] == [

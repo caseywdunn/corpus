@@ -46,6 +46,7 @@ import argparse
 import importlib.util
 import json
 import pathlib
+import re
 import sys
 from collections import Counter, defaultdict
 from difflib import SequenceMatcher
@@ -57,9 +58,8 @@ _spec.loader.exec_module(fid)
 
 sys.path.insert(0, str(_HERE.parent.parent))
 from pipeline.figures import (  # noqa: E402
+    EVIDENCE_FIGURE_TYPES,
     caption_evidence_summary,
-    caption_figure_entries,
-    parse_figure_number,
 )
 
 GOLD_FIGURE_TAGS = ("FIGURE", "PLATE")
@@ -69,6 +69,99 @@ GOLD_FIGURE_TAGS = ("FIGURE", "PLATE")
 # because only the first is a caption-binding test — scoring a bare `FIG. 1`
 # for caption text would report a failure where the page has nothing to bind.
 _PROSE_CAPTION_MIN_TOKENS = 8
+
+
+# Gold labels are parsed independently of the production extractor. Importing
+# parse_figure_number/caption_figure_entries here made the yardstick move when
+# those functions changed: the Totton source-citation fix changed the gold
+# denominator from 496 to 486 even though no transcription changed. The gold
+# is human transcription, so it needs only the printed, non-OCR-damage opener
+# vocabulary plus lists/ranges. Keep this deliberately narrower and fixture-
+# backed; production's fuzzy OCR spellings belong only on the measured side.
+_GOLD_OPENER = (
+    r"fig(?:ure|ur|s)?|figg|figuren|abb(?:ildung)?|pl(?:ate)?|plate|рис(?:унок)?"
+    r"|taf(?:el)?|tab(?:ula)?|lám(?:ina)?|tav(?:ola)?|bild|image|illustration"
+    r"|text[\-\s]?fig(?:ure)?"
+)
+_GOLD_NUMBER = r"(?:\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z]))"
+_GOLD_CONNECTOR = r"(?:,\s*(?:&|und|and|et|u\.?)?|&|und|and|et|u\.?|[-\u2013\u2014])"
+_GOLD_ENTRY_RE = re.compile(
+    r"(?<![A-Za-z])(?:" + _GOLD_OPENER + r")\s*\.?\s*"
+    r"(?P<first>" + _GOLD_NUMBER + r")"
+    r"(?P<tail>(?:\s*" + _GOLD_CONNECTOR + r"\s*" + _GOLD_NUMBER + r")*)",
+    re.IGNORECASE,
+)
+_GOLD_ENTRY_START_RE = re.compile(r"^[\s.\u00b7\u2022]*" + _GOLD_ENTRY_RE.pattern,
+                                  re.IGNORECASE)
+_GOLD_TAIL_RE = re.compile(
+    r"(?P<connector>" + _GOLD_CONNECTOR + r")\s*"
+    r"(?P<number>" + _GOLD_NUMBER + r")",
+    re.IGNORECASE,
+)
+_GOLD_ROMAN_RE = re.compile(
+    r"^m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$",
+    re.IGNORECASE,
+)
+_GOLD_ROMAN_VALUES = {"i": 1, "v": 5, "x": 10, "l": 50,
+                      "c": 100, "d": 500, "m": 1000}
+
+
+def _gold_number(token):
+    """Canonical number from a hand-transcribed printed label."""
+    value = (token or "").strip()
+    if not value or not _GOLD_ROMAN_RE.match(value):
+        return value.lower()
+    total, previous = 0, 0
+    for char in reversed(value.lower()):
+        current = _GOLD_ROMAN_VALUES[char]
+        total += -current if current < previous else current
+        previous = current
+    return str(total)
+
+
+def gold_caption_entries(line):
+    """Figure numbers asserted by one line of hand-transcribed gold.
+
+    A line must open with a printed label. Later entries require a sentence or
+    semicolon boundary; comma-delimited terms without another opener remain a
+    supported list, while source citations such as ``..., fig. 36`` do not
+    become additional figures.
+    """
+    text = line or ""
+    if not _GOLD_ENTRY_START_RE.match(text):
+        return []
+    matches = []
+    for match in _GOLD_ENTRY_RE.finditer(text):
+        if not matches:
+            matches.append(match)
+            continue
+        before = text[:match.start()]
+        if not before[before.rfind("\n") + 1:].strip() \
+                or before.rstrip()[-1:] in ".;":
+            matches.append(match)
+
+    numbers, seen = [], set()
+    for match in matches:
+        values = [_gold_number(match.group("first"))]
+        previous = values[0]
+        for term in _GOLD_TAIL_RE.finditer(match.group("tail") or ""):
+            connector = term.group("connector").lower().rstrip(".")
+            number = _gold_number(term.group("number"))
+            if connector in {"-", "\u2013", "\u2014"} \
+                    and previous.isdigit() and number.isdigit():
+                start, end = int(previous), int(number)
+                if 0 < end - start <= 100:
+                    values.extend(str(n) for n in range(start + 1, end + 1))
+                elif number not in values:
+                    values.append(number)
+            elif number not in values:
+                values.append(number)
+            previous = number
+        for number in values:
+            if number not in seen:
+                seen.add(number)
+                numbers.append(number)
+    return numbers
 
 
 def gold_blocks(gold_dir, scan=None):
@@ -115,12 +208,10 @@ def classify_block(body):
         # A gold block can contain descriptive prose and references. Only a
         # line that opens as a caption is allowed to contribute; once it does,
         # split any additional entries/lists on that same printed line.
-        if not parse_figure_number(line):
-            continue
-        entries = caption_figure_entries(line)
-        numbers.update(entry["figure_number"] for entry in entries)
+        entries = gold_caption_entries(line)
+        numbers.update(entries)
         if first_line is None and entries:
-            first_line = entries[0]["caption_text"]
+            first_line = line
     tokens = fid.tokens(stripped)
     if not tokens:
         return "nothing_printed", numbers, ""
@@ -173,8 +264,10 @@ def _pack_counts(counts):
     }
 
 
-def score_document(gold_dir, corpus_dir):
+def score_document(gold_dir, corpus_dir, figure_types=None):
     figs = (fid._read_json(corpus_dir / "figures.json") or {}).get("figures") or []
+    if figure_types is not None:
+        figs = [f for f in figs if f.get("figure_type") in figure_types]
     scan = fid._read_json(corpus_dir / "scan_detection.json") or {}
     by_page = defaultdict(list)
     for f in figs:
@@ -277,6 +370,11 @@ def build_report(gold_root, corpuscle_root):
         axis: defaultdict(Counter)
         for axis in ("era", "file_type", "layout")
     }
+    served_totals = Counter()
+    served_segments = {
+        axis: defaultdict(Counter)
+        for axis in ("era", "file_type", "layout")
+    }
     for stem, sha, gold_dir, corpus_dir in bound:
         d = score_document(gold_dir, corpus_dir)
         meta = fid._read_json(corpus_dir / "metadata.json") or {}
@@ -290,12 +388,33 @@ def build_report(gold_root, corpuscle_root):
             totals[k] += d[k]
             for axis in segments:
                 segments[axis][str(d[axis])][k] += d[k]
+        served = score_document(
+            gold_dir, corpus_dir, figure_types=EVIDENCE_FIGURE_TYPES,
+        )
+        for axis in ("era", "file_type"):
+            served[axis] = d[axis]
+        for k in ("gold_numbers", "found_numbers", "matched_numbers",
+                  "captions_compared"):
+            served_totals[k] += served[k]
+            for axis in served_segments:
+                served_segments[axis][str(served[axis])][k] += served[k]
+
+    def pack_segments(source):
+        return {
+            axis: {
+                key: _pack_counts(counts)
+                for key, counts in sorted(buckets.items())
+            }
+            for axis, buckets in source.items()
+        }
+
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "question": "is the caption bound to the figure it belongs to",
-        "method": "figure numbers printed INSIDE a gold [FIGURE]/[PLATE] block, "
-                  "compared per page against figures.json; caption text scored "
-                  "only within number-matched pairs",
+        "method": "figure numbers parsed independently from labels printed "
+                  "INSIDE a gold [FIGURE]/[PLATE] block, compared per page "
+                  "against figures.json; caption text scored only within "
+                  "number-matched pairs",
         "caveat": "Naive caption-text similarity reports 44% and is mostly "
                   "artifact — bilingual captions, bare labels, and documents "
                   "that are their own translation. Numbers are the "
@@ -303,12 +422,16 @@ def build_report(gold_root, corpuscle_root):
         "documents_bound": len(bound), "documents_unmatched": unmatched,
         "gold_block_kinds": dict(kinds),
         "totals": _pack_counts(totals),
-        "segments": {
-            axis: {
-                key: _pack_counts(counts)
-                for key, counts in sorted(buckets.items())
-            }
-            for axis, buckets in segments.items()
+        "segments": pack_segments(segments),
+        "surfaces": {
+            "all entries": {
+                "totals": _pack_counts(totals),
+                "segments": pack_segments(segments),
+            },
+            "default MCP types": {
+                "totals": _pack_counts(served_totals),
+                "segments": pack_segments(served_segments),
+            },
         },
         "documents": docs,
     }
@@ -324,8 +447,19 @@ def print_summary(report, stream=None):
     w(f"  binding recall                   : {t['number_recall']}\n")
     w(f"  binding precision                : {t['number_precision']}\n")
 
+    w("\n-- by retrieval surface " + "-" * 30 + "\n")
+    w(f"{'surface':24}{'gold':>7}{'found':>7}{'recall':>9}{'precis':>9}\n")
+    for name, surface in report["surfaces"].items():
+        values = surface["totals"]
+        def surface_rate(value):
+            return f"{value:>9.3f}" if isinstance(value, float) else f"{'-':>9}"
+        w(f"{name[:24]:24}{values['gold_numbers']:>7}"
+          f"{values['found_numbers']:>7}{surface_rate(values['number_recall'])}"
+          f"{surface_rate(values['number_precision'])}\n")
+
     for axis in ("era", "layout"):
-        w(f"\n-- by {axis} " + "-" * max(1, 48 - len(axis)) + "\n")
+        w(f"\n-- all entries by {axis} "
+          + "-" * max(1, 36 - len(axis)) + "\n")
         w(f"{'bucket':24}{'gold':>7}{'found':>7}{'recall':>9}{'precis':>9}\n")
         for bucket, values in report["segments"][axis].items():
             def rate(value):
