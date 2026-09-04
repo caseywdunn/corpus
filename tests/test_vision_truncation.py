@@ -239,3 +239,4 @@ def test_both_backends_use_the_hard_completion_gate():
 
     source = inspect.getsource(vision)
     assert source.count("_parse_complete_vision_response(") == 3
+    assert source.count("(initial_budget, initial_budget * 2)") == 2

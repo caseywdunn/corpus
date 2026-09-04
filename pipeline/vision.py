@@ -415,44 +415,57 @@ class ClaudeVisionBackend(VisionBackend):
             f"Image dimensions (px): {w} × {h}."
         )
 
-        budget = self._token_budget(expected_labels)
-        try:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=budget,
-                system=_CLAUDE_SYSTEM_PROMPT,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": image_b64,
+        initial_budget = self._token_budget(expected_labels)
+        for attempt, budget in enumerate(
+            (initial_budget, initial_budget * 2), start=1,
+        ):
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=budget,
+                    system=_CLAUDE_SYSTEM_PROMPT,
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": image_b64,
+                                },
                             },
-                        },
-                        {"type": "text", "text": user_text},
-                    ],
-                }],
-            )
-        except self._anthropic.APIError as e:
-            raise VisionBackendError(f"Claude API error: {e}") from e
+                            {"type": "text", "text": user_text},
+                        ],
+                    }],
+                )
+            except self._anthropic.APIError as e:
+                raise VisionBackendError(f"Claude API error: {e}") from e
 
-        # Concatenate all text blocks; usually there's just one.
-        response_text = "".join(
-            b.text for b in response.content if getattr(b, "type", None) == "text"
-        )
-        stop_reason = getattr(response, "stop_reason", None)
-        parsed = _parse_complete_vision_response(
-            response_text,
-            backend="Claude vision",
-            truncated=stop_reason == "max_tokens",
-            truncation_detail=(
-                f"stopped at max_tokens={budget} on {image_path.name}; "
-                f"{len(expected_labels)} panel(s) expected"
-            ),
-        )
+            # Concatenate all text blocks; usually there's just one.
+            response_text = "".join(
+                b.text for b in response.content
+                if getattr(b, "type", None) == "text"
+            )
+            truncated = getattr(response, "stop_reason", None) == "max_tokens"
+            if truncated and attempt == 1:
+                logger.warning(
+                    "Claude vision response hit max_tokens=%d on %s; retrying "
+                    "once with max_tokens=%d",
+                    budget, image_path.name, budget * 2,
+                )
+                continue
+            parsed = _parse_complete_vision_response(
+                response_text,
+                backend="Claude vision",
+                truncated=truncated,
+                truncation_detail=(
+                    f"stopped at max_tokens={budget} on {image_path.name} "
+                    f"after {attempt} attempt(s); "
+                    f"{len(expected_labels)} panel(s) expected"
+                ),
+            )
+            break
 
         # One shared converter for both backends (#253). It was duplicated
         # here and in the local-VLM path, so the pixel-coordinate defect had
@@ -681,43 +694,55 @@ class LocalVLMBackend(VisionBackend):
                 return_tensors="pt",
             ).to(self._model.device)
 
-            budget = self._token_budget(expected_labels)
-            with torch.no_grad():
-                output_ids = self._model.generate(
-                    **inputs,
-                    max_new_tokens=budget,
-                    do_sample=False,
-                )
-            # Strip the prompt tokens to get only the generated response.
-            generated = output_ids[:, inputs.input_ids.shape[1]:]
-            response_text = self._processor.batch_decode(
-                generated, skip_special_tokens=True,
-            )[0]
         except Exception as e:
             raise VisionBackendError(
-                f"Local VLM inference failed on {image_path.name}: {e}"
+                f"Local VLM input preparation failed on {image_path.name}: {e}"
             ) from e
 
-        # Did generation stop because the model finished, or because it ran
-        # out of budget? #253 — these were indistinguishable, and the second
-        # was being recorded as "this figure has no panels".
-        #
-        # Length against the cap, rather than inspecting stop reasons: a
-        # model that emits EOS on exactly the last allowed token reads as
-        # truncated here, but that response also parses, so the only cost is
-        # one spurious warning. Erring that way is deliberate — the failure
-        # this exists to catch is the silent one.
-        truncated = int(generated.shape[1]) >= budget
+        initial_budget = self._token_budget(expected_labels)
+        for attempt, budget in enumerate(
+            (initial_budget, initial_budget * 2), start=1,
+        ):
+            try:
+                with torch.no_grad():
+                    output_ids = self._model.generate(
+                        **inputs,
+                        max_new_tokens=budget,
+                        do_sample=False,
+                    )
+                # Strip the prompt tokens to get only the generated response.
+                generated = output_ids[:, inputs.input_ids.shape[1]:]
+                response_text = self._processor.batch_decode(
+                    generated, skip_special_tokens=True,
+                )[0]
+            except Exception as e:
+                raise VisionBackendError(
+                    f"Local VLM inference failed on {image_path.name}: {e}"
+                ) from e
 
-        parsed = _parse_complete_vision_response(
-            response_text,
-            backend="Local VLM",
-            truncated=truncated,
-            truncation_detail=(
-                f"reached max_new_tokens={budget} on {image_path.name}; "
-                f"{len(expected_labels)} panel(s) expected"
-            ),
-        )
+            # Qwen exposes no stop reason here. Reaching max_new_tokens is the
+            # truncation signal. A response that happens to emit EOS on the
+            # final slot gets one conservative retry; it can never be accepted
+            # as a possibly partial answer (#269).
+            truncated = int(generated.shape[1]) >= budget
+            if truncated and attempt == 1:
+                logger.warning(
+                    "Local VLM response hit max_new_tokens=%d on %s; retrying "
+                    "once with max_new_tokens=%d",
+                    budget, image_path.name, budget * 2,
+                )
+                continue
+            parsed = _parse_complete_vision_response(
+                response_text,
+                backend="Local VLM",
+                truncated=truncated,
+                truncation_detail=(
+                    f"reached max_new_tokens={budget} on {image_path.name} "
+                    f"after {attempt} attempt(s); "
+                    f"{len(expected_labels)} panel(s) expected"
+                ),
+            )
+            break
 
         # Convert normalized bboxes to pixel coordinates — same logic as
         # the Claude backend.

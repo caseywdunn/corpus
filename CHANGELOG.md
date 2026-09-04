@@ -23,9 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Incomplete vision responses can no longer masquerade as successful empty
   detections (#269).** Claude and local Qwen now share a panel-count-sized
-  output budget. A provider stop at the token cap is a hard failure even when
-  a parseable prefix survived; malformed JSON or either missing required list
-  fails the same boundary. Only an explicit complete empty response becomes
+  output budget. A provider stop at the token cap retries that figure once at
+  twice the budget; a second stop is a hard failure even when a parseable
+  prefix survived. Malformed JSON or either missing required list fails the
+  same boundary. Only an explicit complete empty response becomes
   `no_labels_found`, and `figures.json` preserves the failure reason in
   `pass3_error` until a clean retry replaces it.
 

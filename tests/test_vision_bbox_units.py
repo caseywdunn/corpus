@@ -151,10 +151,19 @@ def _claude_backend_returning(text, tmp_path, monkeypatch, stop_reason="end_turn
     be = object.__new__(ClaudeVisionBackend)
     be.model = "stub"
     be.max_tokens = 4096
-    be.client = SimpleNamespace(messages=SimpleNamespace(
-        create=lambda **kw: SimpleNamespace(
+    stop_reasons = (list(stop_reason) if isinstance(stop_reason, (list, tuple))
+                    else [stop_reason, stop_reason])
+    budgets = []
+
+    def create(**kw):
+        reason = stop_reasons[min(len(budgets), len(stop_reasons) - 1)]
+        budgets.append(kw["max_tokens"])
+        return SimpleNamespace(
             content=[SimpleNamespace(text=text, type="text")],
-            stop_reason=stop_reason)))
+            stop_reason=reason)
+
+    be.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    be._test_budgets = budgets
     return be, img
 
 
@@ -180,3 +189,16 @@ def test_claude_max_tokens_stop_is_failure_even_when_json_parses(
     )
     with pytest.raises(VisionBackendError, match="token-truncated"):
         be.detect_figure_panels(img, "(A) left (B) right", ["A", "B"])
+    assert be._test_budgets == [4096, 8192]
+
+
+def test_claude_retries_one_truncated_response_at_twice_the_budget(
+    tmp_path, monkeypatch,
+):
+    be, img = _claude_backend_returning(
+        PIXEL_RESPONSE, tmp_path, monkeypatch,
+        stop_reason=["max_tokens", "end_turn"],
+    )
+    rois = be.detect_figure_panels(img, "(A) left (B) right", ["A", "B"])
+    assert len([r for r in rois if r["type"] == "panel"]) == 2
+    assert be._test_budgets == [4096, 8192]
