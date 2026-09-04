@@ -54,7 +54,7 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_citation_graph` | Citation graph around a work or paper (in / out / both). Bounded breadth (#87): `max_edges_per_node` (per-node fan-out, survivors ranked by `cited_by_count`) + `max_total_edges` caps, with a `truncated` flag. Generous defaults. |
 | `resolve_reference` | Resolve a free-text bibliographic reference to a work in the authority database. |
 | `format_citations` | Fully-assembled citation strings for works in the authority DB — the route for every citation an LLM client emits; never recombine fields client-side (#88). Pass one of `queries` / `work_ids` / `paper_hashes` (a list); returns `{style, count, citations[]}` in input order, each entry a citation payload (`work_id`, `formatted`, `inline`, provenance tier `bib` / `grobid_reconciled` / `unresolved`, verbatim warning footnote) or a per-item error. Batch a whole reference list into one call. |
-| `get_missing_references` | Works cited by corpus papers that are NOT in the corpus. |
+| `get_missing_references` | Candidate works cited by corpus papers that are not mapped to an in-corpus work, ranked by citation count. This is an acquisition lead, not proof of absence: inspect build-time evidence with `tools/qc/reference_reconciliation.py` before curating the library (#155). |
 | `get_works_by_author` | All works by an author across the full bibliographic authority database (corpus papers + cited references + taxonomic-authority stubs). |
 | `get_original_description` | Find the original-description paper for a taxon. |
 

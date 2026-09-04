@@ -50,6 +50,7 @@ import time
 import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import unquote
 
 try:
     import requests
@@ -70,7 +71,12 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v1"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v2"
+
+# Cross-block escape hatch measured by the #155 audit. Short/generic titles
+# are excluded; the threshold is public so the read-only QC tool uses the same
+# title-length boundary when it reports the broader review population.
+IDENTITY_TITLE_MIN_ALPHA = 25
 
 # Module-level breaker — BHL is hit from a single CLI run, so per-process
 # state is the right scope. Threshold is generous: BHL routinely 500s on
@@ -94,10 +100,10 @@ def normalize_for_key(s: str) -> str:
 
 
 def normalize_doi(doi: str) -> str:
-    """Normalize a DOI to its bare lowercase form."""
-    doi = doi.strip().lower()
+    """Normalize URL/prefix spelling to a bare lowercase DOI (#155)."""
+    doi = unquote(doi.strip()).lower()
     for prefix in ("https://doi.org/", "http://doi.org/", "http://dx.doi.org/",
-                   "https://dx.doi.org/", "doi:"):
+                   "https://dx.doi.org/", "info:doi/", "doi:"):
         if doi.startswith(prefix):
             doi = doi[len(prefix):]
     return doi
@@ -837,6 +843,12 @@ def _doi_corruption_shape(left: str, right: str) -> Optional[str]:
     if left.replace("-", "") == right.replace("-", ""):
         return "doi_hyphenation"
     shorter, longer = sorted((left, right), key=len)
+    if (
+        longer.startswith(shorter)
+        and shorter.count("(") > shorter.count(")")
+        and longer[len(shorter):].startswith(")")
+    ):
+        return "doi_truncation"
     suffix = longer[len(shorter):] if longer.startswith(shorter) else ""
     if len(suffix) >= 4 and suffix.isalpha():
         return "doi_trailing_text"
@@ -909,6 +921,115 @@ def lookup_by_alias(conn: sqlite3.Connection, alias_key: str) -> Optional[str]:
     )
     row = cur.fetchone()
     return row[0] if row else None
+
+
+def _normalized_ref_author_set(authors: List[str]) -> frozenset[str]:
+    """Return the non-empty normalized surname set from a reference."""
+    return frozenset(
+        normalized
+        for author in authors
+        if (normalized := normalize_for_key(extract_surname_from_ref_author(author)))
+    )
+
+
+def _in_corpus_identity_index(
+    conn: sqlite3.Connection,
+) -> Dict[int, List[Tuple[str, str, str, frozenset[str]]]]:
+    """Index immutable corpus candidates once for a materialization pass."""
+    authors_by_work: Dict[str, set[str]] = {}
+    for work_id, surname in conn.execute(
+        """SELECT wa.work_id, wa.surname_normalized
+           FROM work_authors wa JOIN works w ON w.work_id = wa.work_id
+           WHERE w.in_corpus = 1 AND wa.surname_normalized != ''"""
+    ):
+        authors_by_work.setdefault(work_id, set()).add(surname)
+    index: Dict[int, List[Tuple[str, str, str, frozenset[str]]]] = {}
+    for work_id, title, year, doi in conn.execute(
+        """SELECT work_id, title, year, doi FROM works
+           WHERE in_corpus = 1 AND title IS NOT NULL AND year IS NOT NULL
+           ORDER BY work_id"""
+    ):
+        index.setdefault(year, []).append((
+            work_id,
+            title or "",
+            doi or "",
+            frozenset(authors_by_work.get(work_id, set())),
+        ))
+    return index
+
+
+def lookup_in_corpus_by_identity(
+    conn: sqlite3.Connection,
+    title: str,
+    year: Optional[int],
+    authors: List[str],
+    incoming_doi: str = "",
+    candidate_index: Optional[
+        Dict[int, List[Tuple[str, str, str, frozenset[str]]]]
+    ] = None,
+) -> Optional[Tuple[str, str, float]]:
+    """Return a unique title/year/author-set corpus work (#155, #225).
+
+    Author order can differ between a paper header and a reference, so this
+    safely crosses the first-author block used by the fuzzy cascade. Every
+    normalized surname must still agree, both titles must be substantive, and
+    the match must be unique. Non-exact titles use the same dual fuzzy guards
+    as the existing first-author cascade. A different DOI does not erase the
+    match, but is named by the persisted method so the verdict remains honest.
+    """
+    if not title or year is None:
+        return None
+    normalized_title = normalize_for_key(title)
+    if (
+        sum(character.isalpha() for character in normalized_title)
+        < IDENTITY_TITLE_MIN_ALPHA
+    ):
+        return None
+    author_set = _normalized_ref_author_set(authors)
+    if not author_set:
+        return None
+    doi = normalize_doi(incoming_doi) if incoming_doi else ""
+    matches = []
+    if candidate_index is None:
+        candidate_rows = _in_corpus_identity_index(conn).get(year, [])
+    else:
+        candidate_rows = candidate_index.get(year, [])
+    for work_id, candidate_title, candidate_doi, candidate_authors in candidate_rows:
+        normalized_candidate_title = normalize_for_key(candidate_title or "")
+        if (
+            sum(character.isalpha() for character in normalized_candidate_title)
+            < IDENTITY_TITLE_MIN_ALPHA
+        ):
+            continue
+        if candidate_authors != author_set:
+            continue
+        if normalized_candidate_title == normalized_title:
+            method = "title_year_authors_exact"
+            score = 1.0
+        elif _HAS_BHL_DEPS:
+            set_score = int(fuzz.token_set_ratio(
+                normalized_title, normalized_candidate_title,
+            ))
+            ratio_score = int(fuzz.ratio(
+                normalized_title, normalized_candidate_title,
+            ))
+            if set_score < 85 or ratio_score < 60:
+                continue
+            method = "title_year_authors_fuzzy"
+            score = set_score / 100.0
+        else:
+            continue
+        normalized_candidate_doi = (
+            normalize_doi(candidate_doi) if candidate_doi else ""
+        )
+        doi_conflict = bool(
+            doi and normalized_candidate_doi and doi != normalized_candidate_doi
+        )
+        if doi_conflict:
+            method += "_doi_conflict"
+            score = min(score, 0.95)
+        matches.append((work_id, method, score))
+    return matches[0] if len(matches) == 1 else None
 
 
 def _first_author_candidates(conn: sqlite3.Connection, surname: str,
@@ -1157,7 +1278,12 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
                        enrich_bhl: bool = False,
                        bhl_api_key: str = "",
                        bhl_max_year: Optional[int] = None,
-                       fallback_key: str = "") -> Tuple[str, str, float]:
+                       fallback_key: str = "",
+                       identity_index: Optional[
+                           Dict[int, List[
+                               Tuple[str, str, str, frozenset[str]]
+                           ]]
+                       ] = None) -> Tuple[str, str, float]:
     """Resolve a single reference dict to a work_id.
 
     Returns (work_id, match_method, match_score).
@@ -1186,10 +1312,22 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     if doi:
         existing = lookup_by_doi(conn, doi)
         if existing:
-            return existing, "doi_exact", 1.0
+            existing_in_corpus = conn.execute(
+                "SELECT in_corpus FROM works WHERE work_id = ?", (existing,),
+            ).fetchone()[0]
+            if existing_in_corpus:
+                return existing, "doi_exact", 1.0
         variant = lookup_doi_variant_by_title(conn, doi, title)
         if variant is not None:
             return variant
+        identity_match = lookup_in_corpus_by_identity(
+            conn, title, year, authors_raw, incoming_doi=doi,
+            candidate_index=identity_index,
+        )
+        if identity_match is not None:
+            return identity_match
+        if existing:
+            return existing, "doi_exact", 1.0
         # DOI not yet in DB — create the work with DOI as ID
         work_id = doi
         insert_work(conn, work_id, "doi", title, year, journal, doi,
@@ -1205,6 +1343,12 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
             alias = make_alias_key(first_surname, year, title)
             insert_alias(conn, alias, work_id)
         return work_id, "doi_exact", 1.0
+
+    identity_match = lookup_in_corpus_by_identity(
+        conn, title, year, authors_raw, candidate_index=identity_index,
+    )
+    if identity_match is not None:
+        return identity_match
 
     # ── Cascade step 2: Alias key exact ────────────────────────────
     if first_surname and (title or raw):
@@ -1585,6 +1729,7 @@ def _rebuild_reference_materialization(
     observations = _active_reference_observations(conn)
     _clear_derived_reference_materialization(conn)
     known_work_ids = {row[0] for row in conn.execute("SELECT work_id FROM works")}
+    identity_index = _in_corpus_identity_index(conn)
     citing_ids = {
         row[0]: row[1] for row in conn.execute(
             "SELECT corpus_hash, work_id FROM works WHERE corpus_hash IS NOT NULL"
@@ -1621,6 +1766,7 @@ def _rebuild_reference_materialization(
             conn, ref, enrich_bhl=enrich_bhl,
             bhl_api_key=bhl_api_key, bhl_max_year=bhl_max_year,
             fallback_key=observation_id,
+            identity_index=identity_index,
         )
         if cited_work_id not in known_work_ids:
             known_work_ids.add(cited_work_id)
@@ -1726,6 +1872,26 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         changed = True
 
     active_count = len(_active_reference_observations(conn))
+    # A legacy ``works.corpus_hash`` can represent only one member when
+    # several documents share one canonical work identity (for example,
+    # volumes carrying the same BHL DOI). Those observations cannot yet form
+    # citation edges. Do not interpret the known structural gap as a stale
+    # producer and rematerialize forever; the QC report exposes the unmapped
+    # population for review.
+    mappable_active_count = conn.execute(
+        """SELECT COUNT(*)
+           FROM reference_current_sets current
+           JOIN reference_observation_memberships member
+             ON member.corpus_hash = current.corpus_hash
+            AND member.source_fingerprint = current.source_fingerprint
+           JOIN reference_observations ro
+             ON ro.observation_id = member.observation_id
+           WHERE EXISTS (
+             SELECT 1 FROM works w
+             WHERE w.in_corpus = 1
+               AND w.corpus_hash = ro.citing_corpus_hash
+           )"""
+    ).fetchone()[0]
     current_mapping_count = conn.execute(
         """SELECT COUNT(*)
            FROM observation_work ow
@@ -1737,7 +1903,7 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
            WHERE ow.producer_version = ?""",
         (REFERENCE_MAPPING_PRODUCER,),
     ).fetchone()[0]
-    if current_mapping_count != active_count:
+    if current_mapping_count != mappable_active_count:
         changed = True
 
     if changed:

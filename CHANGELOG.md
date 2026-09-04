@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   table remains the frozen MCP compatibility materialization; no tool name,
   input or response shape moves.
 
+- **A read-only reference-reconciliation audit makes the missing-work ranking
+  inspectable (#155).** `tools/qc/reference_reconciliation.py` reports current,
+  mapped and unmapped observation populations; compatibility-edge collapse;
+  mapping methods and producer versions; bounded raw/parsed evidence; and a
+  deliberately separate same-title/year review signal with exact author-set
+  agreement marked. It never mutates the authority graph or MCP surface.
+
 - **Per-document `ocrmode` makes a wrong OCR routing decision correctable
   (#186).** A BibTeX entry may set `ocrmode = {force}`, `{redo}`, or
   `{skip-text}` alongside `ocrlang`. A valid directive forces OCR to run even
@@ -69,6 +76,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when its title independently passes the established token-set and straight
   similarity thresholds. The original DOI is not silently rewritten, and
   neither DOI resemblance nor title similarity can merge a work alone.
+
+- **High-confidence citation variants now reach the in-corpus work across a
+  damaged first-author block (#155, #225).** DOI normalization strips
+  `info:doi/` and decodes percent escapes; a dangling-parenthesis DOI is only a
+  candidate when independent title evidence passes. Cross-block matching
+  requires the same year, the complete order-insensitive author-surname set,
+  substantive titles, one unique in-corpus candidate, and the established
+  exact or dual fuzzy-title thresholds. A conflicting DOI is retained in the
+  raw observation and named in the mapping method. On the 2026-09-01 reference
+  bundle, the Mapstone false node fell from 54 citation edges to 3 while the
+  canonical node held 54 after replay; canonical *Siphonophore biology*
+  reached 109, and
+  encoded/prefixed DOI ghosts ceased contributing. No resolver-safe
+  title/year/author-set candidate remained in the missing list, while 96
+  title/year-only review leads remained; #155 stays open for those damaged or
+  genuinely ambiguous cases.
+
+- **Unmappable observations no longer force every unchanged authority run to
+  rematerialize (#240).** The current reference bundle exposed a legacy schema
+  limitation: 17 citing documents that share canonical work identities with
+  another corpus document contribute 2,509 observations but cannot be
+  represented by scalar `works.corpus_hash`. The producer-validity check now
+  compares against the mappable active population, taking the unchanged pass
+  from a repeated 338-second rebuild to a `(0, 0)` no-op in 9.22 seconds. The
+  QC report exposes the unmapped population; a first-class one-work/many-
+  document relation remains required rather than being hidden by this guard.
 
 - **The figure-detection scorer now measures the actual default MCP type
   filter (#194), not a looser proxy.** The documentation called “drop

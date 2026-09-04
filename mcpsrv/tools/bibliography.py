@@ -647,9 +647,12 @@ def get_missing_references(
 ) -> List[Dict]:
     """Works cited by corpus papers that are NOT in the corpus.
 
-    Sorted by citation count (most-cited missing works first). Useful
-    for identifying high-impact papers to add to the corpus. Filter by
-    year range to focus on a particular era.
+    Sorted by citation count (most-cited candidates first). Useful for
+    identifying papers to investigate for acquisition, but not proof that a
+    work is absent: damaged metadata and alternate identifiers can remain
+    unresolved. Filter by year range to focus on a particular era. Operators
+    can inspect observation evidence with
+    ``tools/qc/reference_reconciliation.py`` before curating the library.
     """
     idx = _need_index()
     if idx.biblio_db is None:
@@ -767,5 +770,4 @@ def get_works_by_author(
         r["cited_by_count"] = idx.biblio_db.citation_count(r["work_id"])
         results.append(r)
     return results
-
 

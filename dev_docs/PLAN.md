@@ -208,9 +208,28 @@ the latter out until the new observation set can measure whether it is needed.
   a compatibility view/materialization with their parameter names, defaults
   and response fields unchanged. Better data is expected; an accidental API
   migration inside a data-model change is not.
-- [ ] **Re-measure `get_missing_references`**
+- [x] **Re-measure `get_missing_references`**
   ([#155](https://github.com/caseywdunn/corpus/issues/155)) after the migration,
   using the raw observation set to explain every canonicalization decision.
+  The read-only `tools/qc/reference_reconciliation.py` now separates a broad
+  same-title/year review signal from the exact author-set evidence that is safe
+  to act on. The replay justified DOI wrapper/percent normalization, a guarded
+  dangling-parenthesis repair, and cross-block exact/fuzzy title matching only
+  when the complete author set and year agree (#225). On the newest reference
+  corpuscle, the deterministic remap leaves no resolver-safe exact-identity
+  candidates in the missing list. It still leaves many obvious OCR-damaged
+  author/title variants, including high-ranked classics; #155 therefore stays
+  open, and the report defines the measured input for later model-assisted or
+  curator-reviewed adjudication rather than pretending the acquisition list is
+  now authoritative.
+- [ ] **Represent one canonical work with multiple corpus documents.** The
+  reference replay exposed a legacy scalar-model gap: separately scanned
+  volumes may legitimately share a DOI/work identity, but
+  `works.corpus_hash` retains only one document. v1.3's no-op check now counts
+  only observations it can map and the QC report exposes the remainder; the
+  underlying fix needs a corpus-hash/work membership relation carried through
+  authority seeding, reconciliation, BibTeX round trips, bundle filtering and
+  paper-hash lookups while preserving the frozen response fields.
 
 **Deferred from #240:** embedding-based candidate blocking and local-model
 adjudication. Neither enters v1.3 without a measurement from the deterministic

@@ -16,6 +16,7 @@ def _write_paper(
     year: int,
     surname: str,
     references: list[dict],
+    doi: str = "",
 ) -> None:
     doc_dir = output_dir / "documents" / corpus_hash
     doc_dir.mkdir(parents=True, exist_ok=True)
@@ -23,6 +24,7 @@ def _write_paper(
         "title": title,
         "year": year,
         "journal": "Test Journal",
+        "doi": doi,
         "authors": [{"surname": surname, "forename": "A"}],
     }))
     (doc_dir / "references.json").write_text(json.dumps({
@@ -268,3 +270,54 @@ def test_empty_references_get_distinct_deterministic_work_ids(
     assert _current_mappings(second) == first_mapping
     first.close()
     second.close()
+
+
+def test_old_mapping_producer_forces_complete_rematerialization(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "output"
+    _write_paper(
+        output_dir, "aaa", title="A citing paper", year=2001,
+        surname="Alpha", references=[
+            _reference("Raw", "Report on the Siphonophorae", "b0")
+        ],
+    )
+    conn = _open_and_build(output_dir)
+    conn.execute("UPDATE observation_work SET producer_version = 'obsolete'")
+    conn.commit()
+
+    mapped, _new_works = authority.phase2_references(conn, output_dir)
+
+    assert mapped == 1
+    assert conn.execute(
+        "SELECT DISTINCT producer_version FROM observation_work"
+    ).fetchall() == [(authority.REFERENCE_MAPPING_PRODUCER,)]
+    conn.close()
+
+
+def test_unmappable_duplicate_corpus_identity_does_not_rebuild_forever(
+    tmp_path: Path,
+) -> None:
+    """A known one-work/many-doc gap is not mistaken for stale mappings."""
+    output_dir = tmp_path / "output"
+    shared_doi = "10.6/bhl.shared-volume"
+    for corpus_hash, title in (("aaa", "Volume one"), ("bbb", "Volume two")):
+        _write_paper(
+            output_dir, corpus_hash, title=title, year=1841,
+            surname="Author", doi=shared_doi,
+            references=[
+                _reference("Raw", "Report on the Siphonophorae", "b0")
+            ],
+        )
+    conn = sqlite3.connect(":memory:")
+    authority.create_schema(conn)
+    assert authority.phase1_corpus_papers(conn, output_dir) == 1
+    assert authority.phase2_references(conn, output_dir)[0] == 1
+    assert conn.execute(
+        "SELECT COUNT(*) FROM reference_observations"
+    ).fetchone()[0] == 2
+    before = _snapshot(conn)
+
+    assert authority.phase2_references(conn, output_dir) == (0, 0)
+    assert _snapshot(conn) == before
+    conn.close()

@@ -56,6 +56,10 @@ def test_different_title_does_not_route_to_unique_candidate(conn):
     """
     _seed_work(conn, "corpus:totton|1965|a synopsis of the siphonophora",
                "A synopsis of the Siphonophora", 1965, "Totton")
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus:totton|1965|a synopsis of the siphonophora'"
+    )
 
     ref = {
         "title": "A new species of Lensia (Siphonophora: Diphyidae) from the coastal waters of Vancouver",
@@ -196,6 +200,117 @@ def test_fuzzy_score_tie_uses_lexical_work_id(conn):
     ) == ("a-work", 100, 100)
 
 
+def test_exact_identity_crosses_a_reordered_first_author_block(conn):
+    """An exact author set is order-insensitive but load-bearing (#155, #225)."""
+    title = "The evolution of reproductive characters in Dipsacales"
+    _seed_work(conn, "corpus-paper", title, 2003, "Winkworth")
+    biblio.insert_authors(conn, "corpus-paper", [
+        ("Winkworth", "R"), ("Donoghue", "M"),
+    ])
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    work_id, method, score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2003,
+        "authors": ["M Donoghue", "R Winkworth"],
+        "doi": "10.1086/376874",
+    })
+
+    assert (work_id, method, score) == (
+        "corpus-paper", "title_year_authors_exact", 1.0,
+    )
+    assert conn.execute(
+        "SELECT COUNT(*) FROM works WHERE work_id = '10.1086/376874'"
+    ).fetchone()[0] == 0
+
+
+def test_exact_title_year_does_not_override_doi_without_author_agreement(conn):
+    title = "A sufficiently distinctive shared publication title"
+    _seed_work(conn, "corpus-paper", title, 2003, "Author", doi="10.1/canonical")
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2003,
+        "authors": ["X Misparsed"],
+        "doi": "10.1/different",
+    })
+
+    assert work_id == "10.1/different"
+    assert method == "doi_exact"
+
+
+def test_exact_identity_records_doi_conflict_in_its_method(conn):
+    title = "A sufficiently distinctive shared publication title"
+    _seed_work(conn, "corpus-paper", title, 2003, "Author", doi="10.1/canonical")
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    assert biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2003,
+        "authors": ["A Author"],
+        "doi": "10.1/alternate-or-wrong",
+    }) == (
+        "corpus-paper", "title_year_authors_exact_doi_conflict", 0.95,
+    )
+
+
+def test_author_set_allows_safe_fuzzy_title_cross_block_match(conn):
+    canonical_title = (
+        "Global diversity and review of Siphonophorae (Cnidaria: Hydrozoa)"
+    )
+    _seed_work(
+        conn, "corpus-paper", canonical_title, 2014, "Mapstone",
+        doi="10.1371/journal.pone.0118381",
+    )
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    work_id, method, score = biblio._resolve_reference(conn, {
+        "title": "Global diversity and review of the Siphonophorae",
+        "year": 2014,
+        "authors": ["G Mapstone"],
+        "doi": "10.1371/journal.pone.0087737",
+    })
+
+    assert work_id == "corpus-paper"
+    assert method == "title_year_authors_fuzzy_doi_conflict"
+    assert score >= 0.85
+
+
+def test_exact_identity_requires_authors_one_candidate_and_substantive_title(conn):
+    short_title = "Annual report"
+    _seed_work(conn, "short", short_title, 2003, "Author")
+    conn.execute("UPDATE works SET in_corpus = 1 WHERE work_id = 'short'")
+    assert biblio.lookup_in_corpus_by_identity(
+        conn, short_title, 2003, ["A Author"],
+    ) is None
+
+    long_title = "A sufficiently distinctive duplicated publication title"
+    for work_id in ("duplicate-a", "duplicate-b"):
+        _seed_work(conn, work_id, long_title, 2003, "Author")
+        conn.execute(
+            "UPDATE works SET in_corpus = 1 WHERE work_id = ?", (work_id,),
+        )
+    assert biblio.lookup_in_corpus_by_identity(
+        conn, long_title, 2003, ["A Author"],
+    ) is None
+    assert biblio.lookup_in_corpus_by_identity(
+        conn, "A different substantive publication title entirely", 2003, [],
+    ) is None
+
+
 # ── Corrupted DOI + independent title evidence (#239) ──────────────
 
 
@@ -220,6 +335,36 @@ def test_corrupted_doi_matches_only_with_agreeing_title(
     assert work_id == canonical
     assert method == expected_method
     assert score == 1.0
+
+
+@pytest.mark.parametrize("spelling", [
+    "info:doi/10.1016/s0065-2881(08)60074-7",
+    "10.1016/s0065-2881%2808%2960074-7",
+])
+def test_doi_prefix_and_percent_encoding_normalize_before_lookup(conn, spelling):
+    canonical = "10.1016/s0065-2881(08)60074-7"
+    _seed_work(conn, canonical, "Siphonophore biology", 1987, "Mackie",
+               doi=canonical)
+
+    assert biblio._resolve_reference(conn, {
+        "title": "Siphonophore biology",
+        "year": 1987,
+        "authors": ["G Mackie"],
+        "doi": spelling,
+    }) == (canonical, "doi_exact", 1.0)
+
+
+def test_truncated_parenthesized_doi_needs_independent_title_evidence(conn):
+    canonical = "10.1016/s0065-2881(08)60074-7"
+    title = "Siphonophore biology and functional morphology"
+    _seed_work(conn, canonical, title, 1987, "Mackie", doi=canonical)
+
+    assert biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 1987,
+        "authors": ["G Mackie"],
+        "doi": "10.1016/s0065-2881(08",
+    }) == (canonical, "doi_truncation_title", 1.0)
 
 
 def test_doi_variant_shape_alone_does_not_merge_different_title(conn):
@@ -249,7 +394,7 @@ def test_title_match_alone_does_not_override_an_unrelated_doi(conn):
     work_id, method, _score = biblio._resolve_reference(conn, {
         "title": title,
         "year": 2013,
-        "authors": ["V Kraujalyte"],
+        "authors": ["X Unrelated"],
         "doi": "10.9999/unrelated",
     })
 

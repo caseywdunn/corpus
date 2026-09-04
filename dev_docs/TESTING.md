@@ -52,6 +52,26 @@ Normal builds do not generate it, and served-bundle distillation excludes it.
 The default safety limit is 200 selected pages; select a smaller range or pass
 `--max-pages 0` deliberately for a longer document.
 
+### Reference reconciliation audit
+
+After rebuilding the bibliographic authority database, audit the missing-work
+ranking against its raw observation evidence:
+
+```bash
+python tools/qc/reference_reconciliation.py \
+  --db /path/to/output/biblio_authority.sqlite \
+  --min-citations 2 --limit 50 --out reference-reconciliation.json
+```
+
+The command is read-only and requires the v1.3 observation schema. It reports
+the current, mapped and unmapped observation/citing-document populations,
+compatibility citation edges, mapping methods and producer versions, then gives
+bounded raw/parsed evidence for each ranked missing work. A substantive
+same-title/year corpus candidate is a review signal only; `author_set_match`
+identifies the narrower exact identity evidence used by the deterministic
+resolver. The report never merges works and does not change the MCP response
+surface.
+
 ### Ground-truth tests (per-paper)
 
 | Module | What it checks |

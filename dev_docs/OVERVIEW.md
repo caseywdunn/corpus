@@ -299,6 +299,16 @@ an incremental addition converge on the same current map while retaining the
 conservative rule: weak evidence creates a separate work rather than silently
 misrouting a citation.
 
+The deterministic resolver normalizes DOI wrappers and percent encoding, and
+tests narrowly shaped DOI corruption only when title evidence independently
+agrees. To escape a damaged or reordered first-author block, it may match an
+in-corpus work across all blocks only when the year and complete normalized
+author-surname set agree, both titles are substantive, exactly one candidate
+passes, and the titles satisfy the established exact or dual fuzzy thresholds.
+A conflicting DOI is preserved in the observation and named in the mapping
+method; it is never silently rewritten. Title/year agreement without author-set
+agreement is review evidence, not permission to merge (#155, #225).
+
 The existing `citations` table is a compatibility materialization of that map,
 not a second source of truth. The frozen MCP bibliography tools continue to
 read it unchanged; clustering, reconciliation and evidence mutation therefore
