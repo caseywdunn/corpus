@@ -30,6 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Authority tests now exercise the production database schema (#237).**
+  Five fixtures had copied mutually inconsistent `works`, `work_authors`,
+  `citations`, and `work_aliases` declarations, so adding a production column
+  broke only whichever tests happened to select it. They now call
+  `bib.authority.create_schema` and insert small datasets into the real schema.
+  A repository test rejects any future hand-written `works` declaration under
+  `tests/`, making schema additions visible everywhere immediately.
+
 - **Reference ingestion no longer manufactures title evidence (#226, #239).**
   A Grobid `monogr/title[@level='j']` is now retained only as the journal;
   only an analytic title or a non-journal monograph title can become the cited

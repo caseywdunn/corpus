@@ -201,7 +201,7 @@ the latter out until the new observation set can measure whether it is needed.
   reference; map it to a canonical work in a separate relation carrying the
   method, score and producer version. Reconciliation becomes a pure,
   re-runnable decision over observations rather than a destructive merge.
-- [ ] **Centralize the works/citations schema used by tests**
+- [x] **Centralize the works/citations schema used by tests**
   ([#237](https://github.com/caseywdunn/corpus/issues/237)) before migrating
   it, so five hand-written test schemas cannot validate five different models.
 - [ ] **Preserve the frozen MCP wire surface.** Existing reference tools read

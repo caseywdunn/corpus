@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from bib.authority import create_schema
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = REPO_ROOT / "tools" / "unify_doi_corpus_key.py"
 
@@ -164,33 +166,7 @@ def test_survivor_raises_when_both_in_corpus():
 def _make_db():
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.executescript("""
-        CREATE TABLE works (
-            work_id TEXT PRIMARY KEY, guid_type TEXT NOT NULL,
-            title TEXT, year INTEGER, journal TEXT, doi TEXT,
-            bhl_item_id TEXT, bhl_part_id TEXT, openalex_id TEXT,
-            corpus_hash TEXT, in_corpus INTEGER NOT NULL DEFAULT 0,
-            source TEXT NOT NULL, confidence REAL DEFAULT 1.0,
-            created_at REAL NOT NULL, updated_at REAL NOT NULL
-        );
-        CREATE TABLE work_authors (
-            work_id TEXT NOT NULL, position INTEGER NOT NULL,
-            surname TEXT NOT NULL, surname_normalized TEXT NOT NULL,
-            forename TEXT,
-            PRIMARY KEY (work_id, position)
-        );
-        CREATE TABLE citations (
-            citing_work_id TEXT NOT NULL, cited_work_id TEXT NOT NULL,
-            citing_corpus_hash TEXT NOT NULL,
-            grobid_xml_id TEXT, raw_citation TEXT,
-            match_method TEXT NOT NULL, match_score REAL DEFAULT 1.0,
-            PRIMARY KEY (citing_work_id, cited_work_id, citing_corpus_hash)
-        );
-        CREATE TABLE work_aliases (
-            alias_key TEXT NOT NULL, work_id TEXT NOT NULL,
-            PRIMARY KEY (alias_key, work_id)
-        );
-    """)
+    create_schema(conn)
     return conn
 
 

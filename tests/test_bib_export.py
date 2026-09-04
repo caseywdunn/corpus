@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from bib.authority import create_schema
 from bib.export import (
     _alpha_suffix,
     _ascii_surname,
@@ -107,26 +108,9 @@ def test_render_entry_escapes_braces():
 
 
 def _make_min_db(path: Path) -> None:
-    """Minimal works/work_authors fixture matching biblio_authority.sqlite shape."""
+    """Small data fixture over the production authority schema."""
     conn = sqlite3.connect(path)
-    conn.executescript("""
-        CREATE TABLE works (
-            work_id TEXT PRIMARY KEY, guid_type TEXT, title TEXT, year INTEGER,
-            journal TEXT, doi TEXT, bhl_item_id TEXT, bhl_part_id TEXT,
-            openalex_id TEXT, corpus_hash TEXT, in_corpus INTEGER NOT NULL DEFAULT 0,
-            source TEXT, confidence REAL,
-            license TEXT, license_url TEXT, license_source TEXT,
-            publishable INTEGER,
-            serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
-            ocrlang TEXT, ocrmode TEXT,
-            doclang TEXT, pagemap TEXT, keeppages TEXT,
-            created_at REAL, updated_at REAL
-        );
-        CREATE TABLE work_authors (
-            work_id TEXT, position INTEGER, surname TEXT, surname_normalized TEXT,
-            forename TEXT, PRIMARY KEY (work_id, position)
-        );
-    """)
+    create_schema(conn)
     now = time.time()
     conn.executemany(
         """INSERT INTO works
