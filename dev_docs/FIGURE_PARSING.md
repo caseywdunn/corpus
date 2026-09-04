@@ -64,11 +64,34 @@ and every defined era, file-type and layout bucket improved in both recall and
 precision. This isolates the association change; a clean source-PDF rebuild is
 still required at the release gate.
 
+Panel splitting is now a separate acceptance measure rather than an inference
+from figure-number binding. The independent gold parser finds **93 captions
+that explicitly enumerate lettered panels**. Replaying current caption
+selection and panel parsing over the persisted Docling artifacts reports a
+panel declaration for **83**, an exact label set for **81**, and label recall /
+precision of **0.895 / 1.000**. It declares no panels for the 175 same-page,
+same-number gold figure blocks that the gold parser classifies as non-panelled.
+This metadata replay deliberately retains the older entry/classification
+population, so its figure-number totals are not a replacement for the 0.580 /
+0.910 full regression result above. The clean release rebuild must confirm
+both measures together.
+
 The scorer now parses hand-transcribed gold labels independently of the
 production parser and reports the raw artifact and default MCP surface
 separately. That separation is load-bearing: an earlier version reused
 production's fuzzy OCR parser, so changing the extractor silently changed the
 supposedly fixed gold denominator from 496 to 486.
+
+**Panel labels have their own independent parser and denominator.** Only text
+after the gold block's first figure-caption opener is eligible, so an `A` or
+`B` engraved inside the picture cannot manufacture a caption declaration.
+The yardstick accepts period, parenthesized, comma and range styles, retains
+printed gaps such as Totton Figure 74's A–H, K, L, and excludes numeric grouped
+plates. It reports declaration recall/precision, exact label sets, and
+label-level recall/precision. Production supports those same letter styles,
+but uses geometry and a growing label set to join Docling-split continuation
+cells; it stops period-marker scanning at abbreviation glossaries so
+`C. rad.lat` cannot become a fictitious panel C.
 
 ## How it is measured, and why in that shape
 
@@ -100,8 +123,9 @@ blocks it does not apply to:**
 | `nothing_printed` | 5 | no |
 
 **Most "captions" in this literature are not captions.** 229 of 376 blocks are
-a bare label. Caption *text* similarity is computable for 85 pairs out of 496
-gold numbers, which is why it is reported and not headlined.
+a bare label. Caption *text* similarity is computable for only 85
+number-matched pairs in the served-bundle replay, which is why it is reported
+and not headlined.
 
 ## Where corpus does well
 

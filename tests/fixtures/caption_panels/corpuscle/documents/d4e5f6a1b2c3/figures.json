@@ -1,0 +1,37 @@
+{
+ "schema_version": 1,
+ "pipeline_version": "test",
+ "figures_directory": "figures",
+ "figures": [
+  {
+   "figure_id": "docling_1",
+   "filename": "fig_1.png",
+   "caption_text": "Fig. 1. Colony views. A, upper; B, lateral; C, lower.",
+   "extraction_method": "docling",
+   "figure_type": "figure",
+   "figure_number": "1",
+   "page": 1,
+   "panels_from_caption": [
+    {"label": "A", "description": "upper", "kind": "comma"},
+    {"label": "B", "description": "lateral", "kind": "comma"},
+    {"label": "C", "description": "lower", "kind": "comma"}
+   ]
+  },
+  {
+   "figure_id": "docling_2",
+   "filename": "fig_2.png",
+   "caption_text": "Fig. 2. A complete whole-colony illustration without separate panels.",
+   "extraction_method": "docling",
+   "figure_type": "figure",
+   "figure_number": "2",
+   "page": 1,
+   "panels_from_caption": [
+    {"label": "A", "description": "wrong", "kind": "period"},
+    {"label": "B", "description": "wrong", "kind": "period"}
+   ]
+  }
+ ],
+ "total_figures": 2,
+ "missing_figures": [],
+ "total_missing_figures": 0
+}

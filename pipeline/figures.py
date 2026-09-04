@@ -178,7 +178,7 @@ _CAPTION_BODY_PREFIX_RE = re.compile(
 # A letter followed by period, with word-boundary guards: not preceded by
 # another letter (so "Dr." / "Mr." / "pH" don't match), the period must be
 # followed by whitespace or end-of-string.
-_PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-Z])\.(?=\s|$)")
+_PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-L])\.(?=\s|$)")
 
 # A person's initial looks exactly like a period-style panel label. In a
 # taxonomic corpus both are everywhere: "(A. Agassiz)" is a species
@@ -206,10 +206,12 @@ def _is_person_initial(body: str, start: int, end: int) -> bool:
     ("A. *Nanomia bijuga* colony, scale bar 1 cm") matches none of
     those and is left alone.
     """
+    before = body[:start]
+    if re.search(r"(?:\(|&)\s*$", before):
+        return True
     after = body[end:]
     if not _INITIAL_SURNAME_RE.match(after):
         return False
-    before = body[:start]
     if _CREDIT_CONTEXT_RE.search(before):
         return True
     if re.search(r"\(\s*$", before):
@@ -220,12 +222,28 @@ def _is_person_initial(body: str, start: int, end: int) -> bool:
 
 # Parenthesized panel label — tolerates Siebert-style "( A )" with internal
 # whitespace. Must not be adjacent to letters (so "(NaCl)" doesn't match).
-_PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-Z])\s*\)(?![A-Za-z])")
+_PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-L])\s*\)(?![A-Za-z])")
+
+# Comma-style panel labels are common in monograph captions: ``A, dorsal
+# view; B, lateral view`` and ``A, B, female gonophore``.  Requiring an
+# uppercase singleton plus a following comma keeps ordinary prose and
+# lowercase abbreviation keys out; the contiguous-A sanity check below is
+# the second guard.  This is a panel marker, not a numeric figure-list
+# connector (#203).
+_PANEL_COMMA_RE = re.compile(r"(?<![A-Za-z])([A-L])\s*,(?=\s)")
 
 # A-C / A–C / A—C ranges. The end letter must come after the start letter
 # alphabetically — otherwise it's not a valid range.
 _PANEL_RANGE_RE = re.compile(
-    r"(?<![A-Za-z])([A-Z])\s*[\-\u2013\u2014]\s*([A-Z])(?=[.,:;\s)]|$)"
+    r"(?<![A-Za-z])([A-L])\s*[\-\u2013\u2014]\s*([A-L])(?=[.,:;\s)]|$)"
+)
+
+# Figure captions often end in an abbreviation glossary (``C.ped = pedicular
+# canal; H = hydroecium``). OCR can split ``C.rad`` into ``C. rad``, which is
+# indistinguishable from a period-style panel unless marker scanning stops at
+# the start of that glossary.
+_CAPTION_GLOSSARY_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?P<key>[A-Z][A-Za-z0-9.]{0,10}|[a-z]{1,4})\s*="
 )
 
 
@@ -237,6 +255,7 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
     * ``A. upper and B. lower views …`` — letter + period
     * ``(A) Paired samples (B) and (C) …`` — parenthesized (with optional
       internal whitespace, ``( A )`` also matches)
+    * ``A, dorsal view; B, lateral view`` — letter + comma
     * ``A-C. scale 2 mm`` — ranges (expand to A, B, C with shared description)
 
     Returns a list ``[{label, description, kind}]`` in alphabetical order
@@ -253,6 +272,16 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
     body = _CAPTION_BODY_PREFIX_RE.sub("", caption_text).strip()
     if not body:
         return []
+    glossary_terms = list(_CAPTION_GLOSSARY_RE.finditer(body))
+    # Equalities can be part of a panel description (``n = 16; p = .04``).
+    # Require both a repeated assignment shape and a compound abbreviation
+    # key such as ``C.ped`` before treating the suffix as a glossary.
+    glossary_start = (
+        glossary_terms[0].start()
+        if len(glossary_terms) >= 2
+        and any("." in match.group("key") for match in glossary_terms)
+        else None
+    )
 
     # Gather markers ordered by start position. Each marker is
     # (start, end, label_or_range, kind).
@@ -274,8 +303,15 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
             continue
         markers.append((m.start(), m.end(), m.group(1), "paren"))
 
+    for m in _PANEL_COMMA_RE.finditer(body):
+        if _in_range_span(m.start()):
+            continue
+        markers.append((m.start(), m.end(), m.group(1), "comma"))
+
     for m in _PANEL_PERIOD_RE.finditer(body):
         if _in_range_span(m.start()):
+            continue
+        if glossary_start is not None and m.start() >= glossary_start:
             continue
         if _is_person_initial(body, m.start(), m.end()):
             continue
@@ -303,19 +339,21 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
             panels.setdefault(lbl, {"label": lbl, "description": desc, "kind": kind})
 
     # Sanity filter: real panel sets are a contiguous run starting at 'A'
-    # ({A}, {A,B}, {A,B,C}, …). Any gap or outlier (B/L/P, A/L) is almost
+    # ({A}, {A,B}, {A,B,C}, …). A sparse set of fewer than four labels with a
+    # gap or outlier (B/L, A/L) is almost
     # always a false positive — the matcher latching onto Latin binomial
     # abbreviations (``L. patritii``, ``E. richardi``) or section
-    # letters ("Section B: …"). We cap at 'K' (11 panels) since anything
-    # beyond is vanishingly rare in scientific figures and the false-
-    # positive risk grows with the count.
+    # letters ("Section B: …"). A long explicit set may contain real gaps —
+    # Totton Figure 74 is A--H, K, L — so four or more markers are sufficient
+    # to retain the printed set. We cap at L; anything beyond is vanishingly
+    # rare in this corpus and the false-positive risk grows with the count.
     if panels:
         letters = sorted(panels)
         if letters[0] != "A":
             return []
         # Require contiguous a..n sequence
         expected = [chr(ord("A") + i) for i in range(len(letters))]
-        if letters != expected or letters[-1] > "K":
+        if letters[-1] > "L" or (letters != expected and len(letters) < 4):
             return []
 
     return [panels[k] for k in sorted(panels)]
@@ -692,6 +730,8 @@ def _join_caption_parts(label: str, body: str) -> str:
 
 
 _CAPTION_COMPONENT_MAX_GAP_PTS = 24.0
+_PANEL_CONTINUATION_MAX_GAP_PTS = 36.0
+_HEURISTIC_OVERRIDE_MARGIN_PTS = 24.0
 _CROSS_PAGE_OWNER_MAX_GAP_PTS = 180.0
 _CROSS_PAGE_OWNER_MIN_AREA_RATIO = 0.20
 _CAPTION_EVIDENCE_TEXT_LIMIT = 600
@@ -725,12 +765,86 @@ def _body_after_label(document, page: int, label_bbox: List[float]):
     return min(matches, default=None, key=lambda row: row[0])
 
 
+def _complete_panel_caption(
+    document, page: int, caption_bbox: List[float], caption_text: str,
+):
+    """Join adjacent text fragments that extend a panel declaration.
+
+    Docling sometimes links the short title line as ``caption`` and emits the
+    immediately following ``A, ...; B, ...`` continuation as ordinary
+    ``text``. Appending arbitrary nearby text would turn the first body
+    paragraph into caption evidence, so this path requires three independent
+    signals: same page, overlapping/tightly adjacent geometry, and a complete
+    multi-panel declaration that adds labels to the selected fragments.
+
+    More than one continuation is possible when a long caption wraps across
+    separately classified text cells. The loop is bounded by the finite text
+    fragments and accepts a fragment only when the parsed label set grows.
+    Returns ``None`` when no completion was made, otherwise the completed text
+    and union bbox.
+    """
+    current_text = caption_text
+    current_bbox = caption_bbox
+    completed = None
+    while True:
+        current_labels = {
+            panel["label"] for panel in parse_panels_from_caption(current_text)
+        }
+        matches = []
+        for item in getattr(document, "texts", None) or []:
+            for text, bbox, item_page in _text_fragments(item):
+                if item_page != page or _FIGURE_NUMBER_IN_CAPTION_RE.match(text):
+                    continue
+                gap = current_bbox[1] - bbox[3]
+                if gap < -2.0 or gap > _PANEL_CONTINUATION_MAX_GAP_PTS:
+                    continue
+                if _horizontal_overlap(current_bbox, bbox) <= 0:
+                    continue
+                combined = _join_caption_parts(current_text, text)
+                combined_panels = parse_panels_from_caption(combined)
+                combined_labels = {panel["label"] for panel in combined_panels}
+                if not combined_labels > current_labels:
+                    continue
+                added = combined_labels - current_labels
+                # Once a complete set is already present, an abbreviation in
+                # the following body paragraph (``E. mitra``) must not extend
+                # A--D to a fictitious panel E. Comma/paren/range syntax is
+                # explicit; a period-only extension is accepted only when it
+                # opens the adjacent fragment itself.
+                added_kinds = {
+                    panel["kind"] for panel in combined_panels
+                    if panel["label"] in added
+                }
+                if current_labels and added_kinds == {"period"}:
+                    next_label = chr(ord(max(current_labels)) + 1)
+                    if not re.match(
+                        rf"^\s*(?:\(\s*)?{next_label}(?:\s*\))?\.", text,
+                    ):
+                        continue
+                matches.append((gap, text, bbox, combined))
+        if not matches:
+            break
+        _gap, _text, bbox, current_text = min(
+            matches, key=lambda row: row[0],
+        )
+        current_bbox = _bbox_union(current_bbox, bbox)
+        if len(parse_panels_from_caption(current_text)) >= 2:
+            completed = (current_text, current_bbox)
+    return completed
+
+
 def _label_before_body(document, page: int, body_bbox: List[float]):
-    """Return a tightly adjacent figure label printed above a caption body."""
+    """Return a tightly adjacent figure-caption opener above its body.
+
+    The opener can be a bare ``FIG. 3`` or a short title such as ``FIG. 79.
+    Species name``. Docling sometimes links the following panel description
+    to the picture instead of that opener; geometry is the evidence that they
+    are parts of one caption.
+    """
     matches = []
     for item in getattr(document, "texts", None) or []:
         for text, bbox, item_page in _text_fragments(item):
-            if item_page != page or not _is_bare_figure_label(text):
+            if item_page != page or not _FIGURE_NUMBER_IN_CAPTION_RE.match(text):
                 continue
             gap = bbox[1] - body_bbox[3]
             if gap < -2.0 or gap > _CAPTION_COMPONENT_MAX_GAP_PTS:
@@ -1643,6 +1757,11 @@ def extract_caption_info(picture, document) -> Dict:
                         _gap, label_text, label_bbox = label
                         text = _join_caption_parts(label_text, text)
                         bbox = _bbox_union(label_bbox, bbox)
+                completion = _complete_panel_caption(
+                    document, page, bbox, text,
+                )
+                if completion:
+                    text, bbox = completion
                 distance = (
                     _vertical_gap(pic_bbox, bbox)
                     if pic_bbox is not None else None
@@ -1682,6 +1801,11 @@ def extract_caption_info(picture, document) -> Dict:
                             or _join_caption_parts(text, body_text)
                         )
                         candidate_bbox = _bbox_union(bbox, body_bbox)
+                completion = _complete_panel_caption(
+                    document, page, candidate_bbox, candidate_text,
+                )
+                if completion:
+                    candidate_text, candidate_bbox = completion
                 page_distance = page - pic_page
                 confidence = "medium" if page_distance == 0 else "low"
                 candidate = _caption_candidate(
@@ -1690,6 +1814,8 @@ def extract_caption_info(picture, document) -> Dict:
                     bbox=candidate_bbox,
                     source="heuristic_proximity",
                     picture_page=pic_page,
+                    # Ownership follows the opener's anchor, not the extent
+                    # of panel text appended below it.
                     distance=_vertical_gap(pic_bbox, bbox),
                     confidence=confidence,
                 )
@@ -1712,10 +1838,40 @@ def extract_caption_info(picture, document) -> Dict:
                 c["distance_pts"] if c["distance_pts"] is not None else float("inf"),
             ),
         )
+        geometry_override = False
+        # A structural link is strong evidence, not an oracle. Dense pages can
+        # link the lower picture to the preceding figure's caption. Override
+        # it only when a same-page heuristic candidate names a different
+        # figure, sits within the caption-component gap, and is materially
+        # closer. This is the measured Totton Fig. 78/79 failure; the margin
+        # prevents small layout-model jitter from defeating a valid link.
+        if chosen["caption_source"] == "docling_caption_link" \
+                and chosen["distance_pts"] is not None:
+            chosen_number = parse_figure_number(chosen["_full_caption_text"])
+            closer = [
+                candidate for candidate in viable
+                if candidate["caption_source"] == "heuristic_proximity"
+                and candidate["page_distance"] == 0
+                and candidate["distance_pts"] is not None
+                and candidate["distance_pts"] <= _CAPTION_COMPONENT_MAX_GAP_PTS
+                and parse_figure_number(candidate["_full_caption_text"])
+                and parse_figure_number(candidate["_full_caption_text"])
+                != chosen_number
+                and chosen["distance_pts"] - candidate["distance_pts"]
+                >= _HEURISTIC_OVERRIDE_MARGIN_PTS
+            ]
+            if closer:
+                chosen = min(closer, key=lambda c: c["distance_pts"])
+                geometry_override = True
         chosen["chosen"] = True
         for candidate in viable:
             if candidate is not chosen:
-                candidate["rejection_reason"] = "lower_ranked_candidate"
+                candidate["rejection_reason"] = (
+                    "materially_closer_same_page_candidate"
+                    if geometry_override
+                    and candidate["caption_source"] == "docling_caption_link"
+                    else "lower_ranked_candidate"
+                )
         info.update({
             "caption_text": chosen["_full_caption_text"],
             "caption_page": chosen["caption_page"],

@@ -7,7 +7,7 @@ item whose first span was running prose on page 11.
 """
 from types import SimpleNamespace as NS
 
-from pipeline.figures import extract_caption_info
+from pipeline.figures import extract_caption_info, parse_panels_from_caption
 
 
 def _bbox(left, bottom, right, top):
@@ -84,6 +84,33 @@ def test_page_spanning_text_exposes_the_correct_figure_label():
     )
 
 
+def test_materially_closer_local_caption_can_override_wrong_structural_link():
+    wrong = _text(
+        "FIG. 78. Upper figure. A, dorsal; B, lateral.",
+        4,
+        (90, 397, 520, 438),
+        label="caption",
+    )
+    right = _text(
+        "FIG. 79. Lower figure. A, dorsal; B, lateral; C, ventral.",
+        4,
+        (70, 90, 540, 154),
+        label="caption",
+    )
+    picture = _picture(4, (72, 165, 545, 340), captions=[_Ref(wrong)])
+    document = NS(texts=[wrong, right], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert got["caption_text"].startswith("FIG. 79.")
+    rejected = [c for c in got["caption_candidates"] if not c["chosen"]]
+    assert any(
+        c["caption_text"].startswith("FIG. 78.")
+        and c["rejection_reason"] == "materially_closer_same_page_candidate"
+        for c in rejected
+    )
+
+
 def test_adjacent_label_is_joined_to_a_structurally_linked_caption_body():
     label = _text("FIGURE 3.", 4, (60, 300, 90, 308), label="section_header")
     body = _text(
@@ -102,6 +129,156 @@ def test_adjacent_label_is_joined_to_a_structurally_linked_caption_body():
     assert got["caption_source"] == "docling_caption_link"
     assert got["caption_confidence"] == "high"
     assert "FIGURE 3.." not in got["caption_text"]
+
+
+def test_adjacent_panel_text_completes_a_structurally_linked_caption():
+    title = _text(
+        "FIG. 52. Forskalia edwardsi.",
+        4,
+        (220, 357, 385, 364),
+        label="caption",
+    )
+    continuation = _text(
+        "A young nectophore. A, ostial; B, lateral; C, upper; D, lower view.",
+        4,
+        (60, 330, 540, 348),
+        label="text",
+    )
+    picture = _picture(4, (70, 375, 550, 757), captions=[_Ref(title)])
+    document = NS(texts=[title, continuation], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert "A young nectophore" in got["caption_text"]
+    assert [p["label"] for p in parse_panels_from_caption(got["caption_text"])] == [
+        "A", "B", "C", "D",
+    ]
+    assert got["caption_bbox"] == [60, 330, 540, 364]
+
+
+def test_adjacent_body_prose_does_not_complete_a_caption():
+    title = _text(
+        "FIG. 3. Whole colony.", 4, (220, 357, 385, 364), label="caption",
+    )
+    body = _text(
+        "A new interpretation follows in the main text below.",
+        4,
+        (60, 330, 540, 348),
+        label="text",
+    )
+    picture = _picture(4, (70, 375, 550, 757), captions=[_Ref(title)])
+    document = NS(texts=[title, body], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert got["caption_text"] == "FIG. 3. Whole colony."
+
+
+def test_following_species_initial_does_not_extend_complete_panel_set():
+    caption = _text(
+        "FIG. 129. A, lateral; B, basal; C, gonophore; D, ventral.",
+        4,
+        (90, 143, 530, 175),
+        label="caption",
+    )
+    body = _text(
+        "Eudoxid phase. The bract differs from E. mitra in its proportions.",
+        4,
+        (60, 100, 540, 139),
+        label="text",
+    )
+    picture = _picture(4, (92, 180, 532, 486), captions=[_Ref(caption)])
+    document = NS(texts=[caption, body], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert got["caption_text"] == caption.text
+    assert [p["label"] for p in parse_panels_from_caption(got["caption_text"])] == [
+        "A", "B", "C", "D",
+    ]
+
+
+def test_several_adjacent_fragments_complete_one_panel_caption():
+    title = _text(
+        "FIG. 120. Muggiaea bargmannae.",
+        4,
+        (220, 143, 400, 150),
+        label="caption",
+    )
+    first = _text(
+        "A, B, lateral and ventral views; C, baso-ventral parts of",
+        4,
+        (95, 132, 530, 139),
+        label="text",
+    )
+    second = _text(
+        "four paratypes; D, E, apical and basal views.",
+        4,
+        (95, 100, 530, 128),
+        label="text",
+    )
+    picture = _picture(4, (90, 164, 532, 486), captions=[_Ref(title)])
+    document = NS(texts=[title, first, second], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert [p["label"] for p in parse_panels_from_caption(got["caption_text"])] == [
+        "A", "B", "C", "D", "E",
+    ]
+    assert got["caption_bbox"] == [95, 100, 530, 150]
+
+
+def test_caption_body_is_joined_to_adjacent_nonbare_opener():
+    opener = _text(
+        "FIG. 79. Nectopyramis spinosa.",
+        4,
+        (190, 146, 420, 154),
+        label="caption",
+    )
+    body = _text(
+        "A, dorsal view; B, lateral view; C, ventral view.",
+        4,
+        (70, 91, 540, 144),
+        label="caption",
+    )
+    picture = _picture(4, (72, 165, 545, 340), captions=[_Ref(body)])
+    document = NS(texts=[opener, body], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert got["caption_text"].startswith("FIG. 79.")
+    assert [p["label"] for p in parse_panels_from_caption(got["caption_text"])] == [
+        "A", "B", "C",
+    ]
+
+
+def test_separate_single_panel_list_items_are_joined_as_a_set():
+    title = _text(
+        "FIG. 132. Chuniphyes moserae.",
+        4,
+        (210, 156, 375, 163),
+        label="caption",
+    )
+    panel_a = _text(
+        "A, lateral view of the holotype.",
+        4,
+        (100, 146, 480, 152),
+        label="list_item",
+    )
+    panel_b = _text(
+        "B, polygastric phase.",
+        4,
+        (75, 111, 320, 118),
+        label="list_item",
+    )
+    picture = _picture(4, (70, 178, 515, 669), captions=[_Ref(title)])
+    document = NS(texts=[title, panel_a, panel_b], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert [p["label"] for p in parse_panels_from_caption(got["caption_text"])] == [
+        "A", "B",
+    ]
 
 
 def test_structural_label_selects_its_slice_of_an_enumerating_caption():

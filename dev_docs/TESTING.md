@@ -72,6 +72,28 @@ identifies the narrower exact identity evidence used by the deterministic
 resolver. The report never merges works and does not change the MCP response
 surface.
 
+### Caption-binding and panel-split fidelity
+
+Score a built corpuscle against the independent page transcriptions:
+
+```bash
+python tools/qc/caption_binding.py \
+  --gold /path/to/transcriptions \
+  --corpuscle /path/to/output \
+  --out caption-binding.json
+```
+
+The read-only report separates the raw figure record from the default MCP
+evidence types. Figure-number recall/precision measures same-page ownership;
+the panel section separately reports declaration recall/precision, exact
+letter sets, and label recall/precision. Both gold parsers are independent of
+the production functions they measure, and numeric figures sharing a plate
+are excluded from the letter-panel denominator. Declaration precision uses
+same-page, same-number gold figure blocks without panel enumerations as its
+negative set. Page diagnostics retain the
+expected, reported, missing and surplus numbers and panel labels needed to
+open the corresponding page report.
+
 ### Ground-truth tests (per-paper)
 
 | Module | What it checks |

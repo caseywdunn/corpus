@@ -28,12 +28,15 @@ from pathlib import Path
 
 import pytest
 
+from pipeline.figures import parse_panels_from_caption
+
 _PATH = Path(__file__).parent.parent / "tools" / "qc" / "caption_binding.py"
 _spec = importlib.util.spec_from_file_location("qc_caption_binding", _PATH)
 cb = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cb)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "gold_fidelity"
+PANEL_FIXTURE = Path(__file__).parent / "fixtures" / "caption_panels"
 
 
 # --- what a gold block is offering -------------------------------------------
@@ -117,6 +120,183 @@ def test_transcriber_commentary_does_not_contribute_numbers():
     assert nums == {"12"}
 
 
+# --- caption-enumerated panel splits -----------------------------------------
+
+
+@pytest.mark.parametrize(("caption", "labels"), [
+    ("Fig. 1. A. colony. B. nectophore. C. bract.", ["A", "B", "C"]),
+    ("Fig. 2. (A) upper view; (B) lower view.", ["A", "B"]),
+    ("Fig. 3. A-C. successive developmental stages.", ["A", "B", "C"]),
+    ("Fig. 4. A, anterior; B-D, lateral views.", ["A", "B", "C", "D"]),
+])
+def test_gold_panel_parser_covers_declared_styles(caption, labels):
+    """The gold parser is intentionally independent of production's parser."""
+    assert cb.gold_panel_labels(caption) == labels
+
+
+def test_gold_panel_parser_ignores_image_lettering_before_caption():
+    body = "A\nB\nC\nFig. 5. Whole colony without caption-enumerated panels."
+    assert cb.gold_panel_labels(body) == []
+
+
+def test_gold_panel_parser_rejects_initials_but_preserves_printed_gaps():
+    assert cb.gold_panel_labels(
+        "Fig. 6. Whole colony. Photo credit to C. Munro."
+    ) == []
+    assert cb.gold_panel_labels("Fig. 7. A. upper view; C. lower view.") == ["A", "C"]
+
+
+def test_gold_panel_parser_preserves_a_deliberately_gapped_set():
+    caption = (
+        "Fig. 74. Bracts. A, first; B, second; C, third; D, fourth; "
+        "E, fifth; F, sixth; G, seventh; H, eighth; K, ninth; L, tenth."
+    )
+    assert cb.gold_panel_labels(caption) == [
+        "A", "B", "C", "D", "E", "F", "G", "H", "K", "L",
+    ]
+
+
+def test_gold_panel_parser_ignores_credit_and_taxonomic_initials():
+    assert cb.gold_panel_labels(
+        "Fig. 83. A, male; B, female. From sketches by the late Miss M. J. Delap."
+    ) == ["A", "B"]
+    assert cb.gold_panel_labels(
+        "Fig. 132. A, first. Chuniphyes multidentata L. & v. R. B, second."
+    ) == ["A", "B"]
+
+
+def test_panel_case_requires_same_page_and_figure_number():
+    figures = {
+        3: [{
+            "figure_number": "8",
+            "panels_from_caption": [{"label": "A"}, {"label": "B"}],
+        }],
+        4: [{
+            "figure_number": "9",
+            "panels_from_caption": [{"label": "A"}, {"label": "B"}],
+        }],
+    }
+    exact = cb.score_panel_case(3, "8", ["A", "B"], figures)
+    missing = cb.score_panel_case(3, "9", ["A", "B"], figures)
+    assert exact["exact"] is True
+    assert exact["number_bound"] is True
+    assert missing["reported"] is False
+    assert missing["number_bound"] is False
+
+
+def test_panel_case_reports_missing_and_surplus_labels():
+    case = cb.score_panel_case(
+        5,
+        "10",
+        ["A", "B", "C"],
+        {5: [{
+            "figure_number": "10",
+            "panels_from_caption": [
+                {"label": "A"}, {"label": "B"}, {"label": "D"},
+            ],
+        }]},
+    )
+    assert case["matched_labels"] == ["A", "B"]
+    assert case["missing_labels"] == ["C"]
+    assert case["surplus_labels"] == ["D"]
+    assert case["exact"] is False
+
+
+def test_panel_report_scores_positive_and_negative_fixture_cases():
+    report = cb.build_report(
+        PANEL_FIXTURE / "gold", PANEL_FIXTURE / "corpuscle",
+    )
+    totals = report["surfaces"]["default MCP types"]["totals"]
+    assert totals["gold_panel_figures"] == 1
+    assert totals["reported_panel_figures"] == 1
+    assert totals["exact_panel_figures"] == 1
+    assert totals["panel_label_recall"] == 1.0
+    assert totals["panel_label_precision"] == 1.0
+    assert totals["number_matched_unpanelled_figures"] == 1
+    assert totals["unexpected_panel_figures"] == 1
+    assert totals["panel_figure_precision"] == 0.5
+    assert report["segments"]["era"]["2000-"]["panel_exact_rate"] == 1.0
+
+
+def test_production_panel_parser_handles_comma_style():
+    panels = parse_panels_from_caption(
+        "FIG. 99. A, Lensia conoidea, lateral view; "
+        "B, Lensia multicristata, dorsal view."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B"]
+    assert [panel["kind"] for panel in panels] == ["comma", "comma"]
+
+
+def test_production_panel_parser_handles_comma_lists_and_ranges():
+    panels = parse_panels_from_caption(
+        "FIG. 104. A, anterior nectophore; B-D, other views."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B", "C", "D"]
+
+
+def test_production_panel_parser_rejects_noncontiguous_comma_initials():
+    assert parse_panels_from_caption(
+        "FIG. 1. Whole animal, after A, Smith and C, Jones."
+    ) == []
+
+
+def test_production_panel_parser_ignores_letters_beyond_supported_panel_range():
+    panels = parse_panels_from_caption(
+        "Fig. 4. A. first. B. second. C. third. D. fourth. E. fifth. "
+        "Map made in R."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B", "C", "D", "E"]
+
+
+def test_production_panel_parser_keeps_a_strong_gapped_set_through_l():
+    panels = parse_panels_from_caption(
+        "Fig. 74. A, one; B, two; C, three; D, four; E, five; F, six; "
+        "G, seven; H, eight; K, nine; L, ten."
+    )
+    assert [panel["label"] for panel in panels] == [
+        "A", "B", "C", "D", "E", "F", "G", "H", "K", "L",
+    ]
+
+
+def test_production_panel_parser_stops_at_abbreviation_glossary():
+    panels = parse_panels_from_caption(
+        "Fig. 28. A, upper side; B, lateral view. "
+        "C.ped = pedicular canal; C. rad.lat = lateral radial canal."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B"]
+
+
+def test_one_scientific_equality_does_not_hide_later_panels():
+    panels = parse_panels_from_caption(
+        "Fig. 1. A. Sample size n = 16. B. Replicate measurement."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B"]
+
+
+def test_repeated_scientific_equalities_do_not_look_like_a_glossary():
+    panels = parse_panels_from_caption(
+        "Fig. 1. A. First sample, n = 16 and p = 0.04. "
+        "B. Replicate measurement."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B"]
+
+
+def test_production_panel_parser_ignores_taxonomic_author_initial():
+    panels = parse_panels_from_caption(
+        "Fig. 65. Rosacea plicata Q. & G. Polygastric phase. "
+        "A, lateral; B, dorsal; C, ventral."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B", "C"]
+
+
+def test_production_panel_parser_ignores_parenthesized_author_initial():
+    panels = parse_panels_from_caption(
+        "Fig. 90. Sulculeolaria chuni (L. & v. R.). "
+        "A, anterior; B, posterior; C, ventral."
+    )
+    assert [panel["label"] for panel in panels] == ["A", "B", "C"]
+
+
 # --- the denominator ----------------------------------------------------------
 
 
@@ -188,6 +368,14 @@ def test_f1_is_zero_when_rates_are_defined_but_nothing_matches():
 
 def test_the_report_states_why_it_does_not_use_caption_similarity(report):
     assert "artifact" in report["caveat"]
+
+
+def test_report_states_independent_panel_measurement(report):
+    assert "independently" in report["panel_method"]
+    totals = report["surfaces"]["default MCP types"]["totals"]
+    assert totals["gold_panel_figures"] == 0
+    assert totals["panel_exact_rate"] is None
+    assert "panel_figure_precision" in totals
 
 
 def test_segments_include_rates_by_era_file_type_and_layout(report):

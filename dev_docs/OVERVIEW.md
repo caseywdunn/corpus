@@ -192,11 +192,15 @@ not just as a string:
 1. **Structural candidate.** Resolve Docling's picture-to-caption link. Text
    is read by provenance span rather than only from the whole `TextItem`,
    because Docling can merge running prose from one page with a figure label
-   on the next. A tightly adjacent bare label and caption-labelled prose block
-   are joined into one complete caption.
+   on the next. Tightly adjacent caption openers and bodies are joined even
+   when Docling labels a panel continuation as ordinary text or a list item;
+   each added fragment must extend a valid letter-panel declaration.
 2. **Geometric candidates.** Inspect provenance-level figure labels on the
    picture page and immediately following page. Same-page candidates outrank
-   facing-page candidates; structural evidence outranks a proximity tie.
+   facing-page candidates; structural evidence outranks a proximity tie. A
+   same-page candidate naming a different figure can override a structural
+   link only when it is within the caption-component gap and at least 24 PDF
+   points closer; the displaced link remains in the rejected evidence.
 3. **Ownership check.** A next-page heuristic is rejected when a substantial
    picture on that page is a better local owner for the candidate. Historical
    facing-page captions remain possible, but are marked low confidence.
@@ -211,6 +215,12 @@ not just as a string:
    independently cited as missing before expansion, and admits the host image
    to one numeric ROI pass. The resulting regions are distributed back to the
    individual records; they never enter `panels_from_caption` as fake letters.
+
+Pass 2.5 recognizes period, parenthesized, comma and range panel styles through
+letter L. Small noncontiguous sets are rejected as probable initials; a strong
+multi-label set can retain printed gaps such as A–H, K, L. Period-style marker
+scanning stops at an abbreviation glossary, preventing OCR-split keys such as
+`C. rad.lat` from becoming invented panels.
 
 The selected text stays complete. `caption_candidates` retains at most five
 chosen/rejected records with candidate text capped at 600 characters, bbox,

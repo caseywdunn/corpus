@@ -157,6 +157,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an independent gold-label parser and reports raw and default-MCP surfaces,
   so an extractor-parser change cannot move its own gold denominator.
 
+  Panel correctness is now measured independently as well. Caption parsing
+  supports the common `A, ...; B, ...` style, preserves strong printed sets
+  with gaps through L, stops at abbreviation glossaries, joins geometrically
+  adjacent panel-description cells, and can reject a wrong structural link in
+  favor of a materially closer same-page numbered caption. On the 35-document
+  persisted-Docling metadata replay, 93 gold captions enumerate panels: 83
+  receive declarations, 81 label sets are exact, and label recall / precision
+  is 0.895 / 1.000. No panels are declared on 175 gold figure blocks without
+  a panel enumeration that match an extracted figure by page and number. A
+  clean source-PDF rebuild remains the release gate.
+
   Shared historical plates now proceed beyond logical record expansion:
   Pass 2.5 records their numeric figure targets separately from lettered
   panels, preserves an independent pre-expansion `missing_figures`

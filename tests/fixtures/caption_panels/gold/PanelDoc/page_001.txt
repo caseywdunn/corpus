@@ -1,0 +1,9 @@
+[PAGE 1]
+
+[FIGURE]
+Fig. 1. Colony views. A, upper; B, lateral; C, lower.
+[/FIGURE]
+
+[FIGURE]
+Fig. 2. A complete whole-colony illustration without separate panels.
+[/FIGURE]

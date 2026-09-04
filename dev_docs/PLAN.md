@@ -141,8 +141,12 @@ of what those numbers mean.
   page distance and confidence. A weak association must be exposed as weak in
   the stored artifact and MCP result, not presented as an ordinary caption.
   Full regression replay now moves the default served surface from 0.551 /
-  0.890 to 0.580 / 0.910 over the same persisted Docling inputs; keep this open
-  until the remaining panel-split acceptance check and clean rebuild are done.
+  0.890 to 0.580 / 0.910 over the same persisted Docling inputs. The independent
+  panel yardstick now finds 93 explicitly enumerated letter-panel captions;
+  current metadata replay declares 83, gets 81 exact sets, and scores 0.895 /
+  1.000 label recall/precision with no declaration on 175 same-page,
+  same-number non-panel figure blocks. Keep this open until the clean source-PDF
+  rebuild confirms both measures on the complete current extraction path.
 - [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered
