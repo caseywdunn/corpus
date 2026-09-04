@@ -179,6 +179,18 @@ def merge_duplicate(conn: sqlite3.Connection,
     if survivor_id == dup_id:
         return
 
+    # Keep v1.3's observation -> canonical-work verdicts valid when this
+    # maintenance pass removes one of the canonical rows (#240). Older DBs do
+    # not have the relation, so retain the tool's legacy compatibility.
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+        "AND name = 'observation_work'"
+    ).fetchone() is not None:
+        conn.execute(
+            "UPDATE observation_work SET work_id = ? WHERE work_id = ?",
+            (survivor_id, dup_id),
+        )
+
     # 1. Redirect incoming citations (dup was cited -> survivor is cited).
     conn.execute(
         "UPDATE OR IGNORE citations SET cited_work_id = ? WHERE cited_work_id = ?",

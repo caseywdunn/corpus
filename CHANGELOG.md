@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Reference evidence is now independent of canonical works (#240,
+  deterministic core).** Every bibliography occurrence is retained as a
+  content-addressed, append-only observation; replaceable source-set pointers
+  identify the current evidence without deleting superseded raw or parsed
+  citations. A separate observation-to-work relation records the match method,
+  score and rule-producer version. When the current observation set changes,
+  the complete derived mapping is rebuilt in stable order, so an incremental
+  paper addition converges with a clean build and an unchanged rerun leaves
+  the evidence and mapping rows untouched. Corpus-paper reconciliation records
+  its own scored decision, and maintenance merges redirect observation
+  mappings before removing a canonical duplicate. The existing `citations`
+  table remains the frozen MCP compatibility materialization; no tool name,
+  input or response shape moves.
+
 - **Per-document `ocrmode` makes a wrong OCR routing decision correctable
   (#186).** A BibTeX entry may set `ocrmode = {force}`, `{redo}`, or
   `{skip-text}` alongside `ocrlang`. A valid directive forces OCR to run even
@@ -29,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   normal build no longer creates a second raster set for every document.
 
 ### Fixed
+
+- **`bib.authority --rebuild` no longer retains artifact stamps that empty the
+  rebuilt database.** The command previously dropped `works` while preserving
+  `paper_artifacts_processed`, causing unchanged `metadata.json` files to be
+  skipped when the fresh schema was seeded. Rebuild now drops all derived
+  tracking and observation tables along with the authority graph while still
+  retaining the rate-limited BHL lookup cache.
 
 - **Authority tests now exercise the production database schema (#237).**
   Five fixtures had copied mutually inconsistent `works`, `work_authors`,

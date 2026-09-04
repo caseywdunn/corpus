@@ -33,9 +33,10 @@ Algorithm for each corpus paper with zero incoming citations:
   4. Require a confident match (score ≥ ``--min-score``, default 80)
      and, when there are multiple candidates, a clear margin over the
      runner-up (≥ ``--margin``, default 15).
-  5. Merge: redirect outgoing citations from the Phase-1 row onto the
-     ghost, copy authors/aliases, flip the ghost's ``in_corpus=1`` +
-     ``corpus_hash``, then delete the Phase-1 row.
+  5. Record the scored decision, then merge: redirect outgoing citations
+     from the Phase-1 row onto the ghost, copy authors/aliases, flip the
+     ghost's ``in_corpus=1`` + ``corpus_hash``, then delete the Phase-1 row.
+     Reference observations remain intact and separately mapped (#240).
 
 Idempotent: once a row is merged, the ghost is ``in_corpus=1`` and
 therefore excluded from the candidate set, and the merged-into corpus
@@ -77,6 +78,10 @@ def _require_rapidfuzz() -> None:
         sys.exit(1)
 
 logger = logging.getLogger("corpus.reconcile")
+
+# Persisted with every accepted corpus-paper reconciliation. This version is
+# independent of the package version so old verdicts remain interpretable.
+CORPUS_RECONCILIATION_PRODUCER = "corpus-reconciliation-v1"
 
 # Default is derived per-corpus from the output_dir positional arg in
 # main(); see "corpuscle" layout in README.md.
@@ -252,18 +257,39 @@ def pick_winner(scored: List[Tuple[str, int, str, int]],
 def merge_phase1_into_ghost(conn: sqlite3.Connection,
                             phase1_work_id: str,
                             ghost_work_id: str,
-                            corpus_hash: str) -> None:
+                            corpus_hash: str,
+                            match_method: str = "filename_title_page",
+                            match_score: Optional[float] = None) -> None:
     """Merge a Phase-1 corpus row onto an existing ghost cited-reference row.
 
     Assumes (and is protected by our selection predicate) that the
     Phase-1 row has zero incoming citations. Redirects outgoing
     citations, copies authors/aliases that aren't already on the
-    ghost, flips the ghost to ``in_corpus=1``, then deletes the
-    Phase-1 row.
+    ghost, records the decision, flips the ghost to ``in_corpus=1``, then
+    deletes the Phase-1 row. Raw reference observations are unaffected.
     """
     if phase1_work_id == ghost_work_id:
         # Already reconciled on a prior run; nothing to do.
         return
+
+    # The authority migration creates this table. Keep the standalone helper
+    # usable against a legacy DB as well: absence of an audit table must not
+    # make an otherwise valid pre-v1.3 repair fail halfway through.
+    has_decision_table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+        "AND name = 'work_reconciliation_decisions'"
+    ).fetchone() is not None
+    if has_decision_table:
+        conn.execute(
+            """INSERT OR IGNORE INTO work_reconciliation_decisions
+               (corpus_hash, source_work_id, target_work_id, match_method,
+                match_score, producer_version, decided_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                corpus_hash, phase1_work_id, ghost_work_id, match_method,
+                match_score, CORPUS_RECONCILIATION_PRODUCER, time.time(),
+            ),
+        )
 
     # 1. Redirect outgoing citations: the corpus paper's references.
     # Use OR IGNORE to survive any (rare) PK collisions, then delete
@@ -436,7 +462,11 @@ def reconcile(conn: sqlite3.Connection, output_dir: Path,
             corpus_hash, surname, year, winner_id[:80], score,
         )
         if not dry_run:
-            merge_phase1_into_ghost(conn, phase1_id, winner_id, corpus_hash)
+            merge_phase1_into_ghost(
+                conn, phase1_id, winner_id, corpus_hash,
+                match_method="filename_title_page",
+                match_score=score / 100.0,
+            )
 
     if not dry_run:
         conn.commit()

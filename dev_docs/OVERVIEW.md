@@ -274,11 +274,39 @@ Built from per-paper artifacts after Stage 1 finishes. All four are independentl
 | Database | Builder | What it stores |
 |---|---|---|
 | `taxonomy.sqlite` | `pipeline/taxonomy_ingest.py` | Darwin Core taxon backbone + synonymy. |
-| `biblio_authority.sqlite` | `bib/authority.py` (+ `bib/reconcile.py`) | Deduplicated works graph: corpus papers, cited references, taxonomic-authority strings; resolved to DOI / BHL Part / normalized citation key. |
+| `biblio_authority.sqlite` | `bib/authority.py` (+ `bib/reconcile.py`) | Append-only reference observations, auditable observation-to-work decisions, canonical works, and the materialized citation graph; work identities resolve to DOI / BHL Part / normalized citation key. |
 | `taxon_mentions.sqlite` | `pipeline/taxon_mentions.py` | Cross-paper taxon-name index from gnfinder + abbreviated-form expansion (`A. elegans` → `Agalma elegans`). |
 | `intext_citations.json` (per-paper) | `pipeline/intext_citations.py` | TEI body `<ref type="bibr">` elements joined to chunk offsets and resolved to `work_id` in the bibliographic authority. |
 
 `corpus run` chains the pipeline, embeddings, and these four post-pipeline steps in dependency order (see `pipeline/orchestrator.py`); `corpus status` reports what completed, what is stale, and what carries quality flags.
+
+### Reference evidence and canonical works
+
+`references.json` is evidence, not a canonical-work table. The authority
+builder content-addresses every bibliography occurrence into
+`reference_observations`; its raw citation, parsed fields and source-set
+membership are append-only. `reference_current_sets` is the replaceable pointer
+that says which observed source set is current for each paper. Reprocessing or
+removing a paper changes that pointer, not its historical evidence.
+
+`observation_work` is the independently re-derivable verdict. Every current
+observation maps to one canonical `works` row and carries the match method,
+score and rule-producer version. If any current reference set or the producer
+version changes, the builder discards derived verdicts and uncurated ghosts and
+recomputes the complete current mapping in a stable content-address order. An
+unchanged run does not update timestamps or rows. This makes a clean build and
+an incremental addition converge on the same current map while retaining the
+conservative rule: weak evidence creates a separate work rather than silently
+misrouting a citation.
+
+The existing `citations` table is a compatibility materialization of that map,
+not a second source of truth. The frozen MCP bibliography tools continue to
+read it unchanged; clustering, reconciliation and evidence mutation therefore
+remain build-plane work rather than leaking into the running server.
+`bib.reconcile` may still choose the surviving canonical row for a corpus PDF,
+but it records the scored decision in `work_reconciliation_decisions` and never
+deletes the underlying reference observation. Maintenance merges redirect
+`observation_work` before removing a superseded canonical row.
 
 ## MCP server (`mcpsrv/`)
 

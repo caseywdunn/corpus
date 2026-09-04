@@ -215,6 +215,19 @@ def test_merge_corpus_row_survives_doi_goes_into_doi_column():
             f"INSERT INTO citations VALUES "
             f"('p{i}','10.1080/10635150500354837','h{i}','b{i}','','x',1.0)"
         )
+    conn.execute(
+        """INSERT INTO reference_observations
+           (observation_id, citing_corpus_hash, ordinal, grobid_xml_id,
+            raw_citation, title, year, journal, doi, authors_json, first_seen_at)
+           VALUES ('obs-doi', 'h9', 0, 'b9', 'raw', 'title', 2005, '', '', '[]', ?)""",
+        (time.time(),),
+    )
+    conn.execute(
+        """INSERT INTO observation_work
+           VALUES ('obs-doi', '10.1080/10635150500354837',
+                   'doi_exact', 1.0, 'test-v1', ?)""",
+        (time.time(),),
+    )
     conn.commit()
 
     unify_mod.unify(conn)
@@ -237,6 +250,9 @@ def test_merge_corpus_row_survives_doi_goes_into_doi_column():
         "SELECT COUNT(*) FROM citations WHERE cited_work_id='corpus:dunn|2005|mp'"
     ).fetchone()[0]
     assert n == 10
+    assert conn.execute(
+        "SELECT work_id FROM observation_work WHERE observation_id='obs-doi'"
+    ).fetchone()[0] == "corpus:dunn|2005|mp"
 
 
 def test_merge_two_ghosts_doi_row_wins():

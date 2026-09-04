@@ -136,6 +136,19 @@ def test_merge_redirects_citations_and_flips_ghost():
         "SELECT 1 FROM citations WHERE citing_work_id = ?", ("corpus:garbage|1965|",),
     ).fetchone() is None
 
+    decision = conn.execute(
+        """SELECT source_work_id, target_work_id, match_method, match_score,
+                  producer_version
+           FROM work_reconciliation_decisions WHERE corpus_hash = 'abc123'"""
+    ).fetchone()
+    assert decision == (
+        "corpus:garbage|1965|",
+        "corpus:totton|1965|a synopsis",
+        "filename_title_page",
+        None,
+        reconcile.CORPUS_RECONCILIATION_PRODUCER,
+    )
+
 
 def test_merge_is_idempotent_when_ids_equal():
     conn = _make_db()

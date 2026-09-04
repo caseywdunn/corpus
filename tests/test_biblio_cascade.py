@@ -167,6 +167,35 @@ def test_high_confidence_match_does_cache_alias(conn):
     assert row[0] == "corpus:author|2001|foo bar baz quux title"
 
 
+def test_exact_lookup_ties_have_a_stable_canonical_preference(conn):
+    """Insertion order must not decide DOI/alias mappings (#240)."""
+    shared_doi = "10.5555/shared"
+    _seed_work(
+        conn, "z-ghost", "Shared title", 2001, "Author", doi=shared_doi,
+    )
+    _seed_work(
+        conn, "a-corpus", "Shared title", 2001, "Author", doi=shared_doi,
+    )
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'aaa' "
+        "WHERE work_id = 'a-corpus'"
+    )
+    alias = biblio.make_alias_key("Author", 2001, "Shared title")
+
+    assert biblio.lookup_by_doi(conn, shared_doi) == "a-corpus"
+    assert biblio.lookup_by_alias(conn, alias) == "a-corpus"
+
+
+def test_fuzzy_score_tie_uses_lexical_work_id(conn):
+    """Candidate row order cannot leak into a deterministic verdict (#240)."""
+    _seed_work(conn, "z-work", "Identical title", 2001, "Author")
+    _seed_work(conn, "a-work", "Identical title", 2001, "Author")
+
+    assert biblio.fuzzy_match_with_score(
+        conn, "Author", 2001, "Identical title",
+    ) == ("a-work", 100, 100)
+
+
 # ── Corrupted DOI + independent title evidence (#239) ──────────────
 
 

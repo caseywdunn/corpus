@@ -139,6 +139,18 @@ def test_merge_redirects_incoming_citations_and_drops_dup():
     conn.execute(
         "INSERT INTO citations VALUES ('citer2','canon','h2','b2','','alias_exact',1.0)"
     )
+    conn.execute(
+        """INSERT INTO reference_observations
+           (observation_id, citing_corpus_hash, ordinal, grobid_xml_id,
+            raw_citation, title, year, journal, doi, authors_json, first_seen_at)
+           VALUES ('obs-dup', 'h1', 0, 'b1', 'raw', 'title', 1888, '', '', '[]', ?)""",
+        (time.time(),),
+    )
+    conn.execute(
+        """INSERT INTO observation_work
+           VALUES ('obs-dup', 'dup', 'title_fuzzy', 0.9, 'test-v1', ?)""",
+        (time.time(),),
+    )
     conn.commit()
 
     dedup.merge_ghost_into_canonical(conn, "dup", "canon")
@@ -159,6 +171,9 @@ def test_merge_redirects_incoming_citations_and_drops_dup():
     assert conn.execute(
         "SELECT COUNT(*) FROM citations WHERE cited_work_id='dup'"
     ).fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT work_id FROM observation_work WHERE observation_id='obs-dup'"
+    ).fetchone()[0] == "canon"
 
 
 def test_merge_is_idempotent_when_ids_equal():

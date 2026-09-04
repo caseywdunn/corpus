@@ -195,7 +195,7 @@ the latter out until the new observation set can measure whether it is needed.
   as work titles ([#226](https://github.com/caseywdunn/corpus/issues/226)) and
   stop a malformed DOI from short-circuiting stronger title/author evidence
   ([#239](https://github.com/caseywdunn/corpus/issues/239)).
-- [ ] **Separate reference observations from canonical works**
+- [x] **Separate reference observations from canonical works**
   ([#240](https://github.com/caseywdunn/corpus/issues/240), deterministic
   core only). Keep one immutable/re-derivable observation per citing-paper
   reference; map it to a canonical work in a separate relation carrying the
@@ -204,7 +204,7 @@ the latter out until the new observation set can measure whether it is needed.
 - [x] **Centralize the works/citations schema used by tests**
   ([#237](https://github.com/caseywdunn/corpus/issues/237)) before migrating
   it, so five hand-written test schemas cannot validate five different models.
-- [ ] **Preserve the frozen MCP wire surface.** Existing reference tools read
+- [x] **Preserve the frozen MCP wire surface.** Existing reference tools read
   a compatibility view/materialization with their parameter names, defaults
   and response fields unchanged. Better data is expected; an accidental API
   migration inside a data-model change is not.

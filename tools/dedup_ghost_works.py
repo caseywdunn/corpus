@@ -184,6 +184,19 @@ def merge_ghost_into_canonical(conn: sqlite3.Connection,
     if dup_work_id == canonical_work_id:
         return
 
+    # v1.3 separates immutable reference evidence from its canonical-work
+    # verdict (#240). Keep those verdicts valid when this maintenance tool
+    # collapses two canonical rows. The table check preserves compatibility
+    # with authority DBs built before that schema existed.
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+        "AND name = 'observation_work'"
+    ).fetchone() is not None:
+        conn.execute(
+            "UPDATE observation_work SET work_id = ? WHERE work_id = ?",
+            (canonical_work_id, dup_work_id),
+        )
+
     # 1. Redirect incoming citations (dup was cited -> canonical is cited).
     conn.execute(
         "UPDATE OR IGNORE citations SET cited_work_id = ? WHERE cited_work_id = ?",
