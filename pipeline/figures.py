@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 
 _PLATE_CAPTION_RE = re.compile(
-    r"^\s*(?:plate|pl\.?|tafel|planche)\s*\d+",
+    r"^\s*(?:plate|pl\.?|tafel|planche)\s*"
+    r"(?:\d+|[IVXLCDM]+(?![A-Za-z]))",
     re.IGNORECASE,
 )
 
@@ -79,7 +80,7 @@ _FIGURE_REF_RE = re.compile(
 # Openers spelled correctly. These may be followed by an Arabic or a Roman
 # number with no separator — "PLATE XXI", "Plate IV.", "Figur 23".
 _CAPTION_OPENER_EXACT = (
-    r"fig(?:ure|ur|s)?|figg|abb(?:ildung)?|pl(?:ate)?|plate|рис(?:унок)?"
+    r"fig(?:ure|ur|s)?|figg|abb(?:ildung)?|pl(?:ate)?(?=[\s.])|рис(?:унок)?"
     r"|taf(?:el)?|tab(?:ula)?|lám(?:ina)?|tav(?:ola)?|bild|image|illustration"
     r"|text[\-\s]?fig(?:ure)?"
 )
@@ -89,20 +90,31 @@ _CAPTION_OPENER_EXACT = (
 # outnumber the correct one. Digits are allowed inside because OCR inserts
 # them there; "Puc" is "Рис" read as Latin lookalikes.
 #
-# This branch REQUIRES a following period, and the exact branch above does
-# not. Without that, the pattern is far too eager: "from  the  coasts of
-# British Columbia" matched opener "fro" and then read the "m" of "from" as
-# Roman numeral M, giving a handwritten marginal scribble the figure number
-# 1000. Every damaged spelling observed in the corpus carries the period, so
-# requiring it costs nothing and closes the hole.
+# This branch REQUIRES following label punctuation (period or comma), and the
+# exact branch above does not. Without that, the pattern is far too eager:
+# "from  the  coasts of British Columbia" matched opener "fro" and then read
+# the "m" of "from" as Roman numeral M, giving a handwritten marginal
+# scribble the figure number 1000. The measured damaged spellings carry a
+# period or OCR-substituted comma, so requiring that punctuation closes the
+# hole without losing those labels.
 _CAPTION_OPENER_FUZZY = r"f[a-z0-9]{1,5}|p[a-z]?[uy]c"
 
+# A very small number of figure labels survive OCR while the digits do not:
+# Totton's ``Fig. 10`` and ``Fig. 101`` recur as ``Fic. ro`` and ``Fic. ror``.
+# Keep these spellings narrow and require the caption-label context below;
+# accepting arbitrary OCR-like letter runs would turn prose into identifiers.
+_OCR_FIGURE_NUMBER_TOKEN = r"r[o0](?:r)?(?![A-Za-z])"
+_FIGURE_NUMBER_TOKEN = (
+    r"(?:\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z])|"
+    + _OCR_FIGURE_NUMBER_TOKEN + r")"
+)
+
 _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
-    r"^[\s.\u00b7\u2022]*(?:"
+    r"^[\s._\-\u2013\u2014\u00b7\u2022]*(?:"
     r"(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
-    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*\.\s*"      # period required
+    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*[.,]\s*"  # punctuation required
     r")"
-    r"(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z]))",
+    r"(" + _FIGURE_NUMBER_TOKEN + r")",
     re.IGNORECASE,
 )
 
@@ -111,14 +123,14 @@ _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
 # item can contain ``Fig. 10 ... Fig. 11 ... Fig. 12 ...``. Numeric connectors
 # belong here; lettered panels are parsed independently by
 # ``parse_panels_from_caption`` and cannot become figure numbers.
-_FIGURE_ENUM_TOKEN = r"(?:\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z]))"
+_FIGURE_ENUM_TOKEN = _FIGURE_NUMBER_TOKEN
 _FIGURE_ENUM_CONNECTOR = (
     r"(?:,\s*(?:&|und|and|et|u\.?)?|&|und|and|et|u\.?|[-\u2013\u2014])"
 )
 _CAPTION_FIGURE_ENTRY_RE = re.compile(
     r"(?<![A-Za-z])(?:"
     r"(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
-    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*\.\s*"
+    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*[.,]\s*"
     r")"
     r"(?P<first>" + _FIGURE_ENUM_TOKEN + r")"
     r"(?P<tail>(?:\s*" + _FIGURE_ENUM_CONNECTOR + r"\s*"
@@ -495,14 +507,51 @@ def parse_figure_number(caption_text: str) -> Optional[str]:
     # class ``[IVXLCDM]`` in the capture overlaps with single letters
     # that are panel labels in body text, but here the alternation in
     # the regex placed the digit branch first so an Arabic match wins.
-    arabic = _roman_to_int(num)
-    return str(arabic) if arabic is not None else num
+    return _canonical_figure_number(num)
 
 
 def _canonical_figure_number(token: str) -> str:
     token = (token or "").strip()
+    if re.fullmatch(_OCR_FIGURE_NUMBER_TOKEN, token, re.IGNORECASE):
+        return token.lower().replace("r", "1").replace("o", "0")
     roman = _roman_to_int(token)
     return str(roman) if roman is not None else token.lower()
+
+
+_EMBEDDED_DAMAGED_FIGURE_NUMBER_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:fic|frc|fie|fi\d{1,3}|puc)\s*[.,]\s*"
+    r"(" + _FIGURE_NUMBER_TOKEN + r")",
+    re.IGNORECASE,
+)
+_EMBEDDED_CAPTION_PREFIX_LIMIT = 64
+
+
+def parse_structural_caption_number(caption_text: str) -> Optional[str]:
+    """Parse a number from a structurally linked caption.
+
+    Docling occasionally links the right caption while OCR moves a short
+    species heading in front of its damaged label (for example
+    ``Physalia physalis Fic. 6``). That is strong enough evidence to recover
+    the number, but only on the structural-link path: a general unanchored
+    search would promote the many source citations in caption and body prose.
+
+    Embedded recovery is deliberately limited to measured damaged openers,
+    the first 64 characters, and a punctuation-free alphabetic prefix.
+    ``parse_figure_number`` remains start-anchored for every other caller.
+    """
+    direct = parse_figure_number(caption_text)
+    if direct:
+        return direct
+    text = caption_text or ""
+    match = _EMBEDDED_DAMAGED_FIGURE_NUMBER_RE.search(
+        text[:_EMBEDDED_CAPTION_PREFIX_LIMIT],
+    )
+    if not match:
+        return None
+    prefix = text[:match.start()].strip()
+    if not prefix or re.search(r"[\d,.;:()\[\]]", prefix):
+        return None
+    return _canonical_figure_number(match.group(1))
 
 
 def caption_figure_entries(caption_text: str) -> List[Dict]:
@@ -890,6 +939,15 @@ def _caption_candidate(
     source: str, picture_page: Optional[int], distance: Optional[float],
     confidence: str,
 ) -> Dict:
+    figure_number = parse_figure_number(text)
+    figure_number_source = "caption_start" if figure_number else None
+    if not figure_number and source == "docling_caption_link":
+        figure_number = parse_structural_caption_number(text)
+        if figure_number:
+            figure_number_source = "docling_caption_link_embedded_ocr_label"
+    caption_kind = _caption_kind(text)
+    if figure_number and caption_kind == "unlabelled_caption":
+        caption_kind = "prose_caption"
     return {
         # Internal copy used for the selected caption. Candidate evidence is
         # bounded below, but that must not truncate the canonical artifact.
@@ -898,7 +956,9 @@ def _caption_candidate(
         "caption_page": page,
         "caption_bbox": bbox,
         "caption_source": source,
-        "caption_kind": _caption_kind(text),
+        "caption_kind": caption_kind,
+        "figure_number": figure_number,
+        "figure_number_source": figure_number_source,
         "page_distance": (
             page - picture_page
             if page is not None and picture_page is not None else None
@@ -1036,9 +1096,9 @@ _MIN_PLATE_LEGEND_ENTRIES = 2
 # The lookahead is what separates "Fig. 53" from "figured by": the number has
 # to follow the label immediately, with only punctuation between.
 _LEGEND_OPENER = re.compile(
-    r"""^\s*
+    r"""^[\s._\-\u2013\u2014\u00b7\u2022]*
         (?:text[\s\-]*)?                # Totton's "Text-figure 53"
-        (?:fig|figs|figur|figure|figures|figuren|abb|abbildung)
+        (?:fig|figg|figs|figur|figure|figures|figuren|abb|abbildung)
         \s*\.?\s*
         (?=[\dIVXLCMivxlcm])
     """,
@@ -1284,6 +1344,7 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
             evidence.pop("_full_caption_text", None)
             sibling.update({
                 "figure_number": entry["figure_number"],
+                "figure_number_source": "plate_legend",
                 "caption_text": entry["caption_text"],
                 "caption_page": page,
                 "caption_bbox": entry.get("caption_bbox"),
@@ -1718,6 +1779,8 @@ def extract_caption_info(picture, document) -> Dict:
         "caption_confidence": None,
         "caption_page_distance": None,
         "caption_candidates": [],
+        "figure_number": None,
+        "figure_number_source": None,
     }
 
     pic_prov = getattr(picture, "prov", None) or []
@@ -1884,6 +1947,8 @@ def extract_caption_info(picture, document) -> Dict:
             ),
             "caption_confidence": chosen["confidence"],
             "caption_page_distance": chosen["page_distance"],
+            "figure_number": chosen["figure_number"],
+            "figure_number_source": chosen["figure_number_source"],
         })
     # Keep the strongest few candidates. This is enough to audit the decision
     # without putting every caption on a dense page into every figure record.

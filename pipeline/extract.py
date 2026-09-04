@@ -228,7 +228,10 @@ def extract_docling_content(
         for idx, picture in enumerate(document.pictures or []):
             caption_info = extract_caption_info(picture, document)
             caption_text = caption_info.get("caption_text", "")
-            figure_number = parse_figure_number(caption_text)
+            figure_number = (
+                caption_info.get("figure_number")
+                or parse_figure_number(caption_text)
+            )
             bbox_meta = _docling_prov_to_bbox_page(picture)
             # Resolve image up-front (still in memory); we save after
             # classification once we know the intended filename.
@@ -253,6 +256,7 @@ def extract_docling_content(
                 "caption_page_distance": caption_info.get("caption_page_distance"),
                 "caption_candidates": caption_info.get("caption_candidates", []),
                 "figure_number": figure_number,
+                "figure_number_source": caption_info.get("figure_number_source"),
                 "bbox": bbox_meta.get("bbox"),
                 "page": bbox_meta.get("page"),
                 "bbox_coord_system": bbox_meta.get("bbox_coord_system"),
@@ -316,6 +320,7 @@ def extract_docling_content(
                         "extraction_method": "docling",
                         "figure_type": it.get("figure_type"),
                         "figure_number": it.get("figure_number"),
+                        "figure_number_source": it.get("figure_number_source"),
                         "page": it.get("page"),
                         "bbox": it.get("bbox"),
                         "bbox_coord_system": it.get("bbox_coord_system"),
@@ -358,6 +363,7 @@ def extract_docling_content(
                 "extraction_method": "docling",
                 "figure_type": it.get("figure_type"),
                 "figure_number": it.get("figure_number"),
+                "figure_number_source": it.get("figure_number_source"),
                 "page": it.get("page"),
                 "bbox": it.get("bbox"),
                 "bbox_coord_system": it.get("bbox_coord_system"),

@@ -151,6 +151,21 @@ def test_single_grouped_text_item_can_form_a_plate_legend():
     assert [e["figure_number"] for e in entries] == ["10", "11", "12"]
 
 
+def test_measured_figg_range_expands_as_one_grouped_legend():
+    line = "Figg. 2-5. Sezioni di gonofori."
+    entries = plate_legend_entries([{"text": line, "bbox": [0, 0, 200, 20]}])
+    assert [entry["figure_number"] for entry in entries] == ["2", "3", "4", "5"]
+
+
+def test_single_fuzzy_caption_does_not_activate_body_cross_references():
+    """A direct ``Fic.`` caption is not by itself evidence of a plate legend."""
+    page = [
+        {"text": "Fic. 88. Posterior nectophore.", "bbox": [0, 80, 200, 90]},
+        {"text": "Text-figure 50). The detailed shape ...", "bbox": [0, 20, 200, 30]},
+    ]
+    assert plate_legend_entries(page) == []
+
+
 # --- expanding ----------------------------------------------------------------
 
 
@@ -354,6 +369,8 @@ def test_the_label_must_be_followed_by_the_number():
     assert _LEGEND_OPENER.match("Abb. 7. Physalia")
     assert _LEGEND_OPENER.match("Text-figure 24")
     assert _LEGEND_OPENER.match("Figuren 55 und 56.")
+    assert _LEGEND_OPENER.match("Figg. 2-5.")
+    assert not _LEGEND_OPENER.match("Fic, 141.")
 
 
 def test_plate_number_ocr_loss_requires_sequence_and_missing_evidence():

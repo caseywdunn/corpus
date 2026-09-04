@@ -131,6 +131,42 @@ def test_adjacent_label_is_joined_to_a_structurally_linked_caption_body():
     assert "FIGURE 3.." not in got["caption_text"]
 
 
+def test_structural_link_can_recover_a_damaged_label_after_species_heading():
+    caption = _text(
+        "Physalia physalis Fic. 6. Terminal part of a gonodendron.",
+        4,
+        (60, 270, 500, 298),
+        label="caption",
+    )
+    picture = _picture(4, (60, 320, 500, 700), captions=[_Ref(caption)])
+    document = NS(texts=[caption], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert got["caption_text"] == caption.text
+    assert got["figure_number"] == "6"
+    assert got["figure_number_source"] == (
+        "docling_caption_link_embedded_ocr_label"
+    )
+    assert got["caption_kind"] == "prose_caption"
+
+
+def test_embedded_damaged_label_is_not_a_proximity_candidate():
+    caption = _text(
+        "Physalia physalis Fic. 6. Terminal part of a gonodendron.",
+        4,
+        (60, 270, 500, 298),
+        label="caption",
+    )
+    picture = _picture(4, (60, 320, 500, 700))
+    document = NS(texts=[caption], pictures=[picture])
+
+    got = extract_caption_info(picture, document)
+
+    assert got["caption_status"] == "unbound"
+    assert got["figure_number"] is None
+
+
 def test_adjacent_panel_text_completes_a_structurally_linked_caption():
     title = _text(
         "FIG. 52. Forskalia edwardsi.",

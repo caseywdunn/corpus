@@ -56,21 +56,33 @@ Release candidate, 35 documents, 376 gold figure blocks (316 `[FIGURE]`,
 | captioned only | 0.880 | 0.979 | 0.927 |
 
 Caption binding on the full 35-document regression replay, scored on figure
-*numbers* over the default MCP evidence types: **recall 0.588, precision
-0.910** (282 matches, 310 reported, 480 gold). Before the v1.3 association
+*numbers* over the default MCP evidence types: **recall 0.596, precision
+0.911** (286 matches, 314 reported, 480 gold). Before the v1.3 association
 repairs, replaying the same persisted Docling documents produced **0.558 /
-0.890**. No extraction or gold input changed between those two measurements,
-and every defined era, file-type and layout bucket improved in both recall and
-precision. This isolates the association change; a clean source-PDF rebuild is
-still required at the release gate.
+0.890**; the immediately preceding parser produced **0.588 / 0.910** (282 /
+310). No extraction or gold input changed in this comparison. The last four
+matches come from a grouped `Figg. 2-5` legend and one structurally linked
+caption whose damaged label follows a species heading. Direct `Fic.` captions
+are deliberately not treated as plate legends: a looser trial recovered real
+numbers but also cloned same-page running-text cross-references.
 
-The **0.588 is end-to-end page/number coverage, not the accuracy of the final
-candidate selector in isolation**. The current replay reports only 310
+The clean source-PDF candidate before that final parser change measured
+**0.588 / 0.916** (282 / 308). Replaying the six locally retained clean
+Docling artifacts that contain the conspicuous failures, while leaving the
+other 29 records unchanged, measures **0.608 / 0.918** (292 / 318): ten added
+correct page/number pairs, no removals and no false additions. This targeted
+clean-artifact result includes `Fic, 11`, `Fic. ro` → 10, `Fic. ror` → 101,
+leading dash/underscore noise, the embedded label, and the `Figg.` range. It
+is evidence for the bounded repair, not a substitute for the complete clean
+source-PDF rebuild required at the release gate.
+
+The **0.596 is end-to-end page/number coverage, not the accuracy of the final
+candidate selector in isolation**. The current replay reports only 314
 page/number pairs for 480 gold pairs, and their per-page distribution can cover
-at most 304 gold pairs (0.633) without recovering another number-bearing
+at most 308 gold pairs (0.642) without recovering another number-bearing
 record. Figure-only documents already match 102/124 gold pairs, with 102/104
-reported pairs correct; mixed figure/plate documents match 175/323, with
-175/200 reported pairs correct; and plate-only documents match 5/33, with 5/6
+reported pairs correct; mixed figure/plate documents match 179/323, with
+179/204 reported pairs correct; and plate-only documents match 5/33, with 5/6
 reported pairs correct. The selector is therefore near its observed input
 ceiling on ordinary layouts. Raising the overall rate requires upstream label
 discovery and logical plate expansion, not just another caption-ranking

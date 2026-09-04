@@ -143,14 +143,17 @@ of what those numbers mean.
   page distance and confidence. A weak association must be exposed as weak in
   the stored artifact and MCP result, not presented as an ordinary caption.
   Full regression replay now moves the default served surface from 0.558 /
-  0.890 to 0.588 / 0.910 over the same persisted Docling inputs. The independent
+  0.890 to 0.596 / 0.911 over the same persisted Docling inputs. A targeted
+  replay of the six retained clean-build artifacts adds ten correct pairs and
+  no false ones to the clean candidate (0.588 / 0.916 to 0.608 / 0.918), but is
+  not the final all-document rebuild. The independent
   panel yardstick now finds 98 explicitly enumerated letter-panel captions;
   current metadata replay declares 87, gets 84 exact sets, and scores 0.895 /
   0.997 label recall/precision with no declaration on 176 same-page,
   same-number non-panel figure blocks. Keep this open until the clean source-PDF
   rebuild confirms both measures on the complete current extraction path. The
   number-binding headline is end-to-end coverage, not selector accuracy: the
-  replay's existing page/number population has a 0.633 per-page capacity
+  replay's existing page/number population has a 0.642 per-page capacity
   ceiling. Report that availability ceiling by layout so future work separates
   missing label evidence from a wrong association decision. The next measured
   tranche is build-time, page-level number discovery for the mixed and plate

@@ -146,7 +146,7 @@ The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "St
 |---|---|---|---|---|
 | 1 | **Docling extraction** — iterate `document.pictures`, render each to PNG, capture page + bbox | `pipeline/extract.py:165-257` (render/save at `:184-189`, `:232`) | Stage 1 · always | `figures/*.png`, base fields |
 | 2 | **Caption association** — structural evidence plus ranked geometric candidates | `pipeline/figures.py:extract_caption_info` | Stage 1 · always | selected caption fields plus status, confidence and bounded candidate evidence |
-| 3 | **Figure-number parsing** — multilingual, incl. Roman numerals | `pipeline/figures.py:parse_figure_number` `:334-359` (`_FIGURE_PREFIX` `:45-50`, roman `:84-100`) | Stage 1 · always | `figure_number` |
+| 3 | **Figure-number parsing** — multilingual, incl. Roman numerals and bounded OCR repair | `pipeline/figures.py:parse_figure_number`; structural-link-only recovery in `parse_structural_caption_number` | Stage 1 · always | `figure_number`, `figure_number_source` |
 | 4 | **Classification** — figure / plate / subpanel / graphical_element / unclassified | `pipeline/figures.py:classify_figure` `:425-471` | Stage 1 · always | `figure_type` |
 | 5 | **PyMuPDF fallback** — raw embedded-image extraction when docling finds nothing | `pipeline/extract.py:273-354` (gated `:277`, `fitz.Pixmap` `:310`) | Stage 1 · only if docling yields 0 figures and the PDF is not a scan | `width`, `height`, `extraction_method: pymupdf` |
 | 6 | **Deduplication + panel grouping** — bbox-overlap merge, whole-figure-vs-subpanel split, panel-letter assignment in reading order | `pipeline/figures.py:dedupe_figures` `:494-599` (overlap `:394-413`, reading order `:474-491`) | Stage 1 · always | `panel_letter`, refined `figure_type` |
@@ -215,6 +215,14 @@ not just as a string:
    independently cited as missing before expansion, and admits the host image
    to one numeric ROI pass. The resulting regions are distributed back to the
    individual records; they never enter `panels_from_caption` as fake letters.
+5. **Number provenance.** Ordinary labels remain start-anchored. A Docling
+   structural link may additionally recover a measured damaged label after a
+   short species heading (for example `Physalia physalis Fic. 6`); the same
+   embedded text is never admitted by proximity search. The raw caption is
+   preserved, and `figure_number_source` distinguishes `caption_start`,
+   `docling_caption_link_embedded_ocr_label`, and the plate-legend
+   reconciliation variants. OCR digit repairs are intentionally narrow
+   (`ro`/`ror` in label context); arbitrary letter runs are not numbers.
 
 Pass 2.5 recognizes period, parenthesized, comma and range panel styles through
 letter L. Small noncontiguous sets are rejected as probable initials; a strong
@@ -234,6 +242,12 @@ The summary fields are:
 - `caption_source`: the producing rule, including `docling_caption_link`,
   `heuristic_proximity`, `plate_legend`, the plate/facing-page reconciliation
   variants, the compound-split variants, or null.
+
+`figure_number_source` is separate from `caption_source`: the first records
+how the identifier was read or reconciled, while the second records why the
+caption belongs to this picture. Keeping both prevents an OCR repair from
+looking like source text and prevents a strong caption link from obscuring a
+weaker number inference.
 
 An unopposed cross-page heuristic is `uncertain` / `low`, never an ordinary
 caption. No candidate yields `unbound`, with empty caption text. The figure MCP

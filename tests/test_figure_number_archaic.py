@@ -84,6 +84,27 @@ def test_parse_figure_number_tolerates_stray_leading_ocr_punctuation():
     assert parse_figure_number(". Fig. 10.") == "10"
 
 
+@pytest.mark.parametrize("caption, expected", [
+    ("_ Fic. 88. Caption.", "88"),
+    ("- Fic. 144. Caption.", "144"),
+    ("Fic, 11. Caption.", "11"),
+    ("Fic. ro. Adult medusoids.", "10"),
+    ("Fic. ror. Caption.", "101"),
+])
+def test_parse_figure_number_measured_totton_ocr_forms(caption, expected):
+    assert parse_figure_number(caption) == expected
+
+
+@pytest.mark.parametrize("caption", [
+    "Fic. rosea specimen.",
+    "Fic. root morphology.",
+    "PLM = mouth-plate (from Totton, 1954, fig. 52).",
+    "from Totton, 1965, fig. 10",
+])
+def test_ocr_number_repair_remains_caption_anchored(caption):
+    assert parse_figure_number(caption) is None
+
+
 # ---------------------------------------------------------------------------
 # parse_figure_number — archaic formats added in #16
 # ---------------------------------------------------------------------------
@@ -243,9 +264,9 @@ def test_prose_beginning_with_an_f_word_is_not_a_figure_number(caption):
 
 
 def test_a_damaged_opener_still_needs_its_period():
-    """`Fic. 4` is a caption; `Fic 4` without the period is not distinguishable
-    from prose, and every damaged spelling observed carries the period."""
+    """A damaged opener needs observed label punctuation, not bare whitespace."""
     assert parse_figure_number("Fic. 4 Différenciation") == "4"
+    assert parse_figure_number("Fic, 4 Différenciation") == "4"
     assert parse_figure_number("Fic 4 Différenciation") is None
 
 
