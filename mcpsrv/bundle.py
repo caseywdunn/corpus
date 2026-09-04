@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Distill a Bouchet build bundle into a served bundle for AWS.
+"""Distill a corpus build bundle into a served bundle.
 
-DEPLOY.md separates the "build bundle" (everything `process_corpus.py`
-emits — includes processed.pdf, raw docling dumps, QC visualizations,
-per-paper logs) from the "served bundle" (just what MCP tools read
-plus the precompiled indices).  For 2000 papers the served bundle is
-~3 GB vs. ~10 GB for the build — small enough for a cheap EBS
-volume, and fast enough to `aws s3 sync` on every release.
+DEPLOY.md separates the "build bundle" (everything ``corpus run`` emits —
+including processed PDFs, raw Docling dumps and per-paper logs) from the
+"served bundle" (just what MCP tools read plus the precompiled indices).
+The served form is substantially smaller because build/debug artifacts and
+optional page-audit reports are excluded.
 
-This script is the distiller.  Run on Bouchet after the pipeline
-completes; the output goes to S3 and is then pulled onto the EC2
-MCP host.
+This module is the distiller. Run it after a build, then deploy the output by
+the transport appropriate to the installation; DEPLOY.md documents the AWS
+pattern.
 
 Files in the served-bundle whitelist (the contract):
 

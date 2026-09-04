@@ -110,6 +110,7 @@ python -m pipeline.embed         <output_dir>                       # Stage 2
 python -m bib.authority          <output_dir>                       # biblio DB
 python -m pipeline.taxon_mentions <output_dir>                       # taxon DB
 python -m pipeline.intext_citations <output_dir>                     # intext refs
+python -m pipeline.page_report <output_dir>/documents/<HASH> --pages 1-3
 python -m bib.reconcile          <output_dir>                       # ghost merge
 python -m pipeline.taxonomy_ingest <output_dir> --source <dwc|dwca|worms> ...
 python -m mcpsrv.bundle          <output_dir> <serve_dir> --version vX.Y.Z

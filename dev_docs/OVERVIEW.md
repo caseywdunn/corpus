@@ -70,7 +70,7 @@ output/
       text.json                # extracted text (markdown)
       figures.json             # figure metadata, captions, classifications
       figures/                 # extracted figure PNGs
-      visualizations/          # per-page QC overlays (red=words, yellow=figures)
+      page_report.html         # optional on-demand page/caption audit; build-only
       metadata.json            # Grobid bibliographic metadata + references
       chunks.json              # text chunks for embedding
       taxa.json                # taxon mentions (incl. input fingerprint)
@@ -104,7 +104,7 @@ Orchestrated by `pipeline.runner.run_pdf_processing_pipeline`, six steps per PDF
 |---|---|---|
 | **Scan detection** (`pipeline/scan.py`) | **Page geometry first** (v1.0): the fraction of sampled pages carrying a single full-page image decides whether a document is a scan, independent of what its text layer claims — a scan bundled with third-party OCR is still a scan. Then the text-layer heuristics for everything else: volume gate, langdetect, gibberish-score, Tesseract OSD visual-script cross-check. Classifies as `born_digital`, `scanned`, or `broken_text_layer` | `scan_detection.json` |
 | **PDF preparation** (`pipeline/scan.py`) | Copies born-digital PDFs as-is. Everything else is OCR'd — `--force-ocr` for a uniform scan, `--redo-ocr` for a mixed volume so a bound-in digital typescript isn't rasterized. Language comes from OCRing a 5-page sample rather than the (distrusted) text layer, per page and unioned so bilingual originals-plus-translations get both packs; failing that, the fallback union (eng/deu/fra/rus/lat/spa/por/chi_sim/chi_tra/jpn/ell/kor + deu_latf Fraktur, via `ocr.ocr_languages_default`). Per-page and per-document timeouts both scale — see `ocr.tesseract_page_timeout` and `stage_timeouts.ocr_per_page` | `processed.pdf` |
-| **Text + figure extraction** (`pipeline/extract.py`) | Docling parses the PDF into structured text and figure regions. Figures go through a classification/caption pipeline (see [Figure pipeline](#figure-pipeline) below). Falls back to raw PyMuPDF image extraction when docling finds nothing. | `text.json`, `figures.json`, `figures/*.png`, `visualizations/*.png` |
+| **Text + figure extraction** (`pipeline/extract.py`) | Docling parses the PDF into structured text and figure regions. Figures go through a classification/caption pipeline (see [Figure pipeline](#figure-pipeline) below). Falls back to raw PyMuPDF image extraction when docling finds nothing. | `text.json`, `figures.json`, `figures/*.png` |
 | **Metadata extraction** (`pipeline/metadata.py`, `bib/`) | Grobid extracts title, authors, year, DOI, abstract, section structure, and parsed references. `--bib` overrides the header from a curated BibTeX. Falls back to placeholder when Grobid is unavailable. | `metadata.json` |
 | **Chunking** (`pipeline/chunking.py`) | Splits extracted text via docling's `HybridChunker` (tokenizer-aware, respects section/heading structure), with section-class labels. | `chunks.json` |
 | **Annotation** (`pipeline/annotate.py`) | Per-chunk taxon mentions (against the DwC taxonomy snapshot) and lexicon matches (one pass per category in `--lexicon`). Each output file stamps a per-category `input_fingerprint`; the stage-completion record in `pipeline_state.json` mirrors it so a per-category resume detects exactly which categories changed. | `taxa.json`, `<category>.json` |
@@ -147,7 +147,21 @@ The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "St
 | 10 | **Pass 3c** — compound-figure resolution | `pipeline/figures.py:1298-1502` (trigger `runner.py:282-293`) | Stage 1 · auto when a 3a/3b status ends in `_compound` | renames PNG to `fig_3-4.png`, new `image_shared_with` sub-figure records |
 | 11 | **Chunk-figure linking** | `pipeline/figures.py:link_chunks_to_figures` `:1510-1581` | Stage 1 · always | `figure_refs` (on chunks), `referenced_in_chunks` (on figures) |
 
-Figure records are written to `<HASH>/figures.json`; the per-page QC overlays in `<HASH>/visualizations/` (yellow figure bboxes, red word boxes) are the primary *visual* regression check, since most figure-quality properties resist unit assertions. Bbox coordinate systems differ by path and are tagged per record (`bbox_coord_system`: `pdf_pts_bottom_left` for docling, `pdf_pts_top_left` for PyMuPDF).
+Figure records are written to `<HASH>/figures.json`. Generate the optional
+self-contained page audit when a decision needs visual review:
+
+```bash
+python -m pipeline.page_report <output>/documents/<HASH> --pages 12-13,17
+```
+
+It places the processed page, toggled PDF-word / figure / ROI / caption-
+candidate overlays, selectable Docling text, caption decisions and page-level
+statistics in `<HASH>/page_report.html`. It can be rerun for any page subset,
+is not copied into the served bundle, and replaces the old unconditional
+`visualizations/*.png` raster set. Reports over more than 200 selected pages
+require an explicit `--max-pages 0` override. Bbox coordinate systems differ
+by path and are tagged per record (`bbox_coord_system`:
+`pdf_pts_bottom_left` for Docling, `pdf_pts_top_left` for PyMuPDF).
 
 ### Figure resolution — where it is set, and what is (not) downscaled
 

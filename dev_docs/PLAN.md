@@ -150,7 +150,7 @@ of what those numbers mean.
   ([#269](https://github.com/caseywdunn/corpus/issues/269)). A response clipped
   by the token budget is incomplete, never a successful panel result; size the
   budget from emitted structure or fail/retry explicitly.
-- [ ] **Build the optional, re-runnable per-document page report**
+- [x] **Build the optional, re-runnable per-document page report**
   ([#274](https://github.com/caseywdunn/corpus/issues/274)): original processed
   page, cell/figure/ROI overlay, selectable parsed text, and page-level
   statistics/provenance in one HTML document. It is build/operator-side QC,

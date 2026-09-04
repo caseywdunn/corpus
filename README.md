@@ -227,7 +227,7 @@ taxonomy:
   path: ./taxonomy.zip
 ```
 
-This is the path the bundled demo uses, which is why the demo's first run doesn't touch the network for taxonomy. Since v1.0, a run that configures `taxonomy:` but finds no snapshot **fails loudly** instead of proceeding with taxon extraction silently skipped — the earlier behavior put 1763 papers through a production run with empty `taxa.json` before anyone noticed ([#139](https://github.com/caseywdunn/corpus/issues/139)). `corpus check` reports the same condition as a pre-flight warning.
+This is the path the bundled demo uses, which is why the demo's first run doesn't touch the network for taxonomy. Since v1.0, a run that configures `taxonomy:` but finds no snapshot **fails loudly** instead of proceeding with taxon extraction silently skipped — the earlier behavior put an entire production corpus through a run with empty `taxa.json` before anyone noticed ([#139](https://github.com/caseywdunn/corpus/issues/139)). `corpus check` reports the same condition as a pre-flight warning.
 
 **Without a `taxonomy:` block** the pipeline still extracts taxon mentions from text — you only lose the synonymy graph that links historical names to current valid names. The default template ships with the block commented out, so leaving it alone is the no-taxonomy path, and no run will fail for a missing snapshot.
 
@@ -482,7 +482,7 @@ Each entry carries a stable `corpus_hash` field that bib_import uses to match ed
 
 ## Distilling a served bundle
 
-The corpuscle the pipeline emits is the **build bundle**: everything `pipeline.main` produces, including `processed.pdf`, raw docling dumps, per-page QC visualizations, and per-paper logs. For ~2,000 papers that's ~10 GB. The MCP server doesn't need most of it — only the JSON artifacts it reads at startup, the figure PNGs, and the precompiled indices. [`mcpsrv.bundle`](mcpsrv/bundle.py) distills the build bundle down to a **served bundle** (~3 GB for the same corpus) by copying only whitelisted files, scrubbing absolute paths from JSON values, and writing a versioned `bundle_manifest.json` that the MCP `bundle_info` tool surfaces:
+The corpuscle the pipeline emits is the **build bundle**: everything `pipeline.main` produces, including `processed.pdf`, raw Docling dumps, extracted figures, and per-paper logs. Optional page-audit HTML can be generated on demand from those artifacts; normal builds no longer write a second raster copy of every page. The MCP server doesn't need most of this material — only the JSON artifacts it reads at startup, the figure PNGs, and the precompiled indices. [`mcpsrv.bundle`](mcpsrv/bundle.py) distills the build bundle down to a substantially smaller **served bundle** by copying only whitelisted files, scrubbing absolute paths from JSON values, and writing a versioned `bundle_manifest.json` that the MCP `bundle_info` tool surfaces:
 
 ```bash
 python -m mcpsrv.bundle <output_dir> <serve_bundle_dir> --version v1.0.0

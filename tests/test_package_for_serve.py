@@ -78,6 +78,7 @@ def _make_fake_output(root: Path, paper_hashes=("abc", "def")) -> Path:
         (hd / "processed.pdf").write_bytes(b"%PDF-1.5 stub")
         (hd / "docling_doc.json").write_text("{}")
         (hd / "pipeline.log").write_text("log text")
+        (hd / "page_report.html").write_text("page audit")
         (hd / "visualizations").mkdir()
         (hd / "visualizations" / "page_1.png").write_bytes(b"viz stub")
     # LanceDB dir
@@ -109,6 +110,7 @@ def test_package_copies_whitelisted_excludes_build_only(tmp_path: Path):
         assert not (dst / "documents" / h / "processed.pdf").exists()
         assert not (dst / "documents" / h / "docling_doc.json").exists()
         assert not (dst / "documents" / h / "pipeline.log").exists()
+        assert not (dst / "documents" / h / "page_report.html").exists()
         assert not (dst / "documents" / h / "visualizations").exists()
 
     # LanceDB copied in full

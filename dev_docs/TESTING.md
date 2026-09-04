@@ -3,10 +3,10 @@
 Two complementary test suites check pipeline output quality. Both run against
 already-processed output — they never re-run the pipeline.
 
-1. **Ground-truth tests** — per-paper checks against human-curated answers
-   (3 papers currently). High precision, narrow coverage.
+1. **Ground-truth tests** — per-paper checks against human-curated answers.
+   High precision, narrow coverage.
 2. **Corpus-wide tests** — structural and content consistency checks across
-   all 1,787 papers. No ground truth needed — they verify things that can be
+   the current corpus. No ground truth needed — they verify things that can be
    checked programmatically.
 
 ## Quick start
@@ -32,6 +32,26 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 
 ## What's tested
 
+### Page-level visual audit
+
+When a score or acceptance prompt points to a particular page, generate the
+optional report from that document's build artifacts:
+
+```bash
+python -m pipeline.page_report /path/to/output/documents/<HASH> \
+  --pages 12-13,17
+```
+
+`page_report.html` is one self-contained, locally viewable file. It shows the
+rendered `processed.pdf` page beside selectable Docling text and provides
+toggleable overlays for PDF word cells, extracted figure boxes, projected ROI
+boxes, and chosen/rejected caption candidates. Page statistics and the full
+caption evidence trail make coordinate or ownership errors inspectable without
+manually joining the PDF, `docling_doc.json`, `figures.json`, and text output.
+Normal builds do not generate it, and served-bundle distillation excludes it.
+The default safety limit is 200 selected pages; select a smaller range or pass
+`--max-pages 0` deliberately for a longer document.
+
 ### Ground-truth tests (per-paper)
 
 | Module | What it checks |
@@ -48,7 +68,7 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 | `TestJsonParseable` | All core JSON files parse without error |
 | `TestSummary` | Processing status is "success", no errors recorded, hash matches |
 | `TestFigureTextConsistency` | Bidirectional figure ↔ text cross-referencing (see below) |
-| `TestCitationGraph` | Reference lists match other corpus papers; pre-2015 papers are cited (see below) |
+| `TestCitationGraph` | Reference lists match other corpus papers; reference-evaluation fixtures check cited-paper coverage (see below) |
 | `TestMetadataPlausibility` | Year/author/title cross-checks against text and filename (see below) |
 | `TestTextQuality` | Chars/page ratio, alphabet fraction, minimum text length |
 | `TestChunkQuality` | Duplicate chunks, empty chunks, over-splitting detection |
@@ -74,10 +94,11 @@ Three checks for bidirectional consistency:
   many references match another corpus paper by (first-author-surname, year)?
   Papers with 15+ references and zero corpus matches likely have broken
   reference parsing.
-- **Paper is cited by others**: papers published before 2015 in this focused
-  siphonophore corpus should be cited by at least one other corpus paper.
-  Uncited papers may have garbled metadata making them unmatchable. Uses
-  `pytest.xfail` (expected failure) since legitimate misses exist.
+- **Paper is cited by others**: the reference evaluation checks that older
+  in-scope papers are cited by at least one other corpus paper. This is a
+  collection-specific consistency expectation, not a requirement for every
+  corpus. Uncited papers may have garbled metadata making them unmatchable;
+  the check uses `pytest.xfail` because legitimate misses exist.
 
 #### Metadata plausibility
 

@@ -25,7 +25,6 @@ from .figures import (
     render_figures,
     shrink_figures_dir,
 )
-from .scan import create_cell_visualizations
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,6 @@ def extract_docling_content(
     text_output: Path,
     figures_output: Path,
     figures_dir: Path,
-    visualizations_dir: Path,
     docling_doc_output: Optional[Path] = None,
     scan_file_type: Optional[str] = None,
 ):
@@ -532,28 +530,5 @@ def extract_docling_content(
     with open(figures_output, "w", encoding="utf-8") as f:
         json.dump(stamp_artifact(figures_info), f, indent=2)
 
-    # Extract figure bboxes from the docling document before releasing it,
-    # so the (large) document object can be garbage-collected before the
-    # per-page image rendering loop.
-    figure_bboxes_by_page: dict = {}
-    if document is not None:
-        if hasattr(document, "pictures") and document.pictures:
-            for picture in document.pictures:
-                if hasattr(picture, "prov") and picture.prov:
-                    for prov_item in picture.prov:
-                        if hasattr(prov_item, "page_no") and hasattr(prov_item, "bbox"):
-                            page_no = prov_item.page_no
-                            figure_bboxes_by_page.setdefault(page_no, []).append(
-                                prov_item.bbox
-                            )
     del document
     import gc; gc.collect()
-
-    pdf_name = pdf_path.stem
-    try:
-        create_cell_visualizations(
-            pdf_path, visualizations_dir, pdf_name,
-            figure_bboxes_by_page=figure_bboxes_by_page,
-        )
-    except Exception as e:
-        logger.warning("Creating visualizations failed: %s", e)

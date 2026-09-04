@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **An on-demand, self-contained page audit joins the evidence needed to
+  diagnose extraction and caption failures (#274).**
+  `python -m pipeline.page_report <output>/documents/<HASH> --pages 12-13`
+  renders the processed page beside selectable Docling text, with toggleable
+  PDF-word, figure, ROI, chosen-caption and rejected-caption overlays plus
+  page-level counts and provenance. It is re-runnable, excluded from served
+  bundles, and bounded to 200 selected pages unless explicitly overridden.
+  The old unconditional `visualizations/*.png` pass has been removed, so a
+  normal build no longer creates a second raster set for every document.
+
 ### Fixed
+
+- **Figure captions now carry auditable ownership rather than only plausible
+  text (#195, #203).** Caption extraction preserves provenance spans across
+  Docling page merges, joins adjacent labels and prose, rejects a next-page
+  candidate when a substantial local figure is the better owner, and records
+  status, confidence, kind, page distance, and bounded chosen/rejected
+  candidates. Grouped plate captions now split lists/ranges into per-number
+  records, reconcile duplicate assignments only when the counts form a full
+  bijection, and use exact next-page legend matches to enrich preceding bare
+  labels. The figure MCP responses expose the summary fields without moving
+  association work into the server.
 
 - **`corpus taxonomy ingest` doubled the `names` table on every re-run, and
   v1.2.1 made it fire automatically (#262).** `names` shipped with no PRIMARY
@@ -3642,4 +3665,3 @@ late-18th-century printed monographs through born-digital 2025 articles.
   [#11](https://github.com/caseywdunn/corpus/issues/11) for v0.1.x.
 - **Geographic extraction** (§12 Layer 3 in dev_docs/PLAN.md) — not yet implemented.
   Tracked in [#13](https://github.com/caseywdunn/corpus/issues/13).
-  

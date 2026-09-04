@@ -148,8 +148,6 @@ def run_pdf_processing_pipeline(
     # Create subdirectories in hash directory
     figures_dir = hash_dir / "figures"
     figures_dir.mkdir(exist_ok=True)
-    visualizations_dir = hash_dir / "visualizations"
-    visualizations_dir.mkdir(exist_ok=True)
 
     processing_summary = {
         "original_pdf": str(pdf_path),
@@ -291,7 +289,6 @@ def run_pdf_processing_pipeline(
                         text_file,
                         figures_file,
                         figures_dir,
-                        visualizations_dir,
                         docling_doc_output=docling_doc_file,
                         scan_file_type=detection_result.get("file_type"),
                     )
@@ -457,4 +454,3 @@ def run_pdf_processing_pipeline(
 
     processing_summary["ended_at"] = _utcnow_iso()
     return processing_summary
-
