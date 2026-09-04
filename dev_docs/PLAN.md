@@ -191,7 +191,7 @@ The full proposal in #240 mixes a necessary data-model repair with speculative
 model-assisted blocking. v1.3 takes the deterministic foundation and leaves
 the latter out until the new observation set can measure whether it is needed.
 
-- [ ] **Repair the inputs before clustering:** stop recording journal names
+- [x] **Repair the inputs before clustering:** stop recording journal names
   as work titles ([#226](https://github.com/caseywdunn/corpus/issues/226)) and
   stop a malformed DOI from short-circuiting stronger title/author evidence
   ([#239](https://github.com/caseywdunn/corpus/issues/239)).

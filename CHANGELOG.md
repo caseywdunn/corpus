@@ -30,6 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Reference ingestion no longer manufactures title evidence (#226, #239).**
+  A Grobid `monogr/title[@level='j']` is now retained only as the journal;
+  only an analytic title or a non-journal monograph title can become the cited
+  work's title. The authority builder also clears exact legacy
+  title-equals-journal duplicates before matching. When an exact DOI lookup
+  misses, narrowly shaped OCR variants (hyphen insertion/loss or a long
+  alphabetic suffix glued onto the DOI) may resolve to an existing work only
+  when its title independently passes the established token-set and straight
+  similarity thresholds. The original DOI is not silently rewritten, and
+  neither DOI resemblance nor title similarity can merge a work alone.
+
 - **The figure-detection scorer now measures the actual default MCP type
   filter (#194), not a looser proxy.** The documentation called “drop
   `graphical_element`” the served surface, but default retrieval also excludes

@@ -727,6 +727,79 @@ def lookup_by_doi(conn: sqlite3.Connection, doi: str) -> Optional[str]:
     return row[0] if row else None
 
 
+def _doi_corruption_shape(left: str, right: str) -> Optional[str]:
+    """Name a narrow OCR corruption relating two non-identical DOIs.
+
+    This does not repair either DOI. It is only a candidate generator for a
+    second, independent title check (#239). Hyphens may be either spurious or
+    genuinely lost, so equality after removing them is symmetric. Glued text
+    is a long alphabetic suffix on one otherwise-complete DOI.
+    """
+    left = normalize_doi(left or "")
+    right = normalize_doi(right or "")
+    if not left or not right or left == right:
+        return None
+    if left.replace("-", "") == right.replace("-", ""):
+        return "doi_hyphenation"
+    shorter, longer = sorted((left, right), key=len)
+    suffix = longer[len(shorter):] if longer.startswith(shorter) else ""
+    if len(suffix) >= 4 and suffix.isalpha():
+        return "doi_trailing_text"
+    return None
+
+
+def lookup_doi_variant_by_title(
+    conn: sqlite3.Connection,
+    doi: str,
+    title: str,
+) -> Optional[Tuple[str, str, float]]:
+    """Resolve a corrupted DOI only when the title independently agrees.
+
+    Returns ``(work_id, match_method, score)``. The established dual title
+    threshold is reused: token-set ratio >= 85 *and* straight ratio >= 60.
+    Candidate choice is deterministic and favors an in-corpus or more-cited
+    canonical row before a lexical work-id tie-break. A DOI-shape resemblance
+    alone can never merge works.
+    """
+    if not _HAS_BHL_DEPS or not doi or not title:
+        return None
+    normalized_title = normalize_for_key(title)
+    if not normalized_title:
+        return None
+    rows = conn.execute(
+        """SELECT w.work_id, w.doi, w.title, w.in_corpus,
+                  COUNT(c.citing_work_id) AS cited_count
+           FROM works w
+           LEFT JOIN citations c ON c.cited_work_id = w.work_id
+           WHERE w.doi IS NOT NULL AND w.title IS NOT NULL
+           GROUP BY w.work_id, w.doi, w.title, w.in_corpus"""
+    ).fetchall()
+    candidates = []
+    for work_id, candidate_doi, candidate_title, in_corpus, cited_count in rows:
+        corruption = _doi_corruption_shape(doi, candidate_doi)
+        if corruption is None:
+            continue
+        normalized_candidate = normalize_for_key(candidate_title or "")
+        if not normalized_candidate:
+            continue
+        set_score = int(fuzz.token_set_ratio(
+            normalized_title, normalized_candidate,
+        ))
+        ratio_score = int(fuzz.ratio(normalized_title, normalized_candidate))
+        if set_score < 85 or ratio_score < 60:
+            continue
+        candidates.append((
+            int(bool(in_corpus)), int(cited_count or 0), set_score, ratio_score,
+            str(work_id), corruption,
+        ))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: (-row[0], -row[1], -row[2], -row[3], row[4]))
+    _in_corpus, _cited_count, set_score, _ratio_score, work_id, corruption = \
+        candidates[0]
+    return work_id, corruption + "_title", set_score / 100.0
+
+
 def lookup_by_alias(conn: sqlite3.Connection, alias_key: str) -> Optional[str]:
     """Return work_id for a given alias key, or None."""
     cur = conn.execute("SELECT work_id FROM work_aliases WHERE alias_key = ?",
@@ -991,6 +1064,12 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     authors_raw = ref.get("authors", [])
     raw = ref.get("raw", "") or ""
 
+    # Old references.json artifacts may predate #226's TEI fix and carry the
+    # journal in both fields. Preserve the journal but do not let it become a
+    # work title or a fuzzy-reconciliation feature.
+    if title and journal and normalize_for_key(title) == normalize_for_key(journal):
+        title = ""
+
     # Parse first author surname from ref format ("F Johnson")
     first_surname = ""
     if authors_raw:
@@ -1002,6 +1081,9 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
         existing = lookup_by_doi(conn, doi)
         if existing:
             return existing, "doi_exact", 1.0
+        variant = lookup_doi_variant_by_title(conn, doi, title)
+        if variant is not None:
+            return variant
         # DOI not yet in DB — create the work with DOI as ID
         work_id = doi
         insert_work(conn, work_id, "doi", title, year, journal, doi,

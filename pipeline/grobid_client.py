@@ -379,10 +379,19 @@ def parse_tei_references(tei_xml: str) -> List[dict]:
 
     # listBibl can appear under <back> or elsewhere; take all.
     for bs in root.findall(".//tei:listBibl/tei:biblStruct", NSMAP):
-        # Title: prefer analytic/title (the article), fall back to
-        # monogr/title (the book/journal).
-        title = _first_text(bs.find("tei:analytic/tei:title", NSMAP)) or \
-                _first_text(bs.find("tei:monogr/tei:title", NSMAP)) or ""
+        # Title: analytic/title is the cited article. A monograph title is a
+        # valid fallback for books, but ``monogr/title[@level='j']`` is the
+        # containing journal, not the work title (#226). Treating that journal
+        # as the title fabricated duplicate-title groups and poisoned fuzzy
+        # reconciliation. Select only a non-journal monograph title here.
+        title = _first_text(bs.find("tei:analytic/tei:title", NSMAP)) or ""
+        if not title:
+            for title_el in bs.findall("tei:monogr/tei:title", NSMAP):
+                if (title_el.get("level") or "").lower() == "j":
+                    continue
+                title = _first_text(title_el) or ""
+                if title:
+                    break
 
         authors: List[str] = []
         for ael in bs.findall(".//tei:author", NSMAP):
@@ -403,6 +412,11 @@ def parse_tei_references(tei_xml: str) -> List[dict]:
                     year = None
 
         journal = _first_text(bs.find("tei:monogr/tei:title[@level='j']", NSMAP)) or ""
+        # Defensive guard for TEI that duplicated the journal once without a
+        # level attribute. Exact equality is not evidence of an article title.
+        if title and journal and " ".join(title.lower().split()) == \
+                " ".join(journal.lower().split()):
+            title = ""
         doi = _first_text(bs.find(".//tei:idno[@type='DOI']", NSMAP)) or ""
         # Raw citation (only present if includeRawCitations=1 was requested)
         raw = _first_text(bs.find("tei:note[@type='raw_reference']", NSMAP)) or ""

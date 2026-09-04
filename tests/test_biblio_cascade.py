@@ -28,13 +28,13 @@ def conn():
     conn.close()
 
 
-def _seed_work(conn, work_id, title, year, surname, position=0):
+def _seed_work(conn, work_id, title, year, surname, position=0, doi=None):
     now = time.time()
     conn.execute(
         """INSERT OR IGNORE INTO works (work_id, guid_type, title, year, journal, doi,
            corpus_hash, in_corpus, source, confidence, created_at, updated_at)
-           VALUES (?, 'corpus_key', ?, ?, '', NULL, NULL, 0, 'cited_reference', 1.0, ?, ?)""",
-        (work_id, title, year, now, now),
+           VALUES (?, 'corpus_key', ?, ?, '', ?, NULL, 0, 'cited_reference', 1.0, ?, ?)""",
+        (work_id, title, year, doi, now, now),
     )
     biblio.insert_authors(conn, work_id, [(surname, "")])
     # Also register the normal alias_key so alias_exact lookups can hit
@@ -165,6 +165,83 @@ def test_high_confidence_match_does_cache_alias(conn):
     ).fetchone()
     assert row is not None
     assert row[0] == "corpus:author|2001|foo bar baz quux title"
+
+
+# ── Corrupted DOI + independent title evidence (#239) ──────────────
+
+
+@pytest.mark.parametrize("corrupted,expected_method", [
+    ("10.1016/j.food-chem.2013.06.054", "doi_hyphenation_title"),
+    ("10.1016/j.foodchem.2013.06.054references", "doi_trailing_text_title"),
+])
+def test_corrupted_doi_matches_only_with_agreeing_title(
+    conn, corrupted, expected_method,
+):
+    title = "Antioxidant properties and polyphenolic compositions of fruits"
+    canonical = "10.1016/j.foodchem.2013.06.054"
+    _seed_work(conn, canonical, title, 2013, "Kraujalyte", doi=canonical)
+
+    work_id, method, score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2013,
+        "authors": ["V Kraujalyte"],
+        "doi": corrupted,
+    })
+
+    assert work_id == canonical
+    assert method == expected_method
+    assert score == 1.0
+
+
+def test_doi_variant_shape_alone_does_not_merge_different_title(conn):
+    canonical = "10.1016/j.foodchem.2013.06.054"
+    _seed_work(
+        conn, canonical,
+        "Antioxidant properties and polyphenolic compositions of fruits",
+        2013, "Kraujalyte", doi=canonical,
+    )
+
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": "A completely different experiment on marine larvae",
+        "year": 2013,
+        "authors": ["V Kraujalyte"],
+        "doi": "10.1016/j.food-chem.2013.06.054",
+    })
+
+    assert work_id == "10.1016/j.food-chem.2013.06.054"
+    assert method == "doi_exact"
+
+
+def test_title_match_alone_does_not_override_an_unrelated_doi(conn):
+    title = "Antioxidant properties and polyphenolic compositions of fruits"
+    canonical = "10.1016/j.foodchem.2013.06.054"
+    _seed_work(conn, canonical, title, 2013, "Kraujalyte", doi=canonical)
+
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2013,
+        "authors": ["V Kraujalyte"],
+        "doi": "10.9999/unrelated",
+    })
+
+    assert work_id == "10.9999/unrelated"
+    assert method == "doi_exact"
+
+
+def test_legacy_journal_copied_into_title_is_not_matching_evidence(conn):
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": "Phytochemistry",
+        "journal": "Phytochemistry",
+        "year": 1990,
+        "authors": ["J Smith"],
+        "raw": "Smith J. 1990. Phytochemistry 29: 1-4.",
+    })
+
+    assert method == "new"
+    stored_title = conn.execute(
+        "SELECT title FROM works WHERE work_id = ?", (work_id,),
+    ).fetchone()[0]
+    assert stored_title == ""
 
 
 # ── Regression guard: first-author position ─────────────────────────
