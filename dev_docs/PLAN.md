@@ -123,7 +123,9 @@ surface or convenience feature does not qualify. The four workstreams below
 are ordered: the page-level view is an instrument for the caption work; the
 caption and reference decisions are build outputs; update correctness makes
 those outputs reproducible; the execution-plane contract keeps them out of
-the running server.
+the running server. A bounded release-hardening tranche follows them. It may
+close small existing defects and strengthen the release gate, but it does not
+relax this admission rule or compete with the evidence work.
 
 ### 1. Source-page and figure evidence — the primary fidelity gate
 
@@ -315,6 +317,44 @@ the query vector must be compatible with the stored index. It stays lazy,
 version-checked and bounded to the active request. Thin means logically
 read-only and operationally bounded, not computation-free.
 
+### Bounded release hardening
+
+Do this only after the caption fidelity run and clean/incremental rebuild gate.
+Each item stays in its own reviewable commit. If the lint migration grows into
+a formatter, import sorter or general modernization pass, or any item changes
+the frozen MCP surface, defer that part rather than expanding v1.3.
+
+- [ ] **Report BHL enrichment outcomes**
+  ([#260](https://github.com/caseywdunn/corpus/issues/260)) before cleaning up
+  its lint findings. Report the eligible, newly attempted, cached/resumed,
+  found, not-found and error populations so an operator can judge whether the
+  hours-long optional pass was useful. This is observability over existing
+  behavior, not a new enrichment or reconciliation policy.
+- [ ] **Migrate the lint gate from bare pyflakes to Ruff's `F` rules**
+  ([#259](https://github.com/caseywdunn/corpus/issues/259)). Keep `F821`
+  (undefined names) as an explicit hard assertion, make intentional
+  side-effect imports use working, narrow `noqa` annotations, and review every
+  remaining finding individually. Do not bulk-delete unused assignments whose
+  calls may have side effects, suppress findings wholesale, or enable unrelated
+  rule families in this tranche.
+- [ ] **Make the three corpus directories unambiguous in the public docs**
+  ([#171](https://github.com/caseywdunn/corpus/issues/171)): distinguish the
+  project/config root containing the source `instructions.md`, the configured
+  build `output_dir`, and the distilled served bundle. State that `corpus run`
+  copies the source instructions into the build before bundling.
+- [ ] **Close already-completed housekeeping issues after verification.**
+  [#173](https://github.com/caseywdunn/corpus/issues/173)'s existing T0 test
+  asserts that the root and packaged `CITATION.cff` files are byte-identical;
+  [#262](https://github.com/caseywdunn/corpus/issues/262)'s idempotence and
+  in-place taxonomy repair tests are merged. Verify those focused tests on the
+  release branch, then close the stale open issues rather than doing more work
+  under them.
+
+**Acceptance:** BHL enrichment leaves a useful outcome summary; Ruff enforces
+the intended Pyflakes rule family while the dedicated undefined-name guarantee
+remains explicit; source/build/served paths use consistent terms; and #173 and
+#262 no longer appear as open work already completed in the tree.
+
 ### v1.3 release gate
 
 - [ ] Every user-visible caption failure selected from the newest reference
@@ -326,6 +366,8 @@ read-only and operationally bounded, not computation-free.
   mappings on the fixed regression corpuscle.
 - [ ] The served bundle can be mounted read-only; all MCP calls still work,
   including remote whole-figure and panel download through the deployed proxy.
+- [ ] The bounded release-hardening tranche above is complete without widening
+  the lint rules or changing the frozen MCP surface.
 - [ ] T0, T1/T2, T3, T3-bare where platform behavior changed, and the relevant
   T5 fidelity scorers pass under CONTRIBUTING.md's release ritual.
 
@@ -422,26 +464,12 @@ Issue-backed, in dependency-free groups.
 
 **Housekeeping**
 
-- [ ] **`pipeline/CITATION.cff` is a hand-maintained copy**
-  ([#173](https://github.com/caseywdunn/corpus/issues/173)) with nothing
-  enforcing sync — currently byte-identical, so this is a guard rather
-  than a fix. `tests/test_citation_cff.py` (v1.1.1) now validates both
-  files independently, which is adjacent but not the same check.
-- [ ] **README is ambiguous about where `instructions.md` lives**
-  ([#171](https://github.com/caseywdunn/corpus/issues/171)).
 - [ ] **The local VLM loads in float32 on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)). Validate the dtype
-  fix on Apple Silicon together with any move beyond the current docling pin.
-- [ ] **Migrate the lint gate to Ruff**
-  ([#259](https://github.com/caseywdunn/corpus/issues/259)). Preserve F821 as
-  its own hard gate while making the existing `# noqa` suppressions real, then
-  resolve the remaining findings rather than suppressing them wholesale.
-- [ ] **Report the BHL enrichment hit rate**
-  ([#260](https://github.com/caseywdunn/corpus/issues/260)); the existing
-  counters are initialized but never updated.
-- [ ] **Close the repaired taxonomy-ingest issue** after verifying the merged
-  idempotence and in-place repair tests
-  ([#262](https://github.com/caseywdunn/corpus/issues/262)).
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)). This is not part of
+  the bounded v1.3 hardening tranche: validate the actual 7B model on suitable
+  Apple Silicon, together with any move beyond the current docling pin. A
+  mocked dtype-selection test alone does not establish that half precision is
+  numerically and operationally sound on MPS.
 - [x] **CI now looks at the repo root.** Shipped in v1.2.1 as
   `tests/test_repo_root_is_clean.py`, an allowlist over `git ls-files`.
   A stray 9-byte `%PDF-1.4` fragment named `6` sat next to `README.md`
