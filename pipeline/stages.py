@@ -25,6 +25,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from contextlib import contextmanager
@@ -336,6 +337,7 @@ def _all_stage_artifacts_complete(
 def _expected_fingerprints_for_run(
     *,
     ocrlang: Optional[str],
+    ocrmode: Optional[str],
     keeppages: Optional[str],
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -354,21 +356,23 @@ def _expected_fingerprints_for_run(
     a doc whose stage was recorded under a now-edited lexicon will be
     silently skipped by whichever side forgets the fingerprint.
 
-    ``ocrlang`` (#176) is per-*document*, unlike the taxonomy and lexicon
-    fingerprints which are per-run — so callers must resolve it inside
-    their per-document loop rather than hoisting one value out.
+    ``ocrlang`` (#176) and ``ocrmode`` (#186) are per-*document*, unlike the
+    taxonomy and lexicon fingerprints which are per-run — so callers must
+    resolve both inside their per-document loop rather than hoisting them.
 
     It fingerprints *every* resumable stage, not just the two that read
-    it. Changing the OCR language rewrites ``processed.pdf``, and every
-    later stage descends from those bytes — docling reads the PDF, Grobid
-    reads it, chunks come from docling's text, taxa come from the chunks.
+    it. Changing the OCR language or execution mode rewrites
+    ``processed.pdf``, and every later stage descends from those bytes —
+    docling reads the PDF, Grobid reads it, chunks come from docling's text,
+    taxa come from the chunks.
     Fingerprinting only ``scan_detection`` and ``pdf_preparation`` re-OCRs
     the paper and then skips everything that consumes the result, so
     ``text.json`` still holds the old OCR while the log cheerfully reports
     the new ``-l``. That is worse than not re-running at all: it looks
     like it worked.
 
-    It has no default *on purpose*. The first cut of #176 gave it one, and
+    Neither OCR directive has a default *on purpose*. The first cut of #176
+    gave ``ocrlang`` one, and
     main.py's outer fast path — the gate that actually skips work, and
     which runs before the per-stage gate — silently kept the default:
     a paper with no tag last run recorded ``{}``, the gate expected ``{}``,
@@ -406,10 +410,28 @@ def _expected_fingerprints_for_run(
         fp = dict(fps.get(stage, {}))
         if ocrlang:
             fp["ocrlang"] = ocrlang
+        if ocrmode:
+            fp["ocrmode"] = ocrmode
         if keeppages:
             fp["keeppages"] = keeppages
         fps[stage] = fp
     return fps
+
+
+_DOCLING_IMAGE_PLACEHOLDER_RE = re.compile(
+    r"<!--\s*image\s*-->", re.IGNORECASE,
+)
+
+
+def _meaningful_extracted_text(raw: str) -> str:
+    """Text that can count as recovered language for quality gates (#267).
+
+    Docling writes one HTML image placeholder per graphic. Those markers are
+    layout metadata, not transcription; counting them made an entirely empty
+    figure-heavy document look progressively healthier as it acquired more
+    images.
+    """
+    return _DOCLING_IMAGE_PLACEHOLDER_RE.sub("", raw or "").strip()
 
 
 def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
@@ -439,7 +461,8 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     refs = _safe_load_json(hash_dir / "references.json")
     scan = _safe_load_json(hash_dir / "scan_detection.json")
 
-    body = (text.get("text") or "") if isinstance(text, dict) else ""
+    raw_body = (text.get("text") or "") if isinstance(text, dict) else ""
+    body = _meaningful_extracted_text(raw_body)
     pages = int(text.get("pages") or 0) if isinstance(text, dict) else 0
     chunk_list = chunks.get("chunks") or [] if isinstance(chunks, dict) else []
     fig_list = figures.get("figures") or [] if isinstance(figures, dict) else []
@@ -484,6 +507,30 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
                 "metric": round(score, 3),
             })
 
+    # ocr_no_text_recovered — OCR can exit zero without adding text (#268).
+    # Read both the explicit current field and the derivable older-artifact
+    # shape, so re-running gates against an existing build surfaces it too.
+    is_scan = isinstance(scan, dict)
+    textless_pages = (scan.get("pages_without_text") or []) if is_scan else []
+    ocr_page_count = int((scan.get("page_count") or 0) if is_scan else 0)
+    all_ocr_pages_textless = bool(
+        ocr_page_count
+        and len({int(p) for p in textless_pages if str(p).isdigit()})
+        >= ocr_page_count
+    )
+    if needs_ocr and (
+        bool(scan.get("ocr_no_text_recovered")) or all_ocr_pages_textless
+    ):
+        total = ocr_page_count or pages or "?"
+        flags.append({
+            "gate": "ocr_no_text_recovered",
+            "severity": "error",
+            "detail": (
+                f"OCR completed but all {total} page(s) have empty text layers"
+            ),
+            "metric": ocr_page_count or len(textless_pages),
+        })
+
     # ocr_pages_blanked — pages the per-page OCR timeout gave up on and
     # left with no text (#254). Distinct from empty_text: a document can
     # read as "mostly fine" on every other gate while a third of it is
@@ -493,7 +540,6 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     # that ended up with no text, so plates and blank versos are excluded
     # by construction rather than by threshold. See pipeline/scan.py
     # `_report_ocr_page_loss`.
-    is_scan = isinstance(scan, dict)
     blanked = (scan.get("pages_blanked") or []) if is_scan else []
     if blanked:
         # text.json's page count is the one the operator sees elsewhere;

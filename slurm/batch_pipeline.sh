@@ -168,9 +168,9 @@ echo "  Grobid cancel job: $CANCEL_JOB (runs after Stage 1)"
 echo ""
 # Deliberately NOT defaulted to $NUM_BATCHES. Pass 3b only sends a figure
 # to the VLM when its caption declares multiple panels
-# (pipeline/figure_passes.py), which on the siphonophore corpus is 934 of
-# 21,789 figure records — under 5%. A single GPU task covered the whole
-# 1,769-paper library in 1 h 24 m. Fanning out to match Stage 1's array
+# (pipeline/figure_passes.py), which on one reference build was under 5% of
+# figure records. A single GPU task covered that full reference library in
+# 1 h 24 m. Fanning out to match Stage 1's array
 # (now tens of tasks) would queue against the 16-GPU per-user cap on
 # gpu_h200 for no gain. Raise it only for corpora that really are
 # figure-bound.

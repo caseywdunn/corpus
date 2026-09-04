@@ -27,8 +27,10 @@ from .parser import (  # noqa: E402
     bib_entry_to_metadata,
     entry_keeppages,
     entry_ocrlang,
+    entry_ocrmode,
     keeppages_for_pdf,
     ocrlang_for_pdf,
+    ocrmode_for_pdf,
     parse_bibtex,
 )
 
@@ -55,8 +57,10 @@ __all__ = [
     "bib_entry_to_metadata",
     "entry_keeppages",
     "entry_ocrlang",
+    "entry_ocrmode",
     "keeppages_for_pdf",
     "ocrlang_for_pdf",
+    "ocrmode_for_pdf",
     "parse_bibtex",
     "export_bibtex",
     "import_bibtex",

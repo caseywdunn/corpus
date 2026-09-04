@@ -87,6 +87,14 @@ _GATE_INFO: Dict[str, Tuple[str, str]] = {
         "`ocr.tesseract_page_timeout` treats the symptom — the page is "
         "still running at a fraction of a core, just for longer.",
     ),
+    "ocr_no_text_recovered": (
+        "error",
+        "OCR returned success but every output page has an empty text layer. "
+        "This is a failed transcription regardless of the process exit code. "
+        "Check scan_detection.json for the selected ocr_mode and packs, then "
+        "retry after correcting them; use per-paper `ocrmode = {force}` when "
+        "a stray or corrupt existing text layer suppressed OCR.",
+    ),
     "zero_references_unexpected": (
         "warn",
         "Multi-page paper with an empty references.json. Almost always "

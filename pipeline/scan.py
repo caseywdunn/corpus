@@ -714,10 +714,24 @@ _SCRIPT_PACK_FAMILIES = {
         "eng", "deu", "deu_latf", "fra", "lat", "ita", "spa", "por", "nld",
         "pol", "swe", "nor", "dan", "fin", "cat", "ces", "hun", "ron", "slk",
         "slv", "hrv", "est", "lav", "lit", "sqi", "cym", "afr", "ind", "swa",
-        "tgl", "vie", "tur", "frk",
+        "tgl", "vie", "tur", "frk", "srp_latn",
     }),
-    "Cyrillic": frozenset({"rus", "ukr", "bul", "mkd", "srp", "srp_latn"}),
+    "Cyrillic": frozenset({"rus", "ukr", "bul", "mkd", "srp"}),
     "Greek": frozenset({"ell", "grc"}),
+    "Arabic": frozenset({"ara", "fas", "urd"}),
+    "Hebrew": frozenset({"heb"}),
+    "Devanagari": frozenset({"hin", "mar", "nep"}),
+    "Bengali": frozenset({"ben"}),
+    "Gujarati": frozenset({"guj"}),
+    "Gurmukhi": frozenset({"pan"}),
+    "Tamil": frozenset({"tam"}),
+    "Telugu": frozenset({"tel"}),
+    "Kannada": frozenset({"kan"}),
+    "Malayalam": frozenset({"mal"}),
+    "Thai": frozenset({"tha"}),
+    "Han": frozenset({"chi_sim", "chi_tra", "chi_sim_vert", "chi_tra_vert"}),
+    "Japanese": frozenset({"jpn", "jpn_vert"}),
+    "Hangul": frozenset({"kor", "kor_vert"}),
 }
 
 _SCRIPT_TO_TESSERACT = {
@@ -750,8 +764,7 @@ _SCRIPT_TO_TESSERACT = {
 # WRAPPERS ONLY — publisher **imprints** are deliberately absent (#216).
 # An imprint is branding printed on the paper's own pages: a ScienceDirect
 # header, a Springer footer, a JSTOR "This content downloaded" running line.
-# Measured over the 1,772-document siphonophore library, the two populations
-# are nothing alike:
+# In one full reference-library audit, the two populations were nothing alike:
 #
 #     34 documents carry a wrapper string
 #    373 documents carry an imprint string
@@ -780,8 +793,8 @@ _SCRIPT_TO_TESSERACT = {
 # else's editing, and must not be read as a property of the strings. A corpus
 # built from fresh BHL downloads would carry a cover sheet on every one of
 # those 220, and would need this list to fire on all of them. It would: the
-# 8 survivors match. But the 34-of-1,773 figure above is a fact about a
-# curated library, not a bound on what wrappers cost.
+# surviving wrapper pages match. But that observed fraction is a fact about
+# one curated-library snapshot, not a bound on what wrappers cost.
 #
 # What that annotation does show is that wrappers are the small part of the
 # problem. It recorded a title page in 391 documents against a wrapper in 34 —
@@ -823,8 +836,8 @@ def _resolve_tesseract_packs(
     langdetect gets wrong — a corrupt text layer. But it does not *replace*
     ``detected_iso``: OSD is a per-page guess from a single sampled page,
     and on this corpus it is wrong often enough that letting it win outright
-    silently degraded 68 papers. In the 1,769-document siphonophore
-    production corpus, 188 papers had a p>=0.99 Latin-script language
+    silently degraded 68 papers. In one full production audit, 188 papers
+    had a p>=0.99 Latin-script language
     detection overruled by a non-Latin OSD verdict — Bigelow 1914 read as
     Cyrillic, Alvarino 1976b as Greek, Broch 1928 as Japanese. All 188 were
     OCR'd. The 120 English ones were rescued by accident, because
@@ -1281,6 +1294,59 @@ def _parse_ocrlang(raw: Optional[str]) -> List[str]:
     return out
 
 
+def _ocrlang_declares_non_latin(raw: Optional[str]) -> bool:
+    """Whether an explicit pack pin says the document uses another script.
+
+    This is operator evidence, not language detection. It is used only to
+    decide whether a Latin-looking text layer deserves the visual-script
+    cross-check: a Chinese/Greek/Cyrillic pin against an all-Latin layer is
+    the precise symbolic-font/mojibake contradiction that check can resolve
+    (#266). Unknown pack names carry no script inference.
+    """
+    non_latin = set().union(*(
+        packs for script, packs in _SCRIPT_PACK_FAMILIES.items()
+        if script != "Latin"
+    ))
+    return any(pack in non_latin for pack in _parse_ocrlang(raw))
+
+
+_OCRMODE_TO_INTERNAL = {
+    "force": "force_ocr",
+    "redo": "redo_ocr",
+    "skip-text": "skip_text",
+}
+
+
+def _apply_ocrmode_override(raw: Optional[str], result: Dict) -> Dict:
+    """Apply a per-document ``ocrmode`` instruction after detection (#186).
+
+    The detector's original decision remains beside the override for audit.
+    A recognized mode also sets ``needs_ocr=True``: an override that changed
+    only the ocrmypdf flag would still be inert on a misclassified
+    born-digital document, recreating #266 through a different field.
+    """
+    if not raw:
+        return result
+    requested = str(raw).strip()
+    normalized = requested.lower()
+    result["ocrmode_requested"] = requested
+    mode = _OCRMODE_TO_INTERNAL.get(normalized)
+    result["ocrmode_honored"] = mode is not None
+    if mode is None:
+        logger.warning(
+            "ocrmode=%r on %s is not one of force, redo, skip-text; "
+            "ignoring the override and using detection",
+            requested, result.get("filename", "?"),
+        )
+        return result
+
+    result["ocrmode_detection_needs_ocr"] = bool(result.get("needs_ocr"))
+    result["ocrmode_detection_mode"] = result.get("ocr_mode")
+    result["needs_ocr"] = True
+    result["ocr_mode"] = mode
+    return result
+
+
 def _resolve_ocrlang_pin(raw: Optional[str]) -> Tuple[List[str], List[str]]:
     """Return ``(honored_packs, dropped_packs)`` for an ``ocrlang`` value.
 
@@ -1692,6 +1758,29 @@ def _annotate_pack_availability(ocrlang: Optional[str], result: Dict,
     return result
 
 
+def _annotate_detection_overrides(
+    ocrlang: Optional[str],
+    ocrmode: Optional[str],
+    result: Dict,
+    pdf_path: Optional[Path] = None,
+) -> Dict:
+    """Apply both actionable BibTeX OCR directives to one verdict.
+
+    Pack selection runs first because its vertical-script checks need the
+    detector's untouched verdict. Mode runs last because it is allowed to
+    override both ``needs_ocr`` and ``ocr_mode``. ``ocrlang_applied`` closes
+    an observability gap: an honored pack pin on a document where OCR never
+    ran used to look effective even though nothing consumed it (#266).
+    """
+    out = _annotate_pack_availability(ocrlang, result, pdf_path)
+    out = _apply_ocrmode_override(ocrmode, out)
+    if "ocrlang_honored" in out:
+        out["ocrlang_applied"] = bool(
+            out.get("ocrlang_honored") and out.get("needs_ocr")
+        )
+    return out
+
+
 _FULL_PAGE_IMAGE_FRAC = 0.50
 
 # At or above this scanned-page fraction the document is treated as a
@@ -1805,13 +1894,17 @@ def _scanned_page_fraction(pdf_path: Path, pages_to_check: int = 8) -> Optional[
         return None
 
 
-def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
+def detect_scan_type(
+    pdf_path: Path,
+    ocrlang: Optional[str] = None,
+    ocrmode: Optional[str] = None,
+) -> Dict:
     """Classify the text-layer state of a PDF into one of three buckets:
 
     - ``born_digital`` — dense, intelligible text layer in a detectable
       language, on pages that are not raster scans. No OCR needed.
     - ``scanned`` — page images rather than digitally-set text. Needs OCR.
-      Covers three cases: little or no text layer (``--skip-text``); a
+      Covers three cases: little or no text layer (``--force-ocr``); a
       vendor-boilerplate-only layer; and a scan that already carries an
       OCR text layer of unknown provenance, which is re-OCR'd with
       ``--force-ocr`` so corpus's own OCR replaces it (#UX-P1.1).
@@ -1835,6 +1928,11 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
     tagging a born-digital paper changes nothing. ``needs_ocr`` stays a
     detection decision.
 
+    ``ocrmode`` is the sibling execution override (#186): ``force``, ``redo``
+    or ``skip-text``. A recognized value forces the OCR stage to run and
+    selects its mode even when detection classified the PDF born-digital.
+    Detection's original decision remains in the returned record.
+
     The returned dict is written to ``scan_detection.json`` and consumed
     by :func:`prepare_pdf`. Downstream stages can also read the
     ``detected_language`` field as a useful signal.
@@ -1843,7 +1941,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
         import fitz  # PyMuPDF
     except ImportError:
         logger.warning("PyMuPDF not available; treating as born-digital (no OCR)")
-        return _annotate_pack_availability(ocrlang, {
+        return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "born_digital",
             "has_text": True,
@@ -1866,7 +1964,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
         doc.close()
     except Exception as e:
         logger.warning("Error reading %s: %s; assuming scanned", pdf_path.name, e)
-        return _annotate_pack_availability(ocrlang, {
+        return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "scanned",
             "has_text": False,
@@ -1909,7 +2007,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                     pdf_path.name,
                     ", ".join(f"{i} p={c:.2f}" for i, c, _ in votes),
                 )
-        return _annotate_pack_availability(ocrlang, {
+        return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "scanned",
             "detection_reason": "no_text_layer",
@@ -1922,7 +2020,10 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "gibberish_score": 0.0,
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
-            "ocr_mode": "skip_text",
+            # There is no content text to preserve. --skip-text lets a stray
+            # stamp suppress OCR on exactly the page we are trying to recover
+            # (#264).
+            "ocr_mode": "force_ocr",
         }, pdf_path)
 
     # Has enough text — now triage born_digital vs broken_text_layer.
@@ -1944,7 +2045,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "re-routing to OCR",
             matched, pdf_path.name,
         )
-        return _annotate_pack_availability(ocrlang, {
+        return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "scanned",
             "detection_reason": "vendor_boilerplate_only",
@@ -1957,7 +2058,9 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
             "visual_script": None,
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
-            "ocr_mode": "skip_text",
+            # The branch has already rejected this layer as non-content;
+            # preserving it with --skip-text defeats the classification.
+            "ocr_mode": "force_ocr",
             "vendor_marker": matched,
         }, pdf_path)
 
@@ -2020,7 +2123,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                         ", ".join(f"{i} p={c:.2f}" for i, c, _ in votes),
                         script_hint or "full",
                     )
-            return _annotate_pack_availability(ocrlang, {
+            return _annotate_detection_overrides(ocrlang, ocrmode, {
                 "filename": pdf_path.name,
                 "file_type": "scanned",
                 "detection_reason": "raster_page_images",
@@ -2075,7 +2178,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
     # High gibberish score is a direct signal the text layer is corrupt,
     # regardless of script. Catches the obvious cases.
     if gib > threshold:
-        return _annotate_pack_availability(ocrlang, {
+        return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "broken_text_layer",
             "detection_reason": "gibberish_score_above_threshold",
@@ -2092,14 +2195,21 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
         }, pdf_path)
 
     # --- Visual-vs-text cross-check ---
-    # If the text layer is almost entirely Latin-family characters *and*
-    # gibberish is non-trivial, the Stepanjants case is possible: Cyrillic
-    # glyphs mapped 1:1 to Latin-1 bytes. Confirm by running Tesseract
-    # OSD on a rendered page and comparing the visual script to what the
-    # text layer claims. Only invoked in the suspect zone so OSD cost is
-    # bounded at corpus scale.
+    # If the text layer is almost entirely Latin-family characters and either
+    # gibberish is non-trivial or an explicit non-Latin pack pin contradicts
+    # it, symbolic-font/mojibake loss is possible. Confirm by running
+    # Tesseract OSD on a rendered page and comparing the visual script to what
+    # the text layer claims. The curated-conflict arm catches clean-scoring
+    # ASCII glyph maps such as the Chinese case in #266 without paying the OSD
+    # cost across every ordinary Latin paper.
     visual = None
-    if latin_frac > 0.90 and gib > 0.40:
+    visual_check_floor = float(
+        _ocr_cfg.get("visual_script_gibberish_min", 0.40)
+    )
+    curated_script_conflict = _ocrlang_declares_non_latin(ocrlang)
+    if latin_frac > 0.90 and (
+        gib > visual_check_floor or curated_script_conflict
+    ):
         visual = _visual_page_script(pdf_path)
         # The expected script from langdetect — if it disagrees with what
         # OSD sees on the actual page image, the text layer is corrupt.
@@ -2117,7 +2227,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                 "flagging as broken_text_layer",
                 visual,
             )
-            return _annotate_pack_availability(ocrlang, {
+            return _annotate_detection_overrides(ocrlang, ocrmode, {
                 "filename": pdf_path.name,
                 "file_type": "broken_text_layer",
                 "detection_reason": "visual_script_mismatch",
@@ -2133,7 +2243,7 @@ def detect_scan_type(pdf_path: Path, ocrlang: Optional[str] = None) -> Dict:
                 "ocr_mode": "force_ocr",
             }, pdf_path)
 
-    return _annotate_pack_availability(ocrlang, {
+    return _annotate_detection_overrides(ocrlang, ocrmode, {
         "filename": pdf_path.name,
         "file_type": "born_digital",
         "detection_reason": "clean_text_layer",
@@ -2299,8 +2409,15 @@ def _report_ocr_page_loss(
         return {"pages_blanked": timed_out, "pages_ocr_timed_out": timed_out}
     empty, total = seen
     blanked = sorted(set(timed_out) & set(empty))
+    no_text_recovered = bool(total and len(empty) == total)
 
-    if empty and total:
+    if no_text_recovered:
+        logger.error(
+            "[%s] OCR exited successfully but recovered no text on any of "
+            "%d page(s). The output is not a successful transcription.",
+            name, total,
+        )
+    elif empty and total:
         logger.warning(
             "[%s] %d/%d page(s) have no text after OCR (pages %s). Blank pages "
             "and plates are expected; a run of them is not.",
@@ -2319,6 +2436,7 @@ def _report_ocr_page_loss(
         "pages_ocr_timed_out": timed_out,
         "pages_without_text": empty,
         "page_count": total,
+        "ocr_no_text_recovered": no_text_recovered,
     }
 
 
@@ -2329,12 +2447,15 @@ def prepare_pdf(
 
     OCR behavior is driven by ``detection_result["ocr_mode"]``:
 
-    - ``"skip_text"`` (default for scanned docs) — ``ocrmypdf --skip-text``
-      so pages that already have a text layer are left untouched and only
-      the blank pages get OCR'd. This is correct for mixed documents.
-    - ``"force_ocr"`` (for broken text layers) — ``ocrmypdf --force-ocr`` to
-      discard the garbage text layer and re-OCR everything. Used when
-      :func:`detect_scan_type` flags a document as ``broken_text_layer``.
+    - ``"force_ocr"`` (for uniform scans and rejected text layers) —
+      ``ocrmypdf --force-ocr`` discards stray, vendor-only, or corrupt text
+      and OCRs every rendered page.
+    - ``"redo_ocr"`` (for mixed volumes) — ``ocrmypdf --redo-ocr`` replaces
+      recognized prior OCR while preserving genuinely digital pages.
+    - ``"skip_text"`` (explicit operator override) — ``ocrmypdf --skip-text``
+      OCRs only pages with no text objects. Detection no longer chooses it
+      for an empty-looking scan because a stray stamp can suppress recovery
+      of the whole content page (#264).
 
     Language selection uses ``detection_result["detected_language"]`` plus
     the config default union, filtered to what Tesseract actually has

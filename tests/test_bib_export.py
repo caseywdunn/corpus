@@ -118,7 +118,7 @@ def _make_min_db(path: Path) -> None:
             license TEXT, license_url TEXT, license_source TEXT,
             publishable INTEGER,
             serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
-            ocrlang TEXT,
+            ocrlang TEXT, ocrmode TEXT,
             doclang TEXT, pagemap TEXT, keeppages TEXT,
             created_at REAL, updated_at REAL
         );
@@ -163,6 +163,22 @@ def test_export_corpus_only_skips_ghost(tmp_path):
     assert "Earlier work" in bib
     assert "Later work" in bib
     assert "Ghost" not in bib
+
+
+def test_export_of_pre_ocrmode_database_is_read_only_and_compatible(tmp_path):
+    db = tmp_path / "biblio.sqlite"
+    _make_min_db(db)
+    conn = sqlite3.connect(db)
+    conn.execute("ALTER TABLE works DROP COLUMN ocrmode")
+    conn.commit()
+    conn.close()
+
+    bib = export_bibtex(db)
+    assert "Earlier work" in bib
+    conn = sqlite3.connect(db)
+    have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
+    conn.close()
+    assert "ocrmode" not in have
 
 
 def test_export_all_works_includes_ghost(tmp_path):

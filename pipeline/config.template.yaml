@@ -206,6 +206,10 @@ ocr:
     - ell
     - kor
   gibberish_threshold: 0.65
+  # Run the rendered-page script cross-check above this text-layer
+  # gibberish score. An explicit non-Latin ocrlang pin against a Latin-only
+  # layer always triggers the check regardless of this floor (#266).
+  visual_script_gibberish_min: 0.40
   # Per-page OCR timeout passed to ocrmypdf (--tesseract-timeout).
   # ocrmypdf's own default is far too tight for dense historical scans
   # with several language packs loaded, and when it fires the page is

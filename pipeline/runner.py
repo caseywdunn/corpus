@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf
+from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 
 from . import stamp_artifact
 from .annotate import _extract_taxa_and_lexicons
@@ -217,8 +217,9 @@ def run_pdf_processing_pipeline(
         # edits the bib, re-runs, and the stage is skipped because its
         # artifact is already on disk.
         ocrlang = ocrlang_for_pdf(bib_index, pdf_path.name)
+        ocrmode = ocrmode_for_pdf(bib_index, pdf_path.name)
         ocr_fingerprints = _expected_fingerprints_for_run(
-            ocrlang=ocrlang, keeppages=keeppages)
+            ocrlang=ocrlang, ocrmode=ocrmode, keeppages=keeppages)
         scan_fingerprint = ocr_fingerprints.get("scan_detection", {})
         prep_fingerprint = ocr_fingerprints.get("pdf_preparation", {})
 
@@ -231,7 +232,11 @@ def run_pdf_processing_pipeline(
                 plog.info("Detecting scan type...")
                 if ocrlang:
                     plog.info("OCR language pinned by bib: %s", ocrlang)
-                detection_result = detect_scan_type(temp_pdf, ocrlang=ocrlang)
+                if ocrmode:
+                    plog.info("OCR mode pinned by bib: %s", ocrmode)
+                detection_result = detect_scan_type(
+                    temp_pdf, ocrlang=ocrlang, ocrmode=ocrmode,
+                )
                 if page_selection:
                     # The resolved list *is* the subset->source map: subset
                     # page i is keeppages_selected[i - 1]. Recording it here
@@ -387,6 +392,7 @@ def run_pdf_processing_pipeline(
             # so a language change invalidates the taxa pulled out of them.
             taxa_anat_fingerprint = _expected_fingerprints_for_run(
                 ocrlang=ocrlang,
+                ocrmode=ocrmode,
                 keeppages=keeppages,
                 taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
                 lexicon_fingerprints=lexicon_fingerprints,

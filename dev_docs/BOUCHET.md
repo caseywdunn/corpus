@@ -678,7 +678,7 @@ launcher derives the array size from the corpuscle's `input_pdfs` and
 prints what it decided, e.g.
 
 ```
-Auto-sized Stage 1: 1772 PDFs / 64 per task = 28 tasks
+Auto-sized Stage 1: <N> PDFs / 64 per task = <ceil(N / 64)> tasks
 ```
 
 Check that line against the library size if you want the belt-and-braces
@@ -690,14 +690,16 @@ The pipeline orchestrator (`slurm/batch_pipeline.sh`) handles Grobid startup, ex
 
 The orchestrator parallelizes both Stage 1 (CPU) and Pass 3b (GPU)
 independently. Pass 3b looks like the long pole and is not: only figures
-whose caption declares more than one panel reach the VLM, which on the
-2026-08-04 build was 934 of 21,789 figure records (4.3%).
+whose caption declares more than one panel reach the VLM, which on one
+reference build was about 900 of ~22,000 figure records (4.3%).
 
-Measured on that build (1,769 papers, 261k chunks), end to end 5 h 10 m:
+That reference run took 5 h 10 m end to end. These are illustrative
+measurements; task count is `ceil(unique PDFs / 64)`, and elapsed time scales
+with the current paper, chunk, and eligible-figure counts:
 
 | Phase | Shape | Elapsed |
 |---|---|---|
-| extract | 28 tasks × 64 PDFs | 2 h 35 m (slowest task; most finish in 1–4 min) |
+| extract | `ceil(unique PDFs / 64)` tasks | 2 h 35 m (slowest task in the reference run; most finished in 1–4 min) |
 | vision (Pass 3b) | 1 GPU task | 1 h 24 m |
 | embed | 1 GPU task | 21 m |
 | finalize | 1 CPU task | 1 h 03 m |

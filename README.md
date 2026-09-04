@@ -85,6 +85,7 @@ Because entries are already keyed to individual PDFs, the `.bib` is also where a
 | `license`, `licenseurl` | Figure licensing for the served bundle — see [dev_docs/LICENSING.md](dev_docs/LICENSING.md) |
 | `serve`, `servereason` | Exclude a paper from the served bundle — see [dev_docs/QC.md](dev_docs/QC.md) |
 | `ocrlang` | Pin which Tesseract packs OCR this paper |
+| `ocrmode` | Force OCR for this paper and select `force`, `redo`, or `skip-text` |
 | `doclang`, `pagemap` | Record what the paper *is* and how the scan is put together — read by nothing |
 | `keeppages` | Which physical pages of the file are the paper |
 
@@ -104,7 +105,30 @@ Write Tesseract pack names joined by `+` — the same spelling ocrmypdf's `-l` u
 
 If you generate the bib from a script and hold each document's language as a tag rather than as pack names, `pipeline.scan.bcp47_to_tesseract` does the translation — `"de-Latf"` to `["deu_latf", "deu"]`, `"zh-Hant"` to `["chi_tra"]`, `"grc"` to `["grc"]`. It is public so that a library's tooling doesn't have to keep its own copy of the table and watch it drift from this one.
 
-The tag pins language packs only — it does not force OCR, so adding it to a born-digital paper changes nothing. Adding, changing, or removing it re-runs OCR for that paper on the next `corpus run`; papers you didn't touch are left alone.
+The tag pins language packs only — it does not force OCR, so adding it to a
+genuinely born-digital paper changes nothing. `scan_detection.json` records
+`ocrlang_applied: false` when a valid pin was not consumed by an OCR run.
+
+When the mode decision is the problem rather than the language, use the
+separate `ocrmode` escape hatch:
+
+```bibtex
+@article{LegacySymbolicFontPaper,
+  file    = {LegacySymbolicFontPaper.pdf},
+  ocrlang = {ell+eng},
+  ocrmode = {force},
+}
+```
+
+`force` discards every existing text layer and OCRs the rendered pages;
+`redo` replaces text OCRmyPDF recognizes as prior OCR while preserving
+genuine digital text; `skip-text` OCRs only pages with no text objects. The
+last mode is intentionally explicit because even a publisher stamp can make a
+content page count as having text. An `ocrmode` directive always makes OCR run,
+including when detection called the document born-digital; an unknown value is
+recorded and ignored with a warning. Adding, changing, or removing either OCR
+directive invalidates every stage derived from that paper's processed PDF on
+the next `corpus run`; papers you did not touch remain resumable.
 
 **Vertically-set CJK is detected automatically, and `ocrlang` overrides it.** Tesseract ships separate models for vertical text — `jpn_vert`, `chi_sim_vert`, `chi_tra_vert`, `kor_vert` — and a vertically-set document read by a horizontal model loses about half its words. Measured on a 1911 Japanese monograph against a hand transcription of the same pages:
 

@@ -246,6 +246,10 @@ def create_schema(conn: sqlite3.Connection) -> None:
             -- which Zotero populates by default — an imported .bib must
             -- not silently start steering OCR. NULL for almost every row.
             ocrlang        TEXT,
+            -- #186 — operator override for whether/how OCR runs on this
+            -- document: force, redo, or skip-text. Like ocrlang, this is an
+            -- instruction rather than bibliographic metadata.
+            ocrmode        TEXT,
             -- #214 — curation fields. `doclang` is a BCP-47 tag recording
             -- what the paper *is* ("de-Latf": German set in Fraktur) where
             -- `ocrlang` above records what to *do* about it; `pagemap` is
@@ -368,13 +372,17 @@ _V12_WORKS_COLUMNS = [
     ("pagemap", "TEXT"),    # #214
     ("keeppages", "TEXT"),  # #188
 ]
+_V13_WORKS_COLUMNS = [
+    ("ocrmode", "TEXT"),  # #186
+]
 
 
 def _migrate_works_columns(conn: sqlite3.Connection) -> None:
     """Idempotent ALTER TABLE for works.* additions from past releases."""
     have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
     for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS,
-                       *_V11_WORKS_COLUMNS, *_V12_WORKS_COLUMNS):
+                       *_V11_WORKS_COLUMNS, *_V12_WORKS_COLUMNS,
+                       *_V13_WORKS_COLUMNS):
         if name not in have:
             conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
@@ -396,13 +404,13 @@ _NON_PUBLISHABLE_LICENSES = frozenset({
 
 
 def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) -> None:
-    """Copy bib-derived license + serve + ocrlang + curation fields from
+    """Copy bib-derived license + serve + OCR + curation fields from
     metadata.json into works.*.
 
-    ``ocrlang`` (#176) rides along here purely so ``corpus bib export``
-    can round-trip it. Nothing in the pipeline reads it back from this
-    table — the scan stage reads it straight off the BibIndex, because it
-    has to run before the authority DB exists.
+    ``ocrlang`` (#176) and ``ocrmode`` (#186) ride along here purely so
+    ``corpus bib export`` can round-trip them. Nothing in the pipeline reads
+    them back from this table — the scan stage reads them straight off the
+    BibIndex, because it has to run before the authority DB exists.
 
     ``doclang`` and ``pagemap`` (#214) ride along for the same reason and
     go one step further: nothing reads them *at all*. They are a curator's
@@ -415,6 +423,7 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     serve_v = meta.get("serve")
     serve_reason = meta.get("serve_reason")
     ocrlang = meta.get("ocrlang")
+    ocrmode = meta.get("ocrmode")
     doclang = meta.get("doclang")
     pagemap = meta.get("pagemap")
     keeppages = meta.get("keeppages")
@@ -438,6 +447,9 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     if ocrlang:
         sets.append("ocrlang = ?")
         params.append(ocrlang)
+    if ocrmode:
+        sets.append("ocrmode = ?")
+        params.append(ocrmode)
     if doclang:
         sets.append("doclang = ?")
         params.append(doclang)

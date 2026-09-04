@@ -161,7 +161,7 @@ of what those numbers mean.
   ([#194](https://github.com/caseywdunn/corpus/issues/194)) after confirming
   the scorer and recorded result still match the current gold set. Remaining
   caption behavior belongs to #195/#203 rather than another measurement task.
-- [ ] **Close the whole-document silent-loss paths**:
+- [x] **Close the whole-document silent-loss paths**:
   `no_text_layer` / `vendor_boilerplate_only` preserving the wrong layer
   ([#264](https://github.com/caseywdunn/corpus/issues/264)); visual-script
   comparison hidden behind the gibberish threshold

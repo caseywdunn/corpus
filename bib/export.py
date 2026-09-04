@@ -184,10 +184,18 @@ def export_bibtex(
     """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    # Export is read-only, so do not mutate an older authority DB merely to
+    # add a newly optional column. Treat pre-v1.3 rows as NULL until the next
+    # authority build performs the normal migration (#186).
+    works_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(works)")
+    }
+    ocrmode_select = "ocrmode" if "ocrmode" in works_columns else "NULL AS ocrmode"
     where = "WHERE in_corpus = 1" if corpus_only else ""
     works_sql = f"""
         SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus,
                license, license_url, serve, serve_reason, ocrlang,
+               {ocrmode_select},
                doclang, pagemap, keeppages
         FROM works
         {where}
@@ -247,6 +255,8 @@ def export_bibtex(
             # #176 — round-trip the OCR language override so an
             # export/hand-edit/import cycle doesn't silently drop it.
             "ocrlang": r["ocrlang"],
+            # #186 — same round-trip contract for the OCR mode override.
+            "ocrmode": r["ocrmode"],
             # #214 — round-trip the curation fields. They steer nothing, so
             # losing them costs no output; it costs the curator's record of
             # why a directive was set, which is the only copy there is.

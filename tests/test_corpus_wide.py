@@ -292,8 +292,8 @@ def _build_corpus_index():
 # missing title page prints, and a 19th-century monograph legitimately
 # references plates bound in another volume.
 #
-# Asserted per paper on the 1,769-document production corpus they produced
-# 1,690 failures across 1,157 papers — 65% of the corpus. A signal that
+# Asserted per paper on one full production build, they produced failures
+# across 65% of the corpus. A signal that
 # fires on two thirds of the corpus cannot be triaged, so in practice it was
 # off. Asserting the *rate* keeps the signal: 3% of born-digital papers
 # failing the title check is actionable and a jump to 30% is a real
@@ -317,7 +317,7 @@ _SOFT_RATE_MIN_DOCS = _CITATION_GRAPH_MIN_DOCS
 # ceiling fitted to one corpus is indistinguishable from a ceiling fitted
 # to that corpus's *subject matter*:
 #
-#   siphonophore  1,787 docs, marine invertebrate zoology, heavy on
+#   siphonophore  ~2,000 docs, marine invertebrate zoology, heavy on
 #                 19th-century plate-based monographs and offprints
 #   viburnum        699 docs, botany, mostly modern journal articles,
 #                   assembled by mining references

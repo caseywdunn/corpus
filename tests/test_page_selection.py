@@ -234,7 +234,9 @@ def test_keeppages_fingerprints_every_ocr_dependent_stage():
     """
     from pipeline.stages import _OCR_DEPENDENT_STAGES, _expected_fingerprints_for_run
 
-    fps = _expected_fingerprints_for_run(ocrlang=None, keeppages="3--20")
+    fps = _expected_fingerprints_for_run(
+        ocrlang=None, ocrmode=None, keeppages="3--20",
+    )
     for stage in _OCR_DEPENDENT_STAGES:
         assert fps[stage]["keeppages"] == "3--20", stage
 
@@ -243,16 +245,24 @@ def test_an_unannotated_document_still_compares_equal():
     """`{}`, not a key with None — otherwise every existing corpus re-OCRs."""
     from pipeline.stages import _expected_fingerprints_for_run
 
-    fps = _expected_fingerprints_for_run(ocrlang=None, keeppages=None)
+    fps = _expected_fingerprints_for_run(
+        ocrlang=None, ocrmode=None, keeppages=None,
+    )
     assert all(fp == {} for fp in fps.values())
 
 
 def test_adding_changing_and_removing_all_invalidate():
     from pipeline.stages import _expected_fingerprints_for_run
 
-    none = _expected_fingerprints_for_run(ocrlang=None, keeppages=None)
-    added = _expected_fingerprints_for_run(ocrlang=None, keeppages="3--20")
-    changed = _expected_fingerprints_for_run(ocrlang=None, keeppages="4--20")
+    none = _expected_fingerprints_for_run(
+        ocrlang=None, ocrmode=None, keeppages=None,
+    )
+    added = _expected_fingerprints_for_run(
+        ocrlang=None, ocrmode=None, keeppages="3--20",
+    )
+    changed = _expected_fingerprints_for_run(
+        ocrlang=None, ocrmode=None, keeppages="4--20",
+    )
     assert none != added and added != changed and changed != none
 
 
@@ -266,7 +276,7 @@ def test_the_argument_is_required():
     from pipeline.stages import _expected_fingerprints_for_run
 
     with pytest.raises(TypeError, match="keeppages"):
-        _expected_fingerprints_for_run(ocrlang=None)
+        _expected_fingerprints_for_run(ocrlang=None, ocrmode=None)
 
 
 # ---------------------------------------------------------------------------

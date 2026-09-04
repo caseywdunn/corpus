@@ -40,7 +40,7 @@ def _make_db(path: Path) -> None:
             publishable INTEGER,
             serve INTEGER NOT NULL DEFAULT 1, serve_reason TEXT,
             bib_imported_at REAL,
-            ocrlang TEXT,
+            ocrlang TEXT, ocrmode TEXT,
             doclang TEXT, pagemap TEXT, keeppages TEXT,
             created_at REAL, updated_at REAL
         );

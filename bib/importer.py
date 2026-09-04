@@ -142,6 +142,7 @@ _WORK_FIELDS = (
     "title", "year", "journal", "doi",
     "license", "license_url", "serve", "serve_reason",
     "ocrlang",   # #176 — flat BibTeX name, no rename needed
+    "ocrmode",   # #186 — force | redo | skip-text
     "doclang", "pagemap",   # #214 — likewise flat, and read by nothing
     "keeppages",            # #188 — flat too, and this one acts
 )
@@ -180,7 +181,14 @@ def diff_entry_against_work(
     value equals the DB value are excluded — the diff is what would
     *actually* change.
     """
-    cols = ", ".join(_WORK_FIELDS)
+    have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
+    # Dry-run against an older authority DB must remain read-only. Missing
+    # nullable fields compare as NULL; a real import migrates before calling
+    # this helper.
+    cols = ", ".join(
+        field if field in have else f"NULL AS {field}"
+        for field in _WORK_FIELDS
+    )
     cur = conn.execute(
         f"SELECT {cols} FROM works WHERE work_id = ?",
         (work_id,),
@@ -370,6 +378,7 @@ def import_bibtex(
         "entries": len(entries),
         "matched_corpus_hash": 0,
         "matched_doi": 0,
+        "matched_work_id": 0,
         "no_match": 0,
         "no_changes": 0,
         "changed": 0,
@@ -379,6 +388,13 @@ def import_bibtex(
 
     # Run inside one transaction so a partial failure rolls back.
     try:
+        # Bring older authority DBs up to the current nullable-column shape
+        # before a real import, so adding ocrmode does not require a preceding
+        # corpus rebuild (#186). Dry-run stays strictly read-only;
+        # diff_entry_against_work represents an absent nullable column as NULL.
+        if not dry_run:
+            from .authority import _migrate_works_columns
+            _migrate_works_columns(conn)
         for entry in entries:
             cite_key = entry.get("_key", "?")
             work_id, method = find_matching_work_id(conn, entry)
@@ -403,9 +419,9 @@ def import_bibtex(
                 # unreachable dead code.
                 #
                 # The consequence was severe and invisible: a full
-                # round-trip re-import stamped only the entries that
-                # happened to have field edits (20 of 19,834 in the
-                # reported corpus), so CorpusIndex.provenance() kept
+                # round-trip re-import stamped only the handful of entries
+                # that happened to have field edits in the reported build,
+                # so CorpusIndex.provenance() kept
                 # returning grobid_reconciled for the rest and
                 # format_citations kept emitting "generated via
                 # reconciliation, check if correct" on works the user had

@@ -34,8 +34,11 @@ corpus status --sort-by stage_failure_count --tail 20
 Lists the 20 papers carrying the most quality_flag entries (or stage
 failures). The `quality_flag` set comes from v0.2's silent-failure
 detectors (#36): `empty_text`, `low_text_density`,
-`gibberish_after_ocr`, `ocr_pages_blanked`, `zero_references_unexpected`,
-`single_token_chunks`, `all_black_figures`. Per-paper QC metrics
+`gibberish_after_ocr`, `ocr_pages_blanked`, `ocr_no_text_recovered`,
+`zero_references_unexpected`, `single_token_chunks`, `all_black_figures`.
+`empty_text` ignores Docling's `<!-- image -->` layout placeholders;
+`ocr_no_text_recovered` is an error when OCR exits successfully but leaves
+every output page without a text layer. Per-paper QC metrics
 (citation_resolution_rate, dictionary_hit_rate, headfoot_pollution_score,
 …) are a #54 follow-up; gate counts are the proxy until those land.
 

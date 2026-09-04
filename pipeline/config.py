@@ -111,6 +111,10 @@ _DEFAULT_CONFIG = {
         # threshold. Must stay in sync with config_schema.OcrConfig
         # default + the bundled config.template.yaml.
         "gibberish_threshold": 0.65,
+        # Floor for the otherwise-conditional visual-script cross-check.
+        # An explicit non-Latin ocrlang against a Latin-only layer bypasses
+        # this floor because the curator has already supplied the conflict.
+        "visual_script_gibberish_min": 0.40,
         # Per-page --tesseract-timeout for ocrmypdf. A timeout blanks the
         # page and still exits 0, so this is deliberately generous.
         "tesseract_page_timeout": 900,

@@ -52,6 +52,19 @@ def test_empty_text_flagged(fake_hash_dir):
     assert "empty_text" in _gate_names(flags)
 
 
+def test_image_placeholders_do_not_count_as_recovered_text(fake_hash_dir):
+    """A figure-heavy blank scan must not get healthier with each image."""
+    placeholders = "\n\n".join(["<!-- image -->"] * 50)
+    assert len(placeholders) > 500  # pre-#267 this cleared the gate
+    (fake_hash_dir / "text.json").write_text(json.dumps({
+        "title": "", "text": placeholders, "pages": 220,
+    }))
+    flags = _run_quality_gates(fake_hash_dir)
+    empty = next(f for f in flags if f["gate"] == "empty_text")
+    assert empty["severity"] == "error"
+    assert empty["metric"] == 0
+
+
 def test_low_text_density_flagged(fake_hash_dir):
     # 1000 chars / 50 pages = 20 chars/page < 200 default threshold
     (fake_hash_dir / "text.json").write_text(json.dumps({

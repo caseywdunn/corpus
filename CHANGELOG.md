@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Per-document `ocrmode` makes a wrong OCR routing decision correctable
+  (#186).** A BibTeX entry may set `ocrmode = {force}`, `{redo}`, or
+  `{skip-text}` alongside `ocrlang`. A valid directive forces OCR to run even
+  when detection called the PDF born-digital, preserves the detector's
+  original verdict in `scan_detection.json`, round-trips through the
+  bibliographic authority database, and fingerprints every descendant stage
+  so edits cannot be skipped by resume. Unknown values are recorded and
+  ignored with a warning.
+
 - **An on-demand, self-contained page audit joins the evidence needed to
   diagnose extraction and caption failures (#274).**
   `python -m pipeline.page_report <output>/documents/<HASH> --pages 12-13`
@@ -20,6 +29,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   normal build no longer creates a second raster set for every document.
 
 ### Fixed
+
+- **Whole-document OCR failures now fail visibly instead of satisfying clean
+  success paths (#264, #266–#268).** Documents with no content layer or only a
+  vendor wrapper use forced OCR rather than the self-defeating `--skip-text`.
+  A curated non-Latin `ocrlang` pin against a Latin-only text layer triggers
+  the rendered-page script check even below the configurable gibberish floor.
+  Quality gates remove Docling `<!-- image -->` placeholders before measuring
+  text, so adding figures cannot make an empty document healthier. Finally,
+  OCRmyPDF exiting zero with every output page textless is persisted and
+  emitted as the error-level `ocr_no_text_recovered` gate, including when the
+  condition is derived from an older scan artifact. Verified on the reported
+  Lin/Zhang canary: its original symbolic-font layer exposed zero CJK
+  characters; `force` with `chi_sim+eng` recovered 447 and readable Chinese
+  prose.
+
+- **A BibTeX export could not be imported unchanged when it matched by
+  `work_id`.** The matcher already supported that stable identifier, but its
+  result counter did not, so the import raised `KeyError` before applying or
+  stamping the entry. The counter now covers the existing match route; this
+  also makes `ocrmode` export/edit/import round trips usable.
 
 - **Incomplete vision responses can no longer masquerade as successful empty
   detections (#269).** Claude and local Qwen now share a panel-count-sized
