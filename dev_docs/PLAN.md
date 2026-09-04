@@ -15,8 +15,8 @@ surface into one CLI plus a per-corpuscle `config.yaml`; v0.4 closed
 silent-failure modes and gated the next cycle on tiered CI; v0.5 was the
 served-bundle quality cycle; **v0.6** froze the MCP surface at **38
 tools**, which every cycle since has held; **v1.0** made a green CI badge
-mean a fresh install works, validated by 1,769 of 1,769 documents on
-Bouchet with 0 stage failures; **v1.1.1** made `CITATION.cff` schema-valid,
+mean a fresh install works, validated on the full Bouchet corpus with 0
+stage failures; **v1.1.1** made `CITATION.cff` schema-valid,
 which is what had been silently blocking Zenodo archival since v0.3.0; and
 **v1.2** built the gold transcription set and scored the extractor against
 it — the first signal this project has had that measures the pipeline
@@ -26,9 +26,9 @@ against something other than itself.
 paragraph is in the CHANGELOG; what matters here is the inheritance. The
 gold set is now a standing instrument rather than a one-cycle project — any
 extraction change can be scored against it before and after, which is the
-condition v1.3's work inherits and should keep using. Two of v1.2's items
-did not finish and are carried below with their reasons: #187's drift half
-and #217.
+condition v1.3's work inherits and should keep using. Its unfinished
+fingerprint-based regression reference (#187) is carried below. The
+library-inspection work (#217) moves with the skills-and-usage cycle to v1.4.
 
 v1.2 also left a standing lesson worth stating once, because it recurred
 three times in that cycle and once more at its own release: **a measurement
@@ -39,10 +39,20 @@ had, because each one measured the document rather than the machine that
 built it; and a stray file sat in the repo root through four green CI runs
 and two release PRs because nothing looks there.
 
-**v1.3 is the skills-and-usage cycle.** Where v1.2 asked whether the corpus
-is *right*, v1.3 asks whether anyone can *use* it. Scope below, and as in
-every cycle since v1.1 it is a candidate list rather than a commitment —
-the material is expected to redirect it.
+**v1.3 is the evidence-integrity and auditability cycle.** A preliminary
+acceptance pass over the newest reference corpuscle made wrong figure-caption
+associations the most conspicuous errors in actual use. The same build exposed
+whole-document OCR loss, append-only embeddings and order-dependent reference
+reconciliation. Those are one product problem: corpus can return plausible
+evidence without being able to show that it is the evidence printed on the
+page, or that a re-run would return the same current corpus.
+
+The v1.3 outcome is therefore: **corpus either preserves and links source
+evidence correctly, or exposes its uncertainty; a re-run cannot leave stale
+evidence; and an operator can inspect the result against the original page.**
+The skills-and-usage work previously assigned to v1.3 moves to v1.4 with a
+narrower scope. It should consume trustworthy captions, references and update
+semantics rather than design around their current failures.
 
 Doc map unchanged: architectural background in
 [OVERVIEW.md](OVERVIEW.md); per-feature history in
@@ -104,89 +114,224 @@ flags, T1 now runs bare `-m corpus_required`, and T2 additionally ignores
 `test_reference_extraction.py` because Grobid is disabled there. Both
 workflow files state the reasoning inline.
 
-## v1.3 — skills and usage
+## v1.3 — evidence integrity and auditability
 
-The packaging and recipes that turn 38 frozen tools into an answer to a
-question someone actually has. Additive by construction: skills live beside
-the server, not inside the API contract, so nothing here reopens the surface
-v0.6 froze.
+This cycle has one admission rule: work belongs here only when it changes
+whether evidence is preserved, associated with the right source, reproducible
+after an update, or inspectable when it is uncertain. A new workflow, export
+surface or convenience feature does not qualify. The four workstreams below
+are ordered: the page-level view is an instrument for the caption work; the
+caption and reference decisions are build outputs; update correctness makes
+those outputs reproducible; the execution-plane contract keeps them out of
+the running server.
 
-- [ ] **A `skills/` plugin directory**
-  ([#178](https://github.com/caseywdunn/corpus/issues/178)) — where a
-  corpuscle's task recipes live and how a client discovers them.
-- [ ] **A clade-monograph skill**
-  ([#179](https://github.com/caseywdunn/corpus/issues/179)) — the first
-  real one, and the synthesis recipe Q2 has been missing since v0.5.
-- [ ] **A README quick start**
-  ([#180](https://github.com/caseywdunn/corpus/issues/180)) — the
-  shortest path from clone to a served answer.
-- [ ] **Fingerprint-based regression reference**
-  ([#187](https://github.com/caseywdunn/corpus/issues/187)) — carried from
-  v1.2's gold-corpuscle work, where the accuracy half landed and the drift
-  half did not.
+### 1. Source-page and figure evidence — the primary fidelity gate
+
+The newest reference-corpuscle acceptance pass makes this the first-order
+user problem. A missing caption is visible; a confidently returned caption
+from the wrong figure is plausible misinformation. v1.2 measured caption
+binding at 0.574 recall / 0.878 precision, with the weakest layouts in the
+oldest material; [FIGURE_PARSING.md](FIGURE_PARSING.md) is the stable account
+of what those numbers mean.
+
+- [ ] **Repair and re-measure caption association**
+  ([#195](https://github.com/caseywdunn/corpus/issues/195)). Bind on validated
+  figure-number evidence where available, distinguish a prose caption from a
+  bare label, and record the chosen candidate, rejected candidates, source,
+  page distance and confidence. A weak association must be exposed as weak in
+  the stored artifact and MCP result, not presented as an ordinary caption.
+- [ ] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
+  ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
+  caption blocks, parse lists of figure numbers separately from lettered
+  panels, admit those plates to ROI splitting, and cross-check the proposed
+  split against `missing_figures`. Scope is the measured layout family, not a
+  general segmentation rewrite.
+- [ ] **Make vision output completeness a hard fact**
+  ([#269](https://github.com/caseywdunn/corpus/issues/269)). A response clipped
+  by the token budget is incomplete, never a successful panel result; size the
+  budget from emitted structure or fail/retry explicitly.
+- [ ] **Build the optional, re-runnable per-document page report**
+  ([#274](https://github.com/caseywdunn/corpus/issues/274)): original processed
+  page, cell/figure/ROI overlay, selectable parsed text, and page-level
+  statistics/provenance in one HTML document. It is build/operator-side QC,
+  reads `docling_doc.json`, and never ships in the served bundle. Decide in
+  the same change whether the existing unconditional visualization PNGs become
+  opt-in or on-demand; do not replace them with another corpus-wide raster set.
+- [ ] **Close the completed figure-measurement issue**
+  ([#194](https://github.com/caseywdunn/corpus/issues/194)) after confirming
+  the scorer and recorded result still match the current gold set. Remaining
+  caption behavior belongs to #195/#203 rather than another measurement task.
+- [ ] **Close the whole-document silent-loss paths**:
+  `no_text_layer` / `vendor_boilerplate_only` preserving the wrong layer
+  ([#264](https://github.com/caseywdunn/corpus/issues/264)); visual-script
+  comparison hidden behind the gibberish threshold
+  ([#266](https://github.com/caseywdunn/corpus/issues/266), superseding
+  [#172](https://github.com/caseywdunn/corpus/issues/172)'s broader symptom);
+  image placeholders
+  satisfying `empty_text`
+  ([#267](https://github.com/caseywdunn/corpus/issues/267)); and OCRmyPDF
+  exiting zero with no recovered text
+  ([#268](https://github.com/caseywdunn/corpus/issues/268)). Provide
+  [#186](https://github.com/caseywdunn/corpus/issues/186)'s per-document OCR
+  override as the explicit escape hatch for a classifier that still gets a
+  document wrong.
+
+**Acceptance:** each conspicuous failure from the newest reference corpuscle
+has a small regression fixture; caption recall and precision are reported
+before and after by era and layout; precision does not trade away silently for
+recall; and every document that recovers no meaningful text fails an error-level
+quality gate regardless of process exit code or markup placeholders.
+
+### 2. Reference evidence — deterministic and non-destructive
+
+The full proposal in #240 mixes a necessary data-model repair with speculative
+model-assisted blocking. v1.3 takes the deterministic foundation and leaves
+the latter out until the new observation set can measure whether it is needed.
+
+- [ ] **Repair the inputs before clustering:** stop recording journal names
+  as work titles ([#226](https://github.com/caseywdunn/corpus/issues/226)) and
+  stop a malformed DOI from short-circuiting stronger title/author evidence
+  ([#239](https://github.com/caseywdunn/corpus/issues/239)).
+- [ ] **Separate reference observations from canonical works**
+  ([#240](https://github.com/caseywdunn/corpus/issues/240), deterministic
+  core only). Keep one immutable/re-derivable observation per citing-paper
+  reference; map it to a canonical work in a separate relation carrying the
+  method, score and producer version. Reconciliation becomes a pure,
+  re-runnable decision over observations rather than a destructive merge.
+- [ ] **Centralize the works/citations schema used by tests**
+  ([#237](https://github.com/caseywdunn/corpus/issues/237)) before migrating
+  it, so five hand-written test schemas cannot validate five different models.
+- [ ] **Preserve the frozen MCP wire surface.** Existing reference tools read
+  a compatibility view/materialization with their parameter names, defaults
+  and response fields unchanged. Better data is expected; an accidental API
+  migration inside a data-model change is not.
+- [ ] **Re-measure `get_missing_references`**
+  ([#155](https://github.com/caseywdunn/corpus/issues/155)) after the migration,
+  using the raw observation set to explain every canonicalization decision.
+
+**Deferred from #240:** embedding-based candidate blocking and local-model
+adjudication. Neither enters v1.3 without a measurement from the deterministic
+system showing which unresolved population it would fix, a versioned model
+input, and an auditable persisted verdict.
+
+**Acceptance:** reconciliation from a clean build and reconciliation after an
+incremental paper addition produce the same observation-to-work mapping;
+running it twice is a no-op; no raw observation is destroyed; and every mapping
+can answer which evidence and rule produced it.
+
+### 3. Truthful updates and release evidence
+
+- [ ] **Define and implement the corpuscle update contract**
+  ([#265](https://github.com/caseywdunn/corpus/issues/265)): additions,
+  removals, changed PDF bytes, same-hash derived-content changes, bib edits,
+  config edits and version upgrades each state what invalidates, what is
+  replaced and what is pruned.
+- [ ] **Extend input fingerprints**
+  ([#174](https://github.com/caseywdunn/corpus/issues/174)) to every input that
+  can change an artifact, including the relevant bib fields, filename and
+  resolved configuration. A key belongs in a stage fingerprint only when that
+  stage actually consumes it.
+- [ ] **Make embedding replacement atomic per document and delete the Stage 1
+  fake completion marker**
+  ([#271](https://github.com/caseywdunn/corpus/issues/271)). Re-embedding one
+  hash replaces its rows; it never skips stale text or appends a second
+  generation. A marker is written only after the table commit and carries the
+  chunk fingerprint, model, dimension and committed row count. Bundle metadata
+  validates all markers rather than sampling an arbitrary one.
+- [ ] **Land the fingerprint-based release reference**
+  ([#187](https://github.com/caseywdunn/corpus/issues/187)). Diff pipeline
+  output, quality flags and manifest facts for the fixed gold corpuscle; test
+  counts remain a CI activity signal, not a data regression reference.
+
+**Acceptance:** for every supported change class, an incremental run and a
+clean rebuild have the same current document set, artifact fingerprints,
+cross-paper mappings and vector rows. `corpus status` and the bundle manifest
+never infer completion from a placeholder or from a sampled marker.
+
+### 4. Execution planes and a thin server
+
+Write the normative model in [OVERVIEW.md](OVERVIEW.md), not in this ephemeral
+plan. Use **execution planes** because pipeline "stage" already has a different
+meaning:
+
+| Plane | Owns | May compute | Must not do |
+| --- | --- | --- | --- |
+| Library curation | PDFs, BibTeX, curator directives | inspect, validate, propose/review source edits | write corpus artifacts or duplicate generic PDF/OCR knowledge |
+| Build/materialization | OCR, extracted text/figures, associations, databases, embeddings, served bundle | expensive batch/GPU/API work; deterministic resumable transforms | depend on `tools/` or `skills/`; leave ambiguous partial state |
+| Serve/query | an immutable bundle plus disposable caches | bounded lookup, filtering, authorization, formatting and compatible query embedding | OCR, reconciliation, corpus-wide mutation, external enrichment or general LLM calls |
+| Client/agent | user intent and deliverables | synthesis, translation, workflow orchestration and presentation | serve as the enforcement point for licensing, provenance or access control |
+
+- [ ] **Document the ownership and data flow** in OVERVIEW; summarize it in
+  README and the contributor invariants in AGENTS.md. Data flows library →
+  build → immutable bundle → bounded server response → client output. Client
+  feedback becomes an explicit reviewed library edit, not server mutation.
+- [ ] **Audit the served path against that contract.** In particular: move
+  on-demand figure crops out of the bundle or materialize them at build time;
+  make figure-download URLs work behind the reference reverse proxy without
+  returning the shared MCP bearer token in a model-visible response; and apply
+  one bounded-input policy to every MCP collection/list parameter. File the
+  implementation issues before changing the frozen surface.
+- [ ] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
+  representative response schemas in addition to the existing tool-name,
+  error-shape and licensing checks.
+
+The query embedder is the deliberate exception to "no models in the server":
+the query vector must be compatible with the stored index. It stays lazy,
+version-checked and bounded to the active request. Thin means logically
+read-only and operationally bounded, not computation-free.
+
+### v1.3 release gate
+
+- [ ] Every user-visible caption failure selected from the newest reference
+  corpuscle is fixed or returned with explicit uncertainty, and the gold
+  caption-binding report has been inspected rather than merely generated.
+- [ ] The page report makes the original page, parsed text, chosen caption and
+  competing evidence reviewable without manually joining four artifacts.
+- [ ] Clean and incremental builds agree for vector rows and reference
+  mappings on the fixed regression corpuscle.
+- [ ] The served bundle can be mounted read-only; all MCP calls still work,
+  including remote whole-figure and panel download through the deployed proxy.
+- [ ] T0, T1/T2, T3, T3-bare where platform behavior changed, and the relevant
+  T5 fidelity scorers pass under CONTRIBUTING.md's release ritual.
+
+## v1.4 — skills and usage
+
+The v1.3 work makes this cycle possible; it is not part of it. v1.4 is the
+small client/workflow layer that turns the frozen retrieval surface into a
+repeatable answer. Its scope is deliberately limited to one library-building
+workflow, one corpus-consuming workflow, and the shortest public path through
+them:
+
+- [ ] **A `skills/` plugin directory and library-assembly skill**
+  ([#178](https://github.com/caseywdunn/corpus/issues/178)). Skills may import
+  public functions from `pipeline/`; the product never imports a skill.
 - [ ] **`corpus bib inspect-pages`**
-  ([#217](https://github.com/caseywdunn/corpus/issues/217)) — read-only
-  per-page evidence for curating `keeppages` and `doclang`. Deferred in v1.2
-  and now has a working prototype with a caller: the siphonophore library's
-  `scripts/inspect_pages.py`, written free of clade-specific knowledge so
-  upstreaming is a move rather than a rewrite. It produced the 515 `keeppages`
-  and 1,773 `pagemap` values v1.2's #188 consumes.
-- [ ] **The reconciliation rework**
-  ([#240](https://github.com/caseywdunn/corpus/issues/240)) — **a release
-  theme of its own, not an item here.** v1.2 measured what the current
-  cascade does and where it fails: 58% of duplicate ghosts with *identical*
-  titles escape the `(first author, year)` block, nothing ever re-reconciles,
-  and a corrupted DOI short-circuits the whole cascade
-  ([#239](https://github.com/caseywdunn/corpus/issues/239)). The fix is a
-  data-model change — observations separated from canonical works — plus a
-  model dependency, touching the served MCP surface. #226 and #239 should land
-  before it; both corrupt the evidence any clustering pass would consume.
-- **Also in scope for the cycle, if it earns its way in:**
-  **`export_to_disk` + `suggest_command`**
-  ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2) and the
-  **`corpus export` CLI**
-  ([#93](https://github.com/caseywdunn/corpus/issues/93)) — the bulk
-  export surface for "the LLM isn't the consumer" workflows, which is a
-  usage question wearing a tooling hat.
+  ([#217](https://github.com/caseywdunn/corpus/issues/217)), the read-only
+  pre-build evidence used by the library-assembly workflow to curate
+  `keeppages`, `doclang` and related judgments. It inspects the library; it does
+  not duplicate the post-build page report from #274.
+- [ ] **A clade-monograph skill**
+  ([#179](https://github.com/caseywdunn/corpus/issues/179)) that consumes the
+  caption/reference provenance shipped by v1.3 and writes deliverables on the
+  client, never on the MCP host.
+- [ ] **A README quick start**
+  ([#180](https://github.com/caseywdunn/corpus/issues/180)) covering that path
+  from a library to a served answer.
 
-### Housekeeping, in-cycle
-
-Three carried in from the v1.2 patch cycle. None is urgent; all three are
-small, self-contained, and were found by running the pipeline rather than by
-a test.
-
-- [ ] **The local VLM loads in float32 on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — the dtype
-  branches on `== "cuda"` rather than on what the device supports, so Apple
-  Silicon needs ~30 GB for Qwen2.5-VL-7B instead of ~15. The rest of the MPS
-  path is already in place. **Needs Apple-Silicon hardware to validate**, and
-  a machine that can do that would also unblock the `docling==2.94.0` pin
-  below — the same hardware gates both, so they are worth scheduling
-  together.
-- [ ] **Migrate the lint gate to Ruff**
-  ([#259](https://github.com/caseywdunn/corpus/issues/259)) — bare `pyflakes`
-  does not implement `# noqa`, so the suppression already written into
-  `mcpsrv/tools/__init__.py` has never had any effect and F401 cannot be
-  gated without deleting the side-effect imports that register the MCP tools.
-  That tooling mismatch, not the cleanup itself, is why the 37 outstanding
-  findings have stayed deferred. **Keep `F821` as its own hard gate** when
-  rewriting: `tests/test_no_undefined_names.py` exists because two real
-  NameErrors shipped, and a broad lint suite that can be silenced wholesale
-  is a weaker guarantee than the narrow one it replaces.
-- [ ] **`--enrich-bhl` reports no hit rate**
-  ([#260](https://github.com/caseywdunn/corpus/issues/260)) — three counters
-  are initialized and never touched, so a multi-hour rate-limited pass
-  answers nothing about whether it was worth running. The pattern to copy is
-  forty lines away in the same file. Deleting the variables, which is what a
-  lint sweep would do, is the wrong fix: it removes the only evidence the
-  measurement was intended.
+Bulk export ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2 and
+[#93](https://github.com/caseywdunn/corpus/issues/93)), reconciliation changes,
+new MCP tools, unrelated housekeeping and new scientific extraction layers are
+not part of v1.4. If the clade-monograph acceptance run exposes another
+evidence-integrity defect, fix it as a defect; do not expand the skills cycle
+into another pipeline redesign.
 
 ## Unscheduled
 
-Not claimed by a cycle, and none blocks another. Carried so nothing is
-silently dropped. Split because the two halves get picked up for
-different reasons: a known defect is picked up when it bites someone, an
-unbuilt feature when something makes it worth building.
+Not claimed by v1.3 or v1.4. This is a selected orientation list, not a second
+issue tracker; GitHub issues are authoritative. Dependencies that matter are
+stated inline. Split because the two halves get picked up for different
+reasons: a known defect is picked up when it bites someone, an unbuilt feature
+when something makes it worth building.
 
 ### Open defects
 
@@ -212,9 +357,6 @@ Issue-backed, in dependency-free groups.
 - [ ] **Abbreviated genus binomials**
   ([#164](https://github.com/caseywdunn/corpus/issues/164)) —
   `Ph. pelagica` resolves to nothing.
-- [ ] **`visual_script` is never populated**
-  ([#172](https://github.com/caseywdunn/corpus/issues/172)), leaving the
-  text-layer/visual cross-check inert.
 - [ ] **Move the docling pin forward**
   ([#98](https://github.com/caseywdunn/corpus/issues/98) follow-up).
   Still `docling==2.94.0`. Reproduce on an arm64 Mac, determine whether
@@ -233,11 +375,15 @@ Issue-backed, in dependency-free groups.
   was fixed in 1.0, the underlying flag was not.
 - [ ] **Surface the naive-chunker fallback in `corpus status`**
   ([#168](https://github.com/caseywdunn/corpus/issues/168)).
-- [ ] **Extend per-stage fingerprints to bib entries, filenames and
-  config keys** ([#174](https://github.com/caseywdunn/corpus/issues/174)),
-  so editing the input bib stops being a silent no-op. The per-document bib
-  directives v1.2 shipped rest on it — #188 depends on this or on a
-  documented caveat.
+- [ ] **Do not warn about a downgraded vision pass on phases that never run
+  it** ([#263](https://github.com/caseywdunn/corpus/issues/263)).
+- [ ] **Bound build memory explicitly**
+  ([#182](https://github.com/caseywdunn/corpus/issues/182)); embedding batch
+  size and docling resource controls should be reachable from configuration.
+- [ ] **Make accelerator requirements explicit**
+  ([#270](https://github.com/caseywdunn/corpus/issues/270)). A GPU phase should
+  fail before expensive setup when no usable accelerator is present; keep
+  scheduler-specific constraints in deployment configuration.
 
 **Housekeeping**
 
@@ -248,6 +394,19 @@ Issue-backed, in dependency-free groups.
   files independently, which is adjacent but not the same check.
 - [ ] **README is ambiguous about where `instructions.md` lives**
   ([#171](https://github.com/caseywdunn/corpus/issues/171)).
+- [ ] **The local VLM loads in float32 on MPS**
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)). Validate the dtype
+  fix on Apple Silicon together with any move beyond the current docling pin.
+- [ ] **Migrate the lint gate to Ruff**
+  ([#259](https://github.com/caseywdunn/corpus/issues/259)). Preserve F821 as
+  its own hard gate while making the existing `# noqa` suppressions real, then
+  resolve the remaining findings rather than suppressing them wholesale.
+- [ ] **Report the BHL enrichment hit rate**
+  ([#260](https://github.com/caseywdunn/corpus/issues/260)); the existing
+  counters are initialized but never updated.
+- [ ] **Close the repaired taxonomy-ingest issue** after verifying the merged
+  idempotence and in-place repair tests
+  ([#262](https://github.com/caseywdunn/corpus/issues/262)).
 - [x] **CI now looks at the repo root.** Shipped in v1.2.1 as
   `tests/test_repo_root_is_clean.py`, an allowlist over `git ls-files`.
   A stray 9-byte `%PDF-1.4` fragment named `6` sat next to `README.md`
@@ -295,8 +454,17 @@ held because nothing has yet made them worth the cost.
   Per-claim ledger anchoring as a thin similarity-only wrapper over
   `get_chunks_for_topic`. New tool — post-freeze by construction.
 - **Drift detection** ([#80](https://github.com/caseywdunn/corpus/issues/80)).
-  Pre-run diff of resolved config + per-input content SHAs. Overlaps
-  #174 and #187; pick it up with whichever of those moves first.
+  Pre-run explanation of why a run will invalidate each stage. v1.3 implements
+  #174 and #187; reassess afterward whether #80 still names distinct work.
+- **Bulk export outside the MCP response channel**
+  ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2 and
+  [#93](https://github.com/caseywdunn/corpus/issues/93)). A local `corpus
+  export` or client-side download workflow fits the execution-plane contract;
+  an MCP tool that writes the server's filesystem does not.
+- **Rename `_serve/`**
+  ([#273](https://github.com/caseywdunn/corpus/issues/273)). Naming cleanup,
+  not evidence integrity; provide a deprecation/compatibility path because the
+  directory appears in operator scripts and documentation.
 - **Column-store shape for `lexicon_matrix`**
   ([#83](https://github.com/caseywdunn/corpus/issues/83)). Token saving
   at large-matrix scale; held pending a prompt-suite analysis showing it
@@ -304,7 +472,7 @@ held because nothing has yet made them worth the cost.
 - **Figure-number extraction: the non-caption cases.**
   [#16](https://github.com/caseywdunn/corpus/issues/16) is **closed** —
   it landed the parsing half (`Taf. III.`, `Tab. XII.`, `Plate IV.`,
-  Roman→Arabic normalization, 49 tests) of the ~538-of-1,787-paper gap.
+  Roman→Arabic normalization and fixture-backed tests) of the corpus-wide gap.
   What remains is papers with no caption at all, or a caption not near
   its image, which needs vision OCR or a body-text-mention fallback.
   **Untracked** — file an issue if picked up. v1.2's figure-fidelity
@@ -314,8 +482,8 @@ held because nothing has yet made them worth the cost.
   [#11](https://github.com/caseywdunn/corpus/issues/11) is **closed** as
   carried-out-in-code: `corpus run` invokes the vision pass whenever
   `figures.panel_detection` selects a vision backend and the host
-  capability check passes. The corpus-scale run happened in v1.0 — 934 of
-  934 eligible figures through the vision pass on Bouchet. What remains
+  capability check passes. A corpus-scale run happened in v1.0 with every
+  eligible figure reaching the vision pass. What remains
   is the **figure-coverage audit**: count figures with `pass3c_status`
   set, sum `missing_figures[]` lengths, and establish what "eligible"
   excluded. v1.2's figure-detection scoring
@@ -342,7 +510,8 @@ held because nothing has yet made them worth the cost.
   model migration path. Design-only; implement when a model swap is
   actually needed.
 - [#39](https://github.com/caseywdunn/corpus/issues/39) — MCP server
-  lazy index loading. Premature at 1.8K papers; documented as a known
+  lazy index loading. Premature for the current ~2,000-paper reference corpus;
+  documented as a known
   scaling cliff; revisit when a corpuscle pushes 10K+.
 - [#5](https://github.com/caseywdunn/corpus/issues/5) — Streamable HTTP
   transport with OAuth. Deferred indefinitely. SSE + bearer-token works
@@ -365,9 +534,9 @@ Generic shapes; concrete instantiations live in the corpuscle's
 | # | Pattern | Status entering v1.3 |
 | --- | --- | --- |
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer ([#13](https://github.com/caseywdunn/corpus/issues/13), deferred to v2.0+) |
-| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; citation-trust gap closed by [#79](https://github.com/caseywdunn/corpus/issues/79) in v0.5, provenance preservation by [#142](https://github.com/caseywdunn/corpus/issues/142) / [#152](https://github.com/caseywdunn/corpus/issues/152) in v1.0; synthesis recipe scoped for v1.3 as the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
+| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; v1.3 repairs caption/reference evidence and makes uncertainty inspectable before v1.4 adds the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
 | Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14)) |
-| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; the corpus-scale vision run landed with v1.0's Bouchet production run (934/934 eligible figures); figure coverage became measurable against truth in v1.2 (0.923 recall at 0.967 precision on the served surface) |
+| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; a corpus-scale vision run landed in v1.0 and figure detection became measurable against truth in v1.2 (0.923 recall at 0.967 precision on the served surface). Caption binding remains the conspicuous evidence error and is v1.3's primary fidelity gate |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |
 | Q6 | "Summarize `<topic>` across the corpus." | Indices in place; cache cost addressed by dossier tools [#76](https://github.com/caseywdunn/corpus/issues/76) in v0.5 |
 | Q7 | "Plot species described per decade." | Indices in place |
