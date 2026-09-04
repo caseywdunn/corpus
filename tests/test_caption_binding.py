@@ -101,6 +101,19 @@ def test_gold_parser_handles_lists_ranges_and_roman_labels():
     assert cb.gold_caption_entries("Plate IV. Colony.") == ["4"]
 
 
+def test_gold_parser_does_not_read_mouth_plate_key_as_plate_1000():
+    assert cb.gold_caption_entries("Pl.M.") == []
+    assert cb.gold_caption_entries("Pl.M.\tSom.") == []
+    assert cb.gold_caption_entries(
+        "Fig. 4: R.r. R.l. Pl.m. Ost. To.d. Vel."
+    ) == ["4"]
+
+
+def test_gold_panel_parser_starts_after_engraved_mouth_plate_key():
+    body = "Pl.M.\nA.\nB.\nFIG. 1. Whole colony without separate panels."
+    assert cb.gold_panel_labels(body) == []
+
+
 def test_gold_parser_rejects_caption_internal_source_citations():
     assert cb.gold_caption_entries(
         "Fig. 77. Nectopyramis, from Totton, 1954, fig. 36)",
@@ -207,6 +220,8 @@ def test_panel_report_scores_positive_and_negative_fixture_cases():
         PANEL_FIXTURE / "gold", PANEL_FIXTURE / "corpuscle",
     )
     totals = report["surfaces"]["default MCP types"]["totals"]
+    assert totals["reported_pair_capacity"] == 2
+    assert totals["reported_pair_capacity_rate"] == 1.0
     assert totals["gold_panel_figures"] == 1
     assert totals["reported_panel_figures"] == 1
     assert totals["exact_panel_figures"] == 1
@@ -340,6 +355,7 @@ def report():
 
 
 def test_documents_bind_and_unmatched_are_reported(report):
+    assert report["schema_version"] == 5
     assert report["documents_bound"] == 2
     assert report["documents_unmatched"] == ["DocTwo"]
 
@@ -354,6 +370,8 @@ def test_precision_is_none_rather_than_zero_when_nothing_was_reported(report):
     assert report["totals"]["found_numbers"] == 0
     assert report["totals"]["number_precision"] is None
     assert report["totals"]["number_recall"] == 0.0
+    assert report["totals"]["reported_pair_capacity"] == 0
+    assert report["totals"]["reported_pair_capacity_rate"] == 0.0
 
 
 def test_f1_is_zero_when_rates_are_defined_but_nothing_matches():
@@ -366,8 +384,20 @@ def test_f1_is_zero_when_rates_are_defined_but_nothing_matches():
     assert packed["f1"] == 0.0
 
 
+def test_reported_pair_capacity_rate_is_derived_from_aggregate_counts():
+    packed = cb._pack_counts({
+        "gold_numbers": 4,
+        "found_numbers": 3,
+        "matched_numbers": 2,
+        "reported_pair_capacity": 3,
+        "captions_compared": 0,
+    })
+    assert packed["reported_pair_capacity_rate"] == 0.75
+
+
 def test_the_report_states_why_it_does_not_use_caption_similarity(report):
     assert "artifact" in report["caveat"]
+    assert "not a ceiling" in report["caveat"]
 
 
 def test_report_states_independent_panel_measurement(report):
@@ -407,4 +437,5 @@ def test_summary_renders(report, capsys):
     cb.print_summary(report)
     out = capsys.readouterr().out
     assert "binding recall" in out and "binding precision" in out
+    assert "reported-pair capacity" in out
     assert "by era" in out and "by layout" in out

@@ -94,20 +94,30 @@ _GOLD_CREDIT_CONTEXT_RE = re.compile(
 _GOLD_AUTHORITY_TAIL_RE = re.compile(
     r"^\s+[A-Z][a-z\u00c0-\u00ff]+\s*(?:\)|,\s*\d{4})"
 )
+# ``Pl.M.`` is the conventional mouth-plate key inside siphonophore drawings,
+# not an abbreviation of "Plate M". The generic opener grammar cannot tell
+# those strings apart after converting Roman M to 1000, so reject the compact
+# anatomical spelling before applying it. A printed plate label uses ``Plate``
+# or a spaced abbreviation such as ``Pl. IV`` in the gold set.
+_GOLD_MOUTH_PLATE_LABEL_RE = re.compile(r"^\s*Pl\.M\.?(?:\s|$)", re.IGNORECASE)
 
-_COUNT_KEYS = (
-    "gold_numbers", "found_numbers", "matched_numbers", "captions_compared",
+_NUMBER_COUNT_KEYS = (
+    "gold_numbers", "found_numbers", "matched_numbers",
+    "reported_pair_capacity", "captions_compared",
+)
+_PANEL_COUNT_KEYS = (
     "gold_panel_figures", "reported_panel_figures", "exact_panel_figures",
     "gold_panel_labels", "reported_panel_labels", "matched_panel_labels",
     "gold_unpanelled_figures", "number_matched_unpanelled_figures",
     "unexpected_panel_figures",
 )
+_COUNT_KEYS = _NUMBER_COUNT_KEYS + _PANEL_COUNT_KEYS
 
 
 # Gold labels are parsed independently of the production extractor. Importing
 # parse_figure_number/caption_figure_entries here made the yardstick move when
 # those functions changed: the Totton source-citation fix changed the gold
-# denominator from 496 to 486 even though no transcription changed. The gold
+# denominator from 496 to 480 even though no transcription changed. The gold
 # is human transcription, so it needs only the printed, non-OCR-damage opener
 # vocabulary plus lists/ranges. Keep this deliberately narrower and fixture-
 # backed; production's fuzzy OCR spellings belong only on the measured side.
@@ -161,10 +171,14 @@ def gold_caption_entries(line):
     become additional figures.
     """
     text = line or ""
+    if _GOLD_MOUTH_PLATE_LABEL_RE.match(text):
+        return []
     if not _GOLD_ENTRY_START_RE.match(text):
         return []
     matches = []
     for match in _GOLD_ENTRY_RE.finditer(text):
+        if _GOLD_MOUTH_PLATE_LABEL_RE.match(text[match.start():]):
+            continue
         if not matches:
             matches.append(match)
             continue
@@ -271,7 +285,8 @@ def gold_panel_labels(body):
     lines = stripped.splitlines()
     start = next(
         (i for i, line in enumerate(lines)
-         if _GOLD_ENTRY_START_RE.match(line.strip())),
+         if not _GOLD_MOUTH_PLATE_LABEL_RE.match(line)
+         and _GOLD_ENTRY_START_RE.match(line.strip())),
         None,
     )
     if start is None:
@@ -383,6 +398,8 @@ def _pack_counts(counts):
     matched = counts["matched_numbers"]
     recall = matched / gold if gold else None
     precision = matched / found if found else None
+    capacity = counts.get("reported_pair_capacity", 0)
+    capacity_rate = capacity / gold if gold else None
     f1 = None
     if recall is not None and precision is not None:
         f1 = (
@@ -398,6 +415,9 @@ def _pack_counts(counts):
         **{k: counts.get(k, 0) for k in _COUNT_KEYS},
         "number_recall": round(recall, 4) if recall is not None else None,
         "number_precision": round(precision, 4) if precision is not None else None,
+        "reported_pair_capacity_rate": (
+            round(capacity_rate, 4) if capacity_rate is not None else None
+        ),
         "f1": round(f1, 4) if f1 is not None else None,
         "panel_figure_recall": (
             round(reported_panel_figures / panel_figures, 4)
@@ -491,6 +511,14 @@ def score_document(gold_dir, corpus_dir, figure_types=None):
     g = sum(len(v) for v in gold_nums.values())
     j = sum(len(v) for v in found_nums.values())
     matched = sum(len(gold_nums[p] & found_nums.get(p, set())) for p in gold_nums)
+    # This is the best recall possible if the existing count of distinct
+    # reported page/number pairs on each page is held fixed and every pair may
+    # be relabelled. It diagnoses missing upstream evidence; it is not a
+    # theoretical ceiling on a rebuild that discovers additional labels.
+    reported_pair_capacity = sum(
+        min(len(numbers), len(found_nums.get(page, set())))
+        for page, numbers in gold_nums.items()
+    )
 
     sims = []
     for gold_cap, got_cap in captions:
@@ -545,10 +573,14 @@ def score_document(gold_dir, corpus_dir, figure_types=None):
         "structural_kinds": dict(structural_kinds),
         "layout": _layout_bucket(structural_kinds),
         "gold_numbers": g, "found_numbers": j, "matched_numbers": matched,
+        "reported_pair_capacity": reported_pair_capacity,
         "number_recall": round(matched / g, 4) if g else None,
         "number_precision": round(matched / j, 4) if j else None,
+        "reported_pair_capacity_rate": (
+            round(reported_pair_capacity / g, 4) if g else None
+        ),
         "captions_compared": len(sims),
-        **{key: panel_counts[key] for key in _COUNT_KEYS[4:]},
+        **{key: panel_counts[key] for key in _PANEL_COUNT_KEYS},
         "median_caption_similarity": fid._median(sims),
         "caption_evidence_counts": dict(sorted(evidence.items())),
         "pages": page_diagnostics,
@@ -599,7 +631,7 @@ def build_report(gold_root, corpuscle_root):
         }
 
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "question": "is the caption bound to the figure it belongs to, and "
                     "does its declared panel set match",
         "method": "figure numbers parsed independently from labels printed "
@@ -609,7 +641,11 @@ def build_report(gold_root, corpuscle_root):
         "caveat": "Naive caption-text similarity reports 44% and is mostly "
                   "artifact — bilingual captions, bare labels, and documents "
                   "that are their own translation. Numbers are the "
-                  "language-independent signal.",
+                  "language-independent signal. Reported-pair capacity is "
+                  "the maximum same-page number recall possible if the "
+                  "current number of distinct reported pairs on each page is "
+                  "held fixed; it diagnoses missing evidence, not a ceiling "
+                  "on a rebuild that discovers more labels.",
         "panel_method": "lettered panels parsed independently from the "
                         "gold caption text after its figure opener; only "
                         "explicit multi-label sets beginning at A are scored, "
@@ -644,6 +680,8 @@ def print_summary(report, stream=None):
     w(f"numbers the pipeline reports       : {t['found_numbers']}\n")
     w(f"  binding recall                   : {t['number_recall']}\n")
     w(f"  binding precision                : {t['number_precision']}\n")
+    w(f"  fixed reported-pair capacity     : "
+      f"{t['reported_pair_capacity_rate']}\n")
 
     w("\n-- by retrieval surface " + "-" * 30 + "\n")
     w(f"{'surface':24}{'gold':>7}{'found':>7}{'recall':>9}{'precis':>9}\n")

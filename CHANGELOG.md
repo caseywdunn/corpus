@@ -151,20 +151,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bijection, and use exact next-page legend matches to enrich preceding bare
   labels. The figure MCP responses expose the summary fields without moving
   association work into the server. On the 35-document regression replay,
-  the default served surface improves from 0.551 recall / 0.890 precision to
-  0.580 / 0.910 over identical persisted Docling inputs; every defined era,
+  the default served surface improves from 0.558 recall / 0.890 precision to
+  0.588 / 0.910 over identical persisted Docling inputs; every defined era,
   file-type and layout segment improves on both measures. The scorer now uses
   an independent gold-label parser and reports raw and default-MCP surfaces,
-  so an extractor-parser change cannot move its own gold denominator.
+  so an extractor-parser change cannot move its own gold denominator. It also
+  reports the fixed reported-pair capacity that separates missing upstream
+  number evidence from wrong association, and excludes the anatomical key
+  `Pl.M.` (mouth-plate) from Roman-numeral plate labels.
 
   Panel correctness is now measured independently as well. Caption parsing
   supports the common `A, ...; B, ...` style, preserves strong printed sets
   with gaps through L, stops at abbreviation glossaries, joins geometrically
   adjacent panel-description cells, and can reject a wrong structural link in
   favor of a materially closer same-page numbered caption. On the 35-document
-  persisted-Docling metadata replay, 93 gold captions enumerate panels: 83
-  receive declarations, 81 label sets are exact, and label recall / precision
-  is 0.895 / 1.000. No panels are declared on 175 gold figure blocks without
+  persisted-Docling metadata replay, 98 gold captions enumerate panels: 87
+  receive declarations, 84 label sets are exact, and label recall / precision
+  is 0.895 / 0.997. No panels are declared on 176 gold figure blocks without
   a panel enumeration that match an extracted figure by page and number. A
   clean source-PDF rebuild remains the release gate.
 

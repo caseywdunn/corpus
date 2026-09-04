@@ -85,7 +85,11 @@ python tools/qc/caption_binding.py \
 
 The read-only report separates the raw figure record from the default MCP
 evidence types. Figure-number recall/precision measures same-page ownership;
-the panel section separately reports declaration recall/precision, exact
+`reported_pair_capacity_rate` gives the best recall possible if each page keeps
+its current count of distinct reported number pairs and those pairs are
+relabelled perfectly. This diagnoses missing upstream number evidence; it is
+not a theoretical ceiling on a rebuild that discovers additional labels. The
+panel section separately reports declaration recall/precision, exact
 letter sets, and label recall/precision. Both gold parsers are independent of
 the production functions they measure, and numeric figures sharing a plate
 are excluded from the letter-panel denominator. Declaration precision uses

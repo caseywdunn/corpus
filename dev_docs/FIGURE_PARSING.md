@@ -56,23 +56,35 @@ Release candidate, 35 documents, 376 gold figure blocks (316 `[FIGURE]`,
 | captioned only | 0.880 | 0.979 | 0.927 |
 
 Caption binding on the full 35-document regression replay, scored on figure
-*numbers* over the default MCP evidence types: **recall 0.580, precision
-0.910** (282 matches, 310 reported, 486 gold). Before the v1.3 association
-repairs, replaying the same persisted Docling documents produced **0.551 /
+*numbers* over the default MCP evidence types: **recall 0.588, precision
+0.910** (282 matches, 310 reported, 480 gold). Before the v1.3 association
+repairs, replaying the same persisted Docling documents produced **0.558 /
 0.890**. No extraction or gold input changed between those two measurements,
 and every defined era, file-type and layout bucket improved in both recall and
 precision. This isolates the association change; a clean source-PDF rebuild is
 still required at the release gate.
 
+The **0.588 is end-to-end page/number coverage, not the accuracy of the final
+candidate selector in isolation**. The current replay reports only 310
+page/number pairs for 480 gold pairs, and their per-page distribution can cover
+at most 304 gold pairs (0.633) without recovering another number-bearing
+record. Figure-only documents already match 102/124 gold pairs, with 102/104
+reported pairs correct; mixed figure/plate documents match 175/323, with
+175/200 reported pairs correct; and plate-only documents match 5/33, with 5/6
+reported pairs correct. The selector is therefore near its observed input
+ceiling on ordinary layouts. Raising the overall rate requires upstream label
+discovery and logical plate expansion, not just another caption-ranking
+heuristic.
+
 Panel splitting is now a separate acceptance measure rather than an inference
-from figure-number binding. The independent gold parser finds **93 captions
+from figure-number binding. The independent gold parser finds **98 captions
 that explicitly enumerate lettered panels**. Replaying current caption
 selection and panel parsing over the persisted Docling artifacts reports a
-panel declaration for **83**, an exact label set for **81**, and label recall /
-precision of **0.895 / 1.000**. It declares no panels for the 175 same-page,
+panel declaration for **87**, an exact label set for **84**, and label recall /
+precision of **0.895 / 0.997**. It declares no panels for the 176 same-page,
 same-number gold figure blocks that the gold parser classifies as non-panelled.
 This metadata replay deliberately retains the older entry/classification
-population, so its figure-number totals are not a replacement for the 0.580 /
+population, so its figure-number totals are not a replacement for the 0.588 /
 0.910 full regression result above. The clean release rebuild must confirm
 both measures together.
 
@@ -80,7 +92,9 @@ The scorer now parses hand-transcribed gold labels independently of the
 production parser and reports the raw artifact and default MCP surface
 separately. That separation is load-bearing: an earlier version reused
 production's fuzzy OCR parser, so changing the extractor silently changed the
-supposedly fixed gold denominator from 496 to 486.
+supposedly fixed gold denominator from 496 to 480. The compact anatomical key
+`Pl.M.` is explicitly excluded: inside these figures it means mouth-plate, not
+Roman-numeral Plate 1000.
 
 **Panel labels have their own independent parser and denominator.** Only text
 after the gold block's first figure-caption opener is eligible, so an `A` or

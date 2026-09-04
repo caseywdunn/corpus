@@ -140,13 +140,22 @@ of what those numbers mean.
   bare label, and record the chosen candidate, rejected candidates, source,
   page distance and confidence. A weak association must be exposed as weak in
   the stored artifact and MCP result, not presented as an ordinary caption.
-  Full regression replay now moves the default served surface from 0.551 /
-  0.890 to 0.580 / 0.910 over the same persisted Docling inputs. The independent
-  panel yardstick now finds 93 explicitly enumerated letter-panel captions;
-  current metadata replay declares 83, gets 81 exact sets, and scores 0.895 /
-  1.000 label recall/precision with no declaration on 175 same-page,
+  Full regression replay now moves the default served surface from 0.558 /
+  0.890 to 0.588 / 0.910 over the same persisted Docling inputs. The independent
+  panel yardstick now finds 98 explicitly enumerated letter-panel captions;
+  current metadata replay declares 87, gets 84 exact sets, and scores 0.895 /
+  0.997 label recall/precision with no declaration on 176 same-page,
   same-number non-panel figure blocks. Keep this open until the clean source-PDF
-  rebuild confirms both measures on the complete current extraction path.
+  rebuild confirms both measures on the complete current extraction path. The
+  number-binding headline is end-to-end coverage, not selector accuracy: the
+  replay's existing page/number population has a 0.633 per-page capacity
+  ceiling. Report that availability ceiling by layout so future work separates
+  missing label evidence from a wrong association decision. The next measured
+  tranche is build-time, page-level number discovery for the mixed and plate
+  layouts below that ceiling. It must materialize independently evidenced
+  number/region/legend relationships with confidence and rejected candidates;
+  do not move reconstruction into the MCP server or client, and do not turn it
+  into an unconstrained general segmentation rewrite.
 - [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered
