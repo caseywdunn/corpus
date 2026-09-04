@@ -196,7 +196,8 @@ def extract_docling_content(
                 logger.warning("Could not serialize docling bbox: %s", e)
         return meta
 
-    # Two-pass docling figure extraction (Phase D.2 — see dev_docs/PLAN.md).
+    # Two-pass docling figure extraction; see dev_docs/OVERVIEW.md "Figure
+    # pipeline" for the stable stage contract.
     #
     # Pass 1: gather every docling Picture's image + bbox + caption in
     # memory. We don't write images to disk yet — the filename policy
@@ -218,6 +219,7 @@ def extract_docling_content(
             expand_plate_figures,
             furniture_positions,
             plate_legend_entries,
+            _text_fragments,
             compose_figure_filename,
             FIGURE_TYPE_FIGURE,
             FIGURE_TYPE_PLATE,
@@ -247,6 +249,11 @@ def extract_docling_content(
                 "caption_page": caption_info.get("caption_page"),
                 "caption_bbox": caption_info.get("caption_bbox"),
                 "caption_source": caption_info.get("caption_source"),
+                "caption_kind": caption_info.get("caption_kind"),
+                "caption_status": caption_info.get("caption_status"),
+                "caption_confidence": caption_info.get("caption_confidence"),
+                "caption_page_distance": caption_info.get("caption_page_distance"),
+                "caption_candidates": caption_info.get("caption_candidates", []),
                 "figure_number": figure_number,
                 "bbox": bbox_meta.get("bbox"),
                 "page": bbox_meta.get("page"),
@@ -260,12 +267,11 @@ def extract_docling_content(
         # classification so the new records are classified like any other.
         page_texts = {}
         for t in (getattr(document, "texts", None) or []):
-            meta = _docling_prov_to_bbox_page(t)
-            page_no = meta.get("page")
-            if page_no is None:
-                continue
-            page_texts.setdefault(page_no, []).append(
-                {"text": getattr(t, "text", "") or "", "bbox": meta.get("bbox")})
+            for text, bbox, page_no in _text_fragments(t):
+                page_texts.setdefault(page_no, []).append({
+                    "text": text,
+                    "bbox": bbox,
+                })
         legends = {pg: plate_legend_entries(ts) for pg, ts in page_texts.items()}
         legends = {pg: e for pg, e in legends.items() if e}
         if legends:
@@ -318,6 +324,11 @@ def extract_docling_content(
                         "caption_page": it.get("caption_page"),
                         "caption_bbox": it.get("caption_bbox"),
                         "caption_source": it.get("caption_source"),
+                        "caption_kind": it.get("caption_kind"),
+                        "caption_status": it.get("caption_status"),
+                        "caption_confidence": it.get("caption_confidence"),
+                        "caption_page_distance": it.get("caption_page_distance"),
+                        "caption_candidates": it.get("caption_candidates", []),
                         "shares_image_with": shares,
                     },
                 )
@@ -355,6 +366,11 @@ def extract_docling_content(
                 "caption_page": it.get("caption_page"),
                 "caption_bbox": it.get("caption_bbox"),
                 "caption_source": it.get("caption_source"),
+                "caption_kind": it.get("caption_kind"),
+                "caption_status": it.get("caption_status"),
+                "caption_confidence": it.get("caption_confidence"),
+                "caption_page_distance": it.get("caption_page_distance"),
+                "caption_candidates": it.get("caption_candidates", []),
             }
             if it.get("figure_type") == FIGURE_TYPE_SUBPANEL:
                 meta["primary_figure_docling_idx"] = it.get("primary_figure_docling_idx")
@@ -426,6 +442,19 @@ def extract_docling_content(
                                 "page": page_num + 1,
                                 "width": pix.width,
                                 "height": pix.height,
+                                # The fallback has pixels and page geometry,
+                                # but no Docling caption relation to inspect.
+                                # Make that absence explicit in new artifacts
+                                # instead of relying on server-side legacy
+                                # normalization.
+                                "caption_page": None,
+                                "caption_bbox": None,
+                                "caption_source": None,
+                                "caption_kind": None,
+                                "caption_status": "unbound",
+                                "caption_confidence": None,
+                                "caption_page_distance": None,
+                                "caption_candidates": [],
                             }
                             if bbox_list is not None:
                                 # PyMuPDF uses PDF-like coords but top-left origin

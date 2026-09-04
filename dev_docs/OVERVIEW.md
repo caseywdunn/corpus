@@ -17,6 +17,45 @@ The top-level entry-point scripts are thin shims; the implementation is grouped 
 
 There are no top-level entry-point scripts: `corpus` (from `[project.scripts]`) is the single CLI, and it dispatches into the packages above. The root-level scripts this doc used to list — `process_corpus.py`, `mcp_server.py`, and friends — were folded into packages in v0.3 (#60).
 
+## Execution planes and data ownership
+
+An **execution plane** says where a kind of decision belongs. It is broader
+than a pipeline stage: stages are resumable steps inside one build, while the
+planes span work before the build, the build itself, the running service and
+the client consuming that service.
+
+| Plane | Owns | May compute | Must not do |
+|---|---|---|---|
+| **Library curation** | Source PDFs, BibTeX and curator directives such as `ocrlang` / `keeppages` | Inspect sources, validate metadata and propose or review source edits | Write derived corpus artifacts; carry private copies of generic PDF/OCR rules |
+| **Build/materialization** | OCR, extracted text and figures, associations, databases, embeddings and the served bundle | Expensive batch/GPU/API work and deterministic, resumable transforms | Depend on `tools/` or `skills/`; publish ambiguous partial state as complete |
+| **Serve/query** | An immutable served bundle plus disposable caches | Bounded lookup, filtering, authorization, formatting and compatible query embedding | OCR, reconciliation, corpus-wide mutation, external enrichment or general LLM calls |
+| **Client/agent** | User intent, workflow state and deliverables | Synthesis, translation, orchestration and presentation | Become the enforcement point for licensing, provenance or access control |
+
+The normal data flow is one way:
+
+```text
+library -> build/materialization -> immutable bundle -> bounded response -> client output
+```
+
+Feedback travels back as an explicit, reviewed edit to the library or build
+configuration; a query does not mutate the corpus. Generic knowledge about
+PDFs, OCR or artifact formats belongs in `pipeline/`, even when first needed
+by a library-curation workflow. Read-only inspection commands may live in
+`tools/`, and collection-specific judgments belong in the library itself or
+in a skill. `pipeline/` therefore never imports from `tools/` or `skills/`.
+
+Thin does not mean computation-free. Semantic search must embed the active
+query with the same versioned model as the stored vectors. That operation is
+lazy and bounded to one request; it does not alter the corpus. Authorization
+and provenance checks also remain at the server boundary because a client
+nudge is not enforcement.
+
+Two current serve-path details still need to be brought into this contract:
+panel crops are cached under the mounted bundle instead of a separate
+disposable cache, and remote figure URLs expose a bearer credential in a
+model-visible response. They are known architecture gaps, not precedents for
+adding more serve-time materialization.
+
 ## Content-addressed storage
 
 Every unique PDF is identified by the first 12 hex characters of its SHA-256 hash. All artifacts for that PDF live under `<output_dir>/documents/<HASH>/`. Identical PDFs found at multiple input paths are processed once; every discovered path is recorded in `summary.json`. The presence of `summary.json` is the completion marker that `--resume` checks; per-stage resume (#28) additionally tracks each stage's artifact independently so a lexicon edit only re-runs the annotation pass.
@@ -97,7 +136,7 @@ The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "St
 | # | Step (figure pass) | Code | Stage · when | Writes |
 |---|---|---|---|---|
 | 1 | **Docling extraction** — iterate `document.pictures`, render each to PNG, capture page + bbox | `pipeline/extract.py:165-257` (render/save at `:184-189`, `:232`) | Stage 1 · always | `figures/*.png`, base fields |
-| 2 | **Caption association** — structural link then proximity heuristic | `pipeline/figures.py:extract_caption_info` `:655-752` | Stage 1 · always | `caption_text`, `caption_source`, `caption_page`, `caption_bbox` |
+| 2 | **Caption association** — structural evidence plus ranked geometric candidates | `pipeline/figures.py:extract_caption_info` | Stage 1 · always | selected caption fields plus status, confidence and bounded candidate evidence |
 | 3 | **Figure-number parsing** — multilingual, incl. Roman numerals | `pipeline/figures.py:parse_figure_number` `:334-359` (`_FIGURE_PREFIX` `:45-50`, roman `:84-100`) | Stage 1 · always | `figure_number` |
 | 4 | **Classification** — figure / plate / subpanel / graphical_element / unclassified | `pipeline/figures.py:classify_figure` `:425-471` | Stage 1 · always | `figure_type` |
 | 5 | **PyMuPDF fallback** — raw embedded-image extraction when docling finds nothing | `pipeline/extract.py:273-354` (gated `:277`, `fitz.Pixmap` `:310`) | Stage 1 · only if docling yields 0 figures and the PDF is not a scan | `width`, `height`, `extraction_method: pymupdf` |
@@ -117,19 +156,54 @@ The saved figure's resolution is fixed **entirely at extraction time**; nothing 
 - **Docling path (the common case), `resolution_mode: native` (default, #121).** Docling detects + classifies figures (rendering its own crops at `figures.images_scale`), then a PyMuPDF pass (`pipeline.figures.render_figures`, called from `extract.py`) **re-renders each figure's bbox at its source's native pixel density** and overwrites the saved PNG. So a figure backed by a 600-dpi scan stays 600 dpi and a 150-dpi one stays 150 — resolution tracks the source and **varies per figure**, rather than a single fixed DPI. A **vector** figure has no native resolution, so it renders at `figures.vector_dpi` (default **300**); `figures.max_dpi` optionally caps dense full-page scans. The bbox region (not the raw embedded xref) is rendered, so vector annotations + composite raster/vector + multi-panel plates survive at native fidelity.
 - **Docling path, `resolution_mode: fixed`.** Skips the native pass; the saved PNG is docling's render at **`72 × images_scale` dpi** (default `2.0` → 144 dpi; `1.0` → 72 dpi was the grainy pre-v0.6 behavior). A single uniform DPI for every figure — predictable size, but down-renders high-res scans. Both modes only affect future ingests; lift an existing bundle in place with `tools/backfill_figure_dpi.py [--native | --scale S]` (re-renders from stored bbox + `processed.pdf`, no docling re-run).
 - **PyMuPDF fallback.** `fitz.Pixmap(doc, xref)` (`pipeline/extract.py:310`) pulls the embedded image at its **native stored resolution** — no render, no scaling. So, paradoxically, the fallback path can yield *higher*-resolution figures than the primary docling path; but it only fires when docling extracts zero figures and the PDF is not a scan (`:277`). The native pass skips these (already native).
-- **PyMuPDF fallback.** `fitz.Pixmap(doc, xref)` (`pipeline/extract.py:310`) pulls the embedded image at its **native stored resolution** — no render, no scaling. So, paradoxically, the fallback path can yield *higher*-resolution figures than the primary docling path; but it only fires when docling extracts zero figures and the PDF is not a scan (`:277`).
 - **No serve-time downscaling.** `get_figure_image` returns the PNG byte-for-byte (`mcpsrv/tools/figures.py:707-708`); the HTTP route does `target.read_bytes()` with no processing (`mcpsrv/figure_http.py:158`). Panel crops are cut from the full-resolution PNG on demand and cached (`tools/figures.py:710-732`), inheriting source resolution. There is no max-dimension cap, thumbnailing, or re-encode anywhere on the serve path.
 - **The 2000px clamp is model-input only.** Pass 3b downsamples the image handed to the vision model to ≤2000px on the long side (`pipeline/vision.py:226-243`) purely to bound API cost; it does **not** touch the saved figure.
 - **Metadata gap to be aware of.** Only the PyMuPDF path records pixel `width`/`height`; the docling path records no dimensions and **no dpi** in `figures.json`, so stored resolution can't currently be audited from metadata alone — worth closing when figure-quality work starts.
 
 ### Caption association
 
-Captions are the highest-value annotation per figure and the hardest in historical layouts. `extract_caption_info` (`pipeline/figures.py:655-752`) tries two paths in order:
+Captions are the highest-value annotation per figure and the hardest in
+historical layouts. `extract_caption_info` records the result as evidence,
+not just as a string:
 
-1. **Docling structural link** (`:686-699`): `picture.captions[0].resolve(document)` — when docling's layout model already bound a caption to the picture, its text + provenance are taken directly and tagged `caption_source: docling_caption_link`.
-2. **Proximity heuristic** (`:704-752`): scans every `document.texts` item whose text *begins* with a figure label (`_FIGURE_NUMBER_IN_CAPTION_RE`, `:67-70`), restricted to the figure's own page or the **immediately following page** — facing-page captions are routine in plate monographs where the caption leaf faces the plate. Candidates are scored by vertical gap between figure and caption (in PDF points), with a large `_CROSS_PAGE_PENALTY` (1000, `:712`) biasing toward same-page matches; the smallest-gap candidate wins and is tagged `caption_source: heuristic_proximity`. There is no previous-page fallback and no absolute distance threshold (closest wins).
+1. **Structural candidate.** Resolve Docling's picture-to-caption link. Text
+   is read by provenance span rather than only from the whole `TextItem`,
+   because Docling can merge running prose from one page with a figure label
+   on the next. A tightly adjacent bare label and caption-labelled prose block
+   are joined into one complete caption.
+2. **Geometric candidates.** Inspect provenance-level figure labels on the
+   picture page and immediately following page. Same-page candidates outrank
+   facing-page candidates; structural evidence outranks a proximity tie.
+3. **Ownership check.** A next-page heuristic is rejected when a substantial
+   picture on that page is a better local owner for the candidate. Historical
+   facing-page captions remain possible, but are marked low confidence.
+4. **Grouped and facing-page legends.** A caption block naming several figure
+   numbers is split into per-number entries; numeric lists/ranges are separate
+   from lettered panels. Exact-count duplicate assignments are reconciled into
+   a one-to-one mapping. An entry matching a bare-label figure on the preceding
+   page enriches that record instead of being attached to the current page's
+   plate. The exact number match is `bound` / `medium`, even though its page
+   distance is one.
 
-When neither path finds text, the figure keeps `caption_source: null` — a useful signal for figure-quality triage.
+The selected text stays complete. `caption_candidates` retains at most five
+chosen/rejected records with candidate text capped at 600 characters, bbox,
+source, page distance, geometric distance, confidence and rejection reason.
+The summary fields are:
+
+- `caption_status`: `bound`, `uncertain` or `unbound`;
+- `caption_confidence`: `high`, `medium`, `low` or null;
+- `caption_kind`: `prose_caption`, `bare_label`, `unlabelled_caption` or null;
+- `caption_page_distance`: caption page minus picture page;
+- `caption_source`: the producing rule, including `docling_caption_link`,
+  `heuristic_proximity`, `plate_legend`, the plate/facing-page reconciliation
+  variants, the compound-split variants, or null.
+
+An unopposed cross-page heuristic is `uncertain` / `low`, never an ordinary
+caption. No candidate yields `unbound`, with empty caption text. The figure MCP
+responses expose these summary fields; for an older bundle the server
+derives only the compatible summary from its already-stored caption, source
+and pages (with `caption_kind: unknown`)—it does not rerun association at
+query time.
 
 ### Selecting a pass — and what is lost when one is skipped
 

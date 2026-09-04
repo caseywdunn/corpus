@@ -28,6 +28,7 @@ from .figures import (
     link_chunks_to_figures,
     parse_figure_number,
     parse_panels_from_caption,
+    reconcile_plate_legend_numbers,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,14 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
         fig.get("figure_number") for fig in figures if fig.get("figure_number")
     }
     missing = detect_missing_figures(running_text, extracted_nums)
+    repaired_numbers = reconcile_plate_legend_numbers(figures, missing)
+    if repaired_numbers:
+        # Recompute from the corrected figure records so a resolved OCR loss
+        # does not survive as a contradictory missing_figures entry.
+        extracted_nums = {
+            fig.get("figure_number") for fig in figures if fig.get("figure_number")
+        }
+        missing = detect_missing_figures(running_text, extracted_nums)
     figures_data["missing_figures"] = missing
     figures_data["total_missing_figures"] = len(missing)
 
@@ -90,8 +99,9 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
     # when the corpus has extractions-vs-text gaps that need attention.
     n_panelled = sum(1 for f in figures if f.get("panel_count_from_caption", 0) > 1)
     logger.info(
-        "Pass 2.5: %d/%d figures have multi-panel captions; %d missing-figure(s) inferred from text",
-        n_panelled, len(figures), len(missing),
+        "Pass 2.5: %d/%d figures have multi-panel captions; %d missing-figure(s) "
+        "inferred from text; %d plate-legend OCR number(s) reconciled",
+        n_panelled, len(figures), len(missing), repaired_numbers,
     )
 
 

@@ -31,12 +31,9 @@ WHAT THE DENOMINATOR HAS TO BE, AND WHY IT IS EASY TO GET WRONG
 ===============================================================
 Gold pages are full of figure numbers that are *references* — "see Fig. 18",
 "figured by Bigelow (op. cit., fig. 34)". Counting those as figures the
-pipeline failed to find gives 939 numbers across the set and a recall of
-0.296, which is meaningless: most of them are not on that page at all.
-
-Restricted to numbers printed *inside* a `[FIGURE]`/`[PLATE]` block — the
-figures actually on the leaf — the denominator is 482 and the measure means
-what it says.
+pipeline failed to find inflates the denominator with objects that are not on
+that page. Restricted to numbers printed *inside* a `[FIGURE]`/`[PLATE]`
+block — the figures actually on the leaf — the measure means what it says.
 
 Usage::
 
@@ -59,7 +56,11 @@ fid = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(fid)
 
 sys.path.insert(0, str(_HERE.parent.parent))
-from pipeline.figures import parse_figure_number  # noqa: E402
+from pipeline.figures import (  # noqa: E402
+    caption_evidence_summary,
+    caption_figure_entries,
+    parse_figure_number,
+)
 
 GOLD_FIGURE_TAGS = ("FIGURE", "PLATE")
 
@@ -111,11 +112,15 @@ def classify_block(body):
     numbers, first_line = set(), None
     for line in stripped.splitlines():
         line = line.strip()
-        num = parse_figure_number(line)
-        if num:
-            numbers.add(num)
-            if first_line is None:
-                first_line = line
+        # A gold block can contain descriptive prose and references. Only a
+        # line that opens as a caption is allowed to contribute; once it does,
+        # split any additional entries/lists on that same printed line.
+        if not parse_figure_number(line):
+            continue
+        entries = caption_figure_entries(line)
+        numbers.update(entry["figure_number"] for entry in entries)
+        if first_line is None and entries:
+            first_line = entries[0]["caption_text"]
     tokens = fid.tokens(stripped)
     if not tokens:
         return "nothing_printed", numbers, ""
@@ -127,6 +132,47 @@ def classify_block(body):
     return "bare_label", numbers, first_line
 
 
+def _layout_bucket(structural_kinds):
+    """Document-level gold layout used for a precision-capable segment."""
+    present = {k for k, count in structural_kinds.items() if count}
+    if present == {"FIGURE"}:
+        return "figure_blocks"
+    if present == {"PLATE"}:
+        return "plate_blocks"
+    if present:
+        return "mixed_figure_plate"
+    return "no_figure_blocks"
+
+
+def _number_key(value):
+    value = str(value)
+    return (0, int(value)) if value.isdigit() else (1, value)
+
+
+def _pack_counts(counts):
+    """Add rates to one aggregate without hiding undefined precision."""
+    gold = counts["gold_numbers"]
+    found = counts["found_numbers"]
+    matched = counts["matched_numbers"]
+    recall = matched / gold if gold else None
+    precision = matched / found if found else None
+    f1 = None
+    if recall is not None and precision is not None:
+        f1 = (
+            2 * recall * precision / (recall + precision)
+            if recall + precision else 0.0
+        )
+    return {
+        **{k: counts[k] for k in (
+            "gold_numbers", "found_numbers", "matched_numbers",
+            "captions_compared",
+        )},
+        "number_recall": round(recall, 4) if recall is not None else None,
+        "number_precision": round(precision, 4) if precision is not None else None,
+        "f1": round(f1, 4) if f1 is not None else None,
+    }
+
+
 def score_document(gold_dir, corpus_dir):
     figs = (fid._read_json(corpus_dir / "figures.json") or {}).get("figures") or []
     scan = fid._read_json(corpus_dir / "scan_detection.json") or {}
@@ -135,14 +181,21 @@ def score_document(gold_dir, corpus_dir):
         if f.get("page"):
             by_page[int(f["page"])].append(f)
 
-    kinds = Counter()
+    kinds, structural_kinds = Counter(), Counter()
     gold_nums, found_nums, matched = defaultdict(set), defaultdict(set), 0
+    gold_blocks_by_page = defaultdict(list)
     captions = []                      # (gold_caption, extracted_caption)
 
-    for page, _kind, body in gold_blocks(gold_dir, scan):
+    for page, structural_kind, body in gold_blocks(gold_dir, scan):
         kind, numbers, first_line = classify_block(body)
         kinds[kind] += 1
+        structural_kinds[structural_kind] += 1
         gold_nums[page] |= numbers
+        gold_blocks_by_page[page].append({
+            "structural_kind": structural_kind,
+            "caption_kind": kind,
+            "numbers": sorted(numbers, key=_number_key),
+        })
         if kind == "prose_caption" and numbers:
             for f in by_page.get(page, []):
                 if str(f.get("figure_number")) in numbers:
@@ -163,32 +216,82 @@ def score_document(gold_dir, corpus_dir):
             sims.append(SequenceMatcher(None, fid.tokens(gold_cap),
                                         fid.tokens(got_cap),
                                         autojunk=False).ratio())
+    page_diagnostics = {}
+    for page in sorted(set(gold_nums) | set(found_nums)):
+        gold_on_page = gold_nums.get(page, set())
+        found_on_page = found_nums.get(page, set())
+        figures = []
+        for figure in by_page.get(page, []):
+            summary = caption_evidence_summary(figure)
+            figures.append({
+                "figure_id": figure.get("figure_id"),
+                "figure_type": figure.get("figure_type"),
+                "figure_number": figure.get("figure_number"),
+                "caption_preview": (
+                    figure.get("caption_text") or figure.get("caption") or ""
+                )[:240],
+                "caption_source": figure.get("caption_source"),
+                **summary,
+            })
+        page_diagnostics[str(page)] = {
+            "gold_blocks": gold_blocks_by_page.get(page, []),
+            "gold_numbers": sorted(gold_on_page, key=_number_key),
+            "found_numbers": sorted(found_on_page, key=_number_key),
+            "matched_numbers": sorted(
+                gold_on_page & found_on_page, key=_number_key,
+            ),
+            "missing_numbers": sorted(
+                gold_on_page - found_on_page, key=_number_key,
+            ),
+            "surplus_numbers": sorted(
+                found_on_page - gold_on_page, key=_number_key,
+            ),
+            "reported_figures": figures,
+        }
+
+    evidence = Counter()
+    for figure in figs:
+        summary = caption_evidence_summary(figure)
+        evidence[f"status/{summary['caption_status']}"] += 1
+        evidence[f"confidence/{summary['caption_confidence']}"] += 1
+        evidence[f"kind/{summary['caption_kind']}"] += 1
+
     return {
         "block_kinds": dict(kinds),
+        "structural_kinds": dict(structural_kinds),
+        "layout": _layout_bucket(structural_kinds),
         "gold_numbers": g, "found_numbers": j, "matched_numbers": matched,
         "number_recall": round(matched / g, 4) if g else None,
         "number_precision": round(matched / j, 4) if j else None,
         "captions_compared": len(sims),
         "median_caption_similarity": fid._median(sims),
+        "caption_evidence_counts": dict(sorted(evidence.items())),
+        "pages": page_diagnostics,
     }
 
 
 def build_report(gold_root, corpuscle_root):
     bound, unmatched = fid.bind_documents(gold_root, corpuscle_root)
     docs, totals, kinds = {}, Counter(), Counter()
-    segments = defaultdict(lambda: Counter())
+    segments = {
+        axis: defaultdict(Counter)
+        for axis in ("era", "file_type", "layout")
+    }
     for stem, sha, gold_dir, corpus_dir in bound:
         d = score_document(gold_dir, corpus_dir)
         meta = fid._read_json(corpus_dir / "metadata.json") or {}
+        scan = fid._read_json(corpus_dir / "scan_detection.json") or {}
         d["era"] = fid.era_bucket(meta.get("year"))
+        d["file_type"] = scan.get("file_type")
         docs[stem] = d
         kinds.update(d["block_kinds"])
         for k in ("gold_numbers", "found_numbers", "matched_numbers",
                   "captions_compared"):
             totals[k] += d[k]
-            segments[d["era"]][k] += d[k]
+            for axis in segments:
+                segments[axis][str(d[axis])][k] += d[k]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "question": "is the caption bound to the figure it belongs to",
         "method": "figure numbers printed INSIDE a gold [FIGURE]/[PLATE] block, "
                   "compared per page against figures.json; caption text scored "
@@ -199,14 +302,14 @@ def build_report(gold_root, corpuscle_root):
                   "language-independent signal.",
         "documents_bound": len(bound), "documents_unmatched": unmatched,
         "gold_block_kinds": dict(kinds),
-        "totals": {
-            **dict(totals),
-            "number_recall": round(totals["matched_numbers"] / totals["gold_numbers"], 4)
-            if totals["gold_numbers"] else None,
-            "number_precision": round(totals["matched_numbers"] / totals["found_numbers"], 4)
-            if totals["found_numbers"] else None,
+        "totals": _pack_counts(totals),
+        "segments": {
+            axis: {
+                key: _pack_counts(counts)
+                for key, counts in sorted(buckets.items())
+            }
+            for axis, buckets in segments.items()
         },
-        "segments": {k: dict(v) for k, v in sorted(segments.items())},
         "documents": docs,
     }
 
@@ -220,6 +323,16 @@ def print_summary(report, stream=None):
     w(f"numbers the pipeline reports       : {t['found_numbers']}\n")
     w(f"  binding recall                   : {t['number_recall']}\n")
     w(f"  binding precision                : {t['number_precision']}\n")
+
+    for axis in ("era", "layout"):
+        w(f"\n-- by {axis} " + "-" * max(1, 48 - len(axis)) + "\n")
+        w(f"{'bucket':24}{'gold':>7}{'found':>7}{'recall':>9}{'precis':>9}\n")
+        for bucket, values in report["segments"][axis].items():
+            def rate(value):
+                return f"{value:>9.3f}" if isinstance(value, float) else f"{'-':>9}"
+            w(f"{bucket[:24]:24}{values['gold_numbers']:>7}"
+              f"{values['found_numbers']:>7}{rate(values['number_recall'])}"
+              f"{rate(values['number_precision'])}\n")
 
     w("\n-- worst documents by binding recall " + "-" * 30 + "\n")
     w(f"{'':26}{'gold':>6}{'found':>7}{'recall':>8}{'precis':>8}{'capsim':>8}\n")

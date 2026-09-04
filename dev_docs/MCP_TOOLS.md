@@ -60,6 +60,15 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 
 ## Figures
 
+Every response that carries a figure caption or caption-derived ROI also
+carries `caption_status` (`bound` / `uncertain` / `unbound`),
+`caption_confidence` (`high` / `medium` / `low` / null), and
+`caption_page_distance`, plus `caption_kind` (`prose_caption` / `bare_label` /
+`unlabelled_caption`; `unknown` on a legacy record). These are build-time
+association facts. The server
+only normalizes the same facts for bundles made before the fields existed; it
+does not recompute caption binding at query time.
+
 | Tool | Returns |
 | --- | --- |
 | `get_figures_for_taxon` | Figures from papers that mention the taxon, ranked by caption relevance. Also returns figures whose caption does not name the taxon (from papers that mention it elsewhere) with `caption_has_taxon: false` and a low `score` — filter on `caption_has_taxon`/`score`, or pass `caption_only=True`, for precision. `caption_text` is a preview by default (#85); `full_caption=True` for the verbatim caption. |

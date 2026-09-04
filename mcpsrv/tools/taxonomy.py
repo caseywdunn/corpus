@@ -377,7 +377,10 @@ def get_taxon_dossier(
         out["chunk_index"] = chunk_index
 
     if "figures" in requested:
-        from .figures import _REAL_FIGURE_TYPES  # local import: avoid cycle
+        from .figures import (  # local import: avoid cycle
+            _REAL_FIGURE_TYPES,
+            _caption_evidence_fields,
+        )
 
         accepted_low = (hit.get("accepted_name") or "").lower()
         matched_low = (matched_name or "").lower()
@@ -401,6 +404,7 @@ def get_taxon_dossier(
                     "page": f.get("page"),
                     "figure_number": f.get("figure_number"),
                     "caption_has_taxon": hit_in_caption,
+                    **_caption_evidence_fields(f),
                     "_score": (100 if hit_in_caption else 0)
                     + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
                 })
@@ -923,5 +927,4 @@ def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
             "mentioning_paper_count": len(idx.taxon_to_papers.get(tid, [])),
         })
     return out
-
 

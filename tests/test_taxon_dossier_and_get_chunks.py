@@ -126,7 +126,10 @@ def corpus(tmp_path: Path):
         figures=[
             {"figure_id": "fig1", "figure_type": "figure",
              "page": 4, "figure_number": 1,
-             "caption_text": "Marrus claudanielis. Lateral view."},
+             "caption_text": "Marrus claudanielis. Lateral view.",
+             "caption_status": "bound", "caption_confidence": "medium",
+             "caption_page_distance": 0,
+             "caption_kind": "unlabelled_caption"},
             # An unclassified element that should NOT appear in figure_index.
             {"figure_id": "fig2", "figure_type": "graphical_element",
              "page": 1, "caption_text": ""},
@@ -369,6 +372,14 @@ def test_dossier_figure_caption_match_flagged(corpus):
     d = get_taxon_dossier("Marrus")
     fig1 = d["figure_index"][0]
     assert fig1["caption_has_taxon"] is True
+
+
+def test_dossier_figure_index_preserves_caption_evidence(corpus):
+    fig1 = get_taxon_dossier("Marrus")["figure_index"][0]
+    assert fig1["caption_status"] == "bound"
+    assert fig1["caption_confidence"] == "medium"
+    assert fig1["caption_page_distance"] == 0
+    assert fig1["caption_kind"] == "unlabelled_caption"
 
 
 # ---------------------------------------------------------------------------

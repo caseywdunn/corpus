@@ -80,6 +80,10 @@ def test_parse_figure_number_legacy(caption, expected):
     assert parse_figure_number(caption) == expected
 
 
+def test_parse_figure_number_tolerates_stray_leading_ocr_punctuation():
+    assert parse_figure_number(". Fig. 10.") == "10"
+
+
 # ---------------------------------------------------------------------------
 # parse_figure_number — archaic formats added in #16
 # ---------------------------------------------------------------------------

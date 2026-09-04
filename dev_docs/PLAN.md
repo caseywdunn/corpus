@@ -261,7 +261,7 @@ meaning:
 | Serve/query | an immutable bundle plus disposable caches | bounded lookup, filtering, authorization, formatting and compatible query embedding | OCR, reconciliation, corpus-wide mutation, external enrichment or general LLM calls |
 | Client/agent | user intent and deliverables | synthesis, translation, workflow orchestration and presentation | serve as the enforcement point for licensing, provenance or access control |
 
-- [ ] **Document the ownership and data flow** in OVERVIEW; summarize it in
+- [x] **Document the ownership and data flow** in OVERVIEW; summarize it in
   README and the contributor invariants in AGENTS.md. Data flows library →
   build → immutable bundle → bounded server response → client output. Client
   feedback becomes an explicit reviewed library edit, not server mutation.

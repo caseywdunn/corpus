@@ -29,6 +29,13 @@ Corpus reads a folder of PDFs and produces a knowledge base built around: **taxa
 
 The output is a per-paper artifact tree plus cross-paper databases. You query it through an **MCP server** (`corpus serve`, backed by [mcpsrv/](mcpsrv/)) that any [MCP](https://modelcontextprotocol.io/) client (Claude Desktop, Claude Code, claude.ai web) can connect to — so "show me every figure of *Nanomia bijuga* nectophores in the corpus" becomes something you ask in chat instead of grep across a hard drive. The server is a read-only view over the per-paper artifacts, so re-running the pipeline is the only way new data reaches the tools.
 
+The boundary is deliberate: curation edits the source library; the build does
+OCR, extraction, reconciliation and embedding; the server performs bounded
+queries over an immutable bundle; and the client turns those responses into a
+deliverable. Expensive or corpus-mutating work does not happen in the running
+server. [The architecture overview](dev_docs/OVERVIEW.md#execution-planes-and-data-ownership)
+defines these execution planes and the few bounded serve-time exceptions.
+
 ### Example uses
 
 - *"List every valid* Apolemia *species and for each list the papers that discuss them."*

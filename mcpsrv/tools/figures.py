@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.mcpserver import Image
+from pipeline.figures import caption_evidence_summary
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
 from ..profiles import get_profile, resolve_profile, unknown_profile_error
@@ -148,6 +149,16 @@ def _caption_surface_hits(caption_low: str, surfaces: List[str]) -> Dict:
             total += c
             matched.append(s)
     return {"occurrences": total, "matched_surfaces": matched}
+
+
+def _caption_evidence_fields(figure: Dict) -> Dict:
+    """Return the small, stable caption-binding summary for a figure.
+
+    New builds persist these fields. The inference branch keeps older bundles
+    truthful without rerunning caption association in the server: it only
+    normalizes facts already present in the record (caption, source, and page).
+    """
+    return caption_evidence_summary(figure)
 
 
 def _license_metadata_for_paper(paper_hash: str) -> Dict:
@@ -291,7 +302,10 @@ def get_figures_for_taxon(
     see every extracted item including the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption.
+    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    qualified by ``caption_status``, ``caption_confidence``,
+    ``caption_page_distance``, and ``caption_kind``; do not treat an
+    ``uncertain`` association as ordinary bound evidence.
     """
     try:
         n = _validated_limit(limit)
@@ -339,6 +353,7 @@ def get_figures_for_taxon(
                 # Call get_figure_image to fetch bytes.
                 "image_path": f"{h}/figures/{f.get('filename') or ''}",
                 "caption_has_taxon": caption_hit,
+                **_caption_evidence_fields(f),
                 "score": (100 if caption_hit else 0) + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             })
     rows.sort(key=lambda r: -r["score"])
@@ -378,7 +393,9 @@ def get_figures_for_lexicon_term(
     the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption.
+    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    qualified by ``caption_status``, ``caption_confidence``,
+    ``caption_page_distance``, and ``caption_kind``.
     """
     try:
         n = _validated_limit(limit)
@@ -437,6 +454,7 @@ def get_figures_for_lexicon_term(
                 # canonical match from a synonym match (#143).
                 "matched_surfaces": hits["matched_surfaces"],
                 "canonical": resolution["canonical"],
+                **_caption_evidence_fields(f),
             })
     rows.sort(key=lambda r: -r["match_count"])
     out = rows[:n]
@@ -518,6 +536,7 @@ def _figure_dossier_entry(
         "caption_preview": _caption_preview(
             figure_record.get("caption_text") or figure_record.get("caption") or "",
         ),
+        **_caption_evidence_fields(figure_record),
         "image_path": f"{paper_hash}/figures/{figure_record.get('filename') or ''}",
         "linked_chunks": _linked_chunks_for_figure(
             figure_id, chunks_by_id, max_linked_chunks,
@@ -558,7 +577,8 @@ def get_figure_dossier_for_taxon(
 
     Returns ``{taxon, n_papers_with_figures, n_figures, figures:
     [{paper_hash, paper_title, paper_year, figure_id, figure_type,
-    page, figure_number, caption_preview, image_path,
+    page, figure_number, caption_preview, caption_status,
+    caption_confidence, caption_page_distance, caption_kind, image_path,
     caption_has_taxon, linked_chunks: [{chunk_id, section_class,
     headings}], rois?: {panel_count_from_caption, panel_labels,
     n_rois_with_pixel_bbox}}]}``.
@@ -729,6 +749,10 @@ def get_figure(
     cross-references, plus the attribution fields (#51) inherited from the
     parent work.
 
+    Caption ownership is explicit: ``caption_status`` is ``bound``,
+    ``uncertain``, or ``unbound`` and is accompanied by confidence, kind, and
+    page distance. New build artifacts also carry the full candidate trail.
+
     ``license`` / ``license_url`` / ``attribution`` are always present —
     you need them to caption the figure in any context.
 
@@ -756,6 +780,7 @@ def get_figure(
             lic = _license_metadata_for_paper(paper_hash)
             return {
                 **f,
+                **_caption_evidence_fields(f),
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
                 # Relative to the corpuscle's documents/ dir.
@@ -776,7 +801,8 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
     and Pass 3a (OCR-derived ``rois`` with pixel bboxes). The caption-
     derived list gives labels + descriptions even when Pass 3a wasn't
     run or OCR didn't find the panel; ``rois`` gives pixel coordinates
-    when available for :func:`get_figure_roi_image`.
+    when available for :func:`get_figure_roi_image`. The result also carries
+    the caption status/confidence/kind/page-distance summary.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
@@ -795,6 +821,7 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
                 "rois": f.get("rois") or [],
                 "pass3_status": f.get("pass3_status"),
                 "image_size_px": f.get("image_size_px"),
+                **_caption_evidence_fields(f),
             }]
     return [error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")]
 
@@ -819,6 +846,9 @@ def get_figure_roi_image(
     (OCR missed the label), returns the whole figure's image path with
     ``crop: false`` — the LLM can still display the whole figure and
     reason about which region is which panel using the caption.
+
+    Caption status/confidence/kind/page distance qualify that description;
+    callers should preserve the uncertainty when the binding is not strong.
 
     Honors the figure-licensing gate for the active ``profile``, like
     ``get_figure_image`` and ``get_figure_url`` (#154 §3). It previously
@@ -873,6 +903,7 @@ def get_figure_roi_image(
             # Relative to the corpuscle's documents/ dir.
             "image_path": f"{paper_hash}/figures/{whole_image.name}",
             "caption_text": caption_text,
+            **_caption_evidence_fields(fig),
             "description_from_caption": description_from_caption,
             "reason": "no_pixel_roi — Pass 3a didn't locate this label in the image",
         }
@@ -906,6 +937,7 @@ def get_figure_roi_image(
         "roi_px": roi_entry.get("roi_px"),
         "ocr_confidence": roi_entry.get("ocr_confidence"),
         "caption_text": caption_text,
+        **_caption_evidence_fields(fig),
         "description_from_caption": description_from_caption,
     }
 
@@ -1103,5 +1135,3 @@ def get_figure_url(
             else "curl -fsSL -o /tmp/fig.png \"$url\"   # no auth configured"
         ),
     }
-
-

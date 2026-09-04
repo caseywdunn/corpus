@@ -51,7 +51,11 @@ Release candidate, 35 documents, 376 gold figure blocks (316 `[FIGURE]`,
 | drop `graphical_element` + `unclassified` | 0.875 | 0.979 | 0.924 |
 | captioned only | 0.880 | 0.974 | 0.925 |
 
-Caption binding, scored on figure *numbers*: **recall 0.574, precision 0.878**.
+Caption binding on the current served reference build, scored on figure
+*numbers*: **recall 0.538, precision 0.887**. This uses the corrected v1.3
+scorer, which counts every number in a line such as ``Figur 8 und 9`` rather
+than only the first; that stricter denominator is not directly comparable to
+the earlier 0.574 recall.
 
 ## How it is measured, and why in that shape
 
@@ -83,7 +87,7 @@ blocks it does not apply to:**
 | `nothing_printed` | 5 | no |
 
 **Most "captions" in this literature are not captions.** 229 of 376 blocks are
-a bare label. Caption *text* similarity is computable for 86 pairs out of 465
+a bare label. Caption *text* similarity is computable for 85 pairs out of 496
 gold numbers, which is why it is reported and not headlined.
 
 ## Where corpus does well
@@ -109,18 +113,27 @@ precision.
 them from the served surface, but the raw record still carries them, and
 `figures_report.html` shows them.
 
-**Historical plates carrying several engravings under one legend.**
-`Vanhoeffen1906` still scores recall 0.806 — its plates print six
-separately-numbered figures under a single legend and docling extracts each
-plate as *one* picture. #203 recovered 23 of those by giving each legend entry
-its own record sharing the plate image; the engravings are still not cropped
-apart, because locating them needs OCR of the lettering on the plate itself.
+**Historical plates carrying several engravings under one legend.** On the
+current served bundle, `Vanhoeffen1906` scores 0.781 recall / 0.943 precision.
+The v1.3 regression replay over its stored Docling artifact scores **0.922 /
+0.967**: enumerating caption blocks are split into per-number entries,
+duplicate picture assignments are reconciled when the counts form a complete
+bijection, and collected prose on the following page enriches already-found
+bare labels instead of being cloned onto the wrong plate. The engravings still
+share a plate image; locating their individual regions remains a separate ROI
+problem.
+
+The other two conspicuous acceptance failures move in the same replay:
+`Hosiaetal2024` goes from 0.692 / 0.900 to **0.923 / 1.000**, and
+`Ahuja_etal2026` from 1.000 / 0.500 to **1.000 / 1.000**. These are targeted
+artifact replays, not a substitute for the full-corpus rebuild required before
+release.
 
 **Caption binding before 1900: recall 0.091** (3 of 33 numbers). The numbers
 are printed on the plates as engraved lettering, not as text, so there is
-nothing for a text-based parser to find. Six documents score zero:
-`Bernstein1934`, `Carre1968_Hippopodius_tr`, `Chenetal2015`,
-`Eschscholtz1825`, `Tilesius1814`, `Totton1965b`.
+nothing for a text-based parser to find. Five documents score zero:
+`Bernstein1934`, `Chenetal2015`, `Eschscholtz1825`, `Tilesius1814`, and
+`Totton1965b`.
 
 **Small-denominator eras look worse than they are.** pre-1800 precision 0.400
 is four gold figures against ten records; 1800–1899 precision 0.438 is nine
