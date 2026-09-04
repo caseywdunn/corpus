@@ -160,7 +160,13 @@ of what those numbers mean.
   layouts below that ceiling. It must materialize independently evidenced
   number/region/legend relationships with confidence and rejected candidates;
   do not move reconstruction into the MCP server or client, and do not turn it
-  into an unconstrained general segmentation rewrite.
+  into an unconstrained general segmentation rewrite. The build path now has
+  the bounded implementation: only a confidently bound bare `plate` reaches
+  discovery; at least two distinct Arabic number+bbox candidates at confidence
+  ≥0.80 are required; accepted and rejected candidates persist on the host;
+  derived records share its image and keep their captions explicitly unbound.
+  Keep the item open until the local VLM is measured on the clean historical
+  plates and the resulting page/number population is rescored.
 - [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered

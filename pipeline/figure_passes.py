@@ -31,6 +31,8 @@ from .figures import (
 
 logger = logging.getLogger(__name__)
 
+_VISION_PLATE_DISCOVERY_SOURCE = "vision_plate_discovery"
+
 
 def _annotate_plate_figure_groups(figures, running_text: str) -> int:
     """Attach caption-derived numeric ROI targets to shared plates (#203).
@@ -171,6 +173,89 @@ def _apply_plate_roi_result(figures, host, targets, result) -> None:
             record["ocr_token_count"] = result["ocr_token_count"]
         if result.get("image_size_px"):
             record["image_size_px"] = result["image_size_px"]
+
+
+def _is_bare_plate_for_discovery(figure) -> bool:
+    """Whether Pass 3b may discover uncaptioned engravings on this image."""
+    return (
+        figure.get("figure_type") == "plate"
+        and figure.get("caption_kind") == "bare_label"
+        and figure.get("caption_status") == "bound"
+        and figure.get("shares_image_with") is None
+        and figure.get("image_shared_with") is None
+        and not figure.get("plate_figures_from_caption")
+    )
+
+
+def _apply_plate_discovery_result(host, result):
+    """Persist discovery evidence and materialize accepted logical figures."""
+    candidates = result.get("figure_number_candidates") or []
+    rois = result.get("rois") or []
+    host["rois"] = rois
+    host["pass3_status"] = result.get("pass3_status")
+    host["pass3_target_kind"] = "figure_discovery"
+    host["pass3_backend"] = result.get("pass3_backend")
+    if result.get("image_size_px"):
+        host["image_size_px"] = result["image_size_px"]
+    if result.get("pass3_error"):
+        host["pass3_error"] = result["pass3_error"]
+    else:
+        host.pop("pass3_error", None)
+    host["plate_number_discovery"] = {
+        "status": result.get("pass3_status"),
+        "backend": result.get("pass3_backend"),
+        "minimum_confidence": result.get("minimum_confidence"),
+        "candidate_count": len(candidates),
+        "accepted_count": sum(1 for candidate in candidates
+                              if candidate.get("accepted")),
+        "candidates": candidates,
+    }
+
+    accepted_by_number = {
+        str(candidate.get("figure_number")): candidate
+        for candidate in candidates if candidate.get("accepted")
+    }
+    records = []
+    host_id = host.get("figure_id") or "plate"
+    for roi in rois:
+        number = str(roi.get("figure_number") or "").strip()
+        evidence = accepted_by_number.get(number)
+        if not number or evidence is None:
+            continue
+        records.append({
+            "figure_id": f"{host_id}_vision_fig{number}",
+            "filename": host.get("filename"),
+            "file_path": host.get("file_path"),
+            "extraction_method": host.get("extraction_method"),
+            "figure_type": "figure",
+            "figure_number": number,
+            "figure_number_source": _VISION_PLATE_DISCOVERY_SOURCE,
+            "figure_number_confidence": evidence.get("confidence"),
+            # The model found a numbered region, not source caption prose.
+            "caption_text": "",
+            "caption_page": None,
+            "caption_bbox": None,
+            "caption_source": None,
+            "caption_kind": None,
+            "caption_status": "unbound",
+            "caption_confidence": None,
+            "caption_page_distance": None,
+            "caption_candidates": [],
+            "page": host.get("page"),
+            "bbox": host.get("bbox"),
+            "bbox_coord_system": host.get("bbox_coord_system"),
+            "image_shared_with": host_id,
+            "plate_source_figure_id": host_id,
+            "plate_number": host.get("figure_number"),
+            "plate_number_discovery_evidence": dict(evidence),
+            "rois": [dict(roi)],
+            "pass3_status": result.get("pass3_status"),
+            "pass3_target_kind": "figure_discovery",
+            "pass3_backend": result.get("pass3_backend"),
+            "plate_roi_source_figure_id": host_id,
+            "image_size_px": result.get("image_size_px"),
+        })
+    return records
 
 
 def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
@@ -315,11 +400,12 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
 
 
 def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
-    """Pass 3b — vision-model-driven panel + compound-figure detection.
+    """Pass 3b — vision-model-driven panel, compound and plate detection.
 
     Same contract as :func:`_pass3a_annotate_rois`: reads ``figures.json``,
     runs the backend on every real figure with a multi-panel caption or
-    caption-enumerated shared plate,
+    caption-enumerated shared plate, plus a tightly gated bare historical
+    plate whose printed engraving numbers must be discovered from the image,
     writes ROIs + ``pass3_status`` back in place.
 
     Runs INSTEAD of Pass 3a when both flags are set (Pass 3b supersedes
@@ -335,6 +421,21 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         logger.warning("Pass 3b skipped: couldn't read %s: %s", figures_file, e)
         return
     figures = data.get("figures", []) or []
+    # A refresh replaces derived discoveries rather than appending a second
+    # generation. Their source record is immutable and remains in the list.
+    figures = [
+        figure for figure in figures
+        if figure.get("figure_number_source") != _VISION_PLATE_DISCOVERY_SOURCE
+    ]
+    data["figures"] = figures
+    for figure in figures:
+        figure.pop("plate_number_discovery", None)
+        if figure.get("pass3_target_kind") == "figure_discovery":
+            for field in (
+                "rois", "pass3_status", "pass3_target_kind", "pass3_backend",
+                "pass3_error", "image_size_px",
+            ):
+                figure.pop(field, None)
 
     # Stamp the version into the Pass 3b log (#253). These logs recorded the
     # GPU and the config path but not the corpus version, so a run could not
@@ -347,7 +448,8 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
                 PIPELINE_VERSION, getattr(vision_backend, "name", "?"),
                 len(figures))
 
-    n_ok = n_partial = n_none = n_compound = n_skipped = n_failed = 0
+    n_ok = n_partial = n_none = n_compound = n_discovery = n_skipped = n_failed = 0
+    discovered_records = []
     for fig in figures:
         if (fig.get("figure_type") not in ("figure", "plate", "subpanel")
                 and not fig.get("plate_roi_host")):
@@ -355,9 +457,12 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         if (fig.get("shares_image_with") is not None
                 and fig.get("plate_figures_from_caption")):
             continue
-        targets, target_kind = _roi_request(fig)
-        if len(targets) <= 1:
-            continue
+        if _is_bare_plate_for_discovery(fig):
+            targets, target_kind = [], "figure_discovery"
+        else:
+            targets, target_kind = _roi_request(fig)
+            if len(targets) <= 1:
+                continue
         img_path = Path(fig.get("file_path", ""))
         if not img_path.exists():
             continue
@@ -369,7 +474,9 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
             ),
             target_kind=target_kind,
         )
-        if target_kind == "figure":
+        if target_kind == "figure_discovery":
+            discovered_records.extend(_apply_plate_discovery_result(fig, result))
+        elif target_kind == "figure":
             _apply_plate_roi_result(figures, fig, targets, result)
         else:
             fig["rois"] = result.get("rois") or []
@@ -386,7 +493,9 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         s = result.get("pass3_status") or ""
         if s.endswith("_compound"):
             n_compound += 1
-        if s.startswith("completed"):
+        if s == "discovery_materialized":
+            n_discovery += 1
+        elif s.startswith("completed"):
             n_ok += 1
         elif s.startswith("partial"):
             n_partial += 1
@@ -396,12 +505,13 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
             n_failed += 1
         else:
             n_skipped += 1
+    figures.extend(discovered_records)
     with figures_file.open("w", encoding="utf-8") as f:
         json.dump(stamp_artifact(data), f, indent=2, ensure_ascii=False)
     logger.info(
         "Pass 3b: %d completed, %d partial, %d no-labels, %d compound, "
-        "%d skipped, %d backend-failed",
-        n_ok, n_partial, n_none, n_compound, n_skipped, n_failed,
+        "%d bare plates materialized, %d skipped, %d backend-failed",
+        n_ok, n_partial, n_none, n_compound, n_discovery, n_skipped, n_failed,
     )
 
 

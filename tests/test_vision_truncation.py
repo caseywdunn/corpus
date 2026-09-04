@@ -134,16 +134,16 @@ def test_the_configured_value_is_a_floor_not_a_ceiling():
     assert _Budget(4096)._token_budget(["A"] * 3) == 4096
 
 
-def test_a_figure_with_no_expected_labels_gets_the_floor():
+def test_discovery_with_no_expected_labels_gets_a_conservative_budget():
     b = _Budget(1024)
-    assert b._token_budget([]) == 1024
-    assert b._token_budget(None) == 1024
+    assert b._token_budget([]) == 4096
+    assert b._token_budget(None) == 4096
 
 
 def test_the_budget_grows_with_panels():
     b = _Budget(0)
     assert b._token_budget(["A"] * 4) - b._token_budget(["A"] * 3) == _VLM_TOKENS_PER_PANEL
-    assert b._token_budget([]) == _VLM_TOKEN_BASE
+    assert b._token_budget([]) == 4096
 
 
 def test_claude_uses_the_same_structure_sized_budget():

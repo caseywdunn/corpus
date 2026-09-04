@@ -91,7 +91,9 @@ class VisionBackend(ABC):
 
         ``expected_labels`` is normally a list of panel letters. For a known
         grouped plate it is instead a list of caption-enumerated figure
-        numbers; those belong in ``embedded_figures``, not ``panels``.
+        numbers; those belong in ``embedded_figures``, not ``panels``. An
+        empty list is reserved for explicitly admitted bare-plate discovery;
+        the backend must emit only numbers it can actually see.
         """
 
 
@@ -157,6 +159,12 @@ Interpretation rules:
 - When the expected list contains numbers, look for those visible numbers and
   emit their whole numbered regions under embedded_figures. Do not reinterpret
   the numbers as panel letters and do not infer an unseen region.
+- When the expected list is empty, the caller has explicitly admitted a bare
+  historical plate. Discover Arabic numbers that visibly label distinct
+  engravings and emit their whole regions under embedded_figures. Do not emit
+  the plate number, page number, scale values, anatomical-key numbers,
+  handwritten marks, or a number that is not visibly attached to a distinct
+  engraving.
 - If the caption expects panels A-B (2) but you see labels A, B, A, B in the
   image, this is a compound of two separate figures. Assign
   parent_figure_index = 0 to the first {A, B} set and parent_figure_index = 1
@@ -209,12 +217,46 @@ def _extract_json(text: str) -> Optional[dict]:
 # ceilings independent of the requested structure.
 _VLM_TOKENS_PER_PANEL = 120
 _VLM_TOKEN_BASE = 256
+_VLM_DISCOVERY_TOKEN_FLOOR = 4096
 
 
 def _vision_token_budget(floor: int, expected_labels) -> int:
+    if not expected_labels:
+        # Discovery does not know the output cardinality in advance. Historical
+        # plates in the measured set carry up to the mid-teens of engravings;
+        # a larger floor prevents valid JSON after an arbitrary prefix from
+        # masquerading as a complete inventory.
+        return max(int(floor), _VLM_DISCOVERY_TOKEN_FLOOR)
     return max(int(floor), _VLM_TOKEN_BASE + _VLM_TOKENS_PER_PANEL * len(
         expected_labels or []
     ))
+
+
+def _vision_user_text(
+    caption_text: str,
+    expected_labels: List[str],
+    width: int,
+    height: int,
+) -> str:
+    """Compose the shared Claude/Qwen task-specific prompt."""
+    if expected_labels:
+        target_instruction = (
+            "Expected panel letters OR grouped-plate figure numbers from the "
+            "caption (confirm visibility before emitting): "
+            f"{expected_labels}"
+        )
+    else:
+        target_instruction = (
+            "No figure-number list was recoverable from this bare plate "
+            "caption. Discover every Arabic number visibly attached to a "
+            "distinct engraving; emit the engraving's whole region under "
+            "embedded_figures. Do not infer missing or unreadable numbers."
+        )
+    return (
+        f"Caption of this figure: {caption_text!r}\n\n"
+        f"{target_instruction}\n\n"
+        f"Image dimensions (px): {width} × {height}."
+    )
 
 
 def _parse_complete_vision_response(
@@ -416,12 +458,7 @@ class ClaudeVisionBackend(VisionBackend):
 
         # User message includes the caption + expected labels so Claude
         # can ground its bbox hunt in what's supposed to be there.
-        user_text = (
-            f"Caption of this figure: {caption_text!r}\n\n"
-            f"Expected panel letters OR grouped-plate figure numbers from the "
-            f"caption (confirm visibility before emitting): {expected_labels}\n\n"
-            f"Image dimensions (px): {w} × {h}."
-        )
+        user_text = _vision_user_text(caption_text, expected_labels, w, h)
 
         initial_budget = self._token_budget(expected_labels)
         for attempt, budget in enumerate(
@@ -567,7 +604,9 @@ class LocalVLMBackend(VisionBackend):
     figure was recorded as *no-labels*: indistinguishable from a figure
     the model genuinely found nothing in. In one full reference run, ROI
     coverage fell from 47.8% at 2–3 panels to 13.6% at 10+, which is the
-    signature of a fixed output budget rather than a vision failure.
+    signature of a fixed output budget rather than a vision failure. Bare
+    plate discovery has no known target count, so it receives a conservative
+    4096-token floor and still fails visibly if that cap is reached.
     """
 
     def __init__(
@@ -634,8 +673,8 @@ class LocalVLMBackend(VisionBackend):
 
         The configured ``max_new_tokens`` is the floor, so a caller that
         raised it keeps what they asked for and small figures are unaffected.
-        A figure with no caption-derived labels gets the floor too — there is
-        nothing to scale by, and those are not the ones that overflowed.
+        A bare-plate discovery request has no caption-derived count to scale
+        by, so the shared helper supplies its conservative discovery floor.
         """
         return _vision_token_budget(self._max_new_tokens, expected_labels)
 
@@ -673,12 +712,7 @@ class LocalVLMBackend(VisionBackend):
                 f"could not read image {image_path}: {e}"
             ) from e
 
-        user_text = (
-            f"Caption of this figure: {caption_text!r}\n\n"
-            f"Expected panel letters OR grouped-plate figure numbers from the "
-            f"caption (confirm visibility before emitting): {expected_labels}\n\n"
-            f"Image dimensions (px): {w} × {h}."
-        )
+        user_text = _vision_user_text(caption_text, expected_labels, w, h)
 
         messages = [
             {"role": "system", "content": _LOCAL_SYSTEM_PROMPT},

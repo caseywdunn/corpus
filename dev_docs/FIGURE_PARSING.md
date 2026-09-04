@@ -200,6 +200,13 @@ release.
 are printed on the plates as engraved lettering, not as text, so there is
 nothing for a text-based parser to find. Four documents score zero:
 `Bernstein1934`, `Chenetal2015`, `Eschscholtz1825`, and `Tilesius1814`.
+Pass 3b now has a deliberately narrow image-evidence path for this layout:
+only a confidently bound bare plate is admitted, and it materializes nothing
+unless the VLM returns at least two distinct Arabic number+region candidates
+at confidence ≥0.80. The host retains every accepted/rejected decision;
+derived figure records share the plate image and remain caption-unbound. Its
+effect is not included in the rates above until the clean historical plates
+have been run and inspected.
 
 **Small-denominator eras look worse than they are.** pre-1800 precision 0.400
 is four gold figures against ten records; 1800–1899 precision 0.438 is nine

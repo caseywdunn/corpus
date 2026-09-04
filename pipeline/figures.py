@@ -2198,6 +2198,106 @@ def _approximate_panel_rois(
     return rois
 
 
+_VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE = 0.80
+_DISCOVERED_FIGURE_NUMBER_RE = re.compile(r"^[1-9]\d{0,2}[a-z]?$", re.IGNORECASE)
+
+
+def _normalize_vision_figure_discovery(backend_rois: List[Dict]) -> Dict:
+    """Validate unconditioned number candidates from one bare plate.
+
+    This is intentionally stricter than caption-conditioned ROI matching.
+    A candidate needs a simple Arabic figure number, a region, and high model
+    confidence. At least two distinct numbers must survive, because the claim
+    being materialized is that one plate image contains multiple engravings.
+    All returned candidates retain the acceptance decision and reason.
+    """
+    candidates = []
+    eligible = []
+    for index, roi in enumerate(backend_rois):
+        emitted_type = roi.get("type")
+        raw_number = (
+            roi.get("figure_number")
+            if emitted_type == "embedded_figure" else roi.get("label")
+            if emitted_type == "panel" else None
+        )
+        raw_number = str(raw_number or "").strip()
+        number = raw_number.rstrip(".,").lower()
+        try:
+            confidence = float(roi.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        region = roi.get("bbox_px")
+        candidate = {
+            "candidate_index": index,
+            "emitted_type": emitted_type,
+            "figure_number_raw": raw_number or None,
+            "figure_number": (
+                number if _DISCOVERED_FIGURE_NUMBER_RE.fullmatch(number) else None
+            ),
+            "roi_px": region,
+            "confidence": confidence,
+            "source": roi.get("source"),
+            "accepted": False,
+            "rejection_reason": None,
+        }
+        if emitted_type not in {"embedded_figure", "panel"}:
+            candidate["rejection_reason"] = "unsupported_output_type"
+        elif candidate["figure_number"] is None:
+            candidate["rejection_reason"] = "unsupported_number_format"
+        elif not (isinstance(region, list) and len(region) == 4) \
+                or _bbox_area(region) <= 0:
+            candidate["rejection_reason"] = "missing_or_degenerate_region"
+        elif not 0.0 <= confidence <= 1.0:
+            candidate["rejection_reason"] = "invalid_confidence"
+        elif confidence < _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE:
+            candidate["rejection_reason"] = "below_confidence_threshold"
+        else:
+            eligible.append(candidate)
+        candidates.append(candidate)
+
+    # One logical record per number. When the model emits a number twice,
+    # retain the highest-confidence region and make the rejected duplicate
+    # visible in the evidence rather than silently picking list order.
+    accepted = []
+    seen = set()
+    for candidate in sorted(
+        eligible,
+        key=lambda item: (-item["confidence"], item["candidate_index"]),
+    ):
+        number = candidate["figure_number"]
+        if number in seen:
+            candidate["rejection_reason"] = "lower_confidence_duplicate"
+            continue
+        seen.add(number)
+        candidate["accepted"] = True
+        accepted.append(candidate)
+
+    if len(accepted) < 2:
+        for candidate in accepted:
+            candidate["accepted"] = False
+            candidate["rejection_reason"] = "fewer_than_two_distinct_numbers"
+        accepted = []
+
+    accepted.sort(key=lambda item: item["candidate_index"])
+    rois = [{
+        "type": "figure",
+        "label": candidate["figure_number"],
+        "figure_number": candidate["figure_number"],
+        "roi_px": candidate["roi_px"],
+        "source": candidate["source"],
+        "confidence": candidate["confidence"],
+    } for candidate in accepted]
+    return {
+        "rois": rois,
+        "figure_number_candidates": candidates,
+        "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+        "pass3_status": (
+            "discovery_materialized" if accepted
+            else "discovery_insufficient_evidence"
+        ),
+    }
+
+
 def detect_figure_rois_via_vision(
     image_path: Path,
     panels_from_caption: List[Dict],
@@ -2219,14 +2319,20 @@ def detect_figure_rois_via_vision(
     ``pass3_backend`` on every ROI so downstream can tell where the
     annotation came from.
 
+    ``target_kind="figure_discovery"`` is reserved for an explicitly admitted
+    bare plate. It runs with no caption-derived allow-list, then requires at
+    least two distinct, high-confidence Arabic number+bbox candidates and
+    returns every accepted/rejected decision as ``figure_number_candidates``.
+
     Vision models also detect compounds — two or more sub-figures merged
     into one extracted image. When the backend returns panels with
     different ``parent_figure_index`` values, the ROIs array includes an
     ``embedded_figure`` entry per sub-figure in addition to the panels.
     """
+    discovery_mode = target_kind == "figure_discovery"
     expected_labels = [str(p["label"]) for p in (panels_from_caption or [])]
     expected_casefold = {label.casefold(): label for label in expected_labels}
-    if len(expected_labels) <= 1:
+    if len(expected_labels) <= 1 and not discovery_mode:
         return {"rois": [], "pass3_status": "skipped_no_panels",
                 "pass3_backend": backend.name}
 
@@ -2236,8 +2342,14 @@ def detect_figure_rois_via_vision(
             image_size = list(img.size)
     except Exception as e:
         logger.debug("Could not open %s for vision pass: %s", image_path, e)
-        return {"rois": [], "pass3_status": "image_open_failed",
-                "pass3_backend": backend.name}
+        result = {"rois": [], "pass3_status": "image_open_failed",
+                  "pass3_backend": backend.name}
+        if discovery_mode:
+            result.update({
+                "figure_number_candidates": [],
+                "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+            })
+        return result
 
     try:
         backend_rois = backend.detect_figure_panels(
@@ -2246,17 +2358,39 @@ def detect_figure_rois_via_vision(
     except Exception as e:
         logger.warning("Vision backend %s failed on %s: %s",
                        backend.name, image_path.name, e)
-        return {"rois": [], "pass3_status": "vision_backend_failed",
-                "pass3_backend": backend.name,
-                # Persist the diagnosis: logs are easy to lose when Pass 3b
-                # runs separately on a cluster, while figures.json is the
-                # evidence artifact operators actually inspect (#269).
-                "pass3_error": str(e)[:500]}
+        result = {
+            "rois": [], "pass3_status": "vision_backend_failed",
+            "pass3_backend": backend.name,
+            # Persist the diagnosis: logs are easy to lose when Pass 3b
+            # runs separately on a cluster, while figures.json is the
+            # evidence artifact operators actually inspect (#269).
+            "pass3_error": str(e)[:500],
+        }
+        if discovery_mode:
+            result.update({
+                "figure_number_candidates": [],
+                "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+            })
+        return result
 
     if not backend_rois:
-        return {"rois": [], "pass3_status": "no_labels_found",
-                "pass3_backend": backend.name,
-                "image_size_px": image_size}
+        result = {"rois": [], "pass3_status": "no_labels_found",
+                  "pass3_backend": backend.name,
+                  "image_size_px": image_size}
+        if discovery_mode:
+            result.update({
+                "figure_number_candidates": [],
+                "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+            })
+        return result
+
+    if discovery_mode:
+        result = _normalize_vision_figure_discovery(backend_rois)
+        result.update({
+            "pass3_backend": backend.name,
+            "image_size_px": image_size,
+        })
+        return result
 
     # Normalize to the figures.json rois schema. Panels carry the whole-
     # panel bbox as roi_px; label_bbox_px is added if the backend gave
