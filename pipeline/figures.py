@@ -2199,6 +2199,7 @@ def _approximate_panel_rois(
 
 
 _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE = 0.80
+_VISION_FIGURE_DISCOVERY_MAX_REGION_IOU = 0.90
 _DISCOVERED_FIGURE_NUMBER_RE = re.compile(r"^[1-9]\d{0,2}[a-z]?$", re.IGNORECASE)
 
 
@@ -2267,6 +2268,13 @@ def _normalize_vision_figure_discovery(backend_rois: List[Dict]) -> Dict:
         number = candidate["figure_number"]
         if number in seen:
             candidate["rejection_reason"] = "lower_confidence_duplicate"
+            continue
+        if any(
+            _bbox_iou(candidate["roi_px"], prior["roi_px"])
+            > _VISION_FIGURE_DISCOVERY_MAX_REGION_IOU
+            for prior in accepted
+        ):
+            candidate["rejection_reason"] = "near_duplicate_region"
             continue
         seen.add(number)
         candidate["accepted"] = True

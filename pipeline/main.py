@@ -25,7 +25,8 @@ from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_lexicons
 from .chunking import ingest_to_vector_db
 from .config import CONFIG, load_config
-from .figure_passes import _pass3b_annotate_rois
+from .figure_passes import _crossref_chunks_and_figures, _pass3b_annotate_rois
+from .figures import resolve_compound_figures
 from .grobid_client import GrobidClient
 from .io import (
     HASH_PREFIX_LEN,
@@ -46,6 +47,31 @@ from .stages import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _refresh_vision_artifacts(
+    figures_file: Path,
+    chunks_file: Path,
+    vision_backend,
+) -> None:
+    """Refresh the complete vision-derived figure layer for one document.
+
+    ``--only vision`` is the independently schedulable form of the figure
+    vision phase. It must leave the same artifacts as the inline full-run
+    path: Pass 3b evidence, Pass 3c compound materialization, and rebuilt
+    chunk/figure links. Keeping those follow-on passes here prevents a GPU
+    refresh from writing ROIs that the served bundle cannot actually reach.
+    """
+    _pass3b_annotate_rois(figures_file, vision_backend)
+    summary_3c = resolve_compound_figures(figures_file)
+    logger.info(
+        "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
+        summary_3c.get("resolved", 0),
+        summary_3c.get("renamed", 0),
+        summary_3c.get("unchanged", 0),
+        summary_3c.get("new_records", 0),
+    )
+    _crossref_chunks_and_figures(figures_file, chunks_file)
 
 
 def _slice_hashes_for_batch(
@@ -662,10 +688,14 @@ def main():
                     with per_pdf_file_log(hash_dir) as log_path:
                         logger.info("pipeline.log: %s (refresh-vision)", log_path)
                         try:
-                            _pass3b_annotate_rois(figures_file, vision_backend)
+                            _refresh_vision_artifacts(
+                                figures_file,
+                                hash_dir / "chunks.json",
+                                vision_backend,
+                            )
                         except Exception as e:
                             logger.exception(
-                                "Pass 3b refresh failed on %s: %s", pdf_hash, e
+                                "Vision refresh failed on %s: %s", pdf_hash, e
                             )
                     continue
                 # Per-stage resume (#28, #56): if every required stage

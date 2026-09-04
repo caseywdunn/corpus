@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 import pipeline.cli as cli
+import pipeline.main as pipeline_main
 import pipeline.orchestrator as orch
 from pipeline.config_schema import validate_config
 
@@ -175,6 +176,41 @@ def test_batch_flags_need_both():
     assert orch._batch_flags(_argv_args(batch_index=1)) == []  # size missing
     assert orch._batch_flags(_argv_args(batch_index=1, batch_size=2)) == \
         ["--batch-index", "1", "--batch-size", "2"]
+
+
+def test_vision_refresh_runs_materialization_then_rebuilds_crossrefs(
+        tmp_path, monkeypatch):
+    """The separately scheduled vision phase has full-run artifact parity."""
+    figures_file = tmp_path / "figures.json"
+    chunks_file = tmp_path / "chunks.json"
+    backend = object()
+    calls = []
+
+    monkeypatch.setattr(
+        pipeline_main,
+        "_pass3b_annotate_rois",
+        lambda figures, selected_backend: calls.append(
+            ("pass3b", figures, selected_backend)
+        ),
+    )
+    monkeypatch.setattr(
+        pipeline_main,
+        "resolve_compound_figures",
+        lambda figures: calls.append(("pass3c", figures)) or {},
+    )
+    monkeypatch.setattr(
+        pipeline_main,
+        "_crossref_chunks_and_figures",
+        lambda figures, chunks: calls.append(("crossref", figures, chunks)),
+    )
+
+    pipeline_main._refresh_vision_artifacts(figures_file, chunks_file, backend)
+
+    assert calls == [
+        ("pass3b", figures_file, backend),
+        ("pass3c", figures_file),
+        ("crossref", figures_file, chunks_file),
+    ]
 
 
 # --- $GROBID_URL override (#138) ---------------------------------------------

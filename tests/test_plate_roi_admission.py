@@ -183,6 +183,9 @@ def test_bare_plate_discovery_keeps_only_distinct_high_confidence_numbers(tmp_pa
                 {"type": "embedded_figure", "figure_number": "1",
                  "bbox_px": [5, 5, 95, 95], "confidence": 0.85,
                  "source": "vision:test"},
+                {"type": "embedded_figure", "figure_number": "4",
+                 "bbox_px": [100, 0, 200, 100], "confidence": 0.85,
+                 "source": "vision:test"},
             ]
 
     result = detect_figure_rois_via_vision(
@@ -197,6 +200,7 @@ def test_bare_plate_discovery_keeps_only_distinct_high_confidence_numbers(tmp_pa
     assert candidates[2]["rejection_reason"] == "unsupported_number_format"
     assert candidates[3]["rejection_reason"] == "below_confidence_threshold"
     assert candidates[4]["rejection_reason"] == "lower_confidence_duplicate"
+    assert candidates[5]["rejection_reason"] == "near_duplicate_region"
 
 
 def test_bare_plate_discovery_requires_a_group(tmp_path):
