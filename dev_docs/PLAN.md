@@ -145,20 +145,15 @@ account of the corrected numbers and what they mean.
   the stored artifact and MCP result, not presented as an ordinary caption.
   Scorer v7 expands the fixed gold denominator from the incorrectly parsed 480
   pairs to 839 typed page/identity pairs, recognizes adjacent plate headings as
-  plate identity evidence, and distinguishes `plate:N` from `figure:N`. On that
-  corrected yardstick, the retained clean candidate before facing-page
-  expansion reports 313/318 correct (0.373 recall / 0.984
-  precision). The targeted deterministic replay binds a preceding `PLATE N`
-  legend only to an exact next-page `PLATE N`, preserves Plate X and Figure 10
-  as distinct identities, and moves Totton from 181/184 to 397/402 correct.
-  Combined with the unchanged other documents, that projects 529/536 (0.631 /
-  0.987) with fixed-population capacity 0.638. The independent
-  panel yardstick now finds 98 explicitly enumerated letter-panel captions;
-  current metadata replay declares 87, gets 84 exact sets, and scores 0.895 /
-  0.997 label recall/precision with no declaration on 176 same-page,
-  same-number non-panel figure blocks. Keep this open until the clean source-PDF
-  rebuild confirms both measures on the complete current extraction path. The
-  number-binding headline is end-to-end coverage, not selector accuracy.
+  plate identity evidence, and distinguishes `plate:N` from `figure:N`. The
+  complete clean source-PDF build reports 538/545 correct (0.641 recall / 0.987
+  precision), with fixed-population capacity 544/839 (0.648); Totton reaches
+  406/411 correct against 472 gold identities. The independent panel yardstick
+  finds 98 explicitly enumerated letter-panel captions; the clean build
+  declares 92, gets 89 exact sets, and scores 0.946 / 0.997 label
+  recall/precision with no declaration on 175 number-matched non-panelled
+  identities. The number-binding headline is end-to-end coverage, not selector
+  accuracy.
   Report fixed-population capacity by layout so future work separates missing
   label evidence from a wrong association decision. Build-time page-level
   number discovery remains bounded: only a confidently bound bare `plate`
@@ -170,11 +165,16 @@ account of the corrected numbers and what they mean.
   a fabricated A-H grid copied onto figures 1-8; that contradictory structure
   is now a hard rejection independent of confidence. After deterministic Pass
   2.5 expansion, only four plates remain eligible, and the probe adds nine
-  correct labels with no false ones there (projected combined 0.641 / 0.987).
+  correct labels with no false ones there; the clean build persists all nine
+  and confirms the combined 0.641 / 0.987 result.
   `--only vision` now also runs Pass 3c and cross-reference rebuilding, so its
-  artifacts match inline vision. Keep the item open until a complete clean
-  source-PDF build persists and re-scores both the deterministic and vision
-  results.
+  artifacts match inline vision. Its seven surplus identities were inspected:
+  three are already explicitly uncertain, two reproduce OCR-damaged printed
+  numbers without
+  enough evidence to guess a repair, and one is a gold structural-markup
+  omission. The seventh exposed a `plate:16` / `figure:16` namespace collision;
+  its regression guard is merged locally and the post-fix clean measurement is
+  the remaining close condition.
 - [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered
@@ -194,8 +194,14 @@ account of the corrected numbers and what they mean.
   opt-in or on-demand; do not replace them with another corpus-wide raster set.
 - [x] **Close the completed figure-measurement issue**
   ([#194](https://github.com/caseywdunn/corpus/issues/194)) after confirming
-  the scorer and recorded result still match the current gold set. Remaining
-  caption behavior belongs to #195/#203 rather than another measurement task.
+  the scorer and recorded result still match the current gold set. Scorer v2
+  excludes 261 image-sharing logical records and collapses panel siblings:
+  653 entries become 384 physical detections. The preceding clean artifact has
+  the same 384 physical detections and identical filter scores, so #195 added
+  retrieval identities without regressing extraction. Raw physical detection
+  is 0.883 / 0.865 recall/precision; the default MCP type surface is 0.827 /
+  1.000. Remaining caption behavior belongs to #195/#203 rather than another
+  measurement task.
 - [x] **Close the whole-document silent-loss paths**:
   `no_text_layer` / `vendor_boilerplate_only` preserving the wrong layer
   ([#264](https://github.com/caseywdunn/corpus/issues/264)); visual-script
@@ -377,7 +383,7 @@ remains explicit; source/build/served paths use consistent terms; and #173 and
 - [ ] Every user-visible caption failure selected from the newest reference
   corpuscle is fixed or returned with explicit uncertainty, and the gold
   caption-binding report has been inspected rather than merely generated.
-- [ ] The page report makes the original page, parsed text, chosen caption and
+- [x] The page report makes the original page, parsed text, chosen caption and
   competing evidence reviewable without manually joining four artifacts.
 - [ ] Clean and incremental builds agree for vector rows and reference
   mappings on the fixed regression corpuscle.
@@ -616,7 +622,7 @@ Generic shapes; concrete instantiations live in the corpuscle's
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer ([#13](https://github.com/caseywdunn/corpus/issues/13), deferred to v2.0+) |
 | Q2 | "Compose a monographic review of `<genus>`." | Indices in place; v1.3 repairs caption/reference evidence and makes uncertainty inspectable before v1.4 adds the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
 | Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14)) |
-| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; a corpus-scale vision run landed in v1.0 and figure detection became measurable against truth in v1.2. On the current gold corpuscle the raw artifact is 0.936 recall / 0.876 precision, while the stricter default MCP type filter is 0.875 / 0.985. Caption binding remains the conspicuous evidence error and is v1.3's primary fidelity gate |
+| Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; a corpus-scale vision run landed in v1.0 and figure detection became measurable against truth in v1.2. On the clean gold corpuscle, physical detection is 0.883 recall / 0.865 precision raw and 0.827 / 1.000 on the default MCP type surface. Caption identity binding is 0.641 / 0.987 against the corrected 839-identity yardstick; the remaining recall gap is predominantly absent upstream number evidence rather than selector error |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |
 | Q6 | "Summarize `<topic>` across the corpus." | Indices in place; cache cost addressed by dossier tools [#76](https://github.com/caseywdunn/corpus/issues/76) in v0.5 |
 | Q7 | "Plot species described per decade." | Indices in place |

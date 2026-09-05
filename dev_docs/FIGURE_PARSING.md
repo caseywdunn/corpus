@@ -25,7 +25,7 @@ Read the row for the surface you mean: excluding only `graphical_element` is a
 useful classifier diagnostic, but it is not the default MCP surface.
 
 **If you are building a corpus of modern papers, expect furniture.** Precision
-on born-digital documents is 0.622 raw against 0.941 for scans, because
+on born-digital documents is 0.586 raw against 0.946 for scans, because
 publisher logos, ORCID icons and journal rules are figures as far as a layout
 model is concerned. The `graphical_element` filter handles it; historical scans
 barely need it.
@@ -37,23 +37,33 @@ surplus records on a one-figure document.
 
 **Front matter costs figures twice.** In the classifier diagnostic that drops
 only `graphical_element`, trimming it with `keeppages` improved both recall
-*and* precision (0.894 → 0.923, 0.962 → 0.967), because a plate atlas's
-duplicate captures and a bound volume's title page are surplus figures that no
-classifier can recognise as not-the-paper. Those are the release-candidate
-comparison values, not the stricter default-MCP row below.
+and precision, because a plate atlas's duplicate captures and a bound volume's
+title page are surplus figures that no classifier can recognise as
+not-the-paper. Page selection is therefore part of the measurement, and the
+scorer rebases the gold into selected-page coordinates before counting.
 
 ## Where it stands
 
-Release candidate, 35 documents, 376 gold figure blocks (316 `[FIGURE]`,
-60 `[PLATE]`):
+Clean release candidate, 35 documents, 376 gold figure blocks (316
+`[FIGURE]`, 60 `[PLATE]`):
 
 | filter | recall | precision | F1 |
 | --- | --- | --- | --- |
-| all entries | 0.936 | 0.876 | 0.905 |
-| drop `graphical_element` | 0.920 | 0.972 | 0.945 |
-| drop uncaptioned `graphical_element` | 0.926 | 0.967 | 0.946 |
-| **shared evidence types** (default MCP surface) | **0.875** | **0.985** | **0.927** |
-| captioned only | 0.880 | 0.979 | 0.927 |
+| all physical detections | 0.883 | 0.865 | 0.874 |
+| drop `graphical_element` | 0.867 | 0.985 | 0.922 |
+| drop uncaptioned `graphical_element` | 0.867 | 0.973 | 0.917 |
+| **shared evidence types** (default MCP surface) | **0.827** | **1.000** | **0.905** |
+| captioned only | 0.827 | 0.987 | 0.900 |
+
+Scorer v2 makes a distinction that #195 made load-bearing: a `figures.json`
+entry is not necessarily another physical detection. The clean build contains
+653 entries, of which 261 are logical records sharing a plate/compound image;
+after excluding those and collapsing eight split-panel groups, 384 physical
+figures remain. The preceding clean artifact had 422 entries and only 30
+image-sharing logical records, but the same 384 physical figures and exactly
+the same score in every filter row. Caption expansion therefore did not
+regress physical detection. The earlier 0.936 / 0.876 headline counted logical
+children as newly detected images and is invalid.
 
 Caption binding is scored on typed page/identity pairs over the default MCP
 evidence types: `plate:10` and `figure:10` are distinct even when printed on
@@ -66,50 +76,32 @@ therefore reporting **480 gold pairs where the transcription actually contains
 placed that heading immediately outside `[PLATE]`. The earlier 0.596 / 0.911
 headline is not comparable and must not be used as a release baseline.
 
-Under the corrected fixed yardstick, the retained clean candidate before the
-facing-page repair reports **313 correct of 318 identities against 839 gold**:
-**recall 0.373, precision 0.984**, with fixed-population capacity 317/839
-(0.378). Ten of those matches are the bounded OCR-label repairs (`Fic, 11`,
-`Fic. ro` → 10, `Fic. ror` → 101, leading punctuation, the structurally linked
-embedded label, and `Figg.` ranges). Precision was already high; the apparent
-ceiling was missing upstream number-bearing records.
+The complete clean source-PDF build reports **538 correct of 545 identities
+against 839 gold: recall 0.641, precision 0.987**, with fixed-population
+capacity 544/839 (0.648). Totton, whose complete legends are printed on the
+leaf *before* each plate, moves from the pre-repair 181/184 correct reported
+identities to **406/411** (472 gold). Exact `PLATE N`-to-next-page-`PLATE N`
+matching creates logical children with their own source captions while
+preserving Plate X and Figure 10 as distinct identities. The clean build also
+persists the unconditioned-vision probe's nine correct labels and no false
+labels on the four plates left eligible after deterministic expansion.
 
-Totton's plate section exposed the largest missing population. Its complete
-legends are printed on the leaf *before* the plate, while the existing grouped
-legend code handled only same-page legends and captions following a prior
-image. Replaying the persisted Docling document with an exact
-`PLATE N`-to-next-page-`PLATE N` rule, and admitting damaged `Fic.`/`Fics.`
-openers only inside that context, moves Totton from **181/184** correct
-reported identities to **397/402** (472 gold). It creates 217 logical figure
-records with their own source captions; Plate X and Figure 10 remain distinct
-records rather than being deduplicated merely because their numbers coincide.
-Combined with the unchanged other 34 documents, that replay projects
-**529/536 against 839: recall 0.631, precision 0.987**, with capacity 0.638.
+The seven surplus identities were inspected individually. Three already carry
+explicit low-confidence `uncertain` status. Two are faithful bindings to OCR
+that damaged the printed number (`1` → `7`, `34` → `3`) and cannot be safely
+rewritten without independent number evidence. One is a gold-markup omission:
+the transcription note and printed caption both identify Figure 45, but only
+Figures 46 and 47 have structural blocks. The final case exposed a real typed
+identity defect: a following-page Figure 16 legend could overwrite a
+same-page Plate XVI link. The selector now forbids that cross-namespace
+replacement; its post-fix clean measurement remains the final #195 gate.
 
-The local-Qwen probe then ran all 34 plates that were eligible before that
-repair. Unconditioned discovery returned 216 regions; 215 numbers agree with
-the corrected gold and one was a high-confidence fabricated eighth cell on a
-seven-figure plate. The failure had a detectable structure: Qwen invented an
-A–H grid and copied the same boxes to figures 1–8. That conflicting grid is
-now a hard rejection regardless of model confidence. After deterministic
-Pass 2.5 expansion, only four plates remain eligible for unconditioned
-discovery; the measured output adds **nine correct labels and no false
-labels** on those four. Applying those persisted discoveries would project
-the combined candidate to **538/545: recall 0.641, precision 0.987**. This is
-a measured targeted replay/probe, not the complete clean source-PDF rebuild
-required at the release gate.
-
-Panel splitting is now a separate acceptance measure rather than an inference
+Panel splitting is a separate acceptance measure rather than an inference
 from figure-number binding. The independent gold parser finds **98 captions
-that explicitly enumerate lettered panels**. Replaying current caption
-selection and panel parsing over the persisted Docling artifacts reports a
-panel declaration for **87**, an exact label set for **84**, and label recall /
-precision of **0.895 / 0.997**. It declares no panels for the 176 same-page,
-same-number gold figure blocks that the gold parser classifies as non-panelled.
-This metadata replay deliberately retains the older entry/classification
-population, so its figure-number totals are not a replacement for the clean
-caption-binding replay above. The clean release rebuild must confirm
-both measures together.
+that explicitly enumerate lettered panels**. The clean build reports a panel
+declaration for **92**, an exact label set for **89**, and label recall /
+precision of **0.946 / 0.997**. It declares no panels for the 175 number-matched
+members of the 202 gold identities classified as non-panelled.
 
 The scorer parses hand-transcribed gold labels independently of the production
 parser and reports the raw artifact and default MCP surface separately. That
@@ -170,10 +162,10 @@ reported and not headlined.
 ## Where corpus does well
 
 **Mid-century scanned monographs, which is most of this material.**
-1950–1999: recall 0.975, precision 0.964. `Totton1965a` — 226 pages, 195 gold
+1950–1999: recall 0.975, precision 0.960. `Totton1965a` — 226 pages, 195 gold
 figures — scores recall 0.974 and precision 0.995.
 
-**Scans generally**: 0.932 / 0.941 raw, against born-digital at 0.962 / 0.622.
+**Scans generally**: 0.870 / 0.946 raw, against born-digital at 0.962 / 0.586.
 That inversion is worth internalising. The modern papers are easier to *read*
 and harder to *count*.
 
@@ -186,14 +178,14 @@ precision.
 ## Where it has trouble
 
 **Publisher furniture on modern papers.** `Ahuja_etal2026`: 6 gold figures,
-27 records. Logos, icons and rules. The `graphical_element` filter removes
-them from the served surface, but the raw record still carries them, and
-`figures_report.html` shows them.
+31 physical records. Logos, icons and rules. The `graphical_element` filter
+removes them from the served surface, but the raw record still carries them,
+and `figures_report.html` shows them.
 
 **Historical plates carrying several engravings under one legend.** On the
 pre-repair served bundle, `Vanhoeffen1906` scores 0.781 recall / 0.943
-precision. The v1.3 regression replay over its stored Docling artifact scores
-**0.922 / 0.967**: enumerating caption blocks are split into per-number
+precision. The clean v1.3 candidate scores **0.891 / 0.966**: enumerating
+caption blocks are split into per-number
 entries, duplicate picture assignments are reconciled when the counts form a
 complete bijection, and collected prose on the following page enriches
 already-found bare labels instead of being cloned onto the wrong plate.
@@ -201,17 +193,16 @@ Pass 2.5 now also admits the shared plate to ROI detection with numeric figure
 targets kept separate from panel letters. Pass 3 runs once on the plate and
 puts each detected region on its logical figure record; the default OCR path
 uses an exact caption-derived number allow-list, while vision consumes the
-same targets. ROI accuracy still needs a corpus run with the selected backend;
-the caption-binding rate measures ownership and numbering, not crop geometry.
+same targets. The caption-binding rate measures ownership and numbering, not
+crop geometry; ROI accuracy requires a separate geometric yardstick.
 
 The other two conspicuous acceptance failures move in the same replay:
 `Hosiaetal2024` goes from 0.692 / 0.900 to **0.923 / 1.000**, and
-`Ahuja_etal2026` from 1.000 / 0.500 to **1.000 / 1.000**. These are targeted
-artifact replays, not a substitute for the full-corpus rebuild required before
-release.
+`Ahuja_etal2026` from 1.000 / 0.500 to **1.000 / 1.000**; both gains are
+confirmed in the clean build.
 
 **Caption binding in 1800–1899: recall 0.030** (5 of 169 numbers) in the clean
-candidate before the new plate replay. The former 5-of-33 denominator omitted
+candidate. The former 5-of-33 denominator omitted
 standalone engraved labels. The numbers are printed on the plates as
 lettering, not as extracted text, so there is often nothing for a text-only
 parser to find. Four documents score zero:
@@ -229,8 +220,8 @@ those layouts.
 
 Established by scoring the corpuscle under each candidate filter rather than
 by assuming which field name sounded right. Dropping `graphical_element` takes
-precision from 0.876 to 0.972 for 0.016 of recall. The default MCP surface also
-hides `unclassified`: precision reaches 0.985, but recall falls to 0.875. That
+precision from 0.865 to 0.985 for 0.016 of recall. The default MCP surface also
+hides `unclassified`: precision reaches 1.000, but recall falls to 0.827. That
 is an intentional review-state policy, not evidence that those records are all
 furniture; the raw artifact and `include_all` retain them for inspection.
 
@@ -269,9 +260,9 @@ image after three rounds of JSON analysis had pointed the wrong way.
   which is corroborated by no figure in the reference corpuscle carrying
   `figure_type: subpanel`.
 - **Counting figures measures the definition of "figure" as much as the
-  extraction.** `Ahuja_etal2026` has 6 gold blocks against 27 records because
-  docling counts logos; `Vanhoeffen1906` has 67 against 56 because the gold
-  counts engravings and docling counts plates. Caption binding is the better
-  posed question, and it is the one with the lower score.
+  extraction.** `Ahuja_etal2026` has 6 gold blocks against 31 physical records
+  because Docling counts logos; `Vanhoeffen1906` has 67 against 33 because the
+  gold counts engravings and Docling counts plates. Caption binding is the
+  better posed question, and it is the one with the lower score.
 - **The metrics weight every figure equally**, which — as with prose coverage
   and taxonomic tokens (#244) — is not how they are valued downstream.

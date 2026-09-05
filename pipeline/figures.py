@@ -1281,6 +1281,14 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
             prior = next((
                 item for item in previous
                 if str(item.get("figure_number") or "") == entry["figure_number"]
+                # Plate N and Figure N are separate identities.  A following
+                # page's Figure N legend may enrich a bare Figure N, but it
+                # must never replace the same-page PLATE N evidence on a
+                # plate host merely because the Arabic values coincide.
+                and item.get("figure_type") != FIGURE_TYPE_PLATE
+                and not _PLATE_CAPTION_RE.match(
+                    item.get("caption_text") or ""
+                )
             ), None)
             if prior is None:
                 current_entries.append(entry)

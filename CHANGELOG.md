@@ -103,13 +103,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   QC report exposes the unmapped population; a first-class one-work/many-
   document relation remains required rather than being hidden by this guard.
 
-- **The figure-detection scorer now measures the actual default MCP type
-  filter (#194), not a looser proxy.** The documentation called “drop
+- **The figure-detection scorer now measures physical detections and the actual
+  default MCP type filter (#194).** The documentation called “drop
   `graphical_element`” the served surface, but default retrieval also excludes
   the `unclassified` review bucket. Both paths now consume one shared evidence
-  type set. On the current 35-document gold corpuscle the raw record scores
-  0.936 recall / 0.876 precision, the useful drop-graphical diagnostic scores
-  0.920 / 0.972, and the real default MCP surface scores 0.875 / 0.985. Raw and
+  type set. Scorer v2 also excludes caption/vision children that deliberately
+  share a plate or compound image and collapses typed panel siblings. On the
+  clean 35-document gold corpuscle, 653 entries contain 261 image-sharing
+  logical records and collapse to 384 physical detections: 0.883 recall /
+  0.865 precision raw, 0.867 / 0.985 after dropping `graphical_element`, and
+  0.827 / 1.000 on the default MCP type surface. The preceding clean artifact
+  has the same 384 physical figures and identical scores despite carrying only
+  30 logical children. The former 0.936 / 0.876 headline counted logical
+  retrieval records as newly detected images and is invalid. Raw and
   `include_all` records remain available for review.
 
 - **Whole-document OCR failures now fail visibly instead of satisfying clean
@@ -158,31 +164,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reported 480 pairs where the transcription contains 839, so its old recall
   headline is not a valid release baseline. On the corrected yardstick, the
   retained clean candidate before facing-page expansion reports 313/318
-  correct (0.373 recall / 0.984 precision). The scorer remains independent of
-  production OCR rules, reports raw and default-MCP surfaces plus
-  fixed-population capacity, and excludes the anatomical key `Pl.M.`
-  (mouth-plate) from Roman-numeral plate labels.
+  correct (0.373 recall / 0.984 precision). The complete clean source-PDF
+  build reaches **538/545 correct (0.641 recall / 0.987 precision)** with
+  fixed-population capacity 544/839 (0.648). The scorer remains independent of
+  production OCR rules, reports raw and default-MCP surfaces plus capacity,
+  and excludes the anatomical key `Pl.M.` (mouth-plate) from Roman-numeral
+  plate labels.
 
   Complete legends printed on the leaf before a full-page plate now bind only
   when an explicit `PLATE N` heading exactly matches one plate on the following
   page. OCR-damaged `Fic.`/`Fics.` openers are accepted only inside that
   context. Plate and child-figure numbers use separate deduplication namespaces,
   so Plate X no longer deletes Figure 10. On the persisted Totton replay this
-  creates 217 captioned logical records and moves 181/184 correct reported
-  identities to 397/402; combined with the unchanged documents it projects
-  529/536 against 839 (0.631 recall / 0.987 precision). A complete clean build
-  remains the release gate.
+  creates captioned logical records and moves Totton from 181/184 correct
+  reported identities to **406/411 against 472 gold** in the clean build.
+  Inspection of the seven corpus-wide surpluses found three already marked
+  uncertain, two OCR-damaged printed numbers without independent repair
+  evidence, and one omitted gold structural block. The remaining defect was a
+  typed identity collision: a following-page Figure 16 legend could overwrite
+  a same-page Plate XVI link. That cross-namespace replacement is now rejected.
 
   Panel correctness is now measured independently as well. Caption parsing
   supports the common `A, ...; B, ...` style, preserves strong printed sets
   with gaps through L, stops at abbreviation glossaries, joins geometrically
   adjacent panel-description cells, and can reject a wrong structural link in
-  favor of a materially closer same-page numbered caption. On the 35-document
-  persisted-Docling metadata replay, 98 gold captions enumerate panels: 87
-  receive declarations, 84 label sets are exact, and label recall / precision
-  is 0.895 / 0.997. No panels are declared on 176 gold figure blocks without
-  a panel enumeration that match an extracted figure by page and number. A
-  clean source-PDF rebuild remains the release gate.
+  favor of a materially closer same-page numbered caption. In the clean build,
+  98 gold captions enumerate panels: 92 receive declarations, 89 label sets
+  are exact, and label recall / precision is 0.946 / 0.997. No panels are
+  declared on the 175 number-matched members of 202 non-panelled gold
+  identities.
 
   Shared historical plates now proceed beyond logical record expansion:
   Pass 2.5 records their numeric figure targets separately from lettered
@@ -203,7 +213,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an invented A-H grid copied onto figures 1-8, so that conflicting-grid shape
   is now rejected regardless of self-reported confidence. Deterministic Pass
   2.5 leaves only four of those plates eligible; their probe result adds nine
-  correct labels and no false ones.
+  correct labels and no false ones, all nine of which persist in the clean
+  build.
 
 - **`corpus taxonomy ingest` doubled the `names` table on every re-run, and
   v1.2.1 made it fire automatically (#262).** `names` shipped with no PRIMARY

@@ -18,12 +18,10 @@ boxes, so an individual gold block cannot be matched to an individual
 ``figures.json`` entry. Per-page counts can be, and they are enough to answer
 both questions above.
 
-Counting corpus-wide is *not* enough, and the totals are a trap: 424 gold
-blocks against 420 entries looks like agreement and is a coincidence. Per
-document they diverge hard in both directions — one paper has 6 gold blocks
-against 31 entries because docling counts logos and icons, another has 67
-against 34. **The per-page disagreement is the measurement; the total hides
-it.**
+Counting raw entries corpus-wide is *not* enough. Logical plate children and
+split panels make that total a category error, while document-level misses and
+surpluses can cancel even among physical detections. **The per-page
+disagreement is the measurement; the total hides it.**
 
 So per page: ``matched = min(gold, found)``, ``missed = gold - matched``,
 ``surplus = found - matched``. Recall and precision are the corpus sums of
@@ -119,8 +117,23 @@ FILTERS = {
 }
 
 
+def _is_image_sharing_record(figure):
+    """Whether this is a logical child of one physical image host.
+
+    Caption-derived plate children predate compound/vision materialization and
+    store the host's Docling index in ``shares_image_with``. Newer Pass 3c and
+    vision-discovery children store a figure ID in ``image_shared_with``.
+    They encode the same fact for this scorer: neither is another physical
+    detection.
+    """
+    return (
+        figure.get("shares_image_with") is not None
+        or figure.get("image_shared_with") is not None
+    )
+
+
 def collapse_panels(entries):
-    """Group panel siblings into one figure, and return (figures, panel_groups).
+    """Return physical figures after collapsing derivative records.
 
     A figure with panels produces one image *per panel* — `fig_99_a.png` and
     `fig_99_b.png` — while the gold records one `[FIGURE]` block carrying both,
@@ -130,19 +143,37 @@ def collapse_panels(entries):
     reads as over-counting by 3 entries when it is in fact under-counting by 4
     figures.
 
-    Siblings are identified by a shared ``(page, figure_number)``, which is
-    exactly the key ``dedupe_figures`` groups on. ``panel_letter`` would be the
-    more direct signal but is not persisted into ``figures.json`` — only the
-    filename carries it.
+    Image-sharing plate/compound children are logical retrieval records, not
+    additional physical detections. They carry ``shares_image_with`` or
+    ``image_shared_with`` and are excluded here: their one host remains
+    countable. This distinction became load-bearing when #195 materialized
+    hundreds of caption-bound children from historical plate legends.
+
+    Panel siblings are identified by the same typed
+    ``(page, namespace, figure_number)`` key used by ``dedupe_figures``.
+    ``plate:10`` and ``figure:10`` therefore remain separate physical objects,
+    while ordinary figures and their ``subpanel`` entries share the ``figure``
+    namespace. Non-evidence types are never merged merely because a proximity
+    heuristic happened to attach the same number.
     """
     by_key, loose = defaultdict(list), []
     for f in entries:
+        if _is_image_sharing_record(f):
+            continue
         num = f.get("figure_number")
-        if f.get("page") and num is not None and str(num).strip():
-            by_key[(int(f["page"]), str(num))].append(f)
+        figure_type = f.get("figure_type")
+        namespace = (
+            "plate" if figure_type == "plate"
+            else "figure" if figure_type in {"figure", "subpanel"}
+            else None
+        )
+        if f.get("page") and num is not None and str(num).strip() \
+                and namespace is not None:
+            by_key[(int(f["page"]), namespace, str(num))].append(f)
         else:
-            # No number to group on. Counted as its own figure, which is the
-            # conservative choice: it cannot silently merge two real figures.
+            # No typed number to group on. Counted as its own physical record,
+            # which is conservative: it cannot silently merge two real figures
+            # or hide a numbered item from the furniture review population.
             loose.append(f)
     figures = [v[0] for v in by_key.values()] + loose
     panel_groups = {k: len(v) for k, v in by_key.items() if len(v) > 1}
@@ -216,10 +247,13 @@ def build_report(gold_root, corpuscle_root):
                 segments["era"][era].update(t)
                 segments["file_type"][str(scan.get("file_type"))].update(t)
 
-        # What sits on pages carrying more entries than the gold has blocks —
-        # the population furniture would be drawn from.
+        # What sits on pages carrying more physical figures than the gold has
+        # blocks — the population furniture would be drawn from. Raw logical
+        # children and split-panel images must not distort this diagnostic any
+        # more than they distort the headline score.
         by_page = defaultdict(list)
-        for f in figs:
+        physical_figures, _ = collapse_panels(figs)
+        for f in physical_figures:
             if f.get("page"):
                 by_page[int(f["page"])].append(f)
         for page, on_page in by_page.items():
@@ -241,6 +275,10 @@ def build_report(gold_root, corpuscle_root):
             # panel is a *correct* extra image, and #195 scores whether the
             # split matches the panels the gold caption enumerates.
             "entries": len(figs),
+            "shared_image_records": sum(
+                _is_image_sharing_record(f) for f in figs
+            ),
+            "physical_figures": len(physical_figures),
             "panel_groups": len(panel_groups),
             "panel_images": sum(panel_groups.values()),
         }
@@ -256,11 +294,13 @@ def build_report(gold_root, corpuscle_root):
         }
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "question": "are all figures found (recall), and is furniture being "
                     "called a figure (precision)",
         "method": "per-page counts of gold [FIGURE]/[PLATE] blocks against "
-                  "figures.json entries; matched = min(gold, found) per page",
+                  "physical figures.json detections; image-sharing logical "
+                  "plate children are excluded, typed panel siblings collapse "
+                  "to one figure, and matched = min(gold, found) per page",
         "caveat": "A page-level count cannot tell a page that found the right "
                   "two figures from one that found two wrong ones. The gold set "
                   "records no bounding boxes, so nothing finer is available.",
@@ -292,9 +332,11 @@ def print_summary(report, stream=None):
     pg = sum(d["panel_groups"] for d in report["documents"].values())
     pi = sum(d["panel_images"] for d in report["documents"].values())
     en = sum(d["entries"] for d in report["documents"].values())
-    w(f"{en} figures.json entries collapse to {en - (pi - pg)} figures "
-      f"({pg} multi-panel groups holding {pi} images) — counted as the gold "
-      f"counts them\n")
+    sr = sum(d["shared_image_records"] for d in report["documents"].values())
+    pf = sum(d["physical_figures"] for d in report["documents"].values())
+    w(f"{en} figures.json entries contain {sr} image-sharing logical records; "
+      f"the remainder collapse to {pf} physical figures ({pg} multi-panel "
+      f"groups holding {pi} images) — counted as the gold counts them\n")
 
     w("\n-- does a furniture filter help? " + "-" * 38 + "\n")
     w(f"{'filter':38}{'found':>7}{'recall':>8}{'precis':>8}{'F1':>8}"
@@ -303,7 +345,8 @@ def print_summary(report, stream=None):
         w(f"{name[:38]:38}{t['found']:>7}{_r(t['recall'])}{_r(t['precision'])}"
           f"{_r(t['f1'])}{t['missed']:>8}{t['surplus']:>8}\n")
 
-    w("\n-- what sits on pages with more entries than the gold has " + "-" * 12 + "\n")
+    w("\n-- what sits on pages with more physical figures than the gold has "
+      + "-" * 3 + "\n")
     for k, v in report["surplus_page_profile"].items():
         w(f"  {k:44} {v}\n")
 

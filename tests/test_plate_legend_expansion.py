@@ -304,6 +304,40 @@ def test_caption_only_page_can_enrich_previous_page_figure():
     assert prior["caption_page"] == 15
 
 
+def test_following_figure_legend_cannot_overwrite_same_numbered_plate():
+    """Plate XVI is not Figure 16, even when the latter starts the next leaf.
+
+    The clean Totton build exposed this exact collision: the structural
+    ``PLATE XVI`` link was replaced by the next page's ``Fic. 16`` entry,
+    losing the plate identity that anchors the preceding-page legend.
+    """
+    host = {
+        **plate(idx=16, page=18, num="16", cap="PLATE XVI"),
+        "figure_type": FIGURE_TYPE_PLATE,
+        "caption_source": "docling_caption_link",
+        "caption_confidence": "high",
+    }
+    preceding = plate_legend_entries([
+        {"text": "PLATE XVI Diphyes", "bbox": [0, 90, 200, 100]},
+        {"text": "Fig. 1. Whole animal.", "bbox": [0, 70, 200, 80]},
+        {"text": "Fig. 2. Tentillum.", "bbox": [0, 50, 200, 60]},
+    ])
+    following = plate_legend_entries([
+        {"text": "Fig. 16. Endoderm cells.", "bbox": [0, 70, 200, 80]},
+        {"text": "Fig. 17. Nematocyst.", "bbox": [0, 50, 200, 60]},
+    ])
+
+    out = expand_plate_figures([host], {17: preceding, 19: following})
+
+    assert host["figure_type"] == FIGURE_TYPE_PLATE
+    assert host["figure_number"] == "16"
+    assert host["caption_text"] == "PLATE XVI"
+    assert host["caption_source"] == "docling_caption_link"
+    assert sorted(
+        item["figure_number"] for item in out if item.get("shares_image_with") == 16
+    ) == ["1", "2"]
+
+
 def test_numbered_legend_on_preceding_page_expands_matching_plate():
     following_plate = plate(idx=34, page=18, num="34", cap="PLATE XXXIV")
     entries = plate_legend_entries([

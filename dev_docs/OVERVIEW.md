@@ -156,6 +156,16 @@ The eleven steps below are all driven per-PDF from `pipeline/runner.py`. The "St
 | 10 | **Pass 3c** — compound-figure resolution | `pipeline/figures.py:1298-1502` (trigger `runner.py:282-293`) | Stage 1 · auto when a 3a/3b status ends in `_compound` | renames PNG to `fig_3-4.png`, new `image_shared_with` sub-figure records |
 | 11 | **Chunk-figure linking** | `pipeline/figures.py:link_chunks_to_figures` `:1510-1581` | Stage 1 · always | `figure_refs` (on chunks), `referenced_in_chunks` (on figures) |
 
+`figures.json` intentionally contains both **physical detections** and
+**logical evidence records**. A grouped historical plate is one physical image
+but can support many independently retrievable figure identities. Older
+caption-derived children name the host with `shares_image_with`; Pass 3c and
+vision-discovered children use `image_shared_with`. Both mean "reuse this
+host image", not "another image was detected". Physical-detection QC excludes
+those children and collapses typed panel siblings; caption-binding QC retains
+them because each child is a distinct source identity. Consumers must not use
+raw entry counts as physical-figure counts.
+
 Figure records are written to `<HASH>/figures.json`. Generate the optional
 self-contained page audit when a decision needs visual review:
 

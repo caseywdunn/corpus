@@ -106,6 +106,12 @@ def test_filters_are_scored_side_by_side(report):
     assert set(report["filters"]) == set(fd.FILTERS)
 
 
+def test_report_schema_names_physical_detection_semantics(report):
+    assert report["schema_version"] == 2
+    assert "physical" in report["method"]
+    assert "logical" in report["method"]
+
+
 def test_served_filter_uses_the_same_type_contract_as_the_server():
     keep = fd.FILTERS["served MCP types"]
     assert keep({"figure_type": "figure"})
@@ -198,7 +204,7 @@ def test_panel_siblings_collapse_to_one_figure():
         _entry(168, "99", "a"), _entry(168, "99", "b"), _entry(169, "100", "c"),
     ])
     assert len(figures) == 2
-    assert groups == {(168, "99"): 2}
+    assert groups == {(168, "figure", "99"): 2}
 
 
 def test_same_number_on_different_pages_stays_two_figures():
@@ -218,6 +224,54 @@ def test_unnumbered_entries_are_never_merged():
     assert len(figures) == 2 and groups == {}
 
 
+@pytest.mark.parametrize("host_field", ["shares_image_with", "image_shared_with"])
+def test_image_sharing_plate_children_are_not_physical_detections(host_field):
+    host = {"page": 18, "figure_number": "10", "figure_type": "plate"}
+    children = [
+        {**_entry(18, str(number), f"child-{number}"),
+         host_field: 10}
+        for number in range(1, 11)
+    ]
+
+    figures, groups = fd.collapse_panels([host, *children])
+    tally = fd.score(
+        {18: Counter({"PLATE": 1})}, [host, *children], lambda f: True,
+    )
+
+    assert figures == [host]
+    assert groups == {}
+    assert (tally["found"], tally["matched"], tally["surplus"]) == (1, 1, 0)
+
+
+def test_plate_and_same_numbered_figure_are_distinct_physical_detections():
+    entries = [
+        {"page": 18, "figure_number": "10", "figure_type": "plate"},
+        _entry(18, "10", "figure-10"),
+    ]
+
+    figures, groups = fd.collapse_panels(entries)
+    tally = fd.score(
+        {18: Counter({"PLATE": 1, "FIGURE": 1})}, entries, lambda f: True,
+    )
+
+    assert len(figures) == 2
+    assert groups == {}
+    assert (tally["found"], tally["matched"], tally["surplus"]) == (2, 2, 0)
+
+
+def test_numbered_furniture_is_not_merged_with_a_real_figure():
+    entries = [
+        _entry(18, "10", "figure-10"),
+        {"page": 18, "figure_number": "10",
+         "figure_type": "graphical_element"},
+    ]
+
+    figures, groups = fd.collapse_panels(entries)
+
+    assert len(figures) == 2
+    assert groups == {}
+
+
 def test_a_correctly_split_panel_is_not_scored_as_surplus():
     """The defect in one assertion: one gold block, two panel images, and the
     page must score as matched rather than one match plus one false positive."""
@@ -234,4 +288,7 @@ def test_panel_splitting_is_reported_beside_detection(report):
     """Not discarded — a split panel is a correct extra image, and #195 scores
     whether the split matches the panels the gold caption enumerates."""
     for d in report["documents"].values():
-        assert "entries" in d and "panel_groups" in d and "panel_images" in d
+        assert {
+            "entries", "shared_image_records", "physical_figures",
+            "panel_groups", "panel_images",
+        } <= set(d)
