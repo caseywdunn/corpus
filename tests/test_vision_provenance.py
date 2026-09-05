@@ -31,6 +31,8 @@ def test_local_weights_use_bytes_not_size_or_mtime(tmp_path):
     os.utime(weights, ns=(stat.st_atime_ns, stat.st_mtime_ns))
     after = model_provenance.vision_producer("vision-local", str(model))
     assert before["verification"] == "local-file-content"
+    assert before["model"] == "model"
+    assert str(tmp_path) not in json.dumps(before)
     assert before["sha256"] != after["sha256"]
 
 

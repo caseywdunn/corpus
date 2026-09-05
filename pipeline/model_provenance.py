@@ -63,7 +63,10 @@ def vision_producer(mode, model=None, *, resolved_revision=None):
     result["generation"] = {"max_new_tokens": 1024, "max_pixels": 1003520, "min_pixels": 3136}
     directory = Path(model).expanduser()
     if directory.is_dir():
-        return {**result, "verification": "local-file-content", **_local_files(directory)}
+        # The stage config retains the source path. Portable result evidence
+        # needs the content identity and label, not a private host pathname.
+        return {**result, "model": directory.name,
+                "verification": "local-file-content", **_local_files(directory)}
     revision = resolved_revision or _cached_revision(model)
     return {**result, "verification": "repository-revision" if revision else "unverified-cache-miss",
             "revision": revision}
