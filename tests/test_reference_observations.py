@@ -131,6 +131,62 @@ def test_unreadable_reference_is_not_a_successful_cached_noop(tmp_path, monkeypa
     conn.close()
 
 
+def test_enabling_bhl_on_unchanged_sources_applies_the_requested_policy(tmp_path, monkeypatch):
+    _write_paper(tmp_path, "aaa", title="Paper", year=2000, surname="Author",
+                 references=[_reference("Raw", "An old publication", "b0")])
+    conn = _open_and_build(tmp_path)
+    calls = []
+    def lookup(*args, **kwargs):
+        calls.append(kwargs)
+        return "found", ("bhl:part/123", "", "123"), None
+    monkeypatch.setattr(authority, "_bhl_lookup", lookup)
+    assert authority.phase2_references(conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key")[0] == 1
+    assert len(calls) == 1
+    assert conn.execute("SELECT work_id FROM observation_work").fetchone()[0] == "bhl:part/123"
+    before = conn.total_changes
+    assert authority.phase2_references(conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key") == (0, 0)
+    assert conn.total_changes == before and len(calls) == 1
+    # Disabling future enrichment does not erase already acquired BHL evidence.
+    authority.phase2_references(conn, tmp_path, enrich_bhl=False)
+    assert len(calls) == 1
+    assert conn.execute("SELECT work_id FROM observation_work").fetchone()[0] == "bhl:part/123"
+    conn.close()
+
+
+def test_bhl_year_window_change_revisits_previously_ineligible_references(tmp_path, monkeypatch):
+    _write_paper(tmp_path, "aaa", title="Paper", year=2000, surname="Author",
+                 references=[_reference("Raw", "An old publication", "b0")])
+    conn = _open_and_build(tmp_path)
+    calls = []
+    def lookup(*args, **kwargs):
+        calls.append(kwargs["max_year"])
+        return "skipped", None, "outside year window"
+    monkeypatch.setattr(authority, "_bhl_lookup", lookup)
+    authority.phase2_references(conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key", bhl_max_year=1800)
+    authority.phase2_references(conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key", bhl_max_year=1900)
+    assert calls == [1800, 1900]
+    conn.close()
+
+
+def test_bhl_key_becoming_available_invalidates_without_storing_the_key(tmp_path, monkeypatch):
+    _write_paper(tmp_path, "aaa", title="Paper", year=2000, surname="Author",
+                 references=[_reference("Raw", "An old publication", "b0")])
+    conn = _open_and_build(tmp_path)
+    calls = []
+    def lookup(*args, **kwargs):
+        calls.append(bool(kwargs["api_key"]))
+        return "skipped", None, "unavailable test service"
+    monkeypatch.setattr(authority, "_bhl_lookup", lookup)
+    authority.phase2_references(conn, tmp_path, enrich_bhl=True)
+    authority.phase2_references(conn, tmp_path, enrich_bhl=True, bhl_api_key="never-store-this-secret")
+    assert calls == [False, True]
+    before = conn.total_changes
+    authority.phase2_references(conn, tmp_path, enrich_bhl=True, bhl_api_key="a-replacement-valid-key")
+    assert conn.total_changes == before and calls == [False, True]
+    assert "never-store-this-secret" not in "\n".join(conn.iterdump())
+    conn.close()
+
+
 def test_reference_evidence_is_separate_auditable_and_noop(
     tmp_path: Path,
 ) -> None:

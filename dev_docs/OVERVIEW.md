@@ -681,6 +681,13 @@ an incremental addition converge on the same current map while retaining the
 conservative rule: weak evidence creates a separate work rather than silently
 misrouting a citation.
 
+The materialization fingerprint also records whether BHL enrichment is enabled,
+its year cutoff and API-key availability (never the secret or a hash of it).
+Enabling the option on an existing build therefore revisits current references;
+it no longer requires an unrelated source edit to take effect. An unchanged
+policy/source replay remains a no-op. Disabling future enrichment retains
+previously acquired BHL identities and cache evidence rather than erasing them.
+
 The deterministic resolver normalizes DOI wrappers and percent encoding, and
 tests narrowly shaped DOI corruption only when title evidence independently
 agrees. To escape a damaged or reordered first-author block, it may match an

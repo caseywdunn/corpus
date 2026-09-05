@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fixed ordinary reference resume ignoring a newly enabled BHL enrichment
+  option or changed year cutoff. These settings and key availability now
+  invalidate the materialization receipt; credentials are never recorded.
+
 - Reference updates now retire obsolete derived author/title aliases even
   when a paper keeps its DOI, matching clean-build lookup behavior while
   retaining explicit curation and BHL evidence. Malformed authority inputs

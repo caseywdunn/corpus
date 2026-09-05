@@ -1968,6 +1968,12 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
     from .documents import work_map
     corpus_identity = {
         "producer": REFERENCE_MAPPING_PRODUCER,
+        # Requested enrichment is a materialization input too. Do not retain
+        # API secrets (or their hashes) in receipts; availability is enough to
+        # distinguish a formerly unavailable optional capability.
+        "bhl_policy": {"enabled": bool(enrich_bhl),
+                       "max_year": bhl_max_year if enrich_bhl else None,
+                       "key_available": bool(bhl_api_key) if enrich_bhl else False},
         "members": sorted(work_map(conn).items()),
         "works": [tuple(row) for row in conn.execute(
             "SELECT work_id,title,year,doi FROM works WHERE in_corpus=1 ORDER BY work_id")],

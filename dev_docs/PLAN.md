@@ -404,6 +404,10 @@ can answer which evidence and rule produced it.
   be held fixed in equivalence comparisons. Present malformed/unreadable
   authority inputs now fail before current-row changes, and malformed served
   JSON cannot bypass auditing or replace the last good bundle.
+  Enrichment enablement/year cutoff/key availability now participate in resume
+  identity: selecting BHL on an unchanged build actually applies the option.
+  No matching thresholds or external-enrichment defaults changed; #260's
+  outcome reporting remains in the later bounded-hardening tranche.
   The post-caption build preserved all text scores and physical detections,
   but six Mańko reference records drifted inside the saved Grobid response;
   count-only acceptance missed that loss. Carré/Margulis also retain genuine
