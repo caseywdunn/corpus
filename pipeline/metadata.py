@@ -188,6 +188,7 @@ def extract_metadata(
         "pdf_sha256": _file_sha256(pdf_path),
         "consolidate_header": int(_g.get("consolidate_header", 1)),
         "consolidate_citations": int(_g.get("consolidate_citations", 0)),
+        "include_raw_citations": True,
         "pipeline_version": __version__,
         "service_version": grobid_input.get("service_version"),
         "producer_id": _g.get("producer_id"),
@@ -221,6 +222,7 @@ def extract_metadata(
                 pdf_path,
                 consolidate_header=int(_g.get("consolidate_header", 1)),
                 consolidate_citations=int(_g.get("consolidate_citations", 0)),
+                include_raw_citations=True,
             )
             validate_fulltext_tei(tei_xml)
             tei_output.write_text(tei_xml, encoding="utf-8")

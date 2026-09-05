@@ -77,6 +77,24 @@ def test_disabled_enabled_and_unchanged_runs(corpus, service, monkeypatch):
     assert len(service.calls) == 2
 
 
+def test_reference_evidence_policy_reaches_both_resume_gates(corpus, service):
+    corpus.run(grobid=True)
+    for hd in (corpus.hd(), corpus.hd("Second2002.pdf")):
+        path = hd / "pipeline_state.json"
+        state = json.loads(path.read_text())
+        state["stages"]["metadata_extraction"]["input_fingerprint"].pop("reference_evidence_version")
+        path.write_text(json.dumps(state))
+        proof_path = hd / "grobid.tei.xml.provenance.json"
+        proof = json.loads(proof_path.read_text())
+        proof["inputs"].pop("include_raw_citations")
+        proof_path.write_text(json.dumps(proof))
+    corpus.run(grobid=True)
+    assert len(service.calls) == 4
+    assert all(kwargs["include_raw_citations"] for _, kwargs in service.calls)
+    corpus.run(grobid=True)
+    assert len(service.calls) == 4
+
+
 @pytest.mark.parametrize("curated", [True, False])
 def test_startup_outage_retries_on_recovery_even_with_curated_header(corpus, service, curated):
     if not curated:

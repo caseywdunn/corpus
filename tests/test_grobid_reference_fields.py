@@ -62,3 +62,17 @@ def test_unlevelled_duplicate_journal_is_not_a_title():
     assert refs[0]["title"] == ""
     assert refs[0]["journal"] == "Nature"
 
+
+def test_raw_citation_is_preserved_independently_of_lossy_structured_fields():
+    refs = parse_tei_references(_tei("""
+      <biblStruct xml:id="b50">
+        <analytic><title level="a">Diversity and vertical distribution</title>
+          <author><persName><forename>K</forename><surname>Hopcroft</surname></persName></author>
+        </analytic>
+        <note type="raw_reference">Kosobokova, K., Hopcroft, R.R., 2010.
+          Diversity and vertical distribution.</note>
+      </biblStruct>
+    """))
+    assert refs[0]["authors"] == ["K Hopcroft"]
+    assert refs[0]["raw"] == ("Kosobokova, K., Hopcroft, R.R., 2010. "
+                              "Diversity and vertical distribution.")

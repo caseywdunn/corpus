@@ -378,6 +378,21 @@ def test_tei_reuse_tracks_bytes_settings_and_not_bib_header(tei_cache, monkeypat
     assert len(c.calls) == 3
 
 
+def test_raw_citation_policy_invalidates_legacy_tei_receipt(tei_cache):
+    c = tei_cache
+    c.run()
+    assert c.calls[0]["include_raw_citations"] is True
+    receipt_path = c.root / "grobid.tei.xml.provenance.json"
+    proof = json.loads(receipt_path.read_text())
+    del proof["inputs"]["include_raw_citations"]
+    receipt_path.write_text(json.dumps(proof))
+    c.run()
+    assert len(c.calls) == 2
+    assert list((c.root / "metadata_cache_history").glob("*-grobid.tei.xml"))
+    c.run()
+    assert len(c.calls) == 2
+
+
 @pytest.mark.parametrize("damage", ["missing_receipt", "changed_tei", "changed_pdf"])
 def test_invalid_tei_never_remains_active_when_grobid_is_unavailable(tei_cache, damage):
     c = tei_cache

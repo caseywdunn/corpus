@@ -1,5 +1,10 @@
 """Grobid capability versus persisted evidence, owned by the build plane."""
 
+# Internal request policy, not an operator tuning knob. Increment when the
+# persisted evidence contract changes so same-version development builds and
+# their subordinate TEI caches cannot silently retain the previous contract.
+REFERENCE_EVIDENCE_VERSION = 1
+
 
 def grobid_input(context, hash_dir=None):
     """Resolve the metadata expectation without downgrading proof on outages.

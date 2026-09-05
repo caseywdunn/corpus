@@ -29,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failures, and records manifest facts and diagnostic PDF/TEI hashes. It never
   overwrites an existing reference or automatically accepts a changed build.
 
+- **Grobid reference observations retain raw citation strings.** Fulltext
+  requests now explicitly request them; Stage 1 and TEI-cache receipts force a
+  one-time migration of older builds. Structured fields remain best-effort
+  interpretations of that evidence, not replacements for it. Source-backed
+  reference assertions catch lost title words and author surnames even when
+  the bibliography count is unchanged.
+
 - **A read-only reference-reconciliation audit makes the missing-work ranking
   inspectable (#155).** `tools/qc/reference_reconciliation.py` reports current,
   mapped and unmapped observation populations; compatibility-edge collapse;

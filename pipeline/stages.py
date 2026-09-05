@@ -375,8 +375,9 @@ def _metadata_fingerprint_for_pdf(bib_index, filename: str, *,
     result = {"bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
               "filename": filename}
     if grobid_context is not None:
-        from .grobid_state import grobid_input
+        from .grobid_state import REFERENCE_EVIDENCE_VERSION, grobid_input
         result["grobid"] = grobid_input(grobid_context, hash_dir)
+        result["reference_evidence_version"] = REFERENCE_EVIDENCE_VERSION
     return result
 
 

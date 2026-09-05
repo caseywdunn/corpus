@@ -351,6 +351,11 @@ can answer which evidence and rule produced it.
   count-only acceptance missed that loss. Carré/Margulis also retain genuine
   empty-bibliography failures despite reference text being present. Keep these
   separate from expected plate-only warnings rather than suppressing flags.
+  Eighteen isolated Mańko repeats (six serial, twelve concurrent) returned
+  stable baseline-matching structured fields, so the original service-response
+  drift remains unreproduced, not declared fixed. Raw citations are now
+  explicitly requested and retained, with both resume gates and the TEI cache
+  migrating; source-backed title/author/raw checks guard the affected paper.
 
 **Acceptance:** for every supported change class, an incremental run and a
 clean rebuild have the same current document set, artifact fingerprints,

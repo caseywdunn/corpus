@@ -218,11 +218,21 @@ old success receipt. Logs and `summary.json`'s `processing_summary.rerun_reasons
 name changed inputs.
 
 Grobid TEI reuse requires a matching prepared-PDF digest, consolidation settings,
+raw-citation request policy,
 pipeline version, reported service version, optional `grobid.producer_id` and
 TEI payload digest. Unverified/stale TEI and its receipt
 move into the build-only `metadata_cache_history/` directory; they cannot be
 resurrected as active citations if Grobid is unavailable. BibTeX-only edits
 reuse a verified TEI. No history is added to the served bundle.
+
+Fulltext requests explicitly set `includeRawCitations=1`. The reference `raw`
+field and observation's raw citation retain Grobid's extracted source string,
+independently of its best-effort title/author parsing. This is OCR/extraction
+evidence, not a claim that the string is a perfect transcription. A request
+policy receipt invalidates older Stage 1 completions and TEI caches once;
+future no-op runs reuse the verified result. Empty parsed bibliographies can
+still coexist with reference text in the source and must not be described as
+proof that a paper cites nothing.
 
 Panel-mode/model changes reconstruct fresh base figures from `processed.pdf`
 before applying caption, ROI and compound passes, including when switching

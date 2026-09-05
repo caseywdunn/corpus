@@ -366,6 +366,10 @@ reporting producer versions separately. Build-root paths are relocated and
 top-level producer stamps do not count as content changes. Reference fields
 are retained by ordinal so an unchanged count cannot conceal a damaged title,
 author list, DOI or raw citation. A reordered bibliography also needs review.
+Ground-truth reference expectations may require `raw_contains` as well as
+`title_contains` and `authors_contain`: source preservation and correct field
+parsing are separate assertions. Gold-only fixtures with explicit document
+hashes are skipped when that document is absent from the demo build.
 Prepared-PDF and TEI byte hashes are diagnostic: generated IDs and PDF metadata
 can differ without an extraction change. They are not standalone failure gates.
 
