@@ -19,7 +19,7 @@ def consumed_metadata(meta):
     result = {key: meta[key] for key in keys if key in meta}
     if "authors" in result:
         result["authors"] = [{key: author.get(key, "") for key in ("surname", "forename")}
-                             for author in result["authors"]]
+                             for author in (result["authors"] or [])]
     return result
 
 

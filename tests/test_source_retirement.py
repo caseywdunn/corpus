@@ -189,6 +189,19 @@ def test_bundle_replacement_removes_old_optional_files_and_retains_previous(tmp_
     assert len(backups) == 1 and backups[0].read_bytes() == previous_manifest
 
 
+def test_malformed_served_json_cannot_bypass_audit_or_replace_bundle(tmp_path):
+    root = tmp_path / "build"
+    hd = artifact(root, "abc")
+    served = root / "_serve"
+    package(root, served, "good", False, False)
+    previous = (served / "bundle_manifest.json").read_bytes()
+    (hd / "references.json").write_text('{"private_path":"/home/private/source.pdf",')
+    with pytest.raises(ValueError, match="Cannot audit served JSON"):
+        package(root, served, "broken", False, False)
+    assert (served / "bundle_manifest.json").read_bytes() == previous
+    assert json.loads((served / "documents/abc/references.json").read_text())["references"]
+
+
 def test_bundle_copy_failure_preserves_previous_generation(tmp_path, monkeypatch):
     from mcpsrv import bundle
     root = tmp_path / "build"

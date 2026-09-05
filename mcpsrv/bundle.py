@@ -550,8 +550,8 @@ def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
     for jp in sorted(serve_dir.rglob("*.json")):
         try:
             data = json.loads(jp.read_text())
-        except Exception:
-            continue
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Cannot audit served JSON {jp.relative_to(serve_dir)}: {exc}") from exc
         for s in _walk_strings(data):
             if ' ' not in s and _ABS_PATH_RE.match(s):
                 offenders.append((str(jp.relative_to(serve_dir)), s[:120]))

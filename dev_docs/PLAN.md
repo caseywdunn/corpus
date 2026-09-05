@@ -397,6 +397,13 @@ can answer which evidence and rule produced it.
   comparisons and decoded figure-pixel hashes, with tests distinguishing
   bookkeeping changes from content/mapping/duplicate-row drift. A reviewed
   latest-build reference and full gold equivalence remain open.
+  The stronger update comparison exposed stale author/title aliases on a
+  surviving DOI; current uncurated aliases now re-derive from document members
+  and active observations. Producer migration repairs old aliases even for
+  empty bibliographies. Explicit curation/BHL evidence is preserved and must
+  be held fixed in equivalence comparisons. Present malformed/unreadable
+  authority inputs now fail before current-row changes, and malformed served
+  JSON cannot bypass auditing or replace the last good bundle.
   The post-caption build preserved all text scores and physical detections,
   but six Mańko reference records drifted inside the saved Grobid response;
   count-only acceptance missed that loss. Carré/Margulis also retain genuine

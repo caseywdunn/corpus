@@ -644,7 +644,13 @@ and maintenance merges move memberships before removing a canonical row.
 Authority seeding compares the content of consumed metadata fields, not just
 mtime. A DOI edit moves the affected membership without orphaning the old
 graph; reference materialization then rebuilds against the current membership
-and canonical metadata fingerprint. Removing a document artifact directory
+and canonical metadata fingerprint. Derived aliases on surviving uncurated
+works are re-seeded from all current document members before resolving active
+references; correcting an author/title while retaining a DOI cannot leave an
+obsolete extraction alias behind. Explicitly curated and externally established
+BHL aliases remain retained inputs, so equivalence comparisons must use the
+same curation/enrichment inputs, not assume that historical external evidence
+can be reproduced from PDFs alone. Removing a document artifact directory
 deactivates its membership and reference set but retains historical reference
 observations. This does not by itself remove an artifact directory whose PDF
 was deleted upstream; source-inventory retirement belongs to the update
@@ -656,6 +662,14 @@ builder content-addresses every bibliography occurrence into
 membership are append-only. `reference_current_sets` is the replaceable pointer
 that says which observed source set is current for each paper. Reprocessing or
 removing a paper changes that pointer, not its historical evidence.
+
+Before changing current rows, each authority phase validates all present
+input JSON objects and their author/reference collection shapes. Unreadable or
+malformed artifacts abort the phase instead of silently reusing stale rows.
+This preserves the previous current evidence on that failure. Bundle auditing
+also rejects unreadable/malformed served JSON; it cannot skip the path/privacy
+audit and publish a broken replacement. Missing optional artifacts remain a
+separate capability/completeness question, not proof of an empty bibliography.
 
 `observation_work` is the independently re-derivable verdict. Every current
 observation maps to one canonical `works` row and carries the match method,

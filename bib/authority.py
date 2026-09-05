@@ -71,7 +71,7 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v2"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v3"
 
 # Cross-block escape hatch measured by the #155 audit. Short/generic titles
 # are excluded; the threshold is public so the read-only QC tool uses the same
@@ -1132,6 +1132,42 @@ def author_year_match(conn: sqlite3.Connection, surname: str,
 
 # ── Phase 1: Seed from corpus papers ────────────────────────────────
 
+def _read_authority_inputs(docs_dir: Path, artifact: str) -> list:
+    """Validate present artifacts before changing any current authority rows.
+
+    Missing artifacts retain the existing optional-input semantics. A present
+    but unreadable/malformed artifact is not a deliberate empty bibliography
+    and must never be reported as a successful no-op with stale mappings.
+    """
+    inputs = []
+    for hd in sorted(docs_dir.iterdir()):
+        if not hd.is_dir():
+            continue
+        path = hd / f"{artifact}.json"
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_bytes())
+            if not isinstance(data, dict):
+                raise ValueError("expected a JSON object")
+            if artifact == "metadata":
+                authors = data.get("authors") if data.get("authors") is not None else []
+                if not isinstance(authors, list) or not all(isinstance(a, dict) for a in authors):
+                    raise ValueError("authors must be a list of objects")
+            else:
+                refs = data.get("references") if data.get("references") is not None else []
+                if not isinstance(refs, list) or not all(isinstance(r, dict) for r in refs):
+                    raise ValueError("references must be a list of objects")
+                for ref in refs:
+                    authors = ref.get("authors") if ref.get("authors") is not None else []
+                    if not isinstance(authors, list) or not all(isinstance(a, str) for a in authors):
+                        raise ValueError("reference authors must be a list of strings")
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Cannot ingest {path}: {exc}") from exc
+        inputs.append((hd, data))
+    return inputs
+
+
 def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
     """Walk output/documents/*/metadata.json and seed works table."""
     docs_dir = output_dir / "documents"
@@ -1143,21 +1179,17 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
     refreshed = 0
     batch = 0
     from .documents import consumed_metadata, create_schema as create_document_schema, refresh_representative
+    inputs = _read_authority_inputs(docs_dir, "metadata")
     create_document_schema(conn)
     present = {p.name for p in docs_dir.iterdir() if p.is_dir()}
-    for hash_dir in sorted(docs_dir.iterdir()):
-        if not hash_dir.is_dir():
-            continue
+    for hash_dir, raw_meta in inputs:
         meta_path = hash_dir / "metadata.json"
-        if not meta_path.exists():
-            continue
 
         corpus_hash = hash_dir.name
         try:
             current_mtime = meta_path.stat().st_mtime
         except OSError as e:
-            logger.warning("Skipping %s: %s", meta_path, e)
-            continue
+            raise ValueError(f"Cannot ingest {meta_path}: {e}") from e
 
         # Skip when we've already seeded this corpus_hash AND the
         # source metadata.json hasn't been regenerated since. When
@@ -1168,11 +1200,7 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             conn, corpus_hash, "metadata", current_mtime,
         )
         existing_work_id: Optional[str] = None
-        try:
-            meta = consumed_metadata(json.loads(meta_path.read_bytes()))
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Skipping %s: %s", meta_path, e)
-            continue
+        meta = consumed_metadata(raw_meta)
         membership = conn.execute(
             "SELECT work_id, source_sha256 FROM work_documents WHERE corpus_hash=?", (corpus_hash,),
         ).fetchone()
@@ -1728,6 +1756,31 @@ def _clear_derived_reference_materialization(conn: sqlite3.Connection) -> None:
         conn.execute("DELETE FROM work_aliases WHERE work_id = ?", (work_id,))
         conn.execute("DELETE FROM work_authors WHERE work_id = ?", (work_id,))
         conn.execute("DELETE FROM works WHERE work_id = ?", (work_id,))
+    # Aliases derived from old headers/reference matches are not independent
+    # curation evidence. Keeping them on a surviving DOI makes ordinary edits
+    # resolve differently from a clean build. Re-seed from every current PDF
+    # member, then let the active observations derive their aliases afresh.
+    # Explicitly curated and externally established BHL identities keep their
+    # aliases: those are retained inputs, not disposable extraction history.
+    reset_ids = [row[0] for row in conn.execute(
+        "SELECT work_id FROM works WHERE in_corpus=1 AND bib_imported_at IS NULL AND guid_type != 'bhl'")]
+    for work_id in reset_ids:
+        conn.execute("DELETE FROM work_aliases WHERE work_id=?", (work_id,))
+        members = conn.execute("SELECT metadata_json FROM work_documents WHERE work_id=? ORDER BY corpus_hash",
+                               (work_id,)).fetchall()
+        for (raw,) in members:
+            meta = json.loads(raw)
+            surname = next((a.get("surname") for a in meta.get("authors", []) if a.get("surname")), "")
+            if surname:
+                insert_alias(conn, make_alias_key(surname, meta.get("year"),
+                                                 meta.get("title") or meta.get("filename", "")), work_id)
+        # Scalar legacy rows may have no document membership yet.
+        if not members:
+            row = conn.execute(
+                "SELECT a.surname,w.year,w.title FROM works w JOIN work_authors a ON a.work_id=w.work_id "
+                "WHERE w.work_id=? AND a.position=0", (work_id,)).fetchone()
+            if row:
+                insert_alias(conn, make_alias_key(*row), work_id)
 
 
 def _active_reference_observations(conn: sqlite3.Connection):
@@ -1833,28 +1886,12 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
     n_skipped = 0
     n_refreshed = 0
     present_reference_hashes = set()
-    for hash_dir in sorted(docs_dir.iterdir()):
-        if not hash_dir.is_dir():
-            continue
+    inputs = _read_authority_inputs(docs_dir, "references")
+    for hash_dir, refs_data in inputs:
         refs_path = hash_dir / "references.json"
-        if not refs_path.exists():
-            continue
         corpus_hash = hash_dir.name
         present_reference_hashes.add(corpus_hash)
-        try:
-            refs_data = json.loads(refs_path.read_bytes())
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Skipping %s: %s", refs_path, e)
-            continue
-        if not isinstance(refs_data, dict):
-            logger.warning("Skipping %s: top-level JSON is not an object", refs_path)
-            continue
         references = refs_data.get("references", []) or []
-        if not isinstance(references, list) or not all(
-            isinstance(ref, dict) for ref in references
-        ):
-            logger.warning("Skipping %s: references is not a list of objects", refs_path)
-            continue
         canonical_set = json.dumps(
             references, ensure_ascii=False, sort_keys=True,
             separators=(",", ":"), default=str,
@@ -1930,6 +1967,7 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
 
     from .documents import work_map
     corpus_identity = {
+        "producer": REFERENCE_MAPPING_PRODUCER,
         "members": sorted(work_map(conn).items()),
         "works": [tuple(row) for row in conn.execute(
             "SELECT work_id,title,year,doi FROM works WHERE in_corpus=1 ORDER BY work_id")],

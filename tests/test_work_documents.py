@@ -40,10 +40,81 @@ def run(conn, root):
 
 def logical(conn):
     return {"members": work_map(conn),
+            "aliases": conn.execute("SELECT alias_key,work_id FROM work_aliases ORDER BY 1,2").fetchall(),
             "works": conn.execute("SELECT work_id,title,year,doi,corpus_hash,in_corpus,license,serve FROM works ORDER BY work_id").fetchall(),
             "authors": conn.execute("SELECT work_id,position,surname,forename FROM work_authors ORDER BY work_id,position").fetchall(),
             "mappings": conn.execute("SELECT observation_id,work_id,match_method FROM observation_work ORDER BY observation_id").fetchall(),
             "citations": conn.execute("SELECT citing_work_id,cited_work_id,citing_corpus_hash FROM citations ORDER BY citing_corpus_hash,cited_work_id").fetchall()}
+
+
+def test_same_doi_header_edit_has_same_aliases_as_clean(tmp_path):
+    incremental, clean = tmp_path / "incremental", tmp_path / "clean"
+    incremental.mkdir()
+    clean.mkdir()
+    hd = paper(incremental, "aaa")
+    conn = database(incremental)
+    run(conn, incremental)
+    path = hd / "metadata.json"
+    meta = json.loads(path.read_text())
+    meta.update(title="Corrected collected studies", authors=[{"surname": "Corrected", "forename": "A"}])
+    path.write_text(json.dumps(meta))
+    run(conn, incremental)
+    shutil.copytree(incremental / "documents", clean / "documents")
+    fresh = database(clean)
+    run(fresh, clean)
+    assert logical(conn) == logical(fresh)
+    before = conn.total_changes
+    authority.phase1_corpus_papers(conn, incremental)
+    assert authority.phase2_references(conn, incremental) == (0, 0)
+    assert conn.total_changes == before
+    conn.close()
+    fresh.close()
+
+
+def test_removed_member_alias_retires_without_losing_surviving_member(tmp_path):
+    incremental, clean = tmp_path / "incremental", tmp_path / "clean"
+    incremental.mkdir()
+    clean.mkdir()
+    paper(incremental, "aaa")
+    hd = paper(incremental, "bbb")
+    meta = json.loads((hd / "metadata.json").read_text())
+    meta["title"] = "Another member title"
+    (hd / "metadata.json").write_text(json.dumps(meta))
+    conn = database(incremental)
+    run(conn, incremental)
+    (incremental / "documents/aaa").rename(incremental / "retired-aaa")
+    run(conn, incremental)
+    shutil.copytree(incremental / "documents", clean / "documents")
+    fresh = database(clean)
+    run(fresh, clean)
+    assert logical(conn) == logical(fresh)
+    conn.close()
+    fresh.close()
+
+
+def test_mapping_producer_change_repairs_aliases_even_without_observations(tmp_path, monkeypatch):
+    hd = paper(tmp_path, "aaa")
+    (hd / "references.json").write_text('{"references": []}')
+    conn = database(tmp_path)
+    run(conn, tmp_path)
+    authority.insert_alias(conn, "obsolete-extraction-alias", "10.1234/shared")
+    conn.commit()
+    monkeypatch.setattr(authority, "REFERENCE_MAPPING_PRODUCER", "new-producer")
+    authority.phase2_references(conn, tmp_path)
+    assert not conn.execute("SELECT 1 FROM work_aliases WHERE alias_key='obsolete-extraction-alias'").fetchone()
+    conn.close()
+
+
+def test_explicitly_curated_aliases_survive_rematerialization(tmp_path):
+    paper(tmp_path, "aaa")
+    conn = database(tmp_path)
+    run(conn, tmp_path)
+    conn.execute("UPDATE works SET bib_imported_at=1 WHERE work_id='10.1234/shared'")
+    authority.insert_alias(conn, "reviewed-alternate-identity", "10.1234/shared")
+    conn.execute("DELETE FROM build_meta WHERE key='reference_corpus_fingerprint'")
+    authority.phase2_references(conn, tmp_path)
+    assert conn.execute("SELECT 1 FROM work_aliases WHERE alias_key='reviewed-alternate-identity'").fetchone()
+    conn.close()
 
 
 def test_shared_work_keeps_both_citing_documents_and_noop(tmp_path):

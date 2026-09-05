@@ -5,6 +5,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from bib import authority
 
 
@@ -84,6 +86,49 @@ def _snapshot(conn: sqlite3.Connection) -> dict[str, list[tuple]]:
         table: conn.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
         for table in tables
     }
+
+
+@pytest.mark.parametrize("artifact,broken", [
+    ("references", "{"), ("references", "[]"),
+    ("references", '{"references": [null]}'),
+    ("references", '{"references": {}}'),
+    ("references", '{"references": [{"authors": "Author"}]}'),
+    ("metadata", "{"), ("metadata", "[]"),
+    ("metadata", '{"authors": ["Author"]}'),
+    ("metadata", '{"authors": {}}'),
+])
+def test_malformed_source_aborts_before_any_current_evidence_changes(tmp_path, artifact, broken):
+    for sha in ("aaa", "zzz"):
+        _write_paper(tmp_path, sha, title="A paper", year=2000, surname=sha,
+                     references=[_reference("Raw", "Title", "b0")])
+    conn = _open_and_build(tmp_path)
+    before = _snapshot(conn)
+    # An earlier valid changed source must not be partially ingested before
+    # discovering the later invalid artifact.
+    _write_paper(tmp_path, "aaa", title="Edited paper", year=2001, surname="Edited",
+                 references=[_reference("New raw", "New title", "b0")])
+    (tmp_path / "documents/zzz" / f"{artifact}.json").write_text(broken)
+    phase = authority.phase1_corpus_papers if artifact == "metadata" else authority.phase2_references
+    with pytest.raises(ValueError, match="Cannot ingest"):
+        phase(conn, tmp_path)
+    assert _snapshot(conn) == before
+    conn.close()
+
+
+def test_unreadable_reference_is_not_a_successful_cached_noop(tmp_path, monkeypatch):
+    _write_paper(tmp_path, "aaa", title="Paper", year=2000, surname="Author", references=[])
+    conn = _open_and_build(tmp_path)
+    before = _snapshot(conn)
+    original = Path.read_bytes
+    def read(path):
+        if path.name == "references.json":
+            raise PermissionError("unreadable input")
+        return original(path)
+    monkeypatch.setattr(Path, "read_bytes", read)
+    with pytest.raises(ValueError, match="unreadable input"):
+        authority.phase2_references(conn, tmp_path)
+    assert _snapshot(conn) == before
+    conn.close()
 
 
 def test_reference_evidence_is_separate_auditable_and_noop(

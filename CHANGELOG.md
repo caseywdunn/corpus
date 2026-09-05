@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Reference updates now retire obsolete derived author/title aliases even
+  when a paper keeps its DOI, matching clean-build lookup behavior while
+  retaining explicit curation and BHL evidence. Malformed authority inputs
+  fail before replacing current evidence; invalid served JSON fails bundle
+  auditing instead of bypassing it.
+
 - Added opt-in all-tool acceptance on a real, filesystem-enforced read-only
   bundle, with offline query embedding and whole/panel downloads through the
   deployed nginx route. Coverage is checked against the frozen MCP inventory;
