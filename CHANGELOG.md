@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   table remains the frozen MCP compatibility materialization; no tool name,
   input or response shape moves.
 
+- **Build regression references expose equal-count evidence changes (#187).**
+  The operator-side snapshot/comparison tool fingerprints primary JSON content,
+  reports reference-field differences, separates unchanged warnings from hard
+  failures, and records manifest facts and diagnostic PDF/TEI hashes. It never
+  overwrites an existing reference or automatically accepts a changed build.
+
 - **A read-only reference-reconciliation audit makes the missing-work ranking
   inspectable (#155).** `tools/qc/reference_reconciliation.py` reports current,
   mapped and unmapped observation populations; compatibility-edge collapse;

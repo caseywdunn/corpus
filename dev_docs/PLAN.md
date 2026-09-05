@@ -342,6 +342,15 @@ can answer which evidence and rule produced it.
   ([#187](https://github.com/caseywdunn/corpus/issues/187)). Diff pipeline
   output, quality flags and manifest facts for the fixed gold corpuscle; test
   counts remain a CI activity signal, not a data regression reference.
+  `tools/qc/build_reference.py` now snapshots primary per-document evidence,
+  flags and manifest facts, and exposes reference-field differences even when
+  counts agree. It never overwrites an existing reference. Database mappings,
+  vector-row equivalence and a reviewed latest-build reference remain open.
+  The post-caption build preserved all text scores and physical detections,
+  but six Mańko reference records drifted inside the saved Grobid response;
+  count-only acceptance missed that loss. Carré/Margulis also retain genuine
+  empty-bibliography failures despite reference text being present. Keep these
+  separate from expected plate-only warnings rather than suppressing flags.
 
 **Acceptance:** for every supported change class, an incremental run and a
 clean rebuild have the same current document set, artifact fingerprints,

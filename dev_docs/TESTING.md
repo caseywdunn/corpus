@@ -344,6 +344,37 @@ text:
 | Stepanjants1970 | `dde93d15a5e8` | Broken text layer | Scan detection, forced OCR |
 | Pages_etal1991 | `3eafb0775ece` | Modern English | Baseline coverage |
 
+## Build regression references
+
+Use the operator-side snapshot alongside independent gold scoring:
+
+```bash
+python -m tools.qc.build_reference snapshot /path/to/baseline --out baseline.json
+python -m tools.qc.build_reference snapshot /path/to/candidate --out candidate.json
+python -m tools.qc.build_reference compare baseline.json candidate.json --out comparison.json
+```
+
+Snapshot and comparison outputs are created exclusively: an existing file is
+an error, never silently replaced. Comparison exits 1 for semantic differences,
+document additions/removals, missing primary artifacts or hard failures; this
+means **review required**, not necessarily a regression. Unchanged warning
+populations are listed separately and still need an explicit disposition.
+There is no automatic baseline acceptance or blanket warning suppression.
+
+The snapshot hashes primary JSON content, retaining schema versions and
+reporting producer versions separately. Build-root paths are relocated and
+top-level producer stamps do not count as content changes. Reference fields
+are retained by ordinal so an unchanged count cannot conceal a damaged title,
+author list, DOI or raw citation. A reordered bibliography also needs review.
+Prepared-PDF and TEI byte hashes are diagnostic: generated IDs and PDF metadata
+can differ without an extraction change. They are not standalone failure gates.
+
+This first reference covers per-document artifacts, quality flags and manifest
+facts. It does **not** establish database mapping, vector-row or image-pixel
+equivalence; exercise those acceptance checks separately. Nor does agreement
+with a baseline establish correctness: keep the independent gold reports and
+review their known misses. Malformed JSON is a hard error, not an omitted paper.
+
 ## Design notes
 
 - Tests read from the main output directory by default
