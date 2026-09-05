@@ -323,7 +323,15 @@ def _load_skipped_hashes(biblio_path: Path) -> set:
                 "SELECT corpus_hash FROM works "
                 "WHERE serve = 0 AND corpus_hash IS NOT NULL"
             ).fetchall()
-            return {r[0] for r in rows}
+            skipped = {r[0] for r in rows}
+            from bib.documents import has_memberships
+            if has_memberships(conn):
+                for sha, raw in conn.execute("SELECT corpus_hash, metadata_json FROM work_documents"):
+                    if json.loads(raw).get("serve", 1) == 0:
+                        skipped.add(sha)
+                    else:
+                        skipped.discard(sha)
+            return skipped
         finally:
             conn.close()
     except sqlite3.Error:

@@ -376,6 +376,10 @@ def merge_phase1_into_ghost(conn: sqlite3.Connection,
         )
 
     # 5. Clean up the now-orphan Phase-1 row.
+    from .documents import move_memberships
+    move_memberships(conn, phase1_work_id, ghost_work_id)
+    conn.execute("UPDATE taxon_work_links SET work_id=? WHERE work_id=?",
+                 (ghost_work_id, phase1_work_id))
     conn.execute("DELETE FROM work_aliases WHERE work_id = ?", (phase1_work_id,))
     conn.execute("DELETE FROM work_authors WHERE work_id = ?", (phase1_work_id,))
     conn.execute("DELETE FROM works WHERE work_id = ?", (phase1_work_id,))

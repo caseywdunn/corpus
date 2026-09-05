@@ -295,10 +295,10 @@ def test_old_mapping_producer_forces_complete_rematerialization(
     conn.close()
 
 
-def test_unmappable_duplicate_corpus_identity_does_not_rebuild_forever(
+def test_multiple_documents_share_a_work_without_losing_observations(
     tmp_path: Path,
 ) -> None:
-    """A known one-work/many-doc gap is not mistaken for stale mappings."""
+    """Both volumes map references; repeating the mapping is a true no-op."""
     output_dir = tmp_path / "output"
     shared_doi = "10.6/bhl.shared-volume"
     for corpus_hash, title in (("aaa", "Volume one"), ("bbb", "Volume two")):
@@ -312,7 +312,7 @@ def test_unmappable_duplicate_corpus_identity_does_not_rebuild_forever(
     conn = sqlite3.connect(":memory:")
     authority.create_schema(conn)
     assert authority.phase1_corpus_papers(conn, output_dir) == 1
-    assert authority.phase2_references(conn, output_dir)[0] == 1
+    assert authority.phase2_references(conn, output_dir)[0] == 2
     assert conn.execute(
         "SELECT COUNT(*) FROM reference_observations"
     ).fetchone()[0] == 2

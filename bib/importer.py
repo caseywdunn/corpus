@@ -84,7 +84,7 @@ def find_matching_work_id(
     """Return ``(work_id, match_method)`` for a parsed BibTeX entry.
 
     Match priority:
-      1. corpus_hash field — exact match on ``works.corpus_hash``
+      1. corpus_hash field — document membership (legacy scalar fallback)
       2. DOI field — exact match on ``works.doi`` (after normalization)
       3. work_id field — exact match on ``works.work_id`` (#100)
 
@@ -92,12 +92,10 @@ def find_matching_work_id(
     """
     corpus_hash = _strip_outer_braces(entry.get("corpus_hash", "") or "")
     if corpus_hash:
-        row = conn.execute(
-            "SELECT work_id FROM works WHERE corpus_hash = ?",
-            (corpus_hash,),
-        ).fetchone()
-        if row:
-            return row[0], "corpus_hash"
+        from .documents import find_work
+        work_id = find_work(conn, corpus_hash)
+        if work_id:
+            return work_id, "corpus_hash"
 
     doi_raw = _strip_outer_braces(entry.get("doi", "") or "")
     if doi_raw:
@@ -170,6 +168,24 @@ def _entry_value(entry: Dict, field: str) -> Optional[str]:
     return _strip_outer_braces(str(raw))
 
 
+def _document_target(conn, work_id, entry):
+    """Resolve local policy edits without guessing among several PDFs."""
+    from .documents import DOCUMENT_FIELDS, has_memberships
+    sha = _strip_outer_braces(entry.get("corpus_hash", "") or "")
+    if not has_memberships(conn):
+        return sha
+    members = [r[0] for r in conn.execute(
+        "SELECT corpus_hash FROM work_documents WHERE work_id=?", (work_id,))]
+    local_fields = any(_entry_value(entry, key) is not None for key in DOCUMENT_FIELDS)
+    if sha:
+        if members and sha not in members and local_fields:
+            raise ValueError("Document-local curation corpus_hash is not a member of the matched work")
+        return sha
+    if len(members) > 1 and local_fields:
+        raise ValueError("Document-local curation fields require corpus_hash for a multi-document work")
+    return members[0] if len(members) == 1 else ""
+
+
 def diff_entry_against_work(
     conn: sqlite3.Connection,
     work_id: str,
@@ -195,9 +211,13 @@ def diff_entry_against_work(
     ).fetchone()
     if cur is None:
         return {}
+    from .documents import document_fields, document_metadata
+    corpus_hash = _document_target(conn, work_id, entry)
+    meta = document_metadata(conn, corpus_hash) if corpus_hash else None
+    local_values = document_fields(meta) if meta is not None else {}
     db_values: Dict[str, Optional[str]] = {}
     for i, field in enumerate(_WORK_FIELDS):
-        v = cur[i]
+        v = local_values.get(field) if field in local_values else cur[i]
         if v is None:
             db_values[field] = None
         elif field in {"year", "serve"}:
@@ -277,10 +297,17 @@ def apply_entry(
     # NULL.
     sets: List[str] = []
     params: List = []
+    from .documents import DOCUMENT_FIELDS, document_metadata, update_document_fields
+    corpus_hash = _document_target(conn, work_id, entry)
+    local = document_metadata(conn, corpus_hash) if corpus_hash else None
+    local_changes = {}
     for field in _WORK_FIELDS:
         if field not in changes:
             continue
         new_val: Optional[str] = changes[field][1]
+        if local is not None and field in DOCUMENT_FIELDS:
+            local_changes[field] = int(new_val) if field == "serve" else new_val
+            continue
         if field == "year":
             try:
                 params.append(int(new_val) if new_val else None)
@@ -300,6 +327,21 @@ def apply_entry(
         f"UPDATE works SET {', '.join(sets)} WHERE work_id = ?",
         tuple(params),
     )
+    if local_changes:
+        if "license" in local_changes:
+            from .authority import derive_publishable
+            publishable, source = derive_publishable(local_changes["license"], local.get("year"))
+            local_changes.update(publishable=publishable, license_source=source)
+        update_document_fields(conn, corpus_hash, local_changes)
+    if "year" in changes:
+        from .documents import has_memberships
+        from .authority import derive_publishable
+        if has_memberships(conn):
+            year = conn.execute("SELECT year FROM works WHERE work_id=?", (work_id,)).fetchone()[0]
+            for (sha,) in conn.execute("SELECT corpus_hash FROM work_documents WHERE work_id=?", (work_id,)).fetchall():
+                meta = document_metadata(conn, sha)
+                publishable, source = derive_publishable(meta.get("license"), year)
+                update_document_fields(conn, sha, {"year": year, "publishable": publishable, "license_source": source})
 
     # Replace author list when changed
     if "authors" in changes:

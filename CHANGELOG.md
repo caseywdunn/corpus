@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reference assertions catch lost title words and author surnames even when
   the bibliography count is unchanged.
 
+- **One canonical work can retain multiple corpus PDFs.** Document membership
+  now preserves every scan's reference observations, hash lookups and BibTeX
+  round trips. Licensing, serving exclusions and page/OCR directives remain
+  per-document. Metadata content changes, DOI edits and artifact removals
+  invalidate reference mappings without deleting historical observations.
+
 - **A read-only reference-reconciliation audit makes the missing-work ranking
   inspectable (#155).** `tools/qc/reference_reconciliation.py` reports current,
   mapped and unmapped observation populations; compatibility-edge collapse;

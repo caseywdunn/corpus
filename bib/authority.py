@@ -440,6 +440,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_taxon_work_links_work ON taxon_work_links(work_id);
     """)
     _migrate_works_columns(conn)
+    from .documents import create_schema as create_document_schema
+    create_document_schema(conn)
     conn.commit()
 
 
@@ -703,6 +705,13 @@ def apply_publishable_derivation(conn: sqlite3.Connection,
             (publishable, source, r[0]),
         )
         n += 1
+    from .documents import has_memberships, update_document_fields
+    if has_memberships(conn):
+        for sha, raw in conn.execute("SELECT corpus_hash,metadata_json FROM work_documents").fetchall():
+            meta = json.loads(raw)
+            publishable, source = derive_publishable(meta.get("license"), meta.get("year"), pd_cutoff_years)
+            if (meta.get("publishable"), meta.get("license_source")) != (publishable, source):
+                update_document_fields(conn, sha, {"publishable": publishable, "license_source": source})
     conn.commit()
     return n
 
@@ -1133,6 +1142,9 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
     count = 0
     refreshed = 0
     batch = 0
+    from .documents import consumed_metadata, create_schema as create_document_schema, refresh_representative
+    create_document_schema(conn)
+    present = {p.name for p in docs_dir.iterdir() if p.is_dir()}
     for hash_dir in sorted(docs_dir.iterdir()):
         if not hash_dir.is_dir():
             continue
@@ -1156,21 +1168,26 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             conn, corpus_hash, "metadata", current_mtime,
         )
         existing_work_id: Optional[str] = None
-        if seen and not stale:
+        try:
+            meta = consumed_metadata(json.loads(meta_path.read_bytes()))
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Skipping %s: %s", meta_path, e)
             continue
-        if seen and stale:
+        membership = conn.execute(
+            "SELECT work_id, source_sha256 FROM work_documents WHERE corpus_hash=?", (corpus_hash,),
+        ).fetchone()
+        source_sha = hashlib.sha256(json.dumps(meta, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        if membership and membership[1] == source_sha:
+            continue
+        if membership:
+            existing_work_id = membership[0]
+        else:
             cur = conn.execute(
                 "SELECT work_id FROM works WHERE corpus_hash = ?",
                 (corpus_hash,),
             )
             row = cur.fetchone()
             existing_work_id = row[0] if row else None
-
-        try:
-            meta = json.loads(meta_path.read_text())
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Skipping %s: %s", meta_path, e)
-            continue
 
         title = meta.get("title", "") or ""
         year = meta.get("year")
@@ -1207,23 +1224,11 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             work_id = f"corpus:{corpus_hash}"
             guid_type = "corpus_key"
 
-        if existing_work_id is not None and existing_work_id != work_id:
-            # Identity changed (e.g. metadata.json gained a DOI that
-            # rewrites work_id from corpus_key → doi). Citations table
-            # has FK references on the old work_id — re-seeding under
-            # a new work_id would orphan them. Leave the prior row in
-            # place; the operator can address with --rebuild if they
-            # need the identity update.
-            logger.warning(
-                "metadata.json for %s now resolves to work_id %r, but "
-                "this corpus_hash is already bound to %r. Keeping the "
-                "existing row to preserve citation graph integrity; "
-                "use --rebuild to re-key.",
-                corpus_hash, work_id, existing_work_id,
-            )
-            _record_artifact(conn, corpus_hash, "metadata", current_mtime)
-            continue
-
+        migration_unchanged = membership is None and existing_work_id and seen and not stale
+        if migration_unchanged:
+            # Preserve the existing reconciled/curated identity on the first
+            # membership migration when the legacy receipt proves no edit.
+            work_id = existing_work_id
         inserted = insert_work(conn, work_id, guid_type, title, year, journal,
                                doi, corpus_hash, in_corpus=True,
                                source="corpus_paper")
@@ -1238,7 +1243,7 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             # surfaces license / licenseurl / serve / servereason).
             _seed_license_and_serve(conn, work_id, meta)
             count += 1
-        elif existing_work_id is not None:
+        elif existing_work_id == work_id and not migration_unchanged:
             # Same work_id — refresh fields and rebuild the author list.
             now = time.time()
             conn.execute(
@@ -1254,6 +1259,21 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             _seed_license_and_serve(conn, work_id, meta)
             refreshed += 1
 
+        conn.execute(
+            """INSERT INTO work_documents(corpus_hash,work_id,metadata_json,source_sha256)
+               VALUES (?,?,?,?) ON CONFLICT(corpus_hash) DO UPDATE SET
+               work_id=excluded.work_id, metadata_json=excluded.metadata_json,
+               source_sha256=excluded.source_sha256""",
+            (corpus_hash, work_id, json.dumps(meta, sort_keys=True, ensure_ascii=False), source_sha),
+        )
+        if first_surname:
+            insert_alias(conn, make_alias_key(first_surname, year, title or meta.get("filename", "")), work_id)
+        refresh_representative(conn, work_id, refresh_header=not migration_unchanged)
+        if existing_work_id and existing_work_id != work_id:
+            refresh_representative(conn, existing_work_id, refresh_header=True)
+        # Membership and seed changes affect mappings even when reference
+        # JSON did not change (new local matches, removals and DOI edits).
+        conn.execute("DELETE FROM build_meta WHERE key='reference_corpus_fingerprint'")
         _record_artifact(conn, corpus_hash, "metadata", current_mtime)
         batch += 1
         if batch >= 100:
@@ -1264,6 +1284,12 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
                 count, refreshed,
             )
 
+    for sha, work_id in conn.execute("SELECT corpus_hash, work_id FROM work_documents").fetchall():
+        if sha not in present:
+            conn.execute("DELETE FROM work_documents WHERE corpus_hash=?", (sha,))
+            conn.execute("DELETE FROM paper_artifacts_processed WHERE corpus_hash=?", (sha,))
+            refresh_representative(conn, work_id, refresh_header=True)
+            conn.execute("DELETE FROM build_meta WHERE key='reference_corpus_fingerprint'")
     conn.commit()
     logger.info(
         "Phase 1 complete: %d corpus papers seeded, %d refreshed",
@@ -1689,7 +1715,7 @@ def _clear_derived_reference_materialization(conn: sqlite3.Connection) -> None:
     derived_ids = [
         row[0] for row in conn.execute(
             """SELECT work_id FROM works
-               WHERE source IN ('cited_reference', 'taxon_authority')
+               WHERE source IN ('cited_reference', 'taxon_authority', 'corpus_paper')
                  AND guid_type != 'bhl' AND in_corpus = 0
                  AND bib_imported_at IS NULL"""
         )
@@ -1730,11 +1756,8 @@ def _rebuild_reference_materialization(
     _clear_derived_reference_materialization(conn)
     known_work_ids = {row[0] for row in conn.execute("SELECT work_id FROM works")}
     identity_index = _in_corpus_identity_index(conn)
-    citing_ids = {
-        row[0]: row[1] for row in conn.execute(
-            "SELECT corpus_hash, work_id FROM works WHERE corpus_hash IS NOT NULL"
-        )
-    }
+    from .documents import work_map
+    citing_ids = work_map(conn)
     n_mapped = 0
     n_new_works = 0
     now = time.time()
@@ -1872,12 +1895,8 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         changed = True
 
     active_count = len(_active_reference_observations(conn))
-    # A legacy ``works.corpus_hash`` can represent only one member when
-    # several documents share one canonical work identity (for example,
-    # volumes carrying the same BHL DOI). Those observations cannot yet form
-    # citation edges. Do not interpret the known structural gap as a stale
-    # producer and rematerialize forever; the QC report exposes the unmapped
-    # population for review.
+    # Every document member contributes observations, not just the work's
+    # representative hash retained for wire compatibility.
     mappable_active_count = conn.execute(
         """SELECT COUNT(*)
            FROM reference_current_sets current
@@ -1887,9 +1906,11 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
            JOIN reference_observations ro
              ON ro.observation_id = member.observation_id
            WHERE EXISTS (
-             SELECT 1 FROM works w
-             WHERE w.in_corpus = 1
-               AND w.corpus_hash = ro.citing_corpus_hash
+             SELECT 1 FROM work_documents wd
+             WHERE wd.corpus_hash = ro.citing_corpus_hash
+           ) OR EXISTS (
+             SELECT 1 FROM works w WHERE w.in_corpus=1
+               AND w.corpus_hash=ro.citing_corpus_hash
            )"""
     ).fetchone()[0]
     current_mapping_count = conn.execute(
@@ -1906,6 +1927,20 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
     if current_mapping_count != mappable_active_count:
         changed = True
 
+    from .documents import work_map
+    corpus_identity = {
+        "members": sorted(work_map(conn).items()),
+        "works": [tuple(row) for row in conn.execute(
+            "SELECT work_id,title,year,doi FROM works WHERE in_corpus=1 ORDER BY work_id")],
+        "authors": [tuple(row) for row in conn.execute(
+            "SELECT a.work_id,a.position,a.surname_normalized,a.forename FROM work_authors a "
+            "JOIN works w ON w.work_id=a.work_id WHERE w.in_corpus=1 ORDER BY a.work_id,a.position")],
+    }
+    corpus_fingerprint = hashlib.sha256(json.dumps(corpus_identity, sort_keys=True).encode()).hexdigest()
+    prior = conn.execute("SELECT value FROM build_meta WHERE key='reference_corpus_fingerprint'").fetchone()
+    if prior is None or prior[0] != corpus_fingerprint:
+        changed = True
+
     if changed:
         n_citations, n_new_works = _rebuild_reference_materialization(
             conn, enrich_bhl=enrich_bhl, bhl_api_key=bhl_api_key,
@@ -1913,6 +1948,9 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         )
     else:
         n_citations = n_new_works = 0
+    if prior is None or prior[0] != corpus_fingerprint:
+        conn.execute("INSERT OR REPLACE INTO build_meta(key,value) VALUES ('reference_corpus_fingerprint',?)",
+                     (corpus_fingerprint,))
     conn.commit()
     logger.info(
         "Phase 2 complete: %d active observations, %d mapped this run, "
@@ -2179,6 +2217,7 @@ def main() -> int:
                 DROP TABLE IF EXISTS reference_observations;
                 DROP TABLE IF EXISTS work_aliases;
                 DROP TABLE IF EXISTS work_authors;
+                DROP TABLE IF EXISTS work_documents;
                 DROP TABLE IF EXISTS works;
                 DROP TABLE IF EXISTS build_meta;
                 DROP TABLE IF EXISTS paper_artifacts_processed;

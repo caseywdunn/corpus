@@ -559,11 +559,20 @@ class BiblioAuthority:
         return "grobid_reconciled" if cur2.fetchone() else "unresolved"
 
     def get_work_by_corpus_hash(self, corpus_hash: str) -> Optional[Dict]:
+        from bib.documents import document_fields, document_metadata, find_work
+        work_id = find_work(self.conn, corpus_hash)
         cur = self.conn.execute(
-            "SELECT * FROM works WHERE corpus_hash = ?", (corpus_hash,),
+            "SELECT * FROM works WHERE work_id = ?", (work_id,),
         )
         row = cur.fetchone()
-        return dict(row) if row else None
+        if row is None:
+            return None
+        result = dict(row)
+        meta = document_metadata(self.conn, corpus_hash)
+        if meta is not None:
+            result.update(document_fields(meta))
+            result["corpus_hash"] = corpus_hash
+        return result
 
     def get_authors(self, work_id: str) -> List[Dict]:
         cur = self.conn.execute(

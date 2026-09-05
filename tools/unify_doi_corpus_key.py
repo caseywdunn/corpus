@@ -255,6 +255,8 @@ def merge_duplicate(conn: sqlite3.Connection,
     # 6. Drop dependents and the dup row itself.
     conn.execute("DELETE FROM work_aliases WHERE work_id = ?", (dup_id,))
     conn.execute("DELETE FROM work_authors WHERE work_id = ?", (dup_id,))
+    from bib.documents import move_memberships
+    move_memberships(conn, dup_id, survivor_id)
     conn.execute("DELETE FROM works WHERE work_id = ?", (dup_id,))
 
 

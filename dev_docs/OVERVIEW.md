@@ -504,6 +504,29 @@ Built from per-paper artifacts after Stage 1 finishes. All four are independentl
 
 ### Reference evidence and canonical works
 
+`work_documents` is the current PDF-to-work membership relation. Multiple
+documents may share a canonical work (for example, separately scanned volumes
+with one DOI). `works.corpus_hash` is only a deterministic representative for
+legacy/frozen responses, preferring a served member; it is not an inventory.
+Paper-hash lookups use indexed membership queries, and every member can supply
+its own reference observations and citation edges.
+
+License, serving exclusions, OCR/page directives and curation notes remain
+document-local. BibTeX export emits a separate, uniquely keyed entry for each
+member, carrying `corpus_hash`; imports use that key to avoid applying one
+scan's policy to all scans of the work. A work-only import with document-local
+fields is rejected when multiple documents would be affected. Reconciliation
+and maintenance merges move memberships before removing a canonical row.
+
+Authority seeding compares the content of consumed metadata fields, not just
+mtime. A DOI edit moves the affected membership without orphaning the old
+graph; reference materialization then rebuilds against the current membership
+and canonical metadata fingerprint. Removing a document artifact directory
+deactivates its membership and reference set but retains historical reference
+observations. This does not by itself remove an artifact directory whose PDF
+was deleted upstream; source-inventory retirement belongs to the update
+contract, not authority inference.
+
 `references.json` is evidence, not a canonical-work table. The authority
 builder content-addresses every bibliography occurrence into
 `reference_observations`; its raw citation, parsed fields and source-set

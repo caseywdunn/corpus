@@ -265,14 +265,17 @@ the latter out until the new observation set can measure whether it is needed.
   open, and the report defines the measured input for later model-assisted or
   curator-reviewed adjudication rather than pretending the acquisition list is
   now authoritative.
-- [ ] **Represent one canonical work with multiple corpus documents.** The
+- [x] **Represent one canonical work with multiple corpus documents.** The
   reference replay exposed a legacy scalar-model gap: separately scanned
   volumes may legitimately share a DOI/work identity, but
-  `works.corpus_hash` retains only one document. v1.3's no-op check now counts
-  only observations it can map and the QC report exposes the remainder; the
-  underlying fix needs a corpus-hash/work membership relation carried through
-  authority seeding, reconciliation, BibTeX round trips, bundle filtering and
-  paper-hash lookups while preserving the frozen response fields.
+  `works.corpus_hash` retained only one document. `work_documents` now carries
+  the complete membership through authority seeding, reconciliation, BibTeX
+  round trips, bundle filtering and indexed paper-hash lookups, preserving the
+  frozen response fields. Permissions and page/OCR directives stay per-PDF.
+  Tests cover both members' observations, no-op replay, reverse-order
+  incremental/clean equivalence, DOI edits, artifact removals, legacy
+  migration, directive removal and per-document import/export. Whole-build
+  source retirement and latest-gold acceptance remain separate open gates.
 
 **Deferred from #240:** embedding-based candidate blocking and local-model
 adjudication. Neither enters v1.3 without a measurement from the deterministic
