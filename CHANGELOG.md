@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Header-only `get_papers` projections now use the in-memory index without
+  reading document artifacts. Requested taxonomy/lexicon details load only
+  their relevant inputs; response fields and ordering are unchanged.
+
 - Fixed ordinary reference resume ignoring a newly enabled BHL enrichment
   option or changed year cutoff. These settings and key availability now
   invalidate the materialization receipt; credentials are never recorded.

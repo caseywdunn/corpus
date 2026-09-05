@@ -464,6 +464,9 @@ meaning:
   offline query embedding and real nginx whole/panel downloads. The bundle's
   file inventory, sizes and mtimes are unchanged. Repeat this acceptance on
   the latest-code bundle before closing the overall served-path gate.
+  Header-only paper projections now avoid disk reads altogether, rather than
+  loading and then discarding per-paper annotations; projected detail reads
+  only its requested artifact family. Frozen response shapes are unchanged.
 - [x] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
   representative response schemas in addition to the existing tool-name,
   error-shape and licensing checks. Checked-in snapshots cover all 38 tool

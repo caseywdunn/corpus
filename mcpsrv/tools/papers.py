@@ -271,19 +271,22 @@ def get_papers(
     except ValueError as exc:
         return [error(str(exc), "invalid_argument")]
     idx = _need_index()
+    selected = set(fields) if fields is not None else None
     out: List[Dict[str, Any]] = []
     for h in hashes:
         p = idx.papers.get(h)
         if p is None:
             out.append({"hash": h, "error": "not_found"})
             continue
-        # Materialize the full record (mirrors get_paper). The
-        # field-whitelist below trims after, so callers can ask for a
-        # cheap projection without us having to short-circuit reads.
+        # Header/count fields already live in memory. A thin projection must
+        # not read every document artifact just to discard its contents.
         hash_dir = Path(p["hash_dir"])
-        taxa = _load_json(hash_dir / "taxa.json", default={}) or {}
+        taxa = (_load_json(hash_dir / "taxa.json", default={}) or {}) if (
+            selected is None or "top_taxa" in selected) else {}
         top_lexicon_terms: Dict[str, list] = {}
-        for child in hash_dir.glob("*.json"):
+        lexicon_files = hash_dir.glob("*.json") if (
+            selected is None or "top_lexicon_terms" in selected) else ()
+        for child in lexicon_files:
             if child.name in _NON_LEXICON_FILES:
                 continue
             payload = _load_json(child, default=None)
@@ -304,8 +307,8 @@ def get_papers(
             "top_taxa": (taxa.get("taxa") or [])[:10],
             "top_lexicon_terms": top_lexicon_terms,
         }
-        if fields is not None:
-            record = {k: v for k, v in record.items() if k in set(fields)}
+        if selected is not None:
+            record = {k: v for k, v in record.items() if k in selected}
             # Always carry the hash so callers can locate rows.
             record["hash"] = h
         out.append(record)

@@ -73,3 +73,42 @@ def test_maximum_batch_preserves_order_and_duplicates(monkeypatch):
     monkeypatch.setattr(app, "_INDEX", SimpleNamespace(papers={}))
     hashes = [str(n % 3) for n in range(MAX_COLLECTION_ITEMS)]
     assert [row["hash"] for row in get_papers(hashes)] == hashes
+
+
+@pytest.mark.parametrize("fields", [[], ["unknown"], ["title", "first_author", "year"]])
+def test_paper_header_projection_does_not_read_document_artifacts(monkeypatch, fields):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from mcpsrv.tools import papers
+    record = {"hash": "abc", "hash_dir": "/unused", "title": "Title", "year": 2000,
+              "authors": [{"surname": "Author"}]}
+    monkeypatch.setattr(app, "_INDEX", SimpleNamespace(papers={"abc": record}))
+    def forbidden(*args, **kwargs):
+        pytest.fail("Header-only projection must not read or inventory document files")
+    monkeypatch.setattr(papers, "_load_json", forbidden)
+    monkeypatch.setattr(Path, "glob", forbidden)
+    expected = {k: v for k, v in {**record, "first_author": "Author"}.items() if k in fields}
+    expected["hash"] = "abc"
+    assert papers.get_papers(["abc", "missing", "abc"], fields=fields) == [
+        expected, {"hash": "missing", "error": "not_found"}, expected]
+
+
+@pytest.mark.parametrize("field,expected_reads", [("top_taxa", ["taxa.json"]),
+                                                 ("top_lexicon_terms", ["anatomy.json"])])
+def test_paper_detail_projection_reads_only_its_requested_artifacts(tmp_path, monkeypatch, field, expected_reads):
+    import json
+    from types import SimpleNamespace
+    from mcpsrv.tools import papers
+    (tmp_path / "taxa.json").write_text(json.dumps({"taxa": [{"accepted_name": "Taxon"}]}))
+    (tmp_path / "anatomy.json").write_text(json.dumps({"category": "anatomy", "terms": [{"canonical": "term"}]}))
+    monkeypatch.setattr(app, "_INDEX", SimpleNamespace(papers={"abc": {
+        "hash": "abc", "hash_dir": str(tmp_path), "title": "Title", "authors": []}}))
+    full = papers.get_papers(["abc"])[0]
+    original = papers._load_json
+    reads = []
+    def read(path, **kwargs):
+        reads.append(path.name)
+        return original(path, **kwargs)
+    monkeypatch.setattr(papers, "_load_json", read)
+    assert papers.get_papers(["abc"], fields=[field]) == [{"hash": "abc", field: full[field]}]
+    assert reads == expected_reads
