@@ -20,6 +20,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 
+CORPUS_BUILD_GIT_SHA="$(git -C "$REPO_DIR" rev-parse HEAD)"
+export CORPUS_BUILD_GIT_SHA
+corpus_check_checkout
+
 mkdir -p "$REPO_DIR/logs"
 
 echo "=== Corpus Pipeline Launcher ==="

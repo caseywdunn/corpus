@@ -95,6 +95,21 @@ CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD/config.yaml
 
 ### 2. Conda environment
 
+For an alternate checkout, export `REPO_DIR` to its absolute path before
+launching that checkout's `slurm/batch_pipeline.sh`. The shared path setup
+prepends it to `PYTHONPATH`, so the installed `corpus` command and all phase
+subprocesses load that checkout even if the conda environment was installed
+from another directory. Changing the shell's working directory alone is
+insufficient. The launcher records `CORPUS_BUILD_GIT_SHA`; each phase checks
+the commit and the resolved `pipeline`, `bib`, and `mcpsrv` package paths
+after activating conda and logs them before doing work. Keep that checkout
+unchanged while the chain runs. Use a separate worktree for other development.
+
+The bundle's `pipeline_git_sha` identifies the bundler's checkout; it cannot
+by itself establish which code produced earlier artifacts. Check the phase
+preflight logs when validating a release. A build made with mixed checkouts
+must be rebuilt into a fresh output directory.
+
 ```bash
 module load miniconda
 conda env create -f "$BOUCHET_PROJECT/corpus/environment.yaml"

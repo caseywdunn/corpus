@@ -84,6 +84,7 @@ module reset
 module load miniconda/24.7.1
 eval "$(conda shell.bash hook)"
 conda activate corpus
+corpus_check_checkout
 
 cd "$REPO_DIR"
 mkdir -p logs

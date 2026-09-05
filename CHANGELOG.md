@@ -51,6 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SLURM builds now load the selected checkout through the entire job
+  chain.** An alternate `REPO_DIR` previously changed the working directory
+  while the installed `corpus` entry point and phase subprocesses could still
+  import an older editable installation. The shared setup now exports the
+  selected checkout on `PYTHONPATH`. The launcher and every build phase verify
+  package paths; phases also reject a commit change after submission. These
+  checks prevent a successful bundle stamped by new code from masking old
+  extraction code.
+
 - **`bib.authority --rebuild` no longer retains artifact stamps that empty the
   rebuilt database.** The command previously dropped `works` while preserving
   `paper_artifacts_processed`, causing unchanged `metadata.json` files to be

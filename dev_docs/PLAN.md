@@ -175,6 +175,11 @@ account of the corrected numbers and what they mean.
   omission. The seventh exposed a `plate:16` / `figure:16` namespace collision;
   its regression guard is merged locally and the post-fix clean measurement is
   the remaining close condition.
+  The first post-fix chain completed but is invalid as release evidence:
+  subprocesses loaded an older editable installation and produced 417 figure
+  records, despite the bundler stamping the selected commit. The SLURM path
+  setup now pins Python imports and checks package paths and commit before
+  each phase. Repeat into a fresh output directory with those checks in place.
 - [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered

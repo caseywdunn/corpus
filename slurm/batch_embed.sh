@@ -47,6 +47,7 @@ echo "HuggingFace cache: $HF_HOME"
 module reset
 module load miniconda CUDA
 conda activate corpus
+corpus_check_checkout
 
 cd "$REPO_DIR"
 mkdir -p logs
