@@ -269,6 +269,9 @@ def test_dry_run_uses_real_evidence_without_loading_model(build, monkeypatch, ca
     build.run(hd)
     before = build.table.version
     monkeypatch.setattr(embed, "get_embedder", lambda *a, **k: pytest.fail("dry-run loaded model"))
+    # This fixture supplies an external deterministic backend; its offline
+    # identity provider must match that backend, not probe a fictitious HF repo.
+    monkeypatch.setattr(embed, "embedding_producer", lambda _: embed.backend_producer(build.backend))
     monkeypatch.setattr("sys.argv", ["embed", str(build.root), "--dry-run", "--resume", "--model", "test-model"])
     with caplog.at_level("INFO"):
         assert embed.main() == 0

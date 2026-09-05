@@ -50,6 +50,7 @@ from pipeline.embedding_state import (
     read_marker, record_payloads, row_census,
 )
 from pipeline.version import __version__
+from pipeline.model_provenance import backend_producer, embedding_producer, same_embedding_space
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,7 @@ def _write_marker(marker_file: Path, *, pdf_hash: str, count: int,
         "relative_paths": relative_paths,
         "embedding_backend": embedder.__class__.__name__,
         "embedding_model": embedder.model_name,
+        "embedding_producer": backend_producer(embedder),
         "embedding_dim": embedder.dim,
         "embedding_table": table_name,
         "input_fingerprint": fingerprint,
@@ -288,6 +290,7 @@ def main() -> int:
                 current = dim is not None and marker_problem(
                     hash_dir, marker, census,
                     model=args.model or _DEFAULT_LOCAL_MODEL, dim=dim,
+                    producer=embedding_producer(args.model or _DEFAULT_LOCAL_MODEL),
                     table_name=args.table_name,
                 ) is None
             except (OSError, ValueError, TypeError, AttributeError):
@@ -339,6 +342,7 @@ def main() -> int:
         logger.info("Created LanceDB table %r (dim=%d)", args.table_name, embedder.dim)
 
     census = row_census(table)
+    producer = backend_producer(embedder)
     # Dimension alone cannot detect two incompatible models of the same size.
     # A partial model migration would make nearest-neighbour search meaningless.
     for pdf_hash in census:
@@ -346,6 +350,14 @@ def main() -> int:
         if recorded_model and recorded_model != embedder.model_name:
             logger.error("Index contains model %s; use --rebuild to switch to %s",
                          recorded_model, embedder.model_name)
+            return 2
+        recorded_producer = read_marker(vector_db_dir / f"{pdf_hash}_embedded.done").get("embedding_producer")
+        if recorded_producer and not same_embedding_space(recorded_producer, producer):
+            logger.error("Index contains a different embedding producer; use --rebuild to change its embedding space")
+            return 2
+    if any(not read_marker(vector_db_dir / f"{sha}_embedded.done").get("embedding_producer") for sha in census):
+        if set(census) - {hd.name for hd in hash_dirs}:
+            logger.error("Legacy producer migration requires all current documents or --rebuild")
             return 2
     logger.info("Found %d document(s) to process", len(hash_dirs))
 
@@ -358,6 +370,7 @@ def main() -> int:
             if args.resume and not args.rebuild and marker_problem(
                     hash_dir, read_marker(marker), census,
                     model=embedder.model_name, dim=embedder.dim,
+                    producer=producer,
                     table_name=args.table_name) is None:
                 logger.info("Skipping %s (verified current with %s)", pdf_hash, embedder.model_name)
                 n_skip += 1

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .version import __version__
 
-MARKER_VERSION = 2
+MARKER_VERSION = 3
 
 
 def load_document_data(hash_dir: Path) -> dict:
@@ -100,7 +100,8 @@ def read_marker(path: Path) -> dict:
 def marker_problem(hash_dir: Path, marker: dict, census: dict, *,
                    model: str | None = None, dim: int | None = None,
                    table_name: str = "document_chunks",
-                   fingerprint: str | None = None) -> str | None:
+                   fingerprint: str | None = None,
+                   producer: dict | None = None) -> str | None:
     """Return a reason to rebuild, or None for verified current rows."""
     if (marker.get("marker_version") != MARKER_VERSION
             or marker.get("pipeline_version") != __version__
@@ -115,8 +116,13 @@ def marker_problem(hash_dir: Path, marker: dict, census: dict, *,
             or not isinstance(marker.get("embedding_model"), str)
             or not marker["embedding_model"]
             or type(marker.get("embedding_dim")) is not int
-            or marker["embedding_dim"] <= 0):
+            or marker["embedding_dim"] <= 0
+            or not isinstance(marker.get("embedding_producer"), dict)
+            or not marker["embedding_producer"].get("verification")):
         return "invalid completion marker"
+    from .model_provenance import same_embedding_space
+    if producer is not None and not same_embedding_space(marker["embedding_producer"], producer):
+        return "embedding producer changed"
     if ((model is not None and marker["embedding_model"] != model)
             or (dim is not None and marker["embedding_dim"] != dim)):
         return "embedding model or dimension changed"
@@ -157,11 +163,40 @@ def validate_embedding_index(output_dir: Path) -> tuple[str | None, int | None]:
         raise ValueError(f"Vector index has orphan document rows: {sorted(orphan_rows)}")
     dim = table.schema.field("vector").type.list_size
     model = None
+    producer = None
     for hash_dir in dirs:
         marker = read_marker(vdb / f"{hash_dir.name}_embedded.done")
-        problem = marker_problem(hash_dir, marker, census, model=model, dim=dim)
+        problem = marker_problem(hash_dir, marker, census, model=model, dim=dim, producer=producer)
         if problem:
             raise ValueError(f"Incomplete vector index: {hash_dir.name}: {problem}. "
                              "Run embedding before bundling.")
         model = marker["embedding_model"]
+        producer = marker["embedding_producer"]
     return (model, dim) if model is not None else (None, None)
+
+
+def embedding_identity(output_dir: Path, *, require_all=False):
+    """Read a consistent identity across current document receipts, not a sample.
+
+    Bundle callers additionally validate committed rows and all inputs with
+    validate_embedding_index. This helper alone is not a completeness claim.
+    """
+    from .model_provenance import same_embedding_space
+    result = None
+    for hd in sorted((output_dir / "documents").iterdir()):
+        if not hd.is_dir():
+            continue
+        marker = read_marker(output_dir / "vector_db" / f"{hd.name}_embedded.done")
+        model, producer, dim = (marker.get(key) for key in ("embedding_model", "embedding_producer", "embedding_dim"))
+        if not model:
+            if require_all and (output_dir / "vector_db/lancedb").is_dir():
+                raise ValueError(f"Missing embedding identity receipt for {hd.name}")
+            continue  # Legacy build without identity; caller reports weaker proof.
+        current = {"schema_version": 1, "model": model, "dimension": dim, "producer": producer}
+        if result is not None and (model != result["model"] or dim != result["dimension"]
+                                  or (producer != result["producer"] and not same_embedding_space(producer, result["producer"]))):
+            raise ValueError("Embedding index contains inconsistent producer receipts")
+        result = current
+    if result and result["producer"] and result["producer"].get("verification") == "local-file-content":
+        result["model"] = result["producer"]["model"]
+    return result

@@ -98,6 +98,8 @@ class CorpusIndex:
         # several seconds to load, both wasteful for users who only
         # touch the structured tools.
         self._embedding_model_override = embedding_model
+        self._embedding_identity = None
+        self._embedding_identity_error = None
         self._embedder: Optional[EmbeddingBackend] = None
         self._lance_table = None
         # Tracked semantic-search status (#91). ``None`` until first
@@ -158,6 +160,9 @@ class CorpusIndex:
         from an operational fault (``"degraded: …"``) that should refuse
         to serve rather than return empty rows.
         """
+        if self._embedding_identity_error:
+            self._topic_search_status = "degraded: " + self._embedding_identity_error
+            return None, None
         if self._lance_table is not None and self._embedder is not None:
             self._topic_search_status = "ok"
             return self._embedder, self._lance_table
@@ -184,12 +189,39 @@ class CorpusIndex:
             self._topic_search_status = "degraded: cannot open LanceDB index"
             return None, None
 
-        # Pin the model to whatever was used to build the table — schema
-        # carries the dim and we choose a model with matching dim.
+        # Dimension alone does not identify an embedding space.
         existing_dim = table.schema.field("vector").type.list_size
+        identity = self._embedding_identity or {}
+        producer = identity.get("producer")
+        model = identity.get("model")
+        override = self._embedding_model_override
+        local = producer and producer.get("verification") == "local-file-content"
+        if local and not override:
+            self._topic_search_status = "degraded: custom local embedding model requires --embedding-model on this host"
+            return None, None
+        if not local and model and override and override != model:
+            self._topic_search_status = "degraded: embedding-model identity mismatch"
+            logger.warning("Requested query model %s differs from build model %s", override, model)
+            return None, None
+        if identity.get("dimension") not in (None, existing_dim):
+            self._topic_search_status = "degraded: embedding producer dimension disagrees with index"
+            return None, None
+        kwargs = {}
+        if producer and producer.get("verification") == "repository-revision":
+            kwargs["revision"] = producer["revision"]
         try:
-            embedder = get_embedder(self._embedding_model_override)
-        except EmbeddingError as e:
+            embedder = get_embedder(override or model, **kwargs)
+            if producer:
+                from pipeline.model_provenance import backend_producer, same_embedding_space
+                if not same_embedding_space(producer, backend_producer(embedder)):
+                    self._topic_search_status = "degraded: embedding producer mismatch"
+                    logger.warning("Loaded query embedding producer does not match the build")
+                    return None, None
+                if producer.get("verification") not in {"repository-revision", "local-file-content"}:
+                    logger.warning("Embedding producer has weaker identity proof: %s", producer.get("verification"))
+            else:
+                logger.warning("Legacy embedding identity: model/dimension only; rebuild for revision verification")
+        except (EmbeddingError, OSError, ValueError) as e:
             logger.warning("Could not load embedding backend: %s", e)
             self._topic_search_status = "degraded: embedding backend unavailable"
             return None, None
@@ -317,6 +349,13 @@ class CorpusIndex:
         self.bundle_manifest = _load_json(
             self.output_dir / "bundle_manifest.json", default=None
         )
+        from .embedding_identity import load_identity
+        try:
+            self._embedding_identity = load_identity(self.output_dir, self.bundle_manifest)
+            self._embedding_identity_error = None
+        except (OSError, ValueError, TypeError) as exc:
+            self._embedding_identity_error = str(exc)
+            logger.warning("Semantic search identity unavailable: %s", exc)
         if self.bundle_manifest:
             logger.info(
                 "Bundle manifest loaded: %s (created %s)",

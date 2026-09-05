@@ -110,6 +110,15 @@ python tools/smoke_test_sse.py <bundle>
 
 All seven checks should pass locally before you move to a real server.
 
+New bundles include `embedding_producer.json`. Keep it beside the manifest:
+semantic search uses it to load the matching model/repository revision, not
+merely a model with the same vector dimension. Do not edit it to bypass a
+mismatch. For custom local weights, pass `--embedding-model /path/to/model`
+on the serving host; their content must match the build. Model loading remains
+lazy and its download/cache belongs outside the read-only bundle. Legacy
+bundles without the sidecar retain model-ID/dimension checks and log their
+weaker verification level.
+
 **4. Connect a client.** Remote-MCP support exists natively in Claude Desktop, claude.ai web, and Claude Code. Recommended in order:
 
 - **Claude Code (CLI)** — tested and working against our server:

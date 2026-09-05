@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+from functools import cached_property
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -153,6 +154,7 @@ class LocalBackend(EmbeddingBackend):
         device: Optional[str] = None,
         batch_size: int = 32,
         fp16: Optional[bool] = None,
+        revision: Optional[str] = None,
     ):
         try:
             from sentence_transformers import SentenceTransformer
@@ -163,6 +165,7 @@ class LocalBackend(EmbeddingBackend):
             ) from e
 
         self._model_name = model_name
+        self._revision = revision
         # `compute.accelerator` from config reaches the encoder here; the
         # CORPUS_DEVICE env var still wins inside detect_device (#198).
         if device is None:
@@ -184,12 +187,17 @@ class LocalBackend(EmbeddingBackend):
         )
         try:
             kwargs = {}
+            if revision is not None:
+                kwargs["revision"] = revision
             if fp16:
                 # SentenceTransformer accepts torch_dtype since 3.x; older
                 # versions need model_kwargs. Pass through model_kwargs for
                 # broadest compatibility.
                 kwargs["model_kwargs"] = {"torch_dtype": "float16"}
             self.model = SentenceTransformer(model_name, device=self.device, **kwargs)
+            actual_dim = self.model.get_sentence_embedding_dimension()
+            if actual_dim is not None:
+                self._dim = int(actual_dim)
         except Exception as e:
             raise EmbeddingError(
                 f"Could not load sentence-transformers model {model_name!r} on "
@@ -203,6 +211,15 @@ class LocalBackend(EmbeddingBackend):
     @property
     def model_name(self) -> str:
         return self._model_name
+
+    @cached_property
+    def producer(self):
+        from .model_provenance import embedding_producer
+        try:
+            revision = self.model[0].auto_model.config._commit_hash
+        except (AttributeError, IndexError, KeyError, TypeError):
+            revision = self._revision
+        return embedding_producer(self._model_name, resolved_revision=revision)
 
     def embed(self, texts: List[str]) -> List[List[float]]:
         if not texts:

@@ -371,6 +371,11 @@ can answer which evidence and rule produced it.
   gap, no-op resume, same-dimension model changes and clean/incremental logical
   row equality. Status and dry-run use verified evidence too. This closes the
   embedding defect, not the broader #174/#265 update acceptance gate.
+  Follow-up under #174/#271: verified producer identities now travel in a
+  portable bundle sidecar; queries load the build's model/revision and reject
+  same-dimensional incompatible overrides or different local weights. Mixed
+  producer receipts cannot be bundled, and legacy migration requires all
+  documents. The full-bundle smoke remains pending.
 - [ ] **Land the fingerprint-based release reference**
   ([#187](https://github.com/caseywdunn/corpus/issues/187)). Diff pipeline
   output, quality flags and manifest facts for the fixed gold corpuscle; test

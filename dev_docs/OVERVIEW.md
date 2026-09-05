@@ -155,7 +155,8 @@ Reads `chunks.json` per hash and produces vector embeddings stored in LanceDB.
   artifacts fail instead of being mistaken for an empty document.
 - Only Stage 2 writes `<HASH>_embedded.done`, after the transaction succeeds,
   using an atomic file replacement. The marker records producer/schema
-  versions, input fingerprint, model, dimension, table, row count and generation.
+  versions, input fingerprint, model, dimension, table, row count, generation
+  and embedding-space producer identity (repository revision or local bytes).
   The fingerprint covers the ordered chunk text and every metadata field stored
   in the index: paths, bibliographic fields, page count, chunk IDs, section and
   headings. Run timestamps and unrelated annotation fields do not invalidate it.
@@ -175,6 +176,25 @@ Reads `chunks.json` per hash and produces vector embeddings stored in LanceDB.
   uses the same check instead of treating an index directory as completion.
   A build with neither an index nor current-document markers can still be served
   without semantic search; an incomplete index is not that mode.
+
+The portable `embedding_producer.json` sidecar in a new served bundle carries
+the identity verified across all document receipts. Query embedding stays lazy
+but loads the build's model and pins its recorded repository revision. A
+same-dimension model override is not compatibility: mismatched IDs or loaded
+producers disable semantic search with an explicit degraded status. Custom
+local models require `--embedding-model` on the serving host and matching
+content hashes; private build paths are not shipped. Legacy bundles still use
+their manifest model with a weaker-proof warning when revision evidence is
+absent. Build-directory serving checks every document's available identity
+receipt at startup; it does not sample one marker on each query.
+
+Changing the embedding producer requires a whole-table `--rebuild`, even at
+the same dimension. Legacy producer receipts migrate only when all current
+documents are included, never through a partial update that could mix spaces.
+The identity records the normalized SentenceTransformer recipe; device/package
+floating-point reproducibility is measured by exact vector comparisons, not
+promised by a model-name match. Custom embedding backends should expose their
+own `producer`; otherwise the receipt explicitly has declared-model-ID proof.
 
 ### Corpuscle update contract
 

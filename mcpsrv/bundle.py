@@ -617,6 +617,11 @@ def package(output_dir: Path, serve_dir: Path, version: str,
 def _populate_bundle(output_dir, serve_dir, version, include_pdfs, dry_run, model, dim):
     """Populate an empty staging tree; caller owns validation/publication."""
     documents_dir = output_dir / "documents"
+    from pipeline.embedding_state import embedding_identity
+    identity = embedding_identity(output_dir) if model is not None else None
+    if identity:
+        # Custom model host paths stay in build receipts, not public metadata.
+        model = identity["model"]
 
     if not dry_run:
         (serve_dir / "documents").mkdir(parents=True, exist_ok=True)
@@ -734,6 +739,9 @@ def _populate_bundle(output_dir, serve_dir, version, include_pdfs, dry_run, mode
         if bw:
             n_files += 1
             total_bytes += bw
+
+    if identity and not dry_run:
+        (serve_dir / "embedding_producer.json").write_text(json.dumps(identity, indent=2))
 
     # Path scrubbing (§10): rewrite absolute paths in copied summary.json
     # and figures.json to corpus-root-relative form, then audit the whole

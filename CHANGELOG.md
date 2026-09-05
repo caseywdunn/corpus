@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Query embeddings match the build producer (#174/#271).** New bundles
+  include a portable embedding-identity sidecar; the server loads the recorded
+  model/revision and refuses incompatible same-dimension overrides or local
+  weights. Producer changes require a whole-index rebuild, and legacy receipt
+  migration cannot leave an unselected old population mixed in. Legacy bundles
+  remain usable with an explicit weaker-proof warning. Custom model vector
+  dimensions are read from the loaded encoder instead of assumed to be 1,024.
+
 - **Vision producer evidence is explicit (#174).** Fingerprints resolve default
   model IDs and track loaded/cached repository revisions, custom local model
   file contents, implementation and package versions, and generation settings.

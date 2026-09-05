@@ -22,7 +22,7 @@ ARTIFACTS = ("text.json", "metadata.json", "references.json", "figures.json",
              "chunks.json", "taxa.json", "intext_citations.json")
 BINARY_ARTIFACTS = ("processed.pdf", "grobid.tei.xml")
 MANIFEST_FACTS = ("paper_count", "figure_count", "chunk_count", "embedding_model",
-                  "embedding_dimension")
+                  "embedding_dim")
 
 
 def _read(path):

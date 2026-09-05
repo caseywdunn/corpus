@@ -68,7 +68,9 @@ def vector_snapshot(path):
 
 
 def index_snapshot(build):
+    from pipeline.embedding_state import embedding_identity
     return {
+        "embedding_identity": embedding_identity(build) if (build / "documents").is_dir() else None,
         "bibliography": sqlite_snapshot(build / "biblio_authority.sqlite", {
             "works": ("created_at", "updated_at"),
             "work_documents": ("source_sha256",),

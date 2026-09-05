@@ -70,3 +70,31 @@ def vision_producer(mode, model=None, *, resolved_revision=None):
     revision = resolved_revision or _cached_revision(model)
     return {**result, "verification": "repository-revision" if revision else "unverified-cache-miss",
             "revision": revision}
+
+
+def embedding_producer(model, *, resolved_revision=None):
+    """Identity of the embedding space, not device-specific floating-point noise."""
+    result = {"model": model, "recipe": "sentence-transformers-unit-l2-v1"}
+    directory = Path(model).expanduser()
+    if directory.is_dir():
+        return {**result, "model": directory.name, "verification": "local-file-content",
+                **_local_files(directory)}
+    revision = resolved_revision or _cached_revision(model)
+    return {**result, "revision": revision,
+            "verification": "repository-revision" if revision else "unverified-cache-miss"}
+
+
+def backend_producer(backend):
+    return getattr(backend, "producer", None) or {
+        "model": backend.model_name, "verification": "declared-model-id",
+    }
+
+
+def same_embedding_space(left, right):
+    if not isinstance(left, dict) or not isinstance(right, dict):
+        return False
+    if left.get("verification") == right.get("verification") == "local-file-content":
+        # The same custom weights can be deployed under another directory name.
+        left = {k: v for k, v in left.items() if k != "model"}
+        right = {k: v for k, v in right.items() if k != "model"}
+    return left == right
