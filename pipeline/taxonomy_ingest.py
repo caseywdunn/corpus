@@ -65,11 +65,16 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import hashlib
+import json
 import logging
+import os
 import signal
 import sqlite3
 import sys
 import time
+import tempfile
+import uuid
 import zipfile
 from collections import defaultdict, deque
 from pathlib import Path
@@ -360,6 +365,56 @@ def _is_taxon_core_file(name: str) -> bool:
     return base.startswith("taxon") or base.startswith("taxa")
 
 
+def source_fingerprint(source, root_id=None, input_path=None):
+    """Fingerprint consumed source bytes/config, not remote mutable contents.
+
+    WoRMS is an explicitly refreshed snapshot. Its unchanged source/root
+    reuses a completed snapshot until --rebuild; status never probes the API.
+    """
+    result = {"version": 1, "source": source, "root_id": str(root_id) if root_id is not None else None}
+    if source == "worms":
+        return result
+    if input_path is None:
+        raise ValueError(f"{source} taxonomy requires an input path")
+    p = Path(input_path)
+    if source == "dwca" and p.is_dir():
+        candidates = sorted(q for q in p.iterdir() if q.is_file() and _is_taxon_core_file(q.name))
+        if not candidates:
+            raise ValueError(f"{p}: no Taxon-core file in directory")
+        p = candidates[0]
+    digest = hashlib.sha256()
+    if source == "dwca" and p.suffix.lower() == ".zip":
+        with zipfile.ZipFile(p) as archive:
+            members = sorted(n for n in archive.namelist() if _is_taxon_core_file(n))
+            if not members:
+                raise ValueError(f"{p}: no Taxon-core file in archive")
+            with archive.open(members[0]) as raw:
+                for block in iter(lambda: raw.read(65536), b""):
+                    digest.update(block)
+        result["source_label"] = f"dwca:{p.name}"
+    else:
+        with p.open("rb") as raw:
+            for block in iter(lambda: raw.read(65536), b""):
+                digest.update(block)
+    result["sha256"] = digest.hexdigest()
+    return result
+
+
+def snapshot_matches(path, fingerprint):
+    """Read a completed snapshot receipt without modifying the database."""
+    if not Path(path).is_file():
+        return False
+    try:
+        conn = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            row = conn.execute("SELECT value FROM meta WHERE key='input_fingerprint'").fetchone()
+            return bool(row and json.loads(row[0]) == fingerprint)
+        finally:
+            conn.close()
+    except (sqlite3.Error, ValueError):
+        return False
+
+
 def iter_dwca(path: Path) -> Iterator[Dict]:
     """Yield records from a DwC-A. Accepts a .zip, an extracted directory,
     or a bare ``Taxon.tsv``/``taxa.tsv``. See ``_is_taxon_core_file`` for
@@ -373,7 +428,7 @@ def iter_dwca(path: Path) -> Iterator[Dict]:
     if p.is_file() and p.suffix.lower() == ".zip":
         with zipfile.ZipFile(p) as zf:
             taxon_member = next(
-                (n for n in zf.namelist() if _is_taxon_core_file(n)),
+                (n for n in sorted(zf.namelist()) if _is_taxon_core_file(n)),
                 None,
             )
             if taxon_member is None:
@@ -386,7 +441,7 @@ def iter_dwca(path: Path) -> Iterator[Dict]:
         return
     if p.is_dir():
         cand = next(
-            (q for q in p.iterdir() if q.is_file() and _is_taxon_core_file(q.name)),
+            (q for q in sorted(p.iterdir()) if q.is_file() and _is_taxon_core_file(q.name)),
             None,
         )
         if cand is None:
@@ -806,6 +861,11 @@ def main() -> int:
     if args.output is None:
         args.output = args.output_dir / "taxonomy.sqlite"
 
+    fingerprint = source_fingerprint(args.source, args.root_id, args.input)
+    if not args.rebuild and snapshot_matches(args.output, fingerprint):
+        logger.info("Taxonomy source/config unchanged; snapshot reused without writes: %s", args.output)
+        return 0
+
     if args.dry_run:
         if args.source == "worms":
             logger.info("Dry-run: --source worms still walks the API; aborting "
@@ -832,23 +892,21 @@ def main() -> int:
         return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(args.output)
+    fd, staging_name = tempfile.mkstemp(prefix=".taxonomy-staging-", suffix=".sqlite", dir=args.output.parent)
+    os.close(fd)
+    staging = Path(staging_name)
+    conn = sqlite3.connect(staging)
 
     def _sigint(signum, frame):  # noqa: ARG001
-        logger.info("SIGINT received; committing and exiting")
-        conn.commit()
+        logger.info("SIGINT received; previous snapshot unchanged; staging retained at %s", staging)
+        conn.rollback()
         conn.close()
         sys.exit(130)
     signal.signal(signal.SIGINT, _sigint)
 
     try:
-        if args.rebuild:
-            logger.info("Rebuilding: dropping taxa + names tables")
-            conn.executescript(
-                "DROP TABLE IF EXISTS taxa; "
-                "DROP TABLE IF EXISTS names; "
-                "DROP TABLE IF EXISTS meta;"
-            )
+        # Build a complete new snapshot. Append-only ingestion retains removed
+        # taxa and old names; a failed rebuild must not destroy the old one.
         create_schema(conn)
 
         # Load source records. WoRMS streams (the walk is itself a BFS
@@ -910,6 +968,10 @@ def main() -> int:
             "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
             ("last_ingest_ts", str(time.time())),
         )
+        if source_fingerprint(args.source, args.root_id, args.input) != fingerprint:
+            raise RuntimeError("Taxonomy source changed during ingestion; previous snapshot unchanged")
+        conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES ('input_fingerprint',?)",
+                     (json.dumps(fingerprint, sort_keys=True),))
         conn.commit()
 
         # Quick rank distribution for the log.
@@ -920,6 +982,21 @@ def main() -> int:
         ranks = list(cur)
         logger.info("Done. Output: %s", args.output)
         logger.info("Rank distribution (top 10): %s", ranks)
+        conn.close()
+        previous = None
+        if args.output.exists():
+            history = args.output.parent / ".retired"
+            history.mkdir(exist_ok=True)
+            previous = history / f"taxonomy-{uuid.uuid4().hex}.sqlite"
+            args.output.rename(previous)
+        try:
+            staging.replace(args.output)
+        except Exception:
+            if previous is not None:
+                previous.rename(args.output)
+            raise
+        if previous is not None:
+            logger.info("Previous taxonomy snapshot retained at %s", previous)
         return 0
     finally:
         conn.close()

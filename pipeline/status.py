@@ -726,6 +726,9 @@ def main() -> int:
             if source["available"]:
                 print(f"  {len(source['added'])} added, {len(source['removed'])} removed, "
                       f"{source['documents_with_differences']} existing documents with input differences")
+                tx = source.get("taxonomy_source", {})
+                if tx.get("configured"):
+                    print("  Taxonomy source receipt: " + ("current" if tx["current"] else "stale or unverified; pre-build taxonomy"))
                 for sha, changes in list(source["differences"].items())[:20]:
                     detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in sorted(changes.items()))
                     print(f"  {sha}: {detail}")

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Taxonomy refresh follows source receipts (#174/#265).** Unchanged DwC/DwC-A
+  inputs reuse the snapshot without writes; changed source bytes or root
+  selection produce a complete replacement, removing obsolete taxa and names.
+  Failed ingestion preserves the previous database, and replaced snapshots
+  remain recoverable. Full runs and status check source receipts; phase-split
+  extraction requires a current pre-build. WoRMS stays pinned until an explicit
+  rebuild, rather than being silently refreshed on every launch.
+
 - **Annotation output sets are explicit (#174/#265).** Resume verifies file
   digests and repairs missing/corrupt annotations. Removing or emptying a
   lexicon category, or disabling annotation, archives its old outputs and

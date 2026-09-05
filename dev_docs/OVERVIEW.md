@@ -219,8 +219,9 @@ categories and the built taxonomy snapshot with receipts. Its JSON separates
 Configured unreadable sources fail the audit; missing `input_pdfs` explicitly
 means the source inventory was not checked. This is read-only build/operator
 work, not an MCP query. It does not contact services or prove custom model
-weights unchanged, infer previous CLI overrides, or refresh an upstream
-taxonomy source. These limits are included in the report's scope.
+weights unchanged or infer previous CLI overrides. It checks configured
+taxonomy-source receipts without refreshing the source. These limits are
+included in the report's scope.
 Metadata/annotation-only reruns also preserve the existing figure/vision layer;
 the inexpensive figure report is refreshed because it consumes the header.
 
@@ -233,6 +234,17 @@ taxon-index rows. A missing configured lexicon/taxonomy source is an error,
 not a request to delete annotations. Legacy annotation stages migrate their
 receipts once without redoing OCR or figure extraction. Neither receipts nor
 annotation history ship in the served bundle.
+
+Taxonomy ingestion produces a complete snapshot, not an accumulating union.
+Its `meta.input_fingerprint` identifies source kind, root selection, parser
+receipt version and consumed DwC bytes (the selected Taxon core for DwC-A).
+Unchanged inputs reuse the snapshot without writes. Changes—including removing
+a root restriction—build a fresh SQLite before replacing the old one; failed
+ingestion leaves the old database untouched, and superseded snapshots remain
+under `.retired/taxonomy-*.sqlite`. Legacy snapshots without proof rebuild once.
+Full `corpus run` notices source drift; phase-split extraction requires a matching
+pre-built snapshot. WoRMS is deliberately pinned between explicit
+`corpus taxonomy ingest --rebuild` refreshes; no status request polls the API.
 
 #### Stage 1 configuration and cache ownership
 

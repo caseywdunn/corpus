@@ -128,6 +128,14 @@ def source_input_drift(output_dir: Path, config_path: Path):
     taxonomy_path = output_dir / "taxonomy.sqlite"
     taxonomy = ({"path": str(taxonomy_path), "sha256": _file_sha256(taxonomy_path),
                  "size": taxonomy_path.stat().st_size} if taxonomy_path.exists() else None)
+    taxonomy_source = {"configured": False}
+    tx = config.get("taxonomy") or {}
+    if tx.get("source"):
+        from .taxonomy_ingest import snapshot_matches, source_fingerprint
+        fp = source_fingerprint(tx["source"], tx.get("root_id"), resolved(tx.get("path")))
+        taxonomy_source = {"configured": True, "current": snapshot_matches(taxonomy_path, fp),
+                           "expected_fingerprint": fp,
+                           "scope": "WoRMS snapshots refresh only on explicit rebuild; no API probe."}
     inventory = find_all_pdfs(input_dir, exclude_under=output_dir, strict=True)
     current = {short_hash(full): (full, paths) for full, paths in inventory.items()}
     if len(current) != len(inventory):
@@ -176,6 +184,7 @@ def source_input_drift(output_dir: Path, config_path: Path):
     return {"available": True, "input_dir": str(input_dir),
             "current_documents": len(current), "documents_checked": len(current.keys() & docs.keys()),
             "added": sorted(current.keys() - docs.keys()), "removed": sorted(docs.keys() - current.keys()),
+            "taxonomy_source": taxonomy_source,
             "documents_with_differences": len(differences), "differences": differences,
             "scope": "Current PDF inventory, resolved BibTeX, OCR/page directives, lexicon and built taxonomy snapshot. "
-                     "No external service/model probes; CLI overrides may differ. Upstream taxonomy-source refresh is separate."}
+                     "Configured taxonomy source receipts are checked separately. No external service/model probes; CLI overrides may differ."}

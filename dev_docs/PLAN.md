@@ -334,9 +334,14 @@ can answer which evidence and rule produced it.
   resume and recovered-versus-clean metadata/reference equality. Status reports
   persisted outcomes without probing the service.
   **Still open:** automatic custom-model provenance beyond reported service
-  versions/operator-declared IDs (including vision); upstream taxonomy-source
-  refresh (distinct from the built snapshot); and whole-build
-  clean/incremental acceptance. Annotation now records its complete output set,
+  versions/operator-declared IDs (including vision); taxonomy-to-work link
+  refresh after source/bibliography edits; and whole-build clean/incremental
+  acceptance. Taxonomy snapshots now fingerprint consumed source bytes and
+  root/source settings, reuse unchanged receipts, and replace changed snapshots
+  without retaining removed taxa/names. Failed ingestion preserves the previous
+  snapshot; phase-split extraction rejects stale/unverified snapshots. WoRMS is
+  explicitly pinned until a requested rebuild, never silently refreshed by
+  status. Annotation now records its complete output set,
   including deliberate absence; removed categories/taxonomy artifacts are
   archived, stale taxon-index rows are retired, and missing/corrupted outputs
   force repair. Unreadable configured annotation sources abort rather than
@@ -403,6 +408,9 @@ meaning:
   returning the shared MCP bearer token in a model-visible response; and apply
   one bounded-input policy to every MCP collection/list parameter. File the
   implementation issues before changing the frozen surface.
+  Filed: crop-cache ownership [#275](https://github.com/caseywdunn/corpus/issues/275),
+  scoped download URLs [#276](https://github.com/caseywdunn/corpus/issues/276), and
+  bounded inputs/freeze snapshots [#277](https://github.com/caseywdunn/corpus/issues/277).
 - [ ] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
   representative response schemas in addition to the existing tool-name,
   error-shape and licensing checks.
