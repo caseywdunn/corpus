@@ -334,8 +334,7 @@ can answer which evidence and rule produced it.
   resume and recovered-versus-clean metadata/reference equality. Status reports
   persisted outcomes without probing the service.
   **Still open:** automatic custom-model provenance beyond reported service
-  versions/operator-declared IDs (including vision); taxonomy-to-work link
-  refresh after source/bibliography edits; and whole-build clean/incremental
+  versions/operator-declared IDs (including vision); and whole-build clean/incremental
   acceptance. Taxonomy snapshots now fingerprint consumed source bytes and
   root/source settings, reuse unchanged receipts, and replace changed snapshots
   without retaining removed taxa/names. Failed ingestion preserves the previous
@@ -349,6 +348,11 @@ can answer which evidence and rule produced it.
   `chunking.max_tokens` setting controls the fallback path, not HybridChunker's
   tokenizer/limit. #174 is not complete yet. Stable details and limitations
   live in OVERVIEW's **Stage 1 configuration and cache ownership**.
+  Taxonomy-to-work authority links now re-derive after taxonomy or bibliography
+  edits, replace obsolete links/stubs without dropping still-cited works, and
+  do no writes on an unchanged replay. Ambiguous author matches no longer
+  resolve by insertion order. This repairs freshness, not #175's zoological
+  authorship-policy limitation.
 - [x] **Make embedding replacement atomic per document and delete the Stage 1
   fake completion marker**
   ([#271](https://github.com/caseywdunn/corpus/issues/271)). Re-embedding one

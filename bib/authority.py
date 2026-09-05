@@ -1964,129 +1964,85 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
 # ── Phase 3: Link taxonomic-authority strings to works ─────────────
 
 def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int:
-    """Link taxa to original-description works via DwC scientificNameAuthorship.
+    """Re-derive current authority links; retain curator links and cited evidence.
 
-    Reads ``taxon_id`` + ``scientific_name_authorship`` from the configured
-    Darwin Core taxonomy snapshot, parses each authority string into
-    (surnames, year), and matches against ``works`` by author+year. When
-    no work matches, a stub is inserted so the link still resolves.
+    The author/year policy remains conservative. Historical taxon-only stubs
+    are not candidates for a newly added real work, and ambiguous candidates
+    never resolve by row order. No-op runs perform no database writes.
     """
-    if not taxonomy_path.exists():
-        logger.warning("Taxonomy database not found: %s", taxonomy_path)
-        return 0
-
-    tx_conn = sqlite3.connect(f"file:{taxonomy_path}?mode=ro", uri=True)
-    tx_conn.row_factory = sqlite3.Row
-
-    cur = tx_conn.execute(
-        "SELECT taxon_id, scientific_name, scientific_name_authorship "
-        "FROM taxa "
-        "WHERE scientific_name_authorship IS NOT NULL "
-        "  AND scientific_name_authorship != ''"
-    )
-
-    n_linked = 0
+    rows = []
+    if taxonomy_path.exists():
+        tx_conn = sqlite3.connect(taxonomy_path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            rows = tx_conn.execute(
+                "SELECT taxon_id,scientific_name_authorship FROM taxa "
+                "WHERE scientific_name_authorship IS NOT NULL AND scientific_name_authorship != '' "
+                "ORDER BY taxon_id").fetchall()
+        finally:
+            tx_conn.close()
+    else:
+        logger.info("No taxonomy snapshot; retiring derived authority links")
+    desired = {}
     n_stubs = 0
-    batch = 0
-
-    for row in cur:
-        taxon_id = row["taxon_id"]
-        authority = row["scientific_name_authorship"]
-
-        # Skip if already linked
-        check = conn.execute(
-            "SELECT 1 FROM taxon_work_links WHERE taxon_id = ?", (taxon_id,)
-        )
-        if check.fetchone():
-            continue
-
+    for taxon_id, authority in rows:
         parsed = parse_authority(authority)
-        if not parsed:
-            logger.debug("Could not parse authority '%s' for %s",
-                         authority, row["scientific_name"])
+        if not parsed or not parsed[0]:
             continue
-
         surnames, year = parsed
-        if not surnames:
-            continue
-
-        first_surname = surnames[0]
-
-        # Try to find a matching work
-        # We don't have a title from the authority string, so use author+year
-        matched_id = author_year_match(conn, first_surname, year)
+        candidates = [r[0] for r in conn.execute(
+            """SELECT DISTINCT w.work_id FROM works w
+               JOIN work_authors a ON a.work_id=w.work_id
+               WHERE a.position=0 AND a.surname_normalized=? AND w.year=?
+                 AND (w.source != 'taxon_authority' OR w.in_corpus=1 OR w.bib_imported_at IS NOT NULL)
+               ORDER BY w.work_id""", (normalize_for_key(surnames[0]), year))]
+        matched_id = candidates[0] if len(candidates) == 1 else None
         confidence = 0.7
-
-        # If multiple authors in the authority, try matching with all of them
         if not matched_id and len(surnames) > 1:
-            norm_surname = normalize_for_key(first_surname)
-            candidate_cur = conn.execute(
-                """SELECT DISTINCT wa.work_id
-                   FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-                   WHERE wa.surname_normalized = ? AND w.year = ? AND wa.position = 0""",
-                (norm_surname, year),
-            )
-            candidates = candidate_cur.fetchall()
-            if len(candidates) > 1:
-                # Disambiguate by checking second author
-                for cand_row in candidates:
-                    cand_id = cand_row[0]
-                    auth2_cur = conn.execute(
-                        "SELECT surname_normalized FROM work_authors "
-                        "WHERE work_id = ? AND position = 1",
-                        (cand_id,),
-                    )
-                    auth2 = auth2_cur.fetchone()
-                    if auth2 and len(surnames) > 1:
-                        if auth2[0] == normalize_for_key(surnames[1]):
-                            matched_id = cand_id
-                            confidence = 0.85
-                            break
-
-        if matched_id:
-            try:
-                conn.execute(
-                    """INSERT OR IGNORE INTO taxon_work_links
-                       (taxon_id, work_id, link_type, confidence)
-                       VALUES (?, ?, ?, ?)""",
-                    (taxon_id, matched_id, "authority_match", confidence),
-                )
-                n_linked += 1
-            except sqlite3.IntegrityError:
-                pass
-        else:
-            # Create a stub work from the authority string
-            work_id = make_corpus_guid(first_surname, year, "")
-            inserted = insert_work(
-                conn, work_id, "corpus_key", title="", year=year, journal="",
-                doi="", corpus_hash=None, in_corpus=False,
-                source="taxon_authority", confidence=0.5,
-            )
+            second_matches = [work_id for work_id in candidates if conn.execute(
+                "SELECT 1 FROM work_authors WHERE work_id=? AND position=1 AND surname_normalized=?",
+                (work_id, normalize_for_key(surnames[1]))).fetchone()]
+            if len(second_matches) == 1:
+                matched_id = second_matches[0]
+                confidence = 0.85
+        if matched_id is None:
+            matched_id = make_corpus_guid(surnames[0], year, "")
+            inserted = insert_work(conn, matched_id, "corpus_key", title="", year=year, journal="",
+                                   doi="", corpus_hash=None, in_corpus=False,
+                                   source="taxon_authority", confidence=0.5)
             if inserted:
-                authors = [(s, "") for s in surnames]
-                insert_authors(conn, work_id, authors)
+                insert_authors(conn, matched_id, [(s, "") for s in surnames])
                 n_stubs += 1
-            try:
-                conn.execute(
-                    """INSERT OR IGNORE INTO taxon_work_links
-                       (taxon_id, work_id, link_type, confidence)
-                       VALUES (?, ?, ?, ?)""",
-                    (taxon_id, work_id, "authority_match", 0.5),
-                )
-                n_linked += 1
-            except sqlite3.IntegrityError:
-                pass
+            confidence = 0.5
+        desired[(taxon_id, matched_id)] = confidence
 
-        batch += 1
-        if batch >= 100:
-            conn.commit()
-            batch = 0
-
+    current = {(r[0], r[1]): r[2] for r in conn.execute(
+        "SELECT taxon_id,work_id,confidence FROM taxon_work_links WHERE link_type='authority_match'")}
+    changed = 0
+    for key in current.keys() - desired.keys():
+        conn.execute("DELETE FROM taxon_work_links WHERE taxon_id=? AND work_id=? AND link_type='authority_match'", key)
+        changed += 1
+    for key, confidence in desired.items():
+        if key not in current or current[key] != confidence:
+            conn.execute(
+                "INSERT OR REPLACE INTO taxon_work_links(taxon_id,work_id,link_type,confidence) "
+                "VALUES (?,?,'authority_match',?)", (*key, confidence))
+            changed += 1
+    # Discard only unreferenced, uncurated taxonomy-derived stubs. Raw citation
+    # observations and any works they still reference remain untouched.
+    stale = [r[0] for r in conn.execute(
+        """SELECT w.work_id FROM works w WHERE w.source='taxon_authority'
+           AND w.in_corpus=0 AND w.bib_imported_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM taxon_work_links l WHERE l.work_id=w.work_id)
+           AND NOT EXISTS (SELECT 1 FROM observation_work o WHERE o.work_id=w.work_id)
+           AND NOT EXISTS (SELECT 1 FROM citations c WHERE c.cited_work_id=w.work_id OR c.citing_work_id=w.work_id)""")]
+    for work_id in stale:
+        conn.execute("DELETE FROM work_aliases WHERE work_id=?", (work_id,))
+        conn.execute("DELETE FROM work_authors WHERE work_id=?", (work_id,))
+        conn.execute("DELETE FROM works WHERE work_id=?", (work_id,))
     conn.commit()
-    tx_conn.close()
-    logger.info("Phase 3 complete: %d taxa linked, %d stub works created",
-                n_linked, n_stubs)
-    return n_linked
+    logger.info("Phase 3 complete: %d current authority links, %d changed, %d stubs created, %d retired",
+                len(desired), changed, n_stubs, len(stale))
+    return changed
 
 
 # ── Main ─────────────────────────────────────────────────────────────

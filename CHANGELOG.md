@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Taxonomic authority links refresh after source edits (#265).** Current
+  authorship strings and bibliography evidence replace obsolete links and
+  unused stubs, including when the actual publication is acquired later.
+  Unchanged replays write nothing; still-cited works and curator links remain
+  intact. Ambiguous second-author matches no longer choose by insertion order.
+
 - **Taxonomy refresh follows source receipts (#174/#265).** Unchanged DwC/DwC-A
   inputs reuse the snapshot without writes; changed source bytes or root
   selection produce a complete replacement, removing obsolete taxa and names.

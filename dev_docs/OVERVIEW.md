@@ -245,6 +245,12 @@ under `.retired/taxonomy-*.sqlite`. Legacy snapshots without proof rebuild once.
 Full `corpus run` notices source drift; phase-split extraction requires a matching
 pre-built snapshot. WoRMS is deliberately pinned between explicit
 `corpus taxonomy ingest --rebuild` refreshes; no status request polls the API.
+Taxonomy-to-work `authority_match` links are likewise derived over the current
+snapshot and bibliography on each post pass. Replaced authorship strings and
+newly acquired works replace old links; an unchanged result writes nothing.
+Unreferenced taxonomy-only stubs are retired, while cited works and links with
+other provenance remain intact. This does not broaden the existing zoological
+authority-parsing policy (#175).
 
 #### Stage 1 configuration and cache ownership
 
