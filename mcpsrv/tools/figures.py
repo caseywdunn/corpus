@@ -851,9 +851,9 @@ def get_figure_roi_image(
     ``label`` is the panel letter (e.g. ``"A"``) or a grouped-plate figure
     number (e.g. ``"32"``) stored in ``figures.json`` ``rois[*].label``.
     If Pass 3 found a pixel ROI for that label, we crop the figure PNG to that
-    region and cache the result under
-    ``<hash_dir>/figures/crops/{figure_id}__{label}.png`` so repeated asks are
-    free.
+    region and cache the result outside the immutable bundle. The returned
+    crop path is a logical identifier, not a file inside the bundle; use
+    ``get_figure_image`` or ``get_figure_url`` to retrieve its bytes.
 
     Returns the crop path + caption description. If the label exists in the
     relevant caption target list but Pass 3 couldn't find a pixel ROI, returns
@@ -892,7 +892,11 @@ def get_figure_roi_image(
     if fig is None:
         return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
-    whole_image = hash_dir / "figures" / (fig.get("filename") or "")
+    from ..figure_cache import figure_path
+    try:
+        whole_image = figure_path(hash_dir, fig)
+    except (OSError, ValueError) as exc:
+        return error(f"figure file unavailable: {exc}", "unavailable")
     caption_text = fig.get("caption_text") or fig.get("caption") or ""
     description_from_caption = next(
         (p["description"] for p in fig.get("panels_from_caption") or []
@@ -927,31 +931,18 @@ def get_figure_roi_image(
             "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image",
         }
 
-    # Cache crops so a second retrieval is free.
-    crops_dir = hash_dir / "figures" / "crops"
-    crops_dir.mkdir(parents=True, exist_ok=True)
-    crop_path = crops_dir / f"{figure_id}__{label}.png"
-    if not crop_path.exists():
-        try:
-            from PIL import Image
-            with Image.open(whole_image) as im:
-                x0, y0, x1, y1 = [int(v) for v in roi_entry["roi_px"]]
-                # Clamp the ROI to the image bounds defensively — ROI
-                # computation can exceed image dims at the edges.
-                x0 = max(0, min(x0, im.width - 1))
-                y0 = max(0, min(y0, im.height - 1))
-                x1 = max(x0 + 1, min(x1, im.width))
-                y1 = max(y0 + 1, min(y1, im.height))
-                im.crop((x0, y0, x1, y1)).save(str(crop_path))
-        except Exception as e:
-            return error(f"could not crop figure: {e}", "unavailable")
+    from ..figure_cache import crop_figure
+    try:
+        crop_path, _ = crop_figure(idx, whole_image, roi_entry["roi_px"])
+    except Exception as e:
+        return error(f"could not crop figure: {e}", "unavailable")
 
     return {
         "paper_hash": paper_hash,
         "figure_id": figure_id,
         "label": label,
         "crop": True,
-        # Relative to the corpuscle's documents/ dir.
+        # Logical cache identifier; retrieve bytes through the image/URL tools.
         "image_path": f"{paper_hash}/figures/crops/{crop_path.name}",
         "roi_px": roi_entry.get("roi_px"),
         "ocr_confidence": roi_entry.get("ocr_confidence"),
@@ -1024,9 +1015,8 @@ def get_figure_image(
     if fig is None:
         raise ValueError(f"no such figure_id {figure_id!r} in paper {paper_hash}")
 
-    whole_image = hash_dir / "figures" / (fig.get("filename") or "")
-    if not whole_image.exists():
-        raise FileNotFoundError(f"figure file missing on disk: {whole_image}")
+    from ..figure_cache import figure_path
+    whole_image = figure_path(hash_dir, fig)
 
     if label is None:
         return Image(path=str(whole_image))
@@ -1040,20 +1030,9 @@ def get_figure_image(
         # No pixel ROI for this label — fall back to the whole figure.
         return Image(path=str(whole_image))
 
-    crops_dir = hash_dir / "figures" / "crops"
-    crops_dir.mkdir(parents=True, exist_ok=True)
-    crop_path = crops_dir / f"{figure_id}__{label}.png"
-    if not crop_path.exists():
-        from PIL import Image as PILImage
-        with PILImage.open(whole_image) as im:
-            x0, y0, x1, y1 = [int(v) for v in roi_entry["roi_px"]]
-            # Clamp defensively — ROI computation can exceed image dims.
-            x0 = max(0, min(x0, im.width - 1))
-            y0 = max(0, min(y0, im.height - 1))
-            x1 = max(x0 + 1, min(x1, im.width))
-            y1 = max(y0 + 1, min(y1, im.height))
-            im.crop((x0, y0, x1, y1)).save(str(crop_path))
-    return Image(path=str(crop_path))
+    from ..figure_cache import crop_figure
+    _, data = crop_figure(idx, whole_image, roi_entry["roi_px"])
+    return Image(data=data, format="png")
 
 
 @mcp.tool()

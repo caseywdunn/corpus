@@ -187,17 +187,20 @@ def make_figure_app(idx, default_profile: Optional[str] = None):
             await _send_text(send, 400, "path traversal blocked")
             return
 
-        target = whole
+        data = None
         if label is not None:
-            # Look for an existing panel crop; if absent, fall through
-            # to the whole figure (matches get_figure_image's fallback).
-            crops_dir = hash_dir / "figures" / "crops"
-            crop_path = crops_dir / f"{figure_id}__{label}.png"
-            if crop_path.exists():
-                target = crop_path.resolve()
+            roi = next((r for r in fig.get("rois") or [] if r.get("label") == label and r.get("roi_px")), None)
+            if roi is not None:
+                from .figure_cache import crop_figure
+                try:
+                    _, data = crop_figure(idx, whole, roi["roi_px"])
+                except (OSError, ValueError, TypeError, OverflowError) as exc:
+                    await _send_text(send, 500, f"could not crop figure: {exc}")
+                    return
 
         try:
-            data = target.read_bytes()
+            if data is None:
+                data = whole.read_bytes()
         except OSError as e:
             await _send_text(send, 500, f"could not read figure: {e}")
             return

@@ -415,6 +415,10 @@ meaning:
   Filed: crop-cache ownership [#275](https://github.com/caseywdunn/corpus/issues/275),
   scoped download URLs [#276](https://github.com/caseywdunn/corpus/issues/276), and
   bounded inputs/freeze snapshots [#277](https://github.com/caseywdunn/corpus/issues/277).
+  #275 is implemented: one bounded, process-private content/ROI-keyed cache
+  serves MCP images, logical ROI paths and first-request HTTP panel crops.
+  Read-only-tree, concurrency, eviction, stale-pixel/ROI and licensing tests
+  pass. Scoped URL authorization/proxy acceptance remains under #276.
 - [ ] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
   representative response schemas in addition to the existing tool-name,
   error-shape and licensing checks.

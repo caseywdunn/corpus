@@ -50,11 +50,14 @@ lazy and bounded to one request; it does not alter the corpus. Authorization
 and provenance checks also remain at the server boundary because a client
 nudge is not enforcement.
 
-Two current serve-path details still need to be brought into this contract:
-panel crops are cached under the mounted bundle instead of a separate
-disposable cache, and remote figure URLs expose a bearer credential in a
-model-visible response. They are known architecture gaps, not precedents for
-adding more serve-time materialization.
+Panel crops now use a process-private disposable cache outside the bundle
+(#275), capped at 128 entries and 128 MiB. Keys include source-image bytes and
+ROI coordinates; replacement pixels cannot reuse an old crop. Cache eviction
+is safe because image responses hold their own bytes, and HTTP panel requests
+can regenerate crops directly. The temporary cache follows the host's `TMPDIR`
+and is removed at normal process exit. No figure request writes to the bundle.
+Remote figure URLs still expose a reusable bearer credential; #276 tracks that
+remaining gap, not a precedent for adding serve-time materialization.
 
 ## Content-addressed storage
 
@@ -420,7 +423,13 @@ The saved figure's resolution is fixed **entirely at extraction time**; nothing 
 - **Docling path (the common case), `resolution_mode: native` (default, #121).** Docling detects + classifies figures (rendering its own crops at `figures.images_scale`), then a PyMuPDF pass (`pipeline.figures.render_figures`, called from `extract.py`) **re-renders each figure's bbox at its source's native pixel density** and overwrites the saved PNG. So a figure backed by a 600-dpi scan stays 600 dpi and a 150-dpi one stays 150 — resolution tracks the source and **varies per figure**, rather than a single fixed DPI. A **vector** figure has no native resolution, so it renders at `figures.vector_dpi` (default **300**); `figures.max_dpi` optionally caps dense full-page scans. The bbox region (not the raw embedded xref) is rendered, so vector annotations + composite raster/vector + multi-panel plates survive at native fidelity.
 - **Docling path, `resolution_mode: fixed`.** Skips the native pass; the saved PNG is docling's render at **`72 × images_scale` dpi** (default `2.0` → 144 dpi; `1.0` → 72 dpi was the grainy pre-v0.6 behavior). A single uniform DPI for every figure — predictable size, but down-renders high-res scans. Both modes only affect future ingests; lift an existing bundle in place with `tools/backfill_figure_dpi.py [--native | --scale S]` (re-renders from stored bbox + `processed.pdf`, no docling re-run).
 - **PyMuPDF fallback.** `fitz.Pixmap(doc, xref)` (`pipeline/extract.py:310`) pulls the embedded image at its **native stored resolution** — no render, no scaling. So, paradoxically, the fallback path can yield *higher*-resolution figures than the primary docling path; but it only fires when docling extracts zero figures and the PDF is not a scan (`:277`). The native pass skips these (already native).
-- **No serve-time downscaling.** `get_figure_image` returns the PNG byte-for-byte (`mcpsrv/tools/figures.py:707-708`); the HTTP route does `target.read_bytes()` with no processing (`mcpsrv/figure_http.py:158`). Panel crops are cut from the full-resolution PNG on demand and cached (`tools/figures.py:710-732`), inheriting source resolution. There is no max-dimension cap, thumbnailing, or re-encode anywhere on the serve path.
+- **No serve-time downscaling.** Whole-figure requests return the original PNG
+  bytes. Panel requests crop the original resolution through the shared
+  disposable cache, without thumbnailing. Crop inputs above 128 MiB compressed
+  or 64 million pixels are rejected explicitly to bound query-time resource
+  use, never silently reduced. `get_figure_roi_image.image_path` identifies a
+  disposable crop logically; it is not a new file in the bundle. Retrieve its
+  bytes through `get_figure_image` or `get_figure_url`.
 - **The 2000px clamp is model-input only.** Pass 3b downsamples the image handed to the vision model to ≤2000px on the long side (`pipeline/vision.py:226-243`) purely to bound API cost; it does **not** touch the saved figure.
 - **Metadata gap to be aware of.** Only the PyMuPDF path records pixel `width`/`height`; the docling path records no dimensions and **no dpi** in `figures.json`, so stored resolution can't currently be audited from metadata alone — worth closing when figure-quality work starts.
 

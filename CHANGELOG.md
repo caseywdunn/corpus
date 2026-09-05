@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Figure crops no longer mutate served bundles (#275).** MCP and HTTP use
+  one bounded disposable cache keyed by image content and ROI. Panel downloads
+  work on the first request, without requiring a previous MCP crop call.
+  Read-only bundles are supported; stale crops cannot survive changed pixels
+  or ROI coordinates. ROI paths are logical cache identifiers—use the image or
+  URL tool for bytes. Oversized crop sources fail explicitly without downscaling.
+
 - **Taxonomic authority links refresh after source edits (#265).** Current
   authorship strings and bibliography evidence replace obsolete links and
   unused stubs, including when the actual publication is acquired later.

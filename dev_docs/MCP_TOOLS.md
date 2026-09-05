@@ -79,7 +79,7 @@ does not recompute caption binding at query time.
 | `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. Figure-licensing gate keyed to the per-call `profile=` (#101): a strict profile (manuscript/presentation) refuses a figure whose publication clearance can't be established, naming the `publication_clearance` state in the refusal; the default `report` allows it. |
 | `get_figure_url` | A bearer-gated HTTP URL (plus `auth_header` + license/attribution fields) the caller can `curl -o` to land the figure PNG on disk without loading its bytes into context — for pandoc / LaTeX / PDF assembly. Honors the per-call `profile=` gate (#101) and encodes the resolved profile into the URL so the HTTP fetch enforces the same policy. |
 | `list_figure_rois` | Per-panel / per-figure ROIs annotated on an image. Caption-derived A/B/C panels and numeric figures on a shared historical plate are separate fields and carry `pass3_target_kind`; plate targets also report the independent pre-expansion `missing_figures` cross-check. |
-| `get_figure_roi_image` | Crop a lettered-panel or numbered-figure ROI out of an image and return the crop's path. Honors the per-call `profile=` licensing gate like the other pixel-returning tools (#154 §3) — including the fallback that returns the whole figure when no pixel ROI was detected. |
+| `get_figure_roi_image` | Crop a lettered-panel or numbered-figure ROI and return its logical cache path. Crops live outside the immutable bundle; retrieve bytes with `get_figure_image` or `get_figure_url`, not by joining this path to the bundle directory. Honors the per-call `profile=` licensing gate, including whole-figure fallback when no pixel ROI was detected. |
 
 ## Semantic search
 
