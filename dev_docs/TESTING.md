@@ -390,11 +390,24 @@ hashes are skipped when that document is absent from the demo build.
 Prepared-PDF and TEI byte hashes are diagnostic: generated IDs and PDF metadata
 can differ without an extraction change. They are not standalone failure gates.
 
-This first reference covers per-document artifacts, quality flags and manifest
-facts. It does **not** establish database mapping, vector-row or image-pixel
-equivalence; exercise those acceptance checks separately. Nor does agreement
-with a baseline establish correctness: keep the independent gold reports and
-review their known misses. Malformed JSON is a hard error, not an omitted paper.
+Schema v2 also fingerprints bibliography tables (including current observation
+mappings, membership, permissions and curation provenance), taxon mentions,
+taxonomy, and all logical LanceDB rows. Vector reads stream in batches and
+compare exact float values and row multiplicity per document; physical row
+order and transaction generation IDs do not matter. Decoded RGBA image hashes
+catch pixel changes while ignoring PNG compression/metadata and legacy query
+crops. Database bookkeeping timestamps and mention row IDs are excluded;
+whether a work was curator-imported is retained. Historical raw observations
+and reconciliation decisions are append-only history, not current-build
+equality targets. Current authority-table differences still require review,
+even when caused by retained historical knowledge.
+
+Missing optional databases/indexes are explicit `null`, not a proof of their
+completeness; check that the expected indexes exist for the acceptance corpus.
+Schema v1 references must be regenerated from both retained builds, never
+silently upgraded. Agreement with a baseline does not establish correctness:
+keep the independent gold reports and review their known misses. Malformed
+JSON or SQLite is a hard error, not an omitted paper.
 
 ## Design notes
 

@@ -99,3 +99,15 @@ def test_binary_changes_are_distinguished_from_semantic_diffs(build):
     diff = compare(old, snapshot(build))
     assert diff["binary_changes"] == {"a": ["grobid.tei.xml"]}
     assert not diff["requires_review"]
+
+
+def test_same_count_index_and_pixel_changes_require_review(build):
+    old = snapshot(build)
+    new = copy.deepcopy(old)
+    new["indexes"]["vectors"] = {"changed": "same number of rows"}
+    assert compare(old, new)["index_changes"]
+    assert compare(old, new)["requires_review"]
+    new = copy.deepcopy(old)
+    new["documents"]["a"]["figure_pixels"] = {"figure.png": {"rgba_sha256": "changed"}}
+    assert compare(old, new)["changed"]["a"]["figure_pixels"]
+    assert compare(old, new)["requires_review"]

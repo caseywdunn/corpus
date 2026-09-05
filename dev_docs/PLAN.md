@@ -371,8 +371,11 @@ can answer which evidence and rule produced it.
   counts remain a CI activity signal, not a data regression reference.
   `tools/qc/build_reference.py` now snapshots primary per-document evidence,
   flags and manifest facts, and exposes reference-field differences even when
-  counts agree. It never overwrites an existing reference. Database mappings,
-  vector-row equivalence and a reviewed latest-build reference remain open.
+  counts agree. It never overwrites an existing reference. Schema v2 adds
+  current database-table fingerprints, streaming exact logical vector-row
+  comparisons and decoded figure-pixel hashes, with tests distinguishing
+  bookkeeping changes from content/mapping/duplicate-row drift. A reviewed
+  latest-build reference and full gold equivalence remain open.
   The post-caption build preserved all text scores and physical detections,
   but six Mańko reference records drifted inside the saved Grobid response;
   count-only acceptance missed that loss. Carré/Margulis also retain genuine

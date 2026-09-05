@@ -12,9 +12,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+from tools.qc.index_reference import figure_pixels, index_snapshot
+
+SCHEMA_VERSION = 2
 ARTIFACTS = ("text.json", "metadata.json", "references.json", "figures.json",
              "chunks.json", "taxa.json", "intext_citations.json")
 BINARY_ARTIFACTS = ("processed.pdf", "grobid.tei.xml")
@@ -90,6 +93,7 @@ def snapshot(build: Path) -> dict:
         else:
             problems.append(f"{hd.name}/summary.json: missing")
         papers[hd.name] = entry
+        entry["figure_pixels"] = figure_pixels(hd / "figures")
     if not papers:
         problems.append("No document artifacts")
     manifest_path = build / "_serve/bundle_manifest.json"
@@ -99,7 +103,7 @@ def snapshot(build: Path) -> dict:
         "producer": {key: manifest.get(key) for key in
                      ("pipeline_version", "pipeline_git_sha")},
         "manifest": {key: manifest.get(key) for key in MANIFEST_FACTS},
-        "problems": problems, "documents": papers,
+        "problems": problems, "documents": papers, "indexes": index_snapshot(build),
     }
 
 
@@ -141,6 +145,8 @@ def compare(before: dict, after: dict) -> dict:
         refs = _reference_diff(a.get("references") or [], b.get("references") or [])
         if refs:
             delta["references"] = refs
+        if a["figure_pixels"] != b["figure_pixels"]:
+            delta["figure_pixels"] = {"before": a["figure_pixels"], "after": b["figure_pixels"]}
         for key in ("quality_flags", "stage_failures"):
             if a[key] != b[key]:
                 delta[key] = {"before": a[key], "after": b[key]}
@@ -160,14 +166,18 @@ def compare(before: dict, after: dict) -> dict:
                      for sha, paper in new.items()
                      if paper["stage_failures"] or any(
                          flag.get("severity") == "error" for flag in paper["quality_flags"])}
+    indexes = {key: {"before": before["indexes"].get(key), "after": after["indexes"].get(key)}
+               for key in sorted(set(before["indexes"]) | set(after["indexes"]))
+               if before["indexes"].get(key) != after["indexes"].get(key)}
     result = {"schema_version": SCHEMA_VERSION, "added": sorted(new.keys() - old.keys()),
               "removed": sorted(old.keys() - new.keys()), "changed": changes,
+              "index_changes": indexes,
               "manifest_changes": manifest, "binary_changes": binary,
               "baseline_problems": before["problems"], "problems": after["problems"],
               "hard_failures": hard_failures,
               "unchanged_warning_documents": [sha for sha in sorted(new.keys() & old.keys())
                   if new[sha]["quality_flags"] and new[sha]["quality_flags"] == old[sha]["quality_flags"]]}
-    result["requires_review"] = bool(changes or manifest or result["added"] or result["removed"]
+    result["requires_review"] = bool(changes or manifest or indexes or result["added"] or result["removed"]
                                       or before["problems"] or after["problems"] or hard_failures)
     return result
 
@@ -193,7 +203,7 @@ def main(argv=None):
         else:
             print(json.dumps(result, ensure_ascii=False, indent=2))
         return int(bool(result.get("requires_review") or result.get("problems")))
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, sqlite3.DatabaseError) as exc:
         parser.exit(2, f"{exc}\n")
 
 

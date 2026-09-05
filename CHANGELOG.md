@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Build references include logical indexes and figure pixels (#187).**
+  Compare current bibliography/taxonomy mappings, exact vector values and
+  multiplicity, and decoded pixels rather than counts alone. Bookkeeping
+  timestamps, row order, embedding transaction IDs and PNG metadata do not
+  masquerade as evidence changes. Snapshots never overwrite an accepted file.
+
 - **MCP collection inputs have a common safety budget (#277).** Explicit
   lists accept at most 500 items, 4,096 characters per item and 65,536 characters
   in total. Oversized requests fail before corpus lookup with the existing
