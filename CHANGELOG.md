@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Status audits current source inputs (#174).** With a config, it reports
+  PDF additions/removals, renamed/copied paths, per-paper BibTeX and OCR/page
+  directive edits, lexicon changes and built-taxonomy drift alongside the
+  configuration audit. It writes nothing and starts no models; unreadable
+  inputs are errors, and unconfigured/unprobed inputs are explicitly reported
+  as outside the audit rather than assumed unchanged.
+
 - **Source retirement and bundle replacement preserve update integrity
   (#265).** Incomplete source inventories and failed vector pruning abort
   updates. Removed documents are archived outside the active tree, bibliography

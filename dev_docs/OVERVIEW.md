@@ -212,6 +212,15 @@ a bib match. Migrating a metadata receipt alone refreshes metadata, not OCR,
 Docling or chunking. Separately, **legacy builds without configuration receipts
 need a one-time Stage 1 refresh**: their original settings cannot be proven.
 Use `corpus run --dry-run` to inspect the work before launching that migration.
+`corpus status` with a config also inventories current PDF bytes and compares
+resolved per-paper BibTeX, OCR/page directives, source paths/copies, lexicon
+categories and the built taxonomy snapshot with receipts. Its JSON separates
+`configuration_drift` from `source_input_drift`, including added/removed hashes.
+Configured unreadable sources fail the audit; missing `input_pdfs` explicitly
+means the source inventory was not checked. This is read-only build/operator
+work, not an MCP query. It does not contact services or prove custom model
+weights unchanged, infer previous CLI overrides, or refresh an upstream
+taxonomy source. These limits are included in the report's scope.
 Metadata/annotation-only reruns also preserve the existing figure/vision layer;
 the inexpensive figure report is refreshed because it consumes the header.
 

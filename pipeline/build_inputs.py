@@ -6,6 +6,7 @@ are not extraction inputs. See OVERVIEW.md, "Corpuscle update contract".
 """
 
 from copy import deepcopy
+import json
 from pathlib import Path
 
 from .config import _DEFAULT_CONFIG, _deep_merge, load_config
@@ -99,3 +100,84 @@ def configuration_drift(output_dir: Path, config_path: Path):
             "documents_with_differences": len(affected), "differences": affected,
             "scope": "Stage 1 configuration only; CLI/CPU-floor overrides may differ. "
                      "Does not audit source files, BibTeX, annotation inputs, or external model versions."}
+
+
+def source_input_drift(output_dir: Path, config_path: Path):
+    """Read current PDFs, bibliography and annotations without starting models.
+
+    This complements configuration_drift. Service/model identities and CLI
+    overrides cannot be reconstructed from config alone; they are not probed.
+    """
+    from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
+    from .io import find_all_pdfs, get_relative_paths, short_hash
+    from .stages import (_expected_fingerprints_for_run, _file_sha256,
+                         _load_pipeline_state, _metadata_fingerprint_for_pdf,
+                         _stage_input_changes, _stage_recorded_complete)
+    from .taxa import lexicon_fingerprints
+
+    config = load_config(config_path)
+    def resolved(value):
+        return (config_path.parent / value).resolve() if value else None
+    input_dir = resolved(config.get("input_pdfs"))
+    if input_dir is None:
+        return {"available": False, "scope": "No input_pdfs configured; source inventory not checked."}
+    bib_path = resolved(config.get("bib"))
+    bib_index = BibIndex.from_path(bib_path) if bib_path else None
+    lexicon_path = resolved(config.get("lexicon"))
+    lexicons = lexicon_fingerprints(lexicon_path) if lexicon_path else {}
+    taxonomy_path = output_dir / "taxonomy.sqlite"
+    taxonomy = ({"path": str(taxonomy_path), "sha256": _file_sha256(taxonomy_path),
+                 "size": taxonomy_path.stat().st_size} if taxonomy_path.exists() else None)
+    inventory = find_all_pdfs(input_dir, exclude_under=output_dir, strict=True)
+    current = {short_hash(full): (full, paths) for full, paths in inventory.items()}
+    if len(current) != len(inventory):
+        raise ValueError("Source inventory has a PDF hash-prefix collision")
+    docs = {p.name: p for p in (output_dir / "documents").iterdir() if p.is_dir()}
+    differences = {}
+    consumed = {"bib_entry_sha256", "filename", "ocrlang", "ocrmode", "keeppages", "taxonomy", "lexicons"}
+    for sha in sorted(current.keys() & docs.keys()):
+        full, paths = current[sha]
+        hd = docs[sha]
+        name = paths[0].name
+        expected = _expected_fingerprints_for_run(
+            config_fingerprints=None,
+            metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, name),
+            taxonomy_fingerprint=taxonomy, lexicon_fingerprints=lexicons,
+            ocrlang=ocrlang_for_pdf(bib_index, name),
+            ocrmode=ocrmode_for_pdf(bib_index, name),
+            keeppages=keeppages_for_pdf(bib_index, name))
+        records = _load_pipeline_state(hd)["stages"]
+        changes = {}
+        for stage in expected.keys() | {"taxa_and_lexicon_extraction", "figure_materialization", "figure_crossref"}:
+            if stage == "taxa_and_lexicon_extraction" and not (taxonomy or lexicons or stage in records):
+                continue
+            old = (records.get(stage) or {}).get("input_fingerprint") or {}
+            fp = {k: v for k, v in old.items() if k not in consumed}
+            fp.update(expected.get(stage, {}))
+            if stage in ("figure_materialization", "figure_crossref"):
+                fp.update({k: v for k, v in expected["docling_extraction"].items()
+                           if k in {"ocrlang", "ocrmode", "keeppages"}})
+            if not _stage_recorded_complete(hd, stage, expected_fingerprint=fp):
+                changes[stage] = _stage_input_changes(hd, stage, fp)
+        summary_path = hd / "summary.json"
+        if not summary_path.is_file():
+            changes["source_inventory"] = ["missing summary.json"]
+        else:
+            summary = json.loads(summary_path.read_text())
+            source_changes = []
+            if summary.get("pdf_hash_full") not in (None, full):
+                source_changes.append("PDF hash-prefix collision")
+            if summary.get("relative_paths") != get_relative_paths(paths, input_dir):
+                source_changes.append("source paths")
+            if summary.get("total_copies_found") != len(paths):
+                source_changes.append("source copy count")
+            if source_changes:
+                changes["source_inventory"] = source_changes
+        if changes:
+            differences[sha] = changes
+    return {"available": True, "input_dir": str(input_dir),
+            "current_documents": len(current), "documents_checked": len(current.keys() & docs.keys()),
+            "added": sorted(current.keys() - docs.keys()), "removed": sorted(docs.keys() - current.keys()),
+            "documents_with_differences": len(differences), "differences": differences,
+            "scope": "Current PDF inventory, resolved BibTeX, OCR/page directives, lexicon and built taxonomy snapshot. "
+                     "No external service/model probes; CLI overrides may differ. Upstream taxonomy-source refresh is separate."}

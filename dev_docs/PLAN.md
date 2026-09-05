@@ -320,8 +320,11 @@ can answer which evidence and rule produced it.
   full extraction replaces old images/sidecars. Tests compare off-mode and
   rechunking transitions with clean builds and exercise failed publication,
   interrupted stages and CPU/vision handoff recovery.
-  `corpus status` reports Stage 1 configuration differences without modifying
-  artifacts. Legacy builds require a one-time Stage 1 config-receipt migration;
+  `corpus status` reports Stage 1 configuration differences plus current PDF
+  additions/removals, renamed/copy paths, resolved BibTeX changes, OCR/page
+  directives, lexicon changes and built-taxonomy fingerprints without modifying
+  artifacts or starting models. Unreadable configured inputs are errors, not a
+  zero-drift result. Legacy builds require a one-time Stage 1 config-receipt migration;
   preview it before submitting a production rerun.
   Grobid fallback/recovery now distinguishes deliberate disablement from an
   outage, retries incomplete extraction on recovery, and preserves successful
@@ -331,9 +334,9 @@ can answer which evidence and rule produced it.
   resume and recovered-versus-clean metadata/reference equality. Status reports
   persisted outcomes without probing the service.
   **Still open:** automatic custom-model provenance beyond reported service
-  versions/operator-declared IDs (including vision); full current-source/
-  BibTeX/annotation drift reporting (the status
-  check is config-only); and whole-build clean/incremental acceptance. The
+  versions/operator-declared IDs (including vision); upstream taxonomy-source
+  refresh (distinct from the built snapshot), annotation retirement when
+  configuration is removed; and whole-build clean/incremental acceptance. The
   `chunking.max_tokens` setting controls the fallback path, not HybridChunker's
   tokenizer/limit. #174 is not complete yet. Stable details and limitations
   live in OVERVIEW's **Stage 1 configuration and cache ownership**.

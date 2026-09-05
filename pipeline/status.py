@@ -699,11 +699,12 @@ def main() -> int:
         return 0
 
     if args.config:
-        from .build_inputs import configuration_drift
+        from .build_inputs import configuration_drift, source_input_drift
         try:
             rollup["configuration_drift"] = configuration_drift(args.output_dir, args.config)
-        except (OSError, ValueError, TypeError) as exc:
-            logger.error("Cannot check configuration: %s", exc)
+            rollup["source_input_drift"] = source_input_drift(args.output_dir, args.config)
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:
+            logger.error("Cannot check configured inputs: %s", exc)
             return 2
 
     if args.json:
@@ -720,6 +721,14 @@ def main() -> int:
                 print(f"  {pdf_hash}: {detail}")
             if drift["documents_with_differences"] > 20:
                 print("  Showing first 20; --json includes all differences.")
+            source = rollup["source_input_drift"]
+            print(f"\nSource-input audit: {source['scope']}")
+            if source["available"]:
+                print(f"  {len(source['added'])} added, {len(source['removed'])} removed, "
+                      f"{source['documents_with_differences']} existing documents with input differences")
+                for sha, changes in list(source["differences"].items())[:20]:
+                    detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in sorted(changes.items()))
+                    print(f"  {sha}: {detail}")
         if args.report:
             print()
             print(render_artifacts(args.output_dir))
