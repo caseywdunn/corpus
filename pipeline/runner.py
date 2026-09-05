@@ -393,48 +393,46 @@ def run_pdf_processing_pipeline(
                 processing_summary["processing_steps"].append("figure_crossref")
 
         # ── taxa_and_lexicon_extraction ─────────────────────────────────
-        # Stage runs only when a taxonomy DB or at least one lexicon
-        # category is configured. The input_fingerprint captures the
+        # Empty configuration is a materialized decision too: it retires
+        # previous outputs. The input_fingerprint captures the
         # taxonomy + per-category content hashes, so editing one
         # lexicon section forces this stage to re-run on --resume.
-        run_taxa_anat = taxonomy_db is not None or bool(lexicons)
-        if run_taxa_anat:
-            # Build via the shared helper (#56) so the outer per-doc
-            # gate in main.py and this inner per-stage gate stay in
-            # lockstep — same dict shape, same staleness semantics.
-            # ocrlang rides along here too: chunks descend from the OCR,
-            # so a language change invalidates the taxa pulled out of them.
-            taxa_anat_fingerprint = _expected_fingerprints_for_run(
-                config_fingerprints=run_config_fingerprints,
-                metadata_fingerprint=_metadata_fingerprint_for_pdf(
-                    bib_index, pdf_path.name, grobid_context=grobid_context, hash_dir=hash_dir),
-                ocrlang=ocrlang,
-                ocrmode=ocrmode,
-                keeppages=keeppages,
-                taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
-                lexicon_fingerprints=lexicon_fingerprints,
-            ).get("taxa_and_lexicon_extraction", {})
-            if _should_run_stage(
-                "taxa_and_lexicon_extraction",
-                hash_dir=hash_dir,
-                resume=resume,
-                processing_summary=processing_summary,
-                expected_fingerprint=taxa_anat_fingerprint,
-            ):
-                with _stage(processing_summary, "taxa_and_lexicon_extraction",
-                            hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
-                    plog.info("Extracting taxa + lexicon mentions...")
-                    taxa_anat_files = _extract_taxa_and_lexicons(
-                        chunks_file,
-                        hash_dir,
-                        taxonomy_db,
-                        lexicons,
-                        taxonomy_fingerprint=taxonomy_fingerprint,
-                        lexicon_fingerprints=lexicon_fingerprints,
-                    )
-                    processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
-                    if taxa_anat_files:
-                        processing_summary["processing_steps"].append("taxa_and_lexicon_extraction")
+        # Build via the shared helper (#56) so the outer per-doc
+        # gate in main.py and this inner per-stage gate stay in
+        # lockstep — same dict shape, same staleness semantics.
+        # ocrlang rides along here too: chunks descend from the OCR,
+        # so a language change invalidates the taxa pulled out of them.
+        taxa_anat_fingerprint = _expected_fingerprints_for_run(
+            config_fingerprints=run_config_fingerprints,
+            metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                bib_index, pdf_path.name, grobid_context=grobid_context, hash_dir=hash_dir),
+            ocrlang=ocrlang,
+            ocrmode=ocrmode,
+            keeppages=keeppages,
+            taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
+            lexicon_fingerprints=lexicon_fingerprints,
+        ).get("taxa_and_lexicon_extraction", {})
+        if _should_run_stage(
+            "taxa_and_lexicon_extraction",
+            hash_dir=hash_dir,
+            resume=resume,
+            processing_summary=processing_summary,
+            expected_fingerprint=taxa_anat_fingerprint,
+        ):
+            with _stage(processing_summary, "taxa_and_lexicon_extraction",
+                        hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
+                plog.info("Extracting taxa + lexicon mentions...")
+                taxa_anat_files = _extract_taxa_and_lexicons(
+                    chunks_file,
+                    hash_dir,
+                    taxonomy_db,
+                    lexicons,
+                    taxonomy_fingerprint=taxonomy_fingerprint,
+                    lexicon_fingerprints=lexicon_fingerprints,
+                )
+                processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
+                if taxa_anat_files:
+                    processing_summary["processing_steps"].append("taxa_and_lexicon_extraction")
 
         # #188 — with pages dropped, `page` is a position in the subset, and
         # that is the number served to a client. Carry `source_page` beside

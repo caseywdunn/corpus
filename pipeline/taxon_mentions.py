@@ -234,6 +234,14 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
         taxa_path = hash_dir / "taxa.json"
         if not taxa_path.exists():
             if hash_dir.name in known:
+                from .stages import _stage_recorded_complete
+                if _stage_recorded_complete(hash_dir, "taxa_and_lexicon_extraction"):
+                    receipt = json.loads((hash_dir / "annotation_outputs.json").read_text())
+                    if "taxa.json" not in receipt["outputs"]:
+                        conn.execute("DELETE FROM taxon_mentions WHERE corpus_hash=?", (hash_dir.name,))
+                        conn.execute("DELETE FROM papers_processed WHERE corpus_hash=?", (hash_dir.name,))
+                        retired += 1
+                        continue
                 logger.error("Previously indexed taxon evidence is missing: %s", taxa_path)
                 errors += 1
             continue

@@ -135,8 +135,8 @@ def _expected_stages_for_run(
 
     Always includes the core stages (scan_detection, pdf_preparation,
     docling_extraction, metadata_extraction, text_chunking).
-    ``taxa_and_lexicon_extraction`` is added when a taxonomy DB or any
-    lexicon category is configured.
+    Annotation also records the empty configuration so removing its last
+    input retires old outputs instead of skipping them forever.
     """
     stages = [
         "scan_detection",
@@ -148,9 +148,8 @@ def _expected_stages_for_run(
         "figure_crossref",
         "huge_document_check",
         "quality_gates",
+        "taxa_and_lexicon_extraction",
     ]
-    if taxonomy_db is not None or lexicons:
-        stages.append("taxa_and_lexicon_extraction")
     return stages
 
 
@@ -422,8 +421,8 @@ def main():
             sys.exit(1)
 
     # Open taxonomy snapshot and (if supplied) the multi-category
-    # lexicon. Both are optional; missing inputs are logged and their
-    # output artifacts are skipped. The lexicon is opt-in via
+    # lexicon. Both are optional, but a configured unreadable source is
+    # a failure, not permission to retire previous outputs. Lexicon is opt-in via
     # --lexicon — there is no default lookup because it's a
     # domain-specific user input.
     taxonomy_db: Optional[TaxonomyDB] = None
@@ -450,9 +449,10 @@ def main():
                     taxonomy_fingerprint["sha256"][:12],
                 )
             except Exception as e:
-                logger.warning(
+                logger.error(
                     "Could not open taxonomy snapshot %s: %s", taxonomy_path, e,
                 )
+                return 1
         elif args.require_taxonomy and args.dry_run:
             # A dry-run writes nothing, so it cannot produce the empty
             # taxa.json that #139 guards against. On a corpuscle that has
@@ -464,7 +464,7 @@ def main():
                 "builds it on a real run. Continuing the dry-run.",
                 taxonomy_path,
             )
-        elif args.require_taxonomy:
+        elif args.require_taxonomy or args.taxonomy_db is not None:
             # #139 — the corpuscle configures a taxonomy, so a missing
             # snapshot is a hard error rather than a skip. This is the
             # layer where the damage actually happens: the first full
@@ -476,8 +476,8 @@ def main():
             # `python -m pipeline.main` invocations and a snapshot that
             # disappears between the pre-check and the work.
             logger.error(
-                "Taxonomy snapshot %s not found, but this corpuscle "
-                "configures taxonomy.source — refusing to run and silently "
+                "Taxonomy snapshot %s not found, but taxonomy was explicitly "
+                "configured — refusing to run and silently "
                 "produce empty taxa.json for every paper.\n"
                 "  Build it first:  corpus taxonomy ingest --source <dwc|dwca|worms> ...\n"
                 "  WoRMS needs outbound internet: build the snapshot once "
@@ -497,13 +497,7 @@ def main():
 
         if args.lexicon is not None:
             if args.lexicon.exists():
-                # Narrow the swallow: a misshapen lexicon (ValueError from
-                # load_lexicon) is a configuration error the user must fix,
-                # not a transient hiccup. Letting it propagate aborts the
-                # run loudly instead of silently degrading to no-op
-                # annotation across the whole corpus. File-read and
-                # YAML-parse failures stay warn-and-continue (mid-edit
-                # filesystem hiccups, permissions).
+                # Distinguish deliberate removal from an unreadable input.
                 import yaml as _yaml
                 try:
                     lexicons = load_lexicon(args.lexicon)
@@ -515,15 +509,17 @@ def main():
                             "Lexicon[%s] loaded from %s (%d terms, sha256=%s…)",
                             category, args.lexicon, len(section), sha[:12],
                         )
-                except (FileNotFoundError, PermissionError, _yaml.YAMLError) as e:
-                    logger.warning(
+                except (OSError, _yaml.YAMLError) as e:
+                    logger.error(
                         "Could not load lexicon %s: %s", args.lexicon, e,
                     )
+                    return 1
             else:
-                logger.warning(
-                    "Lexicon %s not found — lexicon extraction skipped",
+                logger.error(
+                    "Configured lexicon %s not found — refusing to change annotations",
                     args.lexicon,
                 )
+                return 1
 
     # Vision backend for Pass 3b. Constructed once and reused so the
     # backend can keep long-lived state (API client, loaded model, etc.).

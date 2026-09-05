@@ -224,6 +224,16 @@ taxonomy source. These limits are included in the report's scope.
 Metadata/annotation-only reruns also preserve the existing figure/vision layer;
 the inexpensive figure report is refreshed because it consumes the header.
 
+Annotation has an explicit output-set receipt (`annotation_outputs.json`),
+even when neither taxonomy nor lexicon is enabled. Both resume gates verify
+the receipt and its file digests. Removing a category, emptying its term list,
+or deliberately disabling annotation moves superseded files into per-document
+`annotation_history/`; a verified absent taxonomy output also retires its
+taxon-index rows. A missing configured lexicon/taxonomy source is an error,
+not a request to delete annotations. Legacy annotation stages migrate their
+receipts once without redoing OCR or figure extraction. Neither receipts nor
+annotation history ship in the served bundle.
+
 #### Stage 1 configuration and cache ownership
 
 `pipeline/build_inputs.py` records readable setting values under each stage's

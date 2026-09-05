@@ -7,6 +7,7 @@ exercise that contract directly.
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,14 @@ from pipeline.stages import (
 # ---------------------------------------------------------------------------
 # _record_stage_completion / _load_pipeline_state
 # ---------------------------------------------------------------------------
+
+
+def _annotation_evidence(path):
+    """Valid empty taxon evidence for tests isolating fingerprint comparisons."""
+    raw = b'{"mentions": [], "unique_taxa": 0}'
+    (path / "taxa.json").write_bytes(raw)
+    (path / "annotation_outputs.json").write_text(json.dumps({
+        "version": 1, "outputs": {"taxa.json": hashlib.sha256(raw).hexdigest()}}))
 
 
 def test_record_creates_pipeline_state_file(tmp_path):
@@ -102,6 +111,7 @@ def test_recorded_complete_false_on_fingerprint_mismatch(tmp_path):
 
 
 def test_recorded_complete_true_when_fingerprint_matches(tmp_path):
+    _annotation_evidence(tmp_path)
     fp = {"anatomy": {"sha256": "abc"}}
     _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction",
                              input_fingerprint=fp)
@@ -220,6 +230,7 @@ def test_all_complete_when_core_recorded(tmp_path):
 
 
 def test_all_complete_taxa_required_recorded(tmp_path):
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction")
     assert _all_stage_artifacts_complete(
@@ -386,6 +397,7 @@ def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):
     and let the doc through to the per-stage runner — not silently
     skip it because the stage record exists at the right version.
     """
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     # Recorded fingerprint: taxonomy only (the v0 buggy run).
     recorded_fp = {"taxonomy": {"sha256": "tax_v1"}}
@@ -421,6 +433,7 @@ def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):
 def test_outer_gate_returns_true_when_fingerprint_matches(tmp_path):
     """The mirror image: doc was recorded under the same fingerprint
     we're looking at now → fast-path skip is safe."""
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     fp = {
         "taxonomy": {"sha256": "tax_v1"},
@@ -440,6 +453,7 @@ def test_outer_gate_unaffected_when_no_fingerprint_supplied_for_stage(tmp_path):
     """Backward compatibility: if the caller doesn't supply a
     fingerprint for a stage, that stage is gated only on version
     (the prior behavior)."""
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     _record_stage_completion(
         tmp_path, "taxa_and_lexicon_extraction",

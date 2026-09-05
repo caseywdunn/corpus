@@ -205,7 +205,8 @@ def test_configuration_drift_names_inputs_without_touching_build(corpus):
     assert drift["documents_with_differences"] == 2
     changes = drift["differences"][corpus.hd().name]
     assert changes == {"text_chunking": ["config.chunking.max_tokens"],
-                       "figure_crossref": ["config.chunking.max_tokens"]}
+                       "figure_crossref": ["config.chunking.max_tokens"],
+                       "taxa_and_lexicon_extraction": ["config.chunking.max_tokens"]}
     assert (corpus.hd() / "pipeline_state.json").read_bytes() == state
     corpus.run()
     assert configuration_drift(corpus.output, corpus.config)["documents_with_differences"] == 0

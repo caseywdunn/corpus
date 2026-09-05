@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Annotation output sets are explicit (#174/#265).** Resume verifies file
+  digests and repairs missing/corrupt annotations. Removing or emptying a
+  lexicon category, or disabling annotation, archives its old outputs and
+  retires stale taxon-index rows. Missing configured inputs fail instead of
+  masquerading as deliberate removal. Category names cannot overwrite core
+  evidence files. Legacy annotation receipts migrate once, without OCR work.
+
 - **Status audits current source inputs (#174).** With a config, it reports
   PDF additions/removals, renamed/copied paths, per-paper BibTeX and OCR/page
   directive edits, lexicon changes and built-taxonomy drift alongside the

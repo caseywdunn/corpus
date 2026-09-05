@@ -86,8 +86,6 @@ def configuration_drift(output_dir: Path, config_path: Path):
         records = _load_pipeline_state(hd)["stages"]
         changes = {}
         for stage, settings in expected.items():
-            if stage == "taxa_and_lexicon_extraction" and stage not in records:
-                continue  # Optional annotations aren't part of this audit.
             # Preserve non-config inputs: checking BibTeX/source inventory and
             # annotation evidence is a separate audit, not assumed current.
             record = records.get(stage) or {}
@@ -113,7 +111,7 @@ def source_input_drift(output_dir: Path, config_path: Path):
     from .stages import (_expected_fingerprints_for_run, _file_sha256,
                          _load_pipeline_state, _metadata_fingerprint_for_pdf,
                          _stage_input_changes, _stage_recorded_complete)
-    from .taxa import lexicon_fingerprints
+    from .taxa import lexicon_fingerprints, load_lexicon
 
     config = load_config(config_path)
     def resolved(value):
@@ -124,6 +122,8 @@ def source_input_drift(output_dir: Path, config_path: Path):
     bib_path = resolved(config.get("bib"))
     bib_index = BibIndex.from_path(bib_path) if bib_path else None
     lexicon_path = resolved(config.get("lexicon"))
+    if lexicon_path:
+        load_lexicon(lexicon_path)  # Validate before treating it as current input.
     lexicons = lexicon_fingerprints(lexicon_path) if lexicon_path else {}
     taxonomy_path = output_dir / "taxonomy.sqlite"
     taxonomy = ({"path": str(taxonomy_path), "sha256": _file_sha256(taxonomy_path),
@@ -149,8 +149,6 @@ def source_input_drift(output_dir: Path, config_path: Path):
         records = _load_pipeline_state(hd)["stages"]
         changes = {}
         for stage in expected.keys() | {"taxa_and_lexicon_extraction", "figure_materialization", "figure_crossref"}:
-            if stage == "taxa_and_lexicon_extraction" and not (taxonomy or lexicons or stage in records):
-                continue
             old = (records.get(stage) or {}).get("input_fingerprint") or {}
             fp = {k: v for k, v in old.items() if k not in consumed}
             fp.update(expected.get(stage, {}))

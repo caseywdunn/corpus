@@ -335,8 +335,12 @@ can answer which evidence and rule produced it.
   persisted outcomes without probing the service.
   **Still open:** automatic custom-model provenance beyond reported service
   versions/operator-declared IDs (including vision); upstream taxonomy-source
-  refresh (distinct from the built snapshot), annotation retirement when
-  configuration is removed; and whole-build clean/incremental acceptance. The
+  refresh (distinct from the built snapshot); and whole-build
+  clean/incremental acceptance. Annotation now records its complete output set,
+  including deliberate absence; removed categories/taxonomy artifacts are
+  archived, stale taxon-index rows are retired, and missing/corrupted outputs
+  force repair. Unreadable configured annotation sources abort rather than
+  being mistaken for removals. The
   `chunking.max_tokens` setting controls the fallback path, not HybridChunker's
   tokenizer/limit. #174 is not complete yet. Stable details and limitations
   live in OVERVIEW's **Stage 1 configuration and cache ownership**.

@@ -248,6 +248,10 @@ def _stage_recorded_complete(
     if expected_fingerprint is not None:
         if rec.get("input_fingerprint") != expected_fingerprint:
             return False
+    if stage_name == "taxa_and_lexicon_extraction":
+        from .annotate import annotation_outputs_problem
+        if annotation_outputs_problem(hash_dir) is not None:
+            return False
     return True
 
 
@@ -300,8 +304,14 @@ def _stage_input_changes(hash_dir, stage_name, expected_fingerprint):
 
     old = flatten(record.get("input_fingerprint") or {})
     new = flatten(expected_fingerprint or {})
-    return sorted(key for key in old.keys() | new.keys()
-                  if key not in old or key not in new or old[key] != new[key]) or ["completion record"]
+    changes = sorted(key for key in old.keys() | new.keys()
+                     if key not in old or key not in new or old[key] != new[key])
+    if not changes and stage_name == "taxa_and_lexicon_extraction":
+        from .annotate import annotation_outputs_problem
+        problem = annotation_outputs_problem(hash_dir)
+        if problem:
+            return [problem]
+    return changes or ["completion record"]
 
 
 # Every resumable stage that descends from `processed.pdf`, and so is
