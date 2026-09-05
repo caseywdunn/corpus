@@ -171,7 +171,7 @@ timestamps are provenance, not semantic differences.
 | Change | Required invalidation / replacement | Current coverage |
 |---|---|---|
 | Add a PDF | Build the new hash; refresh cross-paper materializations and bundle | Existing implicit-add path; Stage 2 preserves other hashes |
-| Remove a PDF | Prune its derived directory and vector rows; remove current cross-paper and served references | Build pruning exists with a safety threshold; end-to-end clean/incremental deletion gate still pending |
+| Remove a PDF | Retire its derived directory and vector rows; remove current cross-paper and served references | Strict source inventory, recoverable retirement, current bibliography/taxon-index pruning and fresh bundle replacement; real-vector clean/incremental deletion regression tested |
 | Change PDF bytes | Treat as an addition plus removal of the old hash if no other source path retains it | Same rules as above |
 | Same hash, changed chunks or embedded metadata | Replace that document's vector rows; publish a new receipt after commit | Implemented and tested in Stage 2 (#271) |
 | Rename or change BibTeX | Refresh consumed paths/metadata and their descendants; leave unrelated artifacts alone | Resolved per-paper entries (including absence) and basenames fingerprint metadata; source-path inventory refreshes even when extraction skips; Stage 2 notices the changed metadata/paths (#174) |
@@ -182,7 +182,28 @@ These are **single-writer build directories**. Parallel extraction workers may
 own disjoint hashes, but do not overlap embedding/bundling with edits to their
 inputs, another embedding writer, or an update of the producer checkout. Use a
 separate build and served directory for release candidates. Per-document vector
-transactions do not make the complete corpus build or bundle copy atomic.
+transactions do not make the complete corpus build atomic. Bundling assembles
+and audits a fresh sibling directory before replacing the destination; a
+failed copy leaves the previous destination untouched. Replacement is an
+offline operation, not a live-server hot-swap protocol: stop serving during
+publication and restart afterward. Rebuilding a bundle copies its complete
+served content; it does not reuse files based on timestamps.
+
+Source retirement requires a complete, readable inventory and excludes the
+build subtree even when the source root contains it. `--force-prune` bypasses
+the percentage safety rail, **not** unreadable/missing-source errors or failed
+vector cleanup. Retired document artifacts and their embedding receipts remain
+under `<output_dir>/.retired/documents-*`; historical reference observations
+remain in the bibliography DB but no longer form current edges. Taxon-index
+receipts compare content digests and retire missing document members, never
+infer unchanged evidence from timestamps. A malformed replacement fails the
+post phase without deleting the previously indexed evidence.
+
+Previous bundles are retained beside the destination as
+`.<bundle-name>-previous-*/bundle`, and failed staging trees as
+`.<bundle-name>-staging-*`. Budget space for a complete additional bundle plus
+retained generations; inspect and explicitly remove old generations when no
+longer needed. These archives are never part of the active served bundle.
 The remaining rows above are release gates, not claims that all update classes
 already converge. Metadata fingerprints use canonical JSON of the resolved
 BibTeX entry, never a digest of the whole bibliography. Filename is a separate

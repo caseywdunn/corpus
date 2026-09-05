@@ -1284,7 +1284,8 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
                 count, refreshed,
             )
 
-    for sha, work_id in conn.execute("SELECT corpus_hash, work_id FROM work_documents").fetchall():
+    from .documents import work_map
+    for sha, work_id in work_map(conn).items():
         if sha not in present:
             conn.execute("DELETE FROM work_documents WHERE corpus_hash=?", (sha,))
             conn.execute("DELETE FROM paper_artifacts_processed WHERE corpus_hash=?", (sha,))

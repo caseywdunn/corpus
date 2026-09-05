@@ -296,6 +296,14 @@ can answer which evidence and rule produced it.
   replaced and what is pruned.
   The normative contract and explicit coverage gaps now live in OVERVIEW's
   **Corpuscle update contract**. Full implementation/acceptance remains open.
+  Source retirement now requires a complete readable inventory, excludes the
+  build subtree, aborts on vector-prune failure, and archives removed document
+  artifacts. Bibliography membership/current edges and taxon indexes retire
+  removed members; taxon refresh uses content digests, not mtimes. A real-vector
+  regression compares citation mappings, taxon rows, logical vectors and served
+  document inventories with a clean build after removal. Bundle replacement
+  assembles a fresh audited tree, preserving the old generation on copy failure
+  and removing obsolete optional files. Full gold update acceptance remains.
 - [ ] **Extend input fingerprints**
   ([#174](https://github.com/caseywdunn/corpus/issues/174)) to every input that
   can change an artifact, including the relevant bib fields, filename and

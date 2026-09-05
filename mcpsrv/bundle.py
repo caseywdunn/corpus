@@ -563,7 +563,15 @@ def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
 
 def package(output_dir: Path, serve_dir: Path, version: str,
             include_pdfs: bool, dry_run: bool) -> Dict:
-    """Copy the served bundle and return the manifest dict."""
+    """Build a fresh bundle, then replace the destination without stale files.
+
+    A failed copy/audit leaves the previous bundle untouched. Publication is
+    an offline, single-writer operation, not a live-server hot-swap protocol.
+    Superseded bundles and failed staging trees remain recoverable siblings.
+    """
+    output_dir, serve_dir = output_dir.resolve(), serve_dir.resolve()
+    if output_dir.is_relative_to(serve_dir) or serve_dir.is_relative_to(output_dir / "documents"):
+        raise ValueError("Served destination must not replace the build or its document artifacts")
     documents_dir = output_dir / "documents"
     if not documents_dir.is_dir():
         raise FileNotFoundError(
@@ -578,8 +586,40 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         raise ValueError("Build has no verified embedding model but the destination "
                          "contains an index. Use a fresh served directory.")
 
+    if dry_run:
+        return _populate_bundle(output_dir, serve_dir, version, include_pdfs, True, model, dim)
+    if serve_dir.exists() and any(serve_dir.iterdir()) and not (serve_dir / "bundle_manifest.json").is_file():
+        raise ValueError("Refusing to replace a nonempty directory without a bundle manifest")
+    import tempfile
+    serve_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{serve_dir.name}-staging-", dir=serve_dir.parent))
+    try:
+        manifest = _populate_bundle(output_dir, staging, version, include_pdfs, False, model, dim)
+    except Exception:
+        logger.error("Bundle failed; previous destination unchanged. Staging retained at %s", staging)
+        raise
+    previous = None
+    if serve_dir.exists():
+        archive = Path(tempfile.mkdtemp(prefix=f".{serve_dir.name}-previous-", dir=serve_dir.parent))
+        previous = archive / "bundle"
+        serve_dir.rename(previous)
+    try:
+        staging.rename(serve_dir)
+    except Exception:
+        if previous is not None:
+            previous.rename(serve_dir)
+        raise
+    if previous is not None:
+        logger.info("Previous served bundle retained at %s", previous)
+    return manifest
+
+
+def _populate_bundle(output_dir, serve_dir, version, include_pdfs, dry_run, model, dim):
+    """Populate an empty staging tree; caller owns validation/publication."""
+    documents_dir = output_dir / "documents"
+
     if not dry_run:
-        serve_dir.mkdir(parents=True, exist_ok=True)
+        (serve_dir / "documents").mkdir(parents=True, exist_ok=True)
 
     # #54 — load the set of hashes flagged works.serve = 0 in
     # biblio_authority.sqlite. These papers stay in the build bundle
@@ -591,26 +631,6 @@ def package(output_dir: Path, serve_dir: Path, version: str,
             "Skip flag: %d paper(s) marked works.serve = 0 will be "
             "excluded from the served bundle (#54)", len(skipped_hashes),
         )
-
-    # #54 follow-up: re-distillation must prune any per-paper directory
-    # that was copied previously but is now in skipped_hashes. Without
-    # this, flipping `serve = false` and re-running `corpus run` would
-    # leave the prior copy in serve_dir.
-    if skipped_hashes and not dry_run:
-        serve_documents_dir = serve_dir / "documents"
-        if serve_documents_dir.is_dir():
-            n_pruned = 0
-            import shutil
-            for h in skipped_hashes:
-                stale = serve_documents_dir / h
-                if stale.is_dir():
-                    shutil.rmtree(stale)
-                    n_pruned += 1
-            if n_pruned:
-                logger.info(
-                    "Pruned %d stale per-paper dir(s) from serve_dir "
-                    "(now flagged works.serve = 0; #54)", n_pruned,
-                )
 
     # Per-paper files + figures/
     n_papers = 0

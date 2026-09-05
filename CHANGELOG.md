@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Source retirement and bundle replacement preserve update integrity
+  (#265).** Incomplete source inventories and failed vector pruning abort
+  updates. Removed documents are archived outside the active tree, bibliography
+  and taxon indexes drop their current edges, and taxon refresh compares content
+  digests. Bundles are assembled and audited in a fresh directory before
+  offline replacement, so stale PDFs, annotations and vector generations cannot
+  leak forward. Previous bundles remain recoverable; staging requires space
+  for a complete additional served bundle.
+
 - **Reference evidence is now independent of canonical works (#240,
   deterministic core).** Every bibliography occurrence is retained as a
   content-addressed, append-only observation; replaceable source-set pointers

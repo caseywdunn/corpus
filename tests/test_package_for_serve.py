@@ -160,8 +160,7 @@ def test_package_dry_run_writes_nothing(tmp_path: Path):
 
 
 def test_package_is_idempotent(tmp_path: Path):
-    """Second run should be a near no-op: the mtime check skips
-    unchanged files."""
+    """Fresh staging reproduces the same served evidence on a second run."""
     src = _make_fake_output(tmp_path / "out")
     dst = tmp_path / "serve"
     first = pkg.package(
@@ -170,16 +169,17 @@ def test_package_is_idempotent(tmp_path: Path):
     )
     n1 = first["_stats"]["n_files_copied"]
     assert n1 > 0
+    evidence = {p.relative_to(dst): p.read_bytes() for p in dst.rglob("*")
+                if p.is_file() and p.name != "bundle_manifest.json"}
 
     second = pkg.package(
         output_dir=src, serve_dir=dst,
         version="v1.0.0", include_pdfs=False, dry_run=False,
     )
     n2 = second["_stats"]["n_files_copied"]
-    # Manifest always rewrites; the rest should be skipped.  Allow a
-    # small slop (<=1 file = manifest) for implementations that touch
-    # the manifest.  Everything else should be mtime-skipped.
-    assert n2 <= 1, f"idempotent run copied {n2} files"
+    assert n2 == n1
+    assert {p.relative_to(dst): p.read_bytes() for p in dst.rglob("*")
+            if p.is_file() and p.name != "bundle_manifest.json"} == evidence
 
 
 def test_package_raises_when_documents_missing(tmp_path: Path):

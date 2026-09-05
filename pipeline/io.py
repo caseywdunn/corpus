@@ -52,6 +52,8 @@ def short_hash(full_hash: str) -> str:
 def find_all_pdfs(
     input_dir: Path,
     exclude_under: Optional[Path] = None,
+    *,
+    strict: bool = False,
 ) -> Dict[str, List[Path]]:
     """Recursively find all PDFs under ``input_dir`` and group by full SHA-256.
 
@@ -65,11 +67,33 @@ def find_all_pdfs(
     each per-paper ``documents/<HASH>/processed.pdf`` is a different PDF
     (OCR adds a text layer) and would otherwise be ingested as a new
     document on every re-run, doubling the corpus.
+
+    ``strict`` raises on missing/unreadable directories or PDFs. Retirement
+    must use it: a partial inventory cannot prove a source was removed.
     """
     excl = exclude_under.resolve() if exclude_under is not None else None
+    if strict and not input_dir.is_dir():
+        raise RuntimeError(f"Cannot inventory missing input directory: {input_dir}")
+
+    def scan_error(error):
+        if strict:
+            raise RuntimeError(f"Cannot inventory all source PDFs: {error}") from error
+        logger.warning("Cannot scan source directory: %s", error)
+
+    def candidates():
+        for root, dirs, files in os.walk(input_dir, onerror=scan_error):
+            if excl is not None:
+                dirs[:] = [d for d in dirs if not (Path(root) / d).resolve().is_relative_to(excl)]
+            dirs.sort()
+            for name in sorted(files):
+                if name.endswith(".pdf"):
+                    yield Path(root) / name
+
     pdf_map: Dict[str, List[Path]] = {}
-    for pdf_path in input_dir.rglob("*.pdf"):
+    for pdf_path in candidates():
         if not pdf_path.is_file():
+            if strict:
+                raise RuntimeError(f"Cannot inventory source PDF: {pdf_path}")
             continue
         if excl is not None:
             try:
@@ -81,6 +105,8 @@ def find_all_pdfs(
             full_hash = calculate_pdf_hash(pdf_path)
             pdf_map.setdefault(full_hash, []).append(pdf_path)
         except Exception as e:
+            if strict:
+                raise RuntimeError(f"Cannot hash source PDF {pdf_path}: {e}") from e
             logger.warning("Could not hash %s: %s", pdf_path, e)
     return pdf_map
 
@@ -93,7 +119,7 @@ def prune_orphans(
     force: bool = False,
     safety_pct: float = 0.25,
 ) -> dict:
-    """Delete orphaned ``documents/<HASH>/`` dirs + LanceDB rows (#66).
+    """Retire orphaned document directories and remove vector rows (#265).
 
     An orphan is a hash directory whose source PDF is no longer in the
     configured input set, or a vector-index row whose hash no longer
@@ -104,14 +130,14 @@ def prune_orphans(
     unmounted volume). ``force=True`` bypasses the rail.
 
     Returns a dict ``{doc_pruned, vec_pruned, doc_total, would_remove}``.
-    With ``dry_run=True`` nothing is removed; the same dict reports the
+    With ``dry_run=True`` nothing is moved; the same dict reports the
     counts that *would* have been removed.
     """
     documents_dir = output_dir / "documents"
     if not documents_dir.is_dir():
         return {"doc_pruned": 0, "vec_pruned": 0, "doc_total": 0, "would_remove": []}
 
-    input_pdf_map = find_all_pdfs(input_dir)
+    input_pdf_map = find_all_pdfs(input_dir, exclude_under=output_dir, strict=True)
     input_hashes = {short_hash(h) for h in input_pdf_map}
     doc_hashes = {p.name for p in sorted(documents_dir.iterdir()) if p.is_dir()}
     doc_orphans = sorted(doc_hashes - input_hashes)
@@ -131,14 +157,8 @@ def prune_orphans(
     n_vec_pruned = 0
     n_doc_pruned = 0
     if not dry_run:
-        # 1. Remove document directories (recursive — chunks.json,
-        #    figures/, summary.json, all of it).
-        import shutil
-        for h in doc_orphans:
-            shutil.rmtree(documents_dir / h, ignore_errors=False)
-            n_doc_pruned += 1
-
-        # 2. Drop LanceDB rows whose hash is no longer in doc_hashes.
+        # First drop stale vectors. Failure aborts before retiring documents;
+        # never publish an apparently successful run with stale search rows.
         # Schema: pipeline/embed.py:ChunkMetadata stores the hash as
         # ``metadata.pdf_hash`` (nested), not a flat ``hash`` column.
         # The LanceDB tables live under ``vector_db/lancedb/`` —
@@ -154,17 +174,29 @@ def prune_orphans(
                     surviving_hashes = doc_hashes - set(doc_orphans)
                     if surviving_hashes:
                         before = table.count_rows()
-                        in_clause = ", ".join(f"'{h}'" for h in surviving_hashes)
+                        in_clause = ", ".join("'" + h.replace("'", "''") + "'" for h in surviving_hashes)
                         table.delete(f"metadata.pdf_hash NOT IN ({in_clause})")
                         n_vec_pruned = before - table.count_rows()
                     else:
                         # No surviving docs — drop the whole table.
                         n_vec_pruned = table.count_rows()
                         db.drop_table("document_chunks")
-            except ImportError:
-                logger.info("lancedb not importable; skipping vector-index prune")
             except Exception as e:
-                logger.warning("Could not prune LanceDB: %s", e)
+                raise RuntimeError(f"Could not prune LanceDB; update aborted: {e}") from e
+        # Keep superseded extraction evidence recoverable, outside the active
+        # documents tree. The output exclusion above also excludes this archive.
+        if doc_orphans:
+            import tempfile
+            retired_root = output_dir / ".retired"
+            retired_root.mkdir(exist_ok=True)
+            archive = Path(tempfile.mkdtemp(prefix="documents-", dir=retired_root))
+            for h in doc_orphans:
+                (documents_dir / h).rename(archive / h)
+                marker = output_dir / "vector_db" / f"{h}_embedded.done"
+                if marker.exists():
+                    marker.rename(archive / f"{h}_embedded.done")
+                n_doc_pruned += 1
+            logger.warning("Retired %d documents to %s (recoverable)", n_doc_pruned, archive)
     else:
         n_doc_pruned = len(doc_orphans)
 
@@ -196,7 +228,7 @@ def audit_orphans(input_dir: Path, output_dir: Path) -> int:
         return 0
 
     logger.info("Hashing input PDFs under %s …", input_dir)
-    input_pdf_map = find_all_pdfs(input_dir)
+    input_pdf_map = find_all_pdfs(input_dir, exclude_under=output_dir, strict=True)
     input_hashes = {short_hash(h) for h in input_pdf_map}
     logger.info("Found %d unique input PDFs", len(input_hashes))
 

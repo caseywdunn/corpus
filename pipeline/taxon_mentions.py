@@ -27,6 +27,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
@@ -68,8 +69,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
 
         -- Per-paper processing status for resumability.
         -- ``source_mtime`` is the mtime of taxa.json at the time we
-        -- ingested it; on subsequent passes we re-ingest if the file
-        -- on disk is newer (auto-reconcile after per-paper re-runs).
+        -- ingested it (diagnostic only). source_sha256 owns freshness.
         -- ``taxonomy_sha`` is the sha256 of the taxonomy.sqlite that
         -- the ingested taxa.json was resolved against, read from the
         -- paper's taxa-stage fingerprint (#95). mtime is unreliable
@@ -82,7 +82,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
             n_unique_taxa  INTEGER NOT NULL,
             processed_at   REAL NOT NULL,
             source_mtime   REAL,
-            taxonomy_sha   TEXT
+            taxonomy_sha   TEXT,
+            source_sha256  TEXT
         );
 
         CREATE TABLE IF NOT EXISTS build_meta (
@@ -113,6 +114,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
     # aware pass re-ingests them once.
     if "taxonomy_sha" not in have_cols:
         conn.execute("ALTER TABLE papers_processed ADD COLUMN taxonomy_sha TEXT")
+    if "source_sha256" not in have_cols:
+        conn.execute("ALTER TABLE papers_processed ADD COLUMN source_sha256 TEXT")
     conn.commit()
 
 
@@ -195,7 +198,7 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
     docs_dir = output_dir / "documents"
     if not docs_dir.is_dir():
         logger.error("Documents directory not found: %s", docs_dir)
-        return {"papers": 0, "mentions": 0, "errors": 0}
+        return {"papers": 0, "mentions": 0, "errors": 1}
 
     total_papers = 0
     total_mentions = 0
@@ -204,6 +207,13 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
     errors = 0
     lagging = 0
     batch = 0
+    present = {p.name for p in docs_dir.iterdir() if p.is_dir()}
+    retired = 0
+    known = {r[0] for r in conn.execute("SELECT corpus_hash FROM papers_processed UNION SELECT corpus_hash FROM taxon_mentions")}
+    for sha in known - present:
+        conn.execute("DELETE FROM taxon_mentions WHERE corpus_hash=?", (sha,))
+        conn.execute("DELETE FROM papers_processed WHERE corpus_hash=?", (sha,))
+        retired += 1
 
     # #95 — hash the current taxonomy.sqlite once so we can flag papers
     # whose taxa.json was built against an older backbone (an operator
@@ -223,18 +233,21 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
             continue
         taxa_path = hash_dir / "taxa.json"
         if not taxa_path.exists():
+            if hash_dir.name in known:
+                logger.error("Previously indexed taxon evidence is missing: %s", taxa_path)
+                errors += 1
             continue
 
         corpus_hash = hash_dir.name
 
-        # Staleness check: keep the prior row when the source artifact
-        # hasn't changed since we last ingested it; re-ingest otherwise.
-        # Older DBs may have NULL ``source_mtime`` — treat that as
-        # "ingested at unknown time" so the next pass refreshes them
-        # rather than silently skipping forever.
+        # Parse before replacing anything: a corrupt update must not erase
+        # the last index, and must prevent successful publication.
         try:
             current_mtime = taxa_path.stat().st_mtime
-        except OSError as e:
+            raw = taxa_path.read_bytes()
+            taxa_data = json.loads(raw)
+            source_sha = hashlib.sha256(raw).hexdigest()
+        except (OSError, ValueError) as e:
             logger.warning("Skipping %s: %s", taxa_path, e)
             errors += 1
             continue
@@ -250,23 +263,18 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
             lagging += 1
 
         cur = conn.execute(
-            "SELECT source_mtime, taxonomy_sha FROM papers_processed "
+            "SELECT source_sha256, taxonomy_sha FROM papers_processed "
             "WHERE corpus_hash = ?",
             (corpus_hash,),
         )
         row = cur.fetchone()
         is_refresh = False
         if row is not None:
-            stored_mtime, stored_taxo_sha = row
-            mtime_fresh = stored_mtime is not None and stored_mtime >= current_mtime
-            # Skip only when BOTH signals say "unchanged": taxa.json is
-            # no newer than our last ingest AND the recorded backbone is
-            # the same one we ingested against. A changed backbone forces
-            # a re-ingest even when mtime looks fresh (#95 — the
-            # cross-component case mtime alone misses on HPC nodes with
-            # skewed clocks).
+            stored_sha, stored_taxo_sha = row
+            # Content and producer evidence, not clocks, own freshness.
+            # Legacy NULL digests migrate once on normal ingest (#265).
             taxo_unchanged = paper_taxo_sha == stored_taxo_sha
-            if mtime_fresh and taxo_unchanged:
+            if source_sha == stored_sha and taxo_unchanged:
                 skipped += 1
                 continue
             is_refresh = True
@@ -278,23 +286,16 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
                 (corpus_hash,),
             )
 
-        try:
-            taxa_data = json.loads(taxa_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Skipping %s: %s", taxa_path, e)
-            errors += 1
-            continue
-
         n_mentions = ingest_paper(conn, corpus_hash, taxa_data)
         n_unique = taxa_data.get("unique_taxa", 0)
 
         conn.execute(
             """INSERT OR REPLACE INTO papers_processed
                (corpus_hash, n_mentions, n_unique_taxa, processed_at,
-                source_mtime, taxonomy_sha)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+                source_mtime, taxonomy_sha, source_sha256)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (corpus_hash, n_mentions, n_unique, time.time(), current_mtime,
-             paper_taxo_sha),
+             paper_taxo_sha, source_sha),
         )
 
         total_papers += 1
@@ -330,6 +331,7 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
         "refreshed": refreshed,
         "errors": errors,
         "lagging": lagging,
+        "retired": retired,
     }
 
 
@@ -449,7 +451,7 @@ def main() -> int:
         logger.info("═══ Summary ═══")
         write_stats(conn)
 
-        return 0
+        return 1 if stats["errors"] else 0
     finally:
         conn.close()
 

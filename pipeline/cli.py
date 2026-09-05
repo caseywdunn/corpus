@@ -299,7 +299,11 @@ def _prune_orphans(
 
     if args.no_prune:
         # Read-only audit (matches #31 behavior).
-        n = audit_orphans(input_dir, output_dir)
+        try:
+            n = audit_orphans(input_dir, output_dir)
+        except RuntimeError as e:
+            print_status(str(e), status="fail")
+            return EXIT_PRECONDITION
         print_status(f"--no-prune: audit reported {n} orphan(s)", status="info")
         return EXIT_OK
 
@@ -327,7 +331,8 @@ def _prune_orphans(
         if result["doc_pruned"]:
             print_status(
                 f"pruned {result['doc_pruned']} of {result['doc_total']} "
-                f"orphan hash dir(s) + {result['vec_pruned']} LanceDB row(s)",
+                f"orphan hash dir(s) + {result['vec_pruned']} LanceDB row(s); "
+                f"document artifacts retained in {output_dir / '.retired'}",
                 status="warn",
             )
     return EXIT_OK
