@@ -22,6 +22,7 @@ from typing import Dict, List, Optional
 from bib import bib_entry_to_metadata
 
 from . import stamp_artifact
+from . import external
 from .config import CONFIG
 from .stages import _file_sha256
 from .version import __version__
@@ -31,6 +32,7 @@ from .grobid_client import (
     parse_tei_header,
     parse_tei_intext_citations,
     parse_tei_references,
+    validate_fulltext_tei,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,7 @@ def _write_placeholder_metadata(
     metadata_output: Path,
     references_output: Path,
     original_filename: Optional[str] = None,
+    grobid_result: Optional[Dict] = None,
 ):
     """Write empty-but-valid metadata.json and references.json.
 
@@ -89,12 +92,27 @@ def _write_placeholder_metadata(
         "abstract": "",
         "extraction_method": "placeholder",
     }
+    if grobid_result is not None:
+        placeholder["grobid"] = grobid_result
     with open(metadata_output, "w", encoding="utf-8") as f:
         json.dump(stamp_artifact(placeholder), f, indent=2, ensure_ascii=False)
     with open(references_output, "w", encoding="utf-8") as f:
         json.dump(stamp_artifact({"references": [], "total_references": 0}), f, indent=2)
     with open(metadata_output.parent / "intext_citations.json", "w", encoding="utf-8") as f:
         json.dump(stamp_artifact({"paragraphs": [], "citations": []}), f, indent=2)
+
+
+def _archive_tei(tei_output: Path, receipt_path: Path, hash_dir: Path):
+    """Keep superseded evidence out of the active post-processing path."""
+    if not tei_output.exists():
+        return
+    history = hash_dir / "metadata_cache_history"
+    history.mkdir(exist_ok=True)
+    archive_id = uuid.uuid4().hex
+    tei_output.rename(history / f"{archive_id}-{tei_output.name}")
+    if receipt_path.exists():
+        receipt_path.rename(history / f"{archive_id}-{receipt_path.name}")
+    logger.info("Archived disabled/unverified/stale Grobid cache under %s", history)
 
 
 def extract_metadata(
@@ -105,15 +123,16 @@ def extract_metadata(
     grobid_client: Optional[GrobidClient] = None,
     original_filename: Optional[str] = None,
     bib_entry: Optional[Dict] = None,
+    grobid_input: Optional[Dict] = None,
 ):
     """Extract bibliographic metadata + references via Grobid.
 
     Runs ``/api/processFulltextDocument`` once, caches the raw TEI-XML at
     ``tei_output`` (if given), and parses it into ``metadata.json`` plus
     ``references.json``. If Grobid is unreachable or any step fails, falls
-    back to placeholder files so downstream stages still run — the caller
-    can inspect ``metadata["extraction_method"]`` to tell which path was
-    taken.
+    back to placeholder files so downstream stages still run. Returns a Grobid
+    outcome and actual input receipt, also saved in ``metadata["grobid"]``.
+    ``extraction_method=bib`` alone cannot prove that references were extracted.
 
     When ``bib_entry`` is supplied (a parsed BibTeX record matched to this
     PDF by filename), its title/authors/year/journal/DOI override the
@@ -137,8 +156,12 @@ def extract_metadata(
         Unverified/stale files are archived out of the active path. If None, defaults to
         ``<metadata_output.parent>/grobid.tei.xml``.
     grobid_client:
-        A live :class:`GrobidClient`, or None to skip Grobid entirely
-        (placeholder-only mode).
+        A live :class:`GrobidClient`, or None when disabled/unavailable.
+    grobid_input:
+        Expected capability/version from the shared resume resolver. With an
+        enabled expectation and no client, verified TEI may still be reused.
+        Direct calls without this argument treat no client as deliberate
+        disablement, not as a transient outage.
     bib_entry:
         Parsed BibTeX entry from :class:`bib.BibIndex`. When
         present, overrides Grobid's header parse for this document.
@@ -155,39 +178,43 @@ def extract_metadata(
 
     tei_xml: Optional[str] = None
     _g = CONFIG.get("grobid", {})
+    if grobid_input is None:
+        grobid_input = {"status": "complete" if grobid_client is not None else "disabled",
+                        "service_version": None}
+    enabled = grobid_input["status"] != "disabled"
+    outcome = "unavailable" if enabled else "disabled"
+    parse_failed = False
     tei_inputs = {
         "pdf_sha256": _file_sha256(pdf_path),
         "consolidate_header": int(_g.get("consolidate_header", 1)),
         "consolidate_citations": int(_g.get("consolidate_citations", 0)),
         "pipeline_version": __version__,
+        "service_version": grobid_input.get("service_version"),
+        "producer_id": _g.get("producer_id"),
     }
     receipt_path = tei_output.with_suffix(tei_output.suffix + ".provenance.json")
 
     # 1. Verify the cached payload as well as its inputs. Merely rerunning the
     # stage cannot fix an obsolete TEI cache after re-OCR or consolidation edits.
-    if tei_output.exists() and tei_output.stat().st_size > 0:
+    if enabled and tei_output.exists() and tei_output.stat().st_size > 0:
         try:
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             cached = tei_output.read_text(encoding="utf-8")
             if (receipt.get("inputs") == tei_inputs
                     and receipt.get("tei_sha256") == hashlib.sha256(cached.encode("utf-8")).hexdigest()):
+                validate_fulltext_tei(cached)
                 tei_xml = cached
+                outcome = "cached"
                 logger.info("Reusing verified Grobid TEI at %s", tei_output)
-        except (OSError, ValueError, AttributeError):
+        except (OSError, ValueError, AttributeError, RuntimeError):
             pass
     if tei_output.exists() and tei_xml is None:
         # Post-processing reads the active TEI directly; leaving a stale file
         # here would resurrect its citations even after placeholder fallback.
-        history = hash_dir / "metadata_cache_history"
-        history.mkdir(exist_ok=True)
-        archive_id = uuid.uuid4().hex
-        tei_output.rename(history / f"{archive_id}-{tei_output.name}")
-        if receipt_path.exists():
-            receipt_path.rename(history / f"{archive_id}-{receipt_path.name}")
-        logger.info("Archived unverified/stale Grobid cache under %s", history)
+        _archive_tei(tei_output, receipt_path, hash_dir)
 
     # 2. Otherwise, call Grobid if a client is available.
-    if tei_xml is None and grobid_client is not None:
+    if enabled and tei_xml is None and grobid_client is not None:
         try:
             logger.info("Calling Grobid on %s ...", pdf_path.name)
             tei_xml = grobid_client.process_fulltext(
@@ -195,6 +222,7 @@ def extract_metadata(
                 consolidate_header=int(_g.get("consolidate_header", 1)),
                 consolidate_citations=int(_g.get("consolidate_citations", 0)),
             )
+            validate_fulltext_tei(tei_xml)
             tei_output.write_text(tei_xml, encoding="utf-8")
             receipt = {"inputs": tei_inputs,
                        "tei_sha256": hashlib.sha256(tei_xml.encode("utf-8")).hexdigest()}
@@ -205,9 +233,14 @@ def extract_metadata(
             finally:
                 temporary.unlink(missing_ok=True)
             logger.info("Wrote Grobid TEI to %s", tei_output)
-        except GrobidUnavailableError as e:
-            logger.warning("Grobid unavailable, using placeholder: %s", e)
+            outcome = "extracted"
         except Exception as e:
+            if external.STRICT_NETWORK and (isinstance(e, GrobidUnavailableError)
+                                            or external.is_transient(e.__cause__ or e)):
+                raise
+            tei_xml = None
+            outcome = "request_failed"
+            _archive_tei(tei_output, receipt_path, hash_dir)
             logger.warning("Grobid call failed on %s: %s", pdf_path.name, e)
 
     # 3. Parse references from TEI if available — independent of which
@@ -221,12 +254,14 @@ def extract_metadata(
             refs = parse_tei_references(tei_xml)
             refs_parsed = True
         except Exception as e:
+            parse_failed = True
             logger.warning("Failed to parse Grobid TEI references (%s)", e)
         # In-text citation graph (issue #7).  Independent of refs parse —
         # we want partial recovery when one fails and the other doesn't.
         try:
             intext = parse_tei_intext_citations(tei_xml)
         except Exception as e:
+            parse_failed = True
             logger.warning("Failed to parse Grobid TEI in-text citations (%s)", e)
 
     # 4. Build the header. Bib record wins if present; otherwise Grobid's
@@ -263,14 +298,25 @@ def extract_metadata(
             else:
                 header["year_source"] = "grobid"
         except Exception as e:
+            parse_failed = True
             logger.warning(
                 "Failed to parse Grobid TEI header (%s); writing placeholder", e
             )
             header = None
 
+    if parse_failed:
+        outcome = "parse_failed"
+        _archive_tei(tei_output, receipt_path, hash_dir)
+    complete = tei_xml is not None and not parse_failed
+    result = {"outcome": outcome,
+              "producer_id": _g.get("producer_id"),
+              "fingerprint": {"status": "complete" if complete else ("unavailable" if enabled else "disabled"),
+                              "service_version": grobid_input.get("service_version")}}
+
     # 5. Write outputs. If we got a header, write it + the reference list
     # (which may be empty if Grobid was unavailable). Otherwise placeholder.
     if header is not None:
+        header["grobid"] = result
         with open(metadata_output, "w", encoding="utf-8") as f:
             json.dump(stamp_artifact(header), f, indent=2, ensure_ascii=False)
         with open(references_output, "w", encoding="utf-8") as f:
@@ -292,10 +338,12 @@ def extract_metadata(
             refs_parsed,
             len(intext["citations"]),
         )
-        return
+        return result
 
     # 6. Placeholder path.
     _write_placeholder_metadata(
         pdf_path, metadata_output, references_output,
         original_filename=effective_filename,
+        grobid_result=result,
     )
+    return result

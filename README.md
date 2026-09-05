@@ -503,6 +503,14 @@ see the [update contract](dev_docs/OVERVIEW.md#corpuscle-update-contract) for
 supported behavior and remaining gaps. Do not run concurrent updates against
 the same build directory.
 
+Grobid outages do not discard verified cached metadata. Papers with incomplete
+Grobid extraction retry when the service returns; `corpus status` reports those
+outcomes even when curated BibTeX supplied their headers. Deliberately setting
+`grobid.disable: true` (or `--no-grobid` on the extraction command) instead
+archives active TEI and removes Grobid-derived data on metadata refresh.
+Reenabling regenerates it. See the [recovery contract](dev_docs/OVERVIEW.md#grobid-capability-and-recovery)
+for service/model provenance and legacy-cache migration.
+
 ## Curating bibliographic metadata
 
 To update the library's source of truth, edit the `.bib` selected by `bib:` in

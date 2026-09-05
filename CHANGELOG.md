@@ -51,6 +51,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Grobid fallback metadata now recovers when capability returns (#174).**
+  Both resume gates distinguish deliberate disablement, incomplete extraction
+  and complete evidence. Startup outages and per-paper request/parse failures
+  retry on recovery without redoing OCR or figures; valid cached evidence
+  survives an outage. Curated BibTeX headers no longer conceal missing reference
+  extraction. Service-version and optional declared-producer changes invalidate
+  TEI; malformed responses cannot become successful caches. Status reports
+  recorded Grobid outcomes. Explicit disablement archives active TEI and removes
+  Grobid-derived data until reenabled. The Stage 1 CLI now honors configured
+  URL/disablement and applies the configured request timeout. Legacy capability
+  receipts require one metadata refresh, with Grobid available to regenerate
+  unverified TEI. Custom model contents are not remotely verified.
+
 - **Stage 1 configuration changes invalidate their consumers and descendants
   (#174, configuration tranche).** OCR/probe controls, raster settings,
   fallback chunking, Grobid consolidation, panel mode/explicit model and quality

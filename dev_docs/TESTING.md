@@ -63,6 +63,15 @@ update/recovery tests, **not caption-quality scores or full corpus acceptance**.
 External-service/model provenance and broader clean/incremental parity remain
 separate release gates.
 
+`tests/test_grobid_recovery.py` uses a controllable fake service with real
+metadata parsing and both resume gates. It covers disabled/enabled transitions,
+startup outages, individual request and parse failures, malformed service
+responses, preserved valid caches, version/declared-producer changes, unknown
+versions, strict-network errors, URL precedence, applied timeouts and network-free
+dry runs. It compares recovered metadata/reference artifacts against a clean
+build and checks that status reads persisted outcomes after unrelated reruns.
+It does not test a live Grobid deployment or verify custom model contents.
+
 ### Page-level visual audit
 
 When a score or acceptance prompt points to a particular page, generate the

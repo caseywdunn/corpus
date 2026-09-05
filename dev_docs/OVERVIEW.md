@@ -208,7 +208,7 @@ paths are not extraction inputs.
 | OCR optimization, workers and timeouts | PDF preparation; extraction, metadata, chunks, figures and annotations |
 | Figure raster settings and extraction accelerator | Docling extraction; chunks, figures and annotations, not Grobid metadata |
 | `chunking.max_tokens` | Fallback chunker; annotation and chunk/figure links. Docling's HybridChunker still uses its own default tokenizer/limit; this setting does not configure it |
-| Grobid header/citation consolidation | Metadata and its quality checks; not OCR or figure detection |
+| Grobid disablement, header/citation consolidation, request timeout and producer identity | Metadata and its quality checks; not OCR or figure detection |
 | Panel mode and explicit vision model | Figure materialization and links; not OCR, stored text/chunks or metadata |
 | Huge-document and quality-gate thresholds | Their respective checks |
 
@@ -218,7 +218,8 @@ old success receipt. Logs and `summary.json`'s `processing_summary.rerun_reasons
 name changed inputs.
 
 Grobid TEI reuse requires a matching prepared-PDF digest, consolidation settings,
-producer version and TEI payload digest. Unverified/stale TEI and its receipt
+pipeline version, reported service version, optional `grobid.producer_id` and
+TEI payload digest. Unverified/stale TEI and its receipt
 move into the build-only `metadata_cache_history/` directory; they cannot be
 resurrected as active citations if Grobid is unavailable. BibTeX-only edits
 reuse a verified TEI. No history is added to the served bundle.
@@ -243,10 +244,58 @@ from config (or when an explicit `--config` is supplied). Text output is bounded
 comparison, not a source or completion audit**: CLI/CPU-floor overrides may
 legitimately differ. It does not discover source renames, rehash PDFs, check
 current BibTeX/annotation inputs, or verify external model/service versions.
-Changing Grobid availability/disablement or an external model installation is
-not yet a fully fingerprinted update path. These gaps and whole-build
+Grobid recovery is covered below; automatic identification of custom external
+model installations is not. These gaps and whole-build
 clean/incremental parity remain release work; a zero-difference report does not
 close them. All of this belongs to the build plane, not the MCP request path.
+
+#### Grobid capability and recovery
+
+A successful local metadata write is not proof of successful Grobid extraction.
+`metadata.json.grobid` and the metadata stage receipt distinguish intentional
+disablement, unavailable capability and complete extraction. A curated BibTeX
+header still wins, but does not hide a missing reference list. Status counts
+recorded `disabled`, `unavailable`, `request_failed`, `parse_failed`, `extracted`
+and `cached` outcomes independently of stage timing success. Legacy evidence is
+`unknown`. These are persisted outcomes, not live health checks.
+
+| Transition | Next build behavior |
+|---|---|
+| Disabled → enabled and reachable | Refresh metadata/references only, preserving unrelated extraction and figures |
+| Unavailable at startup → reachable | Retry fallback papers through both resume gates |
+| Individual request/parse failure → reachable | Retry the affected paper; successful papers retain their receipts |
+| Successful extraction → temporary outage | Preserve complete receipts and verified TEI; BibTeX edits can still reuse that TEI |
+| Enabled → deliberately disabled | Archive active TEI; replace Grobid-derived header/references/in-text data with BibTeX/filename fallback |
+| Service version or declared producer identity changes | Refresh metadata and reject the old TEI cache |
+
+Repeated offline builds do not churn fallback artifacts. Malformed/error-page
+responses never become successful TEI cache entries; failed parses retire the
+active cache so retries cannot loop over the same bad payload. Archived TEI is
+retained under `metadata_cache_history/`, not automatically restored or bundled.
+Default operation permits fallback; `--strict-network` returns failure for
+startup unavailability or transient request failures instead of accepting them
+as completed extraction.
+
+The build checks liveness and the reported version once at startup. Grobid's
+[`/api/version`](https://grobid.readthedocs.io/en/latest/Grobid-service/) reports
+service version/revision, not a complete custom-model/configuration identity.
+For those deployments, set `grobid.producer_id` to an image/model/configuration
+digest or other immutable identifier and change it with the producer. This is
+an **operator declaration**, not remotely verified evidence. Unreported versions
+are explicitly unknown; same-version custom model changes cannot be detected
+without updating the declared ID. Keep the service deployment fixed throughout
+a run, just as the pipeline checkout must stay fixed.
+
+Service URLs are placement, not model identity: a moved service with the same
+version/declared ID does not force another extraction. URL resolution is explicit
+CLI flag → `GROBID_URL` → config → default. Disablement wins over a URL. The
+configured Grobid request timeout is applied to the client and fingerprinted.
+Dry runs and status do not probe the service; a dry-run recovery estimate cannot
+know whether an unavailable service has since returned.
+
+Legacy metadata receipts without this capability evidence need one metadata
+refresh, not an OCR/Docling rerun. TEI lacking the new provenance is archived;
+have Grobid available during migration to regenerate its reference evidence.
 
 ## Figure pipeline
 

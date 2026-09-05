@@ -136,6 +136,7 @@ def run_pdf_processing_pipeline(
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
     run_config_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+    grobid_context: Optional[Dict[str, Any]] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -152,9 +153,13 @@ def run_pdf_processing_pipeline(
     # Create subdirectories in hash directory
     figures_dir = hash_dir / "figures"
     figures_dir.mkdir(exist_ok=True)
+    if grobid_context is None:
+        grobid_context = {"enabled": grobid_client is not None,
+                          "available": grobid_client is not None, "service_version": None}
     if run_config_fingerprints is None:
         run_config_fingerprints = _config_fingerprints(
-            CONFIG, panel_mode=("vision-" + vision_backend.name) if vision_backend is not None
+            {**CONFIG, "grobid": {**CONFIG.get("grobid", {}), "disable": not grobid_context["enabled"]}},
+            panel_mode=("vision-" + vision_backend.name) if vision_backend is not None
             else ("ocr" if content_aware_figures else "off"),
             vision_model=getattr(vision_backend, "model", None))
 
@@ -230,7 +235,8 @@ def run_pdf_processing_pipeline(
         ocrmode = ocrmode_for_pdf(bib_index, pdf_path.name)
         ocr_fingerprints = _expected_fingerprints_for_run(
             config_fingerprints=run_config_fingerprints,
-            metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_path.name),
+            metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                bib_index, pdf_path.name, grobid_context=grobid_context, hash_dir=hash_dir),
             ocrlang=ocrlang, ocrmode=ocrmode, keeppages=keeppages)
         scan_fingerprint = ocr_fingerprints.get("scan_detection", {})
         prep_fingerprint = ocr_fingerprints.get("pdf_preparation", {})
@@ -315,11 +321,12 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("metadata_extraction", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary,
                              expected_fingerprint=ocr_fingerprints.get("metadata_extraction", {})):
+            metadata_fp = dict(ocr_fingerprints["metadata_extraction"])
             with _stage(processing_summary, "metadata_extraction", hash_dir=hash_dir,
-                        input_fingerprint=ocr_fingerprints.get("metadata_extraction", {})):
+                        input_fingerprint=metadata_fp):
                 plog.info("Extracting metadata (Grobid)...")
                 bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
-                extract_metadata(
+                grobid_result = extract_metadata(
                     processed_pdf,
                     metadata_file,
                     references_output=references_file,
@@ -327,7 +334,13 @@ def run_pdf_processing_pipeline(
                     grobid_client=grobid_client,
                     original_filename=pdf_path.name,
                     bib_entry=bib_entry,
+                    grobid_input=metadata_fp["grobid"],
                 )
+                # Success of the local metadata writer isn't success of the
+                # external extraction. Persist actual evidence so a live
+                # service retries per-paper failures through both resume gates.
+                metadata_fp["grobid"] = grobid_result["fingerprint"]
+                processing_summary["grobid"] = grobid_result
                 processing_summary["files_created"].extend(
                     [str(metadata_file), str(references_file)]
                 )
@@ -393,7 +406,8 @@ def run_pdf_processing_pipeline(
             # so a language change invalidates the taxa pulled out of them.
             taxa_anat_fingerprint = _expected_fingerprints_for_run(
                 config_fingerprints=run_config_fingerprints,
-                metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_path.name),
+                metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                    bib_index, pdf_path.name, grobid_context=grobid_context, hash_dir=hash_dir),
                 ocrlang=ocrlang,
                 ocrmode=ocrmode,
                 keeppages=keeppages,

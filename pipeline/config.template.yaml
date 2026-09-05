@@ -116,7 +116,13 @@ figures:
 # known until submit time. `corpus run` and `corpus check` both honor it.
 grobid:
   url: http://localhost:8070
-  # disable: true   # skip Grobid even if reachable
+  # disable: true   # exclude Grobid-derived data; retain curated BibTeX headers
+  # Existing active TEI is archived on disablement, not silently reused.
+  # Transient outages instead retain valid cached results and retry fallback
+  # papers when the service returns. Version is observed once per build run.
+  # producer_id: "image-digest-plus-model-config-id"
+  # Optional operator-supplied identity for custom models/configuration that
+  # can change without a Grobid version bump. Recorded, not remotely verified.
   # Consolidation against CrossRef: 0 = off, 1 = look the record up.
   # consolidate_header: 1      # on by default; improves per-paper metadata
   # consolidate_citations: 0   # off by default, and that default is measured:

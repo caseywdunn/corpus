@@ -312,8 +312,16 @@ can answer which evidence and rule produced it.
   `corpus status` reports Stage 1 configuration differences without modifying
   artifacts. Legacy builds require a one-time Stage 1 config-receipt migration;
   preview it before submitting a production rerun.
-  **Still open:** external-service availability/disablement and model-version
-  provenance; full current-source/BibTeX/annotation drift reporting (the status
+  Grobid fallback/recovery now distinguishes deliberate disablement from an
+  outage, retries incomplete extraction on recovery, and preserves successful
+  cached results during outages. Metadata/TEI receipts include reported service
+  version and optional declared producer ID; per-paper request/parse failures
+  cannot be stamped as completed extraction. Tests cover transitions, no-op
+  resume and recovered-versus-clean metadata/reference equality. Status reports
+  persisted outcomes without probing the service.
+  **Still open:** automatic custom-model provenance beyond reported service
+  versions/operator-declared IDs (including vision); full current-source/
+  BibTeX/annotation drift reporting (the status
   check is config-only); and whole-build clean/incremental acceptance. The
   `chunking.max_tokens` setting controls the fallback path, not HybridChunker's
   tokenizer/limit. #174 is not complete yet. Stable details and limitations

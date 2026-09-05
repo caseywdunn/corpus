@@ -99,6 +99,22 @@ class GrobidClient:
             logger.debug("Grobid /isalive check failed: %s", e)
             return False
 
+    def get_version(self) -> Optional[str]:
+        """Read the service's reported version/revision once at build startup.
+
+        Unknown is explicit, not a fabricated producer identity. Custom model
+        deployments should additionally set grobid.producer_id in config.
+        """
+        try:
+            response = requests.get(f"{self.base_url}/api/version", timeout=5)
+            value = response.text.strip()
+            if response.status_code == 200 and value and len(value) <= 1024 and not value.startswith("<"):
+                return value
+        except requests.RequestException as exc:
+            logger.debug("Grobid version check failed: %s", exc)
+        logger.warning("Grobid service version is unknown; custom deployments should pin grobid.producer_id")
+        return None
+
     def process_fulltext(
         self,
         pdf_path: Path,
@@ -219,6 +235,15 @@ def _parse_tei(tei_xml: str):
         return etree.fromstring(tei_xml.encode("utf-8"))
     except etree.XMLSyntaxError as e:
         raise RuntimeError(f"Could not parse TEI-XML: {e}") from e
+
+
+def validate_fulltext_tei(tei_xml: str) -> None:
+    """Reject error pages and incomplete non-TEI responses before caching."""
+    root = _parse_tei(tei_xml)
+    if (root.tag != f"{{{TEI_NS}}}TEI"
+            or root.find("tei:teiHeader", NSMAP) is None
+            or root.find("tei:text", NSMAP) is None):
+        raise ValueError("Grobid fulltext response lacks a TEI root/header/text")
 
 
 def parse_tei_header(tei_xml: str) -> dict:

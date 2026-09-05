@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 
 from . import config as _pipeline_config
+from . import external
 from .annotate import _extract_taxa_and_lexicons
 from .config import CONFIG, load_config
 from .build_inputs import config_fingerprints as _config_fingerprints
@@ -208,14 +209,14 @@ def main():
     parser.add_argument("--config", type=Path, default=None, help="Path to config.yaml (defaults to ./config.yaml)")
     parser.add_argument(
         "--grobid-url",
-        default=os.environ.get("GROBID_URL", "http://localhost:8070"),
-        help="Grobid service URL (default: $GROBID_URL or http://localhost:8070); "
-        "pass --grobid-url='' or --no-grobid to skip metadata extraction",
+        default=None,
+        help="Grobid service URL (default: $GROBID_URL, config, then http://localhost:8070); "
+        "pass --grobid-url='' or --no-grobid to disable Grobid-derived data",
     )
     parser.add_argument(
         "--no-grobid",
         action="store_true",
-        help="Skip Grobid even if reachable (useful for dev iteration on non-metadata stages)",
+        help="Disable Grobid-derived metadata/references (archive active TEI; retain BibTeX headers)",
     )
     parser.add_argument(
         "--bib",
@@ -348,6 +349,11 @@ def main():
             f"rather than run."
         )
     loaded = load_config(args.config)
+    grobid_config = loaded.get("grobid", {})
+    if args.grobid_url is None:
+        args.grobid_url = os.environ.get("GROBID_URL", grobid_config.get("url", "http://localhost:8070"))
+    args.no_grobid = args.no_grobid or grobid_config.get("disable", False) or not args.grobid_url
+    loaded["grobid"] = {**grobid_config, "disable": bool(args.no_grobid)}
     _pipeline_config.CONFIG.clear()
     _pipeline_config.CONFIG.update(loaded)
     figures_config = loaded.get("figures", {})
@@ -379,14 +385,21 @@ def main():
     # startup we log and carry on with placeholder metadata for every
     # document rather than retrying (and logging) per PDF.
     grobid_client: Optional[GrobidClient] = None
+    grobid_context = {"enabled": not args.no_grobid, "available": False,
+                      "service_version": None}
     if args.no_grobid or not args.grobid_url or args.dry_run:
         logger.info("Grobid skipped (--no-grobid or empty --grobid-url)")
     else:
-        probe = GrobidClient(base_url=args.grobid_url)
+        probe = GrobidClient(base_url=args.grobid_url,
+                             timeout=loaded["stage_timeouts"]["grobid"])
         if probe.is_alive():
             logger.info("Grobid reachable at %s", args.grobid_url)
             grobid_client = probe
+            grobid_context.update(available=True, service_version=probe.get_version())
         else:
+            if external.STRICT_NETWORK:
+                logger.error("Requested Grobid service is unavailable (--strict-network)")
+                return 1
             logger.warning(
                 "Grobid not reachable at %s — metadata will be placeholder. "
                 "Start it with `docker compose up -d grobid` (laptop/Docker "
@@ -596,7 +609,9 @@ def main():
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
                     config_fingerprints=run_config_fingerprints,
-                    metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_map[h][0].name),
+                    metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                        bib_index, pdf_map[h][0].name, grobid_context=grobid_context,
+                        hash_dir=documents_dir / short_hash(h)),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, pdf_map[h][0].name),
@@ -635,7 +650,8 @@ def main():
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
                     config_fingerprints=run_config_fingerprints,
-                    metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, label),
+                    metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                        bib_index, label, grobid_context=grobid_context, hash_dir=hd),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, label),
@@ -776,7 +792,8 @@ def main():
                     ),
                     expected_fingerprints=_expected_fingerprints_for_run(
                         config_fingerprints=run_config_fingerprints,
-                        metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_paths[0].name),
+                        metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                            bib_index, pdf_paths[0].name, grobid_context=grobid_context, hash_dir=hash_dir),
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,
                         ocrlang=ocrlang_for_pdf(bib_index, pdf_paths[0].name),
@@ -838,6 +855,7 @@ def main():
                     processing_summary = run_pdf_processing_pipeline(
                         primary_pdf, hash_dir, temp_dir,
                         grobid_client=grobid_client,
+                        grobid_context=grobid_context,
                         taxonomy_db=taxonomy_db,
                         lexicons=lexicons,
                         content_aware_figures=args.content_aware_figures,

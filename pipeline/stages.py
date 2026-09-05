@@ -361,7 +361,8 @@ def _all_stage_artifacts_complete(
     )
 
 
-def _metadata_fingerprint_for_pdf(bib_index, filename: str) -> Dict[str, Any]:
+def _metadata_fingerprint_for_pdf(bib_index, filename: str, *,
+                                  grobid_context=None, hash_dir=None) -> Dict[str, Any]:
     """Fingerprint the resolved entry, not the whole library bibliography.
 
     Absence is a value: adding/removing an entry must invalidate metadata.
@@ -371,8 +372,12 @@ def _metadata_fingerprint_for_pdf(bib_index, filename: str) -> Dict[str, Any]:
     entry = bib_index.lookup(filename) if bib_index is not None else None
     canonical = json.dumps(entry, sort_keys=True, ensure_ascii=False,
                            separators=(",", ":"))
-    return {"bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
-            "filename": filename}
+    result = {"bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+              "filename": filename}
+    if grobid_context is not None:
+        from .grobid_state import grobid_input
+        result["grobid"] = grobid_input(grobid_context, hash_dir)
+    return result
 
 
 def _expected_fingerprints_for_run(

@@ -170,12 +170,13 @@ def _iter_summaries(documents_dir: Path) -> Iterable[Tuple[str, Dict]]:
 
 
 def aggregate(documents_dir: Path) -> Dict[str, Any]:
-    """Build the rollup. Pure function over summary.json contents."""
+    """Build the rollup from recorded summaries and metadata evidence."""
     rollup: Dict[str, Any] = {
         "documents_dir": str(documents_dir),
         "total_documents": 0,
         "documents_with_summary": 0,
         "stages": {},               # stage → {ok: N, fail: N, total: N}
+        "grobid_outcomes": Counter(),  # persisted evidence, not live health
         "failures_by_reason_stage": Counter(),  # (reason_code, stage) → N
         "papers_by_reason_stage": defaultdict(set),  # (reason, stage) → {hashes}
         "quality_flags": Counter(),  # gate → N
@@ -192,6 +193,10 @@ def aggregate(documents_dir: Path) -> Dict[str, Any]:
         rollup["total_documents"] += 1
         rollup["documents_with_summary"] += 1
         ps = summary.get("processing_summary") or {}
+        metadata = _safe_load_json(documents_dir / h / "metadata.json")
+        evidence = metadata.get("grobid") if isinstance(metadata, dict) else None
+        outcome = evidence.get("outcome", "unknown") if isinstance(evidence, dict) else "unknown"
+        rollup["grobid_outcomes"][outcome] += 1
         orig = ps.get("original_pdf")
         if orig:
             rollup["filename_by_hash"][h] = Path(orig).name
@@ -301,6 +306,13 @@ def render_text(rollup: Dict[str, Any]) -> str:
     out.append("")
 
     # Failures
+    outcomes = rollup.get("grobid_outcomes", {})
+    if outcomes:
+        out.append("Grobid evidence (recorded outcomes, not live service health):")
+        out.append("  " + ", ".join(f"{name}={count}" for name, count in sorted(outcomes.items())))
+        out.append("  Disabled is intentional; unavailable/request_failed/parse_failed retry when enabled and reachable.")
+        out.append("")
+
     failures = rollup["failures_by_reason_stage"]
     n_fail_papers = len(rollup["papers_with_failures"])
     if failures:

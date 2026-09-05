@@ -196,9 +196,10 @@ def test_ocr_settings_reach_downstream_stages_and_removal_restores_defaults(
 
 
 def test_configuration_drift_names_inputs_without_touching_build(corpus):
+    corpus.config.write_text("grobid:\n  disable: true\n")
     corpus.run()
     assert configuration_drift(corpus.output, corpus.config)["documents_with_differences"] == 0
-    corpus.config.write_text("chunking:\n  max_tokens: 4\n")
+    corpus.config.write_text("grobid:\n  disable: true\nchunking:\n  max_tokens: 4\n")
     state = (corpus.hd() / "pipeline_state.json").read_bytes()
     drift = configuration_drift(corpus.output, corpus.config)
     assert drift["documents_with_differences"] == 2

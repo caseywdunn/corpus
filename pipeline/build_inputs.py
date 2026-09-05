@@ -38,6 +38,9 @@ def config_fingerprints(config, *, panel_mode, vision_model=None):
     if panel_mode.startswith("vision-"):
         figures["figures.model"] = vision_model
     metadata = {**prep,
+                "grobid.disable": bool(cfg.get("grobid", {}).get("disable", False)),
+                "grobid.producer_id": cfg.get("grobid", {}).get("producer_id"),
+                "stage_timeouts.grobid": cfg["stage_timeouts"]["grobid"],
                 "grobid.consolidate_header": int(cfg.get("grobid", {}).get("consolidate_header", 1)),
                 "grobid.consolidate_citations": int(cfg.get("grobid", {}).get("consolidate_citations", 0))}
     return {

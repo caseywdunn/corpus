@@ -65,9 +65,9 @@ def corpus(tmp_path, monkeypatch):
             f"@article{{first, title={{{first}}}, file={{{first_file}}}, year={{2001}}}}\n"
             f"@article{{second, title={{{second}}}, file={{Second2002.pdf}}, year={{2002}}}}\n")
 
-    def run(*extra, destination=output):
+    def run(*extra, destination=output, grobid=False):
         monkeypatch.setattr("sys.argv", ["extract", str(source), str(destination),
-                                       "--resume", "--no-grobid", "--no-taxa",
+                                       "--resume", *([] if grobid else ["--no-grobid"]), "--no-taxa",
                                        "--config", str(config), "--bib", str(bib), *extra])
         result = main.main()
         assert result in (None, 0)

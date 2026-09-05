@@ -133,7 +133,9 @@ class GrobidConfig(BaseModel):
     )
     disable: bool = Field(
         default=False,
-        description="Skip Grobid even if reachable.",
+        description="Disable Grobid-derived data even if reachable. Metadata "
+        "refresh archives active TEI and keeps only BibTeX/filename fallback; "
+        "reenabling retries extraction. A temporary outage instead preserves verified caches.",
     )
     # Grobid consolidation levels: 0 = off, 1 = look the record up in CrossRef.
     #
@@ -147,6 +149,12 @@ class GrobidConfig(BaseModel):
     # it worth the round trips; a historical one will not.
     consolidate_header: int = Field(default=1, ge=0, le=2)
     consolidate_citations: int = Field(default=0, ge=0, le=2)
+    producer_id: Optional[str] = Field(
+        default=None, min_length=1,
+        description="Operator-supplied identity for the Grobid image, models and "
+        "service configuration (for example an image digest). Change it when "
+        "custom models change without a service version change. Recorded, not remotely verified.",
+    )
 
 
 class BibliographyConfig(BaseModel):
