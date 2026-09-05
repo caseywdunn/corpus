@@ -45,6 +45,7 @@ from .taxa import TaxonomyDB
 from .stages import (
     _HugeDocumentError,
     _expected_fingerprints_for_run,
+    _metadata_fingerprint_for_pdf,
     _pdf_page_count,
     _run_quality_gates,
     _should_run_stage,
@@ -219,6 +220,7 @@ def run_pdf_processing_pipeline(
         ocrlang = ocrlang_for_pdf(bib_index, pdf_path.name)
         ocrmode = ocrmode_for_pdf(bib_index, pdf_path.name)
         ocr_fingerprints = _expected_fingerprints_for_run(
+            metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_path.name),
             ocrlang=ocrlang, ocrmode=ocrmode, keeppages=keeppages)
         scan_fingerprint = ocr_fingerprints.get("scan_detection", {})
         prep_fingerprint = ocr_fingerprints.get("pdf_preparation", {})
@@ -341,17 +343,26 @@ def run_pdf_processing_pipeline(
                 processing_summary["files_created"].append(str(chunks_file))
                 processing_summary["processing_steps"].append("text_chunking")
 
-        with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
-            plog.info("Pass 2.5: annotating figures from captions + text...")
-            _pass25_annotate_figures(text_file, figures_file)
-            processing_summary["processing_steps"].append("figure_pass25_annotation")
+        # A metadata/lexicon-only refresh must not replace already-materialized
+        # vision ROIs with the CPU floor, or rerun a paid vision call. Figures
+        # and cross-links depend on extraction/chunks, not the bibliography.
+        refresh_figures = (
+            not resume or not figures_file.exists()
+            or "docling_extraction" not in processing_summary["skipped_stages"]
+            or "text_chunking" not in processing_summary["skipped_stages"]
+        )
+        if refresh_figures:
+            with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
+                plog.info("Pass 2.5: annotating figures from captions + text...")
+                _pass25_annotate_figures(text_file, figures_file)
+                processing_summary["processing_steps"].append("figure_pass25_annotation")
 
-        if vision_backend is not None:
+        if refresh_figures and vision_backend is not None:
             with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
                 plog.info("Pass 3b: vision-model-driven panel + compound detection...")
                 _pass3b_annotate_rois(figures_file, vision_backend)
                 processing_summary["processing_steps"].append("figure_pass3b_rois")
-        elif content_aware_figures:
+        elif refresh_figures and content_aware_figures:
             with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
                 plog.info("Pass 3a: OCR-driven panel ROI detection...")
                 _pass3a_annotate_rois(figures_file)
@@ -360,7 +371,7 @@ def run_pdf_processing_pipeline(
         # Pass 3c — resolve *_compound figures: split their ROIs, match
         # to missing_figures, rename the PNG to range notation. Cheap;
         # worth running whenever 3a or 3b has been run.
-        if vision_backend is not None or content_aware_figures:
+        if refresh_figures and (vision_backend is not None or content_aware_figures):
             with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
                 plog.info("Pass 3c: compound figure resolution + file rename...")
                 summary_3c = resolve_compound_figures(figures_file)
@@ -373,10 +384,11 @@ def run_pdf_processing_pipeline(
                 )
                 processing_summary["processing_steps"].append("figure_pass3c_resolve")
 
-        with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir):
-            plog.info("Linking chunks to figures...")
-            _crossref_chunks_and_figures(figures_file, chunks_file)
-            processing_summary["processing_steps"].append("figure_crossref")
+        if refresh_figures:
+            with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir):
+                plog.info("Linking chunks to figures...")
+                _crossref_chunks_and_figures(figures_file, chunks_file)
+                processing_summary["processing_steps"].append("figure_crossref")
 
         # ── taxa_and_lexicon_extraction ─────────────────────────────────
         # Stage runs only when a taxonomy DB or at least one lexicon
@@ -391,6 +403,7 @@ def run_pdf_processing_pipeline(
             # ocrlang rides along here too: chunks descend from the OCR,
             # so a language change invalidates the taxa pulled out of them.
             taxa_anat_fingerprint = _expected_fingerprints_for_run(
+                metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_path.name),
                 ocrlang=ocrlang,
                 ocrmode=ocrmode,
                 keeppages=keeppages,
@@ -424,12 +437,14 @@ def run_pdf_processing_pipeline(
         # it so a figure is citable against the file the operator holds.
         # After every pass that rewrites figures.json, before the report
         # renders from it.
-        if page_selection:
+        if page_selection and refresh_figures:
             with _stage(processing_summary, "source_page_mapping", hash_dir=hash_dir):
                 n = annotate_source_pages([figures_file, text_file, chunks_file],
                                           page_selection)
                 plog.info("keeppages: mapped %d page number(s) back to the source", n)
 
+        # Unlike ROI/caption materialization, this cheap report reads the
+        # bibliographic header, so a metadata edit must refresh its title/year.
         with _stage(processing_summary, "figures_report", hash_dir=hash_dir):
             plog.info("Generating figures report...")
             report_path = generate_figures_report(hash_dir)

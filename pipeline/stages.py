@@ -334,8 +334,23 @@ def _all_stage_artifacts_complete(
     )
 
 
+def _metadata_fingerprint_for_pdf(bib_index, filename: str) -> Dict[str, Any]:
+    """Fingerprint the resolved entry, not the whole library bibliography.
+
+    Absence is a value: adding/removing an entry must invalidate metadata.
+    Filename is also consumed directly for provenance and fallback title/year,
+    even when a rename resolves to the same entry (or to no entry).
+    """
+    entry = bib_index.lookup(filename) if bib_index is not None else None
+    canonical = json.dumps(entry, sort_keys=True, ensure_ascii=False,
+                           separators=(",", ":"))
+    return {"bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "filename": filename}
+
+
 def _expected_fingerprints_for_run(
     *,
+    metadata_fingerprint: Optional[Dict[str, Any]],
     ocrlang: Optional[str],
     ocrmode: Optional[str],
     keeppages: Optional[str],
@@ -345,11 +360,13 @@ def _expected_fingerprints_for_run(
     """Build the ``{stage_name: input_fingerprint}`` map both resume
     gates need (#56).
 
-    Currently only ``taxa_and_lexicon_extraction`` consumes a
-    fingerprint — its value mirrors the dict the runner persists in
-    :func:`_record_stage_completion`: ``{"taxonomy": ..., "lexicons":
-    ...}`` with whichever keys are in scope this run. Other stages
-    take no fingerprint and don't appear in the returned map.
+    Metadata consumes a per-paper resolved BibTeX entry and filename;
+    annotation consumes taxonomy and lexicon fingerprints. OCR directives
+    invalidate the PDF and every descendant. Inputs are required at the call
+    boundary so a newly added input cannot silently miss the outer fast path.
+    ``metadata_fingerprint=None`` is only for callers without a document
+    context (e.g. tests isolating another stage); production resolves it with
+    :func:`_metadata_fingerprint_for_pdf`, including absent bib entries.
 
     Both ``main.py``'s outer fast-path and ``runner.py``'s per-stage
     gate must call this so they agree on what "stale" means; otherwise
@@ -399,6 +416,8 @@ def _expected_fingerprints_for_run(
     None.
     """
     fps: Dict[str, Dict[str, Any]] = {}
+    if metadata_fingerprint is not None:
+        fps["metadata_extraction"] = dict(metadata_fingerprint)
     taxa_lex_fp: Dict[str, Any] = {}
     if taxonomy_fingerprint is not None:
         taxa_lex_fp["taxonomy"] = taxonomy_fingerprint

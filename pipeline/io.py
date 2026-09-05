@@ -321,6 +321,24 @@ def create_summary_json(
     return summary_file
 
 
+def refresh_summary_source_paths(pdf_hash_full: str, pdf_paths: List[Path],
+                                 input_dir: Path, hash_dir: Path) -> bool:
+    """Refresh cheap source inventory even when every extraction stage skips.
+
+    Directory moves and added/removed identical copies do not change metadata's
+    basename input, but they do change the paths stored in the vector index.
+    Keep extraction receipts/timings intact and avoid rewriting a true no-op.
+    """
+    summary = json.loads((hash_dir / "summary.json").read_text(encoding="utf-8"))
+    if (summary.get("relative_paths") == get_relative_paths(pdf_paths, input_dir)
+            and summary.get("input_dir") == str(input_dir)
+            and summary.get("total_copies_found") == len(pdf_paths)):
+        return False
+    create_summary_json(pdf_hash_full, pdf_paths, input_dir, hash_dir,
+                        summary.get("processing_summary") or {})
+    return True
+
+
 def _verify_or_raise_collision(hash_dir: Path, pdf_hash_full: str) -> Optional[bool]:
     """If ``hash_dir/summary.json`` exists, verify its recorded full hash
     matches ``pdf_hash_full``. Returns True if it matches (resume-safe), False
@@ -353,4 +371,3 @@ def _verify_or_raise_collision(hash_dir: Path, pdf_hash_full: str) -> Optional[b
             f"investigate duplicate inputs."
         )
     return True
-

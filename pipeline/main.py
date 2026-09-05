@@ -42,6 +42,7 @@ from .taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 from .stages import (
     _all_stage_artifacts_complete,
     _expected_fingerprints_for_run,
+    _metadata_fingerprint_for_pdf,
     _file_sha256,
 )
 
@@ -178,7 +179,7 @@ def main():
     )
     parser.add_argument("input_dir", type=Path, help="Input directory containing PDFs")
     parser.add_argument("output_dir", type=Path, help="Output directory for processed files")
-    parser.add_argument("--resume", action="store_true", help="Skip documents whose summary.json already exists")
+    parser.add_argument("--resume", action="store_true", help="Skip stages with current producer and input fingerprints")
     parser.add_argument("--config", type=Path, default=None, help="Path to config.yaml (defaults to ./config.yaml)")
     parser.add_argument(
         "--grobid-url",
@@ -570,6 +571,7 @@ def main():
                 documents_dir / short_hash(h),
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
+                    metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_map[h][0].name),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, pdf_map[h][0].name),
@@ -607,6 +609,7 @@ def main():
                 hd,
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
+                    metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, label),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, label),
@@ -718,6 +721,7 @@ def main():
                         lexicons=lexicons,
                     ),
                     expected_fingerprints=_expected_fingerprints_for_run(
+                        metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_paths[0].name),
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,
                         ocrlang=ocrlang_for_pdf(bib_index, pdf_paths[0].name),
@@ -725,6 +729,9 @@ def main():
                         keeppages=keeppages_for_pdf(bib_index, pdf_paths[0].name),
                     ),
                 ):
+                    from .io import refresh_summary_source_paths
+                    if refresh_summary_source_paths(pdf_hash_full, pdf_paths, input_dir, hash_dir):
+                        logger.info("%s: refreshed source paths (extraction unchanged)", pdf_hash)
                     logger.info(
                         "[%d/%d] %s (%s) — skipping (all stages complete)",
                         paper_idx, paper_total,

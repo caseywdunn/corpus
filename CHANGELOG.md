@@ -51,6 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Input BibTeX edits and PDF renames invalidate metadata (#174, first
+  tranche).** Both resume gates compare the canonical resolved entry for each
+  paper, including entry absence, and the filename used for provenance and
+  fallback title/year. Unaffected papers retain their receipts; affected papers
+  reuse OCR, Docling, chunks and materialized figure/vision results instead of
+  overwriting vision ROIs with the CPU floor. Added/removed identical source copies refresh
+  the path inventory even when extraction skips, allowing embedding to update
+  its stored paths. Legacy builds need one metadata refresh, not full extraction.
+
 - **Embedding updates replace each document atomically (#271).** Resume now
   verifies a content/metadata fingerprint and the committed row generation,
   count, model and dimension. Changed text cannot be skipped, shortened or

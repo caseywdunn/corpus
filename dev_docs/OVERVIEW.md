@@ -174,7 +174,7 @@ timestamps are provenance, not semantic differences.
 | Remove a PDF | Prune its derived directory and vector rows; remove current cross-paper and served references | Build pruning exists with a safety threshold; end-to-end clean/incremental deletion gate still pending |
 | Change PDF bytes | Treat as an addition plus removal of the old hash if no other source path retains it | Same rules as above |
 | Same hash, changed chunks or embedded metadata | Replace that document's vector rows; publish a new receipt after commit | Implemented and tested in Stage 2 (#271) |
-| Rename or change BibTeX | Refresh consumed paths/metadata and their descendants; leave unrelated artifacts alone | Stage 2 notices changed artifacts; upstream filename/BibTeX fingerprints remain incomplete (#174) |
+| Rename or change BibTeX | Refresh consumed paths/metadata and their descendants; leave unrelated artifacts alone | Resolved per-paper entries (including absence) and basenames fingerprint metadata; source-path inventory refreshes even when extraction skips; Stage 2 notices the changed metadata/paths (#174) |
 | Change configuration or curator directives | Fingerprint resolved values only in stages that consume them, and invalidate descendants | OCR language/mode/page-range and annotation fingerprints exist; remaining configuration coverage is pending (#174) |
 | Upgrade producer or embedding model | Invalidate incompatible receipts; rebuild the whole vector table when switching models | Stage/embedding producer checks and model guard exist; whole-corpus release comparison remains pending (#187) |
 
@@ -184,8 +184,16 @@ inputs, another embedding writer, or an update of the producer checkout. Use a
 separate build and served directory for release candidates. Per-document vector
 transactions do not make the complete corpus build or bundle copy atomic.
 The remaining rows above are release gates, not claims that all update classes
-already converge. In particular, Stage 2 cannot detect a BibTeX edit that an
-upstream stage has failed to materialize.
+already converge. Metadata fingerprints use canonical JSON of the resolved
+BibTeX entry, never a digest of the whole bibliography. Filename is a separate
+consumed input because fallback titles/years and provenance use it even without
+a bib match. First resume of a legacy build refreshes metadata once; it does not
+invalidate OCR, Docling or chunking just to migrate the metadata receipt.
+Metadata/annotation-only reruns also preserve the existing figure/vision layer;
+the inexpensive figure report is refreshed because it consumes the header.
+Configuration work must invalidate subordinate caches as well as stage
+receipts: an unchanged cached TEI or previously split figure can otherwise
+survive a nominally successful stage rerun with obsolete decisions.
 
 ## Figure pipeline
 

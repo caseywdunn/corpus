@@ -44,6 +44,14 @@ semantics, not embedding quality or full upstream BibTeX/config invalidation;
 the latter still needs the end-to-end gate in the
 [update contract](OVERVIEW.md#corpuscle-update-contract).
 
+`tests/test_metadata_resume.py` drives both Stage 1 resume gates with real
+BibTeX parsing, metadata extraction and completion records while stubbing the
+expensive PDF/figure work. It checks per-paper edits, entry addition/removal,
+renames with and without a bib match, identical-copy path updates, dry-run
+non-mutation, preservation of existing vision results, and metadata/chunk/
+reference equality with a clean build. Configuration transitions remain a
+separate acceptance gate; these tests do not claim that coverage.
+
 ### Page-level visual audit
 
 When a score or acceptance prompt points to a particular page, generate the

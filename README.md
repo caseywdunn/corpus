@@ -491,12 +491,20 @@ Lexicon / taxonomy edits need no extra flag — fingerprints land in `<hash>/<ca
 Embedding resume verifies current chunk text, indexed metadata and committed
 rows; changed documents replace their previous vectors without duplicating
 them. Builds made before the verified-marker format need a one-time
-re-embedding. Broader BibTeX/configuration invalidation is still being hardened;
+re-embedding. Edits to the configured input BibTeX now refresh metadata only for
+papers whose resolved entries changed; adding/removing an entry or renaming a
+PDF is detected too. Unchanged OCR, extraction and chunking are reused.
+Configuration invalidation is still being hardened;
 see the [update contract](dev_docs/OVERVIEW.md#corpuscle-update-contract) for
 supported behavior and remaining gaps. Do not run concurrent updates against
 the same build directory.
 
 ## Curating bibliographic metadata
+
+To update the library's source of truth, edit the `.bib` selected by `bib:` in
+`config.yaml` and rerun `corpus run`. Resume fingerprints the entry resolved for
+each paper, not the whole file. An older build without these fingerprints pays
+one metadata refresh; it does not need a full OCR/extraction rebuild.
 
 Grobid mis-parses some references. Round-trip via BibTeX:
 

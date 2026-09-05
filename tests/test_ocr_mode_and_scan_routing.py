@@ -142,7 +142,7 @@ def test_ocrmode_bib_lookup_and_metadata_round_trip():
 
 
 def test_ocrmode_fingerprints_every_descendant_stage():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=None, ocrmode="force", keeppages=None,
     )
     for stage in _OCR_DEPENDENT_STAGES:
@@ -151,7 +151,7 @@ def test_ocrmode_fingerprints_every_descendant_stage():
 
 def test_ocrmode_fingerprint_argument_is_required():
     with pytest.raises(TypeError, match="ocrmode"):
-        _expected_fingerprints_for_run(ocrlang=None, keeppages=None)
+        _expected_fingerprints_for_run(metadata_fingerprint=None, ocrlang=None, keeppages=None)
 
 
 def _authority_db(path: Path) -> Path:

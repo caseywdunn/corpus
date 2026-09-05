@@ -275,7 +275,7 @@ _TAXA_LEX = list(_CORE) + ["taxa_and_lexicon_extraction"]
 
 
 def test_expected_fingerprints_empty_when_neither_input_configured():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=None, ocrmode=None, keeppages=None,
     )
     assert "taxa_and_lexicon_extraction" in fps   # #176: present, but empty
@@ -289,7 +289,7 @@ def test_expected_fingerprints_empty_when_neither_input_configured():
 
 
 def test_expected_fingerprints_taxonomy_only():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=None, ocrmode=None, keeppages=None,
         taxonomy_fingerprint={"sha256": "abc"},
     )
@@ -297,7 +297,7 @@ def test_expected_fingerprints_taxonomy_only():
 
 
 def test_expected_fingerprints_lexicons_only():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=None,
         ocrmode=None,
         keeppages=None,
@@ -309,7 +309,7 @@ def test_expected_fingerprints_lexicons_only():
 
 
 def test_expected_fingerprints_both_inputs():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=None,
         ocrmode=None,
         keeppages=None,
@@ -331,7 +331,7 @@ def test_untagged_ocr_fingerprint_matches_an_existing_record(tmp_path):
     document in every existing corpuscle on the next resume.
     """
     _record_stage_completion(tmp_path, "scan_detection")
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=None, ocrmode=None, keeppages=None,
     )
     assert _stage_recorded_complete(
@@ -353,13 +353,13 @@ def test_ocrlang_change_invalidates_the_ocr_stages(tmp_path, recorded, current):
     """
     _record_stage_completion(
         tmp_path, "scan_detection",
-        input_fingerprint=_expected_fingerprints_for_run(
+        input_fingerprint=_expected_fingerprints_for_run(metadata_fingerprint=None,
             ocrlang=recorded,
             ocrmode=None,
             keeppages=None,
         )["scan_detection"],
     )
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=current, ocrmode=None, keeppages=None,
     )
     assert not _stage_recorded_complete(
@@ -369,7 +369,7 @@ def test_ocrlang_change_invalidates_the_ocr_stages(tmp_path, recorded, current):
 
 
 def test_ocrlang_fingerprints_both_ocr_stages():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang="pol+eng", ocrmode=None, keeppages=None,
     )
     assert fps["scan_detection"] == {"ocrlang": "pol+eng"}
@@ -396,7 +396,7 @@ def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):
     )
 
     # Live fingerprint includes the now-fixed lexicon.
-    live_fps = _expected_fingerprints_for_run(
+    live_fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang=None,
         ocrmode=None,
         keeppages=None,
@@ -474,14 +474,14 @@ def test_outer_gate_sees_an_added_ocrlang_tag(tmp_path):
     _record_all_core(tmp_path)
     assert _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(
+        expected_fingerprints=_expected_fingerprints_for_run(metadata_fingerprint=None,
             ocrlang=None, ocrmode=None, keeppages=None,
         ),
     ), "sanity: an untagged paper is complete under an untagged expectation"
 
     assert not _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(
+        expected_fingerprints=_expected_fingerprints_for_run(metadata_fingerprint=None,
             ocrlang="pol+eng", ocrmode=None, keeppages=None,
         ),
     ), "adding an ocrlang tag must make the outer fast path fall through"
@@ -489,7 +489,7 @@ def test_outer_gate_sees_an_added_ocrlang_tag(tmp_path):
 
 def test_outer_gate_sees_a_removed_ocrlang_tag(tmp_path):
     """tagged -> untagged, the direction a None fingerprint would miss."""
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang="pol+eng", ocrmode=None, keeppages=None,
     )
     for name in _CORE:
@@ -498,7 +498,7 @@ def test_outer_gate_sees_a_removed_ocrlang_tag(tmp_path):
         )
     assert not _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(
+        expected_fingerprints=_expected_fingerprints_for_run(metadata_fingerprint=None,
             ocrlang=None, ocrmode=None, keeppages=None,
         ),
     )
@@ -513,7 +513,7 @@ def test_outer_gate_skips_an_unchanged_untagged_paper(tmp_path):
     _record_all_core(tmp_path)
     assert _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(
+        expected_fingerprints=_expected_fingerprints_for_run(metadata_fingerprint=None,
             ocrlang=None, ocrmode=None, keeppages=None,
         ),
     )
@@ -528,7 +528,7 @@ def test_ocrlang_invalidates_every_stage_downstream_of_the_pdf(tmp_path):
     OCR while the log reported the new `-l`. Verified on real papers: the
     text was byte-identical across a tag change.
     """
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang="jpn+eng", ocrmode=None, keeppages=None,
     )
     for stage in ("scan_detection", "pdf_preparation", "docling_extraction",
@@ -547,7 +547,7 @@ def test_ocrlang_invalidates_every_stage_downstream_of_the_pdf(tmp_path):
 
 def test_ocrlang_merges_with_the_taxa_fingerprint(tmp_path):
     """taxa_and_lexicon carries both its own inputs and ocrlang."""
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
         ocrlang="kor+eng",
         ocrmode=None,
         keeppages=None,

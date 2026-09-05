@@ -298,6 +298,15 @@ can answer which evidence and rule produced it.
   can change an artifact, including the relevant bib fields, filename and
   resolved configuration. A key belongs in a stage fingerprint only when that
   stage actually consumes it.
+  Per-paper resolved BibTeX entries (including entry addition/removal), filename
+  fallback and source-path inventory updates are implemented and exercised
+  through both resume gates. Configuration coverage and current-input drift
+  reporting remain open; #174 is not complete yet.
+  The configuration tranche must cover nested caches, not just stage receipts:
+  cached Grobid TEI currently lacks a prepared-PDF/consolidation-input check;
+  panel-mode transitions need to reset previously materialized ROI/compound
+  state, including switching detection off. Test those transitions against a
+  clean build before claiming configuration updates are correct.
 - [x] **Make embedding replacement atomic per document and delete the Stage 1
   fake completion marker**
   ([#271](https://github.com/caseywdunn/corpus/issues/271)). Re-embedding one
