@@ -32,8 +32,11 @@ WHAT THE DENOMINATOR HAS TO BE, AND WHY IT IS EASY TO GET WRONG
 Gold pages are full of figure numbers that are *references* — "see Fig. 18",
 "figured by Bigelow (op. cit., fig. 34)". Counting those as figures the
 pipeline failed to find inflates the denominator with objects that are not on
-that page. Restricted to numbers printed *inside* a `[FIGURE]`/`[PLATE]`
-block — the figures actually on the leaf — the measure means what it says.
+that page. Restricted to numbers printed in a `[FIGURE]`/`[PLATE]` block plus
+a plate heading immediately adjacent to that block — the figures actually on
+the leaf — the measure means what it says. Plate blocks may express engraved
+numbers as explicit inventories, standalone digits, or `F. N` labels; those
+are gold-format conventions, not production OCR heuristics.
 
 Usage::
 
@@ -147,6 +150,18 @@ _GOLD_ROMAN_RE = re.compile(
 )
 _GOLD_ROMAN_VALUES = {"i": 1, "v": 5, "x": 10, "l": 50,
                       "c": 100, "d": 500, "m": 1000}
+_GOLD_PLATE_NUMBER_LIST_RE = re.compile(
+    r"^\s*Figure numbers on the plate(?:,[^:]*)?\s*:\s*(?P<numbers>.+?)\.?\s*$",
+    re.IGNORECASE,
+)
+_GOLD_BARE_PLATE_NUMBER_RE = re.compile(
+    r"^\s*(?:F\.\s*)?(\d+[a-z]?)\.?\s*$",
+    re.IGNORECASE,
+)
+_GOLD_PLATE_HEADING_RE = re.compile(
+    r"^\s*(?:plate|pl\.?)\s+" + _GOLD_NUMBER + r"(?:\s|$)",
+    re.IGNORECASE,
+)
 
 
 def _gold_number(token):
@@ -211,6 +226,28 @@ def gold_caption_entries(line):
     return numbers
 
 
+def gold_plate_number_list(line):
+    """Numbers in the gold set's explicit bare-plate inventory sentence.
+
+    Historical plate transcriptions record engraved labels using a controlled
+    sentence inside ``[PLATE]``. It is annotation about source-visible labels,
+    not caption prose, so it contributes to the number denominator without
+    turning a bare-label block into a prose-caption test.
+    """
+    match = _GOLD_PLATE_NUMBER_LIST_RE.match(line or "")
+    if not match:
+        return []
+    numbers = []
+    for raw in match.group("numbers").split(","):
+        token = raw.strip()
+        if not re.fullmatch(_GOLD_NUMBER, token, re.IGNORECASE):
+            return []
+        number = _gold_number(token)
+        if number not in numbers:
+            numbers.append(number)
+    return numbers
+
+
 def gold_blocks(gold_dir, scan=None):
     """Yield ``(page, kind, body)`` for each top-level figure/plate block.
 
@@ -227,43 +264,98 @@ def gold_blocks(gold_dir, scan=None):
                 continue
             page = mapping[page]
         text = gf.read_text(encoding="utf-8")
-        depth, kind, start = 0, None, None
+        depth, kind, start, opening = 0, None, None, None
         for a, b in fid.spans(text):
             inner = text[a + 1:b - 1]
             if inner in fid.STRUCTURAL_OPEN:
                 if depth == 0:
-                    kind, start = inner, b
+                    kind, start, opening = inner, b, a
                 depth += 1
             elif inner in fid.STRUCTURAL_CLOSE:
                 depth -= 1
                 if depth == 0 and start is not None:
                     if kind in GOLD_FIGURE_TAGS:
-                        yield page, kind, text[start:a]
-                    start = None
+                        body = text[start:a]
+                        # The transcription set has both faithful markup
+                        # shapes: ``PLATE XVII`` can be inside [PLATE] or on
+                        # the immediately preceding nonblank line. Only that
+                        # adjacent line is eligible; a plate reference
+                        # elsewhere on the page is not host identity.
+                        preceding = text[:opening].rstrip().splitlines()
+                        plate_heading = (
+                            preceding[-1].strip() if kind == "PLATE"
+                            and preceding
+                            and _GOLD_PLATE_HEADING_RE.match(preceding[-1])
+                            else ""
+                        )
+                        if plate_heading and plate_heading not in {
+                                    line.strip() for line in body.splitlines()
+                                }:
+                            body = f"{plate_heading}\n{body}"
+                        yield page, kind, body
+                    start = opening = None
 
 
-def classify_block(body):
+def gold_block_number_sets(body, structural_kind=None):
+    """Return figure and plate numbers without collapsing their namespaces."""
+    stripped = fid.strip_markup(body).text
+    figure_numbers, plate_numbers = set(), set()
+    first_figure_line = first_plate_line = None
+    for line in stripped.splitlines():
+        line = line.strip()
+        if structural_kind == "PLATE" and _GOLD_PLATE_HEADING_RE.match(line):
+            entries = gold_caption_entries(line)
+            plate_numbers.update(entries)
+            if first_plate_line is None and entries:
+                first_plate_line = line
+            continue
+        listed_plate_figures = gold_plate_number_list(line)
+        if listed_plate_figures:
+            figure_numbers.update(listed_plate_figures)
+            # This controlled transcription sentence describes the labels
+            # printed on the image; it is not source caption text.
+            continue
+        if structural_kind == "PLATE":
+            bare_number = _GOLD_BARE_PLATE_NUMBER_RE.fullmatch(line)
+            if bare_number:
+                figure_numbers.add(_gold_number(bare_number.group(1)))
+                # A standalone engraved label is number evidence but not
+                # source caption prose. Restrict this to [PLATE]: standalone
+                # numerals in [FIGURE] commonly belong to chart axes/scales.
+                continue
+        # A gold block can contain descriptive prose and references. Only a
+        # line that opens as a caption is allowed to contribute; once it does,
+        # split any additional entries/lists on that same printed line.
+        entries = gold_caption_entries(line)
+        figure_numbers.update(entries)
+        if first_figure_line is None and entries:
+            first_figure_line = line
+    return figure_numbers, plate_numbers, first_figure_line, first_plate_line
+
+
+def classify_block(body, structural_kind=None):
     """What kind of evidence this gold block offers.
 
     Only ``prose_caption`` blocks can test caption *text*; the rest are
     counted so no rate is computed over blocks it does not apply to.
     """
     stripped = fid.strip_markup(body).text
-    numbers, first_line = set(), None
-    for line in stripped.splitlines():
-        line = line.strip()
-        # A gold block can contain descriptive prose and references. Only a
-        # line that opens as a caption is allowed to contribute; once it does,
-        # split any additional entries/lists on that same printed line.
-        entries = gold_caption_entries(line)
-        numbers.update(entries)
-        if first_line is None and entries:
-            first_line = line
+    figure_numbers, plate_numbers, first_figure_line, first_plate_line = \
+        gold_block_number_sets(body, structural_kind)
+    numbers = figure_numbers | plate_numbers
+    first_line = first_figure_line or first_plate_line
     tokens = fid.tokens(stripped)
     if not tokens:
         return "nothing_printed", numbers, ""
     if not numbers:
         return "lettering_only", numbers, ""
+    # The controlled inventory sentence is transcription metadata for labels
+    # visible on an otherwise uncaptioned plate. Later ``Fig. N`` lines record
+    # lettering inside those drawings, even when a bracketed uncertainty makes
+    # such a line long enough to resemble prose. The block still offers no
+    # source caption text to compare.
+    if any(gold_plate_number_list(line.strip()) for line in stripped.splitlines()):
+        return "bare_label", numbers, first_line
     label_tokens = fid.tokens(first_line or "")
     if len(label_tokens) >= _PROSE_CAPTION_MIN_TOKENS:
         return "prose_caption", numbers, first_line
@@ -391,6 +483,16 @@ def _number_key(value):
     return (0, int(value)) if value.isdigit() else (1, value)
 
 
+def _identity_text(identity):
+    namespace, number = identity
+    return f"{namespace}:{number}"
+
+
+def _identity_key(identity):
+    namespace, number = identity
+    return (namespace, *_number_key(number))
+
+
 def _pack_counts(counts):
     """Add rates to one aggregate without hiding undefined precision."""
     gold = counts["gold_numbers"]
@@ -457,7 +559,8 @@ def score_document(gold_dir, corpus_dir, figure_types=None):
             by_page[int(f["page"])].append(f)
 
     kinds, structural_kinds = Counter(), Counter()
-    gold_nums, found_nums, matched = defaultdict(set), defaultdict(set), 0
+    gold_nums, found_nums = defaultdict(set), defaultdict(set)
+    gold_ids, found_ids = defaultdict(set), defaultdict(set)
     gold_blocks_by_page = defaultdict(list)
     gold_panels_by_page = defaultdict(list)
     unexpected_panels_by_page = defaultdict(list)
@@ -465,14 +568,25 @@ def score_document(gold_dir, corpus_dir, figure_types=None):
     captions = []                      # (gold_caption, extracted_caption)
 
     for page, structural_kind, body in gold_blocks(gold_dir, scan):
-        kind, numbers, first_line = classify_block(body)
+        kind, numbers, first_line = classify_block(body, structural_kind)
+        figure_numbers, plate_numbers, _first_figure, _first_plate = \
+            gold_block_number_sets(body, structural_kind)
+        identities = (
+            {("figure", number) for number in figure_numbers}
+            | {("plate", number) for number in plate_numbers}
+        )
         kinds[kind] += 1
         structural_kinds[structural_kind] += 1
         gold_nums[page] |= numbers
+        gold_ids[page] |= identities
         gold_blocks_by_page[page].append({
             "structural_kind": structural_kind,
             "caption_kind": kind,
             "numbers": sorted(numbers, key=_number_key),
+            "identities": [
+                _identity_text(identity)
+                for identity in sorted(identities, key=_identity_key)
+            ],
         })
         expected_panels = gold_panel_labels(body)
         # A grouped legend naming several numbered figures is deliberately
@@ -498,26 +612,34 @@ def score_document(gold_dir, corpus_dir, figure_types=None):
                 panel_counts["unexpected_panel_figures"] += int(case["reported"])
                 if case["reported"]:
                     unexpected_panels_by_page[page].append(case)
-        if kind == "prose_caption" and numbers:
+        if kind == "prose_caption" and figure_numbers:
             for f in by_page.get(page, []):
-                if str(f.get("figure_number")) in numbers:
+                if f.get("figure_type") != "plate" \
+                        and str(f.get("figure_number")) in figure_numbers:
                     captions.append((first_line, f.get("caption_text") or ""))
                     break
 
     for page, on_page in by_page.items():
         found_nums[page] |= {str(f["figure_number"]) for f in on_page
                              if f.get("figure_number")}
+        found_ids[page] |= {
+            (
+                "plate" if f.get("figure_type") == "plate" else "figure",
+                str(f["figure_number"]),
+            )
+            for f in on_page if f.get("figure_number")
+        }
 
-    g = sum(len(v) for v in gold_nums.values())
-    j = sum(len(v) for v in found_nums.values())
-    matched = sum(len(gold_nums[p] & found_nums.get(p, set())) for p in gold_nums)
-    # This is the best recall possible if the existing count of distinct
-    # reported page/number pairs on each page is held fixed and every pair may
-    # be relabelled. It diagnoses missing upstream evidence; it is not a
+    g = sum(len(v) for v in gold_ids.values())
+    j = sum(len(v) for v in found_ids.values())
+    matched = sum(len(gold_ids[p] & found_ids.get(p, set())) for p in gold_ids)
+    # This is the best recall possible if the existing count of distinct typed
+    # identities on each page is held fixed and every identity may be
+    # relabelled. It diagnoses missing upstream evidence; it is not a
     # theoretical ceiling on a rebuild that discovers additional labels.
     reported_pair_capacity = sum(
-        min(len(numbers), len(found_nums.get(page, set())))
-        for page, numbers in gold_nums.items()
+        min(len(identities), len(found_ids.get(page, set())))
+        for page, identities in gold_ids.items()
     )
 
     sims = []
@@ -527,9 +649,11 @@ def score_document(gold_dir, corpus_dir, figure_types=None):
                                         fid.tokens(got_cap),
                                         autojunk=False).ratio())
     page_diagnostics = {}
-    for page in sorted(set(gold_nums) | set(found_nums)):
+    for page in sorted(set(gold_ids) | set(found_ids)):
         gold_on_page = gold_nums.get(page, set())
         found_on_page = found_nums.get(page, set())
+        gold_identities = gold_ids.get(page, set())
+        found_identities = found_ids.get(page, set())
         figures = []
         for figure in by_page.get(page, []):
             summary = caption_evidence_summary(figure)
@@ -556,6 +680,32 @@ def score_document(gold_dir, corpus_dir, figure_types=None):
             "surplus_numbers": sorted(
                 found_on_page - gold_on_page, key=_number_key,
             ),
+            "gold_identities": [
+                _identity_text(identity)
+                for identity in sorted(gold_identities, key=_identity_key)
+            ],
+            "found_identities": [
+                _identity_text(identity)
+                for identity in sorted(found_identities, key=_identity_key)
+            ],
+            "matched_identities": [
+                _identity_text(identity)
+                for identity in sorted(
+                    gold_identities & found_identities, key=_identity_key,
+                )
+            ],
+            "missing_identities": [
+                _identity_text(identity)
+                for identity in sorted(
+                    gold_identities - found_identities, key=_identity_key,
+                )
+            ],
+            "surplus_identities": [
+                _identity_text(identity)
+                for identity in sorted(
+                    found_identities - gold_identities, key=_identity_key,
+                )
+            ],
             "reported_figures": figures,
             "gold_panel_cases": gold_panels_by_page.get(page, []),
             "unexpected_panel_cases": unexpected_panels_by_page.get(page, []),
@@ -631,21 +781,25 @@ def build_report(gold_root, corpuscle_root):
         }
 
     return {
-        "schema_version": 5,
+        "schema_version": 7,
         "question": "is the caption bound to the figure it belongs to, and "
                     "does its declared panel set match",
         "method": "figure numbers parsed independently from labels printed "
-                  "INSIDE a gold [FIGURE]/[PLATE] block, compared per page "
-                  "against figures.json; caption text scored only within "
+                  "inside a gold [FIGURE]/[PLATE] block, including controlled "
+                  "plate inventories and standalone engraved-number lines; "
+                  "an immediately adjacent plate heading is included as "
+                  "plate identity evidence. Compared per page against "
+                  "typed figures.json identities (plate:N is distinct from "
+                  "figure:N); caption text is scored only within "
                   "number-matched pairs",
         "caveat": "Naive caption-text similarity reports 44% and is mostly "
                   "artifact — bilingual captions, bare labels, and documents "
                   "that are their own translation. Numbers are the "
                   "language-independent signal. Reported-pair capacity is "
-                  "the maximum same-page number recall possible if the "
-                  "current number of distinct reported pairs on each page is "
-                  "held fixed; it diagnoses missing evidence, not a ceiling "
-                  "on a rebuild that discovers more labels.",
+                  "the maximum same-page typed-identity recall possible if "
+                  "the current number of distinct reported identities on "
+                  "each page is held fixed; it diagnoses missing evidence, "
+                  "not a ceiling on a rebuild that discovers more labels.",
         "panel_method": "lettered panels parsed independently from the "
                         "gold caption text after its figure opener; only "
                         "explicit multi-label sets beginning at A are scored, "
@@ -676,8 +830,8 @@ def print_summary(report, stream=None):
     t = report["totals"]
     w(f"\n{report['documents_bound']} documents bound on sha256\n")
     w(f"gold figure blocks by what they print: {report['gold_block_kinds']}\n")
-    w(f"\nfigure numbers printed on a figure : {t['gold_numbers']}\n")
-    w(f"numbers the pipeline reports       : {t['found_numbers']}\n")
+    w(f"\ntyped identities in gold           : {t['gold_numbers']}\n")
+    w(f"typed identities pipeline reports : {t['found_numbers']}\n")
     w(f"  binding recall                   : {t['number_recall']}\n")
     w(f"  binding precision                : {t['number_precision']}\n")
     w(f"  fixed reported-pair capacity     : "

@@ -241,7 +241,8 @@ The summary fields are:
 - `caption_page_distance`: caption page minus picture page;
 - `caption_source`: the producing rule, including `docling_caption_link`,
   `heuristic_proximity`, `plate_legend`, the plate/facing-page reconciliation
-  variants, the compound-split variants, or null.
+  variants (including `preceding_page_plate_legend`), the compound-split
+  variants, or null.
 
 `figure_number_source` is separate from `caption_source`: the first records
 how the identifier was read or reconciled, while the second records why the
@@ -263,8 +264,22 @@ Panel detection is selected by **`figures.panel_detection`** in the corpuscle's 
 Since #102 the default is **`ocr`** — Pass 3a is the CPU floor and runs on a plain `corpus run`. So the default output now includes OCR `rois`; only `panel_detection: off` reproduces the pre-#102 "no panel geometry" behavior.
 
 - **With `off` (no Pass 3a or 3b → no `rois`):** there is no geometric segmentation of multi-panel figures or known grouped plates. Region retrieval can only fall back to the whole image plus the caption-derived `panels_from_caption` / `plate_figures_from_caption` descriptions.
-- **Pass 3a (OCR, the `ocr` default) vs Pass 3b (vision):** 3a runs Tesseract on a 3×-upscaled image. It searches an ordinary figure only for its caption-declared A/B/C labels; on a known grouped plate it instead searches for the exact caption-declared number allow-list. This avoids treating arbitrary chart numbers as figures. It has low recall on line art and engravings. 3b (Qwen2.5-VL locally or Claude via API, the `vision-local` / `vision-claude` modes) handles both target kinds more reliably and is the **only** pass that discovers an *unexpected compound* — several logical figures in an image that caption analysis had not already expanded. It also admits a bare, confidently bound `plate` record to unconditioned number discovery. That path requires at least two distinct Arabic number+bbox candidates at confidence ≥0.80; retains accepted and rejected candidates on the host; and emits one logical, image-sharing figure record per accepted region with `caption_status: unbound`. It never turns a model description into source caption text. Ordinary figures, prose-captioned plates, uncertain plate links and the OCR pass remain allow-list-only. The two passes are mutually exclusive.
+- **Pass 3a (OCR, the `ocr` default) vs Pass 3b (vision):** 3a runs Tesseract on a 3×-upscaled image. It searches an ordinary figure only for its caption-declared A/B/C labels; on a known grouped plate it instead searches for the exact caption-declared number allow-list. This avoids treating arbitrary chart numbers as figures. It has low recall on line art and engravings. 3b (Qwen2.5-VL locally or Claude via API, the `vision-local` / `vision-claude` modes) handles both target kinds more reliably and is the **only** pass that discovers an *unexpected compound* — several logical figures in an image that caption analysis had not already expanded. It also admits a bare, confidently bound `plate` record to unconditioned number discovery. That path requires at least two distinct Arabic number+bbox candidates at confidence ≥0.80; retains accepted and rejected candidates on the host; and emits one logical, image-sharing figure record per accepted region with `caption_status: unbound`. Self-reported confidence is not sufficient when the output contradicts itself: a fabricated alphabetic panel grid whose boxes are copied onto numeric candidates is retained as rejected evidence and materializes nothing. It never turns a model description into source caption text. Ordinary figures, prose-captioned plates, uncertain plate links and the OCR pass remain allow-list-only. The two passes are mutually exclusive.
 - **Without Pass 3b → no unexpected-compound recovery in Pass 3c:** a previously unknown `fig_3-4.png`-style image stays a single record with an ambiguous `figure_number`, and `missing_figures[]` entries that 3c would have matched remain unresolved. A caption-enumerated historical plate is different: Pass 2.5 has already created its logical records, and the default OCR pass may locate their regions without invoking 3c.
+
+Historical legends can sit on the same page as a plate, on the following page,
+or on the preceding facing leaf. The preceding-leaf rule is deliberately not
+mere adjacency: the legend page must carry an explicit `PLATE N` heading and
+the following page must contain exactly one matching `PLATE N` picture.
+Measured OCR-damaged `Fic.`/`Fics.` openers are admitted only inside that
+plate-number context. Plate identity and child-figure identity are separate
+namespaces, so Plate X and Figure 10 can share an image without deduplication.
+
+The separately schedulable `corpus run --only vision` path has artifact parity
+with inline vision: after Pass 3b it runs compound materialization (Pass 3c)
+and rebuilds bidirectional chunk/figure links. The running MCP server performs
+none of this reconstruction; it reads the materialized records and crops their
+persisted regions.
 
 Because these passes are GPU/API-cost-bearing, the corpus-scale validation of figure coverage is tracked separately ([#11](https://github.com/caseywdunn/corpus/issues/11)), and figure-number recovery on old/scanned papers is an open gap ([#16](https://github.com/caseywdunn/corpus/issues/16)). When a new layout exposes a new failure mode, capture it as a ground-truth fixture under `tests/` so the fix is guarded against regression.
 

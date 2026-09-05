@@ -131,10 +131,11 @@ relax this admission rule or compete with the evidence work.
 
 The newest reference-corpuscle acceptance pass makes this the first-order
 user problem. A missing caption is visible; a confidently returned caption
-from the wrong figure is plausible misinformation. v1.2 measured caption
-binding at 0.574 recall / 0.878 precision, with the weakest layouts in the
-oldest material; [FIGURE_PARSING.md](FIGURE_PARSING.md) is the stable account
-of what those numbers mean.
+from the wrong figure is plausible misinformation. v1.2's scorer initially
+reported 0.574 recall / 0.878 precision, but v1.3 found that its gold parser
+omitted explicit plate inventories and standalone engraved numbers. Scorer v7
+fixes that denominator; [FIGURE_PARSING.md](FIGURE_PARSING.md) is the stable
+account of the corrected numbers and what they mean.
 
 - [ ] **Repair and re-measure caption association**
   ([#195](https://github.com/caseywdunn/corpus/issues/195)). Bind on validated
@@ -142,31 +143,38 @@ of what those numbers mean.
   bare label, and record the chosen candidate, rejected candidates, source,
   page distance and confidence. A weak association must be exposed as weak in
   the stored artifact and MCP result, not presented as an ordinary caption.
-  Full regression replay now moves the default served surface from 0.558 /
-  0.890 to 0.596 / 0.911 over the same persisted Docling inputs. A targeted
-  replay of the six retained clean-build artifacts adds ten correct pairs and
-  no false ones to the clean candidate (0.588 / 0.916 to 0.608 / 0.918), but is
-  not the final all-document rebuild. The independent
+  Scorer v7 expands the fixed gold denominator from the incorrectly parsed 480
+  pairs to 839 typed page/identity pairs, recognizes adjacent plate headings as
+  plate identity evidence, and distinguishes `plate:N` from `figure:N`. On that
+  corrected yardstick, the retained clean candidate before facing-page
+  expansion reports 313/318 correct (0.373 recall / 0.984
+  precision). The targeted deterministic replay binds a preceding `PLATE N`
+  legend only to an exact next-page `PLATE N`, preserves Plate X and Figure 10
+  as distinct identities, and moves Totton from 181/184 to 397/402 correct.
+  Combined with the unchanged other documents, that projects 529/536 (0.631 /
+  0.987) with fixed-population capacity 0.638. The independent
   panel yardstick now finds 98 explicitly enumerated letter-panel captions;
   current metadata replay declares 87, gets 84 exact sets, and scores 0.895 /
   0.997 label recall/precision with no declaration on 176 same-page,
   same-number non-panel figure blocks. Keep this open until the clean source-PDF
   rebuild confirms both measures on the complete current extraction path. The
-  number-binding headline is end-to-end coverage, not selector accuracy: the
-  replay's existing page/number population has a 0.642 per-page capacity
-  ceiling. Report that availability ceiling by layout so future work separates
-  missing label evidence from a wrong association decision. The next measured
-  tranche is build-time, page-level number discovery for the mixed and plate
-  layouts below that ceiling. It must materialize independently evidenced
-  number/region/legend relationships with confidence and rejected candidates;
-  do not move reconstruction into the MCP server or client, and do not turn it
-  into an unconstrained general segmentation rewrite. The build path now has
-  the bounded implementation: only a confidently bound bare `plate` reaches
-  discovery; at least two distinct Arabic number+bbox candidates at confidence
-  ≥0.80 are required; accepted and rejected candidates persist on the host;
-  derived records share its image and keep their captions explicitly unbound.
-  Keep the item open until the local VLM is measured on the clean historical
-  plates and the resulting page/number population is rescored.
+  number-binding headline is end-to-end coverage, not selector accuracy.
+  Report fixed-population capacity by layout so future work separates missing
+  label evidence from a wrong association decision. Build-time page-level
+  number discovery remains bounded: only a confidently bound bare `plate`
+  without a deterministic grouped legend reaches it; at least two distinct
+  Arabic number+bbox candidates at confidence ≥0.80 are required; accepted and
+  rejected candidates persist on the host; derived records share its image and
+  keep their captions explicitly unbound. A 34-plate local-Qwen probe emitted
+  216 regions, of which 215 agree with corrected gold. The sole false label was
+  a fabricated A-H grid copied onto figures 1-8; that contradictory structure
+  is now a hard rejection independent of confidence. After deterministic Pass
+  2.5 expansion, only four plates remain eligible, and the probe adds nine
+  correct labels with no false ones there (projected combined 0.641 / 0.987).
+  `--only vision` now also runs Pass 3c and cross-reference rebuilding, so its
+  artifacts match inline vision. Keep the item open until a complete clean
+  source-PDF build persists and re-scores both the deterministic and vision
+  results.
 - [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered

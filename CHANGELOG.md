@@ -151,14 +151,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bijection, and use exact next-page legend matches to enrich preceding bare
   labels. The figure MCP responses expose the summary fields without moving
   association work into the server. On the 35-document regression replay,
-  the default served surface improves from 0.558 recall / 0.890 precision to
-  0.588 / 0.910 over identical persisted Docling inputs; every defined era,
-  file-type and layout segment improves on both measures. The scorer now uses
-  an independent gold-label parser and reports raw and default-MCP surfaces,
-  so an extractor-parser change cannot move its own gold denominator. It also
-  reports the fixed reported-pair capacity that separates missing upstream
-  number evidence from wrong association, and excludes the anatomical key
-  `Pl.M.` (mouth-plate) from Roman-numeral plate labels.
+  scorer v7 now recognizes explicit plate inventories, standalone engraved
+  numbers (`1`, `F. 1.`), and a plate heading immediately outside `[PLATE]`.
+  It also scores typed identities, so `plate:10` cannot satisfy `figure:10` on
+  the same page. The prior gold parser omitted or collapsed that evidence and
+  reported 480 pairs where the transcription contains 839, so its old recall
+  headline is not a valid release baseline. On the corrected yardstick, the
+  retained clean candidate before facing-page expansion reports 313/318
+  correct (0.373 recall / 0.984 precision). The scorer remains independent of
+  production OCR rules, reports raw and default-MCP surfaces plus
+  fixed-population capacity, and excludes the anatomical key `Pl.M.`
+  (mouth-plate) from Roman-numeral plate labels.
+
+  Complete legends printed on the leaf before a full-page plate now bind only
+  when an explicit `PLATE N` heading exactly matches one plate on the following
+  page. OCR-damaged `Fic.`/`Fics.` openers are accepted only inside that
+  context. Plate and child-figure numbers use separate deduplication namespaces,
+  so Plate X no longer deletes Figure 10. On the persisted Totton replay this
+  creates 217 captioned logical records and moves 181/184 correct reported
+  identities to 397/402; combined with the unchanged documents it projects
+  529/536 against 839 (0.631 recall / 0.987 precision). A complete clean build
+  remains the release gate.
 
   Panel correctness is now measured independently as well. Caption parsing
   supports the common `A, ...; B, ...` style, preserves strong printed sets
@@ -178,7 +191,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accepts bare numbers only through the exact caption-derived allow-list;
   vision uses the same target set. Detected regions are distributed back to
   the individual figure records, while the MCP server only reads and crops
-  that build-time evidence.
+  that build-time evidence. A separately scheduled `--only vision` run now
+  also executes Pass 3c and rebuilds chunk/figure cross-references, matching
+  the inline full-run artifact contract.
+
+  Bare plates with no deterministic legend may use a tightly gated
+  unconditioned vision fallback. It requires at least two high-confidence
+  Arabic number/region pairs, persists accepted and rejected candidates, and
+  never treats a model description as a caption. The 34-plate local-Qwen probe
+  produced 216 regions; 215 agree with corrected gold. Its one false label was
+  an invented A-H grid copied onto figures 1-8, so that conflicting-grid shape
+  is now rejected regardless of self-reported confidence. Deterministic Pass
+  2.5 leaves only four of those plates eligible; their probe result adds nine
+  correct labels and no false ones.
 
 - **`corpus taxonomy ingest` doubled the `names` table on every re-run, and
   v1.2.1 made it fire automatically (#262).** `names` shipped with no PRIMARY

@@ -30,10 +30,12 @@ import pytest
 
 from pipeline.figures import (
     FIGURE_TYPE_FIGURE,
+    FIGURE_TYPE_PLATE,
     _LEGEND_OPENER,
     _MIN_PLATE_LEGEND_ENTRIES,
     expand_plate_figures,
     caption_figure_entries,
+    dedupe_figures,
     plate_legend_entries,
     reconcile_plate_legend_numbers,
 )
@@ -166,6 +168,20 @@ def test_single_fuzzy_caption_does_not_activate_body_cross_references():
     assert plate_legend_entries(page) == []
 
 
+def test_explicit_plate_heading_admits_measured_fuzzy_legend_openers():
+    page = [
+        {"text": "PLATE XXXIV Diphyes antarctica", "bbox": [0, 90, 200, 100]},
+        {"text": "Fig. 1. Anterior nectophore.", "bbox": [0, 70, 200, 80]},
+        {"text": "Fics. 2, 3. Posterior nectophores.", "bbox": [0, 50, 200, 60]},
+        {"text": "Fic. 3. Whole animal.", "bbox": [0, 30, 200, 40]},
+    ]
+
+    entries = plate_legend_entries(page)
+
+    assert [entry["figure_number"] for entry in entries] == ["1", "2", "3"]
+    assert {entry["plate_number_context"] for entry in entries} == {"34"}
+
+
 # --- expanding ----------------------------------------------------------------
 
 
@@ -286,6 +302,63 @@ def test_caption_only_page_can_enrich_previous_page_figure():
     assert out == [prior]
     assert prior["caption_text"] == "Figur 26. Hippopodius after Huxley."
     assert prior["caption_page"] == 15
+
+
+def test_numbered_legend_on_preceding_page_expands_matching_plate():
+    following_plate = plate(idx=34, page=18, num="34", cap="PLATE XXXIV")
+    entries = plate_legend_entries([
+        {"text": "PLATE XXXIV Diphyes antarctica", "bbox": [0, 90, 200, 100]},
+        {"text": "Fig. 1. Anterior nectophore.", "bbox": [0, 70, 200, 80]},
+        {"text": "Fic. 2. Posterior nectophore.", "bbox": [0, 50, 200, 60]},
+        {"text": "Fic. 3. Whole animal.", "bbox": [0, 30, 200, 40]},
+    ])
+
+    out = expand_plate_figures([following_plate], {17: entries})
+    derived = [item for item in out if item is not following_plate]
+
+    assert [item["figure_number"] for item in derived] == ["1", "2", "3"]
+    assert all(item["page"] == 18 for item in derived)
+    assert all(item["caption_page"] == 17 for item in derived)
+    assert all(item["caption_page_distance"] == -1 for item in derived)
+    assert all(item["caption_source"] == "preceding_page_plate_legend"
+               for item in derived)
+    assert all(item["shares_image_with"] == 34 for item in derived)
+
+
+def test_plate_and_same_numbered_child_remain_distinct_records():
+    host = {
+        **plate(idx=10, page=18, num="10", cap="PLATE X"),
+        "figure_type": FIGURE_TYPE_PLATE,
+    }
+    entries = plate_legend_entries([
+        {"text": "PLATE X Nanomia", "bbox": [0, 90, 200, 100]},
+        {"text": "Fig. 9. Tentillum.", "bbox": [0, 70, 200, 80]},
+        {"text": "Fig. 10. Cormidia.", "bbox": [0, 50, 200, 60]},
+    ])
+
+    expanded = expand_plate_figures([host], {17: entries})
+    classified = [
+        item if item is host else {**item, "figure_type": FIGURE_TYPE_FIGURE}
+        for item in expanded
+    ]
+    kept = dedupe_figures(classified)
+
+    assert [(item["figure_type"], item["figure_number"]) for item in kept] == [
+        (FIGURE_TYPE_PLATE, "10"),
+        (FIGURE_TYPE_FIGURE, "9"),
+        (FIGURE_TYPE_FIGURE, "10"),
+    ]
+
+
+def test_preceding_legend_does_not_expand_a_differently_numbered_plate():
+    wrong_plate = plate(idx=35, page=18, num="35", cap="PLATE XXXV")
+    entries = plate_legend_entries([
+        {"text": "PLATE XXXIV Diphyes antarctica", "bbox": [0, 90, 200, 100]},
+        {"text": "Fig. 1. Anterior nectophore.", "bbox": [0, 70, 200, 80]},
+        {"text": "Fig. 2. Posterior nectophore.", "bbox": [0, 50, 200, 60]},
+    ])
+
+    assert expand_plate_figures([wrong_plate], {17: entries}) == [wrong_plate]
 
 
 # --- the wiring ---------------------------------------------------------------

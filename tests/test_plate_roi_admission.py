@@ -230,6 +230,42 @@ def test_bare_plate_discovery_requires_a_group(tmp_path):
     )
 
 
+def test_bare_plate_discovery_rejects_copied_hallucinated_panel_grid(tmp_path):
+    image = tmp_path / "plate.png"
+    Image.new("RGB", (100, 50), "white").save(image)
+
+    class Backend:
+        name = "vision:test"
+
+        def detect_figure_panels(self, *args):
+            return [
+                {"type": "panel", "label": "A", "bbox_px": [0, 0, 50, 50],
+                 "confidence": 0.9, "source": self.name},
+                {"type": "panel", "label": "B", "bbox_px": [50, 0, 100, 50],
+                 "confidence": 0.9, "source": self.name},
+                {"type": "embedded_figure", "figure_number": "1",
+                 "bbox_px": [0, 0, 50, 50], "confidence": 0.9,
+                 "source": self.name},
+                {"type": "embedded_figure", "figure_number": "2",
+                 "bbox_px": [50, 0, 100, 50], "confidence": 0.9,
+                 "source": self.name},
+            ]
+
+    result = detect_figure_rois_via_vision(
+        image, [], Backend(), target_kind="figure_discovery",
+    )
+
+    assert result["pass3_status"] == "discovery_insufficient_evidence"
+    assert result["rois"] == []
+    numeric = [
+        candidate for candidate in result["figure_number_candidates"]
+        if candidate["figure_number"]
+    ]
+    assert {candidate["rejection_reason"] for candidate in numeric} == {
+        "conflicting_panel_grid"
+    }
+
+
 def test_pass3b_materializes_bare_plate_numbers_without_inventing_captions(tmp_path):
     image = tmp_path / "plate_16.png"
     Image.new("RGB", (200, 100), "white").save(image)

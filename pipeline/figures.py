@@ -1104,6 +1104,12 @@ _LEGEND_OPENER = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE,
 )
+_FUZZY_PLATE_LEGEND_OPENER = re.compile(
+    r"^[\s._\-\u2013\u2014\u00b7\u2022]*"
+    r"(?:fics?|frc|fi(?:\d{1,3})?|puc)\s*[.,]\s*"
+    r"(?=[\dIVXLCMivxlcm])",
+    re.IGNORECASE,
+)
 
 
 def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
@@ -1127,7 +1133,10 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
     output. Nine such pages in one monograph of the reference corpus.
 
     Only lines that *open* with a figure label count — see
-    ``_LEGEND_OPENER``. Without that anchor the scan reads every
+    ``_LEGEND_OPENER``. On a page carrying an explicit ``PLATE N`` heading,
+    the measured OCR-damaged ``Fic.``/``Fics.`` forms are accepted as well and
+    each entry retains ``plate_number_context`` for exact facing-page matching.
+    Without those anchors the scan reads every
     cross-reference in running prose as a legend entry, which is how a page
     of ordinary text under the heading "Plate XX, figures 1, 2" came to serve
     its one text-figure a second time as "figure 20".
@@ -1137,10 +1146,25 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
     ``_MIN_PLATE_LEGEND_ENTRIES`` distinct numbers, which is the ordinary
     case of a page with one figure and its caption.
     """
+    # A plate heading is strong page-level context for two otherwise unsafe
+    # operations: accepting measured OCR-damaged ``Fic.`` openers and binding
+    # a caption-only leaf to the correspondingly numbered plate on the next
+    # leaf. Preserve the number on every entry so expansion can require that
+    # exact match rather than guessing from adjacency alone.
+    plate_number_context = next((
+        parse_figure_number(" ".join((item.get("text") or "").split()))
+        for item in page_texts
+        if _PLATE_CAPTION_RE.match(
+            " ".join((item.get("text") or "").split())
+        )
+    ), None)
+
     seen = {}
     for t in page_texts:
         text = " ".join((t.get("text") or "").split())
-        if not _LEGEND_OPENER.match(text):
+        if not _LEGEND_OPENER.match(text) and not (
+            plate_number_context and _FUZZY_PLATE_LEGEND_OPENER.match(text)
+        ):
             continue
         for entry in caption_figure_entries(text):
             num = entry["figure_number"]
@@ -1150,9 +1174,61 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
                 **entry,
                 "caption_bbox": t.get("bbox"),
             }
+            if plate_number_context:
+                seen[num]["plate_number_context"] = plate_number_context
     if len(seen) < _MIN_PLATE_LEGEND_ENTRIES:
         return []
     return list(seen.values())
+
+
+def _append_plate_legend_siblings(
+    out: List[Dict],
+    plate: Dict,
+    entries: List[Dict],
+    *,
+    existing_numbers,
+    caption_page: int,
+    caption_source: str,
+    caption_page_distance: int,
+) -> None:
+    """Append one image-sharing record per not-yet-represented legend entry."""
+    already = {str(number) for number in existing_numbers if number is not None}
+    for entry in entries:
+        if entry["figure_number"] in already:
+            continue
+        evidence = _caption_candidate(
+            text=entry["caption_text"],
+            page=caption_page,
+            bbox=entry.get("caption_bbox"),
+            source=caption_source,
+            picture_page=plate.get("page"),
+            distance=(
+                _vertical_gap(plate["bbox"], entry["caption_bbox"])
+                if caption_page_distance == 0
+                and plate.get("bbox") and entry.get("caption_bbox") else None
+            ),
+            confidence="medium",
+        )
+        evidence["chosen"] = True
+        evidence.pop("_full_caption_text", None)
+        sibling = dict(plate)
+        sibling.update({
+            "figure_number": entry["figure_number"],
+            "figure_number_source": caption_source,
+            "caption_text": entry["caption_text"],
+            "caption_page": caption_page,
+            "caption_bbox": entry.get("caption_bbox"),
+            "caption_source": caption_source,
+            "caption_kind": _caption_kind(entry["caption_text"]),
+            "caption_status": "bound",
+            "caption_confidence": "medium",
+            "caption_page_distance": caption_page_distance,
+            "caption_candidates": [evidence],
+            "shares_image_with": plate.get("docling_idx"),
+            "figure_type": FIGURE_TYPE_FIGURE,
+        })
+        out.append(sibling)
+        already.add(entry["figure_number"])
 
 
 def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
@@ -1172,7 +1248,9 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
     duplicate is reassigned to the missing entry. This handles grouped caption
     blocks without inventing or deleting a picture. Otherwise, this only
     expands a page whose legend names *more* figures than were extracted from
-    it. `shares_image_with` marks added siblings so a consumer can tell that
+    it. A caption-only preceding leaf may expand the next page only when its
+    explicit ``PLATE N`` heading matches exactly one ``PLATE N`` host there.
+    `shares_image_with` marks added siblings so a consumer can tell that
     several records pointing at one file is deliberate rather than duplication.
     """
     by_page = {}
@@ -1184,6 +1262,14 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
         out.append(it)
     for page, entries in legends.items():
         on_page = by_page.get(page) or []
+        # Plate identifiers and the figures engraved on that plate occupy
+        # different namespaces even when their Arabic values coincide
+        # (Plate X contains Fig. 10). A ``PLATE N`` host is the shared image,
+        # not evidence that child figure N already exists.
+        on_page_figures = [
+            item for item in on_page
+            if not _PLATE_CAPTION_RE.match(item.get("caption_text") or "")
+        ]
 
         # Collected legends often sit below the *next* page's pictures while
         # their first lines finish the preceding page's plate. If an entry's
@@ -1230,18 +1316,51 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
                 "caption_candidates": [evidence, *old_candidates][:5],
             })
         entries = current_entries
-        if not entries or not on_page:
+        if not entries:
+            continue
+
+        if not on_page:
+            # Some monographs print the complete legend on the leaf before a
+            # full-page plate. Adjacency alone is ambiguous, so require the
+            # legend page's explicit plate heading to equal exactly one bare
+            # plate label on the following page.
+            contexts = {
+                str(entry.get("plate_number_context"))
+                for entry in entries if entry.get("plate_number_context")
+            }
+            following = by_page.get(page + 1) or []
+            matches = [
+                item for item in following
+                if len(contexts) == 1
+                and str(item.get("figure_number") or "") in contexts
+                and _PLATE_CAPTION_RE.match(item.get("caption_text") or "")
+            ]
+            if len(matches) == 1:
+                _append_plate_legend_siblings(
+                    out,
+                    matches[0],
+                    entries,
+                    existing_numbers=(
+                        item.get("figure_number") for item in following
+                        if not _PLATE_CAPTION_RE.match(
+                            item.get("caption_text") or ""
+                        )
+                    ),
+                    caption_page=page,
+                    caption_source="preceding_page_plate_legend",
+                    caption_page_distance=-1,
+                )
             continue
 
         # Exact-count reconciliation. A grouped caption can describe three
         # pictures while Docling links two of them to the same nearby label.
         # Only repair a complete bijection: the legend count equals the picture
         # count and every surplus item maps to exactly one missing number.
-        if len(entries) == len(on_page):
+        if len(entries) == len(on_page_figures):
             entry_by_number = {e["figure_number"]: e for e in entries}
             grouped = {}
             reassignable = []
-            for item in on_page:
+            for item in on_page_figures:
                 number = str(item.get("figure_number") or "")
                 if number not in entry_by_number:
                     reassignable.append(item)
@@ -1317,47 +1436,22 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
                     reassignable.remove(item)
                     missing.remove(entry)
 
-        if len(entries) <= len(on_page):
+        if len(entries) <= len(on_page_figures):
             continue
         # The plate is the largest picture on the page; the legend describes
         # what is drawn on it.
         plate = max(on_page, key=lambda x: _bbox_area(x.get("bbox")))
-        already = {str(x.get("figure_number")) for x in on_page
-                   if x.get("figure_number")}
-        for entry in entries:
-            if entry["figure_number"] in already:
-                continue
-            sibling = dict(plate)
-            evidence = _caption_candidate(
-                text=entry["caption_text"],
-                page=page,
-                bbox=entry.get("caption_bbox"),
-                source="plate_legend",
-                picture_page=page,
-                distance=(
-                    _vertical_gap(plate["bbox"], entry["caption_bbox"])
-                    if plate.get("bbox") and entry.get("caption_bbox") else None
-                ),
-                confidence="medium",
-            )
-            evidence["chosen"] = True
-            evidence.pop("_full_caption_text", None)
-            sibling.update({
-                "figure_number": entry["figure_number"],
-                "figure_number_source": "plate_legend",
-                "caption_text": entry["caption_text"],
-                "caption_page": page,
-                "caption_bbox": entry.get("caption_bbox"),
-                "caption_source": "plate_legend",
-                "caption_kind": _caption_kind(entry["caption_text"]),
-                "caption_status": "bound",
-                "caption_confidence": "medium",
-                "caption_page_distance": 0,
-                "caption_candidates": [evidence],
-                "shares_image_with": plate.get("docling_idx"),
-                "figure_type": FIGURE_TYPE_FIGURE,
-            })
-            out.append(sibling)
+        _append_plate_legend_siblings(
+            out,
+            plate,
+            entries,
+            existing_numbers=(
+                item.get("figure_number") for item in on_page_figures
+            ),
+            caption_page=page,
+            caption_source="plate_legend",
+            caption_page_distance=0,
+        )
     return out
 
 
@@ -1603,7 +1697,7 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         return items
     from collections import defaultdict
 
-    # Keyed on (page, number), not number alone (#205). Both tests below
+    # Keyed on (page, namespace, number), not number alone (#205). Both tests below
     # compare bounding boxes, and a bbox carries no page — so two figures at
     # similar coordinates on *different* pages were being read as redundant
     # crops of one another and one of them dropped.
@@ -1613,7 +1707,9 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
     # translation, and the two are genuinely different figures; Carre 1969
     # loses nine of twenty-two figures that way. Every legitimate grouping
     # this function performs — coequal panels, whole-figure plus subpanels —
-    # is within a single page, so narrowing the key costs nothing.
+    # is within a single page, so narrowing the key costs nothing. The namespace
+    # keeps Plate X from deleting its image-sharing child Figure 10 merely
+    # because both canonicalize to number 10.
     by_num: Dict[tuple, List[Dict]] = defaultdict(list)
     passthrough: List[Dict] = []
     for it in items:
@@ -1624,13 +1720,16 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         # figure_number via the caption-proximity heuristic keep their
         # downgraded classification.
         if num and str(num) and ftype in (FIGURE_TYPE_FIGURE, FIGURE_TYPE_PLATE):
-            by_num[(it.get("page"), str(num))].append(it)
+            number_namespace = (
+                "plate" if ftype == FIGURE_TYPE_PLATE else "figure"
+            )
+            by_num[(it.get("page"), number_namespace, str(num))].append(it)
         else:
             passthrough.append(it)
 
     kept: List[Dict] = list(passthrough)
 
-    for (_page, num), group in by_num.items():
+    for (_page, _number_namespace, num), group in by_num.items():
         if len(group) == 1:
             kept.append(group[0])
             continue
@@ -2255,6 +2354,37 @@ def _normalize_vision_figure_discovery(backend_rois: List[Dict]) -> Dict:
         else:
             eligible.append(candidate)
         candidates.append(candidate)
+
+    # Qwen can impose a complete alphabetic panel grid on a plate that has no
+    # such labels, then copy those invented cells to numeric embedded figures
+    # at high self-reported confidence. This was observed as A-H and 1-8 with
+    # identical boxes on a seven-figure plate. Confidence cannot veto that
+    # failure; contradictory structure can. Keep every candidate as evidence,
+    # but do not materialize a numeric region that duplicates one of at least
+    # two unsupported alphabetic panel cells.
+    alphabetic_panel_regions = [
+        candidate["roi_px"] for candidate in candidates
+        if candidate["emitted_type"] == "panel"
+        and candidate["rejection_reason"] == "unsupported_number_format"
+        and re.fullmatch(
+            r"[A-L]", candidate.get("figure_number_raw") or "", re.IGNORECASE
+        )
+        and isinstance(candidate.get("roi_px"), list)
+        and len(candidate["roi_px"]) == 4
+        and _bbox_area(candidate["roi_px"]) > 0
+    ]
+    if len(alphabetic_panel_regions) >= 2:
+        for candidate in eligible:
+            if any(
+                _bbox_iou(candidate["roi_px"], panel_region)
+                > _VISION_FIGURE_DISCOVERY_MAX_REGION_IOU
+                for panel_region in alphabetic_panel_regions
+            ):
+                candidate["rejection_reason"] = "conflicting_panel_grid"
+        eligible = [
+            candidate for candidate in eligible
+            if candidate["rejection_reason"] is None
+        ]
 
     # One logical record per number. When the model emits a number twice,
     # retain the highest-confidence region and make the rejected duplicate

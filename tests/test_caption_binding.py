@@ -15,15 +15,16 @@ wrong first:
   threshold can match; and a document that is its own translation prints
   `Fig. 1` twice, legitimately.
 
-* **Count only numbers printed *inside* a figure block.** Gold pages are full
-  of figure numbers that are references — "see Fig. 18", "figured by Bigelow
-  (op. cit., fig. 34)". Counting those measures objects that are not on that
-  page. Restricted to numbers inside a `[FIGURE]`/`[PLATE]` block the measure
-  means what it says.
+* **Count only numbers printed in a figure block (plus its adjacent plate
+  heading).** Gold pages are full of figure numbers that are references —
+  "see Fig. 18", "figured by Bigelow (op. cit., fig. 34)". Counting those
+  measures objects that are not on that page. Restricted to the structural
+  block and its plate identity, the measure means what it says.
 """
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -63,6 +64,18 @@ def test_plate_lettering_with_no_label_is_its_own_class():
     kind, nums, _ = cb.classify_block("1 7 Stéphanomie triangulaire. 8 12")
     assert kind == "lettering_only"
     assert nums == set()
+
+
+def test_standalone_numbers_are_labels_only_inside_a_plate_block():
+    body = "PLATE I\nF. 1.\n3\nF.2\n3a"
+
+    kind, nums, _ = cb.classify_block(body, structural_kind="PLATE")
+
+    assert kind == "bare_label"
+    assert nums == {"1", "2", "3", "3a"}
+    # The same shape inside an ordinary figure can be chart ticks or scale
+    # values and must not manufacture figure identities.
+    assert cb.classify_block("1\n3\n2", structural_kind="FIGURE")[1] == set()
 
 
 def test_a_block_with_no_printed_text_is_counted_not_scored():
@@ -336,6 +349,43 @@ def test_only_numbers_inside_a_figure_block_are_counted():
         assert nums == {"12"}, "references outside the block must not count"
 
 
+def test_explicit_gold_plate_inventory_counts_every_engraved_number():
+    body = (
+        "Figure numbers on the plate, in reading order: "
+        "1, 2, 3, 4, 5, 6, 7a, 7b, 8, 9, 10, 11, 12, 13.\n\n"
+        "Lettering on the individual figures, in reading order:\n"
+        "Fig. 2: Sb H\nFig. 7a: W\nFig. 13: H\n"
+    )
+
+    kind, numbers, first_line = cb.classify_block(body)
+
+    assert kind == "bare_label"
+    assert numbers == {
+        "1", "2", "3", "4", "5", "6", "7a", "7b", "8", "9",
+        "10", "11", "12", "13",
+    }
+    assert first_line == "Fig. 2: Sb H"
+
+
+def test_plate_inventory_lettering_notes_do_not_become_caption_prose():
+    body = (
+        "Figure numbers on the plate, in reading order: 1, 2.\n"
+        "Lettering, figure by figure:\n"
+        "Fig. 1 [illegible] (single italic letters scattered over the drawing)\n"
+    )
+
+    kind, numbers, _first_line = cb.classify_block(body, structural_kind="PLATE")
+
+    assert kind == "bare_label"
+    assert numbers == {"1", "2"}
+
+
+def test_plate_inventory_rejects_non_number_prose():
+    assert cb.gold_plate_number_list(
+        "Figure numbers on the plate: 1, two, 3."
+    ) == []
+
+
 def test_a_nested_figure_marker_is_not_a_second_block():
     import tempfile
     with tempfile.TemporaryDirectory() as d:
@@ -344,6 +394,78 @@ def test_a_nested_figure_marker_is_not_a_second_block():
             "[PAGE 1]\n[NOTE: lettering inside [FIGURE] is transcribed]\n"
             "[FIGURE]\nFig. 3. A real one.\n[/FIGURE]\n", encoding="utf-8")
         assert len(list(cb.gold_blocks(p))) == 1
+
+
+def test_plate_heading_immediately_outside_block_is_identity_evidence():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d)
+        (p / "page_017.txt").write_text(
+            "[PAGE 17]\nPLATE XVII\n[PLATE]\n1\n2\n3\n[/PLATE]\n",
+            encoding="utf-8",
+        )
+
+        page, structural_kind, body = next(cb.gold_blocks(p))
+        kind, numbers, _ = cb.classify_block(body, structural_kind)
+
+        assert page == 17
+        assert kind == "bare_label"
+        assert numbers == {"1", "2", "3", "17"}
+
+
+def test_nonadjacent_plate_reference_is_not_host_identity(tmp_path):
+    (tmp_path / "page_017.txt").write_text(
+        "[PAGE 17]\nPLATE IX mentioned in an index\nIntervening prose.\n"
+        "[PLATE]\n1\n2\n[/PLATE]\n",
+        encoding="utf-8",
+    )
+
+    _page, structural_kind, body = next(cb.gold_blocks(tmp_path))
+    _kind, numbers, _first = cb.classify_block(body, structural_kind)
+
+    assert numbers == {"1", "2"}
+
+
+def test_plate_and_same_numbered_child_are_distinct_scoring_identities(tmp_path):
+    gold = tmp_path / "gold"
+    corpus = tmp_path / "corpus"
+    gold.mkdir()
+    corpus.mkdir()
+    (gold / "page_010.txt").write_text(
+        "[PAGE 10]\nPLATE X\n[PLATE]\n10.\n[/PLATE]\n",
+        encoding="utf-8",
+    )
+    (corpus / "scan_detection.json").write_text("{}", encoding="utf-8")
+    figures = [{
+        "figure_id": "plate_10",
+        "figure_type": "plate",
+        "figure_number": "10",
+        "page": 10,
+    }]
+    (corpus / "figures.json").write_text(
+        json.dumps({"figures": figures}), encoding="utf-8",
+    )
+
+    plate_only = cb.score_document(gold, corpus)
+
+    assert plate_only["gold_numbers"] == 2
+    assert plate_only["found_numbers"] == 1
+    assert plate_only["matched_numbers"] == 1
+    assert plate_only["pages"]["10"]["missing_identities"] == ["figure:10"]
+
+    figures.append({
+        "figure_id": "figure_10",
+        "figure_type": "figure",
+        "figure_number": "10",
+        "page": 10,
+    })
+    (corpus / "figures.json").write_text(
+        json.dumps({"figures": figures}), encoding="utf-8",
+    )
+
+    complete = cb.score_document(gold, corpus)
+    assert complete["gold_numbers"] == complete["found_numbers"] == 2
+    assert complete["matched_numbers"] == 2
 
 
 # --- reporting ----------------------------------------------------------------
@@ -355,7 +477,7 @@ def report():
 
 
 def test_documents_bind_and_unmatched_are_reported(report):
-    assert report["schema_version"] == 5
+    assert report["schema_version"] == 7
     assert report["documents_bound"] == 2
     assert report["documents_unmatched"] == ["DocTwo"]
 

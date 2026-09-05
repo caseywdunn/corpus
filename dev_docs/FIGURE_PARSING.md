@@ -55,38 +55,49 @@ Release candidate, 35 documents, 376 gold figure blocks (316 `[FIGURE]`,
 | **shared evidence types** (default MCP surface) | **0.875** | **0.985** | **0.927** |
 | captioned only | 0.880 | 0.979 | 0.927 |
 
-Caption binding on the full 35-document regression replay, scored on figure
-*numbers* over the default MCP evidence types: **recall 0.596, precision
-0.911** (286 matches, 314 reported, 480 gold). Before the v1.3 association
-repairs, replaying the same persisted Docling documents produced **0.558 /
-0.890**; the immediately preceding parser produced **0.588 / 0.910** (282 /
-310). No extraction or gold input changed in this comparison. The last four
-matches come from a grouped `Figg. 2-5` legend and one structurally linked
-caption whose damaged label follows a species heading. Direct `Fic.` captions
-are deliberately not treated as plate legends: a looser trial recovered real
-numbers but also cloned same-page running-text cross-references.
+Caption binding is scored on typed page/identity pairs over the default MCP
+evidence types: `plate:10` and `figure:10` are distinct even when printed on
+the same page. The v7 scorer corrected material gold-denominator bugs: 25
+plate blocks explicitly inventory their engraved numbers, and many more list
+those numbers as standalone `1`, `F. 1.`, etc. The earlier parser counted only
+lines beginning `Fig.` and collapsed same-numbered plate and child identities,
+therefore reporting **480 gold pairs where the transcription actually contains
+839**. It also treated a correct `PLATE N` host as false when the transcriber
+placed that heading immediately outside `[PLATE]`. The earlier 0.596 / 0.911
+headline is not comparable and must not be used as a release baseline.
 
-The clean source-PDF candidate before that final parser change measured
-**0.588 / 0.916** (282 / 308). Replaying the six locally retained clean
-Docling artifacts that contain the conspicuous failures, while leaving the
-other 29 records unchanged, measures **0.608 / 0.918** (292 / 318): ten added
-correct page/number pairs, no removals and no false additions. This targeted
-clean-artifact result includes `Fic, 11`, `Fic. ro` → 10, `Fic. ror` → 101,
-leading dash/underscore noise, the embedded label, and the `Figg.` range. It
-is evidence for the bounded repair, not a substitute for the complete clean
-source-PDF rebuild required at the release gate.
+Under the corrected fixed yardstick, the retained clean candidate before the
+facing-page repair reports **313 correct of 318 identities against 839 gold**:
+**recall 0.373, precision 0.984**, with fixed-population capacity 317/839
+(0.378). Ten of those matches are the bounded OCR-label repairs (`Fic, 11`,
+`Fic. ro` → 10, `Fic. ror` → 101, leading punctuation, the structurally linked
+embedded label, and `Figg.` ranges). Precision was already high; the apparent
+ceiling was missing upstream number-bearing records.
 
-The **0.596 is end-to-end page/number coverage, not the accuracy of the final
-candidate selector in isolation**. The current replay reports only 314
-page/number pairs for 480 gold pairs, and their per-page distribution can cover
-at most 308 gold pairs (0.642) without recovering another number-bearing
-record. Figure-only documents already match 102/124 gold pairs, with 102/104
-reported pairs correct; mixed figure/plate documents match 179/323, with
-179/204 reported pairs correct; and plate-only documents match 5/33, with 5/6
-reported pairs correct. The selector is therefore near its observed input
-ceiling on ordinary layouts. Raising the overall rate requires upstream label
-discovery and logical plate expansion, not just another caption-ranking
-heuristic.
+Totton's plate section exposed the largest missing population. Its complete
+legends are printed on the leaf *before* the plate, while the existing grouped
+legend code handled only same-page legends and captions following a prior
+image. Replaying the persisted Docling document with an exact
+`PLATE N`-to-next-page-`PLATE N` rule, and admitting damaged `Fic.`/`Fics.`
+openers only inside that context, moves Totton from **181/184** correct
+reported identities to **397/402** (472 gold). It creates 217 logical figure
+records with their own source captions; Plate X and Figure 10 remain distinct
+records rather than being deduplicated merely because their numbers coincide.
+Combined with the unchanged other 34 documents, that replay projects
+**529/536 against 839: recall 0.631, precision 0.987**, with capacity 0.638.
+
+The local-Qwen probe then ran all 34 plates that were eligible before that
+repair. Unconditioned discovery returned 216 regions; 215 numbers agree with
+the corrected gold and one was a high-confidence fabricated eighth cell on a
+seven-figure plate. The failure had a detectable structure: Qwen invented an
+A–H grid and copied the same boxes to figures 1–8. That conflicting grid is
+now a hard rejection regardless of model confidence. After deterministic
+Pass 2.5 expansion, only four plates remain eligible for unconditioned
+discovery; the measured output adds **nine correct labels and no false
+labels** on those four. Applying those persisted discoveries would project
+the combined candidate to **538/545: recall 0.641, precision 0.987**. This is
+a measured targeted replay/probe, not the complete clean source-PDF rebuild
+required at the release gate.
 
 Panel splitting is now a separate acceptance measure rather than an inference
 from figure-number binding. The independent gold parser finds **98 captions
@@ -96,17 +107,20 @@ panel declaration for **87**, an exact label set for **84**, and label recall /
 precision of **0.895 / 0.997**. It declares no panels for the 176 same-page,
 same-number gold figure blocks that the gold parser classifies as non-panelled.
 This metadata replay deliberately retains the older entry/classification
-population, so its figure-number totals are not a replacement for the 0.588 /
-0.910 full regression result above. The clean release rebuild must confirm
+population, so its figure-number totals are not a replacement for the clean
+caption-binding replay above. The clean release rebuild must confirm
 both measures together.
 
-The scorer now parses hand-transcribed gold labels independently of the
-production parser and reports the raw artifact and default MCP surface
-separately. That separation is load-bearing: an earlier version reused
-production's fuzzy OCR parser, so changing the extractor silently changed the
-supposedly fixed gold denominator from 496 to 480. The compact anatomical key
-`Pl.M.` is explicitly excluded: inside these figures it means mouth-plate, not
-Roman-numeral Plate 1000.
+The scorer parses hand-transcribed gold labels independently of the production
+parser and reports the raw artifact and default MCP surface separately. That
+separation is load-bearing: an earlier version reused production's fuzzy OCR
+parser, so changing the extractor silently changed the supposed gold
+denominator. Scorer v7 additionally understands the transcription's explicit
+plate inventories, standalone engraved numbers, `F. N` labels, and adjacent
+plate headings, and keeps plate and child-figure identities distinct. Those
+are gold-format rules, not production OCR heuristics.
+The compact anatomical key `Pl.M.` remains explicitly excluded: inside these
+figures it means mouth-plate, not Roman-numeral Plate 1000.
 
 **Panel labels have their own independent parser and denominator.** Only text
 after the gold block's first figure-caption opener is eligible, so an `A` or
@@ -143,15 +157,15 @@ blocks it does not apply to:**
 
 | kind | count | can it test caption text? |
 | --- | --- | --- |
-| `bare_label` | 229 | no — "Fig. 3" and nothing else |
-| `prose_caption` | 113 | yes |
-| `lettering_only` | 29 | no — labels engraved on the plate |
+| `bare_label` | 254 | no — "Fig. 3" and nothing else |
+| `prose_caption` | 105 | yes |
+| `lettering_only` | 12 | no — non-number lettering engraved on the plate |
 | `nothing_printed` | 5 | no |
 
-**Most "captions" in this literature are not captions.** 229 of 376 blocks are
-a bare label. Caption *text* similarity is computable for only 85
-number-matched pairs in the served-bundle replay, which is why it is reported
-and not headlined.
+**Most "captions" in this literature are not captions.** 254 of 376 blocks are
+a bare label. Caption *text* similarity is computable for only 92
+number-matched pairs in the current clean candidate, which is why it is
+reported and not headlined.
 
 ## Where corpus does well
 
@@ -196,21 +210,20 @@ The other two conspicuous acceptance failures move in the same replay:
 artifact replays, not a substitute for the full-corpus rebuild required before
 release.
 
-**Caption binding before 1900: recall 0.152** (5 of 33 numbers). The numbers
-are printed on the plates as engraved lettering, not as text, so there is
-nothing for a text-based parser to find. Four documents score zero:
+**Caption binding in 1800–1899: recall 0.030** (5 of 169 numbers) in the clean
+candidate before the new plate replay. The former 5-of-33 denominator omitted
+standalone engraved labels. The numbers are printed on the plates as
+lettering, not as extracted text, so there is often nothing for a text-only
+parser to find. Four documents score zero:
 `Bernstein1934`, `Chenetal2015`, `Eschscholtz1825`, and `Tilesius1814`.
 Pass 3b now has a deliberately narrow image-evidence path for this layout:
 only a confidently bound bare plate is admitted, and it materializes nothing
 unless the VLM returns at least two distinct Arabic number+region candidates
 at confidence ≥0.80. The host retains every accepted/rejected decision;
-derived figure records share the plate image and remain caption-unbound. Its
-effect is not included in the rates above until the clean historical plates
-have been run and inspected.
-
-**Small-denominator eras look worse than they are.** pre-1800 precision 0.400
-is four gold figures against ten records; 1800–1899 precision 0.438 is nine
-against sixteen. Real, but not a rate.
+derived figure records share the plate image and remain caption-unbound. The
+Totton probe validates the mechanism, but the pre-1900 plates still require a
+clean run and inspection; do not generalize one monograph's result across
+those layouts.
 
 ## Furniture: `graphical_element` is an actionable predicate
 
