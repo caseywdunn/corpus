@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Added opt-in all-tool acceptance on a real, filesystem-enforced read-only
+  bundle, with offline query embedding and whole/panel downloads through the
+  deployed nginx route. Coverage is checked against the frozen MCP inventory;
+  transport success is kept separate from source-fidelity evidence.
+
 ### Added
 
 - **Query embeddings match the build producer (#174/#271).** New bundles

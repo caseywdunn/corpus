@@ -83,9 +83,10 @@ def main() -> int:
     parser.add_argument(
         "--embedding-model",
         default=None,
-        help="Override the default HuggingFace embedding model id "
-             "(default: BAAI/bge-m3). Must emit vectors of the same "
-             "dim as the LanceDB index.",
+        help="Query embedding model or local model directory. Must match the "
+             "build's model identity and vector dimension; local replicas "
+             "must have matching content. Defaults to the bundle's model "
+             "(BAAI/bge-m3 for legacy bundles without model metadata).",
     )
     parser.add_argument(
         "--transport",

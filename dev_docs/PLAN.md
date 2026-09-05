@@ -137,7 +137,7 @@ omitted explicit plate inventories and standalone engraved numbers. Scorer v7
 fixes that denominator; [FIGURE_PARSING.md](FIGURE_PARSING.md) is the stable
 account of the corrected numbers and what they mean.
 
-- [ ] **Repair and re-measure caption association**
+- [x] **Repair and re-measure caption association**
   ([#195](https://github.com/caseywdunn/corpus/issues/195)). Bind on validated
   figure-number evidence where available, distinguish a prose caption from a
   bare label, and record the chosen candidate, rejected candidates, source,
@@ -173,13 +173,22 @@ account of the corrected numbers and what they mean.
   numbers without
   enough evidence to guess a repair, and one is a gold structural-markup
   omission. The seventh exposed a `plate:16` / `figure:16` namespace collision;
-  its regression guard is merged locally and the post-fix clean measurement is
-  the remaining close condition.
+  its regression guard is merged. The correctly pinned post-fix clean build
+  (`368e34e`, compared with `e07a6e6`) reaches **544/550 correct against 839
+  gold identities: 64.84% recall / 98.91% precision**, with six surplus
+  identities. Only Totton changes: plate hosts I, IX and XVI retain their
+  identities and preceding-legend children recover their source captions.
+  Five added logical records share existing images; physical detection and
+  text scores are unchanged, as are the 89/98 exact panel-label sets. This
+  closes the bounded caption repair, not the separate reference-content or
+  latest-code clean/incremental gates. No further caption algorithm expansion
+  is scheduled for this cycle.
   The first post-fix chain completed but is invalid as release evidence:
   subprocesses loaded an older editable installation and produced 417 figure
   records, despite the bundler stamping the selected commit. The SLURM path
   setup now pins Python imports and checks package paths and commit before
-  each phase. Repeat into a fresh output directory with those checks in place.
+  each phase. The `368e34e` repeat above used those checks; the invalid run is
+  not included in the accepted caption comparison.
 - [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
   ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
   caption blocks, parse lists of figure numbers separately from lettered
@@ -375,7 +384,8 @@ can answer which evidence and rule produced it.
   portable bundle sidecar; queries load the build's model/revision and reject
   same-dimensional incompatible overrides or different local weights. Mixed
   producer receipts cannot be bundled, and legacy migration requires all
-  documents. The full-bundle smoke remains pending.
+  documents. The all-tool read-only smoke now passes against the retained
+  full legacy bundle; the new producer-sidecar build remains to be exercised.
 - [ ] **Land the fingerprint-based release reference**
   ([#187](https://github.com/caseywdunn/corpus/issues/187)). Diff pipeline
   output, quality flags and manifest facts for the fixed gold corpuscle; test
@@ -438,8 +448,11 @@ meaning:
   figure and panel downloads through the actual nginx route in an isolated
   local container. #277 validates all nine exposed list parameters against
   common item/per-item/aggregate character budgets before index access, with
-  existing error shapes and no silent truncation. Full-bundle read-only MCP
-  acceptance remains separate.
+  existing error shapes and no silent truncation. All 38 tools now pass against
+  a retained full legacy bundle with a filesystem-enforced read-only server,
+  offline query embedding and real nginx whole/panel downloads. The bundle's
+  file inventory, sizes and mtimes are unchanged. Repeat this acceptance on
+  the latest-code bundle before closing the overall served-path gate.
 - [x] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
   representative response schemas in addition to the existing tool-name,
   error-shape and licensing checks. Checked-in snapshots cover all 38 tool

@@ -94,7 +94,16 @@ the transcription note and printed caption both identify Figure 45, but only
 Figures 46 and 47 have structural blocks. The final case exposed a real typed
 identity defect: a following-page Figure 16 legend could overwrite a
 same-page Plate XVI link. The selector now forbids that cross-namespace
-replacement; its post-fix clean measurement remains the final #195 gate.
+replacement. The pinned post-fix clean comparison (`e07a6e6` → `368e34e`)
+reaches **544 correct of 550 reported identities against 839 gold: recall
+0.6484, precision 0.9891**. The six remaining surplus identities are the
+uncertain/OCR/gold-structure cases above. Only Totton changes: plate hosts I,
+IX and XVI keep their identities and preceding-legend children recover their
+source captions. Five additional logical records share existing images;
+physical detection and text scores are unchanged. Fixed-population capacity
+is now 549/839 (0.6544), not a ceiling on future evidence discovery. This
+supports closing the bounded caption repair; it does not accept unrelated
+reference-content drift or replace latest-build release validation.
 
 Panel splitting is a separate acceptance measure rather than an inference
 from figure-number binding. The independent gold parser finds **98 captions

@@ -49,6 +49,26 @@ an existing deployment. This complements, rather than replaces, full MCP smoke
 testing against a read-only real bundle. Record the image digest with release
 evidence when running this acceptance test.
 
+`tests/test_live_bundle.py` adds **every registered MCP tool**, real query
+embedding, and whole/panel downloads through that same nginx route. Inputs are
+discovered from the bundle, not hard-coded taxon names. On Linux with bubblewrap,
+Docker, the cached query model and the nginx image already installed:
+
+```bash
+CORPUS_TEST_BUNDLE=/path/to/_serve pytest -q -s tests/test_live_bundle.py
+```
+
+The selected bundle must have bibliography, taxonomy, taxon mentions, lexicon,
+vectors and an actual pixel panel ROI; missing capabilities fail rather than
+silently skipping coverage. The server mounts the filesystem read-only except
+for the test's temporary directory. Model loading is offline. The test checks
+all tool names against the frozen catalog, exercises authentication and signed
+download tampering, and checks the bundle's file inventory/sizes/mtimes before
+and after. It creates no deployment and removes its own server/container. Run
+against both a retained legacy bundle and the newly built candidate; a legacy
+pass does not verify new embedding-producer receipts. This is compatibility and
+immutability evidence, not proof of caption, citation or retrieval accuracy.
+
 ### Embedding update and recovery tests
 
 `tests/test_embedding_updates.py` uses real temporary LanceDB tables and a
