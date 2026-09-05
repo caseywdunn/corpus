@@ -187,7 +187,7 @@ def test_metadata_fingerprint_is_canonical_and_per_resolved_entry():
     reordered = dict(reversed(list(entry.items())))
     assert _metadata_fingerprint_for_pdf(BibIndex([reordered, {"file": "Else.pdf", "title": "Other"}]), "Paper.pdf") == first
     assert _metadata_fingerprint_for_pdf(None, "Paper.pdf") != first
-    fps = _expected_fingerprints_for_run(metadata_fingerprint=first,
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=first,
                                         ocrlang=None, ocrmode=None, keeppages=None)
     assert fps["metadata_extraction"] == first
     assert all(not value for key, value in fps.items() if key != "metadata_extraction")

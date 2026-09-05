@@ -24,7 +24,10 @@ from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_lexicons
 from .config import CONFIG, load_config
-from .figure_passes import _crossref_chunks_and_figures, _pass3b_annotate_rois
+from .build_inputs import config_fingerprints as _config_fingerprints
+from .figure_passes import _crossref_chunks_and_figures, _pass25_annotate_figures, _pass3b_annotate_rois
+from .figure_materialization import rebuild_figure_base
+from .extract import extract_docling_content
 from .figures import resolve_compound_figures
 from .grobid_client import GrobidClient
 from .io import (
@@ -44,6 +47,11 @@ from .stages import (
     _expected_fingerprints_for_run,
     _metadata_fingerprint_for_pdf,
     _file_sha256,
+    _stage,
+    _record_stage_completion,
+    _load_pipeline_state,
+    _save_pipeline_state,
+    _run_quality_gates,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,6 +61,8 @@ def _refresh_vision_artifacts(
     figures_file: Path,
     chunks_file: Path,
     vision_backend,
+    *,
+    reset_base=False,
 ) -> None:
     """Refresh the complete vision-derived figure layer for one document.
 
@@ -62,6 +72,9 @@ def _refresh_vision_artifacts(
     chunk/figure links. Keeping those follow-on passes here prevents a GPU
     refresh from writing ROIs that the served bundle cannot actually reach.
     """
+    if reset_base:
+        rebuild_figure_base(figures_file.parent, extract_docling_content)
+        _pass25_annotate_figures(figures_file.parent / "text.json", figures_file)
     _pass3b_annotate_rois(figures_file, vision_backend)
     summary_3c = resolve_compound_figures(figures_file)
     logger.info(
@@ -72,6 +85,14 @@ def _refresh_vision_artifacts(
         summary_3c.get("new_records", 0),
     )
     _crossref_chunks_and_figures(figures_file, chunks_file)
+    if reset_base:
+        from .pageselect import annotate_source_pages
+        from .figures import generate_figures_report
+        scan_path = figures_file.parent / "scan_detection.json"
+        scan = json.loads(scan_path.read_text()) if scan_path.exists() else {}
+        if scan.get("keeppages_selected"):
+            annotate_source_pages([figures_file, chunks_file], scan["keeppages_selected"])
+        generate_figures_report(figures_file.parent)
 
 
 def _slice_hashes_for_batch(
@@ -122,6 +143,10 @@ def _expected_stages_for_run(
         "docling_extraction",
         "metadata_extraction",
         "text_chunking",
+        "figure_materialization",
+        "figure_crossref",
+        "huge_document_check",
+        "quality_gates",
     ]
     if taxonomy_db is not None or lexicons:
         stages.append("taxa_and_lexicon_extraction")
@@ -238,7 +263,7 @@ def main():
     parser.add_argument(
         "--figure-panels",
         choices=["ocr", "vision-local", "vision-claude", "off"],
-        default="ocr",
+        default=None,
         help="Panel-ROI detection mode (#102). 'ocr' (default) runs Pass 3a "
              "— OCR-driven panel ROIs, CPU-only, self-gated to multi-panel "
              "figures. 'vision-local' / 'vision-claude' run Pass 3b "
@@ -298,18 +323,6 @@ def main():
 
     args = parser.parse_args()
 
-    # #102 — derive the legacy (content_aware_figures, vision backend name)
-    # pair the rest of the pipeline still threads through, from the single
-    # --figure-panels selector.
-    args.content_aware_figures, args.vision_backend = _panels_to_legacy(
-        args.figure_panels
-    )
-
-    if args.refresh_vision and not args.vision_backend:
-        parser.error(
-            "--refresh-vision requires --figure-panels vision-local|vision-claude"
-        )
-
     setup_root_logging()
 
     if args.strict_network:
@@ -337,6 +350,16 @@ def main():
     loaded = load_config(args.config)
     _pipeline_config.CONFIG.clear()
     _pipeline_config.CONFIG.update(loaded)
+    figures_config = loaded.get("figures", {})
+    args.figure_panels = args.figure_panels or figures_config.get("panel_detection", "ocr")
+    if args.figure_panels not in ("off", "ocr", "vision-local", "vision-claude"):
+        parser.error('figures.panel_detection must be off, ocr, vision-local or vision-claude (quote "off" in YAML)')
+    args.vision_model = args.vision_model or figures_config.get("model")
+    args.content_aware_figures, args.vision_backend = _panels_to_legacy(args.figure_panels)
+    if args.refresh_vision and not args.vision_backend:
+        parser.error("--refresh-vision requires --figure-panels vision-local|vision-claude")
+    run_config_fingerprints = _config_fingerprints(
+        loaded, panel_mode=args.figure_panels, vision_model=args.vision_model)
 
     input_dir = args.input_dir.resolve()
     output_dir = args.output_dir.resolve()
@@ -356,7 +379,7 @@ def main():
     # startup we log and carry on with placeholder metadata for every
     # document rather than retrying (and logging) per PDF.
     grobid_client: Optional[GrobidClient] = None
-    if args.no_grobid or not args.grobid_url:
+    if args.no_grobid or not args.grobid_url or args.dry_run:
         logger.info("Grobid skipped (--no-grobid or empty --grobid-url)")
     else:
         probe = GrobidClient(base_url=args.grobid_url)
@@ -492,7 +515,7 @@ def main():
     # Vision backend for Pass 3b. Constructed once and reused so the
     # backend can keep long-lived state (API client, loaded model, etc.).
     vision_backend = None
-    if args.vision_backend:
+    if args.vision_backend and not args.dry_run:
         try:
             from .vision import get_vision_backend
             kwargs = {}
@@ -502,9 +525,10 @@ def main():
             logger.info("Vision backend loaded: %s", vision_backend.name)
         except Exception as e:
             logger.error(
-                "Could not load vision backend %r: %s — Pass 3b will be skipped",
+                "Could not load requested vision backend %r: %s — refusing to mark it complete",
                 args.vision_backend, e,
             )
+            return 1
 
     # Create output directory structure. A dry-run promises "No files
     # written", so it must not leave a half-scaffolded corpuscle behind
@@ -571,6 +595,7 @@ def main():
                 documents_dir / short_hash(h),
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
+                    config_fingerprints=run_config_fingerprints,
                     metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_map[h][0].name),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
@@ -609,6 +634,7 @@ def main():
                 hd,
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
+                    config_fingerprints=run_config_fingerprints,
                     metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, label),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
@@ -676,11 +702,13 @@ def main():
                 if args.refresh_vision and vision_backend is not None:
                     figures_file = hash_dir / "figures.json"
                     if not figures_file.exists():
-                        logger.info(
-                            "[%d/%d] %s (%s) — skipping vision refresh (no figures.json)",
+                        logger.error(
+                            "[%d/%d] %s (%s) — cannot refresh vision (no figures.json)",
                             paper_idx, paper_total,
                             pdf_paths[0].name, pdf_hash,
                         )
+                        worker_failures.append({"pdf_hash": pdf_hash, "exitcode": 1,
+                                                "signal": None, "reason": "missing figures.json"})
                         continue
                     logger.info(
                         "[%d/%d] %s (%s) — refreshing Pass 3b",
@@ -690,15 +718,41 @@ def main():
                     with per_pdf_file_log(hash_dir) as log_path:
                         logger.info("pipeline.log: %s (refresh-vision)", log_path)
                         try:
-                            _refresh_vision_artifacts(
-                                figures_file,
-                                hash_dir / "chunks.json",
-                                vision_backend,
-                            )
+                            baseline = _load_pipeline_state(hash_dir)["stages"].get("figure_materialization")
+                            summary_path = hash_dir / "summary.json"
+                            summary = json.loads(summary_path.read_text())
+                            processing = summary.setdefault("processing_summary", {})
+                            with _stage({}, "vision_refresh", hash_dir=hash_dir,
+                                        input_fingerprint={"config": run_config_fingerprints["figure_materialization"]}):
+                                _refresh_vision_artifacts(
+                                    figures_file, hash_dir / "chunks.json", vision_backend,
+                                    reset_base=True,
+                                )
+                                with _stage(processing, "quality_gates", hash_dir=hash_dir,
+                                            input_fingerprint={"config": run_config_fingerprints["quality_gates"]}):
+                                    processing["quality_flags"] = _run_quality_gates(hash_dir)
+                                    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8",
+                                                                     dir=hash_dir, prefix=".summary-",
+                                                                     delete=False) as output:
+                                        temporary = Path(output.name)
+                                        try:
+                                            json.dump(summary, output, indent=2)
+                                            output.close()
+                                            temporary.replace(summary_path)
+                                        finally:
+                                            temporary.unlink(missing_ok=True)
+                                _record_stage_completion(hash_dir, "figure_crossref",
+                                                         input_fingerprint={"config": run_config_fingerprints["figure_crossref"]})
+                                if baseline is not None:
+                                    state = _load_pipeline_state(hash_dir)
+                                    state["stages"]["figure_materialization"] = baseline
+                                    _save_pipeline_state(hash_dir, state)
                         except Exception as e:
                             logger.exception(
                                 "Vision refresh failed on %s: %s", pdf_hash, e
                             )
+                            worker_failures.append({"pdf_hash": pdf_hash, "exitcode": 1,
+                                                    "signal": None, "reason": "vision refresh failed"})
                     continue
                 # Per-stage resume (#28, #56): if every required stage
                 # is recorded as complete in pipeline_state.json under
@@ -721,6 +775,7 @@ def main():
                         lexicons=lexicons,
                     ),
                     expected_fingerprints=_expected_fingerprints_for_run(
+                        config_fingerprints=run_config_fingerprints,
                         metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_paths[0].name),
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,
@@ -786,6 +841,7 @@ def main():
                         taxonomy_db=taxonomy_db,
                         lexicons=lexicons,
                         content_aware_figures=args.content_aware_figures,
+                        run_config_fingerprints=run_config_fingerprints,
                         vision_backend=vision_backend,
                         bib_index=bib_index,
                         resume=args.resume,
@@ -831,6 +887,18 @@ def main():
                             "exitcode": proc.exitcode,
                             "signal": None,
                         })
+
+            # The per-paper runner catches stage errors to preserve a useful
+            # summary. A normal worker exit therefore does not imply success.
+            summary_path = hash_dir / "summary.json"
+            if summary_path.exists():
+                summary = json.loads(summary_path.read_text())
+                if (summary.get("processing_summary", {}).get("status") != "success"
+                        and not any(f["pdf_hash"] == pdf_hash for f in worker_failures)):
+                    worker_failures.append({"pdf_hash": pdf_hash,
+                                            "pdf_path": str(primary_pdf),
+                                            "exitcode": 1, "signal": None,
+                                            "reason": "per-paper stage failure"})
 
     logger.info("Processing complete. Results saved to: %s", output_dir)
     logger.info("  Documents: %s", documents_dir)

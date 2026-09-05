@@ -12,8 +12,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import re
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -21,6 +23,8 @@ from bib import bib_entry_to_metadata
 
 from . import stamp_artifact
 from .config import CONFIG
+from .stages import _file_sha256
+from .version import __version__
 from .grobid_client import (
     GrobidClient,
     GrobidUnavailableError,
@@ -128,9 +132,9 @@ def extract_metadata(
         Output path for ``references.json``. If None, defaults to
         ``<metadata_output.parent>/references.json``.
     tei_output:
-        Cache path for the raw Grobid TEI. Existing non-empty TEI at this
-        path is reused (skipping the Grobid call) — convenient for
-        re-parsing without re-processing. If None, defaults to
+        Cache path for the raw Grobid TEI. Reused only when its provenance
+        receipt matches the prepared PDF, consolidation settings and TEI bytes.
+        Unverified/stale files are archived out of the active path. If None, defaults to
         ``<metadata_output.parent>/grobid.tei.xml``.
     grobid_client:
         A live :class:`GrobidClient`, or None to skip Grobid entirely
@@ -150,27 +154,56 @@ def extract_metadata(
     effective_filename = original_filename or pdf_path.name
 
     tei_xml: Optional[str] = None
+    _g = CONFIG.get("grobid", {})
+    tei_inputs = {
+        "pdf_sha256": _file_sha256(pdf_path),
+        "consolidate_header": int(_g.get("consolidate_header", 1)),
+        "consolidate_citations": int(_g.get("consolidate_citations", 0)),
+        "pipeline_version": __version__,
+    }
+    receipt_path = tei_output.with_suffix(tei_output.suffix + ".provenance.json")
 
-    # 1. Reuse cached TEI if present.
+    # 1. Verify the cached payload as well as its inputs. Merely rerunning the
+    # stage cannot fix an obsolete TEI cache after re-OCR or consolidation edits.
     if tei_output.exists() and tei_output.stat().st_size > 0:
         try:
-            tei_xml = tei_output.read_text(encoding="utf-8")
-            logger.info("Reusing cached Grobid TEI at %s", tei_output)
-        except OSError as e:
-            logger.warning("Could not read cached TEI %s: %s", tei_output, e)
-            tei_xml = None
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            cached = tei_output.read_text(encoding="utf-8")
+            if (receipt.get("inputs") == tei_inputs
+                    and receipt.get("tei_sha256") == hashlib.sha256(cached.encode("utf-8")).hexdigest()):
+                tei_xml = cached
+                logger.info("Reusing verified Grobid TEI at %s", tei_output)
+        except (OSError, ValueError, AttributeError):
+            pass
+    if tei_output.exists() and tei_xml is None:
+        # Post-processing reads the active TEI directly; leaving a stale file
+        # here would resurrect its citations even after placeholder fallback.
+        history = hash_dir / "metadata_cache_history"
+        history.mkdir(exist_ok=True)
+        archive_id = uuid.uuid4().hex
+        tei_output.rename(history / f"{archive_id}-{tei_output.name}")
+        if receipt_path.exists():
+            receipt_path.rename(history / f"{archive_id}-{receipt_path.name}")
+        logger.info("Archived unverified/stale Grobid cache under %s", history)
 
     # 2. Otherwise, call Grobid if a client is available.
     if tei_xml is None and grobid_client is not None:
         try:
             logger.info("Calling Grobid on %s ...", pdf_path.name)
-            _g = CONFIG.get("grobid", {})
             tei_xml = grobid_client.process_fulltext(
                 pdf_path,
                 consolidate_header=int(_g.get("consolidate_header", 1)),
                 consolidate_citations=int(_g.get("consolidate_citations", 0)),
             )
             tei_output.write_text(tei_xml, encoding="utf-8")
+            receipt = {"inputs": tei_inputs,
+                       "tei_sha256": hashlib.sha256(tei_xml.encode("utf-8")).hexdigest()}
+            temporary = receipt_path.with_name(receipt_path.name + ".tmp-" + uuid.uuid4().hex)
+            try:
+                temporary.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
+                temporary.replace(receipt_path)
+            finally:
+                temporary.unlink(missing_ok=True)
             logger.info("Wrote Grobid TEI to %s", tei_output)
         except GrobidUnavailableError as e:
             logger.warning("Grobid unavailable, using placeholder: %s", e)

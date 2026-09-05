@@ -270,17 +270,44 @@ def _should_run_stage(
         return True
     if not _stage_recorded_complete(hash_dir, stage_name,
                                     expected_fingerprint=expected_fingerprint):
+        changes = _stage_input_changes(hash_dir, stage_name, expected_fingerprint)
+        logger.info("%s: rerunning (%s)", stage_name, ", ".join(changes))
+        processing_summary.setdefault("rerun_reasons", {})[stage_name] = changes
         return True
     logger.info("%s: skipping (recorded complete)", stage_name)
     processing_summary.setdefault("skipped_stages", []).append(stage_name)
     return False
 
 
+def _stage_input_changes(hash_dir, stage_name, expected_fingerprint):
+    """Explain receipt drift without loading a model or changing artifacts."""
+    from . import PIPELINE_VERSION
+    record = _load_pipeline_state(hash_dir)["stages"].get(stage_name)
+    if not isinstance(record, dict):
+        return ["missing completion record"]
+    if record.get("pipeline_version") != PIPELINE_VERSION:
+        return ["pipeline_version"]
+
+    def flatten(value, prefix=""):
+        out = {}
+        for key, item in value.items():
+            name = f"{prefix}.{key}" if prefix else key
+            if isinstance(item, dict) and item:
+                out.update(flatten(item, name))
+            else:
+                out[name] = item
+        return out
+
+    old = flatten(record.get("input_fingerprint") or {})
+    new = flatten(expected_fingerprint or {})
+    return sorted(key for key in old.keys() | new.keys()
+                  if key not in old or key not in new or old[key] != new[key]) or ["completion record"]
+
+
 # Every resumable stage that descends from `processed.pdf`, and so is
 # invalidated by an OCR-language change (#176). That is all of them: the
-# core five plus taxa/lexicon extraction, which reads the chunks. Figure
-# passes are not listed because they are not gated by
-# :func:`_should_run_stage` — they re-run on every pass anyway.
+# core five plus taxa/lexicon extraction, which reads the chunks. Composite
+# figure receipts inherit these directives in the configuration loop below.
 _OCR_DEPENDENT_STAGES: Tuple[str, ...] = (
     "scan_detection",
     "pdf_preparation",
@@ -350,6 +377,7 @@ def _metadata_fingerprint_for_pdf(bib_index, filename: str) -> Dict[str, Any]:
 
 def _expected_fingerprints_for_run(
     *,
+    config_fingerprints: Optional[Dict[str, Dict[str, Any]]],
     metadata_fingerprint: Optional[Dict[str, Any]],
     ocrlang: Optional[str],
     ocrmode: Optional[str],
@@ -434,6 +462,14 @@ def _expected_fingerprints_for_run(
         if keeppages:
             fp["keeppages"] = keeppages
         fps[stage] = fp
+    if config_fingerprints is not None:
+        for stage, config in config_fingerprints.items():
+            fp = fps.setdefault(stage, {})
+            fp["config"] = config
+            if stage in ("figure_materialization", "figure_crossref"):
+                for key, value in (("ocrlang", ocrlang), ("ocrmode", ocrmode), ("keeppages", keeppages)):
+                    if value:
+                        fp[key] = value
     return fps
 
 
@@ -640,6 +676,20 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     return flags
 
 
+_STAGE_DEPENDENTS = {
+    "scan_detection": ("pdf_preparation",),
+    "pdf_preparation": ("docling_extraction", "metadata_extraction"),
+    "docling_extraction": ("text_chunking", "figure_materialization"),
+    "metadata_extraction": ("quality_gates",),
+    "text_chunking": ("taxa_and_lexicon_extraction", "figure_crossref", "quality_gates"),
+    # These producers share the figure tree. Invalidate both while either is
+    # writing; a successful standalone vision overlay restores its CPU-floor
+    # receipt, but an interrupted one must not leave that receipt reusable.
+    "figure_materialization": ("vision_refresh", "figure_crossref", "quality_gates"),
+    "vision_refresh": ("figure_materialization", "figure_crossref", "quality_gates"),
+}
+
+
 @contextmanager
 def _stage(
     processing_summary: Dict[str, Any],
@@ -661,9 +711,25 @@ def _stage(
     started_at = _utcnow_iso()
     t0 = time.monotonic()
     err: Optional[BaseException] = None
+    if hash_dir is not None:
+        # Clear dependent receipts before touching producer artifacts. This
+        # also handles interruption between producer commit and consumer work,
+        # even when a forced rerun used the same settings.
+        state = _load_pipeline_state(hash_dir)
+        pending = [name]
+        invalidated = set()
+        while pending:
+            stage = pending.pop()
+            if stage not in invalidated:
+                invalidated.add(stage)
+                pending.extend(_STAGE_DEPENDENTS.get(stage, ()))
+        if invalidated.intersection(state["stages"]):
+            for stage in invalidated:
+                state["stages"].pop(stage, None)
+            _save_pipeline_state(hash_dir, state)
     try:
         yield
-    except Exception as e:
+    except BaseException as e:
         err = e
         raise
     finally:

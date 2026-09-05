@@ -534,13 +534,6 @@ def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
 
     chunks = chunks_data.get("chunks", []) or []
     figures = figures_data.get("figures", []) or []
-    if not chunks or not figures:
-        logger.info(
-            "Cross-ref: skipped (no chunks=%d or no figures=%d)",
-            len(chunks), len(figures),
-        )
-        return
-
     link_chunks_to_figures(chunks, figures)
 
     # Write back — data was modified in place but be explicit about

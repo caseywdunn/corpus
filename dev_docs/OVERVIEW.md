@@ -175,7 +175,7 @@ timestamps are provenance, not semantic differences.
 | Change PDF bytes | Treat as an addition plus removal of the old hash if no other source path retains it | Same rules as above |
 | Same hash, changed chunks or embedded metadata | Replace that document's vector rows; publish a new receipt after commit | Implemented and tested in Stage 2 (#271) |
 | Rename or change BibTeX | Refresh consumed paths/metadata and their descendants; leave unrelated artifacts alone | Resolved per-paper entries (including absence) and basenames fingerprint metadata; source-path inventory refreshes even when extraction skips; Stage 2 notices the changed metadata/paths (#174) |
-| Change configuration or curator directives | Fingerprint resolved values only in stages that consume them, and invalidate descendants | OCR language/mode/page-range and annotation fingerprints exist; remaining configuration coverage is pending (#174) |
+| Change configuration or curator directives | Fingerprint resolved values in their consumers and descendants; replace subordinate caches too | Stage 1 settings below, OCR directives and annotation inputs are tracked; broader provenance/whole-build acceptance remains open (#174) |
 | Upgrade producer or embedding model | Invalidate incompatible receipts; rebuild the whole vector table when switching models | Stage/embedding producer checks and model guard exist; whole-corpus release comparison remains pending (#187) |
 
 These are **single-writer build directories**. Parallel extraction workers may
@@ -187,13 +187,66 @@ The remaining rows above are release gates, not claims that all update classes
 already converge. Metadata fingerprints use canonical JSON of the resolved
 BibTeX entry, never a digest of the whole bibliography. Filename is a separate
 consumed input because fallback titles/years and provenance use it even without
-a bib match. First resume of a legacy build refreshes metadata once; it does not
-invalidate OCR, Docling or chunking just to migrate the metadata receipt.
+a bib match. Migrating a metadata receipt alone refreshes metadata, not OCR,
+Docling or chunking. Separately, **legacy builds without configuration receipts
+need a one-time Stage 1 refresh**: their original settings cannot be proven.
+Use `corpus run --dry-run` to inspect the work before launching that migration.
 Metadata/annotation-only reruns also preserve the existing figure/vision layer;
 the inexpensive figure report is refreshed because it consumes the header.
-Configuration work must invalidate subordinate caches as well as stage
-receipts: an unchanged cached TEI or previously split figure can otherwise
-survive a nominally successful stage rerun with obsolete decisions.
+
+#### Stage 1 configuration and cache ownership
+
+`pipeline/build_inputs.py` records readable setting values under each stage's
+`input_fingerprint.config`; both resume gates use the same map. Removing a
+setting compares against its built-in default. Explicit CLI panel/model
+settings take precedence over the config file. Scheduler placement and output
+paths are not extraction inputs.
+
+| Setting family | First consumer; downstream invalidation |
+|---|---|
+| OCR detection defaults, thresholds and language-probe controls | Scan detection; prepared PDF and everything derived from it |
+| OCR optimization, workers and timeouts | PDF preparation; extraction, metadata, chunks, figures and annotations |
+| Figure raster settings and extraction accelerator | Docling extraction; chunks, figures and annotations, not Grobid metadata |
+| `chunking.max_tokens` | Fallback chunker; annotation and chunk/figure links. Docling's HybridChunker still uses its own default tokenizer/limit; this setting does not configure it |
+| Grobid header/citation consolidation | Metadata and its quality checks; not OCR or figure detection |
+| Panel mode and explicit vision model | Figure materialization and links; not OCR, stored text/chunks or metadata |
+| Huge-document and quality-gate thresholds | Their respective checks |
+
+Producer and dependent completion receipts are cleared **before** producer
+writes, including forced reruns. Failed or interrupted work cannot retain an
+old success receipt. Logs and `summary.json`'s `processing_summary.rerun_reasons`
+name changed inputs.
+
+Grobid TEI reuse requires a matching prepared-PDF digest, consolidation settings,
+producer version and TEI payload digest. Unverified/stale TEI and its receipt
+move into the build-only `metadata_cache_history/` directory; they cannot be
+resurrected as active citations if Grobid is unavailable. BibTeX-only edits
+reuse a verified TEI. No history is added to the served bundle.
+
+Panel-mode/model changes reconstruct fresh base figures from `processed.pdf`
+before applying caption, ROI and compound passes, including when switching
+panels off. This pays one fresh figure extraction, not another OCR run, and
+does not keep a permanent duplicate raster cache. Full Docling reruns also
+replace the old figure tree and discard an obsolete Docling sidecar if none is
+produced. Staging preserves the old generation on ordinary publication errors;
+receipt invalidation makes interrupted publication retryable. This is not a
+whole-build transaction. Chunk/figure links are replaced rather than appended.
+
+The independently scheduled vision overlay has its own receipt. Success
+preserves the CPU-floor receipt so later CPU resume does not overwrite vision
+results; failure invalidates the shared figure layer for recovery. It refreshes
+links, source-page mappings, the figure report and quality flags too.
+
+`corpus status` compares Stage 1 config settings when it resolves the output
+from config (or when an explicit `--config` is supplied). Text output is bounded;
+`--json` includes all configuration differences. This is a **configuration
+comparison, not a source or completion audit**: CLI/CPU-floor overrides may
+legitimately differ. It does not discover source renames, rehash PDFs, check
+current BibTeX/annotation inputs, or verify external model/service versions.
+Changing Grobid availability/disablement or an external model installation is
+not yet a fully fingerprinted update path. These gaps and whole-build
+clean/incremental parity remain release work; a zero-difference report does not
+close them. All of this belongs to the build plane, not the MCP request path.
 
 ## Figure pipeline
 

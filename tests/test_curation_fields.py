@@ -143,7 +143,7 @@ def test_no_stage_fingerprint_mentions_the_curation_fields():
     fingerprint the only thing that can follow is spurious re-runs — and,
     worse, the appearance that a correction did something.
     """
-    fps = _expected_fingerprints_for_run(metadata_fingerprint=None,
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
         ocrlang="rus+eng",
         ocrmode=None,
         keeppages=None,

@@ -51,6 +51,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Stage 1 configuration changes invalidate their consumers and descendants
+  (#174, configuration tranche).** OCR/probe controls, raster settings,
+  fallback chunking, Grobid consolidation, panel mode/explicit model and quality
+  thresholds now participate in both resume gates. Stale TEI is archived and
+  revalidated against the prepared PDF and consolidation inputs. Panel changes
+  rebuild an unsplit figure base; full extraction replaces obsolete images
+  and sidecars. Interrupted/failed producers cannot retain old success receipts,
+  including a failed standalone vision overlay. Chunk/figure links no longer
+  accumulate obsolete IDs. Status reports configuration differences read-only.
+  Legacy builds without configuration receipts require one Stage 1 refresh;
+  this supersedes the metadata-only migration cost described below. External
+  service/model provenance and whole-build update acceptance remain open.
+
 - **Input BibTeX edits and PDF renames invalidate metadata (#174, first
   tranche).** Both resume gates compare the canonical resolved entry for each
   paper, including entry absence, and the filename used for provenance and

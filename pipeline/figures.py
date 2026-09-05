@@ -3146,6 +3146,12 @@ def link_chunks_to_figures(
 
     Returns the mutated lists (they are also modified in place).
     """
+    # These are derived links, not accumulated observations. Rebuild both
+    # directions so rechunking/removing figures cannot leave dangling IDs.
+    for chunk in chunks:
+        chunk["figure_refs"] = []
+    for figure in figures:
+        figure["referenced_in_chunks"] = []
     # Build figure_number -> [figure_id, ...]
     number_to_figure_ids: Dict[str, List[str]] = {}
     for fig in figures:

@@ -589,6 +589,8 @@ def main() -> int:
         "output_dir", type=Path,
         help="Corpus output directory (contains documents/<HASH>/ subdirs)",
     )
+    parser.add_argument("--config", type=Path,
+                        help="Compare Stage 1 configuration against build receipts (read-only).")
     parser.add_argument(
         "--json", action="store_true",
         help="Emit the rollup as JSON instead of the text report.",
@@ -684,10 +686,28 @@ def main() -> int:
         print(render_skipped(args.output_dir))
         return 0
 
+    if args.config:
+        from .build_inputs import configuration_drift
+        try:
+            rollup["configuration_drift"] = configuration_drift(args.output_dir, args.config)
+        except (OSError, ValueError, TypeError) as exc:
+            logger.error("Cannot check configuration: %s", exc)
+            return 2
+
     if args.json:
         print(render_json(rollup))
     else:
         print(render_text(rollup))
+        if args.config:
+            drift = rollup["configuration_drift"]
+            print(f"\nConfigured-input differences: {drift['documents_with_differences']} / "
+                  f"{drift['documents_checked']} documents")
+            print(drift["scope"])
+            for pdf_hash, changes in list(drift["differences"].items())[:20]:
+                detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in changes.items())
+                print(f"  {pdf_hash}: {detail}")
+            if drift["documents_with_differences"] > 20:
+                print("  Showing first 20; --json includes all differences.")
         if args.report:
             print()
             print(render_artifacts(args.output_dir))

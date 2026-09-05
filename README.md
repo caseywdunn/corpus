@@ -494,7 +494,11 @@ them. Builds made before the verified-marker format need a one-time
 re-embedding. Edits to the configured input BibTeX now refresh metadata only for
 papers whose resolved entries changed; adding/removing an entry or renaming a
 PDF is detected too. Unchanged OCR, extraction and chunking are reused.
-Configuration invalidation is still being hardened;
+Stage 1 now tracks OCR, figure raster/panel, Grobid consolidation, fallback
+chunking and quality-check settings in their consuming stages. Older builds
+without configuration receipts need a one-time Stage 1 refresh; preview it with
+`corpus run --dry-run`. `corpus status` reports configuration differences when
+using the corpuscle's config. Broader update validation is still in progress;
 see the [update contract](dev_docs/OVERVIEW.md#corpuscle-update-contract) for
 supported behavior and remaining gaps. Do not run concurrent updates against
 the same build directory.
@@ -503,8 +507,8 @@ the same build directory.
 
 To update the library's source of truth, edit the `.bib` selected by `bib:` in
 `config.yaml` and rerun `corpus run`. Resume fingerprints the entry resolved for
-each paper, not the whole file. An older build without these fingerprints pays
-one metadata refresh; it does not need a full OCR/extraction rebuild.
+each paper, not the whole file. Metadata-only changes reuse OCR and extraction
+once the build has current configuration receipts (see the migration note above).
 
 Grobid mis-parses some references. Round-trip via BibTeX:
 

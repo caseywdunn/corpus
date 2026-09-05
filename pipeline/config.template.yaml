@@ -105,8 +105,8 @@ figures:
                             #   (no native resolution exists). Default 300.
   # max_dpi: 600            # native mode: optional ceiling for dense scans.
   # images_scale: 2.0       # fixed mode only: uniform DPI = 72 * scale.
-  # Future ingests only — run tools/backfill_figure_dpi.py --native to lift an
-  # existing bundle.
+  # Changes refresh extraction and downstream artifacts on the next corpus run.
+  # Rebuild the served bundle to publish the new figures.
 
 # Grobid (PDF metadata + reference parsing). Runs as a long-lived service
 # next to the pipeline: Docker on a laptop (`docker compose up -d grobid`,

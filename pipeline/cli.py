@@ -837,7 +837,12 @@ def _passthrough(module: str, extra_argv: List[str]) -> int:
 
 def _cmd_status(args: argparse.Namespace) -> int:
     output_dir = _resolve_output_dir(args)
-    return _passthrough("pipeline.status", [str(output_dir), *args.passthrough])
+    config_path = _resolve_config_path(args.config)
+    extra = []
+    # An explicit output may be unrelated to the current directory's config.
+    if config_path is not None and (args.config is not None or args.output_dir is None):
+        extra = ["--config", str(config_path)]
+    return _passthrough("pipeline.status", [str(output_dir), *extra, *args.passthrough])
 
 
 def _resolve_output_dir(args: argparse.Namespace) -> Path:

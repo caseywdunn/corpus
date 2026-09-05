@@ -92,8 +92,9 @@ class FiguresConfig(BaseModel):
         "pixel density — a 600-dpi scan figure stays 600 dpi, a vector "
         "figure uses `vector_dpi` — so resolution tracks the source and "
         "varies per figure. 'fixed' renders every figure at the single "
-        "`images_scale` instead. Applies to future ingests only; lift an "
-        "existing bundle with tools/backfill_figure_dpi.py.",
+        "`images_scale` instead. Changes invalidate Docling extraction and "
+        "its downstream artifacts on the next corpus run; rebuild the bundle "
+        "to publish the new figures.",
     )
     vector_dpi: float = Field(
         default=300.0,

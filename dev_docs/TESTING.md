@@ -49,8 +49,19 @@ BibTeX parsing, metadata extraction and completion records while stubbing the
 expensive PDF/figure work. It checks per-paper edits, entry addition/removal,
 renames with and without a bib match, identical-copy path updates, dry-run
 non-mutation, preservation of existing vision results, and metadata/chunk/
-reference equality with a clean build. Configuration transitions remain a
-separate acceptance gate; these tests do not claim that coverage.
+reference equality with a clean build.
+
+`tests/test_config_updates.py` exercises the same two gates for configured
+consumer/descendant changes and default restoration. It compares rechunking
+and panel-disable updates with clean builds; checks reset of renamed/split
+images, model changes, raster refresh and stale Docling sidecars; verifies TEI
+input/payload validation and archival when Grobid is absent; and injects
+publication failures, stage interruption and standalone vision failures.
+It also checks CPU/vision handoff preservation, read-only configuration drift
+and CLI precedence. PDF/model work is stubbed, so these are deterministic
+update/recovery tests, **not caption-quality scores or full corpus acceptance**.
+External-service/model provenance and broader clean/incremental parity remain
+separate release gates.
 
 ### Page-level visual audit
 

@@ -300,13 +300,24 @@ can answer which evidence and rule produced it.
   stage actually consumes it.
   Per-paper resolved BibTeX entries (including entry addition/removal), filename
   fallback and source-path inventory updates are implemented and exercised
-  through both resume gates. Configuration coverage and current-input drift
-  reporting remain open; #174 is not complete yet.
-  The configuration tranche must cover nested caches, not just stage receipts:
-  cached Grobid TEI currently lacks a prepared-PDF/consolidation-input check;
-  panel-mode transitions need to reset previously materialized ROI/compound
-  state, including switching detection off. Test those transitions against a
-  clean build before claiming configuration updates are correct.
+  through both resume gates. Stage 1 now fingerprints OCR/probe controls,
+  raster settings, fallback chunking, consolidation, panel mode/explicit model
+  and quality thresholds in consumers and descendants. Producer failures clear
+  dependent receipts before writing. Verified TEI caches check prepared PDF,
+  consolidation settings and payload; stale TEI is archived outside the active
+  citation path. Figure-mode/model transitions rebuild an unsplit base, and
+  full extraction replaces old images/sidecars. Tests compare off-mode and
+  rechunking transitions with clean builds and exercise failed publication,
+  interrupted stages and CPU/vision handoff recovery.
+  `corpus status` reports Stage 1 configuration differences without modifying
+  artifacts. Legacy builds require a one-time Stage 1 config-receipt migration;
+  preview it before submitting a production rerun.
+  **Still open:** external-service availability/disablement and model-version
+  provenance; full current-source/BibTeX/annotation drift reporting (the status
+  check is config-only); and whole-build clean/incremental acceptance. The
+  `chunking.max_tokens` setting controls the fallback path, not HybridChunker's
+  tokenizer/limit. #174 is not complete yet. Stable details and limitations
+  live in OVERVIEW's **Stage 1 configuration and cache ownership**.
 - [x] **Make embedding replacement atomic per document and delete the Stage 1
   fake completion marker**
   ([#271](https://github.com/caseywdunn/corpus/issues/271)). Re-embedding one

@@ -29,7 +29,9 @@ from . import stamp_artifact
 from .annotate import _extract_taxa_and_lexicons
 from .chunking import chunk_text
 from .config import CONFIG
+from .build_inputs import config_fingerprints as _config_fingerprints
 from .extract import extract_docling_content
+from .figure_materialization import rebuild_figure_base
 from .figure_passes import (
     _crossref_chunks_and_figures,
     _pass25_annotate_figures,
@@ -133,6 +135,7 @@ def run_pdf_processing_pipeline(
     resume: bool = False,
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+    run_config_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -149,6 +152,11 @@ def run_pdf_processing_pipeline(
     # Create subdirectories in hash directory
     figures_dir = hash_dir / "figures"
     figures_dir.mkdir(exist_ok=True)
+    if run_config_fingerprints is None:
+        run_config_fingerprints = _config_fingerprints(
+            CONFIG, panel_mode=("vision-" + vision_backend.name) if vision_backend is not None
+            else ("ocr" if content_aware_figures else "off"),
+            vision_model=getattr(vision_backend, "model", None))
 
     processing_summary = {
         "original_pdf": str(pdf_path),
@@ -193,7 +201,8 @@ def run_pdf_processing_pipeline(
         # before any expensive stage runs. Runs *after* the selection so a
         # 6,000-page bound volume can be brought into scope by selecting the
         # paper out of it — which is what the gate's own error text asks for.
-        with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir):
+        with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir,
+                    input_fingerprint={"config": run_config_fingerprints["huge_document_check"]}):
             max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 5000))
             n_pages = _pdf_page_count(temp_pdf)
             if n_pages is not None:
@@ -220,6 +229,7 @@ def run_pdf_processing_pipeline(
         ocrlang = ocrlang_for_pdf(bib_index, pdf_path.name)
         ocrmode = ocrmode_for_pdf(bib_index, pdf_path.name)
         ocr_fingerprints = _expected_fingerprints_for_run(
+            config_fingerprints=run_config_fingerprints,
             metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_path.name),
             ocrlang=ocrlang, ocrmode=ocrmode, keeppages=keeppages)
         scan_fingerprint = ocr_fingerprints.get("scan_detection", {})
@@ -291,14 +301,8 @@ def run_pdf_processing_pipeline(
                         input_fingerprint=ocr_fingerprints.get("docling_extraction", {})):
                 plog.info("Extracting text and figures...")
                 with _docling_log_context(pdf_name, hash_dir.name):
-                    extract_docling_content(
-                        processed_pdf,
-                        text_file,
-                        figures_file,
-                        figures_dir,
-                        docling_doc_output=docling_doc_file,
-                        scan_file_type=detection_result.get("file_type"),
-                    )
+                    rebuild_figure_base(hash_dir, extract_docling_content,
+                                        figures_only=False)
                 processing_summary["files_created"].extend([str(text_file), str(figures_file)])
                 if docling_doc_file.exists():
                     processing_summary["files_created"].append(str(docling_doc_file))
@@ -343,49 +347,34 @@ def run_pdf_processing_pipeline(
                 processing_summary["files_created"].append(str(chunks_file))
                 processing_summary["processing_steps"].append("text_chunking")
 
-        # A metadata/lexicon-only refresh must not replace already-materialized
-        # vision ROIs with the CPU floor, or rerun a paid vision call. Figures
-        # and cross-links depend on extraction/chunks, not the bibliography.
-        refresh_figures = (
-            not resume or not figures_file.exists()
-            or "docling_extraction" not in processing_summary["skipped_stages"]
-            or "text_chunking" not in processing_summary["skipped_stages"]
-        )
+        figure_fp = ocr_fingerprints["figure_materialization"]
+        refresh_figures = _should_run_stage(
+            "figure_materialization", hash_dir=hash_dir, resume=resume,
+            processing_summary=processing_summary, expected_fingerprint=figure_fp)
         if refresh_figures:
-            with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
-                plog.info("Pass 2.5: annotating figures from captions + text...")
-                _pass25_annotate_figures(text_file, figures_file)
-                processing_summary["processing_steps"].append("figure_pass25_annotation")
+            with _stage(processing_summary, "figure_materialization", hash_dir=hash_dir,
+                        input_fingerprint=figure_fp):
+                if "docling_extraction" in processing_summary["skipped_stages"]:
+                    rebuild_figure_base(hash_dir, extract_docling_content)
+                with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
+                    _pass25_annotate_figures(text_file, figures_file)
+                if vision_backend is not None:
+                    with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
+                        _pass3b_annotate_rois(figures_file, vision_backend)
+                elif content_aware_figures:
+                    with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
+                        _pass3a_annotate_rois(figures_file)
+                if vision_backend is not None or content_aware_figures:
+                    with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
+                        resolve_compound_figures(figures_file)
+                processing_summary["processing_steps"].append("figure_materialization")
 
-        if refresh_figures and vision_backend is not None:
-            with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
-                plog.info("Pass 3b: vision-model-driven panel + compound detection...")
-                _pass3b_annotate_rois(figures_file, vision_backend)
-                processing_summary["processing_steps"].append("figure_pass3b_rois")
-        elif refresh_figures and content_aware_figures:
-            with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
-                plog.info("Pass 3a: OCR-driven panel ROI detection...")
-                _pass3a_annotate_rois(figures_file)
-                processing_summary["processing_steps"].append("figure_pass3a_rois")
-
-        # Pass 3c — resolve *_compound figures: split their ROIs, match
-        # to missing_figures, rename the PNG to range notation. Cheap;
-        # worth running whenever 3a or 3b has been run.
-        if refresh_figures and (vision_backend is not None or content_aware_figures):
-            with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
-                plog.info("Pass 3c: compound figure resolution + file rename...")
-                summary_3c = resolve_compound_figures(figures_file)
-                plog.info(
-                    "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
-                    summary_3c.get("resolved", 0),
-                    summary_3c.get("renamed", 0),
-                    summary_3c.get("unchanged", 0),
-                    summary_3c.get("new_records", 0),
-                )
-                processing_summary["processing_steps"].append("figure_pass3c_resolve")
-
-        if refresh_figures:
-            with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir):
+        crossref_fp = ocr_fingerprints["figure_crossref"]
+        if _should_run_stage("figure_crossref", hash_dir=hash_dir,
+                             resume=resume and not refresh_figures,
+                             processing_summary=processing_summary, expected_fingerprint=crossref_fp):
+            with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir,
+                        input_fingerprint=crossref_fp):
                 plog.info("Linking chunks to figures...")
                 _crossref_chunks_and_figures(figures_file, chunks_file)
                 processing_summary["processing_steps"].append("figure_crossref")
@@ -403,6 +392,7 @@ def run_pdf_processing_pipeline(
             # ocrlang rides along here too: chunks descend from the OCR,
             # so a language change invalidates the taxa pulled out of them.
             taxa_anat_fingerprint = _expected_fingerprints_for_run(
+                config_fingerprints=run_config_fingerprints,
                 metadata_fingerprint=_metadata_fingerprint_for_pdf(bib_index, pdf_path.name),
                 ocrlang=ocrlang,
                 ocrmode=ocrmode,
@@ -437,7 +427,7 @@ def run_pdf_processing_pipeline(
         # it so a figure is citable against the file the operator holds.
         # After every pass that rewrites figures.json, before the report
         # renders from it.
-        if page_selection and refresh_figures:
+        if page_selection and (refresh_figures or "text_chunking" not in processing_summary["skipped_stages"]):
             with _stage(processing_summary, "source_page_mapping", hash_dir=hash_dir):
                 n = annotate_source_pages([figures_file, text_file, chunks_file],
                                           page_selection)
@@ -456,7 +446,8 @@ def run_pdf_processing_pipeline(
         # Run after success so artifacts are populated. A failed gate
         # records a quality_flag in summary.json but does not fail the
         # paper; corpus_status.py (#40) rolls these up for review.
-        with _stage(processing_summary, "quality_gates", hash_dir=hash_dir):
+        with _stage(processing_summary, "quality_gates", hash_dir=hash_dir,
+                    input_fingerprint={"config": run_config_fingerprints["quality_gates"]}):
             qgs = _run_quality_gates(hash_dir)
             processing_summary["quality_flags"] = qgs
             if qgs:
