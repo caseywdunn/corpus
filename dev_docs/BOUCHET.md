@@ -831,7 +831,16 @@ Size `--array` as `ceil(PDF files / BATCH_SIZE) - 1`; the orchestrator does this
 
 Resume is implicit in `corpus run`, so restarts are cheap — re-queuing a phase re-processes only papers whose inputs changed. Without `NUM_PASS3B_BATCHES` (or set to 1), Pass 3b runs as a single job, which is right for all but genuinely figure-bound corpora.
 
-**Do not trust `corpus run --only embed --dry-run`.** The real run gates resume on the marker's `embedding_model` + `embedding_dim` (`_marker_matches_backend`, `pipeline/embed.py:216`), but the dry-run path checks only that `vector_db/<HASH>_embedded.done` exists (`embed.py:296-306`). Stage 1 writes a *chunking* receipt at that same path (the `ingest_to_vector_db` stub, `pipeline/chunking.py:149`), which carries neither key. So on a corpus that has finished extract but never embedded, the dry-run reports "already have a marker" for every paper while the real run correctly embeds them all. Check `vector_db/lancedb/` for the actual state — if that directory is absent, nothing has been embedded regardless of how many `.done` files there are.
+**Embedding receipts are verified, not counted (#271).**
+`corpus run --only embed --dry-run` checks input fingerprints and committed rows
+without loading the model. Older checkouts only counted marker files, including
+placeholder receipts written by Stage 1, and could falsely report no work.
+Current Stage 1 no longer writes those placeholders. Upgrading an old build
+requires one re-embedding to produce verified receipts; budget GPU time for it.
+An index directory alone does not prove completion. See
+[Stage 2: Embedding](OVERVIEW.md#stage-2-embedding-pipelineembedpy) for the
+transaction and recovery contract. Keep each running chain's checkout pinned;
+this fix does not retroactively change a job submitted from older code.
 
 ## Post-pipeline cross-paper databases + served bundle
 

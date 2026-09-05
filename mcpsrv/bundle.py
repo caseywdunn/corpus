@@ -201,22 +201,6 @@ def _git_sha() -> Optional[str]:
         return None
 
 
-def _read_one_embedding_marker(output_dir: Path) -> Tuple[Optional[str], Optional[int]]:
-    """Sample a single ``<HASH>_embedded.done`` marker to learn the
-    embedding model + dim used for the vector index.  Returns
-    ``(model, dim)`` or ``(None, None)`` if no marker exists."""
-    vdb = output_dir / "vector_db"
-    if not vdb.is_dir():
-        return None, None
-    for marker in vdb.glob("*_embedded.done"):
-        try:
-            data = json.loads(marker.read_text())
-        except Exception:
-            continue
-        return data.get("embedding_model"), data.get("embedding_dim")
-    return None, None
-
-
 def _count_figures_and_chunks(
     documents_dir: Path,
     excluded_hashes: Optional[Iterable[str]] = None,
@@ -578,6 +562,14 @@ def package(output_dir: Path, serve_dir: Path, version: str,
             f"{documents_dir} not found — point --output-dir at a processed corpus"
         )
 
+    # Fail before touching a previous served bundle. Completion belongs to the
+    # build plane; the server must never infer it from one sampled marker.
+    from pipeline.embedding_state import validate_embedding_index
+    model, dim = validate_embedding_index(output_dir)
+    if model is None and (serve_dir / "vector_db" / "lancedb").exists():
+        raise ValueError("Build has no verified embedding model but the destination "
+                         "contains an index. Use a fresh served directory.")
+
     if not dry_run:
         serve_dir.mkdir(parents=True, exist_ok=True)
 
@@ -748,7 +740,6 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         logger.info("Path scrub: rewrote %d files; audit clean.", n_scrubbed)
 
     # Manifest
-    model, dim = _read_one_embedding_marker(output_dir)
     fig_count, chunk_count = _count_figures_and_chunks(
         documents_dir, excluded_hashes=skipped_hashes,
     )

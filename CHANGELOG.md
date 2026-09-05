@@ -51,6 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Embedding updates replace each document atomically (#271).** Resume now
+  verifies a content/metadata fingerprint and the committed row generation,
+  count, model and dimension. Changed text cannot be skipped, shortened or
+  empty documents cannot leave stale rows, and retries cannot append duplicates.
+  Stage 1 no longer writes fake embedding receipts. Legacy receipts trigger a
+  one-time re-embedding; status, dry-run and bundling verify actual completion,
+  and bundling checks the entire index instead of sampling a marker. Switching
+  models requires a whole-index rebuild even when dimensions match.
+
 - **SLURM builds now load the selected checkout through the entire job
   chain.** An alternate `REPO_DIR` previously changed the working directory
   while the installed `corpus` entry point and phase subprocesses could still

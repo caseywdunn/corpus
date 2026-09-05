@@ -58,7 +58,7 @@ adding more serve-time materialization.
 
 ## Content-addressed storage
 
-Every unique PDF is identified by the first 12 hex characters of its SHA-256 hash. All artifacts for that PDF live under `<output_dir>/documents/<HASH>/`. Identical PDFs found at multiple input paths are processed once; every discovered path is recorded in `summary.json`. The presence of `summary.json` is the completion marker that `--resume` checks; per-stage resume (#28) additionally tracks each stage's artifact independently so a lexicon edit only re-runs the annotation pass.
+Every unique PDF is identified by the first 12 hex characters of its SHA-256 hash. All artifacts for that PDF live under `<output_dir>/documents/<HASH>/`. Identical PDFs found at multiple input paths are processed once; every discovered path is recorded in `summary.json`. Implicit resume checks per-stage records in `pipeline_state.json`, including producer version and input fingerprints; the presence of `summary.json` alone does not prove completion. Embedding has its own committed-row evidence, described below.
 
 ```
 output/
@@ -131,8 +131,61 @@ By default both run inline inside the Stage 1 per-paper runner; on HPC the GPU-b
 Reads `chunks.json` per hash and produces vector embeddings stored in LanceDB.
 
 - **Backend**: local sentence-transformers with [BGE-M3](https://huggingface.co/BAAI/bge-m3) (1024-dim, multilingual), runs on CUDA/MPS/CPU via `embeddings.detect_device()`. Embedding failures raise rather than silently inserting zero vectors.
-- Embeddings are batched. Per-hash completion is marked by `<HASH>_embedded.done`.
-- `--resume` skips already-embedded hashes. `--rebuild` drops the table and re-embeds (use when switching models).
+- Each document is replaced in **one LanceDB transaction**. A fresh internal
+  `embedding_generation` labels the incoming rows; a merge inserts that
+  generation and deletes every previous row for the same PDF hash. Shorter
+  chunk lists and legacy duplicates are handled without touching other papers.
+  An explicitly empty chunk list removes old rows. Missing or malformed chunk
+  artifacts fail instead of being mistaken for an empty document.
+- Only Stage 2 writes `<HASH>_embedded.done`, after the transaction succeeds,
+  using an atomic file replacement. The marker records producer/schema
+  versions, input fingerprint, model, dimension, table, row count and generation.
+  The fingerprint covers the ordered chunk text and every metadata field stored
+  in the index: paths, bibliographic fields, page count, chunk IDs, section and
+  headings. Run timestamps and unrelated annotation fields do not invalidate it.
+- `--resume` checks the input fingerprint **and** a projected census of committed
+  row counts/generations. Matching model/dimension alone is insufficient. A
+  crash after the table commit but before the marker replacement leaves evidence
+  that fails this check, even if the old and new chunk counts are identical.
+  Retry safely replaces the document again; it never appends a duplicate copy.
+- `--dry-run --resume` uses the same evidence without loading the model or
+  writing rows. `--rebuild` drops and re-embeds the **whole** table, including
+  when two different models have the same dimension; combining it with
+  `--pdf-hash` is rejected. Legacy markers lack proof and incur a one-time
+  re-embedding on the next resume.
+- Bundling validates every document's marker against current inputs and rows,
+  rejects orphan rows and mixed models, and derives model/dimension from the
+  validated set before touching the served destination. `corpus status --report`
+  uses the same check instead of treating an index directory as completion.
+  A build with neither an index nor current-document markers can still be served
+  without semantic search; an incomplete index is not that mode.
+
+### Corpuscle update contract
+
+The build plane owns update decisions (#265). A PDF hash identifies source
+bytes, **not** the validity of all derived data. The target invariant is that
+an incremental run and a clean rebuild yield the same current document set,
+logical vector rows and reference mappings. Internal transaction IDs and run
+timestamps are provenance, not semantic differences.
+
+| Change | Required invalidation / replacement | Current coverage |
+|---|---|---|
+| Add a PDF | Build the new hash; refresh cross-paper materializations and bundle | Existing implicit-add path; Stage 2 preserves other hashes |
+| Remove a PDF | Prune its derived directory and vector rows; remove current cross-paper and served references | Build pruning exists with a safety threshold; end-to-end clean/incremental deletion gate still pending |
+| Change PDF bytes | Treat as an addition plus removal of the old hash if no other source path retains it | Same rules as above |
+| Same hash, changed chunks or embedded metadata | Replace that document's vector rows; publish a new receipt after commit | Implemented and tested in Stage 2 (#271) |
+| Rename or change BibTeX | Refresh consumed paths/metadata and their descendants; leave unrelated artifacts alone | Stage 2 notices changed artifacts; upstream filename/BibTeX fingerprints remain incomplete (#174) |
+| Change configuration or curator directives | Fingerprint resolved values only in stages that consume them, and invalidate descendants | OCR language/mode/page-range and annotation fingerprints exist; remaining configuration coverage is pending (#174) |
+| Upgrade producer or embedding model | Invalidate incompatible receipts; rebuild the whole vector table when switching models | Stage/embedding producer checks and model guard exist; whole-corpus release comparison remains pending (#187) |
+
+These are **single-writer build directories**. Parallel extraction workers may
+own disjoint hashes, but do not overlap embedding/bundling with edits to their
+inputs, another embedding writer, or an update of the producer checkout. Use a
+separate build and served directory for release candidates. Per-document vector
+transactions do not make the complete corpus build or bundle copy atomic.
+The remaining rows above are release gates, not claims that all update classes
+already converge. In particular, Stage 2 cannot detect a BibTeX edit that an
+upstream stage has failed to materialize.
 
 ## Figure pipeline
 

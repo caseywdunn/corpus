@@ -241,10 +241,10 @@ def _bar(n: int, total: int, width: int = 30) -> str:
 
 
 def render_artifacts(output_dir: Path) -> str:
-    """Cross-paper artifact presence section for `--report` (#57).
+    """Cross-paper artifact presence and verified embeddings for `--report`.
 
-    Lists the four corpus-level outputs and ✓/✗ for each. The MCP
-    server can run with any subset present; missing ones surface here.
+    The MCP server can run with a subset of artifacts. An existing vector
+    directory is not evidence of completion; verify its inputs and rows.
     """
     out: List[str] = ["Cross-paper artifacts:"]
     # `taxonomy.sqlite` is optional — a corpuscle with no `taxonomy:` block
@@ -255,7 +255,18 @@ def render_artifacts(output_dir: Path) -> str:
     for rel in ("biblio_authority.sqlite", "taxon_mentions.sqlite",
                 "taxonomy.sqlite", "vector_db/lancedb"):
         p = output_dir / rel
-        if p.exists():
+        if rel == "vector_db/lancedb" and (output_dir / "documents").is_dir():
+            from .embedding_state import validate_embedding_index
+            try:
+                model, dim = validate_embedding_index(output_dir)
+            except Exception as exc:
+                out.append(f"  ✗ {rel}  (not verified current: {exc})")
+            else:
+                if model is None:
+                    out.append(f"  – {rel}  (no verified embeddings)")
+                else:
+                    out.append(f"  ✓ {rel}  (verified current: {model}, dim={dim})")
+        elif p.exists():
             out.append(f"  ✓ {rel}")
         elif rel in optional:
             out.append(f"  – {rel}  ({optional[rel]})")

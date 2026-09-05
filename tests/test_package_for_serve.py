@@ -81,15 +81,17 @@ def _make_fake_output(root: Path, paper_hashes=("abc", "def")) -> Path:
         (hd / "page_report.html").write_text("page audit")
         (hd / "visualizations").mkdir()
         (hd / "visualizations" / "page_1.png").write_bytes(b"viz stub")
-    # LanceDB dir
-    vdb = root / "vector_db" / "lancedb"
-    vdb.mkdir(parents=True)
-    (vdb / "manifest.txt").write_bytes(b"lance manifest")
-    (vdb / "data.bin").write_bytes(b"lance data blob")
-    # Per-hash embedding marker (for manifest reading)
-    (root / "vector_db" / "abc_embedded.done").write_text(json.dumps(
-        {"embedding_model": "BAAI/bge-m3", "embedding_dim": 1024}
-    ))
+    # Real committed rows and markers; no model download needed.
+    import lancedb
+    from pipeline.embed import embed_document, make_chunk_model
+    from types import SimpleNamespace
+    backend = SimpleNamespace(model_name="test-model", dim=2,
+                              embed=lambda texts: [[1.0, 0.0] for _ in texts])
+    model = make_chunk_model(2)
+    db = lancedb.connect(str(root / "vector_db" / "lancedb"))
+    table = db.create_table("document_chunks", schema=model.to_arrow_schema())
+    for h in paper_hashes:
+        embed_document(root / "documents" / h, table, model, backend)
     return root
 
 
@@ -114,16 +116,17 @@ def test_package_copies_whitelisted_excludes_build_only(tmp_path: Path):
         assert not (dst / "documents" / h / "visualizations").exists()
 
     # LanceDB copied in full
-    assert (dst / "vector_db" / "lancedb" / "manifest.txt").is_file()
-    assert (dst / "vector_db" / "lancedb" / "data.bin").is_file()
+    import lancedb
+    db = lancedb.connect(str(dst / "vector_db" / "lancedb"))
+    assert db.open_table("document_chunks").count_rows() == 2
 
     # Manifest is correct
     assert manifest["bundle_version"] == "v1.0.0"
     assert manifest["paper_count"] == 2
     assert manifest["chunk_count"] == 2      # 1 chunk per paper, 2 papers
     assert manifest["figure_count"] == 2     # 1 figure per paper, 2 papers
-    assert manifest["embedding_model"] == "BAAI/bge-m3"
-    assert manifest["embedding_dim"] == 1024
+    assert manifest["embedding_model"] == "test-model"
+    assert manifest["embedding_dim"] == 2
     assert manifest["includes_pdfs"] is False
     assert manifest["created_at"].endswith("Z")
 
@@ -231,9 +234,7 @@ def _make_output_with_absolute_paths(root: Path) -> Path:
                   "text.json", "chunks.json", "taxa.json", "anatomy.json"):
         (hd / fname).write_text("{}")
 
-    # Minimal LanceDB so package() succeeds.
-    (root / "vector_db" / "lancedb").mkdir(parents=True)
-    (root / "vector_db" / "lancedb" / "manifest.txt").write_bytes(b"x")
+    # No semantic index: this fixture only exercises JSON path scrubbing.
     return root
 
 

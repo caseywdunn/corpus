@@ -488,6 +488,14 @@ Drop new PDFs into the configured `input_pdfs:` directory and re-run `corpus run
 
 Lexicon / taxonomy edits need no extra flag — fingerprints land in `<hash>/<category>.json` and the affected category re-annotates on the next run.
 
+Embedding resume verifies current chunk text, indexed metadata and committed
+rows; changed documents replace their previous vectors without duplicating
+them. Builds made before the verified-marker format need a one-time
+re-embedding. Broader BibTeX/configuration invalidation is still being hardened;
+see the [update contract](dev_docs/OVERVIEW.md#corpuscle-update-contract) for
+supported behavior and remaining gaps. Do not run concurrent updates against
+the same build directory.
+
 ## Curating bibliographic metadata
 
 Grobid mis-parses some references. Round-trip via BibTeX:

@@ -1,11 +1,9 @@
-"""Text chunking + vector-db ingestion marker.
+"""Text chunking (embedding completion belongs exclusively to Stage 2).
 
 * :func:`chunk_text` — hybrid (docling) chunker on the serialized
   DoclingDocument, with a naive char-window fallback when docling
   isn't available. Output: ``chunks.json`` with one record per chunk
   carrying text, heading trail, section_class, and captions.
-* :func:`ingest_to_vector_db` — writes a per-paper completion marker
-  used by Stage 2's resume logic.
 """
 from __future__ import annotations
 
@@ -144,20 +142,3 @@ def chunk_text(
 
     with open(chunks_output, "w", encoding="utf-8") as f:
         json.dump(stamp_artifact(chunks_data), f, indent=2, ensure_ascii=False)
-
-
-def ingest_to_vector_db(chunks_file: Path, vector_db_dir: Path, pdf_hash: str):
-    """Ingest chunks into vector database."""
-    # Placeholder for vector database ingestion
-    # This would typically involve embedding the text and storing in a vector database
-    
-    # Create a simple marker file for now
-    ingestion_marker = vector_db_dir / f"{pdf_hash}_embedded.done"
-    
-    with open(ingestion_marker, 'w') as f:
-        json.dump(stamp_artifact({
-            "pdf_hash": pdf_hash,
-            "chunks_file": str(chunks_file),
-            "ingestion_timestamp": str(Path(chunks_file).stat().st_mtime),
-            "status": "completed",
-        }), f, indent=2)

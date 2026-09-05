@@ -8,8 +8,8 @@ Reads ``<output_dir>/documents/<HASH>/chunks.json`` for each
 already-processed PDF, batches the chunk text through the embedding
 backend, and writes records into ``<output_dir>/vector_db/lancedb/``.
 A per-hash marker file at ``<output_dir>/vector_db/<HASH>_embedded.done``
-records the model + dim used, so ``--resume`` knows what to skip and
-``--rebuild`` knows when to drop and re-embed.
+records the input fingerprint, model, dimension and committed generation.
+``--resume`` verifies these against the current artifacts and table rows.
 
 Usage:
     python -m pipeline.embed demo_output                         # default
@@ -24,11 +24,15 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Type
 
 import lancedb
+import pyarrow as pa
 from lancedb.pydantic import LanceModel, Vector
 
 from dotenv import load_dotenv
@@ -39,7 +43,13 @@ from pipeline.embeddings import (
     EmbeddingError,
     get_embedder,
     lancedb_table_names,
+    _DEFAULT_LOCAL_MODEL,
 )
+from pipeline.embedding_state import (
+    MARKER_VERSION, input_fingerprint, load_document_data, marker_problem,
+    read_marker, record_payloads, row_census,
+)
+from pipeline.version import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +93,11 @@ def make_chunk_model(dim: int) -> Type[LanceModel]:
                 "text": str,
                 "vector": Vector(dim),
                 "metadata": ChunkMetadata,
+                "embedding_generation": Optional[str],
             },
             "text": "",
             "metadata": ChunkMetadata(pdf_hash=""),
+            "embedding_generation": None,
         },
     )
     return cls
@@ -96,102 +108,60 @@ def make_chunk_model(dim: int) -> Type[LanceModel]:
 # ---------------------------------------------------------------------------
 
 
-def load_document_data(hash_dir: Path) -> Dict:
-    """Load summary + chunks + metadata for one paper."""
-    data: Dict = {}
-    for fname in ("summary.json", "chunks.json", "metadata.json"):
-        f = hash_dir / fname
-        if not f.exists():
-            continue
-        try:
-            with f.open(encoding="utf-8") as fh:
-                data[fname.removesuffix(".json")] = json.load(fh)
-        except Exception as e:
-            logger.warning("Could not read %s: %s", f, e)
-    return data
-
-
-def _build_records(
-    hash_dir: Path,
-    chunks: List[Dict],
-    vectors: List[List[float]],
-    chunk_model: Type[LanceModel],
-    summary: Dict,
-    metadata: Dict,
-    chunks_meta: Dict,
-) -> List[LanceModel]:
-    """Stitch chunk text + computed vector + paper metadata into LanceDB rows."""
-    records = []
-    relative_paths = summary.get("relative_paths", []) or []
-    filename = relative_paths[0] if relative_paths else ""
-    # Authors are stored in metadata.json as list of dicts; flatten to a
-    # list of "Forename Surname" strings for the LanceDB record (the
-    # schema keeps it simple — joining now beats joining at query time).
-    authors_list = []
-    for a in metadata.get("authors", []) or []:
-        name = f"{(a.get('forename','') or '').strip()} {(a.get('surname','') or '').strip()}".strip()
-        if name:
-            authors_list.append(name)
-
-    for chunk, vec in zip(chunks, vectors):
-        cm = ChunkMetadata(
-            pdf_hash=hash_dir.name,
-            filename=filename,
-            title=metadata.get("title", "") or "",
-            authors=authors_list,
-            year=metadata.get("year"),
-            journal=metadata.get("journal", "") or "",
-            doi=metadata.get("doi", "") or "",
-            total_pages=(chunks_meta.get("metadata") or {}).get("total_pages"),
-            chunk_id=chunk.get("chunk_id", ""),
-            relative_paths=relative_paths,
-            section_class=chunk.get("section_class"),
-            headings=chunk.get("headings", []) or [],
-        )
-        records.append(chunk_model(
-            text=chunk.get("text", "") or "",
-            vector=vec,
-            metadata=cm,
-        ))
-    return records
-
-
 def embed_document(
     hash_dir: Path,
     table,
     chunk_model: Type[LanceModel],
     embedder: EmbeddingBackend,
-) -> Optional[int]:
-    """Embed one paper's chunks and add them to the table.
+    *,
+    marker_file: Optional[Path] = None,
+) -> int:
+    """Atomically replace one paper, then publish its completion evidence.
 
-    Returns the number of chunks added, or None if the paper had no
-    chunks to embed. Raises :class:`EmbeddingError` on failure — the
-    caller decides whether to skip the doc or abort.
+    A fresh generation matches no existing row: one merge inserts all incoming
+    chunks and deletes every old row for this hash, including legacy duplicates.
+    Failure before the commit leaves the old rows; failure after it leaves a
+    stale/missing marker that cannot pass resume. Build directories are single
+    writer: do not edit extraction inputs while embedding or bundling.
     """
     pdf_hash = hash_dir.name
     doc = load_document_data(hash_dir)
-    chunks_data = doc.get("chunks") or {}
-    chunks = chunks_data.get("chunks") or []
-    if not chunks:
-        logger.info("%s: no chunks; skipping", pdf_hash)
-        return None
-
-    texts = [c.get("text", "") or "" for c in chunks]
+    fingerprint = input_fingerprint(pdf_hash, doc)
+    payloads = record_payloads(pdf_hash, doc)
+    texts = [row["text"] for row in payloads]
     logger.info("%s: embedding %d chunks", pdf_hash, len(texts))
-    vectors = embedder.embed(texts)
+    vectors = embedder.embed(texts) if texts else []
     if len(vectors) != len(texts):
         raise EmbeddingError(
             f"{pdf_hash}: embedder returned {len(vectors)} vectors for "
             f"{len(texts)} chunks"
         )
 
-    records = _build_records(
-        hash_dir, chunks, vectors, chunk_model,
-        summary=doc.get("summary") or {},
-        metadata=doc.get("metadata") or {},
-        chunks_meta=chunks_data,
+    generation = uuid.uuid4().hex
+    records = [chunk_model(**row, vector=vector, embedding_generation=generation)
+               .model_dump() for row, vector in zip(payloads, vectors)]
+    if fingerprint != input_fingerprint(pdf_hash, load_document_data(hash_dir)):
+        raise EmbeddingError(f"{pdf_hash}: inputs changed during embedding; retry")
+    # Nullable migration preserves legacy rows until their replacements commit.
+    if "embedding_generation" not in table.schema.names:
+        table.add_columns(pa.field("embedding_generation", pa.string(), nullable=True))
+    predicate = "metadata.pdf_hash = '" + pdf_hash.replace("'", "''") + "'"
+    if records:
+        rows = pa.Table.from_pylist(records, schema=table.schema)
+        (table.merge_insert("embedding_generation")
+         .when_not_matched_insert_all()
+         .when_not_matched_by_source_delete(predicate)
+         .execute(rows))
+    else:
+        # An explicitly empty chunk list is valid and removes previous rows.
+        table.delete(predicate)
+    marker_file = marker_file or hash_dir.parent.parent / "vector_db" / f"{pdf_hash}_embedded.done"
+    _write_marker(
+        marker_file, pdf_hash=pdf_hash, count=len(records),
+        relative_paths=doc["summary"].get("relative_paths") or [],
+        embedder=embedder, fingerprint=fingerprint, generation=generation,
+        table_name=table.name,
     )
-    table.add(records)
     return len(records)
 
 
@@ -201,29 +171,34 @@ def embed_document(
 
 
 def _write_marker(marker_file: Path, *, pdf_hash: str, count: int,
-                  relative_paths: List[str], embedder: EmbeddingBackend) -> None:
-    marker_file.write_text(json.dumps({
+                  relative_paths: List[str], embedder: EmbeddingBackend,
+                  fingerprint: str, generation: str, table_name: str) -> None:
+    data = {
+        "marker_version": MARKER_VERSION,
+        "pipeline_version": __version__,
         "pdf_hash": pdf_hash,
         "chunks_count": count,
         "relative_paths": relative_paths,
         "embedding_backend": embedder.__class__.__name__,
         "embedding_model": embedder.model_name,
         "embedding_dim": embedder.dim,
+        "embedding_table": table_name,
+        "input_fingerprint": fingerprint,
+        "embedding_generation": generation,
         "status": "completed",
-    }, indent=2))
-
-
-def _marker_matches_backend(marker_file: Path, embedder: EmbeddingBackend) -> bool:
-    """Return True iff the existing marker was written with the same model
-    + dim. Resume should re-embed if the backend changed underneath us."""
+    }
+    temporary = None
     try:
-        m = json.loads(marker_file.read_text())
-    except Exception:
-        return False
-    return (
-        m.get("embedding_model") == embedder.model_name
-        and m.get("embedding_dim") == embedder.dim
-    )
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8",
+                                         dir=marker_file.parent, delete=False) as fh:
+            temporary = Path(fh.name)
+            json.dump(data, fh, indent=2)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(temporary, marker_file)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +220,7 @@ def main() -> int:
     )
     parser.add_argument("--pdf-hash", help="Process only this 12-char hash")
     parser.add_argument("--resume", action="store_true",
-                        help="Skip docs whose marker matches this model")
+                        help="Skip docs with verified current inputs and committed rows")
     parser.add_argument(
         "--rebuild", action="store_true",
         help="Drop the existing LanceDB table before embedding "
@@ -263,6 +238,8 @@ def main() -> int:
     parser.add_argument("-v", "--verbose", action="store_true")
 
     args = parser.parse_args()
+    if args.rebuild and args.pdf_hash:
+        parser.error("--rebuild replaces the whole index; it cannot be used with --pdf-hash")
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -284,23 +261,43 @@ def main() -> int:
         logger.error("Documents directory %s does not exist", documents_dir)
         return 1
 
+    if args.pdf_hash:
+        if args.pdf_hash in {".", ".."} or Path(args.pdf_hash).name != args.pdf_hash:
+            parser.error("--pdf-hash must be a document directory name")
+        hash_dirs = [documents_dir / args.pdf_hash]
+        if not hash_dirs[0].is_dir():
+            logger.error("PDF hash directory %s not found", args.pdf_hash)
+            return 1
+    else:
+        hash_dirs = sorted(d for d in documents_dir.iterdir() if d.is_dir())
+
     if args.dry_run:
-        if args.pdf_hash:
-            hash_dirs = [documents_dir / args.pdf_hash]
-            if not hash_dirs[0].exists():
-                logger.error("PDF hash directory %s not found", args.pdf_hash)
-                return 1
-        else:
-            hash_dirs = sorted(d for d in documents_dir.iterdir() if d.is_dir())
+        census = {}
+        dim = None
+        index_path = vector_db_dir / "lancedb"
+        if args.resume and not args.rebuild and index_path.exists():
+            db = lancedb.connect(str(index_path))
+            if args.table_name in lancedb_table_names(db):
+                table = db.open_table(args.table_name)
+                census = row_census(table)
+                dim = table.schema.field("vector").type.list_size
         n_would_embed = n_skip = 0
         for hash_dir in hash_dirs:
-            marker = vector_db_dir / f"{hash_dir.name}_embedded.done"
-            if args.resume and marker.exists():
+            marker = read_marker(vector_db_dir / f"{hash_dir.name}_embedded.done")
+            try:
+                current = dim is not None and marker_problem(
+                    hash_dir, marker, census,
+                    model=args.model or _DEFAULT_LOCAL_MODEL, dim=dim,
+                    table_name=args.table_name,
+                ) is None
+            except (OSError, ValueError, TypeError, AttributeError):
+                current = False
+            if args.resume and not args.rebuild and current:
                 n_skip += 1
             else:
                 n_would_embed += 1
         logger.info(
-            "Dry-run: would embed %d hash(es); %d already have a marker. "
+            "Dry-run: would embed %d hash(es); %d verified current. "
             "No model loaded, no LanceDB writes.",
             n_would_embed, n_skip,
         )
@@ -341,14 +338,15 @@ def main() -> int:
         table = db.create_table(args.table_name, schema=chunk_model.to_arrow_schema())
         logger.info("Created LanceDB table %r (dim=%d)", args.table_name, embedder.dim)
 
-    # Determine which docs to process
-    if args.pdf_hash:
-        hash_dirs = [documents_dir / args.pdf_hash]
-        if not hash_dirs[0].exists():
-            logger.error("PDF hash directory %s not found", args.pdf_hash)
-            return 1
-    else:
-        hash_dirs = sorted(d for d in documents_dir.iterdir() if d.is_dir())
+    census = row_census(table)
+    # Dimension alone cannot detect two incompatible models of the same size.
+    # A partial model migration would make nearest-neighbour search meaningless.
+    for pdf_hash in census:
+        recorded_model = read_marker(vector_db_dir / f"{pdf_hash}_embedded.done").get("embedding_model")
+        if recorded_model and recorded_model != embedder.model_name:
+            logger.error("Index contains model %s; use --rebuild to switch to %s",
+                         recorded_model, embedder.model_name)
+            return 2
     logger.info("Found %d document(s) to process", len(hash_dirs))
 
     n_ok = n_skip = n_fail = 0
@@ -356,14 +354,15 @@ def main() -> int:
         pdf_hash = hash_dir.name
         marker = vector_db_dir / f"{pdf_hash}_embedded.done"
 
-        if args.resume and marker.exists() and _marker_matches_backend(marker, embedder):
-            logger.info("Skipping %s (already embedded with %s/%s)",
-                        pdf_hash, embedder.__class__.__name__, embedder.model_name)
-            n_skip += 1
-            continue
-
         try:
-            count = embed_document(hash_dir, table, chunk_model, embedder)
+            if args.resume and not args.rebuild and marker_problem(
+                    hash_dir, read_marker(marker), census,
+                    model=embedder.model_name, dim=embedder.dim,
+                    table_name=args.table_name) is None:
+                logger.info("Skipping %s (verified current with %s)", pdf_hash, embedder.model_name)
+                n_skip += 1
+                continue
+            embed_document(hash_dir, table, chunk_model, embedder, marker_file=marker)
         except EmbeddingError as e:
             logger.error("%s: embedding failed: %s — skipping", pdf_hash, e)
             n_fail += 1
@@ -373,18 +372,6 @@ def main() -> int:
             n_fail += 1
             continue
 
-        if count is None:
-            n_skip += 1
-            continue
-
-        # Marker reflects what we just wrote
-        summary = load_document_data(hash_dir).get("summary") or {}
-        _write_marker(
-            marker,
-            pdf_hash=pdf_hash, count=count,
-            relative_paths=summary.get("relative_paths", []) or [],
-            embedder=embedder,
-        )
         n_ok += 1
 
     logger.info("Done. embedded=%d, skipped=%d, failed=%d", n_ok, n_skip, n_fail)

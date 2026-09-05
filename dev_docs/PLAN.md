@@ -291,18 +291,25 @@ can answer which evidence and rule produced it.
   removals, changed PDF bytes, same-hash derived-content changes, bib edits,
   config edits and version upgrades each state what invalidates, what is
   replaced and what is pruned.
+  The normative contract and explicit coverage gaps now live in OVERVIEW's
+  **Corpuscle update contract**. Full implementation/acceptance remains open.
 - [ ] **Extend input fingerprints**
   ([#174](https://github.com/caseywdunn/corpus/issues/174)) to every input that
   can change an artifact, including the relevant bib fields, filename and
   resolved configuration. A key belongs in a stage fingerprint only when that
   stage actually consumes it.
-- [ ] **Make embedding replacement atomic per document and delete the Stage 1
+- [x] **Make embedding replacement atomic per document and delete the Stage 1
   fake completion marker**
   ([#271](https://github.com/caseywdunn/corpus/issues/271)). Re-embedding one
   hash replaces its rows; it never skips stale text or appends a second
   generation. A marker is written only after the table commit and carries the
   chunk fingerprint, model, dimension and committed row count. Bundle metadata
   validates all markers rather than sampling an arbitrary one.
+  Real-LanceDB regression tests cover changed text/metadata, shorter and empty
+  documents, legacy duplicates, failed writes, the commit/marker interruption
+  gap, no-op resume, same-dimension model changes and clean/incremental logical
+  row equality. Status and dry-run use verified evidence too. This closes the
+  embedding defect, not the broader #174/#265 update acceptance gate.
 - [ ] **Land the fingerprint-based release reference**
   ([#187](https://github.com/caseywdunn/corpus/issues/187)). Diff pipeline
   output, quality flags and manifest facts for the fixed gold corpuscle; test

@@ -32,6 +32,18 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 
 ## What's tested
 
+### Embedding update and recovery tests
+
+`tests/test_embedding_updates.py` uses real temporary LanceDB tables and a
+deterministic two-dimensional backend, so it needs no GPU or model download.
+Run it with `tests/test_package_for_serve.py` to check document replacement,
+content/metadata invalidation, legacy duplicate repair, empty-document pruning,
+interrupted writes, no-op resume, whole-index bundle validation and equality of
+clean/incremental logical rows. These run in T0. They verify storage/update
+semantics, not embedding quality or full upstream BibTeX/config invalidation;
+the latter still needs the end-to-end gate in the
+[update contract](OVERVIEW.md#corpuscle-update-contract).
+
 ### Page-level visual audit
 
 When a score or acceptance prompt points to a particular page, generate the

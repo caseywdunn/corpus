@@ -23,7 +23,6 @@ from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 
 from . import config as _pipeline_config
 from .annotate import _extract_taxa_and_lexicons
-from .chunking import ingest_to_vector_db
 from .config import CONFIG, load_config
 from .figure_passes import _crossref_chunks_and_figures, _pass3b_annotate_rois
 from .figures import resolve_compound_figures
@@ -791,12 +790,6 @@ def main():
                         pdf_hash_full, pdf_paths, input_dir, hash_dir, processing_summary
                     )
                     logger.info("Created summary: %s", summary_file)
-
-                    if processing_summary.get("status") == "success":
-                        chunks_file = hash_dir / "chunks.json"
-                        if chunks_file.exists():
-                            logger.info("Writing vector-db ingestion marker...")
-                            ingest_to_vector_db(chunks_file, vector_db_dir, pdf_hash)
 
             if sys.platform == "darwin":
                 _worker()
