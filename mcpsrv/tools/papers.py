@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pipeline.version import __version__
-from ..app import _load_json, _need_index, mcp
+from ..app import _load_json, _need_index, _validate_collection, error, mcp
 
 
 @mcp.tool()
@@ -265,6 +265,11 @@ def get_papers(
     requests. Output is in input order so the caller can zip back to
     its prompt context.
     """
+    try:
+        _validate_collection(hashes, "hashes")
+        _validate_collection(fields, "fields")
+    except ValueError as exc:
+        return [error(str(exc), "invalid_argument")]
     idx = _need_index()
     out: List[Dict[str, Any]] = []
     for h in hashes:
@@ -310,4 +315,3 @@ def get_papers(
 # ---------------------------------------------------------------------------
 # HTTP transport + bearer-token auth (DEPLOY.md)
 # ---------------------------------------------------------------------------
-

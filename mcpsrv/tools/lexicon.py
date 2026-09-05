@@ -19,7 +19,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..app import _load_json, _need_index, mcp
+from ..app import _load_json, _need_index, _validate_collection, error, mcp
 
 
 # #76 — bounded budgets for typical ~1–5 k-token responses.
@@ -139,6 +139,11 @@ def lexicon_matrix(
           }, ...]                             # one row per paper
         }
     """
+    try:
+        _validate_collection(terms, "terms")
+        _validate_collection(paper_hashes, "paper_hashes")
+    except ValueError as exc:
+        return error(str(exc), "invalid_argument")
     idx = _need_index()
     err = _category_or_error(idx, category)
     if err is not None:

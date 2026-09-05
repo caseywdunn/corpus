@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP collection inputs have a common safety budget (#277).** Explicit
+  lists accept at most 500 items, 4,096 characters per item and 65,536 characters
+  in total. Oversized requests fail before corpus lookup with the existing
+  `invalid_argument` shape; split them into batches. Tool names, signatures,
+  defaults and normal result shapes are unchanged and now snapshot-tested.
+
 - **Figure downloads use scoped, expiring URLs (#276).** Tool results never
   expose the shared MCP bearer token (`auth_header` is retained as `null`).
   Links authorize one figure/panel/profile for five minutes, cannot authorize

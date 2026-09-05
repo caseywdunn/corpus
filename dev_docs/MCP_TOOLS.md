@@ -4,6 +4,13 @@ The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsr
 
 This surface is frozen as of 1.0. What that commits us to — additive vs. breaking, and how anything gets removed — is [API_STABILITY.md](API_STABILITY.md).
 
+All explicit list parameters accept at most 500 items, 4,096 characters per
+item and 65,536 characters in total per list. Larger requests return
+`invalid_argument` in the tool's normal error shape before corpus lookup;
+split them into batches. Lists are never silently truncated. Omitted and empty
+lists retain each tool's documented meaning (including whole-paper selection
+by `get_chunks(chunk_ids=None)`); this is an input budget, not new pagination.
+
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
 ```bash

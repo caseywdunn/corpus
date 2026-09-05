@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from bib.authority import normalize_for_key
 
-from ..app import _load_json, _need_index, error, mcp
+from ..app import _load_json, _need_index, _validate_collection, error, mcp
 
 if TYPE_CHECKING:
     from ..indexes import BiblioAuthority  # noqa: F401  — annotation only
@@ -607,6 +607,12 @@ def format_citations(
     """
     from bib.format import SUPPORTED_STYLES
 
+    try:
+        _validate_collection(queries, "queries")
+        _validate_collection(work_ids, "work_ids")
+        _validate_collection(paper_hashes, "paper_hashes")
+    except ValueError as exc:
+        return error(str(exc), "invalid_argument")
     idx = _need_index()
     if idx.biblio_db is None:
         return error("bibliographic authority database not configured", "not_configured")
@@ -770,4 +776,3 @@ def get_works_by_author(
         r["cited_by_count"] = idx.biblio_db.citation_count(r["work_id"])
         results.append(r)
     return results
-

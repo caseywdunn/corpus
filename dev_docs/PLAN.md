@@ -422,10 +422,15 @@ meaning:
   exposing the MCP bearer token, with an explicit public base for reverse
   proxies. Tampering, expiry, restart and licensing tests pass, as do whole
   figure and panel downloads through the actual nginx route in an isolated
-  local container. Full-bundle read-only MCP acceptance remains separate.
-- [ ] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
+  local container. #277 validates all nine exposed list parameters against
+  common item/per-item/aggregate character budgets before index access, with
+  existing error shapes and no silent truncation. Full-bundle read-only MCP
+  acceptance remains separate.
+- [x] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
   representative response schemas in addition to the existing tool-name,
-  error-shape and licensing checks.
+  error-shape and licensing checks. Checked-in snapshots cover all 38 tool
+  signatures/defaults and SDK input schemas, plus representative citation,
+  dossier, chunk, paper, figure, URL, crop and refusal response shapes.
 
 The query embedder is the deliberate exception to "no models in the server":
 the query vector must be compatible with the stored index. It stays lazy,

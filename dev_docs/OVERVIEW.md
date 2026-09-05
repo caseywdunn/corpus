@@ -56,8 +56,21 @@ ROI coordinates; replacement pixels cannot reuse an old crop. Cache eviction
 is safe because image responses hold their own bytes, and HTTP panel requests
 can regenerate crops directly. The temporary cache follows the host's `TMPDIR`
 and is removed at normal process exit. No figure request writes to the bundle.
-Remote figure URLs still expose a reusable bearer credential; #276 tracks that
-remaining gap, not a precedent for adding serve-time materialization.
+Remote figure URLs use five-minute, process-local capabilities scoped to one
+figure, optional panel and output profile (#276). They never expose the MCP
+bearer credential or authorize MCP routes. The download boundary rechecks
+licensing. Reverse proxies use an explicitly configured public base, never
+untrusted forwarded headers; deployment details are in [DEPLOY.md](../DEPLOY.md).
+
+Every explicit MCP list selector has the same budget (#277): at most 500 items,
+4,096 characters per item and 65,536 characters per list. Tools reject excess
+with `invalid_argument` in their existing error shape **before** consulting the
+corpus. They never truncate selectors silently. Omitted/empty selectors retain
+their documented semantics; this input budget is not a new output-pagination
+contract. Existing implicit whole-paper/all-corpus queries and aggregate
+response-size limits need separate review, not an unnoticed wire change.
+The freeze tests pin all tool signatures/defaults, SDK input schemas and
+representative response shapes alongside the licensing and error invariants.
 
 ## Content-addressed storage
 

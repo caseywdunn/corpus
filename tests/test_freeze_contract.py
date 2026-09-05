@@ -14,6 +14,7 @@ reviewed edit rather than an accident:
 from __future__ import annotations
 
 import inspect
+import json
 import pathlib
 import re
 
@@ -74,6 +75,20 @@ def test_registered_tool_surface_is_frozen():
         "EXPECTED_TOOLS deliberately + add a CHANGELOG migration note.\n"
         f"added={sorted(names - EXPECTED_TOOLS)} "
         f"removed={sorted(EXPECTED_TOOLS - names)}"
+    )
+
+
+def _tool_contract():
+    return {name: {"signature": str(inspect.signature(_fn(tool))),
+                   "input_schema": tool.parameters}
+            for name, tool in sorted(_registered().items())}
+
+
+def test_signatures_defaults_and_wire_input_schemas_are_frozen():
+    expected = json.loads((pathlib.Path(__file__).parent / "fixtures/mcp_tool_contract.json").read_text())
+    assert _tool_contract() == expected, (
+        "Frozen tool signature/default/schema drift. Review compatibility, "
+        "then update the snapshot explicitly; never regenerate it as a test side effect."
     )
 
 

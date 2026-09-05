@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from bib.authority import normalize_for_key
 
-from ..app import _load_json, _need_index, _validated_limit, error, mcp
+from ..app import _load_json, _need_index, _validate_collection, _validated_limit, error, mcp
 
 # Filenames at the per-paper root that are NOT lexicon outputs.
 # Mirrors the same list in CorpusIndex.load() so dossier readers
@@ -274,6 +274,10 @@ def get_taxon_dossier(
           "cooccurring_taxa": [{taxon_id, name, rank?, n_shared_papers}, ...],
         }
     """
+    try:
+        _validate_collection(include, "include")
+    except ValueError as exc:
+        return error(str(exc), "invalid_argument")
     idx = _need_index()
     if idx.taxonomy_db is None:
         return error("no taxonomy snapshot configured", "not_configured")
@@ -927,4 +931,3 @@ def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
             "mentioning_paper_count": len(idx.taxon_to_papers.get(tid, [])),
         })
     return out
-

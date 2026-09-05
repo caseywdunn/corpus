@@ -50,6 +50,35 @@ def _load_json(path: Path, default: Any = None) -> Any:
 # (50, 100, …) live below this; the cap just prevents pathological
 # limit=10_000 calls from spilling massive payloads into chat context.
 MAX_LIMIT = 500
+MAX_COLLECTION_ITEMS = 500
+MAX_COLLECTION_ITEM_CHARS = 4096
+MAX_COLLECTION_CHARS = 65536
+
+
+def _validate_collection(values, name: str) -> None:
+    """Reject oversized selectors before lookup, without truncating intent.
+
+    Optional omission and empty lists keep their per-tool meanings. None
+    elements are left to existing per-item handling (format_citations), while
+    the SDK continues to enforce the declared List[str] wire schema.
+    """
+    if values is None:
+        return
+    if not isinstance(values, list):
+        raise ValueError(f"{name} must be a list")
+    if len(values) > MAX_COLLECTION_ITEMS:
+        raise ValueError(f"{name} accepts at most {MAX_COLLECTION_ITEMS} items; split the request")
+    total = 0
+    for value in values:
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise ValueError(f"{name} items must be strings")
+        if len(value) > MAX_COLLECTION_ITEM_CHARS:
+            raise ValueError(f"{name} items accept at most {MAX_COLLECTION_ITEM_CHARS} characters")
+        total += len(value)
+        if total > MAX_COLLECTION_CHARS:
+            raise ValueError(f"{name} accepts at most {MAX_COLLECTION_CHARS} characters in total; split the request")
 
 
 def _validated_limit(limit: int, *, max_value: int = MAX_LIMIT) -> int:
