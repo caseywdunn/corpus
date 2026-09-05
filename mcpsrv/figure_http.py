@@ -21,7 +21,8 @@ local stdio (loopback HTTP server bound to 127.0.0.1) and SSE/AWS
 
 Honored gates:
 
-* ``_BearerAuthASGI`` (same middleware that guards ``/sse``).
+* ``_BearerAuthASGI`` accepts expiring figure-only capabilities or an
+  operator's bearer credential. Figure capabilities cannot authorize MCP.
 * ``#51`` / ``#101`` figure-licensing check keyed to the request
   ``?profile=`` (refuses figures the parent work isn't licensed-cleared
   for under a *strict* profile; the permissive ``report`` default
@@ -251,6 +252,8 @@ async def _send_bytes(
         "headers": [
             (b"content-type", content_type.encode("ascii")),
             (b"content-length", str(len(body)).encode("ascii")),
+            (b"cache-control", b"private, no-store"),
+            (b"referrer-policy", b"no-referrer"),
         ],
     })
     await send({"type": "http.response.body", "body": b"" if head_only else body})

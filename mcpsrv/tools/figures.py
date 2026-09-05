@@ -1042,14 +1042,15 @@ def get_figure_url(
     label: Optional[str] = None,
     profile: Optional[str] = None,
 ) -> Dict:
-    """Return a bearer-gated HTTP URL the caller can ``curl -o`` to
+    """Return a scoped, five-minute HTTP URL the caller can ``curl -o`` to
     land the figure PNG on disk *without* loading its bytes into the
     model's context window. Use instead of ``get_figure_image`` when
     file bytes must reach the filesystem (pandoc / LaTeX / PDF
     assembly) — the byte flow stays off the MCP JSON-RPC channel
     regardless of figure size.
 
-    Fetch via ``curl -H "$auth_header" -o <path> "$url"``. Without
+    Fetch via ``curl -fsSL -o <path> "$url"``; no bearer header is needed.
+    The legacy ``auth_header`` field is null. Without
     ``label`` returns the whole figure; with ``label`` returns the
     panel crop if one exists (else falls back to the whole figure).
 
@@ -1072,7 +1073,8 @@ def get_figure_url(
     if not base:
         return error(
             "figure HTTP route is not available on this server. "
-            "Possible causes: figure side-car failed to bind at "
+            "Configure --public-base-url behind a reverse proxy or wildcard bind. "
+            "Other possible causes: figure side-car failed to bind at "
             "startup (check server logs), or the server is running "
             "with an older mcpsrv that predates #69. "
             "Fall back to get_figure_image.",
@@ -1105,21 +1107,15 @@ def get_figure_url(
             "forbidden", profile=active.name, **lic,
         )
 
-    # Encode the resolved profile into the URL so the HTTP route enforces
-    # the same policy (the route defaults to the server fallback when no
-    # profile is present — a strict client must not leak via that path).
-    query = [f"profile={active.name}"]
-    if label:
-        # figure_id / label are constrained to [A-Za-z0-9._-] server-side,
-        # so no urlencoding gymnastics are needed.
-        query.append(f"label={label}")
-    url = f"{base}/figures/{paper_hash}/{figure_id}?{'&'.join(query)}"
-    token = getattr(idx, "figure_auth_token", None)
-    auth_header = f"Authorization: Bearer {token}" if token else None
+    from ..figure_urls import figure_signer
+    try:
+        url = figure_signer(idx).url(base, f"/figures/{paper_hash}/{figure_id}", active.name, label)
+    except ValueError as exc:
+        return error(str(exc), "invalid_argument")
 
     return {
         "url": url,
-        "auth_header": auth_header,
+        "auth_header": None,
         "mime_type": "image/png",
         "profile": active.name,
         # #154 §1 — the server just authorized this URL under `active`, so
@@ -1127,9 +1123,5 @@ def get_figure_url(
         # Attribution and license go out either way (a caption needs them);
         # the determination only under a strict profile.
         **_license_fields_for_wire(lic, active),
-        "fetch_hint": (
-            "curl -fsSL -H \"$auth_header\" -o /tmp/fig.png \"$url\""
-            if auth_header
-            else "curl -fsSL -o /tmp/fig.png \"$url\"   # no auth configured"
-        ),
+        "fetch_hint": "curl -fsSL -o /tmp/fig.png \"$url\"   # expires in five minutes",
     }

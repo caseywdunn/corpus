@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Figure downloads use scoped, expiring URLs (#276).** Tool results never
+  expose the shared MCP bearer token (`auth_header` is retained as `null`).
+  Links authorize one figure/panel/profile for five minutes, cannot authorize
+  MCP routes, and expire on restart. Reverse-proxy deployments configure
+  `--public-base-url` or `CORPUS_PUBLIC_BASE_URL` and forward `/figures/`.
+
 - **Figure crops no longer mutate served bundles (#275).** MCP and HTTP use
   one bounded disposable cache keyed by image content and ROI. Panel downloads
   work on the first request, without requiring a previous MCP crop call.

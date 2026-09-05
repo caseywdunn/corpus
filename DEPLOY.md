@@ -19,7 +19,7 @@ Client → ALB (TLS, ACM wildcard *.siphonophores.org)
 - **EC2 `t3.large`** on the default VPC, Ubuntu 24.04 LTS.
 - **nginx** on the instance is ALB-aware: no TLS, no certbot.  It serves
   `GET /health` directly (for ALB health checks) and proxies `/sse`,
-  `/messages/`, `/healthz` to `mcpsrv.main` on `127.0.0.1:8080`.
+  `/messages/`, `/figures/`, `/healthz` to `mcpsrv.main` on `127.0.0.1:8080`.
 - **S3** bucket holds versioned serve bundles; the instance reads from it
   via IAM instance role (no credentials).
 - **DNS** (`siphonophores.org` at DreamHost) — one CNAME per organism
@@ -50,6 +50,7 @@ Layout on the EC2 host:
 
 /etc/corpus/
   mcp.token           bearer token, mode 640, root:corpus
+  server.env          CORPUS_PUBLIC_BASE_URL=https://corpus.example.edu
   update.conf         BUCKET=<name> for deploy/update.sh
 
 /etc/nginx/sites-available/corpus-mcp   reverse-proxy config
@@ -78,6 +79,28 @@ corpus serve --output-dir <bundle> -- \
 ```
 
 Clients send `Authorization: Bearer <token>` on every request. Without `--auth-token-file` or `CORPUS_MCP_TOKEN` the server runs open and logs a loud warning — fine for localhost experiments, never safe for public-facing deploys.
+
+For a reverse-proxied deployment, also set
+`--public-base-url https://corpus.example.edu` (or `CORPUS_PUBLIC_BASE_URL`).
+Use the actual client-reachable origin, not the loopback bind address. The
+packaged systemd unit reads this setting from `/etc/corpus/server.env` if
+present. Forward `/figures/` as well as the MCP routes; the supplied nginx
+configuration does this without changing the path or query. A URL path prefix
+is supported only when your proxy strips that prefix before forwarding.
+Wildcard binds require an explicit public base; the server never derives it
+from untrusted forwarded headers.
+
+`get_figure_url` returns a five-minute signed download link, scoped to one
+figure, optional panel and output profile. No MCP bearer credential is exposed:
+the retained `auth_header` field is `null`, and clients fetch the URL directly.
+The HTTP boundary rechecks licensing. Links expire on server restart as well
+as after five minutes; request another link when needed. Treat a link as a
+temporary secret: anyone holding it can download that figure until expiry.
+The reference nginx figure route and application disable access logging;
+configure any additional load balancer or proxy not to record these query
+strings, and do not publish them in durable reports. Responses are private and
+non-cacheable. An explicitly unauthenticated server remains open; signed links
+do not turn that mode into an authenticated deployment.
 
 **3. Smoke-test before exposing to anyone else.** [tools/smoke_test_sse.py](tools/smoke_test_sse.py) launches its own server on a free port, generates its own token, and drives the full stack — 401 without auth, 200 with auth, MCP `initialize` → `list_tools` → `bundle_info` → `list_papers`:
 

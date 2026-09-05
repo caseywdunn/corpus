@@ -32,6 +32,23 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 
 ## What's tested
 
+### Scoped figure downloads and reverse proxies
+
+`tests/test_signed_figure_urls.py` covers scope tampering, expiry, restart,
+licensing rechecks, and isolation from MCP bearer authentication. The opt-in
+live test runs the route from `deploy/nginx.conf` in an unprivileged, disposable
+Linux Docker container and fetches whole figures and panels over real HTTP:
+
+```bash
+docker pull nginx:stable-alpine
+CORPUS_TEST_NGINX=1 pytest -q tests/test_signed_figure_urls.py
+```
+
+It binds only high loopback ports, removes its container, and does not modify
+an existing deployment. This complements, rather than replaces, full MCP smoke
+testing against a read-only real bundle. Record the image digest with release
+evidence when running this acceptance test.
+
 ### Embedding update and recovery tests
 
 `tests/test_embedding_updates.py` uses real temporary LanceDB tables and a

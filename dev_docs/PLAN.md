@@ -418,7 +418,11 @@ meaning:
   #275 is implemented: one bounded, process-private content/ROI-keyed cache
   serves MCP images, logical ROI paths and first-request HTTP panel crops.
   Read-only-tree, concurrency, eviction, stale-pixel/ROI and licensing tests
-  pass. Scoped URL authorization/proxy acceptance remains under #276.
+  pass. #276 now issues five-minute figure/panel/profile-scoped URLs without
+  exposing the MCP bearer token, with an explicit public base for reverse
+  proxies. Tampering, expiry, restart and licensing tests pass, as do whole
+  figure and panel downloads through the actual nginx route in an isolated
+  local container. Full-bundle read-only MCP acceptance remains separate.
 - [ ] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
   representative response schemas in addition to the existing tool-name,
   error-shape and licensing checks.

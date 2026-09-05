@@ -100,12 +100,16 @@ class _BearerAuthASGI:
     insurance against timing attacks.
     """
 
-    def __init__(self, app, token: str):
+    def __init__(self, app, token: str, *, figure_signer=None):
         self.app = app
         self._token_bytes = token.encode("utf-8")
+        self._figure_signer = figure_signer
 
     async def __call__(self, scope, receive, send):
         if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        if self._figure_signer is not None and self._figure_signer.accepts(scope):
             await self.app(scope, receive, send)
             return
         raw = dict(scope.get("headers", [])).get(b"authorization", b"")
@@ -215,7 +219,8 @@ def _run_sse(
     else:
         app = sse_app
     if token:
-        app = _BearerAuthASGI(app, token)
+        from .figure_urls import figure_signer
+        app = _BearerAuthASGI(app, token, figure_signer=figure_signer(idx) if idx is not None else None)
         logger.info("Bearer-token auth enabled")
     else:
         logger.warning(
@@ -230,10 +235,12 @@ def _run_sse(
     if idx is not None:
         logger.info(
             "Figure HTTP route mounted at GET /figures/<paper_hash>/<figure_id> "
-            "(used by get_figure_url; same bearer-auth as /sse)"
+            "(scoped signed URLs or bearer auth; shared MCP credential is never returned)"
         )
     try:
-        uvicorn.run(app, host=host, port=port, log_level="info")
+        # Query strings contain short-lived download capabilities. Do not put
+        # them in access logs; the reverse-proxy route follows the same rule.
+        uvicorn.run(app, host=host, port=port, log_level="info", access_log=False)
     except OSError as e:
         # #47: surface common startup failures with actionable messages
         # rather than letting uvicorn's traceback bubble up.
@@ -256,8 +263,9 @@ def start_stdio_figure_server(
 ) -> Tuple[str, int, str]:
     """Spin up a daemon-thread uvicorn serving only the figure HTTP
     route (#69), on a loopback ephemeral port. Returns the
-    ``(host, port, token)`` tuple so the caller can stash it on the
-    index for ``get_figure_url`` to build URLs.
+    ``(host, port, token)`` tuple. Only the address is used by
+    ``get_figure_url``; the private bearer credential is never returned
+    in a model-visible tool response.
 
     Used by stdio MCP mode, where there's no existing HTTP endpoint.
     The token is a one-shot 32-byte hex string generated here; the
@@ -278,7 +286,8 @@ def start_stdio_figure_server(
 
     token = secrets.token_hex(32)
     figure_app = make_figure_app(idx, default_profile=default_profile)
-    app = _BearerAuthASGI(figure_app, token)
+    from .figure_urls import figure_signer
+    app = _BearerAuthASGI(figure_app, token, figure_signer=figure_signer(idx))
 
     config = uvicorn.Config(
         app, fd=sock.fileno(),
@@ -309,7 +318,7 @@ def start_stdio_figure_server(
 
     logger.info(
         "Figure HTTP route mounted at http://%s:%d/figures/<paper_hash>/<figure_id> "
-        "(stdio side-car; bearer-token gated)",
+        "(stdio side-car; scoped signed URLs)",
         host, port,
     )
     return host, port, token
@@ -318,5 +327,3 @@ def start_stdio_figure_server(
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-
-
