@@ -96,6 +96,7 @@ figures:
                          #         vision-claude (Anthropic API; needs ANTHROPIC_API_KEY),
                          #         off (no panel-ROI detection)
   # model: claude-sonnet-4-6-20251001   # optional override (vision-* modes)
+  # producer_id: "pinned-vision-deployment-id"  # change if a remote alias changes
 
   # Figure resolution (#121). 'native' (default) renders each figure at its
   # source's native pixel density — a 600-dpi scan figure stays 600 dpi —

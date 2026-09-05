@@ -159,9 +159,10 @@ def run_pdf_processing_pipeline(
     if run_config_fingerprints is None:
         run_config_fingerprints = _config_fingerprints(
             {**CONFIG, "grobid": {**CONFIG.get("grobid", {}), "disable": not grobid_context["enabled"]}},
-            panel_mode=("vision-" + vision_backend.name) if vision_backend is not None
+            panel_mode=getattr(vision_backend, "panel_mode", "vision-" + vision_backend.name) if vision_backend is not None
             else ("ocr" if content_aware_figures else "off"),
-            vision_model=getattr(vision_backend, "model", None))
+            vision_model=getattr(vision_backend, "_model_id", getattr(vision_backend, "model", None)),
+            resolved_vision_producer=getattr(vision_backend, "producer", None))
 
     processing_summary = {
         "original_pdf": str(pdf_path),

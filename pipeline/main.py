@@ -531,6 +531,11 @@ def main():
             if args.vision_model:
                 kwargs["model"] = args.vision_model
             vision_backend = get_vision_backend(args.vision_backend, **kwargs)
+            # Loading may download a newer snapshot than the offline preview
+            # could see. Stamp the producer actually loaded, not the old cache.
+            run_config_fingerprints = _config_fingerprints(
+                loaded, panel_mode=args.figure_panels, vision_model=args.vision_model,
+                resolved_vision_producer=getattr(vision_backend, "producer", None))
             logger.info("Vision backend loaded: %s", vision_backend.name)
         except Exception as e:
             logger.error(

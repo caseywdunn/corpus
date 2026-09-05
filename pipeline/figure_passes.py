@@ -449,6 +449,10 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
                 len(figures))
 
     n_ok = n_partial = n_none = n_compound = n_discovery = n_skipped = n_failed = 0
+    producer = getattr(vision_backend, "producer", None)
+    data["vision_producer"] = producer or {
+        "verification": "unverified-custom-backend", "backend": getattr(vision_backend, "name", None),
+    }
     discovered_records = []
     for fig in figures:
         if (fig.get("figure_type") not in ("figure", "plate", "subpanel")

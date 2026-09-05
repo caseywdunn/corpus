@@ -27,6 +27,7 @@ import base64
 import io
 import json
 from collections import Counter
+from functools import cached_property
 import logging
 import os
 import re
@@ -35,6 +36,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
+from .model_provenance import DEFAULT_VISION_MODELS, vision_producer
 load_dotenv()  # picks up ANTHROPIC_API_KEY from .env at import time
 
 logger = logging.getLogger(__name__)
@@ -397,7 +399,7 @@ class ClaudeVisionBackend(VisionBackend):
 
     def __init__(
         self,
-        model: str = "claude-haiku-4-5-20251001",
+        model: str = DEFAULT_VISION_MODELS["vision-claude"],
         max_tokens: int = 1024,
     ):
         if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -415,6 +417,14 @@ class ClaudeVisionBackend(VisionBackend):
         self.client = anthropic.Anthropic()
         self.model = model
         self.max_tokens = max_tokens
+
+    panel_mode = "vision-claude"
+
+    @cached_property
+    def producer(self):
+        result = vision_producer(self.panel_mode, self.model)
+        result["generation"]["max_tokens"] = self.max_tokens
+        return result
 
     @property
     def name(self) -> str:
@@ -563,7 +573,7 @@ class ClaudeVisionBackend(VisionBackend):
 # ---------------------------------------------------------------------------
 
 
-_DEFAULT_LOCAL_VLM = "Qwen/Qwen2.5-VL-7B-Instruct"
+_DEFAULT_LOCAL_VLM = DEFAULT_VISION_MODELS["vision-local"]
 
 # Models smaller than 7B work on MPS / smaller GPUs.
 _LOCAL_VLM_VARIANTS = {
@@ -667,6 +677,16 @@ class LocalVLMBackend(VisionBackend):
             raise VisionBackendError(
                 f"Could not load local VLM {model!r} on device={self._device}: {e}"
             ) from e
+
+    panel_mode = "vision-local"
+
+    @cached_property
+    def producer(self):
+        result = vision_producer(self.panel_mode, self._model_id,
+                                 resolved_revision=getattr(self._model.config, "_commit_hash", None))
+        result["generation"] = {"max_new_tokens": self._max_new_tokens,
+                                "max_pixels": self._max_pixels, "min_pixels": self._min_pixels}
+        return result
 
     def _token_budget(self, expected_labels) -> int:
         """Output-token budget for one figure, scaled by its panel count.

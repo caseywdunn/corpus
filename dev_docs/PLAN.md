@@ -333,9 +333,15 @@ can answer which evidence and rule produced it.
   cannot be stamped as completed extraction. Tests cover transitions, no-op
   resume and recovered-versus-clean metadata/reference equality. Status reports
   persisted outcomes without probing the service.
-  **Still open:** automatic custom-model provenance beyond reported service
-  versions/operator-declared IDs (including vision); and whole-build clean/incremental
-  acceptance. Taxonomy snapshots now fingerprint consumed source bytes and
+  Vision now records explicit default model IDs, loaded/cached repository
+  revisions, content hashes for custom local model directories, implementation
+  and package versions, and generation settings. Both resume gates use these
+  identities; results retain them. Offline status never downloads or
+  instantiates a model. Remote services' unreported weights remain an explicit
+  proof limit: use pinned IDs plus `figures.producer_id` / `grobid.producer_id`
+  for deployment assertions, not a claim of automatic remote attestation.
+  **Still open:** whole-build clean/incremental acceptance. Taxonomy snapshots
+  now fingerprint consumed source bytes and
   root/source settings, reuse unchanged receipts, and replace changed snapshots
   without retaining removed taxa/names. Failed ingestion preserves the previous
   snapshot; phase-split extraction rejects stale/unverified snapshots. WoRMS is

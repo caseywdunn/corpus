@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Vision producer evidence is explicit (#174).** Fingerprints resolve default
+  model IDs and track loaded/cached repository revisions, custom local model
+  file contents, implementation and package versions, and generation settings.
+  Results retain that evidence. Remote model IDs are identified as a weaker
+  proof level; `figures.producer_id` supports operator-declared deployments.
+  Offline status/dry-run never downloads or instantiates a vision model.
+
 - **Build references include logical indexes and figure pixels (#187).**
   Compare current bibliography/taxonomy mappings, exact vector values and
   multiplicity, and decoded pixels rather than counts alone. Bookkeeping

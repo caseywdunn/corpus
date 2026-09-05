@@ -85,6 +85,11 @@ class FiguresConfig(BaseModel):
         description="Override the per-backend default vision model "
         "(e.g. claude-sonnet-4-6-20251001); used only by the vision-* modes.",
     )
+    producer_id: Optional[str] = Field(
+        default=None,
+        description="Operator-declared vision deployment identity. Change it "
+        "when a remote alias or custom producer changes without a new model ID.",
+    )
     resolution_mode: Literal["native", "fixed"] = Field(
         default="native",
         description="How saved figure resolution is chosen (#121). "

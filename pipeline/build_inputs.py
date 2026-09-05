@@ -12,7 +12,7 @@ from pathlib import Path
 from .config import _DEFAULT_CONFIG, _deep_merge, load_config
 
 
-def config_fingerprints(config, *, panel_mode, vision_model=None):
+def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_vision_producer=None):
     """Return direct and inherited configuration inputs by stage.
 
     ``panel_mode`` is the applied CLI/config mode, not a backend availability
@@ -37,7 +37,13 @@ def config_fingerprints(config, *, panel_mode, vision_model=None):
     chunks = {**extract, **select("chunking", ("max_tokens",))}
     figures = {**extract, "figures.panel_detection": panel_mode}
     if panel_mode.startswith("vision-"):
+        from .model_provenance import DEFAULT_VISION_MODELS, vision_producer
+        # Unknown/custom test backends keep their declared model only.
+        if panel_mode in DEFAULT_VISION_MODELS:
+            vision_model = vision_model or DEFAULT_VISION_MODELS[panel_mode]
+            figures["figures.producer"] = resolved_vision_producer or vision_producer(panel_mode, vision_model)
         figures["figures.model"] = vision_model
+        figures["figures.producer_id"] = cfg.get("figures", {}).get("producer_id")
     metadata = {**prep,
                 "grobid.disable": bool(cfg.get("grobid", {}).get("disable", False)),
                 "grobid.producer_id": cfg.get("grobid", {}).get("producer_id"),
@@ -97,7 +103,8 @@ def configuration_drift(output_dir: Path, config_path: Path):
     return {"config_path": str(config_path.resolve()), "documents_checked": checked,
             "documents_with_differences": len(affected), "differences": affected,
             "scope": "Stage 1 configuration only; CLI/CPU-floor overrides may differ. "
-                     "Does not audit source files, BibTeX, annotation inputs, or external model versions."}
+                     "Includes offline vision identities; no remote registry/service probes. "
+                     "Does not audit source files, BibTeX or annotation inputs."}
 
 
 def source_input_drift(output_dir: Path, config_path: Path):

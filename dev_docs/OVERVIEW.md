@@ -283,7 +283,7 @@ paths are not extraction inputs.
 | Figure raster settings and extraction accelerator | Docling extraction; chunks, figures and annotations, not Grobid metadata |
 | `chunking.max_tokens` | Fallback chunker; annotation and chunk/figure links. Docling's HybridChunker still uses its own default tokenizer/limit; this setting does not configure it |
 | Grobid disablement, header/citation consolidation, request timeout and producer identity | Metadata and its quality checks; not OCR or figure detection |
-| Panel mode and explicit vision model | Figure materialization and links; not OCR, stored text/chunks or metadata |
+| Panel mode, resolved vision model and producer identity | Figure materialization and links; not OCR, stored text/chunks or metadata |
 | Huge-document and quality-gate thresholds | Their respective checks |
 
 Producer and dependent completion receipts are cleared **before** producer
@@ -324,14 +324,37 @@ links, source-page mappings, the figure report and quality flags too.
 
 `corpus status` compares Stage 1 config settings when it resolves the output
 from config (or when an explicit `--config` is supplied). Text output is bounded;
-`--json` includes all configuration differences. This is a **configuration
-comparison, not a source or completion audit**: CLI/CPU-floor overrides may
-legitimately differ. It does not discover source renames, rehash PDFs, check
-current BibTeX/annotation inputs, or verify external model/service versions.
-Grobid recovery is covered below; automatic identification of custom external
-model installations is not. These gaps and whole-build
-clean/incremental parity remain release work; a zero-difference report does not
-close them. All of this belongs to the build plane, not the MCP request path.
+`--json` includes all configuration differences. CLI/CPU-floor overrides may
+legitimately differ. The separate source-input audit also checks PDF inventory,
+renames, current BibTeX, annotation inputs and taxonomy source receipts. Neither
+audit contacts remote services or instantiates a model. Whole-build
+clean/incremental parity remains a separate acceptance check; a zero-difference
+status report does not close it. All of this belongs to the build plane, not
+the MCP request path.
+
+#### Vision producer evidence
+
+Vision fingerprints resolve the actual default model instead of recording
+`null`. They include implementation bytes (prompts and generation handling),
+relevant installed package versions and generation settings. For ordinary
+HuggingFace models, the identity is the repository revision, with the loaded
+model's reported revision taking precedence over the offline cache preview.
+For a custom local model directory, all non-hidden regular files are
+content-hashed, including weights; changing bytes with the same size/mtime is
+detected. This can make status/dry-run expensive for large local models, but
+does not load them into an inference engine. Missing cached revisions are
+explicitly unverified, not assumed current. Results retain `vision_producer`
+in `figures.json` as well as their stage receipts.
+
+A repository revision is not a fresh checksum of every cached weight file:
+do not edit HuggingFace's immutable cache in place; use a custom local model
+directory for modified weights. Remote vision services expose a model ID,
+not attestable weights. Pin dated IDs and set/change `figures.producer_id` for
+custom deployments or aliases whose identity changes out of band. Grobid's
+analogous operator assertion is `grobid.producer_id` below. These proof levels
+are explicit limits, not a promise to detect undisclosed server-side changes.
+Model directories/services must remain stable during a run. Runtime hardware
+and numerical reproducibility still require the independent build comparison.
 
 #### Grobid capability and recovery
 
