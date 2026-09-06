@@ -95,6 +95,21 @@ echo "Grobid host: $(hostname)"
 echo "Grobid tmp:  $GROBID_TMP"
 echo "Starting at $(date)"
 
+# Grobid binds a fixed port 8070, and SLURM is free to co-schedule two of these
+# jobs on one node -- at which point the second dies ~10 s in with a Jetty
+# BindException buried under 40 lines of Java stack trace (#279). Say so
+# plainly instead, because the failure mode downstream is nasty: this job has
+# already reached RUNNING, so a pipeline waiting on job state alone will point
+# Stage 1 at this node and be served by the *other* chain's Grobid.
+if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':8070[[:space:]]'; then
+    echo "ERROR: port 8070 is already bound on $(hostname)." >&2
+    echo "       Another Grobid job is running here; this one cannot start (#279)." >&2
+    echo "       Concurrent builds need one Grobid per node. Either share a single" >&2
+    echo "       server by passing GROBID_URL to batch_process_corpus.sh, or submit" >&2
+    echo "       this job with --exclusive so SLURM will not co-schedule two." >&2
+    exit 1
+fi
+
 singularity run \
     --pwd /opt/grobid \
     --bind "$BOUCHET_PROJECT" \

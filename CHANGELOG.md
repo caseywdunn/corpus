@@ -220,6 +220,27 @@ skills-and-usage work originally scoped here.
 
 ### Fixed
 
+- **The taxonomy fingerprint identifies the source, not the snapshot file
+  (#278).** `taxonomy.sqlite` embeds per-row `fetched_at` and
+  `meta.last_ingest_ts`, so re-ingesting byte-identical input produced a
+  byte-different file. Hashing that file made the `taxa_and_lexicon_extraction`
+  fingerprint churn on every rebuild and dragged every document's `taxa.json`
+  with it, so no two builds of the same corpus could ever compare equal. The
+  stage now records the snapshot's own `meta.input_fingerprint` — source kind,
+  root selection, parser receipt version and the DwC bytes actually read —
+  which is what the stage consumes. Snapshots predating receipts fall back to
+  the file hash until `corpus taxonomy ingest` rewrites them.
+
+- **A dead Grobid server can no longer be silently substituted (#279).**
+  Grobid binds a fixed port 8070, so SLURM co-scheduling two Grobid jobs on one
+  node kills all but the first — *after* the loser has reached `RUNNING`, which
+  is the only thing the pipeline's wait checked. Stage 1 was then pointed at a
+  node where another chain's server answered, extracting every document against
+  the wrong service while reporting success. `batch_pipeline.sh` now reconfirms
+  the Grobid job still owns the endpoint immediately before submitting Stage 1
+  and refuses otherwise, and `batch_grobid.sh` detects the bound port up front
+  and says so plainly instead of dying in a Jetty stack trace.
+
 - **Ordinary reference resume no longer ignores a newly enabled BHL enrichment
   option or a changed year cutoff.** These settings and key availability now
   invalidate the materialization receipt; credentials are never recorded.

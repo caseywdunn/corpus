@@ -40,6 +40,7 @@ from .io import (
 )
 from .log import per_pdf_file_log, setup_root_logging
 from .runner import run_pdf_processing_pipeline
+from .taxonomy_ingest import snapshot_receipt
 from .taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 from .stages import (
     _all_stage_artifacts_complete,
@@ -432,19 +433,29 @@ def main():
         if taxonomy_path.exists():
             try:
                 taxonomy_db = TaxonomyDB(taxonomy_path)
-                # Stamp #29: hash once at startup so per-paper writes are
-                # cheap. SHA-256 of taxonomy.sqlite is a stable identifier
-                # that survives copy/move and changes any time the DB is
-                # rebuilt.
-                taxonomy_fingerprint = {
-                    "path": str(taxonomy_path),
-                    "sha256": _file_sha256(taxonomy_path),
-                    "size": taxonomy_path.stat().st_size,
-                }
+                # Stamp #29, corrected by #278: identify the snapshot by the
+                # receipt it recorded at ingest, not by hashing the file. The
+                # SQLite file embeds per-row `fetched_at` and
+                # `meta.last_ingest_ts`, so its bytes differ on every ingest
+                # of byte-identical input — which made this fingerprint churn
+                # and dragged every document's taxa.json with it. The receipt
+                # identifies the consumed source, which is what the annotation
+                # stage actually depends on.
+                receipt = snapshot_receipt(taxonomy_path)
+                taxonomy_fingerprint = {"path": str(taxonomy_path)}
+                if receipt is not None:
+                    taxonomy_fingerprint["input_fingerprint"] = receipt
+                    identity = receipt.get("sha256") or receipt.get("source") or "?"
+                else:
+                    # Legacy snapshot predating receipts. Fall back to the file
+                    # hash so the stage still has *a* fingerprint; it will churn
+                    # until `corpus taxonomy ingest` rewrites the snapshot.
+                    taxonomy_fingerprint["sha256"] = _file_sha256(taxonomy_path)
+                    taxonomy_fingerprint["size"] = taxonomy_path.stat().st_size
+                    identity = taxonomy_fingerprint["sha256"]
                 logger.info(
-                    "Taxonomy snapshot loaded from %s (%d names, sha256=%s…)",
-                    taxonomy_path, len(taxonomy_db.name_set()),
-                    taxonomy_fingerprint["sha256"][:12],
+                    "Taxonomy snapshot loaded from %s (%d names, source=%s…)",
+                    taxonomy_path, len(taxonomy_db.name_set()), str(identity)[:12],
                 )
             except Exception as e:
                 logger.error(

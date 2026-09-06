@@ -109,3 +109,50 @@ def test_worms_noop_is_pinned_until_explicit_rebuild(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", [*argv, "--rebuild"])
     assert ti.main() == 0
     assert len(calls) == 2
+
+
+def test_snapshot_receipt_is_stable_across_reingests_of_identical_input(tmp_path, monkeypatch):
+    """#278: the fingerprint must identify the source, not the file's bytes.
+
+    ``taxonomy.sqlite`` embeds per-row ``fetched_at`` and ``meta.last_ingest_ts``,
+    so re-ingesting byte-identical input produces a byte-different file. When the
+    stage fingerprint hashed that file, every document's ``taxa.json`` changed on
+    every rebuild and no two builds could ever compare equal.
+    """
+    src = tmp_path / "Taxon.tsv"
+    source(src, ["1\tAlpha\t", "2\tBeta\t1"])
+
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    assert run(monkeypatch, a, src) == 0
+    assert run(monkeypatch, b, src) == 0
+    db_a, db_b = a / "taxonomy.sqlite", b / "taxonomy.sqlite"
+
+    # The premise: same logical content, different bytes.
+    assert logical(db_a) == logical(db_b)
+    assert db_a.read_bytes() != db_b.read_bytes()
+
+    # The property: the recorded receipt is identical anyway.
+    receipt_a = ti.snapshot_receipt(db_a)
+    receipt_b = ti.snapshot_receipt(db_b)
+    assert receipt_a is not None
+    assert receipt_a == receipt_b
+
+    # And a re-ingest over an existing snapshot keeps it stable.
+    assert run(monkeypatch, a, src) == 0
+    assert ti.snapshot_receipt(db_a) == receipt_a
+
+
+def test_snapshot_receipt_is_none_for_a_legacy_snapshot(tmp_path, monkeypatch):
+    """Snapshots predating receipts fall back to the file hash, not a crash."""
+    src = tmp_path / "Taxon.tsv"
+    source(src, ["1\tAlpha\t"])
+    root = tmp_path / "legacy"
+    assert run(monkeypatch, root, src) == 0
+    db = root / "taxonomy.sqlite"
+    conn = sqlite3.connect(db)
+    conn.execute("DELETE FROM meta WHERE key='input_fingerprint'")
+    conn.commit()
+    conn.close()
+    assert ti.snapshot_receipt(db) is None
+    assert ti.snapshot_receipt(tmp_path / "absent.sqlite") is None

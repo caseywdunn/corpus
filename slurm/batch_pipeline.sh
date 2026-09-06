@@ -78,6 +78,25 @@ if [ "$GROBID_READY" -eq 0 ]; then
     echo "         Stage 1 will proceed but may fall back to no-grobid mode."
 fi
 
+# Confirm OUR Grobid job still owns that endpoint, immediately before Stage 1
+# commits to it (#279). Grobid binds a fixed port 8070, so when SLURM puts two
+# Grobid jobs on one node the second dies with a BindException -- after having
+# reached RUNNING, which is all the wait above checks. Stage 1 would then be
+# pointed at a node where *another chain's* server answers, and every document
+# would be extracted against the wrong service while the chain reported
+# success. Verified silently wrong once; never again without a check.
+GROBID_STATE_NOW=$(squeue -j "$GROBID_JOB" -h -o "%T" 2>/dev/null)
+if [ "$GROBID_STATE_NOW" != "RUNNING" ]; then
+    echo "ERROR: Grobid job $GROBID_JOB is no longer RUNNING (state: ${GROBID_STATE_NOW:-gone})." >&2
+    echo "       It reached RUNNING and then died -- on this cluster that is" >&2
+    echo "       almost always the fixed-port collision in #279: another Grobid" >&2
+    echo "       job was already bound to :8070 on $GROBID_NODE." >&2
+    echo "       Refusing to submit Stage 1, which would otherwise be served by" >&2
+    echo "       a different chain's Grobid, or by nothing at all." >&2
+    echo "       Check: tail $REPO_DIR/logs/slurm-grobid-$GROBID_JOB.err" >&2
+    exit 1
+fi
+
 # ── Step 4: Submit Stage 1 with Grobid URL ──────────────────────────
 echo ""
 BATCH_SIZE="${BATCH_SIZE:-64}"

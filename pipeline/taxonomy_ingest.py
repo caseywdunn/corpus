@@ -400,6 +400,30 @@ def source_fingerprint(source, root_id=None, input_path=None):
     return result
 
 
+def snapshot_receipt(path):
+    """Return a snapshot's recorded input fingerprint, or None if it has none.
+
+    This is the deterministic identity of the *consumed source* — source kind,
+    root selection, parser receipt version and the DwC bytes actually read.
+    Unlike a hash of ``taxonomy.sqlite`` itself, it does not change when an
+    unchanged source is re-ingested: the file embeds per-row ``fetched_at``
+    and ``meta.last_ingest_ts``, so its bytes differ on every ingest (#278).
+    Returns None for a legacy snapshot written before receipts existed.
+    """
+    if not Path(path).is_file():
+        return None
+    try:
+        conn = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            row = conn.execute(
+                "SELECT value FROM meta WHERE key='input_fingerprint'").fetchone()
+            return json.loads(row[0]) if row and row[0] else None
+        finally:
+            conn.close()
+    except (sqlite3.Error, ValueError):
+        return None
+
+
 def snapshot_matches(path, fingerprint):
     """Read a completed snapshot receipt without modifying the database."""
     if not Path(path).is_file():

@@ -212,7 +212,7 @@ timestamps are provenance, not semantic differences.
 | Same hash, changed chunks or embedded metadata | Replace that document's vector rows; publish a new receipt after commit | Implemented and tested in Stage 2 (#271) |
 | Rename or change BibTeX | Refresh consumed paths/metadata and their descendants; leave unrelated artifacts alone | Resolved per-paper entries (including absence) and basenames fingerprint metadata; source-path inventory refreshes even when extraction skips; Stage 2 notices the changed metadata/paths (#174) |
 | Change configuration or curator directives | Fingerprint resolved values in their consumers and descendants; replace subordinate caches too | Stage 1 settings below, OCR directives and annotation inputs are tracked; broader provenance/whole-build acceptance remains open (#174) |
-| Upgrade producer or embedding model | Invalidate incompatible receipts; rebuild the whole vector table when switching models | Stage/embedding producer checks and model guard exist; whole-corpus release comparison remains pending (#187) |
+| Upgrade producer or embedding model | Invalidate incompatible receipts; rebuild the whole vector table when switching models | Stage/embedding producer checks and model guard exist; whole-corpus release comparison remains pending (#174/#265) |
 
 These are **single-writer build directories**. Parallel extraction workers may
 own disjoint hashes, but do not overlap embedding/bundling with edits to their
