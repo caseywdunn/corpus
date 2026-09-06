@@ -9,40 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Theme — v1.3 evidence integrity and auditability
 
-A focus of this cycle was caption binding: figures bound to the wrong caption were
-the most conspicuous errors in real use — answers that read as evidence and were
-not. Alongside them sat whole-document OCR loss that satisfied every quality gate,
-embeddings that only ever appended, and reference reconciliation whose result
-depended on the order its inputs arrived in.
+A focus of this cycle was caption binding: figures bound to the wrong caption
+were the most conspicuous errors in real use — answers that read as evidence
+and were not. Alongside them sat whole-document OCR loss that satisfied every
+quality gate, embeddings that only ever appended, and reference reconciliation
+whose result depended on the order its inputs arrived in.
 
-These are one product problem. corpus could return plausible evidence without being
-able to show that it was the evidence printed on the page, or that a re-run would
-return the same current corpus.
+These are one product problem. corpus could return plausible evidence without
+being able to show that it was the evidence printed on the page, or that a
+re-run would return the same current corpus.
 
-So the work was making the pipeline show its sources and be clear about lack of
-evidence. Captions carry auditable ownership — provenance spans, status, confidence,
-and the candidates that lost — rather than resting on proximity. Figure references
-carry logical indexes and source pixels, and an on-demand page audit puts the parsed
-result beside the original page. Reference observations were separated from canonical
-works, so a citation string is evidence about a work rather than an assertion of one.
-Whole-document OCR loss fails loudly: quality gates strip Docling's image
-placeholders before measuring text, so adding figures can no longer make an empty
-document look healthier.
+So the work was making the pipeline show its sources and be clear about lack
+of evidence. Captions carry auditable ownership — provenance spans, status,
+confidence, and the candidates that lost — rather than resting on proximity.
+Figure references carry logical indexes and source pixels, and an on-demand
+page audit puts the parsed result beside the original page. Reference
+observations were separated from canonical works, so a citation string is
+evidence about a work rather than an assertion of one. Whole-document OCR loss
+fails loudly: quality gates strip Docling's image placeholders before
+measuring text, so adding figures can no longer make an empty document look
+healthier.
 
-The update path got the same treatment. A re-run can no longer leave stale evidence
-behind — configuration changes invalidate their consumers and everything downstream,
-retired sources leave the build and the served bundle together, embeddings replace
-each document atomically, and query vectors are bound to the producer that built the
-index, so a bundle cannot be searched with a model that did not write it.
+The update path got the same treatment. A re-run can no longer leave stale
+evidence behind — configuration changes invalidate their consumers and
+everything downstream, retired sources leave the build and the served bundle
+together, embeddings replace each document atomically, and query vectors are
+bound to the producer that built the index, so a bundle cannot be searched
+with a model that did not write it.
 
-The served surface narrowed to match: the 38-tool MCP inventory is frozen behind a
-contract snapshot, query-time figure crops stopped mutating the immutable bundle they
-read from, and figure downloads move through scoped expiring URLs that never carry
-the bearer token.
+The served surface narrowed to match: the 38-tool MCP inventory is frozen
+behind a contract snapshot, query-time figure crops stopped mutating the
+immutable bundle they read from, and figure downloads move through scoped
+expiring URLs that never carry the bearer token.
 
-The corpuscle update contract (#265) and the full input-fingerprint extension (#174)
-are deliberately partial and carry into v1.4, along with the skills-and-usage work
-originally scoped here.
+The corpuscle update contract (#265) and the full input-fingerprint extension
+(#174) are deliberately partial and carry into v1.4, along with the
+skills-and-usage work originally scoped here.
 
 ### Added
 
@@ -373,10 +375,12 @@ originally scoped here.
   `include_all` records remain available for review.
 
 - **Whole-document OCR failures now fail visibly instead of satisfying clean
-  success paths (#264, #266–#268).** Documents with no content layer or only a
-  vendor wrapper use forced OCR rather than the self-defeating `--skip-text`.
-  A curated non-Latin `ocrlang` pin against a Latin-only text layer triggers
-  the rendered-page script check even below the configurable gibberish floor.
+  success paths (#264, #267, #268; #266 in part).** Documents with no content
+  layer or only a vendor wrapper use forced OCR rather than the self-defeating
+  `--skip-text`. A curated non-Latin `ocrlang` pin against a Latin-only text
+  layer triggers the rendered-page script check even below the configurable
+  gibberish floor — #266 stays open for the unpinned case, which still scores
+  under the floor and classifies as born-digital.
   Quality gates remove Docling `<!-- image -->` placeholders before measuring
   text, so adding figures cannot make an empty document healthier. Finally,
   OCRmyPDF exiting zero with every output page textless is persisted and
