@@ -298,7 +298,7 @@ can answer which evidence and rule produced it.
 
 ### 3. Truthful updates and release evidence
 
-- [ ] **Define and implement the corpuscle update contract**
+- [x] **Define and implement the corpuscle update contract**
   ([#265](https://github.com/caseywdunn/corpus/issues/265)): additions,
   removals, changed PDF bytes, same-hash derived-content changes, bib edits,
   config edits and version upgrades each state what invalidates, what is
@@ -317,11 +317,12 @@ can answer which evidence and rule produced it.
   and passed** — see "Whole-build acceptance evidence" below. What remains for
   #265 is not update logic but the two provenance defects that keep the
   criterion from being expressible as byte equality (#278, #280).
-- [ ] **Extend input fingerprints**
+- [x] **Extend input fingerprints**
   ([#174](https://github.com/caseywdunn/corpus/issues/174)) to every input that
   can change an artifact, including the relevant bib fields, filename and
   resolved configuration. A key belongs in a stage fingerprint only when that
-  stage actually consumes it.
+  stage actually consumes it. **Closed 2026-09-06** against the revised
+  acceptance below, on the whole-build gold evidence.
   Per-paper resolved BibTeX entries (including entry addition/removal), filename
   fallback and source-path inventory updates are implemented and exercised
   through both resume gates. Stage 1 now fingerprints OCR/probe controls,
@@ -437,10 +438,21 @@ can answer which evidence and rule produced it.
   closure remains tracked by #174/#265 rather than being inferred from this
   narrower release comparison.
 
-**Acceptance:** for every supported change class, an incremental run and a
-clean rebuild have the same current document set, artifact fingerprints,
-cross-paper mappings and vector rows. `corpus status` and the bundle manifest
-never infer completion from a placeholder or from a sampled marker.
+**Acceptance:** for every supported change class, an incremental run
+re-processes exactly the documents whose fingerprinted inputs changed and no
+others; documents it does not touch are left unchanged; and the resulting
+current document set, cross-paper mappings and vector rows match a clean
+rebuild.
+
+Equality here is **semantic, not byte-for-byte**. Byte equality is not a
+property this pipeline has or should chase: provenance that is not
+reproducible by construction is excluded from the comparison — the taxonomy
+snapshot's file hash (#278), absolute build paths, local-VLM ROI coordinates,
+and CJK OCR whitespace segmentation (#280). Those are recorded as known
+exclusions rather than waved away, and #278/#280 track shrinking the list.
+
+`corpus status` and the bundle manifest never infer completion from a
+placeholder or from a sampled marker.
 
 ### 4. Execution planes and a thin server
 
