@@ -622,7 +622,7 @@ Once your client is configured, open it and confirm the corpus server is connect
 - [dev_docs/API_STABILITY.md](dev_docs/API_STABILITY.md) — what 1.0 freezes, what counts as a breaking change, and the deprecation path
 - [dev_docs/PLAN.md](dev_docs/PLAN.md) — roadmap and design decisions
 - [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh) — copy-paste UX walkthrough: fresh env → build → serve, exercising every operator-facing verb at least once
-- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — manual fallback / release-time verification (CI tiers T0–T3 in [`.github/workflows/`](.github/workflows/) are the authoritative coverage); references [dev_docs/ec2_smoke.sh](dev_docs/ec2_smoke.sh) for the T4 clean-room linux validation
+- [dev_docs/PLATFORM_SMOKE.md](dev_docs/PLATFORM_SMOKE.md) — manual fallback / release-time verification (CI tiers T0–T3 in [`.github/workflows/`](.github/workflows/) are the authoritative coverage); references [dev_docs/ec2_smoke.sh](dev_docs/ec2_smoke.sh) for the T3-bare clean-room Linux validation
 
 External:
 

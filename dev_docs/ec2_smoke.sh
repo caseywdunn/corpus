@@ -202,7 +202,7 @@ section "Phase 5 — Grobid"
 # Clean stale container from a prior run.
 sudo docker rm -f corpus-grobid 2>/dev/null || true
 # CRF-only image is ~7 GB (vs ~32 GB for grobid/grobid:0.8.1) and
-# produces the same REST surface for the demo's 11 PDFs.
+# produces the same REST surface for the 4-paper demo.
 sudo docker pull lfoppiano/grobid:0.8.1 > /tmp/grobid_pull.out 2>&1
 # -XX:-UseContainerSupport: the JVM bundled with lfoppiano/grobid:0.8.1
 # is old enough that its cgroup v2 detector hits a known NPE
@@ -258,7 +258,7 @@ elapsed
 # ── Phase 7: programmatic verification ────────────────────────────
 section "Phase 7 — verify success criteria"
 
-# (a) corpus status: 11/11 across every stage row + no failures or flags.
+# (a) corpus status: 4/4 across every stage row + no failures or flags.
 status_out=$(corpus -v status --report 2>&1)
 if echo "$status_out" | grep -q "Failures: none recorded" \
    && echo "$status_out" | grep -q "Quality flags: none recorded"; then
@@ -267,11 +267,11 @@ else
     note_fail "corpus status: failures or quality flags present"
     echo "$status_out" | grep -E "Failures:|Quality flags:|recorded" || true
 fi
-n_complete=$(echo "$status_out" | grep -cE "11 / 11" || true)
+n_complete=$(echo "$status_out" | grep -cE "4 / 4" || true)
 if [ "$n_complete" -ge 11 ]; then
-    note_pass "corpus status: $n_complete stage rows at 11/11 (≥ 11)"
+    note_pass "corpus status: $n_complete stage rows at 4/4 (≥ 11)"
 else
-    note_fail "corpus status: only $n_complete stage rows at 11/11 (expected ≥ 11)"
+    note_fail "corpus status: only $n_complete stage rows at 4/4 (expected ≥ 11)"
 fi
 
 # (b) bundle_manifest.json shape.
@@ -283,15 +283,15 @@ else
     chunk_count=$(jq -r '.chunk_count' "$manifest")
     figure_count=$(jq -r '.figure_count' "$manifest")
     bundle_version=$(jq -r '.bundle_version' "$manifest")
-    [ "$paper_count" = "11" ] \
-        && note_pass "manifest.paper_count = 11" \
-        || note_fail "manifest.paper_count = $paper_count (expected 11)"
-    [ "$chunk_count" -ge 800 ] \
-        && note_pass "manifest.chunk_count = $chunk_count (≥ 800 — expect ~938 on macOS)" \
-        || note_fail "manifest.chunk_count = $chunk_count (expected ≥ 800)"
-    [ "$figure_count" -ge 100 ] \
-        && note_pass "manifest.figure_count = $figure_count (≥ 100 — expect ~154 on macOS)" \
-        || note_fail "manifest.figure_count = $figure_count (expected ≥ 100)"
+    [ "$paper_count" = "4" ] \
+        && note_pass "manifest.paper_count = 4" \
+        || note_fail "manifest.paper_count = $paper_count (expected 4)"
+    [ "$chunk_count" -gt 0 ] \
+        && note_pass "manifest.chunk_count = $chunk_count (> 0)" \
+        || note_fail "manifest.chunk_count = $chunk_count (expected > 0)"
+    [ "$figure_count" -gt 0 ] \
+        && note_pass "manifest.figure_count = $figure_count (> 0)" \
+        || note_fail "manifest.figure_count = $figure_count (expected > 0)"
     note_pass "manifest.bundle_version = $bundle_version"
 fi
 

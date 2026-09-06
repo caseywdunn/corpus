@@ -341,7 +341,11 @@ itself if you change one.
 - [templates/](templates/) — copy-and-customize starters that operators use, not pipeline inputs. Currently just the optional corpuscle-specific `instructions.md` scaffold; see [Editing client-side instructions](#editing-client-side-instructions) below.
 - [tests/](tests/) — one file per subsystem.
 - Per-instance data (SQLites, embeddings, per-paper artifacts) lives inside the user's *corpuscle* directory — passed as the first positional arg to every CLI — not under the repo root. See the [corpuscle layout](README.md#corpuscle-layout) in README.md. The repo no longer ships a `resources/` directory.
-- [demo/](demo/) — small bundle for smoke-testing the pipeline: 11 siphonophore PDFs, a matching `siphonophores.bib`, and an example multi-category `lexicon.yaml`. The lexicon is treated as user input, parallel to `--bib` — not part of the tool.
+- [demo/](demo/) — the 4-paper corpus used for smoke-testing the pipeline,
+  with a matching `siphonophores.bib` and an example multi-category
+  `lexicon.yaml`. CI adds one fixture paper for the implicit-resume scenario.
+  The lexicon is treated as user input, parallel to `--bib` — not part of the
+  tool.
 
 ## Editing client-side instructions
 
