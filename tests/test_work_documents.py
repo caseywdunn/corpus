@@ -218,6 +218,16 @@ def test_removing_a_directive_clears_old_value_even_with_unchanged_mtime(tmp_pat
     conn.close()
 
 
+def test_explicit_null_serve_uses_schema_default(tmp_path):
+    """Parsed BibTeX metadata carries an explicit null for no directive."""
+    paper(tmp_path, "aaa", serve=None)
+    conn = database(tmp_path)
+    run(conn, tmp_path)
+    assert document_metadata(conn, "aaa")["serve"] is None
+    assert conn.execute("SELECT serve FROM works WHERE in_corpus=1").fetchone() == (1,)
+    conn.close()
+
+
 def test_reconciliation_moves_all_members_without_overwriting_permissions(tmp_path):
     from bib.reconcile import merge_phase1_into_ghost
     paper(tmp_path, "aaa", license="CC-BY-4.0", serve=0)

@@ -63,7 +63,11 @@ def find_work(conn, corpus_hash):
 
 def document_fields(meta):
     from .authority import derive_publishable
-    values = {key: meta.get(key, 1 if key == "serve" else None) for key in DOCUMENT_FIELDS}
+    values = {key: meta.get(key) for key in DOCUMENT_FIELDS}
+    # The BibTeX parser records an unspecified ``serve`` directive explicitly
+    # as null.  Treat both a missing key and that null as the schema default;
+    # writing null into the representative row violates works.serve NOT NULL.
+    values["serve"] = 1 if values["serve"] is None else values["serve"]
     publishable, source = derive_publishable(meta.get("license"), meta.get("year"))
     if "publishable" not in meta:
         values["publishable"] = publishable
