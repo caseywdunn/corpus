@@ -258,7 +258,7 @@ elapsed
 # ── Phase 7: programmatic verification ────────────────────────────
 section "Phase 7 — verify success criteria"
 
-# (a) corpus status: 4/4 across every stage row + no failures or flags.
+# (a) corpus status: every stage row complete, 4 documents, no failures or flags.
 status_out=$(corpus -v status --report 2>&1)
 if echo "$status_out" | grep -q "Failures: none recorded" \
    && echo "$status_out" | grep -q "Quality flags: none recorded"; then
@@ -267,12 +267,27 @@ else
     note_fail "corpus status: failures or quality flags present"
     echo "$status_out" | grep -E "Failures:|Quality flags:|recorded" || true
 fi
-n_complete=$(echo "$status_out" | grep -cE "4 / 4" || true)
-if [ "$n_complete" -ge 11 ]; then
-    note_pass "corpus status: $n_complete stage rows at 4/4 (≥ 11)"
+# Stage rows render as "  <stage>  <ok> / <total>  (<pct>)  <bar>". How MANY
+# rows there are is a property of the configuration, not of a healthy build:
+# this script runs --no-vision, so the three figure_pass* rows a vision build
+# records are absent. Assert completeness structurally instead of against a
+# fixed count. The previous `-ge 11` was a leftover from the 11-paper demo and
+# a --no-vision run lands at or just under it, which would have reported
+# EC2 SMOKE FAILED on a healthy build. Document count is checked separately
+# below so a row-count change can never stand in for a missing paper.
+stage_rows=$(echo "$status_out" | awk '$3 == "/" && $2 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/')
+n_rows=$(echo "$stage_rows" | grep -c . || true)
+n_incomplete=$(echo "$stage_rows" | awk '$2 != $4' | grep -c . || true)
+if [ "$n_rows" -gt 0 ] && [ "$n_incomplete" -eq 0 ]; then
+    note_pass "corpus status: all $n_rows stage rows complete"
 else
-    note_fail "corpus status: only $n_complete stage rows at 4/4 (expected ≥ 11)"
+    note_fail "corpus status: $n_incomplete of $n_rows stage rows incomplete"
+    echo "$stage_rows" | awk '$2 != $4' || true
 fi
+n_docs=$(echo "$status_out" | sed -n 's/^Corpus status.*(\([0-9]*\) documents)$/\1/p')
+[ "$n_docs" = "4" ] \
+    && note_pass "corpus status: 4 documents" \
+    || note_fail "corpus status: $n_docs documents (expected 4)"
 
 # (b) bundle_manifest.json shape.
 manifest="$REPO_ROOT/demo/output/_serve/bundle_manifest.json"

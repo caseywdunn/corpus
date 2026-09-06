@@ -61,7 +61,10 @@ Each target must:
 3. `corpus check` reports Grobid reachable + config valid.
 4. `corpus run --no-vision` on the bundled 4-paper `demo/` corpus completes —
    all four PDFs reach `pipeline_state.json` status `done`
-   (`corpus status --report` shows 4 / 4).
+   (`corpus status --report` reports 4 documents and every stage row at
+   `N / N`). How many stage rows there are is a property of the
+   configuration, not of a healthy build: `--no-vision` records no
+   `figure_pass*` rows, so do not assert a fixed row count.
 5. `bundle_manifest.json` is written under `demo/output/_serve/`,
    contains `paper_count: 4`, and the absolute-path audit logs
    `Path scrub: rewrote N files; audit clean.` (covers
