@@ -1334,6 +1334,7 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
                        bhl_api_key: str = "",
                        bhl_max_year: Optional[int] = None,
                        fallback_key: str = "",
+                       bhl_stats: Optional[Dict[str, int]] = None,
                        identity_index: Optional[
                            Dict[int, List[
                                Tuple[str, str, str, frozenset[str]]
@@ -1410,10 +1411,26 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
         alias = make_alias_key(first_surname, year, title or raw)
         existing = lookup_by_alias(conn, alias)
         if existing:
+            # A successful BHL lookup installs this ordinary alias. On a
+            # later rematerialization it resolves before the BHL cascade, but
+            # it is still a cached BHL outcome and must appear in this run's
+            # accounting (#260).
+            if enrich_bhl and bhl_stats is not None and title:
+                candidate_id = make_corpus_guid(first_surname, year, title or raw)
+                cached = conn.execute(
+                    "SELECT status FROM bhl_lookups WHERE work_id = ?",
+                    (candidate_id,),
+                ).fetchone()
+                if cached and cached[0] == "found":
+                    bhl_stats["eligible"] += 1
+                    bhl_stats["cached_resumed"] += 1
+                    bhl_stats["found"] += 1
             return existing, "alias_exact", 1.0
 
     # ── Cascade step 3: BHL lookup (optional) ──────────────────────
     if enrich_bhl and first_surname and title:
+        if bhl_stats is not None:
+            bhl_stats["eligible"] += 1
         # Compute candidate work_id for resume checking
         candidate_id = make_corpus_guid(first_surname, year, title or raw)
         prev = conn.execute(
@@ -1422,8 +1439,14 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
         if prev:
             prev_status = prev[0]
             if prev_status == "found":
+                if bhl_stats is not None:
+                    bhl_stats["cached_resumed"] += 1
+                    bhl_stats["found"] += 1
                 pass  # fall through — alias lookup below will catch it
             elif prev_status == "not_found":
+                if bhl_stats is not None:
+                    bhl_stats["cached_resumed"] += 1
+                    bhl_stats["not_found"] += 1
                 pass  # skip BHL, fall through to fuzzy match
             elif prev_status == "error":
                 prev = None  # retry errors
@@ -1433,6 +1456,12 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
                 first_surname, year, title, api_key=bhl_api_key,
                 max_year=bhl_max_year,
             )
+            if bhl_stats is not None:
+                if bhl_status == "skipped":
+                    bhl_stats["skipped"] += 1
+                else:
+                    bhl_stats["newly_attempted"] += 1
+                    bhl_stats[bhl_status] += 1
             if bhl_status != "skipped":
                 now = time.time()
                 query_str = f"{first_surname} {year} {title[:60]}"
@@ -1804,6 +1833,7 @@ def _rebuild_reference_materialization(
     enrich_bhl: bool,
     bhl_api_key: str,
     bhl_max_year: Optional[int],
+    bhl_stats: Optional[Dict[str, int]] = None,
 ) -> Tuple[int, int]:
     """Derive current mappings and the frozen ``citations`` view from evidence."""
     observations = _active_reference_observations(conn)
@@ -1843,6 +1873,7 @@ def _rebuild_reference_materialization(
             conn, ref, enrich_bhl=enrich_bhl,
             bhl_api_key=bhl_api_key, bhl_max_year=bhl_max_year,
             fallback_key=observation_id,
+            bhl_stats=bhl_stats,
             identity_index=identity_index,
         )
         if cited_work_id not in known_work_ids:
@@ -1882,6 +1913,15 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
     decisions from an earlier database (#240).
     """
     docs_dir = output_dir / "documents"
+    bhl_stats = {
+        "eligible": 0,
+        "newly_attempted": 0,
+        "cached_resumed": 0,
+        "found": 0,
+        "not_found": 0,
+        "error": 0,
+        "skipped": 0,
+    }
     changed = False
     n_skipped = 0
     n_refreshed = 0
@@ -1990,6 +2030,7 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         n_citations, n_new_works = _rebuild_reference_materialization(
             conn, enrich_bhl=enrich_bhl, bhl_api_key=bhl_api_key,
             bhl_max_year=bhl_max_year,
+            bhl_stats=bhl_stats,
         )
     else:
         n_citations = n_new_works = 0
@@ -2002,6 +2043,22 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         "%d derived works created (%d source sets skipped, %d refreshed)",
         active_count, n_citations, n_new_works, n_skipped, n_refreshed,
     )
+    if enrich_bhl:
+        logger.info(
+            "BHL run outcomes: eligible=%d, newly_attempted=%d, "
+            "cached/resumed=%d, found=%d, not_found=%d, error=%d, skipped=%d",
+            bhl_stats["eligible"], bhl_stats["newly_attempted"],
+            bhl_stats["cached_resumed"], bhl_stats["found"],
+            bhl_stats["not_found"], bhl_stats["error"], bhl_stats["skipped"],
+        )
+        historical = dict(conn.execute(
+            "SELECT status, COUNT(*) FROM bhl_lookups GROUP BY status"
+        ))
+        logger.info(
+            "BHL historical cache: found=%d, not_found=%d, error=%d",
+            historical.get("found", 0), historical.get("not_found", 0),
+            historical.get("error", 0),
+        )
     return n_citations, n_new_works
 
 

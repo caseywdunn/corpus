@@ -873,6 +873,12 @@ sbatch slurm/batch_finalize.sh
 # SKIP_BUNDLE=1 sbatch slurm/batch_finalize.sh
 ```
 
+An enriched run logs `BHL run outcomes` with the eligible, newly attempted,
+cached/resumed, found, not-found, error and skipped observation populations.
+It also logs a separately labeled historical cache inventory. A no-op reports
+zero current attempts even when that retained cache is nonempty; these counts
+are observation outcomes rather than raw HTTP requests.
+
 `batch_finalize.sh` runs `corpus run --only post` then `corpus run --only
 bundle`. The post phase honors `--force-rebuild*` only when you ask; a plain
 re-run is idempotent. Confirm the cross-paper SQLites landed:

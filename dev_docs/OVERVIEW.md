@@ -681,6 +681,15 @@ an incremental addition converge on the same current map while retaining the
 conservative rule: weak evidence creates a separate work rather than silently
 misrouting a citation.
 
+When BHL enrichment is selected, the phase summary reports the current run's
+eligible observations, newly attempted lookups, cached/resumed outcomes,
+found/not-found/error outcomes and prerequisite/year skips. These are
+observation outcomes, not raw HTTP-request counts: one lookup may issue a
+narrow and a broad query, and the process-local query cache may avoid a second
+request. A no-op correctly reports zero current attempts. The separately
+labeled historical cache inventory describes retained evidence across runs and
+must not be read as the current run's hit rate.
+
 The materialization fingerprint also records whether BHL enrichment is enabled,
 its year cutoff and API-key availability (never the secret or a hash of it).
 Enabling the option on an existing build therefore revisits current references;

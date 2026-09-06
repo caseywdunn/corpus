@@ -187,6 +187,89 @@ def test_bhl_key_becoming_available_invalidates_without_storing_the_key(tmp_path
     conn.close()
 
 
+def test_bhl_run_reports_attempts_cache_outcomes_and_noop(
+    tmp_path, monkeypatch, caplog,
+):
+    _write_paper(
+        tmp_path, "aaa", title="Paper", year=2000, surname="Author",
+        references=[
+            _reference("Found raw", "A found old publication", "b0"),
+            _reference("Missing raw", "A missing old publication", "b1"),
+        ],
+    )
+    conn = _open_and_build(tmp_path)
+    calls = []
+
+    def lookup(_surname, _year, title, **_kwargs):
+        calls.append(title)
+        if "found" in title:
+            return "found", ("bhl:part/123", "", "123"), None
+        return "not_found", None, None
+
+    monkeypatch.setattr(authority, "_bhl_lookup", lookup)
+    caplog.set_level("INFO", logger="corpus.biblio")
+    authority.phase2_references(
+        conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key",
+        bhl_max_year=1900,
+    )
+    assert len(calls) == 2
+    assert (
+        "BHL run outcomes: eligible=2, newly_attempted=2, "
+        "cached/resumed=0, found=1, not_found=1, error=0, skipped=0"
+    ) in caplog.text
+    assert "BHL historical cache: found=1, not_found=1, error=0" in caplog.text
+
+    caplog.clear()
+    authority.phase2_references(
+        conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key",
+        bhl_max_year=1950,
+    )
+    assert len(calls) == 2
+    assert (
+        "BHL run outcomes: eligible=2, newly_attempted=0, "
+        "cached/resumed=2, found=1, not_found=1, error=0, skipped=0"
+    ) in caplog.text
+
+    caplog.clear()
+    authority.phase2_references(
+        conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key",
+        bhl_max_year=1950,
+    )
+    assert (
+        "BHL run outcomes: eligible=0, newly_attempted=0, "
+        "cached/resumed=0, found=0, not_found=0, error=0, skipped=0"
+    ) in caplog.text
+    assert "BHL historical cache: found=1, not_found=1, error=0" in caplog.text
+    conn.close()
+
+
+def test_bhl_run_reports_error_and_prerequisite_skip(tmp_path, monkeypatch, caplog):
+    _write_paper(
+        tmp_path, "aaa", title="Paper", year=2000, surname="Author",
+        references=[
+            _reference("Error raw", "An error old publication", "b0"),
+            _reference("Skip raw", "A skipped old publication", "b1"),
+        ],
+    )
+    conn = _open_and_build(tmp_path)
+
+    def lookup(_surname, _year, title, **_kwargs):
+        if "error" in title:
+            return "error", None, "test outage"
+        return "skipped", None, "outside year window"
+
+    monkeypatch.setattr(authority, "_bhl_lookup", lookup)
+    caplog.set_level("INFO", logger="corpus.biblio")
+    authority.phase2_references(
+        conn, tmp_path, enrich_bhl=True, bhl_api_key="test-key",
+    )
+    assert (
+        "BHL run outcomes: eligible=2, newly_attempted=1, "
+        "cached/resumed=0, found=0, not_found=0, error=1, skipped=1"
+    ) in caplog.text
+    conn.close()
+
+
 def test_reference_evidence_is_separate_auditable_and_noop(
     tmp_path: Path,
 ) -> None:
