@@ -114,8 +114,11 @@ class TaxonomyDB:
         authorship / rank / status. Returns None if not found.
 
         Lookup is case-insensitive. When multiple taxa share a lowercased
-        name (homonyms across kingdoms), the first ``accepted`` match is
-        preferred, then the first match outright.
+        name, prefer an accepted primary name, then an unaccepted primary
+        name, then a synonym alias; ties are ordered by taxon ID.  This keeps
+        the result independent of SQLite insertion order while preserving a
+        directly named unresolved taxon rather than silently forcing it onto
+        a homonymous synonym target.
         """
         key = (name or "").strip().lower()
         if not key:
@@ -132,6 +135,13 @@ class TaxonomyDB:
             FROM names n
             JOIN taxa t ON t.taxon_id = n.taxon_id
             WHERE n.name_lowercase = ?
+            ORDER BY CASE n.name_type
+                       WHEN 'accepted' THEN 0
+                       WHEN 'unaccepted' THEN 1
+                       ELSE 2
+                     END,
+                     n.taxon_id,
+                     n.name
             """,
             (key,),
         )
@@ -139,11 +149,7 @@ class TaxonomyDB:
         if not rows:
             return None
 
-        # Prefer an 'accepted' match when there are multiple.
-        row = next(
-            (r for r in rows if r["name_type"] == "accepted"),
-            rows[0],
-        )
+        row = rows[0]
         accepted_id = row["accepted_id"] or row["taxon_id"]
         accepted_name = row["accepted_name"] or row["matched_name"]
         # If the matched taxon points at an accepted_id we don't have

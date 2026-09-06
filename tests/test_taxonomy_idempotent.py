@@ -21,6 +21,7 @@ import sqlite3
 
 import pytest
 
+from pipeline.taxa import TaxonomyDB
 from pipeline.taxonomy_ingest import create_schema, insert_records, make_record
 
 
@@ -75,6 +76,35 @@ def test_new_names_still_land_on_a_second_ingest(conn):
                          taxonomic_status="accepted")]
     assert insert_records(conn, extra)["names"] == 1
     assert _counts(conn) == (3, 4)
+
+
+def test_homonymous_primary_and_synonym_lookup_is_insertion_order_independent(
+    tmp_path,
+):
+    """A plain name must not change identity when DwC row order changes."""
+    unresolved = make_record(
+        taxon_id="746144", scientific_name="Diphyes truncata",
+        taxonomic_status="taxon inquirendum",
+        accepted_name_usage_id="746144", accepted_name="Diphyes truncata",
+    )
+    accepted = make_record(
+        taxon_id="135426", scientific_name="Lensia conoidea",
+        taxonomic_status="accepted", accepted_name_usage_id="135426",
+        accepted_name="Lensia conoidea", extra_names=["Diphyes truncata"],
+    )
+    results = []
+    for index, records in enumerate(((unresolved, accepted), (accepted, unresolved))):
+        path = tmp_path / f"taxonomy-{index}.sqlite"
+        db = sqlite3.connect(path)
+        create_schema(db)
+        insert_records(db, records)
+        db.close()
+        with TaxonomyDB(path) as taxonomy:
+            results.append(taxonomy.lookup("Diphyes truncata"))
+
+    assert results[0] == results[1]
+    assert results[0]["matched_taxon_id"] == "746144"
+    assert results[0]["name_type"] == "unaccepted"
 
 
 # --- repairing a database damaged by v1.2.1 ----------------------------------
