@@ -51,21 +51,32 @@ def _discover(root):
     term = next(iter(idx.lexicon_to_papers[category]))
     work = idx.biblio_db.get_work_by_corpus_hash(sha)
     assert work, "Selected paper must have a bibliographic work"
-    panel = None
+    panel_candidates = []
     for hd in sorted((root / "documents").iterdir()):
         path = hd / "figures.json"
         if not path.is_file():
             continue
         for figure in json.loads(path.read_text()).get("figures", []):
             for roi in figure.get("rois", []):
-                if roi.get("roi_px") and roi.get("label"):
-                    panel = {"paper_hash": hd.name, "figure_id": figure["figure_id"], "label": roi["label"]}
-                    break
-            if panel:
-                break
-        if panel:
-            break
-    assert panel, "Acceptance requires an actual pixel panel ROI, not a fallback"
+                box = roi.get("roi_px")
+                width, height = figure.get("width"), figure.get("height")
+                if not (box and roi.get("label") and width and height):
+                    continue
+                x0, y0, x1, y1 = box
+                if not (0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height):
+                    continue
+                area_ratio = ((x1 - x0) * (y1 - y0)) / (width * height)
+                if area_ratio >= 1:
+                    continue
+                panel_candidates.append((area_ratio, {
+                    "paper_hash": hd.name,
+                    "figure_id": figure["figure_id"],
+                    "label": roi["label"],
+                }))
+    assert panel_candidates, (
+        "Acceptance requires an actual strict pixel crop, not a full-image ROI"
+    )
+    panel = min(panel_candidates, key=lambda item: item[0])[1]
     for db in (idx.biblio_db, idx.taxonomy_db, idx.taxon_mention_db):
         db.conn.close()
     return paper, chunks[0], taxon, category, term, work, panel
