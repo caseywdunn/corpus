@@ -2,6 +2,7 @@
 #SBATCH --job-name=corpus-embed
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
+#SBATCH --constraint="gpu:a40|gpu:a5000"
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=16G
 #SBATCH --time=4:00:00
@@ -9,8 +10,34 @@
 #SBATCH --error=logs/slurm-embed-%j.err
 #
 # Stage 2: embed chunks into LanceDB using the local BGE-M3 model.
-# Uses the gpu partition (RTX 5000 ADA, 32 GB) — more than enough for
-# the 568M-parameter BGE-M3 at fp16.
+# 48 GB on an A40 is far more than the 568M-parameter BGE-M3 needs at
+# fp16; the type pin is about kernels, not capacity.
+#
+# CONSTRAIN THE GPU TYPE — a bare `--gpus=1` with no constraint is what
+# broke the 2026-08-31 build. The `gpu` partition mixes four cards, and
+# the pinned torch (2.12.0+cu130) ships kernels for
+# sm_75/80/86/90/100/120:
+#
+#     a40             sm_86  ✓        l40s           sm_89  ✗
+#     a5000           sm_86  ✓        rtx_5000_ada   sm_89  ✗
+#
+# Every arch is built as `code=sm_X` with no `code=compute_X` alongside
+# it, so there is no embedded PTX for an unsupported card to JIT from.
+# The gap is structural, not a slow path. Confirm with:
+#   python -c "import torch; print(torch.__config__.show())" | tr ' ' '\n' | grep gencode
+#
+# Land on an sm_89 card and pipeline.accelerator correctly refuses it
+# (#198) and falls back to CPU — so the job holds a GPU at 0% utilization
+# while embedding at ~1/10th speed. On 2026-08-31 that ran 75 min, got
+# through 181 of 1775 documents, and was cancelled by YCRC's job_defense
+# GPU-utilization policy before it could finish.
+#
+# The `gpu:<type>` node features let one job accept either supported card,
+# which schedules far sooner than pinning a single type — the a40 nodes
+# are routinely half-drained while the 12 a5000 nodes sit open. Other
+# supported types live in their own partitions: h200, b200,
+# rtx_pro_6000_blackwell. See #270 for why the type constraint is a
+# workaround: a torch bump that drops sm_86 reintroduces this silently.
 #
 # Run AFTER Stage 1 (batch_process_corpus.sh) has completed.
 #
