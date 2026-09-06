@@ -312,7 +312,11 @@ can answer which evidence and rule produced it.
   regression compares citation mappings, taxon rows, logical vectors and served
   document inventories with a clean build after removal. Bundle replacement
   assembles a fresh audited tree, preserving the old generation on copy failure
-  and removing obsolete optional files. Full gold update acceptance remains.
+  and removing obsolete optional files.
+  **Whole-build gold acceptance ran 2026-09-06 at v1.3.0 (`b734de6`) on Bouchet
+  and passed** — see "Whole-build acceptance evidence" below. What remains for
+  #265 is not update logic but the two provenance defects that keep the
+  criterion from being expressible as byte equality (#278, #280).
 - [ ] **Extend input fingerprints**
   ([#174](https://github.com/caseywdunn/corpus/issues/174)) to every input that
   can change an artifact, including the relevant bib fields, filename and
@@ -329,6 +333,9 @@ can answer which evidence and rule produced it.
   full extraction replaces old images/sidecars. Tests compare off-mode and
   rechunking transitions with clean builds and exercise failed publication,
   interrupted stages and CPU/vision handoff recovery.
+  **Whole-build clean/incremental acceptance ran 2026-09-06 at v1.3.0 and
+  passed** for bib edits, curator directives and an embedding-model upgrade —
+  see "Whole-build acceptance evidence" below.
   `corpus status` reports Stage 1 configuration differences plus current PDF
   additions/removals, renamed/copy paths, resolved BibTeX changes, OCR/page
   directives, lexicon changes and built-taxonomy fingerprints without modifying
@@ -537,6 +544,55 @@ the frozen MCP surface, defer that part rather than expanding v1.3.
 the intended Pyflakes rule family while the dedicated undefined-name guarantee
 remains explicit; source/build/served paths use consistent terms; and #173 and
 #262 no longer appear as open work already completed in the tree.
+
+### Whole-build acceptance evidence (#174/#265), 2026-09-06
+
+Run at v1.3.0 (`b734de6`) on Bouchet, 35-document gold set, one build per node
+so nothing contended. Six full builds: a baseline and a clean build per change
+class, with each incremental run **in place** on its own baseline. Evidence in
+`project_pi_cwd7/cwd7/gold_accept_evidence_b734de6/`.
+
+Method notes that matter for repeating this:
+
+- Incrementals must run in place. A corpuscle's build tree embeds absolute
+  paths (`figures.json`, `summary.json`, `pipeline_state.json`); only `_serve/`
+  is scrubbed clean (#70). A relocated copy reports every document as changed
+  and the diff is pure path noise. A relocation control caught this.
+- One build per machine, or per node. Two concurrent local builds blew the
+  per-page OCR timeout on 3-4 documents each and silently degraded the clean
+  side of the comparison; solo builds were pristine. The v1.3 gates did catch
+  it loudly (`ocr_pages_blanked`, `empty_text`, `ocr_no_text_recovered`).
+- `panel_detection: ocr`, never `vision-local`: independent local-VLM runs vary
+  in ROI coordinates. `batch_pipeline.sh` submits `corpus-pass3b` regardless of
+  that setting, which is why the c5 pair shows VLM ROI drift and the others do
+  not.
+
+**Results.** All three classes: `index_changes: 0`, `manifest_changes: 0`,
+`added/removed: 0`, `problems: 0`, `hard_failures: 0`. Every vector row, the
+whole bibliography graph, `taxon_mentions`, `taxonomy` and embedding identity
+are identical between incremental and clean rebuild.
+
+| class | perturbation | invalidated | semantic diffs vs clean |
+|---|---|---|---|
+| C5 | one BibTeX title field | 1 stage, `bib_entry_sha256` | 1 (the edit itself) + 6 VLM ROI |
+| C6 | `ocrlang` repinned on 2 docs | 2 stages, `ocrlang`, + cascade | **0** |
+| C7 | `bge-m3` -> `all-MiniLM-L6-v2` | whole vector table | **0** |
+
+Every remaining "changed" document is one of: `taxa.json` alone (#278's
+non-reproducible taxonomy hash), or `figures.json` differing only in
+`file_path`/`figures_directory` under each build's own root.
+
+Also established: a no-op resume is a perfect no-op (`requires_review: false`,
+`binary_changes` included); the model-switch guard refuses `--resume` across a
+dimension change and leaves the index untouched, reproduced on two machines
+(`GUARD_RC=2`, 3209 rows still 1024-dim); and `--rebuild` migrates all 35
+documents to 384-dim with matching row counts. Incremental cost scales with the
+change: 4m42s and 9m40s against 1h20-1h30 clean rebuilds.
+
+**Open, and not update-logic defects:** #278 (taxonomy fingerprint hashes a file
+containing timestamps, so `taxa.json` differs between any two builds), #279
+(concurrent Grobid jobs collide on port 8070), #280 (CJK OCR whitespace is not
+reproducible; observed locally, did not recur on Bouchet).
 
 ### v1.3 release gate
 
