@@ -447,8 +447,8 @@ rebuild.
 Equality here is **semantic, not byte-for-byte**. Byte equality is not a
 property this pipeline has or should chase: provenance that is not
 reproducible by construction is excluded from the comparison — the taxonomy
-snapshot's file hash (#278), absolute build paths, local-VLM ROI coordinates,
-and CJK OCR whitespace segmentation (#280). Those are recorded as known
+snapshot's file hash (#278, since fixed), absolute build paths, local-VLM ROI
+coordinates, and CJK OCR whitespace segmentation (#280). Those are recorded as known
 exclusions rather than waved away, and #278/#280 track shrinking the list.
 
 `corpus status` and the bundle manifest never infer completion from a
@@ -601,10 +601,15 @@ dimension change and leaves the index untouched, reproduced on two machines
 documents to 384-dim with matching row counts. Incremental cost scales with the
 change: 4m42s and 9m40s against 1h20-1h30 clean rebuilds.
 
-**Open, and not update-logic defects:** #278 (taxonomy fingerprint hashes a file
-containing timestamps, so `taxa.json` differs between any two builds), #279
-(concurrent Grobid jobs collide on port 8070), #280 (CJK OCR whitespace is not
-reproducible; observed locally, did not recur on Bouchet).
+**Defects the run surfaced, none of them update-logic bugs.** #278 (the
+taxonomy fingerprint hashed a file containing timestamps, so `taxa.json`
+differed between any two builds) is **fixed** — the stage now records the
+snapshot's own source receipt, so the `taxa.json`-only differences above would
+not recur. #279 (concurrent Grobid jobs collide on port 8070) is **half
+fixed**: a chain can no longer be silently served by another chain's Grobid,
+but true concurrency still needs one server per node or a shared `GROBID_URL`.
+#280 (CJK OCR whitespace is not reproducible) stays open — observed locally,
+did not recur on Bouchet — and remains an explicit exclusion in the criterion.
 
 ### v1.3 release gate
 
