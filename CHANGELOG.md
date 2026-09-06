@@ -7,26 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Header-only `get_papers` projections now use the in-memory index without
-  reading document artifacts. Requested taxonomy/lexicon details load only
-  their relevant inputs; response fields and ordering are unchanged.
-
-- Fixed ordinary reference resume ignoring a newly enabled BHL enrichment
-  option or changed year cutoff. These settings and key availability now
-  invalidate the materialization receipt; credentials are never recorded.
-
-- Reference updates now retire obsolete derived author/title aliases even
-  when a paper keeps its DOI, matching clean-build lookup behavior while
-  retaining explicit curation and BHL evidence. Malformed authority inputs
-  fail before replacing current evidence; invalid served JSON fails bundle
-  auditing instead of bypassing it.
-
-- Added opt-in all-tool acceptance on a real, filesystem-enforced read-only
-  bundle, with offline query embedding and whole/panel downloads through the
-  deployed nginx route. Coverage is checked against the frozen MCP inventory;
-  transport success is kept separate from source-fidelity evidence.
-
 ### Added
+
+- **Opt-in all-tool acceptance against a real, filesystem-enforced read-only
+  bundle.** Offline query embedding and whole/panel figure downloads run
+  through the deployed nginx route. Coverage is checked against the frozen MCP
+  inventory; transport success is kept separate from source-fidelity evidence.
+
+- **BHL enrichment reports its outcomes (#260).** The phase summary counts the
+  current run's eligible observations, newly attempted lookups, cached/resumed
+  outcomes, and found / not-found / error / skipped results — three of these
+  counters were initialized and never touched, so a run that took hours could
+  report nothing about what it achieved. These are observation outcomes rather
+  than HTTP-request counts: one lookup may issue a narrow and a broad query,
+  and the process-local cache may avoid the second. A no-op correctly reports
+  zero current attempts. The historical cache inventory is labeled separately
+  and must not be read as the current run's hit rate.
 
 - **Query embeddings match the build producer (#174/#271).** New bundles
   include a portable embedding-identity sidecar; the server loads the recorded
@@ -164,7 +160,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The old unconditional `visualizations/*.png` pass has been removed, so a
   normal build no longer creates a second raster set for every document.
 
+### Changed
+
+- **Header-only `get_papers` projections read the in-memory index.** Requests
+  needing no taxonomy or lexicon detail no longer read document artifacts;
+  requested details load only their relevant inputs. Response fields and
+  ordering are unchanged.
+
+- **The lint gate moved from bare Pyflakes to Ruff's F rules (#259).** The
+  dependency swap lands in `environment.yaml`, `requirements.txt` and
+  `pyproject.toml`'s `dev` extra; `[tool.ruff.lint]` selects `F` only, keeping
+  the migration bounded to Pyflakes-compatible checks. This repairs a
+  suppression that never worked: bare Pyflakes does not implement `# noqa`, so
+  the `# noqa: F401` on the side-effect imports in `mcpsrv/tools/__init__.py`
+  had no effect, and F401 could not be promoted to a gate without deleting
+  imports that register the entire MCP tool surface. T0 now runs `ruff check
+  pipeline mcpsrv bib tools`, and `tests/test_no_undefined_names.py` repeats
+  F821 with `--ignore-noqa` so an undefined name cannot hide behind a
+  suppression.
+
 ### Fixed
+
+- **Ordinary reference resume no longer ignores a newly enabled BHL enrichment
+  option or a changed year cutoff.** These settings and key availability now
+  invalidate the materialization receipt; credentials are never recorded.
+
+- **Reference updates retire obsolete derived author/title aliases even when a
+  paper keeps its DOI**, matching clean-build lookup behavior while retaining
+  explicit curation and BHL evidence. Malformed authority inputs fail before
+  replacing current evidence; invalid served JSON fails bundle auditing
+  instead of bypassing it.
+
+- **Homonymous taxon lookup is deterministic.** A name shared across kingdoms
+  resolved to whichever row SQLite happened to return first, so insertion
+  order could change how a taxon mapped between builds. Lookup now orders
+  accepted primary names before unaccepted primary names before synonym
+  aliases, breaking ties by taxon ID. This also preserves a directly named
+  unresolved taxon rather than silently forcing it onto a homonymous synonym
+  target.
+
+- **An authority refresh no longer drops the default serve policy.** The
+  BibTeX parser records an unspecified `serve` directive as an explicit null,
+  which `document_fields` passed through into the representative row, and that
+  violates `works.serve NOT NULL`. Both a missing key and that null are now
+  treated as the schema default.
+
+- **SLURM embedding jobs pin a GPU their torch build can use (#270).**
+  `slurm/batch_embed.sh` requested a bare `--gpus=1` on a partition mixing four
+  card types, but the pinned torch (2.12.0+cu130) ships no sm_89 kernels and no
+  PTX to JIT from. 19 of 40 nodes therefore degraded to CPU *inside* a GPU
+  allocation, logging normal progress until YCRC's utilization policy cancelled
+  the job — which is what killed the 2026-08-31 build at 181 of 1775 documents.
+  The job now constrains itself to `gpu:a40|gpu:a5000`, either of which
+  schedules sooner than pinning a single type. #270 stays open: this makes the
+  right card likely, not the wrong one loud.
 
 - **Grobid fallback metadata now recovers when capability returns (#174).**
   Both resume gates distinguish deliberate disablement, incomplete extraction
