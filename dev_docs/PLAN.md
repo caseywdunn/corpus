@@ -551,8 +551,22 @@ remains explicit; source/build/served paths use consistent terms; and #173 and
   including remote whole-figure and panel download through the deployed proxy.
 - [x] The bounded release-hardening tranche above is complete without widening
   the lint rules or changing the frozen MCP surface.
-- [ ] T0, T1/T2, T3, T3-bare where platform behavior changed, and the relevant
+- [x] T0, T1/T2, T3, T3-bare where platform behavior changed, and the relevant
   T5 fidelity scorers pass under CONTRIBUTING.md's release ritual.
+  T0 and T1/T2 green on the release candidate; T3 runs on the `dev` -> `main`
+  release PR per the standing gate. **T3-bare waived for v1.3, on this gate's
+  own "where platform behavior changed" clause.** Measured over
+  `v1.2.1..HEAD`, the bare-host path is untouched: no apt packages, no
+  miniforge bootstrap change, `INSTALL.md` moved two lines, and
+  `docker-compose.yml` and `clean-room.yml` are unchanged. The only
+  `environment.yaml`/`requirements.txt` delta is the dev-only `pyflakes` ->
+  `ruff` swap (#259), and T3 solves `environment.yaml` from scratch on every
+  release PR, so that delta already has an automated lane. No runtime
+  dependency moved. This is the first recorded waiver; there was no waiver
+  policy or precedent in the repo, which is why the evidence is written down
+  here rather than the box merely being ticked. Re-run T3-bare at the next
+  release that touches apt packages, the miniforge bootstrap, or a runtime
+  dependency pin.
 
 ## v1.4 — skills and usage
 
