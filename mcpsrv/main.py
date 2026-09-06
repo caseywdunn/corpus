@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from .app import _load_json, mcp, set_index
+from .app import mcp, set_index
 from .indexes import BiblioAuthority, CorpusIndex, TaxonMentionDB
 from . import tools as _tools  # noqa: F401  (registers @mcp.tool() decorators)
 from .transport import _load_auth_token, _run_sse

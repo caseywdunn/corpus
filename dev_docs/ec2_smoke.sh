@@ -178,20 +178,22 @@ host_arch=$(python -c "import platform; print(platform.machine())")
 note_pass "corpus env active; host arch = $host_arch"
 elapsed
 
-# ── Phase 4: tessdata + pyflakes lint precheck ────────────────────
-section "Phase 4 — tessdata + pyflakes precheck"
+# ── Phase 4: tessdata + Ruff lint precheck ────────────────────────
+section "Phase 4 — tessdata + Ruff precheck"
 bash tools/install_tessdata.sh > /tmp/tessdata.out 2>&1 \
     && note_pass "tessdata language packs installed" \
     || { note_fail "tessdata install failed"; tail -20 /tmp/tessdata.out; }
 
 # Fast-fail signal that the source tree compiles cleanly before we
 # spend 15+ min on the demo run.
-if python -m pytest tests/test_no_undefined_names.py -q \
-       > /tmp/pyflakes.out 2>&1; then
-    note_pass "pyflakes gate (tests/test_no_undefined_names.py)"
+if ruff check pipeline mcpsrv bib tools \
+       > /tmp/corpus-ruff.out 2>&1 \
+   && python -m pytest tests/test_no_undefined_names.py -q \
+       >> /tmp/corpus-ruff.out 2>&1; then
+    note_pass "Ruff F-family gate + explicit F821 assertion"
 else
-    note_fail "pyflakes gate"
-    cat /tmp/pyflakes.out
+    note_fail "Ruff gate"
+    cat /tmp/corpus-ruff.out
 fi
 elapsed
 

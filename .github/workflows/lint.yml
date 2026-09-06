@@ -1,7 +1,7 @@
 # T0 — lint + unit tests (issue #75).
 #
 # Runs on every push to every branch. Goal: catch the cheap bug
-# classes (NameErrors via pyflakes, unit-level regressions) within
+# classes (Ruff's Pyflakes-compatible F rules, unit regressions) within
 # ~2 min, before they ride a PR into dev or main.
 #
 # What this tier deliberately does NOT exercise:
@@ -11,7 +11,7 @@
 #     into T1/T2 in integration.yml
 #
 # Cold cache (first run, or env change) costs ~4 min for the conda
-# env solve. Warm cache: ~2 min, dominated by pyflakes + test discovery.
+# env solve. Warm cache: ~2 min, dominated by Ruff + test discovery.
 
 name: T0 — lint + unit
 
@@ -64,11 +64,13 @@ jobs:
       - name: Editable install
         run: pip install --quiet -e .
 
-      - name: pyflakes gate
-        # tests/test_no_undefined_names.py runs pyflakes against pipeline/,
-        # mcpsrv/, and bib/. Fast-fail signal that the source tree compiles
-        # cleanly before we run the rest of the suite.
-        run: python -m pytest -v tests/test_no_undefined_names.py
+      - name: Ruff F-family gate
+        # Keep the migration bounded to Pyflakes-compatible rules (#259).
+        # The dedicated test repeats F821 with --ignore-noqa so an undefined
+        # name cannot be hidden behind a suppression.
+        run: |
+          ruff check pipeline mcpsrv bib tools
+          python -m pytest -v tests/test_no_undefined_names.py
 
       - name: Unit tests (deselect corpus-build markers)
         # `-m "not corpus_required and not resume_scenario"` excludes the

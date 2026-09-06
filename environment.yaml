@@ -67,8 +67,8 @@ dependencies:
 
   # Test runner
   - pytest
-  - pyflakes  # static-analysis gate (tests/test_no_undefined_names.py) — catches
-              # NameError-class bugs at lint time. Cheap enough to install everywhere.
+  - ruff  # Static-analysis gate: the full Pyflakes-compatible F family plus
+          # an explicit F821 NameError assertion in tests/test_no_undefined_names.py.
 
   # Pip-only packages
   #

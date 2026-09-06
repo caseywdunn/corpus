@@ -53,7 +53,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .parser import _split_authors, _strip_outer_braces, parse_bibtex
 

@@ -2815,9 +2815,9 @@ def _spatial_split_rois(rois: List[Dict], expected_labels: List[str],
     xs = [0.5 * (p["roi_px"][0] + p["roi_px"][2]) for p in panels]
     ys = [0.5 * (p["roi_px"][1] + p["roi_px"][3]) for p in panels]
     if (max(xs) - min(xs)) >= (max(ys) - min(ys)):
-        centroids, axis = xs, "x"
+        centroids = xs
     else:
-        centroids, axis = ys, "y"
+        centroids = ys
 
     median = sorted(centroids)[len(centroids) // 2]
     side_a, side_b = [], []

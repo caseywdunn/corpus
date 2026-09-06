@@ -174,7 +174,7 @@ class GrobidClient:
                     r = requests.post(
                         url, files=files, data=params, timeout=self.timeout,
                     )
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout):
                 self._breaker.record_failure()
                 raise
             # raise_for_status raises HTTPError for 4xx/5xx; transient

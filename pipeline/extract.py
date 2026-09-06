@@ -9,7 +9,6 @@ plates don't get one-bitmap-per-page noise.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from pathlib import Path
@@ -19,7 +18,6 @@ from . import stamp_artifact
 from .accelerator import resolve_device
 from .config import CONFIG
 from .figures import (
-    detect_missing_figures,
     extract_caption_info,
     parse_figure_number,
     render_figures,
@@ -219,8 +217,6 @@ def extract_docling_content(
             plate_legend_entries,
             _text_fragments,
             compose_figure_filename,
-            FIGURE_TYPE_FIGURE,
-            FIGURE_TYPE_PLATE,
             FIGURE_TYPE_SUBPANEL,
         )
 

@@ -2327,7 +2327,7 @@ def main() -> int:
 
         # Phase 3
         logger.info("═══ Phase 3: Linking taxonomic authorities ═══")
-        n_linked = phase3_authority_links(conn, args.taxonomy_db)
+        phase3_authority_links(conn, args.taxonomy_db)
 
         # Summary
         stats = {}

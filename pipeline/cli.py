@@ -53,7 +53,7 @@ import yaml
 from dotenv import find_dotenv, load_dotenv
 
 from .config_schema import CorpuscleConfig, ValidationError, validate_config
-from .console import console, print_status
+from .console import print_status
 from .version import __version__
 
 
@@ -1089,7 +1089,6 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
     config_path = _resolve_config_path(args.config)
     failures: List[str] = []  # precondition (exit 3)
-    config_failures: List[str] = []  # config (exit 2)
 
     # 1. config.yaml resolution + schema validation
     if config_path is None:
@@ -1150,7 +1149,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
     # 4. Grobid reachability
     if cfg.grobid.disable:
-        pstatus(f"Grobid: disabled in config (header metadata will use --bib only)", status="warn")
+        pstatus("Grobid: disabled in config (header metadata will use --bib only)", status="warn")
     else:
         ok, detail = _ping_grobid(cfg.grobid.url)
         if ok:

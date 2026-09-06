@@ -524,7 +524,7 @@ def render_propose_skips(
     for h, n in candidates:
         gates_for_h = [g for g, hs in rollup["papers_by_gate"].items() if h in hs]
         out.append(f"  % {_label_for_paper(rollup, h)} — {n} flags: {', '.join(sorted(gates_for_h))}")
-        out.append(f"  serve = {{false}},")
+        out.append("  serve = {false},")
         out.append("")
     return "\n".join(out)
 

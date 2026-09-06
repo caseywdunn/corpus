@@ -110,7 +110,7 @@ def layer1_http(host: str, port: int, token: str) -> int:
         rc |= _fail("unauth GET /sse did not raise")
     except urllib.error.HTTPError as e:
         if e.code == 401:
-            _ok(f"unauth GET /sse → 401")
+            _ok("unauth GET /sse → 401")
         else:
             rc |= _fail(f"unauth GET /sse → {e.code} (expected 401)")
     except Exception as e:
@@ -288,7 +288,6 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
             # search_taxon — use a broadly-valid name present in any
             # marine corpus; the important check is that the tool runs
             # without error and returns a dict with a "found" key.
-            taxon_hit = None
             try:
                 r = await session.call_tool(
                     "search_taxon", {"name": "Siphonophorae"}
@@ -297,7 +296,6 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
                 # success: {matched_taxon_id, accepted_name, ...}
                 # not-found: {not_found: True, queried: name}
                 if isinstance(d, dict) and "matched_taxon_id" in d:
-                    taxon_hit = d.get("accepted_taxon_id") or "Siphonophorae"
                     _ok(f"search_taxon(Siphonophorae) → found, "
                         f"accepted={d.get('accepted_name')!r}, "
                         f"in_corpus={d.get('in_corpus')}")
@@ -526,7 +524,7 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
                         f"{d['error']!r})")
                 elif isinstance(d, dict) and "figure_id" in d:
                     # Single figure serialised as one block → dict
-                    _ok(f"get_figures_for_taxon(Physalia) → 1 figure (dict form)")
+                    _ok("get_figures_for_taxon(Physalia) → 1 figure (dict form)")
                 else:
                     rc |= _fail(
                         f"get_figures_for_taxon unexpected: {type(d)}"

@@ -250,7 +250,7 @@ If you can't use conda, you'll need to install the system tools yourself (`brew 
 
 ```bash
 pip install -e ".[dev]"   # development clone (the [dev] extra adds
-                          # pytest, pyflakes, and ipykernel — they are
+                          # pytest, Ruff, and ipykernel — they are
                           # not runtime dependencies, see #162)
 pip install -e .          # runtime only, e.g. a server-only deploy host
 

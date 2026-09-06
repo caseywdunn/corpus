@@ -23,8 +23,7 @@ from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 
 from . import config as _pipeline_config
 from . import external
-from .annotate import _extract_taxa_and_lexicons
-from .config import CONFIG, load_config
+from .config import load_config
 from .build_inputs import config_fingerprints as _config_fingerprints
 from .figure_passes import _crossref_chunks_and_figures, _pass25_annotate_figures, _pass3b_annotate_rois
 from .figure_materialization import rebuild_figure_base
@@ -32,7 +31,6 @@ from .extract import extract_docling_content
 from .figures import resolve_compound_figures
 from .grobid_client import GrobidClient
 from .io import (
-    HASH_PREFIX_LEN,
     _verify_or_raise_collision,
     audit_orphans,
     create_output_structure,
