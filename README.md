@@ -72,7 +72,7 @@ Grobid extracts metadata (authors, title, year, journal) from each PDF's header,
 ```
 
 ```yaml
-# in your corpuscle's config.yaml
+# in your corpus project's config.yaml
 bib: ./references.bib
 ```
 
@@ -205,7 +205,7 @@ Editing `keeppages` re-runs OCR and everything downstream of it for that paper, 
 
 ### External taxonomic data (optional)
 
-The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution — the layer that lets a question about *Apolemia uvaria* find papers that only ever wrote *Stephanomia uvaria*. It's built once on the first `corpus run` from whichever source you point at; subsequent runs reuse the cached SQLite unless you pass `--force-rebuild-taxonomy`.
+The taxonomy database (`taxonomy.sqlite`) is a [Darwin Core](https://dwc.tdwg.org/) snapshot that drives synonymy resolution — the layer that lets a question about *Apolemia uvaria* find papers that only ever wrote *Stephanomia uvaria*. The first `corpus run` builds it from the configured source. Local `dwc` / `dwca` source bytes and settings are fingerprinted, so a changed source replaces the snapshot on the next run; an unchanged source is reused. A `worms` snapshot stays deliberately pinned until `--force-rebuild-taxonomy`, because checking whether a live remote subtree changed would itself require walking the service.
 
 The `taxonomy:` block in `config.yaml` picks the source. The bundled template ships it commented out — opt in by uncommenting and choosing one of:
 
@@ -275,11 +275,18 @@ Without a `lexicon:` entry, lexicon extraction is skipped entirely. Like `bib:`,
 
 ### Instructions for the LLM (optional)
 
-A markdown file at `<corpuscle>/instructions.md` whose contents land in every chat session against the corpus. The MCP server returns it in `InitializeResult.instructions`, and well-behaved clients (Claude Desktop, Claude Code) inject it into the LLM's context at session start.
+Put `instructions.md` in the **project root**, beside `config.yaml`. Its
+contents land in every chat session against the corpus. `corpus run` copies it
+into the configured build directory before creating the served bundle, so the
+instructions travel with both forms of the corpus. The MCP server returns them
+in `InitializeResult.instructions`, and well-behaved clients (Claude Desktop,
+Claude Code) inject them into the LLM's context at session start.
 
 Use it for per-corpus nudges that no taxonomy or lexicon entry can express — see [demo/instructions.md](demo/instructions.md) for a worked example, which (among other things) tells the model that *Velella* and *Porpita* are not siphonophores even when older literature lumps them in.
 
-Override the default location with `--instructions <path>` when starting the MCP server. If the file is absent, no instructions are sent.
+Override the copied bundle instructions with `--instructions <path>` when
+starting the MCP server. If the file is absent, only corpus's packaged default
+instructions are sent.
 
 ## Computational requirements
 
@@ -289,12 +296,23 @@ Override the default location with `--instructions <path>` when starting the MCP
 - **MCP client.** The query interface is MCP, so you'll need a client that speaks it (Claude Desktop, Claude Code, claude.ai web with custom connectors, Cursor, Continue). Most require an Anthropic subscription.
 - **Remote deployment.** Serving the corpus to others over the network requires a server. The reference deploy is AWS (EC2 instances behind a shared Application Load Balancer), but any host with Python and an open port works. See [Deploying MCP server remotely](#deploying-mcp-server-remotely) below.
 
-## Corpuscle layout
+## Corpuscle paths
 
-A *corpuscle* is the on-disk container for one corpus instance — siphonophores, drosophila, or whatever group you're working on. It's a single directory:
+A *corpuscle* is one configured corpus instance — siphonophores, drosophila,
+or whatever group you're working on. Three directories have distinct roles:
+
+| Term | Contains | Ownership |
+| --- | --- | --- |
+| **Project root** | `config.yaml`, source `instructions.md`, and usually relative links to PDFs, BibTeX, lexicons and taxonomy inputs | User-maintained inputs and configuration |
+| **Build directory** | The path selected by `output_dir`; per-paper artifacts, databases, embeddings and copied instructions | Mutable, resumable pipeline output |
+| **Served bundle** | `<output_dir>/_serve/` by default; only the audited files needed by the MCP server | Immutable deployable artifact |
+
+The project root and build directory may coincide (`output_dir: .`), but the
+default scaffold and demo keep generated output under `./output/`. A typical
+build directory is:
 
 ```text
-<corpuscle>/
+<output_dir>/
 ├── documents/<HASH>/         # per-paper artifacts (text, chunks, figures, taxa, anatomy, …)
 ├── vector_db/lancedb/        # embeddings index
 ├── taxonomy.sqlite           # Darwin Core snapshot, built by `pipeline.taxonomy_ingest`
@@ -315,7 +333,10 @@ Three cross-paper layers are rebuildable independently of the per-paper artifact
 | **Bibliography** — deduplicated works + citation graph | `biblio_authority.sqlite` | `bib.authority` + `bib.reconcile` |
 | **Taxon mentions** — cross-paper taxon-to-paper index | `taxon_mentions.sqlite` | `pipeline.taxon_mentions` |
 
-Every CLI takes the corpuscle root as its first positional argument and resolves all per-instance files from there. Run two corpora side-by-side by giving each its own corpuscle directory; they don't share state.
+Top-level `corpus` commands resolve `config.yaml` from the project root and the
+build directory from its `output_dir`. Module-level debugging commands may take
+the build directory explicitly. Run two corpora side-by-side by giving each a
+separate project root and build directory; they do not share state.
 
 ## Installation
 
@@ -435,7 +456,7 @@ corpus check                             # confirms grobid + GPU + config + disk
 
 ## Try it on the demo corpus
 
-The repo ships [demo/](demo/) — a regular corpuscle: 4 siphonophore PDFs (born-digital English, born-digital English, a 19th-c. German paper — Schneider 1891, a scan carrying a third-party text layer — and scanned Russian), `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it. A 5th paper sits in [`tests/fixtures/round2_paper/`](tests/fixtures/round2_paper/) — outside the demo's `input_pdfs` scope — held back for the "add a paper and re-run" implicit-resume scenario exercised by [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
+The repo ships [demo/](demo/) — a regular corpus project: 4 siphonophore PDFs (born-digital English, born-digital English, a 19th-c. German paper — Schneider 1891, a scan carrying a third-party text layer — and scanned Russian), `siphonophores.bib`, `lexicon.yaml`, `instructions.md`, a pre-built Siphonophorae taxonomy as `taxonomy.zip`, and a `config.yaml` already pointing at all of it. A 5th paper sits in [`tests/fixtures/round2_paper/`](tests/fixtures/round2_paper/) — outside the demo's `input_pdfs` scope — held back for the "add a paper and re-run" implicit-resume scenario exercised by [dev_docs/clean_install_walkthrough.sh](dev_docs/clean_install_walkthrough.sh). The bundled DwC-A means the first `corpus run` doesn't walk the WoRMS REST API — it ingests the full taxonomy from a local file in seconds. One command runs the full pipeline + cross-paper builds + bundle:
 
 ```bash
 cd demo && corpus run
@@ -534,7 +555,14 @@ Each entry carries a stable `corpus_hash` field that bib_import uses to match ed
 
 ## Distilling a served bundle
 
-The corpuscle the pipeline emits is the **build bundle**: everything `pipeline.main` produces, including `processed.pdf`, raw Docling dumps, extracted figures, and per-paper logs. Optional page-audit HTML can be generated on demand from those artifacts; normal builds no longer write a second raster copy of every page. The MCP server doesn't need most of this material — only the JSON artifacts it reads at startup, the figure PNGs, and the precompiled indices. [`mcpsrv.bundle`](mcpsrv/bundle.py) distills the build bundle down to a substantially smaller **served bundle** by copying only whitelisted files, scrubbing absolute paths from JSON values, and writing a versioned `bundle_manifest.json` that the MCP `bundle_info` tool surfaces:
+The pipeline's **build directory** contains everything `pipeline.main`
+produces, including `processed.pdf`, raw Docling dumps, extracted figures and
+per-paper logs. Optional page-audit HTML can be generated on demand from those
+artifacts; normal builds no longer write a second raster copy of every page.
+The MCP server does not need most of this material. [`mcpsrv.bundle`](mcpsrv/bundle.py)
+distills it into a substantially smaller **served bundle** by copying only
+whitelisted files, scrubbing absolute paths from JSON values, and writing a
+versioned `bundle_manifest.json` that the MCP `bundle_info` tool surfaces:
 
 ```bash
 python -m mcpsrv.bundle <output_dir> <serve_bundle_dir> --version v1.0.0
