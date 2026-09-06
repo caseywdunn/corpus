@@ -386,7 +386,7 @@ can answer which evidence and rule produced it.
   producer receipts cannot be bundled, and legacy migration requires all
   documents. The all-tool read-only smoke now passes against the retained
   full legacy bundle; the new producer-sidecar build remains to be exercised.
-- [ ] **Land the fingerprint-based release reference**
+- [x] **Land the fingerprint-based release reference**
   ([#187](https://github.com/caseywdunn/corpus/issues/187)). Diff pipeline
   output, quality flags and manifest facts for the fixed gold corpuscle; test
   counts remain a CI activity signal, not a data regression reference.
@@ -395,8 +395,7 @@ can answer which evidence and rule produced it.
   counts agree. It never overwrites an existing reference. Schema v2 adds
   current database-table fingerprints, streaming exact logical vector-row
   comparisons and decoded figure-pixel hashes, with tests distinguishing
-  bookkeeping changes from content/mapping/duplicate-row drift. A reviewed
-  latest-build reference and full gold equivalence remain open.
+  bookkeeping changes from content/mapping/duplicate-row drift.
   The stronger update comparison exposed stale author/title aliases on a
   surviving DOI; current uncurated aliases now re-derive from document members
   and active observations. Producer migration repairs old aliases even for
@@ -418,6 +417,18 @@ can answer which evidence and rule produced it.
   drift remains unreproduced, not declared fixed. Raw citations are now
   explicitly requested and retained, with both resume gates and the TEI cache
   migrating; source-backed title/author/raw checks guard the affected paper.
+  The reviewed full-gold clean/update comparison now covers every primary JSON
+  artifact, current SQL row, exact logical vector row and decoded figure pixel.
+  On the fixed input set, clean and resumed builds have identical exact vector
+  rows and reference mappings; both source-backed reference suites pass. The
+  comparison also exposed an insertion-order-dependent taxonomy homonym, now
+  guarded by the `Diphyes truncata` regression. Independent local-VLM runs
+  vary in ROI coordinates/descriptions despite greedy decoding, but their
+  inspected gold outcomes are identical: 544/550 caption identities correct,
+  89/98 exact panel sets, and 311/311 served physical figures matched. An
+  unchanged post replay is a zero-difference no-op. Full update-contract
+  closure remains tracked by #174/#265 rather than being inferred from this
+  narrower release comparison.
 
 **Acceptance:** for every supported change class, an incremental run and a
 clean rebuild have the same current document set, artifact fingerprints,
@@ -441,7 +452,7 @@ meaning:
   README and the contributor invariants in AGENTS.md. Data flows library →
   build → immutable bundle → bounded server response → client output. Client
   feedback becomes an explicit reviewed library edit, not server mutation.
-- [ ] **Audit the served path against that contract.** In particular: move
+- [x] **Audit the served path against that contract.** In particular: move
   on-demand figure crops out of the bundle or materialize them at build time;
   make figure-download URLs work behind the reference reverse proxy without
   returning the shared MCP bearer token in a model-visible response; and apply
@@ -462,8 +473,11 @@ meaning:
   existing error shapes and no silent truncation. All 38 tools now pass against
   a retained full legacy bundle with a filesystem-enforced read-only server,
   offline query embedding and real nginx whole/panel downloads. The bundle's
-  file inventory, sizes and mtimes are unchanged. Repeat this acceptance on
-  the latest-code bundle before closing the overall served-path gate.
+  file inventory, sizes and mtimes are unchanged. The repeat against the new
+  producer-sidecar gold bundle passes all 38 tools under the read-only mount,
+  including semantic query embedding and real nginx whole-image/panel
+  downloads. The harness selects a strict stored crop rather than assuming the
+  first ROI is smaller than its parent.
   Header-only paper projections now avoid disk reads altogether, rather than
   loading and then discarding per-paper annotations; projected detail reads
   only its requested artifact family. Frozen response shapes are unchanged.
@@ -485,31 +499,39 @@ Each item stays in its own reviewable commit. If the lint migration grows into
 a formatter, import sorter or general modernization pass, or any item changes
 the frozen MCP surface, defer that part rather than expanding v1.3.
 
-- [ ] **Report BHL enrichment outcomes**
+- [x] **Report BHL enrichment outcomes**
   ([#260](https://github.com/caseywdunn/corpus/issues/260)) before cleaning up
   its lint findings. Report the eligible, newly attempted, cached/resumed,
   found, not-found and error populations so an operator can judge whether the
   hours-long optional pass was useful. This is observability over existing
   behavior, not a new enrichment or reconciliation policy.
-- [ ] **Migrate the lint gate from bare pyflakes to Ruff's `F` rules**
+  Per-run outcomes and the separately labeled historical cache inventory are
+  logged and tested, including a true zero-attempt no-op.
+- [x] **Migrate the lint gate from bare pyflakes to Ruff's `F` rules**
   ([#259](https://github.com/caseywdunn/corpus/issues/259)). Keep `F821`
   (undefined names) as an explicit hard assertion, make intentional
   side-effect imports use working, narrow `noqa` annotations, and review every
   remaining finding individually. Do not bulk-delete unused assignments whose
   calls may have side effects, suppress findings wholesale, or enable unrelated
   rule families in this tranche.
-- [ ] **Make the three corpus directories unambiguous in the public docs**
+  Ruff's configured `F` family is clean; the dedicated `F821 --ignore-noqa`
+  assertion makes undefined names unsuppressible without adding formatter or
+  import-sort rules.
+- [x] **Make the three corpus directories unambiguous in the public docs**
   ([#171](https://github.com/caseywdunn/corpus/issues/171)): distinguish the
   project/config root containing the source `instructions.md`, the configured
   build `output_dir`, and the distilled served bundle. State that `corpus run`
   copies the source instructions into the build before bundling.
-- [ ] **Close already-completed housekeeping issues after verification.**
+  README now consistently distinguishes project root, configured build
+  directory and immutable served bundle; the operator walkthrough does too.
+- [x] **Close already-completed housekeeping issues after verification.**
   [#173](https://github.com/caseywdunn/corpus/issues/173)'s existing T0 test
   asserts that the root and packaged `CITATION.cff` files are byte-identical;
   [#262](https://github.com/caseywdunn/corpus/issues/262)'s idempotence and
   in-place taxonomy repair tests are merged. Verify those focused tests on the
   release branch, then close the stale open issues rather than doing more work
   under them.
+  The focused suite passes 17 tests; both issues are closed.
 
 **Acceptance:** BHL enrichment leaves a useful outcome summary; Ruff enforces
 the intended Pyflakes rule family while the dedicated undefined-name guarantee
@@ -518,16 +540,16 @@ remains explicit; source/build/served paths use consistent terms; and #173 and
 
 ### v1.3 release gate
 
-- [ ] Every user-visible caption failure selected from the newest reference
+- [x] Every user-visible caption failure selected from the newest reference
   corpuscle is fixed or returned with explicit uncertainty, and the gold
   caption-binding report has been inspected rather than merely generated.
 - [x] The page report makes the original page, parsed text, chosen caption and
   competing evidence reviewable without manually joining four artifacts.
-- [ ] Clean and incremental builds agree for vector rows and reference
+- [x] Clean and incremental builds agree for vector rows and reference
   mappings on the fixed regression corpuscle.
-- [ ] The served bundle can be mounted read-only; all MCP calls still work,
+- [x] The served bundle can be mounted read-only; all MCP calls still work,
   including remote whole-figure and panel download through the deployed proxy.
-- [ ] The bounded release-hardening tranche above is complete without widening
+- [x] The bounded release-hardening tranche above is complete without widening
   the lint rules or changing the frozen MCP surface.
 - [ ] T0, T1/T2, T3, T3-bare where platform behavior changed, and the relevant
   T5 fidelity scorers pass under CONTRIBUTING.md's release ritual.
