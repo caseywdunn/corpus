@@ -40,6 +40,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Concurrent Grobid jobs get a port of their own (#279).** Grobid's
+  Dropwizard service binds a fixed 8070, and SLURM is free to co-schedule
+  several of those jobs onto one node — at which point every instance after
+  the first dies ~10 s in with a Jetty `BindException`. Submitting six
+  pipelines put five Grobid jobs on two nodes and three failed. Worse than a
+  plain failure: the job has already reached RUNNING, so a chain waiting on
+  job state alone points Stage 1 at that node and is served by *another
+  chain's* server — two documents in a build whose own Grobid had died
+  recorded `grobid.outcome = extracted`.
+
+  The port pair is now derived from the job ID by one shared function in
+  `bouchet_paths.sh`, which `batch_grobid.sh` and `batch_pipeline.sh` both
+  call, so the client cannot drift from the server. **Both Dropwizard
+  connectors have to move**, which is the trap the issue's own suggested fix
+  would have hit: there is an admin connector too, default 8071, and
+  overriding only the application port still dies with the same
+  `BindException`. Verified against `lfoppiano/grobid:0.8.1` — application-only
+  exits 1 on `java.net.BindException: Address already in use`, while with both
+  overridden three instances ran side by side and returned byte-identical TEI
+  (49,156 chars) for the same PDF. `dw.`-prefixed system properties are
+  Dropwizard's own override mechanism, so this needs no change to Grobid or
+  the image.
+
+  Ports use a stride of 2 from 8100 with admin = app + 1, so no two jobs'
+  pairs can overlap, and 8070/8071 stay free for a hand-started Grobid and
+  the local `docker-compose` one. The `ss` preflight and the
+  still-RUNNING check before Stage 1 both stay as backstops. `BOUCHET.md`'s
+  manual path and the script headers no longer teach the fixed port.
+
 - **`get_original_description` says when it cannot answer, and botanical
   authorship parses (#175).** Authority linking matches a taxon's authorship
   against a work by author *and year* — the zoological (ICZN) convention that

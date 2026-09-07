@@ -58,8 +58,12 @@ if [ "$STATE" != "RUNNING" ]; then
 fi
 
 GROBID_NODE=$(squeue -j "$GROBID_JOB" -h -o "%N")
-GROBID_URL="http://${GROBID_NODE}:8070"
-echo "  Grobid running on $GROBID_NODE"
+# Derived from the same job ID the server derived it from, so the two cannot
+# drift (#279). Not 8070: a fixed port is what let SLURM co-schedule two
+# Grobid jobs onto one node and kill all but the first.
+GROBID_PORT=$(corpus_grobid_port "$GROBID_JOB")
+GROBID_URL="http://${GROBID_NODE}:${GROBID_PORT}"
+echo "  Grobid running on $GROBID_NODE (port $GROBID_PORT)"
 
 # ── Step 3: Wait for Grobid HTTP service to be ready ────────────────
 echo "Waiting for Grobid HTTP service at $GROBID_URL ..."
@@ -79,18 +83,18 @@ if [ "$GROBID_READY" -eq 0 ]; then
 fi
 
 # Confirm OUR Grobid job still owns that endpoint, immediately before Stage 1
-# commits to it (#279). Grobid binds a fixed port 8070, so when SLURM puts two
-# Grobid jobs on one node the second dies with a BindException -- after having
-# reached RUNNING, which is all the wait above checks. Stage 1 would then be
-# pointed at a node where *another chain's* server answers, and every document
-# would be extracted against the wrong service while the chain reported
-# success. Verified silently wrong once; never again without a check.
+# commits to it (#279). The per-job port above should make the collision that
+# motivated this impossible, but the check stays: a Grobid job can die after
+# reaching RUNNING for other reasons, and RUNNING is all the wait above checks.
+# Stage 1 would then be pointed at a node where another chain's server answers,
+# or at nothing, and every document would be extracted against the wrong
+# service while the chain reported success. Verified silently wrong once.
 GROBID_STATE_NOW=$(squeue -j "$GROBID_JOB" -h -o "%T" 2>/dev/null)
 if [ "$GROBID_STATE_NOW" != "RUNNING" ]; then
     echo "ERROR: Grobid job $GROBID_JOB is no longer RUNNING (state: ${GROBID_STATE_NOW:-gone})." >&2
-    echo "       It reached RUNNING and then died -- on this cluster that is" >&2
-    echo "       almost always the fixed-port collision in #279: another Grobid" >&2
-    echo "       job was already bound to :8070 on $GROBID_NODE." >&2
+    echo "       It reached RUNNING and then died. Check the port pair it" >&2
+    echo "       derived ($GROBID_PORT) was free on $GROBID_NODE -- two job IDs" >&2
+    echo "       congruent mod 400 still collide (#279)." >&2
     echo "       Refusing to submit Stage 1, which would otherwise be served by" >&2
     echo "       a different chain's Grobid, or by nothing at all." >&2
     echo "       Check: tail $REPO_DIR/logs/slurm-grobid-$GROBID_JOB.err" >&2

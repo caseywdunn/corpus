@@ -424,10 +424,17 @@ To bring one up and point this shell at it — this is what step 7 and a manual
 cd "$BOUCHET_PROJECT/corpus"
 GROBID_JOB=$(sbatch --parsable slurm/batch_grobid.sh)
 until [ "$(squeue -j "$GROBID_JOB" -h -o %T)" = RUNNING ]; do sleep 5; done
-export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):8070"
+
+# The port is derived from the job ID, not fixed at 8070 (#279) — a fixed port
+# is what let SLURM co-schedule two Grobid jobs onto one node and kill all but
+# the first. `corpus_grobid_port` is the same function the job itself used, so
+# deriving it here cannot drift; the job also echoes it as "Grobid URL:".
+source slurm/bouchet_paths.sh
+GROBID_PORT=$(corpus_grobid_port "$GROBID_JOB")
+export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):$GROBID_PORT"
 
 # The job reaching RUNNING only means SLURM started the container; Grobid
-# itself needs another ~30-60 s to load its models and bind :8070. The first
+# itself needs another ~30-60 s to load its models and bind the port. The first
 # few polls failing is expected, not an error — this is the same wait
 # slurm/batch_pipeline.sh does for you.
 for i in $(seq 1 60); do
@@ -444,8 +451,9 @@ within 5 minutes and the log is the place to look —
 `logs/slurm-grobid-$GROBID_JOB.err` for model loading, and
 `$BOUCHET_PROJECT/cache/grobid_logs/$GROBID_JOB/grobid-service.log` for the
 service itself. A healthy startup ends with
-`Started application@...{0.0.0.0:8070}`. Don't `scancel` a job that is merely
-still loading Wapiti models.
+`Started application@...{0.0.0.0:<port>}`, where `<port>` is the pair this job
+derived — the log line names it, and so does the job's own stdout. Don't
+`scancel` a job that is merely still loading Wapiti models.
 
 Read that service log **while the job is alive** — the job deletes its contents
 on exit. The now-empty `cache/grobid_logs/$GROBID_JOB/` directory usually
@@ -820,7 +828,9 @@ For manual submission without the orchestrator (each phase reads `$CORPUS_CONFIG
 
 ```bash
 cd "$BOUCHET_PROJECT/corpus"
-export GROBID_URL=http://<grobid_node>:8070       # extract needs Grobid (step 6)
+# Port from `corpus_grobid_port "$GROBID_JOB"`, or off the Grobid job's stdout
+# ("Grobid URL:") — it is derived per job rather than fixed at 8070 (#279).
+export GROBID_URL=http://<grobid_node>:<port>     # extract needs Grobid (step 6)
 S1=$(sbatch --parsable --array=0-27 slurm/batch_process_corpus.sh)   # extract
 P=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_pass3b.sh)  # vision
 E=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_embed.sh)   # embed
