@@ -106,12 +106,42 @@ volume ratio is not evidence of loss.
    ground-truth tests pass (see [What to run before opening a PR](#what-to-run-before-opening-a-pr)).
 3. Merge to `dev` and push (`git checkout dev && git merge issue-NNN && git push`)
 4. Delete the issue branch
-5. When ready to release: merge `dev` to `main`, tag the release, create
+5. **Close the issue once the fix is on `dev`** — not at release. See below.
+6. When ready to release: merge `dev` to `main`, tag the release, create
    a `vN` branch from the tag
 
 Always merge and push completed issue branches to `dev` before starting the
 next issue. This keeps `dev` up to date and avoids dependency tangles when
 later issue branches need earlier work.
+
+### Closing issues
+
+**An issue closes when its fix lands on `dev`, not when a release ships.**
+Close it with a comment naming the commit and the evidence — what was
+measured, not just what was changed — so the close is auditable later.
+
+Holding fixed issues open until release was the older habit and it costs more
+than it looks. The tracker stops describing the state of `dev`, so a fixed
+defect reads as outstanding to anyone deciding what to work on; release day
+turns into a bulk-close of a dozen issues nobody re-verifies; and the
+CHANGELOG ends up claiming fixes the tracker still calls open, which is how
+[#264](https://github.com/caseywdunn/corpus/issues/264),
+[#267](https://github.com/caseywdunn/corpus/issues/267),
+[#268](https://github.com/caseywdunn/corpus/issues/268) and
+[#271](https://github.com/caseywdunn/corpus/issues/271) all sat open in the
+v1.3 cycle with their fixes shipped and tested on `dev`.
+
+Two things that are *not* reasons to keep an issue open:
+
+- **The release hasn't happened yet.** `dev` is the branch the tracker
+  describes.
+- **A related, larger problem remains.** Close what was fixed and open or
+  reference the issue that carries the rest. #271 was closed on its own
+  evidence while #174 continued separately.
+
+Do keep an issue open when the fix is *partial* — say so explicitly in a
+comment, as [#279](https://github.com/caseywdunn/corpus/issues/279) does,
+rather than closing on a half-fix.
 
 ### Patching a released version
 
