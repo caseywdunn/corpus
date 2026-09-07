@@ -143,28 +143,47 @@ only corroborated. Measure the population before writing the fix.
 
 ### 2. Operational hazards — each has already cost hours
 
-- [ ] **Make a GPU allocation fail instead of degrading to CPU**
-  ([#270](https://github.com/caseywdunn/corpus/issues/270)). PR #272 pinned
-  the card types as a workaround; a torch bump that drops sm_86 reintroduces
-  the silent fallback. This killed the 2026-08-31 build and warned again on
-  the 2026-09-06 one.
-- [ ] **Let concurrent builds share a cluster**
-  ([#279](https://github.com/caseywdunn/corpus/issues/279)). Grobid binds a
-  fixed port 8070, so SLURM co-scheduling kills all but the first — three of
-  five died on 2026-09-06. The silent-wrong-server half is fixed; the
-  collision is not.
-- [ ] **Bound build memory**
-  ([#182](https://github.com/caseywdunn/corpus/issues/182)). `embed`'s
-  `batch_size` is unreachable, docling options are unset, and the OOM blast
-  radius is the whole host.
+- [x] **Make a GPU allocation fail instead of degrading to CPU**
+  ([#270](https://github.com/caseywdunn/corpus/issues/270)).
+  `compute.accelerator: require` and `corpus run --require-gpu`, resolved
+  before any step starts. The SLURM GPU scripts pass it; the card-type pin
+  stays, because this makes the failure loud rather than making an
+  unsupported card work. Tested against real unusable hardware — this
+  workstation's GTX 1080 is a card the pinned torch ships no kernels for.
+- [x] **Let concurrent builds share a cluster**
+  ([#279](https://github.com/caseywdunn/corpus/issues/279)). Per-job port
+  pair derived from the job ID by one shared function, so client and server
+  cannot drift. **Both Dropwizard connectors have to move** — there is an
+  admin connector at 8071 as well, and overriding only the application port
+  still dies, which is the trap the issue's own suggested fix would have hit.
+  Verified against the real Grobid image: three instances side by side,
+  byte-identical TEI from the alternate port.
+- [x] **Bound build memory**
+  ([#182](https://github.com/caseywdunn/corpus/issues/182)). A `docling`
+  block plus `compute.num_threads` bound extraction, which is where the
+  memory actually goes; `embeddings.batch_size` is reachable at last; and
+  INSTALL.md documents the cgroup cap, which is the outer bound. Turned up a
+  separate silent wrong on the way: `pipeline.embed` took no `--config` at
+  all, so `compute.accelerator` was honoured by Stage 1 and ignored by
+  Stage 2.
 - [ ] **Load the local VLM in half precision on MPS**
   ([#258](https://github.com/caseywdunn/corpus/issues/258)) — float32 needs
-  ~30 GB for a 7B model, which shuts Apple Silicon out entirely.
-- [ ] **Surface why a re-run is doing more work than expected**
-  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Promoted from
-  Unscheduled on evidence: #281 was exactly this — a phase re-extracting the
-  corpus with nothing saying so — and it took hours of log archaeology to
-  find. This is the tool that would have reported it in one command.
+  ~30 GB for a 7B model, which shuts Apple Silicon out entirely. **Blocked on
+  hardware, deliberately not attempted.** This document already records that
+  a mocked dtype-selection test does not establish that half precision is
+  numerically and operationally sound on MPS, and there is no Apple Silicon
+  in reach. Needs a real 7B run on a real M-series machine.
+- [x] **Surface why a re-run is doing more work than expected**
+  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Reassessed as this
+  document asked, and v1.3 had already built the computation — what remained
+  was reading it. The renderer printed one line per affected document, so 699
+  lines on the Viburnum corpuscle. Rolled up by reason, the case that matters
+  is one line: `docling_extraction: pipeline_version — all of 699 documents`,
+  which is the sentence #281 needed. Also attached to `corpus run --dry-run`.
+
+**Section status:** four of five done. #258 is hardware-blocked, not
+deferred — see its note. Two of the four fixes turned up a defect the issue
+did not name, which is now the expected outcome rather than a surprise.
 
 ### 3. Cheap, and better done at a version boundary
 
