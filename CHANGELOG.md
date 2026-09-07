@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A progress heartbeat during long per-document stages (#170).** The run log
+  went silent for minutes during docling layout analysis — measured 3m20s on a
+  27-page scan, far longer on the 314-page Totton monograph — and the last line
+  before the gap is a docling banner, so a reader tailing `run.log` could not
+  tell working from hung. More pressing since v1.0 re-OCRs scans rather than
+  trusting their text layers: 31 of 35 papers in the smoke corpus now OCR,
+  where 4 did before.
+
+  Every stage now emits `<stage> still running after 3m20s (314 pages)` on an
+  interval, carrying the paper prefix so a line stays attributable in an
+  interleaved multi-paper stream, and the page count because that is the
+  answer to "why is this slow". It lives in `_stage`, the one place every
+  stage passes through, so OCR and the vision pass are covered too rather
+  than only docling. New `logging.heartbeat_seconds`, default 60, `0` to
+  disable; the first beat lands one interval in, so no ordinary stage emits
+  one. Verified on a real extract run, where it filled a previously silent
+  33-second gap.
+
 - **Build memory is boundable (#182).** corpus exposed no way to bound the
   memory a build uses — not in `config.yaml`, not on any CLI, not via an
   environment variable, and `config_schema.py` had no memory, worker or

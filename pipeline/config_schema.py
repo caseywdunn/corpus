@@ -270,6 +270,25 @@ class ComputeConfig(BaseModel):
     num_threads: Optional[int] = Field(default=None, ge=1, le=256)
 
 
+class LoggingConfig(BaseModel):
+    """Run-log behaviour (#170).
+
+    During docling layout analysis the run log goes silent for minutes —
+    measured 3m20s on a 27-page scan, far longer on the 314-page Totton
+    monograph — and the last line before the gap is a docling banner, so
+    a reader tailing `run.log` cannot tell working from hung. More
+    pressing since v1.0 re-OCRs scans rather than trusting their text
+    layers: 31 of 35 papers in the smoke corpus now OCR where 4 did.
+
+    ``0`` disables the heartbeat. The first beat lands one interval in,
+    so a fast stage stays silent at any setting.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    heartbeat_seconds: float = Field(default=60.0, ge=0.0, le=3600.0)
+
+
 class DoclingConfig(BaseModel):
     """Bounds on what docling's extraction holds in memory at once (#182).
 
@@ -419,6 +438,7 @@ class CorpuscleConfig(BaseModel):
     ocr: OcrConfig = Field(default_factory=OcrConfig)
     compute: ComputeConfig = Field(default_factory=ComputeConfig)
     docling: DoclingConfig = Field(default_factory=DoclingConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
     embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     stage_timeouts: StageTimeoutsConfig = Field(default_factory=StageTimeoutsConfig)

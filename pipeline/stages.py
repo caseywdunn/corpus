@@ -27,6 +27,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -728,6 +729,56 @@ _STAGE_DEPENDENTS = {
 }
 
 
+# Default seconds between "still running" lines during a long stage
+# (#170). Chosen against the measured silences: docling goes quiet for
+# 3m20s on a 27-page scan and far longer on the 314-page Totton
+# monograph, and the last line before the gap is a docling banner — so a
+# reader tailing run.log cannot tell working from hung. 60 s is short
+# enough to answer that and long enough that no ordinary stage emits one:
+# the first beat lands at t=60s, so a fast stage stays silent.
+_HEARTBEAT_SECONDS = 60.0
+
+
+@contextmanager
+def _heartbeat(label: str, logger_: Any, *, interval: Optional[float] = None,
+               detail: str = ""):
+    """Log ``label still running`` every ``interval`` seconds.
+
+    A daemon thread, so an interpreter exit is never held up by it, and
+    the event-wait means a stage that finishes early stops it at once
+    rather than after a sleep.
+
+    ``interval <= 0`` disables it, which is what a test wants and what an
+    operator gets from ``logging.heartbeat_seconds: 0``.
+    """
+    if interval is None:
+        interval = float(
+            (CONFIG.get("logging", {}) or {}).get(
+                "heartbeat_seconds", _HEARTBEAT_SECONDS)
+        )
+    if interval <= 0:
+        yield
+        return
+    stop = threading.Event()
+    t0 = time.monotonic()
+
+    def beat() -> None:
+        while not stop.wait(interval):
+            elapsed = time.monotonic() - t0
+            mins, secs = divmod(max(1, round(elapsed)), 60)
+            since = f"{mins}m{secs:02d}s" if mins else f"{secs}s"
+            logger_.info("%s still running after %s%s", label, since, detail)
+
+    thread = threading.Thread(target=beat, name=f"heartbeat-{label}",
+                              daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=1.0)
+
+
 @contextmanager
 def _stage(
     processing_summary: Dict[str, Any],
@@ -735,10 +786,18 @@ def _stage(
     *,
     hash_dir: Optional[Path] = None,
     input_fingerprint: Optional[Dict[str, Any]] = None,
+    logger_: Optional[Any] = None,
+    heartbeat_detail: str = "",
 ):
     """Record per-stage timing into ``stage_timings[]`` and, on exception,
     append a structured failure into ``stage_failures[]``. Re-raises
     so the pipeline-level try/except still catches.
+
+    Also emits a periodic "still running" line while the stage is in
+    flight (#170), because this is the one place every stage passes
+    through. ``logger_`` should be the per-paper adapter so the line
+    carries the paper it refers to; without one the beat still fires on
+    this module's logger.
 
     On successful exit, when ``hash_dir`` is provided, the stage's
     completion is persisted to ``pipeline_state.json`` (with
@@ -766,7 +825,8 @@ def _stage(
                 state["stages"].pop(stage, None)
             _save_pipeline_state(hash_dir, state)
     try:
-        yield
+        with _heartbeat(name, logger_ or logger, detail=heartbeat_detail):
+            yield
     except BaseException as e:
         err = e
         raise

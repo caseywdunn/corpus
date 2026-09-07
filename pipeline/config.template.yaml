@@ -286,6 +286,14 @@ ocr:
 #   # host. `corpus run --only embed --batch-size N` overrides it per run.
 #   batch_size: 16
 
+# Run-log behaviour. During docling layout analysis and OCR the log goes
+# silent for minutes — 3m20s on a 27-page scan, far longer on a 300-page
+# monograph — so a periodic line says the stage is still working rather
+# than hung (#170). The first beat lands one interval in, so a fast stage
+# stays silent. 0 disables it.
+# logging:
+#   heartbeat_seconds: 60
+
 chunking:
   max_tokens: 8191
 
