@@ -69,6 +69,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The served-bundle absolute-path audit no longer flags extracted content
+  (#183).** It read PDF glyph names and OCR garbage as filesystem paths and
+  raised: on a 20,137-paper corpus that killed `corpus run --only bundle`
+  after ~3 hours and ~370,000 files copied, with no `bundle_manifest.json`
+  written, leaving `_serve/` complete but unservable. Thirteen junk strings in
+  three documents blocked the whole corpuscle, and all thirteen were in
+  content fields — 9 in `chunks[].headings[0]`, 1 in `chunks[].text`, 1 in
+  `references[].title`.
+
+  No better regex fixes this: `/Peswme/` and `/scratch/` are the same shape,
+  and one flagged value was `/Summary/`, a correct section heading OCR wrapped
+  in slashes. So content-bearing fields are exempt from the shape rule and
+  checked only against the build's own root, which can be matched exactly. A
+  build path found inside content is warned about — extraction should not
+  inject one — but never fatal, since it cannot be scrubbed.
+
+  The shape rule stays for every other field, which is the release gate: it
+  catches a leak in a field no scrubber knows about yet. The exemption is a
+  denylist of content keys rather than an allowlist of path keys on purpose,
+  so a field added later defaults to being checked. Measured on the
+  1,775-document reference bundle: 6,210 strings begin with `/`, all glyph
+  garbage, and four match the shape rule — escaping only because they happen
+  to contain a space, so one whitespace-free equivalent would have failed that
+  build too.
+
+  The error also named the wrong subsystem. It now reports a JSON pointer
+  (`documents/<hash>/chunks.json: chunks[3].headings[0]`) and says which of
+  the two remedies applies, instead of sending an operator to
+  `_scrub_summary` for a chunk's body text.
+
+- **No vision-downgrade warning on phases that never run vision (#263).** The
+  #65 capability check ran before `_build_orchestrator_argv` looked at
+  `--only`, so `corpus run --only post` — which the standard HPC chain runs on
+  a CPU node for every build — warned that the vision panel pass had been
+  downgraded to the OCR floor. Nothing had been: Pass 3b had completed on an
+  H200 an hour earlier, and the corpuscle carried 3,465 ROIs across 288
+  documents, 100% vision-sourced. The check now runs only for `extract`,
+  `vision` and full runs, which are the phases that consume
+  `--figure-panels`. The warning is genuinely serious on an `--only extract`
+  re-run, where accepting the OCR floor silently reverts ROIs Pass 3b already
+  produced — printing it on a phase that cannot do harm trains the operator to
+  skim past the one that can.
+
 - **`corpus status` and `corpus run --dry-run` say why a re-run will do work
   (#80).** The drift computation already existed from v1.3's fingerprint work
   — `configuration_drift` and `source_input_drift` derive, from the same

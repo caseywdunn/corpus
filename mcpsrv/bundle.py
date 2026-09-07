@@ -534,10 +534,69 @@ def _walk_strings(node) -> Iterable[str]:
             yield from _walk_strings(v)
 
 
-def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
+# Keys whose values are text extracted from the document — a chunk's body,
+# a heading, a caption, a reference title, a matched taxon name. These
+# cannot be scrubbed, because they *are* the content, and no shape-based
+# rule can tell a path-looking one from a real filesystem root: `/Peswme/`
+# and `/scratch/` are the same shape (#183).
+#
+# A denylist rather than an allowlist of path-bearing keys, deliberately.
+# The audit's job is catching a path leak nobody anticipated, so a field
+# added later must default to *being checked*. Getting that backwards
+# would trade a loud false positive for a silent miss, which is the wrong
+# direction for a release gate.
+_CONTENT_KEYS = frozenset({
+    "text", "headings", "caption_text", "title", "raw", "paragraphs",
+    "matched_text", "surface", "canonical", "accepted_name", "authorship",
+    "authors", "journal", "description", "label", "figure_number",
+    "abstract", "matched_name", "section", "excerpt", "snippet",
+})
+
+
+def _walk_keyed_strings(node, key=None, pointer="") -> Iterable[Tuple[str, str, str]]:
+    """Yield ``(pointer, key, value)`` for every string leaf.
+
+    The pointer is what makes the audit's report actionable. All 13
+    offending values in the 20k-document build that motivated #183 were
+    in content fields — 9 in `chunks[].headings[0]`, 1 in `chunks[].text`,
+    1 in `references[].title` — while the error told the operator to fix
+    `_scrub_summary` / `_scrub_figures`, sending them into the wrong
+    subsystem entirely.
+    """
+    if isinstance(node, str):
+        yield pointer, key or "", node
+    elif isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk_keyed_strings(v, k, f"{pointer}.{k}" if pointer else k)
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk_keyed_strings(v, key, f"{pointer}[{i}]")
+
+
+def _audit_no_absolute_paths(
+    serve_dir: Path, build_roots: Optional[List[Path]] = None,
+) -> List[Tuple[str, str]]:
     """Walk every JSON in the served bundle and flag string values that
     *are* absolute filesystem paths. Returns a list of
-    ``(relative_path, offending_value)`` — empty when the bundle is clean.
+    ``(where, offending_value)`` — empty when the bundle is clean, where
+    ``where`` is ``<file>: <json pointer>``.
+
+    Extracted-content fields are exempt from the shape rule and checked
+    only against ``build_roots`` (#183). No shape-based rule can separate
+    OCR noise from a real filesystem root — `/Peswme/` and `/scratch/`
+    are the same shape, and one flagged value was `/Summary/`, a correct
+    section heading that OCR wrapped in slashes. On a 20,137-paper corpus
+    thirteen such strings in three documents failed the bundle after ~3 h
+    and ~370,000 files copied, leaving `_serve/` complete but unservable
+    with no manifest.
+
+    The shape rule is kept for every other field, because that is the
+    release gate: it is what catches a path leak in a field no scrubber
+    knows about yet. Measured on the 1,775-document reference bundle,
+    6,210 strings begin with `/` — all PDF glyph-name garbage — and four
+    of them match the shape rule, escaping only because they happen to
+    contain a space. One whitespace-free equivalent would have failed
+    that build too.
 
     This is the §10 "no absolute paths in any served JSON" audit. Run
     after scrubbing; raises in the caller on non-empty result. Body-text
@@ -547,15 +606,39 @@ def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
     the surrounding body text isn't itself a path.
     """
     offenders: List[Tuple[str, str]] = []
+    content_hits: List[Tuple[str, str]] = []
+    # The build's own root is the one thing that can be matched exactly, so
+    # it is the only rule applied to content fields (#183). A build path
+    # inside a chunk's body text is worth reporting — extraction should not
+    # inject one — but it cannot be scrubbed, so it must not fail a bundle
+    # after the copy has already run.
+    roots = [str(Path(p).resolve()) for p in (build_roots or []) if p]
     for jp in sorted(serve_dir.rglob("*.json")):
         try:
             data = json.loads(jp.read_text())
         except (OSError, ValueError) as exc:
             raise ValueError(f"Cannot audit served JSON {jp.relative_to(serve_dir)}: {exc}") from exc
-        for s in _walk_strings(data):
-            if ' ' not in s and _ABS_PATH_RE.match(s):
-                offenders.append((str(jp.relative_to(serve_dir)), s[:120]))
-                break  # one offender per file is enough to flag it
+        rel = str(jp.relative_to(serve_dir))
+        flagged_file = False
+        for pointer, key, value in _walk_keyed_strings(data):
+            if any(root in value for root in roots):
+                content_hits.append((f"{rel}: {pointer}", value[:120]))
+                continue
+            if key in _CONTENT_KEYS:
+                continue
+            if not flagged_file and ' ' not in value and _ABS_PATH_RE.match(value):
+                offenders.append((f"{rel}: {pointer}", value[:120]))
+                flagged_file = True  # one offender per file is enough
+    for where, value in content_hits[:10]:
+        logger.warning(
+            "Build path inside extracted content (not scrubbable, not "
+            "fatal): %s = …%s…", where, value,
+        )
+    if len(content_hits) > 10:
+        logger.warning(
+            "  ... and %d more content field(s) containing a build path.",
+            len(content_hits) - 10,
+        )
     return offenders
 
 
@@ -762,16 +845,22 @@ def _populate_bundle(output_dir, serve_dir, version, include_pdfs, dry_run, mode
             for fname in fingerprint_files:
                 if _scrub_input_fingerprint_path(hash_dir / fname):
                     n_scrubbed += 1
-        offenders = _audit_no_absolute_paths(serve_dir)
+        offenders = _audit_no_absolute_paths(
+            serve_dir, build_roots=[output_dir, serve_dir],
+        )
         if offenders:
             logger.error("Absolute paths leaked into served bundle:")
-            for rel, snippet in offenders[:10]:
-                logger.error("  %s: …%s…", rel, snippet)
+            for where, snippet in offenders[:10]:
+                logger.error("  %s = …%s…", where, snippet)
             raise RuntimeError(
                 f"Absolute-path audit failed: {len(offenders)} file(s) "
-                "still contain absolute paths. Update _scrub_summary / "
-                "_scrub_figures (or add a new scrubber for the affected "
-                "JSON) before re-running."
+                "still contain absolute paths, in the fields named above. "
+                "Each names a JSON pointer: if it is a path-bearing field "
+                "(file_path, filename, files_created, …) a scrubber is "
+                "missing — see _scrub_summary / _scrub_figures. If it is "
+                "extracted content, add its key to _CONTENT_KEYS instead; "
+                "content cannot be scrubbed and no shape rule separates "
+                "OCR noise from a real root (#183)."
             )
         logger.info("Path scrub: rewrote %d files; audit clean.", n_scrubbed)
 

@@ -440,7 +440,18 @@ def _build_orchestrator_argv(
     # Capability detection (#65) downgrades an unusable vision backend to
     # the OCR floor with a one-line nudge rather than hard-failing Pass 3b
     # deep into the run.
-    if panel_mode in ("vision-local", "vision-claude"):
+    #
+    # Only for phases that consume --figure-panels, which is `extract` and
+    # `vision` (#263). `post`, `embed` and `bundle` never run the vision
+    # pass, so on those the check can neither help nor harm — and in the
+    # standard HPC chain finalize always runs `--only post` on a CPU node,
+    # so the warning fired on *every* build. That trains an operator to
+    # skim past the one case where the same sentence is serious: on an
+    # `--only extract` re-run, accepting the OCR floor silently reverts
+    # vision ROIs Pass 3b already produced.
+    only_phase = getattr(args, "only", None)
+    phase_uses_panels = only_phase in (None, "extract", "vision")
+    if phase_uses_panels and panel_mode in ("vision-local", "vision-claude"):
         skip_reason = _vision_skip_reason(panel_mode)
         if skip_reason is not None:
             print_status(

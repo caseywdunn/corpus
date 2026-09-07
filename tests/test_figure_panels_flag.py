@@ -136,3 +136,56 @@ def test_main_derives_legacy_pair(mode, expect_caf, expect_backend):
     content_aware, backend = _panels_to_legacy(mode)
     assert content_aware is expect_caf
     assert backend == expect_backend
+
+
+# --- #263: the capability check only runs on phases that use it ---------
+#
+# In the standard HPC chain the finalize job runs `corpus run --only post`
+# on a CPU node, so the "vision panel pass downgraded to the OCR floor"
+# warning fired on every build — while Pass 3b had already completed on a
+# GPU an hour earlier and its ROIs were intact (3,465 ROIs across 288
+# documents, 100% `source: vision:qwen2.5-vl-7b-instruct`, zero OCR-floor).
+#
+# The cost is not the noise. The same sentence is genuinely serious on an
+# `--only extract` re-run, where accepting the OCR floor silently reverts
+# vision ROIs that already exist. Printing it on a phase that cannot do
+# any harm trains the operator to skim past the one case that can.
+
+
+@pytest.mark.parametrize("phase", ["post", "embed", "bundle"])
+def test_no_vision_warning_on_a_phase_that_never_runs_vision(
+    tmp_path, monkeypatch, capsys, phase,
+):
+    monkeypatch.setattr(cli, "_vision_skip_reason",
+                        lambda _mode: "no CUDA/MPS detected on this host")
+    argv = _argv(tmp_path, "vision-local", only=phase)
+    out = capsys.readouterr().out
+    assert "downgraded to the OCR floor" not in out
+    # The mode is forwarded untouched, so nothing downstream sees `ocr`
+    # either — the phase simply ignores it.
+    assert "vision-local" in argv
+
+
+@pytest.mark.parametrize("phase", ["extract", "vision", None])
+def test_the_warning_survives_where_it_matters(
+    tmp_path, monkeypatch, capsys, phase,
+):
+    """#65's behaviour, preserved: these phases do run the vision pass."""
+    monkeypatch.setattr(cli, "_vision_skip_reason",
+                        lambda _mode: "no CUDA/MPS detected on this host")
+    argv = _argv(tmp_path, "vision-local", only=phase)
+    assert "downgraded to the OCR floor" in capsys.readouterr().out
+    assert "ocr" in argv and "vision-local" not in argv
+
+
+@pytest.mark.parametrize("phase", ["post", "embed", "bundle"])
+def test_a_usable_backend_is_not_probed_on_those_phases(
+    tmp_path, monkeypatch, phase,
+):
+    """Not just the warning — the capability probe itself is skipped, so a
+    CPU finalize node does not pay for a CUDA/MPS detection it cannot use."""
+    def should_not_run(_mode):
+        raise AssertionError("capability probe ran on a non-vision phase")
+
+    monkeypatch.setattr(cli, "_vision_skip_reason", should_not_run)
+    _argv(tmp_path, "vision-local", only=phase)
