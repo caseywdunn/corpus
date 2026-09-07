@@ -244,6 +244,63 @@ same image: `singularity build grobid.sif docker://lfoppiano/grobid:0.8.1`.
 On a cluster it runs as a job, so `grobid.url` must name the allocated node
 — see [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md) for the full recipe.
 
+## Bounding what a build uses
+
+Extraction is where a build's memory goes, not embedding. On a 12-core /
+32 GB CPU-only host, seven concurrent `corpus run --only extract` workers put
+three docling processes in flight at once — one of them on a 314-page scan —
+and the build died mid-stage with no error in any worker log; `/proc/vmstat`
+recorded `oom_kill 2`. Embedding the same corpus peaked at 3.71 GB resident,
+so it was not the culprit. (The much larger `VmPeak` you may see for the embed
+step is torch's reserved address space, not resident memory.)
+
+Two levers, and the first matters more.
+
+**Cap the build from outside, with a cgroup.** This needs no corpus settings
+and is the only thing that bounds *everything* the build spawns:
+
+```bash
+systemd-run --user --scope     -p MemoryHigh=20G -p MemoryMax=24G -p MemorySwapMax=1G     corpus run
+```
+
+`MemoryHigh` throttles by reclaim; only `MemoryMax` kills. So the build is
+squeezed first, and if something must die it dies inside its own cgroup
+instead of the kernel picking a victim — which without a cap it does, and
+need not choose one of ours. On the host above an uncapped burst took out a
+`tmux` server hosting unrelated work along with 40 minutes of OCR.
+
+Requires cgroup v2 with `memory` delegated to the user slice; check with
+`cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/cgroup.controllers`. On a
+SLURM cluster the scheduler already does this — `--mem` is enforced — so the
+question there is only what to request per array task.
+
+**Tune the bounds in `config.yaml`** when the cap alone is too blunt. All of
+these are unset by default, which leaves docling's own defaults in place:
+
+```yaml
+compute:
+  num_threads: 4          # docling's accelerator threads (its default is 4,
+                          # and it is independent of OMP_NUM_THREADS)
+docling:
+  queue_max_size: 16      # pages buffered in flight; docling defaults to 100,
+                          # so on a long scan most of the document can be
+                          # resident at once
+  layout_batch_size: 2
+  ocr_batch_size: 2
+  table_batch_size: 2
+  document_timeout: 3600  # seconds, inside docling — distinct from
+                          # stage_timeouts.docling, which the pipeline
+                          # enforces from outside
+embeddings:
+  batch_size: 16          # texts per encoder batch; lower this for a GPU with
+                          # less memory than the host
+```
+
+`corpus run --only embed --batch-size N` overrides the last one for a single
+run. Concurrency is still the operator's to choose, via `--batch-index` /
+`--batch-size` on the extract phase: on the host above, dropping from seven
+workers to four removed the symptom on its own.
+
 ## Pip-only fallback
 
 If you can't use conda, you'll need to install the system tools yourself (`brew install ghostscript tesseract pngquant jbig2enc pandoc` on macOS, or `apt-get install` the equivalents on Debian/Ubuntu) and then:

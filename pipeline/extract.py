@@ -77,12 +77,43 @@ def extract_docling_content(
         # fails with "no kernel image is available for execution on the
         # device" rather than falling back, so a machine that built a
         # corpuscle fine last month stops working because a driver appeared.
-        device = resolve_device(
-            CONFIG.get("compute", {}).get("accelerator", "auto"))
+        compute_cfg = CONFIG.get("compute", {}) or {}
+        device = resolve_device(compute_cfg.get("accelerator", "auto"))
         logger.info("docling accelerator=%s", device)
+        # #182 — bounds on what docling holds in memory at once. Every one
+        # of these was previously left at docling's default, so a build's
+        # footprint could not be bounded from configuration at all: on a
+        # 12-core / 32 GB CPU-only host, three concurrent docling processes
+        # (one on a 314-page scan) took the box into `oom_kill 2` with no
+        # error in any worker log.
+        #
+        # Omitted keys are not passed at all, rather than passed as
+        # docling's documented default, so this cannot drift if docling
+        # changes one — and a build that sets nothing behaves exactly as
+        # it did before these existed.
+        accel_kwargs = {"device": AcceleratorDevice(device)}
+        if compute_cfg.get("num_threads") is not None:
+            accel_kwargs["num_threads"] = int(compute_cfg["num_threads"])
+        docling_cfg = CONFIG.get("docling", {}) or {}
+        bounds = {
+            key: value for key, value in (
+                ("queue_max_size", docling_cfg.get("queue_max_size")),
+                ("layout_batch_size", docling_cfg.get("layout_batch_size")),
+                ("ocr_batch_size", docling_cfg.get("ocr_batch_size")),
+                ("table_batch_size", docling_cfg.get("table_batch_size")),
+                ("document_timeout", docling_cfg.get("document_timeout")),
+            ) if value is not None
+        }
+        if bounds or "num_threads" in accel_kwargs:
+            logger.info(
+                "docling memory bounds: %s",
+                ", ".join(f"{k}={v}" for k, v in sorted(
+                    {**bounds, **{k: v for k, v in accel_kwargs.items()
+                                  if k == "num_threads"}}.items())),
+            )
         pipeline_options = PdfPipelineOptions(
-            accelerator_options=AcceleratorOptions(
-                device=AcceleratorDevice(device)),
+            accelerator_options=AcceleratorOptions(**accel_kwargs),
+            **bounds,
             do_ocr=False,
             do_table_structure=True,
             generate_picture_images=True,

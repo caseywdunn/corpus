@@ -247,6 +247,45 @@ ocr:
   # derived cap is honoured verbatim (#209).
   # jobs: 8
 
+# Which accelerator the ML stages run on, and how much machine to give
+# docling. All of these are commented out because their absence means
+# "leave the default alone" — for `docling` and `embeddings` that is
+# docling's / the backend's own default, so a build that sets nothing here
+# behaves exactly as it always has. See INSTALL.md "Bounding what a build
+# uses"; a cgroup cap is the outer bound and matters more than any of these.
+# compute:
+#   # auto | cpu | cuda | mps | require. `auto` checks that the visible GPU's
+#   # compute capability is one this torch build ships kernels for, which
+#   # plain availability does not, and falls back to CPU when it is not.
+#   # `require` resolves the same way but *fails* instead of falling back —
+#   # use it inside a GPU allocation, where CPU is not a degraded success but
+#   # a job that will be cancelled at 0% utilization (#270). Note pinning
+#   # `cuda` disables the capability check rather than enforcing it.
+#   accelerator: auto
+#   # docling's accelerator threads. Its default is 4, and it is independent
+#   # of OMP_NUM_THREADS.
+#   num_threads: 4
+#
+# Bounds on what docling holds in memory at once (#182). Extraction is where
+# a build's memory goes: three concurrent docling processes, one on a
+# 314-page scan, took a 32 GB host into the OOM killer with no error in any
+# worker log.
+# docling:
+#   # Pages buffered in flight. docling defaults to 100, so on a long scan
+#   # most of the document can be resident at once.
+#   queue_max_size: 16
+#   layout_batch_size: 2
+#   ocr_batch_size: 2
+#   table_batch_size: 2
+#   # Seconds, enforced by docling itself. Distinct from
+#   # stage_timeouts.docling below, which the pipeline enforces from outside.
+#   document_timeout: 3600
+#
+# embeddings:
+#   # Texts per encoder batch. Lower it for a GPU with less memory than the
+#   # host. `corpus run --only embed --batch-size N` overrides it per run.
+#   batch_size: 16
+
 chunking:
   max_tokens: 8191
 

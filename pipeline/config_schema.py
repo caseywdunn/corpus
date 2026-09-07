@@ -263,6 +263,72 @@ class ComputeConfig(BaseModel):
         description="Device for docling layout/table models and embeddings. "
                     "'require' fails rather than falling back to CPU.",
     )
+    # docling's AcceleratorOptions.num_threads, which is independent of
+    # OMP_NUM_THREADS and defaults to 4. None leaves docling's default
+    # alone. Lives here rather than under `docling` because it configures
+    # the accelerator, which is what this block is (#182).
+    num_threads: Optional[int] = Field(default=None, ge=1, le=256)
+
+
+class DoclingConfig(BaseModel):
+    """Bounds on what docling's extraction holds in memory at once (#182).
+
+    Extraction is where a build's memory actually goes, and every one of
+    these was left at docling's default — so there was no way to bound a
+    build's footprint from configuration at all. On a 12-core / 32 GB
+    CPU-only host, 7 concurrent `--only extract` workers put three docling
+    processes in flight at once, one of them on a 314-page scan, and the
+    build died mid-stage with `oom_kill 2` in /proc/vmstat and no error in
+    any worker log. Dropping to 4 workers removed the symptom, but nothing
+    in the product said so.
+
+    ``None`` means "leave docling's own default alone", which is the
+    behaviour every build had before these existed. Setting them is opt-in
+    tuning, not a new default: picking numbers here for everyone would be
+    guessing at hardware we cannot see.
+
+    A cgroup cap is still the outer bound and belongs alongside these
+    rather than instead of them — see INSTALL.md. `MemoryHigh` throttles
+    by reclaim and only `MemoryMax` kills, so a capped build is squeezed
+    first and any kill lands inside its own cgroup instead of on a
+    bystander process.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Pages buffered in flight. docling's default is 100, which on a
+    # 314-page scan means most of the document can be resident at once.
+    queue_max_size: Optional[int] = Field(default=None, ge=1, le=1000)
+    layout_batch_size: Optional[int] = Field(default=None, ge=1, le=64)
+    ocr_batch_size: Optional[int] = Field(default=None, ge=1, le=64)
+    table_batch_size: Optional[int] = Field(default=None, ge=1, le=64)
+    # Per-document wall clock inside docling. Distinct from
+    # `stage_timeouts.docling`, which the pipeline enforces from outside:
+    # this one lets docling stop itself and return what it has.
+    document_timeout: Optional[float] = Field(default=None, gt=0)
+
+
+class EmbeddingsConfig(BaseModel):
+    """Embedding batch size (#182).
+
+    `LocalBackend` has taken a `batch_size` since it was written and its
+    docstring described it as the tuning lever for memory, but nothing
+    could reach it: `get_embedder()` forwards `**kwargs` and its only
+    caller built those from `--device` alone. So the documented knob was
+    unreachable from config, CLI and environment alike.
+
+    Worth knowing before reaching for it: on the 314-page monograph
+    (1,009 chunks) embedding peaked at 3.71 GB RSS, so it was *not* the
+    cause of the OOM that motivated this — the 11.7 GB `VmPeak` is
+    torch's reserved address space, not resident memory. Extraction is
+    where the pressure was. This exists because an unreachable documented
+    knob is its own defect, and because a GPU with less memory than the
+    host will want it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_size: Optional[int] = Field(default=None, ge=1, le=1024)
 
 
 class ChunkingConfig(BaseModel):
@@ -352,6 +418,8 @@ class CorpuscleConfig(BaseModel):
     # System-wide tuning blocks (carried from v0.2 _DEFAULT_CONFIG).
     ocr: OcrConfig = Field(default_factory=OcrConfig)
     compute: ComputeConfig = Field(default_factory=ComputeConfig)
+    docling: DoclingConfig = Field(default_factory=DoclingConfig)
+    embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     stage_timeouts: StageTimeoutsConfig = Field(default_factory=StageTimeoutsConfig)
     huge_document: HugeDocumentConfig = Field(default_factory=HugeDocumentConfig)

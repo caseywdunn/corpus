@@ -158,6 +158,12 @@ class Step:
                 cmd.append("--resume")
             if args.dry_run:
                 cmd.append("--dry-run")
+            if args.config:
+                # #182 — pipeline.embed reads `embeddings.batch_size`. It
+                # took no --config at all before, so the one documented
+                # memory lever was unreachable from configuration even
+                # after being plumbed everywhere else.
+                cmd += ["--config", str(args.config)]
         elif self.name == "build_biblio":
             cmd += [str(args.output_dir)]
             if args.dry_run:

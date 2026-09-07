@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Build memory is boundable (#182).** corpus exposed no way to bound the
+  memory a build uses — not in `config.yaml`, not on any CLI, not via an
+  environment variable, and `config_schema.py` had no memory, worker or
+  concurrency field at all. On a 12-core / 32 GB CPU-only host, seven
+  concurrent `--only extract` workers put three docling processes in flight
+  at once, one on a 314-page scan, and the build died mid-stage with
+  `oom_kill 2` in `/proc/vmstat` and no error in any worker log.
+
+  New `docling` block (`queue_max_size`, `layout_batch_size`,
+  `ocr_batch_size`, `table_batch_size`, `document_timeout`) and
+  `compute.num_threads` bound extraction, which is where the memory actually
+  goes — embedding the same corpus peaked at 3.71 GB resident. All are unset
+  by default and omitted keys are not passed to docling at all, so a build
+  that sets nothing behaves exactly as before and cannot drift if docling
+  changes one of its own defaults. Option names are asserted against the
+  installed docling, since a silently-ignored option would be worse than none.
+
+  `embeddings.batch_size` and `corpus run --only embed --batch-size N` reach
+  `LocalBackend`, which has taken a `batch_size` since it was written and
+  whose docstring described it as the memory lever while nothing could reach
+  it: `get_embedder()` forwards `**kwargs` and its only caller built them
+  from `--device` alone.
+
+  INSTALL.md now documents the cgroup cap, which is the outer bound and needs
+  no corpus settings: `MemoryHigh` throttles by reclaim and only `MemoryMax`
+  kills, so a capped build is squeezed first and any kill lands inside its own
+  cgroup instead of the kernel picking a bystander — on the affected host, an
+  uncapped burst took out a `tmux` server hosting unrelated work.
+
 - **`compute.accelerator: require` and `corpus run --require-gpu` (#270).** `auto`
   falling back to CPU is right on a workstation — the alternative is every
   docling page dying with "no kernel image is available". Inside a scheduler
@@ -39,6 +68,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--require-gpu` exits 1 before any step, and `--only post` is not blocked.
 
 ### Fixed
+
+- **`compute.accelerator` was silently ignored by the embed stage.** Found
+  while plumbing `embeddings.batch_size`: `pipeline.embed` accepted no
+  `--config` at all, so `embeddings.py`'s `CONFIG["compute"]["accelerator"]`
+  lookup always saw an empty dict and fell back to `auto` — a corpuscle
+  pinning `compute.accelerator: cpu` was honoured by Stage 1 and ignored by
+  Stage 2, and `embeddings.py` carried a comment saying the config reached
+  the encoder there.
 
 - **Concurrent Grobid jobs get a port of their own (#279).** Grobid's
   Dropwizard service binds a fixed 8070, and SLURM is free to co-schedule
