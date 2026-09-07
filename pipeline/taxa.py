@@ -265,30 +265,57 @@ def _genus_of(name: str) -> str:
 
 
 def _expand_abbreviation(
-    prefix: str, epithet: str, genera_in_full: Set[str], name_set: Set[str],
-) -> Tuple[Optional[str], List[str]]:
+    prefix: str, epithet: str, genera_in_full: "Counter[str]",
+    taxonomy: "TaxonomyDB", name_set: Set[str],
+) -> Tuple[Optional[str], Optional[Dict], List[str]]:
     """Resolve ``prefix. epithet`` against one document's own genera.
 
-    Returns ``(expanded_name, candidates)``. ``expanded_name`` is set only
-    when exactly one candidate survives both gates; ``candidates`` is
-    every binomial that did, so an ambiguous case can be reported instead
-    of guessed at.
+    Returns ``(expanded_name, resolved, candidates)``. The first two are
+    set only when the candidates agree on a single taxon; ``candidates``
+    is every binomial that cleared both gates, so a genuinely ambiguous
+    case can be reported rather than guessed at.
 
-    Two gates, and the second is what makes this safe. `Ph.` is genuinely
-    ambiguous in a siphonophore corpus — *Physalia* and *Physophora* are
-    both here — so document context alone would be guessing. But the
-    taxonomy knows that `Physalia pelagica` is a name and `Physophora
-    pelagica` is not, and the epithet is right there on the page. Where
-    the taxonomy cannot break the tie either, nothing is recorded.
+    Three gates. The genus must be one this document writes out in full,
+    the expansion must be a name in the taxonomy snapshot, and the
+    survivors must resolve to one accepted taxon.
+
+    The second gate is what makes this safe rather than a guess. `Ph.` is
+    genuinely ambiguous in a siphonophore corpus — *Physalia* and
+    *Physophora* are both in it — so document context alone would be
+    guessing. But the taxonomy knows `Physalia pelagica` is a name and
+    `Physophora pelagica` is not, and the epithet is printed right there.
+
+    The third gate exists because the second over-reports. Historical
+    spellings live in the snapshot as names of their own: Olfers 1824
+    prints both *Physalia* and *Physalis*, and `Physalia pelagica` and
+    `Physalis pelagica` are two names for accepted taxon 135479. Counting
+    name strings called that ambiguous and dropped a mention that was
+    never in doubt. Ambiguity is disagreement about the *taxon*.
+
+    Where several spellings do agree, the document's own preference picks
+    the representative — Olfers writes *Physalia* twice and *Physalis*
+    once — so the recorded name is the one the author mostly used.
     """
     lowered = prefix.lower()
     candidates = [
         f"{genus} {epithet}"
-        for genus in sorted(genera_in_full)
+        for genus, _ in sorted(genera_in_full.most_common(),
+                               key=lambda kv: (-kv[1], kv[0]))
         if genus.lower().startswith(lowered)
         and f"{genus} {epithet}".lower() in name_set
     ]
-    return (candidates[0] if len(candidates) == 1 else None), candidates
+    if not candidates:
+        return None, None, []
+    resolved_by_taxon: Dict[str, Tuple[str, Dict]] = {}
+    for name in candidates:
+        r = taxonomy.lookup(name)
+        if r is None:
+            continue
+        resolved_by_taxon.setdefault(r["accepted_taxon_id"], (name, r))
+    if len(resolved_by_taxon) != 1:
+        return None, None, candidates
+    name, resolved = next(iter(resolved_by_taxon.values()))
+    return name, resolved, candidates
 
 
 # taxa.json ships in the served bundle, so the ambiguity report is a
@@ -337,7 +364,7 @@ def extract_taxon_mentions(
     # Per-chunk so pass 2 can interleave its mentions in text order
     # rather than appending a block at the end.
     by_chunk: List[List[Dict]] = []
-    genera_in_full: Set[str] = set()
+    genera_in_full: "Counter[str]" = Counter()
 
     for ch in chunks:
         chunk_mentions: List[Dict] = []
@@ -372,7 +399,7 @@ def extract_taxon_mentions(
             if resolved is None:
                 continue
 
-            genera_in_full.add(_genus_of(matched_text))
+            genera_in_full[_genus_of(matched_text)] += 1
             chunk_mentions.append(
                 {
                     "chunk_id": ch.get("chunk_id"),
@@ -403,10 +430,10 @@ def extract_taxon_mentions(
             if any(s < end and start < e for s, e in claimed):
                 continue
             prefix, epithet = m.group(1), m.group(2)
-            expanded, candidates = _expand_abbreviation(
-                prefix, epithet, genera_in_full, name_set,
+            expanded, resolved, candidates = _expand_abbreviation(
+                prefix, epithet, genera_in_full, taxonomy, name_set,
             )
-            if expanded is None:
+            if expanded is None or resolved is None:
                 if candidates:
                     unresolved.append({
                         "chunk_id": ch.get("chunk_id"),
@@ -415,9 +442,6 @@ def extract_taxon_mentions(
                         "candidates": candidates,
                         "reason": "ambiguous_abbreviation",
                     })
-                continue
-            resolved = taxonomy.lookup(expanded)
-            if resolved is None:
                 continue
             n_expanded += 1
             chunk_mentions.append({

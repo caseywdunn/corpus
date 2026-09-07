@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Abbreviated genus binomials are expanded (#164).** Taxonomic literature
+  abbreviates the genus after first mention, so for a corpus of original
+  descriptions this was the central gap rather than an edge one: the paper that
+  *erects* a species is the one least likely to spell the genus out on every
+  line. Olfers 1824 is a five-species key for *Physalia* that yielded one
+  genus-level taxon and no species at all.
+
+  Naive expansion would be worse than the under-extraction it replaced,
+  because `Ph.` is genuinely ambiguous in this corpus — *Physalia* and
+  *Physophora* are both in it. Three gates: the genus must be written out in
+  full somewhere in the same document, the expansion must be a name in the
+  taxonomy snapshot, and the surviving candidates must agree on one accepted
+  taxon. The epithet is what usually decides — the taxonomy knows `Physophora
+  hydrostatica` is a name and `Physalia hydrostatica` is not. Where it cannot
+  decide, nothing is recorded and the ambiguity is reported in
+  `abbreviations_unresolved` rather than dropped in silence.
+
+  Across the 1,775-document reference corpus: **+31,041 taxon mentions
+  (+15.6%), +2,237 unique taxa, 838 documents gaining, none losing**, and 449
+  ambiguities reported. The same printed `A. elegans` resolves to *Agalma*,
+  *Agalmopsis* or *Agalmoides* in different documents, according to which
+  genus each one spells out. OCR variants (`Ph, pelagica`, `A . elegans`,
+  `B,bassensis`) are handled.
+
+  Expansions carry `method="abbreviated_genus"` and keep the printed form in
+  `mention_text`, so an inference is never mistaken for a name read off the
+  page. Both columns already existed in `taxon_mentions.sqlite`; the writer
+  was filling them with the same value.
+
 - **Lexicon translations match inflected forms (#165).** An enumerated
   surface-form set is the wrong shape for an inflecting language: the lexicon
   lists `Luftblase`, `Schwimmglocke`, `нектофор`, and German, French and
