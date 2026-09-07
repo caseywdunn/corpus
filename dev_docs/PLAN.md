@@ -1,4 +1,4 @@
-# PLAN.md — Corpus pipeline (v1.3)
+# PLAN.md — Corpus pipeline (v1.4)
 
 **Prior cycles are recorded elsewhere, not here.** A minor or major
 release entry in [CHANGELOG.md](../CHANGELOG.md) opens with the cycle's
@@ -20,19 +20,25 @@ stage failures; **v1.1.1** made `CITATION.cff` schema-valid,
 which is what had been silently blocking Zenodo archival since v0.3.0; and
 **v1.2** built the gold transcription set and scored the extractor against
 it — the first signal this project has had that measures the pipeline
-against something other than itself.
+against something other than itself; and **v1.3** made evidence auditable —
+captions carry provenance, references are separated from canonical works, a
+re-run cannot leave stale evidence, and an operator can inspect a parse
+against the original page ([v1.3.0](https://github.com/caseywdunn/corpus/blob/v1.3.0/dev_docs/PLAN.md),
+Zenodo [10.5281/zenodo.22647843](https://doi.org/10.5281/zenodo.22647843)).
 
-**v1.2 (2026-08-29) is the one v1.3 grows directly out of.** Its theme
-paragraph is in the CHANGELOG; what matters here is the inheritance. The
-gold set is now a standing instrument rather than a one-cycle project — any
-extraction change can be scored against it before and after, which is the
-condition v1.3's work inherits and should keep using. Its unfinished
-fingerprint-based regression reference (#187) is carried below. The
-library-inspection work (#217) moves with the skills-and-usage cycle to v1.4.
+**v1.3 (2026-09-07) is the one v1.4 grows directly out of.** Its theme
+paragraph is in the CHANGELOG; what matters here is the inheritance. Evidence
+is now auditable — captions carry provenance, references are separated from
+canonical works, and a re-run cannot leave stale evidence behind. Two
+instruments came with it and should keep being used: the gold set from v1.2,
+against which any extraction change can be scored before and after, and the
+build-comparison harness (`tools/qc/build_reference.py`) that made the update
+contract checkable at all.
 
-v1.2 also left a standing lesson worth stating once, because it recurred
-three times in that cycle and once more at its own release: **a measurement
-is not a result until you have looked at what it is measuring.** The
+What v1.3 did *not* do is fix the defects that are wrong without saying so,
+which is why v1.4 exists. It also demonstrated the lesson v1.2 left, and which
+has now recurred in every cycle that looked for it: **a measurement is not a
+result until you have looked at what it is measuring.** The
 plate-legend fix shipped on a recall gain and quietly cost precision;
 #254's OCR page-blanking was invisible to every quality gate the pipeline
 had, because each one measured the document rather than the machine that
@@ -51,6 +57,10 @@ evidence: a skill that generates a monograph from a corpuscle with silent gaps
 produces a document that reads authoritative and is wrong, which is the exact
 failure class v1.3 spent itself on.
 
+**Standing gates** — the rules that outlive any one cycle, including what
+"an update is correct" means and how a release is validated — are at the
+end of this document, with the other durable reference material.
+
 Doc map unchanged: architectural background in
 [OVERVIEW.md](OVERVIEW.md); per-feature history in
 [CHANGELOG.md](../CHANGELOG.md); the API contract in
@@ -59,125 +69,6 @@ Doc map unchanged: architectural background in
 platform-portability criteria in
 [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md). Open work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues).
-
-## Standing gates
-
-### What "an update is correct" means
-
-Established in v1.3 and permanent. Do not re-derive it, and do not restate it
-as byte equality — that was the old form, and it is not a property this
-pipeline has or should chase.
-
-> For every supported change class, an incremental run **re-processes exactly
-> the documents whose fingerprinted inputs changed and no others**; documents
-> it does not touch are left unchanged; and the resulting current document set,
-> cross-paper mappings and vector rows **match a clean rebuild**.
-
-Equality here is **semantic, not byte-for-byte**. Provenance that is not
-reproducible by construction is excluded from the comparison, and the exclusion
-list is explicit rather than assumed: the taxonomy snapshot's file hash (#278,
-since fixed), absolute build paths, local-VLM ROI coordinates, and CJK OCR
-whitespace segmentation (#280). Shortening that list is real work; ignoring it
-quietly is not.
-
-Two method notes that cost real time to learn, and will again:
-
-- **Incrementals must run in place.** A build tree embeds absolute paths in
-  `figures.json`, `summary.json` and `pipeline_state.json`; only `_serve/` is
-  scrubbed (#70). A copy relocated to another path reports every document as
-  changed, and the entire diff is path noise.
-- **One build per machine, or per node.** Two concurrent local builds blew the
-  per-page OCR timeout on 3-4 documents each and silently degraded the clean
-  side of the comparison. The quality gates did catch it, loudly.
-
-The gate v1.0 established is permanent now, and not a checklist item:
-
-> **A clean-room install from `environment.yaml` must be verified by CI,
-> not by hand, before a release is tagged.**
-
-v1.0.0 was the first release held to it — T3 ran on the release PR and
-was green on the release commit before the tag existed.
-
-Now that [`clean-room.yml`](../.github/workflows/clean-room.yml) (**T3**)
-lives on the default branch, all three of its triggers work: the weekly
-`schedule:` is the standing drift detector, `workflow_dispatch` is
-available (it returned `HTTP 404` while the lane sat on a feature
-branch), and **a pull request targeting `main` — which *is* the release
-proposal — runs the lane automatically**. That last one is the path that
-satisfies the gate before the merge rather than depending on someone
-remembering to dispatch it.
-
-[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) (**T3-bare**) stays manual and
-pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
-(apt, miniforge install) on a real Ubuntu EC2 instance, against
-[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md)'s criteria.
-
-The per-push tiers (T0, T1/T2, T1-compose) and the full tier table live
-in [CONTRIBUTING.md](../CONTRIBUTING.md).
-
-**"Re-measure the baselines" was the wrong ask, and is retired.** The
-recorded numbers (T0 at 623 passed / 2 skipped, `corpus_required` at 163
-/ 14 / 4, taken at `1dbb69a`) were treated as a regression reference.
-They cannot be one. T0 went 755 → 799 in a single afternoon of v1.1
-because tests were *added*, and a number that moves whenever someone
-writes a test is a changelog rather than a detector. The property that
-matters for T0 — zero failures — is already enforced by CI on every push,
-so the count adds nothing on top of it.
-
-What a real reference records is pipeline *output*: the #185 soft rates,
-quality-gate counts, and bundle manifest counts for a fixed corpus,
-diffed against a rebuild of that same corpus.
-[#187](https://github.com/caseywdunn/corpus/issues/187) specifies it and
-targets the **gold corpuscle** (built in v1.2) — big enough for a rate to mean
-something, small enough to rebuild per release. That comparison was run
-by hand against a viburnum rebuild during v1.1 and is what proved the
-3.4 GB → 2.3 GB drop was #184's re-encoding rather than lost content.
-
-The `--deselect` question that paragraph raised is answered: **none**.
-[#167](https://github.com/caseywdunn/corpus/issues/167) removed all three
-flags, T1 now runs bare `-m corpus_required`, and T2 additionally ignores
-`test_reference_extraction.py` because Grobid is disabled there. Both
-workflow files state the reasoning inline.
-
-## v1.3 — evidence integrity and auditability (shipped 2026-09-07)
-
-Released as [v1.3.0](https://github.com/caseywdunn/corpus/releases/tag/v1.3.0),
-Zenodo [10.5281/zenodo.22647843](https://doi.org/10.5281/zenodo.22647843). The
-full cycle detail is at
-[v1.3.0/dev_docs/PLAN.md](https://github.com/caseywdunn/corpus/blob/v1.3.0/dev_docs/PLAN.md);
-what happened is in the CHANGELOG. Kept here because it outlives the cycle:
-
-**All four workstreams shipped.** Figure and caption evidence (#187, #195,
-#203), reference evidence separated from canonical works (#226, #239, #240),
-truthful updates (#174, #265, #271), and the thin server with its frozen
-38-tool contract (#275, #276, #277).
-
-**#174 and #265 closed against a revised acceptance criterion.** The old bar
-asked an incremental run and a clean rebuild for "the same artifact
-fingerprints" — byte equality, which this pipeline does not have and should not
-chase. The criterion now tests update correctness, with known-irreproducible
-provenance as explicit exclusions. It is stated in full under **Standing
-gates**; do not re-derive it.
-
-**Validated on the full 1775-document corpus** at v1.3.0: no documents lost, no
-stage failures, +383,607 characters extracted, zero-text documents 1 -> 0,
-`empty_text` errors 6 -> 0, and all 38 MCP tools passing against the served
-bundle mounted read-only. Evidence in
-`project_pi_cwd7/cwd7/gold_accept_evidence_b734de6/` and the release PR (#282).
-
-**T3-bare was waived**, the first recorded waiver, on the release gate's own
-"where platform behavior changed" clause — no apt package, miniforge bootstrap
-or runtime dependency moved over `v1.2.1..HEAD`. Re-run it at the next release
-that touches any of those.
-
-**Four defects were found by validation that no unit test could reach**: #278
-(taxonomy fingerprint hashed a file containing timestamps — fixed), #279
-(Grobid port collision — half fixed), #280 (CJK OCR whitespace not
-reproducible — open, a criterion exclusion), #281 (the vision phase re-extracted
-every document, 1h27m -> a projected 35h — fixed, validated at 1775 documents
-against 20 re-conversions). That yield is the argument for running a full
-rebuild before a release, not only the gold set.
-
 
 ## v1.4 — silent wrongs, operational hazards, and a clean tracker
 
@@ -543,6 +434,101 @@ held because nothing has yet made them worth the cost.
   shows up on a bill.
 - A thin HTML/web UI on top of the MCP server. Out of scope until the
   MCP-only experience has actual non-Claude-Desktop users.
+
+## Standing gates
+
+### What "an update is correct" means
+
+Established in v1.3 and permanent. Do not re-derive it, and do not restate it
+as byte equality — that was the old form, and it is not a property this
+pipeline has or should chase.
+
+> For every supported change class, an incremental run **re-processes exactly
+> the documents whose fingerprinted inputs changed and no others**; documents
+> it does not touch are left unchanged; and the resulting current document set,
+> cross-paper mappings and vector rows **match a clean rebuild**.
+
+Equality here is **semantic, not byte-for-byte**. Provenance that is not
+reproducible by construction is excluded from the comparison, and the exclusion
+list is explicit rather than assumed: the taxonomy snapshot's file hash (#278,
+since fixed), absolute build paths, local-VLM ROI coordinates, and CJK OCR
+whitespace segmentation (#280). Shortening that list is real work; ignoring it
+quietly is not.
+
+Two method notes that cost real time to learn, and will again:
+
+- **Incrementals must run in place.** A build tree embeds absolute paths in
+  `figures.json`, `summary.json` and `pipeline_state.json`; only `_serve/` is
+  scrubbed (#70). A copy relocated to another path reports every document as
+  changed, and the entire diff is path noise.
+- **One build per machine, or per node.** Two concurrent local builds blew the
+  per-page OCR timeout on 3-4 documents each and silently degraded the clean
+  side of the comparison. The quality gates did catch it, loudly.
+
+### Validate a release against the full corpus, not only the gold set
+
+v1.3's release validation rebuilt all 1775 siphonophore documents, and that run
+found four defects no unit test could reach: #278 (the taxonomy fingerprint
+hashed a file containing timestamps), #279 (concurrent Grobid jobs collide on a
+fixed port), #280 (CJK OCR whitespace is not reproducible), and #281 (the GPU
+vision phase re-extracted every document, turning 1h27m into a projected 35h
+that could not finish in one allocation). The gold set had passed cleanly
+beforehand. Scale is what surfaced them, so budget a full rebuild before a
+release rather than treating the 35-document set as sufficient.
+
+**T3-bare** stays waivable under its own "where platform behavior changed"
+clause — v1.3 recorded the first waiver — but re-run it at the next release
+that touches apt packages, the miniforge bootstrap, or a runtime dependency
+pin. None of those moved over `v1.2.1..HEAD`, which is why the waiver held.
+
+The gate v1.0 established is permanent now, and not a checklist item:
+
+> **A clean-room install from `environment.yaml` must be verified by CI,
+> not by hand, before a release is tagged.**
+
+v1.0.0 was the first release held to it — T3 ran on the release PR and
+was green on the release commit before the tag existed.
+
+Now that [`clean-room.yml`](../.github/workflows/clean-room.yml) (**T3**)
+lives on the default branch, all three of its triggers work: the weekly
+`schedule:` is the standing drift detector, `workflow_dispatch` is
+available (it returned `HTTP 404` while the lane sat on a feature
+branch), and **a pull request targeting `main` — which *is* the release
+proposal — runs the lane automatically**. That last one is the path that
+satisfies the gate before the merge rather than depending on someone
+remembering to dispatch it.
+
+[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) (**T3-bare**) stays manual and
+pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
+(apt, miniforge install) on a real Ubuntu EC2 instance, against
+[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md)'s criteria.
+
+The per-push tiers (T0, T1/T2, T1-compose) and the full tier table live
+in [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+**"Re-measure the baselines" was the wrong ask, and is retired.** The
+recorded numbers (T0 at 623 passed / 2 skipped, `corpus_required` at 163
+/ 14 / 4, taken at `1dbb69a`) were treated as a regression reference.
+They cannot be one. T0 went 755 → 799 in a single afternoon of v1.1
+because tests were *added*, and a number that moves whenever someone
+writes a test is a changelog rather than a detector. The property that
+matters for T0 — zero failures — is already enforced by CI on every push,
+so the count adds nothing on top of it.
+
+What a real reference records is pipeline *output*: the #185 soft rates,
+quality-gate counts, and bundle manifest counts for a fixed corpus,
+diffed against a rebuild of that same corpus.
+[#187](https://github.com/caseywdunn/corpus/issues/187) specifies it and
+targets the **gold corpuscle** (built in v1.2) — big enough for a rate to mean
+something, small enough to rebuild per release. That comparison was run
+by hand against a viburnum rebuild during v1.1 and is what proved the
+3.4 GB → 2.3 GB drop was #184's re-encoding rather than lost content.
+
+The `--deselect` question that paragraph raised is answered: **none**.
+[#167](https://github.com/caseywdunn/corpus/issues/167) removed all three
+flags, T1 now runs bare `-m corpus_required`, and T2 additionally ignores
+`test_reference_extraction.py` because Grobid is disabled there. Both
+workflow files state the reasoning inline.
 
 ## Reference: target queries
 
