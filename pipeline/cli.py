@@ -338,6 +338,51 @@ def _prune_orphans(
     return EXIT_OK
 
 
+def _explain_resume(cfg: CorpuscleConfig, config_path: Path) -> None:
+    """Print why a re-run would do work, rolled up by reason (#80).
+
+    Per-stage implicit resume is correct and opaque: it re-runs whichever
+    stages' fingerprints no longer match, and nothing said which, or why,
+    before the work started. #281 was that gap at its worst — the GPU
+    vision phase silently re-extracting every document, turning a 1.5-hour
+    phase into a projected 35 — and finding it took hours of log
+    archaeology for an answer that fits on one line.
+
+    Read-only, and never fatal: this explains a plan, so failing to
+    explain it must not stop the plan. An unreadable receipt or a config
+    the audit cannot resolve is reported and stepped over.
+    """
+    from .build_inputs import configuration_drift
+    from .status import render_drift_rollup
+
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    if output_dir is None or not (output_dir / "documents").is_dir():
+        return          # Nothing built yet; every stage runs, and that is
+        # not drift — it is a first build.
+    try:
+        drift = configuration_drift(output_dir, config_path)
+    except (OSError, ValueError, TypeError, RuntimeError) as exc:
+        print_status(f"cannot explain resume decisions: {exc}", status="warn")
+        return
+    n = drift["documents_with_differences"]
+    total = drift["documents_checked"]
+    if not n:
+        print_status(
+            f"resume: no configured-input drift across {total} document(s); "
+            f"only stages with changed sources will re-run", status="info",
+        )
+        return
+    print_status(
+        f"resume: {n} of {total} document(s) have configured-input drift — "
+        f"these stages will re-run", status="warn",
+    )
+    print(render_drift_rollup(drift["differences"], total))
+    print_status(
+        "full detail: corpus status --config "
+        f"{config_path} --json", status="info",
+    )
+
+
 def _build_orchestrator_argv(
     cfg: CorpuscleConfig,
     config_path: Path,
@@ -517,6 +562,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # papers carrying the named quality_flag so resume re-extracts them.
         if args.re_process_flagged:
             _invalidate_flagged(cfg, config_path, args.re_process_flagged)
+
+    if args.dry_run:
+        # #80 — a dry run already shows *what* would run; this adds *why*.
+        # Only on --dry-run, which is where an operator has already chosen
+        # to pay for analysis: on the 699-document Viburnum corpuscle the
+        # check takes ~7 s, which is cheap for a plan and not free enough
+        # to put in front of every build.
+        _explain_resume(cfg, config_path)
 
     sub_argv = _build_orchestrator_argv(cfg, config_path, args)
     cmd = [sys.executable, "-m", "pipeline.orchestrator", *sub_argv]

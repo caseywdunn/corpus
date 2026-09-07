@@ -605,6 +605,42 @@ def _load_skipped_hashes(biblio_path: Path) -> set:
 # ---------------------------------------------------------------------------
 
 
+def render_drift_rollup(differences: Dict[str, Dict], total: int,
+                        detail_limit: int = 5) -> str:
+    """Why a re-run will do work, as counts per (stage, reason) (#80).
+
+    The per-document listing this replaces was correct and unreadable: one
+    line per affected document, each repeating the same handful of reasons.
+    On the 699-document Viburnum corpuscle that is 699 lines; on the 1,775
+    siphonophore one, 1,775. #281 was exactly this — the GPU vision phase
+    silently re-extracting every document — and finding it took hours of
+    log archaeology when the answer was one sentence: `docling_extraction`
+    re-runs on all of them because `pipeline_version` changed.
+
+    So roll up first and list documents second. A reason affecting every
+    document is the interesting case and was the hardest to see.
+    """
+    if not differences:
+        return "  no stage would re-run on configured-input grounds"
+    counts: Counter = Counter()
+    examples: Dict[tuple, List[str]] = {}
+    for pdf_hash, changes in differences.items():
+        for stage, keys in changes.items():
+            for key in keys:
+                counts[(stage, key)] += 1
+                examples.setdefault((stage, key), []).append(pdf_hash)
+    lines = []
+    for (stage, key), n in counts.most_common():
+        scope = "all" if n == total else str(n)
+        docs = "document" if n == 1 else "documents"
+        lines.append(f"  {stage}: {key} — {scope} of {total} {docs}")
+        if n < total:
+            shown = ", ".join(sorted(examples[(stage, key)])[:detail_limit])
+            more = f", +{n - detail_limit} more" if n > detail_limit else ""
+            lines.append(f"      {shown}{more}")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -762,11 +798,10 @@ def main() -> int:
             print(f"\nConfigured-input differences: {drift['documents_with_differences']} / "
                   f"{drift['documents_checked']} documents")
             print(drift["scope"])
-            for pdf_hash, changes in list(drift["differences"].items())[:20]:
-                detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in changes.items())
-                print(f"  {pdf_hash}: {detail}")
-            if drift["documents_with_differences"] > 20:
-                print("  Showing first 20; --json includes all differences.")
+            print(render_drift_rollup(drift["differences"],
+                                      drift["documents_checked"]))
+            if drift["documents_with_differences"]:
+                print("  --json includes the per-document breakdown.")
             source = rollup["source_input_drift"]
             print(f"\nSource-input audit: {source['scope']}")
             if source["available"]:
@@ -775,9 +810,12 @@ def main() -> int:
                 tx = source.get("taxonomy_source", {})
                 if tx.get("configured"):
                     print("  Taxonomy source receipt: " + ("current" if tx["current"] else "stale or unverified; pre-build taxonomy"))
-                for sha, changes in list(source["differences"].items())[:20]:
-                    detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in sorted(changes.items()))
-                    print(f"  {sha}: {detail}")
+                if source["differences"]:
+                    print(render_drift_rollup(
+                        source["differences"],
+                        source.get("documents_checked")
+                        or source["documents_with_differences"]))
+                    print("  --json includes the per-document breakdown.")
         if args.report:
             print()
             print(render_artifacts(args.output_dir))

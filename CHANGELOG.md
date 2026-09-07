@@ -69,6 +69,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`corpus status` and `corpus run --dry-run` say why a re-run will do work
+  (#80).** The drift computation already existed from v1.3's fingerprint work
+  — `configuration_drift` and `source_input_drift` derive, from the same
+  receipts implicit resume uses, which stages would re-run and why. What was
+  missing was a way to read it: the renderer printed one line per affected
+  document, each repeating the same handful of reasons. On the 699-document
+  Viburnum corpuscle that is 699 lines; on the 1,775-document siphonophore
+  one, 1,775.
+
+  Now rolled up by reason, so the case that matters most is one line —
+  `docling_extraction: pipeline_version — all of 699 documents`. That is the
+  sentence #281 needed: the GPU vision phase silently re-extracting every
+  document, turning a 1.5-hour phase into a projected 35, took hours of log
+  archaeology to find. A reason affecting only some documents names them, up
+  to five, with a count of the rest; per-document detail stays in `--json`.
+
+  `corpus run --dry-run` now prints the same rollup before dispatching, which
+  is the integration point the issue proposed — a dry run already showed
+  *what* would run. Dry-run only: the check takes ~7 s on 699 documents,
+  cheap for a plan and not free enough to precede every build. It is
+  read-only and never fatal, since failing to explain a plan must not stop
+  one, and a corpuscle with no `documents/` tree is reported as a first build
+  rather than as drift.
+
 - **`compute.accelerator` was silently ignored by the embed stage.** Found
   while plumbing `embeddings.batch_size`: `pipeline.embed` accepted no
   `--config` at all, so `embeddings.py`'s `CONFIG["compute"]["accelerator"]`
