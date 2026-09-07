@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`get_original_description` says when it cannot answer, and botanical
+  authorship parses (#175).** Authority linking matches a taxon's authorship
+  against a work by author *and year* — the zoological (ICZN) convention that
+  WoRMS supplies. Botanical (ICN) authorship is author-only by correct citation
+  practice (`Rehder`, `(Kache) Hesse`, `(Huxley) P.S.Hsu`), so there is no year
+  to match on. On the 702-paper *Viburnum* corpuscle that meant **0 links from
+  889 authorship strings, none of which carries a year**, and the tool
+  answering `null` with "no matching work found" for every taxon — which reads
+  as "no such paper exists" rather than "this corpuscle cannot answer".
+
+  `parse_authority` now returns surnames with a `None` year for ICN strings
+  instead of reporting them unparseable, handling run-together botanical
+  initials and the parenthesised original author. Phase 3 counts the two
+  conventions, warns once when a taxonomy carries no year-bearing authorship
+  at all, and records its verdict in the authority database's `build_meta`, so
+  the served bundle carries it. `get_original_description` reads that verdict
+  and returns an explicit `unsupported` result with `reason_code`
+  `authority_convention_unsupported`. A bundle built before the verdict
+  existed reports `unknown` rather than being declared unsupported.
+
+  **The author-only matching path was measured and declined**, and that is the
+  recorded decision rather than a deferral. Pairing the authority surname with
+  the epithet appearing in a work title — the approach the issue proposes —
+  yields 3 candidates from 889 *Viburnum* taxa, and 2 of the 3 are wrong:
+  `(Vent.) P.Silva` for *V. tinus* subsp. *rigidum* matches a 2010s floristic
+  record of naturalized *V. tinus* in Madeira, not the protologue. One correct
+  link in 889 taxa at a 67% false-positive rate writes wrong protologues into
+  `taxon_work_links`, which is worse than answering nothing. A real botanical
+  path wants the protologue citation that IPNI/POWO carry as its own field,
+  not a heuristic over titles.
+
+  Verified on both corpuscles: *Viburnum* records `botanical`/unsupported with
+  0 links and no stub works, and the siphonophore corpus is unchanged at
+  `zoological`/supported with 799 links from 800 strings.
+
 - **`corpus status --filter-gate <name>` now lists the affected papers (#169).**
   The report printed `List affected papers with: corpus status --filter-gate
   <name>`, and running exactly that reprinted the whole report unfiltered,

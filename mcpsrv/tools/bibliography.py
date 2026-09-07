@@ -714,10 +714,38 @@ def get_original_description(taxon_name: str) -> Dict:
     aid = hit["accepted_taxon_id"]
     works = idx.biblio_db.work_for_taxon(aid)
     if not works:
+        # An empty answer has two very different causes and used to read
+        # identically (#175). Authority linking matches authorship by
+        # author *and year*, which is the zoological (ICZN) convention;
+        # botanical (ICN) authorship is author-only by correct citation
+        # practice, so for a plant corpuscle this tool can never answer,
+        # and saying "no matching work found" invites the reader to
+        # conclude no such paper exists.
+        linking = idx.biblio_db.authority_linking()
+        if linking.get("supported") is False:
+            return {
+                "taxon": hit,
+                "original_description": None,
+                "unsupported": True,
+                "reason_code": "authority_convention_unsupported",
+                "note": (
+                    "Authority linking is not available for this corpuscle. "
+                    "Its taxonomy uses "
+                    f"{linking.get('convention', 'an unrecognized')} "
+                    "authorship, which carries no publication year "
+                    f"({linking.get('author_only', 0)} of "
+                    f"{linking.get('authorship_strings', 0)} strings), and "
+                    "linking matches on author and year. This is a "
+                    "limitation of the tool for this taxonomy, not evidence "
+                    "that no original description exists — see issue #175."
+                ),
+                "authority_linking": linking,
+            }
         return {
             "taxon": hit,
             "original_description": None,
             "note": "no matching work found in the authority database",
+            "authority_linking": linking,
         }
 
     # Enrich with authors and citation count
