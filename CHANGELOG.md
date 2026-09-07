@@ -201,6 +201,28 @@ skills-and-usage work originally scoped here.
 
 ### Changed
 
+- **The GPU vision phase is substantially slower, by design — plan cluster
+  allocations accordingly.** On the 1775-paper reference library the phase
+  went from 1h27m under v1.2.1 to several hours. Measured per figure: v1.2.1
+  put 1,047 figures through the model in 87 minutes, about 5.0s each; v1.3
+  takes 7-17s each. Three causes, all intended:
+
+  - #253 replaced the flat `max_new_tokens=1024` with a budget scaled by the
+    caption-derived panel count, and #269 retries a response that stops at the
+    cap once at double budget. Generation time scales with the budget. This is
+    the dominant term, and it is the direct cost of no longer recording
+    panel-rich figures as having no labels because their JSON was truncated.
+  - The caption-ownership work (#195, #203) identifies multi-panel captions
+    that v1.2.1 missed, so more figures qualify for panel detection at all.
+  - Pass 3c compound resolution is new work on top of Pass 3b.
+
+  The cost is concentrated, not spread: about 70% of documents finish in under
+  a second because they have no panel-rich figures, while a handful of
+  plate-rich monographs dominate — one 457-figure work took 14 minutes on an
+  H200. Budget by the figure-heavy tail, not by paper count. Separately, see
+  #281: until that fix the phase also re-extracted every document, which is
+  waste rather than cost and is not included in these numbers.
+
 - **Header-only `get_papers` projections read the in-memory index.** Requests
   needing no taxonomy or lexicon detail no longer read document artifacts;
   requested details load only their relevant inputs. Response fields and
