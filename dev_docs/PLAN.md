@@ -641,9 +641,133 @@ did not recur on Bouchet — and remains an explicit exclusion in the criterion.
   release that touches apt packages, the miniforge bootstrap, or a runtime
   dependency pin.
 
-## v1.4 — skills and usage
+## v1.4 — silent wrongs, operational hazards, and a clean tracker
 
-The v1.3 work makes this cycle possible; it is not part of it. v1.4 is the
+v1.3 proved the pipeline can show where evidence came from. This cycle is
+about the defects that survive *behind* that: results that are wrong without
+saying so, build hazards that cost hours per run, and a tracker that no longer
+describes the product. It is deliberately broad rather than deep — the goal is
+to close as much of the backlog as is reasonable, so v1.5's client layer is
+built on evidence it can trust instead of workarounds for known gaps.
+
+The ordering is not arbitrary. A skill that generates a monograph from a
+corpuscle with silent gaps produces a document that reads authoritative and is
+wrong, which is the exact failure class v1.3 spent itself on. Shipping a
+generator over it would undo the cycle's point.
+
+### 1. Silent wrongs — results that are wrong without saying so
+
+Highest priority, because nothing surfaces them. An operator cannot act on a
+gap they cannot see.
+
+- [ ] **Route mojibake non-Latin scans to OCR without a pin**
+  ([#266](https://github.com/caseywdunn/corpus/issues/266)), and populate
+  `visual_script` on every detection path rather than only the mismatch branch
+  ([#172](https://github.com/caseywdunn/corpus/issues/172)) so the
+  cross-check is not inert. v1.3 fixed the *pinned* case; an unpinned Chinese
+  paper scoring 0.295 is still classified `born_digital` and never OCR'd, and
+  loses its whole text.
+- [ ] **Make lexicon translations match inflected forms**
+  ([#165](https://github.com/caseywdunn/corpus/issues/165)). Anatomy coverage
+  is currently *zero* on German papers, which reads identically to a paper
+  with no anatomy in it.
+- [ ] **Expand abbreviated genus binomials**
+  ([#164](https://github.com/caseywdunn/corpus/issues/164)) — `Ph. pelagica`
+  is a taxon mention that silently does not count.
+- [ ] **Decide the botanical authority policy**
+  ([#175](https://github.com/caseywdunn/corpus/issues/175)).
+  `get_original_description` is structurally dead for botanical taxonomies
+  because authority linking assumes the zoological parenthetical-year
+  convention. This is live, not hypothetical: the Viburnum corpuscle is
+  botanical. Scoping note — a full botanical authorship parser is a cycle of
+  its own; returning an explicit unsupported result beats silently returning
+  nothing, and may be the whole fix.
+- [ ] **Stop the CLI lying by omission**: `--filter-gate` silently ignoring
+  the filter without `--list-hashes`
+  ([#169](https://github.com/caseywdunn/corpus/issues/169)), and the
+  naive-chunker fallback being invisible in `corpus status`
+  ([#168](https://github.com/caseywdunn/corpus/issues/168)).
+
+**Acceptance:** for each, a document that previously produced a silent gap now
+either produces the right answer or reports the gap at error or warning
+severity. No fix here is complete while its failure mode is still quiet.
+
+### 2. Operational hazards — each has already cost hours
+
+- [ ] **Make a GPU allocation fail instead of degrading to CPU**
+  ([#270](https://github.com/caseywdunn/corpus/issues/270)). PR #272 pinned
+  the card types as a workaround; a torch bump that drops sm_86 reintroduces
+  the silent fallback. This killed the 2026-08-31 build and warned again on
+  the 2026-09-06 one.
+- [ ] **Let concurrent builds share a cluster**
+  ([#279](https://github.com/caseywdunn/corpus/issues/279)). Grobid binds a
+  fixed port 8070, so SLURM co-scheduling kills all but the first — three of
+  five died on 2026-09-06. The silent-wrong-server half is fixed; the
+  collision is not.
+- [ ] **Bound build memory**
+  ([#182](https://github.com/caseywdunn/corpus/issues/182)). `embed`'s
+  `batch_size` is unreachable, docling options are unset, and the OOM blast
+  radius is the whole host.
+- [ ] **Load the local VLM in half precision on MPS**
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — float32 needs
+  ~30 GB for a 7B model, which shuts Apple Silicon out entirely.
+- [ ] **Surface why a re-run is doing more work than expected**
+  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Promoted from
+  Unscheduled on evidence: #281 was exactly this — a phase re-extracting the
+  corpus with nothing saying so — and it took hours of log archaeology to
+  find. This is the tool that would have reported it in one command.
+
+### 3. Cheap, and better done at a version boundary
+
+- [ ] **Rename `_serve/`** ([#273](https://github.com/caseywdunn/corpus/issues/273)).
+  The one directory built to travel has the least descriptive name, and every
+  client pointed at it makes the rename dearer.
+- [ ] **Stop warning about a vision downgrade on phases that never run vision**
+  ([#263](https://github.com/caseywdunn/corpus/issues/263)).
+- [ ] **Fix served-bundle absolute-path audit false positives**
+  ([#183](https://github.com/caseywdunn/corpus/issues/183)) — noise inside a
+  release gate teaches operators to ignore the gate.
+- [ ] **Bound the depth-1 `get_citation_graph` payload**
+  ([#166](https://github.com/caseywdunn/corpus/issues/166)) so `truncated`
+  actually covers it.
+- [ ] **Emit a progress heartbeat during long per-document stages**
+  ([#170](https://github.com/caseywdunn/corpus/issues/170)).
+- [ ] **Retire `siphonophores_sample` for the 35 transcribed documents**
+  ([#192](https://github.com/caseywdunn/corpus/issues/192)).
+- [ ] **Column-store shape for `lexicon_matrix`**
+  ([#83](https://github.com/caseywdunn/corpus/issues/83)).
+
+### 4. Decisions to record rather than defer again
+
+Each of these is a judgment that keeps being re-derived. Write the answer down
+and close the issue, or scope the work — either is progress; leaving them open
+is not.
+
+- [ ] **OCR reproducibility** ([#280](https://github.com/caseywdunn/corpus/issues/280)):
+  pin `--jobs 1` for comparison builds, normalize whitespace before
+  fingerprinting, or accept a permanent criterion exclusion.
+- [ ] **`get_missing_references` scope**
+  ([#155](https://github.com/caseywdunn/corpus/issues/155)): v1.3 fixed the
+  tractable half and 96 title/year-only leads remain. Either carve another
+  cheap slice or declare the tool best-effort in its own docstring.
+- [ ] **Corpuscle size** ([#184](https://github.com/caseywdunn/corpus/issues/184)):
+  measure what drove the 0.6 -> 1.0 growth, then either act or close it.
+
+**Cycle acceptance:** every issue above is closed or has a recorded decision,
+and the open tracker contains only new capability and direction questions —
+nothing that describes the product being wrong. Issues close when their fix
+lands on `dev` (CONTRIBUTING.md, "Closing issues"), so the tracker should
+shrink continuously through the cycle rather than in a bulk close at release.
+
+Explicitly **not** in v1.4: the skills and client layer (v1.5), new extraction
+layers (#13, #14), bulk export (#93), `verify_claim` (#123), embedding-model
+migration (#38), MCP scaling (#39), and the direction questions (#88, #89,
+#124).
+
+## v1.5 — skills and usage
+
+Deferred from v1.4 so it can consume a clean tracker and trustworthy
+evidence rather than design around known gaps. v1.5 is the
 small client/workflow layer that turns the frozen retrieval surface into a
 repeatable answer. Its scope is deliberately limited to one library-building
 workflow, one corpus-consuming workflow, and the shortest public path through
@@ -668,17 +792,25 @@ them:
 Bulk export ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2 and
 [#93](https://github.com/caseywdunn/corpus/issues/93)), reconciliation changes,
 new MCP tools, unrelated housekeeping and new scientific extraction layers are
-not part of v1.4. If the clade-monograph acceptance run exposes another
+not part of v1.5. If the clade-monograph acceptance run exposes another
 evidence-integrity defect, fix it as a defect; do not expand the skills cycle
 into another pipeline redesign.
 
 ## Unscheduled
 
-Not claimed by v1.3 or v1.4. This is a selected orientation list, not a second
-issue tracker; GitHub issues are authoritative. Dependencies that matter are
-stated inline. Split because the two halves get picked up for different
-reasons: a known defect is picked up when it bites someone, an unbuilt feature
-when something makes it worth building.
+This is a selected orientation list, not a second issue tracker; GitHub issues
+are authoritative. Dependencies that matter are stated inline. Split because
+the two halves get picked up for different reasons: a known defect is picked up
+when it bites someone, an unbuilt feature when something makes it worth
+building.
+
+**v1.4 now owns these, and the section above is where their scheduling lives:**
+#80, #83, #155, #164, #165, #166, #168, #169, #170, #172, #175, #182, #183,
+#184, #192, #258, #263, #266, #270, #273, #279, #280. Their notes are kept
+below because the rationale is still worth reading — but v1.4's list is the
+one to work from, not this one. Anything here *not* in that list is genuinely
+unscheduled: new extraction layers, bulk export, `verify_claim`,
+embedding-model migration, MCP scaling, and the direction questions.
 
 ### Open defects
 
