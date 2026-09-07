@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Lexicon translations match inflected forms (#165).** An enumerated
+  surface-form set is the wrong shape for an inflecting language: the lexicon
+  lists `Luftblase`, `Schwimmglocke`, `нектофор`, and German, French and
+  Russian papers print `Luftblasen`, `Schwimmglocken`, `нектофора`.
+  Non-English `translations` are now expanded through a curated per-language
+  ending table, with each generated form entered in the variant map
+  explicitly so matching stays whole-word exact and a curated form always
+  wins over a generated one. Across the 1,775-document reference corpus:
+  **+14,111 anatomy mentions (+9.7%), 515 documents gaining, none losing**,
+  and 59 documents rescued from exactly zero. Vanhöffen 1906 goes from 63
+  mentions to 163 — it prints `Schwimmglocken` 41 times against 7 of
+  `Schwimmglocke`, so base-form matching was finding a minority of its own
+  mentions. One Russian paper goes from 440 to 1,480, Russian being the
+  language where 73% of stem occurrences were inflected.
+
+  English is deliberately excluded, and the survey is why: suffixing English
+  stems matches `Cnidaria` 4,444 times and `cnidarian(s)` 3,740 more from
+  `cnida` — the phylum, not the nematocyst — plus `stemmed` from `stem` and
+  `floating` from `float`. English variants stay hand-listed in `synonyms`,
+  as the lexicon's own documentation instructs.
+
+  Two notes on the issue's own framing, both measured. Of the two documents
+  it names, Eschscholtz 1825 goes 0 → 1 (its text contains exactly one
+  `Luftblasen`, and its real anatomical vocabulary — `Saugmägen`,
+  `Fangfäden` — is absent from the lexicon in any form), and Olfers 1824
+  stays 0 → 0 because the extracted text is about electric organs of fish
+  and contains no siphonophore anatomy at all: that zero was correct. The
+  value is on documents that already had partial coverage. Separately,
+  inflections that change the stem rather than extend it — Russian genitive
+  plurals inserting a fill vowel (`личинок`), German umlaut plurals
+  (`Saugmagen` → `Saugmägen`) — are out of reach of any ending list and are
+  pinned as a known gap in `tests/test_lexicon_inflection.py`, with listing
+  the form under `synonyms` as the working remedy.
+
 - **A text layer of unmappable glyph indices is no longer "clean" (#266).**
   A PDF font with no usable `ToUnicode` table extracts as raw glyph indices —
   `\x01\x02\x03` — and those are not letters, so they were invisible to every

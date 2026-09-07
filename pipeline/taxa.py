@@ -441,6 +441,88 @@ def lexicon_fingerprints(path: Path) -> Dict[str, Dict[str, object]]:
     return out
 
 
+# Noun-inflection endings applied to `translations` forms, per language
+# (#165). A curated list rather than a general stemmer: every generated
+# form is added to the variant map explicitly, so matching stays
+# whole-word exact and the map stays greppable.
+#
+# `de`, `fr` and `ru` are measured — the endings below are the ones that
+# actually follow a lexicon stem in the reference library, with the
+# per-ending hit counts that justified each. The others carry that
+# language's ordinary noun plurals and are there so a lexicon extended
+# to them is not silently worse off; they have no corpus evidence yet.
+#
+# There is deliberately no `en` entry, and it is not an omission. English
+# variants are hand-listed in `synonyms`, which is what the lexicon's own
+# documentation tells curators to do, and the survey shows why: suffixing
+# English stems matches `Cnidaria` 4,444 times and `cnidarian(s)` 3,740
+# more from `cnida`, which is the phylum rather than the nematocyst, plus
+# `stemmed` from `stem`, `floating` from `float` and `siphoning` from
+# `siphon`. Those are wrong, not merely loose.
+_INFLECTION_SUFFIXES: Dict[str, Tuple[str, ...]] = {
+    # Schwimmglocken 4,623 · Deckstücke 663 · Deckstücken 242 ·
+    # Deckstückes 225 · Deckstücks/Tentakels 988
+    "de": ("n", "en", "e", "es", "s", "ns"),
+    # tentacules/cnidocytes/nématocystes/bractées 3,168 · palpones 6
+    "fr": ("s", "es", "x"),
+    # нектофора 831 · нектофоры 603 · нектофоров 406 · нектофорами 77 ·
+    # пневматофором 70 · нектофорам 18 · нектофорах 16 · нектофору 14 ·
+    # нектофоре 13
+    "ru": ("а", "я", "ы", "и", "ов", "ев", "ей", "ам", "ям", "ами", "ями",
+           "ах", "ях", "ом", "ем", "у", "ю", "е", "ой"),
+    "es": ("s", "es"),
+    "pt": ("s", "es"),
+    "it": ("i", "e"),
+    "nl": ("n", "en", "s"),
+    "la": ("e", "ae", "a", "um", "i", "is", "es", "orum", "arum"),
+}
+
+# Languages whose case endings replace a stem-final vowel rather than
+# stacking on it. Russian `личинка` declines to `личинки`, not
+# `личинкаи`, so the ending has to be appended to `личинк` as well.
+# Appending to the bare stem still covers the consonant-final majority
+# (`нектофор` → `нектофора`), so both forms are generated.
+#
+# What suffixing cannot reach, at any ending-list length, is an
+# inflection that changes the stem: Russian genitive plurals insert a
+# fill vowel (`личинка` → `личин|о|к`) and German umlaut plurals change
+# one (`Saugmagen` → `Saugmägen`, `Fangfaden` → `Fangfäden`, both printed
+# by Eschscholtz). Those want a per-language morphology table, or the
+# curator listing the form under `synonyms`, which works today.
+# `tests/test_lexicon_inflection.py` pins the gap so it stays recorded
+# rather than merely absent.
+_VOWEL_DROPPING = {"ru"}
+_RU_VOWELS = "аеёиоуыэюя"
+
+# Below this many characters a stem plus an ending is as likely to be an
+# unrelated short word as an inflection. The shortest real translation
+# form in the reference lexicon is `Larve` at 5.
+_MIN_INFLECTABLE_STEM = 5
+
+
+def _inflected_forms(form: str, lang: str) -> List[str]:
+    """Surface forms of ``form`` a reader of ``lang`` might have printed.
+
+    Returns the empty list for languages with no ending table and for
+    stems too short to suffix safely.
+    """
+    suffixes = _INFLECTION_SUFFIXES.get((lang or "").lower())
+    if not suffixes or len(form) < _MIN_INFLECTABLE_STEM:
+        return []
+    # A multi-word translation inflects on its head, not by having an
+    # ending stuck on the end of the phrase, so leave those alone.
+    if " " in form.strip() or "-" in form:
+        return []
+    stems = [form]
+    if (lang or "").lower() in _VOWEL_DROPPING and form[-1].lower() in _RU_VOWELS:
+        stems.append(form[:-1])
+    out: List[str] = []
+    for stem in stems:
+        for suffix in suffixes:
+            out.append(stem + suffix)
+    return out
+
+
 def _build_lexicon_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[str, str]]:
     """Compile one big alternation regex and a variant→canonical map.
 
@@ -448,16 +530,36 @@ def _build_lexicon_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[s
     names (e.g., ``nectophore``) ARE matched — their own keys count as
     variants of themselves so you don't have to repeat them in the
     ``synonyms`` list.
+
+    Non-English translations are additionally expanded through
+    :func:`_inflected_forms`, because an enumerated surface-form set is
+    the wrong shape for an inflecting language: Eschscholtz prints
+    `Luftblasen` where the lexicon lists `Luftblase`, and Vanhöffen 1906
+    prints `Schwimmglocken` 41 times against 7 of `Schwimmglocke` — so
+    the base-form-only match found a minority of its own mentions and a
+    German paper could report anatomy coverage of exactly zero, which
+    reads as "nothing here" rather than "not indexed" (#165).
+
+    An explicitly curated form always wins over a generated one, so a
+    lexicon can correct a bad generation by listing the right form.
     """
     variant_to_canonical: Dict[str, str] = {}
+    generated: Dict[str, str] = {}
     for canonical, entry in lexicon.items():
         canonical_display = canonical.replace("_", " ")
         variants = {canonical, canonical_display, *entry["synonyms"]}
-        for lang_variants in entry.get("translations", {}).values():
+        for lang, lang_variants in entry.get("translations", {}).items():
             variants.update(lang_variants)
+            for form in lang_variants or []:
+                for inflected in _inflected_forms(form, lang):
+                    generated.setdefault(inflected.lower(), canonical)
         for v in variants:
             if v:
                 variant_to_canonical[v.lower()] = canonical
+    # Curated forms are already in the map; only fill the gaps, so a
+    # generated form can never displace a term someone typed on purpose.
+    for variant, canonical in generated.items():
+        variant_to_canonical.setdefault(variant, canonical)
 
     # Sort longest-first so multi-word variants match before shorter ones
     # (e.g., "swimming bell" before "bell").
