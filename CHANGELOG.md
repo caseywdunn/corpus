@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A pixel ceiling on saved figures — `figures.max_pixels_long_side`, default
+  3000 (#184).** Figures are ~88% of a served bundle, so their size is most of
+  what a colleague downloads. Measured on the 1,775-document tree: 21,521
+  figures holding 11.88 GiB, median longest side 1,351 px against a p99 of
+  5,697 and a maximum of 16,237 — the mass is a small tail. A 3000 px cap
+  recovers **2.74 GiB (23%)**.
+
+  **This is not `max_dpi`, and `max_dpi` cannot do it.** The byte-heavy
+  figures are full plate pages at an ordinary **400 dpi**, 11-17 MB each, so
+  capping density to 300 would leave a 16,000 px figure at 12,000 px. There is
+  a second population above 2,000 dpi, but those files are 0.4-0.5 MB and hold
+  no bytes.
+
+  **The flat cap wins on measurement, which is the decision #184 asked for.**
+  It costs the median panel-detected figure 0%, because 966 of 1,015 such
+  figures (95%) are already under 3000 px. Capping *only* figures with no
+  detected panels recovers 2.71 GiB — 0.03 GiB more — while depending on
+  `rois == 0`, which on this tree means "ROI detection never ran" for 95% of
+  figures rather than "has no panels". PLAN.md's gate said that proxy was
+  unsafe; measured, it is weaker than that. So: flat, dependent on nothing.
+
+  Applied on both write paths — the native bbox re-render and docling's own
+  save, which is the only path in `fixed` mode — and available as
+  `--max-pixels-long-side` on `tools/backfill_figure_dpi.py` so an existing
+  bundle can be shrunk without re-running docling. A capped figure records
+  `resolution_mode: native+pixel_capped`, so a shrunk figure is
+  distinguishable from a small source. Verified on a real 7,923 px figure:
+  45% smaller, correctly marked. The bound is the cap within a pixel or two
+  rather than to the pixel, because PyMuPDF sizes a pixmap from the integer
+  rect of the transformed clip; that is documented rather than papered over.
+
 - **A progress heartbeat during long per-document stages (#170).** The run log
   went silent for minutes during docling layout analysis — measured 3m20s on a
   27-page scan, far longer on the 314-page Totton monograph — and the last line

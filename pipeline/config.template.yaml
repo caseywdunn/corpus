@@ -105,6 +105,15 @@ figures:
   vector_dpi: 300           # native mode: render DPI for vector figures
                             #   (no native resolution exists). Default 300.
   # max_dpi: 600            # native mode: optional ceiling for dense scans.
+  # Ceiling on a saved figure's longest side, in pixels (#184). NOT the same
+  # control as max_dpi: measured on 21,521 figures / 11.9 GiB, the byte mass is
+  # full plate pages at an ordinary 400 dpi — 11-17 MB each, up to 16,237 px —
+  # which no density cap reaches (400 -> 300 dpi still leaves 12,000 px).
+  # 3000 recovers 23% of figure bytes and costs the median panel-detected
+  # figure 0%, since 95% of detected panels are already under it. Figures are
+  # ~88% of a served bundle, so this is most of what a colleague downloads.
+  # Set to null to disable.
+  max_pixels_long_side: 3000
   # images_scale: 2.0       # fixed mode only: uniform DPI = 72 * scale.
   # Changes refresh extraction and downstream artifacts on the next corpus run.
   # Rebuild the served bundle to publish the new figures.

@@ -219,20 +219,18 @@ did not name, which is now the expected outcome rather than a surprise.
   callers use is 469-1,606 bytes. What the measurement did find is that #88
   made the grid opt-in without ever bounding it, so it now has a ceiling and
   honest counts.
-- [ ] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
-  Measured on the 1775-document tree: 23,369 figures hold 15.0 GiB, median
-  1.27 MP against a p99 of 21.5 MP and a maximum of 204.6 MP — the mass is a
-  small tail. Figures are ~88% of the served bundle, so a cap roughly halves
-  what a colleague downloads. **77% of figure bytes sit in figures with no
-  detected panels**, including every one of the six largest, so the saving does
-  not have to come out of plate legibility: capping only those recovers
-  5.4 GiB at zero panel cost, where a flat 2000 px cap recovers 6.7 GiB but
-  costs the median panel 10%. Implementation gate — `rois == 0` is **not** a
-  safe proxy for "not a plate" (17% of *detected* panels are already under
-  300 px, so detection quality varies); a selective rule needs a second guard,
-  or use a flat 3000 px cap which costs ~3% and depends on nothing. Decide
-  whether it applies at build time, as a backfill through the existing
-  `tools/backfill_figure_dpi.py`, or both. Full analysis in the issue.
+- [x] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
+  Decided and shipped: a flat `figures.max_pixels_long_side`, default 3000,
+  applied at build time on both write paths and available as a backfill flag.
+  Re-measured on the current tree (21,521 figures / 11.88 GiB): the cap
+  recovers 2.74 GiB (23%) and costs the median panel-detected figure **0%**,
+  because 95% of them are already under it. Two things the measurement
+  corrected. `max_dpi` cannot substitute — the byte mass is full plate pages
+  at an ordinary 400 dpi, so a density cap leaves a 16,000 px figure at
+  12,000. And the selective rule's advantage evaporates: capping only
+  no-panel figures recovers 0.03 GiB more, while `rois == 0` turns out to mean
+  "detection never ran" for 95% of figures, not "no panels" — weaker than the
+  gate here assumed.
   Analyses (A), (C) and (D) from the issue are done: pngquant was present, so
   that lever is spent; the OCR path is 58% of the corpus, not a minority.
   (B) is still worth running; (E) is stale archaeology and should be dropped;

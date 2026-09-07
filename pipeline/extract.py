@@ -27,6 +27,35 @@ from .figures import (
 logger = logging.getLogger(__name__)
 
 
+def _cap_image_pixels(image, cap, label: str):
+    """Downscale a PIL image so its longest side fits ``cap`` (#184).
+
+    Returns the image unchanged when ``cap`` is unset or already
+    satisfied. LANCZOS, because a plate's fine engraving lines are the
+    content and nearest-neighbour would alias them.
+    """
+    if not cap:
+        return image
+    try:
+        width, height = image.size
+    except Exception:
+        return image
+    longest = max(width, height)
+    if longest <= cap:
+        return image
+    ratio = cap / longest
+    new_size = (max(1, round(width * ratio)), max(1, round(height * ratio)))
+    try:
+        from PIL import Image as _PILImage
+        resized = image.resize(new_size, _PILImage.LANCZOS)
+    except Exception as exc:
+        logger.warning("Could not cap %s to %d px: %s", label, cap, exc)
+        return image
+    logger.debug("capped %s: %d×%d → %d×%d px (max_pixels_long_side=%d)",
+                 label, width, height, *new_size, cap)
+    return resized
+
+
 def extract_docling_content(
     pdf_path: Path,
     text_output: Path,
@@ -378,7 +407,14 @@ def extract_docling_content(
             if out_path.exists():
                 stem, ext = out_path.stem, out_path.suffix
                 out_path = figures_dir / f"{stem}_docling_{it['docling_idx']}{ext}"
+            # #184 — bound the longest side before writing. `native` mode
+            # re-renders these from bboxes below and caps there, but
+            # `fixed` mode keeps the docling render as-is, so without
+            # this the cap would silently not apply in that mode.
+            pixel_cap = (CONFIG.get("figures", {}) or {}).get(
+                "max_pixels_long_side")
             try:
+                image = _cap_image_pixels(image, pixel_cap, filename)
                 image.save(str(out_path))
             except Exception as e:
                 logger.warning("Could not save figure %s: %s", filename, e)
@@ -535,6 +571,7 @@ def extract_docling_content(
             native=True,
             vector_dpi=float(fig_cfg.get("vector_dpi", 300.0)),
             max_dpi=fig_cfg.get("max_dpi"),
+            pixel_cap=fig_cfg.get("max_pixels_long_side"),
         )
         logger.info(
             "native figure resolution pass: %d re-rendered, %d native-skip, "

@@ -115,6 +115,16 @@ class FiguresConfig(BaseModel):
         "full-page scan figure doesn't render to a pathologically large "
         "PNG. Default: uncapped.",
     )
+    max_pixels_long_side: Optional[int] = Field(
+        default=3000, ge=64, le=100000,
+        description="Ceiling on a saved figure's longest side, in pixels "
+        "(#184). Distinct from max_dpi, which bounds render *density*: the "
+        "byte mass is physically large plate pages at an ordinary 400 dpi, "
+        "which no density cap reaches. Measured on 21,521 figures / 11.9 GiB, "
+        "3000 px recovers 23% of figure bytes while costing the median "
+        "panel-detected figure 0% — 95% of detected panels are already under "
+        "it. null to disable.",
+    )
     images_scale: float = Field(
         default=2.0,
         ge=1.0,
