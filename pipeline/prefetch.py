@@ -221,10 +221,17 @@ def prefetch_docling(sample_pdf: Path, attempts: int = _ATTEMPTS) -> None:
         # device the real run won't use would defeat the point of prefetching.
         from .accelerator import resolve_device
         from .config import CONFIG as _CFG
+        # ...but `require` is downgraded to `auto` here deliberately (#270).
+        # Prefetch exists to be run where there is *network* access, which
+        # is typically a login node with no GPU at all. Failing the cache
+        # warm-up because of that would make the flag a hazard rather than a
+        # safeguard; the real run still fails, where it matters.
+        _configured = _CFG.get("compute", {}).get("accelerator", "auto")
         opts = PdfPipelineOptions(
             accelerator_options=AcceleratorOptions(
                 device=AcceleratorDevice(
-                    resolve_device(_CFG.get("compute", {}).get("accelerator", "auto")))),
+                    resolve_device(
+                        "auto" if _configured == "require" else _configured))),
             do_ocr=False,
             do_table_structure=True,
             generate_picture_images=True,

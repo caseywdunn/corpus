@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`compute.accelerator: require` and `corpus run --require-gpu` (#270).** `auto`
+  falling back to CPU is right on a workstation — the alternative is every
+  docling page dying with "no kernel image is available". Inside a scheduler
+  allocation it is the wrong answer and an expensive one: a 2026-08-31 embed job
+  resolved to CPU on an allocated RTX 5000 Ada, logged one WARNING into a stderr
+  stream that is mostly HuggingFace chatter, ran 181 of 1,775 documents in 75
+  minutes against a 4-hour wall, and was cancelled by the cluster's
+  0%-GPU-utilization policy. Nothing distinguished it from a slow-but-fine run.
+  Pinning `cuda` was not a way to say "require": a pinned value is honoured
+  verbatim, which *disables* the capability check rather than enforcing it.
+
+  `require` resolves exactly as `auto` does and raises `AcceleratorUnavailable`
+  instead of returning `"cpu"`, carrying `unsupported_cuda_reason()`'s
+  one-line diagnosis and distinguishing a visible-but-unusable card (a
+  torch/hardware mismatch) from no GPU at all (a submission problem). It fails
+  in `corpus run` **before any step starts**, not an hour into extraction.
+  `slurm/batch_embed.sh` and `slurm/batch_pass3b.sh` now pass `--require-gpu`;
+  the GPU-type constraint stays, since this makes the failure loud rather than
+  making an unsupported card work. `corpus prefetch` deliberately downgrades
+  `require` to `auto`, because prefetch runs where there is *network* access —
+  typically a login node with no GPU — and failing the cache warm-up there
+  would make the flag a hazard.
+
+  Also the cheaper half of that issue, worth having either way: `corpus run`
+  now logs `Accelerator: <device> (compute.accelerator=<setting>)` next to its
+  step list, and warns explicitly when GPU steps will run on CPU. Verified on a
+  host whose GTX 1080 the pinned torch cannot use — `auto` warns and proceeds,
+  `--require-gpu` exits 1 before any step, and `--only post` is not blocked.
+
 ### Fixed
 
 - **`get_original_description` says when it cannot answer, and botanical

@@ -37,7 +37,7 @@ def _run_args(**overrides):
     base = dict(
         force_rebuild=False, dry_run=False, no_vision=False, figure_panels=None,
         enrich_bhl=False, force_rebuild_taxonomy=False, force_rebuild_biblio=False,
-        force_rebuild_taxon_mentions=False,
+        force_rebuild_taxon_mentions=False, require_gpu=False,
     )
     base.update(overrides)
     return argparse.Namespace(**base)

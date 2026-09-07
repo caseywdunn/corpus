@@ -356,6 +356,59 @@ def _should_skip_taxonomy_ingest(args: argparse.Namespace) -> bool:
     return False
 
 
+# Steps whose work actually runs on the accelerator. The others are
+# SQLite and JSON, so a GPU decision is irrelevant to them and resolving
+# one would import torch for nothing.
+_GPU_STEPS = frozenset({"extract", "vision", "embed"})
+
+
+def _report_accelerator(
+    selected: List[Step], require: bool = False,
+) -> Optional[str]:
+    """Log the device the GPU steps will use; return an error to abort on.
+
+    Returns ``None`` when there is nothing to abort for, including when no
+    selected step touches the accelerator. ``require`` is the
+    ``--require-gpu`` flag, which promotes an ``auto`` config to ``require``
+    — the SLURM scripts are shared across corpuscles and should not have to
+    edit each one's config.yaml to say a GPU allocation is not optional.
+    """
+    if not any(s.name in _GPU_STEPS for s in selected):
+        return None
+    try:
+        from .accelerator import AcceleratorUnavailable, resolve_device
+        from .config import CONFIG
+    except ImportError as exc:            # pragma: no cover - import guard
+        logger.debug("Cannot resolve the accelerator: %s", exc)
+        return None
+    configured = CONFIG.get("compute", {}).get("accelerator", "auto")
+    if require and configured in ("auto", "require"):
+        configured = "require"
+    elif require:
+        # A pinned device is honoured verbatim by design, so --require-gpu
+        # cannot enforce anything on top of it. Say so rather than letting
+        # the flag look effective.
+        logger.warning(
+            "--require-gpu has no effect with compute.accelerator=%s: a "
+            "pinned device is honoured verbatim and its capability is not "
+            "checked. Use 'auto' or 'require' for the check.", configured,
+        )
+    try:
+        device = resolve_device(configured)
+    except AcceleratorUnavailable as exc:
+        return str(exc)
+    logger.info("Accelerator: %s (compute.accelerator=%s)", device, configured)
+    if device == "cpu" and configured == "auto":
+        # Not an error — on a workstation it is the right answer — but the
+        # one line that would have made the 2026-08-31 run obviously wrong.
+        logger.warning(
+            "GPU steps will run on CPU. If this run holds a GPU allocation "
+            "that is a failure rather than a fallback: set "
+            "compute.accelerator to 'require' so it stops instead (#270)."
+        )
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -424,6 +477,11 @@ def main() -> int:
     parser.add_argument(
         "--dry-run", action="store_true",
         help="Pass --dry-run to every step. No artifacts are written.",
+    )
+    parser.add_argument(
+        "--require-gpu", action="store_true",
+        help="Fail before any step runs if no usable accelerator is present, "
+             "rather than falling back to CPU (#270).",
     )
     parser.add_argument(
         "--skip-pipeline", action="store_true",
@@ -552,6 +610,19 @@ def main() -> int:
     logger.info("Resume: %s. Dry-run: %s.",
                 "on" if args.resume else "off",
                 "on" if args.dry_run else "off")
+
+    # #270 — the resolved device belongs in the first screen of output, not
+    # 200 lines into a stderr stream that is mostly HuggingFace chatter. A
+    # run that fell back to CPU inside a GPU allocation is otherwise
+    # indistinguishable from a slow-but-fine one until the scheduler's
+    # cancellation email arrives. Resolving here also means
+    # `accelerator: require` fails before any step starts, rather than
+    # after the extract phase has already spent an hour.
+    accel_err = _report_accelerator(selected, require=args.require_gpu)
+    if accel_err:
+        logger.error("%s", accel_err)
+        print(f"FATAL: {accel_err}", flush=True)
+        return 1
 
     # Run each step in order. Real runs fail fast on any non-zero exit;
     # dry-run failures are downgraded to warnings because later steps'

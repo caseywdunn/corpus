@@ -85,7 +85,16 @@ echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || ec
 echo "Config: $CORPUS_CONFIG"
 
 # Embed phase only (BGE-M3 → LanceDB). Resume is implicit (#138).
-corpus -c "$CORPUS_CONFIG" run --only embed || {
+#
+# --require-gpu (#270): this job holds a GPU, so a CPU fallback is a
+# failure, not a degraded success. Without it the run looks healthy —
+# steady per-document progress — while embedding at ~1/10th speed, and the
+# cluster's GPU-utilization policy cancels it at 0% an hour in. Fails
+# before any step starts, with accelerator.py's one-line diagnosis rather
+# than a per-launch `no kernel image` error. The type constraint above
+# stays: this makes the *failure* loud, it does not make an unsupported
+# card work.
+corpus -c "$CORPUS_CONFIG" run --only embed --require-gpu || {
     EC=$?
     # Bus error (135) or segfault (139) during CUDA teardown after
     # successful embedding is a known issue on RTX 5000 Ada nodes with

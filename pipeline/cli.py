@@ -417,6 +417,12 @@ def _build_orchestrator_argv(
             sub_argv += ["--taxonomy-path", str(tx_path)]
     if args.enrich_bhl or cfg.bibliography.enrich_bhl:
         sub_argv.append("--enrich-bhl")
+    # #270 — a GPU allocation is a statement that CPU is not an acceptable
+    # outcome. The flag exists alongside `compute.accelerator: require`
+    # because the SLURM scripts are shared across corpuscles and should not
+    # have to edit each one's config.yaml to say so.
+    if args.require_gpu:
+        sub_argv.append("--require-gpu")
     if args.force_rebuild:
         sub_argv.append("--force-rebuild")
     if args.force_rebuild_taxonomy:
@@ -2030,6 +2036,13 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--enrich-bhl", action="store_true",
                        help="Enrich pre-DOI references against the Biodiversity "
                        "Heritage Library (slow, rate-limited; #64)")
+    run_p.add_argument("--require-gpu", action="store_true",
+                       help="Fail before any step runs if no usable "
+                       "accelerator is present, instead of falling back to "
+                       "CPU. Use inside a GPU allocation, where a CPU "
+                       "fallback holds the card at 0%% utilization and gets "
+                       "the job cancelled. Same as compute.accelerator: "
+                       "require (#270)")
     # HPC / job-array support: run one phase per SLURM job, on the right
     # partition, and slice the per-paper stages into array tasks. Omit
     # --only to run the whole pipeline on one node (the default).

@@ -110,22 +110,21 @@ def unsupported_cuda_reason() -> Optional[str]:
     )
 
 
-def resolve_device(configured: str = "auto") -> str:
-    """Return the device to use: ``"cuda"``, ``"mps"`` or ``"cpu"``.
+class AcceleratorUnavailable(RuntimeError):
+    """``compute.accelerator: require`` was set and no GPU is usable.
 
-    ``configured`` comes from ``compute.accelerator`` in ``config.yaml``.
-    Anything other than ``"auto"`` is honoured verbatim — an operator pinning
-    a device is making a deliberate choice, and second-guessing it would make
-    the knob useless for the case it exists for.
+    Raised instead of returning ``"cpu"``, because inside a scheduler
+    allocation a CPU fallback is not a degraded success — it is a failure
+    that costs the whole allocation and looks healthy while doing it.
     """
-    if configured and configured != "auto":
-        return configured
 
+
+def _detect_device() -> str:
+    """The best device this torch build can actually run kernels on."""
     reason = unsupported_cuda_reason()
     if reason:
         logger.warning("Ignoring the visible GPU: %s", reason)
         return "cpu"
-
     try:
         import warnings
         with warnings.catch_warnings():
@@ -138,3 +137,62 @@ def resolve_device(configured: str = "auto") -> str:
     except Exception:
         pass
     return "cpu"
+
+
+def resolve_device(configured: str = "auto") -> str:
+    """Return the device to use: ``"cuda"``, ``"mps"`` or ``"cpu"``.
+
+    ``configured`` comes from ``compute.accelerator`` in ``config.yaml``.
+
+    * ``auto`` detects, and falls back to CPU when the visible GPU is one
+      this torch build ships no kernels for. Right on a workstation, where
+      the alternative is every docling page failing.
+    * ``require`` detects the same way and **raises**
+      :class:`AcceleratorUnavailable` rather than falling back. For a
+      scheduler allocation, where CPU is not an acceptable outcome (#270).
+    * anything else — ``cpu``, ``cuda``, ``mps`` — is honoured verbatim. An
+      operator pinning a device is making a deliberate choice, and
+      second-guessing it would make the knob useless for the case it exists
+      for. Note pinning ``cuda`` *disables* the capability check rather than
+      enforcing it, which is why it is not a way to say "require".
+    """
+    if configured == "require":
+        device = _detect_device()
+        if device == "cpu":
+            raise AcceleratorUnavailable(_require_failure_message())
+        return device
+    if configured and configured != "auto":
+        return configured
+    return _detect_device()
+
+
+def _require_failure_message() -> str:
+    """Why ``require`` could not be satisfied, in the operator's terms.
+
+    Two distinct causes, and conflating them sends the reader in the wrong
+    direction. A visible-but-unusable GPU is a torch/hardware mismatch and
+    :func:`unsupported_cuda_reason` already builds exactly that diagnosis;
+    no GPU at all is a submission problem — the wrong partition, or a
+    missing ``--gpus``.
+    """
+    reason = unsupported_cuda_reason()
+    if reason:
+        # unsupported_cuda_reason ends with "Falling back to CPU.", which is
+        # precisely what is *not* happening here.
+        reason = reason.replace(
+            "Falling back to CPU.",
+            "compute.accelerator is 'require', so this is a failure rather "
+            "than a fallback.",
+        )
+        return (
+            f"No usable GPU: {reason} Either install a torch build with "
+            f"kernels for this card, request a card this build supports "
+            f"(the SLURM scripts pin a type for this reason), or set "
+            f"compute.accelerator to 'auto' to accept CPU."
+        )
+    return (
+        "No usable GPU: compute.accelerator is 'require' but torch reports "
+        "no CUDA or MPS device. Inside a scheduler allocation this usually "
+        "means the job did not request one, or requested it on a partition "
+        "that has none. Set compute.accelerator to 'auto' to accept CPU."
+    )

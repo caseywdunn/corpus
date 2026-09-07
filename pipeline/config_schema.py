@@ -243,13 +243,25 @@ class ComputeConfig(BaseModel):
     — a GPU too old for the pinned torch fails every kernel launch rather
     than falling back. Pin ``cpu`` to take the decision out of play entirely;
     a pinned value is honoured verbatim.
+
+    ``require`` resolves exactly as ``auto`` does but fails instead of
+    falling back (#270). Use it wherever a GPU has been paid for: inside a
+    scheduler allocation, CPU is not a degraded success. A 2026-08-31 embed
+    job resolved to CPU on an allocated RTX 5000 Ada, logged one WARNING,
+    ran 181 of 1,775 documents in 75 minutes against a 4-hour wall, and was
+    cancelled by the cluster's 0%-GPU-utilization policy — a held GPU, a
+    policy strike, and a resubmission, all from a run that looked healthy.
+    Note pinning ``cuda`` is *not* a way to say this: it disables the
+    capability check rather than enforcing it, so the operator gets raw
+    per-launch `no kernel image` errors instead of one clear diagnosis.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    accelerator: Literal["auto", "cpu", "cuda", "mps"] = Field(
+    accelerator: Literal["auto", "cpu", "cuda", "mps", "require"] = Field(
         default="auto",
-        description="Device for docling layout/table models and embeddings.",
+        description="Device for docling layout/table models and embeddings. "
+                    "'require' fails rather than falling back to CPU.",
     )
 
 
