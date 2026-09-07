@@ -237,6 +237,65 @@ def _extract_name_candidates(text: str) -> Iterable[Tuple[str, int, int]]:
         yield name, m.start(1), m.end(1)
 
 
+# An abbreviated genus followed by an epithet: `Ph. pelagica`, `P. physalis`,
+# and — because this corpus is OCR'd — `Ph, pelagica` with a comma for the
+# period. The prefix is 1-4 letters; the epithet is spelled out, which is
+# what makes the expansion checkable at all.
+#
+# This regex is deliberately loose, because it is not what decides
+# anything: `Taf. iii` and `No. species` match it too. Two gates behind it
+# do the deciding — the prefix must extend a genus written out in full
+# elsewhere in the *same document*, and the expansion must resolve in the
+# taxonomy snapshot. A bibliographic abbreviation clears neither.
+_ABBREV_BINOMIAL_RE = re.compile(
+    r"""
+    \b
+    ([A-Z][a-z]{0,3})           # abbreviated genus: Ph, P, Phys
+    \s* [.,] \s*                # period, or an OCR'd comma
+    ([a-z][a-z\-]{2,})          # epithet, spelled out
+    \b
+    """,
+    re.VERBOSE,
+)
+
+
+def _genus_of(name: str) -> str:
+    """The genus token of a resolved name span."""
+    return re.split(r"[\s-]", name.strip(), 1)[0]
+
+
+def _expand_abbreviation(
+    prefix: str, epithet: str, genera_in_full: Set[str], name_set: Set[str],
+) -> Tuple[Optional[str], List[str]]:
+    """Resolve ``prefix. epithet`` against one document's own genera.
+
+    Returns ``(expanded_name, candidates)``. ``expanded_name`` is set only
+    when exactly one candidate survives both gates; ``candidates`` is
+    every binomial that did, so an ambiguous case can be reported instead
+    of guessed at.
+
+    Two gates, and the second is what makes this safe. `Ph.` is genuinely
+    ambiguous in a siphonophore corpus — *Physalia* and *Physophora* are
+    both here — so document context alone would be guessing. But the
+    taxonomy knows that `Physalia pelagica` is a name and `Physophora
+    pelagica` is not, and the epithet is right there on the page. Where
+    the taxonomy cannot break the tie either, nothing is recorded.
+    """
+    lowered = prefix.lower()
+    candidates = [
+        f"{genus} {epithet}"
+        for genus in sorted(genera_in_full)
+        if genus.lower().startswith(lowered)
+        and f"{genus} {epithet}".lower() in name_set
+    ]
+    return (candidates[0] if len(candidates) == 1 else None), candidates
+
+
+# taxa.json ships in the served bundle, so the ambiguity report is a
+# bounded diagnostic rather than a parallel mention list.
+_MAX_UNRESOLVED_RECORDED = 50
+
+
 def extract_taxon_mentions(
     chunks: List[Dict],
     taxonomy: TaxonomyDB,
@@ -254,15 +313,35 @@ def extract_taxon_mentions(
     Only mentions whose ``accepted_taxon_id`` resolves to a taxon in the
     snapshot are recorded — this filters out generic words that happen
     to collide with taxonomic names outside the configured subtree.
+
+    Runs in two passes over the document (#164). The first resolves names
+    written out in full and, as a side effect, learns which genera this
+    document spells out. The second expands abbreviated binomials —
+    `Ph. pelagica` — against that set. Taxonomic literature abbreviates
+    the genus after first mention, so for a corpus of original
+    descriptions this is the central case rather than an edge one: the
+    paper that *erects* a species is the one least likely to spell the
+    genus out on every line. Olfers 1824 is a five-species key for
+    *Physalia* that yielded one genus-level taxon and no species.
+
+    Expansions are recorded with ``method="abbreviated_genus"`` and keep
+    the printed form in ``mention_text``, so nothing downstream has to
+    take an inferred name for an observed one. Abbreviations the pass
+    declined to resolve land in ``abbreviations_unresolved`` rather than
+    disappearing.
     """
     name_set = taxonomy.name_set()
     if not name_set:
         logger.warning("Taxonomy name set is empty; no taxon mentions will be recorded")
 
-    mentions: List[Dict] = []
-    taxa_rollup: Dict[str, Dict] = {}
+    # Per-chunk so pass 2 can interleave its mentions in text order
+    # rather than appending a block at the end.
+    by_chunk: List[List[Dict]] = []
+    genera_in_full: Set[str] = set()
 
     for ch in chunks:
+        chunk_mentions: List[Dict] = []
+        by_chunk.append(chunk_mentions)
         text = ch.get("text", "") or ""
         if not text:
             continue
@@ -293,7 +372,8 @@ def extract_taxon_mentions(
             if resolved is None:
                 continue
 
-            mentions.append(
+            genera_in_full.add(_genus_of(matched_text))
+            chunk_mentions.append(
                 {
                     "chunk_id": ch.get("chunk_id"),
                     "text_span": [start, end],
@@ -306,30 +386,99 @@ def extract_taxon_mentions(
                     "rank": resolved["rank"],
                 }
             )
-            accepted_id = resolved["accepted_taxon_id"]
-            bucket = taxa_rollup.setdefault(
-                accepted_id,
-                {
-                    "accepted_taxon_id": accepted_id,
-                    "accepted_name": resolved["accepted_name"],
-                    "authorship": resolved["authorship"],
-                    "rank": resolved["rank"],
-                    "mention_count": 0,
-                    "first_chunk": ch.get("chunk_id"),
-                },
+
+    # --- Pass 2: abbreviated binomials, against this document's genera ---
+    unresolved: List[Dict] = []
+    n_expanded = 0
+    for ch, chunk_mentions in zip(chunks, by_chunk):
+        text = ch.get("text", "") or ""
+        if not text or not genera_in_full:
+            continue
+        # Spans pass 1 already claimed. An abbreviation cannot overlap a
+        # name written out in full, and `P. Sars` style author initials
+        # next to a resolved name must not be re-read as an epithet.
+        claimed = [tuple(m["text_span"]) for m in chunk_mentions]
+        for m in _ABBREV_BINOMIAL_RE.finditer(text):
+            start, end = m.start(0), m.end(0)
+            if any(s < end and start < e for s, e in claimed):
+                continue
+            prefix, epithet = m.group(1), m.group(2)
+            expanded, candidates = _expand_abbreviation(
+                prefix, epithet, genera_in_full, name_set,
             )
-            bucket["mention_count"] += 1
+            if expanded is None:
+                if candidates:
+                    unresolved.append({
+                        "chunk_id": ch.get("chunk_id"),
+                        "text_span": [start, end],
+                        "mention_text": m.group(0),
+                        "candidates": candidates,
+                        "reason": "ambiguous_abbreviation",
+                    })
+                continue
+            resolved = taxonomy.lookup(expanded)
+            if resolved is None:
+                continue
+            n_expanded += 1
+            chunk_mentions.append({
+                "chunk_id": ch.get("chunk_id"),
+                "text_span": [start, end],
+                "matched_text": expanded,
+                # What is actually printed on the page. The schema has
+                # kept these apart all along; only the writer collapsed
+                # them.
+                "mention_text": m.group(0),
+                "matched_taxon_id": resolved["matched_taxon_id"],
+                "name_type": resolved["name_type"],
+                "accepted_taxon_id": resolved["accepted_taxon_id"],
+                "accepted_name": resolved["accepted_name"],
+                "authorship": resolved["authorship"],
+                "rank": resolved["rank"],
+                "method": "abbreviated_genus",
+                "expanded_from": prefix,
+            })
+
+    mentions: List[Dict] = []
+    for chunk_mentions in by_chunk:
+        mentions.extend(sorted(chunk_mentions, key=lambda m: m["text_span"][0]))
+
+    taxa_rollup: Dict[str, Dict] = {}
+    for m in mentions:
+        accepted_id = m["accepted_taxon_id"]
+        bucket = taxa_rollup.setdefault(
+            accepted_id,
+            {
+                "accepted_taxon_id": accepted_id,
+                "accepted_name": m["accepted_name"],
+                "authorship": m["authorship"],
+                "rank": m["rank"],
+                "mention_count": 0,
+                "first_chunk": m["chunk_id"],
+            },
+        )
+        bucket["mention_count"] += 1
 
     taxa_list = sorted(
         taxa_rollup.values(),
         key=lambda r: (-r["mention_count"], r["accepted_name"] or ""),
     )
-    return {
+    out = {
         "total_mentions": len(mentions),
         "unique_taxa": len(taxa_list),
         "mentions": mentions,
         "taxa": taxa_list,
+        "abbreviations_expanded": n_expanded,
+        # Bounded: this is a diagnostic, not a second mention list, and
+        # taxa.json ships in the served bundle.
+        "abbreviations_unresolved_count": len(unresolved),
+        "abbreviations_unresolved": unresolved[:_MAX_UNRESOLVED_RECORDED],
     }
+    if len(unresolved) > _MAX_UNRESOLVED_RECORDED:
+        logger.info(
+            "%d ambiguous genus abbreviations, recording the first %d",
+            len(unresolved), _MAX_UNRESOLVED_RECORDED,
+        )
+    return out
 
 
 # ---------------------------------------------------------------------------

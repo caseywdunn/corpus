@@ -314,14 +314,62 @@ def test_gibberish_path_asks_the_page_images_for_a_script(monkeypatch):
     monkeypatch.setattr(scan, "_detect_language", lambda _text: ("en", 1.0))
     monkeypatch.setattr(scan, "_gibberish_score", lambda _text: 0.90)
     monkeypatch.setattr(scan, "_text_layer_scripts", lambda _text: {"Latin": 1.0})
-    monkeypatch.setattr(scan, "_visual_page_script", lambda _pdf: "Cyrillic")
+    monkeypatch.setattr(scan, "_visual_page_script", lambda _pdf: "Han")
 
     out = scan.detect_scan_type(pdf)
 
     assert out["detection_reason"] == "gibberish_score_above_threshold"
-    assert out["visual_script"] == "Cyrillic"
-    assert out["script_hint"] == "Cyrillic"
-    assert "rus" in out["tesseract_packs"]
+    assert out["visual_script"] == "Han"
+    assert out["script_hint"] == "Han"
+    assert "chi_sim" in out["tesseract_packs"]
+
+
+@pytest.mark.parametrize("verdict", ["Cyrillic", "Greek", "Thai", "Arabic",
+                                     "Bengali", "Devanagari"])
+def test_only_cjk_verdicts_may_override_the_text_layer(monkeypatch, verdict):
+    """The exclusions are measured, not cautious. Cyrillic and Greek are
+    circular — OCRing a Latin page under `rus` transcribes its letters as
+    Cyrillic lookalikes, so the confirming characters are manufactured by
+    the check. Thai and Arabic are simply wrong here: all 25 Thai and 28
+    Arabic verdicts in the sweep were on Latin-script papers."""
+    pdf = _stub_detection(monkeypatch, "AKAllEMH5I HAYK " * 200)
+    monkeypatch.setattr(scan, "_detect_language", lambda _text: ("en", 1.0))
+    monkeypatch.setattr(scan, "_gibberish_score", lambda _text: 0.90)
+    monkeypatch.setattr(scan, "_text_layer_scripts", lambda _text: {"Latin": 1.0})
+    monkeypatch.setattr(scan, "_visual_page_script", lambda _pdf: verdict)
+
+    out = scan.detect_scan_type(pdf)
+
+    assert out["visual_script"] == "Latin"
+    assert out["tesseract_packs"] == ["eng"]
+    # Recorded even so: the verdict was made and is part of the evidence.
+    assert out["osd_page_scripts"] == [verdict]
+
+
+def test_one_page_of_many_does_not_decide_a_script(monkeypatch):
+    """Boone 1933 is English across 50 pages and yields a single Japanese
+    verdict; a real mixed-script volume shows the script on more than one
+    sampled page, or on half of a short one."""
+    assert scan._dominant_visual_script(
+        ["Japanese", "Latin", "Latin", "Latin", "Latin"]) == "Latin"
+    # Two pages is evidence.
+    assert scan._dominant_visual_script(
+        ["Japanese", "Japanese", "Latin", "Latin", "Latin"]) == "Japanese"
+    # So is one of two, which is Lin & Zhang 1991's whole paper.
+    assert scan._dominant_visual_script(["Han", "Latin"]) == "Han"
+
+
+@pytest.mark.parametrize("share,expected", [
+    (0.577, "Han"),   # Lin & Zhang 1991's Chinese page
+    (0.244, "Han"),   # Lindsay 2006's thinnest Japanese body page
+    (0.143, "Latin"),  # Boone 1933 p17 — an English page misread
+    (0.0, "Latin"),
+])
+def test_the_confirmation_floor_sits_between_the_measured_populations(
+    share, expected, monkeypatch,
+):
+    monkeypatch.setattr(scan, "_script_char_share", lambda _t, _s: share)
+    assert scan._confirm_page_script("Han", "text") == expected
 
 
 def test_vendor_boilerplate_path_does_not_trust_the_banners_language(monkeypatch):

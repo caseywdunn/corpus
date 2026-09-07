@@ -379,23 +379,74 @@ _SCRIPT_CHAR_RANGES = {
 }
 
 
+# Scripts an OSD verdict may override the text layer's own reading with.
+#
+# The set is not "every script Tesseract can name" and the exclusions are
+# measured. Over the reference library the bare OSD check called 424 of
+# 1,580 Latin-text-layer documents non-Latin, and the error mass is
+# overwhelmingly Cyrillic (335 verdicts) and Greek — which is no accident,
+# because their letterforms overlap Latin's. Agassiz 1860, an English
+# monograph, comes back Cyrillic on four of five pages.
+#
+# Cyrillic and Greek are also the two where corroboration cannot help,
+# and where it is actively circular: OCRing a Latin page under ``rus``
+# transcribes the Latin letters as their Cyrillic lookalikes
+# (``СОХТИТВОТТОМ5`` for "CONTRIBUTIONS"), so the characters that were
+# supposed to confirm the verdict are manufactured by the check itself.
+# Tesseract's own word confidence does not separate them either, in
+# either direction: it rates that page 38 under ``rus`` against 89 under
+# Latin, but rates a genuinely Russian page of Stepanjants 1970 *lower*
+# under ``rus`` (53) than under Latin (70), because a Latin model
+# transcribes Cyrillic into lookalikes just as confidently.
+#
+# Nothing is lost by the exclusion, which is the reason it is safe: a
+# genuinely Cyrillic or Greek document carries those characters in its
+# own text layer, where `_text_layer_scripts` already sees them and
+# langdetect names the language. The case OSD is needed for is the text
+# layer that *lies* — a legacy CJK font remapped into ASCII, which
+# extracts as 100% Latin with total confidence — and that is the family
+# kept here, where a Latin model cannot manufacture the evidence and
+# corroboration therefore bites.
+#
+# The other scripts Tesseract can name are left out on the same
+# evidence. Every one of the 25 Thai verdicts and 28 Arabic verdicts in
+# the sweep was on a Latin-script paper — Agassiz 1860, Fewkes 1885c,
+# Gould 2000, Chun 1883, Dunn 2005 — as were the lone Bengali (Bigelow &
+# Sears 1939) and both Devanagari ones (Lesueur 1815, Alvariño 1985a).
+# Those are caught today only because `tha`, `ara`, `ben` and `hin` are
+# not in the default pack union, so the page OCRs under Latin models and
+# corroboration sees no Thai; an operator who adds one to the union would
+# lose that accident. A corpus that genuinely needs them has the curated
+# route — an `ocrlang` pin in the bib, which detection already honors.
+_OVERRIDING_SCRIPTS = frozenset({"Han", "Japanese", "Katakana", "Hangul"})
+
+# Minimum share of a page's OCR output that must be in the claimed script.
+# Measured: genuine content pages score 0.244 (Lindsay 2006) to 0.984
+# (Kawamura 1915b), while the misfires score 0.000 where the script's pack
+# is not installed and 0.143 on the worst one that is — a Japanese verdict
+# on page 17 of Boone 1933, which is English throughout.
+_SCRIPT_CONFIRM_MIN = 0.20
+
+
 def _script_char_share(text: str, script: str) -> float:
     """Share of ``text``'s letters that belong to ``script``.
 
-    Used to corroborate a Tesseract OSD verdict. OSD is cheap and reads
-    the page image, which is why it is asked at all — but on this
-    material it is wrong often, and confidently: run over the reference
-    library it called 424 of 1,580 Latin-text-layer documents non-Latin,
-    including Fewkes 1882a as Thai and Alvariño 1964 as Cyrillic. Acting
-    on the bare verdict is the regression recorded in
-    :func:`_resolve_tesseract_packs` — 188 papers overruled, 68 of them
-    losing their correct pack.
+    Used to corroborate a Tesseract OSD verdict, which is not safe to act
+    on bare: over the reference library the check called 424 of 1,580
+    Latin-text-layer documents non-Latin, including Fewkes 1882a as Thai
+    and Bigelow & Sears 1939 as Bengali. Acting on the bare verdict is
+    the regression recorded in :func:`_resolve_tesseract_packs` — 188
+    papers overruled, 68 of them losing their correct pack.
 
     The corroboration is free where the probe already runs: it OCR'd the
     page with that very script's packs, so if the script is really there
     its characters are in the output. A Thai misfire on a Latin scan OCRs
     to Latin letters under ``tha`` and scores 0.0 here; the Chinese page
-    of Lin & Zhang 1991 OCRs to 447 Han characters and scores high.
+    of Lin & Zhang 1991 OCRs to 447 Han characters and scores 0.577.
+
+    This is sound only for the scripts in ``_OVERRIDING_SCRIPTS``, whose
+    characters a Latin-script model cannot produce. See that set's note
+    for why Cyrillic and Greek are excluded rather than merely thresholded.
     """
     ranges = _SCRIPT_CHAR_RANGES.get(script)
     if not ranges:
@@ -603,20 +654,29 @@ def _confirm_page_script(
     non-Latin and the output says otherwise, and the verdict unchanged
     for Latin-family verdicts and for pages where OSD said nothing.
 
-    The 0.10 floor is deliberately low, because a real content page is
-    mixed: OCR'd under their resolved packs, Lin & Zhang 1991's Chinese
-    page scores 0.577 Han and Lindsay 2006's six Japanese body pages
-    0.244-0.469, the rest being Latin taxon names, authorities and
-    reference lists. Their Latin-only reference pages score 0.018 and
-    0.032, so the floor sits in a gap here as well. A misfire scores 0.0
-    rather than merely low: a Thai verdict on a Latin scan produces no
-    Thai codepoints at all, because Tesseract's ``tha`` model
-    transcribed Latin letters as Latin letters.
+    A verdict outside ``_OVERRIDING_SCRIPTS`` is collapsed to ``"Latin"``
+    without being checked, because for those the check is circular — see
+    that set's note. The raw verdict is still reported separately, so
+    nothing is hidden by this.
+
+    The floor has to admit a real content page, which is mixed: Lin &
+    Zhang 1991's Chinese page scores 0.577 and Lindsay 2006's Japanese
+    body pages 0.244-0.469, the remainder being Latin taxon names,
+    authorities and reference lists. It has to exclude 0.143, which is
+    what a Japanese verdict scores on page 17 of Boone 1933 — an English
+    paper throughout. Their own Latin-only pages score 0.018-0.032.
     """
-    if not osd_script or osd_script not in _SCRIPT_CHAR_RANGES:
+    if not osd_script or osd_script in ("Latin", "Fraktur"):
         return osd_script
+    if osd_script not in _OVERRIDING_SCRIPTS:
+        logger.debug(
+            "%s page %s: OSD said %s, which is not a script this corpus "
+            "lets override a text layer (Latin-confusable letterforms)",
+            getattr(pdf_path, "name", pdf_path), page_index, osd_script,
+        )
+        return "Latin"
     share = _script_char_share(page_text, osd_script)
-    if share >= 0.10:
+    if share >= _SCRIPT_CONFIRM_MIN:
         return osd_script
     logger.debug(
         "%s page %s: OSD said %s but its own OCR output is %.1f%% %s — "
@@ -844,8 +904,10 @@ def _pixel_evidence(pdf_path: Path, ocr_cfg: Dict) -> _PixelEvidence:
 
     Prefers the OCR probe, which corroborates each OSD verdict against
     the text OCRing under that script's own packs. Falls back to a bare
-    OSD pass when probing is switched off — uncorroborated, and the
-    caller gets a script but no language.
+    OSD pass when probing is switched off; there is no OCR output to
+    corroborate against there, so the verdict is filtered to
+    ``_OVERRIDING_SCRIPTS`` and nothing else, and the caller gets a
+    script but no language.
     """
     if ocr_cfg.get("probe_language_by_ocr", True):
         probe = _probe_language_by_ocr(pdf_path, _script_fallback_packs())
@@ -856,20 +918,28 @@ def _pixel_evidence(pdf_path: Path, ocr_cfg: Dict) -> _PixelEvidence:
             osd_page_scripts=list(probe.osd_scripts),
             all_votes=list(probe.votes),
         )
+    bare = _visual_page_script(pdf_path)
     return _PixelEvidence(
-        languages=[], script=_visual_page_script(pdf_path),
-        page_scripts=[], osd_page_scripts=[],
+        languages=[],
+        script=bare if bare in _OVERRIDING_SCRIPTS or bare in (None, "Latin",
+                                                               "Fraktur")
+        else "Latin",
+        page_scripts=[], osd_page_scripts=[bare],
     )
 
 
 def _dominant_visual_script(scripts: List[Optional[str]]) -> Optional[str]:
     """Collapse per-page OSD verdicts into one script for the record.
 
-    A single non-Latin page decides it, and the most-seen such script
-    wins: a Latin title page in front of a Chinese body is the normal
-    shape of this material, not a reason to call the volume Latin. Lin &
-    Zhang 1991 is two pages, the first Han and the second a Latin
-    reference list, and its content is Chinese (#266).
+    The most-seen non-Latin script wins, and it has to be seen either on
+    at least two sampled pages or on half of them: a Latin title page in
+    front of a Chinese body is the normal shape of this material, so one
+    non-Latin page among several is real evidence — but *only* one page
+    out of many is how a misfire looks. Boone 1933, English across 50
+    pages, produces a single Japanese verdict; Lin & Zhang 1991 is a
+    two-page paper whose first page is Han and whose content is Chinese
+    (#266), and 1 of 2 clears the half. Kawamura 1915b, genuinely
+    Japanese, gives 3 of 5.
 
     Fraktur collapses to ``"Latin"`` rather than being returned as
     itself, and that is deliberate. ``_SCRIPT_TO_TESSERACT`` has a
@@ -891,7 +961,10 @@ def _dominant_visual_script(scripts: List[Optional[str]]) -> Optional[str]:
     """
     non_latin = [s for s in scripts if s and s not in ("Latin", "Fraktur")]
     if non_latin:
-        return Counter(non_latin).most_common(1)[0][0]
+        script, seen = Counter(non_latin).most_common(1)[0]
+        with_verdict = sum(1 for s in scripts if s)
+        if seen >= 2 or (with_verdict and seen * 2 >= with_verdict):
+            return script
     if any(s in ("Latin", "Fraktur") for s in scripts):
         return "Latin"
     return None

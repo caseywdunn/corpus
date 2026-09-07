@@ -81,20 +81,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unmappable and high-gibberish — now asks the pixels through one accessor and
   records what they said.
 
-- **An OSD verdict is corroborated before it is acted on (#172).** Tesseract
-  OSD is the only script signal that survives a corrupt text layer, and on
-  this material it is also wrong often and confidently: run over the reference
-  library it called **424 of 1,580** Latin-text-layer documents non-Latin —
-  Fewkes 1882a as Thai, Alvariño 1964 as Cyrillic, Bigelow & Sears 1939 as
-  Bengali. Acting on the bare verdict is the regression `_resolve_tesseract_packs`
-  already records, where 188 papers were overruled and 68 lost their correct
-  pack. The check is now free where the probe runs: it OCR'd the page with that
-  script's own packs, so a real script leaves its characters in the output,
-  while a misfire scores 0.0 — `tha` transcribes Latin letters as Latin
-  letters. Content pages of the confirmed cases score 0.24-0.58 against 0.018
-  for their Latin-only reference pages. The pre-corroboration verdicts are
-  recorded as `osd_page_scripts` so a rejected one stays visible rather than
-  looking as though OSD never ran.
+- **An OSD verdict is corroborated before it is acted on, and only CJK
+  verdicts may override a text layer at all (#172).** Tesseract OSD is the only
+  script signal that survives a corrupt text layer, and on this material it is
+  also wrong often and confidently: run over the reference library it called
+  **424 of 1,580** Latin-text-layer documents non-Latin — Fewkes 1882a as Thai,
+  Alvariño 1964 as Cyrillic, Bigelow & Sears 1939 as Bengali. Acting on the
+  bare verdict is the regression `_resolve_tesseract_packs` already records,
+  where 188 papers were overruled and 68 lost their correct pack.
+
+  Two gates, both set from measurement. A verdict must be in the CJK family,
+  and it must be corroborated by the page's own OCR under that script's packs
+  — real content pages score 0.244-0.984 of their characters in the claimed
+  script, against 0.143 for the worst misfire (a Japanese verdict on page 17
+  of Boone 1933, English throughout) — and be seen on two sampled pages, or
+  half of a short document.
+
+  Cyrillic and Greek are excluded because for them corroboration is *circular*:
+  OCRing a Latin page under `rus` transcribes its letters as Cyrillic
+  lookalikes (`СОХТИТВОТТОМ5` for "CONTRIBUTIONS"), so the check manufactures
+  its own evidence. Tesseract's word confidence does not rescue it either —
+  38 vs 89 on that page, but 53 vs 70 the wrong way on a genuinely Russian
+  page of Stepanjants 1970. Thai and Arabic are excluded because every one of
+  their 25 and 28 verdicts was on a Latin-script paper. Nothing is lost:
+  Stepanjants 1970 still resolves to `rus`, from its own text layer and the
+  language probe, and a corpus that needs another script has the curated
+  `ocrlang` route. Raw verdicts are recorded as `osd_page_scripts`, so a
+  rejected one stays visible rather than looking as though OSD never ran.
 
 ## [1.3.0] - 2026-09-07
 
