@@ -202,8 +202,15 @@ did not name, which is now the expected outcome rather than a surprise.
   actually covers it.
 - [ ] **Emit a progress heartbeat during long per-document stages**
   ([#170](https://github.com/caseywdunn/corpus/issues/170)).
-- [ ] **Retire `siphonophores_sample` for the 35 transcribed documents**
-  ([#192](https://github.com/caseywdunn/corpus/issues/192)).
+- [x] **Retire `siphonophores_sample` for the 35 transcribed documents**
+  ([#192](https://github.com/caseywdunn/corpus/issues/192)). Already done in
+  this repo, and verified rather than assumed: `siphonophores_sample` has no
+  references left, BOUCHET.md documents the gold corpuscle as the smoke test,
+  and #187 already targets it (see Standing gates). BOUCHET.md's
+  checksum-verified materialisation recipe was run — 35 PDFs, all sha256s
+  matched — and every figure it and the issue cite re-measures exactly: 761
+  pages, ~644 needing OCR, 127 MB, one document over 100pp, Totton1965a at
+  314 pages carrying 49% of the OCR load.
 - [x] **Column-store shape for `lexicon_matrix`**
   ([#83](https://github.com/caseywdunn/corpus/issues/83)). **Declined on
   measurement**, and the grid bounded instead. The saving is real (16.4-20.0%)
