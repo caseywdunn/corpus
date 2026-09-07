@@ -7,6 +7,8 @@ get_original_description, get_works_by_author.
 """
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -236,16 +238,36 @@ def get_citation_graph(
     this paper's bibliography" — silently returned under a quarter of
     Totton & Bargmann 1965's 210 cited works.
 
-    **A hub work's depth-1 graph is large.** Totton's comes back at
-    ~55 kB, past what some MCP clients will pass through in one tool
-    result. That is a *transport* limit, not corpus-side truncation, and
-    the two must not be conflated: ``truncated`` reports only whether
-    *this tool* dropped edges, so it can read ``false`` while the client
-    still fails to deliver the payload. Pass an explicit
-    ``max_edges_per_node`` when you want a bounded response — then
-    ``truncated`` tells you the truth about what you got.
+    **A hub work's depth-1 graph is large, and ``truncated`` alone cannot
+    tell you whether you got it all** (#166). That flag reports only
+    whether *this tool* dropped edges, so it reads ``false`` — accurately
+    — while the client fails to deliver the payload, and a caller
+    checking it alone concludes it received everything. Measured on the
+    1,775-document reference corpus: **72 works return 150-500 edges with
+    ``truncated: false``, up to 145 kB**, and 14 exceed the default
+    500-edge cap and are truncated honestly. The largest bibliography is
+    2,277 edges / 625 kB uncapped.
 
-    Returns the root work plus the citation edges and ``truncated``.
+    So the response carries the numbers a caller needs rather than one
+    boolean:
+
+    * ``edges_available`` — how many edges exist per direction, before
+      any cap. Compare with ``edges_returned`` to know what you got.
+    * ``edges_returned`` — what is in this payload.
+    * ``response_bytes`` — its serialized size, so a client near its own
+      transport limit can see it coming.
+    * ``truncated_reason`` — which cap fired, when one did:
+      ``max_edges_per_node``, ``max_total_edges`` or ``response_bytes``.
+
+    ``response_bytes`` is also a real ceiling, not just a report: past
+    ``CITATION_GRAPH_MAX_BYTES`` edges are dropped and ``truncated``
+    becomes true, so a pathological graph is bounded instead of being
+    handed to a transport that will refuse it. The server cannot know an
+    individual client's limit, which is why the honest counts matter more
+    than the ceiling's exact value.
+
+    Returns the root work plus the citation edges, ``truncated``, and the
+    fields above.
     """
     idx = _need_index()
     if idx.biblio_db is None:
@@ -277,42 +299,115 @@ def get_citation_graph(
     }
 
     truncated = False
-    if direction in ("citing", "both"):
-        citing, t = _walk_citations(
-            idx.biblio_db, work_id, "citing", depth,
+    reasons: List[str] = []
+    available: Dict[str, int] = {}
+    returned: Dict[str, int] = {}
+    for name in ("citing", "cited_by"):
+        if direction not in (name, "both"):
+            continue
+        edges, t, why, n_available = _walk_citations(
+            idx.biblio_db, work_id, name, depth,
             max_edges_per_node=max_edges_per_node,
             max_total_edges=max_total_edges,
         )
-        result["citing"] = citing
+        result[name] = edges
+        available[name] = n_available
+        returned[name] = len(edges)
         truncated = truncated or t
-    if direction in ("cited_by", "both"):
-        cited_by, t = _walk_citations(
-            idx.biblio_db, work_id, "cited_by", depth,
-            max_edges_per_node=max_edges_per_node,
-            max_total_edges=max_total_edges,
-        )
-        result["cited_by"] = cited_by
-        truncated = truncated or t
+        for reason in why:
+            if reason not in reasons:
+                reasons.append(reason)
 
-    result["truncated"] = truncated
+    def finish() -> int:
+        """Stamp the reported fields and return the payload's real size.
+
+        Measured *with* the metadata in place, not before it. The first
+        cut trimmed to the ceiling and then added `edges_available`,
+        `edges_returned` and `truncated_reason` on top, so the response
+        came back 29 bytes over its own limit — a ceiling that does not
+        count its own reporting is not a ceiling.
+        """
+        result["truncated"] = truncated
+        result["edges_available"] = available
+        result["edges_returned"] = returned
+        if reasons:
+            result["truncated_reason"] = reasons
+        result["response_bytes"] = 0
+        size = _payload_bytes(result)
+        # The field's own digits change the length; settle it.
+        for _ in range(4):
+            result["response_bytes"] = size
+            new_size = _payload_bytes(result)
+            if new_size == size:
+                break
+            size = new_size
+        return size
+
+    # A real ceiling, not just a report (#166): drop edges until the
+    # payload fits, so a pathological graph is bounded rather than handed
+    # to a transport that will refuse it. Trims the larger side first so
+    # both directions survive a `direction="both"` call — one side coming
+    # back silently empty reads as "this work cites nothing".
+    if finish() > CITATION_GRAPH_MAX_BYTES:
+        truncated = True
+        if "response_bytes" not in reasons:
+            reasons.append("response_bytes")
+        while finish() > CITATION_GRAPH_MAX_BYTES:
+            biggest = max(
+                (name for name in ("citing", "cited_by") if result.get(name)),
+                key=lambda name: len(result[name]), default=None,
+            )
+            if biggest is None:
+                break
+            result[biggest] = result[biggest][:-1]
+            returned[biggest] = len(result[biggest])
     return result
+
+
+# Server-side ceiling on one citation-graph response. Deliberately
+# generous: an MCP client's own limit is not knowable here — the reported
+# failure was at ~55 kB, while this corpus hands back 145 kB with
+# `truncated: false` — so this bounds the pathological case and the
+# reported counts are what let a caller judge the rest.
+CITATION_GRAPH_MAX_BYTES = int(
+    os.environ.get("CORPUS_CITATION_GRAPH_MAX_BYTES", 256 * 1024)
+)
+
+
+def _payload_bytes(payload: Dict) -> int:
+    """Serialized size of a tool response, as the transport would see it."""
+    try:
+        return len(json.dumps(payload, default=str).encode("utf-8"))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _walk_citations(
     biblio: BiblioAuthority, work_id: str, direction: str, depth: int,
     *, max_edges_per_node: int, max_total_edges: int,
-) -> "tuple[List[Dict], bool]":
+) -> "tuple[List[Dict], bool, List[str], int]":
     """BFS citation walk with breadth + total-edge caps (#87).
 
-    Returns ``(edges, truncated)``. When a node has more neighbours than
-    ``max_edges_per_node`` they are ranked by ``cited_by_count`` (desc,
-    ``work_id`` tiebreak) and only the top ones kept — so the most-cited
-    edges survive truncation. The total walk stops at ``max_total_edges``.
+    Returns ``(edges, truncated, reasons, root_available)``. When a node
+    has more neighbours than ``max_edges_per_node`` they are ranked by
+    ``cited_by_count`` (desc) and only the top ones kept — so the
+    most-cited edges survive truncation. The total walk stops at
+    ``max_total_edges``.
+
+    ``root_available`` is the root's own edge count before any cap, which
+    is what lets the caller report ``edges_available`` and so tell a
+    complete answer from a capped one (#166). Taken at the root rather
+    than summed over the walk, because that is the number a reader of a
+    depth-1 graph is asking about: how long is this paper's bibliography.
+
+    ``reasons`` names which cap fired, so ``truncated: true`` says why.
     """
     visited: set = set()
     frontier = [work_id]
     results: List[Dict] = []
     truncated = False
+    reasons: List[str] = []
+    root_available = 0
     for d in range(depth):
         next_frontier: List[str] = []
         for wid in frontier:
@@ -320,8 +415,12 @@ def _walk_citations(
                 continue
             visited.add(wid)
             rows = biblio.citing(wid) if direction == "citing" else biblio.cited_by(wid)
+            if wid == work_id:
+                root_available = len(rows)
             if len(rows) > max_edges_per_node:
                 truncated = True
+                if "max_edges_per_node" not in reasons:
+                    reasons.append("max_edges_per_node")
                 # Stable sort on citation count alone. A `work_id`
                 # tiebreak looks principled but degenerates to
                 # alphabetical order whenever counts are tied, which in a
@@ -334,13 +433,15 @@ def _walk_citations(
                 )[:max_edges_per_node]
             for r in rows:
                 if len(results) >= max_total_edges:
-                    return results, True
+                    if "max_total_edges" not in reasons:
+                        reasons.append("max_total_edges")
+                    return results, True, reasons, root_available
                 r["depth"] = d + 1
                 results.append(r)
                 if r["work_id"] not in visited:
                     next_frontier.append(r["work_id"])
         frontier = next_frontier
-    return results, truncated
+    return results, truncated, reasons, root_available
 
 
 # Words that join names in a citation rather than being one. "al" covers

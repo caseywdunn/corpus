@@ -69,6 +69,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`get_citation_graph` reports what it returned, not just whether it cut
+  (#166).** `truncated` said only whether *this tool* dropped edges, so it
+  read `false` — accurately — while the client failed to deliver the payload,
+  and a caller checking it alone concluded it had everything. Measured on the
+  1,775-document reference corpus: **72 works return 150-500 edges with
+  `truncated: false`, up to 145 kB**, 14 exceed the default 500-edge cap and
+  are truncated honestly, and the largest bibliography is 2,277 edges /
+  625 kB uncapped. The reported client failure was at ~55 kB, so this is not
+  one hub paper but 72 of them at up to 2.6x that size.
+
+  The response now carries `edges_available`, `edges_returned`,
+  `response_bytes` and a `truncated_reason` naming which cap fired, so a
+  complete answer is distinguishable from a capped one and a client near its
+  own limit can see the payload coming. `response_bytes` is also a real
+  ceiling — `CORPUS_CITATION_GRAPH_MAX_BYTES`, default 256 kB — which trims
+  the larger direction first so a `direction="both"` call cannot come back
+  with one side silently empty. The ceiling counts its own reporting fields;
+  the first cut trimmed to the limit and then stamped them on top, coming
+  back 29 bytes over.
+
+  Input schema untouched: the 1.0 freeze pins tool inputs, and these are
+  response fields, so no caller has to change a call.
+
 - **The served-bundle absolute-path audit no longer flags extracted content
   (#183).** It read PDF glyph names and OCR garbage as filesystem paths and
   raised: on a 20,137-paper corpus that killed `corpus run --only bundle`
