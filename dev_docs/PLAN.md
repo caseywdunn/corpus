@@ -204,8 +204,14 @@ did not name, which is now the expected outcome rather than a surprise.
   ([#170](https://github.com/caseywdunn/corpus/issues/170)).
 - [ ] **Retire `siphonophores_sample` for the 35 transcribed documents**
   ([#192](https://github.com/caseywdunn/corpus/issues/192)).
-- [ ] **Column-store shape for `lexicon_matrix`**
-  ([#83](https://github.com/caseywdunn/corpus/issues/83)).
+- [x] **Column-store shape for `lexicon_matrix`**
+  ([#83](https://github.com/caseywdunn/corpus/issues/83)). **Declined on
+  measurement**, and the grid bounded instead. The saving is real (16.4-20.0%)
+  but applies only to the opt-in `detail=True` grid, which runs 382 kB over
+  1,775 rows — 19% off an undeliverable payload is not a fix. The default view
+  callers use is 469-1,606 bytes. What the measurement did find is that #88
+  made the grid opt-in without ever bounding it, so it now has a ceiling and
+  honest counts.
 - [ ] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
   Measured on the 1775-document tree: 23,369 figures hold 15.0 GiB, median
   1.27 MP against a p99 of 21.5 MP and a maximum of 204.6 MP — the mass is a

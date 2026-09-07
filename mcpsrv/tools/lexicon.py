@@ -16,6 +16,8 @@ hardwired:
 """
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +26,21 @@ from ..app import _load_json, _need_index, _validate_collection, error, mcp
 
 # #76 — bounded budgets for typical ~1–5 k-token responses.
 _MATRIX_TOP_N_DEFAULT = 20
+
+# Ceiling on one `detail=True` grid (#83, #88). The default `detail=False`
+# view is 469-1,606 bytes on the reference corpora, so this bounds only
+# the opt-in grid, which is unbounded otherwise.
+LEXICON_MATRIX_MAX_BYTES = int(
+    os.environ.get("CORPUS_LEXICON_MATRIX_MAX_BYTES", 128 * 1024)
+)
+
+
+def _payload_bytes(payload: Dict[str, Any]) -> int:
+    """Serialized size of a tool response, as the transport would see it."""
+    try:
+        return len(json.dumps(payload, default=str).encode("utf-8"))
+    except (TypeError, ValueError):
+        return 0
 _TERM_DOSSIER_MAX_PAPERS_DEFAULT = 50
 _TERM_DOSSIER_MAX_CHUNK_EXAMPLES_DEFAULT = 10
 
@@ -136,8 +153,21 @@ def lexicon_matrix(
             "title": str,
             "year": int | null,
             "counts": [int, ...],             # parallel to terms
-          }, ...]                             # one row per paper
+          }, ...],                            # one row per paper
+          "rows_available": int,              # papers in the selected set
+          "rows_returned": int,
+          "response_bytes": int,
+          "truncated": bool,
+          "truncated_reason": str,            # only when truncated
         }
+
+    The grid is bounded by ``CORPUS_LEXICON_MATRIX_MAX_BYTES`` (default
+    128 kB) and says so when it fires. #88 made it opt-in because it was
+    a multi-MB runaway but did not bound it: measured, it is 382 kB over
+    1,775 rows on the siphonophore corpus and 143-175 kB over 699 on the
+    viburnum one, with no flag — so a caller could not tell a complete
+    grid from one its transport dropped. Narrow it with ``paper_hashes``
+    or ``terms`` for a grid you can actually use.
     """
     try:
         _validate_collection(terms, "terms")
@@ -219,12 +249,58 @@ def lexicon_matrix(
             "counts": counts,
         })
 
-    return {
+    result: Dict[str, Any] = {
         "category": category,
         "detail": True,
         "terms": columns,
         "rows": rows,
+        "rows_available": len(row_hashes),
     }
+    # #88 made this grid opt-in because it was a multi-MB runaway; it did
+    # not bound it. Measured on the reference corpora it is 382 kB over
+    # 1,775 rows (siphonophore) and 143-175 kB over 699 (viburnum), with
+    # no cap and no flag — so a caller cannot tell a complete grid from
+    # one its transport dropped. Same treatment as get_citation_graph
+    # (#166): bound it, and report honestly which happened.
+    #
+    # This is also the answer #83 was reaching for. A column-store row
+    # shape saves a measured 16.4-20.0% here, which does not make a
+    # 382 kB payload deliverable — it makes an undeliverable one 19%
+    # smaller. Select papers with `paper_hashes` for a grid you can use.
+    truncated = False
+
+    def finish() -> int:
+        """Stamp the reported fields, then measure. Same trap as #166: a
+        ceiling that does not count the four fields it adds is not a
+        ceiling — the first cut there came back 29 bytes over, and this
+        one 51."""
+        result["rows_returned"] = len(result["rows"])
+        result["truncated"] = truncated
+        if truncated:
+            result["truncated_reason"] = "response_bytes"
+        result["response_bytes"] = 0
+        size = _payload_bytes(result)
+        for _ in range(4):
+            result["response_bytes"] = size
+            settled = _payload_bytes(result)
+            if settled == size:
+                break
+            size = settled
+        return size
+
+    if finish() > LEXICON_MATRIX_MAX_BYTES:
+        truncated = True
+        while len(result["rows"]) > 1:
+            result["rows"] = result["rows"][:-1]
+            # Re-stamp *after* the trim, not before it. Testing the
+            # condition with finish() left `rows_returned` describing the
+            # row count from before the last drop — a reported count that
+            # disagrees with the rows beside it is the exact defect this
+            # whole change is about.
+            if finish() <= LEXICON_MATRIX_MAX_BYTES:
+                break
+        finish()
+    return result
 
 
 @mcp.tool()

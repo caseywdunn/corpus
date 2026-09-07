@@ -111,7 +111,7 @@ Category-agnostic — every tool takes `category` as an argument and returns `{"
 
 | Tool | Returns |
 | --- | --- |
-| `lexicon_matrix` | Lexicon-coverage view for one category. **Default `detail=False`** returns compact per-term totals (`term_totals[]` with `total_mentions` + `papers_with_mentions`) over the selected papers. **`detail=True`** returns the full paper × term mention-count grid (`rows[]`), which is O(papers × terms) and was a multi-MB runaway, hence opt-in (#88). Caller-controlled columns (`terms=`) or top-N by total mention count; caller-controlled paper set (`paper_hashes=`) or all papers, optionally year-filtered. |
+| `lexicon_matrix` | Lexicon-coverage view for one category. **Default `detail=False`** returns compact per-term totals (`term_totals[]` with `total_mentions` + `papers_with_mentions`) over the selected papers. **`detail=True`** returns the full paper × term mention-count grid (`rows[]`), which is O(papers × terms) and was a multi-MB runaway, hence opt-in (#88). Caller-controlled columns (`terms=`) or top-N by total mention count; caller-controlled paper set (`paper_hashes=`) or all papers, optionally year-filtered. The grid is bounded by `CORPUS_LEXICON_MATRIX_MAX_BYTES` (default 128 kB) and reports `rows_available` / `rows_returned` / `response_bytes` / `truncated`; #88 made it opt-in but never bounded it, and it runs 382 kB over 1,775 rows. Narrow with `paper_hashes` or `terms` (#83). |
 | `get_lexicon_term_dossier` | Per-term cross-corpus view: rollup counts, top papers by mention count, chunk examples (IDs only — pair with `get_chunks`), term description. |
 
 ## Prompt-cache integration (Anthropic API clients)

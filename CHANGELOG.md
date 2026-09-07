@@ -112,6 +112,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`lexicon_matrix(detail=True)` is bounded and reports what it returned
+  (#83, #88).** #88 made the full paper x term grid opt-in because it was a
+  multi-MB runaway, but never bounded it: no cap and no flag, so a caller
+  could not tell a complete grid from one its transport dropped. Measured, it
+  is **382 kB over 1,775 rows** on the siphonophore corpus and 143-175 kB over
+  699 on the viburnum one. Now capped by `CORPUS_LEXICON_MATRIX_MAX_BYTES`
+  (default 128 kB) with `rows_available`, `rows_returned`, `response_bytes`
+  and `truncated` alongside — the same treatment `get_citation_graph` got in
+  #166. The default `detail=False` view is unchanged and unaffected.
+
+  **The column-store row shape #83 proposed is declined, on measurement.**
+  It saves a real 16.4-20.0% on the grid — but that does not make a 382 kB
+  payload deliverable, it makes an undeliverable one 19% smaller. And the
+  default view, which is what callers actually use, is 469-1,606 bytes, where
+  per-row key repetition is irrelevant. Bounding the grid and naming the row
+  count addresses the concern the issue was reaching for; a `row_schema`
+  parameter would also have changed the frozen 1.0 input surface for it.
+
 - **`get_citation_graph` reports what it returned, not just whether it cut
   (#166).** `truncated` said only whether *this tool* dropped edges, so it
   read `false` — accurately — while the client failed to deliver the payload,
