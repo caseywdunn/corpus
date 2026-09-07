@@ -187,9 +187,11 @@ did not name, which is now the expected outcome rather than a surprise.
 
 ### 3. Cheap, and better done at a version boundary
 
-- [ ] **Rename `_serve/`** ([#273](https://github.com/caseywdunn/corpus/issues/273)).
-  The one directory built to travel has the least descriptive name, and every
-  client pointed at it makes the rename dearer.
+- [x] **Rename `_serve/`** ([#273](https://github.com/caseywdunn/corpus/issues/273)).
+  Now `corpus_bundle/`. An existing `_serve/` is read and updated in place, so
+  no corpuscle needs rebuilding and no client breaks; the migration is one
+  `mv`, on the operator's schedule. The redundant basename check is removed
+  rather than renamed — the manifest was always the robust signal.
 - [ ] **Stop warning about a vision downgrade on phases that never run vision**
   ([#263](https://github.com/caseywdunn/corpus/issues/263)).
 - [ ] **Fix served-bundle absolute-path audit false positives**

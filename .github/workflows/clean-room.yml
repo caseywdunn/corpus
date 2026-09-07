@@ -179,7 +179,7 @@ jobs:
       - name: Verify bundle manifest + audit clean
         working-directory: demo
         run: |
-          manifest=output/_serve/bundle_manifest.json
+          manifest=output/corpus_bundle/bundle_manifest.json
           test -f "$manifest" || { echo "bundle_manifest.json missing"; exit 1; }
           paper_count=$(jq -r '.paper_count' "$manifest")
           [ "$paper_count" = "4" ] \
@@ -197,7 +197,7 @@ jobs:
           python -m pytest -v --tb=short -m "corpus_required"
 
       - name: MCP / SSE round-trip smoke
-        run: python tools/smoke_test_sse.py demo/output/_serve --port 18080
+        run: python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080
 
       - name: Stop Grobid
         if: always()

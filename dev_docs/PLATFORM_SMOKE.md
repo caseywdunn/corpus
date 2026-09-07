@@ -65,11 +65,11 @@ Each target must:
    `N / N`). How many stage rows there are is a property of the
    configuration, not of a healthy build: `--no-vision` records no
    `figure_pass*` rows, so do not assert a fixed row count.
-5. `bundle_manifest.json` is written under `demo/output/_serve/`,
+5. `bundle_manifest.json` is written under `demo/output/corpus_bundle/`,
    contains `paper_count: 4`, and the absolute-path audit logs
    `Path scrub: rewrote N files; audit clean.` (covers
    [#70](https://github.com/caseywdunn/corpus/issues/70)).
-6. `corpus serve --output-dir demo/output/_serve` starts, and
+6. `corpus serve --output-dir demo/output/corpus_bundle` starts, and
    `bundle_info` via any MCP client returns the same `paper_count` +
    the bundle version stamped in `pipeline/version.py`.
 
@@ -107,12 +107,12 @@ corpus -v run --no-vision                  # ~25–30 min total wall time on
                                            # pole (~10 min), then extract
                                            # (~6 min) + embed (~30s) + bundle.
 corpus status --report                     # expect: 4 / 4 done
-jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 4
+jq '.paper_count' output/corpus_bundle/bundle_manifest.json   # expect: 4
 
 # Round-trip the MCP bundle_info tool against a freshly-served bundle.
 # tools/smoke_test_sse.py spawns its own server on the requested port,
 # initializes the MCP client, and calls bundle_info + list_papers.
-python tools/smoke_test_sse.py demo/output/_serve --port 18080
+python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080
 # expect: "All layers passed." with bundle_version matching pipeline/version.py
 ```
 
@@ -150,8 +150,8 @@ corpus -v run --no-vision                  # wall time depends on Bouchet
                                            # load + WoRMS API rate; budget
                                            # 30–45 min for the demo.
 corpus status --report                     # expect: 4 / 4 done
-jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 4
-python tools/smoke_test_sse.py demo/output/_serve --port 18080
+jq '.paper_count' output/corpus_bundle/bundle_manifest.json   # expect: 4
+python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080
 # expect: "All layers passed."
 ```
 

@@ -85,6 +85,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   host whose GTX 1080 the pinned torch cannot use — `auto` warns and proceeds,
   `--require-gpu` exits 1 before any step, and `--only post` is not blocked.
 
+### Changed
+
+- **The distilled bundle is `corpus_bundle/`, not `_serve/` (#273).** It is the
+  one directory in a corpuscle designed to be moved away from the build that
+  produced it, and it had the one name that says nothing about what it is —
+  landed in an S3 bucket or beside three sibling bundles, `_serve` identified
+  neither the project nor the artifact. The leading underscore said the
+  opposite of the truth as well: by convention `_foo` reads as private scratch
+  you may delete, and this is the only deliverable in the tree.
+
+  **Existing corpuscles keep working and need no rebuild.** An existing
+  `_serve/` is read *and updated in place* — writing the new name beside it
+  would leave a stale bundle for a client pointed at the old path to keep
+  serving, which is worse than an ugly directory name. `corpus run` and
+  `--check` say once that the directory is on the pre-1.4 name and give the
+  one-command migration (`mv _serve corpus_bundle`), to run when nothing is
+  serving it. A fresh corpuscle gets the new name.
+
+  The `build_dir.name == "_serve"` check in the serve pre-flight is **removed
+  rather than renamed**, as the issue argued: `bundle_manifest.json` was
+  already the robust signal sitting beside it, and a bundle that has been
+  renamed or relocated is still a bundle — which is the whole point of giving
+  it a portable name. CI, `deploy/`, `slurm/` and the runbooks move to the new
+  path, since a fresh build writes it.
+
 ### Fixed
 
 - **`get_citation_graph` reports what it returned, not just whether it cut

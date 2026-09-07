@@ -227,7 +227,7 @@ echo "  Embed job: $EMBED_JOB"
 # Depends on Pass 3b as well as Embed. Those two are siblings, so gating
 # only on Embed let `bundle` start while Pass 3b was still rewriting
 # figures.json and Pass 3c was still renaming split-panel PNGs — both of
-# which mcpsrv/bundle.py copies into _serve/. The bundle could therefore
+# which mcpsrv/bundle.py copies into corpus_bundle/. The bundle could therefore
 # capture pre-vision ROIs and stale figure filenames.
 echo "Submitting Finalize (cross-paper tail)..."
 FINALIZE_JOB=$(sbatch --parsable \

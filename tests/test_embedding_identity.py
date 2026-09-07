@@ -20,7 +20,7 @@ def identity(revision="r1"):
 def bundle(build):
     build.backend.producer = identity()
     build.run(build.document())
-    served = build.root / "_serve"
+    served = build.root / "corpus_bundle"
     package(build.root, served, "test", False, False)
     return served
 
@@ -136,7 +136,7 @@ def test_local_model_relocation_checks_content_and_keeps_paths_private(build, mo
     build.backend.model_name = str(original)
     build.backend.producer = embedding_producer(str(original))
     build.run(build.document())
-    served = build.root / "_serve"
+    served = build.root / "corpus_bundle"
     package(build.root, served, "test", False, False)
     assert str(tmp_path) not in (served / "embedding_producer.json").read_text()
     assert str(tmp_path) not in (served / "bundle_manifest.json").read_text()

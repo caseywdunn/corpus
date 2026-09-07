@@ -75,12 +75,12 @@ fi
 echo "── post (cross-paper DBs) ────────────────────────────────────"
 corpus -c "$CORPUS_CONFIG" run --only post "${BHL_FLAG[@]}"
 
-# Bundle phase: distill the served bundle into <output_dir>/_serve/.
+# Bundle phase: distill the served bundle into <output_dir>/corpus_bundle/.
 # This supersedes the old SERVE_BUNDLE_DIR / `mcpsrv.bundle` step — the
-# served bundle now always lands at _serve/ (DEPLOY.md). Set SKIP_BUNDLE=1
+# served bundle now always lands at corpus_bundle/ (DEPLOY.md). Set SKIP_BUNDLE=1
 # to stop after the cross-paper DBs.
 if [ "$SKIP_BUNDLE" != "1" ]; then
-    echo "── bundle (served-bundle distill → _serve/) ──────────────────"
+    echo "── bundle (served-bundle distill → corpus_bundle/) ──────────────────"
     corpus -c "$CORPUS_CONFIG" run --only bundle
 fi
 

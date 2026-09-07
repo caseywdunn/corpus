@@ -96,7 +96,7 @@ def snapshot(build: Path) -> dict:
         entry["figure_pixels"] = figure_pixels(hd / "figures")
     if not papers:
         problems.append("No document artifacts")
-    manifest_path = build / "_serve/bundle_manifest.json"
+    manifest_path = build / "corpus_bundle/bundle_manifest.json"
     manifest = _read(manifest_path) if manifest_path.exists() else {}
     return {
         "schema_version": SCHEMA_VERSION, "build_root": str(build),

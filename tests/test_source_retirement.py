@@ -59,7 +59,7 @@ def test_retirement_matches_clean_indexes_and_vectors(tmp_path):
     table = db.create_table("document_chunks", schema=model.to_arrow_schema())
     for hd in (first, second):
         embed.embed_document(hd, table, model, backend)
-    served = root / "_serve"
+    served = root / "corpus_bundle"
     package(root, served, "test", False, False)
     a.unlink()
     before = set(root.rglob("*"))
@@ -89,7 +89,7 @@ def test_retirement_matches_clean_indexes_and_vectors(tmp_path):
         return [{k: v for k, v in row.items() if k != "embedding_generation"} for row in tbl.to_arrow().to_pylist()]
     assert logical_rows(table) == logical_rows(clean_table)
     package(root, served, "test", False, False)
-    clean_served = clean / "_serve"
+    clean_served = clean / "corpus_bundle"
     package(clean, clean_served, "test", False, False)
     assert {p.name for p in (served / "documents").iterdir()} == {other}
     assert {p.relative_to(served / "documents") for p in (served / "documents").rglob("*")} == {
@@ -178,21 +178,23 @@ def test_bundle_replacement_removes_old_optional_files_and_retains_previous(tmp_
     hd = artifact(root, "abc")
     (hd / "processed.pdf").write_bytes(b"PDF")
     (root / "instructions.md").write_text("Previous guidance")
-    served = root / "_serve"
+    served = root / "corpus_bundle"
     package(root, served, "test", True, False)
     previous_manifest = (served / "bundle_manifest.json").read_bytes()
     (root / "instructions.md").unlink()
     package(root, served, "test", False, False)
     assert not (served / "instructions.md").exists()
     assert not (served / "documents" / "abc" / "processed.pdf").exists()
-    backups = list(root.glob("._serve-previous-*/bundle/bundle_manifest.json"))
+    # The backup name is derived from the bundle dir name, so derive it
+    # here too rather than hardcoding it (#273 renamed the directory).
+    backups = list(root.glob(f".{served.name}-previous-*/bundle/bundle_manifest.json"))
     assert len(backups) == 1 and backups[0].read_bytes() == previous_manifest
 
 
 def test_malformed_served_json_cannot_bypass_audit_or_replace_bundle(tmp_path):
     root = tmp_path / "build"
     hd = artifact(root, "abc")
-    served = root / "_serve"
+    served = root / "corpus_bundle"
     package(root, served, "good", False, False)
     previous = (served / "bundle_manifest.json").read_bytes()
     (hd / "references.json").write_text('{"private_path":"/home/private/source.pdf",')
@@ -206,7 +208,7 @@ def test_bundle_copy_failure_preserves_previous_generation(tmp_path, monkeypatch
     from mcpsrv import bundle
     root = tmp_path / "build"
     artifact(root, "abc")
-    served = root / "_serve"
+    served = root / "corpus_bundle"
     package(root, served, "test", False, False)
     before = {p.relative_to(served): p.read_bytes() for p in served.rglob("*") if p.is_file()}
     def fail(*args, **kwargs):

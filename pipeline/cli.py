@@ -543,7 +543,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if only == "bundle":
         if args.dry_run:
             print_status(
-                f"dry-run: would distill served bundle into {output_dir / '_serve'}",
+                f"dry-run: would distill served bundle into "
+                f"{_resolved_bundle_dir(output_dir)}",
                 status="info")
             return EXIT_OK
         if args.no_bundle:
@@ -613,7 +614,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 shutil.copy2(src_instructions, dst_instructions)
 
     # #60 — bundle distillation in line, on a full run only. The served
-    # bundle lands at `<output_dir>/_serve/`. Sub-phases (extract / vision
+    # bundle lands at `<output_dir>/corpus_bundle/`. Sub-phases (extract / vision
     # / embed / post) skip it — the HPC flow distills once via a final
     # `--only bundle` job; `--only bundle` is handled at the top.
     if only is None:
@@ -624,7 +625,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             )
         elif args.dry_run:
             print_status(
-                f"dry-run: would distill served bundle into {output_dir / '_serve'}",
+                f"dry-run: would distill served bundle into "
+                f"{_resolved_bundle_dir(output_dir)}",
                 status="info",
             )
         else:
@@ -637,7 +639,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                     "--version vX.Y.Z` to retry, or pass --no-bundle to skip.",
                     status="fail",
                 )
-                # Propagate: _serve/ is the deployable artifact (DEPLOY.md);
+                # Propagate: the distilled bundle is the deployable artifact (DEPLOY.md);
                 # a failed distill must not stamp the run as successful.
                 return rc
 
@@ -884,9 +886,29 @@ def _render_dependency_versions() -> str:
     return "\n".join(lines)
 
 
+def _resolved_bundle_dir(output_dir: Path) -> Path:
+    """The bundle path a real run would write, for dry-run messages."""
+    from mcpsrv.bundle import resolve_bundle_dir
+    return resolve_bundle_dir(output_dir)[0]
+
+
 def _distill_bundle(output_dir: Path) -> int:
-    """Invoke mcpsrv.bundle to produce <output_dir>/_serve/ (#60)."""
-    serve_dir = output_dir / "_serve"
+    """Invoke mcpsrv.bundle to produce <output_dir>/corpus_bundle/ (#60)."""
+    from mcpsrv.bundle import LEGACY_BUNDLE_DIR_NAME, resolve_bundle_dir
+
+    serve_dir, is_legacy = resolve_bundle_dir(output_dir)
+    if is_legacy:
+        # Update the bundle that is already there rather than writing a
+        # second one beside it (#273). Two bundles in one corpuscle is
+        # how a client pointed at the old path ends up serving a stale
+        # one, which is worse than an ugly directory name.
+        print_status(
+            f"this corpuscle's bundle is still at {LEGACY_BUNDLE_DIR_NAME}/, "
+            f"the pre-1.4 name; updating it in place. To adopt the new name, "
+            f"stop anything serving it and run: mv "
+            f"{output_dir / LEGACY_BUNDLE_DIR_NAME} {serve_dir.parent / 'corpus_bundle'}",
+            status="warn",
+        )
     cmd = [
         sys.executable, "-m", "mcpsrv.bundle",
         str(output_dir), str(serve_dir),
@@ -2039,7 +2061,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "needed, docling layout, Grobid metadata, chunking, taxa + "
             "lexicon tagging) → BGE-M3 embeddings into LanceDB → cross-"
             "paper bibliography reconciliation + taxon-mention rollup → "
-            "distillation of a served bundle at <output_dir>/_serve/. "
+            "distillation of a served bundle at "
+            "<output_dir>/corpus_bundle/ (or an existing _serve/). "
             "Idempotent: a re-run only re-processes papers whose inputs "
             "have changed."
         ),
@@ -2076,7 +2099,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--no-bundle", action="store_true",
                        help="Skip the served-bundle distillation step. "
                        "Build artifacts in `<output_dir>/` are unaffected; "
-                       "only the `<output_dir>/_serve/` distillation is "
+                       "only the `<output_dir>/corpus_bundle/` distillation is "
                        "skipped. (#60)")
     run_p.add_argument("--no-prune", action="store_true",
                        help="Skip orphan cleanup; run a read-only audit "
@@ -2203,7 +2226,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "testing, pass `--transport sse --host <ip> --port <port> "
             "--auth-token-file <file>`. The server reads the build "
             "bundle at `output_dir` (from config.yaml) by default; point "
-            "at `<output_dir>/_serve/` to serve a distilled bundle "
+            "at `<output_dir>/corpus_bundle/` to serve a distilled bundle "
             "directly."
         ),
         epilog=(

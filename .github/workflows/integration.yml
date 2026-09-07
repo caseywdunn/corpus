@@ -206,7 +206,7 @@ jobs:
       - name: Verify bundle manifest + audit clean
         working-directory: demo
         run: |
-          manifest=output/_serve/bundle_manifest.json
+          manifest=output/corpus_bundle/bundle_manifest.json
           test -f "$manifest" || { echo "bundle_manifest.json missing"; exit 1; }
           paper_count=$(jq -r '.paper_count' "$manifest")
           [ "$paper_count" = "4" ] \
@@ -215,7 +215,7 @@ jobs:
             || { echo "served-bundle absolute-path audit (#70) did not log 'audit clean'"; exit 1; }
           test -f output/instructions.md \
             || { echo "instructions.md not shepherded to output root"; exit 1; }
-          test -f output/_serve/instructions.md \
+          test -f output/corpus_bundle/instructions.md \
             || { echo "instructions.md not in served bundle"; exit 1; }
 
       - name: Run corpus_required tests against built demo
@@ -241,7 +241,7 @@ jobs:
           python -m pytest -v --tb=short -m "corpus_required"
 
       - name: MCP / SSE round-trip smoke
-        run: python tools/smoke_test_sse.py demo/output/_serve --port 18080
+        run: python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080
 
       - name: Resume scenario (round 2 — copy Siebert, re-run, assert)
         # Folded in from the prior dedicated T3 job. Round 1 above
@@ -262,7 +262,7 @@ jobs:
           [ "$skipped" = "4" ] && [ "$embedded" -ge 1 ] && [ "$failed" = "0" ] \
             || { echo "round 2 tally violates #71 invariant: embedded=$embedded skipped=$skipped failed=$failed (expected skipped=4 embedded>=1 failed=0)"; exit 1; }
 
-          paper_count=$(jq -r '.paper_count' output/_serve/bundle_manifest.json)
+          paper_count=$(jq -r '.paper_count' output/corpus_bundle/bundle_manifest.json)
           [ "$paper_count" = "5" ] \
             || { echo "round 2 paper_count=$paper_count (expected 5)"; exit 1; }
 
@@ -274,7 +274,7 @@ jobs:
           path: |
             /tmp/run.log
             /tmp/round2.log
-            demo/output/_serve/bundle_manifest.json
+            demo/output/corpus_bundle/bundle_manifest.json
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────────
@@ -388,7 +388,7 @@ jobs:
       - name: Verify bundle manifest
         working-directory: demo
         run: |
-          manifest=output/_serve/bundle_manifest.json
+          manifest=output/corpus_bundle/bundle_manifest.json
           test -f "$manifest" || { echo "bundle_manifest.json missing"; exit 1; }
           python -c "import json; m=json.load(open('$manifest')); assert m['paper_count']==4, m"
 
@@ -422,8 +422,8 @@ jobs:
           [ "$skipped" = "4" ] && [ "$embedded" -ge 1 ] && [ "$failed" = "0" ] \
             || { echo "round 2 tally violates #71 invariant: embedded=$embedded skipped=$skipped failed=$failed (expected skipped=4 embedded>=1 failed=0)"; exit 1; }
 
-          paper_count=$(jq -r '.paper_count' output/_serve/bundle_manifest.json 2>/dev/null \
-            || python -c "import json; print(json.load(open('output/_serve/bundle_manifest.json'))['paper_count'])")
+          paper_count=$(jq -r '.paper_count' output/corpus_bundle/bundle_manifest.json 2>/dev/null \
+            || python -c "import json; print(json.load(open('output/corpus_bundle/bundle_manifest.json'))['paper_count'])")
           [ "$paper_count" = "5" ] \
             || { echo "round 2 paper_count=$paper_count (expected 5)"; exit 1; }
 
@@ -435,7 +435,7 @@ jobs:
           path: |
             /tmp/run.log
             /tmp/round2.log
-            demo/output/_serve/bundle_manifest.json
+            demo/output/corpus_bundle/bundle_manifest.json
           if-no-files-found: ignore
 
 

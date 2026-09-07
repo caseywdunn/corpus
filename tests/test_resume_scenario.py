@@ -77,7 +77,13 @@ def _parse_embed_tally(output: str) -> tuple[int, int, int]:
 
 
 def _load_manifest(output_dir: Path) -> dict:
-    manifest_path = output_dir / "_serve" / "bundle_manifest.json"
+    # Resolve the way the product does (#273): a corpuscle built before
+    # the rename keeps its `_serve/` and keeps being updated there, so a
+    # hardcoded name here would test only one of the two live layouts.
+    from mcpsrv.bundle import resolve_bundle_dir
+
+    serve_dir, _is_legacy = resolve_bundle_dir(output_dir)
+    manifest_path = serve_dir / "bundle_manifest.json"
     assert manifest_path.exists(), f"bundle_manifest.json missing at {manifest_path}"
     return json.loads(manifest_path.read_text())
 

@@ -46,7 +46,7 @@ corpuscles/                      ← all siphonophore corpuscle builds
     config.yaml                  ← authored in step 3 (the source of truth)
     documents/<HASH>/…           ← per-paper artifacts (created by extract)
     *.sqlite, vector_db/         ← cross-paper DBs + LanceDB (created by embed/post)
-    _serve/                      ← distilled served bundle (created by bundle)
+    corpus_bundle/                      ← distilled served bundle (created by bundle)
   siphonophore_gold_YYYYMMDD/    ← smoke-test builds over the 35 transcribed
                                    documents (same structure; see below)
 cache/huggingface/               ← model cache (see below)
@@ -656,7 +656,7 @@ Optional knobs:
 | `PASS3B_BATCH_SIZE` | `256` | papers per Pass 3b task |
 | `HF_HUB_OFFLINE` | unset | `1` pins the run to the cached model snapshot; makes a build reproducible against a moving upstream (§5) |
 | `ENRICH_BHL` | unset | `1` adds BHL enrichment in finalize — slow, rate-limited, many hours |
-| `SKIP_BUNDLE` | unset | `1` runs the cross-paper DBs without distilling `_serve/` |
+| `SKIP_BUNDLE` | unset | `1` runs the cross-paper DBs without distilling `corpus_bundle/` |
 
 ### Before you launch
 
@@ -834,7 +834,7 @@ export GROBID_URL=http://<grobid_node>:<port>     # extract needs Grobid (step 6
 S1=$(sbatch --parsable --array=0-27 slurm/batch_process_corpus.sh)   # extract
 P=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_pass3b.sh)  # vision
 E=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_embed.sh)   # embed
-sbatch --dependency=afterok:$E:$P slurm/batch_finalize.sh              # post + bundle → _serve/
+sbatch --dependency=afterok:$E:$P slurm/batch_finalize.sh              # post + bundle → corpus_bundle/
 ```
 
 Size `--array` as `ceil(PDF files / BATCH_SIZE) - 1`; the orchestrator does this for you.
@@ -897,18 +897,18 @@ re-run is idempotent. Confirm the cross-paper SQLites landed:
 ls -la "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD"/{taxonomy,biblio_authority,taxon_mentions}.sqlite
 ```
 
-The bundle phase distills into `<output_dir>/_serve/` — for the production
-corpuscle that's `$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/`. This
+The bundle phase distills into `<output_dir>/corpus_bundle/` — for the production
+corpuscle that's `$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/corpus_bundle/`. This
 replaces the old standalone `package_for_serve.py` / `SERVE_BUNDLE_DIR`
-step: `_serve/` **is** the deployable artifact (path-scrubbed + audited +
+step: `corpus_bundle/` **is** the deployable artifact (path-scrubbed + audited +
 manifested). Re-distill any time with:
 
 ```bash
 corpus -c "$CORPUS_CONFIG" run --only bundle
-cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/bundle_manifest.json"
+cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/corpus_bundle/bundle_manifest.json"
 ```
 
-`_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](../DEPLOY.md) §5 (the host pulls it with `deploy/update.sh <version>`); §6 is the post-deploy smoke test.
+`corpus_bundle/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](../DEPLOY.md) §5 (the host pulls it with `deploy/update.sh <version>`); §6 is the post-deploy smoke test.
 
 ## Acceptance testing a completed build
 

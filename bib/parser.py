@@ -88,7 +88,7 @@ def unescape_bib_value(s: str) -> str:
     BibTeX values are LaTeX source, not text: ``&`` must be written
     ``\\&``, proper nouns are brace-protected (``{DNA}``), and accented
     letters are commands (``M{\\"u}ller``). Treating a value as plain text
-    passes all of that through to ``metadata.json``, ``_serve/`` and every
+    passes all of that through to ``metadata.json``, ``corpus_bundle/`` and every
     MCP tool that returns a title — so a client emitting a citation gets
     ``A.Braun \\& Vatke`` (#177). The ``.bib`` is not wrong in these cases;
     it is correctly escaped, and we were failing to decode it.

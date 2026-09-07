@@ -90,6 +90,57 @@ logger = logging.getLogger("corpus.bundle")
 #      the caller (real filesystem paths never contain spaces on HPC).
 _ABS_PATH_RE = re.compile(r'^/(?![A-Za-z][0-9A-Fa-f]+/)[A-Za-z][A-Za-z0-9_.+-]+/')
 
+# The distilled bundle's directory name (#273).
+#
+# `_serve` was the one directory in a corpuscle designed to be moved away
+# from the build that produced it, and the one whose name said nothing
+# about what it is. Landed in an S3 bucket or beside three sibling
+# bundles it identified neither the project nor the artifact, and the
+# leading underscore said the opposite of the truth: by convention `_foo`
+# reads as private scratch you may delete, and this is the only
+# deliverable in the tree.
+BUNDLE_DIR_NAME = "corpus_bundle"
+
+# The old name, still read. Existing corpuscles have one, and MCP clients,
+# operator scripts and S3 prefixes are pointed at it — so a rename that
+# only wrote the new name would leave a stale bundle behind and clients
+# silently serving it.
+LEGACY_BUNDLE_DIR_NAME = "_serve"
+
+
+def resolve_bundle_dir(build_dir: Path) -> Tuple[Path, bool]:
+    """Where this corpuscle's distilled bundle is, or should be written.
+
+    Returns ``(path, is_legacy)``. Prefers ``corpus_bundle/``; falls back
+    to an existing ``_serve/`` so a corpuscle built before the rename
+    keeps working and keeps being *updated in place* rather than growing a
+    second, diverging bundle. Neither present means a fresh build, which
+    gets the new name.
+
+    Migration is therefore the operator's to schedule, and it is one
+    command: ``mv _serve corpus_bundle``.
+    """
+    new = build_dir / BUNDLE_DIR_NAME
+    if new.is_dir():
+        return new, False
+    legacy = build_dir / LEGACY_BUNDLE_DIR_NAME
+    if legacy.is_dir():
+        return legacy, True
+    return new, False
+
+
+def is_bundle_dir(path: Path) -> bool:
+    """Is ``path`` itself a distilled bundle?
+
+    The manifest, not the basename. #273 notes the old
+    ``name == "_serve"`` check was already redundant beside this one and
+    should not be replaced by a check against the new name — a bundle that
+    has been renamed or relocated is still a bundle, which is the whole
+    point of giving it a portable name.
+    """
+    return (path / "bundle_manifest.json").is_file()
+
+
 # The per-paper whitelist.  Top-level files only — figures/ is handled
 # separately as a directory copy.
 PER_PAPER_FILES = (
