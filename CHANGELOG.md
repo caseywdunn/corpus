@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`corpus status --filter-gate <name>` now lists the affected papers (#169).**
+  The report printed `List affected papers with: corpus status --filter-gate
+  <name>`, and running exactly that reprinted the whole report unfiltered,
+  because the flag only took effect alongside `--list-hashes`. Filtering is
+  the only thing these flags do, so asking for one is asking for the listing;
+  `--list-hashes` is now needed only on its own, to list every paper. Where a
+  filter genuinely cannot apply — `--json`, `--report`, the triage modes — it
+  is named in a warning rather than dropped, since silently ignoring the flag
+  is the defect itself.
+
+- **The naive-chunker fallback is visible in `corpus status` (#168).** When
+  Docling's `HybridChunker` fails, chunking falls back to a fixed character
+  window: the run exits 0, every other gate passes, and retrieval quality
+  collapses — chunks stop respecting headings, tables and captions, and a
+  2-page paper chunked to 1 window instead of 16. It logged at ERROR once per
+  paper, which is easy to miss on a long run, and the original cause (`corpus
+  prefetch` not fetching the chunker's tokenizer) degraded *every* paper on a
+  host following the `HF_HUB_OFFLINE=1` recipe. `chunks.json` already recorded
+  `chunker`, so this is now a `naive_chunker_fallback` quality gate at error
+  severity, countable across a corpus and carrying its remedy in the report.
+
 - **Abbreviated genus binomials are expanded (#164).** Taxonomic literature
   abbreviates the genus after first mention, so for a corpus of original
   descriptions this was the central gap rather than an edge one: the paper that

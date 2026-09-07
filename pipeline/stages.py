@@ -578,6 +578,28 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
                 "metric": round(score, 3),
             })
 
+    # naive_chunker_fallback — HybridChunker failed and chunking fell back
+    # to a character window (#168). The run exits 0 and every downstream
+    # stage is happy, while retrieval quality collapses: chunks stop
+    # respecting headings, tables and captions, and a 2-page paper produced
+    # 1 chunk instead of 16. The fallback logs at ERROR, but a per-paper
+    # log line is easy to miss on a long run — and the original cause was
+    # `corpus prefetch` not fetching the chunker's tokenizer, which
+    # degraded *every* paper on a host following the offline recipe. That
+    # is a corpus-wide degradation, so it belongs in the rollup where a
+    # count makes it visible rather than in whoever reads the logs.
+    chunker = chunks.get("chunker") if isinstance(chunks, dict) else None
+    if chunker and chunker != "hybrid_chunker":
+        flags.append({
+            "gate": "naive_chunker_fallback",
+            "severity": "error",
+            "detail": (
+                f"chunked by {chunker!r} rather than hybrid_chunker; "
+                f"{len(chunk_list)} chunk(s) over {pages or '?'} page(s)"
+            ),
+            "metric": len(chunk_list),
+        })
+
     # ocr_no_text_recovered — OCR can exit zero without adding text (#268).
     # Read both the explicit current field and the derivable older-artifact
     # shape, so re-running gates against an existing build surfaces it too.

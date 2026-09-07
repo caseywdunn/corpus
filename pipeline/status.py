@@ -69,6 +69,19 @@ _GATE_INFO: Dict[str, Tuple[str, str]] = {
         "mostly numeric tables can also be the metric, not the text: "
         "read a sample before acting.",
     ),
+    "naive_chunker_fallback": (
+        "error",
+        "Docling's HybridChunker failed and chunking fell back to a "
+        "fixed character window, so chunks no longer respect headings, "
+        "tables or captions. The run still exits 0 and every other gate "
+        "passes; what degrades is retrieval — a 2-page paper chunked to "
+        "1 window instead of 16. If this fires on every paper the cause "
+        "is almost always the chunker's tokenizer missing from the "
+        "HuggingFace cache, which is what a host following the "
+        "`HF_HUB_OFFLINE=1` recipe hits: run `corpus prefetch` where "
+        "there is network access, then re-run the chunking stage. On a "
+        "single paper, read the extract log for the underlying error.",
+    ),
     "ocr_pages_blanked": (
         "error",
         "The per-page OCR timeout fired on these pages and ocrmypdf "
@@ -334,12 +347,12 @@ def render_text(rollup: Dict[str, Any]) -> str:
             f"{n_qf_total} flag{'s' if n_qf_total != 1 else ''}) — "
             "informational; nothing is rejected."
         )
-        # --filter-gate narrows a listing; on its own it has nothing to
-        # narrow and the full report prints unchanged, which reads as the
-        # flag being broken. Pair it with --list-hashes in the hint.
+        # A filter now implies the listing, so the hint can promise the
+        # invocation a reader would reach for (#169). It used to name
+        # `--filter-gate <name>` alone, which reprinted the whole report
+        # unchanged — the flag only took effect alongside --list-hashes.
         out.append(
-            "List affected papers with:  "
-            "corpus status --list-hashes --filter-gate <name>"
+            "List affected papers with:  corpus status --filter-gate <name>"
         )
         out.append("")
         for gate, count in qf.most_common():
@@ -644,7 +657,9 @@ def main() -> int:
     parser.add_argument(
         "--list-hashes", action="store_true",
         help="Print one hash per line for papers matching --filter-* "
-             "(suitable for `xargs`). Combine filters to narrow.",
+             "(suitable for `xargs`). Combine filters to narrow. Any "
+             "--filter-* implies this, so it is only needed on its own, "
+             "to list every paper.",
     )
     parser.add_argument(
         "--filter-stage", default=None,
@@ -676,6 +691,37 @@ def main() -> int:
         return 1
 
     rollup = aggregate(documents_dir)
+
+    filters = {
+        "--filter-stage": args.filter_stage,
+        "--filter-reason": args.filter_reason,
+        "--filter-gate": args.filter_gate,
+    }
+    active = {name: v for name, v in filters.items() if v}
+
+    # A filter on its own used to print the whole report unchanged, which
+    # reads as the flag being broken — and the report's own hint told the
+    # reader to run exactly that (#169). Filtering is the only thing these
+    # flags do, so asking for one is asking for the listing.
+    if active and not args.list_hashes:
+        other_mode = next(
+            (name for name, on in (
+                ("--json", args.json), ("--report", args.report),
+                ("--sort-by", bool(args.sort_by)),
+                ("--propose-skips", args.propose_skips),
+                ("--skipped", args.skipped),
+            ) if on), None,
+        )
+        if other_mode:
+            # Still not silent: say which flag is being ignored and by
+            # what, rather than dropping it.
+            logger.warning(
+                "%s does not apply to %s and is ignored; use it with "
+                "--list-hashes (or on its own) to list matching papers.",
+                ", ".join(sorted(active)), other_mode,
+            )
+        else:
+            args.list_hashes = True
 
     if args.list_hashes:
         for h in filtered_hashes(
