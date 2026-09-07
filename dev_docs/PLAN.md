@@ -236,6 +236,15 @@ did not name, which is now the expected outcome rather than a surprise.
   (B) is still worth running; (E) is stale archaeology and should be dropped;
   (F) colour depth stacks on top of a cap.
 
+**Section complete.** Two of the eight turned out to be decisions rather than
+builds, and both went against the issue's proposal once measured: #83's column
+store saves 19% of a payload that is undeliverable either way, and #184's
+selective rule is *worse* than the flat cap it was meant to improve on. Two
+others were already done and needed verifying rather than doing (#192) or
+argued for deleting code rather than adding it (#273's basename check). The
+recurring shape: the cheap items were cheap because the previous cycle had
+already done the hard part — what was left was reading it.
+
 ### 4. Decisions to record rather than defer again
 
 Each of these is a judgment that keeps being re-derived. Write the answer down
