@@ -17,17 +17,17 @@ Three phases:
   2. Ingest cited references + build citation graph (references.json)
   3. Link taxonomic-authority strings to works
 
-After a build completes, ``reconcile_corpus_to_biblio.py`` can
-be run to merge corpus papers whose Grobid-seeded work_id received no
-incoming citations onto matching ghost cited-reference rows.
+After a build completes, ``bib.reconcile`` can merge corpus papers whose
+Grobid-seeded work_id received no incoming citations onto matching cited-work
+rows. The raw reference observations remain independent of those canonical
+work choices.
 
-Idempotency (#30): every INSERT is either ``OR IGNORE`` (work_authors,
-work_aliases, citations, taxon_work_links) or paired with a SELECT
-existence check (works), so re-running on an unchanged corpus is a
-no-op modulo updated_at timestamps. Adding a new paper is an
-incremental update — its work_id seeds, its references cascade-match
-against existing works, no existing rows are recomputed. ``--rebuild``
-drops every table except the rate-limited ``bhl_lookups`` cache.
+Idempotency (#30, #240): re-running unchanged inputs leaves the evidence and
+mapping graph untouched (the CLI still refreshes build-run metadata).
+Reference evidence is append-only and content-addressed; when its current set
+changes, every current observation-to-work mapping and the legacy ``citations``
+materialization are deterministically rebuilt. ``--rebuild`` drops every
+table except the rate-limited ``bhl_lookups`` cache.
 
 Usage:
     python build_biblio_authority.py /path/to/output
@@ -38,6 +38,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -49,6 +50,7 @@ import time
 import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import unquote
 
 try:
     import requests
@@ -65,6 +67,16 @@ from pipeline.external import (
 )
 
 logger = logging.getLogger("corpus.biblio")
+
+# Changes only when the deterministic observation -> work rules change. It is
+# persisted beside every verdict so an operator can explain why a mapping was
+# reconsidered independently of the package release number (#240).
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v3"
+
+# Cross-block escape hatch measured by the #155 audit. Short/generic titles
+# are excluded; the threshold is public so the read-only QC tool uses the same
+# title-length boundary when it reports the broader review population.
+IDENTITY_TITLE_MIN_ALPHA = 25
 
 # Module-level breaker — BHL is hit from a single CLI run, so per-process
 # state is the right scope. Threshold is generous: BHL routinely 500s on
@@ -88,10 +100,10 @@ def normalize_for_key(s: str) -> str:
 
 
 def normalize_doi(doi: str) -> str:
-    """Normalize a DOI to its bare lowercase form."""
-    doi = doi.strip().lower()
+    """Normalize URL/prefix spelling to a bare lowercase DOI (#155)."""
+    doi = unquote(doi.strip()).lower()
     for prefix in ("https://doi.org/", "http://doi.org/", "http://dx.doi.org/",
-                   "https://dx.doi.org/", "doi:"):
+                   "https://dx.doi.org/", "info:doi/", "doi:"):
         if doi.startswith(prefix):
             doi = doi[len(prefix):]
     return doi
@@ -246,6 +258,10 @@ def create_schema(conn: sqlite3.Connection) -> None:
             -- which Zotero populates by default — an imported .bib must
             -- not silently start steering OCR. NULL for almost every row.
             ocrlang        TEXT,
+            -- #186 — operator override for whether/how OCR runs on this
+            -- document: force, redo, or skip-text. Like ocrlang, this is an
+            -- instruction rather than bibliographic metadata.
+            ocrmode        TEXT,
             -- #214 — curation fields. `doclang` is a BCP-47 tag recording
             -- what the paper *is* ("de-Latf": German set in Fraktur) where
             -- `ocrlang` above records what to *do* about it; `pagemap` is
@@ -285,6 +301,81 @@ def create_schema(conn: sqlite3.Connection) -> None:
             match_method       TEXT NOT NULL,
             match_score        REAL DEFAULT 1.0,
             PRIMARY KEY (citing_work_id, cited_work_id, citing_corpus_hash)
+        );
+
+        -- Immutable/re-derivable evidence from references.json (#240).
+        -- Observations and memberships are append-only. Current-set selection
+        -- lives separately so replacing/removing an artifact never mutates or
+        -- deletes its raw or parsed evidence.
+        CREATE TABLE IF NOT EXISTS reference_observations (
+            observation_id     TEXT PRIMARY KEY,
+            citing_corpus_hash TEXT NOT NULL,
+            ordinal            INTEGER NOT NULL,
+            grobid_xml_id      TEXT,
+            raw_citation       TEXT,
+            title              TEXT,
+            year               INTEGER,
+            journal            TEXT,
+            doi                TEXT,
+            authors_json       TEXT NOT NULL,
+            first_seen_at      REAL NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS reference_observation_sets (
+            corpus_hash        TEXT NOT NULL,
+            source_fingerprint TEXT NOT NULL,
+            observation_count INTEGER NOT NULL,
+            first_seen_at      REAL NOT NULL,
+            PRIMARY KEY (corpus_hash, source_fingerprint)
+        );
+
+        CREATE TABLE IF NOT EXISTS reference_observation_memberships (
+            corpus_hash        TEXT NOT NULL,
+            source_fingerprint TEXT NOT NULL,
+            ordinal            INTEGER NOT NULL,
+            observation_id     TEXT NOT NULL
+                REFERENCES reference_observations(observation_id),
+            PRIMARY KEY (corpus_hash, source_fingerprint, ordinal),
+            FOREIGN KEY (corpus_hash, source_fingerprint)
+                REFERENCES reference_observation_sets(
+                    corpus_hash, source_fingerprint
+                )
+        );
+
+        CREATE TABLE IF NOT EXISTS reference_current_sets (
+            corpus_hash        TEXT PRIMARY KEY,
+            source_fingerprint TEXT NOT NULL,
+            selected_at        REAL NOT NULL,
+            FOREIGN KEY (corpus_hash, source_fingerprint)
+                REFERENCES reference_observation_sets(
+                    corpus_hash, source_fingerprint
+                )
+        );
+
+        CREATE TABLE IF NOT EXISTS observation_work (
+            observation_id TEXT PRIMARY KEY
+                REFERENCES reference_observations(observation_id),
+            work_id         TEXT NOT NULL REFERENCES works(work_id),
+            match_method    TEXT NOT NULL,
+            match_score     REAL DEFAULT 1.0,
+            producer_version TEXT NOT NULL,
+            mapped_at       REAL NOT NULL
+        );
+
+        -- Corpus-paper -> canonical-work decisions made by bib.reconcile.
+        -- This makes the legacy compatibility merge reviewable even though
+        -- the superseded works row is removed.
+        CREATE TABLE IF NOT EXISTS work_reconciliation_decisions (
+            corpus_hash    TEXT NOT NULL,
+            source_work_id TEXT NOT NULL,
+            target_work_id TEXT NOT NULL,
+            match_method   TEXT NOT NULL,
+            match_score    REAL,
+            producer_version TEXT NOT NULL,
+            decided_at     REAL NOT NULL,
+            PRIMARY KEY (
+                corpus_hash, source_work_id, target_work_id, producer_version
+            )
         );
 
         CREATE TABLE IF NOT EXISTS work_aliases (
@@ -340,9 +431,17 @@ def create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_work_authors_surname ON work_authors(surname_normalized);
         CREATE INDEX IF NOT EXISTS idx_citations_cited ON citations(cited_work_id);
         CREATE INDEX IF NOT EXISTS idx_citations_citing ON citations(citing_work_id);
+        CREATE INDEX IF NOT EXISTS idx_reference_observations_citing
+            ON reference_observations(citing_corpus_hash);
+        CREATE INDEX IF NOT EXISTS idx_reference_memberships_observation
+            ON reference_observation_memberships(observation_id);
+        CREATE INDEX IF NOT EXISTS idx_observation_work_work
+            ON observation_work(work_id);
         CREATE INDEX IF NOT EXISTS idx_taxon_work_links_work ON taxon_work_links(work_id);
     """)
     _migrate_works_columns(conn)
+    from .documents import create_schema as create_document_schema
+    create_document_schema(conn)
     conn.commit()
 
 
@@ -368,13 +467,17 @@ _V12_WORKS_COLUMNS = [
     ("pagemap", "TEXT"),    # #214
     ("keeppages", "TEXT"),  # #188
 ]
+_V13_WORKS_COLUMNS = [
+    ("ocrmode", "TEXT"),  # #186
+]
 
 
 def _migrate_works_columns(conn: sqlite3.Connection) -> None:
     """Idempotent ALTER TABLE for works.* additions from past releases."""
     have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
     for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS,
-                       *_V11_WORKS_COLUMNS, *_V12_WORKS_COLUMNS):
+                       *_V11_WORKS_COLUMNS, *_V12_WORKS_COLUMNS,
+                       *_V13_WORKS_COLUMNS):
         if name not in have:
             conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
@@ -396,13 +499,13 @@ _NON_PUBLISHABLE_LICENSES = frozenset({
 
 
 def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) -> None:
-    """Copy bib-derived license + serve + ocrlang + curation fields from
+    """Copy bib-derived license + serve + OCR + curation fields from
     metadata.json into works.*.
 
-    ``ocrlang`` (#176) rides along here purely so ``corpus bib export``
-    can round-trip it. Nothing in the pipeline reads it back from this
-    table — the scan stage reads it straight off the BibIndex, because it
-    has to run before the authority DB exists.
+    ``ocrlang`` (#176) and ``ocrmode`` (#186) ride along here purely so
+    ``corpus bib export`` can round-trip them. Nothing in the pipeline reads
+    them back from this table — the scan stage reads them straight off the
+    BibIndex, because it has to run before the authority DB exists.
 
     ``doclang`` and ``pagemap`` (#214) ride along for the same reason and
     go one step further: nothing reads them *at all*. They are a curator's
@@ -415,6 +518,7 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     serve_v = meta.get("serve")
     serve_reason = meta.get("serve_reason")
     ocrlang = meta.get("ocrlang")
+    ocrmode = meta.get("ocrmode")
     doclang = meta.get("doclang")
     pagemap = meta.get("pagemap")
     keeppages = meta.get("keeppages")
@@ -438,6 +542,9 @@ def _seed_license_and_serve(conn: sqlite3.Connection, work_id: str, meta: dict) 
     if ocrlang:
         sets.append("ocrlang = ?")
         params.append(ocrlang)
+    if ocrmode:
+        sets.append("ocrmode = ?")
+        params.append(ocrmode)
     if doclang:
         sets.append("doclang = ?")
         params.append(doclang)
@@ -598,6 +705,13 @@ def apply_publishable_derivation(conn: sqlite3.Connection,
             (publishable, source, r[0]),
         )
         n += 1
+    from .documents import has_memberships, update_document_fields
+    if has_memberships(conn):
+        for sha, raw in conn.execute("SELECT corpus_hash,metadata_json FROM work_documents").fetchall():
+            meta = json.loads(raw)
+            publishable, source = derive_publishable(meta.get("license"), meta.get("year"), pd_cutoff_years)
+            if (meta.get("publishable"), meta.get("license_source")) != (publishable, source):
+                update_document_fields(conn, sha, {"publishable": publishable, "license_source": source})
     conn.commit()
     return n
 
@@ -710,17 +824,221 @@ def insert_citation(conn: sqlite3.Connection, citing_work_id: str,
 
 def lookup_by_doi(conn: sqlite3.Connection, doi: str) -> Optional[str]:
     """Return work_id for a given normalized DOI, or None."""
-    cur = conn.execute("SELECT work_id FROM works WHERE doi = ?", (doi,))
+    cur = conn.execute(
+        """SELECT work_id FROM works WHERE doi = ?
+           ORDER BY in_corpus DESC,
+                    (bib_imported_at IS NOT NULL) DESC,
+                    (guid_type = 'doi') DESC,
+                    work_id
+           LIMIT 1""",
+        (doi,),
+    )
     row = cur.fetchone()
     return row[0] if row else None
+
+
+def _doi_corruption_shape(left: str, right: str) -> Optional[str]:
+    """Name a narrow OCR corruption relating two non-identical DOIs.
+
+    This does not repair either DOI. It is only a candidate generator for a
+    second, independent title check (#239). Hyphens may be either spurious or
+    genuinely lost, so equality after removing them is symmetric. Glued text
+    is a long alphabetic suffix on one otherwise-complete DOI.
+    """
+    left = normalize_doi(left or "")
+    right = normalize_doi(right or "")
+    if not left or not right or left == right:
+        return None
+    if left.replace("-", "") == right.replace("-", ""):
+        return "doi_hyphenation"
+    shorter, longer = sorted((left, right), key=len)
+    if (
+        longer.startswith(shorter)
+        and shorter.count("(") > shorter.count(")")
+        and longer[len(shorter):].startswith(")")
+    ):
+        return "doi_truncation"
+    suffix = longer[len(shorter):] if longer.startswith(shorter) else ""
+    if len(suffix) >= 4 and suffix.isalpha():
+        return "doi_trailing_text"
+    return None
+
+
+def lookup_doi_variant_by_title(
+    conn: sqlite3.Connection,
+    doi: str,
+    title: str,
+) -> Optional[Tuple[str, str, float]]:
+    """Resolve a corrupted DOI only when the title independently agrees.
+
+    Returns ``(work_id, match_method, score)``. The established dual title
+    threshold is reused: token-set ratio >= 85 *and* straight ratio >= 60.
+    Candidate choice is deterministic and favors an in-corpus or more-cited
+    canonical row before a lexical work-id tie-break. A DOI-shape resemblance
+    alone can never merge works.
+    """
+    if not _HAS_BHL_DEPS or not doi or not title:
+        return None
+    normalized_title = normalize_for_key(title)
+    if not normalized_title:
+        return None
+    rows = conn.execute(
+        """SELECT w.work_id, w.doi, w.title, w.in_corpus,
+                  COUNT(c.citing_work_id) AS cited_count
+           FROM works w
+           LEFT JOIN citations c ON c.cited_work_id = w.work_id
+           WHERE w.doi IS NOT NULL AND w.title IS NOT NULL
+           GROUP BY w.work_id, w.doi, w.title, w.in_corpus"""
+    ).fetchall()
+    candidates = []
+    for work_id, candidate_doi, candidate_title, in_corpus, cited_count in rows:
+        corruption = _doi_corruption_shape(doi, candidate_doi)
+        if corruption is None:
+            continue
+        normalized_candidate = normalize_for_key(candidate_title or "")
+        if not normalized_candidate:
+            continue
+        set_score = int(fuzz.token_set_ratio(
+            normalized_title, normalized_candidate,
+        ))
+        ratio_score = int(fuzz.ratio(normalized_title, normalized_candidate))
+        if set_score < 85 or ratio_score < 60:
+            continue
+        candidates.append((
+            int(bool(in_corpus)), int(cited_count or 0), set_score, ratio_score,
+            str(work_id), corruption,
+        ))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: (-row[0], -row[1], -row[2], -row[3], row[4]))
+    _in_corpus, _cited_count, set_score, _ratio_score, work_id, corruption = \
+        candidates[0]
+    return work_id, corruption + "_title", set_score / 100.0
 
 
 def lookup_by_alias(conn: sqlite3.Connection, alias_key: str) -> Optional[str]:
     """Return work_id for a given alias key, or None."""
-    cur = conn.execute("SELECT work_id FROM work_aliases WHERE alias_key = ?",
-                       (alias_key,))
+    cur = conn.execute(
+        """SELECT wa.work_id
+           FROM work_aliases wa JOIN works w ON w.work_id = wa.work_id
+           WHERE wa.alias_key = ?
+           ORDER BY w.in_corpus DESC,
+                    (w.bib_imported_at IS NOT NULL) DESC,
+                    wa.work_id
+           LIMIT 1""",
+        (alias_key,),
+    )
     row = cur.fetchone()
     return row[0] if row else None
+
+
+def _normalized_ref_author_set(authors: List[str]) -> frozenset[str]:
+    """Return the non-empty normalized surname set from a reference."""
+    return frozenset(
+        normalized
+        for author in authors
+        if (normalized := normalize_for_key(extract_surname_from_ref_author(author)))
+    )
+
+
+def _in_corpus_identity_index(
+    conn: sqlite3.Connection,
+) -> Dict[int, List[Tuple[str, str, str, frozenset[str]]]]:
+    """Index immutable corpus candidates once for a materialization pass."""
+    authors_by_work: Dict[str, set[str]] = {}
+    for work_id, surname in conn.execute(
+        """SELECT wa.work_id, wa.surname_normalized
+           FROM work_authors wa JOIN works w ON w.work_id = wa.work_id
+           WHERE w.in_corpus = 1 AND wa.surname_normalized != ''"""
+    ):
+        authors_by_work.setdefault(work_id, set()).add(surname)
+    index: Dict[int, List[Tuple[str, str, str, frozenset[str]]]] = {}
+    for work_id, title, year, doi in conn.execute(
+        """SELECT work_id, title, year, doi FROM works
+           WHERE in_corpus = 1 AND title IS NOT NULL AND year IS NOT NULL
+           ORDER BY work_id"""
+    ):
+        index.setdefault(year, []).append((
+            work_id,
+            title or "",
+            doi or "",
+            frozenset(authors_by_work.get(work_id, set())),
+        ))
+    return index
+
+
+def lookup_in_corpus_by_identity(
+    conn: sqlite3.Connection,
+    title: str,
+    year: Optional[int],
+    authors: List[str],
+    incoming_doi: str = "",
+    candidate_index: Optional[
+        Dict[int, List[Tuple[str, str, str, frozenset[str]]]]
+    ] = None,
+) -> Optional[Tuple[str, str, float]]:
+    """Return a unique title/year/author-set corpus work (#155, #225).
+
+    Author order can differ between a paper header and a reference, so this
+    safely crosses the first-author block used by the fuzzy cascade. Every
+    normalized surname must still agree, both titles must be substantive, and
+    the match must be unique. Non-exact titles use the same dual fuzzy guards
+    as the existing first-author cascade. A different DOI does not erase the
+    match, but is named by the persisted method so the verdict remains honest.
+    """
+    if not title or year is None:
+        return None
+    normalized_title = normalize_for_key(title)
+    if (
+        sum(character.isalpha() for character in normalized_title)
+        < IDENTITY_TITLE_MIN_ALPHA
+    ):
+        return None
+    author_set = _normalized_ref_author_set(authors)
+    if not author_set:
+        return None
+    doi = normalize_doi(incoming_doi) if incoming_doi else ""
+    matches = []
+    if candidate_index is None:
+        candidate_rows = _in_corpus_identity_index(conn).get(year, [])
+    else:
+        candidate_rows = candidate_index.get(year, [])
+    for work_id, candidate_title, candidate_doi, candidate_authors in candidate_rows:
+        normalized_candidate_title = normalize_for_key(candidate_title or "")
+        if (
+            sum(character.isalpha() for character in normalized_candidate_title)
+            < IDENTITY_TITLE_MIN_ALPHA
+        ):
+            continue
+        if candidate_authors != author_set:
+            continue
+        if normalized_candidate_title == normalized_title:
+            method = "title_year_authors_exact"
+            score = 1.0
+        elif _HAS_BHL_DEPS:
+            set_score = int(fuzz.token_set_ratio(
+                normalized_title, normalized_candidate_title,
+            ))
+            ratio_score = int(fuzz.ratio(
+                normalized_title, normalized_candidate_title,
+            ))
+            if set_score < 85 or ratio_score < 60:
+                continue
+            method = "title_year_authors_fuzzy"
+            score = set_score / 100.0
+        else:
+            continue
+        normalized_candidate_doi = (
+            normalize_doi(candidate_doi) if candidate_doi else ""
+        )
+        doi_conflict = bool(
+            doi and normalized_candidate_doi and doi != normalized_candidate_doi
+        )
+        if doi_conflict:
+            method += "_doi_conflict"
+            score = min(score, 0.95)
+        matches.append((work_id, method, score))
+    return matches[0] if len(matches) == 1 else None
 
 
 def _first_author_candidates(conn: sqlite3.Connection, surname: str,
@@ -734,14 +1052,16 @@ def _first_author_candidates(conn: sqlite3.Connection, surname: str,
         cur = conn.execute(
             """SELECT DISTINCT wa.work_id, w.title
                FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-               WHERE wa.surname_normalized = ? AND w.year = ? AND wa.position = 0""",
+               WHERE wa.surname_normalized = ? AND w.year = ? AND wa.position = 0
+               ORDER BY wa.work_id""",
             (norm_surname, year),
         )
     else:
         cur = conn.execute(
             """SELECT DISTINCT wa.work_id, w.title
                FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-               WHERE wa.surname_normalized = ? AND wa.position = 0""",
+               WHERE wa.surname_normalized = ? AND wa.position = 0
+               ORDER BY wa.work_id""",
             (norm_surname,),
         )
     return [(r[0], r[1] or "") for r in cur.fetchall()]
@@ -812,6 +1132,42 @@ def author_year_match(conn: sqlite3.Connection, surname: str,
 
 # ── Phase 1: Seed from corpus papers ────────────────────────────────
 
+def _read_authority_inputs(docs_dir: Path, artifact: str) -> list:
+    """Validate present artifacts before changing any current authority rows.
+
+    Missing artifacts retain the existing optional-input semantics. A present
+    but unreadable/malformed artifact is not a deliberate empty bibliography
+    and must never be reported as a successful no-op with stale mappings.
+    """
+    inputs = []
+    for hd in sorted(docs_dir.iterdir()):
+        if not hd.is_dir():
+            continue
+        path = hd / f"{artifact}.json"
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_bytes())
+            if not isinstance(data, dict):
+                raise ValueError("expected a JSON object")
+            if artifact == "metadata":
+                authors = data.get("authors") if data.get("authors") is not None else []
+                if not isinstance(authors, list) or not all(isinstance(a, dict) for a in authors):
+                    raise ValueError("authors must be a list of objects")
+            else:
+                refs = data.get("references") if data.get("references") is not None else []
+                if not isinstance(refs, list) or not all(isinstance(r, dict) for r in refs):
+                    raise ValueError("references must be a list of objects")
+                for ref in refs:
+                    authors = ref.get("authors") if ref.get("authors") is not None else []
+                    if not isinstance(authors, list) or not all(isinstance(a, str) for a in authors):
+                        raise ValueError("reference authors must be a list of strings")
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Cannot ingest {path}: {exc}") from exc
+        inputs.append((hd, data))
+    return inputs
+
+
 def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
     """Walk output/documents/*/metadata.json and seed works table."""
     docs_dir = output_dir / "documents"
@@ -822,19 +1178,18 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
     count = 0
     refreshed = 0
     batch = 0
-    for hash_dir in sorted(docs_dir.iterdir()):
-        if not hash_dir.is_dir():
-            continue
+    from .documents import consumed_metadata, create_schema as create_document_schema, refresh_representative
+    inputs = _read_authority_inputs(docs_dir, "metadata")
+    create_document_schema(conn)
+    present = {p.name for p in docs_dir.iterdir() if p.is_dir()}
+    for hash_dir, raw_meta in inputs:
         meta_path = hash_dir / "metadata.json"
-        if not meta_path.exists():
-            continue
 
         corpus_hash = hash_dir.name
         try:
             current_mtime = meta_path.stat().st_mtime
         except OSError as e:
-            logger.warning("Skipping %s: %s", meta_path, e)
-            continue
+            raise ValueError(f"Cannot ingest {meta_path}: {e}") from e
 
         # Skip when we've already seeded this corpus_hash AND the
         # source metadata.json hasn't been regenerated since. When
@@ -845,21 +1200,22 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             conn, corpus_hash, "metadata", current_mtime,
         )
         existing_work_id: Optional[str] = None
-        if seen and not stale:
+        meta = consumed_metadata(raw_meta)
+        membership = conn.execute(
+            "SELECT work_id, source_sha256 FROM work_documents WHERE corpus_hash=?", (corpus_hash,),
+        ).fetchone()
+        source_sha = hashlib.sha256(json.dumps(meta, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        if membership and membership[1] == source_sha:
             continue
-        if seen and stale:
+        if membership:
+            existing_work_id = membership[0]
+        else:
             cur = conn.execute(
                 "SELECT work_id FROM works WHERE corpus_hash = ?",
                 (corpus_hash,),
             )
             row = cur.fetchone()
             existing_work_id = row[0] if row else None
-
-        try:
-            meta = json.loads(meta_path.read_text())
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Skipping %s: %s", meta_path, e)
-            continue
 
         title = meta.get("title", "") or ""
         year = meta.get("year")
@@ -896,23 +1252,11 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             work_id = f"corpus:{corpus_hash}"
             guid_type = "corpus_key"
 
-        if existing_work_id is not None and existing_work_id != work_id:
-            # Identity changed (e.g. metadata.json gained a DOI that
-            # rewrites work_id from corpus_key → doi). Citations table
-            # has FK references on the old work_id — re-seeding under
-            # a new work_id would orphan them. Leave the prior row in
-            # place; the operator can address with --rebuild if they
-            # need the identity update.
-            logger.warning(
-                "metadata.json for %s now resolves to work_id %r, but "
-                "this corpus_hash is already bound to %r. Keeping the "
-                "existing row to preserve citation graph integrity; "
-                "use --rebuild to re-key.",
-                corpus_hash, work_id, existing_work_id,
-            )
-            _record_artifact(conn, corpus_hash, "metadata", current_mtime)
-            continue
-
+        migration_unchanged = membership is None and existing_work_id and seen and not stale
+        if migration_unchanged:
+            # Preserve the existing reconciled/curated identity on the first
+            # membership migration when the legacy receipt proves no edit.
+            work_id = existing_work_id
         inserted = insert_work(conn, work_id, guid_type, title, year, journal,
                                doi, corpus_hash, in_corpus=True,
                                source="corpus_paper")
@@ -927,7 +1271,7 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             # surfaces license / licenseurl / serve / servereason).
             _seed_license_and_serve(conn, work_id, meta)
             count += 1
-        elif existing_work_id is not None:
+        elif existing_work_id == work_id and not migration_unchanged:
             # Same work_id — refresh fields and rebuild the author list.
             now = time.time()
             conn.execute(
@@ -943,6 +1287,21 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             _seed_license_and_serve(conn, work_id, meta)
             refreshed += 1
 
+        conn.execute(
+            """INSERT INTO work_documents(corpus_hash,work_id,metadata_json,source_sha256)
+               VALUES (?,?,?,?) ON CONFLICT(corpus_hash) DO UPDATE SET
+               work_id=excluded.work_id, metadata_json=excluded.metadata_json,
+               source_sha256=excluded.source_sha256""",
+            (corpus_hash, work_id, json.dumps(meta, sort_keys=True, ensure_ascii=False), source_sha),
+        )
+        if first_surname:
+            insert_alias(conn, make_alias_key(first_surname, year, title or meta.get("filename", "")), work_id)
+        refresh_representative(conn, work_id, refresh_header=not migration_unchanged)
+        if existing_work_id and existing_work_id != work_id:
+            refresh_representative(conn, existing_work_id, refresh_header=True)
+        # Membership and seed changes affect mappings even when reference
+        # JSON did not change (new local matches, removals and DOI edits).
+        conn.execute("DELETE FROM build_meta WHERE key='reference_corpus_fingerprint'")
         _record_artifact(conn, corpus_hash, "metadata", current_mtime)
         batch += 1
         if batch >= 100:
@@ -953,6 +1312,13 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
                 count, refreshed,
             )
 
+    from .documents import work_map
+    for sha, work_id in work_map(conn).items():
+        if sha not in present:
+            conn.execute("DELETE FROM work_documents WHERE corpus_hash=?", (sha,))
+            conn.execute("DELETE FROM paper_artifacts_processed WHERE corpus_hash=?", (sha,))
+            refresh_representative(conn, work_id, refresh_header=True)
+            conn.execute("DELETE FROM build_meta WHERE key='reference_corpus_fingerprint'")
     conn.commit()
     logger.info(
         "Phase 1 complete: %d corpus papers seeded, %d refreshed",
@@ -966,7 +1332,14 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
 def _resolve_reference(conn: sqlite3.Connection, ref: dict,
                        enrich_bhl: bool = False,
                        bhl_api_key: str = "",
-                       bhl_max_year: Optional[int] = None) -> Tuple[str, str, float]:
+                       bhl_max_year: Optional[int] = None,
+                       fallback_key: str = "",
+                       bhl_stats: Optional[Dict[str, int]] = None,
+                       identity_index: Optional[
+                           Dict[int, List[
+                               Tuple[str, str, str, frozenset[str]]
+                           ]]
+                       ] = None) -> Tuple[str, str, float]:
     """Resolve a single reference dict to a work_id.
 
     Returns (work_id, match_method, match_score).
@@ -979,6 +1352,12 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     authors_raw = ref.get("authors", [])
     raw = ref.get("raw", "") or ""
 
+    # Old references.json artifacts may predate #226's TEI fix and carry the
+    # journal in both fields. Preserve the journal but do not let it become a
+    # work title or a fuzzy-reconciliation feature.
+    if title and journal and normalize_for_key(title) == normalize_for_key(journal):
+        title = ""
+
     # Parse first author surname from ref format ("F Johnson")
     first_surname = ""
     if authors_raw:
@@ -988,6 +1367,21 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     doi = normalize_doi(doi_raw) if doi_raw else ""
     if doi:
         existing = lookup_by_doi(conn, doi)
+        if existing:
+            existing_in_corpus = conn.execute(
+                "SELECT in_corpus FROM works WHERE work_id = ?", (existing,),
+            ).fetchone()[0]
+            if existing_in_corpus:
+                return existing, "doi_exact", 1.0
+        variant = lookup_doi_variant_by_title(conn, doi, title)
+        if variant is not None:
+            return variant
+        identity_match = lookup_in_corpus_by_identity(
+            conn, title, year, authors_raw, incoming_doi=doi,
+            candidate_index=identity_index,
+        )
+        if identity_match is not None:
+            return identity_match
         if existing:
             return existing, "doi_exact", 1.0
         # DOI not yet in DB — create the work with DOI as ID
@@ -1006,15 +1400,37 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
             insert_alias(conn, alias, work_id)
         return work_id, "doi_exact", 1.0
 
+    identity_match = lookup_in_corpus_by_identity(
+        conn, title, year, authors_raw, candidate_index=identity_index,
+    )
+    if identity_match is not None:
+        return identity_match
+
     # ── Cascade step 2: Alias key exact ────────────────────────────
     if first_surname and (title or raw):
         alias = make_alias_key(first_surname, year, title or raw)
         existing = lookup_by_alias(conn, alias)
         if existing:
+            # A successful BHL lookup installs this ordinary alias. On a
+            # later rematerialization it resolves before the BHL cascade, but
+            # it is still a cached BHL outcome and must appear in this run's
+            # accounting (#260).
+            if enrich_bhl and bhl_stats is not None and title:
+                candidate_id = make_corpus_guid(first_surname, year, title or raw)
+                cached = conn.execute(
+                    "SELECT status FROM bhl_lookups WHERE work_id = ?",
+                    (candidate_id,),
+                ).fetchone()
+                if cached and cached[0] == "found":
+                    bhl_stats["eligible"] += 1
+                    bhl_stats["cached_resumed"] += 1
+                    bhl_stats["found"] += 1
             return existing, "alias_exact", 1.0
 
     # ── Cascade step 3: BHL lookup (optional) ──────────────────────
     if enrich_bhl and first_surname and title:
+        if bhl_stats is not None:
+            bhl_stats["eligible"] += 1
         # Compute candidate work_id for resume checking
         candidate_id = make_corpus_guid(first_surname, year, title or raw)
         prev = conn.execute(
@@ -1023,8 +1439,14 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
         if prev:
             prev_status = prev[0]
             if prev_status == "found":
+                if bhl_stats is not None:
+                    bhl_stats["cached_resumed"] += 1
+                    bhl_stats["found"] += 1
                 pass  # fall through — alias lookup below will catch it
             elif prev_status == "not_found":
+                if bhl_stats is not None:
+                    bhl_stats["cached_resumed"] += 1
+                    bhl_stats["not_found"] += 1
                 pass  # skip BHL, fall through to fuzzy match
             elif prev_status == "error":
                 prev = None  # retry errors
@@ -1034,6 +1456,12 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
                 first_surname, year, title, api_key=bhl_api_key,
                 max_year=bhl_max_year,
             )
+            if bhl_stats is not None:
+                if bhl_status == "skipped":
+                    bhl_stats["skipped"] += 1
+                else:
+                    bhl_stats["newly_attempted"] += 1
+                    bhl_stats[bhl_status] += 1
             if bhl_status != "skipped":
                 now = time.time()
                 query_str = f"{first_surname} {year} {title[:60]}"
@@ -1105,8 +1533,11 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     if first_surname:
         work_id = make_corpus_guid(first_surname, year, title or raw)
     else:
-        # No author at all — use a hash of the raw citation or title
-        fallback = title or raw or f"unknown_{time.time_ns()}"
+        # No author at all — use the raw evidence, or the observation's
+        # content address when Grobid returned a completely empty record.
+        # Phase 2 always supplies ``fallback_key``; the timestamp remains only
+        # for direct legacy callers that have no occurrence identity.
+        fallback = title or raw or fallback_key or f"unknown_{time.time_ns()}"
         work_id = f"corpus:unknown|{normalize_for_key(fallback)[:60]}"
 
     insert_work(conn, work_id, "corpus_key", title, year, journal, doi,
@@ -1271,237 +1702,448 @@ def _bhl_lookup(surname: str, year: Optional[int],
     return ("not_found", None, None)
 
 
+def _reference_observation_id(corpus_hash: str, ordinal: int, ref: dict) -> str:
+    """Content-address one occurrence in a citing paper's bibliography."""
+    canonical = json.dumps(
+        ref, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        default=str,
+    )
+    digest = hashlib.sha256(
+        f"{corpus_hash}\0{ordinal}\0{canonical}".encode("utf-8")
+    ).hexdigest()
+    return f"refobs:{digest}"
+
+
+def _ingest_reference_observations(
+    conn: sqlite3.Connection,
+    corpus_hash: str,
+    references: List[dict],
+    source_fingerprint: str,
+) -> None:
+    """Append one evidence set and select it as current for its paper."""
+    now = time.time()
+    conn.execute(
+        """INSERT OR IGNORE INTO reference_observation_sets
+           (corpus_hash, source_fingerprint, observation_count, first_seen_at)
+           VALUES (?, ?, ?, ?)""",
+        (corpus_hash, source_fingerprint, len(references), now),
+    )
+    for ordinal, ref in enumerate(references):
+        observation_id = _reference_observation_id(corpus_hash, ordinal, ref)
+        authors = ref.get("authors") or []
+        authors_json = json.dumps(authors, ensure_ascii=False, separators=(",", ":"))
+        conn.execute(
+            """INSERT OR IGNORE INTO reference_observations
+               (observation_id, citing_corpus_hash, ordinal, grobid_xml_id,
+                raw_citation, title, year, journal, doi, authors_json,
+                first_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                observation_id, corpus_hash, ordinal, ref.get("xml_id", ""),
+                ref.get("raw", ""), ref.get("title", ""), ref.get("year"),
+                ref.get("journal", ""), ref.get("doi", ""), authors_json,
+                now,
+            ),
+        )
+        conn.execute(
+            """INSERT OR IGNORE INTO reference_observation_memberships
+               (corpus_hash, source_fingerprint, ordinal, observation_id)
+               VALUES (?, ?, ?, ?)""",
+            (corpus_hash, source_fingerprint, ordinal, observation_id),
+        )
+    conn.execute(
+        """INSERT INTO reference_current_sets
+           (corpus_hash, source_fingerprint, selected_at)
+           VALUES (?, ?, ?)
+           ON CONFLICT(corpus_hash) DO UPDATE SET
+             source_fingerprint = excluded.source_fingerprint,
+             selected_at = excluded.selected_at""",
+        (corpus_hash, source_fingerprint, now),
+    )
+
+
+def _clear_derived_reference_materialization(conn: sqlite3.Connection) -> None:
+    """Remove re-derivable mappings/ghosts, never raw observations.
+
+    BHL identities survive because the rate-limited lookup cache records only
+    the outcome, not enough response data to recreate the BHL work row. Their
+    aliases make a subsequent mapping reuse the same externally established
+    identity without another network call.
+    """
+    derived_ids = [
+        row[0] for row in conn.execute(
+            """SELECT work_id FROM works
+               WHERE source IN ('cited_reference', 'taxon_authority', 'corpus_paper')
+                 AND guid_type != 'bhl' AND in_corpus = 0
+                 AND bib_imported_at IS NULL"""
+        )
+    ]
+    conn.execute("DELETE FROM citations")
+    conn.execute("DELETE FROM observation_work")
+    for work_id in derived_ids:
+        conn.execute("DELETE FROM taxon_work_links WHERE work_id = ?", (work_id,))
+        conn.execute("DELETE FROM work_aliases WHERE work_id = ?", (work_id,))
+        conn.execute("DELETE FROM work_authors WHERE work_id = ?", (work_id,))
+        conn.execute("DELETE FROM works WHERE work_id = ?", (work_id,))
+    # Aliases derived from old headers/reference matches are not independent
+    # curation evidence. Keeping them on a surviving DOI makes ordinary edits
+    # resolve differently from a clean build. Re-seed from every current PDF
+    # member, then let the active observations derive their aliases afresh.
+    # Explicitly curated and externally established BHL identities keep their
+    # aliases: those are retained inputs, not disposable extraction history.
+    reset_ids = [row[0] for row in conn.execute(
+        "SELECT work_id FROM works WHERE in_corpus=1 AND bib_imported_at IS NULL AND guid_type != 'bhl'")]
+    for work_id in reset_ids:
+        conn.execute("DELETE FROM work_aliases WHERE work_id=?", (work_id,))
+        members = conn.execute("SELECT metadata_json FROM work_documents WHERE work_id=? ORDER BY corpus_hash",
+                               (work_id,)).fetchall()
+        for (raw,) in members:
+            meta = json.loads(raw)
+            surname = next((a.get("surname") for a in meta.get("authors", []) if a.get("surname")), "")
+            if surname:
+                insert_alias(conn, make_alias_key(surname, meta.get("year"),
+                                                 meta.get("title") or meta.get("filename", "")), work_id)
+        # Scalar legacy rows may have no document membership yet.
+        if not members:
+            row = conn.execute(
+                "SELECT a.surname,w.year,w.title FROM works w JOIN work_authors a ON a.work_id=w.work_id "
+                "WHERE w.work_id=? AND a.position=0", (work_id,)).fetchone()
+            if row:
+                insert_alias(conn, make_alias_key(*row), work_id)
+
+
+def _active_reference_observations(conn: sqlite3.Connection):
+    return conn.execute(
+        """SELECT ro.observation_id, ro.citing_corpus_hash, ro.ordinal,
+                  ro.grobid_xml_id, ro.raw_citation, ro.title, ro.year,
+                  ro.journal, ro.doi, ro.authors_json
+           FROM reference_current_sets current
+           JOIN reference_observation_memberships member
+             ON member.corpus_hash = current.corpus_hash
+            AND member.source_fingerprint = current.source_fingerprint
+           JOIN reference_observations ro
+             ON ro.observation_id = member.observation_id
+           ORDER BY ro.observation_id"""
+    ).fetchall()
+
+
+def _rebuild_reference_materialization(
+    conn: sqlite3.Connection,
+    *,
+    enrich_bhl: bool,
+    bhl_api_key: str,
+    bhl_max_year: Optional[int],
+    bhl_stats: Optional[Dict[str, int]] = None,
+) -> Tuple[int, int]:
+    """Derive current mappings and the frozen ``citations`` view from evidence."""
+    observations = _active_reference_observations(conn)
+    _clear_derived_reference_materialization(conn)
+    known_work_ids = {row[0] for row in conn.execute("SELECT work_id FROM works")}
+    identity_index = _in_corpus_identity_index(conn)
+    from .documents import work_map
+    citing_ids = work_map(conn)
+    n_mapped = 0
+    n_new_works = 0
+    now = time.time()
+    for (
+        observation_id, corpus_hash, _ordinal, xml_id, raw_citation,
+        title, year, journal, doi, authors_json,
+    ) in observations:
+        citing_work_id = citing_ids.get(corpus_hash)
+        if citing_work_id is None:
+            logger.warning(
+                "No citing work for active reference observation %s (%s)",
+                observation_id, corpus_hash,
+            )
+            continue
+        try:
+            authors = json.loads(authors_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            authors = []
+        ref = {
+            "xml_id": xml_id or "",
+            "raw": raw_citation or "",
+            "title": title or "",
+            "year": year,
+            "journal": journal or "",
+            "doi": doi or "",
+            "authors": authors,
+        }
+        cited_work_id, match_method, match_score = _resolve_reference(
+            conn, ref, enrich_bhl=enrich_bhl,
+            bhl_api_key=bhl_api_key, bhl_max_year=bhl_max_year,
+            fallback_key=observation_id,
+            bhl_stats=bhl_stats,
+            identity_index=identity_index,
+        )
+        if cited_work_id not in known_work_ids:
+            known_work_ids.add(cited_work_id)
+            n_new_works += 1
+        if match_method == "new":
+            match_method = "new_work"
+        conn.execute(
+            """INSERT INTO observation_work
+               (observation_id, work_id, match_method, match_score,
+                producer_version, mapped_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                observation_id, cited_work_id, match_method, match_score,
+                REFERENCE_MAPPING_PRODUCER, now,
+            ),
+        )
+        insert_citation(
+            conn, citing_work_id, cited_work_id, corpus_hash,
+            grobid_xml_id=xml_id or "", raw_citation=raw_citation or "",
+            match_method=match_method, match_score=match_score,
+        )
+        n_mapped += 1
+    return n_mapped, n_new_works
+
+
 def phase2_references(conn: sqlite3.Connection, output_dir: Path,
                       enrich_bhl: bool = False,
                       bhl_api_key: str = "",
                       bhl_max_year: Optional[int] = None) -> Tuple[int, int]:
-    """Walk references.json files and build citation graph.
+    """Ingest immutable observations, then derive mappings and citations.
 
-    Returns (n_citations, n_new_works).
+    The expensive resolver runs over the complete active observation set when
+    any source set changes or the mapping producer version changes. An
+    unchanged run is a no-op. Therefore adding one paper and building cleanly
+    produce the same current mapping rather than preserving document-order
+    decisions from an earlier database (#240).
     """
     docs_dir = output_dir / "documents"
-    n_citations = 0
-    n_new_works = 0
-    n_bhl_found = 0
-    n_bhl_not_found = 0
-    n_bhl_error = 0
-    n_papers = 0
-    batch = 0
-
+    bhl_stats = {
+        "eligible": 0,
+        "newly_attempted": 0,
+        "cached_resumed": 0,
+        "found": 0,
+        "not_found": 0,
+        "error": 0,
+        "skipped": 0,
+    }
+    changed = False
     n_skipped = 0
     n_refreshed = 0
-    for hash_dir in sorted(docs_dir.iterdir()):
-        if not hash_dir.is_dir():
-            continue
+    present_reference_hashes = set()
+    inputs = _read_authority_inputs(docs_dir, "references")
+    for hash_dir, refs_data in inputs:
         refs_path = hash_dir / "references.json"
-        if not refs_path.exists():
-            continue
-
         corpus_hash = hash_dir.name
-
-        # Find the citing work_id for this corpus paper
-        cur = conn.execute("SELECT work_id FROM works WHERE corpus_hash = ?",
-                           (corpus_hash,))
-        row = cur.fetchone()
-        if not row:
-            continue
-        citing_work_id = row[0]
-
-        try:
-            current_mtime = refs_path.stat().st_mtime
-        except OSError as e:
-            logger.warning("Skipping %s: %s", refs_path, e)
-            continue
-
-        # Staleness check: skip when references.json hasn't changed
-        # since we last ingested it. On re-ingest, drop prior citation
-        # rows tied to this paper before re-resolving — otherwise the
-        # ``INSERT OR IGNORE`` on citations leaves stale match_method
-        # / match_score / raw_citation values for refs that were
-        # re-parsed.
-        seen, stale = _artifact_state(
-            conn, corpus_hash, "references", current_mtime,
+        present_reference_hashes.add(corpus_hash)
+        references = refs_data.get("references", []) or []
+        canonical_set = json.dumps(
+            references, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), default=str,
         )
-        if seen and not stale:
+        source_fingerprint = hashlib.sha256(
+            canonical_set.encode("utf-8")
+        ).hexdigest()
+        prior = conn.execute(
+            "SELECT source_fingerprint FROM reference_current_sets "
+            "WHERE corpus_hash = ?",
+            (corpus_hash,),
+        ).fetchone()
+        if prior is not None and prior[0] == source_fingerprint:
             n_skipped += 1
             continue
-        if seen and stale:
-            conn.execute(
-                "DELETE FROM citations WHERE citing_corpus_hash = ?",
-                (corpus_hash,),
-            )
-            n_refreshed += 1
-
+        _ingest_reference_observations(
+            conn, corpus_hash, references, source_fingerprint,
+        )
         try:
-            refs_data = json.loads(refs_path.read_text())
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Skipping %s: %s", refs_path, e)
+            _record_artifact(
+                conn, corpus_hash, "references", refs_path.stat().st_mtime,
+            )
+        except OSError:
+            pass
+        changed = True
+        n_refreshed += int(prior is not None)
+
+    # A removed paper or references artifact leaves historical evidence in the
+    # table but must not contribute to the current graph.
+    for (corpus_hash,) in conn.execute(
+        "SELECT corpus_hash FROM reference_current_sets"
+    ).fetchall():
+        if corpus_hash in present_reference_hashes:
             continue
+        conn.execute(
+            "DELETE FROM reference_current_sets WHERE corpus_hash = ?",
+            (corpus_hash,),
+        )
+        changed = True
 
-        refs = refs_data.get("references", [])
-        for ref in refs:
-            cited_work_id, match_method, match_score = _resolve_reference(
-                conn, ref, enrich_bhl=enrich_bhl,
-                bhl_api_key=bhl_api_key,
-                bhl_max_year=bhl_max_year,
-            )
-            if match_method == "new":
-                n_new_works += 1
-                match_method = "new_work"
+    active_count = len(_active_reference_observations(conn))
+    # Every document member contributes observations, not just the work's
+    # representative hash retained for wire compatibility.
+    mappable_active_count = conn.execute(
+        """SELECT COUNT(*)
+           FROM reference_current_sets current
+           JOIN reference_observation_memberships member
+             ON member.corpus_hash = current.corpus_hash
+            AND member.source_fingerprint = current.source_fingerprint
+           JOIN reference_observations ro
+             ON ro.observation_id = member.observation_id
+           WHERE EXISTS (
+             SELECT 1 FROM work_documents wd
+             WHERE wd.corpus_hash = ro.citing_corpus_hash
+           ) OR EXISTS (
+             SELECT 1 FROM works w WHERE w.in_corpus=1
+               AND w.corpus_hash=ro.citing_corpus_hash
+           )"""
+    ).fetchone()[0]
+    current_mapping_count = conn.execute(
+        """SELECT COUNT(*)
+           FROM observation_work ow
+           JOIN reference_observation_memberships member
+             ON member.observation_id = ow.observation_id
+           JOIN reference_current_sets current
+             ON current.corpus_hash = member.corpus_hash
+            AND current.source_fingerprint = member.source_fingerprint
+           WHERE ow.producer_version = ?""",
+        (REFERENCE_MAPPING_PRODUCER,),
+    ).fetchone()[0]
+    if current_mapping_count != mappable_active_count:
+        changed = True
 
-            insert_citation(
-                conn, citing_work_id, cited_work_id, corpus_hash,
-                grobid_xml_id=ref.get("xml_id", ""),
-                raw_citation=ref.get("raw", ""),
-                match_method=match_method,
-                match_score=match_score,
-            )
-            n_citations += 1
+    from .documents import work_map
+    corpus_identity = {
+        "producer": REFERENCE_MAPPING_PRODUCER,
+        # Requested enrichment is a materialization input too. Do not retain
+        # API secrets (or their hashes) in receipts; availability is enough to
+        # distinguish a formerly unavailable optional capability.
+        "bhl_policy": {"enabled": bool(enrich_bhl),
+                       "max_year": bhl_max_year if enrich_bhl else None,
+                       "key_available": bool(bhl_api_key) if enrich_bhl else False},
+        "members": sorted(work_map(conn).items()),
+        "works": [tuple(row) for row in conn.execute(
+            "SELECT work_id,title,year,doi FROM works WHERE in_corpus=1 ORDER BY work_id")],
+        "authors": [tuple(row) for row in conn.execute(
+            "SELECT a.work_id,a.position,a.surname_normalized,a.forename FROM work_authors a "
+            "JOIN works w ON w.work_id=a.work_id WHERE w.in_corpus=1 ORDER BY a.work_id,a.position")],
+    }
+    corpus_fingerprint = hashlib.sha256(json.dumps(corpus_identity, sort_keys=True).encode()).hexdigest()
+    prior = conn.execute("SELECT value FROM build_meta WHERE key='reference_corpus_fingerprint'").fetchone()
+    if prior is None or prior[0] != corpus_fingerprint:
+        changed = True
 
-        _record_artifact(conn, corpus_hash, "references", current_mtime)
-        n_papers += 1
-        batch += 1
-        if batch >= 10:
-            conn.commit()
-            batch = 0
-            logger.info("Phase 2 progress: %d papers, %d citations, %d new works",
-                        n_papers, n_citations, n_new_works)
-
+    if changed:
+        n_citations, n_new_works = _rebuild_reference_materialization(
+            conn, enrich_bhl=enrich_bhl, bhl_api_key=bhl_api_key,
+            bhl_max_year=bhl_max_year,
+            bhl_stats=bhl_stats,
+        )
+    else:
+        n_citations = n_new_works = 0
+    if prior is None or prior[0] != corpus_fingerprint:
+        conn.execute("INSERT OR REPLACE INTO build_meta(key,value) VALUES ('reference_corpus_fingerprint',?)",
+                     (corpus_fingerprint,))
     conn.commit()
     logger.info(
-        "Phase 2 complete: %d papers, %d citations, %d new works created "
-        "(%d skipped, %d refreshed)",
-        n_papers, n_citations, n_new_works, n_skipped, n_refreshed,
+        "Phase 2 complete: %d active observations, %d mapped this run, "
+        "%d derived works created (%d source sets skipped, %d refreshed)",
+        active_count, n_citations, n_new_works, n_skipped, n_refreshed,
     )
+    if enrich_bhl:
+        logger.info(
+            "BHL run outcomes: eligible=%d, newly_attempted=%d, "
+            "cached/resumed=%d, found=%d, not_found=%d, error=%d, skipped=%d",
+            bhl_stats["eligible"], bhl_stats["newly_attempted"],
+            bhl_stats["cached_resumed"], bhl_stats["found"],
+            bhl_stats["not_found"], bhl_stats["error"], bhl_stats["skipped"],
+        )
+        historical = dict(conn.execute(
+            "SELECT status, COUNT(*) FROM bhl_lookups GROUP BY status"
+        ))
+        logger.info(
+            "BHL historical cache: found=%d, not_found=%d, error=%d",
+            historical.get("found", 0), historical.get("not_found", 0),
+            historical.get("error", 0),
+        )
     return n_citations, n_new_works
 
 
 # ── Phase 3: Link taxonomic-authority strings to works ─────────────
 
 def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int:
-    """Link taxa to original-description works via DwC scientificNameAuthorship.
+    """Re-derive current authority links; retain curator links and cited evidence.
 
-    Reads ``taxon_id`` + ``scientific_name_authorship`` from the configured
-    Darwin Core taxonomy snapshot, parses each authority string into
-    (surnames, year), and matches against ``works`` by author+year. When
-    no work matches, a stub is inserted so the link still resolves.
+    The author/year policy remains conservative. Historical taxon-only stubs
+    are not candidates for a newly added real work, and ambiguous candidates
+    never resolve by row order. No-op runs perform no database writes.
     """
-    if not taxonomy_path.exists():
-        logger.warning("Taxonomy database not found: %s", taxonomy_path)
-        return 0
-
-    tx_conn = sqlite3.connect(f"file:{taxonomy_path}?mode=ro", uri=True)
-    tx_conn.row_factory = sqlite3.Row
-
-    cur = tx_conn.execute(
-        "SELECT taxon_id, scientific_name, scientific_name_authorship "
-        "FROM taxa "
-        "WHERE scientific_name_authorship IS NOT NULL "
-        "  AND scientific_name_authorship != ''"
-    )
-
-    n_linked = 0
+    rows = []
+    if taxonomy_path.exists():
+        tx_conn = sqlite3.connect(taxonomy_path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            rows = tx_conn.execute(
+                "SELECT taxon_id,scientific_name_authorship FROM taxa "
+                "WHERE scientific_name_authorship IS NOT NULL AND scientific_name_authorship != '' "
+                "ORDER BY taxon_id").fetchall()
+        finally:
+            tx_conn.close()
+    else:
+        logger.info("No taxonomy snapshot; retiring derived authority links")
+    desired = {}
     n_stubs = 0
-    batch = 0
-
-    for row in cur:
-        taxon_id = row["taxon_id"]
-        authority = row["scientific_name_authorship"]
-
-        # Skip if already linked
-        check = conn.execute(
-            "SELECT 1 FROM taxon_work_links WHERE taxon_id = ?", (taxon_id,)
-        )
-        if check.fetchone():
-            continue
-
+    for taxon_id, authority in rows:
         parsed = parse_authority(authority)
-        if not parsed:
-            logger.debug("Could not parse authority '%s' for %s",
-                         authority, row["scientific_name"])
+        if not parsed or not parsed[0]:
             continue
-
         surnames, year = parsed
-        if not surnames:
-            continue
-
-        first_surname = surnames[0]
-
-        # Try to find a matching work
-        # We don't have a title from the authority string, so use author+year
-        matched_id = author_year_match(conn, first_surname, year)
+        candidates = [r[0] for r in conn.execute(
+            """SELECT DISTINCT w.work_id FROM works w
+               JOIN work_authors a ON a.work_id=w.work_id
+               WHERE a.position=0 AND a.surname_normalized=? AND w.year=?
+                 AND (w.source != 'taxon_authority' OR w.in_corpus=1 OR w.bib_imported_at IS NOT NULL)
+               ORDER BY w.work_id""", (normalize_for_key(surnames[0]), year))]
+        matched_id = candidates[0] if len(candidates) == 1 else None
         confidence = 0.7
-
-        # If multiple authors in the authority, try matching with all of them
         if not matched_id and len(surnames) > 1:
-            norm_surname = normalize_for_key(first_surname)
-            candidate_cur = conn.execute(
-                """SELECT DISTINCT wa.work_id
-                   FROM work_authors wa JOIN works w ON wa.work_id = w.work_id
-                   WHERE wa.surname_normalized = ? AND w.year = ? AND wa.position = 0""",
-                (norm_surname, year),
-            )
-            candidates = candidate_cur.fetchall()
-            if len(candidates) > 1:
-                # Disambiguate by checking second author
-                for cand_row in candidates:
-                    cand_id = cand_row[0]
-                    auth2_cur = conn.execute(
-                        "SELECT surname_normalized FROM work_authors "
-                        "WHERE work_id = ? AND position = 1",
-                        (cand_id,),
-                    )
-                    auth2 = auth2_cur.fetchone()
-                    if auth2 and len(surnames) > 1:
-                        if auth2[0] == normalize_for_key(surnames[1]):
-                            matched_id = cand_id
-                            confidence = 0.85
-                            break
-
-        if matched_id:
-            try:
-                conn.execute(
-                    """INSERT OR IGNORE INTO taxon_work_links
-                       (taxon_id, work_id, link_type, confidence)
-                       VALUES (?, ?, ?, ?)""",
-                    (taxon_id, matched_id, "authority_match", confidence),
-                )
-                n_linked += 1
-            except sqlite3.IntegrityError:
-                pass
-        else:
-            # Create a stub work from the authority string
-            work_id = make_corpus_guid(first_surname, year, "")
-            inserted = insert_work(
-                conn, work_id, "corpus_key", title="", year=year, journal="",
-                doi="", corpus_hash=None, in_corpus=False,
-                source="taxon_authority", confidence=0.5,
-            )
+            second_matches = [work_id for work_id in candidates if conn.execute(
+                "SELECT 1 FROM work_authors WHERE work_id=? AND position=1 AND surname_normalized=?",
+                (work_id, normalize_for_key(surnames[1]))).fetchone()]
+            if len(second_matches) == 1:
+                matched_id = second_matches[0]
+                confidence = 0.85
+        if matched_id is None:
+            matched_id = make_corpus_guid(surnames[0], year, "")
+            inserted = insert_work(conn, matched_id, "corpus_key", title="", year=year, journal="",
+                                   doi="", corpus_hash=None, in_corpus=False,
+                                   source="taxon_authority", confidence=0.5)
             if inserted:
-                authors = [(s, "") for s in surnames]
-                insert_authors(conn, work_id, authors)
+                insert_authors(conn, matched_id, [(s, "") for s in surnames])
                 n_stubs += 1
-            try:
-                conn.execute(
-                    """INSERT OR IGNORE INTO taxon_work_links
-                       (taxon_id, work_id, link_type, confidence)
-                       VALUES (?, ?, ?, ?)""",
-                    (taxon_id, work_id, "authority_match", 0.5),
-                )
-                n_linked += 1
-            except sqlite3.IntegrityError:
-                pass
+            confidence = 0.5
+        desired[(taxon_id, matched_id)] = confidence
 
-        batch += 1
-        if batch >= 100:
-            conn.commit()
-            batch = 0
-
+    current = {(r[0], r[1]): r[2] for r in conn.execute(
+        "SELECT taxon_id,work_id,confidence FROM taxon_work_links WHERE link_type='authority_match'")}
+    changed = 0
+    for key in current.keys() - desired.keys():
+        conn.execute("DELETE FROM taxon_work_links WHERE taxon_id=? AND work_id=? AND link_type='authority_match'", key)
+        changed += 1
+    for key, confidence in desired.items():
+        if key not in current or current[key] != confidence:
+            conn.execute(
+                "INSERT OR REPLACE INTO taxon_work_links(taxon_id,work_id,link_type,confidence) "
+                "VALUES (?,?,'authority_match',?)", (*key, confidence))
+            changed += 1
+    # Discard only unreferenced, uncurated taxonomy-derived stubs. Raw citation
+    # observations and any works they still reference remain untouched.
+    stale = [r[0] for r in conn.execute(
+        """SELECT w.work_id FROM works w WHERE w.source='taxon_authority'
+           AND w.in_corpus=0 AND w.bib_imported_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM taxon_work_links l WHERE l.work_id=w.work_id)
+           AND NOT EXISTS (SELECT 1 FROM observation_work o WHERE o.work_id=w.work_id)
+           AND NOT EXISTS (SELECT 1 FROM citations c WHERE c.cited_work_id=w.work_id OR c.citing_work_id=w.work_id)""")]
+    for work_id in stale:
+        conn.execute("DELETE FROM work_aliases WHERE work_id=?", (work_id,))
+        conn.execute("DELETE FROM work_authors WHERE work_id=?", (work_id,))
+        conn.execute("DELETE FROM works WHERE work_id=?", (work_id,))
     conn.commit()
-    tx_conn.close()
-    logger.info("Phase 3 complete: %d taxa linked, %d stub works created",
-                n_linked, n_stubs)
-    return n_linked
+    logger.info("Phase 3 complete: %d current authority links, %d changed, %d stubs created, %d retired",
+                len(desired), changed, n_stubs, len(stale))
+    return changed
 
 
 # ── Main ─────────────────────────────────────────────────────────────
@@ -1625,10 +2267,18 @@ def main() -> int:
             conn.executescript("""
                 DROP TABLE IF EXISTS taxon_work_links;
                 DROP TABLE IF EXISTS citations;
+                DROP TABLE IF EXISTS observation_work;
+                DROP TABLE IF EXISTS work_reconciliation_decisions;
+                DROP TABLE IF EXISTS reference_current_sets;
+                DROP TABLE IF EXISTS reference_observation_memberships;
+                DROP TABLE IF EXISTS reference_observation_sets;
+                DROP TABLE IF EXISTS reference_observations;
                 DROP TABLE IF EXISTS work_aliases;
                 DROP TABLE IF EXISTS work_authors;
+                DROP TABLE IF EXISTS work_documents;
                 DROP TABLE IF EXISTS works;
                 DROP TABLE IF EXISTS build_meta;
+                DROP TABLE IF EXISTS paper_artifacts_processed;
             """)
 
         create_schema(conn)
@@ -1677,7 +2327,7 @@ def main() -> int:
 
         # Phase 3
         logger.info("═══ Phase 3: Linking taxonomic authorities ═══")
-        n_linked = phase3_authority_links(conn, args.taxonomy_db)
+        phase3_authority_links(conn, args.taxonomy_db)
 
         # Summary
         stats = {}

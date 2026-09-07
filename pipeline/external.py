@@ -47,7 +47,7 @@ import logging
 import os
 import random
 import time
-from typing import Any, Callable, Optional, Tuple, Type
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 

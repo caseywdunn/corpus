@@ -77,6 +77,8 @@ class Step:
                 cmd += ["--root-id", str(args.taxonomy_root_id)]
             if args.taxonomy_path is not None:
                 cmd += ["--input", str(args.taxonomy_path)]
+            if getattr(args, "force_rebuild", False) or getattr(args, "force_rebuild_taxonomy", False):
+                cmd.append("--rebuild")
             if args.dry_run:
                 cmd.append("--dry-run")
         elif self.name == "extract":
@@ -303,6 +305,15 @@ def _check_taxonomy_available(
     # already exist for taxon annotation to work.
     db_path = getattr(args, "taxonomy_db", None) or (args.output_dir / "taxonomy.sqlite")
     if Path(db_path).exists():
+        if "extract" in step_names:
+            from .taxonomy_ingest import snapshot_matches, source_fingerprint
+            try:
+                fingerprint = source_fingerprint(args.taxonomy_source, getattr(args, "taxonomy_root_id", None),
+                                                 getattr(args, "taxonomy_path", None))
+                if not snapshot_matches(db_path, fingerprint):
+                    return "Taxonomy snapshot is stale or unverified; pre-build with `corpus taxonomy ingest` before extraction."
+            except (OSError, ValueError) as exc:
+                return f"Cannot verify configured taxonomy source: {exc}"
         return None
 
     if args.taxonomy_source == "worms":
@@ -333,15 +344,15 @@ def _check_taxonomy_available(
 
 
 def _should_skip_taxonomy_ingest(args: argparse.Namespace) -> bool:
-    """#64: skip ingest_taxonomy when (a) no source set, or (b) the
-    taxonomy SQLite already exists and the operator hasn't asked for
-    a rebuild via --force-rebuild or --force-rebuild-taxonomy.
-    """
+    """Reuse a proved source/config match, never mere database existence."""
     if not args.taxonomy_source:
         return True
     db = args.output_dir / "taxonomy.sqlite"
     if db.exists() and not (args.force_rebuild or args.force_rebuild_taxonomy):
-        return True
+        from .taxonomy_ingest import snapshot_matches, source_fingerprint
+        fingerprint = source_fingerprint(args.taxonomy_source, getattr(args, "taxonomy_root_id", None),
+                                         getattr(args, "taxonomy_path", None))
+        return snapshot_matches(db, fingerprint)
     return False
 
 
@@ -496,7 +507,11 @@ def main() -> int:
         parser.error("--batch-index/--batch-size apply only to "
                      "--only extract or --only vision")
 
-    selected = select_steps(args)
+    try:
+        selected = select_steps(args)
+    except (OSError, ValueError) as exc:
+        logger.error("Cannot verify configured inputs: %s", exc)
+        return 1
 
     # Fail early if taxonomy is configured but unavailable for the selected
     # steps — avoids a silent "no taxon annotations" corpus on HPC, where

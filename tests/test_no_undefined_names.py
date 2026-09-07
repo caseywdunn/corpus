@@ -1,7 +1,7 @@
-"""Static-analysis gate: zero ``undefined name`` findings in the source tree.
+"""Hard F821 gate: undefined names cannot be suppressed in the source tree.
 
 A failure of this test is by definition a NameError waiting to fire at
-runtime — pyflakes is a syntactic check that doesn't execute code.
+runtime — Ruff's Pyflakes-compatible rules check syntax without executing code.
 Two real instances surfaced in the platform-portability smoke iteration
 that this test would have caught instantly:
 
@@ -13,12 +13,9 @@ that this test would have caught instantly:
                           undefined name 'EmbeddingError'  embedding
                           error handler in get_chunks_for_topic)
 
-The same scan also turned up a handful of bare ``Dict``/``List``
-references in modules that already use ``from __future__ import
-annotations`` — harmless because the annotations are strings, but
-noisy. This test deliberately fails *only* on outright undefined
-names; cleanup of the unused-import + bare-annotation noise is a
-separate quality-of-life item.
+The configured lint gate checks the complete ``F`` family. This deliberately
+separate assertion runs isolated with ``--ignore-noqa`` so an accidental
+``# noqa: F821`` cannot turn a guaranteed NameError into a green build (#259).
 
 Run locally with::
 
@@ -26,12 +23,9 @@ Run locally with::
 """
 from __future__ import annotations
 
-import re
 import shutil
 import subprocess
 from pathlib import Path
-
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # `tools/` is in the list even though it ships no importable package: its
@@ -40,48 +34,36 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_DIRS = ("pipeline", "mcpsrv", "bib", "tools")
 
 
-# pyflakes' undefined-name line looks like:
-#   path/to/file.py:LINE:COL: undefined name 'SYMBOL'
-_UNDEF_RE = re.compile(r": undefined name '([^']+)'")
-
-
-def _which_pyflakes() -> str:
-    """Locate the pyflakes binary; skip the test if pyflakes isn't installed."""
-    py = shutil.which("pyflakes")
-    if py is None:
-        pytest.skip(
-            "pyflakes not on PATH — install it via the conda env "
-            "(`conda env update -f environment.yaml`) or "
-            "`pip install pyflakes`."
-        )
-    return py
+def _which_ruff() -> str:
+    """Ruff is a declared dev dependency; absence is a broken test env."""
+    executable = shutil.which("ruff")
+    assert executable is not None, (
+        "ruff not on PATH — update the development environment from "
+        "environment.yaml or install the project's dev extra"
+    )
+    return executable
 
 
 def test_no_undefined_names():
-    """``pyflakes`` reports zero ``undefined name`` lines in any tracked source dir.
+    """Ruff reports zero F821 findings in every tracked source directory.
 
     An undefined name is a guaranteed runtime NameError — the only
     reason it doesn't already crash is that the affected code path
     hasn't been exercised by tests. Treat every finding as a hard
     failure; tests cannot retroactively cover every code path.
     """
-    pyflakes = _which_pyflakes()
+    ruff = _which_ruff()
     targets = [str(REPO_ROOT / d) for d in SOURCE_DIRS]
     result = subprocess.run(
-        [pyflakes, *targets],
+        [
+            ruff, "check", "--isolated", "--select", "F821",
+            "--ignore-noqa", *targets,
+        ],
         capture_output=True,
         text=True,
     )
-    # pyflakes prints every finding (one per line) to stdout and exits
-    # nonzero when there's anything to report. We only care about
-    # undefined names; other categories (unused imports, etc.) are
-    # noisy cleanup, not bug classes.
-    offending = [
-        line for line in result.stdout.splitlines() if _UNDEF_RE.search(line)
-    ]
-    assert not offending, (
-        "pyflakes reported undefined names — these will NameError at "
-        "runtime the moment the affected code path executes. Fix or "
-        "add the missing import.\n\n"
-        + "\n".join(offending)
+    assert result.returncode == 0, (
+        "Ruff reported undefined names — these will NameError at runtime. "
+        "Fix or add the missing import; F821 suppressions are intentionally "
+        "ignored by this gate.\n\n" + result.stdout + result.stderr
     )

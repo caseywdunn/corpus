@@ -11,7 +11,7 @@
 > tiers have already passed but the release operator wants a clean-env
 > recreate signal that `actions/cache@v4` deliberately hides) and the
 > escape hatch for paths that the GHA tiers can't reach: the EC2 clean-
-> room (T4 — [`ec2_smoke.sh`](ec2_smoke.sh)) and bare-metal Bouchet.
+> room (T3-bare — [`ec2_smoke.sh`](ec2_smoke.sh)) and bare-metal Bouchet.
 
 Pre-release sanity check that the supported matrix in
 [README.md](../README.md#supported-platforms) actually works
@@ -59,11 +59,14 @@ Each target must:
    a clean state (no pre-existing `corpus` env).
 2. `pip install -e .` finishes without error.
 3. `corpus check` reports Grobid reachable + config valid.
-4. `corpus run --no-vision` on the bundled `demo/` corpus completes —
-   all 11 PDFs reach `pipeline_state.json` status `done`
-   (`corpus status --report` shows 11 / 11).
+4. `corpus run --no-vision` on the bundled 4-paper `demo/` corpus completes —
+   all four PDFs reach `pipeline_state.json` status `done`
+   (`corpus status --report` reports 4 documents and every stage row at
+   `N / N`). How many stage rows there are is a property of the
+   configuration, not of a healthy build: `--no-vision` records no
+   `figure_pass*` rows, so do not assert a fixed row count.
 5. `bundle_manifest.json` is written under `demo/output/_serve/`,
-   contains `paper_count: 11`, and the absolute-path audit logs
+   contains `paper_count: 4`, and the absolute-path audit logs
    `Path scrub: rewrote N files; audit clean.` (covers
    [#70](https://github.com/caseywdunn/corpus/issues/70)).
 6. `corpus serve --output-dir demo/output/_serve` starts, and
@@ -103,8 +106,8 @@ corpus -v run --no-vision                  # ~25–30 min total wall time on
                                            # taxonomy ingest is the long
                                            # pole (~10 min), then extract
                                            # (~6 min) + embed (~30s) + bundle.
-corpus status --report                     # expect: 11 / 11 done
-jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 11
+corpus status --report                     # expect: 4 / 4 done
+jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 4
 
 # Round-trip the MCP bundle_info tool against a freshly-served bundle.
 # tools/smoke_test_sse.py spawns its own server on the requested port,
@@ -146,8 +149,8 @@ cd demo && corpus -v check                 # -v required to see the ok lines
 corpus -v run --no-vision                  # wall time depends on Bouchet
                                            # load + WoRMS API rate; budget
                                            # 30–45 min for the demo.
-corpus status --report                     # expect: 11 / 11 done
-jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 11
+corpus status --report                     # expect: 4 / 4 done
+jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 4
 python tools/smoke_test_sse.py demo/output/_serve --port 18080
 # expect: "All layers passed."
 ```

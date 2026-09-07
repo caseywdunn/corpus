@@ -28,13 +28,14 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 _PLATE_CAPTION_RE = re.compile(
-    r"^\s*(?:plate|pl\.?|tafel|planche)\s*\d+",
+    r"^\s*(?:plate|pl\.?|tafel|planche)\s*"
+    r"(?:\d+|[IVXLCDM]+(?![A-Za-z]))",
     re.IGNORECASE,
 )
 
@@ -71,19 +72,15 @@ _FIGURE_REF_RE = re.compile(
 #
 # The tolerance is for OCR damage, and it is the single largest cause of
 # missing figure numbers (#205). "FIG." set in small caps is misread
-# document-wide, and on this corpus the damaged spellings are *more* common
-# than the correct one — leading tokens across 320 captions:
-#
-#     Fic 65   Fig 53   PLATE 35   Figur 17   FIGURE 9   FIG 8
-#     Fi   8   FiG   6  Plate  3   Figg   1   Frc    1   Fie 1   Puc 1
-#
-# So `F` plus up to four letters, then a number. `Figur` is not damage at all —
+# document-wide, and damaged spellings such as ``Fic``, ``Fi``, ``Figg`` and
+# ``Frc`` are common in historical scans. So `F` plus up to four letters, then
+# a number. `Figur` is not damage at all —
 # it is the German spelling, which `fig(?:ure|\.?)` could not reach either.
 # `Puc` is `Рис` read as Latin lookalikes (Р→P, и→u, с→c).
 # Openers spelled correctly. These may be followed by an Arabic or a Roman
 # number with no separator — "PLATE XXI", "Plate IV.", "Figur 23".
 _CAPTION_OPENER_EXACT = (
-    r"fig(?:ure|ur|s)?|figg|abb(?:ildung)?|pl(?:ate)?|plate|рис(?:унок)?"
+    r"fig(?:ure|ur|s)?|figg|abb(?:ildung)?|pl(?:ate)?(?=[\s.])|рис(?:унок)?"
     r"|taf(?:el)?|tab(?:ula)?|lám(?:ina)?|tav(?:ola)?|bild|image|illustration"
     r"|text[\-\s]?fig(?:ure)?"
 )
@@ -93,20 +90,56 @@ _CAPTION_OPENER_EXACT = (
 # outnumber the correct one. Digits are allowed inside because OCR inserts
 # them there; "Puc" is "Рис" read as Latin lookalikes.
 #
-# This branch REQUIRES a following period, and the exact branch above does
-# not. Without that, the pattern is far too eager: "from  the  coasts of
-# British Columbia" matched opener "fro" and then read the "m" of "from" as
-# Roman numeral M, giving a handwritten marginal scribble the figure number
-# 1000. Every damaged spelling observed in the corpus carries the period, so
-# requiring it costs nothing and closes the hole.
+# This branch REQUIRES following label punctuation (period or comma), and the
+# exact branch above does not. Without that, the pattern is far too eager:
+# "from  the  coasts of British Columbia" matched opener "fro" and then read
+# the "m" of "from" as Roman numeral M, giving a handwritten marginal
+# scribble the figure number 1000. The measured damaged spellings carry a
+# period or OCR-substituted comma, so requiring that punctuation closes the
+# hole without losing those labels.
 _CAPTION_OPENER_FUZZY = r"f[a-z0-9]{1,5}|p[a-z]?[uy]c"
 
+# A very small number of figure labels survive OCR while the digits do not:
+# Totton's ``Fig. 10`` and ``Fig. 101`` recur as ``Fic. ro`` and ``Fic. ror``.
+# Keep these spellings narrow and require the caption-label context below;
+# accepting arbitrary OCR-like letter runs would turn prose into identifiers.
+_OCR_FIGURE_NUMBER_TOKEN = r"r[o0](?:r)?(?![A-Za-z])"
+_FIGURE_NUMBER_TOKEN = (
+    r"(?:\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z])|"
+    + _OCR_FIGURE_NUMBER_TOKEN + r")"
+)
+
 _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
-    r"^\s*(?:"
+    r"^[\s._\-\u2013\u2014\u00b7\u2022]*(?:"
     r"(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
-    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*\.\s*"      # period required
+    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*[.,]\s*"  # punctuation required
     r")"
-    r"(\d+(?:\.\d+)?[a-z]?|[IVXLCDMivxlcdm]+(?![A-Za-z]))",
+    r"(" + _FIGURE_NUMBER_TOKEN + r")",
+    re.IGNORECASE,
+)
+
+# Numbered entries inside a caption block. Unlike
+# ``_FIGURE_NUMBER_IN_CAPTION_RE`` this is deliberately unanchored: one text
+# item can contain ``Fig. 10 ... Fig. 11 ... Fig. 12 ...``. Numeric connectors
+# belong here; lettered panels are parsed independently by
+# ``parse_panels_from_caption`` and cannot become figure numbers.
+_FIGURE_ENUM_TOKEN = _FIGURE_NUMBER_TOKEN
+_FIGURE_ENUM_CONNECTOR = (
+    r"(?:,\s*(?:&|und|and|et|u\.?)?|&|und|and|et|u\.?|[-\u2013\u2014])"
+)
+_CAPTION_FIGURE_ENTRY_RE = re.compile(
+    r"(?<![A-Za-z])(?:"
+    r"(?:" + _CAPTION_OPENER_EXACT + r")\s*\.?\s*"
+    r"|(?:" + _CAPTION_OPENER_FUZZY + r")\s*[.,]\s*"
+    r")"
+    r"(?P<first>" + _FIGURE_ENUM_TOKEN + r")"
+    r"(?P<tail>(?:\s*" + _FIGURE_ENUM_CONNECTOR + r"\s*"
+    + _FIGURE_ENUM_TOKEN + r")*)",
+    re.IGNORECASE,
+)
+_FIGURE_ENUM_TAIL_TERM_RE = re.compile(
+    r"(?P<connector>" + _FIGURE_ENUM_CONNECTOR + r")\s*"
+    r"(?P<number>" + _FIGURE_ENUM_TOKEN + r")",
     re.IGNORECASE,
 )
 
@@ -157,7 +190,7 @@ _CAPTION_BODY_PREFIX_RE = re.compile(
 # A letter followed by period, with word-boundary guards: not preceded by
 # another letter (so "Dr." / "Mr." / "pH" don't match), the period must be
 # followed by whitespace or end-of-string.
-_PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-Z])\.(?=\s|$)")
+_PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-L])\.(?=\s|$)")
 
 # A person's initial looks exactly like a period-style panel label. In a
 # taxonomic corpus both are everywhere: "(A. Agassiz)" is a species
@@ -185,10 +218,12 @@ def _is_person_initial(body: str, start: int, end: int) -> bool:
     ("A. *Nanomia bijuga* colony, scale bar 1 cm") matches none of
     those and is left alone.
     """
+    before = body[:start]
+    if re.search(r"(?:\(|&)\s*$", before):
+        return True
     after = body[end:]
     if not _INITIAL_SURNAME_RE.match(after):
         return False
-    before = body[:start]
     if _CREDIT_CONTEXT_RE.search(before):
         return True
     if re.search(r"\(\s*$", before):
@@ -199,12 +234,28 @@ def _is_person_initial(body: str, start: int, end: int) -> bool:
 
 # Parenthesized panel label — tolerates Siebert-style "( A )" with internal
 # whitespace. Must not be adjacent to letters (so "(NaCl)" doesn't match).
-_PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-Z])\s*\)(?![A-Za-z])")
+_PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-L])\s*\)(?![A-Za-z])")
+
+# Comma-style panel labels are common in monograph captions: ``A, dorsal
+# view; B, lateral view`` and ``A, B, female gonophore``.  Requiring an
+# uppercase singleton plus a following comma keeps ordinary prose and
+# lowercase abbreviation keys out; the contiguous-A sanity check below is
+# the second guard.  This is a panel marker, not a numeric figure-list
+# connector (#203).
+_PANEL_COMMA_RE = re.compile(r"(?<![A-Za-z])([A-L])\s*,(?=\s)")
 
 # A-C / A–C / A—C ranges. The end letter must come after the start letter
 # alphabetically — otherwise it's not a valid range.
 _PANEL_RANGE_RE = re.compile(
-    r"(?<![A-Za-z])([A-Z])\s*[\-\u2013\u2014]\s*([A-Z])(?=[.,:;\s)]|$)"
+    r"(?<![A-Za-z])([A-L])\s*[\-\u2013\u2014]\s*([A-L])(?=[.,:;\s)]|$)"
+)
+
+# Figure captions often end in an abbreviation glossary (``C.ped = pedicular
+# canal; H = hydroecium``). OCR can split ``C.rad`` into ``C. rad``, which is
+# indistinguishable from a period-style panel unless marker scanning stops at
+# the start of that glossary.
+_CAPTION_GLOSSARY_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?P<key>[A-Z][A-Za-z0-9.]{0,10}|[a-z]{1,4})\s*="
 )
 
 
@@ -216,6 +267,7 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
     * ``A. upper and B. lower views …`` — letter + period
     * ``(A) Paired samples (B) and (C) …`` — parenthesized (with optional
       internal whitespace, ``( A )`` also matches)
+    * ``A, dorsal view; B, lateral view`` — letter + comma
     * ``A-C. scale 2 mm`` — ranges (expand to A, B, C with shared description)
 
     Returns a list ``[{label, description, kind}]`` in alphabetical order
@@ -232,6 +284,16 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
     body = _CAPTION_BODY_PREFIX_RE.sub("", caption_text).strip()
     if not body:
         return []
+    glossary_terms = list(_CAPTION_GLOSSARY_RE.finditer(body))
+    # Equalities can be part of a panel description (``n = 16; p = .04``).
+    # Require both a repeated assignment shape and a compound abbreviation
+    # key such as ``C.ped`` before treating the suffix as a glossary.
+    glossary_start = (
+        glossary_terms[0].start()
+        if len(glossary_terms) >= 2
+        and any("." in match.group("key") for match in glossary_terms)
+        else None
+    )
 
     # Gather markers ordered by start position. Each marker is
     # (start, end, label_or_range, kind).
@@ -253,8 +315,15 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
             continue
         markers.append((m.start(), m.end(), m.group(1), "paren"))
 
+    for m in _PANEL_COMMA_RE.finditer(body):
+        if _in_range_span(m.start()):
+            continue
+        markers.append((m.start(), m.end(), m.group(1), "comma"))
+
     for m in _PANEL_PERIOD_RE.finditer(body):
         if _in_range_span(m.start()):
+            continue
+        if glossary_start is not None and m.start() >= glossary_start:
             continue
         if _is_person_initial(body, m.start(), m.end()):
             continue
@@ -282,19 +351,21 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
             panels.setdefault(lbl, {"label": lbl, "description": desc, "kind": kind})
 
     # Sanity filter: real panel sets are a contiguous run starting at 'A'
-    # ({A}, {A,B}, {A,B,C}, …). Any gap or outlier (B/L/P, A/L) is almost
+    # ({A}, {A,B}, {A,B,C}, …). A sparse set of fewer than four labels with a
+    # gap or outlier (B/L, A/L) is almost
     # always a false positive — the matcher latching onto Latin binomial
     # abbreviations (``L. patritii``, ``E. richardi``) or section
-    # letters ("Section B: …"). We cap at 'K' (11 panels) since anything
-    # beyond is vanishingly rare in scientific figures and the false-
-    # positive risk grows with the count.
+    # letters ("Section B: …"). A long explicit set may contain real gaps —
+    # Totton Figure 74 is A--H, K, L — so four or more markers are sufficient
+    # to retain the printed set. We cap at L; anything beyond is vanishingly
+    # rare in this corpus and the false-positive risk grows with the count.
     if panels:
         letters = sorted(panels)
         if letters[0] != "A":
             return []
         # Require contiguous a..n sequence
         expected = [chr(ord("A") + i) for i in range(len(letters))]
-        if letters != expected or letters[-1] > "K":
+        if letters[-1] > "L" or (letters != expected and len(letters) < 4):
             return []
 
     return [panels[k] for k in sorted(panels)]
@@ -436,8 +507,128 @@ def parse_figure_number(caption_text: str) -> Optional[str]:
     # class ``[IVXLCDM]`` in the capture overlaps with single letters
     # that are panel labels in body text, but here the alternation in
     # the regex placed the digit branch first so an Arabic match wins.
-    arabic = _roman_to_int(num)
-    return str(arabic) if arabic is not None else num
+    return _canonical_figure_number(num)
+
+
+def _canonical_figure_number(token: str) -> str:
+    token = (token or "").strip()
+    if re.fullmatch(_OCR_FIGURE_NUMBER_TOKEN, token, re.IGNORECASE):
+        return token.lower().replace("r", "1").replace("o", "0")
+    roman = _roman_to_int(token)
+    return str(roman) if roman is not None else token.lower()
+
+
+_EMBEDDED_DAMAGED_FIGURE_NUMBER_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:fic|frc|fie|fi\d{1,3}|puc)\s*[.,]\s*"
+    r"(" + _FIGURE_NUMBER_TOKEN + r")",
+    re.IGNORECASE,
+)
+_EMBEDDED_CAPTION_PREFIX_LIMIT = 64
+
+
+def parse_structural_caption_number(caption_text: str) -> Optional[str]:
+    """Parse a number from a structurally linked caption.
+
+    Docling occasionally links the right caption while OCR moves a short
+    species heading in front of its damaged label (for example
+    ``Physalia physalis Fic. 6``). That is strong enough evidence to recover
+    the number, but only on the structural-link path: a general unanchored
+    search would promote the many source citations in caption and body prose.
+
+    Embedded recovery is deliberately limited to measured damaged openers,
+    the first 64 characters, and a punctuation-free alphabetic prefix.
+    ``parse_figure_number`` remains start-anchored for every other caller.
+    """
+    direct = parse_figure_number(caption_text)
+    if direct:
+        return direct
+    text = caption_text or ""
+    match = _EMBEDDED_DAMAGED_FIGURE_NUMBER_RE.search(
+        text[:_EMBEDDED_CAPTION_PREFIX_LIMIT],
+    )
+    if not match:
+        return None
+    prefix = text[:match.start()].strip()
+    if not prefix or re.search(r"[\d,.;:()\[\]]", prefix):
+        return None
+    return _canonical_figure_number(match.group(1))
+
+
+def caption_figure_entries(caption_text: str) -> List[Dict]:
+    """Split an enumerating caption into one entry per figure number.
+
+    ``Fig. 10. ... Fig. 11. ...`` yields separate text for 10 and 11.
+    Lists (``Figur 8 und 9``) share one text segment, while numeric ranges
+    (``Fig. 58-63``) expand inclusively. Lettered panels remain outside this
+    parser and are handled by :func:`parse_panels_from_caption`.
+    """
+    text = caption_text or ""
+    if not parse_figure_number(text):
+        return []
+    raw_matches = list(_CAPTION_FIGURE_ENTRY_RE.finditer(text))
+    matches = []
+    for match in raw_matches:
+        if not matches:
+            matches.append(match)
+            continue
+        # A later opener begins another enumerated entry only at a line or
+        # punctuation boundary. This admits ``Fig. 1. ... Fig. 2`` while
+        # excluding references inside caption prose (``see Fig. 9`` and
+        # ``(Fig. 9)``), which otherwise clone unrelated figures onto plates.
+        before = text[:match.start()]
+        line_prefix = before[before.rfind("\n") + 1:]
+        if not line_prefix.strip():
+            matches.append(match)
+            continue
+        previous = before.rstrip()[-1:]
+        # A comma or colon is not a new caption boundary. In particular,
+        # historical captions routinely end with source citations such as
+        # ``(from Totton, 1954, fig. 36)``; admitting the comma cloned or
+        # reassigned the current picture under 36 during plate reconciliation.
+        # Enumerated prose entries are sentence/semicolon separated; compact
+        # numeric lists are already parsed from the first opener's tail.
+        if previous in ".;":
+            matches.append(match)
+    entries: List[Dict] = []
+    seen = set()
+    for i, match in enumerate(matches):
+        stop = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        segment = text[match.start():stop].strip()
+        numbers = [_canonical_figure_number(match.group("first"))]
+        previous = numbers[0]
+        for term in _FIGURE_ENUM_TAIL_TERM_RE.finditer(match.group("tail") or ""):
+            connector = term.group("connector").lower().rstrip(".")
+            number = _canonical_figure_number(term.group("number"))
+            if connector in {"-", "\u2013", "\u2014"} \
+                    and previous.isdigit() and number.isdigit():
+                start, end = int(previous), int(number)
+                if 0 < end - start <= 100:
+                    numbers.extend(str(n) for n in range(start + 1, end + 1))
+                elif number not in numbers:
+                    numbers.append(number)
+            elif number not in numbers:
+                numbers.append(number)
+            previous = number
+        for number in numbers:
+            if number in seen:
+                continue
+            seen.add(number)
+            entries.append({
+                "figure_number": number,
+                "caption_text": segment,
+            })
+    return entries
+
+
+def _caption_entry_for_number(text: str, figure_number: Optional[str]) -> str:
+    """Return one figure's slice of a grouped caption, when present."""
+    if figure_number is None or not parse_figure_number(text):
+        return ""
+    wanted = str(figure_number).lower()
+    for entry in caption_figure_entries(text):
+        if entry["figure_number"] == wanted:
+            return entry["caption_text"]
+    return ""
 
 
 # The Roman branch is guarded by `(?![A-Za-z])` because `[IVXLCDM]` overlaps
@@ -457,6 +648,326 @@ def _prov_to_bbox_and_page(prov_item) -> Tuple[Optional[List[float]], Optional[i
         except Exception as e:
             logger.debug("Could not serialize docling bbox: %s", e)
     return bbox_list, page_no
+
+
+def _item_label(item) -> str:
+    """Return a docling item's label without depending on its enum version."""
+    label = getattr(item, "label", "")
+    return str(getattr(label, "value", label) or "").lower()
+
+
+def _text_fragments(item) -> Iterable[Tuple[str, List[float], int]]:
+    """Yield the text belonging to each provenance span of a docling item.
+
+    Docling can merge text across a page boundary into one TextItem. In that
+    case ``item.text`` does not start with the label printed on the second
+    page, and looking only at ``prov[0]`` makes that label invisible. The
+    provenance ``charspan`` values retain the split, so use them whenever they
+    identify a non-empty substring.
+    """
+    text = getattr(item, "text", "") or ""
+    for prov in getattr(item, "prov", None) or []:
+        bbox, page = _prov_to_bbox_and_page(prov)
+        if bbox is None or page is None:
+            continue
+        fragment = text
+        span = getattr(prov, "charspan", None)
+        if span is not None:
+            try:
+                start, end = int(span[0]), int(span[1])
+                if 0 <= start < end <= len(text):
+                    fragment = text[start:end]
+            except (IndexError, TypeError, ValueError):
+                pass
+        fragment = fragment.strip()
+        if fragment:
+            yield fragment, bbox, page
+
+
+def _bbox_union(a: List[float], b: List[float]) -> List[float]:
+    """Union two ``[left, bottom, right, top]`` PDF-point boxes."""
+    return [min(a[0], b[0]), min(a[1], b[1]),
+            max(a[2], b[2]), max(a[3], b[3])]
+
+
+def _vertical_gap(a: List[float], b: List[float]) -> float:
+    """Smallest vertical edge distance between two bottom-left-origin boxes."""
+    return min(abs(a[1] - b[3]), abs(b[1] - a[3]))
+
+
+def _horizontal_overlap(a: List[float], b: List[float]) -> float:
+    return max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+
+
+def _is_bare_figure_label(text: str) -> bool:
+    """True for ``FIGURE 8`` / ``Plate IV.`` with no descriptive prose."""
+    match = _FIGURE_NUMBER_IN_CAPTION_RE.match(text or "")
+    if not match:
+        return False
+    return not (text[match.end():].strip(" \t\r\n.:;,-\u2013\u2014"))
+
+
+def _caption_kind(text: str) -> Optional[str]:
+    """Classify selected/candidate text without judging its ownership."""
+    if not (text or "").strip():
+        return None
+    if _is_bare_figure_label(text):
+        return "bare_label"
+    if parse_figure_number(text):
+        return "prose_caption"
+    return "unlabelled_caption"
+
+
+def caption_evidence_summary(figure: Dict) -> Dict:
+    """Normalize persisted caption evidence, including legacy artifacts.
+
+    This is intentionally not caption association: it does no text or geometry
+    search and makes no new ownership decision. Build/operator tooling and the
+    thin server use the same compatibility interpretation of facts already in
+    a figure record.
+    """
+    caption = figure.get("caption_text") or figure.get("caption") or ""
+    source = figure.get("caption_source")
+    page_distance = figure.get("caption_page_distance")
+    if page_distance is None:
+        figure_page = figure.get("page")
+        caption_page = figure.get("caption_page")
+        if figure_page is not None and caption_page is not None:
+            try:
+                page_distance = int(caption_page) - int(figure_page)
+            except (TypeError, ValueError):
+                page_distance = None
+
+    status = figure.get("caption_status")
+    confidence = figure.get("caption_confidence")
+    kind = figure.get("caption_kind")
+    if status not in {"bound", "uncertain", "unbound"}:
+        if not caption:
+            status = "unbound"
+            confidence = None
+        elif page_distance not in (None, 0):
+            status = "uncertain"
+            confidence = confidence or "low"
+        else:
+            status = "bound"
+            if confidence is None:
+                confidence = (
+                    "high" if source == "docling_caption_link" else
+                    "medium" if source in {
+                        "heuristic_proximity", "plate_legend",
+                        "plate_legend_reconciled",
+                        "plate_legend_sequence_reconciled",
+                        "facing_page_plate_legend",
+                    } else None
+                )
+
+    return {
+        "caption_status": status,
+        "caption_confidence": confidence,
+        "caption_page_distance": page_distance,
+        "caption_kind": kind if kind is not None else ("unknown" if caption else None),
+    }
+
+
+def _join_caption_parts(label: str, body: str) -> str:
+    """Join a standalone figure label to its prose without doubled stops."""
+    label = (label or "").rstrip()
+    body = (body or "").lstrip()
+    punctuation = (".", ":", ";", "-", "\u2013", "\u2014")
+    separator = " " if label.endswith(punctuation) else ". "
+    return f"{label}{separator}{body}"
+
+
+_CAPTION_COMPONENT_MAX_GAP_PTS = 24.0
+_PANEL_CONTINUATION_MAX_GAP_PTS = 36.0
+_HEURISTIC_OVERRIDE_MARGIN_PTS = 24.0
+_CROSS_PAGE_OWNER_MAX_GAP_PTS = 180.0
+_CROSS_PAGE_OWNER_MIN_AREA_RATIO = 0.20
+_CAPTION_EVIDENCE_TEXT_LIMIT = 600
+
+
+def _caption_bodies(document, page: int) -> List[Tuple[str, List[float]]]:
+    """Caption-labelled text fragments on one page."""
+    out = []
+    for item in getattr(document, "texts", None) or []:
+        if _item_label(item) != "caption":
+            continue
+        for text, bbox, item_page in _text_fragments(item):
+            if item_page == page:
+                out.append((text, bbox))
+    return out
+
+
+def _body_after_label(document, page: int, label_bbox: List[float]):
+    """Return a tightly adjacent caption body printed below a bare label."""
+    matches = []
+    for text, bbox in _caption_bodies(document, page):
+        # In bottom-left coordinates a body printed below the label has a top
+        # no higher than the label's bottom. Tolerate two points of overlap for
+        # layout-model rounding, but do not jump into an unrelated paragraph.
+        gap = label_bbox[1] - bbox[3]
+        if gap < -2.0 or gap > _CAPTION_COMPONENT_MAX_GAP_PTS:
+            continue
+        if _horizontal_overlap(label_bbox, bbox) <= 0:
+            continue
+        matches.append((gap, text, bbox))
+    return min(matches, default=None, key=lambda row: row[0])
+
+
+def _complete_panel_caption(
+    document, page: int, caption_bbox: List[float], caption_text: str,
+):
+    """Join adjacent text fragments that extend a panel declaration.
+
+    Docling sometimes links the short title line as ``caption`` and emits the
+    immediately following ``A, ...; B, ...`` continuation as ordinary
+    ``text``. Appending arbitrary nearby text would turn the first body
+    paragraph into caption evidence, so this path requires three independent
+    signals: same page, overlapping/tightly adjacent geometry, and a complete
+    multi-panel declaration that adds labels to the selected fragments.
+
+    More than one continuation is possible when a long caption wraps across
+    separately classified text cells. The loop is bounded by the finite text
+    fragments and accepts a fragment only when the parsed label set grows.
+    Returns ``None`` when no completion was made, otherwise the completed text
+    and union bbox.
+    """
+    current_text = caption_text
+    current_bbox = caption_bbox
+    completed = None
+    while True:
+        current_labels = {
+            panel["label"] for panel in parse_panels_from_caption(current_text)
+        }
+        matches = []
+        for item in getattr(document, "texts", None) or []:
+            for text, bbox, item_page in _text_fragments(item):
+                if item_page != page or _FIGURE_NUMBER_IN_CAPTION_RE.match(text):
+                    continue
+                gap = current_bbox[1] - bbox[3]
+                if gap < -2.0 or gap > _PANEL_CONTINUATION_MAX_GAP_PTS:
+                    continue
+                if _horizontal_overlap(current_bbox, bbox) <= 0:
+                    continue
+                combined = _join_caption_parts(current_text, text)
+                combined_panels = parse_panels_from_caption(combined)
+                combined_labels = {panel["label"] for panel in combined_panels}
+                if not combined_labels > current_labels:
+                    continue
+                added = combined_labels - current_labels
+                # Once a complete set is already present, an abbreviation in
+                # the following body paragraph (``E. mitra``) must not extend
+                # A--D to a fictitious panel E. Comma/paren/range syntax is
+                # explicit; a period-only extension is accepted only when it
+                # opens the adjacent fragment itself.
+                added_kinds = {
+                    panel["kind"] for panel in combined_panels
+                    if panel["label"] in added
+                }
+                if current_labels and added_kinds == {"period"}:
+                    next_label = chr(ord(max(current_labels)) + 1)
+                    if not re.match(
+                        rf"^\s*(?:\(\s*)?{next_label}(?:\s*\))?\.", text,
+                    ):
+                        continue
+                matches.append((gap, text, bbox, combined))
+        if not matches:
+            break
+        _gap, _text, bbox, current_text = min(
+            matches, key=lambda row: row[0],
+        )
+        current_bbox = _bbox_union(current_bbox, bbox)
+        if len(parse_panels_from_caption(current_text)) >= 2:
+            completed = (current_text, current_bbox)
+    return completed
+
+
+def _label_before_body(document, page: int, body_bbox: List[float]):
+    """Return a tightly adjacent figure-caption opener above its body.
+
+    The opener can be a bare ``FIG. 3`` or a short title such as ``FIG. 79.
+    Species name``. Docling sometimes links the following panel description
+    to the picture instead of that opener; geometry is the evidence that they
+    are parts of one caption.
+    """
+    matches = []
+    for item in getattr(document, "texts", None) or []:
+        for text, bbox, item_page in _text_fragments(item):
+            if item_page != page or not _FIGURE_NUMBER_IN_CAPTION_RE.match(text):
+                continue
+            gap = bbox[1] - body_bbox[3]
+            if gap < -2.0 or gap > _CAPTION_COMPONENT_MAX_GAP_PTS:
+                continue
+            if _horizontal_overlap(bbox, body_bbox) <= 0:
+                continue
+            matches.append((gap, text, bbox))
+    return min(matches, default=None, key=lambda row: row[0])
+
+
+def _substantial_picture_owns_candidate(
+    document, current_picture, current_bbox: List[float], page: int,
+    candidate_bbox: List[float],
+) -> bool:
+    """Whether a next-page label has a materially better picture on its page.
+
+    Cross-page captions are real in historical plate layouts, so a blanket
+    ban would buy precision by silently discarding evidence. The unsafe case
+    is narrower: a heuristic reaches onto page N+1 even though that page has a
+    substantial picture adjacent to the label. In that case the local picture
+    is the better owner and the cross-page candidate is retained only as
+    rejected evidence.
+    """
+    current_area = _bbox_area(current_bbox)
+    for picture in getattr(document, "pictures", None) or []:
+        if picture is current_picture:
+            continue
+        prov = getattr(picture, "prov", None) or []
+        if not prov:
+            continue
+        bbox, picture_page = _prov_to_bbox_and_page(prov[0])
+        if bbox is None or picture_page != page:
+            continue
+        if _bbox_area(bbox) < current_area * _CROSS_PAGE_OWNER_MIN_AREA_RATIO:
+            continue
+        if _vertical_gap(bbox, candidate_bbox) <= _CROSS_PAGE_OWNER_MAX_GAP_PTS:
+            return True
+    return False
+
+
+def _caption_candidate(
+    *, text: str, page: Optional[int], bbox: Optional[List[float]],
+    source: str, picture_page: Optional[int], distance: Optional[float],
+    confidence: str,
+) -> Dict:
+    figure_number = parse_figure_number(text)
+    figure_number_source = "caption_start" if figure_number else None
+    if not figure_number and source == "docling_caption_link":
+        figure_number = parse_structural_caption_number(text)
+        if figure_number:
+            figure_number_source = "docling_caption_link_embedded_ocr_label"
+    caption_kind = _caption_kind(text)
+    if figure_number and caption_kind == "unlabelled_caption":
+        caption_kind = "prose_caption"
+    return {
+        # Internal copy used for the selected caption. Candidate evidence is
+        # bounded below, but that must not truncate the canonical artifact.
+        "_full_caption_text": text,
+        "caption_text": text[:_CAPTION_EVIDENCE_TEXT_LIMIT],
+        "caption_page": page,
+        "caption_bbox": bbox,
+        "caption_source": source,
+        "caption_kind": caption_kind,
+        "figure_number": figure_number,
+        "figure_number_source": figure_number_source,
+        "page_distance": (
+            page - picture_page
+            if page is not None and picture_page is not None else None
+        ),
+        "distance_pts": round(distance, 3) if distance is not None else None,
+        "confidence": confidence,
+        "chosen": False,
+        "rejection_reason": None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -537,6 +1048,17 @@ FIGURE_TYPE_SUBPANEL = "subpanel"
 FIGURE_TYPE_GRAPHICAL = "graphical_element"
 FIGURE_TYPE_UNCLASSIFIED = "unclassified"
 
+# Types backed by enough evidence to appear in default figure retrieval.
+# This is a property of the built record rather than an MCP implementation
+# detail: the server and offline fidelity scorer must make the same cut.
+# Keep the review-bucket types in figures.json, but require an explicit
+# include_all request before returning them as ordinary figure evidence.
+EVIDENCE_FIGURE_TYPES = frozenset({
+    FIGURE_TYPE_FIGURE,
+    FIGURE_TYPE_PLATE,
+    FIGURE_TYPE_SUBPANEL,
+})
+
 
 # Bbox coordinates are quantised to this many points before two items are
 # called "the same position". Loose enough for sub-point jitter between pages,
@@ -574,13 +1096,19 @@ _MIN_PLATE_LEGEND_ENTRIES = 2
 # The lookahead is what separates "Fig. 53" from "figured by": the number has
 # to follow the label immediately, with only punctuation between.
 _LEGEND_OPENER = re.compile(
-    r"""^\s*
+    r"""^[\s._\-\u2013\u2014\u00b7\u2022]*
         (?:text[\s\-]*)?                # Totton's "Text-figure 53"
-        (?:fig|figs|figur|figure|figures|figuren|abb|abbildung)
+        (?:fig|figg|figs|figur|figure|figures|figuren|abb|abbildung)
         \s*\.?\s*
         (?=[\dIVXLCMivxlcm])
     """,
     re.IGNORECASE | re.VERBOSE,
+)
+_FUZZY_PLATE_LEGEND_OPENER = re.compile(
+    r"^[\s._\-\u2013\u2014\u00b7\u2022]*"
+    r"(?:fics?|frc|fi(?:\d{1,3})?|puc)\s*[.,]\s*"
+    r"(?=[\dIVXLCMivxlcm])",
+    re.IGNORECASE,
 )
 
 
@@ -605,7 +1133,10 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
     output. Nine such pages in one monograph of the reference corpus.
 
     Only lines that *open* with a figure label count — see
-    ``_LEGEND_OPENER``. Without that anchor the scan reads every
+    ``_LEGEND_OPENER``. On a page carrying an explicit ``PLATE N`` heading,
+    the measured OCR-damaged ``Fic.``/``Fics.`` forms are accepted as well and
+    each entry retains ``plate_number_context`` for exact facing-page matching.
+    Without those anchors the scan reads every
     cross-reference in running prose as a legend entry, which is how a page
     of ordinary text under the heading "Plate XX, figures 1, 2" came to serve
     its one text-figure a second time as "figure 20".
@@ -615,19 +1146,89 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
     ``_MIN_PLATE_LEGEND_ENTRIES`` distinct numbers, which is the ordinary
     case of a page with one figure and its caption.
     """
+    # A plate heading is strong page-level context for two otherwise unsafe
+    # operations: accepting measured OCR-damaged ``Fic.`` openers and binding
+    # a caption-only leaf to the correspondingly numbered plate on the next
+    # leaf. Preserve the number on every entry so expansion can require that
+    # exact match rather than guessing from adjacency alone.
+    plate_number_context = next((
+        parse_figure_number(" ".join((item.get("text") or "").split()))
+        for item in page_texts
+        if _PLATE_CAPTION_RE.match(
+            " ".join((item.get("text") or "").split())
+        )
+    ), None)
+
     seen = {}
     for t in page_texts:
         text = " ".join((t.get("text") or "").split())
-        if not _LEGEND_OPENER.match(text):
+        if not _LEGEND_OPENER.match(text) and not (
+            plate_number_context and _FUZZY_PLATE_LEGEND_OPENER.match(text)
+        ):
             continue
-        num = parse_figure_number(text)
-        if not num or num in seen:
-            continue
-        seen[num] = {"figure_number": num, "caption_text": text,
-                     "caption_bbox": t.get("bbox")}
+        for entry in caption_figure_entries(text):
+            num = entry["figure_number"]
+            if num in seen:
+                continue
+            seen[num] = {
+                **entry,
+                "caption_bbox": t.get("bbox"),
+            }
+            if plate_number_context:
+                seen[num]["plate_number_context"] = plate_number_context
     if len(seen) < _MIN_PLATE_LEGEND_ENTRIES:
         return []
     return list(seen.values())
+
+
+def _append_plate_legend_siblings(
+    out: List[Dict],
+    plate: Dict,
+    entries: List[Dict],
+    *,
+    existing_numbers,
+    caption_page: int,
+    caption_source: str,
+    caption_page_distance: int,
+) -> None:
+    """Append one image-sharing record per not-yet-represented legend entry."""
+    already = {str(number) for number in existing_numbers if number is not None}
+    for entry in entries:
+        if entry["figure_number"] in already:
+            continue
+        evidence = _caption_candidate(
+            text=entry["caption_text"],
+            page=caption_page,
+            bbox=entry.get("caption_bbox"),
+            source=caption_source,
+            picture_page=plate.get("page"),
+            distance=(
+                _vertical_gap(plate["bbox"], entry["caption_bbox"])
+                if caption_page_distance == 0
+                and plate.get("bbox") and entry.get("caption_bbox") else None
+            ),
+            confidence="medium",
+        )
+        evidence["chosen"] = True
+        evidence.pop("_full_caption_text", None)
+        sibling = dict(plate)
+        sibling.update({
+            "figure_number": entry["figure_number"],
+            "figure_number_source": caption_source,
+            "caption_text": entry["caption_text"],
+            "caption_page": caption_page,
+            "caption_bbox": entry.get("caption_bbox"),
+            "caption_source": caption_source,
+            "caption_kind": _caption_kind(entry["caption_text"]),
+            "caption_status": "bound",
+            "caption_confidence": "medium",
+            "caption_page_distance": caption_page_distance,
+            "caption_candidates": [evidence],
+            "shares_image_with": plate.get("docling_idx"),
+            "figure_type": FIGURE_TYPE_FIGURE,
+        })
+        out.append(sibling)
+        already.add(entry["figure_number"])
 
 
 def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
@@ -642,11 +1243,15 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
     now returns the plate that contains it, carrying Fig. 33's own caption and
     number instead of a sibling's.
 
-    Only expands a page whose legend names *more* figures than were extracted
-    from it, so an ordinary multi-figure page that docling already separated is
-    left alone. `shares_image_with` marks the siblings so a consumer can tell
-    that three records pointing at one file is deliberate rather than
-    duplication.
+    When the legend and picture counts agree but the extracted assignments
+    contain a duplicate and omit another legend number, the lower-confidence
+    duplicate is reassigned to the missing entry. This handles grouped caption
+    blocks without inventing or deleting a picture. Otherwise, this only
+    expands a page whose legend names *more* figures than were extracted from
+    it. A caption-only preceding leaf may expand the next page only when its
+    explicit ``PLATE N`` heading matches exactly one ``PLATE N`` host there.
+    `shares_image_with` marks added siblings so a consumer can tell that
+    several records pointing at one file is deliberate rather than duplication.
     """
     by_page = {}
     for it in items:
@@ -657,27 +1262,307 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
         out.append(it)
     for page, entries in legends.items():
         on_page = by_page.get(page) or []
-        if not on_page or len(entries) <= len(on_page):
+        # Plate identifiers and the figures engraved on that plate occupy
+        # different namespaces even when their Arabic values coincide
+        # (Plate X contains Fig. 10). A ``PLATE N`` host is the shared image,
+        # not evidence that child figure N already exists.
+        on_page_figures = [
+            item for item in on_page
+            if not _PLATE_CAPTION_RE.match(item.get("caption_text") or "")
+        ]
+
+        # Collected legends often sit below the *next* page's pictures while
+        # their first lines finish the preceding page's plate. If an entry's
+        # exact number already exists on page N-1, enrich that record instead
+        # of assigning the previous figure to the current page's image.
+        current_entries = []
+        previous = by_page.get(page - 1) or []
+        for entry in entries:
+            prior = next((
+                item for item in previous
+                if str(item.get("figure_number") or "") == entry["figure_number"]
+                # Plate N and Figure N are separate identities.  A following
+                # page's Figure N legend may enrich a bare Figure N, but it
+                # must never replace the same-page PLATE N evidence on a
+                # plate host merely because the Arabic values coincide.
+                and item.get("figure_type") != FIGURE_TYPE_PLATE
+                and not _PLATE_CAPTION_RE.match(
+                    item.get("caption_text") or ""
+                )
+            ), None)
+            if prior is None:
+                current_entries.append(entry)
+                continue
+            if _caption_kind(entry["caption_text"]) != "prose_caption" \
+                    or _caption_kind(prior.get("caption_text") or "") == "prose_caption":
+                continue
+            old_candidates = prior.get("caption_candidates") or []
+            for candidate in old_candidates:
+                candidate["chosen"] = False
+                if not candidate.get("rejection_reason"):
+                    candidate["rejection_reason"] = "less_complete_caption_evidence"
+            evidence = _caption_candidate(
+                text=entry["caption_text"],
+                page=page,
+                bbox=entry.get("caption_bbox"),
+                source="facing_page_plate_legend",
+                picture_page=prior.get("page"),
+                distance=None,
+                confidence="medium",
+            )
+            evidence["chosen"] = True
+            evidence.pop("_full_caption_text", None)
+            prior.update({
+                "caption_text": entry["caption_text"],
+                "caption_page": page,
+                "caption_bbox": entry.get("caption_bbox"),
+                "caption_source": "facing_page_plate_legend",
+                "caption_kind": "prose_caption",
+                "caption_status": "bound",
+                "caption_confidence": "medium",
+                "caption_page_distance": 1,
+                "caption_candidates": [evidence, *old_candidates][:5],
+            })
+        entries = current_entries
+        if not entries:
+            continue
+
+        if not on_page:
+            # Some monographs print the complete legend on the leaf before a
+            # full-page plate. Adjacency alone is ambiguous, so require the
+            # legend page's explicit plate heading to equal exactly one bare
+            # plate label on the following page.
+            contexts = {
+                str(entry.get("plate_number_context"))
+                for entry in entries if entry.get("plate_number_context")
+            }
+            following = by_page.get(page + 1) or []
+            matches = [
+                item for item in following
+                if len(contexts) == 1
+                and str(item.get("figure_number") or "") in contexts
+                and _PLATE_CAPTION_RE.match(item.get("caption_text") or "")
+            ]
+            if len(matches) == 1:
+                _append_plate_legend_siblings(
+                    out,
+                    matches[0],
+                    entries,
+                    existing_numbers=(
+                        item.get("figure_number") for item in following
+                        if not _PLATE_CAPTION_RE.match(
+                            item.get("caption_text") or ""
+                        )
+                    ),
+                    caption_page=page,
+                    caption_source="preceding_page_plate_legend",
+                    caption_page_distance=-1,
+                )
+            continue
+
+        # Exact-count reconciliation. A grouped caption can describe three
+        # pictures while Docling links two of them to the same nearby label.
+        # Only repair a complete bijection: the legend count equals the picture
+        # count and every surplus item maps to exactly one missing number.
+        if len(entries) == len(on_page_figures):
+            entry_by_number = {e["figure_number"]: e for e in entries}
+            grouped = {}
+            reassignable = []
+            for item in on_page_figures:
+                number = str(item.get("figure_number") or "")
+                if number not in entry_by_number:
+                    reassignable.append(item)
+                    continue
+                grouped.setdefault(number, []).append(item)
+
+            confidence_rank = {"high": 0, "medium": 1, "low": 2, None: 3}
+            source_rank = {
+                "docling_caption_link": 0,
+                "heuristic_proximity": 1,
+                "plate_legend": 2,
+            }
+            for duplicates in grouped.values():
+                duplicates.sort(key=lambda item: (
+                    confidence_rank.get(item.get("caption_confidence"), 4),
+                    source_rank.get(item.get("caption_source"), 9),
+                ))
+                reassignable.extend(duplicates[1:])
+
+            missing = [
+                entry for entry in entries
+                if entry["figure_number"] not in grouped
+            ]
+            if missing and len(missing) == len(reassignable):
+                while missing:
+                    choices = []
+                    for item in reassignable:
+                        for entry in missing:
+                            distance = (
+                                _vertical_gap(item["bbox"], entry["caption_bbox"])
+                                if item.get("bbox") and entry.get("caption_bbox")
+                                else float("inf")
+                            )
+                            choices.append((distance, item, entry))
+                    _distance, item, entry = min(choices, key=lambda row: row[0])
+                    old_candidates = item.get("caption_candidates") or []
+                    for candidate in old_candidates:
+                        candidate["chosen"] = False
+                        if not candidate.get("rejection_reason"):
+                            candidate["rejection_reason"] = (
+                                "superseded_by_plate_legend_reconciliation"
+                            )
+                    evidence = _caption_candidate(
+                        text=entry["caption_text"],
+                        page=page,
+                        bbox=entry.get("caption_bbox"),
+                        source="plate_legend_reconciled",
+                        picture_page=page,
+                        distance=(
+                            _vertical_gap(item["bbox"], entry["caption_bbox"])
+                            if item.get("bbox") and entry.get("caption_bbox")
+                            else None
+                        ),
+                        confidence="medium",
+                    )
+                    evidence["chosen"] = True
+                    evidence.pop("_full_caption_text", None)
+                    item.setdefault("figure_number_raw", item.get("figure_number"))
+                    item.setdefault("caption_text_raw", item.get("caption_text") or "")
+                    item.update({
+                        "figure_number": entry["figure_number"],
+                        "figure_number_source": "plate_legend_reconciled",
+                        "caption_text": entry["caption_text"],
+                        "caption_page": page,
+                        "caption_bbox": entry.get("caption_bbox"),
+                        "caption_source": "plate_legend_reconciled",
+                        "caption_kind": _caption_kind(entry["caption_text"]),
+                        "caption_status": "bound",
+                        "caption_confidence": "medium",
+                        "caption_page_distance": 0,
+                        "caption_candidates": [evidence, *old_candidates][:5],
+                    })
+                    reassignable.remove(item)
+                    missing.remove(entry)
+
+        if len(entries) <= len(on_page_figures):
             continue
         # The plate is the largest picture on the page; the legend describes
         # what is drawn on it.
         plate = max(on_page, key=lambda x: _bbox_area(x.get("bbox")))
-        already = {str(x.get("figure_number")) for x in on_page
-                   if x.get("figure_number")}
-        for entry in entries:
-            if entry["figure_number"] in already:
-                continue
-            sibling = dict(plate)
-            sibling.update({
-                "figure_number": entry["figure_number"],
-                "caption_text": entry["caption_text"],
-                "caption_bbox": entry.get("caption_bbox"),
-                "caption_source": "plate_legend",
-                "shares_image_with": plate.get("docling_idx"),
-                "figure_type": FIGURE_TYPE_FIGURE,
-            })
-            out.append(sibling)
+        _append_plate_legend_siblings(
+            out,
+            plate,
+            entries,
+            existing_numbers=(
+                item.get("figure_number") for item in on_page_figures
+            ),
+            caption_page=page,
+            caption_source="plate_legend",
+            caption_page_distance=0,
+        )
     return out
+
+
+def reconcile_plate_legend_numbers(
+    figures: List[Dict], missing_figures: List[Dict],
+) -> int:
+    """Repair a narrowly evidenced OCR-truncated number in a plate legend.
+
+    This runs only after the running-text missing-figure scan. A correction
+    requires all of the following: at least five records sharing one plate;
+    removing one outlier leaves a consecutive run with exactly one gap; that
+    gap is independently present in ``missing_figures``; and the outlier is a
+    prefix of the missing number (for example OCR ``3`` where the sequence and
+    running text both say ``34``). Source text and the raw number are retained.
+    """
+    missing_numbers = {
+        str(item.get("figure_number"))
+        for item in (missing_figures or []) if item.get("figure_number")
+    }
+    if not missing_numbers:
+        return 0
+
+    hosts = {
+        f.get("figure_id"): f
+        for f in figures if f.get("figure_id")
+    }
+    groups = {}
+    for figure in figures:
+        shared = figure.get("shares_image_with")
+        if shared is None or figure.get("caption_source") != "plate_legend":
+            continue
+        groups.setdefault(shared, []).append(figure)
+    for shared, siblings in groups.items():
+        host = hosts.get(f"docling_{shared}")
+        if host is not None:
+            siblings.insert(0, host)
+
+    repaired = 0
+    for group in groups.values():
+        if len(group) < 5:
+            continue
+        for outlier in group:
+            raw = str(outlier.get("figure_number") or "")
+            if not raw.isdigit():
+                continue
+            remaining = {
+                int(str(item.get("figure_number")))
+                for item in group if item is not outlier
+                and str(item.get("figure_number") or "").isdigit()
+            }
+            if len(remaining) != len(group) - 1 or len(remaining) < 4:
+                continue
+            span = set(range(min(remaining), max(remaining) + 1))
+            gap = span - remaining
+            if len(span) != len(remaining) + 1 or len(gap) != 1:
+                continue
+            expected = str(next(iter(gap)))
+            if expected not in missing_numbers or not expected.startswith(raw):
+                continue
+
+            old_caption = outlier.get("caption_text") or ""
+            match = _FIGURE_NUMBER_IN_CAPTION_RE.match(old_caption)
+            corrected_caption = old_caption
+            if match:
+                corrected_caption = (
+                    old_caption[:match.start(1)] + expected
+                    + old_caption[match.end(1):]
+                )
+            old_candidates = outlier.get("caption_candidates") or []
+            for candidate in old_candidates:
+                candidate["chosen"] = False
+                if not candidate.get("rejection_reason"):
+                    candidate["rejection_reason"] = (
+                        "superseded_by_plate_legend_sequence_reconciliation"
+                    )
+            evidence = _caption_candidate(
+                text=corrected_caption,
+                page=outlier.get("caption_page") or outlier.get("page"),
+                bbox=outlier.get("caption_bbox"),
+                source="plate_legend_sequence_reconciled",
+                picture_page=outlier.get("page"),
+                distance=None,
+                confidence="medium",
+            )
+            evidence["chosen"] = True
+            evidence.pop("_full_caption_text", None)
+            outlier.update({
+                "figure_number": expected,
+                "figure_number_raw": raw,
+                "figure_number_source": "plate_legend_sequence_reconciled",
+                "caption_text": corrected_caption,
+                "caption_text_raw": old_caption,
+                "caption_source": "plate_legend_sequence_reconciled",
+                "caption_kind": _caption_kind(corrected_caption),
+                "caption_status": "bound",
+                "caption_confidence": "medium",
+                "caption_page_distance": 0,
+                "caption_candidates": [evidence, *old_candidates][:5],
+            })
+            missing_numbers.remove(expected)
+            repaired += 1
+            break
+    return repaired
 
 
 def furniture_positions(items: List[Dict]) -> frozenset:
@@ -820,7 +1705,7 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         return items
     from collections import defaultdict
 
-    # Keyed on (page, number), not number alone (#205). Both tests below
+    # Keyed on (page, namespace, number), not number alone (#205). Both tests below
     # compare bounding boxes, and a bbox carries no page — so two figures at
     # similar coordinates on *different* pages were being read as redundant
     # crops of one another and one of them dropped.
@@ -830,7 +1715,9 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
     # translation, and the two are genuinely different figures; Carre 1969
     # loses nine of twenty-two figures that way. Every legitimate grouping
     # this function performs — coequal panels, whole-figure plus subpanels —
-    # is within a single page, so narrowing the key costs nothing.
+    # is within a single page, so narrowing the key costs nothing. The namespace
+    # keeps Plate X from deleting its image-sharing child Figure 10 merely
+    # because both canonicalize to number 10.
     by_num: Dict[tuple, List[Dict]] = defaultdict(list)
     passthrough: List[Dict] = []
     for it in items:
@@ -841,13 +1728,16 @@ def dedupe_figures(items: List[Dict]) -> List[Dict]:
         # figure_number via the caption-proximity heuristic keep their
         # downgraded classification.
         if num and str(num) and ftype in (FIGURE_TYPE_FIGURE, FIGURE_TYPE_PLATE):
-            by_num[(it.get("page"), str(num))].append(it)
+            number_namespace = (
+                "plate" if ftype == FIGURE_TYPE_PLATE else "figure"
+            )
+            by_num[(it.get("page"), number_namespace, str(num))].append(it)
         else:
             passthrough.append(it)
 
     kept: List[Dict] = list(passthrough)
 
-    for (_page, num), group in by_num.items():
+    for (_page, _number_namespace, num), group in by_num.items():
         if len(group) == 1:
             kept.append(group[0])
             continue
@@ -961,26 +1851,29 @@ def compose_figure_filename(item: Dict) -> str:
 
 
 def extract_caption_info(picture, document) -> Dict:
-    """Return a dict with caption_text, caption_page, caption_bbox,
-    bbox_coord_system, caption_source for a docling Picture.
+    """Return the selected caption and the evidence used to select it.
 
     Tries in order:
 
     1. ``picture.captions`` — docling's own caption linker; when it
-       succeeds, the TextItem it points to has the exact caption string and
-       its own provenance (page + bbox). This is the good path.
-    2. Proximity heuristic — scan all TextItems on the same page as the
-       picture for one whose text starts with a figure-label prefix
+       succeeds, the TextItem it points to is strong structural evidence.
+    2. Proximity heuristic — scan provenance-level text fragments on the same
+       page as the picture for one whose text starts with a figure-label prefix
        ("Figure", "Fig.", "Abb.", "Pl.", "Рис."), then pick the one whose
-       bbox is vertically closest to the picture bbox. This catches the
-       common case where docling's layout model didn't associate the
-       caption with the picture object (plate-heavy monographs, end-matter
-       figure sections, etc.).
-    3. Nothing — return empty caption fields so downstream code can tell
+       bbox is vertically closest. Provenance-level is important: docling can
+       merge body text from page N and a ``FIGURE 8`` label from page N+1 into
+       one item whose full text does not begin with the label.
+    3. For a bare label, bind a tightly adjacent docling ``caption`` item so
+       ``caption_text`` contains the prose as well as the number.
+    4. Consider the immediately following page for historical facing-page
+       captions, but reject a heuristic candidate when a substantial picture
+       on that page is a materially better owner.
+    5. Nothing — return empty caption fields so downstream code can tell
        the caption genuinely wasn't found rather than silently blank.
 
-    ``caption_source`` is always one of ``"docling_caption_link"``,
-    ``"heuristic_proximity"``, or ``None``.
+    ``caption_candidates`` keeps the bounded chosen/rejected evidence. A weak
+    cross-page choice is explicitly ``caption_status == "uncertain"`` rather
+    than looking like an ordinary caption in the artifact or MCP response.
     """
     info: Dict = {
         "caption_text": "",
@@ -988,75 +1881,192 @@ def extract_caption_info(picture, document) -> Dict:
         "caption_bbox": None,
         "bbox_coord_system": None,
         "caption_source": None,
+        "caption_kind": None,
+        "caption_status": "unbound",
+        "caption_confidence": None,
+        "caption_page_distance": None,
+        "caption_candidates": [],
+        "figure_number": None,
+        "figure_number_source": None,
     }
+
+    pic_prov = getattr(picture, "prov", None) or []
+    pic_bbox, pic_page = (
+        _prov_to_bbox_and_page(pic_prov[0]) if pic_prov else (None, None)
+    )
+    candidates: List[Dict] = []
 
     # --- Path 1: docling's own caption linker ---
     caps = getattr(picture, "captions", None)
     if caps:
         try:
             target = caps[0].resolve(document)
-            text = (target.text or "").strip()
-            if text:
-                info["caption_text"] = text
-                if getattr(target, "prov", None):
-                    bbox_list, page_no = _prov_to_bbox_and_page(target.prov[0])
-                    info["caption_page"] = page_no
-                    info["caption_bbox"] = bbox_list
-                    info["bbox_coord_system"] = "pdf_pts_bottom_left"
-                info["caption_source"] = "docling_caption_link"
-                return info
+            fragments = list(_text_fragments(target))
+            if fragments:
+                # Prefer the provenance fragment on the picture's own page.
+                text, bbox, page = min(
+                    fragments,
+                    key=lambda row: (
+                        0 if pic_page is not None and row[2] == pic_page else 1,
+                        abs(row[2] - pic_page) if pic_page is not None else 0,
+                    ),
+                )
+                if _is_bare_figure_label(text):
+                    body = _body_after_label(document, page, bbox)
+                    if body:
+                        _gap, body_text, body_bbox = body
+                        number = parse_figure_number(text)
+                        text = (
+                            _caption_entry_for_number(body_text, number)
+                            or _join_caption_parts(text, body_text)
+                        )
+                        bbox = _bbox_union(bbox, body_bbox)
+                elif not parse_figure_number(text):
+                    label = _label_before_body(document, page, bbox)
+                    if label:
+                        _gap, label_text, label_bbox = label
+                        text = _join_caption_parts(label_text, text)
+                        bbox = _bbox_union(label_bbox, bbox)
+                completion = _complete_panel_caption(
+                    document, page, bbox, text,
+                )
+                if completion:
+                    text, bbox = completion
+                distance = (
+                    _vertical_gap(pic_bbox, bbox)
+                    if pic_bbox is not None else None
+                )
+                confidence = (
+                    "high" if pic_page is None or page == pic_page else "medium"
+                )
+                candidates.append(_caption_candidate(
+                    text=text,
+                    page=page,
+                    bbox=bbox,
+                    source="docling_caption_link",
+                    picture_page=pic_page,
+                    distance=distance,
+                    confidence=confidence,
+                ))
         except Exception as e:
             logger.debug("docling caption resolve failed: %s", e)
 
-    # --- Path 2: proximity heuristic over same-page (+ facing-page) TextItems ---
-    pic_prov = getattr(picture, "prov", None)
-    if not pic_prov:
-        return info
-    pic_bbox_list, pic_page = _prov_to_bbox_and_page(pic_prov[0])
-    if pic_page is None or pic_bbox_list is None:
-        return info
+    # --- Path 2: proximity candidates over provenance-level fragments ---
+    if pic_page is not None and pic_bbox is not None:
+        for text_item in getattr(document, "texts", None) or []:
+            for text, bbox, page in _text_fragments(text_item):
+                if page != pic_page and page != pic_page + 1:
+                    continue
+                if not _FIGURE_NUMBER_IN_CAPTION_RE.match(text):
+                    continue
+                candidate_text = text
+                candidate_bbox = bbox
+                if _is_bare_figure_label(text):
+                    body = _body_after_label(document, page, bbox)
+                    if body:
+                        _gap, body_text, body_bbox = body
+                        number = parse_figure_number(text)
+                        candidate_text = (
+                            _caption_entry_for_number(body_text, number)
+                            or _join_caption_parts(text, body_text)
+                        )
+                        candidate_bbox = _bbox_union(bbox, body_bbox)
+                completion = _complete_panel_caption(
+                    document, page, candidate_bbox, candidate_text,
+                )
+                if completion:
+                    candidate_text, candidate_bbox = completion
+                page_distance = page - pic_page
+                confidence = "medium" if page_distance == 0 else "low"
+                candidate = _caption_candidate(
+                    text=candidate_text,
+                    page=page,
+                    bbox=candidate_bbox,
+                    source="heuristic_proximity",
+                    picture_page=pic_page,
+                    # Ownership follows the opener's anchor, not the extent
+                    # of panel text appended below it.
+                    distance=_vertical_gap(pic_bbox, bbox),
+                    confidence=confidence,
+                )
+                if page_distance and _substantial_picture_owns_candidate(
+                    document, picture, pic_bbox, page, bbox,
+                ):
+                    candidate["rejection_reason"] = (
+                        "substantial_picture_on_caption_page"
+                    )
+                candidates.append(candidate)
 
-    # Large penalty so same-page candidates always beat cross-page ones.
-    _CROSS_PAGE_PENALTY = 1000.0
-
-    candidates: List[Tuple[float, object, List[float], int]] = []
-    for text_item in getattr(document, "texts", []) or []:
-        text = getattr(text_item, "text", "") or ""
-        if not text:
-            continue
-        if not _FIGURE_NUMBER_IN_CAPTION_RE.match(text):
-            continue
-        prov = getattr(text_item, "prov", None)
-        if not prov:
-            continue
-        bbox_list, page_no = _prov_to_bbox_and_page(prov[0])
-        if bbox_list is None:
-            continue
-        # Allow same page or the immediately following page (facing-page
-        # captions are common in historical plate-heavy monographs).
-        if page_no != pic_page and page_no != pic_page + 1:
-            continue
-        cross_page_penalty = _CROSS_PAGE_PENALTY if page_no != pic_page else 0.0
-        # Vertical distance: figure bottom to caption top (captions are
-        # usually below the figure). In bottom-left coords, figure bottom is
-        # bbox[1] (b) and caption top is bbox[3] (t). Use absolute gap.
-        pic_top, pic_bottom = pic_bbox_list[3], pic_bbox_list[1]
-        cap_top, cap_bottom = bbox_list[3], bbox_list[1]
-        vertical_gap = min(
-            abs(pic_bottom - cap_top),  # caption below figure
-            abs(cap_bottom - pic_top),  # caption above figure (rare)
-        ) + cross_page_penalty
-        candidates.append((vertical_gap, text_item, bbox_list, page_no))
-
-    if not candidates:
-        return info
-    candidates.sort(key=lambda c: c[0])
-    _, best, best_bbox, best_page = candidates[0]
-    info["caption_text"] = (best.text or "").strip()
-    info["caption_page"] = best_page
-    info["caption_bbox"] = best_bbox
-    info["bbox_coord_system"] = "pdf_pts_bottom_left"
-    info["caption_source"] = "heuristic_proximity"
+    viable = [c for c in candidates if c["rejection_reason"] is None]
+    if viable:
+        source_rank = {"docling_caption_link": 0, "heuristic_proximity": 1}
+        chosen = min(
+            viable,
+            key=lambda c: (
+                abs(c["page_distance"] or 0),
+                source_rank.get(c["caption_source"], 9),
+                c["distance_pts"] if c["distance_pts"] is not None else float("inf"),
+            ),
+        )
+        geometry_override = False
+        # A structural link is strong evidence, not an oracle. Dense pages can
+        # link the lower picture to the preceding figure's caption. Override
+        # it only when a same-page heuristic candidate names a different
+        # figure, sits within the caption-component gap, and is materially
+        # closer. This is the measured Totton Fig. 78/79 failure; the margin
+        # prevents small layout-model jitter from defeating a valid link.
+        if chosen["caption_source"] == "docling_caption_link" \
+                and chosen["distance_pts"] is not None:
+            chosen_number = parse_figure_number(chosen["_full_caption_text"])
+            closer = [
+                candidate for candidate in viable
+                if candidate["caption_source"] == "heuristic_proximity"
+                and candidate["page_distance"] == 0
+                and candidate["distance_pts"] is not None
+                and candidate["distance_pts"] <= _CAPTION_COMPONENT_MAX_GAP_PTS
+                and parse_figure_number(candidate["_full_caption_text"])
+                and parse_figure_number(candidate["_full_caption_text"])
+                != chosen_number
+                and chosen["distance_pts"] - candidate["distance_pts"]
+                >= _HEURISTIC_OVERRIDE_MARGIN_PTS
+            ]
+            if closer:
+                chosen = min(closer, key=lambda c: c["distance_pts"])
+                geometry_override = True
+        chosen["chosen"] = True
+        for candidate in viable:
+            if candidate is not chosen:
+                candidate["rejection_reason"] = (
+                    "materially_closer_same_page_candidate"
+                    if geometry_override
+                    and candidate["caption_source"] == "docling_caption_link"
+                    else "lower_ranked_candidate"
+                )
+        info.update({
+            "caption_text": chosen["_full_caption_text"],
+            "caption_page": chosen["caption_page"],
+            "caption_bbox": chosen["caption_bbox"],
+            "bbox_coord_system": "pdf_pts_bottom_left",
+            "caption_source": chosen["caption_source"],
+            "caption_kind": chosen["caption_kind"],
+            "caption_status": (
+                "uncertain" if chosen["confidence"] == "low" else "bound"
+            ),
+            "caption_confidence": chosen["confidence"],
+            "caption_page_distance": chosen["page_distance"],
+            "figure_number": chosen["figure_number"],
+            "figure_number_source": chosen["figure_number_source"],
+        })
+    # Keep the strongest few candidates. This is enough to audit the decision
+    # without putting every caption on a dense page into every figure record.
+    candidates.sort(key=lambda c: (
+        not c["chosen"],
+        abs(c["page_distance"] or 0),
+        c["distance_pts"] if c["distance_pts"] is not None else float("inf"),
+    ))
+    for candidate in candidates:
+        candidate.pop("_full_caption_text", None)
+    info["caption_candidates"] = candidates[:5]
     return info
 
 
@@ -1068,6 +2078,9 @@ def extract_caption_info(picture, document) -> Dict:
 # Single capital letter used as a panel label, tolerates optional wrapping
 # punctuation (``(A)``, ``A.``, ``[A]``). We match on cleaned OCR tokens.
 _OCR_PANEL_LABEL_RE = re.compile(r"^[\(\[]?\s*([A-Z])\s*[\)\]]?\.?$")
+_OCR_FIGURE_LABEL_RE = re.compile(
+    r"^[\(\[]?\s*(\d+(?:\.\d+)?[A-Za-z]?)\s*[\)\]]?[.,:]?$",
+)
 
 # Embedded "Fig. N" string — used to detect compound images containing
 # multiple labelled figures. Uppercase to support historical variants.
@@ -1130,15 +2143,37 @@ def _ocr_figure_tokens(image_path: Path, upscale: int = 3,
     return out
 
 
-def _extract_label_candidates(tokens: List[Dict]) -> List[Dict]:
-    """Filter OCR tokens for single-letter panel labels."""
+def _extract_label_candidates(
+    tokens: List[Dict],
+    *,
+    expected_labels: List[str] | None = None,
+    target_kind: str = "panel",
+) -> List[Dict]:
+    """Return OCR tokens that can locate caption-declared regions.
+
+    Lettered panels and numbered figures deliberately use different
+    recognizers. Bare numbers would be far too permissive on an ordinary
+    chart, so they are considered only for a grouped plate whose caption has
+    already supplied an exact allow-list of figure numbers (#203).
+    """
+    expected = {str(label) for label in (expected_labels or [])}
+    expected_casefold = {label.casefold(): label for label in expected}
+    matcher = (
+        _OCR_FIGURE_LABEL_RE if target_kind == "figure"
+        else _OCR_PANEL_LABEL_RE
+    )
     out: List[Dict] = []
     for tok in tokens:
-        m = _OCR_PANEL_LABEL_RE.match(tok["text"])
+        m = matcher.match(tok["text"])
         if not m:
             continue
+        label = m.group(1)
+        if expected:
+            label = expected_casefold.get(label.casefold())
+            if label is None:
+                continue
         out.append({
-            "label": m.group(1),
+            "label": label,
             "conf": tok["conf"],
             "bbox_px": tok["bbox_px"],
         })
@@ -1149,6 +2184,8 @@ def _approximate_panel_rois(
     image_size_px: tuple,
     labels: List[Dict],
     expected_labels: List[str],
+    *,
+    target_kind: str = "panel",
 ) -> List[Dict]:
     """Compute approximate ROIs from detected label bboxes.
 
@@ -1237,14 +2274,17 @@ def _approximate_panel_rois(
         return [int(left), int(top), int(right), int(bottom)]
 
     for i, lbl in enumerate(ordered_det):
-        rois.append({
-            "type": "panel",
+        roi = {
+            "type": target_kind,
             "label": lbl["label"],
             "roi_px": panel_roi(i),
             "source": "ocr:tesseract",
             "ocr_confidence": lbl["conf"],
             "label_bbox_px": lbl["bbox_px"],
-        })
+        }
+        if target_kind == "figure":
+            roi["figure_number"] = lbl["label"]
+        rois.append(roi)
 
     # Report expected-but-not-detected labels as stub ROIs for
     # observability. No roi_px — the crop-on-demand tool can fall back
@@ -1252,14 +2292,156 @@ def _approximate_panel_rois(
     detected_letters = {r["label"] for r in rois}
     for exp in expected_labels:
         if exp not in detected_letters:
-            rois.append({
-                "type": "panel",
+            roi = {
+                "type": target_kind,
                 "label": exp,
                 "roi_px": None,
                 "source": "expected_from_caption",
-            })
+            }
+            if target_kind == "figure":
+                roi["figure_number"] = exp
+            rois.append(roi)
 
     return rois
+
+
+_VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE = 0.80
+_VISION_FIGURE_DISCOVERY_MAX_REGION_IOU = 0.90
+_DISCOVERED_FIGURE_NUMBER_RE = re.compile(r"^[1-9]\d{0,2}[a-z]?$", re.IGNORECASE)
+
+
+def _normalize_vision_figure_discovery(backend_rois: List[Dict]) -> Dict:
+    """Validate unconditioned number candidates from one bare plate.
+
+    This is intentionally stricter than caption-conditioned ROI matching.
+    A candidate needs a simple Arabic figure number, a region, and high model
+    confidence. At least two distinct numbers must survive, because the claim
+    being materialized is that one plate image contains multiple engravings.
+    All returned candidates retain the acceptance decision and reason.
+    """
+    candidates = []
+    eligible = []
+    for index, roi in enumerate(backend_rois):
+        emitted_type = roi.get("type")
+        raw_number = (
+            roi.get("figure_number")
+            if emitted_type == "embedded_figure" else roi.get("label")
+            if emitted_type == "panel" else None
+        )
+        raw_number = str(raw_number or "").strip()
+        number = raw_number.rstrip(".,").lower()
+        try:
+            confidence = float(roi.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        region = roi.get("bbox_px")
+        candidate = {
+            "candidate_index": index,
+            "emitted_type": emitted_type,
+            "figure_number_raw": raw_number or None,
+            "figure_number": (
+                number if _DISCOVERED_FIGURE_NUMBER_RE.fullmatch(number) else None
+            ),
+            "roi_px": region,
+            "confidence": confidence,
+            "source": roi.get("source"),
+            "accepted": False,
+            "rejection_reason": None,
+        }
+        if emitted_type not in {"embedded_figure", "panel"}:
+            candidate["rejection_reason"] = "unsupported_output_type"
+        elif candidate["figure_number"] is None:
+            candidate["rejection_reason"] = "unsupported_number_format"
+        elif not (isinstance(region, list) and len(region) == 4) \
+                or _bbox_area(region) <= 0:
+            candidate["rejection_reason"] = "missing_or_degenerate_region"
+        elif not 0.0 <= confidence <= 1.0:
+            candidate["rejection_reason"] = "invalid_confidence"
+        elif confidence < _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE:
+            candidate["rejection_reason"] = "below_confidence_threshold"
+        else:
+            eligible.append(candidate)
+        candidates.append(candidate)
+
+    # Qwen can impose a complete alphabetic panel grid on a plate that has no
+    # such labels, then copy those invented cells to numeric embedded figures
+    # at high self-reported confidence. This was observed as A-H and 1-8 with
+    # identical boxes on a seven-figure plate. Confidence cannot veto that
+    # failure; contradictory structure can. Keep every candidate as evidence,
+    # but do not materialize a numeric region that duplicates one of at least
+    # two unsupported alphabetic panel cells.
+    alphabetic_panel_regions = [
+        candidate["roi_px"] for candidate in candidates
+        if candidate["emitted_type"] == "panel"
+        and candidate["rejection_reason"] == "unsupported_number_format"
+        and re.fullmatch(
+            r"[A-L]", candidate.get("figure_number_raw") or "", re.IGNORECASE
+        )
+        and isinstance(candidate.get("roi_px"), list)
+        and len(candidate["roi_px"]) == 4
+        and _bbox_area(candidate["roi_px"]) > 0
+    ]
+    if len(alphabetic_panel_regions) >= 2:
+        for candidate in eligible:
+            if any(
+                _bbox_iou(candidate["roi_px"], panel_region)
+                > _VISION_FIGURE_DISCOVERY_MAX_REGION_IOU
+                for panel_region in alphabetic_panel_regions
+            ):
+                candidate["rejection_reason"] = "conflicting_panel_grid"
+        eligible = [
+            candidate for candidate in eligible
+            if candidate["rejection_reason"] is None
+        ]
+
+    # One logical record per number. When the model emits a number twice,
+    # retain the highest-confidence region and make the rejected duplicate
+    # visible in the evidence rather than silently picking list order.
+    accepted = []
+    seen = set()
+    for candidate in sorted(
+        eligible,
+        key=lambda item: (-item["confidence"], item["candidate_index"]),
+    ):
+        number = candidate["figure_number"]
+        if number in seen:
+            candidate["rejection_reason"] = "lower_confidence_duplicate"
+            continue
+        if any(
+            _bbox_iou(candidate["roi_px"], prior["roi_px"])
+            > _VISION_FIGURE_DISCOVERY_MAX_REGION_IOU
+            for prior in accepted
+        ):
+            candidate["rejection_reason"] = "near_duplicate_region"
+            continue
+        seen.add(number)
+        candidate["accepted"] = True
+        accepted.append(candidate)
+
+    if len(accepted) < 2:
+        for candidate in accepted:
+            candidate["accepted"] = False
+            candidate["rejection_reason"] = "fewer_than_two_distinct_numbers"
+        accepted = []
+
+    accepted.sort(key=lambda item: item["candidate_index"])
+    rois = [{
+        "type": "figure",
+        "label": candidate["figure_number"],
+        "figure_number": candidate["figure_number"],
+        "roi_px": candidate["roi_px"],
+        "source": candidate["source"],
+        "confidence": candidate["confidence"],
+    } for candidate in accepted]
+    return {
+        "rois": rois,
+        "figure_number_candidates": candidates,
+        "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+        "pass3_status": (
+            "discovery_materialized" if accepted
+            else "discovery_insufficient_evidence"
+        ),
+    }
 
 
 def detect_figure_rois_via_vision(
@@ -1267,6 +2449,8 @@ def detect_figure_rois_via_vision(
     panels_from_caption: List[Dict],
     backend,
     caption_text: str = "",
+    *,
+    target_kind: str = "panel",
 ) -> Dict:
     """Pass 3b entry point — same contract as :func:`detect_figure_rois`
     but using a vision-language-model backend instead of Tesseract OCR.
@@ -1281,13 +2465,20 @@ def detect_figure_rois_via_vision(
     ``pass3_backend`` on every ROI so downstream can tell where the
     annotation came from.
 
+    ``target_kind="figure_discovery"`` is reserved for an explicitly admitted
+    bare plate. It runs with no caption-derived allow-list, then requires at
+    least two distinct, high-confidence Arabic number+bbox candidates and
+    returns every accepted/rejected decision as ``figure_number_candidates``.
+
     Vision models also detect compounds — two or more sub-figures merged
     into one extracted image. When the backend returns panels with
     different ``parent_figure_index`` values, the ROIs array includes an
     ``embedded_figure`` entry per sub-figure in addition to the panels.
     """
-    expected_labels = [p["label"] for p in (panels_from_caption or [])]
-    if len(expected_labels) <= 1:
+    discovery_mode = target_kind == "figure_discovery"
+    expected_labels = [str(p["label"]) for p in (panels_from_caption or [])]
+    expected_casefold = {label.casefold(): label for label in expected_labels}
+    if len(expected_labels) <= 1 and not discovery_mode:
         return {"rois": [], "pass3_status": "skipped_no_panels",
                 "pass3_backend": backend.name}
 
@@ -1297,8 +2488,14 @@ def detect_figure_rois_via_vision(
             image_size = list(img.size)
     except Exception as e:
         logger.debug("Could not open %s for vision pass: %s", image_path, e)
-        return {"rois": [], "pass3_status": "image_open_failed",
-                "pass3_backend": backend.name}
+        result = {"rois": [], "pass3_status": "image_open_failed",
+                  "pass3_backend": backend.name}
+        if discovery_mode:
+            result.update({
+                "figure_number_candidates": [],
+                "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+            })
+        return result
 
     try:
         backend_rois = backend.detect_figure_panels(
@@ -1307,13 +2504,39 @@ def detect_figure_rois_via_vision(
     except Exception as e:
         logger.warning("Vision backend %s failed on %s: %s",
                        backend.name, image_path.name, e)
-        return {"rois": [], "pass3_status": "vision_backend_failed",
-                "pass3_backend": backend.name}
+        result = {
+            "rois": [], "pass3_status": "vision_backend_failed",
+            "pass3_backend": backend.name,
+            # Persist the diagnosis: logs are easy to lose when Pass 3b
+            # runs separately on a cluster, while figures.json is the
+            # evidence artifact operators actually inspect (#269).
+            "pass3_error": str(e)[:500],
+        }
+        if discovery_mode:
+            result.update({
+                "figure_number_candidates": [],
+                "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+            })
+        return result
 
     if not backend_rois:
-        return {"rois": [], "pass3_status": "no_labels_found",
-                "pass3_backend": backend.name,
-                "image_size_px": image_size}
+        result = {"rois": [], "pass3_status": "no_labels_found",
+                  "pass3_backend": backend.name,
+                  "image_size_px": image_size}
+        if discovery_mode:
+            result.update({
+                "figure_number_candidates": [],
+                "minimum_confidence": _VISION_FIGURE_DISCOVERY_MIN_CONFIDENCE,
+            })
+        return result
+
+    if discovery_mode:
+        result = _normalize_vision_figure_discovery(backend_rois)
+        result.update({
+            "pass3_backend": backend.name,
+            "image_size_px": image_size,
+        })
+        return result
 
     # Normalize to the figures.json rois schema. Panels carry the whole-
     # panel bbox as roi_px; label_bbox_px is added if the backend gave
@@ -1322,9 +2545,30 @@ def detect_figure_rois_via_vision(
     out: List[Dict] = []
     for r in backend_rois:
         if r["type"] == "panel":
+            label = str(r.get("label", ""))
+            # Some models put visible plate numbers in ``panels`` rather than
+            # ``embedded_figures``. For a grouped plate, accept only numbers
+            # independently enumerated by the caption.
+            if target_kind == "figure":
+                label = expected_casefold.get(label.casefold())
+                if label is None:
+                    continue
+                entry = {
+                    "type": "figure",
+                    "label": label,
+                    "figure_number": label,
+                    "roi_px": r.get("bbox_px"),
+                    "source": r.get("source") or backend.name,
+                    "confidence": r.get("confidence"),
+                    "description_from_vision": r.get("description", ""),
+                }
+                if r.get("label_bbox_px"):
+                    entry["label_bbox_px"] = r["label_bbox_px"]
+                out.append(entry)
+                continue
             entry = {
                 "type": "panel",
-                "label": r.get("label", ""),
+                "label": label,
                 "roi_px": r.get("bbox_px"),
                 "source": r.get("source") or backend.name,
                 "confidence": r.get("confidence"),
@@ -1336,19 +2580,35 @@ def detect_figure_rois_via_vision(
                 entry["label_bbox_px"] = r["label_bbox_px"]
             out.append(entry)
         elif r["type"] == "embedded_figure":
-            out.append({
+            figure_number = str(r.get("figure_number") or "").strip()
+            if target_kind == "figure" and figure_number:
+                figure_number = expected_casefold.get(
+                    figure_number.casefold(), figure_number,
+                )
+            entry = {
                 "type": "figure",
-                "figure_number": r.get("figure_number"),
+                "figure_number": figure_number or None,
                 "parent_figure_index": r.get("parent_figure_index"),
                 "roi_px": r.get("bbox_px"),
                 "source": r.get("source") or backend.name,
                 "confidence": r.get("confidence"),
-            })
+            }
+            if figure_number:
+                entry["label"] = figure_number
+            out.append(entry)
 
     # Decide pass3_status from what the backend returned vs. expectations.
-    panel_labels_list = [e.get("label") for e in out
-                         if e.get("type") == "panel" and e.get("label")]
-    detected_labels = set(panel_labels_list)
+    if target_kind == "figure":
+        detected_labels_list = [
+            str(e.get("figure_number")) for e in out
+            if e.get("type") == "figure" and e.get("figure_number")
+        ]
+    else:
+        detected_labels_list = [
+            e.get("label") for e in out
+            if e.get("type") == "panel" and e.get("label")
+        ]
+    detected_labels = set(detected_labels_list)
     expected_set = set(expected_labels)
     if detected_labels >= expected_set:
         status = "completed"
@@ -1371,11 +2631,13 @@ def detect_figure_rois_via_vision(
     parent_indices = {e.get("parent_figure_index", 0) for e in out}
     if len(parent_indices) > 1:
         is_compound = True
-    if len(panel_labels_list) != len(detected_labels):
+    if len(detected_labels_list) != len(detected_labels):
         is_compound = True
-    if len(panel_labels_list) > len(expected_set):
+    if len(detected_labels_list) > len(expected_set):
         is_compound = True
-    if is_compound and status != "no_labels_found":
+    # A grouped plate is already known to contain several figures. It must not
+    # enter Pass 3c's *unexpected* compound-recovery path.
+    if target_kind == "panel" and is_compound and status != "no_labels_found":
         # Record the compound-ness at the figure level so the caller can
         # decide whether to rename the file (fig_3-4.png). Renaming is
         # Phase 3c; for now we signal via the status suffix.
@@ -1392,8 +2654,10 @@ def detect_figure_rois_via_vision(
 def detect_figure_rois(
     image_path: Path,
     panels_from_caption: List[Dict],
+    *,
+    target_kind: str = "panel",
 ) -> Dict:
-    """Pass 3a entry point for one figure image.
+    """Pass 3a entry point for caption-declared regions in one image.
 
     Returns ``{"rois": [...], "pass3_status": ..., "ocr_token_count": ...}``.
     ``pass3_status`` is one of:
@@ -1407,10 +2671,11 @@ def detect_figure_rois(
       panels.
     * ``"completed"`` — every caption-expected label was detected.
 
-    Image OCR is skipped entirely for figures whose caption has no panel
-    labels — no point paying the OCR cost on a single-panel figure.
+    ``target_kind`` keeps ordinary A/B/C panels separate from figures
+    enumerated on one shared plate. Image OCR is skipped entirely when the
+    caption declares fewer than two targets.
     """
-    expected_labels = [p["label"] for p in (panels_from_caption or [])]
+    expected_labels = [str(p["label"]) for p in (panels_from_caption or [])]
     if len(expected_labels) <= 1:
         return {"rois": [], "pass3_status": "skipped_no_panels",
                 "ocr_token_count": 0}
@@ -1425,7 +2690,11 @@ def detect_figure_rois(
                 "ocr_token_count": 0}
 
     tokens = _ocr_figure_tokens(image_path)
-    label_candidates = _extract_label_candidates(tokens)
+    label_candidates = _extract_label_candidates(
+        tokens,
+        expected_labels=expected_labels,
+        target_kind=target_kind,
+    )
     # Drop candidates that don't match any expected label — OCR will
     # sometimes misread axis labels or internal annotations as single
     # capital letters, and we want to avoid emitting ROIs for those.
@@ -1436,7 +2705,12 @@ def detect_figure_rois(
         return {"rois": [], "pass3_status": "no_labels_found",
                 "ocr_token_count": len(tokens)}
 
-    rois = _approximate_panel_rois(image_size, label_candidates, expected_labels)
+    rois = _approximate_panel_rois(
+        image_size,
+        label_candidates,
+        expected_labels,
+        target_kind=target_kind,
+    )
 
     detected = {r["label"] for r in rois if r.get("roi_px")}
     status = ("completed" if set(expected_labels).issubset(detected)
@@ -1541,9 +2815,9 @@ def _spatial_split_rois(rois: List[Dict], expected_labels: List[str],
     xs = [0.5 * (p["roi_px"][0] + p["roi_px"][2]) for p in panels]
     ys = [0.5 * (p["roi_px"][1] + p["roi_px"][3]) for p in panels]
     if (max(xs) - min(xs)) >= (max(ys) - min(ys)):
-        centroids, axis = xs, "x"
+        centroids = xs
     else:
-        centroids, axis = ys, "y"
+        centroids = ys
 
     median = sorted(centroids)[len(centroids) // 2]
     side_a, side_b = [], []
@@ -1707,15 +2981,46 @@ def resolve_compound_figures(figures_file: Path) -> Dict:
                 emb_number = None
                 emb_caption = ""
 
+            caption_source = (
+                "compound_split_from_missing_figures"
+                if abs_miss_idx is not None and emb_caption else None
+            )
+            caption_candidate = []
+            if emb_caption:
+                evidence = _caption_candidate(
+                    text=emb_caption,
+                    page=None,
+                    bbox=None,
+                    source=caption_source,
+                    picture_page=host.get("page"),
+                    distance=None,
+                    confidence="low",
+                )
+                evidence["chosen"] = True
+                evidence.pop("_full_caption_text", None)
+                caption_candidate = [evidence]
+
             rec = {
                 "figure_id": f"{host_id}_embedded_{g_ord}",
                 "figure_type": host.get("figure_type", "figure"),
                 "figure_number": emb_number,
+                "figure_number_source": (
+                    "compound_split_from_missing_figures"
+                    if abs_miss_idx is not None else None
+                ),
                 "caption_text": emb_caption,
-                "caption_source": ("compound_split_from_missing_figures"
-                                   if abs_miss_idx is not None
-                                   else "compound_split_unresolved"),
+                "caption_page": None,
+                "caption_bbox": None,
+                "caption_source": caption_source,
+                "caption_kind": _caption_kind(emb_caption),
+                "caption_status": "uncertain" if emb_caption else "unbound",
+                "caption_confidence": "low" if emb_caption else None,
+                "caption_page_distance": None,
+                "caption_candidates": caption_candidate,
                 "image_shared_with": host_id,
+                "page": host.get("page"),
+                "bbox": host.get("bbox"),
+                "bbox_coord_system": host.get("bbox_coord_system"),
                 "rois": extra_rois,
                 "pass3_status": status.replace("_compound", ""),
                 "pass3_backend": host.get("pass3_backend"),
@@ -1841,6 +3146,12 @@ def link_chunks_to_figures(
 
     Returns the mutated lists (they are also modified in place).
     """
+    # These are derived links, not accumulated observations. Rebuild both
+    # directions so rechunking/removing figures cannot leave dangling IDs.
+    for chunk in chunks:
+        chunk["figure_refs"] = []
+    for figure in figures:
+        figure["referenced_in_chunks"] = []
     # Build figure_number -> [figure_id, ...]
     number_to_figure_ids: Dict[str, List[str]] = {}
     for fig in figures:
@@ -1909,6 +3220,9 @@ h2 { margin: 2em 0 0.5em; font-size: 1.1em; color: #555; border-bottom: 1px soli
 .fig .tag { display: inline-block; font-size: 0.75em; padding: 0.1em 0.5em; border-radius: 4px; margin-right: 0.3em; }
 .tag.docling { background: #e0f0ff; color: #03538b; }
 .tag.heuristic { background: #fff3d6; color: #8a5a00; }
+.tag.bound { background: #e0ffe0; color: #035e03; }
+.tag.uncertain { background: #fff3d6; color: #8a5a00; }
+.tag.unbound { background: #ffe0e0; color: #8b0303; }
 .tag.none { background: #ffe0e0; color: #8b0303; }
 .tag.method { background: #eee; color: #555; }
 .tag.type-figure { background: #e0ffe0; color: #035e03; }
@@ -1993,10 +3307,46 @@ def generate_figures_report(hash_dir: Path) -> Optional[Path]:
         img_rel = fig.get("filename") or ""
         img_path = f"figures/{img_rel}" if img_rel else ""
         src = fig.get("caption_source")
-        src_tag = {
+        source_label = {
             "docling_caption_link": "<span class='tag docling'>docling-linked</span>",
             "heuristic_proximity": "<span class='tag heuristic'>heuristic</span>",
-        }.get(src, "<span class='tag none'>no-caption</span>" if not fig.get("caption_text") else "")
+            "plate_legend": "<span class='tag heuristic'>plate legend</span>",
+            "plate_legend_reconciled": (
+                "<span class='tag heuristic'>plate legend reconciled</span>"
+            ),
+            "facing_page_plate_legend": (
+                "<span class='tag heuristic'>facing-page legend</span>"
+            ),
+            "plate_legend_sequence_reconciled": (
+                "<span class='tag heuristic'>legend number reconciled</span>"
+            ),
+        }.get(src)
+        src_tag = source_label or (
+            "<span class='tag none'>no-caption</span>"
+            if not fig.get("caption_text") else
+            f"<span class='tag heuristic'>{html.escape(str(src or 'unknown source'))}</span>"
+        )
+        evidence = caption_evidence_summary(fig)
+        status = evidence["caption_status"]
+        evidence_tags = (
+            f"<span class='tag {html.escape(str(status))}'>"
+            f"{html.escape(str(status))}</span>"
+        )
+        if evidence["caption_confidence"]:
+            evidence_tags += (
+                f"<span class='tag method'>confidence: "
+                f"{html.escape(str(evidence['caption_confidence']))}</span>"
+            )
+        if evidence["caption_kind"]:
+            evidence_tags += (
+                f"<span class='tag method'>"
+                f"{html.escape(str(evidence['caption_kind']))}</span>"
+            )
+        if evidence["caption_page_distance"] not in (None, 0):
+            evidence_tags += (
+                f"<span class='tag method'>page distance: "
+                f"{evidence['caption_page_distance']}</span>"
+            )
         ftype = fig.get("figure_type") or FIGURE_TYPE_UNCLASSIFIED
         type_tag = f"<span class='tag type-{html.escape(ftype)}'>{html.escape(ftype)}</span>"
 
@@ -2020,10 +3370,30 @@ def generate_figures_report(hash_dir: Path) -> Optional[Path]:
         if page is not None:
             id_parts.append(f"page {page}")
         out.append(f"<div class='id'>{' · '.join(id_parts)}</div>")
-        out.append(f"<div>{type_tag}{src_tag}</div>")
+        out.append(f"<div>{type_tag}{src_tag}{evidence_tags}</div>")
         out.append(
             f"<div class='caption'>{html.escape(caption) if caption else '<em>(no caption)</em>'}</div>"
         )
+        candidates = fig.get("caption_candidates") or []
+        if candidates:
+            out.append("<details><summary>caption evidence</summary><ol>")
+            for candidate in candidates:
+                decision = "chosen" if candidate.get("chosen") else "rejected"
+                reason = candidate.get("rejection_reason")
+                candidate_text = candidate.get("caption_text") or ""
+                detail = ", ".join(str(value) for value in (
+                    candidate.get("caption_source"),
+                    candidate.get("confidence"),
+                    f"page {candidate.get('caption_page')}",
+                    f"distance {candidate.get('distance_pts')} pt",
+                    reason,
+                ) if value not in (None, ""))
+                out.append(
+                    f"<li><strong>{decision}</strong> "
+                    f"({html.escape(detail)}): "
+                    f"{html.escape(candidate_text)}</li>"
+                )
+            out.append("</ol></details>")
         if refs:
             out.append(
                 "<div class='refs'>referenced in "

@@ -36,6 +36,9 @@ def test_expected_references(paper_references):
                 for a in exp["authors_contain"]:
                     if a.lower() not in ref_authors:
                         return False
+            if "raw_contains" in exp:
+                if exp["raw_contains"].lower() not in (ref.get("raw") or "").lower():
+                    return False
             return True
 
         found = [r for r in refs if matches_ref(r)]

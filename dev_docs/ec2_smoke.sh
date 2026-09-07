@@ -178,20 +178,22 @@ host_arch=$(python -c "import platform; print(platform.machine())")
 note_pass "corpus env active; host arch = $host_arch"
 elapsed
 
-# ── Phase 4: tessdata + pyflakes lint precheck ────────────────────
-section "Phase 4 — tessdata + pyflakes precheck"
+# ── Phase 4: tessdata + Ruff lint precheck ────────────────────────
+section "Phase 4 — tessdata + Ruff precheck"
 bash tools/install_tessdata.sh > /tmp/tessdata.out 2>&1 \
     && note_pass "tessdata language packs installed" \
     || { note_fail "tessdata install failed"; tail -20 /tmp/tessdata.out; }
 
 # Fast-fail signal that the source tree compiles cleanly before we
 # spend 15+ min on the demo run.
-if python -m pytest tests/test_no_undefined_names.py -q \
-       > /tmp/pyflakes.out 2>&1; then
-    note_pass "pyflakes gate (tests/test_no_undefined_names.py)"
+if ruff check pipeline mcpsrv bib tools \
+       > /tmp/corpus-ruff.out 2>&1 \
+   && python -m pytest tests/test_no_undefined_names.py -q \
+       >> /tmp/corpus-ruff.out 2>&1; then
+    note_pass "Ruff F-family gate + explicit F821 assertion"
 else
-    note_fail "pyflakes gate"
-    cat /tmp/pyflakes.out
+    note_fail "Ruff gate"
+    cat /tmp/corpus-ruff.out
 fi
 elapsed
 
@@ -200,7 +202,7 @@ section "Phase 5 — Grobid"
 # Clean stale container from a prior run.
 sudo docker rm -f corpus-grobid 2>/dev/null || true
 # CRF-only image is ~7 GB (vs ~32 GB for grobid/grobid:0.8.1) and
-# produces the same REST surface for the demo's 11 PDFs.
+# produces the same REST surface for the 4-paper demo.
 sudo docker pull lfoppiano/grobid:0.8.1 > /tmp/grobid_pull.out 2>&1
 # -XX:-UseContainerSupport: the JVM bundled with lfoppiano/grobid:0.8.1
 # is old enough that its cgroup v2 detector hits a known NPE
@@ -256,7 +258,7 @@ elapsed
 # ── Phase 7: programmatic verification ────────────────────────────
 section "Phase 7 — verify success criteria"
 
-# (a) corpus status: 11/11 across every stage row + no failures or flags.
+# (a) corpus status: every stage row complete, 4 documents, no failures or flags.
 status_out=$(corpus -v status --report 2>&1)
 if echo "$status_out" | grep -q "Failures: none recorded" \
    && echo "$status_out" | grep -q "Quality flags: none recorded"; then
@@ -265,12 +267,27 @@ else
     note_fail "corpus status: failures or quality flags present"
     echo "$status_out" | grep -E "Failures:|Quality flags:|recorded" || true
 fi
-n_complete=$(echo "$status_out" | grep -cE "11 / 11" || true)
-if [ "$n_complete" -ge 11 ]; then
-    note_pass "corpus status: $n_complete stage rows at 11/11 (≥ 11)"
+# Stage rows render as "  <stage>  <ok> / <total>  (<pct>)  <bar>". How MANY
+# rows there are is a property of the configuration, not of a healthy build:
+# this script runs --no-vision, so the three figure_pass* rows a vision build
+# records are absent. Assert completeness structurally instead of against a
+# fixed count. The previous `-ge 11` was a leftover from the 11-paper demo and
+# a --no-vision run lands at or just under it, which would have reported
+# EC2 SMOKE FAILED on a healthy build. Document count is checked separately
+# below so a row-count change can never stand in for a missing paper.
+stage_rows=$(echo "$status_out" | awk '$3 == "/" && $2 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/')
+n_rows=$(echo "$stage_rows" | grep -c . || true)
+n_incomplete=$(echo "$stage_rows" | awk '$2 != $4' | grep -c . || true)
+if [ "$n_rows" -gt 0 ] && [ "$n_incomplete" -eq 0 ]; then
+    note_pass "corpus status: all $n_rows stage rows complete"
 else
-    note_fail "corpus status: only $n_complete stage rows at 11/11 (expected ≥ 11)"
+    note_fail "corpus status: $n_incomplete of $n_rows stage rows incomplete"
+    echo "$stage_rows" | awk '$2 != $4' || true
 fi
+n_docs=$(echo "$status_out" | sed -n 's/^Corpus status.*(\([0-9]*\) documents)$/\1/p')
+[ "$n_docs" = "4" ] \
+    && note_pass "corpus status: 4 documents" \
+    || note_fail "corpus status: $n_docs documents (expected 4)"
 
 # (b) bundle_manifest.json shape.
 manifest="$REPO_ROOT/demo/output/_serve/bundle_manifest.json"
@@ -281,15 +298,15 @@ else
     chunk_count=$(jq -r '.chunk_count' "$manifest")
     figure_count=$(jq -r '.figure_count' "$manifest")
     bundle_version=$(jq -r '.bundle_version' "$manifest")
-    [ "$paper_count" = "11" ] \
-        && note_pass "manifest.paper_count = 11" \
-        || note_fail "manifest.paper_count = $paper_count (expected 11)"
-    [ "$chunk_count" -ge 800 ] \
-        && note_pass "manifest.chunk_count = $chunk_count (≥ 800 — expect ~938 on macOS)" \
-        || note_fail "manifest.chunk_count = $chunk_count (expected ≥ 800)"
-    [ "$figure_count" -ge 100 ] \
-        && note_pass "manifest.figure_count = $figure_count (≥ 100 — expect ~154 on macOS)" \
-        || note_fail "manifest.figure_count = $figure_count (expected ≥ 100)"
+    [ "$paper_count" = "4" ] \
+        && note_pass "manifest.paper_count = 4" \
+        || note_fail "manifest.paper_count = $paper_count (expected 4)"
+    [ "$chunk_count" -gt 0 ] \
+        && note_pass "manifest.chunk_count = $chunk_count (> 0)" \
+        || note_fail "manifest.chunk_count = $chunk_count (expected > 0)"
+    [ "$figure_count" -gt 0 ] \
+        && note_pass "manifest.figure_count = $figure_count (> 0)" \
+        || note_fail "manifest.figure_count = $figure_count (expected > 0)"
     note_pass "manifest.bundle_version = $bundle_version"
 fi
 

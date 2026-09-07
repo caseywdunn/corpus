@@ -21,6 +21,7 @@ from __future__ import annotations
 from pipeline.figures import (
     FIGURE_TYPE_FIGURE,
     FIGURE_TYPE_GRAPHICAL,
+    FIGURE_TYPE_PLATE,
     FIGURE_TYPE_UNCLASSIFIED,
     _FURNITURE_RECURRENCE_PAGES,
     classify_figure,
@@ -108,3 +109,9 @@ def test_a_large_uncaptioned_item_is_still_unclassified():
 def test_a_large_captioned_numbered_item_is_still_a_figure():
     assert classify_figure(item(1, (0, 0, 400, 400), "Fig. 2. A caption.", "2")) \
         == FIGURE_TYPE_FIGURE
+
+
+def test_a_roman_numbered_plate_is_classified_as_a_plate():
+    """Totton's late plates use captions such as ``PLATE XVI``."""
+    plate = item(174, (0, 0, 500, 700), "PLATE XVI", "16")
+    assert classify_figure(plate) == FIGURE_TYPE_PLATE

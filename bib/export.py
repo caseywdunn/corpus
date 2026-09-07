@@ -27,6 +27,7 @@ warrant their own session; tracked separately.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 import sqlite3
@@ -184,16 +185,41 @@ def export_bibtex(
     """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    # Export is read-only, so do not mutate an older authority DB merely to
+    # add a newly optional column. Treat pre-v1.3 rows as NULL until the next
+    # authority build performs the normal migration (#186).
+    works_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(works)")
+    }
+    ocrmode_select = "ocrmode" if "ocrmode" in works_columns else "NULL AS ocrmode"
     where = "WHERE in_corpus = 1" if corpus_only else ""
     works_sql = f"""
         SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus,
                license, license_url, serve, serve_reason, ocrlang,
+               {ocrmode_select},
                doclang, pagemap, keeppages
         FROM works
         {where}
         ORDER BY year, work_id
     """
-    rows = list(conn.execute(works_sql))
+    rows = [dict(row) for row in conn.execute(works_sql)]
+    from .documents import document_fields, has_memberships
+    if has_memberships(conn):
+        members = defaultdict(list)
+        for sha, work_id, raw in conn.execute(
+            "SELECT corpus_hash,work_id,metadata_json FROM work_documents ORDER BY corpus_hash"
+        ):
+            members[work_id].append((sha, json.loads(raw)))
+        expanded = []
+        for row in rows:
+            for sha, meta in members.get(row["work_id"], [(row["corpus_hash"], None)]):
+                item = dict(row, corpus_hash=sha)
+                if meta is not None:
+                    item.update(document_fields(meta))
+                expanded.append(item)
+        rows = expanded
+    for row in rows:
+        row["_entry_id"] = row["work_id"] + ("\0" + row["corpus_hash"] if row["corpus_hash"] else "")
 
     # First-author surname per work — used for cite-key generation.
     authors_by_work: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
@@ -205,7 +231,7 @@ def export_bibtex(
 
     cite_keys = assign_cite_keys(
         (
-            r["work_id"],
+            r["_entry_id"],
             r["year"],
             (authors_by_work[r["work_id"]][0][0] if authors_by_work[r["work_id"]] else ""),
         )
@@ -247,6 +273,8 @@ def export_bibtex(
             # #176 — round-trip the OCR language override so an
             # export/hand-edit/import cycle doesn't silently drop it.
             "ocrlang": r["ocrlang"],
+            # #186 — same round-trip contract for the OCR mode override.
+            "ocrmode": r["ocrmode"],
             # #214 — round-trip the curation fields. They steer nothing, so
             # losing them costs no output; it costs the curator's record of
             # why a directive was set, which is the only copy there is.
@@ -260,7 +288,7 @@ def export_bibtex(
             "corpus_hash": r["corpus_hash"],
             "work_id": work_id,
         }
-        out_chunks.append(render_entry(cite_keys[work_id], entry_type, fields))
+        out_chunks.append(render_entry(cite_keys[r["_entry_id"]], entry_type, fields))
 
     conn.close()
     return "\n\n".join(out_chunks) + ("\n" if out_chunks else "")

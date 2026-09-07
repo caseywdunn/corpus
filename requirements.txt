@@ -68,4 +68,4 @@ accelerate==1.14.0  # pinned (#158)
 # block along with the vision/OCR extras noted in the header.
 ipykernel
 pytest
-pyflakes  # static-analysis gate for tests/test_no_undefined_names.py
+ruff  # Pyflakes-compatible F-family lint gate; explicit F821 test remains separate

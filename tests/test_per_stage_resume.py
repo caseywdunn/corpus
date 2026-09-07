@@ -7,6 +7,7 @@ exercise that contract directly.
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,14 @@ from pipeline.stages import (
 # ---------------------------------------------------------------------------
 # _record_stage_completion / _load_pipeline_state
 # ---------------------------------------------------------------------------
+
+
+def _annotation_evidence(path):
+    """Valid empty taxon evidence for tests isolating fingerprint comparisons."""
+    raw = b'{"mentions": [], "unique_taxa": 0}'
+    (path / "taxa.json").write_bytes(raw)
+    (path / "annotation_outputs.json").write_text(json.dumps({
+        "version": 1, "outputs": {"taxa.json": hashlib.sha256(raw).hexdigest()}}))
 
 
 def test_record_creates_pipeline_state_file(tmp_path):
@@ -102,6 +111,7 @@ def test_recorded_complete_false_on_fingerprint_mismatch(tmp_path):
 
 
 def test_recorded_complete_true_when_fingerprint_matches(tmp_path):
+    _annotation_evidence(tmp_path)
     fp = {"anatomy": {"sha256": "abc"}}
     _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction",
                              input_fingerprint=fp)
@@ -220,6 +230,7 @@ def test_all_complete_when_core_recorded(tmp_path):
 
 
 def test_all_complete_taxa_required_recorded(tmp_path):
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     _record_stage_completion(tmp_path, "taxa_and_lexicon_extraction")
     assert _all_stage_artifacts_complete(
@@ -275,7 +286,9 @@ _TAXA_LEX = list(_CORE) + ["taxa_and_lexicon_extraction"]
 
 
 def test_expected_fingerprints_empty_when_neither_input_configured():
-    fps = _expected_fingerprints_for_run(ocrlang=None, keeppages=None)
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+        ocrlang=None, ocrmode=None, keeppages=None,
+    )
     assert "taxa_and_lexicon_extraction" in fps   # #176: present, but empty
     # #176 — every OCR-dependent stage is present but empty without an
     # ocrlang tag, which is what keeps existing corpuscles from re-OCRing.
@@ -287,13 +300,17 @@ def test_expected_fingerprints_empty_when_neither_input_configured():
 
 
 def test_expected_fingerprints_taxonomy_only():
-    fps = _expected_fingerprints_for_run(ocrlang=None, keeppages=None, taxonomy_fingerprint={"sha256": "abc"})
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+        ocrlang=None, ocrmode=None, keeppages=None,
+        taxonomy_fingerprint={"sha256": "abc"},
+    )
     assert fps["taxa_and_lexicon_extraction"] == {"taxonomy": {"sha256": "abc"}}
 
 
 def test_expected_fingerprints_lexicons_only():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
         ocrlang=None,
+        ocrmode=None,
         keeppages=None,
         lexicon_fingerprints={"anatomy": {"sha256": "deadbeef"}},
     )
@@ -303,8 +320,9 @@ def test_expected_fingerprints_lexicons_only():
 
 
 def test_expected_fingerprints_both_inputs():
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
         ocrlang=None,
+        ocrmode=None,
         keeppages=None,
         taxonomy_fingerprint={"sha256": "abc"},
         lexicon_fingerprints={"anatomy": {"sha256": "def"}},
@@ -324,7 +342,9 @@ def test_untagged_ocr_fingerprint_matches_an_existing_record(tmp_path):
     document in every existing corpuscle on the next resume.
     """
     _record_stage_completion(tmp_path, "scan_detection")
-    fps = _expected_fingerprints_for_run(ocrlang=None, keeppages=None)
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+        ocrlang=None, ocrmode=None, keeppages=None,
+    )
     assert _stage_recorded_complete(
         tmp_path, "scan_detection",
         expected_fingerprint=fps["scan_detection"],
@@ -344,12 +364,15 @@ def test_ocrlang_change_invalidates_the_ocr_stages(tmp_path, recorded, current):
     """
     _record_stage_completion(
         tmp_path, "scan_detection",
-        input_fingerprint=_expected_fingerprints_for_run(
+        input_fingerprint=_expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
             ocrlang=recorded,
+            ocrmode=None,
             keeppages=None,
         )["scan_detection"],
     )
-    fps = _expected_fingerprints_for_run(ocrlang=current, keeppages=None)
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+        ocrlang=current, ocrmode=None, keeppages=None,
+    )
     assert not _stage_recorded_complete(
         tmp_path, "scan_detection",
         expected_fingerprint=fps["scan_detection"],
@@ -357,7 +380,9 @@ def test_ocrlang_change_invalidates_the_ocr_stages(tmp_path, recorded, current):
 
 
 def test_ocrlang_fingerprints_both_ocr_stages():
-    fps = _expected_fingerprints_for_run(ocrlang="pol+eng", keeppages=None)
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+        ocrlang="pol+eng", ocrmode=None, keeppages=None,
+    )
     assert fps["scan_detection"] == {"ocrlang": "pol+eng"}
     assert fps["pdf_preparation"] == {"ocrlang": "pol+eng"}
 
@@ -372,6 +397,7 @@ def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):
     and let the doc through to the per-stage runner — not silently
     skip it because the stage record exists at the right version.
     """
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     # Recorded fingerprint: taxonomy only (the v0 buggy run).
     recorded_fp = {"taxonomy": {"sha256": "tax_v1"}}
@@ -382,8 +408,9 @@ def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):
     )
 
     # Live fingerprint includes the now-fixed lexicon.
-    live_fps = _expected_fingerprints_for_run(
+    live_fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
         ocrlang=None,
+        ocrmode=None,
         keeppages=None,
         taxonomy_fingerprint={"sha256": "tax_v1"},
         lexicon_fingerprints={"drosophilidae": {"sha256": "lex_v1"}},
@@ -406,6 +433,7 @@ def test_outer_gate_returns_false_when_fingerprint_drifts(tmp_path):
 def test_outer_gate_returns_true_when_fingerprint_matches(tmp_path):
     """The mirror image: doc was recorded under the same fingerprint
     we're looking at now → fast-path skip is safe."""
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     fp = {
         "taxonomy": {"sha256": "tax_v1"},
@@ -425,6 +453,7 @@ def test_outer_gate_unaffected_when_no_fingerprint_supplied_for_stage(tmp_path):
     """Backward compatibility: if the caller doesn't supply a
     fingerprint for a stage, that stage is gated only on version
     (the prior behavior)."""
+    _annotation_evidence(tmp_path)
     _record_all_core(tmp_path)
     _record_stage_completion(
         tmp_path, "taxa_and_lexicon_extraction",
@@ -443,7 +472,7 @@ def test_outer_gate_unaffected_when_no_fingerprint_supplied_for_stage(tmp_path):
 # Regression test for a bug that shipped in the first cut: only the
 # per-stage gate was given the ocrlang fingerprint, while main.py's outer
 # fast path — the gate that actually skips work, and which runs first —
-# still called _expected_fingerprints_for_run(ocrlang=None, keeppages=None) without it. A paper with
+# still called the fingerprint builder without it. A paper with
 # no tag last run recorded {}, the outer gate expected {}, they matched,
 # and the whole paper was skipped before the per-stage gate could see the
 # tag the operator had just added.
@@ -459,25 +488,33 @@ def test_outer_gate_sees_an_added_ocrlang_tag(tmp_path):
     _record_all_core(tmp_path)
     assert _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(ocrlang=None, keeppages=None),
+        expected_fingerprints=_expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+            ocrlang=None, ocrmode=None, keeppages=None,
+        ),
     ), "sanity: an untagged paper is complete under an untagged expectation"
 
     assert not _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(ocrlang="pol+eng", keeppages=None),
+        expected_fingerprints=_expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+            ocrlang="pol+eng", ocrmode=None, keeppages=None,
+        ),
     ), "adding an ocrlang tag must make the outer fast path fall through"
 
 
 def test_outer_gate_sees_a_removed_ocrlang_tag(tmp_path):
     """tagged -> untagged, the direction a None fingerprint would miss."""
-    fps = _expected_fingerprints_for_run(ocrlang="pol+eng", keeppages=None)
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+        ocrlang="pol+eng", ocrmode=None, keeppages=None,
+    )
     for name in _CORE:
         _record_stage_completion(
             tmp_path, name, input_fingerprint=fps.get(name, {}),
         )
     assert not _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(ocrlang=None, keeppages=None),
+        expected_fingerprints=_expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+            ocrlang=None, ocrmode=None, keeppages=None,
+        ),
     )
 
 
@@ -490,7 +527,9 @@ def test_outer_gate_skips_an_unchanged_untagged_paper(tmp_path):
     _record_all_core(tmp_path)
     assert _all_stage_artifacts_complete(
         tmp_path,
-        expected_fingerprints=_expected_fingerprints_for_run(ocrlang=None, keeppages=None),
+        expected_fingerprints=_expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+            ocrlang=None, ocrmode=None, keeppages=None,
+        ),
     )
 
 
@@ -503,7 +542,9 @@ def test_ocrlang_invalidates_every_stage_downstream_of_the_pdf(tmp_path):
     OCR while the log reported the new `-l`. Verified on real papers: the
     text was byte-identical across a tag change.
     """
-    fps = _expected_fingerprints_for_run(ocrlang="jpn+eng", keeppages=None)
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
+        ocrlang="jpn+eng", ocrmode=None, keeppages=None,
+    )
     for stage in ("scan_detection", "pdf_preparation", "docling_extraction",
                   "metadata_extraction", "text_chunking",
                   "taxa_and_lexicon_extraction"):
@@ -520,8 +561,9 @@ def test_ocrlang_invalidates_every_stage_downstream_of_the_pdf(tmp_path):
 
 def test_ocrlang_merges_with_the_taxa_fingerprint(tmp_path):
     """taxa_and_lexicon carries both its own inputs and ocrlang."""
-    fps = _expected_fingerprints_for_run(
+    fps = _expected_fingerprints_for_run(config_fingerprints=None, metadata_fingerprint=None,
         ocrlang="kor+eng",
+        ocrmode=None,
         keeppages=None,
         taxonomy_fingerprint={"sha256": "abc"},
         lexicon_fingerprints={"anatomy": {"sha256": "def"}},

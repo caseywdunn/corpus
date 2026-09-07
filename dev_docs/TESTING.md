@@ -3,10 +3,10 @@
 Two complementary test suites check pipeline output quality. Both run against
 already-processed output — they never re-run the pipeline.
 
-1. **Ground-truth tests** — per-paper checks against human-curated answers
-   (3 papers currently). High precision, narrow coverage.
+1. **Ground-truth tests** — per-paper checks against human-curated answers.
+   High precision, narrow coverage.
 2. **Corpus-wide tests** — structural and content consistency checks across
-   all 1,787 papers. No ground truth needed — they verify things that can be
+   the current corpus. No ground truth needed — they verify things that can be
    checked programmatically.
 
 ## Quick start
@@ -32,6 +32,149 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 
 ## What's tested
 
+### Scoped figure downloads and reverse proxies
+
+`tests/test_signed_figure_urls.py` covers scope tampering, expiry, restart,
+licensing rechecks, and isolation from MCP bearer authentication. The opt-in
+live test runs the route from `deploy/nginx.conf` in an unprivileged, disposable
+Linux Docker container and fetches whole figures and panels over real HTTP:
+
+```bash
+docker pull nginx:stable-alpine
+CORPUS_TEST_NGINX=1 pytest -q tests/test_signed_figure_urls.py
+```
+
+It binds only high loopback ports, removes its container, and does not modify
+an existing deployment. This complements, rather than replaces, full MCP smoke
+testing against a read-only real bundle. Record the image digest with release
+evidence when running this acceptance test.
+
+`tests/test_live_bundle.py` adds **every registered MCP tool**, real query
+embedding, and whole/panel downloads through that same nginx route. Inputs are
+discovered from the bundle, not hard-coded taxon names. On Linux with bubblewrap,
+Docker, the cached query model and the nginx image already installed:
+
+```bash
+CORPUS_TEST_BUNDLE=/path/to/_serve pytest -q -s tests/test_live_bundle.py
+```
+
+The selected bundle must have bibliography, taxonomy, taxon mentions, lexicon,
+vectors and an actual pixel panel ROI; missing capabilities fail rather than
+silently skipping coverage. The server mounts the filesystem read-only except
+for the test's temporary directory. Model loading is offline. The test checks
+all tool names against the frozen catalog, exercises authentication and signed
+download tampering, and checks the bundle's file inventory/sizes/mtimes before
+and after. It creates no deployment and removes its own server/container. Run
+against both a retained legacy bundle and the newly built candidate; a legacy
+pass does not verify new embedding-producer receipts. This is compatibility and
+immutability evidence, not proof of caption, citation or retrieval accuracy.
+
+### Embedding update and recovery tests
+
+`tests/test_embedding_updates.py` uses real temporary LanceDB tables and a
+deterministic two-dimensional backend, so it needs no GPU or model download.
+Run it with `tests/test_package_for_serve.py` to check document replacement,
+content/metadata invalidation, legacy duplicate repair, empty-document pruning,
+interrupted writes, no-op resume, whole-index bundle validation and equality of
+clean/incremental logical rows. These run in T0. They verify storage/update
+semantics, not embedding quality or full upstream BibTeX/config invalidation;
+the latter still needs the end-to-end gate in the
+[update contract](OVERVIEW.md#corpuscle-update-contract).
+
+`tests/test_metadata_resume.py` drives both Stage 1 resume gates with real
+BibTeX parsing, metadata extraction and completion records while stubbing the
+expensive PDF/figure work. It checks per-paper edits, entry addition/removal,
+renames with and without a bib match, identical-copy path updates, dry-run
+non-mutation, preservation of existing vision results, and metadata/chunk/
+reference equality with a clean build.
+
+`tests/test_config_updates.py` exercises the same two gates for configured
+consumer/descendant changes and default restoration. It compares rechunking
+and panel-disable updates with clean builds; checks reset of renamed/split
+images, model changes, raster refresh and stale Docling sidecars; verifies TEI
+input/payload validation and archival when Grobid is absent; and injects
+publication failures, stage interruption and standalone vision failures.
+It also checks CPU/vision handoff preservation, read-only configuration drift
+and CLI precedence. PDF/model work is stubbed, so these are deterministic
+update/recovery tests, **not caption-quality scores or full corpus acceptance**.
+External-service/model provenance and broader clean/incremental parity remain
+separate release gates.
+
+`tests/test_grobid_recovery.py` uses a controllable fake service with real
+metadata parsing and both resume gates. It covers disabled/enabled transitions,
+startup outages, individual request and parse failures, malformed service
+responses, preserved valid caches, version/declared-producer changes, unknown
+versions, strict-network errors, URL precedence, applied timeouts and network-free
+dry runs. It compares recovered metadata/reference artifacts against a clean
+build and checks that status reads persisted outcomes after unrelated reruns.
+It does not test a live Grobid deployment or verify custom model contents.
+
+### Page-level visual audit
+
+When a score or acceptance prompt points to a particular page, generate the
+optional report from that document's build artifacts:
+
+```bash
+python -m pipeline.page_report /path/to/output/documents/<HASH> \
+  --pages 12-13,17
+```
+
+`page_report.html` is one self-contained, locally viewable file. It shows the
+rendered `processed.pdf` page beside selectable Docling text and provides
+toggleable overlays for PDF word cells, extracted figure boxes, projected ROI
+boxes, and chosen/rejected caption candidates. Page statistics and the full
+caption evidence trail make coordinate or ownership errors inspectable without
+manually joining the PDF, `docling_doc.json`, `figures.json`, and text output.
+Normal builds do not generate it, and served-bundle distillation excludes it.
+The default safety limit is 200 selected pages; select a smaller range or pass
+`--max-pages 0` deliberately for a longer document.
+
+### Reference reconciliation audit
+
+After rebuilding the bibliographic authority database, audit the missing-work
+ranking against its raw observation evidence:
+
+```bash
+python tools/qc/reference_reconciliation.py \
+  --db /path/to/output/biblio_authority.sqlite \
+  --min-citations 2 --limit 50 --out reference-reconciliation.json
+```
+
+The command is read-only and requires the v1.3 observation schema. It reports
+the current, mapped and unmapped observation/citing-document populations,
+compatibility citation edges, mapping methods and producer versions, then gives
+bounded raw/parsed evidence for each ranked missing work. A substantive
+same-title/year corpus candidate is a review signal only; `author_set_match`
+identifies the narrower exact identity evidence used by the deterministic
+resolver. The report never merges works and does not change the MCP response
+surface.
+
+### Caption-binding and panel-split fidelity
+
+Score a built corpuscle against the independent page transcriptions:
+
+```bash
+python tools/qc/caption_binding.py \
+  --gold /path/to/transcriptions \
+  --corpuscle /path/to/output \
+  --out caption-binding.json
+```
+
+The read-only report separates the raw figure record from the default MCP
+evidence types. Figure-number recall/precision measures same-page ownership;
+`reported_pair_capacity_rate` gives the best recall possible if each page keeps
+its current count of distinct reported number pairs and those pairs are
+relabelled perfectly. This diagnoses missing upstream number evidence; it is
+not a theoretical ceiling on a rebuild that discovers additional labels. The
+panel section separately reports declaration recall/precision, exact
+letter sets, and label recall/precision. Both gold parsers are independent of
+the production functions they measure, and numeric figures sharing a plate
+are excluded from the letter-panel denominator. Declaration precision uses
+same-page, same-number gold figure blocks without panel enumerations as its
+negative set. Page diagnostics retain the
+expected, reported, missing and surplus numbers and panel labels needed to
+open the corresponding page report.
+
 ### Ground-truth tests (per-paper)
 
 | Module | What it checks |
@@ -48,7 +191,7 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 | `TestJsonParseable` | All core JSON files parse without error |
 | `TestSummary` | Processing status is "success", no errors recorded, hash matches |
 | `TestFigureTextConsistency` | Bidirectional figure ↔ text cross-referencing (see below) |
-| `TestCitationGraph` | Reference lists match other corpus papers; pre-2015 papers are cited (see below) |
+| `TestCitationGraph` | Reference lists match other corpus papers; reference-evaluation fixtures check cited-paper coverage (see below) |
 | `TestMetadataPlausibility` | Year/author/title cross-checks against text and filename (see below) |
 | `TestTextQuality` | Chars/page ratio, alphabet fraction, minimum text length |
 | `TestChunkQuality` | Duplicate chunks, empty chunks, over-splitting detection |
@@ -74,10 +217,11 @@ Three checks for bidirectional consistency:
   many references match another corpus paper by (first-author-surname, year)?
   Papers with 15+ references and zero corpus matches likely have broken
   reference parsing.
-- **Paper is cited by others**: papers published before 2015 in this focused
-  siphonophore corpus should be cited by at least one other corpus paper.
-  Uncited papers may have garbled metadata making them unmatchable. Uses
-  `pytest.xfail` (expected failure) since legitimate misses exist.
+- **Paper is cited by others**: the reference evaluation checks that older
+  in-scope papers are cited by at least one other corpus paper. This is a
+  collection-specific consistency expectation, not a requirement for every
+  corpus. Uncited papers may have garbled metadata making them unmatchable;
+  the check uses `pytest.xfail` because legitimate misses exist.
 
 #### Metadata plausibility
 
@@ -236,6 +380,54 @@ text:
 | Alekseev1984 | `b756815902e7` | Russian, scanned | Cyrillic OCR |
 | Stepanjants1970 | `dde93d15a5e8` | Broken text layer | Scan detection, forced OCR |
 | Pages_etal1991 | `3eafb0775ece` | Modern English | Baseline coverage |
+
+## Build regression references
+
+Use the operator-side snapshot alongside independent gold scoring:
+
+```bash
+python -m tools.qc.build_reference snapshot /path/to/baseline --out baseline.json
+python -m tools.qc.build_reference snapshot /path/to/candidate --out candidate.json
+python -m tools.qc.build_reference compare baseline.json candidate.json --out comparison.json
+```
+
+Snapshot and comparison outputs are created exclusively: an existing file is
+an error, never silently replaced. Comparison exits 1 for semantic differences,
+document additions/removals, missing primary artifacts or hard failures; this
+means **review required**, not necessarily a regression. Unchanged warning
+populations are listed separately and still need an explicit disposition.
+There is no automatic baseline acceptance or blanket warning suppression.
+
+The snapshot hashes primary JSON content, retaining schema versions and
+reporting producer versions separately. Build-root paths are relocated and
+top-level producer stamps do not count as content changes. Reference fields
+are retained by ordinal so an unchanged count cannot conceal a damaged title,
+author list, DOI or raw citation. A reordered bibliography also needs review.
+Ground-truth reference expectations may require `raw_contains` as well as
+`title_contains` and `authors_contain`: source preservation and correct field
+parsing are separate assertions. Gold-only fixtures with explicit document
+hashes are skipped when that document is absent from the demo build.
+Prepared-PDF and TEI byte hashes are diagnostic: generated IDs and PDF metadata
+can differ without an extraction change. They are not standalone failure gates.
+
+Schema v2 also fingerprints bibliography tables (including current observation
+mappings, membership, permissions and curation provenance), taxon mentions,
+taxonomy, and all logical LanceDB rows. Vector reads stream in batches and
+compare exact float values and row multiplicity per document; physical row
+order and transaction generation IDs do not matter. Decoded RGBA image hashes
+catch pixel changes while ignoring PNG compression/metadata and legacy query
+crops. Database bookkeeping timestamps and mention row IDs are excluded;
+whether a work was curator-imported is retained. Historical raw observations
+and reconciliation decisions are append-only history, not current-build
+equality targets. Current authority-table differences still require review,
+even when caused by retained historical knowledge.
+
+Missing optional databases/indexes are explicit `null`, not a proof of their
+completeness; check that the expected indexes exist for the acceptance corpus.
+Schema v1 references must be regenerated from both retained builds, never
+silently upgraded. Agreement with a baseline does not establish correctness:
+keep the independent gold reports and review their known misses. Malformed
+JSON or SQLite is a hard error, not an omitted paper.
 
 ## Design notes
 

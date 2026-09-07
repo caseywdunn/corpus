@@ -85,6 +85,11 @@ class FiguresConfig(BaseModel):
         description="Override the per-backend default vision model "
         "(e.g. claude-sonnet-4-6-20251001); used only by the vision-* modes.",
     )
+    producer_id: Optional[str] = Field(
+        default=None,
+        description="Operator-declared vision deployment identity. Change it "
+        "when a remote alias or custom producer changes without a new model ID.",
+    )
     resolution_mode: Literal["native", "fixed"] = Field(
         default="native",
         description="How saved figure resolution is chosen (#121). "
@@ -92,8 +97,9 @@ class FiguresConfig(BaseModel):
         "pixel density — a 600-dpi scan figure stays 600 dpi, a vector "
         "figure uses `vector_dpi` — so resolution tracks the source and "
         "varies per figure. 'fixed' renders every figure at the single "
-        "`images_scale` instead. Applies to future ingests only; lift an "
-        "existing bundle with tools/backfill_figure_dpi.py.",
+        "`images_scale` instead. Changes invalidate Docling extraction and "
+        "its downstream artifacts on the next corpus run; rebuild the bundle "
+        "to publish the new figures.",
     )
     vector_dpi: float = Field(
         default=300.0,
@@ -132,7 +138,9 @@ class GrobidConfig(BaseModel):
     )
     disable: bool = Field(
         default=False,
-        description="Skip Grobid even if reachable.",
+        description="Disable Grobid-derived data even if reachable. Metadata "
+        "refresh archives active TEI and keeps only BibTeX/filename fallback; "
+        "reenabling retries extraction. A temporary outage instead preserves verified caches.",
     )
     # Grobid consolidation levels: 0 = off, 1 = look the record up in CrossRef.
     #
@@ -146,6 +154,12 @@ class GrobidConfig(BaseModel):
     # it worth the round trips; a historical one will not.
     consolidate_header: int = Field(default=1, ge=0, le=2)
     consolidate_citations: int = Field(default=0, ge=0, le=2)
+    producer_id: Optional[str] = Field(
+        default=None, min_length=1,
+        description="Operator-supplied identity for the Grobid image, models and "
+        "service configuration (for example an image digest). Change it when "
+        "custom models change without a service version change. Recorded, not remotely verified.",
+    )
 
 
 class BibliographyConfig(BaseModel):
@@ -189,6 +203,7 @@ class OcrConfig(BaseModel):
         ]
     )
     gibberish_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
+    visual_script_gibberish_min: float = Field(default=0.40, ge=0.0, le=1.0)
     # Per-page --tesseract-timeout. Generous on purpose: a timeout here
     # silently blanks the page. See pipeline/scan.py prepare_pdf.
     tesseract_page_timeout: int = Field(default=900, gt=0)

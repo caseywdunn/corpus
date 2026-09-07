@@ -29,6 +29,7 @@ from pipeline.vision import (
     _BBOX_OUT_OF_RANGE,
     _BBOX_PIXELS,
     _bbox_to_px,
+    VisionBackendError,
 )
 
 W, H = 496, 1400
@@ -137,7 +138,7 @@ PIXEL_RESPONSE = """{"panels": [
 ], "embedded_figures": []}"""
 
 
-def _claude_backend_returning(text, tmp_path, monkeypatch):
+def _claude_backend_returning(text, tmp_path, monkeypatch, stop_reason="end_turn"):
     """A real ClaudeVisionBackend with only the network call stubbed, so the
     conversion under test is the shipped one."""
     from types import SimpleNamespace
@@ -150,9 +151,19 @@ def _claude_backend_returning(text, tmp_path, monkeypatch):
     be = object.__new__(ClaudeVisionBackend)
     be.model = "stub"
     be.max_tokens = 4096
-    be.client = SimpleNamespace(messages=SimpleNamespace(
-        create=lambda **kw: SimpleNamespace(
-            content=[SimpleNamespace(text=text, type="text")])))
+    stop_reasons = (list(stop_reason) if isinstance(stop_reason, (list, tuple))
+                    else [stop_reason, stop_reason])
+    budgets = []
+
+    def create(**kw):
+        reason = stop_reasons[min(len(budgets), len(stop_reasons) - 1)]
+        budgets.append(kw["max_tokens"])
+        return SimpleNamespace(
+            content=[SimpleNamespace(text=text, type="text")],
+            stop_reason=reason)
+
+    be.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    be._test_budgets = budgets
     return be, img
 
 
@@ -168,3 +179,26 @@ def test_a_pixel_coordinate_response_now_yields_rois(tmp_path, monkeypatch):
         x0, y0, x1, y1 = p["bbox_px"]
         assert x1 > x0 and y1 > y0
         assert [x0, y0, x1, y1] != [0, 0, 496, 1400], "not the whole figure"
+
+
+def test_claude_max_tokens_stop_is_failure_even_when_json_parses(
+    tmp_path, monkeypatch,
+):
+    be, img = _claude_backend_returning(
+        PIXEL_RESPONSE, tmp_path, monkeypatch, stop_reason="max_tokens",
+    )
+    with pytest.raises(VisionBackendError, match="token-truncated"):
+        be.detect_figure_panels(img, "(A) left (B) right", ["A", "B"])
+    assert be._test_budgets == [4096, 8192]
+
+
+def test_claude_retries_one_truncated_response_at_twice_the_budget(
+    tmp_path, monkeypatch,
+):
+    be, img = _claude_backend_returning(
+        PIXEL_RESPONSE, tmp_path, monkeypatch,
+        stop_reason=["max_tokens", "end_turn"],
+    )
+    rois = be.detect_figure_panels(img, "(A) left (B) right", ["A", "B"])
+    assert len([r for r in rois if r["type"] == "panel"]) == 2
+    assert be._test_budgets == [4096, 8192]

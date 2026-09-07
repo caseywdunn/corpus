@@ -250,12 +250,12 @@ If you can't use conda, you'll need to install the system tools yourself (`brew 
 
 ```bash
 pip install -e ".[dev]"   # development clone (the [dev] extra adds
-                          # pytest, pyflakes, and ipykernel — they are
+                          # pytest, Ruff, and ipykernel — they are
                           # not runtime dependencies, see #162)
 pip install -e .          # runtime only, e.g. a server-only deploy host
 
 # or for a deploy host pinning a release:
-pip install git+https://github.com/caseywdunn/corpus.git@v1.2.1
+pip install git+https://github.com/caseywdunn/corpus.git@v1.3.0
 ```
 
 Python **3.12** specifically: `requires-python` is `>=3.12,<3.13`, because

@@ -20,6 +20,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bouchet_paths.sh
 source "$SCRIPT_DIR/bouchet_paths.sh"
 
+CORPUS_BUILD_GIT_SHA="$(git -C "$REPO_DIR" rev-parse HEAD)"
+export CORPUS_BUILD_GIT_SHA
+corpus_check_checkout
+
 mkdir -p "$REPO_DIR/logs"
 
 echo "=== Corpus Pipeline Launcher ==="
@@ -74,6 +78,25 @@ if [ "$GROBID_READY" -eq 0 ]; then
     echo "         Stage 1 will proceed but may fall back to no-grobid mode."
 fi
 
+# Confirm OUR Grobid job still owns that endpoint, immediately before Stage 1
+# commits to it (#279). Grobid binds a fixed port 8070, so when SLURM puts two
+# Grobid jobs on one node the second dies with a BindException -- after having
+# reached RUNNING, which is all the wait above checks. Stage 1 would then be
+# pointed at a node where *another chain's* server answers, and every document
+# would be extracted against the wrong service while the chain reported
+# success. Verified silently wrong once; never again without a check.
+GROBID_STATE_NOW=$(squeue -j "$GROBID_JOB" -h -o "%T" 2>/dev/null)
+if [ "$GROBID_STATE_NOW" != "RUNNING" ]; then
+    echo "ERROR: Grobid job $GROBID_JOB is no longer RUNNING (state: ${GROBID_STATE_NOW:-gone})." >&2
+    echo "       It reached RUNNING and then died -- on this cluster that is" >&2
+    echo "       almost always the fixed-port collision in #279: another Grobid" >&2
+    echo "       job was already bound to :8070 on $GROBID_NODE." >&2
+    echo "       Refusing to submit Stage 1, which would otherwise be served by" >&2
+    echo "       a different chain's Grobid, or by nothing at all." >&2
+    echo "       Check: tail $REPO_DIR/logs/slurm-grobid-$GROBID_JOB.err" >&2
+    exit 1
+fi
+
 # ── Step 4: Submit Stage 1 with Grobid URL ──────────────────────────
 echo ""
 BATCH_SIZE="${BATCH_SIZE:-64}"
@@ -123,9 +146,14 @@ fi
 # in, and `afterok` took Pass 3b, Embed and Finalize down with them.
 #
 # Doing it here, on the login node, rather than trusting the operator to
-# have read a warning. `corpus taxonomy ingest` no-ops when the sqlite is
-# already present and no --force-rebuild flag is set, so this costs about a
-# second on every subsequent run and is safe to repeat.
+# have read a warning.
+#
+# Safe to repeat, which was asserted before it was true (#262): `names` had
+# no uniqueness constraint and plain INSERTs, so this call doubled that table
+# on every launch -- 801 rows to 1,602 to 2,403. Since 1.2.2 the ingest holds
+# a unique index and INSERT OR IGNORE, and it deduplicates on open, so an
+# unconditional call is genuinely a no-op *and* repairs a corpuscle damaged
+# by 1.2.1 the next time this runs. About a second either way.
 if [ -n "$CORPUS_CONFIG" ]; then
     echo "Ensuring taxonomy.sqlite is built..."
     if ! corpus taxonomy ingest; then
@@ -163,9 +191,9 @@ echo "  Grobid cancel job: $CANCEL_JOB (runs after Stage 1)"
 echo ""
 # Deliberately NOT defaulted to $NUM_BATCHES. Pass 3b only sends a figure
 # to the VLM when its caption declares multiple panels
-# (pipeline/figure_passes.py), which on the siphonophore corpus is 934 of
-# 21,789 figure records — under 5%. A single GPU task covered the whole
-# 1,769-paper library in 1 h 24 m. Fanning out to match Stage 1's array
+# (pipeline/figure_passes.py), which on one reference build was under 5% of
+# figure records. A single GPU task covered that full reference library in
+# 1 h 24 m. Fanning out to match Stage 1's array
 # (now tens of tasks) would queue against the 16-GPU per-user cap on
 # gpu_h200 for no gain. Raise it only for corpora that really are
 # figure-bound.

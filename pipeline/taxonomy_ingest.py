@@ -65,11 +65,16 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import hashlib
+import json
 import logging
+import os
 import signal
 import sqlite3
 import sys
 import time
+import tempfile
+import uuid
 import zipfile
 from collections import defaultdict, deque
 from pathlib import Path
@@ -144,7 +149,50 @@ def create_schema(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    _dedupe_names(conn)
     conn.commit()
+
+
+def _dedupe_names(conn: sqlite3.Connection) -> int:
+    """Collapse duplicate ``names`` rows, then make duplicates impossible (#262).
+
+    ``names`` shipped with no PRIMARY KEY and no UNIQUE constraint, and both
+    writes were plain ``INSERT``. The only dedup was a ``set`` built inside
+    :func:`insert_records`, which knows nothing about rows already on disk —
+    so re-ingesting into an existing database appended a complete duplicate
+    set of name rows. 801 names became 1,602, then 2,403.
+
+    Latent until v1.2.1, which added an unconditional pre-build to
+    ``slurm/batch_pipeline.sh`` on the claim — mine, and wrong — that the
+    ingest no-ops. That made it fire on every launch.
+
+    The repair has to precede the constraint: a corpuscle built since v1.2.1
+    already holds duplicates, and ``CREATE UNIQUE INDEX`` would fail on it.
+    Deduping first means an existing database is fixed in place on the next
+    ingest rather than needing to be rebuilt. Returns the number of rows
+    removed, so the caller can say whether a repair happened.
+    """
+    before = conn.execute("SELECT count(*) FROM names").fetchone()[0]
+    conn.execute(
+        """
+        DELETE FROM names WHERE rowid NOT IN (
+            SELECT min(rowid) FROM names
+            GROUP BY name_lowercase, taxon_id, name_type
+        )
+        """
+    )
+    removed = before - conn.execute("SELECT count(*) FROM names").fetchone()[0]
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_names_unique "
+        "ON names(name_lowercase, taxon_id, name_type)"
+    )
+    if removed:
+        logger.warning(
+            "Removed %d duplicate name row(s) left by a pre-1.2.2 re-ingest "
+            "(#262) and added a uniqueness constraint; lookups were correct "
+            "but the table was growing on every run.", removed,
+        )
+    return removed
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +365,80 @@ def _is_taxon_core_file(name: str) -> bool:
     return base.startswith("taxon") or base.startswith("taxa")
 
 
+def source_fingerprint(source, root_id=None, input_path=None):
+    """Fingerprint consumed source bytes/config, not remote mutable contents.
+
+    WoRMS is an explicitly refreshed snapshot. Its unchanged source/root
+    reuses a completed snapshot until --rebuild; status never probes the API.
+    """
+    result = {"version": 1, "source": source, "root_id": str(root_id) if root_id is not None else None}
+    if source == "worms":
+        return result
+    if input_path is None:
+        raise ValueError(f"{source} taxonomy requires an input path")
+    p = Path(input_path)
+    if source == "dwca" and p.is_dir():
+        candidates = sorted(q for q in p.iterdir() if q.is_file() and _is_taxon_core_file(q.name))
+        if not candidates:
+            raise ValueError(f"{p}: no Taxon-core file in directory")
+        p = candidates[0]
+    digest = hashlib.sha256()
+    if source == "dwca" and p.suffix.lower() == ".zip":
+        with zipfile.ZipFile(p) as archive:
+            members = sorted(n for n in archive.namelist() if _is_taxon_core_file(n))
+            if not members:
+                raise ValueError(f"{p}: no Taxon-core file in archive")
+            with archive.open(members[0]) as raw:
+                for block in iter(lambda: raw.read(65536), b""):
+                    digest.update(block)
+        result["source_label"] = f"dwca:{p.name}"
+    else:
+        with p.open("rb") as raw:
+            for block in iter(lambda: raw.read(65536), b""):
+                digest.update(block)
+    result["sha256"] = digest.hexdigest()
+    return result
+
+
+def snapshot_receipt(path):
+    """Return a snapshot's recorded input fingerprint, or None if it has none.
+
+    This is the deterministic identity of the *consumed source* — source kind,
+    root selection, parser receipt version and the DwC bytes actually read.
+    Unlike a hash of ``taxonomy.sqlite`` itself, it does not change when an
+    unchanged source is re-ingested: the file embeds per-row ``fetched_at``
+    and ``meta.last_ingest_ts``, so its bytes differ on every ingest (#278).
+    Returns None for a legacy snapshot written before receipts existed.
+    """
+    if not Path(path).is_file():
+        return None
+    try:
+        conn = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            row = conn.execute(
+                "SELECT value FROM meta WHERE key='input_fingerprint'").fetchone()
+            return json.loads(row[0]) if row and row[0] else None
+        finally:
+            conn.close()
+    except (sqlite3.Error, ValueError):
+        return None
+
+
+def snapshot_matches(path, fingerprint):
+    """Read a completed snapshot receipt without modifying the database."""
+    if not Path(path).is_file():
+        return False
+    try:
+        conn = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            row = conn.execute("SELECT value FROM meta WHERE key='input_fingerprint'").fetchone()
+            return bool(row and json.loads(row[0]) == fingerprint)
+        finally:
+            conn.close()
+    except (sqlite3.Error, ValueError):
+        return False
+
+
 def iter_dwca(path: Path) -> Iterator[Dict]:
     """Yield records from a DwC-A. Accepts a .zip, an extracted directory,
     or a bare ``Taxon.tsv``/``taxa.tsv``. See ``_is_taxon_core_file`` for
@@ -330,7 +452,7 @@ def iter_dwca(path: Path) -> Iterator[Dict]:
     if p.is_file() and p.suffix.lower() == ".zip":
         with zipfile.ZipFile(p) as zf:
             taxon_member = next(
-                (n for n in zf.namelist() if _is_taxon_core_file(n)),
+                (n for n in sorted(zf.namelist()) if _is_taxon_core_file(n)),
                 None,
             )
             if taxon_member is None:
@@ -343,7 +465,7 @@ def iter_dwca(path: Path) -> Iterator[Dict]:
         return
     if p.is_dir():
         cand = next(
-            (q for q in p.iterdir() if q.is_file() and _is_taxon_core_file(q.name)),
+            (q for q in sorted(p.iterdir()) if q.is_file() and _is_taxon_core_file(q.name)),
             None,
         )
         if cand is None:
@@ -597,7 +719,13 @@ def prune_to_subgraph(records: List[Dict], root_id: str) -> List[Dict]:
 
 
 def insert_records(conn: sqlite3.Connection, records: Iterable[Dict]) -> Dict[str, int]:
-    """Write canonical records to taxa + names. Idempotent (REPLACE).
+    """Write canonical records to taxa + names. Idempotent.
+
+    ``taxa`` has always been, via ``INSERT OR REPLACE`` on its primary key.
+    ``names`` was not until #262: it carried no uniqueness constraint and
+    plain ``INSERT``, so a re-ingest doubled it. It is now ``INSERT OR
+    IGNORE`` against the unique index :func:`_dedupe_names` maintains, and
+    ``n_names`` counts rows actually written rather than attempts.
 
     Synonym names attached via ``extra_names`` are inserted into
     ``names`` against the *accepted* taxon row, so a single name lookup
@@ -662,13 +790,17 @@ def insert_records(conn: sqlite3.Connection, records: Iterable[Dict]) -> Dict[st
                          else rec["taxon_id"])
             key = (primary_name.lower(), target_id, primary_type)
             if key not in seen_name_keys:
-                conn.execute(
-                    "INSERT INTO names (name, name_lowercase, taxon_id, name_type) "
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO names (name, name_lowercase, taxon_id, name_type) "
                     "VALUES (?, ?, ?, ?)",
                     (primary_name, primary_name.lower(), target_id, primary_type),
                 )
                 seen_name_keys.add(key)
-                n_names += 1
+                # rowcount, not an unconditional bump: with OR IGNORE a row
+                # already on disk inserts nothing, and counting the attempt
+                # made the log report "801 names" against a table holding
+                # 1,602 (#262).
+                n_names += cur.rowcount
 
         # Extra names (e.g. synonyms attached to an accepted record by
         # the WoRMS walker). All filed against this record's taxon_id as
@@ -676,13 +808,13 @@ def insert_records(conn: sqlite3.Connection, records: Iterable[Dict]) -> Dict[st
         for extra in rec.get("extra_names") or []:
             key = (extra.lower(), rec["taxon_id"], "synonym")
             if key not in seen_name_keys:
-                conn.execute(
-                    "INSERT INTO names (name, name_lowercase, taxon_id, name_type) "
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO names (name, name_lowercase, taxon_id, name_type) "
                     "VALUES (?, ?, ?, ?)",
                     (extra, extra.lower(), rec["taxon_id"], "synonym"),
                 )
                 seen_name_keys.add(key)
-                n_names += 1
+                n_names += cur.rowcount
 
     conn.commit()
     return {"taxa": n_taxa, "names": n_names}
@@ -753,6 +885,11 @@ def main() -> int:
     if args.output is None:
         args.output = args.output_dir / "taxonomy.sqlite"
 
+    fingerprint = source_fingerprint(args.source, args.root_id, args.input)
+    if not args.rebuild and snapshot_matches(args.output, fingerprint):
+        logger.info("Taxonomy source/config unchanged; snapshot reused without writes: %s", args.output)
+        return 0
+
     if args.dry_run:
         if args.source == "worms":
             logger.info("Dry-run: --source worms still walks the API; aborting "
@@ -779,23 +916,21 @@ def main() -> int:
         return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(args.output)
+    fd, staging_name = tempfile.mkstemp(prefix=".taxonomy-staging-", suffix=".sqlite", dir=args.output.parent)
+    os.close(fd)
+    staging = Path(staging_name)
+    conn = sqlite3.connect(staging)
 
     def _sigint(signum, frame):  # noqa: ARG001
-        logger.info("SIGINT received; committing and exiting")
-        conn.commit()
+        logger.info("SIGINT received; previous snapshot unchanged; staging retained at %s", staging)
+        conn.rollback()
         conn.close()
         sys.exit(130)
     signal.signal(signal.SIGINT, _sigint)
 
     try:
-        if args.rebuild:
-            logger.info("Rebuilding: dropping taxa + names tables")
-            conn.executescript(
-                "DROP TABLE IF EXISTS taxa; "
-                "DROP TABLE IF EXISTS names; "
-                "DROP TABLE IF EXISTS meta;"
-            )
+        # Build a complete new snapshot. Append-only ingestion retains removed
+        # taxa and old names; a failed rebuild must not destroy the old one.
         create_schema(conn)
 
         # Load source records. WoRMS streams (the walk is itself a BFS
@@ -857,6 +992,10 @@ def main() -> int:
             "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
             ("last_ingest_ts", str(time.time())),
         )
+        if source_fingerprint(args.source, args.root_id, args.input) != fingerprint:
+            raise RuntimeError("Taxonomy source changed during ingestion; previous snapshot unchanged")
+        conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES ('input_fingerprint',?)",
+                     (json.dumps(fingerprint, sort_keys=True),))
         conn.commit()
 
         # Quick rank distribution for the log.
@@ -867,6 +1006,21 @@ def main() -> int:
         ranks = list(cur)
         logger.info("Done. Output: %s", args.output)
         logger.info("Rank distribution (top 10): %s", ranks)
+        conn.close()
+        previous = None
+        if args.output.exists():
+            history = args.output.parent / ".retired"
+            history.mkdir(exist_ok=True)
+            previous = history / f"taxonomy-{uuid.uuid4().hex}.sqlite"
+            args.output.rename(previous)
+        try:
+            staging.replace(args.output)
+        except Exception:
+            if previous is not None:
+                previous.rename(args.output)
+            raise
+        if previous is not None:
+            logger.info("Previous taxonomy snapshot retained at %s", previous)
         return 0
     finally:
         conn.close()

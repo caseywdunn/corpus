@@ -407,9 +407,10 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
     serve_reason = _strip_outer_braces(entry.get("servereason", ""))
     # #176 — operator override for OCR language packs. Carried through
     # metadata.json only so `corpus bib export` can round-trip it; the
-    # scan stage reads it off the BibIndex directly, since it runs long
-    # before metadata.json exists.
+    # scan stage reads these instructions off the BibIndex directly, since it
+    # runs long before metadata.json exists.
     ocrlang = _strip_outer_braces(entry.get("ocrlang", ""))
+    ocrmode = _strip_outer_braces(entry.get("ocrmode", ""))
     # #214 — curation fields, recorded by a human or an annotation pass and
     # read by neither the pipeline nor any fingerprint. `doclang` is the
     # *fact* ("this paper is 19th-c. German set in Fraktur", `de-Latf`) where
@@ -438,6 +439,7 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
         "serve": serve_v,
         "serve_reason": serve_reason or None,
         "ocrlang": ocrlang or None,
+        "ocrmode": ocrmode or None,
         "doclang": doclang or None,
         "pagemap": pagemap or None,
         "keeppages": keeppages or None,
@@ -458,6 +460,19 @@ def entry_ocrlang(entry: Optional[Dict]) -> Optional[str]:
     if not entry:
         return None
     return _strip_outer_braces(entry.get("ocrlang", "") or "").strip() or None
+
+
+def entry_ocrmode(entry: Optional[Dict]) -> Optional[str]:
+    """Return the per-document OCR execution-mode override (#186).
+
+    Accepted values are validated by :mod:`pipeline.scan`, where the
+    instruction is applied. The parser preserves an unknown value so the
+    build can record and warn about it rather than silently dropping the
+    curator's input.
+    """
+    if not entry:
+        return None
+    return _strip_outer_braces(entry.get("ocrmode", "") or "").strip() or None
 
 
 def entry_keeppages(entry: Optional[Dict]) -> Optional[str]:
@@ -499,6 +514,17 @@ def ocrlang_for_pdf(bib_index: Optional["BibIndex"], filename: str) -> Optional[
     if bib_index is None:
         return None
     return entry_ocrlang(bib_index.lookup(filename))
+
+
+def ocrmode_for_pdf(bib_index: Optional["BibIndex"], filename: str) -> Optional[str]:
+    """``ocrmode`` override for a PDF basename, or None.
+
+    Kept beside :func:`ocrlang_for_pdf` because both the outer and per-stage
+    resume gates must derive this value identically (#186).
+    """
+    if bib_index is None:
+        return None
+    return entry_ocrmode(bib_index.lookup(filename))
 
 
 class BibIndex:

@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Distill a Bouchet build bundle into a served bundle for AWS.
+"""Distill a corpus build bundle into a served bundle.
 
-DEPLOY.md separates the "build bundle" (everything `process_corpus.py`
-emits — includes processed.pdf, raw docling dumps, QC visualizations,
-per-paper logs) from the "served bundle" (just what MCP tools read
-plus the precompiled indices).  For 2000 papers the served bundle is
-~3 GB vs. ~10 GB for the build — small enough for a cheap EBS
-volume, and fast enough to `aws s3 sync` on every release.
+DEPLOY.md separates the "build bundle" (everything ``corpus run`` emits —
+including processed PDFs, raw Docling dumps and per-paper logs) from the
+"served bundle" (just what MCP tools read plus the precompiled indices).
+The served form is substantially smaller because build/debug artifacts and
+optional page-audit reports are excluded.
 
-This script is the distiller.  Run on Bouchet after the pipeline
-completes; the output goes to S3 and is then pulled onto the EC2
-MCP host.
+This module is the distiller. Run it after a build, then deploy the output by
+the transport appropriate to the installation; DEPLOY.md documents the AWS
+pattern.
 
 Files in the served-bundle whitelist (the contract):
 
@@ -202,22 +201,6 @@ def _git_sha() -> Optional[str]:
         return None
 
 
-def _read_one_embedding_marker(output_dir: Path) -> Tuple[Optional[str], Optional[int]]:
-    """Sample a single ``<HASH>_embedded.done`` marker to learn the
-    embedding model + dim used for the vector index.  Returns
-    ``(model, dim)`` or ``(None, None)`` if no marker exists."""
-    vdb = output_dir / "vector_db"
-    if not vdb.is_dir():
-        return None, None
-    for marker in vdb.glob("*_embedded.done"):
-        try:
-            data = json.loads(marker.read_text())
-        except Exception:
-            continue
-        return data.get("embedding_model"), data.get("embedding_dim")
-    return None, None
-
-
 def _count_figures_and_chunks(
     documents_dir: Path,
     excluded_hashes: Optional[Iterable[str]] = None,
@@ -340,7 +323,15 @@ def _load_skipped_hashes(biblio_path: Path) -> set:
                 "SELECT corpus_hash FROM works "
                 "WHERE serve = 0 AND corpus_hash IS NOT NULL"
             ).fetchall()
-            return {r[0] for r in rows}
+            skipped = {r[0] for r in rows}
+            from bib.documents import has_memberships
+            if has_memberships(conn):
+                for sha, raw in conn.execute("SELECT corpus_hash, metadata_json FROM work_documents"):
+                    if json.loads(raw).get("serve", 1) == 0:
+                        skipped.add(sha)
+                    else:
+                        skipped.discard(sha)
+            return skipped
         finally:
             conn.close()
     except sqlite3.Error:
@@ -559,8 +550,8 @@ def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
     for jp in sorted(serve_dir.rglob("*.json")):
         try:
             data = json.loads(jp.read_text())
-        except Exception:
-            continue
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Cannot audit served JSON {jp.relative_to(serve_dir)}: {exc}") from exc
         for s in _walk_strings(data):
             if ' ' not in s and _ABS_PATH_RE.match(s):
                 offenders.append((str(jp.relative_to(serve_dir)), s[:120]))
@@ -572,15 +563,68 @@ def _audit_no_absolute_paths(serve_dir: Path) -> List[Tuple[str, str]]:
 
 def package(output_dir: Path, serve_dir: Path, version: str,
             include_pdfs: bool, dry_run: bool) -> Dict:
-    """Copy the served bundle and return the manifest dict."""
+    """Build a fresh bundle, then replace the destination without stale files.
+
+    A failed copy/audit leaves the previous bundle untouched. Publication is
+    an offline, single-writer operation, not a live-server hot-swap protocol.
+    Superseded bundles and failed staging trees remain recoverable siblings.
+    """
+    output_dir, serve_dir = output_dir.resolve(), serve_dir.resolve()
+    if output_dir.is_relative_to(serve_dir) or serve_dir.is_relative_to(output_dir / "documents"):
+        raise ValueError("Served destination must not replace the build or its document artifacts")
     documents_dir = output_dir / "documents"
     if not documents_dir.is_dir():
         raise FileNotFoundError(
             f"{documents_dir} not found — point --output-dir at a processed corpus"
         )
 
+    # Fail before touching a previous served bundle. Completion belongs to the
+    # build plane; the server must never infer it from one sampled marker.
+    from pipeline.embedding_state import validate_embedding_index
+    model, dim = validate_embedding_index(output_dir)
+    if model is None and (serve_dir / "vector_db" / "lancedb").exists():
+        raise ValueError("Build has no verified embedding model but the destination "
+                         "contains an index. Use a fresh served directory.")
+
+    if dry_run:
+        return _populate_bundle(output_dir, serve_dir, version, include_pdfs, True, model, dim)
+    if serve_dir.exists() and any(serve_dir.iterdir()) and not (serve_dir / "bundle_manifest.json").is_file():
+        raise ValueError("Refusing to replace a nonempty directory without a bundle manifest")
+    import tempfile
+    serve_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{serve_dir.name}-staging-", dir=serve_dir.parent))
+    try:
+        manifest = _populate_bundle(output_dir, staging, version, include_pdfs, False, model, dim)
+    except Exception:
+        logger.error("Bundle failed; previous destination unchanged. Staging retained at %s", staging)
+        raise
+    previous = None
+    if serve_dir.exists():
+        archive = Path(tempfile.mkdtemp(prefix=f".{serve_dir.name}-previous-", dir=serve_dir.parent))
+        previous = archive / "bundle"
+        serve_dir.rename(previous)
+    try:
+        staging.rename(serve_dir)
+    except Exception:
+        if previous is not None:
+            previous.rename(serve_dir)
+        raise
+    if previous is not None:
+        logger.info("Previous served bundle retained at %s", previous)
+    return manifest
+
+
+def _populate_bundle(output_dir, serve_dir, version, include_pdfs, dry_run, model, dim):
+    """Populate an empty staging tree; caller owns validation/publication."""
+    documents_dir = output_dir / "documents"
+    from pipeline.embedding_state import embedding_identity
+    identity = embedding_identity(output_dir) if model is not None else None
+    if identity:
+        # Custom model host paths stay in build receipts, not public metadata.
+        model = identity["model"]
+
     if not dry_run:
-        serve_dir.mkdir(parents=True, exist_ok=True)
+        (serve_dir / "documents").mkdir(parents=True, exist_ok=True)
 
     # #54 — load the set of hashes flagged works.serve = 0 in
     # biblio_authority.sqlite. These papers stay in the build bundle
@@ -592,26 +636,6 @@ def package(output_dir: Path, serve_dir: Path, version: str,
             "Skip flag: %d paper(s) marked works.serve = 0 will be "
             "excluded from the served bundle (#54)", len(skipped_hashes),
         )
-
-    # #54 follow-up: re-distillation must prune any per-paper directory
-    # that was copied previously but is now in skipped_hashes. Without
-    # this, flipping `serve = false` and re-running `corpus run` would
-    # leave the prior copy in serve_dir.
-    if skipped_hashes and not dry_run:
-        serve_documents_dir = serve_dir / "documents"
-        if serve_documents_dir.is_dir():
-            n_pruned = 0
-            import shutil
-            for h in skipped_hashes:
-                stale = serve_documents_dir / h
-                if stale.is_dir():
-                    shutil.rmtree(stale)
-                    n_pruned += 1
-            if n_pruned:
-                logger.info(
-                    "Pruned %d stale per-paper dir(s) from serve_dir "
-                    "(now flagged works.serve = 0; #54)", n_pruned,
-                )
 
     # Per-paper files + figures/
     n_papers = 0
@@ -716,6 +740,9 @@ def package(output_dir: Path, serve_dir: Path, version: str,
             n_files += 1
             total_bytes += bw
 
+    if identity and not dry_run:
+        (serve_dir / "embedding_producer.json").write_text(json.dumps(identity, indent=2))
+
     # Path scrubbing (§10): rewrite absolute paths in copied summary.json
     # and figures.json to corpus-root-relative form, then audit the whole
     # served bundle to confirm no absolute paths leaked through. Skipped
@@ -749,7 +776,6 @@ def package(output_dir: Path, serve_dir: Path, version: str,
         logger.info("Path scrub: rewrote %d files; audit clean.", n_scrubbed)
 
     # Manifest
-    model, dim = _read_one_embedding_marker(output_dir)
     fig_count, chunk_count = _count_figures_and_chunks(
         documents_dir, excluded_hashes=skipped_hashes,
     )

@@ -56,12 +56,12 @@ dependencies = [
 # including the AWS deploy host in DEPLOY.md — pulled a test runner, a
 # linter, and a Jupyter kernel plus its ZeroMQ/Tornado stack. They stay
 # unconditional in environment.yaml, which *is* the development
-# environment (tests/test_no_undefined_names.py needs pyflakes on PATH
+# environment (the Ruff lint gate needs its executable on PATH
 # there).
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pyflakes",
+    "ruff",
     "ipykernel",
 ]
 
@@ -84,3 +84,9 @@ exclude = ["tests*", "deploy*", "tools*", "slurm*", "demo*", "templates*", "dev_
 [tool.setuptools.package-data]
 mcpsrv = ["default_instructions.md"]
 pipeline = ["config.template.yaml", "CITATION.cff"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F"]

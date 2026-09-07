@@ -99,6 +99,22 @@ class GrobidClient:
             logger.debug("Grobid /isalive check failed: %s", e)
             return False
 
+    def get_version(self) -> Optional[str]:
+        """Read the service's reported version/revision once at build startup.
+
+        Unknown is explicit, not a fabricated producer identity. Custom model
+        deployments should additionally set grobid.producer_id in config.
+        """
+        try:
+            response = requests.get(f"{self.base_url}/api/version", timeout=5)
+            value = response.text.strip()
+            if response.status_code == 200 and value and len(value) <= 1024 and not value.startswith("<"):
+                return value
+        except requests.RequestException as exc:
+            logger.debug("Grobid version check failed: %s", exc)
+        logger.warning("Grobid service version is unknown; custom deployments should pin grobid.producer_id")
+        return None
+
     def process_fulltext(
         self,
         pdf_path: Path,
@@ -158,7 +174,7 @@ class GrobidClient:
                     r = requests.post(
                         url, files=files, data=params, timeout=self.timeout,
                     )
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout):
                 self._breaker.record_failure()
                 raise
             # raise_for_status raises HTTPError for 4xx/5xx; transient
@@ -219,6 +235,15 @@ def _parse_tei(tei_xml: str):
         return etree.fromstring(tei_xml.encode("utf-8"))
     except etree.XMLSyntaxError as e:
         raise RuntimeError(f"Could not parse TEI-XML: {e}") from e
+
+
+def validate_fulltext_tei(tei_xml: str) -> None:
+    """Reject error pages and incomplete non-TEI responses before caching."""
+    root = _parse_tei(tei_xml)
+    if (root.tag != f"{{{TEI_NS}}}TEI"
+            or root.find("tei:teiHeader", NSMAP) is None
+            or root.find("tei:text", NSMAP) is None):
+        raise ValueError("Grobid fulltext response lacks a TEI root/header/text")
 
 
 def parse_tei_header(tei_xml: str) -> dict:
@@ -379,10 +404,19 @@ def parse_tei_references(tei_xml: str) -> List[dict]:
 
     # listBibl can appear under <back> or elsewhere; take all.
     for bs in root.findall(".//tei:listBibl/tei:biblStruct", NSMAP):
-        # Title: prefer analytic/title (the article), fall back to
-        # monogr/title (the book/journal).
-        title = _first_text(bs.find("tei:analytic/tei:title", NSMAP)) or \
-                _first_text(bs.find("tei:monogr/tei:title", NSMAP)) or ""
+        # Title: analytic/title is the cited article. A monograph title is a
+        # valid fallback for books, but ``monogr/title[@level='j']`` is the
+        # containing journal, not the work title (#226). Treating that journal
+        # as the title fabricated duplicate-title groups and poisoned fuzzy
+        # reconciliation. Select only a non-journal monograph title here.
+        title = _first_text(bs.find("tei:analytic/tei:title", NSMAP)) or ""
+        if not title:
+            for title_el in bs.findall("tei:monogr/tei:title", NSMAP):
+                if (title_el.get("level") or "").lower() == "j":
+                    continue
+                title = _first_text(title_el) or ""
+                if title:
+                    break
 
         authors: List[str] = []
         for ael in bs.findall(".//tei:author", NSMAP):
@@ -403,6 +437,11 @@ def parse_tei_references(tei_xml: str) -> List[dict]:
                     year = None
 
         journal = _first_text(bs.find("tei:monogr/tei:title[@level='j']", NSMAP)) or ""
+        # Defensive guard for TEI that duplicated the journal once without a
+        # level attribute. Exact equality is not evidence of an article title.
+        if title and journal and " ".join(title.lower().split()) == \
+                " ".join(journal.lower().split()):
+            title = ""
         doi = _first_text(bs.find(".//tei:idno[@type='DOI']", NSMAP)) or ""
         # Raw citation (only present if includeRawCitations=1 was requested)
         raw = _first_text(bs.find("tei:note[@type='raw_reference']", NSMAP)) or ""

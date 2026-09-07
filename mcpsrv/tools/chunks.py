@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 
 from pipeline.embeddings import EmbeddingError
 
-from ..app import _load_json, _need_index, _validated_limit, error, mcp
+from ..app import _load_json, _need_index, _validate_collection, _validated_limit, error, mcp
 
 
 @mcp.tool()
@@ -37,6 +37,10 @@ def get_chunks(
     len_chars?}, ...]`` in paper order. ``[{error: ...}]`` on unknown
     paper_hash.
     """
+    try:
+        _validate_collection(chunk_ids, "chunk_ids")
+    except ValueError as exc:
+        return [error(str(exc), "invalid_argument")]
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
@@ -231,5 +235,4 @@ def get_chunks_for_topic(
             row["cited_work_ids"] = _cited_work_ids(h) if h else []
         out.append(row)
     return out
-
 

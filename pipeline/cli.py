@@ -53,7 +53,7 @@ import yaml
 from dotenv import find_dotenv, load_dotenv
 
 from .config_schema import CorpuscleConfig, ValidationError, validate_config
-from .console import console, print_status
+from .console import print_status
 from .version import __version__
 
 
@@ -299,7 +299,11 @@ def _prune_orphans(
 
     if args.no_prune:
         # Read-only audit (matches #31 behavior).
-        n = audit_orphans(input_dir, output_dir)
+        try:
+            n = audit_orphans(input_dir, output_dir)
+        except RuntimeError as e:
+            print_status(str(e), status="fail")
+            return EXIT_PRECONDITION
         print_status(f"--no-prune: audit reported {n} orphan(s)", status="info")
         return EXIT_OK
 
@@ -327,7 +331,8 @@ def _prune_orphans(
         if result["doc_pruned"]:
             print_status(
                 f"pruned {result['doc_pruned']} of {result['doc_total']} "
-                f"orphan hash dir(s) + {result['vec_pruned']} LanceDB row(s)",
+                f"orphan hash dir(s) + {result['vec_pruned']} LanceDB row(s); "
+                f"document artifacts retained in {output_dir / '.retired'}",
                 status="warn",
             )
     return EXIT_OK
@@ -837,7 +842,12 @@ def _passthrough(module: str, extra_argv: List[str]) -> int:
 
 def _cmd_status(args: argparse.Namespace) -> int:
     output_dir = _resolve_output_dir(args)
-    return _passthrough("pipeline.status", [str(output_dir), *args.passthrough])
+    config_path = _resolve_config_path(args.config)
+    extra = []
+    # An explicit output may be unrelated to the current directory's config.
+    if config_path is not None and (args.config is not None or args.output_dir is None):
+        extra = ["--config", str(config_path)]
+    return _passthrough("pipeline.status", [str(output_dir), *extra, *args.passthrough])
 
 
 def _resolve_output_dir(args: argparse.Namespace) -> Path:
@@ -1079,7 +1089,6 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
     config_path = _resolve_config_path(args.config)
     failures: List[str] = []  # precondition (exit 3)
-    config_failures: List[str] = []  # config (exit 2)
 
     # 1. config.yaml resolution + schema validation
     if config_path is None:
@@ -1140,7 +1149,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
     # 4. Grobid reachability
     if cfg.grobid.disable:
-        pstatus(f"Grobid: disabled in config (header metadata will use --bib only)", status="warn")
+        pstatus("Grobid: disabled in config (header metadata will use --bib only)", status="warn")
     else:
         ok, detail = _ping_grobid(cfg.grobid.url)
         if ok:

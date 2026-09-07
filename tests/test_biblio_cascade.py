@@ -28,13 +28,13 @@ def conn():
     conn.close()
 
 
-def _seed_work(conn, work_id, title, year, surname, position=0):
+def _seed_work(conn, work_id, title, year, surname, position=0, doi=None):
     now = time.time()
     conn.execute(
         """INSERT OR IGNORE INTO works (work_id, guid_type, title, year, journal, doi,
            corpus_hash, in_corpus, source, confidence, created_at, updated_at)
-           VALUES (?, 'corpus_key', ?, ?, '', NULL, NULL, 0, 'cited_reference', 1.0, ?, ?)""",
-        (work_id, title, year, now, now),
+           VALUES (?, 'corpus_key', ?, ?, '', ?, NULL, 0, 'cited_reference', 1.0, ?, ?)""",
+        (work_id, title, year, doi, now, now),
     )
     biblio.insert_authors(conn, work_id, [(surname, "")])
     # Also register the normal alias_key so alias_exact lookups can hit
@@ -56,6 +56,10 @@ def test_different_title_does_not_route_to_unique_candidate(conn):
     """
     _seed_work(conn, "corpus:totton|1965|a synopsis of the siphonophora",
                "A synopsis of the Siphonophora", 1965, "Totton")
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus:totton|1965|a synopsis of the siphonophora'"
+    )
 
     ref = {
         "title": "A new species of Lensia (Siphonophora: Diphyidae) from the coastal waters of Vancouver",
@@ -165,6 +169,253 @@ def test_high_confidence_match_does_cache_alias(conn):
     ).fetchone()
     assert row is not None
     assert row[0] == "corpus:author|2001|foo bar baz quux title"
+
+
+def test_exact_lookup_ties_have_a_stable_canonical_preference(conn):
+    """Insertion order must not decide DOI/alias mappings (#240)."""
+    shared_doi = "10.5555/shared"
+    _seed_work(
+        conn, "z-ghost", "Shared title", 2001, "Author", doi=shared_doi,
+    )
+    _seed_work(
+        conn, "a-corpus", "Shared title", 2001, "Author", doi=shared_doi,
+    )
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'aaa' "
+        "WHERE work_id = 'a-corpus'"
+    )
+    alias = biblio.make_alias_key("Author", 2001, "Shared title")
+
+    assert biblio.lookup_by_doi(conn, shared_doi) == "a-corpus"
+    assert biblio.lookup_by_alias(conn, alias) == "a-corpus"
+
+
+def test_fuzzy_score_tie_uses_lexical_work_id(conn):
+    """Candidate row order cannot leak into a deterministic verdict (#240)."""
+    _seed_work(conn, "z-work", "Identical title", 2001, "Author")
+    _seed_work(conn, "a-work", "Identical title", 2001, "Author")
+
+    assert biblio.fuzzy_match_with_score(
+        conn, "Author", 2001, "Identical title",
+    ) == ("a-work", 100, 100)
+
+
+def test_exact_identity_crosses_a_reordered_first_author_block(conn):
+    """An exact author set is order-insensitive but load-bearing (#155, #225)."""
+    title = "The evolution of reproductive characters in Dipsacales"
+    _seed_work(conn, "corpus-paper", title, 2003, "Winkworth")
+    biblio.insert_authors(conn, "corpus-paper", [
+        ("Winkworth", "R"), ("Donoghue", "M"),
+    ])
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    work_id, method, score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2003,
+        "authors": ["M Donoghue", "R Winkworth"],
+        "doi": "10.1086/376874",
+    })
+
+    assert (work_id, method, score) == (
+        "corpus-paper", "title_year_authors_exact", 1.0,
+    )
+    assert conn.execute(
+        "SELECT COUNT(*) FROM works WHERE work_id = '10.1086/376874'"
+    ).fetchone()[0] == 0
+
+
+def test_exact_title_year_does_not_override_doi_without_author_agreement(conn):
+    title = "A sufficiently distinctive shared publication title"
+    _seed_work(conn, "corpus-paper", title, 2003, "Author", doi="10.1/canonical")
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2003,
+        "authors": ["X Misparsed"],
+        "doi": "10.1/different",
+    })
+
+    assert work_id == "10.1/different"
+    assert method == "doi_exact"
+
+
+def test_exact_identity_records_doi_conflict_in_its_method(conn):
+    title = "A sufficiently distinctive shared publication title"
+    _seed_work(conn, "corpus-paper", title, 2003, "Author", doi="10.1/canonical")
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    assert biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2003,
+        "authors": ["A Author"],
+        "doi": "10.1/alternate-or-wrong",
+    }) == (
+        "corpus-paper", "title_year_authors_exact_doi_conflict", 0.95,
+    )
+
+
+def test_author_set_allows_safe_fuzzy_title_cross_block_match(conn):
+    canonical_title = (
+        "Global diversity and review of Siphonophorae (Cnidaria: Hydrozoa)"
+    )
+    _seed_work(
+        conn, "corpus-paper", canonical_title, 2014, "Mapstone",
+        doi="10.1371/journal.pone.0118381",
+    )
+    conn.execute(
+        "UPDATE works SET in_corpus = 1, corpus_hash = 'abc' "
+        "WHERE work_id = 'corpus-paper'"
+    )
+
+    work_id, method, score = biblio._resolve_reference(conn, {
+        "title": "Global diversity and review of the Siphonophorae",
+        "year": 2014,
+        "authors": ["G Mapstone"],
+        "doi": "10.1371/journal.pone.0087737",
+    })
+
+    assert work_id == "corpus-paper"
+    assert method == "title_year_authors_fuzzy_doi_conflict"
+    assert score >= 0.85
+
+
+def test_exact_identity_requires_authors_one_candidate_and_substantive_title(conn):
+    short_title = "Annual report"
+    _seed_work(conn, "short", short_title, 2003, "Author")
+    conn.execute("UPDATE works SET in_corpus = 1 WHERE work_id = 'short'")
+    assert biblio.lookup_in_corpus_by_identity(
+        conn, short_title, 2003, ["A Author"],
+    ) is None
+
+    long_title = "A sufficiently distinctive duplicated publication title"
+    for work_id in ("duplicate-a", "duplicate-b"):
+        _seed_work(conn, work_id, long_title, 2003, "Author")
+        conn.execute(
+            "UPDATE works SET in_corpus = 1 WHERE work_id = ?", (work_id,),
+        )
+    assert biblio.lookup_in_corpus_by_identity(
+        conn, long_title, 2003, ["A Author"],
+    ) is None
+    assert biblio.lookup_in_corpus_by_identity(
+        conn, "A different substantive publication title entirely", 2003, [],
+    ) is None
+
+
+# ── Corrupted DOI + independent title evidence (#239) ──────────────
+
+
+@pytest.mark.parametrize("corrupted,expected_method", [
+    ("10.1016/j.food-chem.2013.06.054", "doi_hyphenation_title"),
+    ("10.1016/j.foodchem.2013.06.054references", "doi_trailing_text_title"),
+])
+def test_corrupted_doi_matches_only_with_agreeing_title(
+    conn, corrupted, expected_method,
+):
+    title = "Antioxidant properties and polyphenolic compositions of fruits"
+    canonical = "10.1016/j.foodchem.2013.06.054"
+    _seed_work(conn, canonical, title, 2013, "Kraujalyte", doi=canonical)
+
+    work_id, method, score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2013,
+        "authors": ["V Kraujalyte"],
+        "doi": corrupted,
+    })
+
+    assert work_id == canonical
+    assert method == expected_method
+    assert score == 1.0
+
+
+@pytest.mark.parametrize("spelling", [
+    "info:doi/10.1016/s0065-2881(08)60074-7",
+    "10.1016/s0065-2881%2808%2960074-7",
+])
+def test_doi_prefix_and_percent_encoding_normalize_before_lookup(conn, spelling):
+    canonical = "10.1016/s0065-2881(08)60074-7"
+    _seed_work(conn, canonical, "Siphonophore biology", 1987, "Mackie",
+               doi=canonical)
+
+    assert biblio._resolve_reference(conn, {
+        "title": "Siphonophore biology",
+        "year": 1987,
+        "authors": ["G Mackie"],
+        "doi": spelling,
+    }) == (canonical, "doi_exact", 1.0)
+
+
+def test_truncated_parenthesized_doi_needs_independent_title_evidence(conn):
+    canonical = "10.1016/s0065-2881(08)60074-7"
+    title = "Siphonophore biology and functional morphology"
+    _seed_work(conn, canonical, title, 1987, "Mackie", doi=canonical)
+
+    assert biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 1987,
+        "authors": ["G Mackie"],
+        "doi": "10.1016/s0065-2881(08",
+    }) == (canonical, "doi_truncation_title", 1.0)
+
+
+def test_doi_variant_shape_alone_does_not_merge_different_title(conn):
+    canonical = "10.1016/j.foodchem.2013.06.054"
+    _seed_work(
+        conn, canonical,
+        "Antioxidant properties and polyphenolic compositions of fruits",
+        2013, "Kraujalyte", doi=canonical,
+    )
+
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": "A completely different experiment on marine larvae",
+        "year": 2013,
+        "authors": ["V Kraujalyte"],
+        "doi": "10.1016/j.food-chem.2013.06.054",
+    })
+
+    assert work_id == "10.1016/j.food-chem.2013.06.054"
+    assert method == "doi_exact"
+
+
+def test_title_match_alone_does_not_override_an_unrelated_doi(conn):
+    title = "Antioxidant properties and polyphenolic compositions of fruits"
+    canonical = "10.1016/j.foodchem.2013.06.054"
+    _seed_work(conn, canonical, title, 2013, "Kraujalyte", doi=canonical)
+
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": title,
+        "year": 2013,
+        "authors": ["X Unrelated"],
+        "doi": "10.9999/unrelated",
+    })
+
+    assert work_id == "10.9999/unrelated"
+    assert method == "doi_exact"
+
+
+def test_legacy_journal_copied_into_title_is_not_matching_evidence(conn):
+    work_id, method, _score = biblio._resolve_reference(conn, {
+        "title": "Phytochemistry",
+        "journal": "Phytochemistry",
+        "year": 1990,
+        "authors": ["J Smith"],
+        "raw": "Smith J. 1990. Phytochemistry 29: 1-4.",
+    })
+
+    assert method == "new"
+    stored_title = conn.execute(
+        "SELECT title FROM works WHERE work_id = ?", (work_id,),
+    ).fetchone()[0]
+    assert stored_title == ""
 
 
 # ── Regression guard: first-author position ─────────────────────────

@@ -45,13 +45,13 @@ Six test tiers (#75, #193); the first four run automatically in GitHub Actions �
 
 | Tier | Trigger | Where | What it catches |
 |---|---|---|---|
-| **T0 — lint + unit** | every push, every branch | [`.github/workflows/lint.yml`](.github/workflows/lint.yml) | pyflakes (NameError-class bugs) + ~314 unit tests with no corpus dependency |
+| **T0 — lint + unit** | every push, every branch | [`.github/workflows/lint.yml`](.github/workflows/lint.yml) | Ruff's Pyflakes-compatible `F` family, including an unsuppressible `F821` NameError check, plus unit tests with no corpus dependency |
 | **T1 — demo build + serve, Linux** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | `corpus run` on the 4-paper demo against real Grobid + LanceDB, bundle-manifest shape, audit-clean, SSE round-trip, all `corpus_required` parametrized tests, then the 4 + 1 implicit-resume scenario (copy [`tests/fixtures/round2_paper/Siebert_etal2011.pdf`](tests/fixtures/round2_paper/) into `demo/`, re-run, assert `skipped=4, embedded≥1, failed=0` — regression check for #71) |
 | **T2 — demo build + serve, macOS arm64** | every push, every branch + every PR | [`.github/workflows/integration.yml`](.github/workflows/integration.yml) | same as T1 on `macos-15`, with `grobid.disable: true` (Docker Desktop isn't on GHA macOS runners) — catches macOS-specific regressions including darwin-specific LanceDB resume behavior |
 | **T3 — clean-room install** | **weekly (Mon 06:00 UTC)**, `workflow_dispatch`, **any PR targeting `main`**, or a push touching the lane itself | [`.github/workflows/clean-room.yml`](.github/workflows/clean-room.yml) | the same install → demo → serve path as T1 but on a *clock* rather than a push, and with the HuggingFace cache deliberately disabled so a genuine first-run model download is exercised (the path that 429'd in #140). Also drives the real `docker-compose.yml`. This is the [PLAN.md "Standing gates"](dev_docs/PLAN.md) release gate. **Note:** `schedule` and `workflow_dispatch` only work for workflows on the default branch, so on a feature branch this lane is unregistered (`gh workflow run` → 404) — that is why it also triggers on PRs to `main`, which is where the release gate actually needs it |
 | **T3-bare — clean-room EC2** | manual, pre-release | [`dev_docs/ec2_smoke.sh`](dev_docs/ec2_smoke.sh) | what T3 can't cover: the bare-host bootstrap (apt, miniforge install) from absolutely nothing on a real Ubuntu EC2 instance. Criteria in [`dev_docs/PLATFORM_SMOKE.md`](dev_docs/PLATFORM_SMOKE.md) |
 | **T4 — operator walkthrough** | manual, when CLI changes | [`dev_docs/clean_install_walkthrough.sh`](dev_docs/clean_install_walkthrough.sh) | every operator verb interactively (`completion`, `--cite`, `status --report`, full `bib export/import` round-trip) |
-| **T5 — extraction fidelity** | manual, pre-release | [`tools/qc/fidelity.py`](tools/qc/fidelity.py) | how much of what is actually printed on the page the pipeline recovered, scored against a gold set transcribed from page images alone by a transcriber forbidden to open any software extraction of the page. Every other signal in this repo — the soft consistency rates, the quality gates, fingerprint diffing — measures the pipeline against itself and cannot tell whether the text is *right*. Reports per page and per document, segmented by script, era and scanned-vs-born-digital, because a mean over 13 languages and five centuries is not actionable. `tests/test_fidelity_harness.py` covers the scorer's arithmetic in T0 against a committed fixture; only the run against a real corpuscle is manual (#193). [`tools/qc/figure_detection.py`](tools/qc/figure_detection.py) runs beside it and answers the separate question of whether the figure *objects* are right — every figure found (recall), and publisher furniture not called a figure (precision) — by counting per page, since the gold set records no bounding boxes (#194). [`tools/qc/caption_binding.py`](tools/qc/caption_binding.py) answers the third question — is the caption bound to the figure it belongs to — by comparing figure *numbers*, which are language-independent, rather than caption text, which mostly measures translation (#195) |
+| **T5 — extraction fidelity** | manual, pre-release | [`tools/qc/fidelity.py`](tools/qc/fidelity.py) | how much of what is actually printed on the page the pipeline recovered, scored against a gold set transcribed from page images alone by a transcriber forbidden to open any software extraction of the page. Every other signal in this repo — the soft consistency rates, the quality gates, fingerprint diffing — measures the pipeline against itself and cannot tell whether the text is *right*. Reports per page and per document, segmented by script, era and scanned-vs-born-digital, because a mean over 13 languages and five centuries is not actionable. `tests/test_fidelity_harness.py` covers the scorer's arithmetic in T0 against a committed fixture; only the run against a real corpuscle is manual (#193). [`tools/qc/figure_detection.py`](tools/qc/figure_detection.py) runs beside it and answers the separate question of whether the figure *objects* are right — every figure found (recall), and publisher furniture not called a figure (precision) — by counting per page, since the gold set records no bounding boxes (#194). [`tools/qc/caption_binding.py`](tools/qc/caption_binding.py) answers the third question — is the caption bound to the figure it belongs to — by comparing figure *numbers*, which are language-independent, rather than caption text, which mostly measures translation; it separately scores exact and label-level letter-panel splits (#195) |
 
 Local equivalents:
 
@@ -106,12 +106,42 @@ volume ratio is not evidence of loss.
    ground-truth tests pass (see [What to run before opening a PR](#what-to-run-before-opening-a-pr)).
 3. Merge to `dev` and push (`git checkout dev && git merge issue-NNN && git push`)
 4. Delete the issue branch
-5. When ready to release: merge `dev` to `main`, tag the release, create
+5. **Close the issue once the fix is on `dev`** — not at release. See below.
+6. When ready to release: merge `dev` to `main`, tag the release, create
    a `vN` branch from the tag
 
 Always merge and push completed issue branches to `dev` before starting the
 next issue. This keeps `dev` up to date and avoids dependency tangles when
 later issue branches need earlier work.
+
+### Closing issues
+
+**An issue closes when its fix lands on `dev`, not when a release ships.**
+Close it with a comment naming the commit and the evidence — what was
+measured, not just what was changed — so the close is auditable later.
+
+Holding fixed issues open until release was the older habit and it costs more
+than it looks. The tracker stops describing the state of `dev`, so a fixed
+defect reads as outstanding to anyone deciding what to work on; release day
+turns into a bulk-close of a dozen issues nobody re-verifies; and the
+CHANGELOG ends up claiming fixes the tracker still calls open, which is how
+[#264](https://github.com/caseywdunn/corpus/issues/264),
+[#267](https://github.com/caseywdunn/corpus/issues/267),
+[#268](https://github.com/caseywdunn/corpus/issues/268) and
+[#271](https://github.com/caseywdunn/corpus/issues/271) all sat open in the
+v1.3 cycle with their fixes shipped and tested on `dev`.
+
+Two things that are *not* reasons to keep an issue open:
+
+- **The release hasn't happened yet.** `dev` is the branch the tracker
+  describes.
+- **A related, larger problem remains.** Close what was fixed and open or
+  reference the issue that carries the rest. #271 was closed on its own
+  evidence while #174 continued separately.
+
+Do keep an issue open when the fix is *partial* — say so explicitly in a
+comment, as [#279](https://github.com/caseywdunn/corpus/issues/279) does,
+rather than closing on a half-fix.
 
 ### Patching a released version
 
@@ -341,7 +371,11 @@ itself if you change one.
 - [templates/](templates/) — copy-and-customize starters that operators use, not pipeline inputs. Currently just the optional corpuscle-specific `instructions.md` scaffold; see [Editing client-side instructions](#editing-client-side-instructions) below.
 - [tests/](tests/) — one file per subsystem.
 - Per-instance data (SQLites, embeddings, per-paper artifacts) lives inside the user's *corpuscle* directory — passed as the first positional arg to every CLI — not under the repo root. See the [corpuscle layout](README.md#corpuscle-layout) in README.md. The repo no longer ships a `resources/` directory.
-- [demo/](demo/) — small bundle for smoke-testing the pipeline: 11 siphonophore PDFs, a matching `siphonophores.bib`, and an example multi-category `lexicon.yaml`. The lexicon is treated as user input, parallel to `--bib` — not part of the tool.
+- [demo/](demo/) — the 4-paper corpus used for smoke-testing the pipeline,
+  with a matching `siphonophores.bib` and an example multi-category
+  `lexicon.yaml`. CI adds one fixture paper for the implicit-resume scenario.
+  The lexicon is treated as user input, parallel to `--bib` — not part of the
+  tool.
 
 ## Editing client-side instructions
 

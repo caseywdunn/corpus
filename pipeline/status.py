@@ -87,6 +87,14 @@ _GATE_INFO: Dict[str, Tuple[str, str]] = {
         "`ocr.tesseract_page_timeout` treats the symptom — the page is "
         "still running at a fraction of a core, just for longer.",
     ),
+    "ocr_no_text_recovered": (
+        "error",
+        "OCR returned success but every output page has an empty text layer. "
+        "This is a failed transcription regardless of the process exit code. "
+        "Check scan_detection.json for the selected ocr_mode and packs, then "
+        "retry after correcting them; use per-paper `ocrmode = {force}` when "
+        "a stray or corrupt existing text layer suppressed OCR.",
+    ),
     "zero_references_unexpected": (
         "warn",
         "Multi-page paper with an empty references.json. Almost always "
@@ -162,12 +170,13 @@ def _iter_summaries(documents_dir: Path) -> Iterable[Tuple[str, Dict]]:
 
 
 def aggregate(documents_dir: Path) -> Dict[str, Any]:
-    """Build the rollup. Pure function over summary.json contents."""
+    """Build the rollup from recorded summaries and metadata evidence."""
     rollup: Dict[str, Any] = {
         "documents_dir": str(documents_dir),
         "total_documents": 0,
         "documents_with_summary": 0,
         "stages": {},               # stage → {ok: N, fail: N, total: N}
+        "grobid_outcomes": Counter(),  # persisted evidence, not live health
         "failures_by_reason_stage": Counter(),  # (reason_code, stage) → N
         "papers_by_reason_stage": defaultdict(set),  # (reason, stage) → {hashes}
         "quality_flags": Counter(),  # gate → N
@@ -184,6 +193,10 @@ def aggregate(documents_dir: Path) -> Dict[str, Any]:
         rollup["total_documents"] += 1
         rollup["documents_with_summary"] += 1
         ps = summary.get("processing_summary") or {}
+        metadata = _safe_load_json(documents_dir / h / "metadata.json")
+        evidence = metadata.get("grobid") if isinstance(metadata, dict) else None
+        outcome = evidence.get("outcome", "unknown") if isinstance(evidence, dict) else "unknown"
+        rollup["grobid_outcomes"][outcome] += 1
         orig = ps.get("original_pdf")
         if orig:
             rollup["filename_by_hash"][h] = Path(orig).name
@@ -233,10 +246,10 @@ def _bar(n: int, total: int, width: int = 30) -> str:
 
 
 def render_artifacts(output_dir: Path) -> str:
-    """Cross-paper artifact presence section for `--report` (#57).
+    """Cross-paper artifact presence and verified embeddings for `--report`.
 
-    Lists the four corpus-level outputs and ✓/✗ for each. The MCP
-    server can run with any subset present; missing ones surface here.
+    The MCP server can run with a subset of artifacts. An existing vector
+    directory is not evidence of completion; verify its inputs and rows.
     """
     out: List[str] = ["Cross-paper artifacts:"]
     # `taxonomy.sqlite` is optional — a corpuscle with no `taxonomy:` block
@@ -247,7 +260,18 @@ def render_artifacts(output_dir: Path) -> str:
     for rel in ("biblio_authority.sqlite", "taxon_mentions.sqlite",
                 "taxonomy.sqlite", "vector_db/lancedb"):
         p = output_dir / rel
-        if p.exists():
+        if rel == "vector_db/lancedb" and (output_dir / "documents").is_dir():
+            from .embedding_state import validate_embedding_index
+            try:
+                model, dim = validate_embedding_index(output_dir)
+            except Exception as exc:
+                out.append(f"  ✗ {rel}  (not verified current: {exc})")
+            else:
+                if model is None:
+                    out.append(f"  – {rel}  (no verified embeddings)")
+                else:
+                    out.append(f"  ✓ {rel}  (verified current: {model}, dim={dim})")
+        elif p.exists():
             out.append(f"  ✓ {rel}")
         elif rel in optional:
             out.append(f"  – {rel}  ({optional[rel]})")
@@ -282,6 +306,13 @@ def render_text(rollup: Dict[str, Any]) -> str:
     out.append("")
 
     # Failures
+    outcomes = rollup.get("grobid_outcomes", {})
+    if outcomes:
+        out.append("Grobid evidence (recorded outcomes, not live service health):")
+        out.append("  " + ", ".join(f"{name}={count}" for name, count in sorted(outcomes.items())))
+        out.append("  Disabled is intentional; unavailable/request_failed/parse_failed retry when enabled and reachable.")
+        out.append("")
+
     failures = rollup["failures_by_reason_stage"]
     n_fail_papers = len(rollup["papers_with_failures"])
     if failures:
@@ -493,7 +524,7 @@ def render_propose_skips(
     for h, n in candidates:
         gates_for_h = [g for g, hs in rollup["papers_by_gate"].items() if h in hs]
         out.append(f"  % {_label_for_paper(rollup, h)} — {n} flags: {', '.join(sorted(gates_for_h))}")
-        out.append(f"  serve = {{false}},")
+        out.append("  serve = {false},")
         out.append("")
     return "\n".join(out)
 
@@ -570,6 +601,8 @@ def main() -> int:
         "output_dir", type=Path,
         help="Corpus output directory (contains documents/<HASH>/ subdirs)",
     )
+    parser.add_argument("--config", type=Path,
+                        help="Compare Stage 1 configuration against build receipts (read-only).")
     parser.add_argument(
         "--json", action="store_true",
         help="Emit the rollup as JSON instead of the text report.",
@@ -665,10 +698,40 @@ def main() -> int:
         print(render_skipped(args.output_dir))
         return 0
 
+    if args.config:
+        from .build_inputs import configuration_drift, source_input_drift
+        try:
+            rollup["configuration_drift"] = configuration_drift(args.output_dir, args.config)
+            rollup["source_input_drift"] = source_input_drift(args.output_dir, args.config)
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:
+            logger.error("Cannot check configured inputs: %s", exc)
+            return 2
+
     if args.json:
         print(render_json(rollup))
     else:
         print(render_text(rollup))
+        if args.config:
+            drift = rollup["configuration_drift"]
+            print(f"\nConfigured-input differences: {drift['documents_with_differences']} / "
+                  f"{drift['documents_checked']} documents")
+            print(drift["scope"])
+            for pdf_hash, changes in list(drift["differences"].items())[:20]:
+                detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in changes.items())
+                print(f"  {pdf_hash}: {detail}")
+            if drift["documents_with_differences"] > 20:
+                print("  Showing first 20; --json includes all differences.")
+            source = rollup["source_input_drift"]
+            print(f"\nSource-input audit: {source['scope']}")
+            if source["available"]:
+                print(f"  {len(source['added'])} added, {len(source['removed'])} removed, "
+                      f"{source['documents_with_differences']} existing documents with input differences")
+                tx = source.get("taxonomy_source", {})
+                if tx.get("configured"):
+                    print("  Taxonomy source receipt: " + ("current" if tx["current"] else "stale or unverified; pre-build taxonomy"))
+                for sha, changes in list(source["differences"].items())[:20]:
+                    detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in sorted(changes.items()))
+                    print(f"  {sha}: {detail}")
         if args.report:
             print()
             print(render_artifacts(args.output_dir))

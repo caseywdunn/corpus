@@ -78,17 +78,20 @@ def _make_fake_output(root: Path, paper_hashes=("abc", "def")) -> Path:
         (hd / "processed.pdf").write_bytes(b"%PDF-1.5 stub")
         (hd / "docling_doc.json").write_text("{}")
         (hd / "pipeline.log").write_text("log text")
+        (hd / "page_report.html").write_text("page audit")
         (hd / "visualizations").mkdir()
         (hd / "visualizations" / "page_1.png").write_bytes(b"viz stub")
-    # LanceDB dir
-    vdb = root / "vector_db" / "lancedb"
-    vdb.mkdir(parents=True)
-    (vdb / "manifest.txt").write_bytes(b"lance manifest")
-    (vdb / "data.bin").write_bytes(b"lance data blob")
-    # Per-hash embedding marker (for manifest reading)
-    (root / "vector_db" / "abc_embedded.done").write_text(json.dumps(
-        {"embedding_model": "BAAI/bge-m3", "embedding_dim": 1024}
-    ))
+    # Real committed rows and markers; no model download needed.
+    import lancedb
+    from pipeline.embed import embed_document, make_chunk_model
+    from types import SimpleNamespace
+    backend = SimpleNamespace(model_name="test-model", dim=2,
+                              embed=lambda texts: [[1.0, 0.0] for _ in texts])
+    model = make_chunk_model(2)
+    db = lancedb.connect(str(root / "vector_db" / "lancedb"))
+    table = db.create_table("document_chunks", schema=model.to_arrow_schema())
+    for h in paper_hashes:
+        embed_document(root / "documents" / h, table, model, backend)
     return root
 
 
@@ -109,19 +112,21 @@ def test_package_copies_whitelisted_excludes_build_only(tmp_path: Path):
         assert not (dst / "documents" / h / "processed.pdf").exists()
         assert not (dst / "documents" / h / "docling_doc.json").exists()
         assert not (dst / "documents" / h / "pipeline.log").exists()
+        assert not (dst / "documents" / h / "page_report.html").exists()
         assert not (dst / "documents" / h / "visualizations").exists()
 
     # LanceDB copied in full
-    assert (dst / "vector_db" / "lancedb" / "manifest.txt").is_file()
-    assert (dst / "vector_db" / "lancedb" / "data.bin").is_file()
+    import lancedb
+    db = lancedb.connect(str(dst / "vector_db" / "lancedb"))
+    assert db.open_table("document_chunks").count_rows() == 2
 
     # Manifest is correct
     assert manifest["bundle_version"] == "v1.0.0"
     assert manifest["paper_count"] == 2
     assert manifest["chunk_count"] == 2      # 1 chunk per paper, 2 papers
     assert manifest["figure_count"] == 2     # 1 figure per paper, 2 papers
-    assert manifest["embedding_model"] == "BAAI/bge-m3"
-    assert manifest["embedding_dim"] == 1024
+    assert manifest["embedding_model"] == "test-model"
+    assert manifest["embedding_dim"] == 2
     assert manifest["includes_pdfs"] is False
     assert manifest["created_at"].endswith("Z")
 
@@ -155,8 +160,7 @@ def test_package_dry_run_writes_nothing(tmp_path: Path):
 
 
 def test_package_is_idempotent(tmp_path: Path):
-    """Second run should be a near no-op: the mtime check skips
-    unchanged files."""
+    """Fresh staging reproduces the same served evidence on a second run."""
     src = _make_fake_output(tmp_path / "out")
     dst = tmp_path / "serve"
     first = pkg.package(
@@ -165,16 +169,17 @@ def test_package_is_idempotent(tmp_path: Path):
     )
     n1 = first["_stats"]["n_files_copied"]
     assert n1 > 0
+    evidence = {p.relative_to(dst): p.read_bytes() for p in dst.rglob("*")
+                if p.is_file() and p.name != "bundle_manifest.json"}
 
     second = pkg.package(
         output_dir=src, serve_dir=dst,
         version="v1.0.0", include_pdfs=False, dry_run=False,
     )
     n2 = second["_stats"]["n_files_copied"]
-    # Manifest always rewrites; the rest should be skipped.  Allow a
-    # small slop (<=1 file = manifest) for implementations that touch
-    # the manifest.  Everything else should be mtime-skipped.
-    assert n2 <= 1, f"idempotent run copied {n2} files"
+    assert n2 == n1
+    assert {p.relative_to(dst): p.read_bytes() for p in dst.rglob("*")
+            if p.is_file() and p.name != "bundle_manifest.json"} == evidence
 
 
 def test_package_raises_when_documents_missing(tmp_path: Path):
@@ -229,9 +234,7 @@ def _make_output_with_absolute_paths(root: Path) -> Path:
                   "text.json", "chunks.json", "taxa.json", "anatomy.json"):
         (hd / fname).write_text("{}")
 
-    # Minimal LanceDB so package() succeeds.
-    (root / "vector_db" / "lancedb").mkdir(parents=True)
-    (root / "vector_db" / "lancedb" / "manifest.txt").write_bytes(b"x")
+    # No semantic index: this fixture only exercises JSON path scrubbing.
     return root
 
 

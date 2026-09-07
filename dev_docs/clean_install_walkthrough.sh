@@ -153,9 +153,9 @@ p.write_text(text)
 print(text)
 PY
 
-# Drop instructions.md alongside config.yaml so `corpus serve` picks it up
-# automatically (server reads <output_dir>/instructions.md by default;
-# also accepts `corpus serve --instructions <path>`).
+# Put source instructions beside config.yaml in the project root. `corpus run`
+# copies them into the configured build directory before bundle distillation;
+# `corpus serve --instructions <path>` can override the copied file.
 cp "$SIPH_REPO/instructions.md" .
 
 

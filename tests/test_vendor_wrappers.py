@@ -5,7 +5,7 @@ gate but contains nothing except a vendor banner belongs to a document whose
 real content is raster underneath, so it is re-routed to OCR.
 
 The list held three markers and missed the two most common wrappers in a
-scanned library. Measured over the 1,772-document siphonophore library, pages
+scanned library. Measured in one full reference-library audit, pages
 1-2:
 
     20  JSTOR cover        'Your use of the JSTOR archive', 'links.jstor.org'

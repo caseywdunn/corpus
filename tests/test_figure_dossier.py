@@ -84,6 +84,10 @@ def corpus(tmp_path: Path):
              "filename": "fig1.png",
              "caption_text": "Marrus claudanielis. Lateral view of "
                              "pneumatophore and nectophores.",
+             "caption_status": "bound",
+             "caption_confidence": "high",
+             "caption_page_distance": 0,
+             "caption_kind": "prose_caption",
              "panels_from_caption": [
                  {"label": "A", "description": "Whole animal"},
                  {"label": "B", "description": "Pneumatophore detail"},
@@ -197,6 +201,16 @@ def test_taxon_dossier_caption_has_taxon_flag(corpus):
                  if f["paper_hash"] == "bbbbbbbbbbbb")
     assert fig_a["caption_has_taxon"] is True
     assert fig_b["caption_has_taxon"] is False
+
+
+def test_taxon_dossier_preserves_caption_evidence(corpus):
+    out = get_figure_dossier_for_taxon("Marrus")
+    fig_a = next(f for f in out["figures"]
+                 if f["paper_hash"] == "aaaaaaaaaaaa")
+    assert fig_a["caption_status"] == "bound"
+    assert fig_a["caption_confidence"] == "high"
+    assert fig_a["caption_page_distance"] == 0
+    assert fig_a["caption_kind"] == "prose_caption"
 
 
 def test_taxon_dossier_rois_summarized(corpus):

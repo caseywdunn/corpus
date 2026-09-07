@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.mcpserver import Image
+from pipeline.figures import EVIDENCE_FIGURE_TYPES, caption_evidence_summary
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
 from ..profiles import get_profile, resolve_profile, unknown_profile_error
@@ -79,7 +80,7 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
 
 # Restricted to the figure types that get returned by get_figures_for_*.
 # Excludes graphical_element, plate_label, furniture, etc.
-_REAL_FIGURE_TYPES = {"figure", "plate", "subpanel"}
+_REAL_FIGURE_TYPES = EVIDENCE_FIGURE_TYPES
 
 
 def _resolve_lexicon_surfaces(idx, category: str, term: str) -> Dict:
@@ -148,6 +149,16 @@ def _caption_surface_hits(caption_low: str, surfaces: List[str]) -> Dict:
             total += c
             matched.append(s)
     return {"occurrences": total, "matched_surfaces": matched}
+
+
+def _caption_evidence_fields(figure: Dict) -> Dict:
+    """Return the small, stable caption-binding summary for a figure.
+
+    New builds persist these fields. The inference branch keeps older bundles
+    truthful without rerunning caption association in the server: it only
+    normalizes facts already present in the record (caption, source, and page).
+    """
+    return caption_evidence_summary(figure)
 
 
 def _license_metadata_for_paper(paper_hash: str) -> Dict:
@@ -291,7 +302,10 @@ def get_figures_for_taxon(
     see every extracted item including the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption.
+    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    qualified by ``caption_status``, ``caption_confidence``,
+    ``caption_page_distance``, and ``caption_kind``; do not treat an
+    ``uncertain`` association as ordinary bound evidence.
     """
     try:
         n = _validated_limit(limit)
@@ -339,6 +353,7 @@ def get_figures_for_taxon(
                 # Call get_figure_image to fetch bytes.
                 "image_path": f"{h}/figures/{f.get('filename') or ''}",
                 "caption_has_taxon": caption_hit,
+                **_caption_evidence_fields(f),
                 "score": (100 if caption_hit else 0) + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             })
     rows.sort(key=lambda r: -r["score"])
@@ -378,7 +393,9 @@ def get_figures_for_lexicon_term(
     the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption.
+    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    qualified by ``caption_status``, ``caption_confidence``,
+    ``caption_page_distance``, and ``caption_kind``.
     """
     try:
         n = _validated_limit(limit)
@@ -437,6 +454,7 @@ def get_figures_for_lexicon_term(
                 # canonical match from a synonym match (#143).
                 "matched_surfaces": hits["matched_surfaces"],
                 "canonical": resolution["canonical"],
+                **_caption_evidence_fields(f),
             })
     rows.sort(key=lambda r: -r["match_count"])
     out = rows[:n]
@@ -518,6 +536,7 @@ def _figure_dossier_entry(
         "caption_preview": _caption_preview(
             figure_record.get("caption_text") or figure_record.get("caption") or "",
         ),
+        **_caption_evidence_fields(figure_record),
         "image_path": f"{paper_hash}/figures/{figure_record.get('filename') or ''}",
         "linked_chunks": _linked_chunks_for_figure(
             figure_id, chunks_by_id, max_linked_chunks,
@@ -558,7 +577,8 @@ def get_figure_dossier_for_taxon(
 
     Returns ``{taxon, n_papers_with_figures, n_figures, figures:
     [{paper_hash, paper_title, paper_year, figure_id, figure_type,
-    page, figure_number, caption_preview, image_path,
+    page, figure_number, caption_preview, caption_status,
+    caption_confidence, caption_page_distance, caption_kind, image_path,
     caption_has_taxon, linked_chunks: [{chunk_id, section_class,
     headings}], rois?: {panel_count_from_caption, panel_labels,
     n_rois_with_pixel_bbox}}]}``.
@@ -729,6 +749,10 @@ def get_figure(
     cross-references, plus the attribution fields (#51) inherited from the
     parent work.
 
+    Caption ownership is explicit: ``caption_status`` is ``bound``,
+    ``uncertain``, or ``unbound`` and is accompanied by confidence, kind, and
+    page distance. New build artifacts also carry the full candidate trail.
+
     ``license`` / ``license_url`` / ``attribution`` are always present —
     you need them to caption the figure in any context.
 
@@ -756,6 +780,7 @@ def get_figure(
             lic = _license_metadata_for_paper(paper_hash)
             return {
                 **f,
+                **_caption_evidence_fields(f),
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
                 # Relative to the corpuscle's documents/ dir.
@@ -770,13 +795,16 @@ def get_figure(
 
 @mcp.tool()
 def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
-    """Return the per-panel / per-subfigure ROIs annotated on a figure.
+    """Return the per-panel / per-figure ROIs annotated on an image.
 
     ROIs are populated by Pass 2.5 (caption-derived ``panels_from_caption``)
-    and Pass 3a (OCR-derived ``rois`` with pixel bboxes). The caption-
-    derived list gives labels + descriptions even when Pass 3a wasn't
-    run or OCR didn't find the panel; ``rois`` gives pixel coordinates
-    when available for :func:`get_figure_roi_image`.
+    or ``plate_figures_from_caption``) and Pass 3a/3b (``rois`` with pixel
+    bboxes). The caption-derived lists give labels + descriptions even when
+    region detection wasn't run or found nothing; ``rois`` gives pixel
+    coordinates when available for :func:`get_figure_roi_image`. Numbered
+    figures on a shared historical plate remain distinct from lettered panels.
+    The result also carries the caption status/confidence/kind/page-distance
+    summary.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
@@ -792,9 +820,21 @@ def list_figure_rois(paper_hash: str, figure_id: str) -> List[Dict]:
                 "filename": f.get("filename"),
                 "panels_from_caption": f.get("panels_from_caption") or [],
                 "panel_count_from_caption": f.get("panel_count_from_caption", 0),
+                "plate_figures_from_caption": (
+                    f.get("plate_figures_from_caption") or []
+                ),
+                "plate_figure_count_from_caption": (
+                    f.get("plate_figure_count_from_caption", 0)
+                ),
+                "plate_missing_figure_crosscheck": (
+                    f.get("plate_missing_figure_crosscheck") or []
+                ),
                 "rois": f.get("rois") or [],
                 "pass3_status": f.get("pass3_status"),
+                "pass3_target_kind": f.get("pass3_target_kind"),
+                "plate_roi_source_figure_id": f.get("plate_roi_source_figure_id"),
                 "image_size_px": f.get("image_size_px"),
+                **_caption_evidence_fields(f),
             }]
     return [error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")]
 
@@ -806,19 +846,22 @@ def get_figure_roi_image(
     label: str,
     profile: Optional[str] = None,
 ) -> Dict:
-    """Crop a panel ROI out of a figure image and return the crop's path.
+    """Crop a panel or numbered-figure ROI and return the crop's path.
 
-    ``label`` is the panel letter (e.g. ``"A"``, ``"B"``) as stored in
-    ``figures.json`` ``rois[*].label``. If Pass 3a found a pixel ROI
-    for that label, we crop the figure PNG to that region and cache the
-    result under ``<hash_dir>/figures/crops/{figure_id}__{label}.png``
-    so repeated asks are free.
+    ``label`` is the panel letter (e.g. ``"A"``) or a grouped-plate figure
+    number (e.g. ``"32"``) stored in ``figures.json`` ``rois[*].label``.
+    If Pass 3 found a pixel ROI for that label, we crop the figure PNG to that
+    region and cache the result outside the immutable bundle. The returned
+    crop path is a logical identifier, not a file inside the bundle; use
+    ``get_figure_image`` or ``get_figure_url`` to retrieve its bytes.
 
-    Returns the crop path + caption description. If the label exists in
-    ``panels_from_caption`` but Pass 3a couldn't find a pixel ROI for it
-    (OCR missed the label), returns the whole figure's image path with
-    ``crop: false`` — the LLM can still display the whole figure and
-    reason about which region is which panel using the caption.
+    Returns the crop path + caption description. If the label exists in the
+    relevant caption target list but Pass 3 couldn't find a pixel ROI, returns
+    the whole figure's image path with ``crop: false`` — the client can still
+    display the whole image and reason from the caption.
+
+    Caption status/confidence/kind/page distance qualify that description;
+    callers should preserve the uncertainty when the binding is not strong.
 
     Honors the figure-licensing gate for the active ``profile``, like
     ``get_figure_image`` and ``get_figure_url`` (#154 §3). It previously
@@ -849,13 +892,23 @@ def get_figure_roi_image(
     if fig is None:
         return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
-    whole_image = hash_dir / "figures" / (fig.get("filename") or "")
+    from ..figure_cache import figure_path
+    try:
+        whole_image = figure_path(hash_dir, fig)
+    except (OSError, ValueError) as exc:
+        return error(f"figure file unavailable: {exc}", "unavailable")
     caption_text = fig.get("caption_text") or fig.get("caption") or ""
     description_from_caption = next(
         (p["description"] for p in fig.get("panels_from_caption") or []
          if p.get("label") == label),
         None,
     )
+    if description_from_caption is None:
+        description_from_caption = next(
+            (p["description"] for p in fig.get("plate_figures_from_caption") or []
+             if str(p.get("label")) == str(label)),
+            None,
+        )
     roi_entry = next(
         (r for r in fig.get("rois") or []
          if r.get("label") == label and r.get("roi_px")),
@@ -873,39 +926,28 @@ def get_figure_roi_image(
             # Relative to the corpuscle's documents/ dir.
             "image_path": f"{paper_hash}/figures/{whole_image.name}",
             "caption_text": caption_text,
+            **_caption_evidence_fields(fig),
             "description_from_caption": description_from_caption,
-            "reason": "no_pixel_roi — Pass 3a didn't locate this label in the image",
+            "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image",
         }
 
-    # Cache crops so a second retrieval is free.
-    crops_dir = hash_dir / "figures" / "crops"
-    crops_dir.mkdir(parents=True, exist_ok=True)
-    crop_path = crops_dir / f"{figure_id}__{label}.png"
-    if not crop_path.exists():
-        try:
-            from PIL import Image
-            with Image.open(whole_image) as im:
-                x0, y0, x1, y1 = [int(v) for v in roi_entry["roi_px"]]
-                # Clamp the ROI to the image bounds defensively — ROI
-                # computation can exceed image dims at the edges.
-                x0 = max(0, min(x0, im.width - 1))
-                y0 = max(0, min(y0, im.height - 1))
-                x1 = max(x0 + 1, min(x1, im.width))
-                y1 = max(y0 + 1, min(y1, im.height))
-                im.crop((x0, y0, x1, y1)).save(str(crop_path))
-        except Exception as e:
-            return error(f"could not crop figure: {e}", "unavailable")
+    from ..figure_cache import crop_figure
+    try:
+        crop_path, _ = crop_figure(idx, whole_image, roi_entry["roi_px"])
+    except Exception as e:
+        return error(f"could not crop figure: {e}", "unavailable")
 
     return {
         "paper_hash": paper_hash,
         "figure_id": figure_id,
         "label": label,
         "crop": True,
-        # Relative to the corpuscle's documents/ dir.
+        # Logical cache identifier; retrieve bytes through the image/URL tools.
         "image_path": f"{paper_hash}/figures/crops/{crop_path.name}",
         "roi_px": roi_entry.get("roi_px"),
         "ocr_confidence": roi_entry.get("ocr_confidence"),
         "caption_text": caption_text,
+        **_caption_evidence_fields(fig),
         "description_from_caption": description_from_caption,
     }
 
@@ -973,9 +1015,8 @@ def get_figure_image(
     if fig is None:
         raise ValueError(f"no such figure_id {figure_id!r} in paper {paper_hash}")
 
-    whole_image = hash_dir / "figures" / (fig.get("filename") or "")
-    if not whole_image.exists():
-        raise FileNotFoundError(f"figure file missing on disk: {whole_image}")
+    from ..figure_cache import figure_path
+    whole_image = figure_path(hash_dir, fig)
 
     if label is None:
         return Image(path=str(whole_image))
@@ -989,20 +1030,9 @@ def get_figure_image(
         # No pixel ROI for this label — fall back to the whole figure.
         return Image(path=str(whole_image))
 
-    crops_dir = hash_dir / "figures" / "crops"
-    crops_dir.mkdir(parents=True, exist_ok=True)
-    crop_path = crops_dir / f"{figure_id}__{label}.png"
-    if not crop_path.exists():
-        from PIL import Image as PILImage
-        with PILImage.open(whole_image) as im:
-            x0, y0, x1, y1 = [int(v) for v in roi_entry["roi_px"]]
-            # Clamp defensively — ROI computation can exceed image dims.
-            x0 = max(0, min(x0, im.width - 1))
-            y0 = max(0, min(y0, im.height - 1))
-            x1 = max(x0 + 1, min(x1, im.width))
-            y1 = max(y0 + 1, min(y1, im.height))
-            im.crop((x0, y0, x1, y1)).save(str(crop_path))
-    return Image(path=str(crop_path))
+    from ..figure_cache import crop_figure
+    _, data = crop_figure(idx, whole_image, roi_entry["roi_px"])
+    return Image(data=data, format="png")
 
 
 @mcp.tool()
@@ -1012,14 +1042,15 @@ def get_figure_url(
     label: Optional[str] = None,
     profile: Optional[str] = None,
 ) -> Dict:
-    """Return a bearer-gated HTTP URL the caller can ``curl -o`` to
+    """Return a scoped, five-minute HTTP URL the caller can ``curl -o`` to
     land the figure PNG on disk *without* loading its bytes into the
     model's context window. Use instead of ``get_figure_image`` when
     file bytes must reach the filesystem (pandoc / LaTeX / PDF
     assembly) — the byte flow stays off the MCP JSON-RPC channel
     regardless of figure size.
 
-    Fetch via ``curl -H "$auth_header" -o <path> "$url"``. Without
+    Fetch via ``curl -fsSL -o <path> "$url"``; no bearer header is needed.
+    The legacy ``auth_header`` field is null. Without
     ``label`` returns the whole figure; with ``label`` returns the
     panel crop if one exists (else falls back to the whole figure).
 
@@ -1042,7 +1073,8 @@ def get_figure_url(
     if not base:
         return error(
             "figure HTTP route is not available on this server. "
-            "Possible causes: figure side-car failed to bind at "
+            "Configure --public-base-url behind a reverse proxy or wildcard bind. "
+            "Other possible causes: figure side-car failed to bind at "
             "startup (check server logs), or the server is running "
             "with an older mcpsrv that predates #69. "
             "Fall back to get_figure_image.",
@@ -1075,21 +1107,15 @@ def get_figure_url(
             "forbidden", profile=active.name, **lic,
         )
 
-    # Encode the resolved profile into the URL so the HTTP route enforces
-    # the same policy (the route defaults to the server fallback when no
-    # profile is present — a strict client must not leak via that path).
-    query = [f"profile={active.name}"]
-    if label:
-        # figure_id / label are constrained to [A-Za-z0-9._-] server-side,
-        # so no urlencoding gymnastics are needed.
-        query.append(f"label={label}")
-    url = f"{base}/figures/{paper_hash}/{figure_id}?{'&'.join(query)}"
-    token = getattr(idx, "figure_auth_token", None)
-    auth_header = f"Authorization: Bearer {token}" if token else None
+    from ..figure_urls import figure_signer
+    try:
+        url = figure_signer(idx).url(base, f"/figures/{paper_hash}/{figure_id}", active.name, label)
+    except ValueError as exc:
+        return error(str(exc), "invalid_argument")
 
     return {
         "url": url,
-        "auth_header": auth_header,
+        "auth_header": None,
         "mime_type": "image/png",
         "profile": active.name,
         # #154 §1 — the server just authorized this URL under `active`, so
@@ -1097,11 +1123,5 @@ def get_figure_url(
         # Attribution and license go out either way (a caption needs them);
         # the determination only under a strict profile.
         **_license_fields_for_wire(lic, active),
-        "fetch_hint": (
-            "curl -fsSL -H \"$auth_header\" -o /tmp/fig.png \"$url\""
-            if auth_header
-            else "curl -fsSL -o /tmp/fig.png \"$url\"   # no auth configured"
-        ),
+        "fetch_hint": "curl -fsSL -o /tmp/fig.png \"$url\"   # expires in five minutes",
     }
-
-

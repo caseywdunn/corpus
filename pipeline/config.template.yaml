@@ -43,6 +43,9 @@ output_dir: ./output
 #   corpus taxonomy ingest --source <source> --input <path>
 #
 # It is idempotent and takes about a second, so it is safe to run every time.
+# (Idempotent for real since 1.2.2 -- before that a re-ingest silently doubled
+# the `names` table, #262. Re-running once on a corpuscle built with 1.2.1
+# repairs it.)
 #
 # Three sources to pick from:
 #
@@ -93,6 +96,7 @@ figures:
                          #         vision-claude (Anthropic API; needs ANTHROPIC_API_KEY),
                          #         off (no panel-ROI detection)
   # model: claude-sonnet-4-6-20251001   # optional override (vision-* modes)
+  # producer_id: "pinned-vision-deployment-id"  # change if a remote alias changes
 
   # Figure resolution (#121). 'native' (default) renders each figure at its
   # source's native pixel density — a 600-dpi scan figure stays 600 dpi —
@@ -102,8 +106,8 @@ figures:
                             #   (no native resolution exists). Default 300.
   # max_dpi: 600            # native mode: optional ceiling for dense scans.
   # images_scale: 2.0       # fixed mode only: uniform DPI = 72 * scale.
-  # Future ingests only — run tools/backfill_figure_dpi.py --native to lift an
-  # existing bundle.
+  # Changes refresh extraction and downstream artifacts on the next corpus run.
+  # Rebuild the served bundle to publish the new figures.
 
 # Grobid (PDF metadata + reference parsing). Runs as a long-lived service
 # next to the pipeline: Docker on a laptop (`docker compose up -d grobid`,
@@ -113,7 +117,13 @@ figures:
 # known until submit time. `corpus run` and `corpus check` both honor it.
 grobid:
   url: http://localhost:8070
-  # disable: true   # skip Grobid even if reachable
+  # disable: true   # exclude Grobid-derived data; retain curated BibTeX headers
+  # Existing active TEI is archived on disablement, not silently reused.
+  # Transient outages instead retain valid cached results and retry fallback
+  # papers when the service returns. Version is observed once per build run.
+  # producer_id: "image-digest-plus-model-config-id"
+  # Optional operator-supplied identity for custom models/configuration that
+  # can change without a Grobid version bump. Recorded, not remotely verified.
   # Consolidation against CrossRef: 0 = off, 1 = look the record up.
   # consolidate_header: 1      # on by default; improves per-paper metadata
   # consolidate_citations: 0   # off by default, and that default is measured:
@@ -203,6 +213,10 @@ ocr:
     - ell
     - kor
   gibberish_threshold: 0.65
+  # Run the rendered-page script cross-check above this text-layer
+  # gibberish score. An explicit non-Latin ocrlang pin against a Latin-only
+  # layer always triggers the check regardless of this floor (#266).
+  visual_script_gibberish_min: 0.40
   # Per-page OCR timeout passed to ocrmypdf (--tesseract-timeout).
   # ocrmypdf's own default is far too tight for dense historical scans
   # with several language packs loaded, and when it fires the page is

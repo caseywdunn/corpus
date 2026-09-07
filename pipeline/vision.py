@@ -27,6 +27,7 @@ import base64
 import io
 import json
 from collections import Counter
+from functools import cached_property
 import logging
 import os
 import re
@@ -35,6 +36,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
+from .model_provenance import DEFAULT_VISION_MODELS, vision_producer
 load_dotenv()  # picks up ANTHROPIC_API_KEY from .env at import time
 
 logger = logging.getLogger(__name__)
@@ -62,9 +64,12 @@ logger = logging.getLogger(__name__)
 
 
 class VisionBackendError(RuntimeError):
-    """Raised when the vision backend fails irrecoverably (bad API key,
-    model not loadable, non-retryable API error). The caller typically
-    records ``pass3_status = "vision_backend_failed"`` and moves on."""
+    """Raised when a backend cannot return a complete usable answer.
+
+    This includes setup/API failures, malformed output, and token-budget
+    truncation. The caller records ``pass3_status = "vision_backend_failed"``
+    rather than confusing any of those with a clean no-label result.
+    """
 
 
 class VisionBackend(ABC):
@@ -84,7 +89,14 @@ class VisionBackend(ABC):
         caption_text: str,
         expected_labels: List[str],
     ) -> List[Dict]:
-        """Return the panel / embedded-figure ROI list for one image."""
+        """Return the panel / embedded-figure ROI list for one image.
+
+        ``expected_labels`` is normally a list of panel letters. For a known
+        grouped plate it is instead a list of caption-enumerated figure
+        numbers; those belong in ``embedded_figures``, not ``panels``. An
+        empty list is reserved for explicitly admitted bare-plate discovery;
+        the backend must emit only numbers it can actually see.
+        """
 
 
 # ---------------------------------------------------------------------------
@@ -102,12 +114,12 @@ Your task has two parts:
 
   (1) Panel labels — single capital letters (A, B, C, ...) that label sub-panels
       within a single figure.
-  (2) Compound detection — when the image actually contains two or more separate
-      figures merged into one extracted image (e.g., Fig. 3 and Fig. 4 side by
-      side). Signals: the number of panel labels is LARGER than the caption's
-      expected panel count, or duplicate panel letters appear in the image (two
-      separate As, two Bs, etc.), or visible "Fig. N" text labels with different
-      N values.
+  (2) Figure regions — when the image contains two or more separately numbered
+      figures (e.g., Fig. 3 and Fig. 4 side by side), return each region under
+      embedded_figures. This includes known grouped plates whose expected list
+      contains figure numbers instead of panel letters. Other signals are more
+      panel labels than the caption expects, duplicate panel letters (two As,
+      two Bs), or visible figure-number labels.
 
 Return STRICTLY VALID JSON:
 
@@ -146,6 +158,15 @@ Coordinate rules:
 Interpretation rules:
 - ONLY emit a panel when the letter label is actually visible in the image.
   Do not infer panels from the caption alone.
+- When the expected list contains numbers, look for those visible numbers and
+  emit their whole numbered regions under embedded_figures. Do not reinterpret
+  the numbers as panel letters and do not infer an unseen region.
+- When the expected list is empty, the caller has explicitly admitted a bare
+  historical plate. Discover Arabic numbers that visibly label distinct
+  engravings and emit their whole regions under embedded_figures. Do not emit
+  the plate number, page number, scale values, anatomical-key numbers,
+  handwritten marks, or a number that is not visibly attached to a distinct
+  engraving.
 - If the caption expects panels A-B (2) but you see labels A, B, A, B in the
   image, this is a compound of two separate figures. Assign
   parent_figure_index = 0 to the first {A, B} set and parent_figure_index = 1
@@ -166,8 +187,7 @@ def _extract_json(text: str) -> Optional[dict]:
     ``None`` on the first :class:`json.JSONDecodeError` and stop, so one
     malformed leading object discarded every well-formed one after it. A
     truncated response has no balanced span at all and still yields
-    ``None`` — that case is the caller's to distinguish, and the local VLM
-    backend now does.
+    ``None`` — completion metadata is checked separately by the caller.
     """
     if not text:
         return None
@@ -190,6 +210,85 @@ def _extract_json(text: str) -> Optional[dict]:
                 except json.JSONDecodeError:
                     start = None          # keep scanning for a later span
     return None
+
+
+# Output-budget model for the panel prompt (#253 / #269). One panel object
+# carries six fields and measured 60–90 tokens; 120 is that worst case plus
+# margin. The base covers the enclosing object and any unwanted preamble.
+# Both backends use the same calculation: configured values are floors, not
+# ceilings independent of the requested structure.
+_VLM_TOKENS_PER_PANEL = 120
+_VLM_TOKEN_BASE = 256
+_VLM_DISCOVERY_TOKEN_FLOOR = 4096
+
+
+def _vision_token_budget(floor: int, expected_labels) -> int:
+    if not expected_labels:
+        # Discovery does not know the output cardinality in advance. Historical
+        # plates in the measured set carry up to the mid-teens of engravings;
+        # a larger floor prevents valid JSON after an arbitrary prefix from
+        # masquerading as a complete inventory.
+        return max(int(floor), _VLM_DISCOVERY_TOKEN_FLOOR)
+    return max(int(floor), _VLM_TOKEN_BASE + _VLM_TOKENS_PER_PANEL * len(
+        expected_labels or []
+    ))
+
+
+def _vision_user_text(
+    caption_text: str,
+    expected_labels: List[str],
+    width: int,
+    height: int,
+) -> str:
+    """Compose the shared Claude/Qwen task-specific prompt."""
+    if expected_labels:
+        target_instruction = (
+            "Expected panel letters OR grouped-plate figure numbers from the "
+            "caption (confirm visibility before emitting): "
+            f"{expected_labels}"
+        )
+    else:
+        target_instruction = (
+            "No figure-number list was recoverable from this bare plate "
+            "caption. Discover every Arabic number visibly attached to a "
+            "distinct engraving; emit the engraving's whole region under "
+            "embedded_figures. Do not infer missing or unreadable numbers."
+        )
+    return (
+        f"Caption of this figure: {caption_text!r}\n\n"
+        f"{target_instruction}\n\n"
+        f"Image dimensions (px): {width} × {height}."
+    )
+
+
+def _parse_complete_vision_response(
+    response_text: str,
+    *,
+    backend: str,
+    truncated: bool = False,
+    truncation_detail: str = "",
+) -> Dict:
+    """Return a complete response payload or fail visibly (#269).
+
+    A real empty detection is the explicit two-list object. Invalid JSON,
+    a missing output collection, or a provider/model stop at its token cap is
+    not evidence that the image contains no labels.
+    """
+    if truncated:
+        detail = f" ({truncation_detail})" if truncation_detail else ""
+        raise VisionBackendError(f"{backend} response was token-truncated{detail}")
+    parsed = _extract_json(response_text)
+    if not isinstance(parsed, dict):
+        raise VisionBackendError(
+            f"{backend} returned no complete JSON object; response head: "
+            f"{response_text[:200]!r}"
+        )
+    for field in ("panels", "embedded_figures"):
+        if not isinstance(parsed.get(field), list):
+            raise VisionBackendError(
+                f"{backend} returned an incomplete schema: {field!r} must be a list"
+            )
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +399,7 @@ class ClaudeVisionBackend(VisionBackend):
 
     def __init__(
         self,
-        model: str = "claude-haiku-4-5-20251001",
+        model: str = DEFAULT_VISION_MODELS["vision-claude"],
         max_tokens: int = 1024,
     ):
         if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -318,6 +417,14 @@ class ClaudeVisionBackend(VisionBackend):
         self.client = anthropic.Anthropic()
         self.model = model
         self.max_tokens = max_tokens
+
+    panel_mode = "vision-claude"
+
+    @cached_property
+    def producer(self):
+        result = vision_producer(self.panel_mode, self.model)
+        result["generation"]["max_tokens"] = self.max_tokens
+        return result
 
     @property
     def name(self) -> str:
@@ -344,6 +451,10 @@ class ClaudeVisionBackend(VisionBackend):
             b64 = base64.standard_b64encode(buf.getvalue()).decode()
         return b64, w, h
 
+    def _token_budget(self, expected_labels) -> int:
+        """Scale the configured floor by the response structure requested."""
+        return _vision_token_budget(self.max_tokens, expected_labels)
+
     def detect_figure_panels(
         self,
         image_path: Path,
@@ -357,48 +468,59 @@ class ClaudeVisionBackend(VisionBackend):
 
         # User message includes the caption + expected labels so Claude
         # can ground its bbox hunt in what's supposed to be there.
-        user_text = (
-            f"Caption of this figure: {caption_text!r}\n\n"
-            f"Expected panel labels from the caption (confirm visibility before "
-            f"emitting): {expected_labels}\n\n"
-            f"Image dimensions (px): {w} × {h}."
-        )
+        user_text = _vision_user_text(caption_text, expected_labels, w, h)
 
-        try:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                system=_CLAUDE_SYSTEM_PROMPT,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": image_b64,
+        initial_budget = self._token_budget(expected_labels)
+        for attempt, budget in enumerate(
+            (initial_budget, initial_budget * 2), start=1,
+        ):
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=budget,
+                    system=_CLAUDE_SYSTEM_PROMPT,
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": image_b64,
+                                },
                             },
-                        },
-                        {"type": "text", "text": user_text},
-                    ],
-                }],
-            )
-        except self._anthropic.APIError as e:
-            raise VisionBackendError(f"Claude API error: {e}") from e
+                            {"type": "text", "text": user_text},
+                        ],
+                    }],
+                )
+            except self._anthropic.APIError as e:
+                raise VisionBackendError(f"Claude API error: {e}") from e
 
-        # Concatenate all text blocks; usually there's just one.
-        response_text = "".join(
-            b.text for b in response.content if getattr(b, "type", None) == "text"
-        )
-        parsed = _extract_json(response_text)
-        if not parsed:
-            logger.warning(
-                "Could not extract JSON from Claude response for %s; "
-                "response head: %r",
-                image_path.name, response_text[:200],
+            # Concatenate all text blocks; usually there's just one.
+            response_text = "".join(
+                b.text for b in response.content
+                if getattr(b, "type", None) == "text"
             )
-            return []
+            truncated = getattr(response, "stop_reason", None) == "max_tokens"
+            if truncated and attempt == 1:
+                logger.warning(
+                    "Claude vision response hit max_tokens=%d on %s; retrying "
+                    "once with max_tokens=%d",
+                    budget, image_path.name, budget * 2,
+                )
+                continue
+            parsed = _parse_complete_vision_response(
+                response_text,
+                backend="Claude vision",
+                truncated=truncated,
+                truncation_detail=(
+                    f"stopped at max_tokens={budget} on {image_path.name} "
+                    f"after {attempt} attempt(s); "
+                    f"{len(expected_labels)} region label(s) expected"
+                ),
+            )
+            break
 
         # One shared converter for both backends (#253). It was duplicated
         # here and in the local-VLM path, so the pixel-coordinate defect had
@@ -451,15 +573,7 @@ class ClaudeVisionBackend(VisionBackend):
 # ---------------------------------------------------------------------------
 
 
-_DEFAULT_LOCAL_VLM = "Qwen/Qwen2.5-VL-7B-Instruct"
-
-# Output-budget model for the panel prompt (#253). One panel object carries
-# six fields and measured 60–90 tokens; 120 is that worst case plus margin,
-# because the failure mode is silent truncation rather than a slow call. The
-# base covers the enclosing {"panels": [...], "embedded_figures": [...]}
-# scaffolding and any preamble the model adds despite being told not to.
-_VLM_TOKENS_PER_PANEL = 120
-_VLM_TOKEN_BASE = 256
+_DEFAULT_LOCAL_VLM = DEFAULT_VISION_MODELS["vision-local"]
 
 # Models smaller than 7B work on MPS / smaller GPUs.
 _LOCAL_VLM_VARIANTS = {
@@ -498,9 +612,11 @@ class LocalVLMBackend(VisionBackend):
     panel-rich figures, and a response that stops mid-object has no
     balanced ``{...}`` to extract, so the backend returned ``[]`` and the
     figure was recorded as *no-labels*: indistinguishable from a figure
-    the model genuinely found nothing in. Measured over 1,772 documents,
-    ROI coverage fell from 47.8% at 2–3 panels to 13.6% at 10+, which is
-    the signature of a fixed output budget rather than a vision failure.
+    the model genuinely found nothing in. In one full reference run, ROI
+    coverage fell from 47.8% at 2–3 panels to 13.6% at 10+, which is the
+    signature of a fixed output budget rather than a vision failure. Bare
+    plate discovery has no known target count, so it receives a conservative
+    4096-token floor and still fails visibly if that cap is reached.
     """
 
     def __init__(
@@ -562,16 +678,25 @@ class LocalVLMBackend(VisionBackend):
                 f"Could not load local VLM {model!r} on device={self._device}: {e}"
             ) from e
 
+    panel_mode = "vision-local"
+
+    @cached_property
+    def producer(self):
+        result = vision_producer(self.panel_mode, self._model_id,
+                                 resolved_revision=getattr(self._model.config, "_commit_hash", None))
+        result["generation"] = {"max_new_tokens": self._max_new_tokens,
+                                "max_pixels": self._max_pixels, "min_pixels": self._min_pixels}
+        return result
+
     def _token_budget(self, expected_labels) -> int:
         """Output-token budget for one figure, scaled by its panel count.
 
         The configured ``max_new_tokens`` is the floor, so a caller that
         raised it keeps what they asked for and small figures are unaffected.
-        A figure with no caption-derived labels gets the floor too — there is
-        nothing to scale by, and those are not the ones that overflowed.
+        A bare-plate discovery request has no caption-derived count to scale
+        by, so the shared helper supplies its conservative discovery floor.
         """
-        n = len(expected_labels or [])
-        return max(self._max_new_tokens, _VLM_TOKEN_BASE + _VLM_TOKENS_PER_PANEL * n)
+        return _vision_token_budget(self._max_new_tokens, expected_labels)
 
     @staticmethod
     def _probe_device() -> str:
@@ -607,12 +732,7 @@ class LocalVLMBackend(VisionBackend):
                 f"could not read image {image_path}: {e}"
             ) from e
 
-        user_text = (
-            f"Caption of this figure: {caption_text!r}\n\n"
-            f"Expected panel labels from the caption (confirm visibility "
-            f"before emitting): {expected_labels}\n\n"
-            f"Image dimensions (px): {w} × {h}."
-        )
+        user_text = _vision_user_text(caption_text, expected_labels, w, h)
 
         messages = [
             {"role": "system", "content": _LOCAL_SYSTEM_PROMPT},
@@ -636,62 +756,55 @@ class LocalVLMBackend(VisionBackend):
                 return_tensors="pt",
             ).to(self._model.device)
 
-            budget = self._token_budget(expected_labels)
-            with torch.no_grad():
-                output_ids = self._model.generate(
-                    **inputs,
-                    max_new_tokens=budget,
-                    do_sample=False,
-                )
-            # Strip the prompt tokens to get only the generated response.
-            generated = output_ids[:, inputs.input_ids.shape[1]:]
-            response_text = self._processor.batch_decode(
-                generated, skip_special_tokens=True,
-            )[0]
         except Exception as e:
             raise VisionBackendError(
-                f"Local VLM inference failed on {image_path.name}: {e}"
+                f"Local VLM input preparation failed on {image_path.name}: {e}"
             ) from e
 
-        # Did generation stop because the model finished, or because it ran
-        # out of budget? #253 — these were indistinguishable, and the second
-        # was being recorded as "this figure has no panels".
-        #
-        # Length against the cap, rather than inspecting stop reasons: a
-        # model that emits EOS on exactly the last allowed token reads as
-        # truncated here, but that response also parses, so the only cost is
-        # one spurious warning. Erring that way is deliberate — the failure
-        # this exists to catch is the silent one.
-        truncated = int(generated.shape[1]) >= budget
-
-        parsed = _extract_json(response_text)
-        if not parsed:
-            if truncated:
-                # Raise rather than return []. `[]` maps to
-                # `no_labels_found`, a clean result; this is data loss and
-                # belongs in the vision_backend_failed counter where an
-                # operator will see it.
+        initial_budget = self._token_budget(expected_labels)
+        for attempt, budget in enumerate(
+            (initial_budget, initial_budget * 2), start=1,
+        ):
+            try:
+                with torch.no_grad():
+                    output_ids = self._model.generate(
+                        **inputs,
+                        max_new_tokens=budget,
+                        do_sample=False,
+                    )
+                # Strip the prompt tokens to get only the generated response.
+                generated = output_ids[:, inputs.input_ids.shape[1]:]
+                response_text = self._processor.batch_decode(
+                    generated, skip_special_tokens=True,
+                )[0]
+            except Exception as e:
                 raise VisionBackendError(
-                    f"Local VLM response truncated at the {budget}-token "
-                    f"budget on {image_path.name} "
-                    f"({len(expected_labels)} panel(s) expected) and no "
-                    f"complete JSON object survived. Raise the budget: see "
-                    f"_VLM_TOKENS_PER_PANEL."
+                    f"Local VLM inference failed on {image_path.name}: {e}"
+                ) from e
+
+            # Qwen exposes no stop reason here. Reaching max_new_tokens is the
+            # truncation signal. A response that happens to emit EOS on the
+            # final slot gets one conservative retry; it can never be accepted
+            # as a possibly partial answer (#269).
+            truncated = int(generated.shape[1]) >= budget
+            if truncated and attempt == 1:
+                logger.warning(
+                    "Local VLM response hit max_new_tokens=%d on %s; retrying "
+                    "once with max_new_tokens=%d",
+                    budget, image_path.name, budget * 2,
                 )
-            logger.warning(
-                "Could not extract JSON from local VLM response for %s; "
-                "response head: %r",
-                image_path.name, response_text[:200],
+                continue
+            parsed = _parse_complete_vision_response(
+                response_text,
+                backend="Local VLM",
+                truncated=truncated,
+                truncation_detail=(
+                    f"reached max_new_tokens={budget} on {image_path.name} "
+                    f"after {attempt} attempt(s); "
+                    f"{len(expected_labels)} region label(s) expected"
+                ),
             )
-            return []
-        if truncated:
-            # Parsed, but the tail was cut — a partial panel set, which the
-            # old code reported as a clean result with no warning at all.
-            logger.warning(
-                "Local VLM response truncated at the %d-token budget on %s "
-                "(%d panel(s) expected); the panel list is incomplete.",
-                budget, image_path.name, len(expected_labels),
-            )
+            break
 
         # Convert normalized bboxes to pixel coordinates — same logic as
         # the Claude backend.

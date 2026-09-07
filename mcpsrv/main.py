@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import socket
 import sqlite3
 import sys
 from pathlib import Path
 from typing import List, Optional
 
-from .app import _load_json, mcp, set_index
+from .app import mcp, set_index
 from .indexes import BiblioAuthority, CorpusIndex, TaxonMentionDB
 from . import tools as _tools  # noqa: F401  (registers @mcp.tool() decorators)
 from .transport import _load_auth_token, _run_sse
@@ -82,9 +83,10 @@ def main() -> int:
     parser.add_argument(
         "--embedding-model",
         default=None,
-        help="Override the default HuggingFace embedding model id "
-             "(default: BAAI/bge-m3). Must emit vectors of the same "
-             "dim as the LanceDB index.",
+        help="Query embedding model or local model directory. Must match the "
+             "build's model identity and vector dimension; local replicas "
+             "must have matching content. Defaults to the bundle's model "
+             "(BAAI/bge-m3 for legacy bundles without model metadata).",
     )
     parser.add_argument(
         "--transport",
@@ -102,6 +104,13 @@ def main() -> int:
     parser.add_argument(
         "--port", type=int, default=8080,
         help="Port to bind when --transport sse (default: 8080)",
+    )
+    from .figure_urls import validate_public_base
+    parser.add_argument(
+        "--public-base-url", type=validate_public_base,
+        default=os.environ.get("CORPUS_PUBLIC_BASE_URL") or None,
+        help="Client-reachable HTTP(S) base URL for figure downloads behind a reverse proxy. "
+             "Alternative: CORPUS_PUBLIC_BASE_URL. Never inferred from forwarded headers.",
     )
     parser.add_argument(
         "--auth-token-file", type=Path, default=None,
@@ -292,18 +301,16 @@ def main() -> int:
         # when this process exits.
         from .transport import start_stdio_figure_server
         try:
-            fig_host, fig_port, fig_token = start_stdio_figure_server(
+            fig_host, fig_port, _ = start_stdio_figure_server(
                 index, default_profile=index.default_profile,
             )
             index.figure_url_base = f"http://{fig_host}:{fig_port}"
-            index.figure_auth_token = fig_token
         except Exception as e:
             logger.warning(
                 "could not start figure HTTP side-car (%s); get_figure_url "
                 "will return an error but other tools work normally", e,
             )
             index.figure_url_base = None
-            index.figure_auth_token = None
         mcp.run()
     elif args.transport == "sse":
         try:
@@ -311,12 +318,12 @@ def main() -> int:
         except ValueError as e:
             logger.error("auth-token config error: %s", e)
             return 3
-        # #69 — build a public URL prefix the tool can hand out. We
-        # don't try to be clever about the operator's reverse-proxy
-        # hostname; bind host + bind port is the most we know, and
-        # operators behind nginx/ALB can rewrite client-side.
-        index.figure_url_base = f"http://{args.host}:{args.port}"
-        index.figure_auth_token = token
+        # The operator declares the public origin. Forwarded Host headers are
+        # untrusted, and wildcard bind addresses are not client destinations.
+        index.figure_url_base = args.public_base_url
+        if not index.figure_url_base and args.host not in {"0.0.0.0", "::"}:
+            host = f"[{args.host}]" if ":" in args.host else args.host
+            index.figure_url_base = f"http://{host}:{args.port}"
         _run_sse(
             args.host, args.port, token,
             idx=index,

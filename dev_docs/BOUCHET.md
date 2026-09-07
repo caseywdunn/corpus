@@ -95,6 +95,21 @@ CORPUS_CONFIG=$BOUCHET_PROJECT/corpuscles/siphonophore_gold_YYYYMMDD/config.yaml
 
 ### 2. Conda environment
 
+For an alternate checkout, export `REPO_DIR` to its absolute path before
+launching that checkout's `slurm/batch_pipeline.sh`. The shared path setup
+prepends it to `PYTHONPATH`, so the installed `corpus` command and all phase
+subprocesses load that checkout even if the conda environment was installed
+from another directory. Changing the shell's working directory alone is
+insufficient. The launcher records `CORPUS_BUILD_GIT_SHA`; each phase checks
+the commit and the resolved `pipeline`, `bib`, and `mcpsrv` package paths
+after activating conda and logs them before doing work. Keep that checkout
+unchanged while the chain runs. Use a separate worktree for other development.
+
+The bundle's `pipeline_git_sha` identifies the bundler's checkout; it cannot
+by itself establish which code produced earlier artifacts. Check the phase
+preflight logs when validating a release. A build made with mixed checkouts
+must be rebuilt into a fresh output directory.
+
 ```bash
 module load miniconda
 conda env create -f "$BOUCHET_PROJECT/corpus/environment.yaml"
@@ -243,7 +258,12 @@ first `sbatch`, so following the runbook is enough — but if you submit
 The second reason is the original one: you do not want one extract task per
 paper each walking the WoRMS REST API. Build `taxonomy.sqlite` once, up
 front — it reads the source and path straight from `config.yaml`, and
-no-ops when the file already exists:
+no-ops when the file already exists.
+
+**If this corpuscle was built with 1.2.1**, run it once on 1.2.2 or later:
+that release's automatic pre-build doubled the `names` table on every launch
+(#262), and the next ingest deduplicates it in place and logs how many rows
+it removed. Lookups were correct throughout; the table was just growing.
 
 ```bash
 corpus taxonomy ingest      # reads taxonomy.{source,path,root_id} from config.yaml
@@ -673,7 +693,7 @@ launcher derives the array size from the corpuscle's `input_pdfs` and
 prints what it decided, e.g.
 
 ```
-Auto-sized Stage 1: 1772 PDFs / 64 per task = 28 tasks
+Auto-sized Stage 1: <N> PDFs / 64 per task = <ceil(N / 64)> tasks
 ```
 
 Check that line against the library size if you want the belt-and-braces
@@ -685,14 +705,16 @@ The pipeline orchestrator (`slurm/batch_pipeline.sh`) handles Grobid startup, ex
 
 The orchestrator parallelizes both Stage 1 (CPU) and Pass 3b (GPU)
 independently. Pass 3b looks like the long pole and is not: only figures
-whose caption declares more than one panel reach the VLM, which on the
-2026-08-04 build was 934 of 21,789 figure records (4.3%).
+whose caption declares more than one panel reach the VLM, which on one
+reference build was about 900 of ~22,000 figure records (4.3%).
 
-Measured on that build (1,769 papers, 261k chunks), end to end 5 h 10 m:
+That reference run took 5 h 10 m end to end. These are illustrative
+measurements; task count is `ceil(unique PDFs / 64)`, and elapsed time scales
+with the current paper, chunk, and eligible-figure counts:
 
 | Phase | Shape | Elapsed |
 |---|---|---|
-| extract | 28 tasks × 64 PDFs | 2 h 35 m (slowest task; most finish in 1–4 min) |
+| extract | `ceil(unique PDFs / 64)` tasks | 2 h 35 m (slowest task in the reference run; most finished in 1–4 min) |
 | vision (Pass 3b) | 1 GPU task | 1 h 24 m |
 | embed | 1 GPU task | 21 m |
 | finalize | 1 CPU task | 1 h 03 m |
@@ -809,7 +831,16 @@ Size `--array` as `ceil(PDF files / BATCH_SIZE) - 1`; the orchestrator does this
 
 Resume is implicit in `corpus run`, so restarts are cheap — re-queuing a phase re-processes only papers whose inputs changed. Without `NUM_PASS3B_BATCHES` (or set to 1), Pass 3b runs as a single job, which is right for all but genuinely figure-bound corpora.
 
-**Do not trust `corpus run --only embed --dry-run`.** The real run gates resume on the marker's `embedding_model` + `embedding_dim` (`_marker_matches_backend`, `pipeline/embed.py:216`), but the dry-run path checks only that `vector_db/<HASH>_embedded.done` exists (`embed.py:296-306`). Stage 1 writes a *chunking* receipt at that same path (the `ingest_to_vector_db` stub, `pipeline/chunking.py:149`), which carries neither key. So on a corpus that has finished extract but never embedded, the dry-run reports "already have a marker" for every paper while the real run correctly embeds them all. Check `vector_db/lancedb/` for the actual state — if that directory is absent, nothing has been embedded regardless of how many `.done` files there are.
+**Embedding receipts are verified, not counted (#271).**
+`corpus run --only embed --dry-run` checks input fingerprints and committed rows
+without loading the model. Older checkouts only counted marker files, including
+placeholder receipts written by Stage 1, and could falsely report no work.
+Current Stage 1 no longer writes those placeholders. Upgrading an old build
+requires one re-embedding to produce verified receipts; budget GPU time for it.
+An index directory alone does not prove completion. See
+[Stage 2: Embedding](OVERVIEW.md#stage-2-embedding-pipelineembedpy) for the
+transaction and recovery contract. Keep each running chain's checkout pinned;
+this fix does not retroactively change a job submitted from older code.
 
 ## Post-pipeline cross-paper databases + served bundle
 
@@ -841,6 +872,12 @@ sbatch slurm/batch_finalize.sh
 # Cross-paper DBs but skip the bundle distill:
 # SKIP_BUNDLE=1 sbatch slurm/batch_finalize.sh
 ```
+
+An enriched run logs `BHL run outcomes` with the eligible, newly attempted,
+cached/resumed, found, not-found, error and skipped observation populations.
+It also logs a separately labeled historical cache inventory. A no-op reports
+zero current attempts even when that retained cache is nonempty; these counts
+are observation outcomes rather than raw HTTP requests.
 
 `batch_finalize.sh` runs `corpus run --only post` then `corpus run --only
 bundle`. The post phase honors `--force-rebuild*` only when you ask; a plain

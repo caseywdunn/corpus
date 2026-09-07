@@ -25,15 +25,17 @@
 # rtx_pro_6000_blackwell, rtx_5000_ada, a40, l40s). The preflight below
 # is cheap and catches any future regression, so it stays.
 #
-# Measured runtime: 1 h 24 m as a single job over 1,769 papers
-# (2026-08-04 build), against the 24 h wall.
+# Measured runtime: 1 h 24 m as a single job over the full reference library
+# (2026-08-04 build), against the 24 h wall. Scale for the eligible-figure
+# count in the current corpus rather than assuming that runtime is fixed.
 #
-# Only figures whose caption declares more than one panel reach the VLM
-# (the `len(panels) <= 1: continue` filter in _pass3b_annotate_rois,
-# pipeline/figure_passes.py) — on that build, 934 of 21,789 figure
-# records, 4.3%. The GPU work is therefore small; the wallclock is
-# dominated by walking every document directory and rewriting
-# figures.json, so it scales with corpus size, not figure count.
+# Figures whose caption declares more than one panel or grouped-plate number
+# reach the VLM. Pass 3b also admits confidently bound bare historical plates
+# to high-confidence printed-number discovery. The eligible population remains
+# a small subset of figure records; measure it for the current corpus rather
+# than carrying a library-size-derived literal here. The job still walks every
+# document directory and rewrites figures.json, so wall time scales with corpus
+# size as well as eligible-figure count.
 #
 # An earlier estimate here read "~20 figures/paper × 2000 papers ≈ 11–17
 # hours"; it assumed every figure goes to the GPU and is what made Pass
@@ -82,6 +84,7 @@ module reset
 module load miniconda/24.7.1
 eval "$(conda shell.bash hook)"
 conda activate corpus
+corpus_check_checkout
 
 cd "$REPO_DIR"
 mkdir -p logs

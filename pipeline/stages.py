@@ -25,6 +25,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from contextlib import contextmanager
@@ -247,6 +248,10 @@ def _stage_recorded_complete(
     if expected_fingerprint is not None:
         if rec.get("input_fingerprint") != expected_fingerprint:
             return False
+    if stage_name == "taxa_and_lexicon_extraction":
+        from .annotate import annotation_outputs_problem
+        if annotation_outputs_problem(hash_dir) is not None:
+            return False
     return True
 
 
@@ -269,17 +274,50 @@ def _should_run_stage(
         return True
     if not _stage_recorded_complete(hash_dir, stage_name,
                                     expected_fingerprint=expected_fingerprint):
+        changes = _stage_input_changes(hash_dir, stage_name, expected_fingerprint)
+        logger.info("%s: rerunning (%s)", stage_name, ", ".join(changes))
+        processing_summary.setdefault("rerun_reasons", {})[stage_name] = changes
         return True
     logger.info("%s: skipping (recorded complete)", stage_name)
     processing_summary.setdefault("skipped_stages", []).append(stage_name)
     return False
 
 
+def _stage_input_changes(hash_dir, stage_name, expected_fingerprint):
+    """Explain receipt drift without loading a model or changing artifacts."""
+    from . import PIPELINE_VERSION
+    record = _load_pipeline_state(hash_dir)["stages"].get(stage_name)
+    if not isinstance(record, dict):
+        return ["missing completion record"]
+    if record.get("pipeline_version") != PIPELINE_VERSION:
+        return ["pipeline_version"]
+
+    def flatten(value, prefix=""):
+        out = {}
+        for key, item in value.items():
+            name = f"{prefix}.{key}" if prefix else key
+            if isinstance(item, dict) and item:
+                out.update(flatten(item, name))
+            else:
+                out[name] = item
+        return out
+
+    old = flatten(record.get("input_fingerprint") or {})
+    new = flatten(expected_fingerprint or {})
+    changes = sorted(key for key in old.keys() | new.keys()
+                     if key not in old or key not in new or old[key] != new[key])
+    if not changes and stage_name == "taxa_and_lexicon_extraction":
+        from .annotate import annotation_outputs_problem
+        problem = annotation_outputs_problem(hash_dir)
+        if problem:
+            return [problem]
+    return changes or ["completion record"]
+
+
 # Every resumable stage that descends from `processed.pdf`, and so is
 # invalidated by an OCR-language change (#176). That is all of them: the
-# core five plus taxa/lexicon extraction, which reads the chunks. Figure
-# passes are not listed because they are not gated by
-# :func:`_should_run_stage` — they re-run on every pass anyway.
+# core five plus taxa/lexicon extraction, which reads the chunks. Composite
+# figure receipts inherit these directives in the configuration loop below.
 _OCR_DEPENDENT_STAGES: Tuple[str, ...] = (
     "scan_detection",
     "pdf_preparation",
@@ -333,9 +371,32 @@ def _all_stage_artifacts_complete(
     )
 
 
+def _metadata_fingerprint_for_pdf(bib_index, filename: str, *,
+                                  grobid_context=None, hash_dir=None) -> Dict[str, Any]:
+    """Fingerprint the resolved entry, not the whole library bibliography.
+
+    Absence is a value: adding/removing an entry must invalidate metadata.
+    Filename is also consumed directly for provenance and fallback title/year,
+    even when a rename resolves to the same entry (or to no entry).
+    """
+    entry = bib_index.lookup(filename) if bib_index is not None else None
+    canonical = json.dumps(entry, sort_keys=True, ensure_ascii=False,
+                           separators=(",", ":"))
+    result = {"bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+              "filename": filename}
+    if grobid_context is not None:
+        from .grobid_state import REFERENCE_EVIDENCE_VERSION, grobid_input
+        result["grobid"] = grobid_input(grobid_context, hash_dir)
+        result["reference_evidence_version"] = REFERENCE_EVIDENCE_VERSION
+    return result
+
+
 def _expected_fingerprints_for_run(
     *,
+    config_fingerprints: Optional[Dict[str, Dict[str, Any]]],
+    metadata_fingerprint: Optional[Dict[str, Any]],
     ocrlang: Optional[str],
+    ocrmode: Optional[str],
     keeppages: Optional[str],
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -343,32 +404,36 @@ def _expected_fingerprints_for_run(
     """Build the ``{stage_name: input_fingerprint}`` map both resume
     gates need (#56).
 
-    Currently only ``taxa_and_lexicon_extraction`` consumes a
-    fingerprint — its value mirrors the dict the runner persists in
-    :func:`_record_stage_completion`: ``{"taxonomy": ..., "lexicons":
-    ...}`` with whichever keys are in scope this run. Other stages
-    take no fingerprint and don't appear in the returned map.
+    Metadata consumes a per-paper resolved BibTeX entry and filename;
+    annotation consumes taxonomy and lexicon fingerprints. OCR directives
+    invalidate the PDF and every descendant. Inputs are required at the call
+    boundary so a newly added input cannot silently miss the outer fast path.
+    ``metadata_fingerprint=None`` is only for callers without a document
+    context (e.g. tests isolating another stage); production resolves it with
+    :func:`_metadata_fingerprint_for_pdf`, including absent bib entries.
 
     Both ``main.py``'s outer fast-path and ``runner.py``'s per-stage
     gate must call this so they agree on what "stale" means; otherwise
     a doc whose stage was recorded under a now-edited lexicon will be
     silently skipped by whichever side forgets the fingerprint.
 
-    ``ocrlang`` (#176) is per-*document*, unlike the taxonomy and lexicon
-    fingerprints which are per-run — so callers must resolve it inside
-    their per-document loop rather than hoisting one value out.
+    ``ocrlang`` (#176) and ``ocrmode`` (#186) are per-*document*, unlike the
+    taxonomy and lexicon fingerprints which are per-run — so callers must
+    resolve both inside their per-document loop rather than hoisting them.
 
     It fingerprints *every* resumable stage, not just the two that read
-    it. Changing the OCR language rewrites ``processed.pdf``, and every
-    later stage descends from those bytes — docling reads the PDF, Grobid
-    reads it, chunks come from docling's text, taxa come from the chunks.
+    it. Changing the OCR language or execution mode rewrites
+    ``processed.pdf``, and every later stage descends from those bytes —
+    docling reads the PDF, Grobid reads it, chunks come from docling's text,
+    taxa come from the chunks.
     Fingerprinting only ``scan_detection`` and ``pdf_preparation`` re-OCRs
     the paper and then skips everything that consumes the result, so
     ``text.json`` still holds the old OCR while the log cheerfully reports
     the new ``-l``. That is worse than not re-running at all: it looks
     like it worked.
 
-    It has no default *on purpose*. The first cut of #176 gave it one, and
+    Neither OCR directive has a default *on purpose*. The first cut of #176
+    gave ``ocrlang`` one, and
     main.py's outer fast path — the gate that actually skips work, and
     which runs before the per-stage gate — silently kept the default:
     a paper with no tag last run recorded ``{}``, the gate expected ``{}``,
@@ -395,6 +460,8 @@ def _expected_fingerprints_for_run(
     None.
     """
     fps: Dict[str, Dict[str, Any]] = {}
+    if metadata_fingerprint is not None:
+        fps["metadata_extraction"] = dict(metadata_fingerprint)
     taxa_lex_fp: Dict[str, Any] = {}
     if taxonomy_fingerprint is not None:
         taxa_lex_fp["taxonomy"] = taxonomy_fingerprint
@@ -406,10 +473,36 @@ def _expected_fingerprints_for_run(
         fp = dict(fps.get(stage, {}))
         if ocrlang:
             fp["ocrlang"] = ocrlang
+        if ocrmode:
+            fp["ocrmode"] = ocrmode
         if keeppages:
             fp["keeppages"] = keeppages
         fps[stage] = fp
+    if config_fingerprints is not None:
+        for stage, config in config_fingerprints.items():
+            fp = fps.setdefault(stage, {})
+            fp["config"] = config
+            if stage in ("figure_materialization", "figure_crossref"):
+                for key, value in (("ocrlang", ocrlang), ("ocrmode", ocrmode), ("keeppages", keeppages)):
+                    if value:
+                        fp[key] = value
     return fps
+
+
+_DOCLING_IMAGE_PLACEHOLDER_RE = re.compile(
+    r"<!--\s*image\s*-->", re.IGNORECASE,
+)
+
+
+def _meaningful_extracted_text(raw: str) -> str:
+    """Text that can count as recovered language for quality gates (#267).
+
+    Docling writes one HTML image placeholder per graphic. Those markers are
+    layout metadata, not transcription; counting them made an entirely empty
+    figure-heavy document look progressively healthier as it acquired more
+    images.
+    """
+    return _DOCLING_IMAGE_PLACEHOLDER_RE.sub("", raw or "").strip()
 
 
 def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
@@ -439,7 +532,8 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     refs = _safe_load_json(hash_dir / "references.json")
     scan = _safe_load_json(hash_dir / "scan_detection.json")
 
-    body = (text.get("text") or "") if isinstance(text, dict) else ""
+    raw_body = (text.get("text") or "") if isinstance(text, dict) else ""
+    body = _meaningful_extracted_text(raw_body)
     pages = int(text.get("pages") or 0) if isinstance(text, dict) else 0
     chunk_list = chunks.get("chunks") or [] if isinstance(chunks, dict) else []
     fig_list = figures.get("figures") or [] if isinstance(figures, dict) else []
@@ -484,6 +578,30 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
                 "metric": round(score, 3),
             })
 
+    # ocr_no_text_recovered — OCR can exit zero without adding text (#268).
+    # Read both the explicit current field and the derivable older-artifact
+    # shape, so re-running gates against an existing build surfaces it too.
+    is_scan = isinstance(scan, dict)
+    textless_pages = (scan.get("pages_without_text") or []) if is_scan else []
+    ocr_page_count = int((scan.get("page_count") or 0) if is_scan else 0)
+    all_ocr_pages_textless = bool(
+        ocr_page_count
+        and len({int(p) for p in textless_pages if str(p).isdigit()})
+        >= ocr_page_count
+    )
+    if needs_ocr and (
+        bool(scan.get("ocr_no_text_recovered")) or all_ocr_pages_textless
+    ):
+        total = ocr_page_count or pages or "?"
+        flags.append({
+            "gate": "ocr_no_text_recovered",
+            "severity": "error",
+            "detail": (
+                f"OCR completed but all {total} page(s) have empty text layers"
+            ),
+            "metric": ocr_page_count or len(textless_pages),
+        })
+
     # ocr_pages_blanked — pages the per-page OCR timeout gave up on and
     # left with no text (#254). Distinct from empty_text: a document can
     # read as "mostly fine" on every other gate while a third of it is
@@ -493,7 +611,6 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     # that ended up with no text, so plates and blank versos are excluded
     # by construction rather than by threshold. See pipeline/scan.py
     # `_report_ocr_page_loss`.
-    is_scan = isinstance(scan, dict)
     blanked = (scan.get("pages_blanked") or []) if is_scan else []
     if blanked:
         # text.json's page count is the one the operator sees elsewhere;
@@ -575,6 +692,20 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     return flags
 
 
+_STAGE_DEPENDENTS = {
+    "scan_detection": ("pdf_preparation",),
+    "pdf_preparation": ("docling_extraction", "metadata_extraction"),
+    "docling_extraction": ("text_chunking", "figure_materialization"),
+    "metadata_extraction": ("quality_gates",),
+    "text_chunking": ("taxa_and_lexicon_extraction", "figure_crossref", "quality_gates"),
+    # These producers share the figure tree. Invalidate both while either is
+    # writing; a successful standalone vision overlay restores its CPU-floor
+    # receipt, but an interrupted one must not leave that receipt reusable.
+    "figure_materialization": ("vision_refresh", "figure_crossref", "quality_gates"),
+    "vision_refresh": ("figure_materialization", "figure_crossref", "quality_gates"),
+}
+
+
 @contextmanager
 def _stage(
     processing_summary: Dict[str, Any],
@@ -596,9 +727,25 @@ def _stage(
     started_at = _utcnow_iso()
     t0 = time.monotonic()
     err: Optional[BaseException] = None
+    if hash_dir is not None:
+        # Clear dependent receipts before touching producer artifacts. This
+        # also handles interruption between producer commit and consumer work,
+        # even when a forced rerun used the same settings.
+        state = _load_pipeline_state(hash_dir)
+        pending = [name]
+        invalidated = set()
+        while pending:
+            stage = pending.pop()
+            if stage not in invalidated:
+                invalidated.add(stage)
+                pending.extend(_STAGE_DEPENDENTS.get(stage, ()))
+        if invalidated.intersection(state["stages"]):
+            for stage in invalidated:
+                state["stages"].pop(stage, None)
+            _save_pipeline_state(hash_dir, state)
     try:
         yield
-    except Exception as e:
+    except BaseException as e:
         err = e
         raise
     finally:

@@ -276,3 +276,22 @@ def test_build_biblio_authority_idempotent(biblio_corpus: Path):
         if table in counts1:
             assert counts2[table] == counts1[table], \
                 f"{table} grew on re-run: {counts1[table]} → {counts2[table]}"
+
+
+def test_build_biblio_authority_rebuild_reingests_tracked_artifacts(
+    biblio_corpus: Path,
+):
+    """--rebuild must not retain stamps that make the fresh DB empty."""
+    out = biblio_corpus
+    db = out / "biblio_authority.sqlite"
+    _run("build_biblio_authority.py", str(out))
+    before = _row_counts(db)
+
+    _run("build_biblio_authority.py", str(out), "--rebuild")
+    after = _row_counts(db)
+
+    for table in (
+        "works", "work_authors", "citations", "reference_observations",
+        "observation_work", "paper_artifacts_processed",
+    ):
+        assert after[table] == before[table]

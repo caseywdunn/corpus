@@ -110,6 +110,7 @@ python -m pipeline.embed         <output_dir>                       # Stage 2
 python -m bib.authority          <output_dir>                       # biblio DB
 python -m pipeline.taxon_mentions <output_dir>                       # taxon DB
 python -m pipeline.intext_citations <output_dir>                     # intext refs
+python -m pipeline.page_report <output_dir>/documents/<HASH> --pages 1-3
 python -m bib.reconcile          <output_dir>                       # ghost merge
 python -m pipeline.taxonomy_ingest <output_dir> --source <dwc|dwca|worms> ...
 python -m mcpsrv.bundle          <output_dir> <serve_dir> --version vX.Y.Z
@@ -159,6 +160,29 @@ library repo has to agree with what `scan.py` actually does, and nothing
 checks that it still does — the same shape as `consolidateCitations` being
 settable and never read, or `tesseract_packs` being recorded and then
 recomputed by a different route.
+
+### Execution-plane invariants
+
+Use the four execution planes defined in `dev_docs/OVERVIEW.md` under
+"Execution planes and data ownership": library curation,
+build/materialization, serve/query, and client/agent. These boundaries are
+contributor constraints:
+
+- Data flows library → build → immutable bundle → bounded response → client.
+  Client feedback becomes a reviewed library or config edit, never an MCP-side
+  corpus mutation.
+- OCR, extraction, figure/caption association, reconciliation, corpus-wide
+  indexing, embeddings and external enrichment belong to the build plane.
+- The running server is logically read-only and operationally bounded. It may
+  look up, filter, authorize, format, and embed the active query with the
+  bundle's versioned model; it does not redo build decisions or call a general
+  LLM.
+- The client owns synthesis and presentation. Hard licensing, provenance and
+  access-control rules stay at the server boundary rather than relying on
+  client instructions.
+- Any serve-time cache is disposable and separate from the immutable bundle.
+  On-demand crops currently violate this invariant and are tracked as an
+  architecture gap; do not copy that pattern into new features.
 
 ## Implementation notes for contributors
 

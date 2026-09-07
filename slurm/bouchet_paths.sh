@@ -16,6 +16,42 @@ BOUCHET_PROJECT="${BOUCHET_PROJECT:-/nfs/roberts/project/pi_cwd7/cwd7}"
 
 REPO_DIR="${REPO_DIR:-$BOUCHET_PROJECT/corpus}"
 
+# A console entry point uses its installed package location, not the shell's
+# cwd. The orchestrator also changes cwd before starting Python subprocesses.
+# Pin imports for both to the selected checkout, including alternate worktrees.
+REPO_DIR="$(cd "$REPO_DIR" && pwd -P)" || return 1
+export REPO_DIR
+export PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}"
+
+corpus_check_checkout() {
+    # Run outside the repository root so cwd cannot mask a stale installation.
+    # Call after activating conda, before each build phase or any submission.
+    (
+        cd "$REPO_DIR/pipeline" || exit 1
+        python - "$REPO_DIR" "${CORPUS_BUILD_GIT_SHA:-}" <<'PY'
+import importlib.util
+from pathlib import Path
+import subprocess
+import sys
+
+root = Path(sys.argv[1]).resolve()
+for name in ("pipeline", "bib", "mcpsrv"):
+    spec = importlib.util.find_spec(name)
+    actual = Path(spec.origin).resolve() if spec and spec.origin else None
+    expected = root / name / "__init__.py"
+    if actual != expected:
+        sys.exit(f"Checkout mismatch: {name} resolves to {actual}; expected {expected}")
+    print(f"Build import: {name} = {actual}", flush=True)
+sha = subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True,
+).strip()
+if sys.argv[2] and sha != sys.argv[2]:
+    sys.exit(f"Checkout changed since submission: {sha}; expected {sys.argv[2]}")
+print(f"Build checkout: {root} @ {sha}", flush=True)
+PY
+    )
+}
+
 # Corpuscle config.yaml — the source of truth for the `corpus run` flow
 # (#138). input_pdfs / output_dir / bib / lexicon / taxonomy / grobid all
 # live INSIDE that file, not as CLI flags or shell vars here. The phase

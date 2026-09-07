@@ -60,6 +60,7 @@ source "$SCRIPT_DIR/bouchet_paths.sh"
 module reset
 module load miniconda
 conda activate corpus
+corpus_check_checkout
 
 cd "$REPO_DIR"
 # `corpus run` creates its own output_dir from $CORPUS_CONFIG; only the

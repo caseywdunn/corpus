@@ -5,6 +5,565 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-07
+
+### Theme — v1.3 evidence integrity and auditability
+
+A focus of this cycle was caption binding: figures bound to the wrong caption
+were the most conspicuous errors in real use — answers that read as evidence
+and were not. Alongside them sat whole-document OCR loss that satisfied every
+quality gate, embeddings that only ever appended, and reference reconciliation
+whose result depended on the order its inputs arrived in.
+
+These are one product problem. corpus could return plausible evidence without
+being able to show that it was the evidence printed on the page, or that a
+re-run would return the same current corpus.
+
+So the work was making the pipeline show its sources and be clear about lack
+of evidence. Captions carry auditable ownership — provenance spans, status,
+confidence, and the candidates that lost — rather than resting on proximity.
+Figure references carry logical indexes and source pixels, and an on-demand
+page audit puts the parsed result beside the original page. Reference
+observations were separated from canonical works, so a citation string is
+evidence about a work rather than an assertion of one. Whole-document OCR loss
+fails loudly: quality gates strip Docling's image placeholders before
+measuring text, so adding figures can no longer make an empty document look
+healthier.
+
+The update path got the same treatment. A re-run can no longer leave stale
+evidence behind — configuration changes invalidate their consumers and
+everything downstream, retired sources leave the build and the served bundle
+together, embeddings replace each document atomically, and query vectors are
+bound to the producer that built the index, so a bundle cannot be searched
+with a model that did not write it.
+
+The served surface narrowed to match: the 38-tool MCP inventory is frozen
+behind a contract snapshot, query-time figure crops stopped mutating the
+immutable bundle they read from, and figure downloads move through scoped
+expiring URLs that never carry the bearer token.
+
+The corpuscle update contract (#265) and the full input-fingerprint extension
+(#174) are deliberately partial and carry into v1.4, along with the
+skills-and-usage work originally scoped here.
+
+### Added
+
+- **Opt-in all-tool acceptance against a real, filesystem-enforced read-only
+  bundle.** Offline query embedding and whole/panel figure downloads run
+  through the deployed nginx route. Coverage is checked against the frozen MCP
+  inventory; transport success is kept separate from source-fidelity evidence.
+
+- **BHL enrichment reports its outcomes (#260).** The phase summary counts the
+  current run's eligible observations, newly attempted lookups, cached/resumed
+  outcomes, and found / not-found / error / skipped results — three of these
+  counters were initialized and never touched, so a run that took hours could
+  report nothing about what it achieved. These are observation outcomes rather
+  than HTTP-request counts: one lookup may issue a narrow and a broad query,
+  and the process-local cache may avoid the second. A no-op correctly reports
+  zero current attempts. The historical cache inventory is labeled separately
+  and must not be read as the current run's hit rate.
+
+- **Query embeddings match the build producer (#174/#271).** New bundles
+  include a portable embedding-identity sidecar; the server loads the recorded
+  model/revision and refuses incompatible same-dimension overrides or local
+  weights. Producer changes require a whole-index rebuild, and legacy receipt
+  migration cannot leave an unselected old population mixed in. Legacy bundles
+  remain usable with an explicit weaker-proof warning. Custom model vector
+  dimensions are read from the loaded encoder instead of assumed to be 1,024.
+
+- **Vision producer evidence is explicit (#174).** Fingerprints resolve default
+  model IDs and track loaded/cached repository revisions, custom local model
+  file contents, implementation and package versions, and generation settings.
+  Results retain that evidence. Remote model IDs are identified as a weaker
+  proof level; `figures.producer_id` supports operator-declared deployments.
+  Offline status/dry-run never downloads or instantiates a vision model.
+
+- **Build references include logical indexes and figure pixels (#187).**
+  Compare current bibliography/taxonomy mappings, exact vector values and
+  multiplicity, and decoded pixels rather than counts alone. Bookkeeping
+  timestamps, row order, embedding transaction IDs and PNG metadata do not
+  masquerade as evidence changes. Snapshots never overwrite an accepted file.
+
+- **MCP collection inputs have a common safety budget (#277).** Explicit
+  lists accept at most 500 items, 4,096 characters per item and 65,536 characters
+  in total. Oversized requests fail before corpus lookup with the existing
+  `invalid_argument` shape; split them into batches. Tool names, signatures,
+  defaults and normal result shapes are unchanged and now snapshot-tested.
+
+- **Figure downloads use scoped, expiring URLs (#276).** Tool results never
+  expose the shared MCP bearer token (`auth_header` is retained as `null`).
+  Links authorize one figure/panel/profile for five minutes, cannot authorize
+  MCP routes, and expire on restart. Reverse-proxy deployments configure
+  `--public-base-url` or `CORPUS_PUBLIC_BASE_URL` and forward `/figures/`.
+
+- **Figure crops no longer mutate served bundles (#275).** MCP and HTTP use
+  one bounded disposable cache keyed by image content and ROI. Panel downloads
+  work on the first request, without requiring a previous MCP crop call.
+  Read-only bundles are supported; stale crops cannot survive changed pixels
+  or ROI coordinates. ROI paths are logical cache identifiers—use the image or
+  URL tool for bytes. Oversized crop sources fail explicitly without downscaling.
+
+- **Taxonomic authority links refresh after source edits (#265).** Current
+  authorship strings and bibliography evidence replace obsolete links and
+  unused stubs, including when the actual publication is acquired later.
+  Unchanged replays write nothing; still-cited works and curator links remain
+  intact. Ambiguous second-author matches no longer choose by insertion order.
+
+- **Taxonomy refresh follows source receipts (#174/#265).** Unchanged DwC/DwC-A
+  inputs reuse the snapshot without writes; changed source bytes or root
+  selection produce a complete replacement, removing obsolete taxa and names.
+  Failed ingestion preserves the previous database, and replaced snapshots
+  remain recoverable. Full runs and status check source receipts; phase-split
+  extraction requires a current pre-build. WoRMS stays pinned until an explicit
+  rebuild, rather than being silently refreshed on every launch.
+
+- **Annotation output sets are explicit (#174/#265).** Resume verifies file
+  digests and repairs missing/corrupt annotations. Removing or emptying a
+  lexicon category, or disabling annotation, archives its old outputs and
+  retires stale taxon-index rows. Missing configured inputs fail instead of
+  masquerading as deliberate removal. Category names cannot overwrite core
+  evidence files. Legacy annotation receipts migrate once, without OCR work.
+
+- **Status audits current source inputs (#174).** With a config, it reports
+  PDF additions/removals, renamed/copied paths, per-paper BibTeX and OCR/page
+  directive edits, lexicon changes and built-taxonomy drift alongside the
+  configuration audit. It writes nothing and starts no models; unreadable
+  inputs are errors, and unconfigured/unprobed inputs are explicitly reported
+  as outside the audit rather than assumed unchanged.
+
+- **Source retirement and bundle replacement preserve update integrity
+  (#265).** Incomplete source inventories and failed vector pruning abort
+  updates. Removed documents are archived outside the active tree, bibliography
+  and taxon indexes drop their current edges, and taxon refresh compares content
+  digests. Bundles are assembled and audited in a fresh directory before
+  offline replacement, so stale PDFs, annotations and vector generations cannot
+  leak forward. Previous bundles remain recoverable; staging requires space
+  for a complete additional served bundle.
+
+- **Reference evidence is now independent of canonical works (#240,
+  deterministic core).** Every bibliography occurrence is retained as a
+  content-addressed, append-only observation; replaceable source-set pointers
+  identify the current evidence without deleting superseded raw or parsed
+  citations. A separate observation-to-work relation records the match method,
+  score and rule-producer version. When the current observation set changes,
+  the complete derived mapping is rebuilt in stable order, so an incremental
+  paper addition converges with a clean build and an unchanged rerun leaves
+  the evidence and mapping rows untouched. Corpus-paper reconciliation records
+  its own scored decision, and maintenance merges redirect observation
+  mappings before removing a canonical duplicate. The existing `citations`
+  table remains the frozen MCP compatibility materialization; no tool name,
+  input or response shape moves.
+
+- **Build regression references expose equal-count evidence changes (#187).**
+  The operator-side snapshot/comparison tool fingerprints primary JSON content,
+  reports reference-field differences, separates unchanged warnings from hard
+  failures, and records manifest facts and diagnostic PDF/TEI hashes. It never
+  overwrites an existing reference or automatically accepts a changed build.
+
+- **Grobid reference observations retain raw citation strings.** Fulltext
+  requests now explicitly request them; Stage 1 and TEI-cache receipts force a
+  one-time migration of older builds. Structured fields remain best-effort
+  interpretations of that evidence, not replacements for it. Source-backed
+  reference assertions catch lost title words and author surnames even when
+  the bibliography count is unchanged.
+
+- **One canonical work can retain multiple corpus PDFs.** Document membership
+  now preserves every scan's reference observations, hash lookups and BibTeX
+  round trips. Licensing, serving exclusions and page/OCR directives remain
+  per-document. Metadata content changes, DOI edits and artifact removals
+  invalidate reference mappings without deleting historical observations.
+
+- **A read-only reference-reconciliation audit makes the missing-work ranking
+  inspectable (#155).** `tools/qc/reference_reconciliation.py` reports current,
+  mapped and unmapped observation populations; compatibility-edge collapse;
+  mapping methods and producer versions; bounded raw/parsed evidence; and a
+  deliberately separate same-title/year review signal with exact author-set
+  agreement marked. It never mutates the authority graph or MCP surface.
+
+- **Per-document `ocrmode` makes a wrong OCR routing decision correctable
+  (#186).** A BibTeX entry may set `ocrmode = {force}`, `{redo}`, or
+  `{skip-text}` alongside `ocrlang`. A valid directive forces OCR to run even
+  when detection called the PDF born-digital, preserves the detector's
+  original verdict in `scan_detection.json`, round-trips through the
+  bibliographic authority database, and fingerprints every descendant stage
+  so edits cannot be skipped by resume. Unknown values are recorded and
+  ignored with a warning.
+
+- **An on-demand, self-contained page audit joins the evidence needed to
+  diagnose extraction and caption failures (#274).**
+  `python -m pipeline.page_report <output>/documents/<HASH> --pages 12-13`
+  renders the processed page beside selectable Docling text, with toggleable
+  PDF-word, figure, ROI, chosen-caption and rejected-caption overlays plus
+  page-level counts and provenance. It is re-runnable, excluded from served
+  bundles, and bounded to 200 selected pages unless explicitly overridden.
+  The old unconditional `visualizations/*.png` pass has been removed, so a
+  normal build no longer creates a second raster set for every document.
+
+### Changed
+
+- **The GPU vision phase is substantially slower, by design — plan cluster
+  allocations accordingly.** On the 1775-paper reference library the phase
+  went from 1h27m under v1.2.1 to several hours. Measured per figure: v1.2.1
+  put 1,047 figures through the model in 87 minutes, about 5.0s each; v1.3
+  takes 7-17s each. Three causes, all intended:
+
+  - #253 replaced the flat `max_new_tokens=1024` with a budget scaled by the
+    caption-derived panel count, and #269 retries a response that stops at the
+    cap once at double budget. Generation time scales with the budget. This is
+    the dominant term, and it is the direct cost of no longer recording
+    panel-rich figures as having no labels because their JSON was truncated.
+  - The caption-ownership work (#195, #203) identifies multi-panel captions
+    that v1.2.1 missed, so more figures qualify for panel detection at all.
+  - Pass 3c compound resolution is new work on top of Pass 3b.
+
+  The cost is concentrated, not spread: about 70% of documents finish in under
+  a second because they have no panel-rich figures, while a handful of
+  plate-rich monographs dominate — one 457-figure work took 14 minutes on an
+  H200. Budget by the figure-heavy tail, not by paper count. Separately, see
+  #281: until that fix the phase also re-extracted every document, which is
+  waste rather than cost and is not included in these numbers.
+
+- **Header-only `get_papers` projections read the in-memory index.** Requests
+  needing no taxonomy or lexicon detail no longer read document artifacts;
+  requested details load only their relevant inputs. Response fields and
+  ordering are unchanged.
+
+- **The lint gate moved from bare Pyflakes to Ruff's F rules (#259).** The
+  dependency swap lands in `environment.yaml`, `requirements.txt` and
+  `pyproject.toml`'s `dev` extra; `[tool.ruff.lint]` selects `F` only, keeping
+  the migration bounded to Pyflakes-compatible checks. This repairs a
+  suppression that never worked: bare Pyflakes does not implement `# noqa`, so
+  the `# noqa: F401` on the side-effect imports in `mcpsrv/tools/__init__.py`
+  had no effect, and F401 could not be promoted to a gate without deleting
+  imports that register the entire MCP tool surface. T0 now runs `ruff check
+  pipeline mcpsrv bib tools`, and `tests/test_no_undefined_names.py` repeats
+  F821 with `--ignore-noqa` so an undefined name cannot hide behind a
+  suppression.
+
+### Fixed
+
+- **The GPU vision phase no longer re-extracts the whole corpus (#281).**
+  `--only vision` passes `--refresh-vision`, which reset the figure base
+  unconditionally — and resetting runs a full docling conversion per document.
+  On the 1775-paper reference library that turned a phase which previously
+  logged **zero** docling conversions and finished in 1h27m into one whose
+  distinct documents touched and re-conversions were exactly 1:1, projecting
+  ~35 hours against `batch_pass3b.sh`'s 24-hour limit: the build could not
+  finish in one allocation, and it held an H200 idle while doing CPU-bound
+  extraction, tripping the cluster's GPU-utilisation policy.
+  The reset exists so annotation never starts from prior split state, which
+  only Pass 3c produces — it renames a host figure's image and records
+  `previous_filenames` / `image_shared_with`. Passes 3a and 3b never touch
+  image files at all. The base is therefore reset only for documents that
+  carry that state: 20 of 1775 on the reference library, 1.1%. An unreadable
+  or absent `figures.json` still resets, because a base that cannot be
+  vouched for is one to rebuild. Page annotations and the figure report now
+  refresh on every vision pass rather than only when the base was reset,
+  since Pass 3b/3c rewrote the records either way.
+
+- **The taxonomy fingerprint identifies the source, not the snapshot file
+  (#278).** `taxonomy.sqlite` embeds per-row `fetched_at` and
+  `meta.last_ingest_ts`, so re-ingesting byte-identical input produced a
+  byte-different file. Hashing that file made the `taxa_and_lexicon_extraction`
+  fingerprint churn on every rebuild and dragged every document's `taxa.json`
+  with it, so no two builds of the same corpus could ever compare equal. The
+  stage now records the snapshot's own `meta.input_fingerprint` — source kind,
+  root selection, parser receipt version and the DwC bytes actually read —
+  which is what the stage consumes. Snapshots predating receipts fall back to
+  the file hash until `corpus taxonomy ingest` rewrites them.
+
+- **A dead Grobid server can no longer be silently substituted (#279).**
+  Grobid binds a fixed port 8070, so SLURM co-scheduling two Grobid jobs on one
+  node kills all but the first — *after* the loser has reached `RUNNING`, which
+  is the only thing the pipeline's wait checked. Stage 1 was then pointed at a
+  node where another chain's server answered, extracting every document against
+  the wrong service while reporting success. `batch_pipeline.sh` now reconfirms
+  the Grobid job still owns the endpoint immediately before submitting Stage 1
+  and refuses otherwise, and `batch_grobid.sh` detects the bound port up front
+  and says so plainly instead of dying in a Jetty stack trace.
+
+- **Ordinary reference resume no longer ignores a newly enabled BHL enrichment
+  option or a changed year cutoff.** These settings and key availability now
+  invalidate the materialization receipt; credentials are never recorded.
+
+- **Reference updates retire obsolete derived author/title aliases even when a
+  paper keeps its DOI**, matching clean-build lookup behavior while retaining
+  explicit curation and BHL evidence. Malformed authority inputs fail before
+  replacing current evidence; invalid served JSON fails bundle auditing
+  instead of bypassing it.
+
+- **Homonymous taxon lookup is deterministic.** A name shared across kingdoms
+  resolved to whichever row SQLite happened to return first, so insertion
+  order could change how a taxon mapped between builds. Lookup now orders
+  accepted primary names before unaccepted primary names before synonym
+  aliases, breaking ties by taxon ID. This also preserves a directly named
+  unresolved taxon rather than silently forcing it onto a homonymous synonym
+  target.
+
+- **An authority refresh no longer drops the default serve policy.** The
+  BibTeX parser records an unspecified `serve` directive as an explicit null,
+  which `document_fields` passed through into the representative row, and that
+  violates `works.serve NOT NULL`. Both a missing key and that null are now
+  treated as the schema default.
+
+- **SLURM embedding jobs pin a GPU their torch build can use (#270).**
+  `slurm/batch_embed.sh` requested a bare `--gpus=1` on a partition mixing four
+  card types, but the pinned torch (2.12.0+cu130) ships no sm_89 kernels and no
+  PTX to JIT from. 19 of 40 nodes therefore degraded to CPU *inside* a GPU
+  allocation, logging normal progress until YCRC's utilization policy cancelled
+  the job — which is what killed the 2026-08-31 build at 181 of 1775 documents.
+  The job now constrains itself to `gpu:a40|gpu:a5000`, either of which
+  schedules sooner than pinning a single type. #270 stays open: this makes the
+  right card likely, not the wrong one loud.
+
+- **Grobid fallback metadata now recovers when capability returns (#174).**
+  Both resume gates distinguish deliberate disablement, incomplete extraction
+  and complete evidence. Startup outages and per-paper request/parse failures
+  retry on recovery without redoing OCR or figures; valid cached evidence
+  survives an outage. Curated BibTeX headers no longer conceal missing reference
+  extraction. Service-version and optional declared-producer changes invalidate
+  TEI; malformed responses cannot become successful caches. Status reports
+  recorded Grobid outcomes. Explicit disablement archives active TEI and removes
+  Grobid-derived data until reenabled. The Stage 1 CLI now honors configured
+  URL/disablement and applies the configured request timeout. Legacy capability
+  receipts require one metadata refresh, with Grobid available to regenerate
+  unverified TEI. Custom model contents are not remotely verified.
+
+- **Stage 1 configuration changes invalidate their consumers and descendants
+  (#174, configuration tranche).** OCR/probe controls, raster settings,
+  fallback chunking, Grobid consolidation, panel mode/explicit model and quality
+  thresholds now participate in both resume gates. Stale TEI is archived and
+  revalidated against the prepared PDF and consolidation inputs. Panel changes
+  rebuild an unsplit figure base; full extraction replaces obsolete images
+  and sidecars. Interrupted/failed producers cannot retain old success receipts,
+  including a failed standalone vision overlay. Chunk/figure links no longer
+  accumulate obsolete IDs. Status reports configuration differences read-only.
+  Legacy builds without configuration receipts require one Stage 1 refresh;
+  this supersedes the metadata-only migration cost described below. External
+  service/model provenance and whole-build update acceptance remain open.
+
+- **Input BibTeX edits and PDF renames invalidate metadata (#174, first
+  tranche).** Both resume gates compare the canonical resolved entry for each
+  paper, including entry absence, and the filename used for provenance and
+  fallback title/year. Unaffected papers retain their receipts; affected papers
+  reuse OCR, Docling, chunks and materialized figure/vision results instead of
+  overwriting vision ROIs with the CPU floor. Added/removed identical source copies refresh
+  the path inventory even when extraction skips, allowing embedding to update
+  its stored paths. Legacy builds need one metadata refresh, not full extraction.
+
+- **Embedding updates replace each document atomically (#271).** Resume now
+  verifies a content/metadata fingerprint and the committed row generation,
+  count, model and dimension. Changed text cannot be skipped, shortened or
+  empty documents cannot leave stale rows, and retries cannot append duplicates.
+  Stage 1 no longer writes fake embedding receipts. Legacy receipts trigger a
+  one-time re-embedding; status, dry-run and bundling verify actual completion,
+  and bundling checks the entire index instead of sampling a marker. Switching
+  models requires a whole-index rebuild even when dimensions match.
+
+- **SLURM builds now load the selected checkout through the entire job
+  chain.** An alternate `REPO_DIR` previously changed the working directory
+  while the installed `corpus` entry point and phase subprocesses could still
+  import an older editable installation. The shared setup now exports the
+  selected checkout on `PYTHONPATH`. The launcher and every build phase verify
+  package paths; phases also reject a commit change after submission. These
+  checks prevent a successful bundle stamped by new code from masking old
+  extraction code.
+
+- **`bib.authority --rebuild` no longer retains artifact stamps that empty the
+  rebuilt database.** The command previously dropped `works` while preserving
+  `paper_artifacts_processed`, causing unchanged `metadata.json` files to be
+  skipped when the fresh schema was seeded. Rebuild now drops all derived
+  tracking and observation tables along with the authority graph while still
+  retaining the rate-limited BHL lookup cache.
+
+- **Authority tests now exercise the production database schema (#237).**
+  Five fixtures had copied mutually inconsistent `works`, `work_authors`,
+  `citations`, and `work_aliases` declarations, so adding a production column
+  broke only whichever tests happened to select it. They now call
+  `bib.authority.create_schema` and insert small datasets into the real schema.
+  A repository test rejects any future hand-written `works` declaration under
+  `tests/`, making schema additions visible everywhere immediately.
+
+- **Reference ingestion no longer manufactures title evidence (#226, #239).**
+  A Grobid `monogr/title[@level='j']` is now retained only as the journal;
+  only an analytic title or a non-journal monograph title can become the cited
+  work's title. The authority builder also clears exact legacy
+  title-equals-journal duplicates before matching. When an exact DOI lookup
+  misses, narrowly shaped OCR variants (hyphen insertion/loss or a long
+  alphabetic suffix glued onto the DOI) may resolve to an existing work only
+  when its title independently passes the established token-set and straight
+  similarity thresholds. The original DOI is not silently rewritten, and
+  neither DOI resemblance nor title similarity can merge a work alone.
+
+- **High-confidence citation variants now reach the in-corpus work across a
+  damaged first-author block (#155, #225).** DOI normalization strips
+  `info:doi/` and decodes percent escapes; a dangling-parenthesis DOI is only a
+  candidate when independent title evidence passes. Cross-block matching
+  requires the same year, the complete order-insensitive author-surname set,
+  substantive titles, one unique in-corpus candidate, and the established
+  exact or dual fuzzy-title thresholds. A conflicting DOI is retained in the
+  raw observation and named in the mapping method. On the 2026-09-01 reference
+  bundle, the Mapstone false node fell from 54 citation edges to 3 while the
+  canonical node held 54 after replay; canonical *Siphonophore biology*
+  reached 109, and
+  encoded/prefixed DOI ghosts ceased contributing. No resolver-safe
+  title/year/author-set candidate remained in the missing list, while 96
+  title/year-only review leads remained; #155 stays open for those damaged or
+  genuinely ambiguous cases.
+
+- **Unmappable observations no longer force every unchanged authority run to
+  rematerialize (#240).** The current reference bundle exposed a legacy schema
+  limitation: 17 citing documents that share canonical work identities with
+  another corpus document contribute 2,509 observations but cannot be
+  represented by scalar `works.corpus_hash`. The producer-validity check now
+  compares against the mappable active population, taking the unchanged pass
+  from a repeated 338-second rebuild to a `(0, 0)` no-op in 9.22 seconds. The
+  QC report exposes the unmapped population; a first-class one-work/many-
+  document relation remains required rather than being hidden by this guard.
+
+- **The figure-detection scorer now measures physical detections and the actual
+  default MCP type filter (#194).** The documentation called “drop
+  `graphical_element`” the served surface, but default retrieval also excludes
+  the `unclassified` review bucket. Both paths now consume one shared evidence
+  type set. Scorer v2 also excludes caption/vision children that deliberately
+  share a plate or compound image and collapses typed panel siblings. On the
+  clean 35-document gold corpuscle, 653 entries contain 261 image-sharing
+  logical records and collapse to 384 physical detections: 0.883 recall /
+  0.865 precision raw, 0.867 / 0.985 after dropping `graphical_element`, and
+  0.827 / 1.000 on the default MCP type surface. The preceding clean artifact
+  has the same 384 physical figures and identical scores despite carrying only
+  30 logical children. The former 0.936 / 0.876 headline counted logical
+  retrieval records as newly detected images and is invalid. Raw and
+  `include_all` records remain available for review.
+
+- **Whole-document OCR failures now fail visibly instead of satisfying clean
+  success paths (#264, #267, #268; #266 in part).** Documents with no content
+  layer or only a vendor wrapper use forced OCR rather than the self-defeating
+  `--skip-text`. A curated non-Latin `ocrlang` pin against a Latin-only text
+  layer triggers the rendered-page script check even below the configurable
+  gibberish floor — #266 stays open for the unpinned case, which still scores
+  under the floor and classifies as born-digital.
+  Quality gates remove Docling `<!-- image -->` placeholders before measuring
+  text, so adding figures cannot make an empty document healthier. Finally,
+  OCRmyPDF exiting zero with every output page textless is persisted and
+  emitted as the error-level `ocr_no_text_recovered` gate, including when the
+  condition is derived from an older scan artifact. Verified on the reported
+  Lin/Zhang canary: its original symbolic-font layer exposed zero CJK
+  characters; `force` with `chi_sim+eng` recovered 447 and readable Chinese
+  prose.
+
+- **A BibTeX export could not be imported unchanged when it matched by
+  `work_id`.** The matcher already supported that stable identifier, but its
+  result counter did not, so the import raised `KeyError` before applying or
+  stamping the entry. The counter now covers the existing match route; this
+  also makes `ocrmode` export/edit/import round trips usable.
+
+- **Incomplete vision responses can no longer masquerade as successful empty
+  detections (#269).** Claude and local Qwen now share a panel-count-sized
+  output budget. A provider stop at the token cap retries that figure once at
+  twice the budget; a second stop is a hard failure even when a parseable
+  prefix survived. Malformed JSON or either missing required list fails the
+  same boundary. Only an explicit complete empty response becomes
+  `no_labels_found`, and `figures.json` preserves the failure reason in
+  `pass3_error` until a clean retry replaces it.
+
+- **Figure captions now carry auditable ownership rather than only plausible
+  text (#195, #203).** Caption extraction preserves provenance spans across
+  Docling page merges, joins adjacent labels and prose, rejects a next-page
+  candidate when a substantial local figure is the better owner, and records
+  status, confidence, kind, page distance, and bounded chosen/rejected
+  candidates. Grouped plate captions now split lists/ranges into per-number
+  records, reconcile duplicate assignments only when the counts form a full
+  bijection, and use exact next-page legend matches to enrich preceding bare
+  labels. The figure MCP responses expose the summary fields without moving
+  association work into the server. On the 35-document regression replay,
+  scorer v7 now recognizes explicit plate inventories, standalone engraved
+  numbers (`1`, `F. 1.`), and a plate heading immediately outside `[PLATE]`.
+  It also scores typed identities, so `plate:10` cannot satisfy `figure:10` on
+  the same page. The prior gold parser omitted or collapsed that evidence and
+  reported 480 pairs where the transcription contains 839, so its old recall
+  headline is not a valid release baseline. On the corrected yardstick, the
+  retained clean candidate before facing-page expansion reports 313/318
+  correct (0.373 recall / 0.984 precision). The complete clean source-PDF
+  build reaches **538/545 correct (0.641 recall / 0.987 precision)** with
+  fixed-population capacity 544/839 (0.648). The scorer remains independent of
+  production OCR rules, reports raw and default-MCP surfaces plus capacity,
+  and excludes the anatomical key `Pl.M.` (mouth-plate) from Roman-numeral
+  plate labels.
+
+  Complete legends printed on the leaf before a full-page plate now bind only
+  when an explicit `PLATE N` heading exactly matches one plate on the following
+  page. OCR-damaged `Fic.`/`Fics.` openers are accepted only inside that
+  context. Plate and child-figure numbers use separate deduplication namespaces,
+  so Plate X no longer deletes Figure 10. On the persisted Totton replay this
+  creates captioned logical records and moves Totton from 181/184 correct
+  reported identities to **406/411 against 472 gold** in the clean build.
+  Inspection of the seven corpus-wide surpluses found three already marked
+  uncertain, two OCR-damaged printed numbers without independent repair
+  evidence, and one omitted gold structural block. The remaining defect was a
+  typed identity collision: a following-page Figure 16 legend could overwrite
+  a same-page Plate XVI link. That cross-namespace replacement is now rejected.
+
+  Panel correctness is now measured independently as well. Caption parsing
+  supports the common `A, ...; B, ...` style, preserves strong printed sets
+  with gaps through L, stops at abbreviation glossaries, joins geometrically
+  adjacent panel-description cells, and can reject a wrong structural link in
+  favor of a materially closer same-page numbered caption. In the clean build,
+  98 gold captions enumerate panels: 92 receive declarations, 89 label sets
+  are exact, and label recall / precision is 0.946 / 0.997. No panels are
+  declared on the 175 number-matched members of 202 non-panelled gold
+  identities.
+
+  Shared historical plates now proceed beyond logical record expansion:
+  Pass 2.5 records their numeric figure targets separately from lettered
+  panels, preserves an independent pre-expansion `missing_figures`
+  cross-check, and admits the host image to one Pass 3 ROI invocation. OCR
+  accepts bare numbers only through the exact caption-derived allow-list;
+  vision uses the same target set. Detected regions are distributed back to
+  the individual figure records, while the MCP server only reads and crops
+  that build-time evidence. A separately scheduled `--only vision` run now
+  also executes Pass 3c and rebuilds chunk/figure cross-references, matching
+  the inline full-run artifact contract.
+
+  Bare plates with no deterministic legend may use a tightly gated
+  unconditioned vision fallback. It requires at least two high-confidence
+  Arabic number/region pairs, persists accepted and rejected candidates, and
+  never treats a model description as a caption. The 34-plate local-Qwen probe
+  produced 216 regions; 215 agree with corrected gold. Its one false label was
+  an invented A-H grid copied onto figures 1-8, so that conflicting-grid shape
+  is now rejected regardless of self-reported confidence. Deterministic Pass
+  2.5 leaves only four of those plates eligible; their probe result adds nine
+  correct labels and no false ones, all nine of which persist in the clean
+  build.
+
+- **`corpus taxonomy ingest` doubled the `names` table on every re-run, and
+  v1.2.1 made it fire automatically (#262).** `names` shipped with no PRIMARY
+  KEY and no UNIQUE constraint, and both writes were plain `INSERT`. The only
+  dedup was a `set` built inside `insert_records`, which knows nothing about
+  rows already on disk. Re-ingesting therefore appended a complete duplicate
+  set: 801 names became 1,602, then 2,403.
+
+  Latent for as long as the code existed, because a re-ingest was an operator
+  choice. v1.2.1's #251 fix added an unconditional pre-build to
+  `slurm/batch_pipeline.sh` — justified by the claim that the ingest no-ops,
+  which was asserted without checking a row count and was false — so it began
+  firing on every launch, on the exact workflow that release existed to
+  unblock.
+
+  `names` now carries a unique index on `(name_lowercase, taxon_id,
+  name_type)` and both writes are `INSERT OR IGNORE`. Because
+  `CREATE UNIQUE INDEX` would fail on a database that already holds
+  duplicates, `create_schema` deduplicates first and logs how many rows it
+  removed — so **a corpuscle built with v1.2.1 is repaired in place on its
+  next ingest**, rather than needing a rebuild. `n_names` now counts rows
+  actually written instead of attempts, so the log stops reporting "801
+  names" against a table holding 1,602.
+
+  Lookups were correct throughout — `name_set()` uses `SELECT DISTINCT` and
+  `lookup()` chooses among identical rows — which is why nothing surfaced
+  this except the file growing. The three places that claimed idempotence now
+  say what changed and when.
+
 ## [1.2.1] - 2026-08-30
 
 ### Fixed
@@ -3610,4 +4169,3 @@ late-18th-century printed monographs through born-digital 2025 articles.
   [#11](https://github.com/caseywdunn/corpus/issues/11) for v0.1.x.
 - **Geographic extraction** (§12 Layer 3 in dev_docs/PLAN.md) — not yet implemented.
   Tracked in [#13](https://github.com/caseywdunn/corpus/issues/13).
-  

@@ -23,13 +23,15 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf
+from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 
 from . import stamp_artifact
 from .annotate import _extract_taxa_and_lexicons
 from .chunking import chunk_text
 from .config import CONFIG
+from .build_inputs import config_fingerprints as _config_fingerprints
 from .extract import extract_docling_content
+from .figure_materialization import rebuild_figure_base
 from .figure_passes import (
     _crossref_chunks_and_figures,
     _pass25_annotate_figures,
@@ -45,6 +47,7 @@ from .taxa import TaxonomyDB
 from .stages import (
     _HugeDocumentError,
     _expected_fingerprints_for_run,
+    _metadata_fingerprint_for_pdf,
     _pdf_page_count,
     _run_quality_gates,
     _should_run_stage,
@@ -132,6 +135,8 @@ def run_pdf_processing_pipeline(
     resume: bool = False,
     taxonomy_fingerprint: Optional[Dict[str, Any]] = None,
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+    run_config_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
+    grobid_context: Optional[Dict[str, Any]] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -148,8 +153,16 @@ def run_pdf_processing_pipeline(
     # Create subdirectories in hash directory
     figures_dir = hash_dir / "figures"
     figures_dir.mkdir(exist_ok=True)
-    visualizations_dir = hash_dir / "visualizations"
-    visualizations_dir.mkdir(exist_ok=True)
+    if grobid_context is None:
+        grobid_context = {"enabled": grobid_client is not None,
+                          "available": grobid_client is not None, "service_version": None}
+    if run_config_fingerprints is None:
+        run_config_fingerprints = _config_fingerprints(
+            {**CONFIG, "grobid": {**CONFIG.get("grobid", {}), "disable": not grobid_context["enabled"]}},
+            panel_mode=getattr(vision_backend, "panel_mode", "vision-" + vision_backend.name) if vision_backend is not None
+            else ("ocr" if content_aware_figures else "off"),
+            vision_model=getattr(vision_backend, "_model_id", getattr(vision_backend, "model", None)),
+            resolved_vision_producer=getattr(vision_backend, "producer", None))
 
     processing_summary = {
         "original_pdf": str(pdf_path),
@@ -194,7 +207,8 @@ def run_pdf_processing_pipeline(
         # before any expensive stage runs. Runs *after* the selection so a
         # 6,000-page bound volume can be brought into scope by selecting the
         # paper out of it — which is what the gate's own error text asks for.
-        with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir):
+        with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir,
+                    input_fingerprint={"config": run_config_fingerprints["huge_document_check"]}):
             max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 5000))
             n_pages = _pdf_page_count(temp_pdf)
             if n_pages is not None:
@@ -219,8 +233,12 @@ def run_pdf_processing_pipeline(
         # edits the bib, re-runs, and the stage is skipped because its
         # artifact is already on disk.
         ocrlang = ocrlang_for_pdf(bib_index, pdf_path.name)
+        ocrmode = ocrmode_for_pdf(bib_index, pdf_path.name)
         ocr_fingerprints = _expected_fingerprints_for_run(
-            ocrlang=ocrlang, keeppages=keeppages)
+            config_fingerprints=run_config_fingerprints,
+            metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                bib_index, pdf_path.name, grobid_context=grobid_context, hash_dir=hash_dir),
+            ocrlang=ocrlang, ocrmode=ocrmode, keeppages=keeppages)
         scan_fingerprint = ocr_fingerprints.get("scan_detection", {})
         prep_fingerprint = ocr_fingerprints.get("pdf_preparation", {})
 
@@ -233,7 +251,11 @@ def run_pdf_processing_pipeline(
                 plog.info("Detecting scan type...")
                 if ocrlang:
                     plog.info("OCR language pinned by bib: %s", ocrlang)
-                detection_result = detect_scan_type(temp_pdf, ocrlang=ocrlang)
+                if ocrmode:
+                    plog.info("OCR mode pinned by bib: %s", ocrmode)
+                detection_result = detect_scan_type(
+                    temp_pdf, ocrlang=ocrlang, ocrmode=ocrmode,
+                )
                 if page_selection:
                     # The resolved list *is* the subset->source map: subset
                     # page i is keeppages_selected[i - 1]. Recording it here
@@ -286,15 +308,8 @@ def run_pdf_processing_pipeline(
                         input_fingerprint=ocr_fingerprints.get("docling_extraction", {})):
                 plog.info("Extracting text and figures...")
                 with _docling_log_context(pdf_name, hash_dir.name):
-                    extract_docling_content(
-                        processed_pdf,
-                        text_file,
-                        figures_file,
-                        figures_dir,
-                        visualizations_dir,
-                        docling_doc_output=docling_doc_file,
-                        scan_file_type=detection_result.get("file_type"),
-                    )
+                    rebuild_figure_base(hash_dir, extract_docling_content,
+                                        figures_only=False)
                 processing_summary["files_created"].extend([str(text_file), str(figures_file)])
                 if docling_doc_file.exists():
                     processing_summary["files_created"].append(str(docling_doc_file))
@@ -307,11 +322,12 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("metadata_extraction", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary,
                              expected_fingerprint=ocr_fingerprints.get("metadata_extraction", {})):
+            metadata_fp = dict(ocr_fingerprints["metadata_extraction"])
             with _stage(processing_summary, "metadata_extraction", hash_dir=hash_dir,
-                        input_fingerprint=ocr_fingerprints.get("metadata_extraction", {})):
+                        input_fingerprint=metadata_fp):
                 plog.info("Extracting metadata (Grobid)...")
                 bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
-                extract_metadata(
+                grobid_result = extract_metadata(
                     processed_pdf,
                     metadata_file,
                     references_output=references_file,
@@ -319,7 +335,13 @@ def run_pdf_processing_pipeline(
                     grobid_client=grobid_client,
                     original_filename=pdf_path.name,
                     bib_entry=bib_entry,
+                    grobid_input=metadata_fp["grobid"],
                 )
+                # Success of the local metadata writer isn't success of the
+                # external extraction. Persist actual evidence so a live
+                # service retries per-paper failures through both resume gates.
+                metadata_fp["grobid"] = grobid_result["fingerprint"]
+                processing_summary["grobid"] = grobid_result
                 processing_summary["files_created"].extend(
                     [str(metadata_file), str(references_file)]
                 )
@@ -339,94 +361,93 @@ def run_pdf_processing_pipeline(
                 processing_summary["files_created"].append(str(chunks_file))
                 processing_summary["processing_steps"].append("text_chunking")
 
-        with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
-            plog.info("Pass 2.5: annotating figures from captions + text...")
-            _pass25_annotate_figures(text_file, figures_file)
-            processing_summary["processing_steps"].append("figure_pass25_annotation")
+        figure_fp = ocr_fingerprints["figure_materialization"]
+        refresh_figures = _should_run_stage(
+            "figure_materialization", hash_dir=hash_dir, resume=resume,
+            processing_summary=processing_summary, expected_fingerprint=figure_fp)
+        if refresh_figures:
+            with _stage(processing_summary, "figure_materialization", hash_dir=hash_dir,
+                        input_fingerprint=figure_fp):
+                if "docling_extraction" in processing_summary["skipped_stages"]:
+                    rebuild_figure_base(hash_dir, extract_docling_content)
+                with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
+                    _pass25_annotate_figures(text_file, figures_file)
+                if vision_backend is not None:
+                    with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
+                        _pass3b_annotate_rois(figures_file, vision_backend)
+                elif content_aware_figures:
+                    with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
+                        _pass3a_annotate_rois(figures_file)
+                if vision_backend is not None or content_aware_figures:
+                    with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
+                        resolve_compound_figures(figures_file)
+                processing_summary["processing_steps"].append("figure_materialization")
 
-        if vision_backend is not None:
-            with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
-                plog.info("Pass 3b: vision-model-driven panel + compound detection...")
-                _pass3b_annotate_rois(figures_file, vision_backend)
-                processing_summary["processing_steps"].append("figure_pass3b_rois")
-        elif content_aware_figures:
-            with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
-                plog.info("Pass 3a: OCR-driven panel ROI detection...")
-                _pass3a_annotate_rois(figures_file)
-                processing_summary["processing_steps"].append("figure_pass3a_rois")
-
-        # Pass 3c — resolve *_compound figures: split their ROIs, match
-        # to missing_figures, rename the PNG to range notation. Cheap;
-        # worth running whenever 3a or 3b has been run.
-        if vision_backend is not None or content_aware_figures:
-            with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
-                plog.info("Pass 3c: compound figure resolution + file rename...")
-                summary_3c = resolve_compound_figures(figures_file)
-                plog.info(
-                    "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
-                    summary_3c.get("resolved", 0),
-                    summary_3c.get("renamed", 0),
-                    summary_3c.get("unchanged", 0),
-                    summary_3c.get("new_records", 0),
-                )
-                processing_summary["processing_steps"].append("figure_pass3c_resolve")
-
-        with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir):
-            plog.info("Linking chunks to figures...")
-            _crossref_chunks_and_figures(figures_file, chunks_file)
-            processing_summary["processing_steps"].append("figure_crossref")
+        crossref_fp = ocr_fingerprints["figure_crossref"]
+        if _should_run_stage("figure_crossref", hash_dir=hash_dir,
+                             resume=resume and not refresh_figures,
+                             processing_summary=processing_summary, expected_fingerprint=crossref_fp):
+            with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir,
+                        input_fingerprint=crossref_fp):
+                plog.info("Linking chunks to figures...")
+                _crossref_chunks_and_figures(figures_file, chunks_file)
+                processing_summary["processing_steps"].append("figure_crossref")
 
         # ── taxa_and_lexicon_extraction ─────────────────────────────────
-        # Stage runs only when a taxonomy DB or at least one lexicon
-        # category is configured. The input_fingerprint captures the
+        # Empty configuration is a materialized decision too: it retires
+        # previous outputs. The input_fingerprint captures the
         # taxonomy + per-category content hashes, so editing one
         # lexicon section forces this stage to re-run on --resume.
-        run_taxa_anat = taxonomy_db is not None or bool(lexicons)
-        if run_taxa_anat:
-            # Build via the shared helper (#56) so the outer per-doc
-            # gate in main.py and this inner per-stage gate stay in
-            # lockstep — same dict shape, same staleness semantics.
-            # ocrlang rides along here too: chunks descend from the OCR,
-            # so a language change invalidates the taxa pulled out of them.
-            taxa_anat_fingerprint = _expected_fingerprints_for_run(
-                ocrlang=ocrlang,
-                keeppages=keeppages,
-                taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
-                lexicon_fingerprints=lexicon_fingerprints,
-            ).get("taxa_and_lexicon_extraction", {})
-            if _should_run_stage(
-                "taxa_and_lexicon_extraction",
-                hash_dir=hash_dir,
-                resume=resume,
-                processing_summary=processing_summary,
-                expected_fingerprint=taxa_anat_fingerprint,
-            ):
-                with _stage(processing_summary, "taxa_and_lexicon_extraction",
-                            hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
-                    plog.info("Extracting taxa + lexicon mentions...")
-                    taxa_anat_files = _extract_taxa_and_lexicons(
-                        chunks_file,
-                        hash_dir,
-                        taxonomy_db,
-                        lexicons,
-                        taxonomy_fingerprint=taxonomy_fingerprint,
-                        lexicon_fingerprints=lexicon_fingerprints,
-                    )
-                    processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
-                    if taxa_anat_files:
-                        processing_summary["processing_steps"].append("taxa_and_lexicon_extraction")
+        # Build via the shared helper (#56) so the outer per-doc
+        # gate in main.py and this inner per-stage gate stay in
+        # lockstep — same dict shape, same staleness semantics.
+        # ocrlang rides along here too: chunks descend from the OCR,
+        # so a language change invalidates the taxa pulled out of them.
+        taxa_anat_fingerprint = _expected_fingerprints_for_run(
+            config_fingerprints=run_config_fingerprints,
+            metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                bib_index, pdf_path.name, grobid_context=grobid_context, hash_dir=hash_dir),
+            ocrlang=ocrlang,
+            ocrmode=ocrmode,
+            keeppages=keeppages,
+            taxonomy_fingerprint=taxonomy_fingerprint if taxonomy_db is not None else None,
+            lexicon_fingerprints=lexicon_fingerprints,
+        ).get("taxa_and_lexicon_extraction", {})
+        if _should_run_stage(
+            "taxa_and_lexicon_extraction",
+            hash_dir=hash_dir,
+            resume=resume,
+            processing_summary=processing_summary,
+            expected_fingerprint=taxa_anat_fingerprint,
+        ):
+            with _stage(processing_summary, "taxa_and_lexicon_extraction",
+                        hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
+                plog.info("Extracting taxa + lexicon mentions...")
+                taxa_anat_files = _extract_taxa_and_lexicons(
+                    chunks_file,
+                    hash_dir,
+                    taxonomy_db,
+                    lexicons,
+                    taxonomy_fingerprint=taxonomy_fingerprint,
+                    lexicon_fingerprints=lexicon_fingerprints,
+                )
+                processing_summary["files_created"].extend(str(p) for p in taxa_anat_files)
+                if taxa_anat_files:
+                    processing_summary["processing_steps"].append("taxa_and_lexicon_extraction")
 
         # #188 — with pages dropped, `page` is a position in the subset, and
         # that is the number served to a client. Carry `source_page` beside
         # it so a figure is citable against the file the operator holds.
         # After every pass that rewrites figures.json, before the report
         # renders from it.
-        if page_selection:
+        if page_selection and (refresh_figures or "text_chunking" not in processing_summary["skipped_stages"]):
             with _stage(processing_summary, "source_page_mapping", hash_dir=hash_dir):
                 n = annotate_source_pages([figures_file, text_file, chunks_file],
                                           page_selection)
                 plog.info("keeppages: mapped %d page number(s) back to the source", n)
 
+        # Unlike ROI/caption materialization, this cheap report reads the
+        # bibliographic header, so a metadata edit must refresh its title/year.
         with _stage(processing_summary, "figures_report", hash_dir=hash_dir):
             plog.info("Generating figures report...")
             report_path = generate_figures_report(hash_dir)
@@ -438,7 +459,8 @@ def run_pdf_processing_pipeline(
         # Run after success so artifacts are populated. A failed gate
         # records a quality_flag in summary.json but does not fail the
         # paper; corpus_status.py (#40) rolls these up for review.
-        with _stage(processing_summary, "quality_gates", hash_dir=hash_dir):
+        with _stage(processing_summary, "quality_gates", hash_dir=hash_dir,
+                    input_fingerprint={"config": run_config_fingerprints["quality_gates"]}):
             qgs = _run_quality_gates(hash_dir)
             processing_summary["quality_flags"] = qgs
             if qgs:
@@ -457,4 +479,3 @@ def run_pdf_processing_pipeline(
 
     processing_summary["ended_at"] = _utcnow_iso()
     return processing_summary
-

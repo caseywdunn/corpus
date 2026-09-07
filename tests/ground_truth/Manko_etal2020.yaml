@@ -1,0 +1,19 @@
+# Source-backed checks: bibliography on original PDF pages 15–17, checked
+# against independent page-image transcriptions. The 368e34e build retained
+# 132 references but lost title words and surnames in six Grobid records.
+hash: 2da3e5f7da3c
+references:
+  min_count: 132
+  expected:
+    - year: 1992
+      title_contains: "Active and passive factors affecting aggregations of hydromedusae"
+      authors_contain: [Arai]
+      raw_contains: "affecting aggregations"
+    - year: 2010
+      title_contains: "Diversity and vertical distribution of Mesozooplankton"
+      authors_contain: [Kosobokova, Hopcroft]
+      raw_contains: "Kosobokova"
+    - year: 2010
+      title_contains: "Calanus glacialis reproduction and growth"
+      authors_contain: [Søreide]
+      raw_contains: "Calanus glacialis"

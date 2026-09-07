@@ -19,16 +19,18 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf
+from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 
 from . import config as _pipeline_config
-from .annotate import _extract_taxa_and_lexicons
-from .chunking import ingest_to_vector_db
-from .config import CONFIG, load_config
-from .figure_passes import _pass3b_annotate_rois
+from . import external
+from .config import load_config
+from .build_inputs import config_fingerprints as _config_fingerprints
+from .figure_passes import _crossref_chunks_and_figures, _pass25_annotate_figures, _pass3b_annotate_rois
+from .figure_materialization import has_split_figure_state, rebuild_figure_base
+from .extract import extract_docling_content
+from .figures import resolve_compound_figures
 from .grobid_client import GrobidClient
 from .io import (
-    HASH_PREFIX_LEN,
     _verify_or_raise_collision,
     audit_orphans,
     create_output_structure,
@@ -38,14 +40,61 @@ from .io import (
 )
 from .log import per_pdf_file_log, setup_root_logging
 from .runner import run_pdf_processing_pipeline
+from .taxonomy_ingest import snapshot_receipt
 from .taxa import TaxonomyDB, lexicon_fingerprints, load_lexicon
 from .stages import (
     _all_stage_artifacts_complete,
     _expected_fingerprints_for_run,
+    _metadata_fingerprint_for_pdf,
     _file_sha256,
+    _stage,
+    _record_stage_completion,
+    _load_pipeline_state,
+    _save_pipeline_state,
+    _run_quality_gates,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _refresh_vision_artifacts(
+    figures_file: Path,
+    chunks_file: Path,
+    vision_backend,
+    *,
+    reset_base=False,
+) -> None:
+    """Refresh the complete vision-derived figure layer for one document.
+
+    ``--only vision`` is the independently schedulable form of the figure
+    vision phase. It must leave the same artifacts as the inline full-run
+    path: Pass 3b evidence, Pass 3c compound materialization, and rebuilt
+    chunk/figure links. Keeping those follow-on passes here prevents a GPU
+    refresh from writing ROIs that the served bundle cannot actually reach.
+    """
+    if reset_base:
+        rebuild_figure_base(figures_file.parent, extract_docling_content)
+        _pass25_annotate_figures(figures_file.parent / "text.json", figures_file)
+    _pass3b_annotate_rois(figures_file, vision_backend)
+    summary_3c = resolve_compound_figures(figures_file)
+    logger.info(
+        "Pass 3c: %d resolved, %d renamed, %d unchanged, %d new records",
+        summary_3c.get("resolved", 0),
+        summary_3c.get("renamed", 0),
+        summary_3c.get("unchanged", 0),
+        summary_3c.get("new_records", 0),
+    )
+    _crossref_chunks_and_figures(figures_file, chunks_file)
+    # Unconditional: Pass 3b/3c rewrote ROIs and figure records either way, so
+    # the page annotations and the header-derived report must follow. Only the
+    # base rebuild above depends on prior split state (#281).
+    from .pageselect import annotate_source_pages
+    from .figures import generate_figures_report
+    scan_path = figures_file.parent / "scan_detection.json"
+    scan = json.loads(scan_path.read_text()) if scan_path.exists() else {}
+    if scan.get("keeppages_selected"):
+        annotate_source_pages([figures_file, chunks_file], scan["keeppages_selected"])
+    generate_figures_report(figures_file.parent)
 
 
 def _slice_hashes_for_batch(
@@ -87,8 +136,8 @@ def _expected_stages_for_run(
 
     Always includes the core stages (scan_detection, pdf_preparation,
     docling_extraction, metadata_extraction, text_chunking).
-    ``taxa_and_lexicon_extraction`` is added when a taxonomy DB or any
-    lexicon category is configured.
+    Annotation also records the empty configuration so removing its last
+    input retires old outputs instead of skipping them forever.
     """
     stages = [
         "scan_detection",
@@ -96,9 +145,12 @@ def _expected_stages_for_run(
         "docling_extraction",
         "metadata_extraction",
         "text_chunking",
+        "figure_materialization",
+        "figure_crossref",
+        "huge_document_check",
+        "quality_gates",
+        "taxa_and_lexicon_extraction",
     ]
-    if taxonomy_db is not None or lexicons:
-        stages.append("taxa_and_lexicon_extraction")
     return stages
 
 
@@ -153,18 +205,18 @@ def main():
     )
     parser.add_argument("input_dir", type=Path, help="Input directory containing PDFs")
     parser.add_argument("output_dir", type=Path, help="Output directory for processed files")
-    parser.add_argument("--resume", action="store_true", help="Skip documents whose summary.json already exists")
+    parser.add_argument("--resume", action="store_true", help="Skip stages with current producer and input fingerprints")
     parser.add_argument("--config", type=Path, default=None, help="Path to config.yaml (defaults to ./config.yaml)")
     parser.add_argument(
         "--grobid-url",
-        default=os.environ.get("GROBID_URL", "http://localhost:8070"),
-        help="Grobid service URL (default: $GROBID_URL or http://localhost:8070); "
-        "pass --grobid-url='' or --no-grobid to skip metadata extraction",
+        default=None,
+        help="Grobid service URL (default: $GROBID_URL, config, then http://localhost:8070); "
+        "pass --grobid-url='' or --no-grobid to disable Grobid-derived data",
     )
     parser.add_argument(
         "--no-grobid",
         action="store_true",
-        help="Skip Grobid even if reachable (useful for dev iteration on non-metadata stages)",
+        help="Disable Grobid-derived metadata/references (archive active TEI; retain BibTeX headers)",
     )
     parser.add_argument(
         "--bib",
@@ -212,7 +264,7 @@ def main():
     parser.add_argument(
         "--figure-panels",
         choices=["ocr", "vision-local", "vision-claude", "off"],
-        default="ocr",
+        default=None,
         help="Panel-ROI detection mode (#102). 'ocr' (default) runs Pass 3a "
              "— OCR-driven panel ROIs, CPU-only, self-gated to multi-panel "
              "figures. 'vision-local' / 'vision-claude' run Pass 3b "
@@ -272,18 +324,6 @@ def main():
 
     args = parser.parse_args()
 
-    # #102 — derive the legacy (content_aware_figures, vision backend name)
-    # pair the rest of the pipeline still threads through, from the single
-    # --figure-panels selector.
-    args.content_aware_figures, args.vision_backend = _panels_to_legacy(
-        args.figure_panels
-    )
-
-    if args.refresh_vision and not args.vision_backend:
-        parser.error(
-            "--refresh-vision requires --figure-panels vision-local|vision-claude"
-        )
-
     setup_root_logging()
 
     if args.strict_network:
@@ -309,8 +349,23 @@ def main():
             f"rather than run."
         )
     loaded = load_config(args.config)
+    grobid_config = loaded.get("grobid", {})
+    if args.grobid_url is None:
+        args.grobid_url = os.environ.get("GROBID_URL", grobid_config.get("url", "http://localhost:8070"))
+    args.no_grobid = args.no_grobid or grobid_config.get("disable", False) or not args.grobid_url
+    loaded["grobid"] = {**grobid_config, "disable": bool(args.no_grobid)}
     _pipeline_config.CONFIG.clear()
     _pipeline_config.CONFIG.update(loaded)
+    figures_config = loaded.get("figures", {})
+    args.figure_panels = args.figure_panels or figures_config.get("panel_detection", "ocr")
+    if args.figure_panels not in ("off", "ocr", "vision-local", "vision-claude"):
+        parser.error('figures.panel_detection must be off, ocr, vision-local or vision-claude (quote "off" in YAML)')
+    args.vision_model = args.vision_model or figures_config.get("model")
+    args.content_aware_figures, args.vision_backend = _panels_to_legacy(args.figure_panels)
+    if args.refresh_vision and not args.vision_backend:
+        parser.error("--refresh-vision requires --figure-panels vision-local|vision-claude")
+    run_config_fingerprints = _config_fingerprints(
+        loaded, panel_mode=args.figure_panels, vision_model=args.vision_model)
 
     input_dir = args.input_dir.resolve()
     output_dir = args.output_dir.resolve()
@@ -330,14 +385,21 @@ def main():
     # startup we log and carry on with placeholder metadata for every
     # document rather than retrying (and logging) per PDF.
     grobid_client: Optional[GrobidClient] = None
-    if args.no_grobid or not args.grobid_url:
+    grobid_context = {"enabled": not args.no_grobid, "available": False,
+                      "service_version": None}
+    if args.no_grobid or not args.grobid_url or args.dry_run:
         logger.info("Grobid skipped (--no-grobid or empty --grobid-url)")
     else:
-        probe = GrobidClient(base_url=args.grobid_url)
+        probe = GrobidClient(base_url=args.grobid_url,
+                             timeout=loaded["stage_timeouts"]["grobid"])
         if probe.is_alive():
             logger.info("Grobid reachable at %s", args.grobid_url)
             grobid_client = probe
+            grobid_context.update(available=True, service_version=probe.get_version())
         else:
+            if external.STRICT_NETWORK:
+                logger.error("Requested Grobid service is unavailable (--strict-network)")
+                return 1
             logger.warning(
                 "Grobid not reachable at %s — metadata will be placeholder. "
                 "Start it with `docker compose up -d grobid` (laptop/Docker "
@@ -360,8 +422,8 @@ def main():
             sys.exit(1)
 
     # Open taxonomy snapshot and (if supplied) the multi-category
-    # lexicon. Both are optional; missing inputs are logged and their
-    # output artifacts are skipped. The lexicon is opt-in via
+    # lexicon. Both are optional, but a configured unreadable source is
+    # a failure, not permission to retire previous outputs. Lexicon is opt-in via
     # --lexicon — there is no default lookup because it's a
     # domain-specific user input.
     taxonomy_db: Optional[TaxonomyDB] = None
@@ -373,24 +435,35 @@ def main():
         if taxonomy_path.exists():
             try:
                 taxonomy_db = TaxonomyDB(taxonomy_path)
-                # Stamp #29: hash once at startup so per-paper writes are
-                # cheap. SHA-256 of taxonomy.sqlite is a stable identifier
-                # that survives copy/move and changes any time the DB is
-                # rebuilt.
-                taxonomy_fingerprint = {
-                    "path": str(taxonomy_path),
-                    "sha256": _file_sha256(taxonomy_path),
-                    "size": taxonomy_path.stat().st_size,
-                }
+                # Stamp #29, corrected by #278: identify the snapshot by the
+                # receipt it recorded at ingest, not by hashing the file. The
+                # SQLite file embeds per-row `fetched_at` and
+                # `meta.last_ingest_ts`, so its bytes differ on every ingest
+                # of byte-identical input — which made this fingerprint churn
+                # and dragged every document's taxa.json with it. The receipt
+                # identifies the consumed source, which is what the annotation
+                # stage actually depends on.
+                receipt = snapshot_receipt(taxonomy_path)
+                taxonomy_fingerprint = {"path": str(taxonomy_path)}
+                if receipt is not None:
+                    taxonomy_fingerprint["input_fingerprint"] = receipt
+                    identity = receipt.get("sha256") or receipt.get("source") or "?"
+                else:
+                    # Legacy snapshot predating receipts. Fall back to the file
+                    # hash so the stage still has *a* fingerprint; it will churn
+                    # until `corpus taxonomy ingest` rewrites the snapshot.
+                    taxonomy_fingerprint["sha256"] = _file_sha256(taxonomy_path)
+                    taxonomy_fingerprint["size"] = taxonomy_path.stat().st_size
+                    identity = taxonomy_fingerprint["sha256"]
                 logger.info(
-                    "Taxonomy snapshot loaded from %s (%d names, sha256=%s…)",
-                    taxonomy_path, len(taxonomy_db.name_set()),
-                    taxonomy_fingerprint["sha256"][:12],
+                    "Taxonomy snapshot loaded from %s (%d names, source=%s…)",
+                    taxonomy_path, len(taxonomy_db.name_set()), str(identity)[:12],
                 )
             except Exception as e:
-                logger.warning(
+                logger.error(
                     "Could not open taxonomy snapshot %s: %s", taxonomy_path, e,
                 )
+                return 1
         elif args.require_taxonomy and args.dry_run:
             # A dry-run writes nothing, so it cannot produce the empty
             # taxa.json that #139 guards against. On a corpuscle that has
@@ -402,7 +475,7 @@ def main():
                 "builds it on a real run. Continuing the dry-run.",
                 taxonomy_path,
             )
-        elif args.require_taxonomy:
+        elif args.require_taxonomy or args.taxonomy_db is not None:
             # #139 — the corpuscle configures a taxonomy, so a missing
             # snapshot is a hard error rather than a skip. This is the
             # layer where the damage actually happens: the first full
@@ -414,8 +487,8 @@ def main():
             # `python -m pipeline.main` invocations and a snapshot that
             # disappears between the pre-check and the work.
             logger.error(
-                "Taxonomy snapshot %s not found, but this corpuscle "
-                "configures taxonomy.source — refusing to run and silently "
+                "Taxonomy snapshot %s not found, but taxonomy was explicitly "
+                "configured — refusing to run and silently "
                 "produce empty taxa.json for every paper.\n"
                 "  Build it first:  corpus taxonomy ingest --source <dwc|dwca|worms> ...\n"
                 "  WoRMS needs outbound internet: build the snapshot once "
@@ -435,13 +508,7 @@ def main():
 
         if args.lexicon is not None:
             if args.lexicon.exists():
-                # Narrow the swallow: a misshapen lexicon (ValueError from
-                # load_lexicon) is a configuration error the user must fix,
-                # not a transient hiccup. Letting it propagate aborts the
-                # run loudly instead of silently degrading to no-op
-                # annotation across the whole corpus. File-read and
-                # YAML-parse failures stay warn-and-continue (mid-edit
-                # filesystem hiccups, permissions).
+                # Distinguish deliberate removal from an unreadable input.
                 import yaml as _yaml
                 try:
                     lexicons = load_lexicon(args.lexicon)
@@ -453,32 +520,40 @@ def main():
                             "Lexicon[%s] loaded from %s (%d terms, sha256=%s…)",
                             category, args.lexicon, len(section), sha[:12],
                         )
-                except (FileNotFoundError, PermissionError, _yaml.YAMLError) as e:
-                    logger.warning(
+                except (OSError, _yaml.YAMLError) as e:
+                    logger.error(
                         "Could not load lexicon %s: %s", args.lexicon, e,
                     )
+                    return 1
             else:
-                logger.warning(
-                    "Lexicon %s not found — lexicon extraction skipped",
+                logger.error(
+                    "Configured lexicon %s not found — refusing to change annotations",
                     args.lexicon,
                 )
+                return 1
 
     # Vision backend for Pass 3b. Constructed once and reused so the
     # backend can keep long-lived state (API client, loaded model, etc.).
     vision_backend = None
-    if args.vision_backend:
+    if args.vision_backend and not args.dry_run:
         try:
             from .vision import get_vision_backend
             kwargs = {}
             if args.vision_model:
                 kwargs["model"] = args.vision_model
             vision_backend = get_vision_backend(args.vision_backend, **kwargs)
+            # Loading may download a newer snapshot than the offline preview
+            # could see. Stamp the producer actually loaded, not the old cache.
+            run_config_fingerprints = _config_fingerprints(
+                loaded, panel_mode=args.figure_panels, vision_model=args.vision_model,
+                resolved_vision_producer=getattr(vision_backend, "producer", None))
             logger.info("Vision backend loaded: %s", vision_backend.name)
         except Exception as e:
             logger.error(
-                "Could not load vision backend %r: %s — Pass 3b will be skipped",
+                "Could not load requested vision backend %r: %s — refusing to mark it complete",
                 args.vision_backend, e,
             )
+            return 1
 
     # Create output directory structure. A dry-run promises "No files
     # written", so it must not leave a half-scaffolded corpuscle behind
@@ -545,9 +620,14 @@ def main():
                 documents_dir / short_hash(h),
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
+                    config_fingerprints=run_config_fingerprints,
+                    metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                        bib_index, pdf_map[h][0].name, grobid_context=grobid_context,
+                        hash_dir=documents_dir / short_hash(h)),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, pdf_map[h][0].name),
+                    ocrmode=ocrmode_for_pdf(bib_index, pdf_map[h][0].name),
                     keeppages=keeppages_for_pdf(bib_index, pdf_map[h][0].name),
                 ),
             )
@@ -581,9 +661,13 @@ def main():
                 hd,
                 expected_stages=expected_stages,
                 expected_fingerprints=_expected_fingerprints_for_run(
+                    config_fingerprints=run_config_fingerprints,
+                    metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                        bib_index, label, grobid_context=grobid_context, hash_dir=hd),
                     taxonomy_fingerprint=taxonomy_fingerprint,
                     lexicon_fingerprints=lex_fingerprints,
                     ocrlang=ocrlang_for_pdf(bib_index, label),
+                    ocrmode=ocrmode_for_pdf(bib_index, label),
                     keeppages=keeppages_for_pdf(bib_index, label),
                 ),
             ):
@@ -646,11 +730,13 @@ def main():
                 if args.refresh_vision and vision_backend is not None:
                     figures_file = hash_dir / "figures.json"
                     if not figures_file.exists():
-                        logger.info(
-                            "[%d/%d] %s (%s) — skipping vision refresh (no figures.json)",
+                        logger.error(
+                            "[%d/%d] %s (%s) — cannot refresh vision (no figures.json)",
                             paper_idx, paper_total,
                             pdf_paths[0].name, pdf_hash,
                         )
+                        worker_failures.append({"pdf_hash": pdf_hash, "exitcode": 1,
+                                                "signal": None, "reason": "missing figures.json"})
                         continue
                     logger.info(
                         "[%d/%d] %s (%s) — refreshing Pass 3b",
@@ -660,11 +746,54 @@ def main():
                     with per_pdf_file_log(hash_dir) as log_path:
                         logger.info("pipeline.log: %s (refresh-vision)", log_path)
                         try:
-                            _pass3b_annotate_rois(figures_file, vision_backend)
+                            baseline = _load_pipeline_state(hash_dir)["stages"].get("figure_materialization")
+                            summary_path = hash_dir / "summary.json"
+                            summary = json.loads(summary_path.read_text())
+                            processing = summary.setdefault("processing_summary", {})
+                            with _stage({}, "vision_refresh", hash_dir=hash_dir,
+                                        input_fingerprint={"config": run_config_fingerprints["figure_materialization"]}):
+                                # Reset the figure base only where a prior
+                                # Pass 3c actually split compound figures.
+                                # Unconditionally resetting re-ran a full
+                                # docling conversion per document, which turned
+                                # the GPU vision phase from ~1.5 h into 35 h on
+                                # the 1775-paper library and could not finish
+                                # inside one allocation (#281).
+                                reset_base = has_split_figure_state(figures_file)
+                                if not reset_base:
+                                    logger.debug(
+                                        "%s: no prior compound-split state; "
+                                        "annotating in place", pdf_hash,
+                                    )
+                                _refresh_vision_artifacts(
+                                    figures_file, hash_dir / "chunks.json", vision_backend,
+                                    reset_base=reset_base,
+                                )
+                                with _stage(processing, "quality_gates", hash_dir=hash_dir,
+                                            input_fingerprint={"config": run_config_fingerprints["quality_gates"]}):
+                                    processing["quality_flags"] = _run_quality_gates(hash_dir)
+                                    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8",
+                                                                     dir=hash_dir, prefix=".summary-",
+                                                                     delete=False) as output:
+                                        temporary = Path(output.name)
+                                        try:
+                                            json.dump(summary, output, indent=2)
+                                            output.close()
+                                            temporary.replace(summary_path)
+                                        finally:
+                                            temporary.unlink(missing_ok=True)
+                                _record_stage_completion(hash_dir, "figure_crossref",
+                                                         input_fingerprint={"config": run_config_fingerprints["figure_crossref"]})
+                                if baseline is not None:
+                                    state = _load_pipeline_state(hash_dir)
+                                    state["stages"]["figure_materialization"] = baseline
+                                    _save_pipeline_state(hash_dir, state)
                         except Exception as e:
                             logger.exception(
-                                "Pass 3b refresh failed on %s: %s", pdf_hash, e
+                                "Vision refresh failed on %s: %s", pdf_hash, e
                             )
+                            worker_failures.append({"pdf_hash": pdf_hash, "exitcode": 1,
+                                                    "signal": None, "reason": "vision refresh failed"})
                     continue
                 # Per-stage resume (#28, #56): if every required stage
                 # is recorded as complete in pipeline_state.json under
@@ -687,12 +816,19 @@ def main():
                         lexicons=lexicons,
                     ),
                     expected_fingerprints=_expected_fingerprints_for_run(
+                        config_fingerprints=run_config_fingerprints,
+                        metadata_fingerprint=_metadata_fingerprint_for_pdf(
+                            bib_index, pdf_paths[0].name, grobid_context=grobid_context, hash_dir=hash_dir),
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,
                         ocrlang=ocrlang_for_pdf(bib_index, pdf_paths[0].name),
+                        ocrmode=ocrmode_for_pdf(bib_index, pdf_paths[0].name),
                         keeppages=keeppages_for_pdf(bib_index, pdf_paths[0].name),
                     ),
                 ):
+                    from .io import refresh_summary_source_paths
+                    if refresh_summary_source_paths(pdf_hash_full, pdf_paths, input_dir, hash_dir):
+                        logger.info("%s: refreshed source paths (extraction unchanged)", pdf_hash)
                     logger.info(
                         "[%d/%d] %s (%s) — skipping (all stages complete)",
                         paper_idx, paper_total,
@@ -744,9 +880,11 @@ def main():
                     processing_summary = run_pdf_processing_pipeline(
                         primary_pdf, hash_dir, temp_dir,
                         grobid_client=grobid_client,
+                        grobid_context=grobid_context,
                         taxonomy_db=taxonomy_db,
                         lexicons=lexicons,
                         content_aware_figures=args.content_aware_figures,
+                        run_config_fingerprints=run_config_fingerprints,
                         vision_backend=vision_backend,
                         bib_index=bib_index,
                         resume=args.resume,
@@ -758,12 +896,6 @@ def main():
                         pdf_hash_full, pdf_paths, input_dir, hash_dir, processing_summary
                     )
                     logger.info("Created summary: %s", summary_file)
-
-                    if processing_summary.get("status") == "success":
-                        chunks_file = hash_dir / "chunks.json"
-                        if chunks_file.exists():
-                            logger.info("Writing vector-db ingestion marker...")
-                            ingest_to_vector_db(chunks_file, vector_db_dir, pdf_hash)
 
             if sys.platform == "darwin":
                 _worker()
@@ -798,6 +930,18 @@ def main():
                             "exitcode": proc.exitcode,
                             "signal": None,
                         })
+
+            # The per-paper runner catches stage errors to preserve a useful
+            # summary. A normal worker exit therefore does not imply success.
+            summary_path = hash_dir / "summary.json"
+            if summary_path.exists():
+                summary = json.loads(summary_path.read_text())
+                if (summary.get("processing_summary", {}).get("status") != "success"
+                        and not any(f["pdf_hash"] == pdf_hash for f in worker_failures)):
+                    worker_failures.append({"pdf_hash": pdf_hash,
+                                            "pdf_path": str(primary_pdf),
+                                            "exitcode": 1, "signal": None,
+                                            "reason": "per-paper stage failure"})
 
     logger.info("Processing complete. Results saved to: %s", output_dir)
     logger.info("  Documents: %s", documents_dir)

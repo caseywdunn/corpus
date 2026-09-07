@@ -1,0 +1,350 @@
+{
+  "chunks_metadata": [
+    {
+      "chunk_id": "str",
+      "figure_refs": [
+        "str"
+      ],
+      "headings": [
+        "str"
+      ],
+      "len_chars": "int",
+      "section_class": "str"
+    },
+    {
+      "chunk_id": "str",
+      "figure_refs": [],
+      "headings": [
+        "str"
+      ],
+      "len_chars": "int",
+      "section_class": "str"
+    }
+  ],
+  "chunks_missing": [
+    {
+      "code": "str",
+      "error": "str"
+    }
+  ],
+  "chunks_text": [
+    {
+      "chunk_id": "str",
+      "figure_refs": [
+        "str"
+      ],
+      "headings": [
+        "str"
+      ],
+      "section_class": "str",
+      "text": "str"
+    },
+    {
+      "chunk_id": "str",
+      "figure_refs": [],
+      "headings": [
+        "str"
+      ],
+      "section_class": "str",
+      "text": "str"
+    }
+  ],
+  "citations_bib": {
+    "citations": [
+      {
+        "fields": {
+          "authors": [
+            {
+              "forename": "str",
+              "position": "int",
+              "surname": "str"
+            }
+          ],
+          "doi": "str",
+          "journal": "str",
+          "pages": "NoneType",
+          "title": "str",
+          "volume": "NoneType",
+          "year": "int"
+        },
+        "formatted": "str",
+        "inline": "str",
+        "provenance": "str",
+        "warning": "str",
+        "work_id": "str"
+      }
+    ],
+    "count": "int",
+    "style": "str"
+  },
+  "citations_missing": {
+    "citations": [
+      {
+        "code": "str",
+        "error": "str",
+        "work_id": "str"
+      }
+    ],
+    "count": "int",
+    "style": "str"
+  },
+  "citations_reconciled": {
+    "citations": [
+      {
+        "fields": {
+          "authors": [
+            {
+              "forename": "str",
+              "position": "int",
+              "surname": "str"
+            }
+          ],
+          "doi": "NoneType",
+          "journal": "str",
+          "pages": "NoneType",
+          "title": "str",
+          "volume": "NoneType",
+          "year": "int"
+        },
+        "formatted": "str",
+        "inline": "str",
+        "provenance": "str",
+        "warning": "str",
+        "work_id": "str"
+      }
+    ],
+    "count": "int",
+    "style": "str"
+  },
+  "citations_unresolved": {
+    "citations": [
+      {
+        "fields": {
+          "authors": [
+            {
+              "forename": "NoneType",
+              "position": "int",
+              "surname": "str"
+            }
+          ],
+          "doi": "NoneType",
+          "journal": "NoneType",
+          "pages": "NoneType",
+          "title": "str",
+          "volume": "NoneType",
+          "year": "int"
+        },
+        "formatted": "str",
+        "inline": "str",
+        "provenance": "str",
+        "warning": "str",
+        "work_id": "str"
+      }
+    ],
+    "count": "int",
+    "style": "str"
+  },
+  "figure_manuscript": {
+    "attribution": "str",
+    "caption_confidence": "NoneType",
+    "caption_kind": "str",
+    "caption_page_distance": "NoneType",
+    "caption_status": "str",
+    "caption_text": "str",
+    "figure_id": "str",
+    "figure_type": "str",
+    "filename": "str",
+    "image_path": "str",
+    "license": "str",
+    "license_source": "str",
+    "license_url": "NoneType",
+    "panels_from_caption": [
+      {
+        "description": "str",
+        "label": "str"
+      }
+    ],
+    "paper_hash": "str",
+    "paper_title": "str",
+    "publication_clearance": "str",
+    "rois": [
+      {
+        "label": "str",
+        "roi_px": [
+          "int"
+        ]
+      }
+    ]
+  },
+  "figure_report": {
+    "attribution": "str",
+    "caption_confidence": "NoneType",
+    "caption_kind": "str",
+    "caption_page_distance": "NoneType",
+    "caption_status": "str",
+    "caption_text": "str",
+    "figure_id": "str",
+    "figure_type": "str",
+    "filename": "str",
+    "image_path": "str",
+    "license": "str",
+    "license_url": "NoneType",
+    "panels_from_caption": [
+      {
+        "description": "str",
+        "label": "str"
+      }
+    ],
+    "paper_hash": "str",
+    "paper_title": "str",
+    "rois": [
+      {
+        "label": "str",
+        "roi_px": [
+          "int"
+        ]
+      }
+    ]
+  },
+  "figure_roi_manuscript": {
+    "caption_confidence": "NoneType",
+    "caption_kind": "str",
+    "caption_page_distance": "NoneType",
+    "caption_status": "str",
+    "caption_text": "str",
+    "crop": "bool",
+    "description_from_caption": "str",
+    "figure_id": "str",
+    "image_path": "str",
+    "label": "str",
+    "ocr_confidence": "NoneType",
+    "paper_hash": "str",
+    "roi_px": [
+      "int"
+    ]
+  },
+  "figure_roi_report": {
+    "caption_confidence": "NoneType",
+    "caption_kind": "str",
+    "caption_page_distance": "NoneType",
+    "caption_status": "str",
+    "caption_text": "str",
+    "crop": "bool",
+    "description_from_caption": "str",
+    "figure_id": "str",
+    "image_path": "str",
+    "label": "str",
+    "ocr_confidence": "NoneType",
+    "paper_hash": "str",
+    "roi_px": [
+      "int"
+    ]
+  },
+  "figure_url_manuscript": {
+    "attribution": "str",
+    "auth_header": "NoneType",
+    "fetch_hint": "str",
+    "license": "str",
+    "license_source": "str",
+    "license_url": "NoneType",
+    "mime_type": "str",
+    "profile": "str",
+    "publication_clearance": "str",
+    "url": "str"
+  },
+  "figure_url_refused": {
+    "attribution": "str",
+    "code": "str",
+    "error": "str",
+    "license": "NoneType",
+    "license_source": "str",
+    "license_url": "NoneType",
+    "profile": "str",
+    "publication_clearance": "str",
+    "publishable": "bool"
+  },
+  "figure_url_report": {
+    "attribution": "str",
+    "auth_header": "NoneType",
+    "fetch_hint": "str",
+    "license": "str",
+    "license_url": "NoneType",
+    "mime_type": "str",
+    "profile": "str",
+    "url": "str"
+  },
+  "papers_projected": [
+    {
+      "first_author": "str",
+      "hash": "str",
+      "title": "str",
+      "year": "int"
+    }
+  ],
+  "taxon_dossier": {
+    "chunk_index": [
+      {
+        "chunk_id": "str",
+        "headings": [
+          "str"
+        ],
+        "paper_hash": "str",
+        "section_class": "str"
+      }
+    ],
+    "cooccurring_taxa": [
+      {
+        "n_shared_papers": "int",
+        "name": "str",
+        "rank": "str",
+        "taxon_id": "str"
+      }
+    ],
+    "figure_index": [
+      {
+        "caption_confidence": "str",
+        "caption_has_taxon": "bool",
+        "caption_kind": "str",
+        "caption_page_distance": "int",
+        "caption_status": "str",
+        "figure_id": "str",
+        "figure_number": "int",
+        "figure_type": "str",
+        "page": "int",
+        "paper_hash": "str"
+      }
+    ],
+    "lexicon_aggregated": {
+      "anatomy": [
+        {
+          "n_mentions": "int",
+          "n_papers": "int",
+          "term": "str"
+        }
+      ],
+      "biogeography": [
+        {
+          "n_mentions": "int",
+          "n_papers": "int",
+          "term": "str"
+        }
+      ]
+    },
+    "n_papers_mentioning": "int",
+    "papers": [
+      {
+        "first_author": "str",
+        "hash": "str",
+        "n_mentions": "int",
+        "title": "str",
+        "year": "int"
+      }
+    ],
+    "taxon": {
+      "accepted_name": "str",
+      "authority": "str",
+      "rank": "str",
+      "taxon_id": "str"
+    }
+  }
+}

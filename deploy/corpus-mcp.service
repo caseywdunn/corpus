@@ -1,6 +1,6 @@
 [Unit]
 Description=Corpus MCP server (SSE transport over bearer-token auth)
-Documentation=https://github.com/caseywdunn/corpus/blob/main/PLAN.md
+Documentation=https://github.com/caseywdunn/corpus/blob/main/DEPLOY.md
 After=network-online.target
 Wants=network-online.target
 
@@ -9,6 +9,7 @@ Type=simple
 User=corpus
 Group=corpus
 WorkingDirectory=/srv/corpus/repo
+EnvironmentFile=-/etc/corpus/server.env
 
 # Bundle directory is a symlink updated atomically by deploy/update.sh.
 # Token is in /etc/corpus/ mode 600, owned by root:corpus.

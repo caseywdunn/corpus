@@ -4,7 +4,7 @@
 give up on OCR, copy the un-OCR'd image into the output and exit 0 — so the
 page survives visually, carries an empty text layer, and the document is
 recorded ``status=success`` with an empty ``stage_failures``. Two full builds
-of the same 1,769-document library lost text on ~9.5% of documents this way,
+of the same growing library lost text on ~9.5% of documents this way,
 and the only trace was a warning in one array task's log.
 
 The join that makes it detectable without a heuristic: ocrmypdf *names* the
@@ -85,6 +85,7 @@ def test_a_blank_page_nobody_complained_about_is_not_data_loss(tmp_path):
     out = _report_ocr_page_loss(pdf, "plate.pdf", stderr="")
     assert out["pages_without_text"] == [2]
     assert out["pages_blanked"] == []
+    assert out["ocr_no_text_recovered"] is False
 
 
 def test_a_named_page_that_kept_its_text_is_not_data_loss(tmp_path):
@@ -106,6 +107,13 @@ def test_empty_and_named_is_a_page_we_lost(tmp_path):
     assert out["pages_blanked"] == [1, 2]
     assert out["pages_without_text"] == [1, 2, 4]   # page 4 is a plate
     assert out["page_count"] == 4
+
+
+def test_success_with_every_page_textless_is_an_explicit_ocr_failure(tmp_path):
+    pdf = _pdf(tmp_path, ["", "", ""])
+    out = _report_ocr_page_loss(pdf, "textless.pdf", stderr="")
+    assert out["pages_without_text"] == [1, 2, 3]
+    assert out["ocr_no_text_recovered"] is True
 
 
 def test_an_unreadable_pdf_still_reports_what_stderr_said(tmp_path):
@@ -140,6 +148,30 @@ def _gates(hd: Path):
 
 def test_the_gate_is_silent_when_nothing_was_blanked(hash_dir):
     assert "ocr_pages_blanked" not in _gates(hash_dir)
+    assert "ocr_no_text_recovered" not in _gates(hash_dir)
+
+
+def test_all_textless_pages_reach_an_error_gate_even_without_stderr(hash_dir):
+    """A zero exit code and no timeout warning are not evidence of text."""
+    scan = json.loads((hash_dir / "scan_detection.json").read_text())
+    scan.update({
+        "pages_without_text": list(range(1, 15)),
+        "page_count": 14,
+        "ocr_no_text_recovered": True,
+        "pages_blanked": [],
+    })
+    (hash_dir / "scan_detection.json").write_text(json.dumps(scan))
+
+    flag = _gates(hash_dir)["ocr_no_text_recovered"]
+    assert flag["severity"] == "error"
+    assert flag["metric"] == 14
+
+
+def test_old_artifact_shape_also_derives_the_all_textless_gate(hash_dir):
+    scan = json.loads((hash_dir / "scan_detection.json").read_text())
+    scan.update({"pages_without_text": [1, 2], "page_count": 2})
+    (hash_dir / "scan_detection.json").write_text(json.dumps(scan))
+    assert "ocr_no_text_recovered" in _gates(hash_dir)
 
 
 def test_blanked_pages_reach_the_quality_gates_as_an_error(hash_dir):

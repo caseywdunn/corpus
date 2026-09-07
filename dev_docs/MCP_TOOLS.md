@@ -4,6 +4,13 @@ The MCP server exposes 38 `@mcp.tool()`-decorated functions, split across `mcpsr
 
 This surface is frozen as of 1.0. What that commits us to — additive vs. breaking, and how anything gets removed — is [API_STABILITY.md](API_STABILITY.md).
 
+All explicit list parameters accept at most 500 items, 4,096 characters per
+item and 65,536 characters in total per list. Larger requests return
+`invalid_argument` in the tool's normal error shape before corpus lookup;
+split them into batches. Lists are never silently truncated. Omitted and empty
+lists retain each tool's documented meaning (including whole-paper selection
+by `get_chunks(chunk_ids=None)`); this is an input budget, not new pagination.
+
 This table is generated from the docstrings in the source; when the server definition changes, regenerate with:
 
 ```bash
@@ -54,11 +61,20 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_citation_graph` | Citation graph around a work or paper (in / out / both). Bounded breadth (#87): `max_edges_per_node` (per-node fan-out, survivors ranked by `cited_by_count`) + `max_total_edges` caps, with a `truncated` flag. Generous defaults. |
 | `resolve_reference` | Resolve a free-text bibliographic reference to a work in the authority database. |
 | `format_citations` | Fully-assembled citation strings for works in the authority DB — the route for every citation an LLM client emits; never recombine fields client-side (#88). Pass one of `queries` / `work_ids` / `paper_hashes` (a list); returns `{style, count, citations[]}` in input order, each entry a citation payload (`work_id`, `formatted`, `inline`, provenance tier `bib` / `grobid_reconciled` / `unresolved`, verbatim warning footnote) or a per-item error. Batch a whole reference list into one call. |
-| `get_missing_references` | Works cited by corpus papers that are NOT in the corpus. |
+| `get_missing_references` | Candidate works cited by corpus papers that are not mapped to an in-corpus work, ranked by citation count. This is an acquisition lead, not proof of absence: inspect build-time evidence with `tools/qc/reference_reconciliation.py` before curating the library (#155). |
 | `get_works_by_author` | All works by an author across the full bibliographic authority database (corpus papers + cited references + taxonomic-authority stubs). |
 | `get_original_description` | Find the original-description paper for a taxon. |
 
 ## Figures
+
+Every response that carries a figure caption or caption-derived ROI also
+carries `caption_status` (`bound` / `uncertain` / `unbound`),
+`caption_confidence` (`high` / `medium` / `low` / null), and
+`caption_page_distance`, plus `caption_kind` (`prose_caption` / `bare_label` /
+`unlabelled_caption`; `unknown` on a legacy record). These are build-time
+association facts. The server
+only normalizes the same facts for bundles made before the fields existed; it
+does not recompute caption binding at query time.
 
 | Tool | Returns |
 | --- | --- |
@@ -68,9 +84,9 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `get_figure_dossier_for_term` | Same shape, for figures whose captions match a lexicon term. Synonym-aware on the same basis as `get_figures_for_lexicon_term` (#143); the response reports `canonical`, `resolved`, and `surfaces_searched`. |
 | `get_figure` | One figure's full record: caption, page, bbox, image path, cross-references, plus `license` / `license_url` / `attribution` from the parent work. The publication-clearance *determination* is included only under a strict `profile=`, or on `include_licensing=True` (#154) — under the permissive default the server has already authorized the figure, so it isn't shipped. **`license: null` is normal and does not mean "no licensing information"** — most historical works carry no explicit license string, and their clearance is *derived from publication year* against `licensing.pd_cutoff_years`. The derived answer lives in `publishable` / `license_source` (`age_based_pd`) / `clearance_state`; ask for `include_licensing=True` to see it. A pre-cutoff work reads `license: null` while being fully cleared as public domain. |
 | `get_figure_image` | A figure (or panel crop) returned as inline PNG bytes. Figure-licensing gate keyed to the per-call `profile=` (#101): a strict profile (manuscript/presentation) refuses a figure whose publication clearance can't be established, naming the `publication_clearance` state in the refusal; the default `report` allows it. |
-| `get_figure_url` | A bearer-gated HTTP URL (plus `auth_header` + license/attribution fields) the caller can `curl -o` to land the figure PNG on disk without loading its bytes into context — for pandoc / LaTeX / PDF assembly. Honors the per-call `profile=` gate (#101) and encodes the resolved profile into the URL so the HTTP fetch enforces the same policy. |
-| `list_figure_rois` | Per-panel / per-subfigure ROIs annotated on a figure. |
-| `get_figure_roi_image` | Crop a panel ROI out of a figure image and return the crop's path. Honors the per-call `profile=` licensing gate like the other pixel-returning tools (#154 §3) — including the fallback that returns the whole figure when no pixel ROI was detected. |
+| `get_figure_url` | A five-minute signed HTTP download URL, scoped to this figure, optional panel and resolved output profile. Fetch directly with `curl -o`; the retained `auth_header` field is `null`, never the shared MCP bearer token. Licensing is checked again at download. Links also expire on restart. Reverse proxies must forward `/figures/` and configure a client-reachable public base (see [DEPLOY.md](../DEPLOY.md)). License/attribution fields retain their existing shape. |
+| `list_figure_rois` | Per-panel / per-figure ROIs annotated on an image. Caption-derived A/B/C panels and numeric figures on a shared historical plate are separate fields and carry `pass3_target_kind`; plate targets also report the independent pre-expansion `missing_figures` cross-check. |
+| `get_figure_roi_image` | Crop a lettered-panel or numbered-figure ROI and return its logical cache path. Crops live outside the immutable bundle; retrieve bytes with `get_figure_image` or `get_figure_url`, not by joining this path to the bundle directory. Honors the per-call `profile=` licensing gate, including whole-figure fallback when no pixel ROI was detected. |
 
 ## Semantic search
 

@@ -9,7 +9,6 @@ plates don't get one-bitmap-per-page noise.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from pathlib import Path
@@ -19,13 +18,11 @@ from . import stamp_artifact
 from .accelerator import resolve_device
 from .config import CONFIG
 from .figures import (
-    detect_missing_figures,
     extract_caption_info,
     parse_figure_number,
     render_figures,
     shrink_figures_dir,
 )
-from .scan import create_cell_visualizations
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +32,6 @@ def extract_docling_content(
     text_output: Path,
     figures_output: Path,
     figures_dir: Path,
-    visualizations_dir: Path,
     docling_doc_output: Optional[Path] = None,
     scan_file_type: Optional[str] = None,
 ):
@@ -196,7 +192,8 @@ def extract_docling_content(
                 logger.warning("Could not serialize docling bbox: %s", e)
         return meta
 
-    # Two-pass docling figure extraction (Phase D.2 — see dev_docs/PLAN.md).
+    # Two-pass docling figure extraction; see dev_docs/OVERVIEW.md "Figure
+    # pipeline" for the stable stage contract.
     #
     # Pass 1: gather every docling Picture's image + bbox + caption in
     # memory. We don't write images to disk yet — the filename policy
@@ -218,9 +215,8 @@ def extract_docling_content(
             expand_plate_figures,
             furniture_positions,
             plate_legend_entries,
+            _text_fragments,
             compose_figure_filename,
-            FIGURE_TYPE_FIGURE,
-            FIGURE_TYPE_PLATE,
             FIGURE_TYPE_SUBPANEL,
         )
 
@@ -228,7 +224,10 @@ def extract_docling_content(
         for idx, picture in enumerate(document.pictures or []):
             caption_info = extract_caption_info(picture, document)
             caption_text = caption_info.get("caption_text", "")
-            figure_number = parse_figure_number(caption_text)
+            figure_number = (
+                caption_info.get("figure_number")
+                or parse_figure_number(caption_text)
+            )
             bbox_meta = _docling_prov_to_bbox_page(picture)
             # Resolve image up-front (still in memory); we save after
             # classification once we know the intended filename.
@@ -247,7 +246,13 @@ def extract_docling_content(
                 "caption_page": caption_info.get("caption_page"),
                 "caption_bbox": caption_info.get("caption_bbox"),
                 "caption_source": caption_info.get("caption_source"),
+                "caption_kind": caption_info.get("caption_kind"),
+                "caption_status": caption_info.get("caption_status"),
+                "caption_confidence": caption_info.get("caption_confidence"),
+                "caption_page_distance": caption_info.get("caption_page_distance"),
+                "caption_candidates": caption_info.get("caption_candidates", []),
                 "figure_number": figure_number,
+                "figure_number_source": caption_info.get("figure_number_source"),
                 "bbox": bbox_meta.get("bbox"),
                 "page": bbox_meta.get("page"),
                 "bbox_coord_system": bbox_meta.get("bbox_coord_system"),
@@ -260,12 +265,11 @@ def extract_docling_content(
         # classification so the new records are classified like any other.
         page_texts = {}
         for t in (getattr(document, "texts", None) or []):
-            meta = _docling_prov_to_bbox_page(t)
-            page_no = meta.get("page")
-            if page_no is None:
-                continue
-            page_texts.setdefault(page_no, []).append(
-                {"text": getattr(t, "text", "") or "", "bbox": meta.get("bbox")})
+            for text, bbox, page_no in _text_fragments(t):
+                page_texts.setdefault(page_no, []).append({
+                    "text": text,
+                    "bbox": bbox,
+                })
         legends = {pg: plate_legend_entries(ts) for pg, ts in page_texts.items()}
         legends = {pg: e for pg, e in legends.items() if e}
         if legends:
@@ -312,12 +316,18 @@ def extract_docling_content(
                         "extraction_method": "docling",
                         "figure_type": it.get("figure_type"),
                         "figure_number": it.get("figure_number"),
+                        "figure_number_source": it.get("figure_number_source"),
                         "page": it.get("page"),
                         "bbox": it.get("bbox"),
                         "bbox_coord_system": it.get("bbox_coord_system"),
                         "caption_page": it.get("caption_page"),
                         "caption_bbox": it.get("caption_bbox"),
                         "caption_source": it.get("caption_source"),
+                        "caption_kind": it.get("caption_kind"),
+                        "caption_status": it.get("caption_status"),
+                        "caption_confidence": it.get("caption_confidence"),
+                        "caption_page_distance": it.get("caption_page_distance"),
+                        "caption_candidates": it.get("caption_candidates", []),
                         "shares_image_with": shares,
                     },
                 )
@@ -349,12 +359,18 @@ def extract_docling_content(
                 "extraction_method": "docling",
                 "figure_type": it.get("figure_type"),
                 "figure_number": it.get("figure_number"),
+                "figure_number_source": it.get("figure_number_source"),
                 "page": it.get("page"),
                 "bbox": it.get("bbox"),
                 "bbox_coord_system": it.get("bbox_coord_system"),
                 "caption_page": it.get("caption_page"),
                 "caption_bbox": it.get("caption_bbox"),
                 "caption_source": it.get("caption_source"),
+                "caption_kind": it.get("caption_kind"),
+                "caption_status": it.get("caption_status"),
+                "caption_confidence": it.get("caption_confidence"),
+                "caption_page_distance": it.get("caption_page_distance"),
+                "caption_candidates": it.get("caption_candidates", []),
             }
             if it.get("figure_type") == FIGURE_TYPE_SUBPANEL:
                 meta["primary_figure_docling_idx"] = it.get("primary_figure_docling_idx")
@@ -426,6 +442,19 @@ def extract_docling_content(
                                 "page": page_num + 1,
                                 "width": pix.width,
                                 "height": pix.height,
+                                # The fallback has pixels and page geometry,
+                                # but no Docling caption relation to inspect.
+                                # Make that absence explicit in new artifacts
+                                # instead of relying on server-side legacy
+                                # normalization.
+                                "caption_page": None,
+                                "caption_bbox": None,
+                                "caption_source": None,
+                                "caption_kind": None,
+                                "caption_status": "unbound",
+                                "caption_confidence": None,
+                                "caption_page_distance": None,
+                                "caption_candidates": [],
                             }
                             if bbox_list is not None:
                                 # PyMuPDF uses PDF-like coords but top-left origin
@@ -503,28 +532,5 @@ def extract_docling_content(
     with open(figures_output, "w", encoding="utf-8") as f:
         json.dump(stamp_artifact(figures_info), f, indent=2)
 
-    # Extract figure bboxes from the docling document before releasing it,
-    # so the (large) document object can be garbage-collected before the
-    # per-page image rendering loop.
-    figure_bboxes_by_page: dict = {}
-    if document is not None:
-        if hasattr(document, "pictures") and document.pictures:
-            for picture in document.pictures:
-                if hasattr(picture, "prov") and picture.prov:
-                    for prov_item in picture.prov:
-                        if hasattr(prov_item, "page_no") and hasattr(prov_item, "bbox"):
-                            page_no = prov_item.page_no
-                            figure_bboxes_by_page.setdefault(page_no, []).append(
-                                prov_item.bbox
-                            )
     del document
     import gc; gc.collect()
-
-    pdf_name = pdf_path.stem
-    try:
-        create_cell_visualizations(
-            pdf_path, visualizations_dir, pdf_name,
-            figure_bboxes_by_page=figure_bboxes_by_page,
-        )
-    except Exception as e:
-        logger.warning("Creating visualizations failed: %s", e)

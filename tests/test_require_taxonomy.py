@@ -56,15 +56,19 @@ def test_missing_taxonomy_with_require_flag_fails(tmp_path):
     assert "dwca" in out, out
 
 
-def test_missing_taxonomy_without_require_flag_only_warns(tmp_path):
+def test_unconfigured_taxonomy_only_warns(tmp_path):
     """A corpuscle with no taxonomy configured is a supported setup."""
-    proc = _run_main(
-        tmp_path, "--taxonomy-db", str(tmp_path / "absent.sqlite"),
-    )
+    proc = _run_main(tmp_path)
     out = proc.stdout + proc.stderr
     assert proc.returncode == 0, out
     assert "taxon extraction skipped" in out, out
     assert "refusing to run" not in out
+
+
+def test_explicit_missing_taxonomy_fails_without_require_flag(tmp_path):
+    proc = _run_main(tmp_path, "--taxonomy-db", str(tmp_path / "absent.sqlite"))
+    assert proc.returncode == 1
+    assert "refusing to run" in proc.stdout + proc.stderr
 
 
 def test_no_taxa_wins_over_require_taxonomy(tmp_path):

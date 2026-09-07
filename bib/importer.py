@@ -53,7 +53,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .parser import _split_authors, _strip_outer_braces, parse_bibtex
 
@@ -84,7 +84,7 @@ def find_matching_work_id(
     """Return ``(work_id, match_method)`` for a parsed BibTeX entry.
 
     Match priority:
-      1. corpus_hash field — exact match on ``works.corpus_hash``
+      1. corpus_hash field — document membership (legacy scalar fallback)
       2. DOI field — exact match on ``works.doi`` (after normalization)
       3. work_id field — exact match on ``works.work_id`` (#100)
 
@@ -92,12 +92,10 @@ def find_matching_work_id(
     """
     corpus_hash = _strip_outer_braces(entry.get("corpus_hash", "") or "")
     if corpus_hash:
-        row = conn.execute(
-            "SELECT work_id FROM works WHERE corpus_hash = ?",
-            (corpus_hash,),
-        ).fetchone()
-        if row:
-            return row[0], "corpus_hash"
+        from .documents import find_work
+        work_id = find_work(conn, corpus_hash)
+        if work_id:
+            return work_id, "corpus_hash"
 
     doi_raw = _strip_outer_braces(entry.get("doi", "") or "")
     if doi_raw:
@@ -142,6 +140,7 @@ _WORK_FIELDS = (
     "title", "year", "journal", "doi",
     "license", "license_url", "serve", "serve_reason",
     "ocrlang",   # #176 — flat BibTeX name, no rename needed
+    "ocrmode",   # #186 — force | redo | skip-text
     "doclang", "pagemap",   # #214 — likewise flat, and read by nothing
     "keeppages",            # #188 — flat too, and this one acts
 )
@@ -169,6 +168,24 @@ def _entry_value(entry: Dict, field: str) -> Optional[str]:
     return _strip_outer_braces(str(raw))
 
 
+def _document_target(conn, work_id, entry):
+    """Resolve local policy edits without guessing among several PDFs."""
+    from .documents import DOCUMENT_FIELDS, has_memberships
+    sha = _strip_outer_braces(entry.get("corpus_hash", "") or "")
+    if not has_memberships(conn):
+        return sha
+    members = [r[0] for r in conn.execute(
+        "SELECT corpus_hash FROM work_documents WHERE work_id=?", (work_id,))]
+    local_fields = any(_entry_value(entry, key) is not None for key in DOCUMENT_FIELDS)
+    if sha:
+        if members and sha not in members and local_fields:
+            raise ValueError("Document-local curation corpus_hash is not a member of the matched work")
+        return sha
+    if len(members) > 1 and local_fields:
+        raise ValueError("Document-local curation fields require corpus_hash for a multi-document work")
+    return members[0] if len(members) == 1 else ""
+
+
 def diff_entry_against_work(
     conn: sqlite3.Connection,
     work_id: str,
@@ -180,16 +197,27 @@ def diff_entry_against_work(
     value equals the DB value are excluded — the diff is what would
     *actually* change.
     """
-    cols = ", ".join(_WORK_FIELDS)
+    have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
+    # Dry-run against an older authority DB must remain read-only. Missing
+    # nullable fields compare as NULL; a real import migrates before calling
+    # this helper.
+    cols = ", ".join(
+        field if field in have else f"NULL AS {field}"
+        for field in _WORK_FIELDS
+    )
     cur = conn.execute(
         f"SELECT {cols} FROM works WHERE work_id = ?",
         (work_id,),
     ).fetchone()
     if cur is None:
         return {}
+    from .documents import document_fields, document_metadata
+    corpus_hash = _document_target(conn, work_id, entry)
+    meta = document_metadata(conn, corpus_hash) if corpus_hash else None
+    local_values = document_fields(meta) if meta is not None else {}
     db_values: Dict[str, Optional[str]] = {}
     for i, field in enumerate(_WORK_FIELDS):
-        v = cur[i]
+        v = local_values.get(field) if field in local_values else cur[i]
         if v is None:
             db_values[field] = None
         elif field in {"year", "serve"}:
@@ -269,10 +297,17 @@ def apply_entry(
     # NULL.
     sets: List[str] = []
     params: List = []
+    from .documents import DOCUMENT_FIELDS, document_metadata, update_document_fields
+    corpus_hash = _document_target(conn, work_id, entry)
+    local = document_metadata(conn, corpus_hash) if corpus_hash else None
+    local_changes = {}
     for field in _WORK_FIELDS:
         if field not in changes:
             continue
         new_val: Optional[str] = changes[field][1]
+        if local is not None and field in DOCUMENT_FIELDS:
+            local_changes[field] = int(new_val) if field == "serve" else new_val
+            continue
         if field == "year":
             try:
                 params.append(int(new_val) if new_val else None)
@@ -292,6 +327,21 @@ def apply_entry(
         f"UPDATE works SET {', '.join(sets)} WHERE work_id = ?",
         tuple(params),
     )
+    if local_changes:
+        if "license" in local_changes:
+            from .authority import derive_publishable
+            publishable, source = derive_publishable(local_changes["license"], local.get("year"))
+            local_changes.update(publishable=publishable, license_source=source)
+        update_document_fields(conn, corpus_hash, local_changes)
+    if "year" in changes:
+        from .documents import has_memberships
+        from .authority import derive_publishable
+        if has_memberships(conn):
+            year = conn.execute("SELECT year FROM works WHERE work_id=?", (work_id,)).fetchone()[0]
+            for (sha,) in conn.execute("SELECT corpus_hash FROM work_documents WHERE work_id=?", (work_id,)).fetchall():
+                meta = document_metadata(conn, sha)
+                publishable, source = derive_publishable(meta.get("license"), year)
+                update_document_fields(conn, sha, {"year": year, "publishable": publishable, "license_source": source})
 
     # Replace author list when changed
     if "authors" in changes:
@@ -370,6 +420,7 @@ def import_bibtex(
         "entries": len(entries),
         "matched_corpus_hash": 0,
         "matched_doi": 0,
+        "matched_work_id": 0,
         "no_match": 0,
         "no_changes": 0,
         "changed": 0,
@@ -379,6 +430,13 @@ def import_bibtex(
 
     # Run inside one transaction so a partial failure rolls back.
     try:
+        # Bring older authority DBs up to the current nullable-column shape
+        # before a real import, so adding ocrmode does not require a preceding
+        # corpus rebuild (#186). Dry-run stays strictly read-only;
+        # diff_entry_against_work represents an absent nullable column as NULL.
+        if not dry_run:
+            from .authority import _migrate_works_columns
+            _migrate_works_columns(conn)
         for entry in entries:
             cite_key = entry.get("_key", "?")
             work_id, method = find_matching_work_id(conn, entry)
@@ -403,9 +461,9 @@ def import_bibtex(
                 # unreachable dead code.
                 #
                 # The consequence was severe and invisible: a full
-                # round-trip re-import stamped only the entries that
-                # happened to have field edits (20 of 19,834 in the
-                # reported corpus), so CorpusIndex.provenance() kept
+                # round-trip re-import stamped only the handful of entries
+                # that happened to have field edits in the reported build,
+                # so CorpusIndex.provenance() kept
                 # returning grobid_reconciled for the rest and
                 # format_citations kept emitting "generated via
                 # reconciliation, check if correct" on works the user had

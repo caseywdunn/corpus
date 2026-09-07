@@ -1,0 +1,1302 @@
+{
+  "bundle_info": {
+    "input_schema": {
+      "properties": {},
+      "title": "bundle_infoArguments",
+      "type": "object"
+    },
+    "signature": "() -> 'Dict'"
+  },
+  "corpus_summary": {
+    "input_schema": {
+      "properties": {
+        "top_taxa": {
+          "default": 25,
+          "title": "Top Taxa",
+          "type": "integer"
+        },
+        "top_terms_per_category": {
+          "default": 15,
+          "title": "Top Terms Per Category",
+          "type": "integer"
+        }
+      },
+      "title": "corpus_summaryArguments",
+      "type": "object"
+    },
+    "signature": "(top_taxa: 'int' = 25, top_terms_per_category: 'int' = 15) -> 'Dict[str, Any]'"
+  },
+  "format_citations": {
+    "input_schema": {
+      "properties": {
+        "paper_hashes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hashes"
+        },
+        "queries": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queries"
+        },
+        "style": {
+          "default": "author-year",
+          "title": "Style",
+          "type": "string"
+        },
+        "work_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Work Ids"
+        }
+      },
+      "title": "format_citationsArguments",
+      "type": "object"
+    },
+    "signature": "(queries: 'Optional[List[str]]' = None, work_ids: 'Optional[List[str]]' = None, paper_hashes: 'Optional[List[str]]' = None, style: 'str' = 'author-year') -> 'Dict[str, Any]'"
+  },
+  "get_active_profile": {
+    "input_schema": {
+      "properties": {},
+      "title": "get_active_profileArguments",
+      "type": "object"
+    },
+    "signature": "() -> 'Dict'"
+  },
+  "get_bibliography": {
+    "input_schema": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        },
+        "resolved": {
+          "default": false,
+          "title": "Resolved",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paper_hash"
+      ],
+      "title": "get_bibliographyArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', resolved: 'bool' = False, limit: 'int' = 50, offset: 'int' = 0) -> 'List[Dict]'"
+  },
+  "get_chunks": {
+    "input_schema": {
+      "properties": {
+        "chunk_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunk Ids"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        },
+        "with_text": {
+          "default": true,
+          "title": "With Text",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paper_hash"
+      ],
+      "title": "get_chunksArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', chunk_ids: 'Optional[List[str]]' = None, with_text: 'bool' = True) -> 'List[Dict]'"
+  },
+  "get_chunks_by_section": {
+    "input_schema": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        },
+        "section_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Class"
+        },
+        "with_text": {
+          "default": true,
+          "title": "With Text",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paper_hash"
+      ],
+      "title": "get_chunks_by_sectionArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', section_class: 'Optional[str]' = None, limit: 'int' = 50, with_text: 'bool' = True) -> 'List[Dict]'"
+  },
+  "get_chunks_for_taxon": {
+    "input_schema": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hash"
+        },
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        },
+        "with_text": {
+          "default": true,
+          "title": "With Text",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "taxon_name"
+      ],
+      "title": "get_chunks_for_taxonArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str', paper_hash: 'Optional[str]' = None, limit: 'int' = 50, offset: 'int' = 0, with_text: 'bool' = True) -> 'List[Dict]'"
+  },
+  "get_chunks_for_topic": {
+    "input_schema": {
+      "properties": {
+        "k": {
+          "default": 20,
+          "title": "K",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hash"
+        },
+        "query": {
+          "title": "Query",
+          "type": "string"
+        },
+        "with_cites": {
+          "default": false,
+          "title": "With Cites",
+          "type": "boolean"
+        },
+        "with_text": {
+          "default": true,
+          "title": "With Text",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "get_chunks_for_topicArguments",
+      "type": "object"
+    },
+    "signature": "(query: 'str', k: 'int' = 20, paper_hash: 'Optional[str]' = None, with_text: 'bool' = True, with_cites: 'bool' = False) -> 'List[Dict]'"
+  },
+  "get_citation_graph": {
+    "input_schema": {
+      "properties": {
+        "depth": {
+          "default": 1,
+          "title": "Depth",
+          "type": "integer"
+        },
+        "direction": {
+          "default": "both",
+          "title": "Direction",
+          "type": "string"
+        },
+        "max_edges_per_node": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Edges Per Node"
+        },
+        "max_total_edges": {
+          "default": 500,
+          "title": "Max Total Edges",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hash"
+        },
+        "work_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Work Id"
+        }
+      },
+      "title": "get_citation_graphArguments",
+      "type": "object"
+    },
+    "signature": "(work_id: 'Optional[str]' = None, paper_hash: 'Optional[str]' = None, direction: 'str' = 'both', depth: 'int' = 1, max_edges_per_node: 'Optional[int]' = None, max_total_edges: 'int' = 500) -> 'Dict'"
+  },
+  "get_excerpts_citing": {
+    "input_schema": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "work_id": {
+          "title": "Work Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "work_id"
+      ],
+      "title": "get_excerpts_citingArguments",
+      "type": "object"
+    },
+    "signature": "(work_id: 'str', limit: 'int' = 50) -> 'Dict'"
+  },
+  "get_figure": {
+    "input_schema": {
+      "properties": {
+        "figure_id": {
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "include_licensing": {
+          "default": false,
+          "title": "Include Licensing",
+          "type": "boolean"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile"
+        }
+      },
+      "required": [
+        "paper_hash",
+        "figure_id"
+      ],
+      "title": "get_figureArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', figure_id: 'str', profile: 'Optional[str]' = None, include_licensing: 'bool' = False) -> 'Dict'"
+  },
+  "get_figure_dossier_for_taxon": {
+    "input_schema": {
+      "properties": {
+        "include_rois": {
+          "default": true,
+          "title": "Include Rois",
+          "type": "boolean"
+        },
+        "max_figures": {
+          "default": 25,
+          "title": "Max Figures",
+          "type": "integer"
+        },
+        "max_linked_chunks": {
+          "default": 10,
+          "title": "Max Linked Chunks",
+          "type": "integer"
+        },
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "taxon_name"
+      ],
+      "title": "get_figure_dossier_for_taxonArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str', max_figures: 'int' = 25, max_linked_chunks: 'int' = 10, include_rois: 'bool' = True) -> 'Dict[str, Any]'"
+  },
+  "get_figure_dossier_for_term": {
+    "input_schema": {
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "include_rois": {
+          "default": true,
+          "title": "Include Rois",
+          "type": "boolean"
+        },
+        "max_figures": {
+          "default": 25,
+          "title": "Max Figures",
+          "type": "integer"
+        },
+        "max_linked_chunks": {
+          "default": 10,
+          "title": "Max Linked Chunks",
+          "type": "integer"
+        },
+        "term": {
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "term"
+      ],
+      "title": "get_figure_dossier_for_termArguments",
+      "type": "object"
+    },
+    "signature": "(category: 'str', term: 'str', max_figures: 'int' = 25, max_linked_chunks: 'int' = 10, include_rois: 'bool' = True) -> 'Dict[str, Any]'"
+  },
+  "get_figure_image": {
+    "input_schema": {
+      "properties": {
+        "figure_id": {
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile"
+        }
+      },
+      "required": [
+        "paper_hash",
+        "figure_id"
+      ],
+      "title": "get_figure_imageArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', figure_id: 'str', label: 'Optional[str]' = None, profile: 'Optional[str]' = None) -> 'Image'"
+  },
+  "get_figure_roi_image": {
+    "input_schema": {
+      "properties": {
+        "figure_id": {
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile"
+        }
+      },
+      "required": [
+        "paper_hash",
+        "figure_id",
+        "label"
+      ],
+      "title": "get_figure_roi_imageArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', figure_id: 'str', label: 'str', profile: 'Optional[str]' = None) -> 'Dict'"
+  },
+  "get_figure_url": {
+    "input_schema": {
+      "properties": {
+        "figure_id": {
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile"
+        }
+      },
+      "required": [
+        "paper_hash",
+        "figure_id"
+      ],
+      "title": "get_figure_urlArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', figure_id: 'str', label: 'Optional[str]' = None, profile: 'Optional[str]' = None) -> 'Dict'"
+  },
+  "get_figures_for_lexicon_term": {
+    "input_schema": {
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "full_caption": {
+          "default": false,
+          "title": "Full Caption",
+          "type": "boolean"
+        },
+        "include_all": {
+          "default": false,
+          "title": "Include All",
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hash"
+        },
+        "term": {
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "term"
+      ],
+      "title": "get_figures_for_lexicon_termArguments",
+      "type": "object"
+    },
+    "signature": "(category: 'str', term: 'str', paper_hash: 'Optional[str]' = None, limit: 'int' = 50, include_all: 'bool' = False, full_caption: 'bool' = False) -> 'Union[List[Dict], Dict]'"
+  },
+  "get_figures_for_taxon": {
+    "input_schema": {
+      "properties": {
+        "caption_only": {
+          "default": false,
+          "title": "Caption Only",
+          "type": "boolean"
+        },
+        "full_caption": {
+          "default": false,
+          "title": "Full Caption",
+          "type": "boolean"
+        },
+        "include_all": {
+          "default": false,
+          "title": "Include All",
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hash"
+        },
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "taxon_name"
+      ],
+      "title": "get_figures_for_taxonArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str', paper_hash: 'Optional[str]' = None, limit: 'int' = 50, include_all: 'bool' = False, full_caption: 'bool' = False, caption_only: 'bool' = False) -> 'List[Dict]'"
+  },
+  "get_intext_citations": {
+    "input_schema": {
+      "properties": {
+        "limit": {
+          "default": 100,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "paper_hash"
+      ],
+      "title": "get_intext_citationsArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', limit: 'int' = 100, offset: 'int' = 0) -> 'Dict'"
+  },
+  "get_lexicon_term_dossier": {
+    "input_schema": {
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "max_chunk_examples": {
+          "default": 10,
+          "title": "Max Chunk Examples",
+          "type": "integer"
+        },
+        "max_papers": {
+          "default": 50,
+          "title": "Max Papers",
+          "type": "integer"
+        },
+        "term": {
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "term"
+      ],
+      "title": "get_lexicon_term_dossierArguments",
+      "type": "object"
+    },
+    "signature": "(category: 'str', term: 'str', max_papers: 'int' = 50, max_chunk_examples: 'int' = 10) -> 'Dict[str, Any]'"
+  },
+  "get_missing_references": {
+    "input_schema": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "min_citations": {
+          "default": 2,
+          "title": "Min Citations",
+          "type": "integer"
+        },
+        "year_from": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year From"
+        },
+        "year_to": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year To"
+        }
+      },
+      "title": "get_missing_referencesArguments",
+      "type": "object"
+    },
+    "signature": "(min_citations: 'int' = 2, year_from: 'Optional[int]' = None, year_to: 'Optional[int]' = None, limit: 'int' = 50) -> 'List[Dict]'"
+  },
+  "get_original_description": {
+    "input_schema": {
+      "properties": {
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "taxon_name"
+      ],
+      "title": "get_original_descriptionArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str') -> 'Dict'"
+  },
+  "get_papers": {
+    "input_schema": {
+      "properties": {
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fields"
+        },
+        "hashes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hashes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "hashes"
+      ],
+      "title": "get_papersArguments",
+      "type": "object"
+    },
+    "signature": "(hashes: 'List[str]', fields: 'Optional[List[str]]' = None) -> 'List[Dict[str, Any]]'"
+  },
+  "get_papers_by_author": {
+    "input_schema": {
+      "properties": {
+        "surname": {
+          "title": "Surname",
+          "type": "string"
+        }
+      },
+      "required": [
+        "surname"
+      ],
+      "title": "get_papers_by_authorArguments",
+      "type": "object"
+    },
+    "signature": "(surname: 'str') -> 'List[Dict]'"
+  },
+  "get_papers_for_taxon": {
+    "input_schema": {
+      "properties": {
+        "min_mentions": {
+          "default": 1,
+          "title": "Min Mentions",
+          "type": "integer"
+        },
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "taxon_name"
+      ],
+      "title": "get_papers_for_taxonArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str', *, min_mentions: 'int' = 1) -> 'List[Dict]'"
+  },
+  "get_taxon_dossier": {
+    "input_schema": {
+      "properties": {
+        "include": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Include"
+        },
+        "max_chunks": {
+          "default": 100,
+          "title": "Max Chunks",
+          "type": "integer"
+        },
+        "max_figures": {
+          "default": 25,
+          "title": "Max Figures",
+          "type": "integer"
+        },
+        "max_papers": {
+          "default": 50,
+          "title": "Max Papers",
+          "type": "integer"
+        },
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        },
+        "top_n_cooccurring": {
+          "default": 20,
+          "title": "Top N Cooccurring",
+          "type": "integer"
+        },
+        "top_n_lexicon": {
+          "default": 10,
+          "title": "Top N Lexicon",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "taxon_name"
+      ],
+      "title": "get_taxon_dossierArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str', include: 'Optional[List[str]]' = None, max_papers: 'int' = 50, max_chunks: 'int' = 100, max_figures: 'int' = 25, top_n_lexicon: 'int' = 10, top_n_cooccurring: 'int' = 20) -> 'Dict[str, Any]'"
+  },
+  "get_taxon_lexicon_slice": {
+    "input_schema": {
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "max_paper_examples": {
+          "default": 5,
+          "title": "Max Paper Examples",
+          "type": "integer"
+        },
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        },
+        "top_n": {
+          "default": 25,
+          "title": "Top N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "taxon_name",
+        "category"
+      ],
+      "title": "get_taxon_lexicon_sliceArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str', category: 'str', top_n: 'int' = 25, max_paper_examples: 'int' = 5) -> 'Dict[str, Any]'"
+  },
+  "get_taxon_mentions": {
+    "input_schema": {
+      "properties": {
+        "limit": {
+          "default": 500,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "paper_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hash"
+        },
+        "taxon_name": {
+          "title": "Taxon Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "taxon_name"
+      ],
+      "title": "get_taxon_mentionsArguments",
+      "type": "object"
+    },
+    "signature": "(taxon_name: 'str', paper_hash: 'Optional[str]' = None, limit: 'int' = 500, offset: 'int' = 0) -> 'List[Dict]'"
+  },
+  "get_taxon_subtree_dossier": {
+    "input_schema": {
+      "properties": {
+        "max_aggregate_papers": {
+          "default": 50,
+          "title": "Max Aggregate Papers",
+          "type": "integer"
+        },
+        "max_species": {
+          "default": 50,
+          "title": "Max Species",
+          "type": "integer"
+        },
+        "root_taxon_name": {
+          "title": "Root Taxon Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root_taxon_name"
+      ],
+      "title": "get_taxon_subtree_dossierArguments",
+      "type": "object"
+    },
+    "signature": "(root_taxon_name: 'str', max_species: 'int' = 50, max_aggregate_papers: 'int' = 50) -> 'Dict[str, Any]'"
+  },
+  "get_works_by_author": {
+    "input_schema": {
+      "properties": {
+        "in_corpus_only": {
+          "default": false,
+          "title": "In Corpus Only",
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 100,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "surname": {
+          "title": "Surname",
+          "type": "string"
+        }
+      },
+      "required": [
+        "surname"
+      ],
+      "title": "get_works_by_authorArguments",
+      "type": "object"
+    },
+    "signature": "(surname: 'str', in_corpus_only: 'bool' = False, limit: 'int' = 100) -> 'List[Dict]'"
+  },
+  "lexicon_matrix": {
+    "input_schema": {
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "detail": {
+          "default": false,
+          "title": "Detail",
+          "type": "boolean"
+        },
+        "paper_hashes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Hashes"
+        },
+        "terms": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Terms"
+        },
+        "top_n": {
+          "default": 20,
+          "title": "Top N",
+          "type": "integer"
+        },
+        "year_from": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year From"
+        },
+        "year_to": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year To"
+        }
+      },
+      "required": [
+        "category"
+      ],
+      "title": "lexicon_matrixArguments",
+      "type": "object"
+    },
+    "signature": "(category: 'str', terms: 'Optional[List[str]]' = None, top_n: 'int' = 20, paper_hashes: 'Optional[List[str]]' = None, year_from: 'Optional[int]' = None, year_to: 'Optional[int]' = None, detail: 'bool' = False) -> 'Dict[str, Any]'"
+  },
+  "list_figure_rois": {
+    "input_schema": {
+      "properties": {
+        "figure_id": {
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "paper_hash": {
+          "title": "Paper Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "paper_hash",
+        "figure_id"
+      ],
+      "title": "list_figure_roisArguments",
+      "type": "object"
+    },
+    "signature": "(paper_hash: 'str', figure_id: 'str') -> 'List[Dict]'"
+  },
+  "list_output_profiles": {
+    "input_schema": {
+      "properties": {},
+      "title": "list_output_profilesArguments",
+      "type": "object"
+    },
+    "signature": "() -> 'Dict'"
+  },
+  "list_papers": {
+    "input_schema": {
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "limit": {
+          "default": 100,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "year_from": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year From"
+        },
+        "year_to": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year To"
+        }
+      },
+      "title": "list_papersArguments",
+      "type": "object"
+    },
+    "signature": "(year_from: 'Optional[int]' = None, year_to: 'Optional[int]' = None, language: 'Optional[str]' = None, limit: 'int' = 100, offset: 'int' = 0) -> 'List[Dict]'"
+  },
+  "list_valid_species_under": {
+    "input_schema": {
+      "properties": {
+        "parent_taxon_name": {
+          "title": "Parent Taxon Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "parent_taxon_name"
+      ],
+      "title": "list_valid_species_underArguments",
+      "type": "object"
+    },
+    "signature": "(parent_taxon_name: 'str') -> 'List[Dict]'"
+  },
+  "resolve_reference": {
+    "input_schema": {
+      "properties": {
+        "author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        },
+        "query": {
+          "title": "Query",
+          "type": "string"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "resolve_referenceArguments",
+      "type": "object"
+    },
+    "signature": "(query: 'str', author: 'Optional[str]' = None, year: 'Optional[int]' = None) -> 'Dict'"
+  },
+  "search_taxon": {
+    "input_schema": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "parent_chain": {
+          "default": false,
+          "title": "Parent Chain",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "search_taxonArguments",
+      "type": "object"
+    },
+    "signature": "(name: 'str', parent_chain: 'bool' = False) -> 'Dict'"
+  }
+}
