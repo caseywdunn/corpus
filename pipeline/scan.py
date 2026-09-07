@@ -25,7 +25,8 @@ import signal
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from collections import Counter
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from .config import CONFIG
 
@@ -351,6 +352,106 @@ def _gibberish_score(text: str) -> float:
     return sus / len(scored)
 
 
+# Character ranges per OSD script name, for confirming an OSD verdict
+# against the text OCRing under that script's packs actually produced.
+# Keys match _SCRIPT_TO_TESSERACT; Latin and Fraktur are absent because
+# they are never the overriding verdict.
+_SCRIPT_CHAR_RANGES = {
+    "Cyrillic": ((0x0400, 0x052F),),
+    "Greek": ((0x0370, 0x03FF), (0x1F00, 0x1FFF)),
+    "Arabic": ((0x0600, 0x06FF), (0x0750, 0x077F)),
+    "Hebrew": ((0x0590, 0x05FF),),
+    "Devanagari": ((0x0900, 0x097F),),
+    "Bengali": ((0x0980, 0x09FF),),
+    "Gujarati": ((0x0A80, 0x0AFF),),
+    "Gurmukhi": ((0x0A00, 0x0A7F),),
+    "Tamil": ((0x0B80, 0x0BFF),),
+    "Telugu": ((0x0C00, 0x0C7F),),
+    "Kannada": ((0x0C80, 0x0CFF),),
+    "Malayalam": ((0x0D00, 0x0D7F),),
+    "Thai": ((0x0E00, 0x0E7F),),
+    "Han": ((0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF)),
+    # Kana plus Han, since Japanese prose mixes them and a page of kanji
+    # with no kana is still Japanese as far as pack choice goes.
+    "Japanese": ((0x3040, 0x30FF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF)),
+    "Katakana": ((0x30A0, 0x30FF), (0x3040, 0x309F)),
+    "Hangul": ((0xAC00, 0xD7AF), (0x1100, 0x11FF)),
+}
+
+
+def _script_char_share(text: str, script: str) -> float:
+    """Share of ``text``'s letters that belong to ``script``.
+
+    Used to corroborate a Tesseract OSD verdict. OSD is cheap and reads
+    the page image, which is why it is asked at all — but on this
+    material it is wrong often, and confidently: run over the reference
+    library it called 424 of 1,580 Latin-text-layer documents non-Latin,
+    including Fewkes 1882a as Thai and Alvariño 1964 as Cyrillic. Acting
+    on the bare verdict is the regression recorded in
+    :func:`_resolve_tesseract_packs` — 188 papers overruled, 68 of them
+    losing their correct pack.
+
+    The corroboration is free where the probe already runs: it OCR'd the
+    page with that very script's packs, so if the script is really there
+    its characters are in the output. A Thai misfire on a Latin scan OCRs
+    to Latin letters under ``tha`` and scores 0.0 here; the Chinese page
+    of Lin & Zhang 1991 OCRs to 447 Han characters and scores high.
+    """
+    ranges = _SCRIPT_CHAR_RANGES.get(script)
+    if not ranges:
+        return 0.0
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return 0.0
+    hits = 0
+    for c in letters:
+        cp = ord(c)
+        if any(lo <= cp <= hi for lo, hi in ranges):
+            hits += 1
+    return hits / len(letters)
+
+
+def _unmappable_char_fraction(text: str) -> float:
+    """Share of non-whitespace characters the PDF's fonts failed to map.
+
+    A font with no usable ``ToUnicode`` table extracts as raw glyph
+    indices. Those land in three places, all of which mean the same thing
+    — the character on the page was not recovered:
+
+    - **C0 controls and DEL.** Glyph index 1, 2, 3… surfacing as
+      ``\\x01\\x02\\x03``. Whitespace controls are excluded, since tab,
+      newline and CR are ordinary layout.
+    - **U+FFFD**, where the extractor knew it had nothing.
+    - **The Private Use Area**, where a subsetted font declares its own
+      code points.
+
+    Distinct from :func:`_gibberish_score`, which asks whether *words*
+    look like words and so cannot see this at all: these characters are
+    not alphabetic, so they are absent from the token stream it scores
+    and absent from :func:`_text_layer_scripts`'s denominator. A document
+    whose every glyph is unmappable therefore reads as clean Latin prose
+    with a low gibberish score — Hunt et al. 2001 is 84% unmappable and
+    scored 0.598 against a 0.65 threshold, and was classified
+    ``clean_text_layer`` with ``needs_ocr: false`` (#266).
+
+    Measured over the 1,665 scorable documents of the reference library:
+    1,451 are exactly 0.0, another 202 sit at or below 0.005 (a stray
+    en-dash or ``µ`` that failed to map, in an otherwise clean paper),
+    and the damaged population starts two orders of magnitude up at
+    0.106. Nothing at all lies between 0.031 and 0.106, which is where
+    ``ocr.unmappable_char_max`` sits.
+    """
+    dense = [c for c in text if not c.isspace()]
+    if not dense:
+        return 0.0
+    bad = 0
+    for c in dense:
+        cp = ord(c)
+        if cp < 0x20 or cp == 0x7F or cp == 0xFFFD or 0xE000 <= cp <= 0xF8FF:
+            bad += 1
+    return bad / len(dense)
+
+
 def _text_layer_scripts(text: str) -> Dict[str, float]:
     """Return the fraction of each major writing system present in ``text``.
 
@@ -491,14 +592,75 @@ def _probe_sample_pages(n_pages: int, samples: int) -> List[int]:
     return idxs
 
 
+def _confirm_page_script(
+    osd_script: Optional[str], page_text: str,
+    pdf_path: Optional[Path] = None, page_index: Optional[int] = None,
+) -> Optional[str]:
+    """An OSD verdict, kept only if the page's own OCR bears it out.
+
+    Returns ``osd_script`` when the text OCR'd under that script's packs
+    is genuinely written in it, ``"Latin"`` when the verdict was
+    non-Latin and the output says otherwise, and the verdict unchanged
+    for Latin-family verdicts and for pages where OSD said nothing.
+
+    The 0.10 floor is deliberately low, because a real content page is
+    mixed: OCR'd under their resolved packs, Lin & Zhang 1991's Chinese
+    page scores 0.577 Han and Lindsay 2006's six Japanese body pages
+    0.244-0.469, the rest being Latin taxon names, authorities and
+    reference lists. Their Latin-only reference pages score 0.018 and
+    0.032, so the floor sits in a gap here as well. A misfire scores 0.0
+    rather than merely low: a Thai verdict on a Latin scan produces no
+    Thai codepoints at all, because Tesseract's ``tha`` model
+    transcribed Latin letters as Latin letters.
+    """
+    if not osd_script or osd_script not in _SCRIPT_CHAR_RANGES:
+        return osd_script
+    share = _script_char_share(page_text, osd_script)
+    if share >= 0.10:
+        return osd_script
+    logger.debug(
+        "%s page %s: OSD said %s but its own OCR output is %.1f%% %s — "
+        "treating the verdict as a misfire",
+        getattr(pdf_path, "name", pdf_path), page_index,
+        osd_script, 100 * share, osd_script,
+    )
+    return "Latin"
+
+
+class _ProbeResult(NamedTuple):
+    """What one OCR language probe learned about a document.
+
+    ``votes`` is the language evidence. ``scripts`` is the per-page
+    script verdict *after* corroboration by
+    :func:`_confirm_page_script`, and is the field callers should use.
+    ``osd_scripts`` is what OSD claimed before corroboration, kept so a
+    rejected verdict is visible in ``scan_detection.json`` rather than
+    silently absent.
+
+    Language and script are kept separate because they answer different
+    questions and have different reliability: OSD reads the page image,
+    so it is the only signal that survives a corrupt text layer, while
+    langdetect cannot name Latin at all. Collapsing them — which is what
+    returning votes alone amounted to — is how a Chinese paper came to be
+    OCR'd with ``eng`` (#266).
+    """
+
+    votes: Tuple[tuple, ...]
+    scripts: Tuple[Optional[str], ...]
+    osd_scripts: Tuple[Optional[str], ...] = ()
+
+
 def _probe_language_by_ocr(
     pdf_path: Path, packs: List[str], pages: Optional[int] = None,
     dpi: Optional[int] = None,
-) -> List[tuple]:
+) -> _ProbeResult:
     """OCR sampled pages with ``packs`` and detect the language of each.
 
-    Returns a list of ``(iso, confidence, n_pages)`` ordered by how many
-    sampled pages voted for that language, most first. Empty on failure.
+    Returns a :class:`_ProbeResult`. Its ``votes`` are
+    ``(iso, confidence, n_pages)`` ordered by how many sampled pages voted
+    for that language, most first; its ``scripts`` are the per-page script
+    verdicts after corroboration, and ``osd_scripts`` what OSD claimed
+    before it. All are empty on failure.
 
     Per-page rather than one verdict for the whole document, because
     bilingual PDFs are routine in this material: a Russian original with
@@ -537,18 +699,18 @@ def _probe_language_by_ocr(
     works are core taxonomic material, not an edge case.
     """
     if not packs:
-        return []
+        return _ProbeResult((), (), ())
     try:
         import fitz
     except ImportError:
-        return []
+        return _ProbeResult((), (), ())
     if shutil.which("tesseract") is None:
-        return []
+        return _ProbeResult((), (), ())
     try:
         doc = fitz.open(pdf_path)
     except Exception as e:
         logger.debug("Could not open %s for OCR language probe: %s", pdf_path, e)
-        return []
+        return _ProbeResult((), (), ())
     try:
         if pages is None:
             pages = int(CONFIG.get("ocr", {}).get("probe_sample_pages", 5))
@@ -559,8 +721,10 @@ def _probe_language_by_ocr(
             dpi = int(CONFIG.get("ocr", {}).get("probe_dpi", 300))
         idxs = _probe_sample_pages(len(doc), pages)
         if not idxs:
-            return []
+            return _ProbeResult((), (), ())
         votes: Dict[str, List[float]] = {}
+        osd_scripts: List[Optional[str]] = []
+        confirmed_scripts: List[Optional[str]] = []
         for idx in idxs:
             try:
                 img_bytes = doc[idx].get_pixmap(dpi=dpi).tobytes("png")
@@ -570,9 +734,18 @@ def _probe_language_by_ocr(
             # Ask OSD what script this page is in, then OCR it with only
             # that script's packs. Per page, not per document: that is
             # what lets a mixed-script volume be read correctly at all.
-            page_packs = _probe_packs_for_script(
-                _osd_script_for_page(img_bytes), packs
-            )
+            #
+            # These verdicts are also returned to the caller (#172, #266).
+            # They used to be consumed here and dropped, which meant the
+            # one component that can see *script* handed its answer to
+            # langdetect — the one component that cannot — and detection
+            # then recorded `visual_script: null`. On Lin & Zhang 1991
+            # that discarded a page OSD had read as Han and Tesseract had
+            # transcribed as clean Chinese at 0.000 gibberish, because
+            # langdetect could not name the language of the result.
+            page_script = _osd_script_for_page(img_bytes)
+            osd_scripts.append(page_script)
+            page_packs = _probe_packs_for_script(page_script, packs)
             try:
                 res = subprocess.run(
                     ["tesseract", "-", "-", "-l", "+".join(page_packs)],
@@ -581,7 +754,15 @@ def _probe_language_by_ocr(
                 page_text = res.stdout.decode("utf-8", errors="replace")
             except Exception as e:
                 logger.debug("Probe OCR failed on page %d: %s", idx, e)
+                confirmed_scripts.append(None)
                 continue
+            # Corroborate the verdict against what OCRing under its own
+            # packs actually produced. OSD alone is not safe to act on
+            # (see _script_char_share); OSD plus its own output is, and
+            # the output is already in hand.
+            confirmed_scripts.append(
+                _confirm_page_script(page_script, page_text, pdf_path, idx)
+            )
             # A plate, a blank verso or a half-title carries too little
             # text to detect from; counting it would let noise outvote
             # a real body page.
@@ -627,13 +808,93 @@ def _probe_language_by_ocr(
         # page out of five is still reported — that is exactly the shape
         # of a stapled-in translation — and the caller decides whether the
         # evidence is strong enough to add its pack.
-        return sorted(
+        ordered = sorted(
             ((iso, max(cs), len(cs)) for iso, cs in votes.items()),
             key=lambda t: (t[2], t[1]),
             reverse=True,
         )
+        return _ProbeResult(votes=tuple(ordered),
+                            scripts=tuple(confirmed_scripts),
+                            osd_scripts=tuple(osd_scripts))
     finally:
         doc.close()
+
+
+class _PixelEvidence(NamedTuple):
+    """What the page images say, for a path that rejected the text layer.
+
+    Every branch of :func:`detect_scan_type` that decides the text layer
+    cannot be trusted needs the same two answers — what script is on the
+    page, and what language — and must get them the same way, from the
+    pixels. Sharing one accessor is what keeps a fix to the corroboration
+    rule from landing on three branches out of four.
+    """
+
+    languages: List[tuple]          # accepted probe votes, best first
+    script: Optional[str]           # corroborated dominant script
+    page_scripts: List[Optional[str]]
+    osd_page_scripts: List[Optional[str]]
+    # Every vote, including those below the confidence floor. Only used
+    # to explain in the log why nothing was accepted.
+    all_votes: Tuple[tuple, ...] = ()
+
+
+def _pixel_evidence(pdf_path: Path, ocr_cfg: Dict) -> _PixelEvidence:
+    """Ask the page images for script and language.
+
+    Prefers the OCR probe, which corroborates each OSD verdict against
+    the text OCRing under that script's own packs. Falls back to a bare
+    OSD pass when probing is switched off — uncorroborated, and the
+    caller gets a script but no language.
+    """
+    if ocr_cfg.get("probe_language_by_ocr", True):
+        probe = _probe_language_by_ocr(pdf_path, _script_fallback_packs())
+        return _PixelEvidence(
+            languages=_accept_probe_languages(probe.votes),
+            script=_dominant_visual_script(list(probe.scripts)),
+            page_scripts=list(probe.scripts),
+            osd_page_scripts=list(probe.osd_scripts),
+            all_votes=list(probe.votes),
+        )
+    return _PixelEvidence(
+        languages=[], script=_visual_page_script(pdf_path),
+        page_scripts=[], osd_page_scripts=[],
+    )
+
+
+def _dominant_visual_script(scripts: List[Optional[str]]) -> Optional[str]:
+    """Collapse per-page OSD verdicts into one script for the record.
+
+    A single non-Latin page decides it, and the most-seen such script
+    wins: a Latin title page in front of a Chinese body is the normal
+    shape of this material, not a reason to call the volume Latin. Lin &
+    Zhang 1991 is two pages, the first Han and the second a Latin
+    reference list, and its content is Chinese (#266).
+
+    Fraktur collapses to ``"Latin"`` rather than being returned as
+    itself, and that is deliberate. ``_SCRIPT_TO_TESSERACT`` has a
+    ``"Fraktur"`` key, so returning it here would put ``deu_latf+deu``
+    ahead of a *correct* langdetect result on any Latin-script document
+    OSD happens to read as blackletter. It is also the one verdict
+    :func:`_confirm_page_script` cannot check — blackletter German is
+    written in Latin codepoints, so there is no character range that
+    distinguishes it from roman type — and an unverifiable verdict is
+    not one to act on. Olfers 1824 comes back ``Fraktur, Latin,
+    Fraktur``, which is correct, and still resolves to ``deu`` via the
+    language probe rather than via OSD. The raw verdicts are recorded as
+    ``visual_scripts``, so choosing ``deu_latf`` on blackletter evidence
+    stays available as later work without this function guessing at it
+    now.
+
+    ``None`` means OSD produced no verdict on any sampled page, which is
+    a different fact from "every page was Latin" and is recorded as such.
+    """
+    non_latin = [s for s in scripts if s and s not in ("Latin", "Fraktur")]
+    if non_latin:
+        return Counter(non_latin).most_common(1)[0][0]
+    if any(s in ("Latin", "Fraktur") for s in scripts):
+        return "Latin"
+    return None
 
 
 # ISO 639-1 code → expected script (for cross-check). Latin-family languages
@@ -1989,24 +2250,23 @@ def detect_scan_type(
         # least accurate setting available. A short OCR sample buys a
         # real language and a targeted pack instead. Script is unknown
         # here (nothing to measure), so the probe uses the full union.
-        accepted: List[tuple] = []
-        if CONFIG.get("ocr", {}).get("probe_language_by_ocr", True):
-            votes = _probe_language_by_ocr(pdf_path, _script_fallback_packs())
-            accepted = _accept_probe_languages(votes)
-            if accepted:
-                logger.info(
-                    "%s: no text layer to detect from; OCR probe found %s — "
-                    "using for pack selection",
-                    pdf_path.name,
-                    ", ".join(f"{i} (p={c:.2f}, {n}pp)" for i, c, n in accepted),
-                )
-            elif votes:
-                logger.info(
-                    "%s: OCR probe returned only low-confidence languages "
-                    "(%s) — OCRing with the full pack union instead",
-                    pdf_path.name,
-                    ", ".join(f"{i} p={c:.2f}" for i, c, _ in votes),
-                )
+        pixels = _pixel_evidence(pdf_path, CONFIG.get("ocr", {}))
+        accepted = pixels.languages
+        visual, visual_pages = pixels.script, pixels.page_scripts
+        if accepted:
+            logger.info(
+                "%s: no text layer to detect from; OCR probe found %s — "
+                "using for pack selection",
+                pdf_path.name,
+                ", ".join(f"{i} (p={c:.2f}, {n}pp)" for i, c, n in accepted),
+            )
+        elif pixels.all_votes:
+            logger.info(
+                "%s: OCR probe returned only low-confidence languages "
+                "(%s) — OCRing with the full pack union instead",
+                pdf_path.name,
+                ", ".join(f"{i} p={c:.2f}" for i, c, _ in pixels.all_votes),
+            )
         return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "scanned",
@@ -2017,6 +2277,13 @@ def detect_scan_type(
             "language_confidence": accepted[0][1] if accepted else 0.0,
             "language_trusted": bool(accepted),
             "probe_languages": [i for i, _, _ in accepted],
+            # The probe's OSD verdicts, which pack resolution prefers over
+            # the language guess (#172). On a document with no text layer
+            # this is the only script evidence there is, and langdetect
+            # cannot supply it: a Han page whose OCR it declines to name
+            # still needs `chi_sim`, not the whole default union.
+            "visual_script": visual,
+            "visual_scripts": list(visual_pages),
             "gibberish_score": 0.0,
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
@@ -2045,17 +2312,39 @@ def detect_scan_type(
             "re-routing to OCR",
             matched, pdf_path.name,
         )
+        # `lang` here was detected from the banner, which is the scanning
+        # vendor's English, not the document's language — so it is the one
+        # signal on this path guaranteed not to describe the content. Ask
+        # the page images what script they are in (#172); a Chinese volume
+        # behind a ProQuest wrapper would otherwise OCR under `eng`.
+        pixels = _pixel_evidence(pdf_path, CONFIG.get("ocr", {}))
+        visual = pixels.script
+        accepted = pixels.languages
+        if accepted:
+            logger.info(
+                "%s: OCR probe found %s behind the %r banner (which read "
+                "as %r) — using for pack selection",
+                pdf_path.name,
+                ", ".join(f"{i} (p={c:.2f}, {n}pp)" for i, c, n in accepted),
+                matched, lang,
+            )
         return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "scanned",
             "detection_reason": "vendor_boilerplate_only",
             "has_text": True,
             "needs_ocr": True,
-            "detected_language": lang,
-            "language_confidence": conf,
+            "detected_language": accepted[0][0] if accepted else lang,
+            "language_confidence": accepted[0][1] if accepted else conf,
+            "language_trusted": bool(accepted),
+            "text_layer_language": lang,
+            "probe_languages": [i for i, _, _ in accepted],
             "gibberish_score": gib,
             "text_layer_scripts": scripts,
-            "visual_script": None,
+            "visual_script": visual,
+            "visual_scripts": pixels.page_scripts,
+            "osd_page_scripts": pixels.osd_page_scripts,
+            "script_hint": visual if visual and visual != "Latin" else None,
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             # The branch has already rejected this layer as non-content;
@@ -2084,6 +2373,9 @@ def detect_scan_type(
             lang_trusted = latin_frac <= 0.90
             layer_lang = lang
             accepted: List[tuple] = []
+            visual = None
+            visual_pages: List[Optional[str]] = []
+            osd_pages: List[Optional[str]] = []
             if _ocr_cfg.get("probe_language_by_ocr", True):
                 # Probe every scan, not only the ones whose layer language
                 # is untrustworthy. A layer containing Cyrillic or CJK does
@@ -2102,8 +2394,28 @@ def detect_scan_type(
                 # document as monolingual English. script_hint still
                 # narrows the *fallback* union below, where it is only
                 # ever consulted if the probe found nothing.
-                votes = _probe_language_by_ocr(pdf_path, _script_fallback_packs())
-                accepted = _accept_probe_languages(votes)
+                pixels = _pixel_evidence(pdf_path, _ocr_cfg)
+                votes = pixels.all_votes
+                visual_pages = pixels.page_scripts
+                osd_pages = pixels.osd_page_scripts
+                visual = pixels.script
+                accepted = pixels.languages
+                # OSD saw a script the text layer denies. Trust OSD: the
+                # layer is the artifact we have already declared
+                # untrustworthy, and on a legacy CJK font remapped into
+                # ASCII it reports 100% Latin with total confidence.
+                # `script_hint` is derived from that same layer, so it has
+                # to move with the verdict or it narrows the fallback
+                # union to exactly the wrong family (#266).
+                if visual and visual != "Latin":
+                    if script_hint != visual:
+                        logger.info(
+                            "%s: page images are %s but the text layer reads "
+                            "%.0f%% Latin — selecting packs from the page "
+                            "images",
+                            pdf_path.name, visual, 100 * latin_frac,
+                        )
+                    script_hint = visual
                 if accepted:
                     logger.info(
                         "%s: OCR probe found %s (text layer claimed %r) — "
@@ -2156,7 +2468,20 @@ def detect_scan_type(
                 "script_hint": script_hint,
                 "gibberish_score": gib,
                 "text_layer_scripts": scripts,
-                "visual_script": None,
+                # The probe already ran OSD on every page it rendered, so
+                # this costs nothing new. It used to be hardcoded null
+                # here (#172) while `script_hint` above carried a script
+                # read off the text layer this branch has just rejected —
+                # so the one trustworthy script signal in the function was
+                # computed, used to pick probe packs, and thrown away.
+                # Pack resolution prefers it over the language guess, which
+                # is what routes a mojibake Chinese scan to `chi_sim`
+                # instead of `eng` (#266).
+                "visual_script": visual,
+                "visual_scripts": visual_pages,
+                # Before corroboration, so a rejected verdict stays
+                # visible rather than looking as though OSD never ran.
+                "osd_page_scripts": osd_pages,
                 "scanned_page_fraction": coverage,
                 "total_chars_sampled": total_chars,
                 "pages_checked": pages_to_check,
@@ -2172,12 +2497,94 @@ def detect_scan_type(
                 ),
             }, pdf_path)
 
+    # --- Unmappable text layer ---------------------------------------
+    # A born-digital PDF whose fonts carry no usable ToUnicode table.
+    # Nothing above this point can see it: the glyph indices are not
+    # alphabetic, so they are invisible to the gibberish score and absent
+    # from text_layer_scripts, and the pages are real text rather than
+    # images, so the raster check reads 0.0 coverage. What reaches the
+    # corpus is whatever Latin survived the encoding — taxon names,
+    # authorities and years — which is enough to put the paper in search
+    # results and the taxon graph looking present, with its body gone
+    # (#266).
+    #
+    # Below the raster check on purpose: a scan gets more from that path,
+    # which runs the language probe. This branch is for the population
+    # that path cannot reach.
+    unmappable = _unmappable_char_fraction(total_text)
+    if unmappable > float(_ocr_cfg.get("unmappable_char_max", 0.05)):
+        logger.warning(
+            "%s: %.0f%% of the text layer is unmappable glyph indices — "
+            "the fonts carry no usable ToUnicode table, so this text is "
+            "lost, not merely noisy. Re-OCRing over it.",
+            pdf_path.name, 100 * unmappable,
+        )
+        # Same move as the raster path: having decided not to trust the
+        # text layer, ask the pixels rather than asking the layer again.
+        # Without the probe these documents get no language at all —
+        # the one read off the glyph indices is nonsense with total
+        # confidence (Hunt et al. 2001 as Hungarian, Burke 2002 as
+        # Portuguese, Miloslavić & Maley 2005 as Swahili) — and fall
+        # through to the full 13-pack union, which is both the slowest and
+        # the least accurate setting available.
+        pixels = _pixel_evidence(pdf_path, _ocr_cfg)
+        accepted = pixels.languages
+        visual = pixels.script
+        if accepted:
+            logger.info(
+                "%s: OCR probe found %s (the unmappable layer claimed "
+                "%r) — using for pack selection",
+                pdf_path.name,
+                ", ".join(f"{i} (p={c:.2f}, {n}pp)" for i, c, n in accepted),
+                lang,
+            )
+        return _annotate_detection_overrides(ocrlang, ocrmode, {
+            "filename": pdf_path.name,
+            "file_type": "broken_text_layer",
+            "detection_reason": "unmappable_text_layer",
+            "has_text": True,
+            "needs_ocr": True,
+            "detected_language": accepted[0][0] if accepted else lang,
+            "language_confidence": accepted[0][1] if accepted else conf,
+            # The probe's verdict is trustworthy; the layer's is not, for
+            # the reason in the comment above.
+            "language_trusted": bool(accepted),
+            "text_layer_language": lang,
+            "probe_languages": [i for i, _, _ in accepted],
+            "probe_confidence": accepted[0][1] if accepted else None,
+            "gibberish_score": gib,
+            "unmappable_char_fraction": unmappable,
+            "text_layer_scripts": scripts,
+            "visual_script": visual,
+            "visual_scripts": pixels.page_scripts,
+            "osd_page_scripts": pixels.osd_page_scripts,
+            # Carries "Latin" too, unlike the branches above: with the
+            # language guess demoted, this is the only thing that keeps
+            # the fallback union from growing to every installed pack.
+            "script_hint": visual,
+            "total_chars_sampled": total_chars,
+            "pages_checked": pages_to_check,
+            # Not redo_ocr: ocrmypdf leaves regions that already hold text
+            # alone, which here means keeping the corrupt layer.
+            "ocr_mode": "force_ocr",
+        }, pdf_path)
+
     threshold = float(_ocr_cfg.get("gibberish_threshold", 0.65))
 
     # --- Cheap gibberish path ---
     # High gibberish score is a direct signal the text layer is corrupt,
     # regardless of script. Catches the obvious cases.
     if gib > threshold:
+        # This branch has just declared the text layer garbage, and then
+        # used to select packs from the language langdetect read *off that
+        # garbage* — with no script evidence at all, because OSD ran on
+        # neither this path nor the probe (#172). Ask the page images. The
+        # population is small enough for the cost to be irrelevant: 7 of
+        # 1,627 scored documents in the reference library reach here, the
+        # rest of the high-gibberish mass having been caught upstream as
+        # raster scans.
+        pixels = _pixel_evidence(pdf_path, _ocr_cfg)
+        visual = pixels.script
         return _annotate_detection_overrides(ocrlang, ocrmode, {
             "filename": pdf_path.name,
             "file_type": "broken_text_layer",
@@ -2188,7 +2595,14 @@ def detect_scan_type(
             "language_confidence": conf,
             "gibberish_score": gib,
             "text_layer_scripts": scripts,
-            "visual_script": None,
+            "visual_script": visual,
+            "visual_scripts": pixels.page_scripts,
+            "osd_page_scripts": pixels.osd_page_scripts,
+            # Left as-is when OSD comes back Latin or fails: pack
+            # resolution already prefers `visual_script` where there is
+            # one, and demoting the language guess on no evidence would
+            # trade a possibly-right pack for the whole default union.
+            "script_hint": visual if visual and visual != "Latin" else None,
             "total_chars_sampled": total_chars,
             "pages_checked": pages_to_check,
             "ocr_mode": "force_ocr",
@@ -2252,6 +2666,11 @@ def detect_scan_type(
         "detected_language": lang,
         "language_confidence": conf,
         "gibberish_score": gib,
+        # Recorded on the clean path too, for the same reason as
+        # scanned_page_fraction below: the number that cleared the gate is
+        # the one an operator needs when a paper looks present and reads
+        # empty.
+        "unmappable_char_fraction": unmappable,
         "text_layer_scripts": scripts,
         "visual_script": visual,
         # Recorded on the no-OCR path too so the raster check is auditable

@@ -204,6 +204,10 @@ class OcrConfig(BaseModel):
     )
     gibberish_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
     visual_script_gibberish_min: float = Field(default=0.40, ge=0.0, le=1.0)
+    # Share of unmappable glyph indices above which the text layer is
+    # treated as absent rather than noisy. See
+    # pipeline/scan.py `_unmappable_char_fraction`.
+    unmappable_char_max: float = Field(default=0.05, ge=0.0, le=1.0)
     # Per-page --tesseract-timeout. Generous on purpose: a timeout here
     # silently blanks the page. See pipeline/scan.py prepare_pdf.
     tesseract_page_timeout: int = Field(default=900, gt=0)

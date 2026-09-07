@@ -217,6 +217,14 @@ ocr:
   # gibberish score. An explicit non-Latin ocrlang pin against a Latin-only
   # layer always triggers the check regardless of this floor (#266).
   visual_script_gibberish_min: 0.40
+  # Above this share of unmappable glyph indices in the sampled text
+  # layer, the document is re-OCR'd. A PDF font with no usable ToUnicode
+  # table extracts as raw glyph indices, which are not letters — so the
+  # gibberish score cannot see them and the paper is classified
+  # clean_text_layer with its body missing (#266). The default sits in a
+  # measured gap: in the reference library nothing falls between 0.031
+  # and 0.106.
+  unmappable_char_max: 0.05
   # Per-page OCR timeout passed to ocrmypdf (--tesseract-timeout).
   # ocrmypdf's own default is far too tight for dense historical scans
   # with several language packs loaded, and when it fires the page is

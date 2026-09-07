@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A text layer of unmappable glyph indices is no longer "clean" (#266).**
+  A PDF font with no usable `ToUnicode` table extracts as raw glyph indices —
+  `\x01\x02\x03` — and those are not letters, so they were invisible to every
+  signal detection had: absent from the gibberish score's token stream, absent
+  from `text_layer_scripts`, and on real text rather than page images, so the
+  raster check read 0.0 coverage. What survived the encoding was the Latin in
+  the paper — taxon names, authorities, years — which was enough to put the
+  document in search results and the taxon graph looking present, with its body
+  gone. `detect_scan_type` now measures the unmappable share and routes the
+  document to OCR as `unmappable_text_layer`, at warning severity, with the
+  measured fraction recorded on the clean path too. Six documents in the
+  reference library were affected: Hunt et al. 2001 had **896 usable letters in
+  59,056 characters** and was classified `clean_text_layer` /
+  `needs_ocr: false`; re-OCR recovers 42,398. Lindsay 2006 recovers 4,034
+  Japanese characters from zero. New `ocr.unmappable_char_max`, default 0.05,
+  which sits in a measured gap — 1,451 of 1,665 documents score exactly 0.0,
+  another 202 at or below 0.005, and nothing at all falls between 0.031 and
+  0.106.
+
+  Note the raised `gibberish_threshold` (0.5 → 0.65) is recorded as avoiding a
+  "MilosMaley2005 false positive". That document is 68% unmappable; it was a
+  true positive, silenced.
+
+- **OCR packs are chosen from the page images, not from a text layer already
+  rejected (#172, #266).** `visual_script` was hardcoded `null` on every
+  detection path, so the cross-check it exists for was inert. The verdicts
+  themselves were never missing — the language probe runs Tesseract OSD on
+  each page it renders in order to pick that page's probe packs — they were
+  computed, used, and dropped, leaving pack selection to a language read off
+  the corrupt layer. On Lin & Zhang 1991, a Chinese paper whose legacy font
+  maps into ASCII, that meant discarding a page OSD had read as Han and
+  Tesseract had transcribed as clean Chinese at 0.000 gibberish, then OCRing
+  the document with `eng`. It now resolves to `chi_sim+chi_tra+eng` and
+  recovers 451 Han characters where the old choice recovered none. Every path
+  that rejects the text layer — no-text, vendor-banner, raster-scan,
+  unmappable and high-gibberish — now asks the pixels through one accessor and
+  records what they said.
+
+- **An OSD verdict is corroborated before it is acted on (#172).** Tesseract
+  OSD is the only script signal that survives a corrupt text layer, and on
+  this material it is also wrong often and confidently: run over the reference
+  library it called **424 of 1,580** Latin-text-layer documents non-Latin —
+  Fewkes 1882a as Thai, Alvariño 1964 as Cyrillic, Bigelow & Sears 1939 as
+  Bengali. Acting on the bare verdict is the regression `_resolve_tesseract_packs`
+  already records, where 188 papers were overruled and 68 lost their correct
+  pack. The check is now free where the probe runs: it OCR'd the page with that
+  script's own packs, so a real script leaves its characters in the output,
+  while a misfire scores 0.0 — `tha` transcribes Latin letters as Latin
+  letters. Content pages of the confirmed cases score 0.24-0.58 against 0.018
+  for their Latin-only reference pages. The pre-corroboration verdicts are
+  recorded as `osd_page_scripts` so a rejected one stays visible rather than
+  looking as though OSD never ran.
+
 ## [1.3.0] - 2026-09-07
 
 ### Theme — v1.3 evidence integrity and auditability
