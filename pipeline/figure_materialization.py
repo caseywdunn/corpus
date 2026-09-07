@@ -11,6 +11,31 @@ from pathlib import Path
 import tempfile
 
 
+def has_split_figure_state(figures_file: Path) -> bool:
+    """True when a previous Pass 3c left compound-split state in this document.
+
+    :func:`rebuild_figure_base` exists so annotation never starts from prior
+    split state — Pass 3c renames a host figure's PNG to range notation and
+    emits sub-figure records that share it. Only documents that actually went
+    through that need their base reset; re-extracting the rest costs a full
+    docling conversion each and changes nothing (#281). On the 1775-document
+    reference library, 10 documents carry split state and 1765 do not.
+
+    Unreadable or absent means reset: a base we cannot vouch for is one we
+    rebuild, because guessing wrong here silently annotates split images.
+    """
+    try:
+        data = json.loads(figures_file.read_text())
+    except (OSError, ValueError):
+        return True
+    for figure in data.get("figures") or []:
+        if figure.get("image_shared_with") or figure.get("previous_filenames"):
+            return True
+        if str(figure.get("pass3_status") or "").endswith("_compound"):
+            return True
+    return False
+
+
 def rebuild_figure_base(hash_dir: Path, extract, *, figures_only=True):
     """Install freshly extracted figures, rolling back on ordinary I/O failure.
 

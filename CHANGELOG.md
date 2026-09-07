@@ -220,6 +220,25 @@ skills-and-usage work originally scoped here.
 
 ### Fixed
 
+- **The GPU vision phase no longer re-extracts the whole corpus (#281).**
+  `--only vision` passes `--refresh-vision`, which reset the figure base
+  unconditionally — and resetting runs a full docling conversion per document.
+  On the 1775-paper reference library that turned a phase which previously
+  logged **zero** docling conversions and finished in 1h27m into one whose
+  distinct documents touched and re-conversions were exactly 1:1, projecting
+  ~35 hours against `batch_pass3b.sh`'s 24-hour limit: the build could not
+  finish in one allocation, and it held an H200 idle while doing CPU-bound
+  extraction, tripping the cluster's GPU-utilisation policy.
+  The reset exists so annotation never starts from prior split state, which
+  only Pass 3c produces — it renames a host figure's image and records
+  `previous_filenames` / `image_shared_with`. Passes 3a and 3b never touch
+  image files at all. The base is therefore reset only for documents that
+  carry that state: 20 of 1775 on the reference library, 1.1%. An unreadable
+  or absent `figures.json` still resets, because a base that cannot be
+  vouched for is one to rebuild. Page annotations and the figure report now
+  refresh on every vision pass rather than only when the base was reset,
+  since Pass 3b/3c rewrote the records either way.
+
 - **The taxonomy fingerprint identifies the source, not the snapshot file
   (#278).** `taxonomy.sqlite` embeds per-row `fetched_at` and
   `meta.last_ingest_ts`, so re-ingesting byte-identical input produced a

@@ -72,7 +72,13 @@ def _install_figure_stubs(monkeypatch):
         image_dir = figures.parent / "figures"
         (image_dir / "raw.png").rename(image_dir / "split.png")
         data["figures"][0].update(filename="split.png", file_path=str(image_dir / "split.png"),
-                                  rois=[{"label": getattr(backend, "model", "ocr")}])
+                                  rois=[{"label": getattr(backend, "model", "ocr")}],
+                                  # Renaming the base image is Pass 3c behaviour, and the real
+                                  # splitter records it (figures.py). The stub must too, or it
+                                  # simulates a state the pipeline cannot actually produce:
+                                  # a renamed base with nothing saying it was renamed, which
+                                  # is exactly what has_split_figure_state keys off (#281).
+                                  previous_filenames=["raw.png"])
         (image_dir / "obsolete.png").write_bytes(b"old derived panel")
         figures.write_text(json.dumps(data))
 

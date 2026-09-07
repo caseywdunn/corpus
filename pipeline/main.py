@@ -26,7 +26,7 @@ from . import external
 from .config import load_config
 from .build_inputs import config_fingerprints as _config_fingerprints
 from .figure_passes import _crossref_chunks_and_figures, _pass25_annotate_figures, _pass3b_annotate_rois
-from .figure_materialization import rebuild_figure_base
+from .figure_materialization import has_split_figure_state, rebuild_figure_base
 from .extract import extract_docling_content
 from .figures import resolve_compound_figures
 from .grobid_client import GrobidClient
@@ -85,14 +85,16 @@ def _refresh_vision_artifacts(
         summary_3c.get("new_records", 0),
     )
     _crossref_chunks_and_figures(figures_file, chunks_file)
-    if reset_base:
-        from .pageselect import annotate_source_pages
-        from .figures import generate_figures_report
-        scan_path = figures_file.parent / "scan_detection.json"
-        scan = json.loads(scan_path.read_text()) if scan_path.exists() else {}
-        if scan.get("keeppages_selected"):
-            annotate_source_pages([figures_file, chunks_file], scan["keeppages_selected"])
-        generate_figures_report(figures_file.parent)
+    # Unconditional: Pass 3b/3c rewrote ROIs and figure records either way, so
+    # the page annotations and the header-derived report must follow. Only the
+    # base rebuild above depends on prior split state (#281).
+    from .pageselect import annotate_source_pages
+    from .figures import generate_figures_report
+    scan_path = figures_file.parent / "scan_detection.json"
+    scan = json.loads(scan_path.read_text()) if scan_path.exists() else {}
+    if scan.get("keeppages_selected"):
+        annotate_source_pages([figures_file, chunks_file], scan["keeppages_selected"])
+    generate_figures_report(figures_file.parent)
 
 
 def _slice_hashes_for_batch(
@@ -750,9 +752,22 @@ def main():
                             processing = summary.setdefault("processing_summary", {})
                             with _stage({}, "vision_refresh", hash_dir=hash_dir,
                                         input_fingerprint={"config": run_config_fingerprints["figure_materialization"]}):
+                                # Reset the figure base only where a prior
+                                # Pass 3c actually split compound figures.
+                                # Unconditionally resetting re-ran a full
+                                # docling conversion per document, which turned
+                                # the GPU vision phase from ~1.5 h into 35 h on
+                                # the 1775-paper library and could not finish
+                                # inside one allocation (#281).
+                                reset_base = has_split_figure_state(figures_file)
+                                if not reset_base:
+                                    logger.debug(
+                                        "%s: no prior compound-split state; "
+                                        "annotating in place", pdf_hash,
+                                    )
                                 _refresh_vision_artifacts(
                                     figures_file, hash_dir / "chunks.json", vision_backend,
-                                    reset_base=True,
+                                    reset_base=reset_base,
                                 )
                                 with _stage(processing, "quality_gates", hash_dir=hash_dir,
                                             input_fingerprint={"config": run_config_fingerprints["quality_gates"]}):
