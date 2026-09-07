@@ -736,6 +736,24 @@ severity. No fix here is complete while its failure mode is still quiet.
   ([#192](https://github.com/caseywdunn/corpus/issues/192)).
 - [ ] **Column-store shape for `lexicon_matrix`**
   ([#83](https://github.com/caseywdunn/corpus/issues/83)).
+- [ ] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
+  Measured on the 1775-document tree: 23,369 figures hold 15.0 GiB, median
+  1.27 MP against a p99 of 21.5 MP and a maximum of 204.6 MP — the mass is a
+  small tail. Figures are ~88% of the served bundle, so a cap roughly halves
+  what a colleague downloads. **77% of figure bytes sit in figures with no
+  detected panels**, including every one of the six largest, so the saving does
+  not have to come out of plate legibility: capping only those recovers
+  5.4 GiB at zero panel cost, where a flat 2000 px cap recovers 6.7 GiB but
+  costs the median panel 10%. Implementation gate — `rois == 0` is **not** a
+  safe proxy for "not a plate" (17% of *detected* panels are already under
+  300 px, so detection quality varies); a selective rule needs a second guard,
+  or use a flat 3000 px cap which costs ~3% and depends on nothing. Decide
+  whether it applies at build time, as a backfill through the existing
+  `tools/backfill_figure_dpi.py`, or both. Full analysis in the issue.
+  Analyses (A), (C) and (D) from the issue are done: pngquant was present, so
+  that lever is spent; the OCR path is 58% of the corpus, not a minority.
+  (B) is still worth running; (E) is stale archaeology and should be dropped;
+  (F) colour depth stacks on top of a cap.
 
 ### 4. Decisions to record rather than defer again
 
@@ -750,8 +768,6 @@ is not.
   ([#155](https://github.com/caseywdunn/corpus/issues/155)): v1.3 fixed the
   tractable half and 96 title/year-only leads remain. Either carve another
   cheap slice or declare the tool best-effort in its own docstring.
-- [ ] **Corpuscle size** ([#184](https://github.com/caseywdunn/corpus/issues/184)):
-  measure what drove the 0.6 -> 1.0 growth, then either act or close it.
 
 **Cycle acceptance:** every issue above is closed or has a recorded decision,
 and the open tracker contains only new capability and direction questions —
