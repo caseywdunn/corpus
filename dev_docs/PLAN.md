@@ -89,37 +89,57 @@ generator over it would undo the cycle's point.
 Highest priority, because nothing surfaces them. An operator cannot act on a
 gap they cannot see.
 
-- [ ] **Route mojibake non-Latin scans to OCR without a pin**
+- [x] **Route mojibake non-Latin scans to OCR without a pin**
   ([#266](https://github.com/caseywdunn/corpus/issues/266)), and populate
-  `visual_script` on every detection path rather than only the mismatch branch
-  ([#172](https://github.com/caseywdunn/corpus/issues/172)) so the
-  cross-check is not inert. v1.3 fixed the *pinned* case; an unpinned Chinese
-  paper scoring 0.295 is still classified `born_digital` and never OCR'd, and
-  loses its whole text.
-- [ ] **Make lexicon translations match inflected forms**
-  ([#165](https://github.com/caseywdunn/corpus/issues/165)). Anatomy coverage
-  is currently *zero* on German papers, which reads identically to a paper
-  with no anatomy in it.
-- [ ] **Expand abbreviated genus binomials**
-  ([#164](https://github.com/caseywdunn/corpus/issues/164)) — `Ph. pelagica`
-  is a taxon mention that silently does not count.
-- [ ] **Decide the botanical authority policy**
-  ([#175](https://github.com/caseywdunn/corpus/issues/175)).
-  `get_original_description` is structurally dead for botanical taxonomies
-  because authority linking assumes the zoological parenthetical-year
-  convention. This is live, not hypothetical: the Viburnum corpuscle is
-  botanical. Scoping note — a full botanical authorship parser is a cycle of
-  its own; returning an explicit unsupported result beats silently returning
-  nothing, and may be the whole fix.
-- [ ] **Stop the CLI lying by omission**: `--filter-gate` silently ignoring
-  the filter without `--list-hashes`
-  ([#169](https://github.com/caseywdunn/corpus/issues/169)), and the
-  naive-chunker fallback being invisible in `corpus status`
-  ([#168](https://github.com/caseywdunn/corpus/issues/168)).
+  `visual_script` on every detection path
+  ([#172](https://github.com/caseywdunn/corpus/issues/172)). The unpinned
+  Chinese paper is now OCR'd under `chi_sim` and recovers 451 Han characters
+  where the old pack choice recovered none. Two findings reshaped the fix.
+  First, the raster check had already stopped the `born_digital`
+  misclassification the issue describes — what survived was *pack* selection,
+  read off the mojibake layer, so the document was OCR'd with `eng`. Second,
+  a whole population the issue does not name: a text layer of **unmappable
+  glyph indices**, invisible to the gibberish score because glyph indices are
+  not letters. Hunt et al. 2001 held 896 usable letters in 59,056 characters
+  and was classified `clean_text_layer`; re-OCR recovers 42,398. Six such
+  documents. New `ocr.unmappable_char_max`.
+- [x] **Make lexicon translations match inflected forms**
+  ([#165](https://github.com/caseywdunn/corpus/issues/165)). +14,111 anatomy
+  mentions (+9.7%) corpus-wide, 515 documents gaining, none losing, 59
+  rescued from zero. Of the two documents the issue names, though, one gains
+  a single mention and the other correctly stays at zero — its text is about
+  electric organs of fish. The value is on documents with partial coverage.
+- [x] **Expand abbreviated genus binomials**
+  ([#164](https://github.com/caseywdunn/corpus/issues/164)). +31,041 mentions
+  (+15.6%), +2,237 unique taxa, 838 documents gaining, none losing, and 449
+  ambiguities reported rather than guessed.
+- [x] **Decide the botanical authority policy**
+  ([#175](https://github.com/caseywdunn/corpus/issues/175)). Decided:
+  the capability is reported unsupported, ICN authorship parses, and the
+  author-only matching path is **declined on measurement** — it yields 3
+  candidates from 889 Viburnum taxa and 2 of the 3 are wrong. Reasoning lives
+  in `_record_authority_convention`, not here.
+- [x] **Stop the CLI lying by omission**
+  ([#169](https://github.com/caseywdunn/corpus/issues/169),
+  [#168](https://github.com/caseywdunn/corpus/issues/168)). A filter now
+  implies the listing the report's own hint promises, and a filter that
+  cannot apply is named in a warning instead of dropped. The naive-chunker
+  fallback is a `naive_chunker_fallback` quality gate.
 
 **Acceptance:** for each, a document that previously produced a silent gap now
 either produces the right answer or reports the gap at error or warning
 severity. No fix here is complete while its failure mode is still quiet.
+
+**Met, and the section left a method behind.** Every item here was sized
+against the reference library before being built, and in four of the five the
+measurement contradicted the issue's own framing — a wrong threshold, a
+document whose zero was correct, a heuristic that would have written wrong
+protologues, and a corroboration rule of my own that turned out circular
+(OCRing a Latin page under `rus` transcribes its letters as Cyrillic
+lookalikes, so the characters meant to confirm the verdict were manufactured
+by the check). Bare Tesseract OSD calls **424 of 1,580** Latin-text-layer
+documents non-Latin; only CJK verdicts may now override a text layer, and
+only corroborated. Measure the population before writing the fix.
 
 ### 2. Operational hazards — each has already cost hours
 
