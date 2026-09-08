@@ -128,38 +128,46 @@ Nobody has run it.
 
 The default does not move on a mocked test. It moves on these numbers.
 
-```bash
-# A handful of figures with known panel structure. The gold corpuscle is
-# ideal; any built corpuscle with multi-panel plates will do.
-cd <corpuscle>
+`tools/qc/vlm_dtype_probe.py` does the whole comparison. It needs no built
+corpuscle — a 3 MB fixture of ten multi-panel figures is enough, and it
+carries the ROIs production's Pass 3b produced on an H200 at bfloat16, so a
+Mac run has both a same-machine float32 baseline *and* a known-good CUDA
+reference to compare against.
 
-for DT in float32 bfloat16 float16; do
-  echo "=== $DT ==="
-  # Peak RSS and wall clock, plus the ROIs actually produced.
-  CORPUS_VLM_DTYPE=$DT /usr/bin/time -l \
-    corpus run --only vision --figure-panels vision-local \
-    2>&1 | tee "vision-$DT.log"
-  # The loader prints the dtype and its estimated footprint up front:
-  #   local VLM dtype=bfloat16 (bfloat16), ~15.2 GB of weights ...
-  grep -E "local VLM dtype|maximum resident" "vision-$DT.log"
-done
+```bash
+# The fixture lives on the machine that built the reference corpuscle.
+scp erenna-claude:~/vlm_dtype_fixture.tar.gz .
+tar xzf vlm_dtype_fixture.tar.gz
+
+git pull                                    # needs the vision_dtype knob
+conda activate corpus
+python tools/qc/vlm_dtype_probe.py vlm_dtype_fixture --out vlm_dtype_report.md
 ```
 
-Then compare, in this order — the second question matters more than the first:
+That loads the model once per dtype (float32, bfloat16, float16), runs the
+same eight figures through each, and writes a markdown report plus the raw
+JSON beside it. Expect one model load per dtype — minutes, not hours — and a
+float32 load that may simply not fit, which is recorded as a finding rather
+than a crash.
 
-1. **Does it load and run at all?** float32 may not fit; note the machine's RAM.
-2. **Are the ROIs the same?** This is the one that decides it. Compare
-   `rois` across the three runs for the same figures — count, and boxes to
-   within a few pixels. Half precision that quietly finds fewer or sloppier
-   panels is worse than float32 that does not fit, because the corpuscle
-   still builds and nothing flags it.
+The report answers, in this order — the second question is the one that
+decides it:
+
+1. **Does it load and run at all?** float32 may not fit; the report records
+   the machine's RAM alongside.
+2. **Are the ROIs the same?** Per-figure ROI counts and per-panel IoU against
+   both float32 and the H200 reference. Half precision that quietly finds
+   fewer or sloppier panels is worse than float32 that does not fit, because
+   the corpuscle still builds, every gate passes, and nothing says the panels
+   got worse.
 3. **Peak memory and wall clock**, for the record.
 
-Report all three in [#258](https://github.com/caseywdunn/corpus/issues/258).
-If bf16 and fp16 both match float32's ROIs, the default becomes half
+Paste the report into
+[#258](https://github.com/caseywdunn/corpus/issues/258). If bf16 or fp16
+matches on ROI counts and holds boxes to IoU >= 0.95, the default becomes half
 precision on MPS and the knob stays for the exception. If they differ, the
-comment the issue asks for gets written instead — naming the op that fails,
-so the next person does not re-litigate it.
+comment the issue asks for gets written instead — naming the op that fails, so
+the next person does not re-litigate it.
 
 **Worth the same sitting:** the `docling==2.94.0` pin
 ([#98](https://github.com/caseywdunn/corpus/issues/98) follow-up) has been
