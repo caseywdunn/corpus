@@ -260,6 +260,11 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
     result: Dict = {"dtype": dtype, "loaded": False, "error": None,
                     "load_seconds": None, "detect_seconds": None,
                     "peak_rss_gb": None, "figures": {}}
+    # Metal's allocator is process-wide and does not shrink on its own,
+    # so an absolute reading after the second load is mostly the *first*
+    # model's memory. Measure the delta this load caused.
+    before = mps_memory_gb()
+    result["before_mps_driver_gb"] = before["mps_driver_gb"]
     t0, w0 = time.monotonic(), time.time()
     try:
         backend = LocalVLMBackend(dtype=dtype, device=device)
@@ -273,7 +278,10 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
     result["device"] = backend._device
     # Straight after load, before inference grows the allocator: this is
     # the weights figure, which is what decides whether a model fits.
-    result.update({f"loaded_{k}": v for k, v in mps_memory_gb().items()})
+    loaded_mem = mps_memory_gb()
+    result.update({f"loaded_{k}": v for k, v in loaded_mem.items()})
+    result["weights_mps_driver_gb"] = _delta_gb(
+        before["mps_driver_gb"], loaded_mem["mps_driver_gb"])
 
     t1, w1 = time.monotonic(), time.time()
     checked_shape = False
@@ -325,7 +333,35 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
     result["detect_suspend_seconds"] = _suspended_seconds(t1, w1)
     result["peak_rss_gb"] = peak_rss_gb()
     result.update({f"peak_{k}": v for k, v in mps_memory_gb().items()})
+    _release(backend)
     return result
+
+
+def _delta_gb(before, after):
+    """How much this load added, or None if either end is unmeasured."""
+    if before is None or after is None:
+        return None
+    return round(after - before, 2)
+
+
+def _release(backend) -> None:
+    """Hand the weights back before the next dtype loads.
+
+    Without this each dtype loads on top of the last, and on a 69 GB
+    machine three 7B models is the difference between a measurement and
+    a swap storm. Best-effort: MPS does not always return everything,
+    which is why the reported figure is a delta rather than an absolute.
+    """
+    try:
+        import gc
+        import torch
+        del backend
+        gc.collect()
+        mps = getattr(torch, "mps", None)
+        if mps is not None and hasattr(mps, "empty_cache"):
+            mps.empty_cache()
+    except Exception:
+        pass
 
 
 # ── comparison ─────────────────────────────────────────────────────────
@@ -409,6 +445,11 @@ def compare(baseline: Dict, other: Dict) -> Dict:
 
 # ── report ─────────────────────────────────────────────────────────────
 
+def _label(run: Dict) -> str:
+    """A run's name. Distinct even when one dtype is run twice."""
+    return run.get("label") or run["dtype"]
+
+
 def _cell(value) -> str:
     """`-` for "not measured" only — never for a measured zero.
 
@@ -431,18 +472,18 @@ def render(machine: Dict, runs: List[Dict], comparisons: Dict,
             "fits. Host RSS does **not** capture Metal's unified-memory "
             "allocations and is here only to bound the host-side footprint.",
             "",
-            "| dtype | loaded | device | load s | detect s | Metal weights GB | Metal peak GB | host RSS GB | error |",
+            "| dtype | loaded | device | load s | detect s | Metal weights GB | Metal total GB | host RSS GB | error |",
             "|---|---|---|---|---|---|---|---|---|"]
     for r in runs:
         out.append(
-            f"| {r['dtype']} | {'yes' if r['loaded'] else '**no**'} | "
+            f"| {_label(r)} | {'yes' if r['loaded'] else '**no**'} | "
             f"{r.get('device', '-')} | {_cell(r['load_seconds'])} | "
             f"{_cell(r['detect_seconds'])} | "
-            f"{_cell(r.get('loaded_mps_driver_gb'))} | "
+            f"{_cell(r.get('weights_mps_driver_gb'))} | "
             f"{_cell(r.get('peak_mps_driver_gb'))} | "
             f"{_cell(r['peak_rss_gb'])} | "
             f"{(r['error'] or '')[:80]} |")
-    slept = [(r["dtype"], phase, r[f"{phase}_suspend_seconds"])
+    slept = [(_label(r), phase, r[f"{phase}_suspend_seconds"])
              for r in runs for phase in ("load", "detect")
              if r.get(f"{phase}_suspend_seconds")]
     if slept:
@@ -453,11 +494,14 @@ def render(machine: Dict, runs: List[Dict], comparisons: Dict,
                             in slept)
                 + ". ROI geometry — the criterion below — is unaffected by "
                   "suspension; only these seconds are."]
+    baseline = next((r for r in runs
+                     if r["dtype"] == "float32" and r["loaded"]),
+                    next((r for r in runs if r["loaded"]), None))
     out += ["", "## ROI agreement against float32 — the criterion", ""]
     if not comparisons:
         out.append("_No baseline to compare against: float32 did not load._")
     for dtype, cmp in comparisons.items():
-        out += [f"### {dtype} vs float32", "",
+        out += [f"### {dtype} vs {_label(baseline) if baseline else 'float32'}", "",
                 f"- figures compared: **{cmp['figures']}**",
                 f"- same ROI count: **{cmp['same_roi_count']}/{cmp['figures']}**",
                 f"- all boxes within IoU 0.95: **{cmp['tight_boxes']}/{cmp['figures']}**",
@@ -538,6 +582,13 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     dtypes = [d.strip() for d in args.dtypes.split(",") if d.strip()]
+    # `--dtypes float32,float32` is the self-consistency control: two
+    # runs of one dtype, which bounds how much of any dtype-to-dtype
+    # disagreement is just the model. Labels keep the repeats distinct.
+    labels, seen = [], {}
+    for d in dtypes:
+        seen[d] = seen.get(d, 0) + 1
+        labels.append(f"{d}#{seen[d]}" if dtypes.count(d) > 1 else d)
     figures = select_figures(args.output_dir.resolve(), args.figures)
     print(f"probing {len(dtypes)} dtype(s) over {len(figures)} figure(s)",
           file=sys.stderr)
@@ -561,9 +612,10 @@ def main(argv=None) -> int:
                 else Path("vlm_dtype_probe.json"))
 
     runs = []
-    for dtype in dtypes:
-        print(f"\n=== {dtype} ===", file=sys.stderr)
+    for dtype, label in zip(dtypes, labels):
+        print(f"\n=== {label} ===", file=sys.stderr)
         run = probe_dtype(dtype, figures, args.device)
+        run["label"] = label
         if run["error"]:
             print(f"  did not load: {run['error']}", file=sys.stderr)
         else:
@@ -591,15 +643,15 @@ def main(argv=None) -> int:
     comparisons = {}
     if baseline is not None:
         for run in runs:
-            if run["loaded"] and run["dtype"] != baseline["dtype"]:
-                comparisons[run["dtype"]] = compare(baseline, run)
+            if run["loaded"] and run is not baseline:
+                comparisons[_label(run)] = compare(baseline, run)
     # And every dtype against the recorded reference, which is the
     # comparison that does not depend on float32 having loaded at all.
     against_reference = {}
     if reference["figures"]:
         for run in runs:
             if run["loaded"]:
-                against_reference[run["dtype"]] = compare(reference, run)
+                against_reference[_label(run)] = compare(reference, run)
 
     report = render(machine_report(), runs, comparisons,
                     against_reference, reference.get("source"))

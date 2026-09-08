@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import time
+from unittest import mock
 
 import pytest
 
 from tools.qc.vlm_dtype_probe import (
-    _cell, _iou, _suspended_seconds, _write_raw, caption_panel_labels,
-    compare, render, select_figures,
+    _cell, _delta_gb, _iou, _label, _release, _suspended_seconds,
+    _write_raw, caption_panel_labels, compare, main, render,
+    select_figures,
 )
 
 
@@ -277,20 +279,16 @@ def test_metal_memory_is_reported_separately_from_host_rss():
     Metal's unified-memory allocations do not all land in RSS, so the
     figure that decides whether a model fits has to come from
     torch.mps."""
-    import inspect
-
-    from tools.qc import vlm_dtype_probe
-    assert "driver_allocated_memory" in inspect.getsource(
-        vlm_dtype_probe.mps_memory_gb)
-    # Off MPS it reports nothing rather than guessing.
-    assert vlm_dtype_probe.mps_memory_gb() == {
-        "mps_tensors_gb": None, "mps_driver_gb": None,
-    } or True  # on an MPS host this legitimately returns numbers
-    # Both figures reach the report, under names that say which is which.
-    report = inspect.getsource(vlm_dtype_probe.render)
-    assert "Metal weights GB" in report
-    assert "host RSS GB" in report
-    assert "loaded_mps_driver_gb" in report
+    runs = [{"dtype": "float32", "loaded": True, "device": "mps",
+             "load_seconds": 146.4, "detect_seconds": 668.2,
+             "weights_mps_driver_gb": 37.69, "peak_mps_driver_gb": 42.51,
+             "peak_rss_gb": 31.78, "error": None,
+             "load_suspend_seconds": None, "detect_suspend_seconds": None,
+             "figures": {}}]
+    report = render({}, runs, {}, {}, None)
+    # The Metal figure reaches the table, distinct from host RSS.
+    assert "37.69" in report and "31.78" in report
+    assert "Metal weights GB" in report and "host RSS GB" in report
 
 
 # ── the labels handed to the backend ───────────────────────────────────
@@ -425,3 +423,85 @@ def test_a_finished_run_is_marked_complete(tmp_path):
     out = tmp_path / "probe.json"
     _write_raw(out, {}, [], {"bfloat16": {}}, {}, None)
     assert json.loads(out.read_text())["complete"] is True
+
+
+# ── Metal's allocator is process-wide; report what THIS load added ─────
+
+def test_the_second_dtype_is_not_credited_with_the_first_ones_memory():
+    """The M2 Max run reported 37.69 / 42.51 / 42.53 GB of "weights" for
+    float32 / bfloat16 / float16 — each equal to the *previous* dtype's
+    peak, because Metal's allocator is process-wide and does not shrink.
+    bfloat16 holds half of float32's weights; it cannot need more."""
+    assert _delta_gb(5.0, 37.69) == 32.69
+    # Second load, allocator already holding the first model: the delta
+    # is this model, not the running total.
+    assert _delta_gb(42.51, 58.0) == 15.49
+
+
+@pytest.mark.parametrize("before,after", [
+    (None, 42.5), (42.5, None), (None, None)])
+def test_an_unmeasurable_delta_is_none_not_zero(before, after):
+    """Off MPS there is no reading, and `0.0` would read as "this model
+    needed no memory"."""
+    assert _delta_gb(before, after) is None
+
+
+def test_the_weights_column_shows_the_delta_not_the_running_total():
+    runs = [{"dtype": "bfloat16", "loaded": True, "device": "mps",
+             "load_seconds": 168.2, "detect_seconds": 492.3,
+             "weights_mps_driver_gb": 15.49, "peak_mps_driver_gb": 58.0,
+             "peak_rss_gb": 31.78, "error": None,
+             "load_suspend_seconds": None, "detect_suspend_seconds": None,
+             "figures": {}}]
+    report = render({}, runs, {}, {}, None)
+    assert "15.49" in report
+
+
+def test_releasing_a_backend_never_raises(monkeypatch):
+    """Cleanup runs between dtypes and must not be able to lose a run
+    that already cost twenty minutes."""
+    import gc
+    monkeypatch.setattr(gc, "collect",
+                        lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    _release(object())      # must not propagate
+    _release(None)
+
+
+# ── the control: the same dtype run twice ──────────────────────────────
+
+def test_repeating_a_dtype_gives_the_runs_distinct_names():
+    """`--dtypes float32,float32` is the control that bounds how much
+    disagreement is the model rather than the dtype. Without distinct
+    labels the second run collides with the first and is dropped."""
+    assert _label({"dtype": "float32", "label": "float32#2"}) == "float32#2"
+    assert _label({"dtype": "bfloat16"}) == "bfloat16"
+
+
+def test_a_repeat_run_is_compared_rather_than_silently_skipped(tmp_path):
+    """The old test was `run["dtype"] != baseline["dtype"]`, which
+    excluded a second float32 from the comparison table entirely — the
+    control would have run for twenty minutes and reported nothing."""
+    root = _fixture(tmp_path, [
+        {"filename": "f.png", "figure_id": "a", "caption_text": "c",
+         "panels_from_caption": _panels("A", "B")},
+    ])
+    calls = []
+
+    class Stub:
+        def __init__(self, dtype=None, device=None):
+            self._device = "mps"
+            calls.append(dtype)
+        def detect_figure_panels(self, image_path, caption, expected):
+            # Second float32 run shifts by 1px: a real control would
+            # show near-1.0, and it must be *reported*, not dropped.
+            shift = 1 if calls.count("float32") > 1 else 0
+            return [{"label": "A", "bbox_px": [0 + shift, 0, 10, 10]},
+                    {"label": "B", "bbox_px": [20, 0, 30, 10]}]
+
+    import pipeline.vision
+    with mock.patch.object(pipeline.vision, "LocalVLMBackend", Stub):
+        main([str(root), "--dtypes", "float32,float32",
+              "--out", str(tmp_path / "r.md"), "--figures", "1"])
+    report = (tmp_path / "r.md").read_text()
+    assert "float32#1" in report and "float32#2" in report
+    assert "### float32#2 vs float32#1" in report
