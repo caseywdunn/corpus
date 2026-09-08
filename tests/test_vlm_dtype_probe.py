@@ -8,11 +8,13 @@ does not.
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
 
 from tools.qc.vlm_dtype_probe import (
-    _cell, _iou, caption_panel_labels, compare, select_figures,
+    _cell, _iou, _suspended_seconds, _write_raw, caption_panel_labels,
+    compare, render, select_figures,
 )
 
 
@@ -356,3 +358,70 @@ def test_a_measured_zero_is_reported_as_zero():
 
 def test_an_absent_measurement_is_a_dash():
     assert _cell(None) == "-"
+
+
+# ── the machine this runs on is a laptop, and laptops sleep ────────────
+
+def test_a_normal_interval_records_no_suspension():
+    """No noise on the common path: the two clocks agree."""
+    assert _suspended_seconds(time.monotonic(), time.time()) is None
+
+
+def test_sleep_the_monotonic_clock_missed_is_reported(monkeypatch):
+    """Wall time always advances through a suspend. If monotonic did not,
+    the gap between them is the sleep — measured rather than assumed,
+    because whether `time.monotonic()` ticks through sleep is
+    platform-specific."""
+    mono, wall = time.monotonic(), time.time()
+    monkeypatch.setattr(time, "time", lambda: wall + 900.0)
+    monkeypatch.setattr(time, "monotonic", lambda: mono + 1.0)
+    assert _suspended_seconds(mono, wall) == pytest.approx(899.0, abs=1.0)
+
+
+def test_a_brief_gap_is_not_called_sleep(monkeypatch):
+    """Clock skew and NTP steps are not a closed lid."""
+    mono, wall = time.monotonic(), time.time()
+    monkeypatch.setattr(time, "time", lambda: wall + 10.0)
+    monkeypatch.setattr(time, "monotonic", lambda: mono)
+    assert _suspended_seconds(mono, wall) is None
+
+
+def test_the_report_says_which_timings_a_suspend_invalidated():
+    runs = [{"dtype": "float32", "loaded": True, "device": "mps",
+             "load_seconds": 600.0, "detect_seconds": 1700.0,
+             "peak_rss_gb": 17.5, "error": None,
+             "load_suspend_seconds": None,
+             "detect_suspend_seconds": 3600.0, "figures": {}}]
+    report = render({}, runs, {}, {}, None)
+    assert "machine slept" in report
+    assert "`float32` detect +3600.0s" in report
+    # And it must not let that discredit the actual criterion.
+    assert "geometry" in report.lower()
+
+
+def test_a_clean_run_carries_no_sleep_warning():
+    runs = [{"dtype": "float32", "loaded": True, "device": "mps",
+             "load_seconds": 600.0, "detect_seconds": 1700.0,
+             "peak_rss_gb": 17.5, "error": None,
+             "load_suspend_seconds": None, "detect_suspend_seconds": None,
+             "figures": {}}]
+    assert "machine slept" not in render({}, runs, {}, {}, None)
+
+
+# ── a dtype costs tens of minutes; do not lose finished ones ───────────
+
+def test_raw_rois_are_checkpointed_before_the_run_completes(tmp_path):
+    out = tmp_path / "probe.json"
+    _write_raw(out, {}, [{"dtype": "float32", "figures": {"a/b": {"rois": [
+        {"label": "A", "bbox_px": [0, 0, 9, 9]}], "error": None}}}],
+        {}, {}, None, partial=True)
+    saved = json.loads(out.read_text())
+    assert saved["complete"] is False
+    # The expensive part is present, which is the whole point.
+    assert saved["runs"][0]["figures"]["a/b"]["rois"][0]["bbox_px"] == [0, 0, 9, 9]
+
+
+def test_a_finished_run_is_marked_complete(tmp_path):
+    out = tmp_path / "probe.json"
+    _write_raw(out, {}, [], {"bfloat16": {}}, {}, None)
+    assert json.loads(out.read_text())["complete"] is True

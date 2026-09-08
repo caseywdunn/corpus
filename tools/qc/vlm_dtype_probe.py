@@ -231,6 +231,28 @@ def select_figures(output_dir: Path, limit: int) -> List[Dict]:
 
 # ── one dtype ──────────────────────────────────────────────────────────
 
+_SUSPEND_TOLERANCE_SECONDS = 60.0
+
+
+def _suspended_seconds(mono_start: float, wall_start: float):
+    """Seconds the machine was asleep during an interval, if detectable.
+
+    This probe is meant to be run on a laptop, and a laptop gets its lid
+    closed. Whether `time.monotonic()` keeps ticking through a suspend is
+    platform-specific, so rather than depend on knowing, measure both
+    clocks: wall time always advances through sleep, so a gap between the
+    two is sleep the monotonic timer did not count. Returns None when the
+    two agree, so a normal run carries no noise.
+
+    This cannot catch the opposite case — a monotonic clock that *does*
+    advance through sleep inflates both readings equally and looks like
+    slow inference. The report says so, and ROI geometry (the actual
+    criterion) is unaffected either way.
+    """
+    gap = (time.time() - wall_start) - (time.monotonic() - mono_start)
+    return round(gap, 1) if gap > _SUSPEND_TOLERANCE_SECONDS else None
+
+
 def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
     """Load the model at ``dtype`` and detect panels on every figure."""
     from pipeline.vision import LocalVLMBackend
@@ -238,7 +260,7 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
     result: Dict = {"dtype": dtype, "loaded": False, "error": None,
                     "load_seconds": None, "detect_seconds": None,
                     "peak_rss_gb": None, "figures": {}}
-    t0 = time.monotonic()
+    t0, w0 = time.monotonic(), time.time()
     try:
         backend = LocalVLMBackend(dtype=dtype, device=device)
     except BaseException as exc:      # OOM here is a finding, not a crash
@@ -247,12 +269,13 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
         return result
     result["loaded"] = True
     result["load_seconds"] = round(time.monotonic() - t0, 1)
+    result["load_suspend_seconds"] = _suspended_seconds(t0, w0)
     result["device"] = backend._device
     # Straight after load, before inference grows the allocator: this is
     # the weights figure, which is what decides whether a model fits.
     result.update({f"loaded_{k}": v for k, v in mps_memory_gb().items()})
 
-    t1 = time.monotonic()
+    t1, w1 = time.monotonic(), time.time()
     checked_shape = False
     for entry in figures:
         key = f"{entry['hash']}/{entry['figure_id']}"
@@ -299,6 +322,7 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
             result["figures"][key] = {"rois": None,
                                       "error": f"{type(exc).__name__}: {exc}"}
     result["detect_seconds"] = round(time.monotonic() - t1, 1)
+    result["detect_suspend_seconds"] = _suspended_seconds(t1, w1)
     result["peak_rss_gb"] = peak_rss_gb()
     result.update({f"peak_{k}": v for k, v in mps_memory_gb().items()})
     return result
@@ -418,6 +442,17 @@ def render(machine: Dict, runs: List[Dict], comparisons: Dict,
             f"{_cell(r.get('peak_mps_driver_gb'))} | "
             f"{_cell(r['peak_rss_gb'])} | "
             f"{(r['error'] or '')[:80]} |")
+    slept = [(r["dtype"], phase, r[f"{phase}_suspend_seconds"])
+             for r in runs for phase in ("load", "detect")
+             if r.get(f"{phase}_suspend_seconds")]
+    if slept:
+        out += ["",
+                "> **The machine slept during this run**, so the timings "
+                "above are wall-clock and not comparable between dtypes: "
+                + "; ".join(f"`{d}` {phase} +{secs}s" for d, phase, secs
+                            in slept)
+                + ". ROI geometry — the criterion below — is unaffected by "
+                  "suspension; only these seconds are."]
     out += ["", "## ROI agreement against float32 — the criterion", ""]
     if not comparisons:
         out.append("_No baseline to compare against: float32 did not load._")
@@ -472,6 +507,21 @@ def render(machine: Dict, runs: List[Dict], comparisons: Dict,
     return "\n".join(out)
 
 
+def _write_raw(path: Path, machine, runs, comparisons, against_reference,
+               reference_source, partial: bool = False) -> None:
+    """Persist the raw ROIs. Called after every dtype, not just at the end.
+
+    `partial` runs carry no comparisons — those are derived, and cheap to
+    recompute from the ROIs; the ROIs themselves are the hours.
+    """
+    path.write_text(json.dumps(
+        {"machine": machine, "runs": runs, "comparisons": comparisons,
+         "against_reference": against_reference,
+         "reference_source": reference_source,
+         "complete": not partial},
+        indent=2, default=str), encoding="utf-8")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -507,6 +557,9 @@ def main(argv=None) -> int:
                         if e.get("reference_source")), None),
     }
 
+    raw_path = (args.out.with_suffix(".json") if args.out
+                else Path("vlm_dtype_probe.json"))
+
     runs = []
     for dtype in dtypes:
         print(f"\n=== {dtype} ===", file=sys.stderr)
@@ -517,7 +570,19 @@ def main(argv=None) -> int:
             print(f"  loaded in {run['load_seconds']}s, detected in "
                   f"{run['detect_seconds']}s, peak {run['peak_rss_gb']} GB",
                   file=sys.stderr)
+        for phase in ("load", "detect"):
+            slept = run.get(f"{phase}_suspend_seconds")
+            if slept:
+                print(f"  note: machine slept ~{slept}s during {phase}; "
+                      f"that timing is not comparable (geometry is fine)",
+                      file=sys.stderr)
         runs.append(run)
+        # Checkpoint after every dtype. A dtype costs tens of minutes of
+        # someone's laptop, and a laptop gets closed, undocked, and run
+        # out of battery. Losing two finished dtypes because the third
+        # died is avoidable, and the raw ROIs are the expensive part.
+        _write_raw(raw_path, machine_report(), runs, {}, {},
+                   reference.get("source"), partial=True)
 
     baseline = next((r for r in runs
                      if r["dtype"] == "float32" and r["loaded"]), None)
@@ -543,15 +608,9 @@ def main(argv=None) -> int:
         args.out.write_text(report, encoding="utf-8")
         print(f"\nwrote {args.out}", file=sys.stderr)
     # Raw data alongside the report, for anything the tables flatten.
-    raw = (args.out.with_suffix(".json") if args.out
-           else Path("vlm_dtype_probe.json"))
-    raw.write_text(json.dumps(
-        {"machine": machine_report(), "runs": runs,
-         "comparisons": comparisons,
-         "against_reference": against_reference,
-         "reference_source": reference.get("source")},
-        indent=2, default=str), encoding="utf-8")
-    print(f"wrote {raw}", file=sys.stderr)
+    _write_raw(raw_path, machine_report(), runs, comparisons,
+               against_reference, reference.get("source"))
+    print(f"wrote {raw_path}", file=sys.stderr)
     return 0
 
 
