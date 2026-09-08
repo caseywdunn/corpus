@@ -97,20 +97,70 @@ def peak_rss_gb() -> float:
 
     `ru_maxrss` is bytes on macOS and kilobytes on Linux — the one place
     this script has to know which platform it is on.
+
+    **Not a measure of the model's weights on MPS.** Metal allocations
+    live in unified memory and do not all land in this process's RSS: the
+    first run reported 17.49 / 18.00 / 18.75 GB for float32 / bfloat16 /
+    float16, when float32 holds twice the weights of either. Kept because
+    it bounds the *host-side* footprint, and reported next to the Metal
+    figures rather than instead of them.
     """
     raw = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return round(raw / 1e9 if sys.platform == "darwin" else raw / 1e6, 2)
 
 
+def mps_memory_gb() -> Dict[str, Optional[float]]:
+    """What Metal itself says it has allocated, in GB.
+
+    `current_allocated_memory` is tensors; `driver_allocated_memory` is
+    the total the Metal driver holds, which is the number that decides
+    whether a model fits. Both are None off MPS.
+    """
+    out: Dict[str, Optional[float]] = {"mps_tensors_gb": None,
+                                       "mps_driver_gb": None}
+    try:
+        import torch
+        if not (hasattr(torch.backends, "mps")
+                and torch.backends.mps.is_available()):
+            return out
+        mps = getattr(torch, "mps", None)
+        if mps is None:
+            return out
+        if hasattr(mps, "current_allocated_memory"):
+            out["mps_tensors_gb"] = round(mps.current_allocated_memory() / 1e9, 2)
+        if hasattr(mps, "driver_allocated_memory"):
+            out["mps_driver_gb"] = round(mps.driver_allocated_memory() / 1e9, 2)
+    except Exception:
+        pass
+    return out
+
+
 # ── figure selection ───────────────────────────────────────────────────
+
+def caption_panel_labels(fig: Dict) -> List[str]:
+    """The panel letters a caption enumerates, as the backend wants them.
+
+    Mirrors `pipeline/figures.py`, which passes
+    `[str(p["label"]) for p in panels_from_caption]`. Tolerates bare
+    strings so a fixture written by hand still probes something.
+    """
+    labels = []
+    for panel in fig.get("panels_from_caption") or []:
+        label = panel.get("label") if isinstance(panel, dict) else panel
+        if label not in (None, ""):
+            labels.append(str(label))
+    return labels
+
 
 def select_figures(output_dir: Path, limit: int) -> List[Dict]:
     """Figures worth asking a panel detector about, deterministically.
 
-    Prefers figures whose caption already names panels: those have an
-    expected label set, so a dtype that loses a panel is visible as a
-    miss rather than as a judgement call. Sorted by (hash, figure_id) so
-    every dtype sees the same figures in the same order.
+    Prefers figures whose caption enumerates more than one panel: those
+    carry an expected label set, so a dtype that loses a panel shows up
+    as a miss rather than a judgement call, and they are the only ones
+    production actually sends to the backend. Sorted by
+    (hash, figure_id) so every dtype sees the same figures in the same
+    order.
     """
     candidates, fallback = [], []
     documents = output_dir / "documents"
@@ -140,7 +190,16 @@ def select_figures(output_dir: Path, limit: int) -> List[Dict]:
                 "figure_id": fig.get("figure_id") or name,
                 "image": image,
                 "caption": fig.get("caption_text") or "",
-                "expected": list(fig.get("panels_from_caption") or []),
+                # Panel *letters*, not the caption-parse records.
+                # `panels_from_caption` holds dicts
+                # (`{label, description, kind}`); the backend's
+                # `expected_labels` is `List[str]`, and production derives
+                # it as `[str(p["label"]) for p in ...]`
+                # (pipeline/figures.py). Passing the dicts through put
+                # `{'label': 'A', 'description': ...}` into the prompt as
+                # the panel name. Ask the backend exactly what the
+                # pipeline asks it.
+                "expected": caption_panel_labels(fig),
                 # Whatever produced this corpuscle's ROIs — in the shipped
                 # fixture, production Pass 3b on an H200 at bfloat16. A
                 # same-machine float32 baseline says "half precision agrees
@@ -154,7 +213,13 @@ def select_figures(output_dir: Path, limit: int) -> List[Dict]:
                     (r.get("source") for r in (fig.get("rois") or [])
                      if r.get("source")), None),
             }
-            (candidates if entry["expected"] else fallback).append(entry)
+            # Production only asks the backend when a caption enumerates
+            # more than one panel (`len(expected_labels) <= 1` short-circuits
+            # in pipeline/figures.py). Probing multi-panel figures first
+            # keeps the measurement inside the regime that actually ships,
+            # and gives a dtype that drops a panel somewhere to show it.
+            (candidates if len(entry["expected"]) > 1
+             else fallback).append(entry)
     chosen = sorted(candidates, key=lambda e: (e["hash"], e["figure_id"]))[:limit]
     if len(chosen) < limit:
         chosen += sorted(fallback, key=lambda e: (e["hash"], e["figure_id"]))[
@@ -183,27 +248,81 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
     result["loaded"] = True
     result["load_seconds"] = round(time.monotonic() - t0, 1)
     result["device"] = backend._device
+    # Straight after load, before inference grows the allocator: this is
+    # the weights figure, which is what decides whether a model fits.
+    result.update({f"loaded_{k}": v for k, v in mps_memory_gb().items()})
 
     t1 = time.monotonic()
+    checked_shape = False
     for entry in figures:
         key = f"{entry['hash']}/{entry['figure_id']}"
         try:
             rois = backend.detect_figure_panels(
                 entry["image"], entry["caption"], entry["expected"])
-            result["figures"][key] = {
-                "rois": [{"label": r.get("label"), "roi_px": r.get("roi_px")}
-                         for r in rois],
-                "error": None,
-            }
+            # Record the ROI *whole*. The first cut kept only
+            # `{label, roi_px}` — and the backend returns `bbox_px`, not
+            # `roi_px` (that name belongs to the pipeline artifact written
+            # after post-processing). So every box arrived as None, every
+            # IoU was exactly 0.0, and because the raw values had been
+            # thrown away a 1.5-hour run could not even be re-analysed.
+            # Deriving a box is a comparison concern; discarding the data
+            # is unrecoverable.
+            result["figures"][key] = {"rois": [dict(r) for r in rois],
+                                      "error": None}
+            # Check the shape once, on the first figure that produced any
+            # ROI, and stop immediately if no box is readable. The first
+            # version of this script ran the entire matrix — three model
+            # loads, ninety minutes — and produced a report whose every
+            # comparison was 0.0 because it was reading a key the backend
+            # does not return. A probe that can waste that much of
+            # someone's machine before saying so is not finished.
+            if not checked_shape and rois:
+                checked_shape = True
+                if not any(roi_box(r) for r in rois):
+                    raise SystemExit(
+                        "ABORTING: no readable box on the first ROI.\n"
+                        f"  keys present: {sorted(rois[0])}\n"
+                        f"  keys looked for: {list(_BOX_KEYS)}\n"
+                        "The backend's return shape has changed. Add the "
+                        "new key to _BOX_KEYS in this script rather than "
+                        "running the full matrix against nothing."
+                    )
+        except SystemExit:
+            # The shape check below raises this. `except BaseException` is
+            # here to turn a per-figure OOM into a recorded error rather
+            # than a lost run — and SystemExit is a BaseException, so
+            # without this clause the broad handler swallowed the abort
+            # and the matrix ran anyway. Caught by testing the abort;
+            # would not have been caught by reading it.
+            raise
         except BaseException as exc:
             result["figures"][key] = {"rois": None,
                                       "error": f"{type(exc).__name__}: {exc}"}
     result["detect_seconds"] = round(time.monotonic() - t1, 1)
     result["peak_rss_gb"] = peak_rss_gb()
+    result.update({f"peak_{k}": v for k, v in mps_memory_gb().items()})
     return result
 
 
 # ── comparison ─────────────────────────────────────────────────────────
+
+# The backend returns `bbox_px`; the pipeline artifact stores the same
+# geometry as `roi_px`. A probe that compares live output against a
+# recorded reference sees both, so it must read both — and must not
+# silently score a missing box as a disagreement.
+_BOX_KEYS = ("bbox_px", "roi_px", "bbox", "box_px")
+
+
+def roi_box(roi: Dict):
+    """The pixel box of one ROI, whichever key it arrived under."""
+    if not isinstance(roi, dict):
+        return None
+    for key in _BOX_KEYS:
+        box = roi.get(key)
+        if box:
+            return box
+    return None
+
 
 def _iou(a, b) -> float:
     """Intersection over union of two ``[x0, y0, x1, y1]`` boxes.
@@ -239,16 +358,21 @@ def compare(baseline: Dict, other: Dict) -> Dict:
         theirs = (other.get("figures") or {}).get(key) or {}
         b_rois = base.get("rois") or []
         o_rois = theirs.get("rois") or []
-        by_label = {r.get("label"): r.get("roi_px") for r in o_rois}
-        ious = [
-            _iou(r.get("roi_px"), by_label.get(r.get("label")))
-            for r in b_rois if r.get("label") in by_label
-        ]
+        by_label = {r.get("label"): roi_box(r) for r in o_rois}
+        # Only labels present on both sides *and* carrying a box on both
+        # sides are scored. A box the probe could not read is reported as
+        # unreadable, not as a disagreement — conflating those is what
+        # made the first run look like a total geometry failure.
+        pairs = [(roi_box(r), by_label.get(r.get("label")))
+                 for r in b_rois if r.get("label") in by_label]
+        ious = [_iou(x, y) for x, y in pairs if x and y]
+        unreadable = sum(1 for x, y in pairs if not x or not y)
         rows.append({
             "figure": key,
             "baseline_rois": len(b_rois),
             "other_rois": len(o_rois),
             "matched_labels": len(ious),
+            "unreadable_boxes": unreadable,
             "min_iou": min(ious) if ious else None,
             "mean_iou": round(sum(ious) / len(ious), 3) if ious else None,
             "error": theirs.get("error") or base.get("error"),
@@ -261,6 +385,16 @@ def compare(baseline: Dict, other: Dict) -> Dict:
 
 # ── report ─────────────────────────────────────────────────────────────
 
+def _cell(value) -> str:
+    """`-` for "not measured" only — never for a measured zero.
+
+    A `0.0` Metal reading means the weights are not on Metal, which is
+    the most interesting outcome this table can report; `value or "-"`
+    would have hidden it behind the same dash as a missing measurement.
+    """
+    return "-" if value is None else str(value)
+
+
 def render(machine: Dict, runs: List[Dict], comparisons: Dict,
            against_reference: Optional[Dict] = None,
            reference_source: Optional[str] = None) -> str:
@@ -268,13 +402,21 @@ def render(machine: Dict, runs: List[Dict], comparisons: Dict,
            "## Machine", ""]
     out += [f"- **{k}**: {v}" for k, v in machine.items()]
     out += ["", "## Did it load, and what did it cost", "",
-            "| dtype | loaded | device | load s | detect s | peak RSS GB | error |",
-            "|---|---|---|---|---|---|---|"]
+            "Metal weights = `torch.mps.driver_allocated_memory()` straight "
+            "after load, which is the figure that decides whether a model "
+            "fits. Host RSS does **not** capture Metal's unified-memory "
+            "allocations and is here only to bound the host-side footprint.",
+            "",
+            "| dtype | loaded | device | load s | detect s | Metal weights GB | Metal peak GB | host RSS GB | error |",
+            "|---|---|---|---|---|---|---|---|---|"]
     for r in runs:
         out.append(
             f"| {r['dtype']} | {'yes' if r['loaded'] else '**no**'} | "
-            f"{r.get('device', '-')} | {r['load_seconds'] or '-'} | "
-            f"{r['detect_seconds'] or '-'} | {r['peak_rss_gb'] or '-'} | "
+            f"{r.get('device', '-')} | {_cell(r['load_seconds'])} | "
+            f"{_cell(r['detect_seconds'])} | "
+            f"{_cell(r.get('loaded_mps_driver_gb'))} | "
+            f"{_cell(r.get('peak_mps_driver_gb'))} | "
+            f"{_cell(r['peak_rss_gb'])} | "
             f"{(r['error'] or '')[:80]} |")
     out += ["", "## ROI agreement against float32 — the criterion", ""]
     if not comparisons:
@@ -285,15 +427,23 @@ def render(machine: Dict, runs: List[Dict], comparisons: Dict,
                 f"- same ROI count: **{cmp['same_roi_count']}/{cmp['figures']}**",
                 f"- all boxes within IoU 0.95: **{cmp['tight_boxes']}/{cmp['figures']}**",
                 "",
-                "| figure | float32 ROIs | this ROIs | matched | min IoU | mean IoU | error |",
-                "|---|---|---|---|---|---|---|"]
+                "| figure | float32 ROIs | this ROIs | scored | unreadable | min IoU | mean IoU | error |",
+                "|---|---|---|---|---|---|---|---|"]
         for row in cmp["rows"]:
             out.append(
                 f"| {row['figure']} | {row['baseline_rois']} | "
                 f"{row['other_rois']} | {row['matched_labels']} | "
+                f"{row.get('unreadable_boxes', 0)} | "
                 f"{row['min_iou'] if row['min_iou'] is not None else '-'} | "
                 f"{row['mean_iou'] if row['mean_iou'] is not None else '-'} | "
                 f"{(row['error'] or '')[:60]} |")
+        unreadable = sum(r.get("unreadable_boxes", 0) for r in cmp["rows"])
+        if unreadable:
+            out += ["",
+                    f"> **{unreadable} box(es) could not be read** on one side "
+                    "or the other, so the IoU columns above describe only what "
+                    "was scored. Treat this report as inconclusive on geometry "
+                    "until that is zero.", ""]
         out.append("")
     if against_reference:
         out += ["## ROI agreement against the recorded reference", "",
