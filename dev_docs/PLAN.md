@@ -255,10 +255,16 @@ is not.
   Decided: normalize CJK whitespace **in the comparison**, keep the criterion
   exclusion, and do *not* pin `--jobs 1` — that hypothesis was tested and
   fails. See Standing gates for the measurements.
-- [ ] **`get_missing_references` scope**
-  ([#155](https://github.com/caseywdunn/corpus/issues/155)): v1.3 fixed the
-  tractable half and 96 title/year-only leads remain. Either carve another
-  cheap slice or declare the tool best-effort in its own docstring.
+- [x] **`get_missing_references` scope**
+  ([#155](https://github.com/caseywdunn/corpus/issues/155)). Both, since they
+  are complementary. The cheap slice: rows with neither title nor year are
+  withheld — 477 of 6,953 at the default threshold, and they outranked real
+  gaps (`corpus:|unknown|`, empty-titled with 30 citations, sat 11th, above
+  the genuinely-missing Bigelow 1906). And the docstring — the MCP tool
+  description a client actually reads — now says the tool is best-effort, names
+  the residual 96 title/year-only leads, and points at `resolve_reference` and
+  the QC tool. The remaining cases need a per-block LLM pass or a similarity
+  threshold loose enough to merge distinct works; neither is a cheap slice.
 
 **Cycle acceptance:** every issue above is closed or has a recorded decision,
 and the open tracker contains only new capability and direction questions —

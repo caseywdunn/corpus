@@ -143,6 +143,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`get_missing_references` withholds rows that cannot be leads, and says it
+  is best-effort (#155).** v1.3 closed the resolver-safe half of the
+  reconciliation problem; what remained was ~96 title/year-only review leads
+  that no automated rule can adjudicate without a threshold loose enough to
+  merge distinct works. Two changes rather than a third reconciliation attempt.
+
+  A row with **no title and no year** leaves nothing to search for — it is a
+  mis-parsed reference string counted as a work. Those are now withheld and the
+  count logged: 477 of 6,953 rows at the default threshold on the reference
+  corpus (6.9%), and it matters because they outranked real gaps.
+  `corpus:|unknown|`, an empty-titled node with **30 citations**, sat 11th in
+  the default output — above Bigelow 1906, which the original audit confirmed is
+  genuinely missing. After the filter, real leads move up.
+
+  And the docstring — which is the MCP tool description a client reads — now
+  states plainly that the tool is a list of leads rather than proof of absence,
+  names the residual class, and points at `resolve_reference` and
+  `tools/qc/reference_reconciliation.py` for verification. Unconditional rather
+  than a new parameter, so the frozen 1.0 input surface is untouched.
+
 - **CJK whitespace no longer buries real differences in a build comparison
   (#280).** Two solo builds of the same 35-document gold set — same commit,
   same machine, no contention, no OCR timeouts, identical quality flags —

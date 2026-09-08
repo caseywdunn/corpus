@@ -8,13 +8,17 @@ get_original_description, get_works_by_author.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from bib.authority import normalize_for_key
 
 from ..app import _load_json, _need_index, _validate_collection, error, mcp
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..indexes import BiblioAuthority  # noqa: F401  — annotation only
@@ -754,22 +758,46 @@ def get_missing_references(
 ) -> List[Dict]:
     """Works cited by corpus papers that are NOT in the corpus.
 
-    Sorted by citation count (most-cited candidates first). Useful for
-    identifying papers to investigate for acquisition, but not proof that a
-    work is absent: damaged metadata and alternate identifiers can remain
-    unresolved. Filter by year range to focus on a particular era. Operators
-    can inspect observation evidence with
+    Sorted by citation count (most-cited candidates first).
+
+    **Best-effort, and deliberately so (#155).** This is a list of leads to
+    investigate, not proof that a work is absent. A single work can still
+    appear as several rows when its citation strings did not reconcile —
+    OCR-degraded titles, abbreviated journals, transliterations,
+    mis-segmented reference strings, or a second valid DOI for the same
+    work. v1.3 closed the resolver-safe cases (DOI normalization,
+    cross-block author-set matching), which collapsed the known
+    false-positive clusters; what remains is roughly 96 title/year-only
+    review leads that no automated rule can adjudicate without either a
+    similarity threshold loose enough to merge distinct works or a
+    per-block LLM pass. Verify a row against ``resolve_reference`` before
+    treating it as a gap, and inspect observation evidence with
     ``tools/qc/reference_reconciliation.py`` before curating the library.
+
+    Rows that cannot be a lead at all are withheld: no title *and* no year
+    leaves nothing to search for, and they are parse debris rather than
+    works. On the reference corpus that is 477 of 6,953 rows at the default
+    threshold (6.9%), and it matters because they outrank real gaps —
+    ``corpus:|unknown|``, an empty-titled node with 30 citations, sat 11th
+    in the default output, above Bigelow 1906, which is genuinely missing.
+    The count withheld is logged. Filter by year range to focus on a
+    particular era.
     """
     idx = _need_index()
     if idx.biblio_db is None:
         return [error("bibliographic authority database not configured", "not_configured")]
 
-    query = """
+    # A row with neither a title nor a year cannot be acted on, so it is
+    # not a lead — it is a mis-parsed reference string counted as a work
+    # (#155). Unconditional rather than a parameter: there is no query
+    # this population answers, and the raw picture is what
+    # tools/qc/reference_reconciliation.py is for.
+    _USABLE = "NOT (COALESCE(TRIM(w.title), '') = '' AND w.year IS NULL)"
+    query = f"""
         SELECT w.work_id, w.title, w.year, w.journal, w.doi,
                w.guid_type, COUNT(*) AS cited_by_count
         FROM citations c JOIN works w ON c.cited_work_id = w.work_id
-        WHERE w.in_corpus = 0
+        WHERE w.in_corpus = 0 AND {_USABLE}
     """
     params: list = []
     if year_from:
@@ -789,6 +817,25 @@ def get_missing_references(
         r = dict(row)
         r["authors"] = idx.biblio_db.get_authors(r["work_id"])
         results.append(r)
+    # Say how many rows the filter took. Silently dropping them would be
+    # the same class of problem as counting them.
+    try:
+        withheld = idx.biblio_db.conn.execute(
+            f"""SELECT COUNT(*) FROM (
+                    SELECT c.cited_work_id
+                    FROM citations c JOIN works w ON c.cited_work_id = w.work_id
+                    WHERE w.in_corpus = 0 AND NOT ({_USABLE})
+                    GROUP BY c.cited_work_id HAVING COUNT(*) >= ?)""",
+            (int(min_citations),),
+        ).fetchone()[0]
+    except sqlite3.Error:
+        withheld = 0
+    if withheld:
+        logger.info(
+            "get_missing_references: withheld %d untitled, undated row(s) — "
+            "mis-parsed reference strings, not acquisition leads (#155)",
+            withheld,
+        )
     return results
 
 
