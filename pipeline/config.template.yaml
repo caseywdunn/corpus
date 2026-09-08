@@ -114,6 +114,14 @@ figures:
   # ~88% of a served bundle, so this is most of what a colleague downloads.
   # Set to null to disable.
   max_pixels_long_side: 3000
+  # Weight dtype for the local VLM (#258). `auto` is bfloat16 on CUDA and
+  # float32 elsewhere — which on Apple Silicon means ~30.4 GB of weights for
+  # a 7B model against ~15.2 GB at half precision, so it does not fit a 32 GB
+  # machine. Half precision on MPS is very likely fine and has never been
+  # run, so the default stays put until someone measures it; set float16 or
+  # bfloat16 to try, and see dev_docs/PLATFORM_SMOKE.md §1a for what to
+  # report. Also settable as CORPUS_VLM_DTYPE. float32 is correct on CPU.
+  # vision_dtype: auto
   # images_scale: 2.0       # fixed mode only: uniform DPI = 72 * scale.
   # Changes refresh extraction and downstream artifacts on the next corpus run.
   # Rebuild the served bundle to publish the new figures.

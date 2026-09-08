@@ -166,13 +166,17 @@ only corroborated. Measure the population before writing the fix.
   separate silent wrong on the way: `pipeline.embed` took no `--config` at
   all, so `compute.accelerator` was honoured by Stage 1 and ignored by
   Stage 2.
-- [ ] **Load the local VLM in half precision on MPS**
+- [~] **Load the local VLM in half precision on MPS**
   ([#258](https://github.com/caseywdunn/corpus/issues/258)) — float32 needs
-  ~30 GB for a 7B model, which shuts Apple Silicon out entirely. **Blocked on
-  hardware, deliberately not attempted.** This document already records that
-  a mocked dtype-selection test does not establish that half precision is
-  numerically and operationally sound on MPS, and there is no Apple Silicon
-  in reach. Needs a real 7B run on a real M-series machine.
+  ~30.4 GB for a 7B model against ~15.2 GB at half precision, which shuts a
+  32 GB Mac out entirely. **Made testable; default unmoved.**
+  `figures.vision_dtype` / `CORPUS_VLM_DTYPE` selects the dtype and the loader
+  reports its footprint, so all three variants are one run each. The default
+  stays `auto` because a mocked dtype test does not establish numerical
+  soundness on Metal — that remains true and is why this is not closed.
+  Validation recipe in [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md) §1a; ROI
+  equivalence is the criterion, not memory. Worth the same sitting: the
+  docling pin (#98 follow-up) waits on the same hardware.
 - [x] **Surface why a re-run is doing more work than expected**
   ([#80](https://github.com/caseywdunn/corpus/issues/80)). Reassessed as this
   document asked, and v1.3 had already built the computation — what remained

@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`figures.vision_dtype` — the local VLM's weight dtype is selectable
+  (#258).** It picked its dtype from whether the device was CUDA rather than
+  from what the device supports, so MPS got float32: **~30.4 GB of weights for
+  Qwen2.5-VL-7B against ~15.2 GB at half precision**, which is the difference
+  between "does not fit a 32 GB Mac" and "fits". Apple Silicon supports bf16
+  and fp16, and a branch keyed on `== "cuda"` is the shape of "CUDA is the one
+  I tested" rather than a statement about MPS.
+
+  **The default is deliberately unchanged** — `auto` is still bfloat16 on CUDA
+  and float32 elsewhere. A mocked dtype-selection test does not establish that
+  Qwen2.5-VL is numerically sound in half precision on Metal, and shipping a
+  quietly worse panel detector is the failure class this cycle spent itself on.
+  What changes is that the question is now answerable in one sitting rather
+  than three source edits: set `float16` or `bfloat16` (or `CORPUS_VLM_DTYPE`)
+  and the loader reports the dtype and its footprint up front. That also
+  settles the issue's open sub-question of whether MPS prefers fp16 to bf16 for
+  this model. `dev_docs/PLATFORM_SMOKE.md` §1a carries the validation recipe
+  and says what evidence moves the default — ROI equivalence first, memory and
+  wall clock second.
+
 - **A pixel ceiling on saved figures — `figures.max_pixels_long_side`, default
   3000 (#184).** Figures are ~88% of a served bundle, so their size is most of
   what a colleague downloads. Measured on the 1,775-document tree: 21,521

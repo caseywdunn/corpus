@@ -116,6 +116,57 @@ python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080
 # expect: "All layers passed." with bundle_version matching pipeline/version.py
 ```
 
+## (1a) macOS arm64 — the local VLM's dtype (#258)
+
+Open question, and the only thing in the tracker blocked on hardware rather
+than on a decision. `figures.vision_dtype` defaults to `auto`, which is
+float32 on MPS — **~30.4 GB of weights for Qwen2.5-VL-7B against ~15.2 GB at
+half precision**, so it does not fit a 32 GB machine at all today. Apple
+Silicon supports bf16 and fp16; what is unknown is whether Qwen2.5-VL is
+numerically sound in either on Metal, and which of the two this model prefers.
+Nobody has run it.
+
+The default does not move on a mocked test. It moves on these numbers.
+
+```bash
+# A handful of figures with known panel structure. The gold corpuscle is
+# ideal; any built corpuscle with multi-panel plates will do.
+cd <corpuscle>
+
+for DT in float32 bfloat16 float16; do
+  echo "=== $DT ==="
+  # Peak RSS and wall clock, plus the ROIs actually produced.
+  CORPUS_VLM_DTYPE=$DT /usr/bin/time -l \
+    corpus run --only vision --figure-panels vision-local \
+    2>&1 | tee "vision-$DT.log"
+  # The loader prints the dtype and its estimated footprint up front:
+  #   local VLM dtype=bfloat16 (bfloat16), ~15.2 GB of weights ...
+  grep -E "local VLM dtype|maximum resident" "vision-$DT.log"
+done
+```
+
+Then compare, in this order — the second question matters more than the first:
+
+1. **Does it load and run at all?** float32 may not fit; note the machine's RAM.
+2. **Are the ROIs the same?** This is the one that decides it. Compare
+   `rois` across the three runs for the same figures — count, and boxes to
+   within a few pixels. Half precision that quietly finds fewer or sloppier
+   panels is worse than float32 that does not fit, because the corpuscle
+   still builds and nothing flags it.
+3. **Peak memory and wall clock**, for the record.
+
+Report all three in [#258](https://github.com/caseywdunn/corpus/issues/258).
+If bf16 and fp16 both match float32's ROIs, the default becomes half
+precision on MPS and the knob stays for the exception. If they differ, the
+comment the issue asks for gets written instead — naming the op that fails,
+so the next person does not re-litigate it.
+
+**Worth the same sitting:** the `docling==2.94.0` pin
+([#98](https://github.com/caseywdunn/corpus/issues/98) follow-up) has been
+waiting on the same hardware. v1.2's fidelity harness now gives it a criterion
+it never had — score 2.95/2.96 against the gold set rather than against
+impressions.
+
 ## (2) linux-x86_64 — Bouchet (clean env)
 
 ```bash

@@ -115,6 +115,16 @@ class FiguresConfig(BaseModel):
         "full-page scan figure doesn't render to a pathologically large "
         "PNG. Default: uncapped.",
     )
+    vision_dtype: Literal["auto", "float32", "float16", "bfloat16"] = Field(
+        default="auto",
+        description="Weight dtype for the local VLM (#258). 'auto' is "
+        "bfloat16 on CUDA and float32 elsewhere — today's behaviour, kept "
+        "as the default because half precision on MPS has never actually "
+        "been run: ~30.4 GB of weights for a 7B model against ~15.2 GB at "
+        "bfloat16, which decides whether it fits a 32 GB Mac at all. Set "
+        "float16 or bfloat16 on Apple Silicon to try it; float32 is "
+        "correct on CPU. Also settable as CORPUS_VLM_DTYPE.",
+    )
     max_pixels_long_side: Optional[int] = Field(
         default=3000, ge=64, le=100000,
         description="Ceiling on a saved figure's longest side, in pixels "
