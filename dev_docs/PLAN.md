@@ -272,6 +272,29 @@ nothing that describes the product being wrong. Issues close when their fix
 lands on `dev` (CONTRIBUTING.md, "Closing issues"), so the tracker should
 shrink continuously through the cycle rather than in a bulk close at release.
 
+**Met.** All four sections are closed: 22 issues, 34 open → 13, with the
+tracker holding only v1.5 skills work (#178, #179, #180, #217), direction
+questions (#88, #89, #93, #123), deferred layers (#13, #14, #38, #39), and one
+item blocked on hardware rather than on a decision (#258 — Apple Silicon).
+
+Two things this cycle established, worth carrying into v1.5:
+
+**Measure the population before writing the fix.** Nine of the twenty-two
+items had their shape changed by measurement, and in six the measurement
+contradicted the issue's own proposal — #83's column store saves 19% of a
+payload undeliverable either way; #184's selective rule is *worse* than the
+flat cap it was meant to improve; #280's `--jobs 1` remedy addresses a
+mechanism that does not reproduce; #175's author-only matcher would write
+wrong protologues at a 67% error rate; #266's headline symptom was already
+fixed while a worse one went unnamed; and #165's two named documents are not
+where its value is. A proposal in an issue is a hypothesis, including a
+convincing one.
+
+**Reassess before building.** #80, #192 and half of #155 turned out to be
+already done, or already built by the previous cycle with only the reading of
+it left. #273 argued for deleting a check rather than renaming it. Cheap items
+were cheap because someone had already done the hard part.
+
 Explicitly **not** in v1.4: the skills and client layer (v1.5), new extraction
 layers (#13, #14), bulk export (#93), `verify_claim` (#123), embedding-model
 migration (#38), MCP scaling (#39), and the direction questions (#88, #89,
