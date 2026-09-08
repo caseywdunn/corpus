@@ -1,21 +1,35 @@
 #!/bin/bash
 #SBATCH --job-name=grobid
-#SBATCH --partition=week
+#SBATCH --partition=day
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=2-00:00:00
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-grobid-%j.out
 #SBATCH --error=logs/slurm-grobid-%j.err
 #
 # Long-running Grobid service for stage 1 to talk to.
 #
-# `week`/48 h rather than `day`/24 h: this job is submitted *before*
-# stage 1 and `day` caps at 24 h, so an equal wall guaranteed Grobid
-# died first. Papers stage 1 processes after that get placeholder
-# metadata, and implicit resume will NOT retry them — their inputs are
-# unchanged — so the loss is silent. Outliving stage 1 costs nothing:
-# the `afterany` grobid-cancel job in batch_pipeline.sh tears this down
-# as soon as stage 1 ends, however it ends.
+# This job must outlive stage 1. It is submitted *before* stage 1, so an
+# equal wall guarantees Grobid dies first — and papers stage 1 processes
+# after that get placeholder metadata, which implicit resume will NOT
+# retry because their inputs are unchanged. The loss is silent, which is
+# why the ordering matters more than the absolute wall.
+#
+# That invariant used to be bought with `week`/48 h. It is now bought
+# structurally instead: Grobid gets `day`'s full 24 h and
+# batch_process_corpus.sh asks for 20 h, so Grobid outlives stage 1 by
+# four hours no matter how long stage 1 runs. **Keep that gap.** If you
+# raise stage 1's wall, raise it below this one or move both.
+#
+# The reason for the change is that `week` had become unusable: on
+# 2026-09-08 it held 20 idle CPUs of 1792 and the scheduler estimated a
+# *four day* wait for this 4-CPU job, while `day` — which stage 1 itself
+# runs on — had ~2000 idle. A service job queued four days behind its
+# own consumer is not a safety margin.
+#
+# Outliving stage 1 costs nothing: the `afterany` grobid-cancel job in
+# batch_pipeline.sh tears this down as soon as stage 1 ends, however it
+# ends.
 #
 # Usage:
 #     GROBID_JOB=$(sbatch --parsable batch_grobid.sh)

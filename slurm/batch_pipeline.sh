@@ -37,7 +37,11 @@ echo "  Grobid job: $GROBID_JOB"
 
 # ── Step 2: Wait for Grobid to reach RUNNING state ──────────────────
 echo "Waiting for Grobid to start..."
-MAX_WAIT=600  # 10 minutes
+# How long to wait for Grobid to reach RUNNING. Configurable because it
+# is a property of how busy the cluster is, not of this pipeline: the
+# default suits a partition with capacity, and a contended one needs
+# more patience than any constant can predict.
+MAX_WAIT="${GROBID_MAX_WAIT:-1800}"  # 30 minutes
 ELAPSED=0
 STATE="UNKNOWN"
 while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
@@ -53,7 +57,16 @@ echo ""
 
 if [ "$STATE" != "RUNNING" ]; then
     echo "ERROR: Grobid job $GROBID_JOB did not start within ${MAX_WAIT}s (state: $STATE)"
-    echo "       Cancel it with: scancel $GROBID_JOB"
+    # Cancel it here rather than printing the command. This launcher is
+    # meant to be run hands-off, and is documented that way — so a
+    # cleanup step that only happens when someone is tailing the log is
+    # not cleanup. An abandoned Grobid holds its allocation for the full
+    # walltime; one was left queued on 2026-09-08 exactly this way.
+    echo "       Cancelling it so it cannot hold an allocation."
+    scancel "$GROBID_JOB" 2>/dev/null || \
+        echo "       WARNING: scancel failed — check squeue and cancel $GROBID_JOB by hand" >&2
+    echo "       Raise the wait with GROBID_MAX_WAIT=<seconds> if the queue is simply busy;"
+    echo "       check the estimate first with: sbatch --test-only slurm/batch_grobid.sh"
     exit 1
 fi
 

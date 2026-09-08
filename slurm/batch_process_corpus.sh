@@ -3,7 +3,11 @@
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=256G
-#SBATCH --time=24:00:00
+# 20 h, not `day`'s full 24 h: Grobid takes the 24 h and must outlive
+# this job, or the tail of the corpus silently gets placeholder metadata
+# (see batch_grobid.sh). The worst task in the 2026-08 reference run
+# took 2 h 35 m at BATCH_SIZE=64, so 20 h is ~8x margin.
+#SBATCH --time=20:00:00
 #SBATCH --output=logs/slurm-stage1-%A_%a.out
 #SBATCH --error=logs/slurm-stage1-%A_%a.err
 #SBATCH --open-mode=append
