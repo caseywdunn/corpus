@@ -197,9 +197,15 @@ only corroborated. Measure the population before writing the fix.
   accelerators at a fixed dtype: bfloat16 on MPS disagreed with the
   bfloat16-on-H200 ROIs this corpuscle shipped on all four plates — Pass 3b
   output is hardware-bound, which nothing in the docs had claimed either way.
-  And `pipeline/vision.py:730` reports a missing `torch` as "transformers >=
-  4.45 is required", because it imports transformers first; in a bare env you
-  are told to install the wrong thing. Filed, not fixed here.
+  And the local VLM backend reported a missing `torch` as "transformers >= 4.45
+  is required", because it imports transformers first and named the package it
+  asked for rather than the one that failed. Fixed: `ImportError.name` carries
+  the module that actually broke, and it separates the cases cleanly — an
+  absent package and a missing symbol both report the module we asked for, a
+  broken dependency chain reports the link. `pipeline/optional_deps.py`, wired
+  into all three ML backends (`transformers`, `sentence_transformers`,
+  `anthropic`), which had the same latent bug. A confident wrong instruction
+  costs more than a vague one.
 - [x] **Surface why a re-run is doing more work than expected**
   ([#80](https://github.com/caseywdunn/corpus/issues/80)). Reassessed as this
   document asked, and v1.3 had already built the computation — what remained
@@ -400,12 +406,22 @@ Issue-backed, in dependency-free groups.
   ([#164](https://github.com/caseywdunn/corpus/issues/164)) —
   `Ph. pelagica` resolves to nothing.
 - [ ] **Move the docling pin forward**
-  ([#98](https://github.com/caseywdunn/corpus/issues/98) follow-up).
-  Still `docling==2.94.0`. Reproduce on an arm64 Mac, determine whether
-  2.95/2.96 broke MPS extraction via an API change or an upstream bug,
-  then advance deliberately. Needs Apple-Silicon hardware. **v1.2's fidelity harness
-  ([#193](https://github.com/caseywdunn/corpus/issues/193)) gives this a
-  criterion it never had** — "better or worse" against the gold
+  ([#283](https://github.com/caseywdunn/corpus/issues/283), superseding the
+  [#98](https://github.com/caseywdunn/corpus/issues/98) follow-up). Still
+  `docling==2.94.0`; current is **2.126.0**, so the pin is 32 minor versions
+  behind. #98 asked whether 2.95 or 2.96 broke MPS extraction — **that box is
+  dropped, not carried.** Thirty versions on it is archaeology: whatever broke
+  has almost certainly been rewritten, and the answer would not say whether
+  2.126 works. The question with a consumer is "does current docling extract
+  correctly on arm64?", which is one test rather than a bisect. Needs
+  Apple-Silicon hardware; budget for API churn rather than a version bump,
+  since nobody has read docling's changelog across that range.
+
+  Two things make this a smaller bet than when #98 was written. #99's guard
+  now treats a corpus-wide zero-chunk result as a hard error, so the silent
+  empty-bundle failure that made 2.96 dangerous fails loudly. And **v1.2's
+  fidelity harness ([#193](https://github.com/caseywdunn/corpus/issues/193))
+  gives this a criterion it never had** — "better or worse" against the gold
   set rather than against impressions.
 
 **Operator surface**
@@ -429,12 +445,15 @@ Issue-backed, in dependency-free groups.
 
 **Housekeeping**
 
-- [ ] **The local VLM loads in float32 on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)). This is not part of
-  the bounded v1.3 hardening tranche: validate the actual 7B model on suitable
-  Apple Silicon, together with any move beyond the current docling pin. A
-  mocked dtype-selection test alone does not establish that half precision is
-  numerically and operationally sound on MPS.
+- [x] **The local VLM loads in float32 on MPS**
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)). Closed in v1.4:
+  measured on an M2 Max and the default stays float32. Half precision keeps
+  every panel but moves the boxes (mean IoU 0.65–0.75 against float32, worst
+  panel 0.0), while two float32 runs agree at 1.0 — greedy decoding over digit
+  tokens, so a flipped digit moves a coordinate hundreds of pixels. The memory
+  premise stands unfixed: float32 measured 37.69 GB on Metal, so a 32 GB Mac
+  still cannot run the default, and `figures.vision_dtype` is the fallback
+  there with documented worse geometry.
 - [x] **CI now looks at the repo root.** Shipped in v1.2.1 as
   `tests/test_repo_root_is_clean.py`, an allowlist over `git ls-files`.
   A stray 9-byte `%PDF-1.4` fragment named `6` sat next to `README.md`

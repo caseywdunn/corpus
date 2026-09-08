@@ -30,6 +30,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from .accelerator import resolve_device
+from .optional_deps import missing_dependency_message
 
 logger = logging.getLogger(__name__)
 
@@ -159,10 +160,13 @@ class LocalBackend(EmbeddingBackend):
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
-            raise EmbeddingError(
-                "sentence-transformers is required for the local backend "
-                "(pip install sentence-transformers)"
-            ) from e
+            raise EmbeddingError(missing_dependency_message(
+                e,
+                feature="the local embedding backend",
+                module="sentence_transformers",
+                requirement="sentence-transformers",
+                install="sentence-transformers",
+            )) from e
 
         self._model_name = model_name
         self._revision = revision

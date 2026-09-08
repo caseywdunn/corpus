@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Dependency errors name the module that actually failed (#258 follow-up).**
+  On a Mac with the conda env unactivated, the local VLM backend reported
+  `transformers >= 4.45 is required` — but `torch` was the missing package and
+  transformers was fine. The handler named the package it asked for rather
+  than the one that broke, sending the reader to install something that was
+  not the problem. A confident wrong instruction costs more than a vague one.
+
+  `ImportError.name` carries the module that actually failed and separates the
+  cases cleanly: an absent package and a too-old package both report the module
+  we asked for, while a broken dependency chain reports the link that broke.
+  `pipeline/optional_deps.py` turns that into the message, and all three ML
+  backends use it — `transformers`, `sentence_transformers` and `anthropic` all
+  sit behind heavy dependency chains and all had the same latent bug.
+
 - **`figures.vision_dtype` — the local VLM's weight dtype is selectable
   (#258).** It picked its dtype from whether the device was CUDA rather than
   from what the device supports, so MPS got float32: **~30.4 GB of weights for

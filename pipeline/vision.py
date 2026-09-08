@@ -37,6 +37,7 @@ from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 from .model_provenance import DEFAULT_VISION_MODELS, vision_producer
+from .optional_deps import missing_dependency_message
 load_dotenv()  # picks up ANTHROPIC_API_KEY from .env at import time
 
 logger = logging.getLogger(__name__)
@@ -410,9 +411,12 @@ class ClaudeVisionBackend(VisionBackend):
         try:
             import anthropic
         except ImportError as e:
-            raise VisionBackendError(
-                "anthropic package not installed (pip install anthropic)"
-            ) from e
+            raise VisionBackendError(missing_dependency_message(
+                e,
+                feature="the Claude vision backend",
+                module="anthropic",
+                install="anthropic",
+            )) from e
         self._anthropic = anthropic
         self.client = anthropic.Anthropic()
         self.model = model
@@ -749,11 +753,13 @@ class LocalVLMBackend(VisionBackend):
                 AutoProcessor,
             )
         except ImportError as e:
-            raise VisionBackendError(
-                "transformers >= 4.45 is required for the local VLM backend "
-                "(pip install transformers>=4.45 qwen-vl-utils torch "
-                "accelerate)"
-            ) from e
+            raise VisionBackendError(missing_dependency_message(
+                e,
+                feature="the local VLM backend",
+                module="transformers",
+                requirement="transformers >= 4.45",
+                install="transformers>=4.45 qwen-vl-utils torch accelerate",
+            )) from e
 
         try:
             dtype = resolve_vlm_dtype(self._device, self._dtype_setting)
