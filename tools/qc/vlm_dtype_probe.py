@@ -338,10 +338,20 @@ def probe_dtype(dtype: str, figures: List[Dict], device: Optional[str]) -> Dict:
 
 
 def _delta_gb(before, after):
-    """How much this load added, or None if either end is unmeasured."""
+    """How much this load added, or None if that is not measurable.
+
+    A 7B model cannot load into no additional memory, so a delta of zero
+    or less is not a measurement — it means the allocator was already
+    holding enough from a previous load. Reporting it as `0.0` would
+    read as "this dtype needs no memory", which is the opposite of the
+    truth. `_release()` is best-effort and MPS frequently keeps the
+    pool, so in practice only the first load in a process yields a
+    figure; the report says so.
+    """
     if before is None or after is None:
         return None
-    return round(after - before, 2)
+    grew = round(after - before, 2)
+    return grew if grew > 0 else None
 
 
 def _release(backend) -> None:
@@ -470,7 +480,11 @@ def render(machine: Dict, runs: List[Dict], comparisons: Dict,
             "Metal weights = `torch.mps.driver_allocated_memory()` straight "
             "after load, which is the figure that decides whether a model "
             "fits. Host RSS does **not** capture Metal's unified-memory "
-            "allocations and is here only to bound the host-side footprint.",
+            "allocations and is here only to bound the host-side footprint. "
+            "Metal's pool does not shrink when a model is released, so "
+            "**only the first load in a process yields a weights figure**; "
+            "later rows read `-` because the allocator was already large "
+            "enough. To size one dtype, run it alone.",
             "",
             "| dtype | loaded | device | load s | detect s | Metal weights GB | Metal total GB | host RSS GB | error |",
             "|---|---|---|---|---|---|---|---|---|"]

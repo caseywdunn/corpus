@@ -505,3 +505,24 @@ def test_a_repeat_run_is_compared_rather_than_silently_skipped(tmp_path):
     report = (tmp_path / "r.md").read_text()
     assert "float32#1" in report and "float32#2" in report
     assert "### float32#2 vs float32#1" in report
+
+
+def test_a_later_load_reports_no_figure_rather_than_zero():
+    """The control run reported `0.0 GB` of weights for `float32#2`,
+    because `_release()` had not persuaded Metal to shrink its pool so
+    before == after. A 7B model cannot load into no memory; `0.0` reads
+    as "this dtype is free", which is worse than saying nothing."""
+    assert _delta_gb(42.51, 42.51) is None
+    assert _delta_gb(42.51, 40.0) is None
+
+
+def test_the_report_says_why_a_later_row_is_blank():
+    runs = [{"dtype": "float32", "loaded": True, "device": "mps",
+             "load_seconds": 54.5, "detect_seconds": 624.7,
+             "weights_mps_driver_gb": None, "peak_mps_driver_gb": 42.51,
+             "peak_rss_gb": 40.1, "error": None,
+             "load_suspend_seconds": None, "detect_suspend_seconds": None,
+             "figures": {}}]
+    report = render({}, runs, {}, {}, None)
+    assert "first load in a process" in report
+    assert "run it alone" in report

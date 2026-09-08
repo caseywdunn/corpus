@@ -17,17 +17,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and fp16, and a branch keyed on `== "cuda"` is the shape of "CUDA is the one
   I tested" rather than a statement about MPS.
 
-  **The default is deliberately unchanged** — `auto` is still bfloat16 on CUDA
-  and float32 elsewhere. A mocked dtype-selection test does not establish that
-  Qwen2.5-VL is numerically sound in half precision on Metal, and shipping a
-  quietly worse panel detector is the failure class this cycle spent itself on.
-  What changes is that the question is now answerable in one sitting rather
-  than three source edits: set `float16` or `bfloat16` (or `CORPUS_VLM_DTYPE`)
-  and the loader reports the dtype and its footprint up front. That also
-  settles the issue's open sub-question of whether MPS prefers fp16 to bf16 for
-  this model. `dev_docs/PLATFORM_SMOKE.md` §1a carries the validation recipe
-  and says what evidence moves the default — ROI equivalence first, memory and
-  wall clock second.
+  **The default is unchanged, and now for a measured reason rather than
+  caution** — `auto` stays bfloat16 on CUDA and float32 elsewhere. Run on an
+  M2 Max over four 9-11 panel plates: all three dtypes load and none loses or
+  invents a panel, but half precision moves the boxes. Against float32,
+  bfloat16 scored mean IoU 0.65-0.75 per plate and float16 0.69-0.93, each with
+  a worst panel at 0.0 — a completely disjoint box. Two float32 runs agreed at
+  IoU 1.0 on every panel, so that spread is the dtype, not the model.
+
+  Generation is greedy and the model emits coordinates as digit tokens, so a
+  logit difference too small to matter flips a digit and a coordinate jumps
+  hundreds of pixels. Half precision here is a heavy-tailed chance of a wrong
+  box, not a slightly blurrier one.
+
+  The memory problem the issue opened on is nonetheless real: float32 measured
+  **37.69 GB** of Metal allocation, worse than the ~30.4 GB the weights predict,
+  so the shipped default does not fit a 32 GB Mac. Set `vision_dtype` there —
+  half precision beats no panel detection — but it is a fallback with known
+  worse geometry. Also worth knowing before comparing corpuscles built on
+  different hardware: bfloat16 on MPS disagreed with the bfloat16-on-H200 ROIs
+  this corpuscle shipped on all four plates, so Pass 3b geometry is
+  hardware-bound. `tools/qc/vlm_dtype_probe.py` reproduces all of it.
 
 - **A pixel ceiling on saved figures — `figures.max_pixels_long_side`, default
   3000 (#184).** Figures are ~88% of a served bundle, so their size is most of

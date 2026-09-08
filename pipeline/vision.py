@@ -599,23 +599,39 @@ _VLM_DTYPES = ("auto", "float32", "float16", "bfloat16")
 def resolve_vlm_dtype(device: str, configured: str = "auto"):
     """The torch dtype to load the local VLM's weights in.
 
-    ``auto`` is bfloat16 on CUDA and float32 everywhere else — today's
-    behaviour, kept as the default deliberately. Half precision on MPS
-    almost certainly works (Apple Silicon supports bf16 and fp16) and
-    would take a 7B model from ~30.4 GB to ~15.2 GB, which is the
-    difference between "does not fit on a 32 GB machine" and "fits". But
-    it has never been run: the original branch keyed on ``== "cuda"``,
-    which is the shape of "CUDA is the one I tested" rather than a
-    statement about MPS, and a mocked dtype-selection test does not
-    establish that Qwen2.5-VL is numerically sound in half precision on
-    Metal. Changing the default on that basis would ship a silently worse
-    panel detector, which is the failure class this cycle spent itself on.
+    ``auto`` is bfloat16 on CUDA and float32 everywhere else. **This has
+    now been measured on Metal and the default stays float32** (M2 Max,
+    69 GB, torch 2.12.0, transformers 5.8.1; four 9-11 panel plates,
+    ``tools/qc/vlm_dtype_probe.py``).
 
-    So the dtype is *selectable* instead — ``figures.vision_dtype`` or
-    ``CORPUS_VLM_DTYPE`` — and the default moves when someone with the
-    hardware reports numbers. That also settles the open sub-question in
-    #258, whether MPS prefers float16 to bfloat16 for this model: with a
-    knob, all three are one run each rather than three source edits.
+    All three dtypes load and none loses or invents a panel — ROI counts
+    were identical everywhere. But half precision *moves the boxes*:
+    against float32, bfloat16 scored mean IoU 0.65-0.75 per plate and
+    float16 0.69-0.93, each with a worst panel at 0.0, i.e. a completely
+    disjoint box. Two float32 runs, by contrast, agreed at IoU 1.0 on
+    every panel of every plate, so that spread is caused by the dtype and
+    not by the model wandering.
+
+    The mechanism is visible in the decode: generation is greedy
+    (``do_sample=False``) and Qwen emits coordinates as digit tokens, so
+    a logit difference too small to matter flips a digit and a coordinate
+    jumps by hundreds of pixels. Half precision here is not a slightly
+    blurrier box; it is a heavy-tailed chance of a wrong one, which is
+    exactly the 0.68-mean-with-a-0.0-outlier shape observed.
+
+    The memory argument for half precision is real and unresolved:
+    float32 measured **37.69 GB** of Metal allocation, more than the
+    ~30.4 GB the weights alone predict, so the shipped default does not
+    fit a 32 GB Mac. That is what the knob is for — on a machine where
+    float32 cannot load, half precision beats no panel detection — but it
+    is a fallback with known worse geometry, not a better default. Do not
+    "fix" this branch to prefer half precision on MPS without new
+    numbers.
+
+    A caution for anyone comparing across machines: geometry is not
+    portable across accelerators even at a fixed dtype. bfloat16 on MPS
+    disagreed with the bfloat16-on-H200 ROIs this corpuscle shipped on
+    all four plates.
 
     float32 on CPU is not a placeholder; it is correct there.
     """

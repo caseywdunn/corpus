@@ -166,17 +166,40 @@ only corroborated. Measure the population before writing the fix.
   separate silent wrong on the way: `pipeline.embed` took no `--config` at
   all, so `compute.accelerator` was honoured by Stage 1 and ignored by
   Stage 2.
-- [~] **Load the local VLM in half precision on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — float32 needs
-  ~30.4 GB for a 7B model against ~15.2 GB at half precision, which shuts a
-  32 GB Mac out entirely. **Made testable; default unmoved.**
-  `figures.vision_dtype` / `CORPUS_VLM_DTYPE` selects the dtype and the loader
-  reports its footprint, so all three variants are one run each. The default
-  stays `auto` because a mocked dtype test does not establish numerical
-  soundness on Metal — that remains true and is why this is not closed.
-  Validation recipe in [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md) §1a; ROI
-  equivalence is the criterion, not memory. Worth the same sitting: the
-  docling pin (#98 follow-up) waits on the same hardware.
+- [x] **Load the local VLM in half precision on MPS**
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — **measured on an
+  M2 Max; the default stays float32.** The issue's own premise was the memory
+  gap (~30.4 GB against ~15.2 GB, which shuts a 32 GB Mac out), and that gap is
+  real — float32 measured 37.69 GB of Metal allocation, *worse* than the
+  weights alone predict. But half precision buys it by moving the boxes:
+  against float32, bfloat16 scored mean IoU 0.65–0.75 per plate and float16
+  0.69–0.93, each with a worst panel at 0.0. ROI *counts* were identical
+  everywhere, so this is not a lost panel, it is a wrong one.
+
+  The control is what makes that conclusive, and I had to be told to run it:
+  the first report compared every dtype against every other and against the
+  shipped H200 ROIs, and everything disagreed with everything — including
+  float32 against the reference at 1/4 — which is uninterpretable without
+  knowing how much the model disagrees with *itself*. Two float32 runs agreed
+  at IoU 1.0 on every panel. Only then could the spread be attributed to dtype.
+  **A comparison matrix with no self-comparison in it measures nothing**, and
+  that is now the ninth item this cycle whose shape changed on contact with a
+  measurement.
+
+  Mechanism, so nobody re-litigates: generation is greedy and Qwen emits
+  coordinates as digit tokens, so a logit difference flips a digit and a
+  coordinate jumps hundreds of pixels — heavy-tailed by construction. The knob
+  stays as the fallback for machines where float32 cannot load at all, marked
+  as worse geometry rather than a better default. Recorded in
+  `resolve_vlm_dtype`'s docstring, which is where someone will look.
+
+  Two findings fell out on the way. Geometry is not portable across
+  accelerators at a fixed dtype: bfloat16 on MPS disagreed with the
+  bfloat16-on-H200 ROIs this corpuscle shipped on all four plates — Pass 3b
+  output is hardware-bound, which nothing in the docs had claimed either way.
+  And `pipeline/vision.py:730` reports a missing `torch` as "transformers >=
+  4.45 is required", because it imports transformers first; in a bare env you
+  are told to install the wrong thing. Filed, not fixed here.
 - [x] **Surface why a re-run is doing more work than expected**
   ([#80](https://github.com/caseywdunn/corpus/issues/80)). Reassessed as this
   document asked, and v1.3 had already built the computation — what remained
