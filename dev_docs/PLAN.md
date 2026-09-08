@@ -251,9 +251,10 @@ Each of these is a judgment that keeps being re-derived. Write the answer down
 and close the issue, or scope the work — either is progress; leaving them open
 is not.
 
-- [ ] **OCR reproducibility** ([#280](https://github.com/caseywdunn/corpus/issues/280)):
-  pin `--jobs 1` for comparison builds, normalize whitespace before
-  fingerprinting, or accept a permanent criterion exclusion.
+- [x] **OCR reproducibility** ([#280](https://github.com/caseywdunn/corpus/issues/280)).
+  Decided: normalize CJK whitespace **in the comparison**, keep the criterion
+  exclusion, and do *not* pin `--jobs 1` — that hypothesis was tested and
+  fails. See Standing gates for the measurements.
 - [ ] **`get_missing_references` scope**
   ([#155](https://github.com/caseywdunn/corpus/issues/155)): v1.3 fixed the
   tractable half and 96 title/year-only leads remain. Either carve another
@@ -515,6 +516,19 @@ list is explicit rather than assumed: the taxonomy snapshot's file hash (#278,
 since fixed), absolute build paths, local-VLM ROI coordinates, and CJK OCR
 whitespace segmentation (#280). Shortening that list is real work; ignoring it
 quietly is not.
+
+**On #280 specifically, the decision is made and the remedy is not `--jobs 1`.**
+The harness normalizes whitespace *between two CJK characters* before digesting
+(`tools/qc/build_reference.normalize_cjk_spacing`), so segmentation noise stops
+burying real differences — and it does that in the comparison only, never in the
+artifact or the stage fingerprint, because a fingerprint decides what re-runs.
+The `jobs=12` mechanism the issue proposed was tested and does not hold: both
+affected documents are byte-identical across repeated OCR runs at `--jobs` 1, 4
+and 12, and across `OMP_THREAD_LIMIT` 1, 4, 12 and unset, with docling
+deterministic on fixed input. Pinning `--jobs 1` would cost real build time for
+nothing. The underlying nondeterminism is real but its mechanism is still
+unidentified and does not reproduce on a workstation, so the exclusion stands
+rather than being traded for a guess.
 
 Two method notes that cost real time to learn, and will again:
 

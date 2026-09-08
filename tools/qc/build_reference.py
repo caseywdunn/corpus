@@ -49,9 +49,81 @@ def _relocate(value, root):
     return value
 
 
+# CJK ranges — Han, kana, Hangul. Mirrors pipeline.scan._is_cjk; kept
+# local because tools/ may not import from pipeline/ in the other
+# direction and this is a comparison concern, not a pipeline one.
+_CJK_RANGES = (
+    (0x3040, 0x30FF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF),
+    (0xF900, 0xFAFF), (0xAC00, 0xD7AF), (0x1100, 0x11FF),
+)
+
+
+def _is_cjk(ch: str) -> bool:
+    cp = ord(ch)
+    return any(lo <= cp <= hi for lo, hi in _CJK_RANGES)
+
+
+def normalize_cjk_spacing(text: str) -> str:
+    """Drop whitespace that sits between two CJK characters (#280).
+
+    Two solo builds of the same 35-document gold set, same commit, same
+    machine, differed on exactly two documents — both Japanese scans —
+    and the differences were whitespace segmentation only: the same
+    glyphs, different space placement.
+
+        和歌 山県田辺 湾 の海岸 線付近
+        和歌 山県 田辺 湾 の 海岸 線 付近
+
+    Japanese does not delimit words with spaces, so where OCR puts them
+    between CJK characters carries no information — but it changes the
+    digest, and 186 such lines buried whatever real difference an
+    acceptance run was looking for.
+
+    Normalized **for comparison only**. Deliberately not in the artifact
+    and not in the stage fingerprint: a fingerprint decides what re-runs,
+    so quietly rewriting the text it hashes would change resume
+    behaviour to buy a property only this harness needs. The issue
+    offered that as an option; this is the free half of it.
+
+    Scoped to *between two CJK characters* rather than all whitespace,
+    so the comparison stays sharp everywhere else — a lost word boundary
+    in Latin text is a real difference and still reported. On the
+    observed diffs the rule collapses both sides to the same string;
+    `田辺 次 は ,` keeps its space before the comma, which is not CJK.
+    """
+    if not text:
+        return text
+    out = []
+    for i, ch in enumerate(text):
+        if ch.isspace():
+            prev = next((c for c in reversed(out) if not c.isspace()), "")
+            nxt = ""
+            for j in range(i + 1, len(text)):
+                if not text[j].isspace():
+                    nxt = text[j]
+                    break
+            if prev and nxt and _is_cjk(prev) and _is_cjk(nxt):
+                continue
+        out.append(ch)
+    return "".join(out)
+
+
+def _normalize_for_compare(value):
+    """Recursively apply :func:`normalize_cjk_spacing` to string leaves."""
+    if isinstance(value, str):
+        return normalize_cjk_spacing(value)
+    if isinstance(value, dict):
+        return {k: _normalize_for_compare(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_for_compare(v) for v in value]
+    return value
+
+
 def _logical(payload, root):
-    return _relocate({k: v for k, v in payload.items()
-                      if k not in ("pipeline_version", "schema_version")}, root)
+    return _normalize_for_compare(
+        _relocate({k: v for k, v in payload.items()
+                   if k not in ("pipeline_version", "schema_version")}, root)
+    )
 
 
 def snapshot(build: Path) -> dict:

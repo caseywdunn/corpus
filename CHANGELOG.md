@@ -143,6 +143,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CJK whitespace no longer buries real differences in a build comparison
+  (#280).** Two solo builds of the same 35-document gold set — same commit,
+  same machine, no contention, no OCR timeouts, identical quality flags —
+  differed on exactly two documents, both Japanese scans, by whitespace
+  segmentation only: same glyphs, different space placement, 186 lines of it.
+  Japanese does not delimit words with spaces, so where OCR puts them between
+  CJK characters carries no information, but it changes the digest.
+
+  `tools/qc/build_reference.py` now drops whitespace *between two CJK
+  characters* before digesting. **In the comparison only** — never in the
+  artifact and never in the stage fingerprint, because a fingerprint decides
+  what re-runs, and rewriting the text it hashes would change resume behaviour
+  to buy a property only the acceptance harness needs. Scoped to CJK-adjacent
+  whitespace so the comparison stays sharp elsewhere: a lost word boundary in
+  Latin text is content loss and is still reported, as is a dropped CJK
+  character.
+
+  **The `--jobs 1` remedy the issue proposed is declined, on measurement.**
+  Both affected documents are byte-identical across repeated OCR runs at
+  `--jobs` 1, 4 and 12, and across `OMP_THREAD_LIMIT` 1, 4, 12 and unset, with
+  docling deterministic on fixed input across three runs — so job count is not
+  the mechanism and pinning it would cost real build time for nothing. The
+  nondeterminism is real but its mechanism remains unidentified and does not
+  reproduce on a workstation, so the criterion exclusion stands rather than
+  being traded for a guess.
+
 - **`lexicon_matrix(detail=True)` is bounded and reports what it returned
   (#83, #88).** #88 made the full paper x term grid opt-in because it was a
   multi-MB runaway, but never bounded it: no cap and no flag, so a caller
