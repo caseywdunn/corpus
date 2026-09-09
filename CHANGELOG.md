@@ -5,7 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2026-09-09
+
+### Theme — v1.4 silent wrongs and the hazards behind them
+
+v1.3 made the pipeline show where evidence came from. This cycle went after
+what survives behind that: results that are wrong without saying so, and build
+hazards that cost hours per run without ever failing.
+
+The organizing complaint is that a wrong answer and a right one looked the
+same. A text layer of unmappable glyph indices counted as clean, so one paper
+was indexed as 1,200 fragments of `/G52/G55/G4C/G4A/` and language-detected as
+Swahili. OCR language packs were picked from a text layer already known to be
+broken. An OSD script verdict was acted on without corroboration, so a Latin
+page could be re-OCR'd as Russian. `Ph. pelagica` resolved to nothing.
+`corpus status` ignored a filter in silence, and `compute.accelerator` was
+honoured by one stage and ignored by the next. None of these announced
+themselves; every one of them changed an answer.
+
+So the work was making wrongness visible or impossible: detection that
+corroborates before it acts, expansion that resolves what the literature
+actually writes, MCP tools that report what they returned rather than only
+whether they cut something off, and stages that fail loudly instead of
+degrading. Alongside it, the operational hazards that make a build unreliable
+at scale — Grobid jobs colliding on a fixed port, a GPU allocation quietly
+becoming a CPU one, a build with no way to bound its memory, and long stages
+with no sign of life.
+
+Nine of the cycle's twenty-two items had their shape changed by measurement
+before they were written, six of them against the issue's own proposal, and
+six turned out to need deletion or nothing at all rather than new code. The
+release rebuild of all 1,775 documents then found two more defects that no
+unit test reached, which is the argument for keeping that gate.
 
 ### Added
 
