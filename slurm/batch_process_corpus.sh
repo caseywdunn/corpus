@@ -3,7 +3,11 @@
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=256G
-#SBATCH --time=24:00:00
+# 20 h, not `day`'s full 24 h: Grobid takes the 24 h and must outlive
+# this job, or the tail of the corpus silently gets placeholder metadata
+# (see batch_grobid.sh). The worst task in the 2026-08 reference run
+# took 2 h 35 m at BATCH_SIZE=64, so 20 h is ~8x margin.
+#SBATCH --time=20:00:00
 #SBATCH --output=logs/slurm-stage1-%A_%a.out
 #SBATCH --error=logs/slurm-stage1-%A_%a.err
 #SBATCH --open-mode=append
@@ -26,9 +30,14 @@
 #
 #     GROBID_JOB=$(sbatch --parsable batch_grobid.sh)
 #     until [ "$(squeue -j "$GROBID_JOB" -h -o %T)" = RUNNING ]; do sleep 5; done
-#     export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):8070"
+#     source bouchet_paths.sh   # for corpus_grobid_port
+#     PORT=$(corpus_grobid_port "$GROBID_JOB")
+#     export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):$PORT"
+#     # The port is derived from the job ID rather than fixed at 8070, so two
+#     # co-scheduled Grobid jobs no longer collide (#279). The job's own stdout
+#     # echoes it as "Grobid URL:" if you would rather read it off.
 #     # RUNNING only means SLURM started the container. Grobid needs another
-#     # ~30-60 s to load its models and bind :8070, so poll before submitting —
+#     # ~30-60 s to load its models and bind the port, so poll before submitting —
 #     # otherwise the probe below warns spuriously during normal startup.
 #     until curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1; do sleep 5; done
 #

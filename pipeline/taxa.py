@@ -237,6 +237,92 @@ def _extract_name_candidates(text: str) -> Iterable[Tuple[str, int, int]]:
         yield name, m.start(1), m.end(1)
 
 
+# An abbreviated genus followed by an epithet: `Ph. pelagica`, `P. physalis`,
+# and — because this corpus is OCR'd — `Ph, pelagica` with a comma for the
+# period. The prefix is 1-4 letters; the epithet is spelled out, which is
+# what makes the expansion checkable at all.
+#
+# This regex is deliberately loose, because it is not what decides
+# anything: `Taf. iii` and `No. species` match it too. Two gates behind it
+# do the deciding — the prefix must extend a genus written out in full
+# elsewhere in the *same document*, and the expansion must resolve in the
+# taxonomy snapshot. A bibliographic abbreviation clears neither.
+_ABBREV_BINOMIAL_RE = re.compile(
+    r"""
+    \b
+    ([A-Z][a-z]{0,3})           # abbreviated genus: Ph, P, Phys
+    \s* [.,] \s*                # period, or an OCR'd comma
+    ([a-z][a-z\-]{2,})          # epithet, spelled out
+    \b
+    """,
+    re.VERBOSE,
+)
+
+
+def _genus_of(name: str) -> str:
+    """The genus token of a resolved name span."""
+    return re.split(r"[\s-]", name.strip(), 1)[0]
+
+
+def _expand_abbreviation(
+    prefix: str, epithet: str, genera_in_full: "Counter[str]",
+    taxonomy: "TaxonomyDB", name_set: Set[str],
+) -> Tuple[Optional[str], Optional[Dict], List[str]]:
+    """Resolve ``prefix. epithet`` against one document's own genera.
+
+    Returns ``(expanded_name, resolved, candidates)``. The first two are
+    set only when the candidates agree on a single taxon; ``candidates``
+    is every binomial that cleared both gates, so a genuinely ambiguous
+    case can be reported rather than guessed at.
+
+    Three gates. The genus must be one this document writes out in full,
+    the expansion must be a name in the taxonomy snapshot, and the
+    survivors must resolve to one accepted taxon.
+
+    The second gate is what makes this safe rather than a guess. `Ph.` is
+    genuinely ambiguous in a siphonophore corpus — *Physalia* and
+    *Physophora* are both in it — so document context alone would be
+    guessing. But the taxonomy knows `Physalia pelagica` is a name and
+    `Physophora pelagica` is not, and the epithet is printed right there.
+
+    The third gate exists because the second over-reports. Historical
+    spellings live in the snapshot as names of their own: Olfers 1824
+    prints both *Physalia* and *Physalis*, and `Physalia pelagica` and
+    `Physalis pelagica` are two names for accepted taxon 135479. Counting
+    name strings called that ambiguous and dropped a mention that was
+    never in doubt. Ambiguity is disagreement about the *taxon*.
+
+    Where several spellings do agree, the document's own preference picks
+    the representative — Olfers writes *Physalia* twice and *Physalis*
+    once — so the recorded name is the one the author mostly used.
+    """
+    lowered = prefix.lower()
+    candidates = [
+        f"{genus} {epithet}"
+        for genus, _ in sorted(genera_in_full.most_common(),
+                               key=lambda kv: (-kv[1], kv[0]))
+        if genus.lower().startswith(lowered)
+        and f"{genus} {epithet}".lower() in name_set
+    ]
+    if not candidates:
+        return None, None, []
+    resolved_by_taxon: Dict[str, Tuple[str, Dict]] = {}
+    for name in candidates:
+        r = taxonomy.lookup(name)
+        if r is None:
+            continue
+        resolved_by_taxon.setdefault(r["accepted_taxon_id"], (name, r))
+    if len(resolved_by_taxon) != 1:
+        return None, None, candidates
+    name, resolved = next(iter(resolved_by_taxon.values()))
+    return name, resolved, candidates
+
+
+# taxa.json ships in the served bundle, so the ambiguity report is a
+# bounded diagnostic rather than a parallel mention list.
+_MAX_UNRESOLVED_RECORDED = 50
+
+
 def extract_taxon_mentions(
     chunks: List[Dict],
     taxonomy: TaxonomyDB,
@@ -254,15 +340,35 @@ def extract_taxon_mentions(
     Only mentions whose ``accepted_taxon_id`` resolves to a taxon in the
     snapshot are recorded — this filters out generic words that happen
     to collide with taxonomic names outside the configured subtree.
+
+    Runs in two passes over the document (#164). The first resolves names
+    written out in full and, as a side effect, learns which genera this
+    document spells out. The second expands abbreviated binomials —
+    `Ph. pelagica` — against that set. Taxonomic literature abbreviates
+    the genus after first mention, so for a corpus of original
+    descriptions this is the central case rather than an edge one: the
+    paper that *erects* a species is the one least likely to spell the
+    genus out on every line. Olfers 1824 is a five-species key for
+    *Physalia* that yielded one genus-level taxon and no species.
+
+    Expansions are recorded with ``method="abbreviated_genus"`` and keep
+    the printed form in ``mention_text``, so nothing downstream has to
+    take an inferred name for an observed one. Abbreviations the pass
+    declined to resolve land in ``abbreviations_unresolved`` rather than
+    disappearing.
     """
     name_set = taxonomy.name_set()
     if not name_set:
         logger.warning("Taxonomy name set is empty; no taxon mentions will be recorded")
 
-    mentions: List[Dict] = []
-    taxa_rollup: Dict[str, Dict] = {}
+    # Per-chunk so pass 2 can interleave its mentions in text order
+    # rather than appending a block at the end.
+    by_chunk: List[List[Dict]] = []
+    genera_in_full: "Counter[str]" = Counter()
 
     for ch in chunks:
+        chunk_mentions: List[Dict] = []
+        by_chunk.append(chunk_mentions)
         text = ch.get("text", "") or ""
         if not text:
             continue
@@ -293,7 +399,8 @@ def extract_taxon_mentions(
             if resolved is None:
                 continue
 
-            mentions.append(
+            genera_in_full[_genus_of(matched_text)] += 1
+            chunk_mentions.append(
                 {
                     "chunk_id": ch.get("chunk_id"),
                     "text_span": [start, end],
@@ -306,30 +413,96 @@ def extract_taxon_mentions(
                     "rank": resolved["rank"],
                 }
             )
-            accepted_id = resolved["accepted_taxon_id"]
-            bucket = taxa_rollup.setdefault(
-                accepted_id,
-                {
-                    "accepted_taxon_id": accepted_id,
-                    "accepted_name": resolved["accepted_name"],
-                    "authorship": resolved["authorship"],
-                    "rank": resolved["rank"],
-                    "mention_count": 0,
-                    "first_chunk": ch.get("chunk_id"),
-                },
+
+    # --- Pass 2: abbreviated binomials, against this document's genera ---
+    unresolved: List[Dict] = []
+    n_expanded = 0
+    for ch, chunk_mentions in zip(chunks, by_chunk):
+        text = ch.get("text", "") or ""
+        if not text or not genera_in_full:
+            continue
+        # Spans pass 1 already claimed. An abbreviation cannot overlap a
+        # name written out in full, and `P. Sars` style author initials
+        # next to a resolved name must not be re-read as an epithet.
+        claimed = [tuple(m["text_span"]) for m in chunk_mentions]
+        for m in _ABBREV_BINOMIAL_RE.finditer(text):
+            start, end = m.start(0), m.end(0)
+            if any(s < end and start < e for s, e in claimed):
+                continue
+            prefix, epithet = m.group(1), m.group(2)
+            expanded, resolved, candidates = _expand_abbreviation(
+                prefix, epithet, genera_in_full, taxonomy, name_set,
             )
-            bucket["mention_count"] += 1
+            if expanded is None or resolved is None:
+                if candidates:
+                    unresolved.append({
+                        "chunk_id": ch.get("chunk_id"),
+                        "text_span": [start, end],
+                        "mention_text": m.group(0),
+                        "candidates": candidates,
+                        "reason": "ambiguous_abbreviation",
+                    })
+                continue
+            n_expanded += 1
+            chunk_mentions.append({
+                "chunk_id": ch.get("chunk_id"),
+                "text_span": [start, end],
+                "matched_text": expanded,
+                # What is actually printed on the page. The schema has
+                # kept these apart all along; only the writer collapsed
+                # them.
+                "mention_text": m.group(0),
+                "matched_taxon_id": resolved["matched_taxon_id"],
+                "name_type": resolved["name_type"],
+                "accepted_taxon_id": resolved["accepted_taxon_id"],
+                "accepted_name": resolved["accepted_name"],
+                "authorship": resolved["authorship"],
+                "rank": resolved["rank"],
+                "method": "abbreviated_genus",
+                "expanded_from": prefix,
+            })
+
+    mentions: List[Dict] = []
+    for chunk_mentions in by_chunk:
+        mentions.extend(sorted(chunk_mentions, key=lambda m: m["text_span"][0]))
+
+    taxa_rollup: Dict[str, Dict] = {}
+    for m in mentions:
+        accepted_id = m["accepted_taxon_id"]
+        bucket = taxa_rollup.setdefault(
+            accepted_id,
+            {
+                "accepted_taxon_id": accepted_id,
+                "accepted_name": m["accepted_name"],
+                "authorship": m["authorship"],
+                "rank": m["rank"],
+                "mention_count": 0,
+                "first_chunk": m["chunk_id"],
+            },
+        )
+        bucket["mention_count"] += 1
 
     taxa_list = sorted(
         taxa_rollup.values(),
         key=lambda r: (-r["mention_count"], r["accepted_name"] or ""),
     )
-    return {
+    out = {
         "total_mentions": len(mentions),
         "unique_taxa": len(taxa_list),
         "mentions": mentions,
         "taxa": taxa_list,
+        "abbreviations_expanded": n_expanded,
+        # Bounded: this is a diagnostic, not a second mention list, and
+        # taxa.json ships in the served bundle.
+        "abbreviations_unresolved_count": len(unresolved),
+        "abbreviations_unresolved": unresolved[:_MAX_UNRESOLVED_RECORDED],
     }
+    if len(unresolved) > _MAX_UNRESOLVED_RECORDED:
+        logger.info(
+            "%d ambiguous genus abbreviations, recording the first %d",
+            len(unresolved), _MAX_UNRESOLVED_RECORDED,
+        )
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +614,88 @@ def lexicon_fingerprints(path: Path) -> Dict[str, Dict[str, object]]:
     return out
 
 
+# Noun-inflection endings applied to `translations` forms, per language
+# (#165). A curated list rather than a general stemmer: every generated
+# form is added to the variant map explicitly, so matching stays
+# whole-word exact and the map stays greppable.
+#
+# `de`, `fr` and `ru` are measured — the endings below are the ones that
+# actually follow a lexicon stem in the reference library, with the
+# per-ending hit counts that justified each. The others carry that
+# language's ordinary noun plurals and are there so a lexicon extended
+# to them is not silently worse off; they have no corpus evidence yet.
+#
+# There is deliberately no `en` entry, and it is not an omission. English
+# variants are hand-listed in `synonyms`, which is what the lexicon's own
+# documentation tells curators to do, and the survey shows why: suffixing
+# English stems matches `Cnidaria` 4,444 times and `cnidarian(s)` 3,740
+# more from `cnida`, which is the phylum rather than the nematocyst, plus
+# `stemmed` from `stem`, `floating` from `float` and `siphoning` from
+# `siphon`. Those are wrong, not merely loose.
+_INFLECTION_SUFFIXES: Dict[str, Tuple[str, ...]] = {
+    # Schwimmglocken 4,623 · Deckstücke 663 · Deckstücken 242 ·
+    # Deckstückes 225 · Deckstücks/Tentakels 988
+    "de": ("n", "en", "e", "es", "s", "ns"),
+    # tentacules/cnidocytes/nématocystes/bractées 3,168 · palpones 6
+    "fr": ("s", "es", "x"),
+    # нектофора 831 · нектофоры 603 · нектофоров 406 · нектофорами 77 ·
+    # пневматофором 70 · нектофорам 18 · нектофорах 16 · нектофору 14 ·
+    # нектофоре 13
+    "ru": ("а", "я", "ы", "и", "ов", "ев", "ей", "ам", "ям", "ами", "ями",
+           "ах", "ях", "ом", "ем", "у", "ю", "е", "ой"),
+    "es": ("s", "es"),
+    "pt": ("s", "es"),
+    "it": ("i", "e"),
+    "nl": ("n", "en", "s"),
+    "la": ("e", "ae", "a", "um", "i", "is", "es", "orum", "arum"),
+}
+
+# Languages whose case endings replace a stem-final vowel rather than
+# stacking on it. Russian `личинка` declines to `личинки`, not
+# `личинкаи`, so the ending has to be appended to `личинк` as well.
+# Appending to the bare stem still covers the consonant-final majority
+# (`нектофор` → `нектофора`), so both forms are generated.
+#
+# What suffixing cannot reach, at any ending-list length, is an
+# inflection that changes the stem: Russian genitive plurals insert a
+# fill vowel (`личинка` → `личин|о|к`) and German umlaut plurals change
+# one (`Saugmagen` → `Saugmägen`, `Fangfaden` → `Fangfäden`, both printed
+# by Eschscholtz). Those want a per-language morphology table, or the
+# curator listing the form under `synonyms`, which works today.
+# `tests/test_lexicon_inflection.py` pins the gap so it stays recorded
+# rather than merely absent.
+_VOWEL_DROPPING = {"ru"}
+_RU_VOWELS = "аеёиоуыэюя"
+
+# Below this many characters a stem plus an ending is as likely to be an
+# unrelated short word as an inflection. The shortest real translation
+# form in the reference lexicon is `Larve` at 5.
+_MIN_INFLECTABLE_STEM = 5
+
+
+def _inflected_forms(form: str, lang: str) -> List[str]:
+    """Surface forms of ``form`` a reader of ``lang`` might have printed.
+
+    Returns the empty list for languages with no ending table and for
+    stems too short to suffix safely.
+    """
+    suffixes = _INFLECTION_SUFFIXES.get((lang or "").lower())
+    if not suffixes or len(form) < _MIN_INFLECTABLE_STEM:
+        return []
+    # A multi-word translation inflects on its head, not by having an
+    # ending stuck on the end of the phrase, so leave those alone.
+    if " " in form.strip() or "-" in form:
+        return []
+    stems = [form]
+    if (lang or "").lower() in _VOWEL_DROPPING and form[-1].lower() in _RU_VOWELS:
+        stems.append(form[:-1])
+    out: List[str] = []
+    for stem in stems:
+        for suffix in suffixes:
+            out.append(stem + suffix)
+    return out
+
+
 def _build_lexicon_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[str, str]]:
     """Compile one big alternation regex and a variant→canonical map.
 
@@ -448,16 +703,36 @@ def _build_lexicon_matcher(lexicon: Dict[str, Dict]) -> Tuple[re.Pattern, Dict[s
     names (e.g., ``nectophore``) ARE matched — their own keys count as
     variants of themselves so you don't have to repeat them in the
     ``synonyms`` list.
+
+    Non-English translations are additionally expanded through
+    :func:`_inflected_forms`, because an enumerated surface-form set is
+    the wrong shape for an inflecting language: Eschscholtz prints
+    `Luftblasen` where the lexicon lists `Luftblase`, and Vanhöffen 1906
+    prints `Schwimmglocken` 41 times against 7 of `Schwimmglocke` — so
+    the base-form-only match found a minority of its own mentions and a
+    German paper could report anatomy coverage of exactly zero, which
+    reads as "nothing here" rather than "not indexed" (#165).
+
+    An explicitly curated form always wins over a generated one, so a
+    lexicon can correct a bad generation by listing the right form.
     """
     variant_to_canonical: Dict[str, str] = {}
+    generated: Dict[str, str] = {}
     for canonical, entry in lexicon.items():
         canonical_display = canonical.replace("_", " ")
         variants = {canonical, canonical_display, *entry["synonyms"]}
-        for lang_variants in entry.get("translations", {}).values():
+        for lang, lang_variants in entry.get("translations", {}).items():
             variants.update(lang_variants)
+            for form in lang_variants or []:
+                for inflected in _inflected_forms(form, lang):
+                    generated.setdefault(inflected.lower(), canonical)
         for v in variants:
             if v:
                 variant_to_canonical[v.lower()] = canonical
+    # Curated forms are already in the map; only fill the gaps, so a
+    # generated form can never displace a term someone typed on purpose.
+    for variant, canonical in generated.items():
+        variant_to_canonical.setdefault(variant, canonical)
 
     # Sort longest-first so multi-word variants match before shorter ones
     # (e.g., "swimming bell" before "bell").

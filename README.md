@@ -305,7 +305,7 @@ or whatever group you're working on. Three directories have distinct roles:
 | --- | --- | --- |
 | **Project root** | `config.yaml`, source `instructions.md`, and usually relative links to PDFs, BibTeX, lexicons and taxonomy inputs | User-maintained inputs and configuration |
 | **Build directory** | The path selected by `output_dir`; per-paper artifacts, databases, embeddings and copied instructions | Mutable, resumable pipeline output |
-| **Served bundle** | `<output_dir>/_serve/` by default; only the audited files needed by the MCP server | Immutable deployable artifact |
+| **Served bundle** | `<output_dir>/corpus_bundle/` by default; only the audited files needed by the MCP server | Immutable deployable artifact |
 
 The project root and build directory may coincide (`output_dir: .`), but the
 default scaffold and demo keep generated output under `./output/`. A typical
@@ -318,7 +318,7 @@ build directory is:
 ├── taxonomy.sqlite           # Darwin Core snapshot, built by `pipeline.taxonomy_ingest`
 ├── biblio_authority.sqlite   # deduplicated works + citation graph
 ├── taxon_mentions.sqlite     # cross-paper taxon index
-└── _serve/                   # distilled served bundle (#60); contains
+└── corpus_bundle/                   # distilled served bundle (#60); contains
                               # bundle_manifest.json + a whitelisted subset
                               # of the above. Pass to `corpus serve --output-dir`
                               # for ship-to-host workflows. Skip with

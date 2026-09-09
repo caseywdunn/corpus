@@ -37,7 +37,11 @@ echo "  Grobid job: $GROBID_JOB"
 
 # ── Step 2: Wait for Grobid to reach RUNNING state ──────────────────
 echo "Waiting for Grobid to start..."
-MAX_WAIT=600  # 10 minutes
+# How long to wait for Grobid to reach RUNNING. Configurable because it
+# is a property of how busy the cluster is, not of this pipeline: the
+# default suits a partition with capacity, and a contended one needs
+# more patience than any constant can predict.
+MAX_WAIT="${GROBID_MAX_WAIT:-1800}"  # 30 minutes
 ELAPSED=0
 STATE="UNKNOWN"
 while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
@@ -53,13 +57,26 @@ echo ""
 
 if [ "$STATE" != "RUNNING" ]; then
     echo "ERROR: Grobid job $GROBID_JOB did not start within ${MAX_WAIT}s (state: $STATE)"
-    echo "       Cancel it with: scancel $GROBID_JOB"
+    # Cancel it here rather than printing the command. This launcher is
+    # meant to be run hands-off, and is documented that way — so a
+    # cleanup step that only happens when someone is tailing the log is
+    # not cleanup. An abandoned Grobid holds its allocation for the full
+    # walltime; one was left queued on 2026-09-08 exactly this way.
+    echo "       Cancelling it so it cannot hold an allocation."
+    scancel "$GROBID_JOB" 2>/dev/null || \
+        echo "       WARNING: scancel failed — check squeue and cancel $GROBID_JOB by hand" >&2
+    echo "       Raise the wait with GROBID_MAX_WAIT=<seconds> if the queue is simply busy;"
+    echo "       check the estimate first with: sbatch --test-only slurm/batch_grobid.sh"
     exit 1
 fi
 
 GROBID_NODE=$(squeue -j "$GROBID_JOB" -h -o "%N")
-GROBID_URL="http://${GROBID_NODE}:8070"
-echo "  Grobid running on $GROBID_NODE"
+# Derived from the same job ID the server derived it from, so the two cannot
+# drift (#279). Not 8070: a fixed port is what let SLURM co-schedule two
+# Grobid jobs onto one node and kill all but the first.
+GROBID_PORT=$(corpus_grobid_port "$GROBID_JOB")
+GROBID_URL="http://${GROBID_NODE}:${GROBID_PORT}"
+echo "  Grobid running on $GROBID_NODE (port $GROBID_PORT)"
 
 # ── Step 3: Wait for Grobid HTTP service to be ready ────────────────
 echo "Waiting for Grobid HTTP service at $GROBID_URL ..."
@@ -79,18 +96,18 @@ if [ "$GROBID_READY" -eq 0 ]; then
 fi
 
 # Confirm OUR Grobid job still owns that endpoint, immediately before Stage 1
-# commits to it (#279). Grobid binds a fixed port 8070, so when SLURM puts two
-# Grobid jobs on one node the second dies with a BindException -- after having
-# reached RUNNING, which is all the wait above checks. Stage 1 would then be
-# pointed at a node where *another chain's* server answers, and every document
-# would be extracted against the wrong service while the chain reported
-# success. Verified silently wrong once; never again without a check.
+# commits to it (#279). The per-job port above should make the collision that
+# motivated this impossible, but the check stays: a Grobid job can die after
+# reaching RUNNING for other reasons, and RUNNING is all the wait above checks.
+# Stage 1 would then be pointed at a node where another chain's server answers,
+# or at nothing, and every document would be extracted against the wrong
+# service while the chain reported success. Verified silently wrong once.
 GROBID_STATE_NOW=$(squeue -j "$GROBID_JOB" -h -o "%T" 2>/dev/null)
 if [ "$GROBID_STATE_NOW" != "RUNNING" ]; then
     echo "ERROR: Grobid job $GROBID_JOB is no longer RUNNING (state: ${GROBID_STATE_NOW:-gone})." >&2
-    echo "       It reached RUNNING and then died -- on this cluster that is" >&2
-    echo "       almost always the fixed-port collision in #279: another Grobid" >&2
-    echo "       job was already bound to :8070 on $GROBID_NODE." >&2
+    echo "       It reached RUNNING and then died. Check the port pair it" >&2
+    echo "       derived ($GROBID_PORT) was free on $GROBID_NODE -- two job IDs" >&2
+    echo "       congruent mod 400 still collide (#279)." >&2
     echo "       Refusing to submit Stage 1, which would otherwise be served by" >&2
     echo "       a different chain's Grobid, or by nothing at all." >&2
     echo "       Check: tail $REPO_DIR/logs/slurm-grobid-$GROBID_JOB.err" >&2
@@ -223,7 +240,7 @@ echo "  Embed job: $EMBED_JOB"
 # Depends on Pass 3b as well as Embed. Those two are siblings, so gating
 # only on Embed let `bundle` start while Pass 3b was still rewriting
 # figures.json and Pass 3c was still renaming split-panel PNGs — both of
-# which mcpsrv/bundle.py copies into _serve/. The bundle could therefore
+# which mcpsrv/bundle.py copies into corpus_bundle/. The bundle could therefore
 # capture pre-vision ROIs and stale figure filenames.
 echo "Submitting Finalize (cross-paper tail)..."
 FINALIZE_JOB=$(sbatch --parsable \

@@ -104,17 +104,31 @@ _DEFAULT_CONFIG = {
             # living taxonomy + adds noise to multi-pack OCR runs.
         ],
         # Gibberish-score threshold for flagging a broken text layer.
-        # Raised from 0.5 → 0.65 to avoid the MilosMaley2005 false
-        # positive (langdetect misfire as Swahili). Documents with
-        # truly corrupt text (Cyrillic mojibake etc.) are still caught
-        # by the visual_script_mismatch path before reaching this
-        # threshold. Must stay in sync with config_schema.OcrConfig
+        # Raised from 0.5 → 0.65 to avoid what was recorded as the
+        # MilosMaley2005 false positive (langdetect misfire as Swahili).
+        # It was not a false positive: that document's text layer is 68%
+        # unmappable glyph indices, so the Swahili was read off characters
+        # that are not language and the paper genuinely has no recoverable
+        # text. Raising the threshold silenced a true positive. It is
+        # `unmappable_char_max` below that catches it now, on evidence the
+        # gibberish score cannot see; this threshold is left where it is
+        # because nothing has re-argued the value on its own merits.
+        # Documents with truly corrupt text (Cyrillic mojibake etc.) are
+        # still caught by the visual_script_mismatch path before reaching
+        # this threshold. Must stay in sync with config_schema.OcrConfig
         # default + the bundled config.template.yaml.
         "gibberish_threshold": 0.65,
         # Floor for the otherwise-conditional visual-script cross-check.
         # An explicit non-Latin ocrlang against a Latin-only layer bypasses
         # this floor because the curator has already supplied the conflict.
         "visual_script_gibberish_min": 0.40,
+        # Above this share of unmappable glyph indices, the text layer is
+        # not noisy but absent, and the document is re-OCR'd. Sits in a
+        # measured gap: nothing in the reference library falls between
+        # 0.031 and 0.106. See scan._unmappable_char_fraction. Must stay in
+        # sync with config_schema.OcrConfig + the bundled
+        # config.template.yaml.
+        "unmappable_char_max": 0.05,
         # Per-page --tesseract-timeout for ocrmypdf. A timeout blanks the
         # page and still exits 0, so this is deliberately generous.
         "tesseract_page_timeout": 900,

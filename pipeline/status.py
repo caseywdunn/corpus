@@ -69,6 +69,19 @@ _GATE_INFO: Dict[str, Tuple[str, str]] = {
         "mostly numeric tables can also be the metric, not the text: "
         "read a sample before acting.",
     ),
+    "naive_chunker_fallback": (
+        "error",
+        "Docling's HybridChunker failed and chunking fell back to a "
+        "fixed character window, so chunks no longer respect headings, "
+        "tables or captions. The run still exits 0 and every other gate "
+        "passes; what degrades is retrieval — a 2-page paper chunked to "
+        "1 window instead of 16. If this fires on every paper the cause "
+        "is almost always the chunker's tokenizer missing from the "
+        "HuggingFace cache, which is what a host following the "
+        "`HF_HUB_OFFLINE=1` recipe hits: run `corpus prefetch` where "
+        "there is network access, then re-run the chunking stage. On a "
+        "single paper, read the extract log for the underlying error.",
+    ),
     "ocr_pages_blanked": (
         "error",
         "The per-page OCR timeout fired on these pages and ocrmypdf "
@@ -334,12 +347,12 @@ def render_text(rollup: Dict[str, Any]) -> str:
             f"{n_qf_total} flag{'s' if n_qf_total != 1 else ''}) — "
             "informational; nothing is rejected."
         )
-        # --filter-gate narrows a listing; on its own it has nothing to
-        # narrow and the full report prints unchanged, which reads as the
-        # flag being broken. Pair it with --list-hashes in the hint.
+        # A filter now implies the listing, so the hint can promise the
+        # invocation a reader would reach for (#169). It used to name
+        # `--filter-gate <name>` alone, which reprinted the whole report
+        # unchanged — the flag only took effect alongside --list-hashes.
         out.append(
-            "List affected papers with:  "
-            "corpus status --list-hashes --filter-gate <name>"
+            "List affected papers with:  corpus status --filter-gate <name>"
         )
         out.append("")
         for gate, count in qf.most_common():
@@ -592,6 +605,42 @@ def _load_skipped_hashes(biblio_path: Path) -> set:
 # ---------------------------------------------------------------------------
 
 
+def render_drift_rollup(differences: Dict[str, Dict], total: int,
+                        detail_limit: int = 5) -> str:
+    """Why a re-run will do work, as counts per (stage, reason) (#80).
+
+    The per-document listing this replaces was correct and unreadable: one
+    line per affected document, each repeating the same handful of reasons.
+    On the 699-document Viburnum corpuscle that is 699 lines; on the 1,775
+    siphonophore one, 1,775. #281 was exactly this — the GPU vision phase
+    silently re-extracting every document — and finding it took hours of
+    log archaeology when the answer was one sentence: `docling_extraction`
+    re-runs on all of them because `pipeline_version` changed.
+
+    So roll up first and list documents second. A reason affecting every
+    document is the interesting case and was the hardest to see.
+    """
+    if not differences:
+        return "  no stage would re-run on configured-input grounds"
+    counts: Counter = Counter()
+    examples: Dict[tuple, List[str]] = {}
+    for pdf_hash, changes in differences.items():
+        for stage, keys in changes.items():
+            for key in keys:
+                counts[(stage, key)] += 1
+                examples.setdefault((stage, key), []).append(pdf_hash)
+    lines = []
+    for (stage, key), n in counts.most_common():
+        scope = "all" if n == total else str(n)
+        docs = "document" if n == 1 else "documents"
+        lines.append(f"  {stage}: {key} — {scope} of {total} {docs}")
+        if n < total:
+            shown = ", ".join(sorted(examples[(stage, key)])[:detail_limit])
+            more = f", +{n - detail_limit} more" if n > detail_limit else ""
+            lines.append(f"      {shown}{more}")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -644,7 +693,9 @@ def main() -> int:
     parser.add_argument(
         "--list-hashes", action="store_true",
         help="Print one hash per line for papers matching --filter-* "
-             "(suitable for `xargs`). Combine filters to narrow.",
+             "(suitable for `xargs`). Combine filters to narrow. Any "
+             "--filter-* implies this, so it is only needed on its own, "
+             "to list every paper.",
     )
     parser.add_argument(
         "--filter-stage", default=None,
@@ -676,6 +727,37 @@ def main() -> int:
         return 1
 
     rollup = aggregate(documents_dir)
+
+    filters = {
+        "--filter-stage": args.filter_stage,
+        "--filter-reason": args.filter_reason,
+        "--filter-gate": args.filter_gate,
+    }
+    active = {name: v for name, v in filters.items() if v}
+
+    # A filter on its own used to print the whole report unchanged, which
+    # reads as the flag being broken — and the report's own hint told the
+    # reader to run exactly that (#169). Filtering is the only thing these
+    # flags do, so asking for one is asking for the listing.
+    if active and not args.list_hashes:
+        other_mode = next(
+            (name for name, on in (
+                ("--json", args.json), ("--report", args.report),
+                ("--sort-by", bool(args.sort_by)),
+                ("--propose-skips", args.propose_skips),
+                ("--skipped", args.skipped),
+            ) if on), None,
+        )
+        if other_mode:
+            # Still not silent: say which flag is being ignored and by
+            # what, rather than dropping it.
+            logger.warning(
+                "%s does not apply to %s and is ignored; use it with "
+                "--list-hashes (or on its own) to list matching papers.",
+                ", ".join(sorted(active)), other_mode,
+            )
+        else:
+            args.list_hashes = True
 
     if args.list_hashes:
         for h in filtered_hashes(
@@ -716,11 +798,10 @@ def main() -> int:
             print(f"\nConfigured-input differences: {drift['documents_with_differences']} / "
                   f"{drift['documents_checked']} documents")
             print(drift["scope"])
-            for pdf_hash, changes in list(drift["differences"].items())[:20]:
-                detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in changes.items())
-                print(f"  {pdf_hash}: {detail}")
-            if drift["documents_with_differences"] > 20:
-                print("  Showing first 20; --json includes all differences.")
+            print(render_drift_rollup(drift["differences"],
+                                      drift["documents_checked"]))
+            if drift["documents_with_differences"]:
+                print("  --json includes the per-document breakdown.")
             source = rollup["source_input_drift"]
             print(f"\nSource-input audit: {source['scope']}")
             if source["available"]:
@@ -729,9 +810,12 @@ def main() -> int:
                 tx = source.get("taxonomy_source", {})
                 if tx.get("configured"):
                     print("  Taxonomy source receipt: " + ("current" if tx["current"] else "stale or unverified; pre-build taxonomy"))
-                for sha, changes in list(source["differences"].items())[:20]:
-                    detail = "; ".join(f"{stage}: {', '.join(keys)}" for stage, keys in sorted(changes.items()))
-                    print(f"  {sha}: {detail}")
+                if source["differences"]:
+                    print(render_drift_rollup(
+                        source["differences"],
+                        source.get("documents_checked")
+                        or source["documents_with_differences"]))
+                    print("  --json includes the per-document breakdown.")
         if args.report:
             print()
             print(render_artifacts(args.output_dir))

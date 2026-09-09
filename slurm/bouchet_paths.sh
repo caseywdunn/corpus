@@ -116,3 +116,38 @@ export HF_HOME="${HF_HOME:-$CACHE_DIR/huggingface}"
 if [[ -n "${CONDA_PREFIX:-}" ]]; then
     export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
 fi
+
+# ── Per-job Grobid ports (#279) ──────────────────────────────────────
+# Grobid's Dropwizard service binds a fixed 8070, and SLURM is free to
+# co-schedule several of these jobs on one node — at which point every
+# instance after the first dies ~10 s in with a Jetty BindException.
+# Submitting six pipelines put five Grobid jobs on two nodes and three
+# failed. Worse than a plain failure: the job has already reached RUNNING,
+# so a chain that waits on job state alone points Stage 1 at that node and
+# is served by *another chain's* server. That happened, and two documents
+# recorded `grobid.outcome = extracted` from the wrong service.
+#
+# So derive a port pair from the job ID. Two rules, both load-bearing:
+#
+#   * **Both connectors must move.** Dropwizard binds an *admin* connector
+#     as well, default 8071, and overriding only the application port
+#     still dies on it — verified against lfoppiano/grobid:0.8.1, which is
+#     the trap the issue's own suggested fix would have hit. Stride of 2
+#     with admin = app + 1 means no two jobs' pairs can overlap.
+#   * **Stay clear of 8070/8071**, so a hand-started default-port Grobid —
+#     the documented debugging path — never collides with a batch job.
+#
+# 400 slots. Two concurrent jobs collide only if their IDs are congruent
+# mod 400, and concurrently submitted IDs differ by small amounts; the
+# `ss` preflight in batch_grobid.sh is the backstop either way.
+#
+# Callers must derive rather than hardcode, and batch_pipeline.sh derives
+# from the same job ID as the server, so the two cannot drift.
+corpus_grobid_port() {
+    local job_id="${1:-0}"
+    echo $(( 8100 + 2 * (job_id % 400) ))
+}
+
+corpus_grobid_admin_port() {
+    echo $(( $(corpus_grobid_port "${1:-0}") + 1 ))
+}

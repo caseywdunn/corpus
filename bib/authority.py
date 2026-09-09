@@ -172,21 +172,98 @@ _AUTHORITY_RE = re.compile(
 )
 
 
-def parse_authority(authority: str) -> Optional[Tuple[List[str], int]]:
+# Botanical initials are printed without spaces between them —
+# `P.S.Hsu`, `H.Hara`, `A.Juss.` — so the ICZN path's "a token that is a
+# single capital plus an optional period is an initial" rule never sees
+# them as separable.
+_RUN_TOGETHER_INITIALS_RE = re.compile(r"^(?:[A-Z]\.)+")
+
+# Tokens that are part of a botanical authorship's grammar rather than a
+# name: `ex` for a name published on another's behalf, `in` for one
+# published inside another's work, and the sanctioning `:`.
+_ICN_CONNECTIVES = frozenset({"ex", "in", "et", "and", "&"})
+
+
+def _icn_surname(token_group: str) -> Optional[str]:
+    """The surname from one author slot of a botanical authorship."""
+    tokens = [t for t in token_group.replace(":", " ").split() if t]
+    tokens = [t for t in tokens if t.lower().strip(".") not in _ICN_CONNECTIVES]
+    if not tokens:
+        return None
+    # `L.` for Linnaeus is a whole authorship, not an initial; keep it.
+    if len(tokens) == 1 and re.fullmatch(r"[A-Z]\.?", tokens[0]):
+        return tokens[0].rstrip(".")
+    named = []
+    for token in tokens:
+        stripped = _RUN_TOGETHER_INITIALS_RE.sub("", token)
+        if not stripped or re.fullmatch(r"[A-Z]\.?", token):
+            continue
+        named.append(stripped)
+    if not named:
+        named = [tokens[-1]]
+    # `Vent.` is an abbreviated surname (Ventenat), not an initial — keep
+    # it, but drop the abbreviating period so it normalizes like any other.
+    surname = " ".join(named).rstrip(".")
+    # Anything with no letter in it is punctuation or OCR debris, not a
+    # botanist.
+    return surname if re.search(r"[^\W\d_]", surname) else None
+
+
+def _parse_authority_without_year(
+    authority: str,
+) -> Optional[Tuple[List[str], Optional[int]]]:
+    """Parse an ICN author-only authorship. See :func:`parse_authority`."""
+    text = authority.strip()
+    # A year anywhere means this was meant to be the ICZN shape and the
+    # string is simply malformed; do not silently reinterpret it.
+    if re.search(r"\d{4}", text):
+        return None
+    surnames: List[str] = []
+    # Parenthesised original author first, then the combining author, in
+    # printed order.
+    for group in re.split(r"[()]", text):
+        for slot in re.split(r"\s*&\s*|,", group):
+            surname = _icn_surname(slot)
+            if surname and surname not in surnames:
+                surnames.append(surname)
+    if not surnames:
+        return None
+    return surnames, None
+
+
+def parse_authority(authority: str) -> Optional[Tuple[List[str], Optional[int]]]:
     """Parse a DwC scientificNameAuthorship string into (author_surnames, year).
 
-    Handles: 'Eschscholtz, 1829', '(Huxley, 1859)', 'Quoy & Gaimard, 1833',
-    'L. Agassiz, 1862', 'Lens & van Riemsdijk, 1908'.
+    Handles the zoological (ICZN) shape WoRMS supplies, where the year is
+    part of the authorship: 'Eschscholtz, 1829', '(Huxley, 1859)',
+    'Quoy & Gaimard, 1833', 'L. Agassiz, 1862',
+    'Lens & van Riemsdijk, 1908'.
 
-    Returns None if unparseable.
+    Also handles the botanical (ICN) shape, which is author-only by
+    correct citation practice and carries no year at all: 'Rehder',
+    '(Rehder) Rehder', '(Kache) Hesse', '(Huxley) P.S.Hsu', 'L.'. For
+    those the year is ``None`` — the caller decides what that means
+    rather than the string being reported unparseable (#175). In a
+    World Checklist of Vascular Plants snapshot of *Viburnum*, 889 of
+    913 taxa carry authorship and **none** carries a year, so treating
+    the absence as a parse failure made the whole convention invisible.
+
+    A botanical authorship names the author of the current combination
+    last, after the original author in parentheses — '(Kache) Hesse' is
+    Hesse's combination of Kache's name — and both are returned, in
+    printed order, so a caller can choose. Botanical initials also run
+    together without spaces ('P.S.Hsu', 'H.Hara'), which the ICZN-shaped
+    initial-stripping never had to handle.
+
+    Returns None only when there is nothing name-like to extract.
     """
     if not authority:
         return None
     m = _AUTHORITY_RE.match(authority.strip())
     if not m:
-        return None
+        return _parse_authority_without_year(authority)
     authors_str = m.group(1).strip()
-    year = int(m.group(2))
+    year: Optional[int] = int(m.group(2))
     # Split on ' & ' or ' and '
     raw_authors = re.split(r"\s*&\s*|\s+and\s+", authors_str)
     surnames = []
@@ -2064,6 +2141,92 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
 
 # ── Phase 3: Link taxonomic-authority strings to works ─────────────
 
+# Recorded under this key in `build_meta` so the served bundle carries
+# the verdict, not just the build log. `get_original_description` reads
+# it to tell "no protologue for this taxon" apart from "this corpuscle's
+# taxonomy cannot support the question".
+AUTHORITY_CONVENTION_KEY = "authority_linking"
+
+
+def _record_authority_convention(
+    conn: sqlite3.Connection, *, n_year_bearing: int, n_author_only: int,
+    n_unparseable: int, n_links: int,
+) -> None:
+    """Record whether authority linking can work for this taxonomy at all.
+
+    Authority linking matches a taxon's authorship against a work by
+    author *and year*, which is the zoological (ICZN) convention that
+    WoRMS supplies. Botanical (ICN) authorship is author-only by correct
+    citation practice — `Rehder`, `(Kache) Hesse` — so there is no year
+    to match on and the phase can link nothing. On a 702-paper *Viburnum*
+    corpuscle that meant 0 links from 889 authorship strings, and
+    `get_original_description` answering `null` for every taxon while
+    presenting itself as an available tool (#175).
+
+    The author-only matching path suggested in that issue was measured
+    before being declined, on that same corpuscle: pairing the authority
+    surname with the epithet appearing in a work title yields exactly 3
+    candidates from 889 taxa, and 2 of the 3 are wrong — `(Vent.)
+    P.Silva` for *Viburnum tinus* subsp. *rigidum* matches a 2010s
+    floristic record of naturalized *V. tinus* in Madeira, not the
+    protologue. One correct link in 889 taxa, at a 67% false-positive
+    rate, writes wrong protologues into `taxon_work_links`, which is
+    worse than answering nothing. A real botanical parser wants the
+    protologue citation (IPNI/POWO carry it as a separate field), not a
+    heuristic over titles.
+
+    So the capability is reported as unsupported rather than quietly
+    empty, which is the whole of the fix here.
+    """
+    total = n_year_bearing + n_author_only + n_unparseable
+    if not total:
+        supported, convention = None, "unknown"
+    elif n_year_bearing:
+        supported, convention = True, "zoological"
+    elif n_author_only:
+        supported, convention = False, "botanical"
+    else:
+        supported, convention = False, "unrecognized"
+
+    verdict = json.dumps({
+        "supported": supported,
+        "convention": convention,
+        "authorship_strings": total,
+        "year_bearing": n_year_bearing,
+        "author_only": n_author_only,
+        "unparseable": n_unparseable,
+        "links": n_links,
+    }, sort_keys=True)
+    # Phase 3 guarantees that a no-op run performs no database writes,
+    # and `tests/test_taxon_authority_updates.py` counts `total_changes`
+    # to hold it to that. Read before writing, so an unchanged verdict
+    # is not a write.
+    prior = conn.execute(
+        "SELECT value FROM build_meta WHERE key=?", (AUTHORITY_CONVENTION_KEY,),
+    ).fetchone()
+    if prior is None or prior[0] != verdict:
+        conn.execute(
+            "INSERT OR REPLACE INTO build_meta(key,value) VALUES (?,?)",
+            (AUTHORITY_CONVENTION_KEY, verdict),
+        )
+    if supported is False and convention == "botanical":
+        logger.warning(
+            "Authority linking is unavailable for this taxonomy: %d of %d "
+            "authorship strings carry no year (botanical/ICN citation is "
+            "author-only), so there is nothing for author+year matching to "
+            "match on. get_original_description will report the capability "
+            "as unsupported rather than returning an empty answer. See "
+            "issue #175.",
+            n_author_only, total,
+        )
+    elif supported is False and convention == "unrecognized":
+        logger.warning(
+            "Authority linking produced no links: none of %d authorship "
+            "strings could be parsed as either a zoological (author, year) "
+            "or a botanical (author-only) form.", total,
+        )
+
+
 def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int:
     """Re-derive current authority links; retain curator links and cited evidence.
 
@@ -2085,11 +2248,23 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
         logger.info("No taxonomy snapshot; retiring derived authority links")
     desired = {}
     n_stubs = 0
+    n_year_bearing = 0
+    n_author_only = 0
+    n_unparseable = 0
     for taxon_id, authority in rows:
         parsed = parse_authority(authority)
         if not parsed or not parsed[0]:
+            n_unparseable += 1
             continue
         surnames, year = parsed
+        if year is None:
+            # A botanical (ICN) authorship, which is author-only by
+            # correct citation practice. There is no matching path for it
+            # here, and that is a recorded decision rather than an
+            # oversight — see `_record_authority_convention` (#175).
+            n_author_only += 1
+            continue
+        n_year_bearing += 1
         candidates = [r[0] for r in conn.execute(
             """SELECT DISTINCT w.work_id FROM works w
                JOIN work_authors a ON a.work_id=w.work_id
@@ -2140,6 +2315,10 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
         conn.execute("DELETE FROM work_aliases WHERE work_id=?", (work_id,))
         conn.execute("DELETE FROM work_authors WHERE work_id=?", (work_id,))
         conn.execute("DELETE FROM works WHERE work_id=?", (work_id,))
+    _record_authority_convention(
+        conn, n_year_bearing=n_year_bearing, n_author_only=n_author_only,
+        n_unparseable=n_unparseable, n_links=len(desired),
+    )
     conn.commit()
     logger.info("Phase 3 complete: %d current authority links, %d changed, %d stubs created, %d retired",
                 len(desired), changed, n_stubs, len(stale))

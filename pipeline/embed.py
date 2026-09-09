@@ -38,6 +38,8 @@ from lancedb.pydantic import LanceModel, Vector
 from dotenv import load_dotenv
 load_dotenv()
 
+from pipeline import config as _pipeline_config
+from pipeline.config import load_config
 from pipeline.embeddings import (
     EmbeddingBackend,
     EmbeddingError,
@@ -220,6 +222,16 @@ def main() -> int:
         help="Force a torch device (cuda|mps|cpu); "
              "default autodetects CUDA → MPS → CPU",
     )
+    parser.add_argument(
+        "--config", type=Path, default=None,
+        help="Per-corpuscle config.yaml. Read for embeddings.batch_size.",
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=None,
+        help="Texts per encoder batch (default: the backend's own, or "
+             "embeddings.batch_size from config.yaml). Lower it to bound "
+             "peak memory on a small GPU (#182).",
+    )
     parser.add_argument("--pdf-hash", help="Process only this 12-char hash")
     parser.add_argument("--resume", action="store_true",
                         help="Skip docs with verified current inputs and committed rows")
@@ -240,6 +252,25 @@ def main() -> int:
     parser.add_argument("-v", "--verbose", action="store_true")
 
     args = parser.parse_args()
+
+    # Same rule as pipeline.main (#210): a config the operator named and
+    # that cannot be read is an error, not a silent fall back to defaults.
+    if args.config is not None and not Path(args.config).exists():
+        parser.error(
+            f"--config {args.config}: no such file. Every setting in it would "
+            f"be silently replaced by built-in defaults, so this is refused "
+            f"rather than run."
+        )
+    _config = load_config(args.config)
+    # Push it into the module-level dict the way pipeline.main does, not
+    # just read it locally. `embeddings.py` resolves its device from
+    # `CONFIG["compute"]["accelerator"]`, and because this module took no
+    # --config at all, that lookup always saw an empty CONFIG and fell back
+    # to "auto" — so a corpuscle pinning `compute.accelerator: cpu` was
+    # silently ignored by Stage 2 while being honoured by Stage 1. Found
+    # while plumbing embeddings.batch_size (#182).
+    _pipeline_config.CONFIG.clear()
+    _pipeline_config.CONFIG.update(_config)
     if args.rebuild and args.pdf_hash:
         parser.error("--rebuild replaces the whole index; it cannot be used with --pdf-hash")
     logging.basicConfig(
@@ -313,8 +344,20 @@ def main() -> int:
     embedder_kwargs: Dict = {}
     if args.device:
         embedder_kwargs["device"] = args.device
+    # #182 — `LocalBackend` has always taken a batch_size and its docstring
+    # described it as the memory lever, but nothing could reach it:
+    # get_embedder forwards **kwargs and this was the only caller, building
+    # them from --device alone. Flag beats config, per the project's usual
+    # precedence.
+    batch_size = args.batch_size
+    if batch_size is None:
+        batch_size = (_config.get("embeddings", {}) or {}).get("batch_size")
+    if batch_size is not None:
+        embedder_kwargs["batch_size"] = int(batch_size)
     embedder = get_embedder(args.model, **embedder_kwargs)
-    logger.info("Embedding model=%s dim=%d", embedder.model_name, embedder.dim)
+    logger.info("Embedding model=%s dim=%d batch_size=%s",
+                embedder.model_name, embedder.dim,
+                getattr(embedder, "batch_size", "backend default"))
 
     chunk_model = make_chunk_model(embedder.dim)
 

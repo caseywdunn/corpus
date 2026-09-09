@@ -65,11 +65,11 @@ Each target must:
    `N / N`). How many stage rows there are is a property of the
    configuration, not of a healthy build: `--no-vision` records no
    `figure_pass*` rows, so do not assert a fixed row count.
-5. `bundle_manifest.json` is written under `demo/output/_serve/`,
+5. `bundle_manifest.json` is written under `demo/output/corpus_bundle/`,
    contains `paper_count: 4`, and the absolute-path audit logs
    `Path scrub: rewrote N files; audit clean.` (covers
    [#70](https://github.com/caseywdunn/corpus/issues/70)).
-6. `corpus serve --output-dir demo/output/_serve` starts, and
+6. `corpus serve --output-dir demo/output/corpus_bundle` starts, and
    `bundle_info` via any MCP client returns the same `paper_count` +
    the bundle version stamped in `pipeline/version.py`.
 
@@ -107,14 +107,73 @@ corpus -v run --no-vision                  # ~25–30 min total wall time on
                                            # pole (~10 min), then extract
                                            # (~6 min) + embed (~30s) + bundle.
 corpus status --report                     # expect: 4 / 4 done
-jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 4
+jq '.paper_count' output/corpus_bundle/bundle_manifest.json   # expect: 4
 
 # Round-trip the MCP bundle_info tool against a freshly-served bundle.
 # tools/smoke_test_sse.py spawns its own server on the requested port,
 # initializes the MCP client, and calls bundle_info + list_papers.
-python tools/smoke_test_sse.py demo/output/_serve --port 18080
+python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080
 # expect: "All layers passed." with bundle_version matching pipeline/version.py
 ```
+
+## (1a) macOS arm64 — the local VLM's dtype (#258)
+
+Open question, and the only thing in the tracker blocked on hardware rather
+than on a decision. `figures.vision_dtype` defaults to `auto`, which is
+float32 on MPS — **~30.4 GB of weights for Qwen2.5-VL-7B against ~15.2 GB at
+half precision**, so it does not fit a 32 GB machine at all today. Apple
+Silicon supports bf16 and fp16; what is unknown is whether Qwen2.5-VL is
+numerically sound in either on Metal, and which of the two this model prefers.
+Nobody has run it.
+
+The default does not move on a mocked test. It moves on these numbers.
+
+`tools/qc/vlm_dtype_probe.py` does the whole comparison. It needs no built
+corpuscle — a 3 MB fixture of ten multi-panel figures is enough, and it
+carries the ROIs production's Pass 3b produced on an H200 at bfloat16, so a
+Mac run has both a same-machine float32 baseline *and* a known-good CUDA
+reference to compare against.
+
+```bash
+# The fixture lives on the machine that built the reference corpuscle.
+scp erenna-claude:~/vlm_dtype_fixture.tar.gz .
+tar xzf vlm_dtype_fixture.tar.gz
+
+git pull                                    # needs the vision_dtype knob
+conda activate corpus
+python tools/qc/vlm_dtype_probe.py vlm_dtype_fixture --out vlm_dtype_report.md
+```
+
+That loads the model once per dtype (float32, bfloat16, float16), runs the
+same eight figures through each, and writes a markdown report plus the raw
+JSON beside it. Expect one model load per dtype — minutes, not hours — and a
+float32 load that may simply not fit, which is recorded as a finding rather
+than a crash.
+
+The report answers, in this order — the second question is the one that
+decides it:
+
+1. **Does it load and run at all?** float32 may not fit; the report records
+   the machine's RAM alongside.
+2. **Are the ROIs the same?** Per-figure ROI counts and per-panel IoU against
+   both float32 and the H200 reference. Half precision that quietly finds
+   fewer or sloppier panels is worse than float32 that does not fit, because
+   the corpuscle still builds, every gate passes, and nothing says the panels
+   got worse.
+3. **Peak memory and wall clock**, for the record.
+
+Paste the report into
+[#258](https://github.com/caseywdunn/corpus/issues/258). If bf16 or fp16
+matches on ROI counts and holds boxes to IoU >= 0.95, the default becomes half
+precision on MPS and the knob stays for the exception. If they differ, the
+comment the issue asks for gets written instead — naming the op that fails, so
+the next person does not re-litigate it.
+
+**Worth the same sitting:** the `docling==2.94.0` pin
+([#98](https://github.com/caseywdunn/corpus/issues/98) follow-up) has been
+waiting on the same hardware. v1.2's fidelity harness now gives it a criterion
+it never had — score 2.95/2.96 against the gold set rather than against
+impressions.
 
 ## (2) linux-x86_64 — Bouchet (clean env)
 
@@ -150,8 +209,8 @@ corpus -v run --no-vision                  # wall time depends on Bouchet
                                            # load + WoRMS API rate; budget
                                            # 30–45 min for the demo.
 corpus status --report                     # expect: 4 / 4 done
-jq '.paper_count' output/_serve/bundle_manifest.json   # expect: 4
-python tools/smoke_test_sse.py demo/output/_serve --port 18080
+jq '.paper_count' output/corpus_bundle/bundle_manifest.json   # expect: 4
+python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080
 # expect: "All layers passed."
 ```
 

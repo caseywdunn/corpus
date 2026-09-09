@@ -27,6 +27,35 @@ from .figures import (
 logger = logging.getLogger(__name__)
 
 
+def _cap_image_pixels(image, cap, label: str):
+    """Downscale a PIL image so its longest side fits ``cap`` (#184).
+
+    Returns the image unchanged when ``cap`` is unset or already
+    satisfied. LANCZOS, because a plate's fine engraving lines are the
+    content and nearest-neighbour would alias them.
+    """
+    if not cap:
+        return image
+    try:
+        width, height = image.size
+    except Exception:
+        return image
+    longest = max(width, height)
+    if longest <= cap:
+        return image
+    ratio = cap / longest
+    new_size = (max(1, round(width * ratio)), max(1, round(height * ratio)))
+    try:
+        from PIL import Image as _PILImage
+        resized = image.resize(new_size, _PILImage.LANCZOS)
+    except Exception as exc:
+        logger.warning("Could not cap %s to %d px: %s", label, cap, exc)
+        return image
+    logger.debug("capped %s: %d×%d → %d×%d px (max_pixels_long_side=%d)",
+                 label, width, height, *new_size, cap)
+    return resized
+
+
 def extract_docling_content(
     pdf_path: Path,
     text_output: Path,
@@ -77,12 +106,43 @@ def extract_docling_content(
         # fails with "no kernel image is available for execution on the
         # device" rather than falling back, so a machine that built a
         # corpuscle fine last month stops working because a driver appeared.
-        device = resolve_device(
-            CONFIG.get("compute", {}).get("accelerator", "auto"))
+        compute_cfg = CONFIG.get("compute", {}) or {}
+        device = resolve_device(compute_cfg.get("accelerator", "auto"))
         logger.info("docling accelerator=%s", device)
+        # #182 — bounds on what docling holds in memory at once. Every one
+        # of these was previously left at docling's default, so a build's
+        # footprint could not be bounded from configuration at all: on a
+        # 12-core / 32 GB CPU-only host, three concurrent docling processes
+        # (one on a 314-page scan) took the box into `oom_kill 2` with no
+        # error in any worker log.
+        #
+        # Omitted keys are not passed at all, rather than passed as
+        # docling's documented default, so this cannot drift if docling
+        # changes one — and a build that sets nothing behaves exactly as
+        # it did before these existed.
+        accel_kwargs = {"device": AcceleratorDevice(device)}
+        if compute_cfg.get("num_threads") is not None:
+            accel_kwargs["num_threads"] = int(compute_cfg["num_threads"])
+        docling_cfg = CONFIG.get("docling", {}) or {}
+        bounds = {
+            key: value for key, value in (
+                ("queue_max_size", docling_cfg.get("queue_max_size")),
+                ("layout_batch_size", docling_cfg.get("layout_batch_size")),
+                ("ocr_batch_size", docling_cfg.get("ocr_batch_size")),
+                ("table_batch_size", docling_cfg.get("table_batch_size")),
+                ("document_timeout", docling_cfg.get("document_timeout")),
+            ) if value is not None
+        }
+        if bounds or "num_threads" in accel_kwargs:
+            logger.info(
+                "docling memory bounds: %s",
+                ", ".join(f"{k}={v}" for k, v in sorted(
+                    {**bounds, **{k: v for k, v in accel_kwargs.items()
+                                  if k == "num_threads"}}.items())),
+            )
         pipeline_options = PdfPipelineOptions(
-            accelerator_options=AcceleratorOptions(
-                device=AcceleratorDevice(device)),
+            accelerator_options=AcceleratorOptions(**accel_kwargs),
+            **bounds,
             do_ocr=False,
             do_table_structure=True,
             generate_picture_images=True,
@@ -347,7 +407,14 @@ def extract_docling_content(
             if out_path.exists():
                 stem, ext = out_path.stem, out_path.suffix
                 out_path = figures_dir / f"{stem}_docling_{it['docling_idx']}{ext}"
+            # #184 — bound the longest side before writing. `native` mode
+            # re-renders these from bboxes below and caps there, but
+            # `fixed` mode keeps the docling render as-is, so without
+            # this the cap would silently not apply in that mode.
+            pixel_cap = (CONFIG.get("figures", {}) or {}).get(
+                "max_pixels_long_side")
             try:
+                image = _cap_image_pixels(image, pixel_cap, filename)
                 image.save(str(out_path))
             except Exception as e:
                 logger.warning("Could not save figure %s: %s", filename, e)
@@ -504,6 +571,7 @@ def extract_docling_content(
             native=True,
             vector_dpi=float(fig_cfg.get("vector_dpi", 300.0)),
             max_dpi=fig_cfg.get("max_dpi"),
+            pixel_cap=fig_cfg.get("max_pixels_long_side"),
         )
         logger.info(
             "native figure resolution pass: %d re-rendered, %d native-skip, "

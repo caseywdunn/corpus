@@ -338,6 +338,51 @@ def _prune_orphans(
     return EXIT_OK
 
 
+def _explain_resume(cfg: CorpuscleConfig, config_path: Path) -> None:
+    """Print why a re-run would do work, rolled up by reason (#80).
+
+    Per-stage implicit resume is correct and opaque: it re-runs whichever
+    stages' fingerprints no longer match, and nothing said which, or why,
+    before the work started. #281 was that gap at its worst — the GPU
+    vision phase silently re-extracting every document, turning a 1.5-hour
+    phase into a projected 35 — and finding it took hours of log
+    archaeology for an answer that fits on one line.
+
+    Read-only, and never fatal: this explains a plan, so failing to
+    explain it must not stop the plan. An unreadable receipt or a config
+    the audit cannot resolve is reported and stepped over.
+    """
+    from .build_inputs import configuration_drift
+    from .status import render_drift_rollup
+
+    output_dir = _resolve_against(config_path, cfg.output_dir)
+    if output_dir is None or not (output_dir / "documents").is_dir():
+        return          # Nothing built yet; every stage runs, and that is
+        # not drift — it is a first build.
+    try:
+        drift = configuration_drift(output_dir, config_path)
+    except (OSError, ValueError, TypeError, RuntimeError) as exc:
+        print_status(f"cannot explain resume decisions: {exc}", status="warn")
+        return
+    n = drift["documents_with_differences"]
+    total = drift["documents_checked"]
+    if not n:
+        print_status(
+            f"resume: no configured-input drift across {total} document(s); "
+            f"only stages with changed sources will re-run", status="info",
+        )
+        return
+    print_status(
+        f"resume: {n} of {total} document(s) have configured-input drift — "
+        f"these stages will re-run", status="warn",
+    )
+    print(render_drift_rollup(drift["differences"], total))
+    print_status(
+        "full detail: corpus status --config "
+        f"{config_path} --json", status="info",
+    )
+
+
 def _build_orchestrator_argv(
     cfg: CorpuscleConfig,
     config_path: Path,
@@ -395,7 +440,18 @@ def _build_orchestrator_argv(
     # Capability detection (#65) downgrades an unusable vision backend to
     # the OCR floor with a one-line nudge rather than hard-failing Pass 3b
     # deep into the run.
-    if panel_mode in ("vision-local", "vision-claude"):
+    #
+    # Only for phases that consume --figure-panels, which is `extract` and
+    # `vision` (#263). `post`, `embed` and `bundle` never run the vision
+    # pass, so on those the check can neither help nor harm — and in the
+    # standard HPC chain finalize always runs `--only post` on a CPU node,
+    # so the warning fired on *every* build. That trains an operator to
+    # skim past the one case where the same sentence is serious: on an
+    # `--only extract` re-run, accepting the OCR floor silently reverts
+    # vision ROIs Pass 3b already produced.
+    only_phase = getattr(args, "only", None)
+    phase_uses_panels = only_phase in (None, "extract", "vision")
+    if phase_uses_panels and panel_mode in ("vision-local", "vision-claude"):
         skip_reason = _vision_skip_reason(panel_mode)
         if skip_reason is not None:
             print_status(
@@ -417,6 +473,12 @@ def _build_orchestrator_argv(
             sub_argv += ["--taxonomy-path", str(tx_path)]
     if args.enrich_bhl or cfg.bibliography.enrich_bhl:
         sub_argv.append("--enrich-bhl")
+    # #270 — a GPU allocation is a statement that CPU is not an acceptable
+    # outcome. The flag exists alongside `compute.accelerator: require`
+    # because the SLURM scripts are shared across corpuscles and should not
+    # have to edit each one's config.yaml to say so.
+    if args.require_gpu:
+        sub_argv.append("--require-gpu")
     if args.force_rebuild:
         sub_argv.append("--force-rebuild")
     if args.force_rebuild_taxonomy:
@@ -481,7 +543,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if only == "bundle":
         if args.dry_run:
             print_status(
-                f"dry-run: would distill served bundle into {output_dir / '_serve'}",
+                f"dry-run: would distill served bundle into "
+                f"{_resolved_bundle_dir(output_dir)}",
                 status="info")
             return EXIT_OK
         if args.no_bundle:
@@ -511,6 +574,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # papers carrying the named quality_flag so resume re-extracts them.
         if args.re_process_flagged:
             _invalidate_flagged(cfg, config_path, args.re_process_flagged)
+
+    if args.dry_run:
+        # #80 — a dry run already shows *what* would run; this adds *why*.
+        # Only on --dry-run, which is where an operator has already chosen
+        # to pay for analysis: on the 699-document Viburnum corpuscle the
+        # check takes ~7 s, which is cheap for a plan and not free enough
+        # to put in front of every build.
+        _explain_resume(cfg, config_path)
 
     sub_argv = _build_orchestrator_argv(cfg, config_path, args)
     cmd = [sys.executable, "-m", "pipeline.orchestrator", *sub_argv]
@@ -543,7 +614,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 shutil.copy2(src_instructions, dst_instructions)
 
     # #60 — bundle distillation in line, on a full run only. The served
-    # bundle lands at `<output_dir>/_serve/`. Sub-phases (extract / vision
+    # bundle lands at `<output_dir>/corpus_bundle/`. Sub-phases (extract / vision
     # / embed / post) skip it — the HPC flow distills once via a final
     # `--only bundle` job; `--only bundle` is handled at the top.
     if only is None:
@@ -554,7 +625,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             )
         elif args.dry_run:
             print_status(
-                f"dry-run: would distill served bundle into {output_dir / '_serve'}",
+                f"dry-run: would distill served bundle into "
+                f"{_resolved_bundle_dir(output_dir)}",
                 status="info",
             )
         else:
@@ -567,7 +639,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                     "--version vX.Y.Z` to retry, or pass --no-bundle to skip.",
                     status="fail",
                 )
-                # Propagate: _serve/ is the deployable artifact (DEPLOY.md);
+                # Propagate: the distilled bundle is the deployable artifact (DEPLOY.md);
                 # a failed distill must not stamp the run as successful.
                 return rc
 
@@ -814,9 +886,29 @@ def _render_dependency_versions() -> str:
     return "\n".join(lines)
 
 
+def _resolved_bundle_dir(output_dir: Path) -> Path:
+    """The bundle path a real run would write, for dry-run messages."""
+    from mcpsrv.bundle import resolve_bundle_dir
+    return resolve_bundle_dir(output_dir)[0]
+
+
 def _distill_bundle(output_dir: Path) -> int:
-    """Invoke mcpsrv.bundle to produce <output_dir>/_serve/ (#60)."""
-    serve_dir = output_dir / "_serve"
+    """Invoke mcpsrv.bundle to produce <output_dir>/corpus_bundle/ (#60)."""
+    from mcpsrv.bundle import LEGACY_BUNDLE_DIR_NAME, resolve_bundle_dir
+
+    serve_dir, is_legacy = resolve_bundle_dir(output_dir)
+    if is_legacy:
+        # Update the bundle that is already there rather than writing a
+        # second one beside it (#273). Two bundles in one corpuscle is
+        # how a client pointed at the old path ends up serving a stale
+        # one, which is worse than an ugly directory name.
+        print_status(
+            f"this corpuscle's bundle is still at {LEGACY_BUNDLE_DIR_NAME}/, "
+            f"the pre-1.4 name; updating it in place. To adopt the new name, "
+            f"stop anything serving it and run: mv "
+            f"{output_dir / LEGACY_BUNDLE_DIR_NAME} {serve_dir.parent / 'corpus_bundle'}",
+            status="warn",
+        )
     cmd = [
         sys.executable, "-m", "mcpsrv.bundle",
         str(output_dir), str(serve_dir),
@@ -1969,7 +2061,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "needed, docling layout, Grobid metadata, chunking, taxa + "
             "lexicon tagging) → BGE-M3 embeddings into LanceDB → cross-"
             "paper bibliography reconciliation + taxon-mention rollup → "
-            "distillation of a served bundle at <output_dir>/_serve/. "
+            "distillation of a served bundle at "
+            "<output_dir>/corpus_bundle/ (or an existing _serve/). "
             "Idempotent: a re-run only re-processes papers whose inputs "
             "have changed."
         ),
@@ -2006,7 +2099,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--no-bundle", action="store_true",
                        help="Skip the served-bundle distillation step. "
                        "Build artifacts in `<output_dir>/` are unaffected; "
-                       "only the `<output_dir>/_serve/` distillation is "
+                       "only the `<output_dir>/corpus_bundle/` distillation is "
                        "skipped. (#60)")
     run_p.add_argument("--no-prune", action="store_true",
                        help="Skip orphan cleanup; run a read-only audit "
@@ -2030,6 +2123,13 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--enrich-bhl", action="store_true",
                        help="Enrich pre-DOI references against the Biodiversity "
                        "Heritage Library (slow, rate-limited; #64)")
+    run_p.add_argument("--require-gpu", action="store_true",
+                       help="Fail before any step runs if no usable "
+                       "accelerator is present, instead of falling back to "
+                       "CPU. Use inside a GPU allocation, where a CPU "
+                       "fallback holds the card at 0%% utilization and gets "
+                       "the job cancelled. Same as compute.accelerator: "
+                       "require (#270)")
     # HPC / job-array support: run one phase per SLURM job, on the right
     # partition, and slice the per-paper stages into array tasks. Omit
     # --only to run the whole pipeline on one node (the default).
@@ -2126,7 +2226,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "testing, pass `--transport sse --host <ip> --port <port> "
             "--auth-token-file <file>`. The server reads the build "
             "bundle at `output_dir` (from config.yaml) by default; point "
-            "at `<output_dir>/_serve/` to serve a distilled bundle "
+            "at `<output_dir>/corpus_bundle/` to serve a distilled bundle "
             "directly."
         ),
         epilog=(

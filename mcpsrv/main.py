@@ -396,7 +396,7 @@ def _check_one_bundle(
         else:
             print_status(
                 f"[{label}] bundle_manifest.json missing — distillation "
-                "incomplete. Re-run `corpus run` (it produces _serve/ "
+                "incomplete. Re-run `corpus run` (it produces the bundle "
                 "automatically) or `python -m mcpsrv.bundle <output> "
                 "<serve_dir> --version vX.Y.Z`",
                 status="warn",
@@ -465,11 +465,14 @@ def _serve_check(args: argparse.Namespace) -> int:
     # mcpsrv package is imported for non-CLI use.
     from pipeline.console import print_status
 
+    from .bundle import (BUNDLE_DIR_NAME, LEGACY_BUNDLE_DIR_NAME,
+                         is_bundle_dir, resolve_bundle_dir)
+
     failures: List[str] = []
 
     # 1. Bundle layout — `corpus run` produces two bundles: the build
     # bundle at <output_dir>/ (everything `corpus run` writes) and the
-    # distilled bundle at <output_dir>/_serve/ (subset shipped to remote
+    # distilled bundle at <output_dir>/corpus_bundle/ (subset shipped to remote
     # hosts; carries bundle_manifest.json). Validate whichever ones
     # exist, and tell the user when one is missing.
     if not args.output_dir.exists():
@@ -477,15 +480,15 @@ def _serve_check(args: argparse.Namespace) -> int:
         failures.append(f"output_dir does not exist: {args.output_dir}")
     else:
         build_dir = args.output_dir
-        serve_dir = build_dir / "_serve"
+        serve_dir, serve_is_legacy = resolve_bundle_dir(build_dir)
 
-        # Heuristic: if the user pointed straight at a distilled bundle
-        # (basename `_serve` or a top-level manifest exists), there is
-        # no nested `_serve/` to also check; treat as single-bundle.
-        is_already_serve = (
-            build_dir.name == "_serve"
-            or (build_dir / "bundle_manifest.json").is_file()
-        )
+        # If the user pointed straight at a distilled bundle there is no
+        # nested one to also check; treat as single-bundle. The manifest
+        # is the test, not the basename — #273 notes the old
+        # `name == "_serve"` clause was already redundant beside this one,
+        # and a bundle that has been renamed or relocated is still a
+        # bundle, which is the point of giving it a portable name.
+        is_already_serve = is_bundle_dir(build_dir)
 
         if is_already_serve:
             _check_one_bundle("distilled bundle", build_dir, args, failures)
@@ -493,14 +496,22 @@ def _serve_check(args: argparse.Namespace) -> int:
             _check_one_bundle("build bundle", build_dir, args, failures)
             if serve_dir.is_dir():
                 _check_one_bundle("distilled bundle", serve_dir, args, failures)
+                if serve_is_legacy:
+                    print_status(
+                        f"the distilled bundle is at "
+                        f"{LEGACY_BUNDLE_DIR_NAME}/, the pre-1.4 name. It is "
+                        f"still read and still updated in place; rename it to "
+                        f"{BUNDLE_DIR_NAME}/ when nothing is serving it (#273).",
+                        status="warn",
+                    )
             else:
                 print_status(
-                    "distilled bundle (./_serve/) not found — local serving "
-                    "works off the build bundle, but remote deploys ship the "
-                    "_serve/ tree. `corpus run` produces both; re-run if the "
-                    "missing _serve is unexpected, or build it manually with "
-                    "`python -m mcpsrv.bundle <output> <serve_dir> "
-                    "--version vX.Y.Z`.",
+                    f"distilled bundle (./{BUNDLE_DIR_NAME}/) not found — "
+                    "local serving works off the build bundle, but remote "
+                    "deploys ship the distilled tree. `corpus run` produces "
+                    "both; re-run if the missing bundle is unexpected, or "
+                    "build it manually with `python -m mcpsrv.bundle "
+                    "<output> <serve_dir> --version vX.Y.Z`.",
                     status="warn",
                 )
 

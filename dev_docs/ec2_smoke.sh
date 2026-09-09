@@ -290,7 +290,7 @@ n_docs=$(echo "$status_out" | sed -n 's/^Corpus status.*(\([0-9]*\) documents)$/
     || note_fail "corpus status: $n_docs documents (expected 4)"
 
 # (b) bundle_manifest.json shape.
-manifest="$REPO_ROOT/demo/output/_serve/bundle_manifest.json"
+manifest="$REPO_ROOT/demo/output/corpus_bundle/bundle_manifest.json"
 if [ ! -f "$manifest" ]; then
     note_fail "bundle_manifest.json not written"
 else
@@ -314,7 +314,7 @@ fi
 [ -f "$REPO_ROOT/demo/output/instructions.md" ] \
     && note_pass "instructions.md present in output_dir root" \
     || note_fail "instructions.md missing from output_dir root"
-[ -f "$REPO_ROOT/demo/output/_serve/instructions.md" ] \
+[ -f "$REPO_ROOT/demo/output/corpus_bundle/instructions.md" ] \
     && note_pass "instructions.md present in served bundle" \
     || note_fail "instructions.md missing from served bundle"
 
@@ -346,7 +346,7 @@ done
 
 # (f) MCP / SSE round-trip via the canonical smoke tool.
 cd "$REPO_ROOT"
-if python tools/smoke_test_sse.py demo/output/_serve --port 18080 \
+if python tools/smoke_test_sse.py demo/output/corpus_bundle --port 18080 \
        > /tmp/sse_smoke.out 2>&1; then
     note_pass "tools/smoke_test_sse.py — all four layers passed"
 else
@@ -373,7 +373,7 @@ printf "  failed: %s%d%s\n" "$RED" "$FAIL_COUNT" "$RESET"
 echo
 if [ "$FAIL_COUNT" -eq 0 ]; then
     printf '%s═══ EC2 SMOKE PASSED ═══%s\n' "$GREEN" "$RESET"
-    echo "Bundle: $REPO_ROOT/demo/output/_serve/"
+    echo "Bundle: $REPO_ROOT/demo/output/corpus_bundle/"
     echo "Run log: $LOG"
     echo "Summary: $SUMMARY"
     exit 0

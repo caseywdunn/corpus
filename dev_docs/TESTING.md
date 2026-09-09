@@ -55,7 +55,7 @@ discovered from the bundle, not hard-coded taxon names. On Linux with bubblewrap
 Docker, the cached query model and the nginx image already installed:
 
 ```bash
-CORPUS_TEST_BUNDLE=/path/to/_serve pytest -q -s tests/test_live_bundle.py
+CORPUS_TEST_BUNDLE=/path/to/corpus_bundle pytest -q -s tests/test_live_bundle.py
 ```
 
 The selected bundle must have bibliography, taxonomy, taxon mentions, lexicon,

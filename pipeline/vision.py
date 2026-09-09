@@ -37,6 +37,7 @@ from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 from .model_provenance import DEFAULT_VISION_MODELS, vision_producer
+from .optional_deps import missing_dependency_message
 load_dotenv()  # picks up ANTHROPIC_API_KEY from .env at import time
 
 logger = logging.getLogger(__name__)
@@ -410,9 +411,12 @@ class ClaudeVisionBackend(VisionBackend):
         try:
             import anthropic
         except ImportError as e:
-            raise VisionBackendError(
-                "anthropic package not installed (pip install anthropic)"
-            ) from e
+            raise VisionBackendError(missing_dependency_message(
+                e,
+                feature="the Claude vision backend",
+                module="anthropic",
+                install="anthropic",
+            )) from e
         self._anthropic = anthropic
         self.client = anthropic.Anthropic()
         self.model = model
@@ -590,6 +594,93 @@ _LOCAL_VLM_VARIANTS = {
 _LOCAL_SYSTEM_PROMPT = _CLAUDE_SYSTEM_PROMPT  # identical task spec
 
 
+# Weight dtypes the local VLM may load in, and what each costs for a 7B
+# model: float32 ~30.4 GB, bfloat16/float16 ~15.2 GB, before activations
+# and KV cache (#258).
+_VLM_DTYPES = ("auto", "float32", "float16", "bfloat16")
+
+
+def resolve_vlm_dtype(device: str, configured: str = "auto"):
+    """The torch dtype to load the local VLM's weights in.
+
+    ``auto`` is bfloat16 on CUDA and float32 everywhere else. **This has
+    now been measured on Metal and the default stays float32** (M2 Max,
+    69 GB, torch 2.12.0, transformers 5.8.1; four 9-11 panel plates,
+    ``tools/qc/vlm_dtype_probe.py``).
+
+    All three dtypes load and none loses or invents a panel — ROI counts
+    were identical everywhere. But half precision *moves the boxes*:
+    against float32, bfloat16 scored mean IoU 0.65-0.75 per plate and
+    float16 0.69-0.93, each with a worst panel at 0.0, i.e. a completely
+    disjoint box. Two float32 runs, by contrast, agreed at IoU 1.0 on
+    every panel of every plate, so that spread is caused by the dtype and
+    not by the model wandering.
+
+    The mechanism is visible in the decode: generation is greedy
+    (``do_sample=False``) and Qwen emits coordinates as digit tokens, so
+    a logit difference too small to matter flips a digit and a coordinate
+    jumps by hundreds of pixels. Half precision here is not a slightly
+    blurrier box; it is a heavy-tailed chance of a wrong one, which is
+    exactly the 0.68-mean-with-a-0.0-outlier shape observed.
+
+    The memory argument for half precision is real and unresolved:
+    float32 measured **37.69 GB** of Metal allocation, more than the
+    ~30.4 GB the weights alone predict, so the shipped default does not
+    fit a 32 GB Mac. That is what the knob is for — on a machine where
+    float32 cannot load, half precision beats no panel detection — but it
+    is a fallback with known worse geometry, not a better default. Do not
+    "fix" this branch to prefer half precision on MPS without new
+    numbers.
+
+    A caution for anyone comparing across machines: geometry is not
+    portable across accelerators even at a fixed dtype. bfloat16 on MPS
+    disagreed with the bfloat16-on-H200 ROIs this corpuscle shipped on
+    all four plates.
+
+    float32 on CPU is not a placeholder; it is correct there.
+    """
+    import torch
+
+    configured = (configured or "auto").strip().lower()
+    if configured not in _VLM_DTYPES:
+        raise VisionBackendError(
+            f"figures.vision_dtype must be one of {', '.join(_VLM_DTYPES)} "
+            f"(got {configured!r})"
+        )
+    if configured == "auto":
+        return torch.bfloat16 if device == "cuda" else torch.float32
+    return {"float32": torch.float32, "float16": torch.float16,
+            "bfloat16": torch.bfloat16}[configured]
+
+
+# Qwen2.5-VL-7B-Instruct is ~7.6B parameters, not 7.0B, which is what
+# makes float32 30.4 GB rather than 28 — the figure #258 measured. Only
+# an estimate for the default model; a different one will differ.
+_VLM_PARAM_COUNT = 7.6e9
+
+
+def estimated_vlm_weight_gb(dtype) -> float:
+    """Weight footprint for the default 7B model at ``dtype``, in GB.
+
+    Weights only — activations and the KV cache sit on top. Reported at
+    load so a machine that cannot hold the model says so with a number
+    rather than dying in the allocator (#258).
+    """
+    import torch
+
+    per_param = {torch.float32: 4, torch.bfloat16: 2, torch.float16: 2}
+    return round(_VLM_PARAM_COUNT * per_param.get(dtype, 4) / 1e9, 1)
+
+
+def _figures_config() -> dict:
+    """The corpuscle's `figures` block, or empty when config is unloaded."""
+    try:
+        from .config import CONFIG
+        return CONFIG.get("figures", {}) or {}
+    except Exception:          # pragma: no cover - config is optional here
+        return {}
+
+
 class LocalVLMBackend(VisionBackend):
     """Pass 3b backend using a local Qwen2.5-VL model on CUDA / MPS / CPU.
 
@@ -624,11 +715,21 @@ class LocalVLMBackend(VisionBackend):
         model: str = _DEFAULT_LOCAL_VLM,
         *,
         device: Optional[str] = None,
+        dtype: Optional[str] = None,
         max_new_tokens: int = 1024,
         max_pixels: int = 1003520,  # 1280 * 28 * 28
         min_pixels: int = 3136,     # 4 * 28 * 28
     ):
         self._model_id = model
+        # #258 — explicit flag beats config beats "auto". The env var is
+        # there so an Apple Silicon owner can try all three dtypes in one
+        # sitting without editing a corpuscle's config.yaml.
+        self._dtype_setting = (
+            dtype
+            or os.environ.get("CORPUS_VLM_DTYPE")
+            or (_figures_config() or {}).get("vision_dtype")
+            or "auto"
+        )
         self._max_new_tokens = max_new_tokens
         self._max_pixels = max_pixels
         self._min_pixels = min_pixels
@@ -652,15 +753,22 @@ class LocalVLMBackend(VisionBackend):
                 AutoProcessor,
             )
         except ImportError as e:
-            raise VisionBackendError(
-                "transformers >= 4.45 is required for the local VLM backend "
-                "(pip install transformers>=4.45 qwen-vl-utils torch "
-                "accelerate)"
-            ) from e
+            raise VisionBackendError(missing_dependency_message(
+                e,
+                feature="the local VLM backend",
+                module="transformers",
+                requirement="transformers >= 4.45",
+                install="transformers>=4.45 qwen-vl-utils torch accelerate",
+            )) from e
 
         try:
-            import torch
-            dtype = torch.bfloat16 if self._device == "cuda" else torch.float32
+            dtype = resolve_vlm_dtype(self._device, self._dtype_setting)
+            logger.info(
+                "local VLM dtype=%s (%s), ~%.1f GB of weights before "
+                "activations and KV cache",
+                str(dtype).replace("torch.", ""), self._dtype_setting,
+                estimated_vlm_weight_gb(dtype),
+            )
             self._processor = AutoProcessor.from_pretrained(
                 model,
                 min_pixels=self._min_pixels,

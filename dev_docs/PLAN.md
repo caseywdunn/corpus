@@ -1,4 +1,4 @@
-# PLAN.md — Corpus pipeline (v1.3)
+# PLAN.md — Corpus pipeline (v1.4)
 
 **Prior cycles are recorded elsewhere, not here.** A minor or major
 release entry in [CHANGELOG.md](../CHANGELOG.md) opens with the cycle's
@@ -20,39 +20,46 @@ stage failures; **v1.1.1** made `CITATION.cff` schema-valid,
 which is what had been silently blocking Zenodo archival since v0.3.0; and
 **v1.2** built the gold transcription set and scored the extractor against
 it — the first signal this project has had that measures the pipeline
-against something other than itself.
+against something other than itself; and **v1.3** made evidence auditable —
+captions carry provenance, references are separated from canonical works, a
+re-run cannot leave stale evidence, and an operator can inspect a parse
+against the original page ([v1.3.0](https://github.com/caseywdunn/corpus/blob/v1.3.0/dev_docs/PLAN.md),
+Zenodo [10.5281/zenodo.22647843](https://doi.org/10.5281/zenodo.22647843)).
 
-**v1.2 (2026-08-29) is the one v1.3 grows directly out of.** Its theme
-paragraph is in the CHANGELOG; what matters here is the inheritance. The
-gold set is now a standing instrument rather than a one-cycle project — any
-extraction change can be scored against it before and after, which is the
-condition v1.3's work inherits and should keep using. Its unfinished
-fingerprint-based regression reference (#187) is carried below. The
-library-inspection work (#217) moves with the skills-and-usage cycle to v1.4.
+**v1.3 (2026-09-07) is the one v1.4 grows directly out of.** Its theme
+paragraph is in the CHANGELOG; what matters here is the inheritance. Evidence
+is now auditable — captions carry provenance, references are separated from
+canonical works, and a re-run cannot leave stale evidence behind. Two
+instruments came with it and should keep being used: the gold set from v1.2,
+against which any extraction change can be scored before and after, and the
+build-comparison harness (`tools/qc/build_reference.py`) that made the update
+contract checkable at all.
 
-v1.2 also left a standing lesson worth stating once, because it recurred
-three times in that cycle and once more at its own release: **a measurement
-is not a result until you have looked at what it is measuring.** The
+What v1.3 did *not* do is fix the defects that are wrong without saying so,
+which is why v1.4 exists. It also demonstrated the lesson v1.2 left, and which
+has now recurred in every cycle that looked for it: **a measurement is not a
+result until you have looked at what it is measuring.** The
 plate-legend fix shipped on a recall gain and quietly cost precision;
 #254's OCR page-blanking was invisible to every quality gate the pipeline
 had, because each one measured the document rather than the machine that
 built it; and a stray file sat in the repo root through four green CI runs
 and two release PRs because nothing looks there.
 
-**v1.3 is the evidence-integrity and auditability cycle.** A preliminary
-acceptance pass over the newest reference corpuscle made wrong figure-caption
-associations the most conspicuous errors in actual use. The same build exposed
-whole-document OCR loss, append-only embeddings and order-dependent reference
-reconciliation. Those are one product problem: corpus can return plausible
-evidence without being able to show that it is the evidence printed on the
-page, or that a re-run would return the same current corpus.
+**v1.4 is the cleanup cycle.** v1.3 proved the pipeline can show where
+evidence came from. What survives behind that is the subject here: results that
+are wrong without saying so, build hazards that cost hours per run, and a
+tracker that no longer describes the product. It is deliberately broad rather
+than deep — the aim is that the open tracker afterwards holds only new
+capability and direction questions.
 
-The v1.3 outcome is therefore: **corpus either preserves and links source
-evidence correctly, or exposes its uncertainty; a re-run cannot leave stale
-evidence; and an operator can inspect the result against the original page.**
-The skills-and-usage work previously assigned to v1.3 moves to v1.4 with a
-narrower scope. It should consume trustworthy captions, references and update
-semantics rather than design around their current failures.
+The ordering against v1.5 is deliberate and was argued from v1.3's own
+evidence: a skill that generates a monograph from a corpuscle with silent gaps
+produces a document that reads authoritative and is wrong, which is the exact
+failure class v1.3 spent itself on.
+
+**Standing gates** — the rules that outlive any one cycle, including what
+"an update is correct" means and how a release is validated — are at the
+end of this document, with the other durable reference material.
 
 Doc map unchanged: architectural background in
 [OVERVIEW.md](OVERVIEW.md); per-feature history in
@@ -62,584 +69,6 @@ Doc map unchanged: architectural background in
 platform-portability criteria in
 [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md). Open work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues).
-
-## Standing gates
-
-The gate v1.0 established is permanent now, and not a checklist item:
-
-> **A clean-room install from `environment.yaml` must be verified by CI,
-> not by hand, before a release is tagged.**
-
-v1.0.0 was the first release held to it — T3 ran on the release PR and
-was green on the release commit before the tag existed.
-
-Now that [`clean-room.yml`](../.github/workflows/clean-room.yml) (**T3**)
-lives on the default branch, all three of its triggers work: the weekly
-`schedule:` is the standing drift detector, `workflow_dispatch` is
-available (it returned `HTTP 404` while the lane sat on a feature
-branch), and **a pull request targeting `main` — which *is* the release
-proposal — runs the lane automatically**. That last one is the path that
-satisfies the gate before the merge rather than depending on someone
-remembering to dispatch it.
-
-[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) (**T3-bare**) stays manual and
-pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
-(apt, miniforge install) on a real Ubuntu EC2 instance, against
-[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md)'s criteria.
-
-The per-push tiers (T0, T1/T2, T1-compose) and the full tier table live
-in [CONTRIBUTING.md](../CONTRIBUTING.md).
-
-**"Re-measure the baselines" was the wrong ask, and is retired.** The
-recorded numbers (T0 at 623 passed / 2 skipped, `corpus_required` at 163
-/ 14 / 4, taken at `1dbb69a`) were treated as a regression reference.
-They cannot be one. T0 went 755 → 799 in a single afternoon of v1.1
-because tests were *added*, and a number that moves whenever someone
-writes a test is a changelog rather than a detector. The property that
-matters for T0 — zero failures — is already enforced by CI on every push,
-so the count adds nothing on top of it.
-
-What a real reference records is pipeline *output*: the #185 soft rates,
-quality-gate counts, and bundle manifest counts for a fixed corpus,
-diffed against a rebuild of that same corpus.
-[#187](https://github.com/caseywdunn/corpus/issues/187) specifies it and
-targets the **gold corpuscle** (built in v1.2) — big enough for a rate to mean
-something, small enough to rebuild per release. That comparison was run
-by hand against a viburnum rebuild during v1.1 and is what proved the
-3.4 GB → 2.3 GB drop was #184's re-encoding rather than lost content.
-
-The `--deselect` question that paragraph raised is answered: **none**.
-[#167](https://github.com/caseywdunn/corpus/issues/167) removed all three
-flags, T1 now runs bare `-m corpus_required`, and T2 additionally ignores
-`test_reference_extraction.py` because Grobid is disabled there. Both
-workflow files state the reasoning inline.
-
-## v1.3 — evidence integrity and auditability
-
-This cycle has one admission rule: work belongs here only when it changes
-whether evidence is preserved, associated with the right source, reproducible
-after an update, or inspectable when it is uncertain. A new workflow, export
-surface or convenience feature does not qualify. The four workstreams below
-are ordered: the page-level view is an instrument for the caption work; the
-caption and reference decisions are build outputs; update correctness makes
-those outputs reproducible; the execution-plane contract keeps them out of
-the running server. A bounded release-hardening tranche follows them. It may
-close small existing defects and strengthen the release gate, but it does not
-relax this admission rule or compete with the evidence work.
-
-### 1. Source-page and figure evidence — the primary fidelity gate
-
-The newest reference-corpuscle acceptance pass makes this the first-order
-user problem. A missing caption is visible; a confidently returned caption
-from the wrong figure is plausible misinformation. v1.2's scorer initially
-reported 0.574 recall / 0.878 precision, but v1.3 found that its gold parser
-omitted explicit plate inventories and standalone engraved numbers. Scorer v7
-fixes that denominator; [FIGURE_PARSING.md](FIGURE_PARSING.md) is the stable
-account of the corrected numbers and what they mean.
-
-- [x] **Repair and re-measure caption association**
-  ([#195](https://github.com/caseywdunn/corpus/issues/195)). Bind on validated
-  figure-number evidence where available, distinguish a prose caption from a
-  bare label, and record the chosen candidate, rejected candidates, source,
-  page distance and confidence. A weak association must be exposed as weak in
-  the stored artifact and MCP result, not presented as an ordinary caption.
-  Scorer v7 expands the fixed gold denominator from the incorrectly parsed 480
-  pairs to 839 typed page/identity pairs, recognizes adjacent plate headings as
-  plate identity evidence, and distinguishes `plate:N` from `figure:N`. The
-  complete clean source-PDF build reports 538/545 correct (0.641 recall / 0.987
-  precision), with fixed-population capacity 544/839 (0.648); Totton reaches
-  406/411 correct against 472 gold identities. The independent panel yardstick
-  finds 98 explicitly enumerated letter-panel captions; the clean build
-  declares 92, gets 89 exact sets, and scores 0.946 / 0.997 label
-  recall/precision with no declaration on 175 number-matched non-panelled
-  identities. The number-binding headline is end-to-end coverage, not selector
-  accuracy.
-  Report fixed-population capacity by layout so future work separates missing
-  label evidence from a wrong association decision. Build-time page-level
-  number discovery remains bounded: only a confidently bound bare `plate`
-  without a deterministic grouped legend reaches it; at least two distinct
-  Arabic number+bbox candidates at confidence ≥0.80 are required; accepted and
-  rejected candidates persist on the host; derived records share its image and
-  keep their captions explicitly unbound. A 34-plate local-Qwen probe emitted
-  216 regions, of which 215 agree with corrected gold. The sole false label was
-  a fabricated A-H grid copied onto figures 1-8; that contradictory structure
-  is now a hard rejection independent of confidence. After deterministic Pass
-  2.5 expansion, only four plates remain eligible, and the probe adds nine
-  correct labels with no false ones there; the clean build persists all nine
-  and confirms the combined 0.641 / 0.987 result.
-  `--only vision` now also runs Pass 3c and cross-reference rebuilding, so its
-  artifacts match inline vision. Its seven surplus identities were inspected:
-  three are already explicitly uncertain, two reproduce OCR-damaged printed
-  numbers without
-  enough evidence to guess a repair, and one is a gold structural-markup
-  omission. The seventh exposed a `plate:16` / `figure:16` namespace collision;
-  its regression guard is merged. The correctly pinned post-fix clean build
-  (`368e34e`, compared with `e07a6e6`) reaches **544/550 correct against 839
-  gold identities: 64.84% recall / 98.91% precision**, with six surplus
-  identities. Only Totton changes: plate hosts I, IX and XVI retain their
-  identities and preceding-legend children recover their source captions.
-  Five added logical records share existing images; physical detection and
-  text scores are unchanged, as are the 89/98 exact panel-label sets. This
-  closes the bounded caption repair, not the separate reference-content or
-  latest-code clean/incremental gates. No further caption algorithm expansion
-  is scheduled for this cycle.
-  The first post-fix chain completed but is invalid as release evidence:
-  subprocesses loaded an older editable installation and produced 417 figure
-  records, despite the bundler stamping the selected commit. The SLURM path
-  setup now pins Python imports and checks package paths and commit before
-  each phase. The `368e34e` repeat above used those checks; the invalid run is
-  not included in the accepted caption comparison.
-- [x] **Resolve the grouped-plate failure represented by `Vanhoeffen1906`**
-  ([#203](https://github.com/caseywdunn/corpus/issues/203)). Bind enumerating
-  caption blocks, parse lists of figure numbers separately from lettered
-  panels, admit those plates to ROI splitting, and cross-check the proposed
-  split against `missing_figures`. Scope is the measured layout family, not a
-  general segmentation rewrite.
-- [x] **Make vision output completeness a hard fact**
-  ([#269](https://github.com/caseywdunn/corpus/issues/269)). A response clipped
-  by the token budget is incomplete, never a successful panel result; size the
-  budget from emitted structure or fail/retry explicitly.
-- [x] **Build the optional, re-runnable per-document page report**
-  ([#274](https://github.com/caseywdunn/corpus/issues/274)): original processed
-  page, cell/figure/ROI overlay, selectable parsed text, and page-level
-  statistics/provenance in one HTML document. It is build/operator-side QC,
-  reads `docling_doc.json`, and never ships in the served bundle. Decide in
-  the same change whether the existing unconditional visualization PNGs become
-  opt-in or on-demand; do not replace them with another corpus-wide raster set.
-- [x] **Close the completed figure-measurement issue**
-  ([#194](https://github.com/caseywdunn/corpus/issues/194)) after confirming
-  the scorer and recorded result still match the current gold set. Scorer v2
-  excludes 261 image-sharing logical records and collapses panel siblings:
-  653 entries become 384 physical detections. The preceding clean artifact has
-  the same 384 physical detections and identical filter scores, so #195 added
-  retrieval identities without regressing extraction. Raw physical detection
-  is 0.883 / 0.865 recall/precision; the default MCP type surface is 0.827 /
-  1.000. Remaining caption behavior belongs to #195/#203 rather than another
-  measurement task.
-- [x] **Close the whole-document silent-loss paths**:
-  `no_text_layer` / `vendor_boilerplate_only` preserving the wrong layer
-  ([#264](https://github.com/caseywdunn/corpus/issues/264)); visual-script
-  comparison hidden behind the gibberish threshold
-  ([#266](https://github.com/caseywdunn/corpus/issues/266), superseding
-  [#172](https://github.com/caseywdunn/corpus/issues/172)'s broader symptom);
-  image placeholders
-  satisfying `empty_text`
-  ([#267](https://github.com/caseywdunn/corpus/issues/267)); and OCRmyPDF
-  exiting zero with no recovered text
-  ([#268](https://github.com/caseywdunn/corpus/issues/268)). Provide
-  [#186](https://github.com/caseywdunn/corpus/issues/186)'s per-document OCR
-  override as the explicit escape hatch for a classifier that still gets a
-  document wrong.
-
-**Acceptance:** each conspicuous failure from the newest reference corpuscle
-has a small regression fixture; caption recall and precision are reported
-before and after by era and layout; precision does not trade away silently for
-recall; and every document that recovers no meaningful text fails an error-level
-quality gate regardless of process exit code or markup placeholders.
-
-### 2. Reference evidence — deterministic and non-destructive
-
-The full proposal in #240 mixes a necessary data-model repair with speculative
-model-assisted blocking. v1.3 takes the deterministic foundation and leaves
-the latter out until the new observation set can measure whether it is needed.
-
-- [x] **Repair the inputs before clustering:** stop recording journal names
-  as work titles ([#226](https://github.com/caseywdunn/corpus/issues/226)) and
-  stop a malformed DOI from short-circuiting stronger title/author evidence
-  ([#239](https://github.com/caseywdunn/corpus/issues/239)).
-- [x] **Separate reference observations from canonical works**
-  ([#240](https://github.com/caseywdunn/corpus/issues/240), deterministic
-  core only). Keep one immutable/re-derivable observation per citing-paper
-  reference; map it to a canonical work in a separate relation carrying the
-  method, score and producer version. Reconciliation becomes a pure,
-  re-runnable decision over observations rather than a destructive merge.
-- [x] **Centralize the works/citations schema used by tests**
-  ([#237](https://github.com/caseywdunn/corpus/issues/237)) before migrating
-  it, so five hand-written test schemas cannot validate five different models.
-- [x] **Preserve the frozen MCP wire surface.** Existing reference tools read
-  a compatibility view/materialization with their parameter names, defaults
-  and response fields unchanged. Better data is expected; an accidental API
-  migration inside a data-model change is not.
-- [x] **Re-measure `get_missing_references`**
-  ([#155](https://github.com/caseywdunn/corpus/issues/155)) after the migration,
-  using the raw observation set to explain every canonicalization decision.
-  The read-only `tools/qc/reference_reconciliation.py` now separates a broad
-  same-title/year review signal from the exact author-set evidence that is safe
-  to act on. The replay justified DOI wrapper/percent normalization, a guarded
-  dangling-parenthesis repair, and cross-block exact/fuzzy title matching only
-  when the complete author set and year agree (#225). On the newest reference
-  corpuscle, the deterministic remap leaves no resolver-safe exact-identity
-  candidates in the missing list. It still leaves many obvious OCR-damaged
-  author/title variants, including high-ranked classics; #155 therefore stays
-  open, and the report defines the measured input for later model-assisted or
-  curator-reviewed adjudication rather than pretending the acquisition list is
-  now authoritative.
-- [x] **Represent one canonical work with multiple corpus documents.** The
-  reference replay exposed a legacy scalar-model gap: separately scanned
-  volumes may legitimately share a DOI/work identity, but
-  `works.corpus_hash` retained only one document. `work_documents` now carries
-  the complete membership through authority seeding, reconciliation, BibTeX
-  round trips, bundle filtering and indexed paper-hash lookups, preserving the
-  frozen response fields. Permissions and page/OCR directives stay per-PDF.
-  Tests cover both members' observations, no-op replay, reverse-order
-  incremental/clean equivalence, DOI edits, artifact removals, legacy
-  migration, directive removal and per-document import/export. Whole-build
-  source retirement and latest-gold acceptance remain separate open gates.
-
-**Deferred from #240:** embedding-based candidate blocking and local-model
-adjudication. Neither enters v1.3 without a measurement from the deterministic
-system showing which unresolved population it would fix, a versioned model
-input, and an auditable persisted verdict.
-
-**Acceptance:** reconciliation from a clean build and reconciliation after an
-incremental paper addition produce the same observation-to-work mapping;
-running it twice is a no-op; no raw observation is destroyed; and every mapping
-can answer which evidence and rule produced it.
-
-### 3. Truthful updates and release evidence
-
-- [x] **Define and implement the corpuscle update contract**
-  ([#265](https://github.com/caseywdunn/corpus/issues/265)): additions,
-  removals, changed PDF bytes, same-hash derived-content changes, bib edits,
-  config edits and version upgrades each state what invalidates, what is
-  replaced and what is pruned.
-  The normative contract and explicit coverage gaps now live in OVERVIEW's
-  **Corpuscle update contract**. Full implementation/acceptance remains open.
-  Source retirement now requires a complete readable inventory, excludes the
-  build subtree, aborts on vector-prune failure, and archives removed document
-  artifacts. Bibliography membership/current edges and taxon indexes retire
-  removed members; taxon refresh uses content digests, not mtimes. A real-vector
-  regression compares citation mappings, taxon rows, logical vectors and served
-  document inventories with a clean build after removal. Bundle replacement
-  assembles a fresh audited tree, preserving the old generation on copy failure
-  and removing obsolete optional files.
-  **Whole-build gold acceptance ran 2026-09-06 at v1.3.0 (`b734de6`) on Bouchet
-  and passed** — see "Whole-build acceptance evidence" below. What remains for
-  #265 is not update logic but the two provenance defects that keep the
-  criterion from being expressible as byte equality (#278, #280).
-- [x] **Extend input fingerprints**
-  ([#174](https://github.com/caseywdunn/corpus/issues/174)) to every input that
-  can change an artifact, including the relevant bib fields, filename and
-  resolved configuration. A key belongs in a stage fingerprint only when that
-  stage actually consumes it. **Closed 2026-09-06** against the revised
-  acceptance below, on the whole-build gold evidence.
-  Per-paper resolved BibTeX entries (including entry addition/removal), filename
-  fallback and source-path inventory updates are implemented and exercised
-  through both resume gates. Stage 1 now fingerprints OCR/probe controls,
-  raster settings, fallback chunking, consolidation, panel mode/explicit model
-  and quality thresholds in consumers and descendants. Producer failures clear
-  dependent receipts before writing. Verified TEI caches check prepared PDF,
-  consolidation settings and payload; stale TEI is archived outside the active
-  citation path. Figure-mode/model transitions rebuild an unsplit base, and
-  full extraction replaces old images/sidecars. Tests compare off-mode and
-  rechunking transitions with clean builds and exercise failed publication,
-  interrupted stages and CPU/vision handoff recovery.
-  **Whole-build clean/incremental acceptance ran 2026-09-06 at v1.3.0 and
-  passed** for bib edits, curator directives and an embedding-model upgrade —
-  see "Whole-build acceptance evidence" below.
-  `corpus status` reports Stage 1 configuration differences plus current PDF
-  additions/removals, renamed/copy paths, resolved BibTeX changes, OCR/page
-  directives, lexicon changes and built-taxonomy fingerprints without modifying
-  artifacts or starting models. Unreadable configured inputs are errors, not a
-  zero-drift result. Legacy builds require a one-time Stage 1 config-receipt migration;
-  preview it before submitting a production rerun.
-  Grobid fallback/recovery now distinguishes deliberate disablement from an
-  outage, retries incomplete extraction on recovery, and preserves successful
-  cached results during outages. Metadata/TEI receipts include reported service
-  version and optional declared producer ID; per-paper request/parse failures
-  cannot be stamped as completed extraction. Tests cover transitions, no-op
-  resume and recovered-versus-clean metadata/reference equality. Status reports
-  persisted outcomes without probing the service.
-  Vision now records explicit default model IDs, loaded/cached repository
-  revisions, content hashes for custom local model directories, implementation
-  and package versions, and generation settings. Both resume gates use these
-  identities; results retain them. Offline status never downloads or
-  instantiates a model. Remote services' unreported weights remain an explicit
-  proof limit: use pinned IDs plus `figures.producer_id` / `grobid.producer_id`
-  for deployment assertions, not a claim of automatic remote attestation.
-  **Still open:** whole-build clean/incremental acceptance. Taxonomy snapshots
-  now fingerprint consumed source bytes and
-  root/source settings, reuse unchanged receipts, and replace changed snapshots
-  without retaining removed taxa/names. Failed ingestion preserves the previous
-  snapshot; phase-split extraction rejects stale/unverified snapshots. WoRMS is
-  explicitly pinned until a requested rebuild, never silently refreshed by
-  status. Annotation now records its complete output set,
-  including deliberate absence; removed categories/taxonomy artifacts are
-  archived, stale taxon-index rows are retired, and missing/corrupted outputs
-  force repair. Unreadable configured annotation sources abort rather than
-  being mistaken for removals. The
-  `chunking.max_tokens` setting controls the fallback path, not HybridChunker's
-  tokenizer/limit. #174 is not complete yet. Stable details and limitations
-  live in OVERVIEW's **Stage 1 configuration and cache ownership**.
-  Taxonomy-to-work authority links now re-derive after taxonomy or bibliography
-  edits, replace obsolete links/stubs without dropping still-cited works, and
-  do no writes on an unchanged replay. Ambiguous author matches no longer
-  resolve by insertion order. This repairs freshness, not #175's zoological
-  authorship-policy limitation.
-- [x] **Make embedding replacement atomic per document and delete the Stage 1
-  fake completion marker**
-  ([#271](https://github.com/caseywdunn/corpus/issues/271)). Re-embedding one
-  hash replaces its rows; it never skips stale text or appends a second
-  generation. A marker is written only after the table commit and carries the
-  chunk fingerprint, model, dimension and committed row count. Bundle metadata
-  validates all markers rather than sampling an arbitrary one.
-  Real-LanceDB regression tests cover changed text/metadata, shorter and empty
-  documents, legacy duplicates, failed writes, the commit/marker interruption
-  gap, no-op resume, same-dimension model changes and clean/incremental logical
-  row equality. Status and dry-run use verified evidence too. This closes the
-  embedding defect, not the broader #174/#265 update acceptance gate.
-  Follow-up under #174/#271: verified producer identities now travel in a
-  portable bundle sidecar; queries load the build's model/revision and reject
-  same-dimensional incompatible overrides or different local weights. Mixed
-  producer receipts cannot be bundled, and legacy migration requires all
-  documents. The all-tool read-only smoke now passes against the retained
-  full legacy bundle; the new producer-sidecar build remains to be exercised.
-- [x] **Land the fingerprint-based release reference**
-  ([#187](https://github.com/caseywdunn/corpus/issues/187)). Diff pipeline
-  output, quality flags and manifest facts for the fixed gold corpuscle; test
-  counts remain a CI activity signal, not a data regression reference.
-  `tools/qc/build_reference.py` now snapshots primary per-document evidence,
-  flags and manifest facts, and exposes reference-field differences even when
-  counts agree. It never overwrites an existing reference. Schema v2 adds
-  current database-table fingerprints, streaming exact logical vector-row
-  comparisons and decoded figure-pixel hashes, with tests distinguishing
-  bookkeeping changes from content/mapping/duplicate-row drift.
-  The stronger update comparison exposed stale author/title aliases on a
-  surviving DOI; current uncurated aliases now re-derive from document members
-  and active observations. Producer migration repairs old aliases even for
-  empty bibliographies. Explicit curation/BHL evidence is preserved and must
-  be held fixed in equivalence comparisons. Present malformed/unreadable
-  authority inputs now fail before current-row changes, and malformed served
-  JSON cannot bypass auditing or replace the last good bundle.
-  Enrichment enablement/year cutoff/key availability now participate in resume
-  identity: selecting BHL on an unchanged build actually applies the option.
-  No matching thresholds or external-enrichment defaults changed; #260's
-  outcome reporting remains in the later bounded-hardening tranche.
-  The post-caption build preserved all text scores and physical detections,
-  but six Mańko reference records drifted inside the saved Grobid response;
-  count-only acceptance missed that loss. Carré/Margulis also retain genuine
-  empty-bibliography failures despite reference text being present. Keep these
-  separate from expected plate-only warnings rather than suppressing flags.
-  Eighteen isolated Mańko repeats (six serial, twelve concurrent) returned
-  stable baseline-matching structured fields, so the original service-response
-  drift remains unreproduced, not declared fixed. Raw citations are now
-  explicitly requested and retained, with both resume gates and the TEI cache
-  migrating; source-backed title/author/raw checks guard the affected paper.
-  The reviewed full-gold clean/update comparison now covers every primary JSON
-  artifact, current SQL row, exact logical vector row and decoded figure pixel.
-  On the fixed input set, clean and resumed builds have identical exact vector
-  rows and reference mappings; both source-backed reference suites pass. The
-  comparison also exposed an insertion-order-dependent taxonomy homonym, now
-  guarded by the `Diphyes truncata` regression. Independent local-VLM runs
-  vary in ROI coordinates/descriptions despite greedy decoding, but their
-  inspected gold outcomes are identical: 544/550 caption identities correct,
-  89/98 exact panel sets, and 311/311 served physical figures matched. An
-  unchanged post replay is a zero-difference no-op. Full update-contract
-  closure remains tracked by #174/#265 rather than being inferred from this
-  narrower release comparison.
-
-**Acceptance:** for every supported change class, an incremental run
-re-processes exactly the documents whose fingerprinted inputs changed and no
-others; documents it does not touch are left unchanged; and the resulting
-current document set, cross-paper mappings and vector rows match a clean
-rebuild.
-
-Equality here is **semantic, not byte-for-byte**. Byte equality is not a
-property this pipeline has or should chase: provenance that is not
-reproducible by construction is excluded from the comparison — the taxonomy
-snapshot's file hash (#278, since fixed), absolute build paths, local-VLM ROI
-coordinates, and CJK OCR whitespace segmentation (#280). Those are recorded as known
-exclusions rather than waved away, and #278/#280 track shrinking the list.
-
-`corpus status` and the bundle manifest never infer completion from a
-placeholder or from a sampled marker.
-
-### 4. Execution planes and a thin server
-
-Write the normative model in [OVERVIEW.md](OVERVIEW.md), not in this ephemeral
-plan. Use **execution planes** because pipeline "stage" already has a different
-meaning:
-
-| Plane | Owns | May compute | Must not do |
-| --- | --- | --- | --- |
-| Library curation | PDFs, BibTeX, curator directives | inspect, validate, propose/review source edits | write corpus artifacts or duplicate generic PDF/OCR knowledge |
-| Build/materialization | OCR, extracted text/figures, associations, databases, embeddings, served bundle | expensive batch/GPU/API work; deterministic resumable transforms | depend on `tools/` or `skills/`; leave ambiguous partial state |
-| Serve/query | an immutable bundle plus disposable caches | bounded lookup, filtering, authorization, formatting and compatible query embedding | OCR, reconciliation, corpus-wide mutation, external enrichment or general LLM calls |
-| Client/agent | user intent and deliverables | synthesis, translation, workflow orchestration and presentation | serve as the enforcement point for licensing, provenance or access control |
-
-- [x] **Document the ownership and data flow** in OVERVIEW; summarize it in
-  README and the contributor invariants in AGENTS.md. Data flows library →
-  build → immutable bundle → bounded server response → client output. Client
-  feedback becomes an explicit reviewed library edit, not server mutation.
-- [x] **Audit the served path against that contract.** In particular: move
-  on-demand figure crops out of the bundle or materialize them at build time;
-  make figure-download URLs work behind the reference reverse proxy without
-  returning the shared MCP bearer token in a model-visible response; and apply
-  one bounded-input policy to every MCP collection/list parameter. File the
-  implementation issues before changing the frozen surface.
-  Filed: crop-cache ownership [#275](https://github.com/caseywdunn/corpus/issues/275),
-  scoped download URLs [#276](https://github.com/caseywdunn/corpus/issues/276), and
-  bounded inputs/freeze snapshots [#277](https://github.com/caseywdunn/corpus/issues/277).
-  #275 is implemented: one bounded, process-private content/ROI-keyed cache
-  serves MCP images, logical ROI paths and first-request HTTP panel crops.
-  Read-only-tree, concurrency, eviction, stale-pixel/ROI and licensing tests
-  pass. #276 now issues five-minute figure/panel/profile-scoped URLs without
-  exposing the MCP bearer token, with an explicit public base for reverse
-  proxies. Tampering, expiry, restart and licensing tests pass, as do whole
-  figure and panel downloads through the actual nginx route in an isolated
-  local container. #277 validates all nine exposed list parameters against
-  common item/per-item/aggregate character budgets before index access, with
-  existing error shapes and no silent truncation. All 38 tools now pass against
-  a retained full legacy bundle with a filesystem-enforced read-only server,
-  offline query embedding and real nginx whole/panel downloads. The bundle's
-  file inventory, sizes and mtimes are unchanged. The repeat against the new
-  producer-sidecar gold bundle passes all 38 tools under the read-only mount,
-  including semantic query embedding and real nginx whole-image/panel
-  downloads. The harness selects a strict stored crop rather than assuming the
-  first ROI is smaller than its parent.
-  Header-only paper projections now avoid disk reads altogether, rather than
-  loading and then discarding per-paper annotations; projected detail reads
-  only its requested artifact family. Frozen response shapes are unchanged.
-- [x] **Strengthen the freeze gate.** Snapshot tool signatures/defaults and
-  representative response schemas in addition to the existing tool-name,
-  error-shape and licensing checks. Checked-in snapshots cover all 38 tool
-  signatures/defaults and SDK input schemas, plus representative citation,
-  dossier, chunk, paper, figure, URL, crop and refusal response shapes.
-
-The query embedder is the deliberate exception to "no models in the server":
-the query vector must be compatible with the stored index. It stays lazy,
-version-checked and bounded to the active request. Thin means logically
-read-only and operationally bounded, not computation-free.
-
-### Bounded release hardening
-
-Do this only after the caption fidelity run and clean/incremental rebuild gate.
-Each item stays in its own reviewable commit. If the lint migration grows into
-a formatter, import sorter or general modernization pass, or any item changes
-the frozen MCP surface, defer that part rather than expanding v1.3.
-
-- [x] **Report BHL enrichment outcomes**
-  ([#260](https://github.com/caseywdunn/corpus/issues/260)) before cleaning up
-  its lint findings. Report the eligible, newly attempted, cached/resumed,
-  found, not-found and error populations so an operator can judge whether the
-  hours-long optional pass was useful. This is observability over existing
-  behavior, not a new enrichment or reconciliation policy.
-  Per-run outcomes and the separately labeled historical cache inventory are
-  logged and tested, including a true zero-attempt no-op.
-- [x] **Migrate the lint gate from bare pyflakes to Ruff's `F` rules**
-  ([#259](https://github.com/caseywdunn/corpus/issues/259)). Keep `F821`
-  (undefined names) as an explicit hard assertion, make intentional
-  side-effect imports use working, narrow `noqa` annotations, and review every
-  remaining finding individually. Do not bulk-delete unused assignments whose
-  calls may have side effects, suppress findings wholesale, or enable unrelated
-  rule families in this tranche.
-  Ruff's configured `F` family is clean; the dedicated `F821 --ignore-noqa`
-  assertion makes undefined names unsuppressible without adding formatter or
-  import-sort rules.
-- [x] **Make the three corpus directories unambiguous in the public docs**
-  ([#171](https://github.com/caseywdunn/corpus/issues/171)): distinguish the
-  project/config root containing the source `instructions.md`, the configured
-  build `output_dir`, and the distilled served bundle. State that `corpus run`
-  copies the source instructions into the build before bundling.
-  README now consistently distinguishes project root, configured build
-  directory and immutable served bundle; the operator walkthrough does too.
-- [x] **Close already-completed housekeeping issues after verification.**
-  [#173](https://github.com/caseywdunn/corpus/issues/173)'s existing T0 test
-  asserts that the root and packaged `CITATION.cff` files are byte-identical;
-  [#262](https://github.com/caseywdunn/corpus/issues/262)'s idempotence and
-  in-place taxonomy repair tests are merged. Verify those focused tests on the
-  release branch, then close the stale open issues rather than doing more work
-  under them.
-  The focused suite passes 17 tests; both issues are closed.
-
-**Acceptance:** BHL enrichment leaves a useful outcome summary; Ruff enforces
-the intended Pyflakes rule family while the dedicated undefined-name guarantee
-remains explicit; source/build/served paths use consistent terms; and #173 and
-#262 no longer appear as open work already completed in the tree.
-
-### Whole-build acceptance evidence (#174/#265), 2026-09-06
-
-Run at v1.3.0 (`b734de6`) on Bouchet, 35-document gold set, one build per node
-so nothing contended. Six full builds: a baseline and a clean build per change
-class, with each incremental run **in place** on its own baseline. Evidence in
-`project_pi_cwd7/cwd7/gold_accept_evidence_b734de6/`.
-
-Method notes that matter for repeating this:
-
-- Incrementals must run in place. A corpuscle's build tree embeds absolute
-  paths (`figures.json`, `summary.json`, `pipeline_state.json`); only `_serve/`
-  is scrubbed clean (#70). A relocated copy reports every document as changed
-  and the diff is pure path noise. A relocation control caught this.
-- One build per machine, or per node. Two concurrent local builds blew the
-  per-page OCR timeout on 3-4 documents each and silently degraded the clean
-  side of the comparison; solo builds were pristine. The v1.3 gates did catch
-  it loudly (`ocr_pages_blanked`, `empty_text`, `ocr_no_text_recovered`).
-- `panel_detection: ocr`, never `vision-local`: independent local-VLM runs vary
-  in ROI coordinates. `batch_pipeline.sh` submits `corpus-pass3b` regardless of
-  that setting, which is why the c5 pair shows VLM ROI drift and the others do
-  not.
-
-**Results.** All three classes: `index_changes: 0`, `manifest_changes: 0`,
-`added/removed: 0`, `problems: 0`, `hard_failures: 0`. Every vector row, the
-whole bibliography graph, `taxon_mentions`, `taxonomy` and embedding identity
-are identical between incremental and clean rebuild.
-
-| class | perturbation | invalidated | semantic diffs vs clean |
-|---|---|---|---|
-| C5 | one BibTeX title field | 1 stage, `bib_entry_sha256` | 1 (the edit itself) + 6 VLM ROI |
-| C6 | `ocrlang` repinned on 2 docs | 2 stages, `ocrlang`, + cascade | **0** |
-| C7 | `bge-m3` -> `all-MiniLM-L6-v2` | whole vector table | **0** |
-
-Every remaining "changed" document is one of: `taxa.json` alone (#278's
-non-reproducible taxonomy hash), or `figures.json` differing only in
-`file_path`/`figures_directory` under each build's own root.
-
-Also established: a no-op resume is a perfect no-op (`requires_review: false`,
-`binary_changes` included); the model-switch guard refuses `--resume` across a
-dimension change and leaves the index untouched, reproduced on two machines
-(`GUARD_RC=2`, 3209 rows still 1024-dim); and `--rebuild` migrates all 35
-documents to 384-dim with matching row counts. Incremental cost scales with the
-change: 4m42s and 9m40s against 1h20-1h30 clean rebuilds.
-
-**Defects the run surfaced, none of them update-logic bugs.** #278 (the
-taxonomy fingerprint hashed a file containing timestamps, so `taxa.json`
-differed between any two builds) is **fixed** — the stage now records the
-snapshot's own source receipt, so the `taxa.json`-only differences above would
-not recur. #279 (concurrent Grobid jobs collide on port 8070) is **half
-fixed**: a chain can no longer be silently served by another chain's Grobid,
-but true concurrency still needs one server per node or a shared `GROBID_URL`.
-#280 (CJK OCR whitespace is not reproducible) stays open — observed locally,
-did not recur on Bouchet — and remains an explicit exclusion in the criterion.
-
-### v1.3 release gate
-
-- [x] Every user-visible caption failure selected from the newest reference
-  corpuscle is fixed or returned with explicit uncertainty, and the gold
-  caption-binding report has been inspected rather than merely generated.
-- [x] The page report makes the original page, parsed text, chosen caption and
-  competing evidence reviewable without manually joining four artifacts.
-- [x] Clean and incremental builds agree for vector rows and reference
-  mappings on the fixed regression corpuscle.
-- [x] The served bundle can be mounted read-only; all MCP calls still work,
-  including remote whole-figure and panel download through the deployed proxy.
-- [x] The bounded release-hardening tranche above is complete without widening
-  the lint rules or changing the frozen MCP surface.
-- [x] T0, T1/T2, T3, T3-bare where platform behavior changed, and the relevant
-  T5 fidelity scorers pass under CONTRIBUTING.md's release ritual.
-  T0 and T1/T2 green on the release candidate; T3 runs on the `dev` -> `main`
-  release PR per the standing gate. **T3-bare waived for v1.3, on this gate's
-  own "where platform behavior changed" clause.** Measured over
-  `v1.2.1..HEAD`, the bare-host path is untouched: no apt packages, no
-  miniforge bootstrap change, `INSTALL.md` moved two lines, and
-  `docker-compose.yml` and `clean-room.yml` are unchanged. The only
-  `environment.yaml`/`requirements.txt` delta is the dev-only `pyflakes` ->
-  `ruff` swap (#259), and T3 solves `environment.yaml` from scratch on every
-  release PR, so that delta already has an automated lane. No runtime
-  dependency moved. This is the first recorded waiver; there was no waiver
-  policy or precedent in the repo, which is why the evidence is written down
-  here rather than the box merely being ticked. Re-run T3-bare at the next
-  release that touches apt packages, the miniforge bootstrap, or a runtime
-  dependency pin.
 
 ## v1.4 — silent wrongs, operational hazards, and a clean tracker
 
@@ -660,68 +89,142 @@ generator over it would undo the cycle's point.
 Highest priority, because nothing surfaces them. An operator cannot act on a
 gap they cannot see.
 
-- [ ] **Route mojibake non-Latin scans to OCR without a pin**
+- [x] **Route mojibake non-Latin scans to OCR without a pin**
   ([#266](https://github.com/caseywdunn/corpus/issues/266)), and populate
-  `visual_script` on every detection path rather than only the mismatch branch
-  ([#172](https://github.com/caseywdunn/corpus/issues/172)) so the
-  cross-check is not inert. v1.3 fixed the *pinned* case; an unpinned Chinese
-  paper scoring 0.295 is still classified `born_digital` and never OCR'd, and
-  loses its whole text.
-- [ ] **Make lexicon translations match inflected forms**
-  ([#165](https://github.com/caseywdunn/corpus/issues/165)). Anatomy coverage
-  is currently *zero* on German papers, which reads identically to a paper
-  with no anatomy in it.
-- [ ] **Expand abbreviated genus binomials**
-  ([#164](https://github.com/caseywdunn/corpus/issues/164)) — `Ph. pelagica`
-  is a taxon mention that silently does not count.
-- [ ] **Decide the botanical authority policy**
-  ([#175](https://github.com/caseywdunn/corpus/issues/175)).
-  `get_original_description` is structurally dead for botanical taxonomies
-  because authority linking assumes the zoological parenthetical-year
-  convention. This is live, not hypothetical: the Viburnum corpuscle is
-  botanical. Scoping note — a full botanical authorship parser is a cycle of
-  its own; returning an explicit unsupported result beats silently returning
-  nothing, and may be the whole fix.
-- [ ] **Stop the CLI lying by omission**: `--filter-gate` silently ignoring
-  the filter without `--list-hashes`
-  ([#169](https://github.com/caseywdunn/corpus/issues/169)), and the
-  naive-chunker fallback being invisible in `corpus status`
-  ([#168](https://github.com/caseywdunn/corpus/issues/168)).
+  `visual_script` on every detection path
+  ([#172](https://github.com/caseywdunn/corpus/issues/172)). The unpinned
+  Chinese paper is now OCR'd under `chi_sim` and recovers 451 Han characters
+  where the old pack choice recovered none. Two findings reshaped the fix.
+  First, the raster check had already stopped the `born_digital`
+  misclassification the issue describes — what survived was *pack* selection,
+  read off the mojibake layer, so the document was OCR'd with `eng`. Second,
+  a whole population the issue does not name: a text layer of **unmappable
+  glyph indices**, invisible to the gibberish score because glyph indices are
+  not letters. Hunt et al. 2001 held 896 usable letters in 59,056 characters
+  and was classified `clean_text_layer`; re-OCR recovers 42,398. Six such
+  documents. New `ocr.unmappable_char_max`.
+- [x] **Make lexicon translations match inflected forms**
+  ([#165](https://github.com/caseywdunn/corpus/issues/165)). +14,111 anatomy
+  mentions (+9.7%) corpus-wide, 515 documents gaining, none losing, 59
+  rescued from zero. Of the two documents the issue names, though, one gains
+  a single mention and the other correctly stays at zero — its text is about
+  electric organs of fish. The value is on documents with partial coverage.
+- [x] **Expand abbreviated genus binomials**
+  ([#164](https://github.com/caseywdunn/corpus/issues/164)). +31,041 mentions
+  (+15.6%), +2,237 unique taxa, 838 documents gaining, none losing, and 449
+  ambiguities reported rather than guessed.
+- [x] **Decide the botanical authority policy**
+  ([#175](https://github.com/caseywdunn/corpus/issues/175)). Decided:
+  the capability is reported unsupported, ICN authorship parses, and the
+  author-only matching path is **declined on measurement** — it yields 3
+  candidates from 889 Viburnum taxa and 2 of the 3 are wrong. Reasoning lives
+  in `_record_authority_convention`, not here.
+- [x] **Stop the CLI lying by omission**
+  ([#169](https://github.com/caseywdunn/corpus/issues/169),
+  [#168](https://github.com/caseywdunn/corpus/issues/168)). A filter now
+  implies the listing the report's own hint promises, and a filter that
+  cannot apply is named in a warning instead of dropped. The naive-chunker
+  fallback is a `naive_chunker_fallback` quality gate.
 
 **Acceptance:** for each, a document that previously produced a silent gap now
 either produces the right answer or reports the gap at error or warning
 severity. No fix here is complete while its failure mode is still quiet.
 
+**Met, and the section left a method behind.** Every item here was sized
+against the reference library before being built, and in four of the five the
+measurement contradicted the issue's own framing — a wrong threshold, a
+document whose zero was correct, a heuristic that would have written wrong
+protologues, and a corroboration rule of my own that turned out circular
+(OCRing a Latin page under `rus` transcribes its letters as Cyrillic
+lookalikes, so the characters meant to confirm the verdict were manufactured
+by the check). Bare Tesseract OSD calls **424 of 1,580** Latin-text-layer
+documents non-Latin; only CJK verdicts may now override a text layer, and
+only corroborated. Measure the population before writing the fix.
+
 ### 2. Operational hazards — each has already cost hours
 
-- [ ] **Make a GPU allocation fail instead of degrading to CPU**
-  ([#270](https://github.com/caseywdunn/corpus/issues/270)). PR #272 pinned
-  the card types as a workaround; a torch bump that drops sm_86 reintroduces
-  the silent fallback. This killed the 2026-08-31 build and warned again on
-  the 2026-09-06 one.
-- [ ] **Let concurrent builds share a cluster**
-  ([#279](https://github.com/caseywdunn/corpus/issues/279)). Grobid binds a
-  fixed port 8070, so SLURM co-scheduling kills all but the first — three of
-  five died on 2026-09-06. The silent-wrong-server half is fixed; the
-  collision is not.
-- [ ] **Bound build memory**
-  ([#182](https://github.com/caseywdunn/corpus/issues/182)). `embed`'s
-  `batch_size` is unreachable, docling options are unset, and the OOM blast
-  radius is the whole host.
-- [ ] **Load the local VLM in half precision on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — float32 needs
-  ~30 GB for a 7B model, which shuts Apple Silicon out entirely.
-- [ ] **Surface why a re-run is doing more work than expected**
-  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Promoted from
-  Unscheduled on evidence: #281 was exactly this — a phase re-extracting the
-  corpus with nothing saying so — and it took hours of log archaeology to
-  find. This is the tool that would have reported it in one command.
+- [x] **Make a GPU allocation fail instead of degrading to CPU**
+  ([#270](https://github.com/caseywdunn/corpus/issues/270)).
+  `compute.accelerator: require` and `corpus run --require-gpu`, resolved
+  before any step starts. The SLURM GPU scripts pass it; the card-type pin
+  stays, because this makes the failure loud rather than making an
+  unsupported card work. Tested against real unusable hardware — this
+  workstation's GTX 1080 is a card the pinned torch ships no kernels for.
+- [x] **Let concurrent builds share a cluster**
+  ([#279](https://github.com/caseywdunn/corpus/issues/279)). Per-job port
+  pair derived from the job ID by one shared function, so client and server
+  cannot drift. **Both Dropwizard connectors have to move** — there is an
+  admin connector at 8071 as well, and overriding only the application port
+  still dies, which is the trap the issue's own suggested fix would have hit.
+  Verified against the real Grobid image: three instances side by side,
+  byte-identical TEI from the alternate port.
+- [x] **Bound build memory**
+  ([#182](https://github.com/caseywdunn/corpus/issues/182)). A `docling`
+  block plus `compute.num_threads` bound extraction, which is where the
+  memory actually goes; `embeddings.batch_size` is reachable at last; and
+  INSTALL.md documents the cgroup cap, which is the outer bound. Turned up a
+  separate silent wrong on the way: `pipeline.embed` took no `--config` at
+  all, so `compute.accelerator` was honoured by Stage 1 and ignored by
+  Stage 2.
+- [x] **Load the local VLM in half precision on MPS**
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — **measured on an
+  M2 Max; the default stays float32.** The issue's own premise was the memory
+  gap (~30.4 GB against ~15.2 GB, which shuts a 32 GB Mac out), and that gap is
+  real — float32 measured 37.69 GB of Metal allocation, *worse* than the
+  weights alone predict. But half precision buys it by moving the boxes:
+  against float32, bfloat16 scored mean IoU 0.65–0.75 per plate and float16
+  0.69–0.93, each with a worst panel at 0.0. ROI *counts* were identical
+  everywhere, so this is not a lost panel, it is a wrong one.
+
+  The control is what makes that conclusive, and I had to be told to run it:
+  the first report compared every dtype against every other and against the
+  shipped H200 ROIs, and everything disagreed with everything — including
+  float32 against the reference at 1/4 — which is uninterpretable without
+  knowing how much the model disagrees with *itself*. Two float32 runs agreed
+  at IoU 1.0 on every panel. Only then could the spread be attributed to dtype.
+  **A comparison matrix with no self-comparison in it measures nothing**, and
+  that is now the ninth item this cycle whose shape changed on contact with a
+  measurement.
+
+  Mechanism, so nobody re-litigates: generation is greedy and Qwen emits
+  coordinates as digit tokens, so a logit difference flips a digit and a
+  coordinate jumps hundreds of pixels — heavy-tailed by construction. The knob
+  stays as the fallback for machines where float32 cannot load at all, marked
+  as worse geometry rather than a better default. Recorded in
+  `resolve_vlm_dtype`'s docstring, which is where someone will look.
+
+  Two findings fell out on the way. Geometry is not portable across
+  accelerators at a fixed dtype: bfloat16 on MPS disagreed with the
+  bfloat16-on-H200 ROIs this corpuscle shipped on all four plates — Pass 3b
+  output is hardware-bound, which nothing in the docs had claimed either way.
+  And the local VLM backend reported a missing `torch` as "transformers >= 4.45
+  is required", because it imports transformers first and named the package it
+  asked for rather than the one that failed. Fixed: `ImportError.name` carries
+  the module that actually broke, and it separates the cases cleanly — an
+  absent package and a missing symbol both report the module we asked for, a
+  broken dependency chain reports the link. `pipeline/optional_deps.py`, wired
+  into all three ML backends (`transformers`, `sentence_transformers`,
+  `anthropic`), which had the same latent bug. A confident wrong instruction
+  costs more than a vague one.
+- [x] **Surface why a re-run is doing more work than expected**
+  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Reassessed as this
+  document asked, and v1.3 had already built the computation — what remained
+  was reading it. The renderer printed one line per affected document, so 699
+  lines on the Viburnum corpuscle. Rolled up by reason, the case that matters
+  is one line: `docling_extraction: pipeline_version — all of 699 documents`,
+  which is the sentence #281 needed. Also attached to `corpus run --dry-run`.
+
+**Section status:** four of five done. #258 is hardware-blocked, not
+deferred — see its note. Two of the four fixes turned up a defect the issue
+did not name, which is now the expected outcome rather than a surprise.
 
 ### 3. Cheap, and better done at a version boundary
 
-- [ ] **Rename `_serve/`** ([#273](https://github.com/caseywdunn/corpus/issues/273)).
-  The one directory built to travel has the least descriptive name, and every
-  client pointed at it makes the rename dearer.
+- [x] **Rename `_serve/`** ([#273](https://github.com/caseywdunn/corpus/issues/273)).
+  Now `corpus_bundle/`. An existing `_serve/` is read and updated in place, so
+  no corpuscle needs rebuilding and no client breaks; the migration is one
+  `mv`, on the operator's schedule. The redundant basename check is removed
+  rather than renamed — the manifest was always the robust signal.
 - [ ] **Stop warning about a vision downgrade on phases that never run vision**
   ([#263](https://github.com/caseywdunn/corpus/issues/263)).
 - [ ] **Fix served-bundle absolute-path audit false positives**
@@ -732,28 +235,48 @@ severity. No fix here is complete while its failure mode is still quiet.
   actually covers it.
 - [ ] **Emit a progress heartbeat during long per-document stages**
   ([#170](https://github.com/caseywdunn/corpus/issues/170)).
-- [ ] **Retire `siphonophores_sample` for the 35 transcribed documents**
-  ([#192](https://github.com/caseywdunn/corpus/issues/192)).
-- [ ] **Column-store shape for `lexicon_matrix`**
-  ([#83](https://github.com/caseywdunn/corpus/issues/83)).
-- [ ] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
-  Measured on the 1775-document tree: 23,369 figures hold 15.0 GiB, median
-  1.27 MP against a p99 of 21.5 MP and a maximum of 204.6 MP — the mass is a
-  small tail. Figures are ~88% of the served bundle, so a cap roughly halves
-  what a colleague downloads. **77% of figure bytes sit in figures with no
-  detected panels**, including every one of the six largest, so the saving does
-  not have to come out of plate legibility: capping only those recovers
-  5.4 GiB at zero panel cost, where a flat 2000 px cap recovers 6.7 GiB but
-  costs the median panel 10%. Implementation gate — `rois == 0` is **not** a
-  safe proxy for "not a plate" (17% of *detected* panels are already under
-  300 px, so detection quality varies); a selective rule needs a second guard,
-  or use a flat 3000 px cap which costs ~3% and depends on nothing. Decide
-  whether it applies at build time, as a backfill through the existing
-  `tools/backfill_figure_dpi.py`, or both. Full analysis in the issue.
+- [x] **Retire `siphonophores_sample` for the 35 transcribed documents**
+  ([#192](https://github.com/caseywdunn/corpus/issues/192)). Already done in
+  this repo, and verified rather than assumed: `siphonophores_sample` has no
+  references left, BOUCHET.md documents the gold corpuscle as the smoke test,
+  and #187 already targets it (see Standing gates). BOUCHET.md's
+  checksum-verified materialisation recipe was run — 35 PDFs, all sha256s
+  matched — and every figure it and the issue cite re-measures exactly: 761
+  pages, ~644 needing OCR, 127 MB, one document over 100pp, Totton1965a at
+  314 pages carrying 49% of the OCR load.
+- [x] **Column-store shape for `lexicon_matrix`**
+  ([#83](https://github.com/caseywdunn/corpus/issues/83)). **Declined on
+  measurement**, and the grid bounded instead. The saving is real (16.4-20.0%)
+  but applies only to the opt-in `detail=True` grid, which runs 382 kB over
+  1,775 rows — 19% off an undeliverable payload is not a fix. The default view
+  callers use is 469-1,606 bytes. What the measurement did find is that #88
+  made the grid opt-in without ever bounding it, so it now has a ceiling and
+  honest counts.
+- [x] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
+  Decided and shipped: a flat `figures.max_pixels_long_side`, default 3000,
+  applied at build time on both write paths and available as a backfill flag.
+  Re-measured on the current tree (21,521 figures / 11.88 GiB): the cap
+  recovers 2.74 GiB (23%) and costs the median panel-detected figure **0%**,
+  because 95% of them are already under it. Two things the measurement
+  corrected. `max_dpi` cannot substitute — the byte mass is full plate pages
+  at an ordinary 400 dpi, so a density cap leaves a 16,000 px figure at
+  12,000. And the selective rule's advantage evaporates: capping only
+  no-panel figures recovers 0.03 GiB more, while `rois == 0` turns out to mean
+  "detection never ran" for 95% of figures, not "no panels" — weaker than the
+  gate here assumed.
   Analyses (A), (C) and (D) from the issue are done: pngquant was present, so
   that lever is spent; the OCR path is 58% of the corpus, not a minority.
   (B) is still worth running; (E) is stale archaeology and should be dropped;
   (F) colour depth stacks on top of a cap.
+
+**Section complete.** Two of the eight turned out to be decisions rather than
+builds, and both went against the issue's proposal once measured: #83's column
+store saves 19% of a payload that is undeliverable either way, and #184's
+selective rule is *worse* than the flat cap it was meant to improve on. Two
+others were already done and needed verifying rather than doing (#192) or
+argued for deleting code rather than adding it (#273's basename check). The
+recurring shape: the cheap items were cheap because the previous cycle had
+already done the hard part — what was left was reading it.
 
 ### 4. Decisions to record rather than defer again
 
@@ -761,19 +284,49 @@ Each of these is a judgment that keeps being re-derived. Write the answer down
 and close the issue, or scope the work — either is progress; leaving them open
 is not.
 
-- [ ] **OCR reproducibility** ([#280](https://github.com/caseywdunn/corpus/issues/280)):
-  pin `--jobs 1` for comparison builds, normalize whitespace before
-  fingerprinting, or accept a permanent criterion exclusion.
-- [ ] **`get_missing_references` scope**
-  ([#155](https://github.com/caseywdunn/corpus/issues/155)): v1.3 fixed the
-  tractable half and 96 title/year-only leads remain. Either carve another
-  cheap slice or declare the tool best-effort in its own docstring.
+- [x] **OCR reproducibility** ([#280](https://github.com/caseywdunn/corpus/issues/280)).
+  Decided: normalize CJK whitespace **in the comparison**, keep the criterion
+  exclusion, and do *not* pin `--jobs 1` — that hypothesis was tested and
+  fails. See Standing gates for the measurements.
+- [x] **`get_missing_references` scope**
+  ([#155](https://github.com/caseywdunn/corpus/issues/155)). Both, since they
+  are complementary. The cheap slice: rows with neither title nor year are
+  withheld — 477 of 6,953 at the default threshold, and they outranked real
+  gaps (`corpus:|unknown|`, empty-titled with 30 citations, sat 11th, above
+  the genuinely-missing Bigelow 1906). And the docstring — the MCP tool
+  description a client actually reads — now says the tool is best-effort, names
+  the residual 96 title/year-only leads, and points at `resolve_reference` and
+  the QC tool. The remaining cases need a per-block LLM pass or a similarity
+  threshold loose enough to merge distinct works; neither is a cheap slice.
 
 **Cycle acceptance:** every issue above is closed or has a recorded decision,
 and the open tracker contains only new capability and direction questions —
 nothing that describes the product being wrong. Issues close when their fix
 lands on `dev` (CONTRIBUTING.md, "Closing issues"), so the tracker should
 shrink continuously through the cycle rather than in a bulk close at release.
+
+**Met.** All four sections are closed: 22 issues, 34 open → 13, with the
+tracker holding only v1.5 skills work (#178, #179, #180, #217), direction
+questions (#88, #89, #93, #123), deferred layers (#13, #14, #38, #39), and one
+item blocked on hardware rather than on a decision (#258 — Apple Silicon).
+
+Two things this cycle established, worth carrying into v1.5:
+
+**Measure the population before writing the fix.** Nine of the twenty-two
+items had their shape changed by measurement, and in six the measurement
+contradicted the issue's own proposal — #83's column store saves 19% of a
+payload undeliverable either way; #184's selective rule is *worse* than the
+flat cap it was meant to improve; #280's `--jobs 1` remedy addresses a
+mechanism that does not reproduce; #175's author-only matcher would write
+wrong protologues at a 67% error rate; #266's headline symptom was already
+fixed while a worse one went unnamed; and #165's two named documents are not
+where its value is. A proposal in an issue is a hypothesis, including a
+convincing one.
+
+**Reassess before building.** #80, #192 and half of #155 turned out to be
+already done, or already built by the previous cycle with only the reading of
+it left. #273 argued for deleting a check rather than renaming it. Cheap items
+were cheap because someone had already done the hard part.
 
 Explicitly **not** in v1.4: the skills and client layer (v1.5), new extraction
 layers (#13, #14), bulk export (#93), `verify_claim` (#123), embedding-model
@@ -853,12 +406,22 @@ Issue-backed, in dependency-free groups.
   ([#164](https://github.com/caseywdunn/corpus/issues/164)) —
   `Ph. pelagica` resolves to nothing.
 - [ ] **Move the docling pin forward**
-  ([#98](https://github.com/caseywdunn/corpus/issues/98) follow-up).
-  Still `docling==2.94.0`. Reproduce on an arm64 Mac, determine whether
-  2.95/2.96 broke MPS extraction via an API change or an upstream bug,
-  then advance deliberately. Needs Apple-Silicon hardware. **v1.2's fidelity harness
-  ([#193](https://github.com/caseywdunn/corpus/issues/193)) gives this a
-  criterion it never had** — "better or worse" against the gold
+  ([#283](https://github.com/caseywdunn/corpus/issues/283), superseding the
+  [#98](https://github.com/caseywdunn/corpus/issues/98) follow-up). Still
+  `docling==2.94.0`; current is **2.126.0**, so the pin is 32 minor versions
+  behind. #98 asked whether 2.95 or 2.96 broke MPS extraction — **that box is
+  dropped, not carried.** Thirty versions on it is archaeology: whatever broke
+  has almost certainly been rewritten, and the answer would not say whether
+  2.126 works. The question with a consumer is "does current docling extract
+  correctly on arm64?", which is one test rather than a bisect. Needs
+  Apple-Silicon hardware; budget for API churn rather than a version bump,
+  since nobody has read docling's changelog across that range.
+
+  Two things make this a smaller bet than when #98 was written. #99's guard
+  now treats a corpus-wide zero-chunk result as a hard error, so the silent
+  empty-bundle failure that made 2.96 dangerous fails loudly. And **v1.2's
+  fidelity harness ([#193](https://github.com/caseywdunn/corpus/issues/193))
+  gives this a criterion it never had** — "better or worse" against the gold
   set rather than against impressions.
 
 **Operator surface**
@@ -882,12 +445,15 @@ Issue-backed, in dependency-free groups.
 
 **Housekeeping**
 
-- [ ] **The local VLM loads in float32 on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)). This is not part of
-  the bounded v1.3 hardening tranche: validate the actual 7B model on suitable
-  Apple Silicon, together with any move beyond the current docling pin. A
-  mocked dtype-selection test alone does not establish that half precision is
-  numerically and operationally sound on MPS.
+- [x] **The local VLM loads in float32 on MPS**
+  ([#258](https://github.com/caseywdunn/corpus/issues/258)). Closed in v1.4:
+  measured on an M2 Max and the default stays float32. Half precision keeps
+  every panel but moves the boxes (mean IoU 0.65–0.75 against float32, worst
+  panel 0.0), while two float32 runs agree at 1.0 — greedy decoding over digit
+  tokens, so a flipped digit moves a coordinate hundreds of pixels. The memory
+  premise stands unfixed: float32 measured 37.69 GB on Metal, so a 32 GB Mac
+  still cannot run the default, and `figures.vision_dtype` is the fallback
+  there with documented worse geometry.
 - [x] **CI now looks at the repo root.** Shipped in v1.2.1 as
   `tests/test_repo_root_is_clean.py`, an allowlist over `git ls-files`.
   A stray 9-byte `%PDF-1.4` fragment named `6` sat next to `README.md`
@@ -1005,6 +571,134 @@ held because nothing has yet made them worth the cost.
   shows up on a bill.
 - A thin HTML/web UI on top of the MCP server. Out of scope until the
   MCP-only experience has actual non-Claude-Desktop users.
+
+## Standing gates
+
+### What "an update is correct" means
+
+Established in v1.3 and permanent. Do not re-derive it, and do not restate it
+as byte equality — that was the old form, and it is not a property this
+pipeline has or should chase.
+
+> For every supported change class, an incremental run **re-processes exactly
+> the documents whose fingerprinted inputs changed and no others**; documents
+> it does not touch are left unchanged; and the resulting current document set,
+> cross-paper mappings and vector rows **match a clean rebuild**.
+
+Equality here is **semantic, not byte-for-byte**. Provenance that is not
+reproducible by construction is excluded from the comparison, and the exclusion
+list is explicit rather than assumed: the taxonomy snapshot's file hash (#278,
+since fixed), absolute build paths, local-VLM ROI coordinates, and CJK OCR
+whitespace segmentation (#280). Shortening that list is real work; ignoring it
+quietly is not.
+
+**The local-VLM exclusion is now measured, not assumed.** v1.4 ran the #258
+probe twice on one H200 at production `bfloat16`, same weights, same images,
+greedy decoding: ROI *counts* were identical on 4/4 figures, but only 3/4 held
+boxes within IoU 0.95, one landing at 0.899. So the geometry is not reproducible
+run to run on a fixed accelerator, not merely across accelerators. That is the
+mechanism behind the v1.4 rebuild's figure churn — 40 documents gained ROIs and
+42 lost them against the v1.3.0 build, a symmetry that is the signature of noise
+rather than a regression. The cause is greedy decoding over coordinate *digit*
+tokens: a reduction-order difference too small to matter flips a digit and a
+coordinate moves. Do not treat small ROI deltas between builds as a defect
+without first reproducing them.
+
+**Not covered by that measurement: discovery-mode figure *counts*.** The probe
+exercises panel detection against a known label set, where counts held. Bare-plate
+discovery asks the model how many figures it can see, and on `AgassizL1862ab`
+that went 56 -> 35 between the two builds with byte-identical input images.
+Whether that is the same nondeterminism amplified by an open-ended count, or
+something else, is unmeasured — do not assume it is noise on the strength of the
+panel-detection result.
+
+**On #280 specifically, the decision is made and the remedy is not `--jobs 1`.**
+The harness normalizes whitespace *between two CJK characters* before digesting
+(`tools/qc/build_reference.normalize_cjk_spacing`), so segmentation noise stops
+burying real differences — and it does that in the comparison only, never in the
+artifact or the stage fingerprint, because a fingerprint decides what re-runs.
+The `jobs=12` mechanism the issue proposed was tested and does not hold: both
+affected documents are byte-identical across repeated OCR runs at `--jobs` 1, 4
+and 12, and across `OMP_THREAD_LIMIT` 1, 4, 12 and unset, with docling
+deterministic on fixed input. Pinning `--jobs 1` would cost real build time for
+nothing. The underlying nondeterminism is real but its mechanism is still
+unidentified and does not reproduce on a workstation, so the exclusion stands
+rather than being traded for a guess.
+
+Two method notes that cost real time to learn, and will again:
+
+- **Incrementals must run in place.** A build tree embeds absolute paths in
+  `figures.json`, `summary.json` and `pipeline_state.json`; only `_serve/` is
+  scrubbed (#70). A copy relocated to another path reports every document as
+  changed, and the entire diff is path noise.
+- **One build per machine, or per node.** Two concurrent local builds blew the
+  per-page OCR timeout on 3-4 documents each and silently degraded the clean
+  side of the comparison. The quality gates did catch it, loudly.
+
+### Validate a release against the full corpus, not only the gold set
+
+v1.3's release validation rebuilt all 1775 siphonophore documents, and that run
+found four defects no unit test could reach: #278 (the taxonomy fingerprint
+hashed a file containing timestamps), #279 (concurrent Grobid jobs collide on a
+fixed port), #280 (CJK OCR whitespace is not reproducible), and #281 (the GPU
+vision phase re-extracted every document, turning 1h27m into a projected 35h
+that could not finish in one allocation). The gold set had passed cleanly
+beforehand. Scale is what surfaced them, so budget a full rebuild before a
+release rather than treating the 35-document set as sufficient.
+
+**T3-bare** stays waivable under its own "where platform behavior changed"
+clause — v1.3 recorded the first waiver — but re-run it at the next release
+that touches apt packages, the miniforge bootstrap, or a runtime dependency
+pin. None of those moved over `v1.2.1..HEAD`, which is why the waiver held.
+
+The gate v1.0 established is permanent now, and not a checklist item:
+
+> **A clean-room install from `environment.yaml` must be verified by CI,
+> not by hand, before a release is tagged.**
+
+v1.0.0 was the first release held to it — T3 ran on the release PR and
+was green on the release commit before the tag existed.
+
+Now that [`clean-room.yml`](../.github/workflows/clean-room.yml) (**T3**)
+lives on the default branch, all three of its triggers work: the weekly
+`schedule:` is the standing drift detector, `workflow_dispatch` is
+available (it returned `HTTP 404` while the lane sat on a feature
+branch), and **a pull request targeting `main` — which *is* the release
+proposal — runs the lane automatically**. That last one is the path that
+satisfies the gate before the merge rather than depending on someone
+remembering to dispatch it.
+
+[`dev_docs/ec2_smoke.sh`](ec2_smoke.sh) (**T3-bare**) stays manual and
+pre-release: it covers the one thing T3 cannot, the bare-host bootstrap
+(apt, miniforge install) on a real Ubuntu EC2 instance, against
+[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md)'s criteria.
+
+The per-push tiers (T0, T1/T2, T1-compose) and the full tier table live
+in [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+**"Re-measure the baselines" was the wrong ask, and is retired.** The
+recorded numbers (T0 at 623 passed / 2 skipped, `corpus_required` at 163
+/ 14 / 4, taken at `1dbb69a`) were treated as a regression reference.
+They cannot be one. T0 went 755 → 799 in a single afternoon of v1.1
+because tests were *added*, and a number that moves whenever someone
+writes a test is a changelog rather than a detector. The property that
+matters for T0 — zero failures — is already enforced by CI on every push,
+so the count adds nothing on top of it.
+
+What a real reference records is pipeline *output*: the #185 soft rates,
+quality-gate counts, and bundle manifest counts for a fixed corpus,
+diffed against a rebuild of that same corpus.
+[#187](https://github.com/caseywdunn/corpus/issues/187) specifies it and
+targets the **gold corpuscle** (built in v1.2) — big enough for a rate to mean
+something, small enough to rebuild per release. That comparison was run
+by hand against a viburnum rebuild during v1.1 and is what proved the
+3.4 GB → 2.3 GB drop was #184's re-encoding rather than lost content.
+
+The `--deselect` question that paragraph raised is answered: **none**.
+[#167](https://github.com/caseywdunn/corpus/issues/167) removed all three
+flags, T1 now runs bare `-m corpus_required`, and T2 additionally ignores
+`test_reference_extraction.py` because Grobid is disabled there. Both
+workflow files state the reasoning inline.
 
 ## Reference: target queries
 

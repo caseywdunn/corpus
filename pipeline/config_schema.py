@@ -115,6 +115,26 @@ class FiguresConfig(BaseModel):
         "full-page scan figure doesn't render to a pathologically large "
         "PNG. Default: uncapped.",
     )
+    vision_dtype: Literal["auto", "float32", "float16", "bfloat16"] = Field(
+        default="auto",
+        description="Weight dtype for the local VLM (#258). 'auto' is "
+        "bfloat16 on CUDA and float32 elsewhere — today's behaviour, kept "
+        "as the default because half precision on MPS has never actually "
+        "been run: ~30.4 GB of weights for a 7B model against ~15.2 GB at "
+        "bfloat16, which decides whether it fits a 32 GB Mac at all. Set "
+        "float16 or bfloat16 on Apple Silicon to try it; float32 is "
+        "correct on CPU. Also settable as CORPUS_VLM_DTYPE.",
+    )
+    max_pixels_long_side: Optional[int] = Field(
+        default=3000, ge=64, le=100000,
+        description="Ceiling on a saved figure's longest side, in pixels "
+        "(#184). Distinct from max_dpi, which bounds render *density*: the "
+        "byte mass is physically large plate pages at an ordinary 400 dpi, "
+        "which no density cap reaches. Measured on 21,521 figures / 11.9 GiB, "
+        "3000 px recovers 23% of figure bytes while costing the median "
+        "panel-detected figure 0% — 95% of detected panels are already under "
+        "it. null to disable.",
+    )
     images_scale: float = Field(
         default=2.0,
         ge=1.0,
@@ -204,6 +224,10 @@ class OcrConfig(BaseModel):
     )
     gibberish_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
     visual_script_gibberish_min: float = Field(default=0.40, ge=0.0, le=1.0)
+    # Share of unmappable glyph indices above which the text layer is
+    # treated as absent rather than noisy. See
+    # pipeline/scan.py `_unmappable_char_fraction`.
+    unmappable_char_max: float = Field(default=0.05, ge=0.0, le=1.0)
     # Per-page --tesseract-timeout. Generous on purpose: a timeout here
     # silently blanks the page. See pipeline/scan.py prepare_pdf.
     tesseract_page_timeout: int = Field(default=900, gt=0)
@@ -239,14 +263,111 @@ class ComputeConfig(BaseModel):
     — a GPU too old for the pinned torch fails every kernel launch rather
     than falling back. Pin ``cpu`` to take the decision out of play entirely;
     a pinned value is honoured verbatim.
+
+    ``require`` resolves exactly as ``auto`` does but fails instead of
+    falling back (#270). Use it wherever a GPU has been paid for: inside a
+    scheduler allocation, CPU is not a degraded success. A 2026-08-31 embed
+    job resolved to CPU on an allocated RTX 5000 Ada, logged one WARNING,
+    ran 181 of 1,775 documents in 75 minutes against a 4-hour wall, and was
+    cancelled by the cluster's 0%-GPU-utilization policy — a held GPU, a
+    policy strike, and a resubmission, all from a run that looked healthy.
+    Note pinning ``cuda`` is *not* a way to say this: it disables the
+    capability check rather than enforcing it, so the operator gets raw
+    per-launch `no kernel image` errors instead of one clear diagnosis.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    accelerator: Literal["auto", "cpu", "cuda", "mps"] = Field(
+    accelerator: Literal["auto", "cpu", "cuda", "mps", "require"] = Field(
         default="auto",
-        description="Device for docling layout/table models and embeddings.",
+        description="Device for docling layout/table models and embeddings. "
+                    "'require' fails rather than falling back to CPU.",
     )
+    # docling's AcceleratorOptions.num_threads, which is independent of
+    # OMP_NUM_THREADS and defaults to 4. None leaves docling's default
+    # alone. Lives here rather than under `docling` because it configures
+    # the accelerator, which is what this block is (#182).
+    num_threads: Optional[int] = Field(default=None, ge=1, le=256)
+
+
+class LoggingConfig(BaseModel):
+    """Run-log behaviour (#170).
+
+    During docling layout analysis the run log goes silent for minutes —
+    measured 3m20s on a 27-page scan, far longer on the 314-page Totton
+    monograph — and the last line before the gap is a docling banner, so
+    a reader tailing `run.log` cannot tell working from hung. More
+    pressing since v1.0 re-OCRs scans rather than trusting their text
+    layers: 31 of 35 papers in the smoke corpus now OCR where 4 did.
+
+    ``0`` disables the heartbeat. The first beat lands one interval in,
+    so a fast stage stays silent at any setting.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    heartbeat_seconds: float = Field(default=60.0, ge=0.0, le=3600.0)
+
+
+class DoclingConfig(BaseModel):
+    """Bounds on what docling's extraction holds in memory at once (#182).
+
+    Extraction is where a build's memory actually goes, and every one of
+    these was left at docling's default — so there was no way to bound a
+    build's footprint from configuration at all. On a 12-core / 32 GB
+    CPU-only host, 7 concurrent `--only extract` workers put three docling
+    processes in flight at once, one of them on a 314-page scan, and the
+    build died mid-stage with `oom_kill 2` in /proc/vmstat and no error in
+    any worker log. Dropping to 4 workers removed the symptom, but nothing
+    in the product said so.
+
+    ``None`` means "leave docling's own default alone", which is the
+    behaviour every build had before these existed. Setting them is opt-in
+    tuning, not a new default: picking numbers here for everyone would be
+    guessing at hardware we cannot see.
+
+    A cgroup cap is still the outer bound and belongs alongside these
+    rather than instead of them — see INSTALL.md. `MemoryHigh` throttles
+    by reclaim and only `MemoryMax` kills, so a capped build is squeezed
+    first and any kill lands inside its own cgroup instead of on a
+    bystander process.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Pages buffered in flight. docling's default is 100, which on a
+    # 314-page scan means most of the document can be resident at once.
+    queue_max_size: Optional[int] = Field(default=None, ge=1, le=1000)
+    layout_batch_size: Optional[int] = Field(default=None, ge=1, le=64)
+    ocr_batch_size: Optional[int] = Field(default=None, ge=1, le=64)
+    table_batch_size: Optional[int] = Field(default=None, ge=1, le=64)
+    # Per-document wall clock inside docling. Distinct from
+    # `stage_timeouts.docling`, which the pipeline enforces from outside:
+    # this one lets docling stop itself and return what it has.
+    document_timeout: Optional[float] = Field(default=None, gt=0)
+
+
+class EmbeddingsConfig(BaseModel):
+    """Embedding batch size (#182).
+
+    `LocalBackend` has taken a `batch_size` since it was written and its
+    docstring described it as the tuning lever for memory, but nothing
+    could reach it: `get_embedder()` forwards `**kwargs` and its only
+    caller built those from `--device` alone. So the documented knob was
+    unreachable from config, CLI and environment alike.
+
+    Worth knowing before reaching for it: on the 314-page monograph
+    (1,009 chunks) embedding peaked at 3.71 GB RSS, so it was *not* the
+    cause of the OOM that motivated this — the 11.7 GB `VmPeak` is
+    torch's reserved address space, not resident memory. Extraction is
+    where the pressure was. This exists because an unreachable documented
+    knob is its own defect, and because a GPU with less memory than the
+    host will want it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_size: Optional[int] = Field(default=None, ge=1, le=1024)
 
 
 class ChunkingConfig(BaseModel):
@@ -336,6 +457,9 @@ class CorpuscleConfig(BaseModel):
     # System-wide tuning blocks (carried from v0.2 _DEFAULT_CONFIG).
     ocr: OcrConfig = Field(default_factory=OcrConfig)
     compute: ComputeConfig = Field(default_factory=ComputeConfig)
+    docling: DoclingConfig = Field(default_factory=DoclingConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     stage_timeouts: StageTimeoutsConfig = Field(default_factory=StageTimeoutsConfig)
     huge_document: HugeDocumentConfig = Field(default_factory=HugeDocumentConfig)

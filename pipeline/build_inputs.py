@@ -26,6 +26,7 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
 
     scan = select("ocr", (
         "ocr_languages_default", "gibberish_threshold", "visual_script_gibberish_min",
+        "unmappable_char_max",
         "reocr_scanned_text_layers", "scan_page_fraction_min", "probe_language_by_ocr",
         "probe_language_min_confidence", "probe_max_languages", "probe_max_gibberish",
         "probe_dpi", "probe_sample_pages",

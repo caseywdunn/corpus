@@ -46,7 +46,7 @@ corpuscles/                      ← all siphonophore corpuscle builds
     config.yaml                  ← authored in step 3 (the source of truth)
     documents/<HASH>/…           ← per-paper artifacts (created by extract)
     *.sqlite, vector_db/         ← cross-paper DBs + LanceDB (created by embed/post)
-    _serve/                      ← distilled served bundle (created by bundle)
+    corpus_bundle/                      ← distilled served bundle (created by bundle)
   siphonophore_gold_YYYYMMDD/    ← smoke-test builds over the 35 transcribed
                                    documents (same structure; see below)
 cache/huggingface/               ← model cache (see below)
@@ -424,10 +424,17 @@ To bring one up and point this shell at it — this is what step 7 and a manual
 cd "$BOUCHET_PROJECT/corpus"
 GROBID_JOB=$(sbatch --parsable slurm/batch_grobid.sh)
 until [ "$(squeue -j "$GROBID_JOB" -h -o %T)" = RUNNING ]; do sleep 5; done
-export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):8070"
+
+# The port is derived from the job ID, not fixed at 8070 (#279) — a fixed port
+# is what let SLURM co-schedule two Grobid jobs onto one node and kill all but
+# the first. `corpus_grobid_port` is the same function the job itself used, so
+# deriving it here cannot drift; the job also echoes it as "Grobid URL:".
+source slurm/bouchet_paths.sh
+GROBID_PORT=$(corpus_grobid_port "$GROBID_JOB")
+export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):$GROBID_PORT"
 
 # The job reaching RUNNING only means SLURM started the container; Grobid
-# itself needs another ~30-60 s to load its models and bind :8070. The first
+# itself needs another ~30-60 s to load its models and bind the port. The first
 # few polls failing is expected, not an error — this is the same wait
 # slurm/batch_pipeline.sh does for you.
 for i in $(seq 1 60); do
@@ -444,8 +451,9 @@ within 5 minutes and the log is the place to look —
 `logs/slurm-grobid-$GROBID_JOB.err` for model loading, and
 `$BOUCHET_PROJECT/cache/grobid_logs/$GROBID_JOB/grobid-service.log` for the
 service itself. A healthy startup ends with
-`Started application@...{0.0.0.0:8070}`. Don't `scancel` a job that is merely
-still loading Wapiti models.
+`Started application@...{0.0.0.0:<port>}`, where `<port>` is the pair this job
+derived — the log line names it, and so does the job's own stdout. Don't
+`scancel` a job that is merely still loading Wapiti models.
 
 Read that service log **while the job is alive** — the job deletes its contents
 on exit. The now-empty `cache/grobid_logs/$GROBID_JOB/` directory usually
@@ -456,14 +464,14 @@ expected rather than a symptom; the next `batch_grobid.sh` submit sweeps them.
 `$GROBID_URL` overrides the config's `grobid.url` for this dynamically-allocated node
 (#138), for both `corpus run` and `corpus check`. It is honored only when set, so
 `config.yaml` stays authoritative on a standalone submit. Remember to `scancel
-"$GROBID_JOB"` when you're done — it holds a `week` allocation for 48 h.
+"$GROBID_JOB"` when you're done — it holds a `day` allocation for 24 h.
 
 In practice you don't submit Grobid by hand — `slurm/batch_pipeline.sh`
 (see [Production run](#production-run)) submits `slurm/batch_grobid.sh`, discovers the
 node, waits for `/api/isalive`, exports `$GROBID_URL` into the extract job, and tears
 Grobid down afterward. The manual path above exists for step 7 and for debugging —
 and because the orchestrator always starts its own, **cancel a hand-started Grobid
-before launching a production run** or it holds a `week` allocation for 48 h doing
+before launching a production run** or it holds a `day` allocation for 24 h doing
 nothing.
 
 ### 7. Preflight: `corpus check`
@@ -647,8 +655,9 @@ Optional knobs:
 | `NUM_PASS3B_BATCHES` | `1` | Pass 3b GPU array tasks. Deliberately *not* tied to `NUM_BATCHES` |
 | `PASS3B_BATCH_SIZE` | `256` | papers per Pass 3b task |
 | `HF_HUB_OFFLINE` | unset | `1` pins the run to the cached model snapshot; makes a build reproducible against a moving upstream (§5) |
+| `GROBID_MAX_WAIT` | `1800` (30 min) | Seconds the launcher waits for Grobid to reach RUNNING before giving up. Raise it when the queue is merely busy — check first with `sbatch --test-only slurm/batch_grobid.sh`, which prints the scheduler's estimated start. On timeout the launcher now **cancels the Grobid it submitted** rather than printing a `scancel` for you to run: it is documented as hands-off, so cleanup that needs a human watching the log is not cleanup |
 | `ENRICH_BHL` | unset | `1` adds BHL enrichment in finalize — slow, rate-limited, many hours |
-| `SKIP_BUNDLE` | unset | `1` runs the cross-paper DBs without distilling `_serve/` |
+| `SKIP_BUNDLE` | unset | `1` runs the cross-paper DBs without distilling `corpus_bundle/` |
 
 ### Before you launch
 
@@ -667,7 +676,7 @@ If that happens, `squeue --me`, cancel everything it created, and start over.
 *own* Grobid unconditionally — there is no way to hand it an existing one. It
 overwrites `$GROBID_URL` with its own job's node, and the cleanup job it
 schedules cancels only the job it started. A Grobid left over from §6 or §7 will
-therefore sit idle holding a `week` allocation for the full 48 hours.
+therefore sit idle holding a `day` allocation for the full 24 hours.
 
 ```bash
 # Find it — the job name is `grobid`:
@@ -820,11 +829,13 @@ For manual submission without the orchestrator (each phase reads `$CORPUS_CONFIG
 
 ```bash
 cd "$BOUCHET_PROJECT/corpus"
-export GROBID_URL=http://<grobid_node>:8070       # extract needs Grobid (step 6)
+# Port from `corpus_grobid_port "$GROBID_JOB"`, or off the Grobid job's stdout
+# ("Grobid URL:") — it is derived per job rather than fixed at 8070 (#279).
+export GROBID_URL=http://<grobid_node>:<port>     # extract needs Grobid (step 6)
 S1=$(sbatch --parsable --array=0-27 slurm/batch_process_corpus.sh)   # extract
 P=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_pass3b.sh)  # vision
 E=$(sbatch --parsable --dependency=afterok:$S1 slurm/batch_embed.sh)   # embed
-sbatch --dependency=afterok:$E:$P slurm/batch_finalize.sh              # post + bundle → _serve/
+sbatch --dependency=afterok:$E:$P slurm/batch_finalize.sh              # post + bundle → corpus_bundle/
 ```
 
 Size `--array` as `ceil(PDF files / BATCH_SIZE) - 1`; the orchestrator does this for you.
@@ -887,18 +898,18 @@ re-run is idempotent. Confirm the cross-paper SQLites landed:
 ls -la "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD"/{taxonomy,biblio_authority,taxon_mentions}.sqlite
 ```
 
-The bundle phase distills into `<output_dir>/_serve/` — for the production
-corpuscle that's `$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/`. This
+The bundle phase distills into `<output_dir>/corpus_bundle/` — for the production
+corpuscle that's `$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/corpus_bundle/`. This
 replaces the old standalone `package_for_serve.py` / `SERVE_BUNDLE_DIR`
-step: `_serve/` **is** the deployable artifact (path-scrubbed + audited +
+step: `corpus_bundle/` **is** the deployable artifact (path-scrubbed + audited +
 manifested). Re-distill any time with:
 
 ```bash
 corpus -c "$CORPUS_CONFIG" run --only bundle
-cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/_serve/bundle_manifest.json"
+cat "$BOUCHET_PROJECT/corpuscles/siphonophore_YYYYMMDD/corpus_bundle/bundle_manifest.json"
 ```
 
-`_serve/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](../DEPLOY.md) §5 (the host pulls it with `deploy/update.sh <version>`); §6 is the post-deploy smoke test.
+`corpus_bundle/` is what gets uploaded to S3 and consumed by the EC2 deploy — see [DEPLOY.md](../DEPLOY.md) §5 (the host pulls it with `deploy/update.sh <version>`); §6 is the post-deploy smoke test.
 
 ## Acceptance testing a completed build
 
@@ -929,20 +940,30 @@ python "$BOUCHET_PROJECT/corpus/tools/smoke_test_sse.py" \
 
 | Phase (`--only`) | Script | Partition | GPU? | Walltime |
 |---|---|---|---|---|
-| `extract` (OCR + docling + Grobid + Pass 2.5) | `slurm/batch_process_corpus.sh` | `day` | no | 24 h |
+| `extract` (OCR + docling + Grobid + Pass 2.5) | `slurm/batch_process_corpus.sh` | `day` | no | 20 h |
 | `vision` (Pass 3b + 3c, Qwen2.5-VL-7B) | `slurm/batch_pass3b.sh` | `gpu_h200` | 1 | 24 h |
 | `embed` (BGE-M3) | `slurm/batch_embed.sh` | `gpu` | 1 | 4 h |
 | `post` + `bundle` (cross-paper DBs + served bundle) | `slurm/batch_finalize.sh` | `day` | no | 12 h |
-| (Grobid service) | `slurm/batch_grobid.sh` | `week` | no | 48 h |
+| (Grobid service) | `slurm/batch_grobid.sh` | `day` | no | 24 h |
 
 Each script runs `corpus -c "$CORPUS_CONFIG" run --only <phase>`. Adjust walltimes as the corpus grows.
 
-Grobid sits on `week`/48 h rather than `day`/24 h **on purpose**: it is submitted
-before extract, so an equal wall guaranteed it died first. Papers extract handles
+Grobid must outlive extract, and this is **not** a preference. It is submitted
+before extract, so an equal wall guarantees it dies first. Papers extract handles
 after Grobid dies get placeholder metadata, and implicit resume will not retry them
 (their inputs are unchanged) — a silent quality loss. It costs nothing to outlive
 extract, because the `afterany` grobid-cancel job tears the service down the moment
-extract ends. **Keep Grobid's walltime strictly greater than extract's.**
+extract ends. **Keep Grobid's walltime strictly greater than extract's** —
+`tests/test_grobid_outlives_stage1.py` fails if that stops being true.
+
+That ordering used to be bought by putting Grobid on `week`/48 h. It is now bought
+by the walltimes instead — Grobid takes `day`'s full 24 h and extract asks for 20 h,
+a four-hour gap. The change was forced: on 2026-09-08 `week` held 20 idle CPUs of
+1792 and the scheduler estimated a **four-day wait** for Grobid's 4-CPU request,
+while `day` — the partition extract itself runs on — had roughly 2000 idle. A
+service job queued four days behind its own consumer is not a safety margin. Note
+also that Bouchet rejects a `week` submission shorter than 24 h, so shortening the
+old wall was not an option; the partition had to change with it.
 
 The per-user QoS caps that actually bind these submissions (`sacctmgr show qos`,
 2026-08-01):

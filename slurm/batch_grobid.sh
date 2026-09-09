@@ -1,30 +1,48 @@
 #!/bin/bash
 #SBATCH --job-name=grobid
-#SBATCH --partition=week
+#SBATCH --partition=day
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=2-00:00:00
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-grobid-%j.out
 #SBATCH --error=logs/slurm-grobid-%j.err
 #
 # Long-running Grobid service for stage 1 to talk to.
 #
-# `week`/48 h rather than `day`/24 h: this job is submitted *before*
-# stage 1 and `day` caps at 24 h, so an equal wall guaranteed Grobid
-# died first. Papers stage 1 processes after that get placeholder
-# metadata, and implicit resume will NOT retry them — their inputs are
-# unchanged — so the loss is silent. Outliving stage 1 costs nothing:
-# the `afterany` grobid-cancel job in batch_pipeline.sh tears this down
-# as soon as stage 1 ends, however it ends.
+# This job must outlive stage 1. It is submitted *before* stage 1, so an
+# equal wall guarantees Grobid dies first — and papers stage 1 processes
+# after that get placeholder metadata, which implicit resume will NOT
+# retry because their inputs are unchanged. The loss is silent, which is
+# why the ordering matters more than the absolute wall.
+#
+# That invariant used to be bought with `week`/48 h. It is now bought
+# structurally instead: Grobid gets `day`'s full 24 h and
+# batch_process_corpus.sh asks for 20 h, so Grobid outlives stage 1 by
+# four hours no matter how long stage 1 runs. **Keep that gap.** If you
+# raise stage 1's wall, raise it below this one or move both.
+#
+# The reason for the change is that `week` had become unusable: on
+# 2026-09-08 it held 20 idle CPUs of 1792 and the scheduler estimated a
+# *four day* wait for this 4-CPU job, while `day` — which stage 1 itself
+# runs on — had ~2000 idle. A service job queued four days behind its
+# own consumer is not a safety margin.
+#
+# Outliving stage 1 costs nothing: the `afterany` grobid-cancel job in
+# batch_pipeline.sh tears this down as soon as stage 1 ends, however it
+# ends.
 #
 # Usage:
 #     GROBID_JOB=$(sbatch --parsable batch_grobid.sh)
 #     # wait for running, grab the node name, then export for stage 1:
 #     until [ "$(squeue -j "$GROBID_JOB" -h -o %T)" = RUNNING ]; do sleep 5; done
-#     export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):8070"
+#     source bouchet_paths.sh   # for corpus_grobid_port
+#     PORT=$(corpus_grobid_port "$GROBID_JOB")
+#     export GROBID_URL="http://$(squeue -j "$GROBID_JOB" -h -o %N):$PORT"
 #     # RUNNING only means SLURM started the container. Grobid needs another
-#     # ~30-60 s to load its models and bind :8070, so poll before using it —
+#     # ~30-60 s to load its models and bind the port, so poll before using it —
 #     # a "Connection refused" in that window is startup, not failure.
+#     # The port is derived from the job ID, not fixed at 8070 (#279); the job's
+#     # own stdout echoes it as "Grobid URL:" if you would rather read it off.
 #     until curl -fsS "$GROBID_URL/api/isalive" >/dev/null 2>&1; do sleep 5; done
 #     sbatch batch_process_corpus.sh
 #
@@ -95,20 +113,46 @@ echo "Grobid host: $(hostname)"
 echo "Grobid tmp:  $GROBID_TMP"
 echo "Starting at $(date)"
 
-# Grobid binds a fixed port 8070, and SLURM is free to co-schedule two of these
-# jobs on one node -- at which point the second dies ~10 s in with a Jetty
-# BindException buried under 40 lines of Java stack trace (#279). Say so
-# plainly instead, because the failure mode downstream is nasty: this job has
-# already reached RUNNING, so a pipeline waiting on job state alone will point
+# A port of this job's own, so SLURM co-scheduling two of these on one node
+# is no longer fatal (#279). Derived from the job ID by the shared function in
+# bouchet_paths.sh; batch_pipeline.sh derives the same pair from the same job
+# ID, so the client cannot drift from the server.
+GROBID_PORT=$(corpus_grobid_port "${SLURM_JOB_ID:-0}")
+GROBID_ADMIN_PORT=$(corpus_grobid_admin_port "${SLURM_JOB_ID:-0}")
+
+# Both connectors have to move, and this is the part that is easy to get
+# wrong: Dropwizard binds an *admin* connector besides the application one
+# (default 8071), so overriding only the application port still dies with the
+# same BindException. Verified against lfoppiano/grobid:0.8.1 — with just
+# `applicationConnectors[0].port` changed, a second instance on a shared
+# network exits 1 on `java.net.BindException: Address already in use`; with
+# both changed, three instances ran side by side and returned byte-identical
+# TEI for the same PDF.
+#
+# `dw.`-prefixed system properties are Dropwizard's own config-override
+# mechanism, so this needs no change to Grobid or to the image. GROBID_SERVICE_OPTS
+# in the image carries the java.library.path and --add-opens flags the service
+# needs; JAVA_OPTS is separate and unset by default, so setting it clobbers
+# nothing. SINGULARITYENV_ is the prefix both Singularity 3.x and Apptainer
+# honour, unlike `--env`, whose support depends on the runtime version.
+export SINGULARITYENV_JAVA_OPTS="-Ddw.server.applicationConnectors[0].port=$GROBID_PORT -Ddw.server.adminConnectors[0].port=$GROBID_ADMIN_PORT"
+
+# Backstop for the derivation, not the main defence: two concurrent jobs land
+# on the same pair only if their IDs are congruent mod 400. Say so plainly if
+# it ever happens, because the downstream failure mode is nasty — this job has
+# already reached RUNNING, so a pipeline waiting on job state alone would point
 # Stage 1 at this node and be served by the *other* chain's Grobid.
-if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':8070[[:space:]]'; then
-    echo "ERROR: port 8070 is already bound on $(hostname)." >&2
-    echo "       Another Grobid job is running here; this one cannot start (#279)." >&2
-    echo "       Concurrent builds need one Grobid per node. Either share a single" >&2
-    echo "       server by passing GROBID_URL to batch_process_corpus.sh, or submit" >&2
-    echo "       this job with --exclusive so SLURM will not co-schedule two." >&2
+if command -v ss >/dev/null 2>&1 && \
+   ss -ltn 2>/dev/null | grep -qE ":($GROBID_PORT|$GROBID_ADMIN_PORT)[[:space:]]"; then
+    echo "ERROR: port $GROBID_PORT or $GROBID_ADMIN_PORT is already bound on $(hostname)." >&2
+    echo "       Another Grobid job derived the same pair from its job ID (#279)." >&2
+    echo "       Resubmit — the next job ID will map elsewhere — or share a single" >&2
+    echo "       server by passing GROBID_URL to batch_process_corpus.sh." >&2
     exit 1
 fi
+
+echo "Grobid port: $GROBID_PORT (admin $GROBID_ADMIN_PORT)"
+echo "Grobid URL:  http://$(hostname):$GROBID_PORT"
 
 singularity run \
     --pwd /opt/grobid \

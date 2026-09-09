@@ -114,10 +114,14 @@ fi
 # already forces --refresh-vision / --no-grobid / --no-taxa internally;
 # we only pin the backend to the local Qwen2.5-VL with --figure-panels
 # vision-local. Resume is implicit. No Grobid needed (#138).
-echo "corpus -c $CORPUS_CONFIG run --only vision --figure-panels vision-local ${BATCH_ARGS[*]}"
+# --require-gpu (#270): same reasoning as batch_embed.sh. A vision pass on
+# CPU is worse than pointless — it holds an h200 at 0% utilization while
+# running a 7B VLM on cores.
+echo "corpus -c $CORPUS_CONFIG run --only vision --figure-panels vision-local --require-gpu ${BATCH_ARGS[*]}"
 
 corpus -c "$CORPUS_CONFIG" run --only vision \
     --figure-panels vision-local \
+    --require-gpu \
     "${BATCH_ARGS[@]}"
 
 echo "Pass 3b + 3c completed at $(date)"

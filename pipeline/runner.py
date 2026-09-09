@@ -122,6 +122,18 @@ def _docling_log_context(pdf_name: str, short_hash: str):
             h.removeFilter(filt)
 
 
+def _pages_note(processing_summary: Dict[str, Any]) -> str:
+    """`" (314 pages)"` for a heartbeat line, or empty when unknown.
+
+    The two stages that go silent for minutes are OCR and docling layout,
+    and page count is the whole explanation — 3m20s on a 27-page scan,
+    far longer on the 314-page Totton monograph (#170). Recorded by the
+    huge_document_check stage, which runs first.
+    """
+    n = processing_summary.get("page_count")
+    return f" ({n} pages)" if n else ""
+
+
 def run_pdf_processing_pipeline(
     pdf_path: Path,
     hash_dir: Path,
@@ -191,7 +203,7 @@ def run_pdf_processing_pipeline(
         page_selection: List[int] = []
         selection_warnings: List[str] = []
         if keeppages:
-            with _stage(processing_summary, "page_selection", hash_dir=hash_dir):
+            with _stage(processing_summary, "page_selection", logger_=plog, hash_dir=hash_dir):
                 page_selection, selection_warnings = selection_for(
                     keeppages, temp_pdf, name=pdf_name)
                 subset_pdf = temp_dir / f"{pdf_name}.subset.pdf"
@@ -207,7 +219,7 @@ def run_pdf_processing_pipeline(
         # before any expensive stage runs. Runs *after* the selection so a
         # 6,000-page bound volume can be brought into scope by selecting the
         # paper out of it — which is what the gate's own error text asks for.
-        with _stage(processing_summary, "huge_document_check", hash_dir=hash_dir,
+        with _stage(processing_summary, "huge_document_check", logger_=plog, hash_dir=hash_dir,
                     input_fingerprint={"config": run_config_fingerprints["huge_document_check"]}):
             max_pages = int(CONFIG.get("huge_document", {}).get("max_pages", 5000))
             n_pages = _pdf_page_count(temp_pdf)
@@ -246,7 +258,7 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("scan_detection", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary,
                              expected_fingerprint=scan_fingerprint):
-            with _stage(processing_summary, "scan_detection", hash_dir=hash_dir,
+            with _stage(processing_summary, "scan_detection", logger_=plog, hash_dir=hash_dir,
                         input_fingerprint=scan_fingerprint):
                 plog.info("Detecting scan type...")
                 if ocrlang:
@@ -279,7 +291,8 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("pdf_preparation", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary,
                              expected_fingerprint=prep_fingerprint):
-            with _stage(processing_summary, "pdf_preparation", hash_dir=hash_dir,
+            with _stage(processing_summary, "pdf_preparation", logger_=plog,
+                        heartbeat_detail=_pages_note(processing_summary), hash_dir=hash_dir,
                         input_fingerprint=prep_fingerprint):
                 plog.info("Preparing PDF...")
                 ocr_outcome = prepare_pdf(temp_pdf, detection_result, processed_pdf)
@@ -304,7 +317,8 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("docling_extraction", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary,
                              expected_fingerprint=ocr_fingerprints.get("docling_extraction", {})):
-            with _stage(processing_summary, "docling_extraction", hash_dir=hash_dir,
+            with _stage(processing_summary, "docling_extraction", logger_=plog,
+                        heartbeat_detail=_pages_note(processing_summary), hash_dir=hash_dir,
                         input_fingerprint=ocr_fingerprints.get("docling_extraction", {})):
                 plog.info("Extracting text and figures...")
                 with _docling_log_context(pdf_name, hash_dir.name):
@@ -323,7 +337,7 @@ def run_pdf_processing_pipeline(
                              resume=resume, processing_summary=processing_summary,
                              expected_fingerprint=ocr_fingerprints.get("metadata_extraction", {})):
             metadata_fp = dict(ocr_fingerprints["metadata_extraction"])
-            with _stage(processing_summary, "metadata_extraction", hash_dir=hash_dir,
+            with _stage(processing_summary, "metadata_extraction", logger_=plog, hash_dir=hash_dir,
                         input_fingerprint=metadata_fp):
                 plog.info("Extracting metadata (Grobid)...")
                 bib_entry = bib_index.lookup(pdf_path.name) if bib_index is not None else None
@@ -354,7 +368,7 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("text_chunking", hash_dir=hash_dir,
                              resume=resume, processing_summary=processing_summary,
                              expected_fingerprint=ocr_fingerprints.get("text_chunking", {})):
-            with _stage(processing_summary, "text_chunking", hash_dir=hash_dir,
+            with _stage(processing_summary, "text_chunking", logger_=plog, hash_dir=hash_dir,
                         input_fingerprint=ocr_fingerprints.get("text_chunking", {})):
                 plog.info("Chunking text...")
                 chunk_text(text_file, chunks_output=chunks_file)
@@ -366,20 +380,20 @@ def run_pdf_processing_pipeline(
             "figure_materialization", hash_dir=hash_dir, resume=resume,
             processing_summary=processing_summary, expected_fingerprint=figure_fp)
         if refresh_figures:
-            with _stage(processing_summary, "figure_materialization", hash_dir=hash_dir,
+            with _stage(processing_summary, "figure_materialization", logger_=plog, hash_dir=hash_dir,
                         input_fingerprint=figure_fp):
                 if "docling_extraction" in processing_summary["skipped_stages"]:
                     rebuild_figure_base(hash_dir, extract_docling_content)
-                with _stage(processing_summary, "figure_pass25_annotation", hash_dir=hash_dir):
+                with _stage(processing_summary, "figure_pass25_annotation", logger_=plog, hash_dir=hash_dir):
                     _pass25_annotate_figures(text_file, figures_file)
                 if vision_backend is not None:
-                    with _stage(processing_summary, "figure_pass3b_rois", hash_dir=hash_dir):
+                    with _stage(processing_summary, "figure_pass3b_rois", logger_=plog, hash_dir=hash_dir):
                         _pass3b_annotate_rois(figures_file, vision_backend)
                 elif content_aware_figures:
-                    with _stage(processing_summary, "figure_pass3a_rois", hash_dir=hash_dir):
+                    with _stage(processing_summary, "figure_pass3a_rois", logger_=plog, hash_dir=hash_dir):
                         _pass3a_annotate_rois(figures_file)
                 if vision_backend is not None or content_aware_figures:
-                    with _stage(processing_summary, "figure_pass3c_resolve", hash_dir=hash_dir):
+                    with _stage(processing_summary, "figure_pass3c_resolve", logger_=plog, hash_dir=hash_dir):
                         resolve_compound_figures(figures_file)
                 processing_summary["processing_steps"].append("figure_materialization")
 
@@ -387,7 +401,7 @@ def run_pdf_processing_pipeline(
         if _should_run_stage("figure_crossref", hash_dir=hash_dir,
                              resume=resume and not refresh_figures,
                              processing_summary=processing_summary, expected_fingerprint=crossref_fp):
-            with _stage(processing_summary, "figure_crossref", hash_dir=hash_dir,
+            with _stage(processing_summary, "figure_crossref", logger_=plog, hash_dir=hash_dir,
                         input_fingerprint=crossref_fp):
                 plog.info("Linking chunks to figures...")
                 _crossref_chunks_and_figures(figures_file, chunks_file)
@@ -420,7 +434,7 @@ def run_pdf_processing_pipeline(
             processing_summary=processing_summary,
             expected_fingerprint=taxa_anat_fingerprint,
         ):
-            with _stage(processing_summary, "taxa_and_lexicon_extraction",
+            with _stage(processing_summary, "taxa_and_lexicon_extraction", logger_=plog,
                         hash_dir=hash_dir, input_fingerprint=taxa_anat_fingerprint):
                 plog.info("Extracting taxa + lexicon mentions...")
                 taxa_anat_files = _extract_taxa_and_lexicons(
@@ -441,14 +455,14 @@ def run_pdf_processing_pipeline(
         # After every pass that rewrites figures.json, before the report
         # renders from it.
         if page_selection and (refresh_figures or "text_chunking" not in processing_summary["skipped_stages"]):
-            with _stage(processing_summary, "source_page_mapping", hash_dir=hash_dir):
+            with _stage(processing_summary, "source_page_mapping", logger_=plog, hash_dir=hash_dir):
                 n = annotate_source_pages([figures_file, text_file, chunks_file],
                                           page_selection)
                 plog.info("keeppages: mapped %d page number(s) back to the source", n)
 
         # Unlike ROI/caption materialization, this cheap report reads the
         # bibliographic header, so a metadata edit must refresh its title/year.
-        with _stage(processing_summary, "figures_report", hash_dir=hash_dir):
+        with _stage(processing_summary, "figures_report", logger_=plog, hash_dir=hash_dir):
             plog.info("Generating figures report...")
             report_path = generate_figures_report(hash_dir)
             if report_path:
@@ -459,7 +473,7 @@ def run_pdf_processing_pipeline(
         # Run after success so artifacts are populated. A failed gate
         # records a quality_flag in summary.json but does not fail the
         # paper; corpus_status.py (#40) rolls these up for review.
-        with _stage(processing_summary, "quality_gates", hash_dir=hash_dir,
+        with _stage(processing_summary, "quality_gates", logger_=plog, hash_dir=hash_dir,
                     input_fingerprint={"config": run_config_fingerprints["quality_gates"]}):
             qgs = _run_quality_gates(hash_dir)
             processing_summary["quality_flags"] = qgs

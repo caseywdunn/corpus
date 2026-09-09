@@ -51,7 +51,8 @@ logger = logging.getLogger("backfill_figure_dpi")
 
 
 def _backfill_paper(hash_dir: Path, *, native: bool, fixed_scale: float,
-                    vector_dpi: float, max_dpi, dry_run: bool) -> dict:
+                    vector_dpi: float, max_dpi, pixel_cap=None,
+                    dry_run: bool = False) -> dict:
     """Re-render one paper's figures from its processed.pdf, via the shared
     pipeline.figures.render_figures — the exact logic the extraction stage's
     native default uses. Writes figures.json back when anything rendered."""
@@ -69,7 +70,8 @@ def _backfill_paper(hash_dir: Path, *, native: bool, fixed_scale: float,
     stats = render_figures(
         src_pdf, figures, hash_dir / "figures",
         native=native, fixed_scale=fixed_scale, vector_dpi=vector_dpi,
-        max_dpi=max_dpi, dry_run=dry_run, label_prefix=f"{hash_dir.name}/",
+        max_dpi=max_dpi, pixel_cap=pixel_cap, dry_run=dry_run,
+        label_prefix=f"{hash_dir.name}/",
     )
     stats["skipped_no_src"] = 0
     if not dry_run and stats["rendered"]:
@@ -96,6 +98,15 @@ def main(argv: Optional[list] = None) -> int:
     parser.add_argument("--vector-dpi", type=float, default=300.0,
                         help="--native fallback DPI for vector figures (no native "
                              "resolution exists). Default 300.")
+    parser.add_argument("--max-pixels-long-side", type=int, default=None,
+                        metavar="PX",
+                        help="Cap each figure's longest side, in pixels "
+                             "(#184). Distinct from --max-dpi: the byte mass "
+                             "is physically large plate pages at an ordinary "
+                             "400 dpi, which no density cap reaches. 3000 "
+                             "recovers ~23%% of figure bytes on the reference "
+                             "tree at 0%% cost to the median panel-detected "
+                             "figure.")
     parser.add_argument("--max-dpi", type=float, default=None,
                         help="--native ceiling, to bound pathological full-page "
                              "scans. Default: uncapped.")
@@ -142,7 +153,8 @@ def main(argv: Optional[list] = None) -> int:
         totals["papers"] += 1
         s = _backfill_paper(
             hash_dir, native=args.native, fixed_scale=args.scale,
-            vector_dpi=args.vector_dpi, max_dpi=args.max_dpi, dry_run=args.dry_run,
+            vector_dpi=args.vector_dpi, max_dpi=args.max_dpi,
+            pixel_cap=args.max_pixels_long_side, dry_run=args.dry_run,
         )
         for k, v in s.items():
             totals[k] += v

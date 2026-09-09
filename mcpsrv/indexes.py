@@ -15,6 +15,7 @@ tools.
 """
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 from collections import defaultdict
@@ -679,6 +680,34 @@ class BiblioAuthority:
             (work_id,),
         )
         return [dict(r) for r in cur]
+
+    def authority_linking(self) -> Dict:
+        """Whether authority linking can work for this bundle's taxonomy.
+
+        Authority linking matches a taxon's authorship against a work by
+        author *and year* — the zoological (ICZN) convention. Botanical
+        (ICN) authorship is author-only by correct citation practice, so
+        there is nothing to match on and the build links nothing (#175).
+        Phase 3 records its verdict in `build_meta`; reading it here is
+        what lets `get_original_description` distinguish "no protologue
+        for this taxon" from "this corpuscle cannot answer the question".
+
+        Returns ``{"supported": None, "convention": "unknown"}`` for a
+        bundle built before the verdict was recorded, which is honest:
+        absence of the row is not evidence either way.
+        """
+        try:
+            row = self.conn.execute(
+                "SELECT value FROM build_meta WHERE key = 'authority_linking'"
+            ).fetchone()
+        except sqlite3.Error:
+            return {"supported": None, "convention": "unknown"}
+        if not row or not row[0]:
+            return {"supported": None, "convention": "unknown"}
+        try:
+            return json.loads(row[0])
+        except (TypeError, ValueError):
+            return {"supported": None, "convention": "unknown"}
 
     def work_for_taxon(self, taxon_id: int) -> List[Dict]:
         cur = self.conn.execute(

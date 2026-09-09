@@ -176,10 +176,17 @@ def ingest_paper(conn: sqlite3.Connection, corpus_hash: str,
             parse_chunk_index(chunk_id),
             span[0] if len(span) > 0 else 0,
             span[1] if len(span) > 1 else 0,
-            m.get("matched_text", ""),
+            # What is printed on the page, which is not the resolved name
+            # when the genus was abbreviated (#164). `matched_name` above
+            # carries the resolution; these two columns have always been
+            # separate and were being written the same value.
+            m.get("mention_text") or m.get("matched_text", ""),
             m.get("name_type", ""),
             1.0,
-            "regex_taxonomy",
+            # An expanded abbreviation is an inference from the document's
+            # own genus list, not a name read off the page. A query that
+            # needs only verbatim evidence can filter on this.
+            m.get("method") or "regex_taxonomy",
         ))
 
     conn.executemany(

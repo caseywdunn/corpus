@@ -3596,6 +3596,43 @@ def figure_rect_for_bbox(bbox, coord_system: str, page_height: float):
     return None
 
 
+def cap_scale_to_pixels(rect_w: float, rect_h: float, scale: float, cap):
+    """Reduce ``scale`` so the rendered figure's longest side fits ``cap``.
+
+    Returns ``(scale, capped)``. ``cap`` of ``None`` or a figure already
+    inside it returns the scale unchanged.
+
+    The bound is the cap within a pixel or two, not to the pixel:
+    PyMuPDF sizes a pixmap from the integer rect of the transformed
+    clip, which does not depend only on ``rect * scale``, so a figure
+    capped to 3000 can come back 3001. Aiming half a pixel under the cap
+    narrows that without pretending to eliminate it, and the difference
+    is 0.03% of the figure — the saving this exists for is 45%.
+
+    A *pixel* ceiling, not a DPI one, and the two are not
+    interchangeable (#184). Measured on the 1,775-document reference
+    tree, the byte-heavy figures are full plate pages at an ordinary
+    400 dpi — 11-17 MB each, up to 16,237 px on a side — so a density cap
+    does not reach them: capping 400 dpi to 300 leaves a 16,000 px figure
+    at 12,000 px.
+
+    3000 px is the default because it is free where it matters. Of 1,015
+    figures with detected panels, 966 (95%) are already under it and the
+    median one loses 0%; across all 21,521 figures it recovers 2.74 GiB of
+    11.88 GiB (23%). A rule that instead capped only figures with no
+    detected panels recovers 2.71 GiB — 0.03 GiB more — while depending on
+    `rois == 0`, which on this tree means "detection never ran" for 95% of
+    figures rather than "has no panels". So the flat cap, which depends on
+    nothing.
+    """
+    if not cap:
+        return scale, False
+    longest = max(rect_w, rect_h) * scale
+    if longest <= cap:
+        return scale, False
+    return scale * ((cap - 0.5) / longest), True
+
+
 def native_render_scale(doc, page, rect, vector_dpi: float, max_dpi):
     """Per-figure render scale for native mode (#121). Returns
     ``(scale, dpi, mode)``.
@@ -3644,6 +3681,7 @@ def render_figures(
     fixed_scale: float = 2.0,
     vector_dpi: float = 300.0,
     max_dpi=None,
+    pixel_cap=None,
     dry_run: bool = False,
     label_prefix: str = "",
 ) -> Dict[str, int]:
@@ -3655,6 +3693,10 @@ def render_figures(
     are skipped (already native via raw xref). Mutates each rendered
     ``fig`` with ``width``/``height``/``images_scale``/``render_dpi``/
     ``resolution_mode``. Returns counts.
+
+    ``pixel_cap`` bounds each saved figure's longest side in pixels
+    (#184) — see :func:`cap_scale_to_pixels` for why that is a different
+    control from ``max_dpi`` and not substitutable by it.
     """
     import fitz
 
@@ -3690,6 +3732,11 @@ def render_figures(
                 scale, dpi, mode = native_render_scale(doc, pg, rect, vector_dpi, max_dpi)
             else:
                 scale, dpi, mode = fixed_scale, round(fixed_scale * 72), "fixed"
+            scale, was_capped = cap_scale_to_pixels(
+                rect.width, rect.height, scale, pixel_cap)
+            if was_capped:
+                dpi = round(scale * 72)
+                mode = f"{mode}+pixel_capped"
 
             if dry_run:
                 logger.info("[dry-run] %s%s → %d×%d px (%d dpi, %s)",

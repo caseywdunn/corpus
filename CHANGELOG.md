@@ -5,6 +5,610 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-09
+
+### Theme — v1.4 silent wrongs and the hazards behind them
+
+v1.3 made the pipeline show where evidence came from. This cycle went after
+what survives behind that: results that are wrong without saying so, and build
+hazards that cost hours per run without ever failing.
+
+The organizing complaint is that a wrong answer and a right one looked the
+same. A text layer of unmappable glyph indices counted as clean, so one paper
+was indexed as 1,200 fragments of `/G52/G55/G4C/G4A/` and language-detected as
+Swahili. OCR language packs were picked from a text layer already known to be
+broken. An OSD script verdict was acted on without corroboration, so a Latin
+page could be re-OCR'd as Russian. `Ph. pelagica` resolved to nothing.
+`corpus status` ignored a filter in silence, and `compute.accelerator` was
+honoured by one stage and ignored by the next. None of these announced
+themselves; every one of them changed an answer.
+
+So the work was making wrongness visible or impossible: detection that
+corroborates before it acts, expansion that resolves what the literature
+actually writes, MCP tools that report what they returned rather than only
+whether they cut something off, and stages that fail loudly instead of
+degrading. Alongside it, the operational hazards that make a build unreliable
+at scale — Grobid jobs colliding on a fixed port, a GPU allocation quietly
+becoming a CPU one, a build with no way to bound its memory, and long stages
+with no sign of life.
+
+Nine of the cycle's twenty-two items had their shape changed by measurement
+before they were written, six of them against the issue's own proposal, and
+six turned out to need deletion or nothing at all rather than new code. The
+release rebuild of all 1,775 documents then found two more defects that no
+unit test reached, which is the argument for keeping that gate.
+
+### Added
+
+- **Extraction failure records no longer outlive the failure.** The v1.4
+  full-corpus rebuild finished with all 1775 documents complete and all 28
+  Stage 1 array tasks exiting 0, while `stage1_failures.json` still named one
+  document as crashed by signal 9 — written by an earlier run, and nothing ever
+  removed it. A finished corpuscle carried a failure record indistinguishable
+  from a live one.
+
+  Clearing the file on the success path is the obvious fix and is wrong: 28
+  array tasks share one `output_dir`, so a shard that finished cleanly would
+  delete the record a still-failing shard had just written, trading a stale
+  record for a lost one. Records are now written one file per shard under
+  `stage1_failures/`, and a shard rewrites or retracts only its own. An
+  unsharded run processed every document, so it alone also clears stale shard
+  records and the legacy single file.
+
+- **Dependency errors name the module that actually failed (#258 follow-up).**
+  On a Mac with the conda env unactivated, the local VLM backend reported
+  `transformers >= 4.45 is required` — but `torch` was the missing package and
+  transformers was fine. The handler named the package it asked for rather
+  than the one that broke, sending the reader to install something that was
+  not the problem. A confident wrong instruction costs more than a vague one.
+
+  `ImportError.name` carries the module that actually failed and separates the
+  cases cleanly: an absent package and a too-old package both report the module
+  we asked for, while a broken dependency chain reports the link that broke.
+  `pipeline/optional_deps.py` turns that into the message, and all three ML
+  backends use it — `transformers`, `sentence_transformers` and `anthropic` all
+  sit behind heavy dependency chains and all had the same latent bug.
+
+- **`figures.vision_dtype` — the local VLM's weight dtype is selectable
+  (#258).** It picked its dtype from whether the device was CUDA rather than
+  from what the device supports, so MPS got float32: **~30.4 GB of weights for
+  Qwen2.5-VL-7B against ~15.2 GB at half precision**, which is the difference
+  between "does not fit a 32 GB Mac" and "fits". Apple Silicon supports bf16
+  and fp16, and a branch keyed on `== "cuda"` is the shape of "CUDA is the one
+  I tested" rather than a statement about MPS.
+
+  **The default is unchanged, and now for a measured reason rather than
+  caution** — `auto` stays bfloat16 on CUDA and float32 elsewhere. Run on an
+  M2 Max over four 9-11 panel plates: all three dtypes load and none loses or
+  invents a panel, but half precision moves the boxes. Against float32,
+  bfloat16 scored mean IoU 0.65-0.75 per plate and float16 0.69-0.93, each with
+  a worst panel at 0.0 — a completely disjoint box. Two float32 runs agreed at
+  IoU 1.0 on every panel, so that spread is the dtype, not the model.
+
+  Generation is greedy and the model emits coordinates as digit tokens, so a
+  logit difference too small to matter flips a digit and a coordinate jumps
+  hundreds of pixels. Half precision here is a heavy-tailed chance of a wrong
+  box, not a slightly blurrier one.
+
+  The memory problem the issue opened on is nonetheless real: float32 measured
+  **37.69 GB** of Metal allocation, worse than the ~30.4 GB the weights predict,
+  so the shipped default does not fit a 32 GB Mac. Set `vision_dtype` there —
+  half precision beats no panel detection — but it is a fallback with known
+  worse geometry. Also worth knowing before comparing corpuscles built on
+  different hardware: bfloat16 on MPS disagreed with the bfloat16-on-H200 ROIs
+  this corpuscle shipped on all four plates, so Pass 3b geometry is
+  hardware-bound. `tools/qc/vlm_dtype_probe.py` reproduces all of it.
+
+- **A pixel ceiling on saved figures — `figures.max_pixels_long_side`, default
+  3000 (#184).** Figures are ~88% of a served bundle, so their size is most of
+  what a colleague downloads. Measured on the 1,775-document tree: 21,521
+  figures holding 11.88 GiB, median longest side 1,351 px against a p99 of
+  5,697 and a maximum of 16,237 — the mass is a small tail. A 3000 px cap
+  recovers **2.74 GiB (23%)**.
+
+  **This is not `max_dpi`, and `max_dpi` cannot do it.** The byte-heavy
+  figures are full plate pages at an ordinary **400 dpi**, 11-17 MB each, so
+  capping density to 300 would leave a 16,000 px figure at 12,000 px. There is
+  a second population above 2,000 dpi, but those files are 0.4-0.5 MB and hold
+  no bytes.
+
+  **The flat cap wins on measurement, which is the decision #184 asked for.**
+  It costs the median panel-detected figure 0%, because 966 of 1,015 such
+  figures (95%) are already under 3000 px. Capping *only* figures with no
+  detected panels recovers 2.71 GiB — 0.03 GiB more — while depending on
+  `rois == 0`, which on this tree means "ROI detection never ran" for 95% of
+  figures rather than "has no panels". PLAN.md's gate said that proxy was
+  unsafe; measured, it is weaker than that. So: flat, dependent on nothing.
+
+  Applied on both write paths — the native bbox re-render and docling's own
+  save, which is the only path in `fixed` mode — and available as
+  `--max-pixels-long-side` on `tools/backfill_figure_dpi.py` so an existing
+  bundle can be shrunk without re-running docling. A capped figure records
+  `resolution_mode: native+pixel_capped`, so a shrunk figure is
+  distinguishable from a small source. Verified on a real 7,923 px figure:
+  45% smaller, correctly marked. The bound is the cap within a pixel or two
+  rather than to the pixel, because PyMuPDF sizes a pixmap from the integer
+  rect of the transformed clip; that is documented rather than papered over.
+
+- **A progress heartbeat during long per-document stages (#170).** The run log
+  went silent for minutes during docling layout analysis — measured 3m20s on a
+  27-page scan, far longer on the 314-page Totton monograph — and the last line
+  before the gap is a docling banner, so a reader tailing `run.log` could not
+  tell working from hung. More pressing since v1.0 re-OCRs scans rather than
+  trusting their text layers: 31 of 35 papers in the smoke corpus now OCR,
+  where 4 did before.
+
+  Every stage now emits `<stage> still running after 3m20s (314 pages)` on an
+  interval, carrying the paper prefix so a line stays attributable in an
+  interleaved multi-paper stream, and the page count because that is the
+  answer to "why is this slow". It lives in `_stage`, the one place every
+  stage passes through, so OCR and the vision pass are covered too rather
+  than only docling. New `logging.heartbeat_seconds`, default 60, `0` to
+  disable; the first beat lands one interval in, so no ordinary stage emits
+  one. Verified on a real extract run, where it filled a previously silent
+  33-second gap.
+
+- **Build memory is boundable (#182).** corpus exposed no way to bound the
+  memory a build uses — not in `config.yaml`, not on any CLI, not via an
+  environment variable, and `config_schema.py` had no memory, worker or
+  concurrency field at all. On a 12-core / 32 GB CPU-only host, seven
+  concurrent `--only extract` workers put three docling processes in flight
+  at once, one on a 314-page scan, and the build died mid-stage with
+  `oom_kill 2` in `/proc/vmstat` and no error in any worker log.
+
+  New `docling` block (`queue_max_size`, `layout_batch_size`,
+  `ocr_batch_size`, `table_batch_size`, `document_timeout`) and
+  `compute.num_threads` bound extraction, which is where the memory actually
+  goes — embedding the same corpus peaked at 3.71 GB resident. All are unset
+  by default and omitted keys are not passed to docling at all, so a build
+  that sets nothing behaves exactly as before and cannot drift if docling
+  changes one of its own defaults. Option names are asserted against the
+  installed docling, since a silently-ignored option would be worse than none.
+
+  `embeddings.batch_size` and `corpus run --only embed --batch-size N` reach
+  `LocalBackend`, which has taken a `batch_size` since it was written and
+  whose docstring described it as the memory lever while nothing could reach
+  it: `get_embedder()` forwards `**kwargs` and its only caller built them
+  from `--device` alone.
+
+  INSTALL.md now documents the cgroup cap, which is the outer bound and needs
+  no corpus settings: `MemoryHigh` throttles by reclaim and only `MemoryMax`
+  kills, so a capped build is squeezed first and any kill lands inside its own
+  cgroup instead of the kernel picking a bystander — on the affected host, an
+  uncapped burst took out a `tmux` server hosting unrelated work.
+
+- **`compute.accelerator: require` and `corpus run --require-gpu` (#270).** `auto`
+  falling back to CPU is right on a workstation — the alternative is every
+  docling page dying with "no kernel image is available". Inside a scheduler
+  allocation it is the wrong answer and an expensive one: a 2026-08-31 embed job
+  resolved to CPU on an allocated RTX 5000 Ada, logged one WARNING into a stderr
+  stream that is mostly HuggingFace chatter, ran 181 of 1,775 documents in 75
+  minutes against a 4-hour wall, and was cancelled by the cluster's
+  0%-GPU-utilization policy. Nothing distinguished it from a slow-but-fine run.
+  Pinning `cuda` was not a way to say "require": a pinned value is honoured
+  verbatim, which *disables* the capability check rather than enforcing it.
+
+  `require` resolves exactly as `auto` does and raises `AcceleratorUnavailable`
+  instead of returning `"cpu"`, carrying `unsupported_cuda_reason()`'s
+  one-line diagnosis and distinguishing a visible-but-unusable card (a
+  torch/hardware mismatch) from no GPU at all (a submission problem). It fails
+  in `corpus run` **before any step starts**, not an hour into extraction.
+  `slurm/batch_embed.sh` and `slurm/batch_pass3b.sh` now pass `--require-gpu`;
+  the GPU-type constraint stays, since this makes the failure loud rather than
+  making an unsupported card work. `corpus prefetch` deliberately downgrades
+  `require` to `auto`, because prefetch runs where there is *network* access —
+  typically a login node with no GPU — and failing the cache warm-up there
+  would make the flag a hazard.
+
+  Also the cheaper half of that issue, worth having either way: `corpus run`
+  now logs `Accelerator: <device> (compute.accelerator=<setting>)` next to its
+  step list, and warns explicitly when GPU steps will run on CPU. Verified on a
+  host whose GTX 1080 the pinned torch cannot use — `auto` warns and proceeds,
+  `--require-gpu` exits 1 before any step, and `--only post` is not blocked.
+
+### Changed
+
+- **The distilled bundle is `corpus_bundle/`, not `_serve/` (#273).** It is the
+  one directory in a corpuscle designed to be moved away from the build that
+  produced it, and it had the one name that says nothing about what it is —
+  landed in an S3 bucket or beside three sibling bundles, `_serve` identified
+  neither the project nor the artifact. The leading underscore said the
+  opposite of the truth as well: by convention `_foo` reads as private scratch
+  you may delete, and this is the only deliverable in the tree.
+
+  **Existing corpuscles keep working and need no rebuild.** An existing
+  `_serve/` is read *and updated in place* — writing the new name beside it
+  would leave a stale bundle for a client pointed at the old path to keep
+  serving, which is worse than an ugly directory name. `corpus run` and
+  `--check` say once that the directory is on the pre-1.4 name and give the
+  one-command migration (`mv _serve corpus_bundle`), to run when nothing is
+  serving it. A fresh corpuscle gets the new name.
+
+  The `build_dir.name == "_serve"` check in the serve pre-flight is **removed
+  rather than renamed**, as the issue argued: `bundle_manifest.json` was
+  already the robust signal sitting beside it, and a bundle that has been
+  renamed or relocated is still a bundle — which is the whole point of giving
+  it a portable name. CI, `deploy/`, `slurm/` and the runbooks move to the new
+  path, since a fresh build writes it.
+
+### Fixed
+
+- **`get_missing_references` withholds rows that cannot be leads, and says it
+  is best-effort (#155).** v1.3 closed the resolver-safe half of the
+  reconciliation problem; what remained was ~96 title/year-only review leads
+  that no automated rule can adjudicate without a threshold loose enough to
+  merge distinct works. Two changes rather than a third reconciliation attempt.
+
+  A row with **no title and no year** leaves nothing to search for — it is a
+  mis-parsed reference string counted as a work. Those are now withheld and the
+  count logged: 477 of 6,953 rows at the default threshold on the reference
+  corpus (6.9%), and it matters because they outranked real gaps.
+  `corpus:|unknown|`, an empty-titled node with **30 citations**, sat 11th in
+  the default output — above Bigelow 1906, which the original audit confirmed is
+  genuinely missing. After the filter, real leads move up.
+
+  And the docstring — which is the MCP tool description a client reads — now
+  states plainly that the tool is a list of leads rather than proof of absence,
+  names the residual class, and points at `resolve_reference` and
+  `tools/qc/reference_reconciliation.py` for verification. Unconditional rather
+  than a new parameter, so the frozen 1.0 input surface is untouched.
+
+- **CJK whitespace no longer buries real differences in a build comparison
+  (#280).** Two solo builds of the same 35-document gold set — same commit,
+  same machine, no contention, no OCR timeouts, identical quality flags —
+  differed on exactly two documents, both Japanese scans, by whitespace
+  segmentation only: same glyphs, different space placement, 186 lines of it.
+  Japanese does not delimit words with spaces, so where OCR puts them between
+  CJK characters carries no information, but it changes the digest.
+
+  `tools/qc/build_reference.py` now drops whitespace *between two CJK
+  characters* before digesting. **In the comparison only** — never in the
+  artifact and never in the stage fingerprint, because a fingerprint decides
+  what re-runs, and rewriting the text it hashes would change resume behaviour
+  to buy a property only the acceptance harness needs. Scoped to CJK-adjacent
+  whitespace so the comparison stays sharp elsewhere: a lost word boundary in
+  Latin text is content loss and is still reported, as is a dropped CJK
+  character.
+
+  **The `--jobs 1` remedy the issue proposed is declined, on measurement.**
+  Both affected documents are byte-identical across repeated OCR runs at
+  `--jobs` 1, 4 and 12, and across `OMP_THREAD_LIMIT` 1, 4, 12 and unset, with
+  docling deterministic on fixed input across three runs — so job count is not
+  the mechanism and pinning it would cost real build time for nothing. The
+  nondeterminism is real but its mechanism remains unidentified and does not
+  reproduce on a workstation, so the criterion exclusion stands rather than
+  being traded for a guess.
+
+- **`lexicon_matrix(detail=True)` is bounded and reports what it returned
+  (#83, #88).** #88 made the full paper x term grid opt-in because it was a
+  multi-MB runaway, but never bounded it: no cap and no flag, so a caller
+  could not tell a complete grid from one its transport dropped. Measured, it
+  is **382 kB over 1,775 rows** on the siphonophore corpus and 143-175 kB over
+  699 on the viburnum one. Now capped by `CORPUS_LEXICON_MATRIX_MAX_BYTES`
+  (default 128 kB) with `rows_available`, `rows_returned`, `response_bytes`
+  and `truncated` alongside — the same treatment `get_citation_graph` got in
+  #166. The default `detail=False` view is unchanged and unaffected.
+
+  **The column-store row shape #83 proposed is declined, on measurement.**
+  It saves a real 16.4-20.0% on the grid — but that does not make a 382 kB
+  payload deliverable, it makes an undeliverable one 19% smaller. And the
+  default view, which is what callers actually use, is 469-1,606 bytes, where
+  per-row key repetition is irrelevant. Bounding the grid and naming the row
+  count addresses the concern the issue was reaching for; a `row_schema`
+  parameter would also have changed the frozen 1.0 input surface for it.
+
+- **`get_citation_graph` reports what it returned, not just whether it cut
+  (#166).** `truncated` said only whether *this tool* dropped edges, so it
+  read `false` — accurately — while the client failed to deliver the payload,
+  and a caller checking it alone concluded it had everything. Measured on the
+  1,775-document reference corpus: **72 works return 150-500 edges with
+  `truncated: false`, up to 145 kB**, 14 exceed the default 500-edge cap and
+  are truncated honestly, and the largest bibliography is 2,277 edges /
+  625 kB uncapped. The reported client failure was at ~55 kB, so this is not
+  one hub paper but 72 of them at up to 2.6x that size.
+
+  The response now carries `edges_available`, `edges_returned`,
+  `response_bytes` and a `truncated_reason` naming which cap fired, so a
+  complete answer is distinguishable from a capped one and a client near its
+  own limit can see the payload coming. `response_bytes` is also a real
+  ceiling — `CORPUS_CITATION_GRAPH_MAX_BYTES`, default 256 kB — which trims
+  the larger direction first so a `direction="both"` call cannot come back
+  with one side silently empty. The ceiling counts its own reporting fields;
+  the first cut trimmed to the limit and then stamped them on top, coming
+  back 29 bytes over.
+
+  Input schema untouched: the 1.0 freeze pins tool inputs, and these are
+  response fields, so no caller has to change a call.
+
+- **The served-bundle absolute-path audit no longer flags extracted content
+  (#183).** It read PDF glyph names and OCR garbage as filesystem paths and
+  raised: on a 20,137-paper corpus that killed `corpus run --only bundle`
+  after ~3 hours and ~370,000 files copied, with no `bundle_manifest.json`
+  written, leaving `_serve/` complete but unservable. Thirteen junk strings in
+  three documents blocked the whole corpuscle, and all thirteen were in
+  content fields — 9 in `chunks[].headings[0]`, 1 in `chunks[].text`, 1 in
+  `references[].title`.
+
+  No better regex fixes this: `/Peswme/` and `/scratch/` are the same shape,
+  and one flagged value was `/Summary/`, a correct section heading OCR wrapped
+  in slashes. So content-bearing fields are exempt from the shape rule and
+  checked only against the build's own root, which can be matched exactly. A
+  build path found inside content is warned about — extraction should not
+  inject one — but never fatal, since it cannot be scrubbed.
+
+  The shape rule stays for every other field, which is the release gate: it
+  catches a leak in a field no scrubber knows about yet. The exemption is a
+  denylist of content keys rather than an allowlist of path keys on purpose,
+  so a field added later defaults to being checked. Measured on the
+  1,775-document reference bundle: 6,210 strings begin with `/`, all glyph
+  garbage, and four match the shape rule — escaping only because they happen
+  to contain a space, so one whitespace-free equivalent would have failed that
+  build too.
+
+  The error also named the wrong subsystem. It now reports a JSON pointer
+  (`documents/<hash>/chunks.json: chunks[3].headings[0]`) and says which of
+  the two remedies applies, instead of sending an operator to
+  `_scrub_summary` for a chunk's body text.
+
+- **No vision-downgrade warning on phases that never run vision (#263).** The
+  #65 capability check ran before `_build_orchestrator_argv` looked at
+  `--only`, so `corpus run --only post` — which the standard HPC chain runs on
+  a CPU node for every build — warned that the vision panel pass had been
+  downgraded to the OCR floor. Nothing had been: Pass 3b had completed on an
+  H200 an hour earlier, and the corpuscle carried 3,465 ROIs across 288
+  documents, 100% vision-sourced. The check now runs only for `extract`,
+  `vision` and full runs, which are the phases that consume
+  `--figure-panels`. The warning is genuinely serious on an `--only extract`
+  re-run, where accepting the OCR floor silently reverts ROIs Pass 3b already
+  produced — printing it on a phase that cannot do harm trains the operator to
+  skim past the one that can.
+
+- **`corpus status` and `corpus run --dry-run` say why a re-run will do work
+  (#80).** The drift computation already existed from v1.3's fingerprint work
+  — `configuration_drift` and `source_input_drift` derive, from the same
+  receipts implicit resume uses, which stages would re-run and why. What was
+  missing was a way to read it: the renderer printed one line per affected
+  document, each repeating the same handful of reasons. On the 699-document
+  Viburnum corpuscle that is 699 lines; on the 1,775-document siphonophore
+  one, 1,775.
+
+  Now rolled up by reason, so the case that matters most is one line —
+  `docling_extraction: pipeline_version — all of 699 documents`. That is the
+  sentence #281 needed: the GPU vision phase silently re-extracting every
+  document, turning a 1.5-hour phase into a projected 35, took hours of log
+  archaeology to find. A reason affecting only some documents names them, up
+  to five, with a count of the rest; per-document detail stays in `--json`.
+
+  `corpus run --dry-run` now prints the same rollup before dispatching, which
+  is the integration point the issue proposed — a dry run already showed
+  *what* would run. Dry-run only: the check takes ~7 s on 699 documents,
+  cheap for a plan and not free enough to precede every build. It is
+  read-only and never fatal, since failing to explain a plan must not stop
+  one, and a corpuscle with no `documents/` tree is reported as a first build
+  rather than as drift.
+
+- **`compute.accelerator` was silently ignored by the embed stage.** Found
+  while plumbing `embeddings.batch_size`: `pipeline.embed` accepted no
+  `--config` at all, so `embeddings.py`'s `CONFIG["compute"]["accelerator"]`
+  lookup always saw an empty dict and fell back to `auto` — a corpuscle
+  pinning `compute.accelerator: cpu` was honoured by Stage 1 and ignored by
+  Stage 2, and `embeddings.py` carried a comment saying the config reached
+  the encoder there.
+
+- **Concurrent Grobid jobs get a port of their own (#279).** Grobid's
+  Dropwizard service binds a fixed 8070, and SLURM is free to co-schedule
+  several of those jobs onto one node — at which point every instance after
+  the first dies ~10 s in with a Jetty `BindException`. Submitting six
+  pipelines put five Grobid jobs on two nodes and three failed. Worse than a
+  plain failure: the job has already reached RUNNING, so a chain waiting on
+  job state alone points Stage 1 at that node and is served by *another
+  chain's* server — two documents in a build whose own Grobid had died
+  recorded `grobid.outcome = extracted`.
+
+  The port pair is now derived from the job ID by one shared function in
+  `bouchet_paths.sh`, which `batch_grobid.sh` and `batch_pipeline.sh` both
+  call, so the client cannot drift from the server. **Both Dropwizard
+  connectors have to move**, which is the trap the issue's own suggested fix
+  would have hit: there is an admin connector too, default 8071, and
+  overriding only the application port still dies with the same
+  `BindException`. Verified against `lfoppiano/grobid:0.8.1` — application-only
+  exits 1 on `java.net.BindException: Address already in use`, while with both
+  overridden three instances ran side by side and returned byte-identical TEI
+  (49,156 chars) for the same PDF. `dw.`-prefixed system properties are
+  Dropwizard's own override mechanism, so this needs no change to Grobid or
+  the image.
+
+  Ports use a stride of 2 from 8100 with admin = app + 1, so no two jobs'
+  pairs can overlap, and 8070/8071 stay free for a hand-started Grobid and
+  the local `docker-compose` one. The `ss` preflight and the
+  still-RUNNING check before Stage 1 both stay as backstops. `BOUCHET.md`'s
+  manual path and the script headers no longer teach the fixed port.
+
+- **`get_original_description` says when it cannot answer, and botanical
+  authorship parses (#175).** Authority linking matches a taxon's authorship
+  against a work by author *and year* — the zoological (ICZN) convention that
+  WoRMS supplies. Botanical (ICN) authorship is author-only by correct citation
+  practice (`Rehder`, `(Kache) Hesse`, `(Huxley) P.S.Hsu`), so there is no year
+  to match on. On the 702-paper *Viburnum* corpuscle that meant **0 links from
+  889 authorship strings, none of which carries a year**, and the tool
+  answering `null` with "no matching work found" for every taxon — which reads
+  as "no such paper exists" rather than "this corpuscle cannot answer".
+
+  `parse_authority` now returns surnames with a `None` year for ICN strings
+  instead of reporting them unparseable, handling run-together botanical
+  initials and the parenthesised original author. Phase 3 counts the two
+  conventions, warns once when a taxonomy carries no year-bearing authorship
+  at all, and records its verdict in the authority database's `build_meta`, so
+  the served bundle carries it. `get_original_description` reads that verdict
+  and returns an explicit `unsupported` result with `reason_code`
+  `authority_convention_unsupported`. A bundle built before the verdict
+  existed reports `unknown` rather than being declared unsupported.
+
+  **The author-only matching path was measured and declined**, and that is the
+  recorded decision rather than a deferral. Pairing the authority surname with
+  the epithet appearing in a work title — the approach the issue proposes —
+  yields 3 candidates from 889 *Viburnum* taxa, and 2 of the 3 are wrong:
+  `(Vent.) P.Silva` for *V. tinus* subsp. *rigidum* matches a 2010s floristic
+  record of naturalized *V. tinus* in Madeira, not the protologue. One correct
+  link in 889 taxa at a 67% false-positive rate writes wrong protologues into
+  `taxon_work_links`, which is worse than answering nothing. A real botanical
+  path wants the protologue citation that IPNI/POWO carry as its own field,
+  not a heuristic over titles.
+
+  Verified on both corpuscles: *Viburnum* records `botanical`/unsupported with
+  0 links and no stub works, and the siphonophore corpus is unchanged at
+  `zoological`/supported with 799 links from 800 strings.
+
+- **`corpus status --filter-gate <name>` now lists the affected papers (#169).**
+  The report printed `List affected papers with: corpus status --filter-gate
+  <name>`, and running exactly that reprinted the whole report unfiltered,
+  because the flag only took effect alongside `--list-hashes`. Filtering is
+  the only thing these flags do, so asking for one is asking for the listing;
+  `--list-hashes` is now needed only on its own, to list every paper. Where a
+  filter genuinely cannot apply — `--json`, `--report`, the triage modes — it
+  is named in a warning rather than dropped, since silently ignoring the flag
+  is the defect itself.
+
+- **The naive-chunker fallback is visible in `corpus status` (#168).** When
+  Docling's `HybridChunker` fails, chunking falls back to a fixed character
+  window: the run exits 0, every other gate passes, and retrieval quality
+  collapses — chunks stop respecting headings, tables and captions, and a
+  2-page paper chunked to 1 window instead of 16. It logged at ERROR once per
+  paper, which is easy to miss on a long run, and the original cause (`corpus
+  prefetch` not fetching the chunker's tokenizer) degraded *every* paper on a
+  host following the `HF_HUB_OFFLINE=1` recipe. `chunks.json` already recorded
+  `chunker`, so this is now a `naive_chunker_fallback` quality gate at error
+  severity, countable across a corpus and carrying its remedy in the report.
+
+- **Abbreviated genus binomials are expanded (#164).** Taxonomic literature
+  abbreviates the genus after first mention, so for a corpus of original
+  descriptions this was the central gap rather than an edge one: the paper that
+  *erects* a species is the one least likely to spell the genus out on every
+  line. Olfers 1824 is a five-species key for *Physalia* that yielded one
+  genus-level taxon and no species at all.
+
+  Naive expansion would be worse than the under-extraction it replaced,
+  because `Ph.` is genuinely ambiguous in this corpus — *Physalia* and
+  *Physophora* are both in it. Three gates: the genus must be written out in
+  full somewhere in the same document, the expansion must be a name in the
+  taxonomy snapshot, and the surviving candidates must agree on one accepted
+  taxon. The epithet is what usually decides — the taxonomy knows `Physophora
+  hydrostatica` is a name and `Physalia hydrostatica` is not. Where it cannot
+  decide, nothing is recorded and the ambiguity is reported in
+  `abbreviations_unresolved` rather than dropped in silence.
+
+  Across the 1,775-document reference corpus: **+31,041 taxon mentions
+  (+15.6%), +2,237 unique taxa, 838 documents gaining, none losing**, and 449
+  ambiguities reported. The same printed `A. elegans` resolves to *Agalma*,
+  *Agalmopsis* or *Agalmoides* in different documents, according to which
+  genus each one spells out. OCR variants (`Ph, pelagica`, `A . elegans`,
+  `B,bassensis`) are handled.
+
+  Expansions carry `method="abbreviated_genus"` and keep the printed form in
+  `mention_text`, so an inference is never mistaken for a name read off the
+  page. Both columns already existed in `taxon_mentions.sqlite`; the writer
+  was filling them with the same value.
+
+- **Lexicon translations match inflected forms (#165).** An enumerated
+  surface-form set is the wrong shape for an inflecting language: the lexicon
+  lists `Luftblase`, `Schwimmglocke`, `нектофор`, and German, French and
+  Russian papers print `Luftblasen`, `Schwimmglocken`, `нектофора`.
+  Non-English `translations` are now expanded through a curated per-language
+  ending table, with each generated form entered in the variant map
+  explicitly so matching stays whole-word exact and a curated form always
+  wins over a generated one. Across the 1,775-document reference corpus:
+  **+14,111 anatomy mentions (+9.7%), 515 documents gaining, none losing**,
+  and 59 documents rescued from exactly zero. Vanhöffen 1906 goes from 63
+  mentions to 163 — it prints `Schwimmglocken` 41 times against 7 of
+  `Schwimmglocke`, so base-form matching was finding a minority of its own
+  mentions. One Russian paper goes from 440 to 1,480, Russian being the
+  language where 73% of stem occurrences were inflected.
+
+  English is deliberately excluded, and the survey is why: suffixing English
+  stems matches `Cnidaria` 4,444 times and `cnidarian(s)` 3,740 more from
+  `cnida` — the phylum, not the nematocyst — plus `stemmed` from `stem` and
+  `floating` from `float`. English variants stay hand-listed in `synonyms`,
+  as the lexicon's own documentation instructs.
+
+  Two notes on the issue's own framing, both measured. Of the two documents
+  it names, Eschscholtz 1825 goes 0 → 1 (its text contains exactly one
+  `Luftblasen`, and its real anatomical vocabulary — `Saugmägen`,
+  `Fangfäden` — is absent from the lexicon in any form), and Olfers 1824
+  stays 0 → 0 because the extracted text is about electric organs of fish
+  and contains no siphonophore anatomy at all: that zero was correct. The
+  value is on documents that already had partial coverage. Separately,
+  inflections that change the stem rather than extend it — Russian genitive
+  plurals inserting a fill vowel (`личинок`), German umlaut plurals
+  (`Saugmagen` → `Saugmägen`) — are out of reach of any ending list and are
+  pinned as a known gap in `tests/test_lexicon_inflection.py`, with listing
+  the form under `synonyms` as the working remedy.
+
+- **A text layer of unmappable glyph indices is no longer "clean" (#266).**
+  A PDF font with no usable `ToUnicode` table extracts as raw glyph indices —
+  `\x01\x02\x03` — and those are not letters, so they were invisible to every
+  signal detection had: absent from the gibberish score's token stream, absent
+  from `text_layer_scripts`, and on real text rather than page images, so the
+  raster check read 0.0 coverage. What survived the encoding was the Latin in
+  the paper — taxon names, authorities, years — which was enough to put the
+  document in search results and the taxon graph looking present, with its body
+  gone. `detect_scan_type` now measures the unmappable share and routes the
+  document to OCR as `unmappable_text_layer`, at warning severity, with the
+  measured fraction recorded on the clean path too. Six documents in the
+  reference library were affected: Hunt et al. 2001 had **896 usable letters in
+  59,056 characters** and was classified `clean_text_layer` /
+  `needs_ocr: false`; re-OCR recovers 42,398. Lindsay 2006 recovers 4,034
+  Japanese characters from zero. New `ocr.unmappable_char_max`, default 0.05,
+  which sits in a measured gap — 1,451 of 1,665 documents score exactly 0.0,
+  another 202 at or below 0.005, and nothing at all falls between 0.031 and
+  0.106.
+
+  Note the raised `gibberish_threshold` (0.5 → 0.65) is recorded as avoiding a
+  "MilosMaley2005 false positive". That document is 68% unmappable; it was a
+  true positive, silenced.
+
+- **OCR packs are chosen from the page images, not from a text layer already
+  rejected (#172, #266).** `visual_script` was hardcoded `null` on every
+  detection path, so the cross-check it exists for was inert. The verdicts
+  themselves were never missing — the language probe runs Tesseract OSD on
+  each page it renders in order to pick that page's probe packs — they were
+  computed, used, and dropped, leaving pack selection to a language read off
+  the corrupt layer. On Lin & Zhang 1991, a Chinese paper whose legacy font
+  maps into ASCII, that meant discarding a page OSD had read as Han and
+  Tesseract had transcribed as clean Chinese at 0.000 gibberish, then OCRing
+  the document with `eng`. It now resolves to `chi_sim+chi_tra+eng` and
+  recovers 451 Han characters where the old choice recovered none. Every path
+  that rejects the text layer — no-text, vendor-banner, raster-scan,
+  unmappable and high-gibberish — now asks the pixels through one accessor and
+  records what they said.
+
+- **An OSD verdict is corroborated before it is acted on, and only CJK
+  verdicts may override a text layer at all (#172).** Tesseract OSD is the only
+  script signal that survives a corrupt text layer, and on this material it is
+  also wrong often and confidently: run over the reference library it called
+  **424 of 1,580** Latin-text-layer documents non-Latin — Fewkes 1882a as Thai,
+  Alvariño 1964 as Cyrillic, Bigelow & Sears 1939 as Bengali. Acting on the
+  bare verdict is the regression `_resolve_tesseract_packs` already records,
+  where 188 papers were overruled and 68 lost their correct pack.
+
+  Two gates, both set from measurement. A verdict must be in the CJK family,
+  and it must be corroborated by the page's own OCR under that script's packs
+  — real content pages score 0.244-0.984 of their characters in the claimed
+  script, against 0.143 for the worst misfire (a Japanese verdict on page 17
+  of Boone 1933, English throughout) — and be seen on two sampled pages, or
+  half of a short document.
+
+  Cyrillic and Greek are excluded because for them corroboration is *circular*:
+  OCRing a Latin page under `rus` transcribes its letters as Cyrillic
+  lookalikes (`СОХТИТВОТТОМ5` for "CONTRIBUTIONS"), so the check manufactures
+  its own evidence. Tesseract's word confidence does not rescue it either —
+  38 vs 89 on that page, but 53 vs 70 the wrong way on a genuinely Russian
+  page of Stepanjants 1970. Thai and Arabic are excluded because every one of
+  their 25 and 28 verdicts was on a Latin-script paper. Nothing is lost:
+  Stepanjants 1970 still resolves to `rus`, from its own text layer and the
+  language probe, and a corpus that needs another script has the curated
+  `ocrlang` route. Raw verdicts are recorded as `osd_page_scripts`, so a
+  rejected one stays visible rather than looking as though OSD never ran.
+
 ## [1.3.0] - 2026-09-07
 
 ### Theme — v1.3 evidence integrity and auditability
