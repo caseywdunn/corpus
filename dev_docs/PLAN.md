@@ -1,4 +1,4 @@
-# PLAN.md — Corpus pipeline (v1.4)
+# PLAN.md — Corpus pipeline (v1.5)
 
 **Prior cycles are recorded elsewhere, not here.** A minor or major
 release entry in [CHANGELOG.md](../CHANGELOG.md) opens with the cycle's
@@ -20,42 +20,45 @@ stage failures; **v1.1.1** made `CITATION.cff` schema-valid,
 which is what had been silently blocking Zenodo archival since v0.3.0; and
 **v1.2** built the gold transcription set and scored the extractor against
 it — the first signal this project has had that measures the pipeline
-against something other than itself; and **v1.3** made evidence auditable —
+against something other than itself; **v1.3** made evidence auditable —
 captions carry provenance, references are separated from canonical works, a
 re-run cannot leave stale evidence, and an operator can inspect a parse
 against the original page ([v1.3.0](https://github.com/caseywdunn/corpus/blob/v1.3.0/dev_docs/PLAN.md),
-Zenodo [10.5281/zenodo.22647843](https://doi.org/10.5281/zenodo.22647843)).
+Zenodo [10.5281/zenodo.22647843](https://doi.org/10.5281/zenodo.22647843)); and
+**v1.4** went after the results that were wrong without saying so and the build
+hazards behind them, taking the tracker from 34 open issues to 13
+([v1.4.0](https://github.com/caseywdunn/corpus/blob/v1.4.0/dev_docs/PLAN.md)).
 
-**v1.3 (2026-09-07) is the one v1.4 grows directly out of.** Its theme
-paragraph is in the CHANGELOG; what matters here is the inheritance. Evidence
-is now auditable — captions carry provenance, references are separated from
-canonical works, and a re-run cannot leave stale evidence behind. Two
-instruments came with it and should keep being used: the gold set from v1.2,
-against which any extraction change can be scored before and after, and the
-build-comparison harness (`tools/qc/build_reference.py`) that made the update
-contract checkable at all.
+**v1.4 (2026-09-09) is the one v1.5 grows directly out of.** Its theme
+paragraph is in the CHANGELOG; what matters here is the inheritance. The
+defects that were wrong without saying so are closed: a text layer of
+unmappable glyph indices no longer counts as clean, OCR packs are chosen from
+the page images and corroborated before they override, abbreviated binomials
+resolve, and the MCP tools report what they returned rather than only whether
+they truncated. Alongside them the build hazards — a fixed Grobid port, a GPU
+allocation quietly becoming a CPU one, an unbounded build, silent long stages.
 
-What v1.3 did *not* do is fix the defects that are wrong without saying so,
-which is why v1.4 exists. It also demonstrated the lesson v1.2 left, and which
-has now recurred in every cycle that looked for it: **a measurement is not a
-result until you have looked at what it is measuring.** The
-plate-legend fix shipped on a recall gain and quietly cost precision;
-#254's OCR page-blanking was invisible to every quality gate the pipeline
-had, because each one measured the document rather than the machine that
-built it; and a stray file sat in the repo root through four green CI runs
-and two release PRs because nothing looks there.
+Three instruments carry forward and should keep being used: the gold set from
+v1.2, the build-comparison harness (`tools/qc/build_reference.py`), and — new
+in v1.4 — the **local measurement substrate**, which sizes a change against all
+1,775 reference documents in minutes on a laptop. Nine of v1.4's twenty-two
+items had their shape changed by measurement before they were written, six
+against the issue's own proposal, and six needed deletion or nothing rather
+than new code. **Measure before writing** is now the cheapest step, not the
+expensive one.
 
-**v1.4 is the cleanup cycle.** v1.3 proved the pipeline can show where
-evidence came from. What survives behind that is the subject here: results that
-are wrong without saying so, build hazards that cost hours per run, and a
-tracker that no longer describes the product. It is deliberately broad rather
-than deep — the aim is that the open tracker afterwards holds only new
-capability and direction questions.
+Two things v1.4 established that v1.5 should not re-derive:
 
-The ordering against v1.5 is deliberate and was argued from v1.3's own
-evidence: a skill that generates a monograph from a corpuscle with silent gaps
-produces a document that reads authoritative and is wrong, which is the exact
-failure class v1.3 spent itself on.
+- **A comparison matrix with no self-comparison in it measures nothing.** The
+  first local-VLM report compared every dtype against every other and against
+  production's ROIs, and everything disagreed with everything — uninterpretable
+  until two runs of one dtype established what the model's disagreement with
+  *itself* looks like. That control is now the first thing to run, not the last.
+- **Pass 3b geometry is not reproducible**, run to run on one accelerator or
+  across accelerators. Measured, recorded in the standing gates, and the reason
+  small ROI deltas between builds are not a defect signal on their own.
+
+What v1.4 did *not* do is build anything a user talks to. That is v1.5.
 
 **Standing gates** — the rules that outlive any one cycle, including what
 "an update is correct" means and how a release is validated — are at the
@@ -70,268 +73,33 @@ platform-portability criteria in
 [PLATFORM_SMOKE.md](PLATFORM_SMOKE.md). Open work is tracked in
 [GitHub issues](https://github.com/caseywdunn/corpus/issues).
 
-## v1.4 — silent wrongs, operational hazards, and a clean tracker
+## v1.4 — shipped 2026-09-09
 
-v1.3 proved the pipeline can show where evidence came from. This cycle is
-about the defects that survive *behind* that: results that are wrong without
-saying so, build hazards that cost hours per run, and a tracker that no longer
-describes the product. It is deliberately broad rather than deep — the goal is
-to close as much of the backlog as is reasonable, so v1.5's client layer is
-built on evidence it can trust instead of workarounds for known gaps.
+Closed and preserved in [the tag's copy of this
+file](https://github.com/caseywdunn/corpus/blob/v1.4.0/dev_docs/PLAN.md); the
+theme paragraph is in [CHANGELOG.md](../CHANGELOG.md). Twenty-two items, the
+tracker from 34 open issues to 13.
 
-The ordering is not arbitrary. A skill that generates a monograph from a
-corpuscle with silent gaps produces a document that reads authoritative and is
-wrong, which is the exact failure class v1.3 spent itself on. Shipping a
-generator over it would undo the cycle's point.
+Two carried forward rather than closed, both surfaced by the release rebuild
+and both real:
 
-### 1. Silent wrongs — results that are wrong without saying so
+- **Stage 1's 256 GB is sized for the wrong thing.** One document OOMed at
+  268 GB inside a full 8-worker task and peaked at 38 GB when re-run alone, so
+  the bound that matters is worker concurrency, not per-document memory.
+  #182's `docling` knobs exist and are unset; nothing yet says what to set them
+  to. Raising `--mem` treats the symptom.
+- **Discovery-mode figure counts are unexplained.** One plate went 56 -> 35
+  `discovery_materialized` between the v1.3.0 and v1.4.0 builds on
+  byte-identical input images. ROI *coordinates* are known-nondeterministic and
+  excluded from the update contract; open-ended discovery *counts* are a
+  different path and were never measured. Settle it by running vision twice on
+  that document before treating it as noise.
 
-Highest priority, because nothing surfaces them. An operator cannot act on a
-gap they cannot see.
-
-- [x] **Route mojibake non-Latin scans to OCR without a pin**
-  ([#266](https://github.com/caseywdunn/corpus/issues/266)), and populate
-  `visual_script` on every detection path
-  ([#172](https://github.com/caseywdunn/corpus/issues/172)). The unpinned
-  Chinese paper is now OCR'd under `chi_sim` and recovers 451 Han characters
-  where the old pack choice recovered none. Two findings reshaped the fix.
-  First, the raster check had already stopped the `born_digital`
-  misclassification the issue describes — what survived was *pack* selection,
-  read off the mojibake layer, so the document was OCR'd with `eng`. Second,
-  a whole population the issue does not name: a text layer of **unmappable
-  glyph indices**, invisible to the gibberish score because glyph indices are
-  not letters. Hunt et al. 2001 held 896 usable letters in 59,056 characters
-  and was classified `clean_text_layer`; re-OCR recovers 42,398. Six such
-  documents. New `ocr.unmappable_char_max`.
-- [x] **Make lexicon translations match inflected forms**
-  ([#165](https://github.com/caseywdunn/corpus/issues/165)). +14,111 anatomy
-  mentions (+9.7%) corpus-wide, 515 documents gaining, none losing, 59
-  rescued from zero. Of the two documents the issue names, though, one gains
-  a single mention and the other correctly stays at zero — its text is about
-  electric organs of fish. The value is on documents with partial coverage.
-- [x] **Expand abbreviated genus binomials**
-  ([#164](https://github.com/caseywdunn/corpus/issues/164)). +31,041 mentions
-  (+15.6%), +2,237 unique taxa, 838 documents gaining, none losing, and 449
-  ambiguities reported rather than guessed.
-- [x] **Decide the botanical authority policy**
-  ([#175](https://github.com/caseywdunn/corpus/issues/175)). Decided:
-  the capability is reported unsupported, ICN authorship parses, and the
-  author-only matching path is **declined on measurement** — it yields 3
-  candidates from 889 Viburnum taxa and 2 of the 3 are wrong. Reasoning lives
-  in `_record_authority_convention`, not here.
-- [x] **Stop the CLI lying by omission**
-  ([#169](https://github.com/caseywdunn/corpus/issues/169),
-  [#168](https://github.com/caseywdunn/corpus/issues/168)). A filter now
-  implies the listing the report's own hint promises, and a filter that
-  cannot apply is named in a warning instead of dropped. The naive-chunker
-  fallback is a `naive_chunker_fallback` quality gate.
-
-**Acceptance:** for each, a document that previously produced a silent gap now
-either produces the right answer or reports the gap at error or warning
-severity. No fix here is complete while its failure mode is still quiet.
-
-**Met, and the section left a method behind.** Every item here was sized
-against the reference library before being built, and in four of the five the
-measurement contradicted the issue's own framing — a wrong threshold, a
-document whose zero was correct, a heuristic that would have written wrong
-protologues, and a corroboration rule of my own that turned out circular
-(OCRing a Latin page under `rus` transcribes its letters as Cyrillic
-lookalikes, so the characters meant to confirm the verdict were manufactured
-by the check). Bare Tesseract OSD calls **424 of 1,580** Latin-text-layer
-documents non-Latin; only CJK verdicts may now override a text layer, and
-only corroborated. Measure the population before writing the fix.
-
-### 2. Operational hazards — each has already cost hours
-
-- [x] **Make a GPU allocation fail instead of degrading to CPU**
-  ([#270](https://github.com/caseywdunn/corpus/issues/270)).
-  `compute.accelerator: require` and `corpus run --require-gpu`, resolved
-  before any step starts. The SLURM GPU scripts pass it; the card-type pin
-  stays, because this makes the failure loud rather than making an
-  unsupported card work. Tested against real unusable hardware — this
-  workstation's GTX 1080 is a card the pinned torch ships no kernels for.
-- [x] **Let concurrent builds share a cluster**
-  ([#279](https://github.com/caseywdunn/corpus/issues/279)). Per-job port
-  pair derived from the job ID by one shared function, so client and server
-  cannot drift. **Both Dropwizard connectors have to move** — there is an
-  admin connector at 8071 as well, and overriding only the application port
-  still dies, which is the trap the issue's own suggested fix would have hit.
-  Verified against the real Grobid image: three instances side by side,
-  byte-identical TEI from the alternate port.
-- [x] **Bound build memory**
-  ([#182](https://github.com/caseywdunn/corpus/issues/182)). A `docling`
-  block plus `compute.num_threads` bound extraction, which is where the
-  memory actually goes; `embeddings.batch_size` is reachable at last; and
-  INSTALL.md documents the cgroup cap, which is the outer bound. Turned up a
-  separate silent wrong on the way: `pipeline.embed` took no `--config` at
-  all, so `compute.accelerator` was honoured by Stage 1 and ignored by
-  Stage 2.
-- [x] **Load the local VLM in half precision on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — **measured on an
-  M2 Max; the default stays float32.** The issue's own premise was the memory
-  gap (~30.4 GB against ~15.2 GB, which shuts a 32 GB Mac out), and that gap is
-  real — float32 measured 37.69 GB of Metal allocation, *worse* than the
-  weights alone predict. But half precision buys it by moving the boxes:
-  against float32, bfloat16 scored mean IoU 0.65–0.75 per plate and float16
-  0.69–0.93, each with a worst panel at 0.0. ROI *counts* were identical
-  everywhere, so this is not a lost panel, it is a wrong one.
-
-  The control is what makes that conclusive, and I had to be told to run it:
-  the first report compared every dtype against every other and against the
-  shipped H200 ROIs, and everything disagreed with everything — including
-  float32 against the reference at 1/4 — which is uninterpretable without
-  knowing how much the model disagrees with *itself*. Two float32 runs agreed
-  at IoU 1.0 on every panel. Only then could the spread be attributed to dtype.
-  **A comparison matrix with no self-comparison in it measures nothing**, and
-  that is now the ninth item this cycle whose shape changed on contact with a
-  measurement.
-
-  Mechanism, so nobody re-litigates: generation is greedy and Qwen emits
-  coordinates as digit tokens, so a logit difference flips a digit and a
-  coordinate jumps hundreds of pixels — heavy-tailed by construction. The knob
-  stays as the fallback for machines where float32 cannot load at all, marked
-  as worse geometry rather than a better default. Recorded in
-  `resolve_vlm_dtype`'s docstring, which is where someone will look.
-
-  Two findings fell out on the way. Geometry is not portable across
-  accelerators at a fixed dtype: bfloat16 on MPS disagreed with the
-  bfloat16-on-H200 ROIs this corpuscle shipped on all four plates — Pass 3b
-  output is hardware-bound, which nothing in the docs had claimed either way.
-  And the local VLM backend reported a missing `torch` as "transformers >= 4.45
-  is required", because it imports transformers first and named the package it
-  asked for rather than the one that failed. Fixed: `ImportError.name` carries
-  the module that actually broke, and it separates the cases cleanly — an
-  absent package and a missing symbol both report the module we asked for, a
-  broken dependency chain reports the link. `pipeline/optional_deps.py`, wired
-  into all three ML backends (`transformers`, `sentence_transformers`,
-  `anthropic`), which had the same latent bug. A confident wrong instruction
-  costs more than a vague one.
-- [x] **Surface why a re-run is doing more work than expected**
-  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Reassessed as this
-  document asked, and v1.3 had already built the computation — what remained
-  was reading it. The renderer printed one line per affected document, so 699
-  lines on the Viburnum corpuscle. Rolled up by reason, the case that matters
-  is one line: `docling_extraction: pipeline_version — all of 699 documents`,
-  which is the sentence #281 needed. Also attached to `corpus run --dry-run`.
-
-**Section status:** four of five done. #258 is hardware-blocked, not
-deferred — see its note. Two of the four fixes turned up a defect the issue
-did not name, which is now the expected outcome rather than a surprise.
-
-### 3. Cheap, and better done at a version boundary
-
-- [x] **Rename `_serve/`** ([#273](https://github.com/caseywdunn/corpus/issues/273)).
-  Now `corpus_bundle/`. An existing `_serve/` is read and updated in place, so
-  no corpuscle needs rebuilding and no client breaks; the migration is one
-  `mv`, on the operator's schedule. The redundant basename check is removed
-  rather than renamed — the manifest was always the robust signal.
-- [ ] **Stop warning about a vision downgrade on phases that never run vision**
-  ([#263](https://github.com/caseywdunn/corpus/issues/263)).
-- [ ] **Fix served-bundle absolute-path audit false positives**
-  ([#183](https://github.com/caseywdunn/corpus/issues/183)) — noise inside a
-  release gate teaches operators to ignore the gate.
-- [ ] **Bound the depth-1 `get_citation_graph` payload**
-  ([#166](https://github.com/caseywdunn/corpus/issues/166)) so `truncated`
-  actually covers it.
-- [ ] **Emit a progress heartbeat during long per-document stages**
-  ([#170](https://github.com/caseywdunn/corpus/issues/170)).
-- [x] **Retire `siphonophores_sample` for the 35 transcribed documents**
-  ([#192](https://github.com/caseywdunn/corpus/issues/192)). Already done in
-  this repo, and verified rather than assumed: `siphonophores_sample` has no
-  references left, BOUCHET.md documents the gold corpuscle as the smoke test,
-  and #187 already targets it (see Standing gates). BOUCHET.md's
-  checksum-verified materialisation recipe was run — 35 PDFs, all sha256s
-  matched — and every figure it and the issue cite re-measures exactly: 761
-  pages, ~644 needing OCR, 127 MB, one document over 100pp, Totton1965a at
-  314 pages carrying 49% of the OCR load.
-- [x] **Column-store shape for `lexicon_matrix`**
-  ([#83](https://github.com/caseywdunn/corpus/issues/83)). **Declined on
-  measurement**, and the grid bounded instead. The saving is real (16.4-20.0%)
-  but applies only to the opt-in `detail=True` grid, which runs 382 kB over
-  1,775 rows — 19% off an undeliverable payload is not a fix. The default view
-  callers use is 469-1,606 bytes. What the measurement did find is that #88
-  made the grid opt-in without ever bounding it, so it now has a ceiling and
-  honest counts.
-- [x] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
-  Decided and shipped: a flat `figures.max_pixels_long_side`, default 3000,
-  applied at build time on both write paths and available as a backfill flag.
-  Re-measured on the current tree (21,521 figures / 11.88 GiB): the cap
-  recovers 2.74 GiB (23%) and costs the median panel-detected figure **0%**,
-  because 95% of them are already under it. Two things the measurement
-  corrected. `max_dpi` cannot substitute — the byte mass is full plate pages
-  at an ordinary 400 dpi, so a density cap leaves a 16,000 px figure at
-  12,000. And the selective rule's advantage evaporates: capping only
-  no-panel figures recovers 0.03 GiB more, while `rois == 0` turns out to mean
-  "detection never ran" for 95% of figures, not "no panels" — weaker than the
-  gate here assumed.
-  Analyses (A), (C) and (D) from the issue are done: pngquant was present, so
-  that lever is spent; the OCR path is 58% of the corpus, not a minority.
-  (B) is still worth running; (E) is stale archaeology and should be dropped;
-  (F) colour depth stacks on top of a cap.
-
-**Section complete.** Two of the eight turned out to be decisions rather than
-builds, and both went against the issue's proposal once measured: #83's column
-store saves 19% of a payload that is undeliverable either way, and #184's
-selective rule is *worse* than the flat cap it was meant to improve on. Two
-others were already done and needed verifying rather than doing (#192) or
-argued for deleting code rather than adding it (#273's basename check). The
-recurring shape: the cheap items were cheap because the previous cycle had
-already done the hard part — what was left was reading it.
-
-### 4. Decisions to record rather than defer again
-
-Each of these is a judgment that keeps being re-derived. Write the answer down
-and close the issue, or scope the work — either is progress; leaving them open
-is not.
-
-- [x] **OCR reproducibility** ([#280](https://github.com/caseywdunn/corpus/issues/280)).
-  Decided: normalize CJK whitespace **in the comparison**, keep the criterion
-  exclusion, and do *not* pin `--jobs 1` — that hypothesis was tested and
-  fails. See Standing gates for the measurements.
-- [x] **`get_missing_references` scope**
-  ([#155](https://github.com/caseywdunn/corpus/issues/155)). Both, since they
-  are complementary. The cheap slice: rows with neither title nor year are
-  withheld — 477 of 6,953 at the default threshold, and they outranked real
-  gaps (`corpus:|unknown|`, empty-titled with 30 citations, sat 11th, above
-  the genuinely-missing Bigelow 1906). And the docstring — the MCP tool
-  description a client actually reads — now says the tool is best-effort, names
-  the residual 96 title/year-only leads, and points at `resolve_reference` and
-  the QC tool. The remaining cases need a per-block LLM pass or a similarity
-  threshold loose enough to merge distinct works; neither is a cheap slice.
-
-**Cycle acceptance:** every issue above is closed or has a recorded decision,
-and the open tracker contains only new capability and direction questions —
-nothing that describes the product being wrong. Issues close when their fix
-lands on `dev` (CONTRIBUTING.md, "Closing issues"), so the tracker should
-shrink continuously through the cycle rather than in a bulk close at release.
-
-**Met.** All four sections are closed: 22 issues, 34 open → 13, with the
-tracker holding only v1.5 skills work (#178, #179, #180, #217), direction
-questions (#88, #89, #93, #123), deferred layers (#13, #14, #38, #39), and one
-item blocked on hardware rather than on a decision (#258 — Apple Silicon).
-
-Two things this cycle established, worth carrying into v1.5:
-
-**Measure the population before writing the fix.** Nine of the twenty-two
-items had their shape changed by measurement, and in six the measurement
-contradicted the issue's own proposal — #83's column store saves 19% of a
-payload undeliverable either way; #184's selective rule is *worse* than the
-flat cap it was meant to improve; #280's `--jobs 1` remedy addresses a
-mechanism that does not reproduce; #175's author-only matcher would write
-wrong protologues at a 67% error rate; #266's headline symptom was already
-fixed while a worse one went unnamed; and #165's two named documents are not
-where its value is. A proposal in an issue is a hypothesis, including a
-convincing one.
-
-**Reassess before building.** #80, #192 and half of #155 turned out to be
-already done, or already built by the previous cycle with only the reading of
-it left. #273 argued for deleting a check rather than renaming it. Cheap items
-were cheap because someone had already done the hard part.
-
-Explicitly **not** in v1.4: the skills and client layer (v1.5), new extraction
-layers (#13, #14), bulk export (#93), `verify_claim` (#123), embedding-model
-migration (#38), MCP scaling (#39), and the direction questions (#88, #89,
-#124).
+Also worth an hour: CI lanes install via `apt-get update` on GitHub's runner
+image, which ships a Google Chrome repo corpus never uses. A hash-sum mismatch
+there took out T3 and T1/T2 on the release commit three times on 2026-09-09.
+Dropping `/etc/apt/sources.list.d/google-chrome.list` before the update removes
+the whole class.
 
 ## v1.5 — skills and usage
 
