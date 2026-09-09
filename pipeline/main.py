@@ -185,6 +185,92 @@ def _audit_corpus_chunks(documents_dir: Path) -> Tuple[int, int, List[str]]:
     return attempted, total_chunks, zero_chunk_hashes
 
 
+# Extraction failures are recorded one file per shard, under this
+# directory, rather than in a single `stage1_failures.json`.
+#
+# The old form wrote that one file only when a run had failures and never
+# removed it, so a corpuscle went on claiming a failure long after the
+# document was rebuilt. The 2026-09-08 siphonophore build finished with
+# all 1775 documents complete and every array task exiting 0, while
+# `stage1_failures.json` still named one document as crashed by signal 9
+# — a stale artifact that reads exactly like a live one.
+#
+# Clearing the file from the success path is the obvious fix and it is
+# wrong: a Stage 1 job array runs 28 processes against one `output_dir`,
+# so a shard that finished cleanly would delete the record a shard that
+# is still failing had just written. Trading a stale-record bug for a
+# lost-record bug is not an improvement. A shard owns exactly its own
+# slice of the hash list, so it may rewrite and remove *its own* file
+# freely, and that is the only file it touches.
+_FAILURES_DIR = "stage1_failures"
+_LEGACY_FAILURES_FILE = "stage1_failures.json"
+
+
+def _failure_record_name(batch_index: Optional[int]) -> str:
+    """This shard's file name. Zero-padded so a listing sorts naturally."""
+    return "all.json" if batch_index is None else f"batch-{batch_index:05d}.json"
+
+
+def _record_stage1_failures(
+    output_dir: Path,
+    batch_index: Optional[int],
+    worker_failures: List[Dict],
+) -> Optional[Path]:
+    """Write this shard's failure record, or clear it when there are none.
+
+    Returns the path written, or None if nothing was written (either
+    there were no failures, or the write failed and was logged).
+
+    An unsharded run processed every document, so its verdict supersedes
+    whatever any earlier sharded run left behind: it also clears the
+    other shards' records and the legacy single file. A sharded run
+    touches neither, because it cannot speak for slices it did not read.
+    """
+    from .version import __version__ as _pipeline_version
+
+    failures_dir = output_dir / _FAILURES_DIR
+    own = failures_dir / _failure_record_name(batch_index)
+
+    if worker_failures:
+        try:
+            failures_dir.mkdir(parents=True, exist_ok=True)
+            own.write_text(json.dumps({
+                "pipeline_version": _pipeline_version,
+                "batch_index": batch_index,
+                "n_failed": len(worker_failures),
+                "failures": worker_failures,
+            }, indent=2))
+            return own
+        except OSError as e:
+            logger.error("could not write %s (%s)", own, e)
+            return None
+
+    # No failures in this shard: retract its record so a retry that
+    # succeeds stops the corpuscle reporting a failure that is fixed.
+    for stale in _stale_records(output_dir, batch_index, own):
+        try:
+            stale.unlink()
+            logger.info("cleared stale extraction-failure record %s", stale)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logger.warning("could not clear %s (%s)", stale, e)
+    return None
+
+
+def _stale_records(
+    output_dir: Path, batch_index: Optional[int], own: Path
+) -> List[Path]:
+    """Failure records this run is entitled to delete."""
+    if batch_index is not None:
+        return [own]                      # only ever its own slice
+    stale = [output_dir / _LEGACY_FAILURES_FILE]
+    failures_dir = output_dir / _FAILURES_DIR
+    if failures_dir.is_dir():
+        stale.extend(sorted(failures_dir.glob("*.json")))
+    return stale
+
+
 def _panels_to_legacy(mode: str) -> Tuple[bool, Optional[str]]:
     """Map the ``--figure-panels`` selector (#102) to the legacy
     ``(content_aware_figures, vision_backend_name)`` pair the runner and
@@ -947,28 +1033,19 @@ def main():
     logger.info("  Documents: %s", documents_dir)
     logger.info("  Vector DB: %s", vector_db_dir)
 
+    failures_path = _record_stage1_failures(
+        output_dir, getattr(args, "batch_index", None), worker_failures)
     if worker_failures:
-        # Persist a structured failure record so downstream tooling
-        # (orchestrator, `corpus status --report`) can see what dropped
-        # out of this batch without grepping the log stream.
-        from .version import __version__ as _pipeline_version
-        failure_summary = {
-            "pipeline_version": _pipeline_version,
-            "n_failed": len(worker_failures),
-            "failures": worker_failures,
-        }
-        failures_path = output_dir / "stage1_failures.json"
-        try:
-            failures_path.write_text(json.dumps(failure_summary, indent=2))
+        if failures_path is not None:
             logger.error(
                 "%d document(s) crashed during extraction — see %s",
                 len(worker_failures), failures_path,
             )
-        except OSError as e:
+        else:
             logger.error(
-                "%d document(s) crashed during extraction; could not write "
-                "%s (%s)",
-                len(worker_failures), failures_path, e,
+                "%d document(s) crashed during extraction; the failure "
+                "record could not be written (see preceding error)",
+                len(worker_failures),
             )
         return 1
 

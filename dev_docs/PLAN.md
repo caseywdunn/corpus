@@ -592,6 +592,26 @@ since fixed), absolute build paths, local-VLM ROI coordinates, and CJK OCR
 whitespace segmentation (#280). Shortening that list is real work; ignoring it
 quietly is not.
 
+**The local-VLM exclusion is now measured, not assumed.** v1.4 ran the #258
+probe twice on one H200 at production `bfloat16`, same weights, same images,
+greedy decoding: ROI *counts* were identical on 4/4 figures, but only 3/4 held
+boxes within IoU 0.95, one landing at 0.899. So the geometry is not reproducible
+run to run on a fixed accelerator, not merely across accelerators. That is the
+mechanism behind the v1.4 rebuild's figure churn — 40 documents gained ROIs and
+42 lost them against the v1.3.0 build, a symmetry that is the signature of noise
+rather than a regression. The cause is greedy decoding over coordinate *digit*
+tokens: a reduction-order difference too small to matter flips a digit and a
+coordinate moves. Do not treat small ROI deltas between builds as a defect
+without first reproducing them.
+
+**Not covered by that measurement: discovery-mode figure *counts*.** The probe
+exercises panel detection against a known label set, where counts held. Bare-plate
+discovery asks the model how many figures it can see, and on `AgassizL1862ab`
+that went 56 -> 35 between the two builds with byte-identical input images.
+Whether that is the same nondeterminism amplified by an open-ended count, or
+something else, is unmeasured — do not assume it is noise on the strength of the
+panel-detection result.
+
 **On #280 specifically, the decision is made and the remedy is not `--jobs 1`.**
 The harness normalizes whitespace *between two CJK characters* before digesting
 (`tools/qc/build_reference.normalize_cjk_spacing`), so segmentation noise stops

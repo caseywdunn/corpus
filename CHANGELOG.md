@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Extraction failure records no longer outlive the failure.** The v1.4
+  full-corpus rebuild finished with all 1775 documents complete and all 28
+  Stage 1 array tasks exiting 0, while `stage1_failures.json` still named one
+  document as crashed by signal 9 — written by an earlier run, and nothing ever
+  removed it. A finished corpuscle carried a failure record indistinguishable
+  from a live one.
+
+  Clearing the file on the success path is the obvious fix and is wrong: 28
+  array tasks share one `output_dir`, so a shard that finished cleanly would
+  delete the record a still-failing shard had just written, trading a stale
+  record for a lost one. Records are now written one file per shard under
+  `stage1_failures/`, and a shard rewrites or retracts only its own. An
+  unsharded run processed every document, so it alone also clears stale shard
+  records and the legacy single file.
+
 - **Dependency errors name the module that actually failed (#258 follow-up).**
   On a Mac with the conda env unactivated, the local VLM backend reported
   `transformers >= 4.45 is required` — but `torch` was the missing package and
