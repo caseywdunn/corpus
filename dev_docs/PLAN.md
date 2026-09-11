@@ -141,38 +141,29 @@ the two halves get picked up for different reasons: a known defect is picked up
 when it bites someone, an unbuilt feature when something makes it worth
 building.
 
-**v1.4 now owns these, and the section above is where their scheduling lives:**
-#80, #83, #155, #164, #165, #166, #168, #169, #170, #172, #175, #182, #183,
-#184, #192, #258, #263, #266, #270, #273, #279, #280. Their notes are kept
-below because the rationale is still worth reading — but v1.4's list is the
-one to work from, not this one. Anything here *not* in that list is genuinely
-unscheduled: new extraction layers, bulk export, `verify_claim`,
-embedding-model migration, MCP scaling, and the direction questions.
+**Pruned at the head of the v1.5 cycle.** The v1.4 list that used to live here
+pointed at a section that is now a stub, and the defects below it had drifted
+badly: eleven items still carried open checkboxes after their issues closed in
+v1.4 (#80, #164, #165, #166, #168, #169, #170, #175, #182, #263, #270). They are
+gone rather than ticked — the v1.4.0 tag's copy of this file has them with their
+measurement notes, which is where shipped work lives.
+
+What remains here is genuinely unscheduled: new extraction layers, bulk export,
+`verify_claim`, embedding-model migration, MCP scaling, and the direction
+questions.
+
+**Check before trusting a checkbox.** This section is an orientation list, not a
+tracker, and it goes stale in exactly one direction — an issue closes and the box
+here does not. `gh api repos/caseywdunn/corpus/issues/<n> --jq .state` settles it
+in a second. (`gh issue view` currently fails against this repo on a deprecated
+Projects-classic GraphQL field; `gh api` is the working path.)
 
 ### Open defects
 
 Issue-backed, in dependency-free groups.
 
-**Served-surface correctness**
-
-- [ ] **Taxonomic authority linking assumes zoological authorship**
-  ([#175](https://github.com/caseywdunn/corpus/issues/175)), so
-  `get_original_description` is structurally dead for any botanical
-  corpus — 889 of 913 viburnum taxa had authorship, 0 with a year.
-  Overlaps PR #144 below, from the opposite end.
-- [ ] **Lexicon translations match only uninflected forms**
-  ([#165](https://github.com/caseywdunn/corpus/issues/165)), zeroing
-  anatomy coverage on German papers: Eschscholtz prints `Luftblasen`,
-  the lexicon has `Luftblase`.
-- [ ] **A hub work's depth-1 `get_citation_graph` payload can exceed MCP
-  transport limits** ([#166](https://github.com/caseywdunn/corpus/issues/166))
-  while `truncated: false` stays accurate.
-
 **Extraction quality**
 
-- [ ] **Abbreviated genus binomials**
-  ([#164](https://github.com/caseywdunn/corpus/issues/164)) —
-  `Ph. pelagica` resolves to nothing.
 - [ ] **Move the docling pin forward**
   ([#283](https://github.com/caseywdunn/corpus/issues/283), superseding the
   [#98](https://github.com/caseywdunn/corpus/issues/98) follow-up). Still
@@ -191,25 +182,6 @@ Issue-backed, in dependency-free groups.
   fidelity harness ([#193](https://github.com/caseywdunn/corpus/issues/193))
   gives this a criterion it never had** — "better or worse" against the gold
   set rather than against impressions.
-
-**Operator surface**
-
-- [ ] **Progress heartbeat during long per-document stages**
-  ([#170](https://github.com/caseywdunn/corpus/issues/170)).
-- [ ] **`--filter-gate` is silently ignored without `--list-hashes`**
-  ([#169](https://github.com/caseywdunn/corpus/issues/169)) — the hint
-  was fixed in 1.0, the underlying flag was not.
-- [ ] **Surface the naive-chunker fallback in `corpus status`**
-  ([#168](https://github.com/caseywdunn/corpus/issues/168)).
-- [ ] **Do not warn about a downgraded vision pass on phases that never run
-  it** ([#263](https://github.com/caseywdunn/corpus/issues/263)).
-- [ ] **Bound build memory explicitly**
-  ([#182](https://github.com/caseywdunn/corpus/issues/182)); embedding batch
-  size and docling resource controls should be reachable from configuration.
-- [ ] **Make accelerator requirements explicit**
-  ([#270](https://github.com/caseywdunn/corpus/issues/270)). A GPU phase should
-  fail before expensive setup when no usable accelerator is present; keep
-  scheduler-specific constraints in deployment configuration.
 
 **Housekeeping**
 
@@ -268,9 +240,6 @@ held because nothing has yet made them worth the cost.
 - **`verify_claim`** ([#123](https://github.com/caseywdunn/corpus/issues/123)).
   Per-claim ledger anchoring as a thin similarity-only wrapper over
   `get_chunks_for_topic`. New tool — post-freeze by construction.
-- **Drift detection** ([#80](https://github.com/caseywdunn/corpus/issues/80)).
-  Pre-run explanation of why a run will invalidate each stage. v1.3 implements
-  #174 and #187; reassess afterward whether #80 still names distinct work.
 - **Bulk export outside the MCP response channel**
   ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2 and
   [#93](https://github.com/caseywdunn/corpus/issues/93)). A local `corpus
@@ -477,7 +446,7 @@ Generic shapes; concrete instantiations live in the corpuscle's
 | # | Pattern | Status entering v1.3 |
 | --- | --- | --- |
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer ([#13](https://github.com/caseywdunn/corpus/issues/13), deferred to v2.0+) |
-| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; v1.3 repairs caption/reference evidence and makes uncertainty inspectable before v1.4 adds the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
+| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; v1.3 repairs caption/reference evidence and makes uncertainty inspectable before v1.5 adds the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
 | Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14)) |
 | Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; a corpus-scale vision run landed in v1.0 and figure detection became measurable against truth in v1.2. On the clean gold corpuscle, physical detection is 0.883 recall / 0.865 precision raw and 0.827 / 1.000 on the default MCP type surface. Caption identity binding is 0.641 / 0.987 against the corrected 839-identity yardstick; the remaining recall gap is predominantly absent upstream number evidence rather than selector error |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |
