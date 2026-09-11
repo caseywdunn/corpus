@@ -29,7 +29,7 @@ the client consuming that service.
 | **Library curation** | Source PDFs, BibTeX and curator directives such as `ocrlang` / `keeppages` | Inspect sources, validate metadata and propose or review source edits | Write derived corpus artifacts; carry private copies of generic PDF/OCR rules |
 | **Build/materialization** | OCR, extracted text and figures, associations, databases, embeddings and the served bundle | Expensive batch/GPU/API work and deterministic, resumable transforms | Depend on `tools/` or `skills/`; publish ambiguous partial state as complete |
 | **Serve/query** | An immutable served bundle plus disposable caches | Bounded lookup, filtering, authorization, formatting and compatible query embedding | OCR, reconciliation, corpus-wide mutation, external enrichment or general LLM calls |
-| **Client/agent** | User intent, workflow state and deliverables | Synthesis, translation, orchestration and presentation | Become the enforcement point for licensing, provenance or access control |
+| **Client/agent** | User intent, workflow state and deliverables — this is where `skills/` runs | Synthesis, translation, orchestration and presentation | Become the enforcement point for licensing, provenance or access control |
 
 The normal data flow is one way:
 
@@ -38,7 +38,13 @@ library -> build/materialization -> immutable bundle -> bounded response -> clie
 ```
 
 Feedback travels back as an explicit, reviewed edit to the library or build
-configuration; a query does not mutate the corpus. Generic knowledge about
+configuration; a query does not mutate the corpus.
+
+A plane tag names **the plane whose data a thing writes, not the process that
+runs it.** That distinction matters most for skills, which all execute on the
+client: a skill that assembles a library is library-curation work, and one that
+drives a build is build work, even though an agent runs both. See AGENTS.md,
+"Execution-plane invariants". Generic knowledge about
 PDFs, OCR or artifact formats belongs in `pipeline/`, even when first needed
 by a library-curation workflow. Read-only inspection commands may live in
 `tools/`, and collection-specific judgments belong in the library itself or

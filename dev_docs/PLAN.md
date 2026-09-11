@@ -108,23 +108,80 @@ evidence rather than design around known gaps. v1.5 is the
 small client/workflow layer that turns the frozen retrieval surface into a
 repeatable answer. Its scope is deliberately limited to one library-building
 workflow, one corpus-consuming workflow, and the shortest public path through
-them:
+them.
 
-- [ ] **A `skills/` plugin directory and library-assembly skill**
-  ([#178](https://github.com/caseywdunn/corpus/issues/178)). Skills may import
-  public functions from `pipeline/`; the product never imports a skill.
-- [ ] **`corpus bib inspect-pages`**
+**Every item names its execution plane.** The four planes are defined under
+[Execution planes and data ownership](OVERVIEW.md#execution-planes-and-data-ownership)
+and restated as contributor invariants in [AGENTS.md](../AGENTS.md). This is the
+first cycle that builds things a user talks to, which is exactly where the
+invariants are easiest to violate without noticing: a skill that writes to the
+corpuscle, or a quick start that asks the running server to do build work, reads
+like a feature until someone traces it. Naming the plane makes that checkable at
+review time rather than after.
+
+The tag names **the plane whose data an item writes, not the process that runs
+it.** Every skill executes on the client, so tagging them all "client/agent"
+would say nothing; what distinguishes them is what they produce. `assemble-library`
+is library-curation work because it produces a library. Two corollaries: not
+everything has a plane — CI and documentation items get none rather than a forced
+one — and **a `plane:serve` item is an alarm**, because the running server is
+logically read-only. v1.5 has none, which is the point.
+
+The same tags exist as `plane:*` labels on the tracker, which is authoritative.
+
+- [ ] **A `skills/` plugin directory and library-assembly skill** — *library
+  curation* ([#178](https://github.com/caseywdunn/corpus/issues/178)). Skills may
+  import public functions from `pipeline/`; the product never imports a skill.
+  The plugin scaffolding itself has no plane; `assemble-library` produces a
+  library, which is what the tag tracks.
+- [ ] **`corpus bib inspect-pages`** — *library curation*
   ([#217](https://github.com/caseywdunn/corpus/issues/217)), the read-only
   pre-build evidence used by the library-assembly workflow to curate
   `keeppages`, `doclang` and related judgments. It inspects the library; it does
   not duplicate the post-build page report from #274.
-- [ ] **A clade-monograph skill**
+- [ ] **A corpuscle-summary skill** — *client/agent*
+  ([#286](https://github.com/caseywdunn/corpus/issues/286)). Markdown by default,
+  a LaTeX fragment on request. Broken out of #179, where it was Appendix A of the
+  monograph. It is two MCP calls, a plot script and a template — `corpus_summary`
+  and `bundle_info` already return every field it needs, so it adds no MCP
+  surface.
+- [ ] **A build-and-triage skill** — *build/materialization*
+  ([#287](https://github.com/caseywdunn/corpus/issues/287)). The judgment layer
+  over `corpus check` / `run` / `status`: what a `timeout` versus a `corrupted`
+  versus a `quality_gate` failure means for this collection. It must not
+  re-implement `corpus status`; if it ends up only printing that output, cut it.
+- [ ] **A clade-monograph skill** — *client/agent*
   ([#179](https://github.com/caseywdunn/corpus/issues/179)) that consumes the
   caption/reference provenance shipped by v1.3 and writes deliverables on the
-  client, never on the MCP host.
-- [ ] **A README quick start**
+  client, never on the MCP host. Appendix A now comes from #286 rather than being
+  written here.
+- [ ] **A quickstart orchestrator skill** — *client/agent*
+  ([#288](https://github.com/caseywdunn/corpus/issues/288)), sequencing the three
+  skills above with a gate per step. Its value over a README prompt is that a
+  gate becomes an exit code instead of a sentence a model can rationalize past.
+- [ ] **A README quick start** — *no plane; documentation*
   ([#180](https://github.com/caseywdunn/corpus/issues/180)) covering that path
-  from a library to a served answer.
+  from a library to a served answer. **It now ends at the corpuscle summary, not
+  a monograph** — a quick start should not build a book, and stopping at the
+  summary takes LaTeX out of a first-time reader's path entirely.
+- [ ] **Drop the Google Chrome apt repo before `apt-get update`** — *no plane;
+  repo infrastructure* ([#285](https://github.com/caseywdunn/corpus/issues/285)).
+  One line against a failure that took out three lanes on the v1.4.0 release
+  commit, in the window between merging and tagging where a red `main` is most
+  expensive.
+
+**The list grew from four items to eight; the cycle did not.** Three of the four
+additions are subtractions from items already here — #286 comes out of #179, and
+#287 and #288 come out of #180's own "bake-ins" list, where they were named as
+the changes that would make that issue tractable. The fourth, #285, is a one-line
+CI fix. Nothing new was taken on.
+
+What the split buys is that **#180 no longer depends on #179.** Before it, the
+shortest public path through corpus could not ship until the longest one did.
+#179 is now the only item that can slip without taking the quick start with it —
+and it is the one most likely to, carrying eight open design questions in its
+body. If v1.5 runs long, #179 defers to v1.6 and the cycle still delivers a
+complete public path.
 
 Bulk export ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2 and
 [#93](https://github.com/caseywdunn/corpus/issues/93)), reconciliation changes,

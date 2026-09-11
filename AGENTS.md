@@ -20,6 +20,7 @@ them as requirements or as the only supported workflow**.
 | `dev_docs/TESTING.md` | General | Quality test suite (ground truth, eval workflow) |
 | `dev_docs/OCR_LANGUAGES.md` | General | What the gold set says about choosing Tesseract packs: when a union helps, when it hurts, why the native pack matters (character coverage, not dictionaries), and pinning vs detection. Stable — cite this from code comments rather than PLAN.md. |
 | `dev_docs/FIGURE_PARSING.md` | General | What the gold set says about figure detection, furniture filtering and caption binding: the three questions, how each is measured and why in that shape, and where the numbers are weak. Stable — cite this from code comments rather than PLAN.md. |
+| `skills/` (#178, not yet created) | General, **must stay group-agnostic** | Claude Code skills shipped as a plugin. A skill may import public functions from `pipeline/`; the product never imports a skill (`tests/test_import_direction.py`). Collection-specific judgment belongs in the *library repo*, not in a skill here — the same rule that keeps the rest of this repo corpus-agnostic. Layout and the `SKILL.md` frontmatter contract land with #178. |
 | `tools/smoke_test_sse.py` | General | Programmatic MCP smoke test; works on any corpuscle. Requires a compute node (not login) for full Layer 3 coverage — Layer 3 loads the ~600 MB BGE-M3 embedder for semantic search. |
 | `dev_docs/BOUCHET.md` | **Siphonophore + Yale Bouchet (example)** | Runbook for the Dunn-lab siphonophore corpus on Yale's Bouchet HPC. The SLURM scripts, paths, and partition names are Bouchet-specific; the pattern (config-driven `corpus run`, job arrays, pre-download models) is general. Use as a template, not a literal guide. |
 | `dev_docs/ACCEPTANCE_PROMPTS.md` | **Siphonophore (example)** | Manual acceptance prompts for the siphonophore corpuscle. Taxon names are siphonophore-specific; adapt for other groups. Referenced from BOUCHET.md. |
@@ -183,6 +184,23 @@ contributor constraints:
 - Any serve-time cache is disposable and separate from the immutable bundle.
   On-demand crops currently violate this invariant and are tracked as an
   architecture gap; do not copy that pattern into new features.
+
+**Every roadmap item and new issue names its plane.** The tag names *the plane
+whose data the item writes, not the process that runs it* — every skill executes
+on the client, so tagging them all client/agent would carry no information; what
+separates them is what they produce. `assemble-library` is library-curation work
+because it produces a library; a build-and-triage skill is build-plane work
+because it produces a corpuscle.
+
+Two corollaries. **Not everything has a plane** — the planes describe corpus's
+data flow, not the repo, so CI fixes and documentation get none rather than a
+forced one; leaving the tag off is a legitimate answer, not an omission. And **a
+serve-plane item is an alarm**: the running server is logically read-only, so
+work landing there usually means it has leaked out of the build.
+
+Recorded in two places, deliberately: `plane:*` labels on the tracker, which is
+authoritative, and an inline tag in `dev_docs/PLAN.md` so the roadmap reads
+standalone.
 
 ## Implementation notes for contributors
 
