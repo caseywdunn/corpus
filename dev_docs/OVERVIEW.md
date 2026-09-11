@@ -31,14 +31,84 @@ the client consuming that service.
 | **Serve/query** | An immutable served bundle plus disposable caches | Bounded lookup, filtering, authorization, formatting and compatible query embedding | OCR, reconciliation, corpus-wide mutation, external enrichment or general LLM calls |
 | **Client/agent** | User intent, workflow state and deliverables — this is where `skills/` runs | Synthesis, translation, orchestration and presentation | Become the enforcement point for licensing, provenance or access control |
 
-The normal data flow is one way:
+Derived data flows one way, and the loop closes through the library:
 
 ```text
-library -> build/materialization -> immutable bundle -> bounded response -> client output
+library -> build/materialization -> immutable bundle -> bounded response -> client
+   ^                                                                          |
+   +------------------ reviewed edit to a library input --------------------- +
 ```
 
-Feedback travels back as an explicit, reviewed edit to the library or build
-configuration; a query does not mutate the corpus.
+**The return edge is real work, not an exception**, and it is meant to be
+travelled more than once. A corpuscle is not built correctly in one pass and
+then queried forever; it is **improved a lap at a time**. Each circuit reads
+the built corpuscle, finds something the inputs got wrong or left out, edits an
+input, and re-runs — and the next build is better than the last. The first pass
+gets you a corpuscle; the passes after it get you a good one.
+
+Most of what a lap finds can only be seen *after* a build, which is why the
+loop exists at all: which papers the corpus cites but does not hold, which
+lexicon terms never matched anything, which names the literature uses that the
+taxonomy does not have, which scans need a `keeppages` range. None of those are
+visible in the library alone. A skill that ends by proposing an edit to `.bib`,
+`lexicon.yaml`, `taxonomy.dwca.zip` or `config.yaml` is doing exactly what this
+diagram intends.
+
+Two consequences for anything built on this path. **Measurement per lap is the
+cost that matters** — if a lap is expensive or its signal is vague, users stop
+going round, and the corpuscle stops improving. And **a lap must be cheap to
+repeat**: implicit resume is what makes one an input edit plus the stages that
+actually depend on it, rather than a rebuild.
+
+What the one-way rule actually constrains is **what may be written, not who may
+write it**:
+
+| | May a client-plane workflow write it? |
+|---|---|
+| Library inputs — PDFs, `.bib`, `lexicon.yaml`, taxonomy snapshot, `config.yaml`, curator directives | **Yes** — explicitly, and reviewed by a human before it lands |
+| Derived artifacts — `taxa.json`, the SQLites, embeddings, the served bundle | **No** — the build owns these; the way to change them is to edit an input and re-run |
+
+So a query still never mutates the corpus, and nothing writes back through the
+MCP server. The loop runs through the library and the build, which is what
+makes the change reproducible: an edit to an input is re-run, re-measured and
+visible in the next bundle, whereas a patched artifact is invisible and gone at
+the next build.
+
+An item that revises a library input is **library-curation-plane work**, whoever
+runs it — see the tag rule below.
+
+### The planes usually sit on different machines
+
+This is not an abstraction: in the lab's own deployment the library is a git
+repo on a workstation, the build runs on a SLURM cluster
+([BOUCHET.md](BOUCHET.md)), the bundle is served from EC2
+([DEPLOY.md](../DEPLOY.md)), and the client is a laptop talking to that server
+over MCP. Four planes, four hosts.
+
+So **closing the loop is a file transfer, not a write.** A client that has just
+worked out which twenty papers the corpus is missing usually has no filesystem
+access to the library at all, and the one channel it does have — the MCP
+server — is read-only by design and points the wrong way besides. Anything
+built on the return edge has to carry its output across a machine boundary.
+
+What that means in practice:
+
+- **The library repo is the transport.** Libraries are git repos with LFS for
+  PDFs, so the return edge is a branch, a patch or a PR against that repo —
+  something a human reviews and merges — rather than an in-place edit. This is
+  also what makes the "reviewed" in "reviewed edit" mechanical instead of
+  aspirational.
+- **Text and binaries travel differently.** A `.bib` entry or a lexicon term is
+  a diff; a 40 MB scan is an LFS object someone has to fetch and commit. A
+  want-list that names what to get is often the right deliverable, with
+  retrieval happening where the library lives.
+- **Say where a workflow runs.** A skill that needs to diff against
+  `lexicon.yaml` has to run where that file is — the bundle does not ship it.
+  A skill that only reads the served corpuscle can run anywhere. Each one
+  should state which it is, because "write the file" silently assumes
+  co-location that usually does not hold.
+- **Never route the return edge through the MCP server.** Already forbidden
+  above on plane grounds; the deployment makes it impractical as well.
 
 A plane tag names **the plane whose data a thing writes, not the process that
 runs it.** That distinction matters most for skills, which all execute on the
@@ -129,7 +199,7 @@ Orchestrated by `pipeline.runner.run_pdf_processing_pipeline`, six steps per PDF
 | **Text + figure extraction** (`pipeline/extract.py`) | Docling parses the PDF into structured text and figure regions. Figures go through a classification/caption pipeline (see [Figure pipeline](#figure-pipeline) below). Falls back to raw PyMuPDF image extraction when docling finds nothing. | `text.json`, `figures.json`, `figures/*.png` |
 | **Metadata extraction** (`pipeline/metadata.py`, `bib/`) | Grobid extracts title, authors, year, DOI, abstract, section structure, and parsed references. `--bib` overrides the header from a curated BibTeX. Falls back to placeholder when Grobid is unavailable. | `metadata.json` |
 | **Chunking** (`pipeline/chunking.py`) | Splits extracted text via docling's `HybridChunker` (tokenizer-aware, respects section/heading structure), with section-class labels. | `chunks.json` |
-| **Annotation** (`pipeline/annotate.py`) | Per-chunk taxon mentions (against the DwC taxonomy snapshot) and lexicon matches (one pass per category in `--lexicon`). Each output file stamps a per-category `input_fingerprint`; the stage-completion record in `pipeline_state.json` mirrors it so a per-category resume detects exactly which categories changed. | `taxa.json`, `<category>.json` |
+| **Annotation** (`pipeline/annotate.py`) | Per-chunk taxon mentions (against the DwC taxonomy snapshot) and lexicon matches (one pass per category in `--lexicon`). Each output file stamps a per-category `input_fingerprint`; the stage-completion record in `pipeline_state.json` mirrors it so the annotation stage re-runs when any category changes (all categories together, not selectively). | `taxa.json`, `<category>.json` |
 
 Stage 1 supports SLURM job-array parallelization via `--batch-index` / `--batch-size`. Each array task deterministically processes a slice of the sorted hash list. See [BOUCHET.md](BOUCHET.md) for operational details.
 
@@ -616,7 +686,7 @@ biogeography:
 
 Pass it with `--lexicon path/to/lexicon.yaml`; each category emits its own `<hash>/<category>.json` (so `anatomy.json`, `biogeography.json`, …). See [demo/lexicon.yaml](../demo/lexicon.yaml) for a worked siphonophore example.
 
-Lexicons are inputs you maintain alongside the literature, not part of the tool. Each category's content is fingerprinted independently (SHA-256 over the canonical JSON of just that section) and recorded both inside the `<category>.json` artifact and in the per-paper `pipeline_state.json` completion record. On `--resume`, editing one section re-runs `taxa_and_lexicon_extraction` against the new fingerprint; sections whose hash didn't change stay cached.
+Lexicons are inputs you maintain alongside the literature, not part of the tool. Each category's content is fingerprinted independently (SHA-256 over the canonical JSON of just that section) and recorded both inside the `<category>.json` artifact and in the per-paper `pipeline_state.json` completion record. On a re-run, editing any section re-runs `taxa_and_lexicon_extraction` — **every category and `taxa.json` together**, not only the section that changed: `_expected_fingerprints_for_run` stores all category fingerprints under a single `lexicons` key (`pipeline/stages.py`), so the stage gate is one comparison, and `_extract_taxa_and_lexicons` has no per-category skip. The per-category hashes exist for *attribution* — they let `corpus status` name which input went stale, and the bundler scrub paths per artifact — not to gate work. The cost that is actually saved is the rest of the pipeline: OCR, extraction, metadata and embeddings all stay cached, which is what makes a lexicon edit cheap to iterate on.
 
 ## Cross-paper databases
 

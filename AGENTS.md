@@ -169,9 +169,27 @@ Use the four execution planes defined in `dev_docs/OVERVIEW.md` under
 build/materialization, serve/query, and client/agent. These boundaries are
 contributor constraints:
 
-- Data flows library → build → immutable bundle → bounded response → client.
-  Client feedback becomes a reviewed library or config edit, never an MCP-side
-  corpus mutation.
+- Derived data flows library → build → immutable bundle → bounded response →
+  client, and **the loop closes back through the library**. Client-plane work
+  may revise library-plane inputs — `.bib`, `lexicon.yaml`, the taxonomy
+  snapshot, `config.yaml`, curator directives — and that return edge is
+  expected work, not an exception. The constraint is on *what* is written, not
+  *who* writes it: never a derived artifact (`taxa.json`, the SQLites,
+  embeddings, the bundle), and never a mutation through the MCP server. To
+  change a derived artifact, edit the input and re-run.
+- **The loop is meant to be travelled repeatedly.** A corpuscle is improved a
+  lap at a time, and most of what a lap finds — papers cited but not held, dead
+  lexicon terms, names the taxonomy lacks — is only visible after a build. So
+  cheap, specific per-lap measurement is a first-class concern: a lap whose
+  signal is vague or whose re-run is expensive is a lap users stop taking.
+- **The planes usually sit on different machines**, so closing the loop is a
+  file transfer, not a write: library on a workstation, build on a cluster,
+  bundle served from EC2, client on a laptop. A client-plane workflow generally
+  cannot write the library at all. Deliver the return edge as something
+  transportable and reviewable — a branch or patch against the library repo, or
+  a want-list naming what to fetch where the library lives — and state where the
+  workflow has to run, since anything diffing against `lexicon.yaml` or the
+  `.bib` needs those files present and the bundle does not ship them.
 - OCR, extraction, figure/caption association, reconciliation, corpus-wide
   indexing, embeddings and external enrichment belong to the build plane.
 - The running server is logically read-only and operationally bounded. It may

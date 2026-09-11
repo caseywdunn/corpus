@@ -5,9 +5,12 @@
 # (biogeography, life_history, methods, …); the pipeline writes one
 # <category>.json per category into each paper's hash directory.
 #
-# Per-category fingerprinting: a change inside one category invalidates
-# only that category's annotation artifact on --resume — other
-# categories continue to be cached.
+# Editing this file re-runs the annotation stage only — OCR, extraction,
+# metadata and embeddings stay cached, so iterating on the lexicon is
+# cheap. The re-run does cover every category plus taxa.json, not only
+# the section you changed: each artifact carries its own per-category
+# fingerprint for attribution, but the resume gate holds all categories
+# in a single value.
 #
 # Per-term schema:
 #   synonyms:    English variants (plural, abbreviation, historical spelling)

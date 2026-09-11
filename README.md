@@ -269,7 +269,7 @@ biogeography:
     synonyms: [open water]
 ```
 
-Set `lexicon: ./lexicon.yaml` in your corpuscle's `config.yaml`. Each category emits its own `<hash>/<category>.json` artifact. Per-category content is fingerprinted independently, so editing a single section only invalidates that category's annotations on the next `corpus run` — the rest stay cached (implicit resume; #60 dropped the `--resume` flag).
+Set `lexicon: ./lexicon.yaml` in your corpuscle's `config.yaml`. Each category emits its own `<hash>/<category>.json` artifact. Editing the lexicon re-runs the annotation stage only — extraction, OCR, metadata and embeddings all stay cached (implicit resume; #60 dropped the `--resume` flag), so a lexicon edit is cheap to iterate on. Note the re-run covers **every** category and `taxa.json`, not just the section you edited: each artifact carries its own per-category fingerprint for attribution, but the resume gate holds all categories in one value.
 
 Without a `lexicon:` entry, lexicon extraction is skipped entirely. Like `bib:`, the lexicon is an input you maintain alongside your literature, not something the tool ships.
 
