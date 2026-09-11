@@ -190,6 +190,69 @@ not part of v1.5. If the clade-monograph acceptance run exposes another
 evidence-integrity defect, fix it as a defect; do not expand the skills cycle
 into another pipeline redesign.
 
+## v1.6 candidate — closing the improvement loop
+
+Not scheduled; recorded together because they are one body of work and the
+ordering inside it matters. v1.5 builds the forward path — library to build to
+bundle to answer. This is the **return edge**: reading a built corpuscle to
+find what its inputs got wrong, and proposing the reviewed edit that makes the
+next build better. See [OVERVIEW.md](OVERVIEW.md#execution-planes-and-data-ownership),
+which now documents the loop, its iterative nature, and the fact that its ends
+usually sit on different machines.
+
+**The finding that shapes this cycle: the return edge is missing its
+instruments, not its skills.** Two of the three workflows below are blocked on
+measurement that does not exist, and building the measurement is `pipeline/`
+work, not skill work, under the AGENTS.md tiering. Once it exists each skill is
+thin — read the report, propose the edit, re-run. Only the bibliography lap is
+ready today, because `get_missing_references` is the one instrument already
+built.
+
+Instruments first:
+
+- [ ] **Record taxon-name candidates the snapshot does not have** — *build*
+  ([#289](https://github.com/caseywdunn/corpus/issues/289)). `pipeline/taxa.py`
+  drops every unresolved candidate silently, so the corpus cannot answer "which
+  names does the literature use that my taxonomy lacks" — it computes the answer
+  on every run and discards it. Measure the noise floor before choosing what to
+  keep.
+- [ ] **Lexicon coverage and content validation** — *build*
+  ([#290](https://github.com/caseywdunn/corpus/issues/290)). A declared term
+  that matched nothing is invisible: `n_terms_hit` has no denominator, and the
+  bundle does not ship `lexicon.yaml` for the server to diff against. Deferred
+  once already at [QC.md](QC.md) "What's missing in v0.3"; this is that pass.
+  Dead terms only — gap detection is a different problem.
+
+Then the laps:
+
+- [ ] **Find papers to add** — *library curation*
+  ([#293](https://github.com/caseywdunn/corpus/issues/293)). The ready one.
+  Its trap is that `in_corpus = 0` depends on ghost reconciliation, so an
+  unreconciled variant of a work already held appears as a lead — verification
+  is the skill, not garnish.
+- [ ] **DwC-A audit** — *library curation*
+  ([#294](https://github.com/caseywdunn/corpus/issues/294)), blocked on #289.
+  Reports discrepancies; never asserts a synonymy. The snapshot cannot even
+  justify its own, having dropped `nomenclaturalStatus` at ingest.
+- [ ] **Build and revise a lexicon** — *library curation*
+  ([#295](https://github.com/caseywdunn/corpus/issues/295)), blocked on #290.
+  The cheapest lap available, which makes it the best place to show the loop is
+  worth taking.
+
+Adjacent, found while scoping the above:
+
+- [ ] **Vernacular names are exported but never ingested** — *build*
+  ([#291](https://github.com/caseywdunn/corpus/issues/291)). The export selects
+  a `name_type` no ingest path writes, so the extension is always empty. Fixing
+  it properly widens `name_set()` and would make vernaculars match as taxon
+  mentions — a behavior change, and #178's "kalina" homonym trap is the reason
+  to think hard about it.
+- [ ] **Gate lexicon annotation per category** — *build*
+  ([#292](https://github.com/caseywdunn/corpus/issues/292)). Editing one
+  category re-runs all of them plus `taxa.json`; the docs claimed otherwise and
+  were corrected. Per-lap cost is what decides whether users keep going round,
+  and #178 generates multi-category lexicons by default.
+
 ## Unscheduled
 
 This is a selected orientation list, not a second issue tracker; GitHub issues
