@@ -117,6 +117,7 @@ it stops paying.**
 
 ```bash
 python scripts/openalex_probe.py --check                # 0. preflight
+python scripts/harvest_openalex.py --dry-run            #    cost it first
 
 python scripts/build_taxonomy.py -o taxonomy.dwca.zip   # 1. taxonomy
 
@@ -163,6 +164,13 @@ Sources, and what each is for, are in `references/harvesting.md`. In short:
 OpenAlex for modern literature, BHL Part records for pre-1930 material searched
 under historical and segregate names, Crossref / PubMed / Europe PMC as the
 clade warrants, plus any lab or author archive the user names.
+
+The OpenAlex queries live in `scripts/queries.yaml`, **not** in the harvest
+script — they are the output of the scoping conversation, so someone revising the
+harvest for a new clade edits a list of queries rather than a program. Copy
+`queries.yaml.example` and rewrite it. `harvest_openalex.py` is resumable per
+query and per page, deduplicates on the work id, and keeps the tag of whichever
+query found a record first.
 
 **Budget the OpenAlex harvest before running it.** It meters by credit, and the
 free allowance is about 100 search requests per day — small enough that a
