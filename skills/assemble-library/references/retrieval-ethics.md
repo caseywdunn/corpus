@@ -115,12 +115,21 @@ Any of these work; none of them put the key in a file that could be committed:
 ```bash
 # A dedicated secrets file, sourced when you need it — easiest to revoke
 mkdir -p ~/.config/corpus
-read -rs BHL_API_KEY   # typed, not echoed, not in shell history
+read -rsp 'BHL API key: ' BHL_API_KEY; echo    # prompts; input is not echoed
 printf 'export BHL_API_KEY=%s\n' "$BHL_API_KEY" > ~/.config/corpus/secrets.env
 chmod 600 ~/.config/corpus/secrets.env
+unset BHL_API_KEY                              # clear it from this shell
+
+# verify without revealing it
+source ~/.config/corpus/secrets.env && echo "${#BHL_API_KEY} chars"
 
 source ~/.config/corpus/secrets.env && python scripts/harvest_bhl.py
 ```
+
+`-p` is not cosmetic: `read -rs` with no prompt prints nothing and echoes
+nothing, so a terminal waiting for input is indistinguishable from one that has
+hung — and the natural response to that is Ctrl-C, or typing the key somewhere
+it will be recorded. Tell the user what to type and where.
 
 Or a `.env` at the library root — already gitignored in this project's
 convention, and what corpus itself uses for `ANTHROPIC_API_KEY` — or an export
