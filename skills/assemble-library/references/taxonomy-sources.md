@@ -8,6 +8,18 @@ Export to a committed `taxonomy.dwca.zip` rather than fetching at build time.
 Later runs then ingest from a local file in seconds instead of re-walking a
 rate-limited REST API, and the snapshot is versioned with the library.
 
+**No script is needed for any of this.** `corpus taxonomy ingest` takes WoRMS
+directly (`--source worms --root-id <AphiaID>`) or any Darwin Core Archive
+(`--source dwca --input <file>`), and `--root-id` prunes a downloaded checklist
+to your clade before it is stored — measured at 801 records in, 66 out for a
+single genus. `corpus taxonomy export -o taxonomy.dwca.zip` then writes the
+committed snapshot.
+
+So the sequence is: download the checklist archive from the source below, ingest
+it pruned, export. The viburnum library predates this and walks GBIF's checklist
+API from a bespoke script to avoid downloading a whole archive; download-then-prune
+reaches the same result with a tested tool, and is what a new library should do.
+
 ## Which source
 
 | Clade | Source | How |

@@ -119,7 +119,9 @@ it stops paying.**
 python scripts/openalex_probe.py --check                # 0. preflight
 python scripts/harvest_openalex.py --dry-run            #    cost it first
 
-python scripts/build_taxonomy.py -o taxonomy.dwca.zip   # 1. taxonomy
+corpus taxonomy ingest --source dwca \
+    --input <checklist.zip> --root-id <taxonID>         # 1. taxonomy
+corpus taxonomy export -o taxonomy.dwca.zip
 
 python scripts/harvest_openalex.py                      # 2. harvest
 BHL_API_KEY=... python scripts/harvest_bhl.py
@@ -143,15 +145,32 @@ it casually.
 ### 1. Taxonomy
 
 Build the Darwin Core snapshot first; everything downstream resolves names
-against it. Marine clade → WoRMS with an AphiaID subtree. Everything else → a
-DwC-A from GBIF, ITIS, Catalogue of Life or WCVP.
+against it.
+
+**This needs no script — `corpus` already does it.** Two paths, and both end in
+a committed `taxonomy.dwca.zip` so later runs ingest locally and offline rather
+than re-walking a rate-limited API:
+
+```bash
+# Marine clade — walk WoRMS from an AphiaID
+corpus taxonomy ingest --source worms --root-id <AphiaID>
+
+# Everything else — download a checklist archive, prune it to your clade
+corpus taxonomy ingest --source dwca --input <checklist.zip> --root-id <taxonID>
+
+corpus taxonomy export -o taxonomy.dwca.zip     # either path
+```
+
+`--root-id` prunes a full checklist to the subtree you care about, so you can
+download a large archive and keep only your clade — verified at 801 records in,
+66 out. That is why no bespoke fetcher is needed: the existing library's
+`build_taxonomy.py` walks GBIF's checklist API to avoid downloading a whole
+archive, and download-then-prune reaches the same place with a tool that already
+exists and is tested.
 
 **Prefer one curated checklist over the GBIF backbone**, which merges sources
-and leaves unplaced combinations dangling with no synonymy. Details and the
-per-source gotchas are in `references/taxonomy-sources.md`.
-
-Export to a committed `taxonomy.dwca.zip` so later runs ingest locally and
-offline rather than re-walking a rate-limited API.
+and leaves unplaced combinations dangling with no synonymy. Per-source gotchas,
+and what does *not* survive ingest, are in `references/taxonomy-sources.md`.
 
 ### 2. Harvest — broad, and before you filter
 
