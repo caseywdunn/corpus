@@ -240,10 +240,15 @@ from something stable, or keep a committed lockfile mapping filename → work.
 
 ### 4. Retrieve
 
-Resolve OA locations, then try each in turn. Keep the first response that
-actually starts with `%PDF`, clears a size floor, and parses under `pdfinfo` —
-publisher interstitials return HTTP 200 with HTML bodies and will otherwise land
-in `library/` looking like papers.
+Resolve OA locations, then try each in turn. `fetch_pdfs.py` keeps only a
+response that starts with `%PDF`, clears a size floor, and parses under
+`pdfinfo` — publisher interstitials return HTTP 200 with HTML bodies and will
+otherwise land in `library/` looking like papers.
+
+Know the limit of that check: it guarantees *a readable PDF arrived*, never
+*the right PDF arrived*. `pdfinfo` catches truncation and broken structure but
+passes a valid PDF of the wrong paper. Closing that needs the post-build
+title-versus-text comparison in `references/bib-conventions.md`.
 
 Cache failures so a re-run does not re-hammer dead ends, and make retry explicit
 (`--skip-known-failures`) for when a resolver has genuinely improved.
