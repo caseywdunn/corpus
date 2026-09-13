@@ -227,6 +227,24 @@ Wire up `config.yaml`, confirm with `corpus check`, and report:
 Then tell them the next step: `corpus run` inside this directory builds the
 corpuscle, and the library directory *is* the corpuscle directory.
 
+## What ships in `scripts/`
+
+`validate_bib.py` and `environment.yaml` are **templates copied into the library
+repo** — clade-agnostic, tested, and yours to edit once copied. `validate_bib.py`
+discovers the `.bib` rather than naming it, so nothing needs editing for a new
+group.
+
+The library gets **its own conda environment**, separate from corpus's. It needs
+`bibtexparser`, which corpus does not use (it has its own parser), and it does
+none of the OCR or embedding work that makes the corpus environment heavy. So a
+curator can run the harvest without a CUDA-capable torch. Activate the library
+env for these scripts; activate corpus's for `corpus check` and `corpus run`.
+
+The harvest scripts are **written per clade, not copied** — `build_bib.py` in
+particular, because the inclusion rule from the scoping conversation lives in its
+docstring and its tallies. Use the pipeline above as the shape and
+`references/harvesting.md` for what each source is for.
+
 ## Reference files
 
 - `references/retrieval-ethics.md` — the full rules, and why each exists. Read before writing fetch code.

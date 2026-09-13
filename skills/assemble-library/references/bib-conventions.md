@@ -29,8 +29,8 @@ its same-stem, same-year siblings. So merging a single duplicate shifts the
 letter for every later sibling.
 
 For entries with a real author that is survivable — you get a rename, you notice.
-For author-less entries it is not. In the viburnum library 165 entries share the
-stem `Anon`, 40 of them have a PDF on disk named for one particular assignment,
+For author-less entries it is not. In the viburnum library roughly 165 entries
+share the stem `Anon`, dozens of them with a PDF on disk named for one particular assignment,
 and a shift silently rebinds `Anon2004.pdf` onto a *different paper*. Because
 `file = {...}` is what the build matches on, wrong metadata then propagates into
 every citation downstream — and nothing downstream can detect it, because the
