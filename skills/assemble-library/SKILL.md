@@ -324,6 +324,21 @@ Wire up `config.yaml`, confirm with `corpus check`, and report:
 Then tell them the next step: `corpus run` inside this directory builds the
 corpuscle, and the library directory *is* the corpuscle directory.
 
+## Templates for the generated library
+
+`scripts/` also carries the files the new library repo needs, as
+`*.example` — copy and rename:
+
+| Template | Becomes | Note |
+|---|---|---|
+| `config.yaml.example` | `config.yaml` | The library dir *is* the corpuscle dir |
+| `gitattributes.example` | `.gitattributes` | **Set up LFS before the first PDF is committed** — converting later rewrites history |
+| `readme.md.example` | `readme.md` | Carries the sentinel block `validate_bib.py --emit-readme` regenerates |
+| `queries.yaml.example` | `scripts/queries.yaml` | OpenAlex harvest scope |
+| `bhl_terms.yaml.example` | `scripts/bhl_terms.yaml` | Historical names, not the OpenAlex queries |
+| `relevance.yaml.example` | `relevance.yaml` | Required — see step 5 |
+| `environment.yaml` | `environment.yaml` | The library's own conda env |
+
 ## What ships in `scripts/`
 
 `validate_bib.py` and `environment.yaml` are **templates copied into the library

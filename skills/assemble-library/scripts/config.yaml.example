@@ -1,0 +1,44 @@
+# Corpus configuration for this library.
+#
+# TEMPLATE — copied into a library repo as `config.yaml` by the
+# assemble-library skill. `corpus run` reads it from the directory it runs in.
+#
+# The library directory IS the corpuscle directory: the PDFs, the bib and the
+# taxonomy live here, and `output/` is what the build writes. There is no
+# second directory to create.
+
+# Where the PDFs are. `.` because the shelves live under library/ below this.
+input_pdfs: ./library
+
+# What the build writes. Gitignore it — it is derived and large.
+output_dir: ./output
+
+# The bibliography. A superset of the PDFs: every paper discovered has an
+# entry, and `file = {...}` appears only where a file exists on disk.
+bib: ./CLADE.bib
+
+# Terms to tag in captions and chunks. A DRAFT until an expert reviews it —
+# and remember the matcher is exact and unstemmed, so English plurals belong
+# under `synonyms` and other languages under `translations`.
+lexicon: ./lexicon.yaml
+
+# The Darwin Core snapshot, committed so builds are offline and reproducible.
+# Built with:
+#   corpus taxonomy ingest --source dwca --input <checklist.zip> --root-id <id>
+#   corpus taxonomy export -o taxonomy.dwca.zip
+taxonomy:
+  source: dwca
+  path: ./taxonomy.dwca.zip
+
+# Grobid parses bibliographic metadata and reference lists. Start it before
+# `corpus run` — if it is unreachable the build silently falls back to
+# placeholder metadata, and implicit resume will NOT retry those papers later
+# because their inputs did not change.
+#   docker compose up -d grobid
+grobid:
+  url: http://localhost:8070
+
+# Figure panel detection. `ocr` is the CPU-only floor and needs nothing;
+# `vision-claude` needs ANTHROPIC_API_KEY; `vision-local` needs a GPU.
+figures:
+  panel_detection: ocr

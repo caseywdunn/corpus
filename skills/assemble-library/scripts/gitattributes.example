@@ -1,0 +1,26 @@
+# Git LFS for the library's PDFs.
+#
+# TEMPLATE — copied into a library repo as `.gitattributes` by the
+# assemble-library skill.
+#
+# A library is thousands of PDFs and tens of gigabytes. Committing those to git
+# directly makes every clone download every version of every file ever, and the
+# repository stops being usable long before the library stops growing. LFS keeps
+# pointers in git and the bytes in LFS storage.
+#
+# Set this up BEFORE the first PDF is committed. Converting afterwards means
+# rewriting history, and anyone who already cloned has to re-clone.
+#
+#     git lfs install
+#     git add .gitattributes && git commit -m "track PDFs in LFS"
+#     # only then start adding PDFs
+#
+# Check it is working: `git lfs ls-files | head` should list your PDFs. If
+# `git cat-file -p HEAD:library/A/Abc1999.pdf | head -c 20` prints `%PDF`
+# rather than `version https://git-lfs...`, the file went in as a blob and
+# LFS is not actually tracking it.
+*.pdf  filter=lfs diff=lfs merge=lfs -text
+*.PDF  filter=lfs diff=lfs merge=lfs -text
+
+# The taxonomy snapshot is small but binary; keeping it out of diffs is kinder.
+taxonomy.dwca.zip  binary
