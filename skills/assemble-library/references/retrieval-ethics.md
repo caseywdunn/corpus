@@ -44,12 +44,45 @@ is not implemented anywhere, and it is a real option rather than a workaround.
 Crossref, Unpaywall and OpenAlex all offer materially higher rate limits to
 clients that identify themselves — the "polite pool". Use it.
 
-**Read the address from the environment; never hardcode one.** Viburnum
-hardcodes a `MAILTO` constant at the top of four scripts, and its
-`CONTRIBUTING.md` has to tell anyone forking the library to go change all four —
-because using someone else's address for a rate-limit courtesy is rude. Generated
-templates should read it from an environment variable and fail with a clear
-message when unset.
+**The variable is `CORPUS_CONTACT_EMAIL`.** Name it in the generated library's
+readme and in every script that makes a request, so there is exactly one answer
+to "what do I set?".
+
+```bash
+export CORPUS_CONTACT_EMAIL="you@example.edu"
+```
+
+Tell the user to set it **before the harvest starts**, and say what it buys: not
+politeness in the abstract, but materially higher rate limits on three of the
+services the harvest leans on hardest. A harvest run without it is slower and
+more likely to hit a 429.
+
+It also feeds the User-Agent, which is the other half of identifying yourself:
+
+```python
+CONTACT = os.environ.get("CORPUS_CONTACT_EMAIL")
+if not CONTACT:
+    raise SystemExit(
+        "CORPUS_CONTACT_EMAIL is not set. Public indexes give identified "
+        "clients much higher rate limits, and an unidentified harvest is both "
+        "slower and ruder.\n"
+        '  export CORPUS_CONTACT_EMAIL="you@example.edu"'
+    )
+UA = f"corpus-library/1.0 (mailto:{CONTACT})"
+```
+
+**Fail with that message rather than falling back to a default.** There is no
+safe default: a placeholder address is a lie to the service, and someone else's
+real address sends them the consequences of your traffic.
+
+**Never hardcode it.** Viburnum hardcodes a `MAILTO` constant at the top of four
+scripts, and its `CONTRIBUTING.md` has to tell anyone forking the library to go
+change all four — because using someone else's address for a rate-limit courtesy
+is rude. Reading one environment variable in one place is the fix; four
+constants and a note in the docs is the bug.
+
+It is a contact address, not a credential: it belongs in the generated readme as
+an instruction, and never in a committed file as a value.
 
 ## API keys — the user's own, via environment only
 
@@ -59,7 +92,7 @@ unlocks, and degrade gracefully to keyless endpoints.
 | Variable | Unlocks |
 |---|---|
 | `BHL_API_KEY` | Biodiversity Heritage Library ([get one](https://www.biodiversitylibrary.org/getapikey.aspx)) |
-| a contact-email variable | Crossref / Unpaywall / OpenAlex polite pools |
+| `CORPUS_CONTACT_EMAIL` | Crossref / Unpaywall / OpenAlex polite pools — materially higher rate limits. Not a secret; see above |
 | others as the clade needs | e.g. Semantic Scholar |
 
 Reporting which keys were absent is part of finishing the run: it tells the user

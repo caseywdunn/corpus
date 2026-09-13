@@ -86,7 +86,20 @@ its substance into the generated library's own docs.
 
 The short form: use documented public APIs and the OA endpoints publishers
 advertise. Honour `robots.txt`, rate limits and `Retry-After`. Identify the
-client with a real contact address from the environment, never a hardcoded one.
+client with a real contact address, read from `CORPUS_CONTACT_EMAIL` and never
+hardcoded.
+
+Ask the user to set that before the harvest begins, and say why — Crossref,
+Unpaywall and OpenAlex all give identified clients materially higher rate
+limits, so an unset variable means a slower harvest and more 429s:
+
+```bash
+export CORPUS_CONTACT_EMAIL="you@example.edu"
+```
+
+Scripts should fail with that instruction rather than fall back to a default;
+there is no safe default, since a placeholder lies to the service and someone
+else's address sends them your traffic.
 Do not defeat bot protection, rotate or spoof a User-Agent to evade a block, use
 shadow-library mirrors, or use anyone's institutional credentials.
 
