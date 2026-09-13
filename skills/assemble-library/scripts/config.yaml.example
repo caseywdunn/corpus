@@ -3,14 +3,27 @@
 # TEMPLATE — copied into a library repo as `config.yaml` by the
 # assemble-library skill. `corpus run` reads it from the directory it runs in.
 #
-# The library directory IS the corpuscle directory: the PDFs, the bib and the
-# taxonomy live here, and `output/` is what the build writes. There is no
-# second directory to create.
-
-# Where the PDFs are. `.` because the shelves live under library/ below this.
+# Where the PDFs are, relative to this file.
 input_pdfs: ./library
 
-# What the build writes. Gitignore it — it is derived and large.
+# What the build writes — derived data, several times larger than the sources,
+# and never committed.
+#
+# The default below keeps it beside the library, which is the simplest thing
+# that works and is fine for a small clade. For anything real, put it outside
+# the repo: corpus expands environment variables here, so one config works on a
+# laptop and a cluster unedited.
+#
+#   export CORPUS_DATA=/where/you/keep/data
+#   output_dir: $CORPUS_DATA/corpuscles/CLADE_20260913-1400
+#
+# The timestamp is deliberate, not automatic: it means a rebuild never clobbers
+# a corpuscle something is already serving. Bump it when you WANT a fresh build
+# — `corpus run` is incrementally resumable, so a new directory every run turns
+# an update into a full rebuild.
+#
+# If a variable here is unset, `corpus check` fails naming it rather than
+# creating a directory called `$CORPUS_DATA`.
 output_dir: ./output
 
 # The bibliography. A superset of the PDFs: every paper discovered has an
