@@ -149,7 +149,8 @@ corpus taxonomy ingest --source dwca \
 corpus taxonomy export -o taxonomy.dwca.zip
 
 python scripts/harvest_openalex.py                      # 2. harvest
-BHL_API_KEY=... python scripts/harvest_bhl.py
+python scripts/harvest_bhl.py                           #    needs BHL_API_KEY
+python scripts/harvest_bhl.py --fulltext                #    for historical names
 
 python scripts/build_bib.py --report                    # 3. assemble
 
