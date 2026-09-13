@@ -1,0 +1,12 @@
+{
+  "name": "corpus",
+  "owner": { "name": "Dunn Lab" },
+  "plugins": [
+    {
+      "name": "corpus",
+      "source": "./",
+      "description": "Skills for building and consuming a corpus of scientific literature: assemble a library for a clade, build it into a corpuscle, and work with the result",
+      "version": "0.1.0"
+    }
+  ]
+}

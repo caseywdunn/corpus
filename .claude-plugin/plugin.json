@@ -1,0 +1,10 @@
+{
+  "name": "corpus",
+  "version": "0.1.0",
+  "description": "Skills for building and consuming a corpus of scientific literature: assemble a library for a clade, build it into a corpuscle, and work with the result",
+  "author": {
+    "name": "Dunn Lab"
+  },
+  "homepage": "https://github.com/caseywdunn/corpus",
+  "license": "MIT"
+}

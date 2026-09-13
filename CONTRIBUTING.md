@@ -369,7 +369,7 @@ itself if you change one.
 - [slurm/](slurm/) — SLURM batch scripts for Bouchet; documented in [dev_docs/BOUCHET.md](dev_docs/BOUCHET.md).
 - [tools/](tools/) — developer helpers not part of the daily pipeline: QC visualizations, the MCP-launcher shell wrapper used by `.mcp.json`, one-off maintenance scripts (`dedup_ghost_works.py`, `unify_doi_corpus_key.py`).
 - [templates/](templates/) — copy-and-customize starters that operators use, not pipeline inputs. Currently just the optional corpuscle-specific `instructions.md` scaffold; see [Editing client-side instructions](#editing-client-side-instructions) below.
-- `skills/` — **not yet created; lands with [#178](https://github.com/caseywdunn/corpus/issues/178).** Claude Code skills, shipped as a plugin rather than as project skills, because the work they do happens in a *different* repo (a clade's library, a monograph) where `.claude/skills/` would never be discovered. Group-agnostic, like the rest of this repo. A skill may import public functions from `pipeline/`; `pipeline/`, `mcpsrv/` and `bib/` may never import a skill — [tests/test_import_direction.py](tests/test_import_direction.py) enforces that, and already names `skills` in its forbidden list. The procedure for adding one — directory layout, the `SKILL.md` frontmatter contract, bumping the plugin version — is written as part of #178; do not invent it ahead of that issue.
+- [skills/](skills/) — Claude Code skills, shipped as a plugin (see [Adding a skill](#adding-a-skill) below). Group-agnostic, like the rest of this repo. A skill may import public functions from `pipeline/`; `pipeline/`, `mcpsrv/` and `bib/` may never import a skill — [tests/test_import_direction.py](tests/test_import_direction.py) enforces that.
 - [tests/](tests/) — one file per subsystem.
 - Per-instance data (SQLites, embeddings, per-paper artifacts) lives inside the user's *corpuscle* directory — passed as the first positional arg to every CLI — not under the repo root. See the [corpuscle layout](README.md#corpuscle-layout) in README.md. The repo no longer ships a `resources/` directory.
 - [demo/](demo/) — the 4-paper corpus used for smoke-testing the pipeline,
@@ -377,6 +377,79 @@ itself if you change one.
   `lexicon.yaml`. CI adds one fixture paper for the implicit-resume scenario.
   The lexicon is treated as user input, parallel to `--bib` — not part of the
   tool.
+
+## Adding a skill
+
+Skills live in [skills/](skills/) and ship as a **Claude Code plugin**, declared by
+[.claude-plugin/plugin.json](.claude-plugin/plugin.json) and
+[.claude-plugin/marketplace.json](.claude-plugin/marketplace.json). Users install with:
+
+```bash
+claude plugin marketplace add caseywdunn/corpus
+claude plugin install corpus
+```
+
+**Why a plugin and not `.claude/skills/`.** Project skills are discovered only when the
+cwd is inside this repo, and almost nothing these skills do happens here — a library is
+assembled in its own repo, a monograph is written in another. A plugin makes every skill
+available in any directory, including an empty one.
+
+### Layout
+
+```text
+skills/<skill-name>/
+├── SKILL.md        # required — frontmatter + the instructions themselves
+├── scripts/        # optional — helpers, and templates copied into the target repo
+└── references/     # optional — long-form docs the skill reads on demand
+```
+
+### Frontmatter contract
+
+```yaml
+---
+name: <skill-name>          # must match the directory name
+description: >
+  What it does, when to use it, and WHAT IT REQUIRES.
+---
+```
+
+**The description must state preconditions, not just capability.** It is the only thing
+the model selects on, and these skills have deliberately adjacent subjects — summarizing
+a corpuscle, building one, writing a monograph from one. A user with no MCP server who
+asks to "summarize my corpus" should get a clear precondition failure, not an attempt
+against nothing. So say *"against a served corpuscle"* or *"requires the `corpus` CLI"*
+in the description itself, and open `SKILL.md` with a preconditions block that checks and
+fails loudly.
+
+### Keep the plugin installable on its own
+
+A plugin install fetches markdown and scripts. It must keep working for someone who has
+**neither** the `corpus` package **nor** an MCP server — those are separate mechanisms,
+and the skills split across three runtime profiles:
+
+| Needs | Skills |
+|---|---|
+| the `corpus` CLI, no server | `assemble-library`, and anything that builds |
+| a served corpuscle, no install | anything that reads a built corpuscle |
+| both | end-to-end orchestration |
+
+The second row is the one to protect: it lets someone with access to a served corpuscle
+use these skills having never installed Python, conda, tesseract or Grobid. One shared
+helper that imports `pipeline` at module scope would end that, so keep such imports
+inside the functions that need them, and never at the top of a file a
+server-only skill loads.
+
+**Do not ship an MCP server config in the plugin.** No endpoint is right for every user —
+a remote one needs a bearer token that cannot ship, a local one an `output_dir` that
+varies per corpuscle. A skill that has just built a corpuscle knows the path and should
+emit the `.mcp.json` snippet then.
+
+### Checklist
+
+1. `skills/<name>/SKILL.md` with matching `name:` and a precondition-bearing `description:`.
+2. Bump `version` in **both** `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` — they must agree.
+3. If the skill ships Python under `scripts/`, it may import from `pipeline/` but nothing in `pipeline/`, `mcpsrv/` or `bib/` may import it.
+4. Note it in [AGENTS.md](AGENTS.md)'s documentation-scope table if it changes what agents should know about `skills/`.
 
 ## Editing client-side instructions
 
