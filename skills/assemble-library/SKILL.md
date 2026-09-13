@@ -49,6 +49,31 @@ a quarter to a third of fetch attempts to succeed. A failure is a want-list
 entry, not a defeat. Say this to the user early so a 30% hit rate reads as the
 expected outcome rather than a broken run.
 
+## Keys and contact address — settle these at the start
+
+Two environment variables decide how much of the literature is reachable, and
+both are cheaper to set now than to discover missing halfway through a harvest.
+
+| Variable | Effect if unset |
+|---|---|
+| `CORPUS_CONTACT_EMAIL` | Slower harvest, more 429s. Not a secret; always set it |
+| `BHL_API_KEY` | **The pre-1930 literature does not happen** |
+
+That second one deserves saying plainly rather than listing: BHL is the only
+practical route to article-level records for older material, so for a clade with
+a deep historical literature an absent key is the difference between a corpus
+starting in 1990 and one starting in 1758. Ask for it before harvesting, point
+the user at <https://www.biodiversitylibrary.org/getapikey.aspx> (free, arrives
+by email), and if they would rather not wait, say what will be missing and
+proceed.
+
+Never accept a key pasted into the conversation — it lands in the transcript.
+`references/retrieval-ethics.md` has the safe ways to set one, and the rules for
+handling keys generally.
+
+Report at the end which keys were absent. A skipped source that nobody mentions
+is indistinguishable from a literature that does not exist.
+
 ## Before anything else: scope the clade with the user
 
 **Do not skip this and do not guess.** The inclusion rule is the single
