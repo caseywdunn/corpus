@@ -49,6 +49,50 @@ a quarter to a third of fetch attempts to succeed. A failure is a want-list
 entry, not a defeat. Say this to the user early so a 30% hit rate reads as the
 expected outcome rather than a broken run.
 
+## Where things go — ask, never assume
+
+**Do not create anything in the user's home directory without being told to.**
+A tool that decides where your files live is presumptuous, and the right shape
+here is that the user declares a location and the skill uses it.
+
+Ask for a data root, and suggest — do not impose — this layout:
+
+```text
+$CORPUS_DATA/
+├── libraries/<clade>/        # git repo: PDFs (LFS), bib, taxonomy, config
+└── corpuscles/<clade>_<stamp>/   # what `corpus run` writes. Never committed
+```
+
+The split is not tidiness. A library and a corpuscle have opposite properties on
+every axis that matters — the library is source, committed, cloned and modest;
+the corpuscle is derived, uncommitted, regenerable and several times larger.
+Nesting the second inside the first is what puts gigabytes into a git checkout,
+which the viburnum library hit at 11 GB.
+
+Set it once, and `config.yaml` travels between machines unedited because corpus
+expands environment variables in path fields:
+
+```bash
+export CORPUS_DATA=/where/you/keep/data     # your choice; no default exists
+```
+
+```yaml
+output_dir: $CORPUS_DATA/corpuscles/<clade>_20260913-1400
+```
+
+If `CORPUS_DATA` is unset, `corpus check` fails with exit 3 naming it rather
+than silently creating a directory called `$CORPUS_DATA`.
+
+**This is a suggestion, not a requirement.** `input_pdfs` and `output_dir` take
+any path. A user who keeps repos and large files apart in their own way should
+be told the convention exists and then left alone.
+
+**Stamp deliberately, not automatically.** `<clade>_<YYYYMMDD-HHMM>` means a
+rebuild never clobbers a corpuscle something is already serving. But bump the
+stamp only when you *want* a fresh build: `corpus run` is incrementally
+resumable, so pointing at a new directory every run turns a three-stage update
+into a full rebuild of every document.
+
 ## Keys and contact address — settle these at the start
 
 Two environment variables decide how much of the literature is reachable, and

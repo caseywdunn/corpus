@@ -308,8 +308,40 @@ or whatever group you're working on. Three directories have distinct roles:
 | **Served bundle** | `<output_dir>/corpus_bundle/` by default; only the audited files needed by the MCP server | Immutable deployable artifact |
 
 The project root and build directory may coincide (`output_dir: .`), but the
-default scaffold and demo keep generated output under `./output/`. A typical
-build directory is:
+default scaffold and demo keep generated output under `./output/`.
+
+**Path fields expand `~` and `$VARS`**, which is how one `config.yaml` works on
+a laptop and a cluster without editing. That matters most for `output_dir`: a
+build directory is derived data several times the size of its sources, so it
+usually belongs outside the project root — and definitely outside a git
+checkout, where it turns a repo into gigabytes of regenerable output.
+
+```bash
+export CORPUS_DATA=/where/you/keep/data    # your choice — corpus has no default
+```
+
+```yaml
+output_dir: $CORPUS_DATA/corpuscles/mygroup_20260913-1400
+```
+
+A layout that keeps sources and derived data apart, offered as a suggestion and
+nothing more — corpus never creates any of it for you:
+
+```text
+$CORPUS_DATA/
+├── libraries/<name>/              # git repo: PDFs, bib, taxonomy, config
+└── corpuscles/<name>_<stamp>/     # output_dir. Never committed
+```
+
+The timestamp is deliberate rather than automatic: it means a rebuild never
+clobbers a corpuscle something is already serving. Bump it when you want a fresh
+build — `corpus run` resumes incrementally, so a new directory every run turns
+an update into a full rebuild.
+
+If a variable in a path is unset, `corpus check` fails naming it rather than
+creating a directory called `$CORPUS_DATA`.
+
+A typical build directory is:
 
 ```text
 <output_dir>/
