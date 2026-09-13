@@ -123,3 +123,32 @@ def test_every_skill_directory_has_a_well_formed_skill_md(skill_dir: Path):
         f"{skill_md.relative_to(REPO)} has no description — that is the only text "
         "the model selects this skill on"
     )
+
+
+def test_config_template_validates_against_the_real_schema():
+    """The generated library's config.yaml must actually load (#178).
+
+    This template is copied into a new library and is the first thing
+    `corpus run` reads there. A key renamed in `config_schema.py` would leave
+    it syntactically fine and semantically dead, and the failure would surface
+    on a stranger's machine at the end of a long harvest rather than here.
+
+    Parsing it as YAML proves nothing; it is validated against the model the
+    pipeline actually uses.
+    """
+    template = SKILLS_DIR / "assemble-library" / "scripts" / "config.yaml.example"
+    if not template.exists():
+        pytest.skip("assemble-library skill not present")
+
+    from pipeline.config_schema import CorpuscleConfig
+
+    raw = yaml.safe_load(template.read_text(encoding="utf-8"))
+    config = CorpuscleConfig.model_validate(raw)
+
+    # The properties the skill's documentation promises about this file.
+    assert config.bib is not None, "template must configure a bib"
+    assert config.lexicon is not None, "template must configure a lexicon"
+    assert config.taxonomy is not None, "template must configure a taxonomy"
+    assert str(config.output_dir).endswith("output"), (
+        "the readme tells users output/ is what the build writes"
+    )

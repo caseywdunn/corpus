@@ -1,0 +1,50 @@
+# Relevance vocabulary — what makes a resolved reference on-topic.
+#
+# TEMPLATE. Copy to `relevance.yaml` and rewrite for the clade.
+#
+# THIS FILE IS NOT OPTIONAL, and the reason is measured. `mine_references.py`
+# derives most of its vocabulary from `taxonomy.dwca.zip`, which is excellent
+# for formal names — every genus, species and synonym in the group. But the
+# literature does not print formal names. It prints the group's common name, in
+# whatever language and inflection the author wrote in.
+#
+# On the four demo papers, with taxonomy names alone, the gate rejected:
+#
+#   "Die Siphonophoren der Deutschen Sudpolar-Expedition, 1901-03"
+#   "Siphonophores provenant des campagnes du yacht Princesse-Alice"
+#   "Distribution of siphonophores in the eastern Indian Ocean"
+#
+# — core literature, thrown away, because the taxonomy says "Siphonophorae" and
+# the papers say "Siphonophoren" and "siphonophores". Adding four stem terms
+# took kept references from 23 to 37 while still rejecting a statistics paper.
+#
+# This is the same failure as the lexicon's inflected-forms problem: formal
+# vocabulary versus what is actually printed on the page.
+#
+# MATCHING IS SUBSTRING, CASE-INSENSITIVE. So prefer a stem that covers the
+# inflections over an exact word:
+#
+#   siphonophor   matches siphonophore, siphonophores, Siphonophoren,
+#                 siphonophorides, siphonophoran
+#   siphonophore  misses Siphonophoren and siphonophorides
+#
+# Be careful in the other direction too: a stem short enough to appear inside
+# unrelated words will let everything through. Check a rejected sample after
+# writing this, not just an accepted one.
+
+terms:
+  # --- The group's name, as the literature inflects it ---
+  - siphonophor
+  - physonect
+  - calycophor
+
+  # --- Vernacular and non-English names ---
+  # - guelder rose
+  # - kalina          # careful: also a thermodynamic cycle
+
+  # --- Former or contested higher placements, which older papers used ---
+  # - caprifoliaceae
+  # - adoxaceae
+
+  # --- Subject terms that make a paper relevant without naming a taxon ---
+  # - plankton
