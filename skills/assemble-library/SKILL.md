@@ -157,8 +157,9 @@ python scripts/build_bib.py --report                    # 3. assemble
 python scripts/resolve_oa.py                            # 4. locate + fetch
 python scripts/fetch_pdfs.py
 
-python scripts/mine_references.py --source both         # 5. grow
-python scripts/build_bib.py
+corpus run                                              # 5. build once,
+python scripts/mine_references.py --output-dir output   #    then mine, grow,
+python scripts/build_bib.py                             #    and fetch again
 python scripts/fetch_pdfs.py
 
 python scripts/validate_bib.py --emit-readme            # 6. check
@@ -253,16 +254,31 @@ title-versus-text comparison in `references/bib-conventions.md`.
 Cache failures so a re-run does not re-hammer dead ends, and make retry explicit
 (`--skip-known-failures`) for when a resolver has genuinely improved.
 
-### 5. Mine references
+### 5. Mine references — after a first build, not before
 
-This is what makes the library deeper than an index query, and it is why
-retrieval comes first. Two channels: Crossref reference deposits for entries
-with a DOI, and `pdftotext` over `library/` for everything else — which is where
-the pre-DOI literature lives, since a 19th-century paper usually enters a
-bibliography only by way of someone citing it.
+This is what makes the library deeper than an index query: a 19th-century paper
+usually enters a bibliography only because someone later cited it, so the
+reference lists of papers you hold are the only route to it.
+
+**Build once first.** `corpus run` already sends every PDF through Grobid and
+leaves parsed reference lists at `documents/<hash>/grobid.tei.xml`, and
+`mine_references.py` reads those. Re-extracting from PDF text with a regex
+recovers about a fifth as many references, in fragments — measured at 15/15/26/1
+for Grobid against 2/7/3/0 for a regex on the same four papers. So the order is
+assemble → build → mine → add → build again, which is one lap of the
+corpuscle-improvement loop rather than a stage of assembly.
 
 Apply the relevance test **to the resolved record, not the reference string**. A
 clade paper's reference list is mostly general biology, statistics and methods.
+
+**`relevance.yaml` is required, not optional.** The vocabulary comes mostly from
+`taxonomy.dwca.zip`, which is excellent for formal names and useless for what the
+literature prints. With taxonomy names alone the gate rejected "Die Siphonophoren
+der Deutschen Südpolar-Expedition" — core literature — because the taxonomy says
+*Siphonophorae*. Four stem terms took kept references from 23 to 37 while still
+rejecting a statistics paper. Prefer stems (`siphonophor`) over exact words, and
+read a sample of what was *rejected* rather than only what passed; the script
+warns when it drops more than 40%.
 
 ### 6. Validate
 
