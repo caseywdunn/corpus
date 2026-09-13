@@ -116,6 +116,8 @@ download targets, downloaded PDFs yield more references. **Two passes is where
 it stops paying.**
 
 ```bash
+python scripts/openalex_probe.py --check                # 0. preflight
+
 python scripts/build_taxonomy.py -o taxonomy.dwca.zip   # 1. taxonomy
 
 python scripts/harvest_openalex.py                      # 2. harvest
@@ -158,10 +160,18 @@ kind of hit from one found by an outgroup query, and the relevance filter should
 be able to reason over *how* something was found.
 
 Sources, and what each is for, are in `references/harvesting.md`. In short:
-OpenAlex for modern literature (hard daily credit limit — the harvest must be
-incremental and resumable), BHL Part records for pre-1930 material searched
+OpenAlex for modern literature, BHL Part records for pre-1930 material searched
 under historical and segregate names, Crossref / PubMed / Europe PMC as the
 clade warrants, plus any lab or author archive the user names.
+
+**Budget the OpenAlex harvest before running it.** It meters by credit, and the
+free allowance is about 100 search requests per day — small enough that a
+careless harvest spends days rather than minutes. `openalex_probe.py --estimate
+'<filter>'` costs one request and tells you what the whole harvest would cost,
+because `meta.count` is returned on the first page. Always page at
+`per_page=200`: cost is per request, so a smaller page size multiplies the bill
+for identical results. The harvest must be incremental and resumable regardless,
+since a 429 here has a `Retry-After` measured in hours.
 
 ### 3. Assemble the bib
 

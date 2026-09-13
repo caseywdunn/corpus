@@ -22,8 +22,34 @@ quarantine becomes a no-op and can go.
 **OpenAlex** — the modern literature. Cache every hit, deduplicated on the work
 id.
 
-> **Hard daily credit limit.** A full harvest of every query costs most of the
-> free allowance; when it runs out you get 429s with a `Retry-After` measured in
+> **OpenAlex meters by credit, and the free allowance is small.** Measured
+> against the live API on 2026-09-13, from the headers it returns:
+>
+> | | |
+> |---|---|
+> | daily allowance | 1000 credits / $0.10 |
+> | plain listing | $0.0001 (1 credit) |
+> | **filtered or search query** | **$0.001 (10 credits)** |
+> | reset | ~daily, `x-ratelimit-reset` gives the seconds |
+>
+> That is roughly **100 search requests per day** — not the hundreds of thousands
+> of calls an older reading of the docs suggests. Run `openalex_probe.py --check`
+> for the live numbers rather than trusting these; they are the current shape of
+> the model, not a constant.
+>
+> Two consequences the harvest must respect:
+>
+> - **Use `per_page=200`.** Cost is per *request*, not per record, and 200 is the
+>   maximum. A measured example: `title.search:Viburnum` matches 6,031 works — 31
+>   requests and $0.031 at `per_page=200`, or 242 requests and $0.242 at
+>   `per_page=25`. The same results, but the second is **2.4 days** of free
+>   allowance. Page size is the single biggest lever on whether a harvest finishes
+>   today.
+> - **Estimate before harvesting.** `meta.count` gives the match count from one
+>   request, so a harvest's cost is knowable before you spend it —
+>   `openalex_probe.py --estimate '<filter>'` does exactly that.
+>
+> When the allowance runs out you get 429s with a `Retry-After` measured in
 > *hours*, not seconds. So the harvest must be incremental and resumable —
 > re-running the next day fills in what the previous run missed. This is also why
 > the record cache is precious: deleting it costs a day, not a minute.
