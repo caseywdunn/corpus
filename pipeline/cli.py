@@ -127,15 +127,27 @@ def _resolve_against(config_path: Path, value: Optional[Path]) -> Optional[Path]
     So `cd demo && corpus run` and `corpus --config demo/config.yaml run`
     from anywhere give identical results.
 
-    `~` is expanded first. YAML has no shell, so an unexpanded
-    `~/data/pdfs` would otherwise be treated as a relative path and glued
-    onto the corpuscle root as `<corpuscle>/~/data/pdfs` — a path that
-    cannot exist, reported in an error message that reads like a bug in
-    corpus rather than a typo in the config.
+    `~` and `$VARS` are expanded first, in that order. YAML has no shell,
+    so an unexpanded `~/data/pdfs` would otherwise be treated as a relative
+    path and glued onto the corpuscle root as `<corpuscle>/~/data/pdfs` — a
+    path that cannot exist, reported in an error message that reads like a
+    bug in corpus rather than a typo in the config.
+
+    Environment expansion is what lets one config travel between machines.
+    `output_dir: $CORPUS_DATA/corpuscles/viburnum_20260913` resolves to the
+    workstation's data root and the cluster's without editing the file,
+    which matters because a corpuscle is large and belongs wherever that
+    host keeps large things — rarely the same place twice, and rarely
+    inside the library repo.
+
+    An **unset** variable is left literal rather than expanding to the empty
+    string. `$NOPE/corpuscles/x` becoming `/corpuscles/x` would be a silent
+    write to the filesystem root; left alone it fails as a path containing
+    `$NOPE`, which names the actual mistake.
     """
     if value is None:
         return None
-    value = Path(os.path.expanduser(value))
+    value = Path(os.path.expandvars(os.path.expanduser(value)))
     if value.is_absolute():
         return value
     return (config_path.parent / value).resolve()
@@ -1260,6 +1272,36 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
     # 5. Output disk space (warn if < 5 GB free)
     output_dir = _resolve_against(config_path, cfg.output_dir)
+
+    # 4b. Unexpanded environment variables in any configured path.
+    #
+    # `_resolve_against` deliberately leaves an unset `$VAR` literal rather
+    # than emptying it, because shell semantics would turn
+    # `$CORPUS_DATA/corpuscles/x` into a silent write to `/`. That is the safe
+    # failure, but on its own it is a quiet one: the run proceeds and creates a
+    # directory literally named `$CORPUS_DATA`. Catching it here turns "corpus
+    # made a weird directory" into "that variable is not set".
+    unexpanded = [
+        (field, str(resolved))
+        for field, resolved in (
+            ("output_dir", output_dir),
+            ("input_pdfs", _resolve_against(config_path, cfg.input_pdfs)),
+            ("bib", _resolve_against(config_path, cfg.bib)),
+            ("lexicon", _resolve_against(config_path, cfg.lexicon)),
+        )
+        if resolved is not None and "$" in str(resolved)
+    ]
+    for field, shown in unexpanded:
+        var = next(
+            (part for part in shown.replace("${", "$").split("/") if part.startswith("$")),
+            "the variable",
+        ).lstrip("$").rstrip("}")
+        failures.append(
+            f"{field} contains an unexpanded environment variable: {shown}. "
+            f"Set ${var}, or write a literal path in config.yaml."
+        )
+        pstatus(f"{field}: ${var} is not set ({shown})", status="fail")
+
     free_gb = _free_disk_gb(output_dir)
     if free_gb is None:
         pstatus(f"output_dir disk: cannot stat {output_dir}", status="warn")
