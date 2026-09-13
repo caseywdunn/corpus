@@ -1,0 +1,40 @@
+# BHL search terms — the names the OLDER literature published under.
+#
+# TEMPLATE. Copy to `bhl_terms.yaml` and rewrite for the clade.
+#
+# These are deliberately NOT the OpenAlex queries. BHL indexes pre-1930
+# material, and that literature used names that are now synonyms, segregate
+# genera, or superseded combinations. Searching BHL for only the current
+# accepted name is the single most common way to miss the historical half of a
+# library.
+#
+# Plain search terms, not filter syntax — BHL takes a `searchterm`.
+#
+# Measured, on siphonophores:
+#   Bargmannia   catalogue 1 part   | full-text 9 hits  -> 4 parts
+#   Stephanomia  catalogue 0 parts  | full-text 554 hits -> 29 parts
+#
+# Note the second row. `Stephanomia` is a historical name and returns *nothing*
+# by catalogue search — the 29 parts exist only in full text. That is the case
+# for `--fulltext`, and the 525 non-Part hits it also returned (whole volumes,
+# dropped automatically) are the case for it being opt-in and capped.
+#
+# So: put current names here for the catalogue pass, and expect the historical
+# ones to need `--fulltext` to surface at all.
+
+# --- Current accepted name ---
+- Viburnum
+
+# --- Segregate genera the 19th-century literature published under. Ørsted
+# split Viburnum into these; a paper about V. tinus may only ever say
+# "Tinus laurifolius". ---
+- Oreinotinus
+- Solenotinus
+- Lentago
+- Tinus
+- Opulus
+- Microtinus
+- Thyrsosma
+
+# --- Family names that formerly contained the genus ---
+- Caprifoliaceae

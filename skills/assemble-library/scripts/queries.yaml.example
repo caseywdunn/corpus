@@ -1,0 +1,64 @@
+# OpenAlex harvest queries — the output of the scoping conversation.
+#
+# TEMPLATE. Copy to `queries.yaml` and rewrite for the clade. This file is the
+# harvest's actual scope: `harvest_openalex.py` is a mechanism and this is the
+# judgment, which is why they are separate files.
+#
+# Each entry is a `tag` and an OpenAlex `filter`. The tag travels with every
+# record the query found, so the relevance filter downstream can reason over
+# *how* something was found — a title hit is stronger evidence than a vernacular
+# sweep — and so a sweep that turns out contaminated can be quarantined by tag
+# rather than by rebuilding the cache.
+#
+# Order widest-first. Later queries mostly re-hit records the earlier ones
+# already found; that is fine and expected, since records deduplicate on the
+# OpenAlex work id and the first finder's tag is the one kept.
+#
+# BEFORE ADDING A QUERY, cost it:
+#     python openalex_probe.py --estimate '<filter>'
+# The free allowance is ~100 search requests a day. A broad query against a
+# large genus can be a multi-day harvest on its own.
+#
+# Examples below are from the viburnum library. Replace all of them.
+
+# --- The name itself ---
+- tag: genus-title
+  filter: title.search:Viburnum
+- tag: genus-abstract
+  filter: abstract.search:Viburnum
+
+# --- Higher ranks, including superseded ones. The older literature published
+# under family names that no longer contain the genus, so these are how you
+# reach it. ---
+- tag: family-viburnaceae
+  filter: title_and_abstract.search:Viburnaceae
+- tag: family-adoxaceae
+  filter: title_and_abstract.search:Adoxaceae
+- tag: family-caprifoliaceae
+  filter: title.search:Caprifoliaceae
+- tag: order-dipsacales
+  filter: title_and_abstract.search:Dipsacales
+
+# --- Sister groups, for phylogenetic context ---
+- tag: sister-groups
+  filter: title.search:Sambucus OR Adoxa OR Sinadoxa OR Tetradoxa
+
+# --- Vernacular names. These reach the applied literature — food chemistry,
+# horticulture, ethnobotany — where the scientific name often never appears.
+# They are also where homonym contamination enters: check the top titles of
+# every vernacular sweep by eye before trusting its yield. ---
+- tag: vernacular-guelder
+  filter: title.search:%22guelder rose%22
+- tag: vernacular-cranberrybush
+  filter: title.search:cranberrybush OR %22cranberry bush%22
+- tag: vernacular-gilaburu          # Turkish, for V. opulus fruit
+  filter: title_and_abstract.search:gilaburu
+#
+# Deliberately ABSENT: "kalina", Slavic for V. opulus. It collides with the
+# Kalina thermodynamic cycle and pulls in thousands of power-engineering
+# papers. Quarantine or omit traps like this rather than filtering them later.
+
+# --- Pests and pathogens are indexed under the antagonist, not the host, so
+# the host name lands in the abstract at best. ---
+- tag: pest-viburnum-beetle
+  filter: title_and_abstract.search:%22Pyrrhalta viburni%22

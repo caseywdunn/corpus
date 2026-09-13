@@ -1,0 +1,30 @@
+# Conda environment for a corpus library's own curation scripts.
+#
+# TEMPLATE — copied into a library repo by the `assemble-library` skill,
+# where it becomes that library's `environment.yaml`. Rename `corpus-library`
+# to the clade.
+#
+# This is deliberately NOT the corpus environment. A library is a separate repo
+# with a separate job: it harvests, fetches and validates, and it does none of
+# the OCR, extraction or embedding that corpus does. Keeping the two apart means
+# a curator can run the harvest without a CUDA-capable torch, and `bibtexparser`
+# — which these scripts need and corpus does not use, having its own parser —
+# does not become a corpus dependency.
+#
+# Activate this for the scripts in this directory; activate the corpus
+# environment for `corpus check` / `corpus run`.
+name: corpus-library
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - bibtexparser=1.4   # pinned to 1.x: the 2.x API is a rewrite
+  - pypdf
+  - poppler            # pdftotext / pdfinfo, used by fetching and reference mining
+  - requests
+  - rapidfuzz          # fuzzy title matching when resolving references
+  - unidecode          # transliterates Cyrillic/CJK author names into bib keys
+  - matplotlib         # the decade histogram in validate_bib.py --emit-readme
+  - tqdm
+  - pyyaml
+  - lxml
