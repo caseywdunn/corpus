@@ -134,6 +134,13 @@ The same tags exist as `plane:*` labels on the tracker, which is authoritative.
   import public functions from `pipeline/`; the product never imports a skill.
   The plugin scaffolding itself has no plane; `assemble-library` produces a
   library, which is what the tag tracks.
+
+  **Keep the plugin installable on its own.** A plugin install needs neither the
+  `corpus` package nor an MCP server, and that independence is what lets #286 and
+  #179 reach someone who has access to a served corpuscle and has never installed
+  Python. It is easy to break by accident — one shared helper that imports
+  `pipeline` and the plugin needs a conda environment. The three runtime profiles
+  are tabulated in the issue; document the matrix, not a single install sequence.
 - [ ] **`corpus bib inspect-pages`** — *library curation*
   ([#217](https://github.com/caseywdunn/corpus/issues/217)), the read-only
   pre-build evidence used by the library-assembly workflow to curate
@@ -150,6 +157,9 @@ The same tags exist as `plane:*` labels on the tracker, which is authoritative.
   over `corpus check` / `run` / `status`: what a `timeout` versus a `corrupted`
   versus a `quality_gate` failure means for this collection. It must not
   re-implement `corpus status`; if it ends up only printing that output, cut it.
+  It also emits the `.mcp.json` entry for the corpuscle it just built — the path
+  is known here and nowhere else, the plugin cannot ship one, and it is the join
+  that lets #288 chain a build into a summary.
 - [ ] **A clade-monograph skill** — *client/agent*
   ([#179](https://github.com/caseywdunn/corpus/issues/179)) that consumes the
   caption/reference provenance shipped by v1.3 and writes deliverables on the
