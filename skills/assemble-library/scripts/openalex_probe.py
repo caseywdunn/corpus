@@ -66,6 +66,9 @@ REQUIRED_FIELDS = (
     "type",
     "authorships",
     "referenced_works",
+    # A harvest that omits this silently defeats any abstract-based relevance
+    # rule, so the contract check asserts it is still served.
+    "abstract_inverted_index",
 )
 
 # The maximum OpenAlex accepts, and the only page size worth using: cost is per
