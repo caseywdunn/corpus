@@ -66,6 +66,9 @@ REQUIRED_FIELDS = (
     "type",
     "authorships",
     "referenced_works",
+    # A harvest that omits this silently defeats any abstract-based relevance
+    # rule, so the contract check asserts it is still served.
+    "abstract_inverted_index",
 )
 
 # The maximum OpenAlex accepts, and the only page size worth using: cost is per
@@ -220,7 +223,9 @@ def cmd_contract() -> int:
     Cheap insurance: a renamed field surfaces here as one failed check rather
     than as a harvest that runs to completion and writes empty columns.
     """
-    payload, headers = request({"per-page": 1})
+    # A sample rather than one record: OA fields are absent from many works
+    # legitimately, so a single miss proves nothing either way.
+    payload, headers = request({"per-page": 25})
     results = payload.get("results") or []
     if not results:
         sys.exit("no results returned; cannot check the field contract")
@@ -238,6 +243,26 @@ def cmd_contract() -> int:
         print("  MISS  authorships[].author")
     elif authorships:
         print("  ok    authorships[].author")
+
+    # The OA location is where retrieval starts, and its PDF field has been
+    # renamed: OpenAlex serves `pdf_url`, while Unpaywall calls the same thing
+    # `url_for_pdf`. Reading the wrong one yields None for every record and
+    # silently turns a retrievable paper into a want-list entry — measured at
+    # 228 lost URLs on one real harvest, with nothing logged.
+    oa_seen = oa_with_pdf = 0
+    for w in (payload.get("results") or []):
+        loc = w.get("best_oa_location") or {}
+        if loc:
+            oa_seen += 1
+            if "pdf_url" in loc:
+                oa_with_pdf += 1
+    if oa_seen and not oa_with_pdf:
+        missing.append("best_oa_location.pdf_url")
+        print(f"  MISS  best_oa_location.pdf_url  ({oa_seen} OA locations, none carry it)")
+    elif oa_seen:
+        print(f"  ok    best_oa_location.pdf_url  ({oa_with_pdf}/{oa_seen} OA locations)")
+    else:
+        print("  --    best_oa_location  (none in this sample; re-run to check)")
 
     _report_budget(_budget(headers))
     if missing:

@@ -73,6 +73,13 @@ SELECT = ",".join([
     "publication_date", "type", "language", "authorships", "biblio",
     "primary_location", "best_oa_location", "open_access", "is_retracted",
     "referenced_works",
+    # Required, not optional. Most relevance rules read the abstract, and an
+    # `abstract.search:` query finds records *because* of it — so omitting the
+    # field makes every such record look irrelevant to the step that filters
+    # them. Measured on a real harvest: 245 of 347 rejections were records
+    # found by an abstract query whose abstract had not been fetched.
+    # It is stored inverted; invert it back before matching.
+    "abstract_inverted_index",
 ])
 
 

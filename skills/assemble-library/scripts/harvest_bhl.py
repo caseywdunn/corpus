@@ -215,13 +215,24 @@ def main() -> int:
                     continue
                 pid = str(h.get("PartID") or "").strip()
                 if pid:
-                    found.setdefault(pid, term)
+                    # Record HOW it was found, not just that it was. A catalogue
+                    # hit means the term is in the record's own metadata; a
+                    # full-text hit means it appears somewhere in the scan,
+                    # which for a bound journal volume can be a different
+                    # article entirely. The filter downstream needs to tell
+                    # those apart — full-text alone admits volume indexes and
+                    # papers on unrelated phyla.
+                    found.setdefault(pid, (term, st))
                     parts += 1
             print(f"  {term}/{st}: {len(hits)} hits, {parts} parts", file=sys.stderr)
 
     new = [p for p in found if p not in known]
+    by_type = {}
+    for _pid, (_t, st) in found.items():
+        by_type[st] = by_type.get(st, 0) + 1
     print(
-        f"\n{len(found):,} parts matched, {len(new):,} new "
+        f"\n{len(found):,} parts matched ({by_type.get('C', 0)} catalogue, "
+        f"{by_type.get('F', 0)} full-text), {len(new):,} new "
         f"({len(known):,} already cached, {n_items_dropped:,} items dropped)",
         file=sys.stderr,
     )
@@ -241,7 +252,9 @@ def main() -> int:
             record = got[0] if isinstance(got, list) else got
             if not (record.get("Title") or "").strip():
                 continue
-            record["_term"] = found[pid]
+            term, searchtype = found[pid]
+            record["_term"] = term
+            record["_searchtype"] = searchtype  # "C" catalogue, "F" full text
             sink.write(json.dumps(record, ensure_ascii=False) + "\n")
             added += 1
             if i % 25 == 0:
