@@ -134,6 +134,18 @@ def main() -> int:
                 candidates += [u for u in found if u not in candidates]
                 if found:
                     resolved += 1
+                # Checkpoint. A thousand DOIs at a courteous pace is several
+                # minutes of network; writing only at the end means a Ctrl-C,
+                # a dropped connection or a laptop lid closing discards every
+                # lookup made so far and the next run repeats them all against
+                # someone else's API. The cache is the expensive artifact here,
+                # not the plan.
+                if resolved % 25 == 0:
+                    BUILD.mkdir(exist_ok=True)
+                    CACHE.write_text(
+                        json.dumps(cache, indent=2, sort_keys=True), encoding="utf-8"
+                    )
+                    print(f"    {resolved:,} resolved", file=sys.stderr)
 
         if candidates:
             # fetch_pdfs.py takes one URL; keep the rest so a later pass can
