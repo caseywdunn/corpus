@@ -61,6 +61,27 @@ Vernacular names are a related gap: the exporter writes a vernacular extension
 but no ingest path produces vernacular rows, so that extension is currently
 always empty on a corpus-built snapshot. Do not rely on it.
 
+## The snapshot is also your inclusion vocabulary
+
+Do not maintain a separate hand-written list of "names in the group". The
+snapshot already holds every genus, species and synonym the authority
+recognises, so derive the vocabulary from it — the bib's definition of the clade
+then *is* the taxonomy's, and stays so when the snapshot is rebuilt.
+
+Two cautions when you do.
+
+**Genus-level tokens only.** Species epithets alone — *elegans*, *vulgaris*,
+*carnea* — are ordinary words and would admit almost anything.
+
+**Some synonyms are homonyms.** An authority's synonym list is not a list of
+safe search terms. WoRMS files *Hydra*, *Clava*, *Coryne*, *Sarsia* and
+*Alcyonium* as synonyms within Hydractiniidae, and each is a far better-known
+name elsewhere. Keep them — a paper using one for a member of the family is
+precisely the old literature you are after — but require something else in the
+record to corroborate before admitting on that term alone. The trap is the same
+as a vernacular homonym, except it arrives with the authority's blessing, which
+makes it easier to accept without checking.
+
 ## Authorship conventions differ by kingdom
 
 Zoological authorship carries a year (`Linnaeus, 1758`); botanical (ICN) does

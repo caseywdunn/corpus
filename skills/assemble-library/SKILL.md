@@ -277,6 +277,31 @@ Apply the inclusion rule from the scoping conversation. Keys and filenames
 follow `Smith1998` / `SmithJones1998` / `Smithetal1998`, with `Smith_Jones1998.pdf`
 for the file.
 
+**Derive the inclusion vocabulary from `taxonomy.dwca.zip`, not by hand.** The
+snapshot *is* the clade's definition for this library — it is what `corpus run`
+ingests and what every taxon mention resolves against — so if the bib's notion of
+"in the group" is a separately maintained list, the two drift silently and
+nothing detects it. Deriving it also means rebuilding the snapshot updates the
+rule for free.
+
+It is usually better coverage too, though how much is clade-dependent. On
+Hydractiniidae a hand-written list of 20 genus terms missed 29 the snapshot
+carries — *Dysmorphosa*, *Stylactella*, *Podocorella*, *Cytaeis*,
+*Echinochorium*, plus *Styllactis*, a recorded misspelling that is useful against
+OCR'd text. Measured honestly, that recovered only about six records on this
+harvest, because the *search* had never looked for those names either; on a clade
+with heavier synonymy churn the gain is larger. The consistency argument is the
+one that holds regardless.
+
+**Guard the homonyms.** A taxonomy's synonym list will contain names that are
+far better known as something else. WoRMS files *Hydra*, *Clava*, *Coryne*,
+*Sarsia* and *Alcyonium* as synonyms inside Hydractiniidae — take them bare and
+you import the entire *Hydra* literature. Keep them, because a paper genuinely
+using one for a member of the family is exactly the historical material you
+want, but require corroboration: they should never qualify a record on their
+own. This is the same shape as the vernacular homonym traps in step 0, arriving
+from a direction that looks authoritative.
+
 **Read `references/bib-conventions.md` before implementing key generation.**
 There is a specific trap there that has already caused silent data corruption in
 an existing library: positional `a`/`b`/`c` suffixes shift when a duplicate
