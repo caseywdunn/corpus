@@ -288,7 +288,19 @@ def main() -> None:
         if not f:
             bib_no_file.append(e)
         else:
-            bib_by_file[f].append(e)
+            # Normalise to a basename, because that is what corpus itself does:
+            # `BibIndex` keys on `Path(part).name.lower()` (bib/parser.py), so
+            # `file = {library/D/Dunn2005.pdf}` and `file = {Dunn2005.pdf}` are
+            # the same entry to a build. Comparing the raw string here made a
+            # validator stricter than the product — a generated bib that
+            # `corpus run` accepts reported every file as missing AND every PDF
+            # as an orphan, which reads as catastrophe rather than as a
+            # difference of convention. Split on `;`/`,` for the same reason
+            # BibIndex does: some dialects list several files.
+            for part in re.split(r"[;,]", f):
+                name = Path(part.strip()).name
+                if name:
+                    bib_by_file[name].append(e)
 
     # ----- 2. Inventory gaps -----
     gaps_lines: list[str] = []
