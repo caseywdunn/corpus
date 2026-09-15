@@ -439,6 +439,28 @@ def snapshot_matches(path, fingerprint):
         return False
 
 
+def recorded_root_id(path) -> Optional[str]:
+    """The ``root_id`` a completed snapshot was built from, or None.
+
+    Read-only and failure-tolerant, like :func:`snapshot_matches`: a missing
+    file, an older schema without the key, or an unreadable database all mean
+    "nothing to compare against" rather than an error.
+    """
+    if not Path(path).is_file():
+        return None
+    try:
+        conn = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            row = conn.execute("SELECT value FROM meta WHERE key='root_id'").fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+    if not row or row[0] in (None, "", "None"):
+        return None
+    return str(row[0])
+
+
 def iter_dwca(path: Path) -> Iterator[Dict]:
     """Yield records from a DwC-A. Accepts a .zip, an extracted directory,
     or a bare ``Taxon.tsv``/``taxa.tsv``. See ``_is_taxon_core_file`` for
@@ -857,7 +879,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--rebuild", action="store_true",
-        help="Drop and recreate tables before inserting (otherwise REPLACE-merges).",
+        help="Drop and recreate tables before inserting. Also acknowledges "
+             "replacing a snapshot built from a different --root-id.",
     )
     parser.add_argument(
         "--min-interval", type=float, default=0.3,
@@ -884,6 +907,29 @@ def main() -> int:
 
     if args.output is None:
         args.output = args.output_dir / "taxonomy.sqlite"
+
+    # Say so when a root change replaces a snapshot (#298).
+    #
+    # Replacing rather than accumulating is deliberate — see
+    # tests/test_taxonomy_source_updates.py, "Taxonomy snapshots own source
+    # receipts and replace, rather than accumulate" — so this does not refuse.
+    # What was missing is that it happened in silence: a multi-clade library
+    # ingesting six roots into one output keeps the sixth, exits 0, and logs
+    # nothing about the five it dropped.
+    #
+    # Warn here rather than after the work, and name `.retired/` so the
+    # previous snapshot is recoverable by someone who did not intend this.
+    if args.root_id is not None:
+        previous_root = recorded_root_id(args.output)
+        if previous_root is not None and previous_root != str(args.root_id):
+            logger.warning(
+                "Replacing the snapshot at %s, which was built from --root-id "
+                "%s, with one rooted at %s. Snapshots replace rather than "
+                "merge, so %s will NOT be in the result; the previous file is "
+                "kept under .retired/. For a multi-clade library give each root "
+                "its own output directory and union them.",
+                args.output, previous_root, args.root_id, previous_root,
+            )
 
     fingerprint = source_fingerprint(args.source, args.root_id, args.input)
     if not args.rebuild and snapshot_matches(args.output, fingerprint):
