@@ -197,7 +197,7 @@ figure-count recall/precision is 0.8803/0.8642, and caption-identity binding is
 Qwen or full-corpus acceptance. Token coverage cannot validate scientific signs,
 and figure-count agreement cannot validate object identity.
 
-The documented independent retrieval sampler, frozen against this completed
+The [independent retrieval sample and source decisions](examples/siphonophore_retrieval_review_2026_09_18/README.md), frozen against this completed
 build before source review, found only five eligible units from two papers.
 That cannot meet the previously defined minimum of ten queries from five papers.
 Source inspection finds three usable units, all from Totton; two carry incorrect
