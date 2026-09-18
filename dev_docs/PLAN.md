@@ -122,8 +122,13 @@ decision provenance; document how old bundles obtain repaired mappings.
   agreeing regional raster readings plus prepared-word geometry. A real
   extraction/materialization/chunk/query replay recovers the German example;
   eight other suspect tokens remain unresolved. Producer changes reprepare
-  dependent artifacts and retire obsolete receipts. The Mapstone surname
-  policy and broader rebuilt-source acceptance remain pending. `[plane:build]`
+  dependent artifacts and retire obsolete receipts. #315 uses curated
+  author/year candidates and unhinted regional OCR agreement; a source sample
+  admits ten correct repairs and leaves four unresolved. The complete current
+  catalog reaches extraction and figure resets, with both resume gates and
+  audits tracking consumed evidence. Actual Mapstone extraction/chunk/query
+  replay recovers both tested names; fresh full-corpus citation mapping and
+  broader rebuilt-source acceptance remain pending. `[plane:build]`
 - [ ] **#303** — preserve scientific signs, units and exponents through stored
   text, chunks and embedding input. Word coverage alone cannot validate these
   semantics because its normalization removes punctuation. Source-glyph and
@@ -218,6 +223,12 @@ new licensing evidence and no cache writes into the bundle.
   Fix supported crowding mechanisms against that evaluation; broader ranking
   experiments require explicit follow-up scope. `[plane:build]` for stored
   retrieval units; bounded ranking, if warranted: `[plane:serve]`.
+  The [source-graded evaluator](RETRIEVAL_EVALUATION.md), fixed audit calls,
+  controls, deterministic independent sampler and pre-tuning acceptance targets
+  are implemented. Prose controls now have independently reviewed source labels.
+  The rebuilt independent population
+  and actual reference/candidate captures remain; no retrieval improvement is
+  claimed from the evaluator's unit tests.
 
 ### 6. Release acceptance and return to enhancements
 

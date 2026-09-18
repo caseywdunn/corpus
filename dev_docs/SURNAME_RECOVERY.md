@@ -99,6 +99,10 @@ observations remain byte-for-byte unchanged, and that removing verification
 rederives the unresolved edge. It is not a fresh Grobid result, a reconstruction
 of the later audited v1.4 bundle, or a corpus-wide acceptance run. An optional
 original-PDF replay (`CORPUS_LIBRARY_DIR`) exercises source recovery through the
-real HybridChunker and checks that provenance stays out of the prose. Full build
-acceptance also needs the extraction caller and input fingerprints wired to the
-catalog and producer receipt.
+real HybridChunker and checks that provenance stays out of the prose. Extraction,
+atomic figure resets and the separately scheduled vision phase share the same
+catalog and producer receipt. Both resume gates and configuration/source audits
+track these inputs; tests cover catalog changes/removal, unchanged reruns and
+clean-build equivalence. A direct module invocation also resolves the configured
+BibTeX relative to its config file, with an explicit CLI argument taking
+precedence. Full rebuilt-corpus acceptance remains required.

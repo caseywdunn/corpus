@@ -12,7 +12,21 @@ from pathlib import Path
 from .config import _DEFAULT_CONFIG, _deep_merge, load_config
 
 
-def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_vision_producer=None):
+def surname_recovery_inputs(bib_index):
+    """Resolve the curated citation catalog and its local OCR producer once."""
+    from .surname_recovery import author_catalog, surname_recovery_producer
+    catalog = author_catalog(bib_index.entries if bib_index is not None else [])
+    return catalog, surname_recovery_producer(catalog)
+
+
+def _surname_producer_identity(producer):
+    # The runtime executable path changes with host/conda prefix, not the
+    # evidence. Version and traineddata identities still belong in receipts.
+    return {key: deepcopy(value) for key, value in producer.items() if key != "executable"}
+
+
+def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_vision_producer=None,
+                        surname_producer=None):
     """Return direct and inherited configuration inputs by stage.
 
     ``panel_mode`` is the applied CLI/config mode, not a backend availability
@@ -54,6 +68,9 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
         "extraction.table_structure_policy": "logical-cells-key-geometry-source-spaces-v1",
         "extraction.source_spacing_producer": source_spacing_producer(),
         "extraction.section_heading_policy": "rendered_section_heading_v1",
+        "extraction.surname_recovery_producer": (
+            _surname_producer_identity(surname_producer if surname_producer is not None
+                                       else surname_recovery_inputs(None)[1])),
     })
     chunks = {**extract, **select("chunking", ("max_tokens",)),
               "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY}
@@ -104,9 +121,13 @@ def configuration_drift(output_dir: Path, config_path: Path):
         raise FileNotFoundError(config_path)
     config = load_config(config_path)
     validate_config(config)
+    from bib import BibIndex
+    bib_path = config.get("bib")
+    bib_index = BibIndex.from_path((config_path.parent / bib_path).resolve()) if bib_path else None
+    _, surname_producer = surname_recovery_inputs(bib_index)
     figures = config.get("figures", {})
     expected = config_fingerprints(config, panel_mode=figures.get("panel_detection", "ocr"),
-                                   vision_model=figures.get("model"))
+                                   vision_model=figures.get("model"), surname_producer=surname_producer)
     affected = {}
     checked = 0
     for hd in sorted((output_dir / "documents").iterdir()):
@@ -128,7 +149,8 @@ def configuration_drift(output_dir: Path, config_path: Path):
             "documents_with_differences": len(affected), "differences": affected,
             "scope": "Stage 1 configuration only; CLI/CPU-floor overrides may differ. "
                      "Includes offline vision identities; no remote registry/service probes. "
-                     "Does not audit source files, BibTeX or annotation inputs."}
+                     "Includes the curated author catalog consumed by extraction. "
+                     "Does not audit source PDFs, per-paper BibTeX metadata or annotation inputs."}
 
 
 def source_input_drift(output_dir: Path, config_path: Path):
@@ -152,6 +174,7 @@ def source_input_drift(output_dir: Path, config_path: Path):
         return {"available": False, "scope": "No input_pdfs configured; source inventory not checked."}
     bib_path = resolved(config.get("bib"))
     bib_index = BibIndex.from_path(bib_path) if bib_path else None
+    _, surname_producer = surname_recovery_inputs(bib_index)
     lexicon_path = resolved(config.get("lexicon"))
     if lexicon_path:
         load_lexicon(lexicon_path)  # Validate before treating it as current input.
@@ -191,6 +214,10 @@ def source_input_drift(output_dir: Path, config_path: Path):
             old = (records.get(stage) or {}).get("input_fingerprint") or {}
             fp = {k: v for k, v in old.items() if k not in consumed}
             fp.update(expected.get(stage, {}))
+            if stage in {"docling_extraction", "text_chunking", "taxa_and_lexicon_extraction",
+                         "figure_materialization", "figure_crossref"}:
+                fp["config"] = {**fp.get("config", {}),
+                                "extraction.surname_recovery_producer": _surname_producer_identity(surname_producer)}
             if stage in ("figure_materialization", "figure_crossref"):
                 fp.update({k: v for k, v in expected["docling_extraction"].items()
                            if k in {"ocrlang", "ocrmode", "keeppages"}})

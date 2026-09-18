@@ -64,6 +64,8 @@ def extract_docling_content(
     docling_doc_output: Optional[Path] = None,
     scan_file_type: Optional[str] = None,
     scan_detection: Optional[Dict] = None,
+    surname_catalog: Optional[Dict] = None,
+    surname_producer: Optional[Dict] = None,
 ):
     """Extract text and figures using docling, with PyMuPDF fallback for figures.
 
@@ -194,6 +196,10 @@ def extract_docling_content(
             "reading_order": repair_reading_order(document),
             "table_structure": prepare_table_structure(document, pdf_path),
         }
+        if surname_catalog is not None:
+            from .surname_recovery import recover_citation_surnames
+            source_text_integrity["surnames"] = recover_citation_surnames(
+                document, pdf_path, surname_catalog, producer=surname_producer)
 
         # Extract text from docling if available
         text_content = {

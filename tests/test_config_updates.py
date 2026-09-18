@@ -274,8 +274,23 @@ def test_failed_standalone_vision_cannot_leave_cpu_floor_complete(corpus, monkey
 
 
 def test_successful_standalone_vision_survives_next_cpu_resume(corpus, monkeypatch):
-    extract = _install_figure_stubs(monkeypatch)
+    from bib import BibIndex
+    from pipeline.surname_recovery import author_catalog
+    corpus.bib.write_text(corpus.bib.read_text() +
+                         "@article{accented, author={Alvariño, A}, year={1971}}\n")
+    expected = author_catalog(BibIndex.from_path(corpus.bib).entries)
+    base_extract = _install_figure_stubs(monkeypatch)
+    calls = []
+
+    def extract(*args, **kwargs):
+        assert kwargs["surname_catalog"] == expected
+        assert kwargs["surname_producer"]["catalog_sha256"] == expected["sha256"]
+        calls.append(args[0])
+        return base_extract(*args, **kwargs)
+
+    monkeypatch.setattr(runner, "extract_docling_content", extract)
     corpus.run()
+    assert len(calls) == 2
     baseline = stages._load_pipeline_state(corpus.hd())["stages"]["figure_materialization"]
     monkeypatch.setattr(main, "extract_docling_content", extract)
     monkeypatch.setattr(main, "_pass25_annotate_figures", lambda *a: None)
@@ -285,6 +300,7 @@ def test_successful_standalone_vision_survives_next_cpu_resume(corpus, monkeypat
     monkeypatch.setattr(main, "_run_quality_gates", lambda *a: [])
     monkeypatch.setattr("pipeline.figures.generate_figures_report", lambda *a: None)
     corpus.run("--figure-panels", "vision-local", "--vision-model", "model-b", "--refresh-vision")
+    assert len(calls) == 4  # Both standalone scratch resets retain the catalog.
     receipts = stages._load_pipeline_state(corpus.hd())["stages"]
     assert receipts["figure_materialization"] == baseline
     assert "vision_refresh" in receipts
@@ -525,3 +541,86 @@ def test_native_ocr_model_identity_invalidates_preparation_and_consumers(monkeyp
                   "taxa_and_lexicon_extraction", "figure_materialization", "figure_crossref"):
         assert before[stage] != after[stage]
     assert before["scan_detection"] == after["scan_detection"]
+
+
+def test_curated_surname_catalog_refreshes_all_consumers_and_matches_clean(corpus, monkeypatch):
+    from pipeline.build_inputs import source_input_drift
+
+    corpus.config.write_text("input_pdfs: ./library\nbib: ./library.bib\n")
+    initial_bib = corpus.bib.read_text()
+
+    def catalog_entry(title):
+        return ("@article{accented, author={Alvariño, A}, year={1971}, "
+                f"title={{{title}}}, ocrlang={{spa}}}}\n")
+
+    def extract(pdf, text, figures, images, **kwargs):
+        catalog = kwargs["surname_catalog"]
+        producer = kwargs["surname_producer"]
+        assert producer["catalog_sha256"] == catalog["sha256"]
+        titles = [source["title"] for row in catalog["records"] for source in row.get("sources", [])]
+        text.write_text(json.dumps({"text": " | ".join(titles) or "no curated candidate"}))
+        figures.write_text(json.dumps({"figures": []}))
+
+    monkeypatch.setattr(runner, "extract_docling_content", extract)
+    corpus.bib.write_text(initial_bib + catalog_entry("Original source title"))
+    corpus.run()
+    for title in ("Corrected source title", None):
+        before = {name: stages._load_pipeline_state(corpus.hd(name))["stages"]
+                  for name in ("First2001.pdf", "Second2002.pdf")}
+        corpus.bib.write_text(initial_bib + (catalog_entry(title) if title else ""))
+        config_audit = configuration_drift(corpus.output, corpus.config)
+        source_audit = source_input_drift(corpus.output, corpus.config)
+        for name in before:
+            sha = corpus.hd(name).name
+            assert "docling_extraction" in config_audit["differences"][sha]
+            assert "docling_extraction" in source_audit["differences"][sha]
+        corpus.run()
+        clean = corpus.run(destination=corpus.output.parent / ("clean-surname" if title else "clean-no-surname"))
+        for name, previous in before.items():
+            after = stages._load_pipeline_state(corpus.hd(name))["stages"]
+            for stage in ("scan_detection", "pdf_preparation", "metadata_extraction"):
+                assert previous[stage] == after[stage]
+            assert previous["docling_extraction"] != after["docling_extraction"]
+            actual = json.loads((corpus.hd(name) / "chunks.json").read_text())
+            assert actual == json.loads((corpus.hd(name, destination=clean) / "chunks.json").read_text())
+            assert actual["chunks"][0]["text"] == (title or "no curated candidate")
+        unchanged = {name: stages._load_pipeline_state(corpus.hd(name)) for name in before}
+        corpus.run()
+        assert unchanged == {name: stages._load_pipeline_state(corpus.hd(name)) for name in before}
+
+
+@pytest.mark.parametrize("explicit_override", [False, True])
+def test_direct_main_resolves_configured_bib_relative_to_config(corpus, monkeypatch, explicit_override):
+    settings = corpus.output.parent / "settings"
+    settings.mkdir()
+    config = settings / "config.yaml"
+    config.write_text("bib: ../library.bib\n")
+    corpus.bib.write_text(corpus.bib.read_text() +
+                         "@article{accented, author={Alvariño, A}, year={1971}}\n")
+    alternate = settings / "override.bib"
+    alternate.write_text("@article{other, author={García, A}, year={1980}}\n")
+    seen = []
+
+    def extract(pdf, text, figures, images, **kwargs):
+        seen.append([row["surname"] for row in kwargs["surname_catalog"]["records"]])
+        text.write_text(json.dumps({"text": "source prose"}))
+        figures.write_text(json.dumps({"figures": []}))
+
+    monkeypatch.setattr(runner, "extract_docling_content", extract)
+    monkeypatch.setattr("sys.argv", ["extract", str(corpus.source), str(corpus.output),
+                                   "--config", str(config), "--no-grobid", "--no-taxa",
+                                   *(["--bib", str(alternate)] if explicit_override else [])])
+    assert main.main() in (None, 0)
+    assert seen == [["García" if explicit_override else "Alvariño"]] * 2
+
+
+def test_surname_runtime_path_is_not_a_cross_machine_rebuild_input():
+    producer = {"policy": "test-policy", "executable": "/workstation/env/bin/tesseract",
+                "version": "same-version", "models": {"spa": "same-model"},
+                "catalog_sha256": "same-catalog"}
+    before = config_fingerprints({}, panel_mode="ocr", surname_producer=producer)
+    moved = {**producer, "executable": "/cluster/conda/bin/tesseract"}
+    assert before == config_fingerprints({}, panel_mode="ocr", surname_producer=moved)
+    moved["models"] = {"spa": "updated-model"}
+    assert before["docling_extraction"] != config_fingerprints(
+        {}, panel_mode="ocr", surname_producer=moved)["docling_extraction"]

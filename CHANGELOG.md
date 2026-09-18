@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sections clear prior species context. Served source provenance uses bounded
   previews with explicit truncation and evidence counts (#319).
 
+- Citation surname recovery requires curated author/year evidence and two
+  agreeing unhinted source-crop OCR readings (#315). Raw reference observations
+  remain unchanged; complete title/year corroboration supports derived mappings,
+  while unresolved candidates produce review warnings. Relevant catalog/model
+  changes invalidate extraction consumers; unrelated title edits retain their
+  existing resume behavior.
+
 - Reference quality preserves observations while quarantining supported
   caption debris and surfacing uncertain fragments and incomplete surnames
   (#313, #316). Source-supported publication-year adjudication repairs mappings

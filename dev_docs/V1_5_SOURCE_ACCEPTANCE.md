@@ -101,8 +101,27 @@ returns `RMT-8-Fänge` with its original evidence retained. Eight other suspect
 tokens remain explicitly unresolved; this is not a whole-paper German accuracy
 claim. The replay also verifies receipt transfer into temporary extraction
 outputs. Resume tests cover producer/model changes, retirement of obsolete
-receipts, clean-build equivalence and an unchanged rerun. #315's surname policy
-and broader source acceptance remain pending.
+receipts, clean-build equivalence and an unchanged rerun.
+
+The #315 surname policy uses curated author/year candidates and requires two
+unhinted regional OCR readings to agree. Its selected source sample covers
+14 proposals across six papers: ten repairs agree with visual source review,
+and four remain unresolved. Two already-correct source cases and four separate
+synthetic controls are retained. This selected sample does not estimate
+corpus-wide precision or recall. The compact crops, full source hashes and
+reading receipts live in `tests/fixtures/surname_recovery`; see
+[SURNAME_RECOVERY.md](SURNAME_RECOVERY.md) for the method and remaining limits.
+Atomic extraction using the complete current curated catalog, real chunking
+and `get_chunks` recovers Mapstone physical page 47's two tested `Alvariño`
+citations (1971 and 1991). A separate retained-reference test demonstrates
+supported edge rematerialization without changing the original observations;
+that is not a fresh full-corpus Grobid/graph validation.
+
+Read-only legacy-bundle transport acceptance passes all registered MCP tools,
+real query embedding, strict image crops, signed HTTP whole/panel delivery and
+authentication checks, with the artifact inventory unchanged. It uses the
+retained v1.2.1 snapshot identified below and proves compatibility/immutability,
+not correctness of freshly rebuilt evidence.
 
 ## Acceptance still required
 

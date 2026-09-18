@@ -53,7 +53,10 @@ def test_annotation_addition_and_removal_are_reported(corpus):
     hd = corpus.hd()
     state = _load_pipeline_state(hd)
     state["stages"]["taxa_and_lexicon_extraction"] = dict(state["stages"]["text_chunking"])
-    state["stages"]["taxa_and_lexicon_extraction"]["input_fingerprint"] = {"lexicons": {"anatomy": {"sha256": "old"}}}
+    state["stages"]["taxa_and_lexicon_extraction"]["input_fingerprint"] = {
+        **state["stages"]["text_chunking"]["input_fingerprint"],
+        "lexicons": {"anatomy": {"sha256": "old"}},
+    }
     (hd / "pipeline_state.json").write_text(json.dumps(state))
     configure(corpus)
     changes = source_input_drift(corpus.output, corpus.config)["differences"][hd.name]
