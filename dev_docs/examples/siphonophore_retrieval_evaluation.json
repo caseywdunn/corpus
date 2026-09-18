@@ -631,8 +631,58 @@
         "k": 5,
         "with_text": true
       },
-      "targets": [],
-      "review_status": "pending_source_review; audit reports relevant prose but supplies no source-graded passage labels"
+      "targets": [
+        {
+          "id": "pugh1983_gas_gland",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "c887fb198ebc",
+          "pages": [
+            9
+          ],
+          "all_text": [
+            "pneumatosaccus called the pneumadenia or gas gland",
+            "secondary development of the ectodermal cells"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "pugh1983_gas_gland",
+            "library_path": "P/Pugh1983Rhodaliids.pdf",
+            "sha256": "c887fb198ebc1d50ee129f12ea7f6129fd510c099cd685342fd865693507d7fb",
+            "physical_pages": [
+              9
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Describes the gland location, ectodermal structure and secretion of carbon-monoxide-rich gas."
+          }
+        },
+        {
+          "id": "wittenberg1960_gas_gland",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "5e74ac01e8ac",
+          "pages": [
+            6
+          ],
+          "all_text": [
+            "pneumadena or gas gland",
+            "thin layer of ectodermal glandular cylindrical cells"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "wittenberg1960_gas_gland",
+            "library_path": "U_Z/Wittenberg1960.pdf",
+            "sha256": "5e74ac01e8ac4ddd50d11b89bf856cec10833d5aead32f9e48f9ec1dba2e0849",
+            "physical_pages": [
+              6
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Carbon monoxide originates in the gland; the author separately qualifies the inference about elaboration of all float gases."
+          }
+        }
+      ]
     },
     {
       "id": "prose_02",
@@ -642,8 +692,107 @@
         "k": 5,
         "with_text": true
       },
-      "targets": [],
-      "review_status": "pending_source_review; audit reports relevant prose but supplies no source-graded passage labels"
+      "targets": [
+        {
+          "id": "haddock2005_lure_inference",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "ffc7ebff40b4",
+          "pages": [
+            1
+          ],
+          "all_text": [
+            "siphonophore Erenna uses them as lures to attract fish"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2005_lure_inference",
+            "library_path": "H_J/Haddock_etal2005.pdf",
+            "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+            "physical_pages": [
+              1
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source conclusion links flicking bioluminescent/fluorescent filaments to attraction of fish; red-light vision remains discussed as an open question."
+          }
+        },
+        {
+          "id": "haddock2005_fish_lures",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "ffc7ebff40b4",
+          "pages": [
+            1
+          ],
+          "all_text": [
+            "nonvisual Erenna",
+            "may act as lures for fish prey"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2005_fish_lures",
+            "library_path": "H_J/Haddock_etal2005.pdf",
+            "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+            "physical_pages": [
+              1
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source reports fish remnants and red-emitting appendages that may act as lures; the inference is retained as stated."
+          }
+        },
+        {
+          "id": "haddock2005_general_luminescence",
+          "grade": 1,
+          "review_status": "source_verified",
+          "paper_hash": "ffc7ebff40b4",
+          "pages": [
+            1
+          ],
+          "all_text": [
+            "Examples of bioluminescent lures in the sea are quite rare",
+            "defensive purposes"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2005_general_luminescence",
+            "library_path": "H_J/Haddock_etal2005.pdf",
+            "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+            "physical_pages": [
+              1
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Topical introductory context alone does not establish the Erenna fish-lure mechanism; grade 1 does not count as a hit."
+          }
+        },
+        {
+          "id": "haddock2017_erenna_lures",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1409a2155981",
+          "pages": [
+            8
+          ],
+          "all_text": [
+            "five species of the genus Erenna",
+            "lures on their tentacles to attract fish"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2017_erenna_lures",
+            "library_path": "H_J/Haddock_et2017.pdf",
+            "sha256": "1409a21559815928aca213a83d560e5620b133d718c42f0024e3e34921563617",
+            "physical_pages": [
+              8
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Body prose reports bioluminescent lures attracting fish across five Erenna species."
+          }
+        }
+      ]
     },
     {
       "id": "prose_03",
@@ -653,8 +802,83 @@
         "k": 5,
         "with_text": true
       },
-      "targets": [],
-      "review_status": "pending_source_review; audit reports relevant prose but supplies no source-graded passage labels"
+      "targets": [
+        {
+          "id": "grossmann2014_somatocyst_storage",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "3507422334c6",
+          "pages": [
+            16
+          ],
+          "all_text": [
+            "storage organs for lipid reserves",
+            "low food availability"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "grossmann2014_somatocyst_storage",
+            "library_path": "G/Grossmann-Collins-Lindsay2014.pdf",
+            "sha256": "3507422334c6294e9d34ce929894f050ae3fc71f1fa99adc2ffd492567f6ef0a",
+            "physical_pages": [
+              16
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source links somatocyst/phyllocyst lipid reserves to survival during low food availability and warns that organ size varies with physiological condition."
+          }
+        },
+        {
+          "id": "pugh2018_somatocyst_hypotheses",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "bc251c7a6346",
+          "pages": [
+            8
+          ],
+          "all_text": [
+            "nutritional storage",
+            "they may serve for buoyancy control"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "pugh2018_somatocyst_hypotheses",
+            "library_path": "P/Pugh_etal2018.pdf",
+            "sha256": "bc251c7a63468494a78b07c4ea32c33c41e0c18bae8aa5f141da59f71abec5fb",
+            "physical_pages": [
+              8
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Storage and buoyancy/trim are proposed functions for diphyomorph somatocysts, not universal experimentally established roles. The preceding source paragraphs delimit the structure under discussion."
+          }
+        },
+        {
+          "id": "pugh2018_buoyancy_caveat",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "bc251c7a6346",
+          "pages": [
+            9
+          ],
+          "all_text": [
+            "somatocyst is greatly reduced",
+            "difficult to ascribe a buoyancy function"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "pugh2018_buoyancy_caveat",
+            "library_path": "P/Pugh_etal2018.pdf",
+            "sha256": "bc251c7a63468494a78b07c4ea32c33c41e0c18bae8aa5f141da59f71abec5fb",
+            "physical_pages": [
+              9
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source counterexample: the organ is greatly reduced in several diphyids; this qualifies a universal buoyancy interpretation and is answer-bearing evidence."
+          }
+        }
+      ]
     },
     {
       "id": "historical_01",

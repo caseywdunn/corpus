@@ -7,9 +7,11 @@ in `pipeline/` or the server imports it.
 
 The [siphonophore worked example](examples/siphonophore_retrieval_evaluation.json)
 preserves the seven exact requests and three prose controls from issue #320,
-plus two explicit historical-intent controls. Its source targets come from the
-small source fragments already used for extraction regressions. The prose
-control labels and independent sample still require source review. Consequently
+plus two explicit historical-intent controls. Diagnostic/key source targets
+come from small fragments already used for extraction regressions. The three
+prose controls now also have labels verified against original PDFs and rendered
+paragraph regions in the [prose source review](examples/siphonophore_prose_source_review.json).
+The independent sample still requires selection and source review. Consequently
 the supplied manifest **cannot yet pass release acceptance**. Its thresholds
 are predefined release acceptance targets, not demonstrated retrieval quality.
 
@@ -36,8 +38,7 @@ populations remain explicit; do not silently replace difficult selections.
 
 Review the selected PDF pages independently of retrieval results, write a
 natural query about each source unit, and add source targets. The generated
-queries are drafts; finalize them before capture. Also source-grade the prose
-controls. Each target records:
+queries are drafts; finalize them before capture. Source-grade any unreviewed controls as well. Each target records:
 
 - A stable target ID, PDF short hash and physical pages.
 - `source` evidence, including the source PDF hash and page/region or committed
@@ -60,6 +61,27 @@ SHA-256 is recorded in each capture. The scorer refuses a capture from a
 different manifest, preventing after-the-fact label changes from silently
 changing the result. Correcting a label requires a documented new manifest and
 both reference and candidate captures under that manifest.
+
+## Source review of the worked-example prose controls
+
+The source review on 2026-09-18 used retained `1.2.1` chunks only to locate
+candidate paragraphs. Original library PDFs were then hashed, read and visually
+checked as rendered page regions. No semantic retrieval ranks were inspected.
+The companion JSON stores compact native excerpts, PDF hashes, physical pages,
+boxes in PDF points, rendering settings and crop hashes. PDFs and raster crops
+are not added to the fixture corpus.
+
+| Control | Verified source passages | Grading scope |
+| --- | --- | --- |
+| Pneumatophore structure and gas gland function | Pugh 1983, physical p. 9; Wittenberg 1960, physical p. 6 | Gland location/ectodermal structure and carbon-monoxide production. Wittenberg separately qualifies the inference about elaboration of all float gases. |
+| Erenna lures and fish prey | Haddock et al. 2005, physical p. 1; Haddock et al. 2017, physical p. 8 | Source observations and interpretation connect the appendages to fish attraction. General introductory luminescence prose is grade 1, insufficient alone. |
+| Somatocyst function | Grossmann et al. 2014, physical p. 16; Pugh et al. 2018, physical pp. 8–9 | Lipid storage is discussed directly; proposed buoyancy/trim roles remain hypotheses. The reduced somatocyst in several diphyids is a source counterexample to a universal buoyancy claim, and relevant evidence for this query. |
+
+These are known answer-bearing passages, not exhaustive relevance judgments.
+The source authors' qualifications are part of the evidence. A topical mention
+or an unjudged alternative is not silently promoted to a positive hit.
+The nine source labels include eight grade-2 passages and one grade-1 context
+passage; these counts describe labels, not observed top-k retrieval outcomes.
 
 ## Capture the unchanged and candidate workflows
 

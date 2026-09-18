@@ -1,0 +1,354 @@
+{
+  "_review": {
+    "date": "2026-09-18",
+    "method": "Original local PDF SHA-256 verified; native text used to locate the paragraph, then rendered PDF region visually reviewed. Source excerpts retain original native line breaks/hyphenation. No retrieval ranking was inspected.",
+    "locator_bundle_version": "1.2.1",
+    "locator_scope": "Retained 1.2.1 chunks used only to identify candidate papers and paragraphs, not as source truth or the audited 1.4.0 deployment.",
+    "coord_origin": "TOPLEFT",
+    "bbox_units": "PDF points",
+    "renderer": "PyMuPDF 1.28.0",
+    "render_scale": 2
+  },
+  "pugh1983_gas_gland": {
+    "pdf": "P/Pugh1983Rhodaliids.pdf",
+    "sha256": "c887fb198ebc1d50ee129f12ea7f6129fd510c099cd685342fd865693507d7fb",
+    "physical_page": 9,
+    "page_size": [
+      595.2999877929688,
+      836.2440185546875
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "The gas in the pneumatophore, which contains an unusually high percentage of carbon \nmonoxide (see, for example, Pickwell et al. 1964)) is secreted by a specialized, basal part of the \npneumatosaccus called the pneumadenia or gas gland (figure 2 ). The gas gland is formed by \na massive, secondary development of the ectodermal cells, which spread, internally, over the \nbasal part of the chitinous lining (pneumatocyst) to the gas cavity (see figure 4). Carre (1969) \ndescribes how, in Nanomia \nbijuga, the endodermal layer of the pneumatosaccus\nalso becomes highly developed and produces septa that traverse the pericystic cavity and \nunite with the endoderm of the pneumatocodon (figure 2 b). These septa are well developed in \nthe rhodaliid aurophores, as is the gas gland which, together with the chitinous layer surrounding \nit, forms an enlarged pneumatochone (figure 4 \nb)\nBeneath the pneumatophore physonect siphonophores usually possess two distinct regions \narranged one above the other on a long stem. The more apical region, the nectosome, carries \nthe asexual (medusoid) nectophores or swimming bells, while the polyps and sexual medusoids \narise on the basal siphosome (figure 2 a). The constituent parts of these two regions are budded \noff respectively from two zones of proliferation which originally arise, in most physonect larvae, \non opposite sides of the pneumatophore (Totton 1965). However, as development proceeds \nthey become separated from one another as the two distinct regions of the stem are differentiated. \nImmediately below the pneumatophore, in the mature animal, lies the ventral budding zone \nof the nectophores. These swimming bells are displaced basad as new buds appear, so that the \noldest are at the oral end of the nectosomal region (figure 2 . The structure of the nectophores\nis usually a good systematic character in physonect siphonophores.\n",
+        "page": 9,
+        "bbox": [
+          92.83688354492188,
+          160.9475555419922,
+          598.4931640625,
+          473.14447021484375
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        87.83688354492188,
+        155.9475555419922,
+        603.4931640625,
+        478.14447021484375
+      ],
+      "sha256": "9efb0d03d9857f5f8a7d1c6ceb537e9508819671c2a548397a2ff348f1904d7a"
+    },
+    "review_note": "Describes the gland location, ectodermal structure and secretion of carbon-monoxide-rich gas.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "c887fb198ebc",
+      "chunk_id": "chunk_23",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "wittenberg1960_gas_gland": {
+    "pdf": "U_Z/Wittenberg1960.pdf",
+    "sha256": "5e74ac01e8ac4ddd50d11b89bf856cec10833d5aead32f9e48f9ec1dba2e0849",
+    "physical_page": 6,
+    "page_size": [
+      481.919677734375,
+      680.1591796875
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "DISCUSSION \nThe present work has established that the carbon monoxide found in the float \ngases originates in the structure known as the pneumadena or gas gland. This \nstructure has been described (Haeckel, 1888, p. 342; Chun, 1887, p. 559) as a thin \nlayer of ectodermal glandular cylindrical cells. It is necessary to inquire whether \nthe gas gland is indeed responsible for the elaboration of the float gases. The ques- \ntion cannot be answered directly because it has not as yet been studied in Physalia. \n",
+        "page": 6,
+        "bbox": [
+          55.70000076293945,
+          166.66278076171875,
+          424.91241455078125,
+          255.39996337890625
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        50.70000076293945,
+        161.66278076171875,
+        429.91241455078125,
+        260.39996337890625
+      ],
+      "sha256": "60f5bfb7b042737d3b56782f7398d3931a5c1b873afa844f36278aba22e1763a"
+    },
+    "review_note": "Carbon monoxide originates in the gland; the author separately qualifies the inference about elaboration of all float gases.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "5e74ac01e8ac",
+      "chunk_id": "chunk_27",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "haddock2005_lure_inference": {
+    "pdf": "H_J/Haddock_etal2005.pdf",
+    "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+    "physical_page": 1,
+    "page_size": [
+      594.0,
+      756.0
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "Given the characteristic flicking of the bio-\nluminescent and fluorescent filaments, we\nconcluded that the siphonophore Erenna uses\nthem as lures to attract fish. Fluorescent struc-\ntures may serve as lures in a diverse assemblage\nof nonluminous taxa, from cnidarians to crusta-\nceans, and we have found examples of putative\nlures in several other siphonophores and medu-\nsae. In shallow waters, fluorescence could be\nexcited by ambient blue light rather than by\nbioluminescence as in deep-dwelling Erenna.\n",
+        "page": 1,
+        "bbox": [
+          390.55999755859375,
+          136.23739624023438,
+          553.9663696289062,
+          249.79994201660156
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        385.55999755859375,
+        131.23739624023438,
+        558.9663696289062,
+        254.79994201660156
+      ],
+      "sha256": "e85d630d3f7deed7a0c386dd8fa3781e5d10fcdf46543fa4e9f6bc520792ee24"
+    },
+    "review_note": "Source conclusion links flicking bioluminescent/fluorescent filaments to attraction of fish; red-light vision remains discussed as an open question.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "ffc7ebff40b4",
+      "chunk_id": "chunk_4",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "haddock2005_fish_lures": {
+    "pdf": "H_J/Haddock_etal2005.pdf",
+    "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+    "physical_page": 1,
+    "page_size": [
+      594.0,
+      756.0
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "Using a submersible at depths between\n1600 m and 2300 m (3), we collected three\nspecimens of an undescribed species in the\ngenus Erenna (Fig. 1A and movie S1). Un-\nlike most siphonophores, Erenna do not feed\non crustaceans but prey instead upon fish (4),\nremnants of which were found inside two of\nour specimens. At great depths\nwhere chance encounters with\nvertebrates are rare, it is unclear\nhow they obtain prey. Here we\nshow that the nonvisual Erenna\nsp. we captured possesses red-\nemitting bioluminescent append-\nages that may act as lures for\nfish prey.\n",
+        "page": 1,
+        "bbox": [
+          35.88660430908203,
+          272.2516784667969,
+          199.2615966796875,
+          438.14080810546875
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        30.88660430908203,
+        267.2516784667969,
+        204.2615966796875,
+        443.14080810546875
+      ],
+      "sha256": "1afcaf486c092b5cb9cf997ef2436c566cb2b426cb023625e46ca3de501a0063"
+    },
+    "review_note": "Source reports fish remnants and red-emitting appendages that may act as lures; the inference is retained as stated.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "ffc7ebff40b4",
+      "chunk_id": "chunk_2",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "haddock2005_general_luminescence": {
+    "pdf": "H_J/Haddock_etal2005.pdf",
+    "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+    "physical_page": 1,
+    "page_size": [
+      594.0,
+      756.0
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "Examples of bioluminescent lures in the sea\nare quite rare, posited only for a few fish\nand cephalopods (1). In many marine or-\nganisms, including siphonophores, lumines-\ncence is thought to serve defensive purposes.\nSiphonophores are colonial hydrozoans (phylum\nCnidaria) that are dominant predators in the\nocean, some reaching tens of meters in length.\nNearly all members of this group are lumi-\nnous (2), but because of their fragility, they\nare rarely observed alive.\n",
+        "page": 1,
+        "bbox": [
+          35.886600494384766,
+          157.22396850585938,
+          199.27857971191406,
+          270.78656005859375
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        30.886600494384766,
+        152.22396850585938,
+        204.27857971191406,
+        275.78656005859375
+      ],
+      "sha256": "9bd88bbd797dc40356030ae47edcc66a5dfb7646940ef8fe748a20a8bcfdef7d"
+    },
+    "review_note": "Topical introductory context alone does not establish the Erenna fish-lure mechanism; grade 1 does not count as a hit.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "ffc7ebff40b4",
+      "chunk_id": "chunk_0",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "haddock2017_erenna_lures": {
+    "pdf": "H_J/Haddock_et2017.pdf",
+    "sha256": "1409a21559815928aca213a83d560e5620b133d718c42f0024e3e34921563617",
+    "physical_page": 8,
+    "page_size": [
+      612.0,
+      792.0
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "Pseudusa, Doliolula; Haddock et  al., \n2010), chaetognaths (Caecosagitta macro-\ncephala and Eukrohnia fowleri, Haddock \nand Case, 1994; Thuesen et  al., 2010), \ngastropods (two yet undescribed spe-\ncies), and sea anemones (Hormathiidae, \nHaddock et al., 2010; Johnsen et al., 2012). \nBioluminescence was not known to occur \nin four of these taxonomic lineages before \nour observations. Among siphonophores, \nwe have found five species of the genus \nErenna (Figure 7) that use biolumines-\ncent lures on their tentacles to attract \nfish (Haddock, et  al., 2005b; Pugh and \nHaddock, 2016), and we have observed \nfluorescent lures in the siphonophores \nResomia ornicephala and Rhizophysa \nand the hydromedusa Olindias formosus \n(Haddock and Dunn, 2015).\n",
+        "page": 8,
+        "bbox": [
+          36.0,
+          39.47999954223633,
+          202.69503784179688,
+          296.1000061035156
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        31.0,
+        34.47999954223633,
+        207.69503784179688,
+        301.1000061035156
+      ],
+      "sha256": "9429cbaaccbc10cb9907b0e54ad4acf3eb14db51bfbaa8e9a2a5f80a71e92ae6"
+    },
+    "review_note": "Body prose reports bioluminescent lures attracting fish across five Erenna species.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "1409a2155981",
+      "chunk_id": "chunk_24",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "grossmann2014_somatocyst_storage": {
+    "pdf": "G/Grossmann-Collins-Lindsay2014.pdf",
+    "sha256": "3507422334c6294e9d34ce929894f050ae3fc71f1fa99adc2ffd492567f6ef0a",
+    "physical_page": 16,
+    "page_size": [
+      573.448974609375,
+      793.7009887695312
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "The somatocyst of the anterior nectophore and phyllo-\ncyst of the bract are used as storage organs for lipid\nreserves that will help the colony survive times of low\nfood availability. The size of these organs will therefore\nvary considerably depending on the physiological condi-\ntion of the animal at the time of sampling. The large\n",
+        "page": 16,
+        "bbox": [
+          41.75190353393555,
+          655.808837890625,
+          274.9004821777344,
+          725.5250854492188
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        36.75190353393555,
+        650.808837890625,
+        279.9004821777344,
+        730.5250854492188
+      ],
+      "sha256": "ebf7b001ed81d8fe079427c45340e07953680ea3ef963957ef210819ec3e7097"
+    },
+    "review_note": "Source links somatocyst/phyllocyst lipid reserves to survival during low food availability and warns that organ size varies with physiological condition.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "3507422334c6",
+      "chunk_id": "chunk_106",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "pugh2018_somatocyst_hypotheses": {
+    "pdf": "P/Pugh_etal2018.pdf",
+    "sha256": "bc251c7a63468494a78b07c4ea32c33c41e0c18bae8aa5f141da59f71abec5fb",
+    "physical_page": 8,
+    "page_size": [
+      595.0,
+      842.0
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "While nourishment of the lamella provides a clear hypothesis for the function of the canals that branch from \nthe ascending mantle canal in prayomorph siphonophores, it does not provide a functional explanation for the \nascending structures that penetrate into the mesogloea in many diphyomorph calycophorans, which are \nunbranched, but vary greatly in the degree to which they are swollen. There are at least two possible functional \nimplications: They may provide for nutritional storage, as previously hypothesized by Huxley (1859). \nAlternatively, they may serve for buoyancy control. Buoyancy would be further refined into two categories – gross \nbuoyancy, which could influence location in the water column, and trim, which could influence the resting \norientation of the nectophore in the water column. For instance, the nectophores of Lensia conoidea, in situ, are \n",
+        "page": 8,
+        "bbox": [
+          56.51788330078125,
+          649.7701416015625,
+          541.1680297851562,
+          754.7705078125
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        51.51788330078125,
+        644.7701416015625,
+        546.1680297851562,
+        759.7705078125
+      ],
+      "sha256": "b01537c83649c6bff71da21acdb423c7048febc6c524f48828a977d97defc373"
+    },
+    "review_note": "Storage and buoyancy/trim are proposed functions for diphyomorph somatocysts, not universal experimentally established roles. The preceding source paragraphs delimit the structure under discussion.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "bc251c7a6346",
+      "chunk_id": "chunk_41",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  },
+  "pugh2018_buoyancy_caveat": {
+    "pdf": "P/Pugh_etal2018.pdf",
+    "sha256": "bc251c7a63468494a78b07c4ea32c33c41e0c18bae8aa5f141da59f71abec5fb",
+    "physical_page": 9,
+    "page_size": [
+      595.0,
+      842.0
+    ],
+    "items": [
+      {
+        "label": "text",
+        "text": "seen to be horizontal when at rest, with the somatocyst in the anterior nectophore uppermost. However, in several \ndiphyids the somatocyst is greatly reduced and it would be difficult to ascribe a buoyancy function to it. Buoyancy \nin the prayomorph calycophorans is mainly provided by the large volumes of mesogloea, and active exclusion of \nheavy sulphate ions (Bidigare & Biggs, 1980) also would help to reduce the overall of the nectophore. Thus, we \nsuggest that a change in function of the internal extension of the apical end of the ascending mantle canal occurred \nduring the evolutionary transition from apposed to superimposed nectophores.\n",
+        "page": 9,
+        "bbox": [
+          56.52000045776367,
+          55.75857162475586,
+          541.2235717773438,
+          133.75473022460938
+        ]
+      }
+    ],
+    "reviewed_crop": {
+      "bbox": [
+        51.52000045776367,
+        50.75857162475586,
+        546.2235717773438,
+        138.75473022460938
+      ],
+      "sha256": "3c1301190a4c102a3db4493d8fcb7fd4200b2afbb27e827a74d37211c64dabd5"
+    },
+    "review_note": "Source counterexample: the organ is greatly reduced in several diphyids; this qualifies a universal buoyancy interpretation and is answer-bearing evidence.",
+    "locator": {
+      "bundle_version": "1.2.1",
+      "paper_hash": "bc251c7a6346",
+      "chunk_id": "chunk_42",
+      "purpose": "candidate location only; not a relevance ground truth or score"
+    }
+  }
+}
