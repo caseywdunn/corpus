@@ -9,7 +9,13 @@
         "str"
       ],
       "len_chars": "int",
-      "section_class": "str"
+      "section_class": "str",
+      "section_type": "NoneType",
+      "source_items": [],
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     },
     {
       "chunk_id": "str",
@@ -18,7 +24,13 @@
         "str"
       ],
       "len_chars": "int",
-      "section_class": "str"
+      "section_class": "str",
+      "section_type": "NoneType",
+      "source_items": [],
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     }
   ],
   "chunks_missing": [
@@ -37,7 +49,13 @@
         "str"
       ],
       "section_class": "str",
-      "text": "str"
+      "section_type": "NoneType",
+      "source_items": [],
+      "text": "str",
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     },
     {
       "chunk_id": "str",
@@ -46,7 +64,13 @@
         "str"
       ],
       "section_class": "str",
-      "text": "str"
+      "section_type": "NoneType",
+      "source_items": [],
+      "text": "str",
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     }
   ],
   "citations_bib": {

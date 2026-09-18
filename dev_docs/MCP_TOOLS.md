@@ -34,8 +34,41 @@ for f in sorted(pathlib.Path('mcpsrv/tools').glob('*.py')):
 | `corpus_summary` | One-call orientation: paper counts by decade, lexicon coverage per category (top terms), top taxa, figure totals, bundle identity. Server-side join over the in-memory indexes — fixed-shape payload (~2–5 k tokens) regardless of corpus size. Caps on `top_taxa` + `top_terms_per_category`. |
 | `list_papers` | Every paper in the corpus with bibliographic + annotation counts. Optional `year_from` / `year_to` filters. |
 | `get_papers` | Full metadata for one or many papers (title, authors, year, abstract, DOI, top taxa and lexicon terms) with optional field whitelist. Output is in input order. Synthesizes `first_author` so the caller doesn't walk `authors[0].surname` themselves. Pass a single-element `hashes` list for the one-paper case. |
-| `get_chunks` | Chunk fetch for one paper — drill-down pair to every `*_dossier` tool. Pass `chunk_ids=[...]` for a subset (a single-element list for one chunk); `with_text=False` emits metadata-only (~80 chars/chunk). |
-| `get_chunks_by_section` | Chunks of a paper filtered by section class. |
+| `get_chunks` | Chunk fetch for one paper — drill-down pair to every `*_dossier` tool. Pass `chunk_ids=[...]` for a subset; `with_text=False` omits chunk prose. Carries materialized treatment/source context, with optional exact `treatment_name` and `section_type` filters (#319). |
+| `get_chunks_by_section` | Chunks of a paper filtered by existing `section_class`, optional materialized `section_type` (such as `diagnosis`), and exact resolved `treatment_name`; filters intersect before `limit` is applied (#319). |
+
+
+### Bounded diagnosis retrieval
+
+Use `get_chunks_by_section(paper_hash="…", section_type="diagnosis", limit=20,
+with_text=False)` to inspect diagnosis IDs and stored treatment names. Add
+`treatment_name="Genus species"` using the exact returned resolved name to
+restrict the result, then fetch the selected IDs with
+`get_chunks(paper_hash="…", chunk_ids=["…"])`. `treatment_name` is an exact,
+case-sensitive comparison of the build's resolved treatment name; it does not
+resolve taxonomy synonyms or search for names in prose. The existing
+`section_class="description"` remains valid and includes materialized diagnoses.
+
+Both tools expose `treatment_context`, `section_type` and `source_items` (source
+item, page, box and character span). Available producer observations pass through
+as `text_integrity`, `tables` and `key_branches`, including partial-table and
+unverified-spelling flags. `with_text=False` removes the chunk's prose; source
+evidence metadata can still contain original/repaired source passages. These
+fields report build observations and are not recomputed by the server.
+
+`status="resolved"` carries the enclosing treatment name and its heading
+evidence; `status="unknown"` means the build examined context but could not
+assign it. Captions or comparative mentions do not establish a treatment.
+Literal-name routes such as `get_chunks_for_taxon` retain their mention semantics;
+a diagnosis may be retrieved through its treatment even when it never repeats
+the species name.
+
+Older artifacts remain readable through ordinary chunk and `section_class`
+retrieval, reporting `treatment_context.status="unavailable"`. Requests using
+`treatment_name` or `section_type` on artifacts without the materialized context
+policy return `code="rebuild_required"` with regeneration guidance. Rebuild
+extraction/chunks and their annotation, embedding and bundle descendants to
+provide the new context. The tools do not repair an old bundle while serving.
 
 ## Taxonomy
 

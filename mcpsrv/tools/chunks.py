@@ -1,7 +1,7 @@
 """Chunk-level MCP tools.
 
 Surfaces: get_chunks (batched chunk fetch for one paper),
-get_chunks_by_section (Grobid-section-typed retrieval), and
+get_chunks_by_section (stored section/treatment retrieval), and
 get_chunks_for_topic (semantic search via the LanceDB vector index).
 
 The server has no LLM-call tools — it is a deterministic retrieval
@@ -18,11 +18,67 @@ from pipeline.embeddings import EmbeddingError
 from ..app import _load_json, _need_index, _validate_collection, _validated_limit, error, mcp
 
 
+_CONTEXT_FIELDS = ("text_integrity", "tables", "key_branches")
+
+
+def _validate_context_filters(treatment_name, section_type):
+    for name, value in (("treatment_name", treatment_name), ("section_type", section_type)):
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise ValueError(f"{name} must be a non-empty string or null")
+
+
+def _context_is_materialized(chunk):
+    context = chunk.get("treatment_context")
+    return (isinstance(context, dict) and context.get("status") in {"resolved", "unknown"}
+            and "name" in context and "section_type" in chunk
+            and isinstance(chunk.get("source_items"), list))
+
+
+def _context_filter_error(artifact, selected, treatment_name, section_type):
+    if treatment_name is None and section_type is None:
+        return None
+    if not artifact.get("treatment_context_policy") or not all(
+        _context_is_materialized(chunk) for chunk in selected
+    ):
+        return error(
+            "This paper lacks materialized treatment/section context. Rebuild its "
+            "extraction and chunks, then rebuild annotations, embeddings and the served "
+            "bundle before using treatment_name or section_type filters.",
+            "rebuild_required", capability="treatment_context",
+        )
+    return None
+
+
+def _matches_context(chunk, treatment_name, section_type):
+    context = chunk.get("treatment_context") or {}
+    if treatment_name is not None and (
+        context.get("status") != "resolved" or context.get("name") != treatment_name
+    ):
+        return False
+    return section_type is None or chunk.get("section_type") == section_type
+
+
+def _context_fields(chunk):
+    # These are build observations. No heading/name inference, taxonomy lookup,
+    # context expansion or annotation mutation belongs in this read-only route.
+    result = {
+        "treatment_context": chunk.get("treatment_context") or {"status": "unavailable", "name": None},
+        "section_type": chunk.get("section_type"),
+        "source_items": chunk.get("source_items") or [],
+    }
+    for field in _CONTEXT_FIELDS:
+        if field in chunk:
+            result[field] = chunk[field]
+    return result
+
+
 @mcp.tool()
 def get_chunks(
     paper_hash: str,
     chunk_ids: Optional[List[str]] = None,
     with_text: bool = True,
+    treatment_name: Optional[str] = None,
+    section_type: Optional[str] = None,
 ) -> List[Dict]:
     """Batched chunk fetch — drill-down pair to every ``*_dossier``
     tool (#76). Pick chunk_ids from a dossier's chunk_index, fetch
@@ -30,15 +86,29 @@ def get_chunks(
 
     ``chunk_ids=None`` returns all chunks in paper order. An explicit
     list returns just those (unknown IDs silently skipped).
-    ``with_text=False`` emits metadata-only (~80 chars/chunk vs ~600):
-    chunk_id, section_class, headings, len_chars, figure_refs.
+    ``with_text=False`` omits chunk prose and returns metadata:
+    chunk_id, section_class, headings, len_chars, figure_refs, and stored
+    source/treatment context.
 
-    Returns ``[{chunk_id, section_class, headings, figure_refs, text?,
-    len_chars?}, ...]`` in paper order. ``[{error: ...}]`` on unknown
+    Optional ``treatment_name`` matches only an exact stored resolved treatment
+    name; it is separate from literal taxon mentions. ``section_type`` matches
+    the stored subtype (for example ``diagnosis``). Both filters intersect with
+    ``chunk_ids``. Use ``get_chunks_by_section(..., section_type="diagnosis",
+    treatment_name=..., limit=...)`` for a bounded discovery route.
+
+    Context filters require a rebuilt artifact and return ``rebuild_required``
+    for legacy data. Ordinary legacy fetches remain readable and report
+    ``treatment_context.status="unavailable"``. An examined but unassigned
+    treatment has ``status="unknown"``. No context is inferred while serving.
+
+    Returns rows with ``chunk_id``, ``section_class``, ``headings``,
+    ``figure_refs``, stored context/evidence and ``text`` or ``len_chars``,
+    in paper order. ``[{error: ...}]`` on unknown
     paper_hash.
     """
     try:
         _validate_collection(chunk_ids, "chunk_ids")
+        _validate_context_filters(treatment_name, section_type)
     except ValueError as exc:
         return [error(str(exc), "invalid_argument")]
     idx = _need_index()
@@ -57,14 +127,20 @@ def get_chunks(
         # is usually grabbing a set, not a sequence.
         selected = [by_id[cid] for cid in by_id if cid in wanted]
 
+    context_error = _context_filter_error(chunks_data, selected, treatment_name, section_type)
+    if context_error:
+        return [context_error]
     out: List[Dict] = []
     for c in selected:
+        if not _matches_context(c, treatment_name, section_type):
+            continue
         text = c.get("text") or ""
         row: Dict[str, object] = {
             "chunk_id": c.get("chunk_id"),
             "section_class": c.get("section_class"),
             "headings": c.get("headings") or [],
             "figure_refs": c.get("figure_refs") or [],
+            **_context_fields(c),
         }
         if with_text:
             row["text"] = text
@@ -80,14 +156,28 @@ def get_chunks_by_section(
     section_class: Optional[str] = None,
     limit: int = 50,
     with_text: bool = True,
+    treatment_name: Optional[str] = None,
+    section_type: Optional[str] = None,
 ) -> List[Dict]:
-    """Chunks of a paper filtered by section class.
+    """Chunks of a paper filtered by section class and stored treatment context.
 
     ``section_class`` is one of the canonical values assigned by the
     pipeline: ``abstract``, ``introduction``, ``methods``, ``results``,
     ``description``, ``discussion``, ``conclusion``, ``acknowledgements``,
     ``references``, ``appendix``. Pass ``None`` to return all chunks
     (up to ``limit``).
+
+    ``section_type="diagnosis"`` selects materialized diagnostic passages;
+    ``treatment_name`` optionally restricts them to an exact stored resolved
+    treatment name. Both intersect with the existing ``section_class`` filter.
+    All filtering happens before the row limit, in paper order. This retrieves
+    name-free treatment text without redefining literal taxon mentions.
+    Legacy context filters return ``rebuild_required``; ordinary section-class
+    retrieval remains readable with unavailable treatment context.
+
+    Responses include stored ``treatment_context``, ``section_type``, and
+    ``source_items``, plus ``text_integrity``, ``tables`` and ``key_branches``
+    where the producer materialized them. Unknown context stays explicit.
 
     ``with_text=False`` (#84) drops the chunk text and adds
     ``len_chars`` — same scan-then-drill-down pattern as
@@ -97,6 +187,7 @@ def get_chunks_by_section(
     """
     try:
         n = _validated_limit(limit)
+        _validate_context_filters(treatment_name, section_type)
     except ValueError as e:
         return [error(str(e), "invalid_argument")]
     idx = _need_index()
@@ -104,9 +195,15 @@ def get_chunks_by_section(
     if not p:
         return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     chunks = _load_json(Path(p["hash_dir"]) / "chunks.json", default={}) or {}
+    candidates = chunks.get("chunks", []) or []
+    context_error = _context_filter_error(chunks, candidates, treatment_name, section_type)
+    if context_error:
+        return [context_error]
     rows: List[Dict] = []
-    for c in chunks.get("chunks", []) or []:
+    for c in candidates:
         if section_class is not None and c.get("section_class") != section_class:
+            continue
+        if not _matches_context(c, treatment_name, section_type):
             continue
         text = c.get("text") or ""
         row: Dict = {
@@ -114,13 +211,16 @@ def get_chunks_by_section(
             "chunk_id": c.get("chunk_id"),
             "section_class": c.get("section_class"),
             "headings": c.get("headings") or [],
+            **_context_fields(c),
         }
         if with_text:
             row["text"] = text
         else:
             row["len_chars"] = len(text)
         rows.append(row)
-    return rows[:n]
+        if len(rows) >= n:
+            break
+    return rows
 
 
 

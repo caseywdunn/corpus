@@ -229,10 +229,11 @@ _INDEX: Optional["CorpusIndex"] = None  # type: ignore  # noqa: F821
 #   unavailable      a required capability is degraded / an upstream call failed
 #   empty_item       a batch element was empty/blank
 #   forbidden        a policy gate refused (e.g. figure licensing / profile)
+#   rebuild_required stored artifacts lack a capability requiring regeneration
 
 ERROR_CODES = frozenset({
     "not_found", "ambiguous", "invalid_argument", "not_configured",
-    "no_results", "unavailable", "empty_item", "forbidden",
+    "no_results", "unavailable", "empty_item", "forbidden", "rebuild_required",
 })
 
 
