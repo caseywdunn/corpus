@@ -169,7 +169,9 @@ before claiming an old OCR-routing defect persists.
   separately, and validate actual panel content after rebuild. Bounds checks
   and the Claude fix alone do not close the issue. Both backend frame fixes
   and provenance are implemented; cached Qwen processor dimensions corroborate
-  the double-resize mechanism. Fresh source-pilot inference remains.
+  the double-resize mechanism. The source-pilot capture tool now preserves actual
+  processor frames, raw responses and production crops for review. Fresh
+  source-pilot inference and scientific panel review remain.
   `[plane:build]`
 - [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
   descriptions, preserve caption fragments and incomplete-binding evidence,
@@ -245,7 +247,9 @@ new licensing evidence and no cache writes into the bundle.
   calls through the served candidate. Gold-only checks cannot prove corpus-scale
   citation degree, concurrency or reconciliation behavior.
 - [ ] Record repaired cases and remaining investigations accurately, publish
-  rebuild/migration instructions, and prepare the release PR. Production
+  rebuild/migration instructions, and prepare the release PR. The
+  [candidate upgrade procedure](V1_5_MIGRATION.md) and draft PR #335 are ready
+  for review; release acceptance remains pending. Production
   replacement requires the rebuilt bundle; server-only updates cannot repair
   already stored evidence.
 - [ ] Bring correctness commits into the preserved enhancement history before

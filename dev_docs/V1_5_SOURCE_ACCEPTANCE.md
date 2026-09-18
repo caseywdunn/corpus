@@ -123,6 +123,17 @@ authentication checks, with the artifact inventory unchanged. It uses the
 retained v1.2.1 snapshot identified below and proves compatibility/immutability,
 not correctness of freshly rebuilt evidence.
 
+The modelfree preparation for #305 copies three named source rasters (Siebert,
+Deevey–Brooks and Hays), verifies original PDF hashes and renders their physical
+source pages. `tools/qc/vision_source_pilot.py` runs these through the production
+local backend while capturing processor patch tensors, reconstructed input
+frames, prompts, raw responses, coordinate provenance and proposed crops.
+Its numeric checks leave scientific source review explicitly pending. No fresh
+model inference is established by preparation or the processor inversion tests.
+The available v1.2.1 Hays receipt and panel population differ from the audited
+snapshot; the original six-case seed/control manifest is still needed to claim
+reproduction of that earlier pilot.
+
 ## Acceptance still required
 
 Rebuild the existing gold set and score text/figure/caption fidelity, including
