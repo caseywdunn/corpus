@@ -24,5 +24,25 @@ bundle cited by the issues. Read-only inspection found:
 
 The tests materialize a fresh temporary authority from the pinned source
 values and exercise formatting, graph roots, export/import and unchanged
-refresh. They do not mutate the retained bundle or establish that the deployed
-v1.4 bundle has been rebuilt. That remains release acceptance work.
+refresh. `test_bibliographic_bundle_roundtrip.py` additionally runs the real
+bundler and a separate production MCP server process, then calls
+`format_citations` over stdio by document hash and work ID. It repeats that
+boundary after explicit-import precedence and after export/import plus an
+unchanged authority refresh. File hashes verify that formatting leaves the
+bundle unchanged. Test output retains the bundle manifests, tool responses,
+file hashes and server logs under pytest's temporary directory.
+
+The prepared input boundary is parsed BibTeX metadata. There is no PDF
+extraction, Grobid, embedding, taxonomy or figure acceptance in this test.
+Church's deliberately conflicting imported locators are a labelled synthetic
+precedence control; the real source entry is restored before source-value
+assertions. Ahuja supplies its article identifier in `pages`, not a dedicated
+`eid`/`articleno` field. Dedicated article-ID and chapter renderings have separate
+synthetic coverage in `test_bibliographic_integrity.py`. The supplied Siebert
+page range is preserved, not independently adjudicated or silently corrected.
+
+The fresh Mańko bundle assertion establishes build-with-BibTeX provenance and
+ordered Unicode authors. These tests do not mutate the retained bundle,
+reconstruct the audited deployment's reconciliation history or establish that
+the deployed v1.4 bundle has been rebuilt. Those remain distinct acceptance
+requirements.
