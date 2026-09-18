@@ -542,6 +542,16 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     ref_count = int(refs.get("total_references") or 0) if isinstance(refs, dict) else 0
     needs_ocr = bool(scan.get("needs_ocr")) if isinstance(scan, dict) else False
 
+    # Build-time source checks leave uncertain evidence intact. Make those
+    # receipts visible in status even when the words look superficially clean.
+    integrity = text.get("source_text_integrity", {}) if isinstance(text, dict) else {}
+    for producer, receipt in integrity.items():
+        if isinstance(receipt, dict) and receipt.get("unresolved"):
+            count = len(receipt["unresolved"])
+            flags.append({"gate": "source_text_integrity", "severity": "warning",
+                          "detail": f"{producer}: {count} source-text candidates need review; see text.json provenance",
+                          "metric": count})
+
     # empty_text — extracted text is implausibly short
     min_chars = int(cfg.get("empty_text_min_chars", 500))
     if len(body) < min_chars:

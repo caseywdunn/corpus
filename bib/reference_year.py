@@ -28,6 +28,9 @@ def candidate_index(conn):
 
 def adjudicate(ref, index):
     from .authority import _normalized_ref_author_set, normalize_doi, normalize_for_key
+    from .reference_quality import author_quality_reasons
+    if author_quality_reasons(ref):
+        return None, []
     parsed_year = ref.get("year")
     title = normalize_for_key(ref.get("title") or "")
     authors = _normalized_ref_author_set(ref.get("authors") or [])

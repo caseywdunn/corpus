@@ -107,3 +107,8 @@ def test_curated_metadata_change_rederives_year_decision(tmp_path):
     phase2_references(conn,tmp_path)
     assert conn.execute('SELECT disposition FROM reference_observation_quality').fetchone()[0]=='review_needed'
     assert conn.execute('SELECT year FROM reference_observations').fetchone()[0]==1965
+
+
+def test_year_evidence_does_not_override_a_damaged_author(tmp_path):
+    conn,_=build(tmp_path,{'article':ENTRY})
+    assert adjudicate(dict(REF,authors=['P R ¨Pugh']),candidate_index(conn))==(None,[])

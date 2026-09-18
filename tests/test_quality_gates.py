@@ -134,3 +134,13 @@ def test_missing_artifacts_do_not_crash(tmp_path):
     flags = _run_quality_gates(hd)
     # Empty body → "empty_text" still fires, which is correct
     assert "empty_text" in _gate_names(flags)
+
+
+def test_unresolved_source_text_evidence_is_visible_even_without_ocr(fake_hash_dir):
+    path=fake_hash_dir/'text.json'
+    text=json.loads(path.read_text())
+    text['source_text_integrity']={'encoding':{'method':'source-evidence','repairs':[],
+        'unresolved':[{'reason':'possible_utf8_mojibake_requires_source_review'}]}}
+    path.write_text(json.dumps(text))
+    flags=_run_quality_gates(fake_hash_dir)
+    assert any(f['gate']=='source_text_integrity' and f['metric']==1 for f in flags)

@@ -178,7 +178,7 @@ def find_candidates(conn: sqlite3.Connection, surname: str,
              AND w.in_corpus = 0""",
         (norm, year),
     )
-    return list(cur)
+    return [row for row in cur if not row[0].startswith("corpus:unresolved-author|")]
 
 
 def score_candidates(candidates: List[sqlite3.Row],

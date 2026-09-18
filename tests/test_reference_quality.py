@@ -125,3 +125,47 @@ def test_quarantine_is_rederived_when_evidence_changes_and_raw_history_survives(
     assert conn.execute('SELECT 1 FROM reference_observations WHERE observation_id=?',(old_observation,)).fetchone()
     assert conn.execute('SELECT COUNT(*) FROM observation_work').fetchone()[0]==1
     assert conn.execute('SELECT disposition FROM reference_observation_quality').fetchone()[0]=='usable'
+
+
+def test_truncated_surnames_are_reviewed_and_never_guessed_or_merged(tmp_path,monkeypatch):
+    refs=[{'xml_id':f'b{i}','authors':[f'A {surname}'],'title':f'A distinct historical observation {i}',
+           'year':1853,'raw':f'A {surname} 1853. Observation {i}.'}
+          for i,surname in enumerate(['¨lliker','˚mstedt','¨stman','˜o'])]
+    conn,db,doc=build(tmp_path,refs)
+    assert conn.execute("SELECT COUNT(*) FROM reference_observation_quality WHERE disposition='review_needed'").fetchone()[0]==4
+    assert conn.execute("SELECT COUNT(*) FROM observation_work WHERE match_method='unresolved_author'").fetchone()[0]==4
+    for author, in conn.execute("SELECT authors_json FROM reference_observations"):
+        assert json.loads(author)[0] in [ref['authors'][0] for ref in refs]
+    assert not conn.execute("SELECT 1 FROM work_aliases WHERE work_id LIKE 'corpus:unresolved-author|%'").fetchone()
+    monkeypatch.setattr(app,'_INDEX',SimpleNamespace(biblio_db=BiblioAuthority(db),papers={'citing':{'hash_dir':str(doc)}}))
+    assert all(row['quality']['reasons'][0]['code']=='suspect_truncated_surname' for row in get_bibliography('citing',resolved=True))
+
+
+def test_orphan_accents_and_complete_multilingual_names_have_distinct_quality():
+    from bib.reference_quality import author_quality_reasons
+    for author in ['D. ¨ Ursprung','¨rsprung, D.','D. \u0308 Ursprung']:
+        assert author_quality_reasons({'authors':[author]})
+    for author in ['D. Ursprung','R. Kölliker','A. Alvariño','J. Åmstedt','S. Östman','A. Niño','F. Pacifici','B. Mu\u0308ller']:
+        assert author_quality_reasons({'authors':[author]})==[]
+
+
+def test_orphan_author_identity_is_separate_in_both_ingestion_orders():
+    from bib.authority import _resolve_reference
+    from bib.reconcile import find_candidates
+    for reverse in (False,True):
+        conn=sqlite3.connect(':memory:');create_schema(conn)
+        refs=[{'authors':['D ¨Ursprung'],'title':'A substantial study of plankton and animals','year':1965},
+              {'authors':['D Ursprung'],'title':'A substantial study of plankton and animals','year':1965}]
+        if reverse:refs.reverse()
+        results={ref['authors'][0]:_resolve_reference(conn,ref,fallback_key='bad-observation') for ref in refs}
+        assert results['D ¨Ursprung'][0]!=results['D Ursprung'][0]
+        assert results['D ¨Ursprung'][1]=='unresolved_author'
+        assert all(not row[0].startswith('corpus:unresolved-author|') for row in find_candidates(conn,'Ursprung',1965))
+
+
+def test_independent_doi_still_resolves_a_suspect_author_without_an_alias():
+    from bib.authority import _resolve_reference
+    conn=sqlite3.connect(':memory:');create_schema(conn)
+    work,method,_=_resolve_reference(conn,{'authors':['A ¨lliker'],'title':'Some observations','year':1853,'doi':'10.1234/source'})
+    assert method=='doi_exact' and work=='10.1234/source'
+    assert not conn.execute('SELECT 1 FROM work_aliases WHERE work_id=?',(work,)).fetchone()

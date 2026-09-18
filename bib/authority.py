@@ -72,7 +72,7 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v6"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v7"
 
 # Cross-block escape hatch measured by the #155 audit. Short/generic titles
 # are excluded; the threshold is public so the read-only QC tool uses the same
@@ -1151,7 +1151,8 @@ def _first_author_candidates(conn: sqlite3.Connection, surname: str,
                ORDER BY wa.work_id""",
             (norm_surname,),
         )
-    return [(r[0], r[1] or "") for r in cur.fetchall()]
+    return [(r[0], r[1] or "") for r in cur.fetchall()
+            if not r[0].startswith("corpus:unresolved-author|")]
 
 
 def fuzzy_match(conn: sqlite3.Connection, surname: str, year: Optional[int],
@@ -1443,6 +1444,8 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     doi_raw = ref.get("doi", "") or ""
     authors_raw = ref.get("authors", [])
     raw = ref.get("raw", "") or ""
+    from .reference_quality import author_quality_reasons
+    suspect_authors = bool(author_quality_reasons(ref))
 
     # Old references.json artifacts may predate #226's TEI fix and carry the
     # journal in both fields. Preserve the journal but do not let it become a
@@ -1499,10 +1502,27 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
             if sn:
                 authors.append((sn, fn))
         insert_authors(conn, work_id, authors)
-        if first_surname:
+        if first_surname and not suspect_authors:
             alias = make_alias_key(first_surname, year, title)
             insert_alias(conn, alias, work_id)
         return work_id, "doi_exact", 1.0
+
+    if suspect_authors:
+        # A missing base letter is not a name variant (#316). Preserve the
+        # observation and its author strings without a normalized surname
+        # alias or fuzzy/author-year merge. A valid DOI above remains useful
+        # independent identity evidence. Curator corrections re-materialize
+        # these links from the preserved reference observations.
+        import hashlib
+        identity = fallback_key or hashlib.sha256(
+            json.dumps(ref, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+        work_id = f"corpus:unresolved-author|{identity}"
+        insert_work(conn, work_id, "corpus_key", title, year, journal, "",
+                    corpus_hash=None, in_corpus=False, source="cited_reference", confidence=0.0)
+        insert_authors(conn, work_id, [(extract_surname_from_ref_author(a), extract_forename_from_ref_author(a))
+                                      for a in authors_raw if extract_surname_from_ref_author(a)])
+        return work_id, "unresolved_author", 0.0
 
     identity_match = lookup_in_corpus_by_identity(
         conn, title, year, authors_raw, candidate_index=identity_index,
