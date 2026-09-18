@@ -30,6 +30,9 @@ def build(tmp_path, references):
 def test_reported_fragments_across_all_authority_routes(tmp_path,monkeypatch):
     fixture=Path(__file__).parent/'fixtures/bibliographic_integrity/reference_fragments.json'
     refs=json.loads(fixture.read_text())['references']
+    # The newer issue includes this independent figure label; the retained
+    # older parsed-only title does not justify quarantine by itself.
+    refs[0]['raw']='R.gp-lat. Nempect Fic. 37. '+refs[0]['title']
     # Also exercise the newer report's raw-evidence shape, independently of
     # the retained older bundle's parsed values and absent raw strings.
     refs.extend([
@@ -72,6 +75,34 @@ def test_sparse_historical_and_long_titles_remain_usable(tmp_path):
     conn,_,_=build(tmp_path,refs)
     assert conn.execute('SELECT COUNT(*) FROM observation_work').fetchone()[0]==3
     assert conn.execute("SELECT COUNT(*) FROM reference_observation_quality WHERE disposition='quarantined_fragment'").fetchone()[0]==0
+
+
+def test_uncurated_panel_wording_is_reviewable_and_visible_across_routes(tmp_path,monkeypatch):
+    refs=[{'xml_id':'b0','authors':['A Author'],
+           'title':'A, B, C views of historical observations','year':None,'raw':''}]
+    conn,db,doc=build(tmp_path,refs)
+    work_id=conn.execute('SELECT work_id FROM observation_work').fetchone()[0]
+    assert conn.execute('SELECT disposition FROM reference_observation_quality').fetchone()[0]=='review_needed'
+    assert conn.execute('SELECT COUNT(*) FROM citations').fetchone()[0]==1
+    ba=BiblioAuthority(db)
+    monkeypatch.setattr(app,'_INDEX',SimpleNamespace(biblio_db=ba,papers={'citing':{'hash_dir':str(doc)}}))
+    assert get_bibliography('citing',resolved=True)[0]['work_id']==work_id
+    assert get_bibliography('citing',resolved=True)[0]['quality']['disposition']=='review_needed'
+    for work in [ba.get_work(work_id),ba.search_works('Author')[0],
+                 get_works_by_author('Author')[0],get_missing_references(min_citations=1)[0],
+                 format_citations(work_ids=[work_id])['citations'][0]]:
+        assert work['reference_quality_warnings'][0]['reasons'][0]['code']=='possible_panel_description'
+    changes=conn.total_changes
+    assert phase2_references(conn,tmp_path)==(0,0)
+    assert conn.total_changes==changes
+
+
+def test_old_caption_title_without_independent_anchor_is_only_reviewable():
+    conn=sqlite3.connect(':memory:')
+    create_schema(conn)
+    fixture=Path(__file__).parent/'fixtures/bibliographic_integrity/reference_fragments.json'
+    ref=json.loads(fixture.read_text())['references'][0]
+    assert classify(conn,ref)[0]=='review_needed'
 
 
 def test_curated_title_is_counterevidence_for_unusual_publication():

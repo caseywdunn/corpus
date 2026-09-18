@@ -775,6 +775,7 @@ def _format_resolved_work(idx, work, style) -> Dict[str, Any]:
         "shared_identifier": work.get("shared_identifier"),
         "corpus_hash": work.get("corpus_hash"),
         "bibliographic_conflicts": work.get("bibliographic_conflicts", []),
+        "reference_quality_warnings": work.get("reference_quality_warnings", []),
     }
 
 
@@ -930,6 +931,8 @@ def get_missing_references(
     results = []
     for row in cur:
         r = dict(row)
+        quality_reader = getattr(idx.biblio_db, "work_quality_warnings", None)
+        r["reference_quality_warnings"] = quality_reader(r["work_id"]) if quality_reader else []
         r["authors"] = idx.biblio_db.get_authors(r["work_id"])
         results.append(r)
     # Say how many rows the filter took. Silently dropping them would be
@@ -1075,5 +1078,7 @@ def get_works_by_author(
         r = dict(row)
         r["authors"] = idx.biblio_db.get_authors(r["work_id"])
         r["cited_by_count"] = idx.biblio_db.citation_count(r["work_id"])
+        quality_reader = getattr(idx.biblio_db, "work_quality_warnings", None)
+        r["reference_quality_warnings"] = quality_reader(r["work_id"]) if quality_reader else []
         results.append(r)
     return results

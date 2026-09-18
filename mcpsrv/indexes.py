@@ -564,7 +564,18 @@ class BiblioAuthority:
         if self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='work_bib_sources'").fetchone():
             from bib.fields import conflicts
             result["bibliographic_conflicts"] = conflicts(self.conn, work_id)
+        result["reference_quality_warnings"] = self.work_quality_warnings(work_id)
         return result
+
+    def work_quality_warnings(self, work_id: str) -> List[Dict]:
+        """Bounded review signals derived at build time, never serve-time adjudication."""
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='reference_observation_quality'").fetchone():
+            return []
+        rows = self.conn.execute("""SELECT q.reasons_json,COUNT(*) AS observations
+            FROM reference_observation_quality q JOIN observation_work ow USING(observation_id)
+            WHERE ow.work_id=? AND q.disposition='review_needed'
+            GROUP BY q.reasons_json ORDER BY observations DESC,q.reasons_json LIMIT 5""", (work_id,))
+        return [{"reasons": json.loads(raw), "observations": count} for raw, count in rows]
 
     def reference_quality(self, corpus_hash: str, ordinal: int) -> Optional[Dict]:
         """Read the current build verdict for one source occurrence, not its work."""
@@ -692,6 +703,8 @@ class BiblioAuthority:
         if title_fragment and results:
             frag = title_fragment.lower()
             results = [r for r in results if r.get("title") and frag in r["title"].lower()]
+        for result in results:
+            result["reference_quality_warnings"] = self.work_quality_warnings(result["work_id"])
         return results
 
     def citation_count(self, work_id: str) -> int:
