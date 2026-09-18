@@ -182,6 +182,43 @@ def test_missing_heading_and_comparative_prose_do_not_imply_species():
     assert context["treatment_context"] == {"status": "unknown", "name": None}
 
 
+@pytest.mark.parametrize("heading", ["Oceanographic sampling in 1967", "Sampling strategy 1991",
+    "Sampling strategy (1991)", "Oceanographic sampling between 1967 and 1991",
+    "Physalia physalis observed in 1758", "Physalia physalis with a proposed sp. nov."])
+def test_ordinary_dated_headings_do_not_fabricate_treatment_names(heading):
+    from docling_core.types.doc import DocItemLabel, DoclingDocument
+    doc = DoclingDocument(name="dated headings")
+    doc.add_heading(text=heading)
+    body = doc.add_text(label=DocItemLabel.TEXT, text="Diagnosis. Source diagnostic wording.")
+    context = materialize_treatment_context(doc)[body.self_ref]
+    assert context["treatment_context"] == {"status": "unknown", "name": None}
+    assert context["section_type"] == "diagnosis"  # Keep the literal section.
+
+
+@pytest.mark.parametrize("suffix", ["(Linnaeus, 1758)", "Quoy and Gaimard, 1827", "Quoy & Gaimard, 1827",
+    "de Blainville, 1830", "M. Sars, 1846", "Péron et al., 1810", "Church and Dunn, sp. nov.", "sp. nov."])
+def test_explicit_authority_and_new_species_headings_are_retained(suffix):
+    from docling_core.types.doc import DocItemLabel, DoclingDocument
+    doc = DoclingDocument(name="explicit authority")
+    doc.add_heading(text="Physalia physalis " + suffix)
+    body = doc.add_text(label=DocItemLabel.TEXT, text="Diagnosis. Source wording.")
+    assert materialize_treatment_context(doc)[body.self_ref]["treatment_context"]["name"] == "Physalia physalis"
+
+
+def test_results_ends_treatment_while_description_preserves_it():
+    from docling_core.types.doc import DocItemLabel, DoclingDocument
+    doc = DoclingDocument(name="section boundary")
+    doc.add_heading(text="Physalia physalis (Linnaeus, 1758)")
+    doc.add_heading(text="Description of the holotype")
+    description = doc.add_text(label=DocItemLabel.TEXT, text="Original morphological description.")
+    doc.add_heading(text="Results")
+    results = doc.add_text(label=DocItemLabel.TEXT, text="Diagnosis. Comparison across all sampled species.")
+    contexts = materialize_treatment_context(doc)
+    assert contexts[description.self_ref]["treatment_context"]["name"] == "Physalia physalis"
+    assert contexts[description.self_ref]["section_type"] == "description_of_the_holotype"
+    assert contexts[results.self_ref]["treatment_context"] == {"status": "unknown", "name": None}
+
+
 def test_fuzzy_heading_alone_is_not_enough_to_classify_diagnosis():
     doc = document("Mapstone2009-213-214")
     heading = next(t for t in doc.texts if t.text == "Diagnosis")

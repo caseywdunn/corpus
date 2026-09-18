@@ -15,15 +15,50 @@ import subprocess
 from .config import classify_section
 from .source_layout import _label, item_bounds
 
-TREATMENT_CONTEXT_POLICY = "source_treatments_v1"
+TREATMENT_CONTEXT_POLICY = "source_treatments_v2"
 _NAME = re.compile(r"^([A-Z][a-z]{2,})\s+([a-z][a-z/-]{2,})\b(.*)$", re.S)
-_NEW_SPECIES = re.compile(r"^(?:sp\s*\.?\s*nov\s*\.?|n\s*\.?\s*sp\s*\.?)\s*$", re.I)
+_NEW_SPECIES = re.compile(r"(?:sp\s*\.?\s*nov\s*\.?|n\s*\.?\s*sp\s*\.?)\s*$", re.I)
 _SECTION = re.compile(
     r"^(Diagnosis|Description(?:\s+of\s+(?:the\s+)?(?:holotype|paratypes?))?|"
     r"Material\s+examined|Holotype|Paratypes?|General\s+appearance|Etymology|Distribution|"
     r"Type\s+locality|Remarks|Notes|Nectosome|Siphosome|Pneumatophore)\s*(?:[.:]|$)", re.I)
-_NON_TREATMENT = {"abstract", "introduction", "methods", "discussion", "conclusion",
+_NON_TREATMENT = {"abstract", "introduction", "methods", "results", "discussion", "conclusion",
                   "references", "acknowledgements", "appendix"}
+
+
+def _authority_names(text):
+    """Require author-shaped tokens, not arbitrary prose before a year.
+
+    This checks printed heading syntax only. It neither resolves an authority
+    nor uses taxonomy to infer an omitted treatment name.
+    """
+    particles = {"de", "del", "della", "di", "da", "dos", "du", "van", "von", "der", "den", "le", "la"}
+    text = re.sub(r"\s+et\s+al\.?$", "", text.strip())
+    groups = re.split(r"\s+(?:and|&)\s+|\s*,\s*", text)
+    for group in groups:
+        tokens = group.split()
+        if not tokens or not any(token[0].isupper() for token in tokens):
+            return False
+        for token in tokens:
+            if token in particles:
+                continue
+            core = token.removesuffix(".")
+            if not core or not core[0].isupper() or not all(c.isalpha() or c in "-'’" for c in core):
+                return False
+    return True
+
+
+def _treatment_suffix(suffix):
+    # Parenthesized original authorities are common. An unmatched parenthesis
+    # or material after the authority remains unconfirmed.
+    if suffix.startswith("(") and suffix.endswith(")"):
+        suffix = suffix[1:-1].strip()
+    new_species = _NEW_SPECIES.search(suffix)
+    if new_species:
+        authors = suffix[:new_species.start()].strip().removesuffix(",").strip()
+        return not authors or _authority_names(authors)
+    authority = re.fullmatch(r"(.+?)(?:,\s*|\s+)(?:17|18|19|20)\d{2}[a-z]?\.?", suffix)
+    return bool(authority and _authority_names(authority[1]))
 
 
 def recover_section_headings(document, pdf_path):
@@ -85,11 +120,7 @@ def _name_heading(item):
     suffix = match[3].strip()
     if _label(item) != "section_header" and not _NEW_SPECIES.fullmatch(suffix):
         return None
-    if not (_NEW_SPECIES.fullmatch(suffix) or re.search(r"\b(?:17|18|19|20)\d{2}\b", suffix)
-            or re.search(r"\bsp\.?\s*nov\.?", suffix, re.I)):
-        return None
-    # A heading must name the taxon, not begin a sentence about it.
-    if re.search(r"[;:]|\b(?:with|from|and|is|are|was|were)\b", suffix, re.I) and not re.search(r"sp\.?\s*nov", suffix, re.I):
+    if not _treatment_suffix(suffix):
         return None
     return match[1]+" "+match[2], text, suffix
 
