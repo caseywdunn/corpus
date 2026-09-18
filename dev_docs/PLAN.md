@@ -291,6 +291,12 @@ new licensing evidence and no cache writes into the bundle.
   below the required ten queries/five papers. Source review finds three usable
   units from one paper, two false keys and two incorrect stored treatment names.
   Preserve this insufficient sample and its findings.
+  The classifier now requires corroborated couplet destinations and rejects both
+  source-reviewed false keys while retaining the four source key controls and
+  short two-couplet/separate-column forms. Save/reload, chunk metadata and resume
+  checks pass (55 focused tests); the producer change invalidates extraction and
+  downstream consumers. Wrong treatment names and rebuilt retrieval acceptance
+  remain pending; the frozen sample is not replaced after this correction.
   Broader independently reviewed source coverage and actual reference/candidate
   captures remain; no retrieval improvement is claimed from evaluator tests.
 

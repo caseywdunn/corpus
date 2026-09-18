@@ -101,3 +101,23 @@ extraction, OCR, the production embedding tokenizer or a live MCP transport.
 The served `hargmannae` spelling remains explicitly unverified against the
 rendered `bargmannae` crop; this acceptance proves the geometric association and
 fragment route, not a spelling correction.
+
+
+### Source-reviewed key classification (#320)
+
+`key_classification_source.json` captures exact table cells and page provenance
+from the completed `6fbf4e0` gold build in minimal Docling wrappers. Original
+PDF identities, source table references and extracted-document hashes are
+retained; the original observations and frozen retrieval selection are unchanged.
+The independent source review is recorded in
+`dev_docs/examples/siphonophore_retrieval_review_2026_09_18/`.
+
+Ahuja physical p25 is numbered bibliography, and Totton p153 is a nematocyst
+measurement table. Both must remain ordinary tables. Totton pp57/120 are
+genuine keys and remain classified as keys, alongside the Pugh–Haddock
+fixtures. Source tables pass actual save/reload, chunk serialization and bounded
+row metadata checks. Synthetic controls cover quantities, years, page numbers,
+missing/self links, a short two-couplet key and a separate destination column
+without leaders. Neither key classification nor retained cell text establishes
+that the extractor recovered every source relationship. This change does not
+repair wrong treatment names or satisfy the independent retrieval sample gate.

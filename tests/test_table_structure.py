@@ -16,7 +16,8 @@ from docling_core.transforms.chunker.tokenizer.base import BaseTokenizer
 
 from pipeline import source_spaces
 from pipeline.table_structure import (
-    SourceTableSerializerProvider, export_source_markdown, logical_rows,
+    TABLE_STRUCTURE_POLICY, SourceTableSerializerProvider, export_source_markdown,
+    is_identification_key, logical_rows,
     prepare_table_structure, restore_source_spaces, serialized_rows, table_chunk_metadata,
 )
 from pipeline.taxa import extract_lexicon_mentions
@@ -160,6 +161,66 @@ def test_numeric_character_table_is_not_misclassified_as_key():
         cell["text"] for _, cells in logical_rows(doc.tables[0], doc) for cell in cells]
     text = "\n".join(p.text for p in chunks(doc, limit=80))
     assert all(value.strip() in text for value in source if value.strip())
+
+
+@pytest.mark.parametrize("index", range(4))
+def test_source_review_keys_and_false_keys_survive_serialization(tmp_path, index):
+    case = json.loads((FIXTURES / "key_classification_source.json").read_text())["cases"][index]
+    doc = DoclingDocument.model_validate(case["document"])
+    saved = tmp_path / "source-table.json"
+    doc.save_as_json(saved)
+    doc = DoclingDocument.load_from_json(saved)
+    rows, key = serialized_rows(doc.tables[0], doc)
+    assert key is case["expected_key"], case["name"]
+    pieces = chunks(doc)
+    for _, row, _ in rows:
+        assert sum(row in piece.text for piece in pieces) == 1
+    metadata = [table_chunk_metadata(p.meta.doc_items, p.text, doc)[0] for p in pieces]
+    assert all(m["kind"] == ("identification_key" if key else "table") for m in metadata)
+    assert set().union(*(set(m["row_indices"]) for m in metadata)) == {r for r, _, _ in rows}
+    if not key:
+        assert all(m["couplets"] == {} for m in metadata)
+
+
+@pytest.mark.parametrize("targets", [("2-3", "3-4"), ("2.0", "3.0"),
+                                     ("2002", "2003"), ("(p. 2)", "(p. 3)"),
+                                     ("8", "9"), ("1", "2"), ("2", "2")])
+def test_measurements_pages_missing_or_self_destinations_are_not_couplet_links(targets):
+    rows = [(i, [{"text": text}]) for i, text in enumerate([
+        f"1. Several elongated cells forming the upper group .... {targets[0]}",
+        f"2. Several rounded cells forming the lower group .... {targets[1]}",
+        "3. Three cells arranged around the central cavity",
+        "4. Four cells arranged around the outer cavity",
+    ])]
+    assert not is_identification_key(rows)
+
+
+@pytest.mark.parametrize("separate_cells", [False, True])
+def test_short_two_couplet_key_keeps_its_single_numeric_destination(separate_cells):
+    rows = [(i, [{"text": text}]) for i, text in enumerate([
+        "1. Upper radial canals with long horns .... Genus alpha",
+        "- Upper radial canals without long horns .... 2",
+        "2. Upper lateral ridges divided near the opening .... Genus beta",
+        "- Upper lateral ridges undivided near the opening .... Genus gamma",
+    ])]
+    if separate_cells:
+        rows = [(i, [{"text": part} for part in cells[0]["text"].split(" .... ")])
+                for i, cells in rows]
+    assert is_identification_key(rows)
+    rows[1][1][-1]["text"] = rows[1][1][-1]["text"].replace("2", "2002")
+    assert not is_identification_key(rows)
+
+
+def test_key_classification_policy_reaches_materialized_consumers():
+    from pipeline.build_inputs import config_fingerprints
+
+    fingerprints = config_fingerprints({}, panel_mode="ocr")
+    field = "extraction.table_structure_policy"
+    assert TABLE_STRUCTURE_POLICY != "logical-cells-key-geometry-source-spaces-v1"
+    for stage in ("docling_extraction", "text_chunking", "figure_materialization",
+                  "taxa_and_lexicon_extraction", "figure_crossref"):
+        assert fingerprints[stage][field] == TABLE_STRUCTURE_POLICY
+    assert field not in fingerprints["pdf_preparation"]
 
 
 def test_geometric_endpoints_keep_four_key_relationships(monkeypatch):

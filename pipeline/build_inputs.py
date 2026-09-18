@@ -68,7 +68,7 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
         "extraction.scientific_notation_policy": SCIENTIFIC_TEXT_POLICY,
         "extraction.pdf_cmap_producer": pdf_cmap_producer(),
         "extraction.text_encoding_policy": TEXT_ENCODING_POLICY,
-        "extraction.table_structure_policy": "logical-cells-key-geometry-source-spaces-v1",
+        "extraction.table_structure_policy": "logical-cells-key-destinations-source-spaces-v2",
         "extraction.source_spacing_producer": source_spacing_producer(),
         "extraction.section_heading_policy": "rendered_section_heading_v1",
         "extraction.surname_recovery_producer": (

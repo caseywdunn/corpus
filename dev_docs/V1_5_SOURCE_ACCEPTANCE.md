@@ -206,6 +206,15 @@ and a nematocyst measurement table falsely classified as identification keys.
 Keep the insufficient population and false-positive findings explicit; do not
 replace them with convenient cases or claim a passing independent evaluation.
 
+The subsequent table-classification correction requires destinations that resolve
+to observed couplet numbers, supported by dotted leaders or paired alternatives
+and separate destination cells. Both false-key source tables now remain ordinary
+tables, preserving their cells and row metadata. The two actual Totton keys,
+two Pugh–Haddock source keys and synthetic short-key controls remain keys through
+serialization/chunk checks. This corrects the demonstrated classification defect;
+it does not repair the two inherited treatment names, establish general key
+recall or fill the missing independent evaluation coverage.
+
 A source-first notation review froze 24 selections from 14 gold papers before
 inspecting their candidate outputs. It contains 23 printed expressions and one
 unscorable transcription-note range; the latter was retained rather than

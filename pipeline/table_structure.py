@@ -20,7 +20,7 @@ from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
 from docling_core.types.doc import TableItem
 from docling_core.types.doc.common.meta import BaseMeta, FloatingMeta
 
-TABLE_STRUCTURE_POLICY = "logical-cells-key-geometry-source-spaces-v1"
+TABLE_STRUCTURE_POLICY = "logical-cells-key-destinations-source-spaces-v2"
 _LONG_RUN = re.compile(r"[^\W\d_]{20,}", re.UNICODE)
 _LEADERS = re.compile(r"(?:\.\s*){3,}")
 
@@ -91,17 +91,48 @@ def logical_rows(table, doc=None, doc_serializer=None, **kwargs):
 
 
 def is_identification_key(rows):
-    """Require a sequence of numbered narrative leads, not just numeric data."""
+    """Require numbered narrative leads and corroborating couplet links.
+
+    Numbered references and measurement tables can contain plenty of prose.
+    Destinations must resolve to observed lead numbers. Require two distinct
+    destinations after dotted leaders, or one with paired alternatives for at
+    least two leads. With alternatives, a separate destination cell also
+    suffices. Quantities, ranges, years and page references do not count.
+    This is structural evidence, not a claim that every branch is recovered.
+    """
     numbered = []
     narrative = 0
+    texts = []
     for _, cells in rows:
         text = " ".join(c["text"] for c in cells).strip()
+        texts.append(text)
         if len(re.findall(r"[^\W\d_]+", text)) >= 6:
             narrative += 1
             if m := re.match(r"^(\d{1,3})(?:\s|\.)", text):
                 numbered.append(int(m[1]))
-    return (len(rows) >= 4 and narrative >= len(rows) * .7
-            and len(numbered) >= 2 and numbered == sorted(set(numbered)))
+    if not (len(rows) >= 4 and narrative >= len(rows) * .7
+            and len(numbered) >= 2 and numbered == sorted(set(numbered))):
+        return False
+    destinations = set()
+    cell_destinations = set()
+    alternatives = set()
+    current = None
+    for (_, cells), text in zip(rows, texts, strict=True):
+        if lead := re.match(r"^(\d{1,3})(?:\s|\.)", text):
+            current = int(lead[1])
+        elif current in numbered and re.match(r"^[-–—]\s+", text):
+            alternatives.add(current)
+        for leader in _LEADERS.finditer(text):
+            target = re.fullmatch(r"\s*(\d{1,3})\s*", text[leader.end():])
+            if target and int(target[1]) in numbered and int(target[1]) != current:
+                destinations.add(int(target[1]))
+        # Paired alternatives can corroborate a separate destination column
+        # even where leaders are absent; a lone measurement cannot.
+        if len(cells) > 1 and (target := re.fullmatch(r"\s*(\d{1,3})\s*", cells[-1]["text"])):
+            if int(target[1]) in numbered and int(target[1]) != current:
+                cell_destinations.add(int(target[1]))
+    return len(destinations) >= 2 or (
+        bool(destinations | cell_destinations) and len(alternatives) >= 2)
 
 
 def serialized_rows(table, doc=None, doc_serializer=None, **kwargs):
