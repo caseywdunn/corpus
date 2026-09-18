@@ -1,0 +1,1345 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body><div><head n="1.">Introduction</head><p coords="12,43.59,352.64,230.14,9.55;12,43.65,364.88,229.67,9.54;12,43.57,376.64,146.87,9.54;12,268.92,376.64,4.77,9.54;12,43.66,388.88,229.72,9.54;12,43.65,400.88,172.39,9.54;12,88.60,412.88,185.66,9.54;12,44.05,424.64,32.38,9.54;12,157.91,424.64,4.62,9.54;12,105.20,436.91,3.68,9.18;12,164.05,448.64,31.48,9.54;12,101.17,460.88,4.56,9.54;12,217.92,460.88,4.62,9.54;12,99.11,472.88,4.62,9.54;12,186.44,472.88,4.66,9.54;12,95.45,484.88,4.56,9.54;12,160.78,484.88,4.62,9.54;12,51.68,496.91,3.68,9.18;12,198.80,496.91,3.68,9.18;12,109.16,508.64,165.29,9.54;12,145.90,520.91,4.72,9.18;12,240.94,520.91,4.72,9.18;12,128.62,532.64,23.38,9.54;12,214.78,532.64,59.26,9.54;12,44.54,544.64,229.67,9.54">The modern interpretation of siphonophore taxonomy has until recently been based on the comprehensive monograph of <ref type="bibr" coords="12,197.42,376.64,71.49,9.54">Totton (1965a)</ref>, modified after several more recent authors. Additional work was reviewed by <ref type="bibr" coords="12,224.58,400.88,49.34,9.54;12,43.80,412.88,44.80,9.54" target="#b395">Mackie et al. (1987)</ref>, and major contributions since 1987 include <ref type="bibr" coords="12,83.70,424.64,74.22,9.54" target="#b417">Margulis (1988)</ref>, <ref type="bibr" coords="12,169.62,424.64,104.29,9.54;12,43.95,436.64,61.25,9.54">Pugh and Youngbluth (1988a and b)</ref>, <ref type="bibr" coords="12,112.99,436.64,55.72,9.54">Pugh (1992a</ref><ref type="bibr" coords="12,188.27,436.64,19.08,9.54">Pugh ( -c, 1995</ref><ref type="bibr" coords="12,216.59,436.64,27.65,9.54">Pugh ( , 1999a</ref><ref type="bibr" coords="12,44.11,448.91,22.19,9.18">Pugh ( and b, 2001</ref><ref type="bibr" coords="12,71.84,448.91,22.19,9.18" target="#b524">Pugh ( ,2003</ref><ref type="bibr" coords="12,99.57,448.91,22.19,9.18" target="#b525">Pugh ( ,2005</ref><ref type="bibr" coords="12,131.95,448.91,27.74,9.18">Pugh ( , 2006a</ref> and b), <ref type="bibr" coords="12,201.07,448.64,41.88,9.54">Pugh and</ref><ref type="bibr" coords="12,248.59,448.64,24.73,9.54;12,44.27,460.88,56.90,9.54">Pages (1993, 1995)</ref>, <ref type="bibr" coords="12,110.77,460.88,107.15,9.54" target="#b156">Carre and Carre (1995)</ref>, <ref type="bibr" coords="12,227.94,460.88,45.73,9.54;12,44.34,472.88,54.78,9.54" target="#b474">Pages and Pugh (2002)</ref>, <ref type="bibr" coords="12,109.13,472.88,77.31,9.54" target="#b292">Hissmann (2005)</ref>, <ref type="bibr" coords="12,196.25,472.88,73.09,9.54" target="#b397">Mapstone (2003</ref><ref type="bibr" coords="12,44.31,484.88,19.08,9.54" target="#b398">Mapstone ( , 2004</ref><ref type="bibr" coords="12,72.64,484.88,22.82,9.54" target="#b399">Mapstone ( , 2005))</ref>, <ref type="bibr" coords="12,105.05,484.88,55.73,9.54" target="#b212">Dunn (2005)</ref>, Dunn et al. (2005a and  b), <ref type="bibr" coords="12,61.39,496.64,137.42,9.54">Haddock et al. (2005a and b)</ref>, <ref type="bibr" coords="12,208.21,496.64,65.71,9.54;12,44.84,508.64,64.33,9.54" target="#b213">and Dunn and Wagner (2006)</ref>. From this list, four recent papers, <ref type="bibr" coords="12,45.07,520.64,100.83,9.54">Haddock et al. (2005a)</ref>, <ref type="bibr" coords="12,155.47,520.64,85.48,9.54">Dunn et al. (2005b)</ref>, <ref type="bibr" coords="12,250.27,520.64,23.55,9.54;12,44.53,532.64,84.09,9.54" target="#b213">Dunn and Wagner (2006)</ref>, and <ref type="bibr" coords="12,156.43,532.64,58.35,9.54">Pugh (2006b)</ref>, provide the groundwork for a modern view of siphonophores.</p></div></body><back><listBibl><biblStruct xml:id="b20">
+	<monogr>
+		<title/>
+		<author>
+			<persName><surname>Pugh</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1999">1999. 2000</date>
+			<biblScope unit="page">30</biblScope>
+		</imprint>
+	</monogr>
+	<note>figs 3.89, 3.107; Gamulin and Krsinic. in part</note>
+	<note type="raw_reference">Pugh, 1999b: 490, figs 3.89, 3.107; Gamulin and Krsinic, 2000: 61 (in part), figs 30a-e.</note>
+</biblStruct>
+
+<biblStruct xml:id="b126">
+	<analytic>
+		<title/>
+		<author>
+			<persName><forename type="first">J</forename><surname>Bouillon</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">M</forename><forename type="middle">D</forename><surname>Medel</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J.-M</forename><surname>Gili</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">F</forename><surname>Boero</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><surname>Gravili</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Fauna ofthe Mediterranean Hydrozoa. Sci. Mar</title>
+		<imprint>
+			<biblScope unit="volume">68</biblScope>
+			<biblScope unit="page" from="5" to="438"/>
+			<date type="published" when="2004">2004</date>
+		</imprint>
+	</monogr>
+	<note>SuppI. 2</note>
+	<note type="raw_reference">Bouillon, J., Medel, M.D., Pages, F., Gili, J.-M., Boero, F., and Gravili, C. 2004. Fauna ofthe Mediterranean Hydrozoa. Sci. Mar. 68(SuppI. 2): 5-438.</note>
+</biblStruct>
+
+<biblStruct xml:id="b140">
+	<monogr>
+		<title level="m" type="main">Common and scientific names of aquatic invertebrates from the United States and Canada: Cnidaria and Ctenophora</title>
+		<author>
+			<persName><forename type="first">S</forename><forename type="middle">D</forename><surname>Cairns</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">D</forename><surname>Calder</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">A</forename><surname>Brinckmann-Voss</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">B</forename><surname>Castro</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">D</forename><forename type="middle">G</forename><surname>Fautin</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">E</forename><surname>Mills</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">W</forename><forename type="middle">C</forename><surname>Jaap</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">M</forename><forename type="middle">N</forename><surname>Arai</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">S</forename><forename type="middle">H D</forename><surname>Haddock</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">D</forename><forename type="middle">M</forename><surname>Opresko</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="2002">2002</date>
+			<publisher>American Fisheries Society</publisher>
+			<pubPlace>Bethesda, Maryland</pubPlace>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Cairns, S.D, Calder, D.R, Brinckmann-Voss,A., Castro, C.B., Fautin, D.G., Pugh, P.R., Mills, C.E., Jaap, W.C., Arai, M.N., Haddock, S.H.D., and Opresko, D.M. 2002. Common and scientific names of aquatic invertebrates from the United States and Canada: Cnidaria and Ctenophora. American Fisheries Society, Bethesda, Maryland.</note>
+</biblStruct>
+
+<biblStruct xml:id="b156">
+	<analytic>
+		<title level="a" type="main">Ordre des Siphonophores</title>
+		<author>
+			<persName><forename type="first">C</forename><surname>Carre</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">D</forename><surname>Carte</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Traite de zoologie. Tome Ill. Anatomie, systematique, biologie. Fascicule Il. Cnidaires. Ctenaires</title>
+		<editor>
+			<persName><forename type="first">D</forename><surname>Doumenc</surname></persName>
+		</editor>
+		<meeting><address><addrLine>Paris</addrLine></address></meeting>
+		<imprint>
+			<publisher>Masson</publisher>
+			<date type="published" when="1995">1995</date>
+			<biblScope unit="page" from="523" to="596"/>
+		</imprint>
+	</monogr>
+	<note>The title page is dated 1993.</note>
+	<note type="raw_reference">Carre, C., and Carte, D. 1995. Ordre des Siphonophores. In Traite de zoologie. Tome Ill. Anatomie, systematique, biologie. Fascicule Il. Cnidaires. Ctenaires. Edited by D. Doumenc. Masson, Paris. pp. 523-596. [The title page is dated 1993.]</note>
+</biblStruct>
+
+<biblStruct xml:id="b212">
+	<analytic>
+		<title level="a" type="main">Complex colony-level organization of the deep-sea siphonophore Bargmannia elongata (Cnidaria, Hydrozoa) is directionally asymmetric and arises by the subdivision of pro-buds</title>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">W</forename><surname>Dunn</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Dev. Dyn</title>
+		<imprint>
+			<biblScope unit="volume">234</biblScope>
+			<biblScope unit="page" from="835" to="845"/>
+			<date type="published" when="2005">2005</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Dunn, C.W. 2005. Complex colony-level organization of the deep-sea siphonophore Bargmannia elongata (Cnidaria, Hydrozoa) is directionally asymmetric and arises by the subdivision of pro-buds. Dev. Dyn. 234: 835-845.</note>
+</biblStruct>
+
+<biblStruct xml:id="b213">
+	<analytic>
+		<title level="a" type="main">The evolution of colony-level development in the Siphonophora (Cnidaria: Hydrozoa)</title>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">W</forename><surname>Dunn</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">P</forename><surname>Wagner</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Dev. Genes Evol</title>
+		<imprint>
+			<biblScope unit="volume">216</biblScope>
+			<biblScope unit="issue">12</biblScope>
+			<biblScope unit="page" from="743" to="754"/>
+			<date type="published" when="2006">2006</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Dunn, C.w., and Wagner, G.P. 2006. The evolution of colony-level development in the Siphonophora (Cnidaria: Hydrozoa). Dev. Genes Evol. 216(12): 743-754.</note>
+</biblStruct>
+
+<biblStruct xml:id="b214">
+	<analytic>
+		<title level="a" type="main">Marrus claudanielis, a new species of deepsea physonect siphonophore (Siphonophora, Physonectae)</title>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">W</forename><surname>Dunn</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">S</forename><forename type="middle">H D</forename><surname>Haddock</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Bull. Mar. Sci</title>
+		<imprint>
+			<biblScope unit="volume">76</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="699" to="714"/>
+			<date type="published" when="2005">2005</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Dunn, C.w., Pugh, P.R, and Haddock, S.H.D. 2005a. Marrus claudanielis, a new species of deep- sea physonect siphonophore (Siphonophora, Physonectae). Bull. Mar. Sci. 76(3): 699-714.</note>
+</biblStruct>
+
+<biblStruct xml:id="b215">
+	<analytic>
+		<title level="a" type="main">Molecular phylogenetics of the Siphonophora (Cnidaria), with implications for the evolution of functional specialisation</title>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">W</forename><surname>Dunn</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">S</forename><forename type="middle">H D</forename><surname>Haddock</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">M</forename><surname>Edwards</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">A</forename><forename type="middle">W G</forename><surname>John</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">H</forename><forename type="middle">G</forename><surname>Hunt</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J</forename><forename type="middle">A</forename><surname>Lindley</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Mar. BioI. Assoc. U.K</title>
+		<imprint>
+			<biblScope unit="volume">54</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="737" to="739"/>
+			<date type="published" when="1999">2005. 1999</date>
+		</imprint>
+	</monogr>
+	<note>Syst. BioI.</note>
+	<note type="raw_reference">Dunn, C.w., Pugh, P.R, and Haddock, S.H.D. 2005b. Molecular phylogenetics of the Siphonophora (Cnidaria), with implications for the evolution of functional specialisation. Syst. BioI. 54(6): 916- 935. Edwards, M., John, A.W.G., Hunt, H.G., and Lindley, J.A. 1999. Exceptional influx of oceanic species into the North Sea late 1997. J. Mar. BioI. Assoc. U.K. 79(4): 737-739.</note>
+</biblStruct>
+
+<biblStruct xml:id="b266">
+	<analytic>
+		<title level="a" type="main">Distribuci6n de las especies mas frecuentes de sifon6foros calic6foros en la zona norte del Mediterraneo occidental</title>
+		<author>
+			<persName><forename type="first">J.-M</forename><surname>Gi1i</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">E</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">T</forename><surname>Riera</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Invest. Pesq</title>
+		<imprint>
+			<biblScope unit="volume">51</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="323" to="338"/>
+			<date type="published" when="1987">1987</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Gi1i, J.-M., Pages, E, and Riera, T. 1987a. Distribuci6n de las especies mas frecuentes de sifon6foros calic6foros en la zona norte del Mediterraneo occidental. Invest. Pesq. 51(3): 323-338.</note>
+</biblStruct>
+
+<biblStruct xml:id="b267">
+	<monogr>
+		<title level="m" type="main">Distribution and ecology of a population of planktonic cnidarians in the western Mediterranean</title>
+		<author>
+			<persName><forename type="first">J.-M</forename><surname>Gili</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">E</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">Y</forename><surname>Vives</surname></persName>
+		</author>
+		<editor>J. Bouillon, E Boero, E Cicogna, and P.ES. Cornelius</editor>
+		<imprint>
+			<date type="published" when="1987">1987</date>
+			<publisher>Clarendon Press</publisher>
+			<biblScope unit="page" from="157" to="170"/>
+			<pubPlace>Oxford, UK</pubPlace>
+		</imprint>
+	</monogr>
+	<note>In Modern trends in the systematics, ecology and evolution of hydroids and hydromedusae. References</note>
+	<note type="raw_reference">Gili, J.-M., Pages, E, and Vives, Y. 1987b. Distribution and ecology of a population of planktonic cnidarians in the western Mediterranean. In Modern trends in the systematics, ecology and evolution of hydroids and hydromedusae. Edited by J. Bouillon, E Boero, E Cicogna, and P.ES. Cornelius. Clarendon Press, Oxford, UK. pp. 157-170. References</note>
+</biblStruct>
+
+<biblStruct xml:id="b268">
+	<analytic>
+		<title level="a" type="main">Small-scale distribution of a cnidarian population in the western Mediterranean</title>
+		<author>
+			<persName><forename type="first">J.-M</forename><surname>Gili</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">E</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">A</forename><surname>Sabates</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">Ros</forename></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J</forename><forename type="middle">D</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Plankton Res</title>
+		<imprint>
+			<biblScope unit="volume">10</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="385" to="401"/>
+			<date type="published" when="1988">1988</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Gili, J.-M., Pages, E, Sabates, A., and Ros, J.D. 1988. Small-scale distribution of a cnidarian population in the western Mediterranean. J. Plankton Res. 10(3): 385--401.</note>
+</biblStruct>
+
+<biblStruct xml:id="b279">
+	<analytic>
+		<title level="a" type="main">A re-examination of siphonophore terminology and morphology, applied to the description of two new prayine species with remarkable bio-optica1 properties</title>
+		<author>
+			<persName><forename type="first">S</forename><forename type="middle">H D</forename><surname>Haddock</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">D</forename><surname>Dunn</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Mar. BioI. Assoc. ux</title>
+		<imprint>
+			<biblScope unit="volume">85</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="695" to="707"/>
+			<date type="published" when="2005">2005</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Haddock, S.H.D., Dunn, C.D., and Pugh, P.R. 2005a. A re-examination of siphonophore terminology and morphology, applied to the description of two new prayine species with remarkable bio-optica1 properties. J. Mar. BioI. Assoc. ux. 85(3): 695-707.</note>
+</biblStruct>
+
+<biblStruct xml:id="b280">
+	<analytic>
+		<title level="a" type="main">Bioluminescent and redfluorescent lures in a deep-sea siphonophore</title>
+		<author>
+			<persName><forename type="first">S</forename><forename type="middle">H D</forename><surname>Haddock</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">W</forename><surname>Dunn</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">E</forename><surname>Schnitzler</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Science</title>
+		<imprint>
+			<biblScope unit="volume">309</biblScope>
+			<biblScope unit="issue">5732</biblScope>
+			<biblScope unit="page">263</biblScope>
+			<date type="published" when="2005">2005</date>
+		</imprint>
+	</monogr>
+	<note>Wash. D.C.</note>
+	<note type="raw_reference">Haddock, S.H.D., Dunn, c.w., Pugh, P.R. and Schnitzler, C.E. 2005b. Bioluminescent and red- fluorescent lures in a deep-sea siphonophore. Science (Wash. D.C.), 309(5732): 263.</note>
+</biblStruct>
+
+<biblStruct xml:id="b289">
+	<analytic>
+		<title level="a" type="main">A study on zooplankton distribution patterns and indicator species in Kuroshio upstream area and adjacent East China Sea</title>
+		<author>
+			<persName><forename type="first">D</forename><surname>He</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><surname>Wang</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">H</forename><surname>Liu</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">G</forename><surname>Yang</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Acta Oceanol. Sin</title>
+		<imprint>
+			<biblScope unit="volume">11</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="237" to="254"/>
+			<date type="published" when="1992">1992</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">He, D., Wang, C., Liu, H., and Yang, G. 1992. A study on zooplankton distribution patterns and indicator species in Kuroshio upstream area and adjacent East China Sea. Acta Oceanol. Sin. 11(2): 237-254.</note>
+</biblStruct>
+
+<biblStruct xml:id="b292">
+	<analytic>
+		<title level="a" type="main">In situ observations on benthic siphonophores (Physonectae: Rhodaliidae) and descriptions of three new species from Indonesia and South Africa</title>
+		<author>
+			<persName><forename type="first">K</forename><surname>Hissmann</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Syst. Biodivers</title>
+		<imprint>
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="223" to="249"/>
+			<date type="published" when="2005">2005</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Hissmann, K. 2005. In situ observations on benthic siphonophores (Physonectae: Rhodaliidae) and descriptions of three new species from Indonesia and South Africa. Syst. Biodivers. 2(3): 223-249.</note>
+</biblStruct>
+
+<biblStruct xml:id="b293">
+	<analytic>
+		<title level="a" type="main">Archangelopsisjagoa, a new species ofbenthic siphonophore (Physonectae, Rhodaliidae) collected by submersible in the Red Sea</title>
+		<author>
+			<persName><forename type="first">K</forename><surname>252 Hissmann</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J</forename><surname>Schauer</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Oceanol. Acta</title>
+		<imprint>
+			<biblScope unit="volume">18</biblScope>
+			<biblScope unit="issue">6</biblScope>
+			<biblScope unit="page" from="671" to="680"/>
+			<date type="published" when="1995">1995</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">252 Hissmann, K., Schauer, J., and Pugh, P.R. 1995. Archangelopsisjagoa, a new species ofbenthic siphonophore (Physonectae, Rhodaliidae) collected by submersible in the Red Sea. Oceanol. Acta, 18(6): 671-680.</note>
+</biblStruct>
+
+<biblStruct xml:id="b339">
+	<analytic>
+		<title level="a" type="main">Midwater community studies off New England using the Johnson Sea-Link submersibles</title>
+		<author>
+			<persName><forename type="first">R</forename><forename type="middle">J</forename><surname>Larson</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">R</forename><surname>Harbison</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J</forename><forename type="middle">A</forename><surname>Janssen</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">R</forename><forename type="middle">H</forename><surname>Gibbs</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">Le</forename><surname>Craddock</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><forename type="middle">E</forename><surname>Mills</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">R</forename><forename type="middle">L</forename><surname>Miller</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">R</forename><forename type="middle">W</forename><surname>Gilmer</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Global venting, midwater, and benthic ecological processes</title>
+		<editor>
+			<persName><forename type="first">M</forename><forename type="middle">P</forename><surname>De Luca</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">I</forename><surname>Babb</surname></persName>
+		</editor>
+		<meeting><address><addrLine>Washington, D.C</addrLine></address></meeting>
+		<imprint>
+			<publisher>US Department of Commerce</publisher>
+			<date type="published" when="1988">1988</date>
+			<biblScope unit="volume">88</biblScope>
+			<biblScope unit="page" from="265" to="281"/>
+		</imprint>
+		<respStmt>
+			<orgName>National Undersea Research Program, National Oceanic and Atmospheric Administration</orgName>
+		</respStmt>
+	</monogr>
+	<note type="raw_reference">Larson, RJ., Harbison, G.R, Pugh, P.R, Janssen, J.A., Gibbs, R.H., Craddock, lE., Mills, C.E., Miller, R.L., and Gilmer, RW. 1988. Midwater community studies off New England using the Johnson Sea- Link submersibles. In Global venting, midwater, and benthic ecological processes. Edited by M.P. de Luca and I. Babb. Research Rep. 88(4), National Undersea Research Program, National Oceanic and Atmospheric Administration, US Department of Commerce, Washington, D.C. pp. 265-281.</note>
+</biblStruct>
+
+<biblStruct xml:id="b383">
+	<analytic>
+		<title level="a" type="main">Conduction in the nerve-free epithelium of siphonophores</title>
+		<author>
+			<persName><surname>Mackie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Animal colonies: development and function through time</title>
+		<editor>
+			<persName><forename type="first">R</forename><forename type="middle">S</forename><surname>Boardman</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">A</forename><forename type="middle">H</forename><surname>Cheetham</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">W</forename><forename type="middle">A</forename><surname>Oliver</surname></persName>
+		</editor>
+		<editor>
+			<persName><surname>Dowden</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">Ross</forename><surname>Hutchinson</surname></persName>
+		</editor>
+		<meeting><address><addrLine>Stroudsburg, Pennsylvania</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="1965">0.0. 1965. Mackie, 0.0. 1973</date>
+			<biblScope unit="volume">5</biblScope>
+			<biblScope unit="page" from="95" to="106"/>
+		</imprint>
+	</monogr>
+	<note>Coordinated behaviour in hydrozoan colonies</note>
+	<note type="raw_reference">Mackie, 0.0. 1965. Conduction in the nerve-free epithelium of siphonophores. Am. Zool. 5: 439- 453. Mackie, 0.0. 1973. Coordinated behaviour in hydrozoan colonies. In Animal colonies: development and function through time. Edited by R.S. Boardman, A.H. Cheetham, and w.A. Oliver. Dowden, Hutchinson and Ross, Stroudsburg, Pennsylvania. pp. 95-106.</note>
+</biblStruct>
+
+<biblStruct xml:id="b388">
+	<analytic>
+		<title level="a" type="main">Defensive strategies in planktonic coelenterates</title>
+		<author>
+			<persName><surname>Mackie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Mar. Freshw. Behav. Physiol</title>
+		<imprint>
+			<biblScope unit="volume">26</biblScope>
+			<biblScope unit="page" from="119" to="129"/>
+			<date type="published" when="1995">0.0. 1995</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Mackie, 0.0. 1995. Defensive strategies in planktonic coelenterates. Mar. Freshw. Behav. Physiol. 26(2--4): 119-129.</note>
+</biblStruct>
+
+<biblStruct xml:id="b389">
+	<analytic>
+		<title level="a" type="main">Coelenterate organs</title>
+		<author>
+			<persName><surname>Mackie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Mar. Freshw. Behav. Physiol</title>
+		<imprint>
+			<biblScope unit="volume">32</biblScope>
+			<biblScope unit="page" from="113" to="127"/>
+			<date type="published" when="1999">0.0. 1999</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Mackie, 0.0. 1999. Coelenterate organs. Mar. Freshw. Behav. Physiol. 32: 113-127.</note>
+</biblStruct>
+
+<biblStruct xml:id="b393">
+	<analytic>
+		<title level="a" type="main">Phosphatic spicules in the nematocyst batteries ofNanomia cara (Hydrozoa, Siphonophora)</title>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">O</forename><surname>Mackie</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">R</forename><forename type="middle">M</forename><surname>Marx</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Zoomorphology (Berl.)</title>
+		<imprint>
+			<biblScope unit="volume">108</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="85" to="91"/>
+			<date type="published" when="1988">1988</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Mackie, G.O., and Marx, R.M. 1988. Phosphatic spicules in the nematocyst batteries ofNanomia cara (Hydrozoa, Siphonophora). Zoomorphology (Berl.), 108(2): 85-91.</note>
+</biblStruct>
+
+<biblStruct xml:id="b395">
+	<analytic>
+		<title/>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">O</forename><surname>Mackie</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J</forename><forename type="middle">E</forename><surname>Purcell</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Siphonophore Biology. Adv. Mar. BioI</title>
+		<imprint>
+			<biblScope unit="volume">24</biblScope>
+			<biblScope unit="page" from="97" to="262"/>
+			<date type="published" when="1987">1987</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Mackie, G.O., Pugh, P.R., and Purcell, J.E. 1987. Siphonophore Biology. Adv. Mar. BioI. 24: 97-262.</note>
+</biblStruct>
+
+<biblStruct xml:id="b397">
+	<analytic>
+		<title level="a" type="main">Redescriptions of two physonect siphonophores, Apolemia uvaria (Lesueur, 1815) and Tottonia contorta Margulis</title>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">M</forename><surname>Mapstone</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Cnidaria: Hydrozoa: Apolemiidae). Syst. Biodivers</title>
+		<imprint>
+			<biblScope unit="volume">1</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="181" to="212"/>
+			<date type="published" when="1967">2003. 1976. 1967</date>
+		</imprint>
+	</monogr>
+	<note>with comments on a third species Ramosia vitiazi Stepanjants</note>
+	<note type="raw_reference">Mapstone, G.M. 2003. Redescriptions of two physonect siphonophores, Apolemia uvaria (Lesueur, 1815) and Tottonia contorta Margulis, 1976, with comments on a third species Ramosia vitiazi Stepanjants, 1967 (Cnidaria: Hydrozoa: Apolemiidae). Syst. Biodivers. 1(2): 181-212.</note>
+</biblStruct>
+
+<biblStruct xml:id="b398">
+	<monogr>
+		<title level="m" type="main">First full description of the large physonect siphonophore Halistemma amphytridis</title>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">M</forename><surname>Mapstone</surname></persName>
+		</author>
+		<idno>Hydrobiologia, 530/531</idno>
+		<imprint>
+			<date type="published" when="1807">2004. 1807</date>
+			<publisher>Lesueur &amp; Petit</publisher>
+			<biblScope unit="page" from="231" to="240"/>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Mapstone, G.M. 2004. First full description of the large physonect siphonophore Halistemma amphytridis (Lesueur &amp; Petit, 1807). Hydrobiologia, 530/531: 231-240.</note>
+</biblStruct>
+
+<biblStruct xml:id="b399">
+	<analytic>
+		<title level="a" type="main">Re-description ofRosacea cymbiformis, a prayine siphonophore (from the Mediterranean Sea), with comments on nectophore designation and bract orientation</title>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">M</forename><surname>Mapstone</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Mar. BioI. Assoc. U.K</title>
+		<imprint>
+			<biblScope unit="volume">85</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="709" to="721"/>
+			<date type="published" when="2005">2005</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Mapstone, G.M. 2005. Re-description ofRosacea cymbiformis, a prayine siphonophore (from the Mediterranean Sea), with comments on nectophore designation and bract orientation. J. Mar. BioI. Assoc. U.K. 85(3): 709-721.</note>
+</biblStruct>
+
+<biblStruct xml:id="b400">
+	<analytic>
+		<title level="a" type="main">Abundance and vertical distribution of siphonophores (Cnidaria) from the Central Strait of Georgia, British Columbia, during spring and summer</title>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">M</forename><surname>Mapstone</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">M</forename><forename type="middle">N</forename><surname>Arai</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Contributions to Natural Science</title>
+		<imprint>
+			<biblScope unit="issue">15</biblScope>
+			<biblScope unit="page" from="1" to="8"/>
+			<date type="published" when="1992">1992</date>
+			<pubPlace>Victoria, B.C</pubPlace>
+		</imprint>
+	</monogr>
+	<note>Royal British Columbia Museum</note>
+	<note type="raw_reference">Mapstone, G.M., and Arai, M.N. 1992. Abundance and vertical distribution of siphonophores (Cnidaria) from the Central Strait of Georgia, British Columbia, during spring and summer. Contributions to Natural Science No. 15, Royal British Columbia Museum, Victoria, B.C. pp. 1-8.</note>
+</biblStruct>
+
+<biblStruct xml:id="b401">
+	<monogr>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">M</forename><surname>Mapstone</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<title level="m">Rosacea Quoy &amp; Gaimard, 1827: proposed conservation of usage</title>
+		<meeting><address><addrLine>Cnidaria, Siphonophora</addrLine></address></meeting>
+		<imprint>
+			<date type="published" when="2004">2004</date>
+			<biblScope unit="volume">3309</biblScope>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Mapstone, G.M., and Pugh, PR 2004. Case 3309. Rosacea Quoy &amp; Gaimard, 1827: proposed conservation of usage (Cnidaria, Siphonophora);</note>
+</biblStruct>
+
+<biblStruct xml:id="b416">
+	<analytic>
+		<author>
+			<persName><forename type="first">R</forename><surname>Margulis</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Ya ; Coelenterata</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Hydrozoa</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">)</forename><surname>Siphonophora</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Vestn</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Siphonophora of the southern Pacific</title>
+		<imprint>
+			<date type="published" when="1987">1987</date>
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="page" from="24" to="28"/>
+		</imprint>
+	</monogr>
+	<note>Russian with English summary</note>
+	<note type="raw_reference">Margulis, R.Ya. 1987. Siphonophora of the southern Pacific (Coelenterata, Hydrozoa, Siphonophora). Vestn. Mosk. Univ. Ser. XVI BioI. 2: 24-28. [In Russian with English summary.J</note>
+</biblStruct>
+
+<biblStruct xml:id="b417">
+	<analytic>
+		<title level="a" type="main">Revision of the subfamily Clausophyinae</title>
+		<author>
+			<persName><forename type="first">R</forename><surname>Margulis</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Ya</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Russian with English summary</title>
+		<imprint>
+			<date type="published" when="1988">1988</date>
+			<biblScope unit="volume">67</biblScope>
+			<biblScope unit="page" from="1269" to="1281"/>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Margulis, R.Ya. 1988. Revision of the subfamily Clausophyinae. Zoo I. Zh. 67(9): 1269-1281. [In Russian with English summary.]</note>
+</biblStruct>
+
+<biblStruct xml:id="b419">
+	<analytic>
+		<title level="a" type="main">Siphonophora from the Indian Sector of the Antarctic</title>
+		<author>
+			<persName><forename type="first">R</forename><surname>Margulis</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Ya</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Russian with English abstract</title>
+		<imprint>
+			<date type="published" when="1992">1992</date>
+			<biblScope unit="volume">30</biblScope>
+			<biblScope unit="page" from="125" to="134"/>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Margulis, R.Ya. 1992. Siphonophora from the Indian Sector of the Antarctic. Antarktika, 30: 125-134. [In Russian with English abstract.]</note>
+</biblStruct>
+
+<biblStruct xml:id="b420">
+	<analytic>
+		<title level="a" type="main">Cordagalma tottoni sp. n. -a new siphonophore of the suborder Physonectae (Cnidaria, Hydrozoa, Siphonophora)</title>
+		<author>
+			<persName><forename type="first">R</forename><surname>Margulis</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Ya</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">ZooL Zh</title>
+		<imprint>
+			<biblScope unit="volume">72</biblScope>
+			<biblScope unit="issue">9</biblScope>
+			<biblScope unit="page" from="14" to="19"/>
+			<date type="published" when="1993">1993</date>
+		</imprint>
+	</monogr>
+	<note>In Russian.</note>
+	<note type="raw_reference">Margulis, R.Ya. 1993. Cordagalma tottoni sp. n. -a new siphonophore of the suborder Physonectae (Cnidaria, Hydrozoa, Siphonophora). ZooL Zh. 72(9): 14--19. [In Russian.]</note>
+</biblStruct>
+
+<biblStruct xml:id="b466">
+	<analytic>
+		<title level="a" type="main">Mesoscale coupling between planktonic cnidarian distribution and water masses during a temporal transition between active upwelling and abatement in the northern Benguela system</title>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Benguela trophic functioning</title>
+		<editor>
+			<persName><forename type="first">A</forename><forename type="middle">I L</forename><surname>Payne</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">K</forename><forename type="middle">L</forename><surname>Brink</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">K</forename><forename type="middle">H</forename><surname>Mann</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">R</forename><forename type="middle">S</forename><surname>Hilborn</surname></persName>
+		</editor>
+		<imprint>
+			<date type="published" when="1992">1992</date>
+			<biblScope unit="volume">12</biblScope>
+			<biblScope unit="page" from="41" to="52"/>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pages, F. 1992. Mesoscale coupling between planktonic cnidarian distribution and water masses during a temporal transition between active upwelling and abatement in the northern Benguela system. In Benguela trophic functioning. Edited by A.I.L. Payne, K.L. Brink, K.H. Mann, and R.S. Hilborn. Afr. J. Mar. Sci. 12: 41-52.</note>
+</biblStruct>
+
+<biblStruct xml:id="b470">
+	<analytic>
+		<title level="a" type="main">Influence ofAgulhas waters on the population structure of planktonic cnidarians in the southern Benguela region</title>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J.-M</forename><surname>Gili</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Aspects of Hydrozoan Biology</title>
+		<editor>
+			<persName><forename type="first">J</forename><surname>Bouillon</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">F</forename><surname>Boero</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">F</forename><surname>Cicogna</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">J.-M</forename><surname>Gili</surname></persName>
+		</editor>
+		<editor>
+			<persName><forename type="first">R</forename><forename type="middle">G</forename><surname>Hughes</surname></persName>
+		</editor>
+		<imprint>
+			<date type="published" when="1992">1992</date>
+			<biblScope unit="volume">56</biblScope>
+			<biblScope unit="page" from="109" to="123"/>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pages, F., and Gili, J.-M, 1992a. Influence ofAgulhas waters on the population structure of planktonic cnidarians in the southern Benguela region. In Aspects of Hydrozoan Biology. Edited by J. Bouillon, F. Boero, F. Cicogna, J.-M. Gili, and R.G. Hughes. Sci. Mar. 56(2-3): 109-123.</note>
+</biblStruct>
+
+<biblStruct xml:id="b471">
+	<analytic>
+		<title level="a" type="main">Siphonophores (Cnidaria, Hydrozoa) of the Benguela Current (southeastern Atlantic)</title>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J.-M</forename><surname>Gili</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Sci. Mar</title>
+		<imprint>
+			<biblScope unit="volume">56</biblScope>
+			<biblScope unit="page" from="65" to="112"/>
+			<date type="published" when="1992">1992b</date>
+		</imprint>
+	</monogr>
+	<note>Suppl. 1</note>
+	<note type="raw_reference">Pages, F., and Gili, J.-M, 1992b. Siphonophores (Cnidaria, Hydrozoa) of the Benguela Current (southeastern Atlantic). Sci. Mar. 56(Suppl. 1): 65-112.</note>
+</biblStruct>
+
+<biblStruct xml:id="b473">
+	<analytic>
+		<title level="a" type="main">Medusae, siphonophores and ctenophores of the Magellan region</title>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">C</forename><surname>Orejas</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Sci. Mar</title>
+		<imprint>
+			<biblScope unit="volume">63</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="51" to="57"/>
+			<date type="published" when="1999">1999</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pages, F., and Orejas, C. 1999. Medusae, siphonophores and ctenophores of the Magellan region. Sci. Mar. 63(SuppI. 1): 51-57.</note>
+</biblStruct>
+
+<biblStruct xml:id="b474">
+	<analytic>
+		<title level="a" type="main">Distribution patterns of the mesozooplankton, principally siphonophores and medusae, in the vicinity of the Antarctic Slope Front (eastern Weddell Sea)</title>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">S</forename><forename type="middle">B</forename><surname>Schnack-Schiel</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Acta Zoo!' (Stockh.)</title>
+		<imprint>
+			<biblScope unit="volume">83</biblScope>
+			<biblScope unit="page" from="231" to="248"/>
+			<date type="published" when="1996">2002. 1996</date>
+		</imprint>
+	</monogr>
+	<note>J. Mar. Syst.</note>
+	<note type="raw_reference">Pages, F., and Pugh, P.R. 2002. Fuseudoxid: the elusive sexual stage of the calycophoran siphonophore Crystallophyes amygdalina (Clausophyidae: Crystallophyinae). Acta Zoo!' (Stockh.), 83: 329- 336. Pages, F., and Schnack-Schiel, S.B. 1996. Distribution patterns of the mesozooplankton, principally siphonophores and medusae, in the vicinity of the Antarctic Slope Front (eastern Weddell Sea). J. Mar. Syst. 9: 231-248.</note>
+</biblStruct>
+
+<biblStruct xml:id="b479">
+	<analytic>
+		<title level="a" type="main">Gelatinous zooplankton assemblages associated with water masses in the Humboldt Current System, and potential predatory impact by Bassia bassensis (Siphonophora: Calycophora)</title>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">H</forename><forename type="middle">E</forename><surname>Gonzalez</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">M</forename><surname>Sobarzo</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">M</forename><surname>Gili</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">J.-M</forename></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Mar. EcoI. Prog. Ser</title>
+		<imprint>
+			<biblScope unit="volume">210</biblScope>
+			<biblScope unit="page" from="13" to="24"/>
+			<date type="published" when="2001">2001</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pages, F., Gonzalez, H.E., Ram6n, M., Sobarzo, M., and Gili, J.-M. 2001. Gelatinous zooplankton assemblages associated with water masses in the Humboldt Current System, and potential predatory impact by Bassia bassensis (Siphonophora: Calycophora). Mar. EcoI. Prog. Ser. 210: 13-24.</note>
+</biblStruct>
+
+<biblStruct xml:id="b480">
+	<analytic>
+		<title level="a" type="main">Gelatinous zooplankton net-collected in the Gulf of Maine and adjacent submarine canyons: new species, new family (Jeanbouilloniidae), taxonomic remarks and some parasites</title>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">P</forename><surname>Flood</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">M</forename><surname>Youngbluth</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Okeanologiya</title>
+		<imprint>
+			<biblScope unit="volume">70</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="587" to="588"/>
+			<date type="published" when="1993">2006. 1993</date>
+		</imprint>
+	</monogr>
+	<note>Sci. Mar.. In Russian.] References</note>
+	<note type="raw_reference">Pages, F., Flood, P., and Youngbluth, M. 2006. Gelatinous zooplankton net-collected in the Gulf of Maine and adjacent submarine canyons: new species, new family (Jeanbouilloniidae), taxonomic remarks and some parasites. Sci. Mar. 70(3): 363- 379. Pakhomov E.A. 1993. Daily vertical migrations of Antarctic microplankton: Salpidae, Ctenophora, Siphonophora, Chaetognatha, Polychaeta, Pteropoda. Okeanologiya, 33(4): 587-588. [In Russian.] References</note>
+</biblStruct>
+
+<biblStruct xml:id="b507">
+	<analytic>
+		<title level="a" type="main">The vertical distribution of the siphonophores collected during the SOND cruise</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Mar. BioI. Assoc. U.K</title>
+		<imprint>
+			<biblScope unit="volume">54</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="25" to="90"/>
+			<date type="published" when="1965">1974. 1965</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1974b. The vertical distribution of the siphonophores collected during the SOND cruise, 1965. J. Mar. BioI. Assoc. U.K. 54(1): 25-90.</note>
+</biblStruct>
+
+<biblStruct xml:id="b515">
+	<analytic>
+		<title level="a" type="main">A revision of the sub-family Nectopyramidinae (Siphonophora, Prayidae)</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Philos. Trans. R. Soc. Lond. B BioI. Sci</title>
+		<imprint>
+			<biblScope unit="volume">335</biblScope>
+			<biblScope unit="page" from="281" to="322"/>
+			<date type="published" when="1992">1992</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1992a. A revision of the sub-family Nectopyramidinae (Siphonophora, Prayidae). Philos. Trans. R. Soc. Lond. B BioI. Sci. 335: 281-322.</note>
+</biblStruct>
+
+<biblStruct xml:id="b516">
+	<analytic>
+		<title level="a" type="main">Desmophyes haematogaster, a new species of prayine siphonophore (Calycophorae, Prayidae)</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Bull. Mar. Sci</title>
+		<imprint>
+			<biblScope unit="volume">50</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="89" to="96"/>
+			<date type="published" when="1992">1992</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1992b. Desmophyes haematogaster, a new species of prayine siphonophore (Calycophorae, Prayidae). Bull. Mar. Sci. 50(1): 89-96.</note>
+</biblStruct>
+
+<biblStruct xml:id="b517">
+	<analytic>
+		<title level="a" type="main">The status of the genus Prayoides (Siphonophora: Prayidae). 1. Mar</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">BioI. Assoc. U.K</title>
+		<imprint>
+			<biblScope unit="volume">72</biblScope>
+			<biblScope unit="issue">4</biblScope>
+			<biblScope unit="page" from="895" to="909"/>
+			<date type="published" when="1992">1992</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1992c. The status of the genus Prayoides (Siphonophora: Prayidae). 1. Mar. BioI. Assoc. U.K. 72(4): 895-909.</note>
+</biblStruct>
+
+<biblStruct xml:id="b518">
+	<analytic>
+		<title level="a" type="main">Clausophyes tropica (Siphonophorae, Calycophora), a new siphonophore species from the tropical Atlantic</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Bull. Mar. Sci</title>
+		<imprint>
+			<biblScope unit="volume">57</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="453" to="459"/>
+			<date type="published" when="1995">1995</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1995. Clausophyes tropica (Siphonophorae, Calycophora), a new siphonophore species from the tropical Atlantic. Bull. Mar. Sci. 57(2): 453--459.</note>
+</biblStruct>
+
+<biblStruct xml:id="b520">
+	<analytic>
+		<title level="a" type="main">A review of the genus Bargmannia Totton, 1954 (Siphonophorae, Physonecta, Pyrostephidae)</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Bull. Nat. Hist. Mus. ZooI. Ser</title>
+		<imprint>
+			<biblScope unit="volume">65</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="51" to="72"/>
+			<date type="published" when="1999">1999</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1999a. A review of the genus Bargmannia Totton, 1954 (Siphonophorae, Physonecta, Pyrostephidae). Bull. Nat. Hist. Mus. ZooI. Ser. 65(1): 51-72.</note>
+</biblStruct>
+
+<biblStruct xml:id="b521">
+	<monogr>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<title level="m">South Atlantic Zooplankton I</title>
+		<editor>
+			<persName><forename type="first">D</forename><surname>Boltovskoy</surname></persName>
+		</editor>
+		<meeting><address><addrLine>Leiden, The Netherlands</addrLine></address></meeting>
+		<imprint>
+			<publisher>Backhuys Publishers</publisher>
+			<date type="published" when="1999">1999</date>
+			<biblScope unit="page" from="467" to="511"/>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1999b. Siphonophorae. In South Atlantic Zooplankton I. Edited by D. Boltovskoy. Backhuys Publishers, Leiden, The Netherlands. pp. 467-511.</note>
+</biblStruct>
+
+<biblStruct xml:id="b522">
+	<analytic>
+		<title level="a" type="main">A review of the genus Erenna Bedot, 1904 (Siphonophora, Physonectae)</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Bull. Nat. Hist. Mus. ZooI. Ser</title>
+		<imprint>
+			<biblScope unit="volume">67</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="169" to="182"/>
+			<date type="published" when="2001">2001</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 2001. A review of the genus Erenna Bedot, 1904 (Siphonophora, Physonectae). Bull. Nat. Hist. Mus. ZooI. Ser. 67(2): 169-182.</note>
+</biblStruct>
+
+<biblStruct xml:id="b523">
+	<analytic>
+		<title level="a" type="main">A new species of Rosacea (Siphonophora: Calycophorae: Prayidae) from the Gulf of Oman</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Mar. BioI. Assoc. U.K</title>
+		<imprint>
+			<biblScope unit="volume">82</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="171" to="172"/>
+			<date type="published" when="2002">2002</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 2002. A new species of Rosacea (Siphonophora: Calycophorae: Prayidae) from the Gulf of Oman. J. Mar. BioI. Assoc. U.K. 82(1): 171-172.</note>
+</biblStruct>
+
+<biblStruct xml:id="b524">
+	<analytic>
+		<title level="a" type="main">A revision of the family Forskaliidae (Siphonophora, Physonectae)</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="s">l Nat. Hist.</title>
+		<imprint>
+			<biblScope unit="volume">37</biblScope>
+			<biblScope unit="page" from="1281" to="1327"/>
+			<date type="published" when="2003">2003</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 2003. A revision of the family Forskaliidae (Siphonophora, Physonectae). l Nat. Hist. 37: 1281-1327.</note>
+</biblStruct>
+
+<biblStruct xml:id="b525">
+	<analytic>
+		<title level="a" type="main">A new species of Physophora (Siphonophora: Physonectae: Physophoridae) from the North Atlantic, with comments on related species</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Syst. Biodivers</title>
+		<imprint>
+			<biblScope unit="volume">2</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="251" to="270"/>
+			<date type="published" when="2005">2005</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 2005. A new species of Physophora (Siphonophora: Physonectae: Physophoridae) from the North Atlantic, with comments on related species. Syst. Biodivers. 2(3): 251-270.</note>
+</biblStruct>
+
+<biblStruct xml:id="b526">
+	<analytic>
+		<title level="a" type="main">Reclassification of the clausophyid siphonophore Clausophyes ovata into the genus Kephyes gen</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Mar. BioI. Assoc. V.K</title>
+		<imprint>
+			<biblScope unit="volume">86</biblScope>
+			<biblScope unit="issue">5</biblScope>
+			<biblScope unit="page" from="997" to="1004"/>
+			<date type="published" when="2006">2006</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 2006a. Reclassification of the clausophyid siphonophore Clausophyes ovata into the genus Kephyes gen. novo J. Mar. BioI. Assoc. V.K. 86(5): 997-1004.</note>
+</biblStruct>
+
+<biblStruct xml:id="b527">
+	<analytic>
+		<title level="a" type="main">The taxonomic status of the genus Moseria (Siphonophora, Physonectae)</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Zootaxa</title>
+		<imprint>
+			<biblScope unit="volume">1343</biblScope>
+			<biblScope unit="page" from="1" to="42"/>
+			<date type="published" when="2006">2006</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 2006b. The taxonomic status of the genus Moseria (Siphonophora, Physonectae). Zootaxa, 1343: 1--42.</note>
+</biblStruct>
+
+<biblStruct xml:id="b530">
+	<analytic>
+		<title level="a" type="main">Three new species ofprayine siphonophore (Calycophorae, Prayidae) collected by a submersible, with notes on related species</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">R</forename><surname>Harbison</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Bull. Mar. Sci</title>
+		<imprint>
+			<biblScope unit="volume">41</biblScope>
+			<biblScope unit="issue">1</biblScope>
+			<biblScope unit="page" from="68" to="91"/>
+			<date type="published" when="1987">1987</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R., and Harbison, G.R. 1987. Three new species ofprayine siphonophore (Calycophorae, Prayidae) collected by a submersible, with notes on related species. Bull. Mar. Sci. 41(1): 68-91.</note>
+</biblStruct>
+
+<biblStruct xml:id="b531">
+	<analytic>
+		<title level="a" type="main">A new species of Clausophyes (Siphonophorae, Clausophyidae), with a redescription of C. galeata and C. moserae</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">F</forename><surname>Pages</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. Mar. BioI. Assoc. UK</title>
+		<imprint>
+			<biblScope unit="volume">73</biblScope>
+			<biblScope unit="issue">3</biblScope>
+			<biblScope unit="page" from="595" to="608"/>
+			<date type="published" when="1993">1993</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R., and Pages, F. 1993. A new species of Clausophyes (Siphonophorae, Clausophyidae), with a redescription of C. galeata and C. moserae. J. Mar. BioI. Assoc. UK 73(3): 595-608.</note>
+</biblStruct>
+
+<biblStruct xml:id="b532">
+	<analytic>
+		<title level="a" type="main">Is Lensia retieulata a diphyine species (Siphonophorae, Calycophora, Diphyidae)? A re-description</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">E</forename><surname>Pages</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Sci. Mar</title>
+		<imprint>
+			<biblScope unit="volume">59</biblScope>
+			<biblScope unit="issue">2</biblScope>
+			<biblScope unit="page" from="181" to="192"/>
+			<date type="published" when="1995">1995</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R., and Pages, E 1995. Is Lensia retieulata a diphyine species (Siphonophorae, Calycophora, Diphyidae)? A re-description. Sci. Mar. 59(2): 181-192.</note>
+</biblStruct>
+
+<biblStruct xml:id="b629">
+	<analytic>
+		<title level="a" type="main">A new species of Lensia (Siphonophora: Diphyidae) from the coastal waters of Vancouver, B.C., and its comparison with Lensia achilles Totton and another new species Lensia cordata</title>
+		<author>
+			<persName><forename type="first">A</forename><forename type="middle">K</forename><surname>Totton</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Ann. Mag. Nat. Hist. Ser</title>
+		<imprint>
+			<biblScope unit="volume">13</biblScope>
+			<biblScope unit="page" from="71" to="76"/>
+			<date type="published" when="1965">1965</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Totton, A.K. 1965b. A new species of Lensia (Siphonophora: Diphyidae) from the coastal waters of Vancouver, B.C., and its comparison with Lensia achilles Totton and another new species Lensia cordata. Ann. Mag. Nat. Hist. Ser. 13,8(85-86): 71-76.</note>
+</biblStruct>
+
+<biblStruct xml:id="b658">
+	<analytic>
+		<title level="a" type="main">Spatial and temporal variations of zooplankton composition and quantity distribution in the upper waters around Nansha Islands</title>
+		<author>
+			<persName><forename type="first">J</forename><surname>Yin</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">Q</forename><forename type="middle">C</forename><surname>Chen</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">G</forename><surname>Zhang</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">L</forename><surname>Huang</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">K</forename><surname>Li</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Chin. Sci. Bull</title>
+		<imprint>
+			<biblScope unit="volume">51</biblScope>
+			<biblScope unit="page" from="154" to="164"/>
+			<date type="published" when="2006">2006</date>
+		</imprint>
+	</monogr>
+	<note>Suppl. H</note>
+	<note type="raw_reference">Yin, J., Chen Q.c., Zhang, G., Huang, L. and Li, K., 2006. Spatial and temporal variations of zooplankton composition and quantity distribution in the upper waters around Nansha Islands. Chin. Sci. Bull. 51(Suppl. H): 154-164.</note>
+</biblStruct>
+
+</listBibl></back></text></TEI>

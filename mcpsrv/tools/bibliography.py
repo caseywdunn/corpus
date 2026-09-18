@@ -99,7 +99,7 @@ def get_intext_citations(
     citation list and the paragraph sublist follows.
 
     Returns ``{"error": ...}`` if intext_citations.json is missing
-    (backfill with ``backfill_intext_citations.py``).
+    (backfill with ``python -m pipeline.intext_citations <output_dir>``).
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
@@ -109,7 +109,7 @@ def get_intext_citations(
     if data is None:
         return error(
             "intext_citations.json missing — backfill with "
-            "`python backfill_intext_citations.py <output_dir>`",
+            "`python -m pipeline.intext_citations <output_dir>`",
             "not_configured",
         )
     paragraphs_full = data.get("paragraphs") or []
@@ -188,6 +188,9 @@ def _excerpts_citing(idx, work_id: str):
                 "citation_index": citation_index,
                 "target_xml_id": citation["target_xml_id"],
                 "para_index": pi,
+                **{key: citation[key] for key in (
+                    "citation_year", "author_span", "year_span", "validation_status", "text_source",
+                ) if key in citation},
             }
 
 
@@ -210,7 +213,10 @@ def get_excerpts_citing(work_id: str, limit: int = 50, offset: int = 0) -> Dict:
 
     Each row retains ``citing_paper_hash``, ``citing_paper_title``, ``surface``,
     ``section`` and ``paragraph``, and adds source ``citation_index``,
-    ``target_xml_id`` and ``para_index``. Full source records can be requested
+    ``target_xml_id`` and ``para_index``. Rebuilt artifacts also carry
+    ``citation_year``, author/year spans, ``validation_status`` and
+    ``text_source``; spans refer to the stored paragraph, which a byte-limited
+    preview may not contain in full. Full source records can be requested
     with ``get_intext_citations(paper_hash=..., offset=citation_index, limit=1)``.
 
     Serialized JSON (default json.dumps separators and ASCII escaping) is

@@ -4,11 +4,14 @@
 The pipeline now emits an ``intext_citations.json`` next to each paper's
 ``references.json`` — but papers processed by an older pipeline don't
 have one.  This tool walks ``<output_dir>/documents/*/grobid.tei.xml``
-and parses each into ``intext_citations.json``.  Pure post-processing of
-the cached TEI; no Grobid call, no re-OCR.
+and parses each into ``intext_citations.json``. Uses the prepared PDF for
+source citation text only when its provenance receipt matches the TEI and
+PDF bytes; otherwise preserves TEI observations with explicit source status.
+No Grobid call, no re-OCR. Old TEI without ref coordinates requires the
+metadata stage to run against Grobid again for source-backed text repair.
 
 Usage:
-    python backfill_intext_citations.py /path/to/output_dir
+    python -m pipeline.intext_citations /path/to/output_dir
 
 Idempotency (#30): by default each hash dir is processed only when
 ``intext_citations.json`` is missing. Re-running on an unchanged corpus
@@ -19,6 +22,7 @@ deterministic re-write of the same content given the same TEI.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import sys
@@ -27,6 +31,23 @@ from pathlib import Path
 from pipeline.grobid_client import parse_tei_intext_citations
 
 logger = logging.getLogger("corpus.intext")
+
+
+def _matching_source_pdf(hash_dir: Path, tei_xml: str):
+    """Only use coordinates against the prepared PDF that produced the TEI."""
+    pdf = hash_dir / "processed.pdf"
+    receipt = hash_dir / "grobid.tei.xml.provenance.json"
+    try:
+        proof = json.loads(receipt.read_text(encoding="utf-8"))
+        if proof.get("tei_sha256") != hashlib.sha256(tei_xml.encode("utf-8")).hexdigest():
+            return None
+        digest = hashlib.sha256()
+        with pdf.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return pdf if digest.hexdigest() == proof.get("inputs", {}).get("pdf_sha256") else None
+    except (OSError, ValueError, AttributeError, TypeError):
+        return None
 
 
 def main() -> int:
@@ -87,7 +108,9 @@ def main() -> int:
 
         try:
             tei_xml = tei_path.read_text(encoding="utf-8")
-            data = parse_tei_intext_citations(tei_xml)
+            data = parse_tei_intext_citations(
+                tei_xml, pdf_path=_matching_source_pdf(hash_dir, tei_xml),
+            )
         except Exception as e:
             logger.warning("%s: parse failed: %s", hash_dir.name, e)
             n_failed += 1

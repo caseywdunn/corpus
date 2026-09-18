@@ -420,3 +420,18 @@ def test_dry_run_does_not_load_requested_vision_backend(corpus, monkeypatch):
                         lambda *a, **kw: pytest.fail("dry-run loaded a model"))
     corpus.run("--dry-run", "--figure-panels", "vision-local")
     assert not corpus.output.exists()
+
+
+def test_ref_coordinates_invalidate_legacy_tei_receipt(tei_cache):
+    """Text repair needs source boxes; cached TEI without that policy is stale."""
+    c = tei_cache
+    c.run()
+    receipt_path = c.root / "grobid.tei.xml.provenance.json"
+    proof = json.loads(receipt_path.read_text())
+    assert proof["inputs"]["tei_coordinates"] == ["ref"]
+    del proof["inputs"]["tei_coordinates"]
+    receipt_path.write_text(json.dumps(proof))
+    c.run()
+    assert len(c.calls) == 2
+    c.run()
+    assert len(c.calls) == 2
