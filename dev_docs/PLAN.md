@@ -71,16 +71,18 @@ mechanisms. Detector hits are review populations, not error counts.
   Implementation and source-derived bibliography regressions landed; the
   named production merge-history review remains pending.
   `[plane:build]`
-- [ ] **#299** — reject incompatible reconciliation of a curated document onto
+- [x] **#299** — reject incompatible reconciliation of a curated document onto
   another same-author/year work; repair identity and graph membership, not just
   the displayed title. Depends on retaining #296's evidence. Implemented with
-  source-derived Chun controls; rebuilt-corpus mappings remain to verify.
+  source-derived Chun controls and actual bundle/live formatter acceptance;
+  full-corpus mappings remain a release gate.
   `[plane:build]`
-- [ ] **#300** — distinguish publication parts from shared book DOIs and short
+- [x] **#300** — distinguish publication parts from shared book DOIs and short
   key collisions while preserving genuine duplicate scans. Define deterministic
   identity and rebuild/migration behavior before changing matching. `[plane:build]`
   Implemented with all seven source Delle Chiaje entries, Moore records,
-  duplicate controls and clean/incremental checks; full-corpus replay remains.
+  duplicate controls, clean/incremental checks and live bundled formatting;
+  full-corpus replay remains a release gate.
 - [x] **#301** — preserve volume, issue, pages and article locators through the
   complete parser → authority → bundle → formatter round trip. The actual
   bundler and a separate MCP formatter process preserve all 15 pinned source
@@ -92,18 +94,21 @@ mechanisms. Detector hits are review populations, not error counts.
   outside this fix. Named examples, ambiguity/absence controls and twelve
   additional real-work queries pass against the retained v1.2.1 authority;
   the rebuilt candidate's audit replay remains a release gate. `[plane:serve]`
-- [ ] **#311** — parse comma-separated taxonomic authors and expose supported
+- [x] **#311** — parse comma-separated taxonomic authors and expose supported
   original-description candidates without asserting an ambiguous match.
   Implemented with the source-supported Apolemia example and ambiguous
   Physalia/Nectopyramis controls. Candidate evidence stays separate from
-  curator-reviewed originals; rebuilt taxonomy-link acceptance remains.
+  curator-reviewed originals; policy refresh and curator-link preservation
+  pass. Full rebuilt taxonomy-link validation remains a release gate.
   `[plane:build]` (bounded candidate presentation: `[plane:serve]`)
-- [ ] **#313**, then **#314** — preserve raw reference observations while
-  distinguishing parse debris and resolving source-supported publication-year
-  conflicts before ranking missing works. Depends on trustworthy identities;
-  do not use broad title-only merges. Implemented with conservative fragment
-  quarantine, visible uncertainty, source-supported per-observation year
-  adjudication and shared-edge deduplication. All four named #314 observations
+- [x] **#313** — preserve raw reference observations while distinguishing parse
+  debris with auditable quarantine or visible uncertainty across bibliography,
+  resolution, formatting, author lookup and acquisition routes. Sparse historical
+  controls and unchanged/changed refresh pass. `[plane:build]`
+- [ ] **#314** — resolve source-supported publication-year conflicts before
+  ranking missing works. Depends on trustworthy identities; do not use broad
+  title-only merges. Implemented with source-supported per-observation year
+  adjudication and shared-edge deduplication. All four named observations
   now have fresh source-page Grobid captures: two narrow title-comparison fixes
   repair line wrapping and a single omitted article corroborated by publication
   locators. Compact clean/incremental authority replays agree on edges and
@@ -119,15 +124,11 @@ decision provenance; document how old bundles obtain repaired mappings.
 
 ### 3. Restore source text and citation evidence
 
-- [ ] **#306**, **#312**, **#315**, **#316** — reproduce and distinguish Big5-like
-  text-layer corruption, other mojibake, surname substitutions and spacing
-  diacritics/truncated names. Use source images and correct negative controls;
-  no global replacement or guessed correction is sufficient. #306 and #316
-  now have same-region byte corroboration and geometric accent recovery,
-  source replay, idempotence and conflicting-number controls. Incomplete
-  surnames remain reviewable without guessed aliases or reverse-order merges.
-  The named Niño/Niña source and an explicit adjudicated-author link refresh
-  now also preserve original observations and complete author identity.
+- [ ] **#306**, **#312**, **#315** — reproduce and distinguish Big5-like
+  text-layer corruption, other mojibake and surname substitutions. Use source
+  images and correct negative controls; no global replacement or guessed
+  correction is sufficient. #306 now has same-region byte corroboration,
+  source replay, idempotence and conflicting-number controls.
   #312 now retains original damaged-layer evidence before OCR and requires
   agreeing regional raster readings plus prepared-word geometry. A real
   extraction/materialization/chunk/query replay recovers the German example;
@@ -143,14 +144,21 @@ decision provenance; document how old bundles obtain repaired mappings.
   change requires re-extraction; prior-policy pilots are not a v3 build gate.
   Fresh full-corpus citation mapping and
   broader rebuilt-source acceptance remain pending. `[plane:build]`
+- [x] **#316** — recover geometrically supported spacing accents and surface
+  incomplete author identities without guessed aliases. Source Fernández and
+  Niño/Niña controls pass; explicit author adjudication rematerializes the
+  correct link while retaining raw observations and complete identity.
+  Detector-positive totals are not a graded error denominator. `[plane:build]`
 - [ ] **#303** — preserve scientific signs, units and exponents through stored
   text, chunks and embedding input. Word coverage alone cannot validate these
   semantics because its normalization removes punctuation. Source-glyph and
   raster-supported repairs are implemented, with the falsely encoded Kidwai
   dash retained as a negative control. Saved source cases now preserve signs,
   units and exponents through real chunking, the production embedding callback,
-  vector-row text and bounded serving. Broader source-graded precision/recall
-  and integrated release replay remain.
+  vector-row text and bounded serving. An independent source-first sample
+  exposed remaining Chen quantity and Russian exponent corruption; those
+  findings require repair and separate candidate revalidation. Broader
+  source-graded precision/recall and integrated release replay remain.
   `[plane:build]`
 - [ ] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
@@ -171,8 +179,12 @@ decision provenance; document how old bundles obtain repaired mappings.
   spelling remains explicit. All four named Daniel key destinations survive
   serialization and bounded retrieval across chunk splits. Build metadata now
   states complete/partial/unknown coverage and links adjacent fragments;
-  rechunking leaves extraction and unchanged vector payloads alone. Broader
-  rebuilt retrieval and source-graded spacing acceptance remain. `[plane:build]`
+  rechunking leaves extraction and unchanged vector payloads alone. Spacing
+  v2 now considers uniform-font portions without inferring a boundary at a
+  font change; the newly examined DuClos phrase remains unchanged because
+  actual OCR modes disagree. Long-run review warnings retain that uncertainty.
+  Broader rebuilt retrieval and source-graded spacing acceptance remain.
+  `[plane:build]`
 - [x] **#309**, **#317** — validate complete citation spans and preserve the
   source paragraph across grouped citations; trace original TEI as well as
   extracted artifacts. Link validation and text preservation are separate
@@ -206,21 +218,25 @@ before claiming an old OCR-routing defect persists.
   and retain the edge species label in the source-verified figure. Source
   geometry replay passes for Hosia, Sutherland and the clipped Erenna figure;
   integrated rebuilt-corpus validation remains the release gate. `[plane:build]`
-- [ ] **#302** — materialize figure-specific rights exclusions and provenance;
+- [x] **#302** — materialize figure-specific rights exclusions and provenance;
   apply them before inherited publication clearance at every strict delivery
   boundary. Whole figures, panels, fallbacks, URLs and HTTP must agree.
   Implemented; #322 now recovers the actual Hosia exclusion from source
-  caption fragments. Rebuilt gold/bundle replay remains pending.
+  caption fragments. Fresh Hosia gold evidence survives real bundling and
+  strict/report live MCP and HTTP delivery, including fallback and permitted
+  controls. Full-corpus release validation remains pending.
   `[plane:build]` (enforcement: `[plane:serve]`)
 - [x] **#321** — caption matches precede paper-only mentions in both taxon
   figure routes, with deterministic ties and preserved legacy scores.
   Boundary/tie regressions pass; integrated corpus replay remains in the
   release acceptance gate. `[plane:serve]`
-- [ ] **#323** — match unambiguous caption abbreviations without inventing
+- [x] **#323** — match unambiguous caption abbreviations without inventing
   associations. Post-build caption links and evidence are now materialized from
   final figures, chunks and taxonomy with content receipts. Both figure routes
   use those links; legacy bundles expose unavailable provenance. Source Hosia
-  checks pass; rebuilt bundle acceptance remains. `[plane:build]`
+  gold-to-bundle replay now preserves exact caption spans and matching
+  discovery/dossier evidence through live MCP. Full-corpus release validation
+  remains pending. `[plane:build]`
 - [x] **#327** — expose consistent structured refusal reasons while preserving
   successful MCP image responses. Actual MCP result conversion is covered by
   the regression suite; integrated audit replay remains a release gate.

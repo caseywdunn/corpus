@@ -1,0 +1,1460 @@
+{
+  "schema_version": 1,
+  "record_kind": "measured_one_document_acceptance_receipt_not_test_input_or_current_build_claim",
+  "scope": {
+    "issues": [
+      302,
+      322,
+      323,
+      324,
+      332
+    ],
+    "document_count": 1,
+    "original_source": "Hosia et al. 2024",
+    "doi": "10.3389/fmars.2024.1421514",
+    "library_relative_path": "H_J/Hosiaetal2024.pdf",
+    "paper_hash": "1648cd91e973",
+    "source_sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+    "extract_completed_at": "2026-09-18T19:30:01Z"
+  },
+  "checkouts": {
+    "extraction": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+    "post_build_bundle_and_serving": "9d1eac175c37f1fa0675d440663dec77aa847df5",
+    "figure_relevant_code_unchanged_between_checkouts": [
+      "pipeline/figure_rights.py",
+      "pipeline/caption_taxa.py",
+      "mcpsrv/tools/figures.py"
+    ]
+  },
+  "stage_receipts": {
+    "docling_extraction": {
+      "completed_at": "2026-09-18T19:29:44Z",
+      "input_fingerprint_sha256": "c8fe7c682cef8b84e46fa7789510070412012109c84447eae581346ed15c7a5c"
+    },
+    "figure_materialization": {
+      "completed_at": "2026-09-18T19:30:00Z",
+      "input_fingerprint_sha256": "ece214951cd3ab88ce5d52ec39959c21e73a49eaca7c665a93a9120b3beada2b"
+    },
+    "figure_crossref": {
+      "completed_at": "2026-09-18T19:30:00Z",
+      "input_fingerprint_sha256": "3464a768d1dabf567506f38c58e34a2f11f5d8564e46d35eb92b87a978736658"
+    }
+  },
+  "stage_fingerprint_hash_format": "sha256(json.dumps(input_fingerprint, sort_keys=True).encode())",
+  "producer_policies": {
+    "docling_extraction": {
+      "extraction.scientific_notation_policy": "source_glyph_alignment_v1",
+      "extraction.section_heading_policy": "rendered_section_heading_v1",
+      "extraction.source_layout_policy": "source_columns_v1",
+      "extraction.source_spacing_producer": "exact-letters-geometric-gaps-ocr-intersection-v1",
+      "extraction.surname_recovery_producer": "curated-author-year-source-ocr-consensus-v2",
+      "extraction.table_structure_policy": "logical-cells-key-geometry-source-spaces-v1",
+      "extraction.text_encoding_policy": "source-region-encoding-and-accent-geometry-v1",
+      "ocr.native_text_recovery_producer": "original-mojibake-regions-dual-raster-ocr-v1"
+    },
+    "figure_materialization": {
+      "extraction.scientific_notation_policy": "source_glyph_alignment_v1",
+      "extraction.section_heading_policy": "rendered_section_heading_v1",
+      "extraction.source_layout_policy": "source_columns_v1",
+      "extraction.source_spacing_producer": "exact-letters-geometric-gaps-ocr-intersection-v1",
+      "extraction.surname_recovery_producer": "curated-author-year-source-ocr-consensus-v2",
+      "extraction.table_structure_policy": "logical-cells-key-geometry-source-spaces-v1",
+      "extraction.text_encoding_policy": "source-region-encoding-and-accent-geometry-v1",
+      "figures.rights_producer": "figure-rights-v1",
+      "ocr.native_text_recovery_producer": "original-mojibake-regions-dual-raster-ocr-v1"
+    },
+    "figure_crossref": {
+      "chunking.treatment_context_policy": "source_treatments_v2",
+      "extraction.scientific_notation_policy": "source_glyph_alignment_v1",
+      "extraction.section_heading_policy": "rendered_section_heading_v1",
+      "extraction.source_layout_policy": "source_columns_v1",
+      "extraction.source_spacing_producer": "exact-letters-geometric-gaps-ocr-intersection-v1",
+      "extraction.surname_recovery_producer": "curated-author-year-source-ocr-consensus-v2",
+      "extraction.table_structure_policy": "logical-cells-key-geometry-source-spaces-v1",
+      "extraction.text_encoding_policy": "source-region-encoding-and-accent-geometry-v1",
+      "figures.rights_producer": "figure-rights-v1",
+      "ocr.native_text_recovery_producer": "original-mojibake-regions-dual-raster-ocr-v1"
+    }
+  },
+  "source_document_artifact_sha256": {
+    "summary.json": "f0eac0d7e1f2eaf50e5dd72b92c674efeb20e9d83f017d9c5827190b2122c1a1",
+    "metadata.json": "c7801b1c724331f3b030e576bc8ede9d75bd90c9636d2a1e82bfe1b0cfbdf09f",
+    "scan_detection.json": "540d0bfd1db2058fc205d5313728dfa875a7beaf8738f0c6aeae0c7c55e2dfc4",
+    "figures_report.html": "b7c042880ec227499656b5408460147a0e5eb3f9fc167f985d88e77697014a0a",
+    "pipeline.log": "ccb9063d32df52126ecfed763095a5f8c110b6c24ea808689cadfe44ad43f389",
+    "references.json": "d8638ac9c0b48d464bbcdc21a23d392bdf4bdde1ab66817629bd8cecf0f07e46",
+    "processed.pdf": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+    "figures.json": "8b40e88826a8ee23787daf6d2d3848328b0c88577da9489b42326bcbc55c83f9",
+    "anatomy.json": "9676d28afc53877b50d5b2b63081764e0be015d7be4557bfa5f589892d594edd",
+    "grobid.tei.xml": "629c6c859fa2e7644eb99a6e80ab1edd02a11342e6b7056ed7195cce41c973e3",
+    "annotation_outputs.json": "45f6b8228166572237d8852b9a3ab5c4561741fbf0db3fb9680008c1b401f1cc",
+    "chunks.json": "7dc3f8ce32f88ba26d831d2a5f06d6f0d48234ee8ae49de1d724313fe2bf1192",
+    "text.json": "9c6e79a110f343e879b9e4e6d231c802a7194533d87e01c853ba40bb32202b5b",
+    "docling_doc.json": "1d2802708d0bd5cf861d8c5bd26c0675003fb44e7ce829645b16aa795a001abc",
+    "intext_citations.json": "58c5073d6a2e9c20da61addad57dabcf4f40f9c94ba0c41746a96abef3294ad5",
+    "pipeline_state.json": "005f6436f9a01d6a835e322411aa1c086994bd61b665b7359dc0fb0178fb4c40",
+    "grobid.tei.xml.provenance.json": "71fd09230d598e519bdd848ad5b82cb2adc0b61e858975c089a8b3e45ed71150",
+    "taxa.json": "1be91fa275187924a088a2bc0e266cc1e981b6c2a18194564f0576f46738c95b",
+    "figures/_graphic_1.png": "2211d70fe172ba9d6d12524c1d9b049b3233ec5bd398bf687646d81aa75ec779",
+    "figures/fig_10.png": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde",
+    "figures/fig_3.png": "38bfe372a08b1fa9b7f1f43eafac01a0c1a1b38eb6e1d898aaf0d76743ae6858",
+    "figures/fig_13.png": "dfd80e340ea81b2e5ee8d4d20e5f9c05cbba77ca0b681e764df110fda61249d4",
+    "figures/fig_4.png": "580d1d1a91caa44f162558f29e1a0cad3122ff1ff46b6aa56bdbcebbed14895b",
+    "figures/fig_12.png": "5af2c519889446b147fea42ca6a62f6ac28a65fe7ec1d73d872676aecd29a1ce",
+    "figures/fig_7.png": "188d0e50b5d6719702dce0dfa21c8f05099b3bc5b71cdd0d14d99017ce89573f",
+    "figures/fig_1.png": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4",
+    "figures/fig_9.png": "b764d39ff77ee61fca6b243f5fc8b5266f94871b0ab504bdb0f5dd6052ea4c65",
+    "figures/fig_11.png": "59105bb7b4b2dea877fe95a3547eae7738fe16e6fdb9f05b38401e0613edfac0",
+    "figures/fig_5.png": "3c00dd037cf0b0b4070417fe801c8f7e3a036c4cc67eb2b93254fda1272f1707",
+    "figures/fig_8.png": "74f5ea687a0b217760cfb3e6f614ccbccba50fc53aeb56c50e50f1d79b4df16f",
+    "figures/_graphic_2.png": "479b570d3aa1c7fd255ec78689fdfc6c7103bb1bc534905bbf7205b4f570a9d3",
+    "figures/fig_docling_4.png": "3cf6f039628dcc8dd949aecd0980f9a65ba06690cea09e7d998edbd674356a05",
+    "figures/fig_6.png": "7f7ddbd8f374b45fff8c689d1606f194decd9e1cea79be501dc00ce3d53bac12"
+  },
+  "packaged_artifact_sha256": {
+    "biblio_authority.sqlite": "53ab24ca00edf3e5266db724b5899b4cd3c98dcd6eb3a26d7413608ba8456f4f",
+    "taxonomy.sqlite": "35522f06fe1233624c4164f18d00d5ca1628cb9ab20a031391d01d4d196c9b23",
+    "bundle_manifest.json": "26486a08b128a87049f5faeb89658ddcd2895be18e95096bb0fddc406ccd97d8",
+    "taxon_mentions.sqlite": "bc21253a573d741baa59b74e027bc4157b353cd410423943e3a8da094b33085c",
+    "documents/1648cd91e973/summary.json": "1a4c6c4bb6fe983c5009dc676dfbe83b8ee2a54b74bcda30938487644b924004",
+    "documents/1648cd91e973/metadata.json": "c7801b1c724331f3b030e576bc8ede9d75bd90c9636d2a1e82bfe1b0cfbdf09f",
+    "documents/1648cd91e973/scan_detection.json": "540d0bfd1db2058fc205d5313728dfa875a7beaf8738f0c6aeae0c7c55e2dfc4",
+    "documents/1648cd91e973/references.json": "d8638ac9c0b48d464bbcdc21a23d392bdf4bdde1ab66817629bd8cecf0f07e46",
+    "documents/1648cd91e973/figures.json": "0f966d8af0e564819f76ebafc9c03ee2d7bad7a113e45b106c57d799eefaaffa",
+    "documents/1648cd91e973/anatomy.json": "92dee03d09833417bb3bf59fa7cdc19d8886c2d1df30b7f85008d976b13afad1",
+    "documents/1648cd91e973/chunks.json": "7dc3f8ce32f88ba26d831d2a5f06d6f0d48234ee8ae49de1d724313fe2bf1192",
+    "documents/1648cd91e973/text.json": "7e9516b1367332c456d8fd63a795cfc355ca224f8f4fe164fb47a9f7841cefdd",
+    "documents/1648cd91e973/intext_citations.json": "58c5073d6a2e9c20da61addad57dabcf4f40f9c94ba0c41746a96abef3294ad5",
+    "documents/1648cd91e973/taxa.json": "940a1dc8066a97bd0bb0a48c7650715d13e2ce677ee584431a3ba904e8210c5c",
+    "documents/1648cd91e973/figures/_graphic_1.png": "2211d70fe172ba9d6d12524c1d9b049b3233ec5bd398bf687646d81aa75ec779",
+    "documents/1648cd91e973/figures/fig_10.png": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde",
+    "documents/1648cd91e973/figures/fig_3.png": "38bfe372a08b1fa9b7f1f43eafac01a0c1a1b38eb6e1d898aaf0d76743ae6858",
+    "documents/1648cd91e973/figures/fig_13.png": "dfd80e340ea81b2e5ee8d4d20e5f9c05cbba77ca0b681e764df110fda61249d4",
+    "documents/1648cd91e973/figures/fig_4.png": "580d1d1a91caa44f162558f29e1a0cad3122ff1ff46b6aa56bdbcebbed14895b",
+    "documents/1648cd91e973/figures/fig_12.png": "5af2c519889446b147fea42ca6a62f6ac28a65fe7ec1d73d872676aecd29a1ce",
+    "documents/1648cd91e973/figures/fig_7.png": "188d0e50b5d6719702dce0dfa21c8f05099b3bc5b71cdd0d14d99017ce89573f",
+    "documents/1648cd91e973/figures/fig_1.png": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4",
+    "documents/1648cd91e973/figures/fig_9.png": "b764d39ff77ee61fca6b243f5fc8b5266f94871b0ab504bdb0f5dd6052ea4c65",
+    "documents/1648cd91e973/figures/fig_11.png": "59105bb7b4b2dea877fe95a3547eae7738fe16e6fdb9f05b38401e0613edfac0",
+    "documents/1648cd91e973/figures/fig_5.png": "3c00dd037cf0b0b4070417fe801c8f7e3a036c4cc67eb2b93254fda1272f1707",
+    "documents/1648cd91e973/figures/fig_8.png": "74f5ea687a0b217760cfb3e6f614ccbccba50fc53aeb56c50e50f1d79b4df16f",
+    "documents/1648cd91e973/figures/_graphic_2.png": "479b570d3aa1c7fd255ec78689fdfc6c7103bb1bc534905bbf7205b4f570a9d3",
+    "documents/1648cd91e973/figures/fig_docling_4.png": "3cf6f039628dcc8dd949aecd0980f9a65ba06690cea09e7d998edbd674356a05",
+    "documents/1648cd91e973/figures/fig_6.png": "7f7ddbd8f374b45fff8c689d1606f194decd9e1cea79be501dc00ce3d53bac12"
+  },
+  "bundle_manifest": {
+    "bundle_version": "hosia-gold-acceptance-6fbf4e0",
+    "created_at": "2026-09-18T20:01:16Z",
+    "pipeline_git_sha": "9d1eac175c37f1fa0675d440663dec77aa847df5",
+    "embedding_model": null,
+    "embedding_dim": null,
+    "taxonomy_snapshot_date": "2026-09-18",
+    "paper_count": 1,
+    "figure_count": 15,
+    "chunk_count": 148,
+    "includes_pdfs": false
+  },
+  "post_build_stats": {
+    "papers": 1,
+    "mentions": 298,
+    "skipped": 0,
+    "refreshed": 0,
+    "errors": 0,
+    "lagging": 0,
+    "retired": 0,
+    "captions": {
+      "papers": 1,
+      "skipped": 0,
+      "errors": 0
+    }
+  },
+  "immutability": {
+    "copied_document_bytes_unchanged_by_post_build": true,
+    "original_gold_document_unchanged": true,
+    "served_bundle_unchanged": true,
+    "authority_taxonomy_and_mentions_copied_byte_identically": true,
+    "disposable_panel_crop_cache_outside_bundle": true
+  },
+  "source_observations": {
+    "figure_1": {
+      "figure_id": "docling_3",
+      "page": 3,
+      "caption_sha256_utf8": "93c3144dbe41e13d93e3bdecd765d41746fb52ee1c29054fd8c693de0a219aa2",
+      "figure_rights": {
+        "producer_version": "figure-rights-v1",
+        "status": "excluded_from_publication_license",
+        "scope": "whole_image_and_all_crops",
+        "evidence": [
+          {
+            "source": "caption_explicit_exclusion",
+            "figure_id": "docling_3",
+            "page": 3,
+            "caption_source": "heuristic_proximity",
+            "caption_status": "bound",
+            "text": "These images are not covered by the terms of the Creative Commons license of this publication."
+          }
+        ]
+      },
+      "clearance": {
+        "publication_clearance": "undetermined",
+        "license": null,
+        "license_source": "figure_caption_exclusion"
+      }
+    },
+    "caption_fragments": {
+      "docling_3": {
+        "fragment_count": 2,
+        "caption_sha256_utf8": "93c3144dbe41e13d93e3bdecd765d41746fb52ee1c29054fd8c693de0a219aa2",
+        "caption_completeness": "unverified"
+      },
+      "docling_6": {
+        "fragment_count": 2,
+        "caption_sha256_utf8": "f55fe3683cfd211fdc3bb07bbdfb8a3a68de6ec9df0c219de39201e090267c09",
+        "caption_completeness": "unverified"
+      },
+      "docling_7": {
+        "fragment_count": 2,
+        "caption_sha256_utf8": "f911dd22d9b946618b44ca328f437dfe34fcaec753fda1c823b727d8812a3abc",
+        "caption_completeness": "unverified"
+      }
+    },
+    "figures_4_5_exact_source_fragment_join": {
+      "docling_6": true,
+      "docling_7": true
+    },
+    "fragment_source_fixture": "tests/fixtures/figure_integrity/hosia_captions.json",
+    "caption_taxa": {
+      "abbreviation": {
+        "accepted_name": "Nanomia septata",
+        "accepted_taxon_id": "1775295",
+        "authorship": "Mapstone, Mańko, Martell, Haddock & Hosia, 2024",
+        "candidate_names": [
+          "Nanomia septata"
+        ],
+        "context_genera": [
+          "Nanomia"
+        ],
+        "context_scope": "caption",
+        "matched_name": "Nanomia septata",
+        "matched_taxon_id": "1775295",
+        "mention_text": "N. septata",
+        "method": "contextual_abbreviation",
+        "name_type": "accepted",
+        "rank": "Species",
+        "status": "accepted",
+        "text_span": [
+          174,
+          184
+        ]
+      },
+      "input_fingerprint": {
+        "chunks_sha256": "7dc3f8ce32f88ba26d831d2a5f06d6f0d48234ee8ae49de1d724313fe2bf1192",
+        "figures_sha256": "8b40e88826a8ee23787daf6d2d3848328b0c88577da9489b42326bcbc55c83f9",
+        "producer_version": "caption-taxa-v1",
+        "taxonomy_sha256": "35522f06fe1233624c4164f18d00d5ca1628cb9ab20a031391d01d4d196c9b23"
+      },
+      "evidence_equal_across_direct_discovery_dossier": true,
+      "shared_evidence_sha256_canonical_json": "3249c37ddf46fee58696fd00fc447800b7300ead3899aae94e1f742b98ff726a",
+      "caption_only_figure_ids": [
+        "docling_12",
+        "docling_13",
+        "docling_14",
+        "docling_15",
+        "docling_3"
+      ]
+    },
+    "figure_12": {
+      "figure_id": "docling_14",
+      "expected_labels": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "pass3_status": "no_labels_found",
+      "pixel_roi_count": 0,
+      "label_E_crop": false,
+      "label_E_description_starts": "palpon with palpacle"
+    },
+    "count_contract": {
+      "stored_total_figures": 15,
+      "stored_array_length": 15,
+      "bundle_manifest": 15,
+      "bundle_info": 15,
+      "corpus_summary": 15,
+      "list_papers": 15
+    }
+  },
+  "boundary_matrix": {
+    "case_count": 27,
+    "cases": [
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": null,
+        "profile": "manuscript",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": null,
+        "profile": "presentation",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": null,
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1495660,
+          "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1495660,
+          "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": "A",
+        "profile": "manuscript",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": "A",
+        "profile": "presentation",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": "A",
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1495660,
+          "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1495660,
+          "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+        },
+        "roi": {
+          "crop": false,
+          "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image"
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": "missing-panel",
+        "profile": "manuscript",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": "missing-panel",
+        "profile": "presentation",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "control": "explicit_exclusion",
+        "figure_id": "docling_3",
+        "label": "missing-panel",
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1495660,
+          "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1495660,
+          "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+        },
+        "roi": {
+          "crop": false,
+          "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image"
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": null,
+        "profile": "manuscript",
+        "inline_is_error": false,
+        "url": {
+          "issued": true,
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex"
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": null,
+        "profile": "presentation",
+        "inline_is_error": false,
+        "url": {
+          "issued": true,
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex"
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": null,
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": "A",
+        "profile": "manuscript",
+        "inline_is_error": false,
+        "url": {
+          "issued": true,
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex"
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "roi": {
+          "crop": true
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": "A",
+        "profile": "presentation",
+        "inline_is_error": false,
+        "url": {
+          "issued": true,
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex"
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "roi": {
+          "crop": true
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": "A",
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "roi": {
+          "crop": true
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": "B",
+        "profile": "manuscript",
+        "inline_is_error": false,
+        "url": {
+          "issued": true,
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex"
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "roi": {
+          "crop": false,
+          "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image"
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": "B",
+        "profile": "presentation",
+        "inline_is_error": false,
+        "url": {
+          "issued": true,
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex"
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "roi": {
+          "crop": false,
+          "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image"
+        }
+      },
+      {
+        "control": "inherited_permitted",
+        "figure_id": "docling_12",
+        "label": "B",
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "roi": {
+          "crop": false,
+          "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image"
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": null,
+        "profile": "manuscript",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": null,
+        "profile": "presentation",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": null,
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": "A",
+        "profile": "manuscript",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": "A",
+        "profile": "presentation",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": "A",
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1914742,
+          "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+        },
+        "roi": {
+          "crop": true
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": "B",
+        "profile": "manuscript",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": "B",
+        "profile": "presentation",
+        "inline_is_error": true,
+        "url": {
+          "issued": false,
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        },
+        "http": {
+          "status": 403
+        },
+        "signed_http": {
+          "status": 403
+        },
+        "roi": {
+          "code": "forbidden",
+          "publication_clearance": "no_record",
+          "license_source": "unknown"
+        }
+      },
+      {
+        "control": "missing_authority",
+        "figure_id": "docling_12",
+        "label": "B",
+        "profile": "report",
+        "inline_is_error": false,
+        "url": {
+          "issued": true
+        },
+        "http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "signed_http": {
+          "status": 200,
+          "bytes": 1804005,
+          "sha256": "3cceca3eedb2066ac3308149b2a8fe9aab5736da04f5f768fc54913829d21dde"
+        },
+        "roi": {
+          "crop": false,
+          "reason": "no_pixel_roi — Pass 3 didn't locate this label in the image"
+        }
+      }
+    ],
+    "http_transport": "in-process ASGI; signed HTTP includes locally minted valid capabilities for refused strict issuance",
+    "missing_authority_setup": "Remove only loaded biblio_db handle; do not alter source artifacts or rights.",
+    "actual_excluded_figure_has_no_located_roi": true,
+    "permitted_source": "Original library CC-BY-4.0 metadata; no independent legal vetting."
+  },
+  "live_transport": {
+    "transport": "production mcpsrv.main stdio process and actual loopback HTTP companion",
+    "tool_call_count": 25,
+    "http_download_count": 3,
+    "tool_calls": [
+      {
+        "tool": "get_figure",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "include_licensing": true
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "figure_id": "docling_3",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion",
+          "caption_completeness": "unverified"
+        }
+      },
+      {
+        "tool": "get_figure",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_6",
+          "include_licensing": true
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "figure_id": "docling_6",
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex",
+          "caption_completeness": "unverified"
+        }
+      },
+      {
+        "tool": "get_figure",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_7",
+          "include_licensing": true
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "figure_id": "docling_7",
+          "publication_clearance": "licensed_open",
+          "license_source": "bibtex",
+          "caption_completeness": "unverified"
+        }
+      },
+      {
+        "tool": "get_figure_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript"
+        },
+        "mcp_isError": true,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_url",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "report"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "image"
+        ],
+        "images": [
+          {
+            "mimeType": "image/png",
+            "bytes": 1495660,
+            "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+          }
+        ]
+      },
+      {
+        "tool": "get_figure_url",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "report"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "url_issued": true
+        }
+      },
+      {
+        "tool": "get_figure_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript",
+          "label": "A"
+        },
+        "mcp_isError": true,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_url",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript",
+          "label": "A"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_roi_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript",
+          "label": "A"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "report",
+          "label": "A"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "image"
+        ],
+        "images": [
+          {
+            "mimeType": "image/png",
+            "bytes": 1495660,
+            "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+          }
+        ]
+      },
+      {
+        "tool": "get_figure_url",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "report",
+          "label": "A"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "url_issued": true
+        }
+      },
+      {
+        "tool": "get_figure_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript",
+          "label": "missing-panel"
+        },
+        "mcp_isError": true,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_url",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript",
+          "label": "missing-panel"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_roi_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "manuscript",
+          "label": "missing-panel"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "code": "forbidden",
+          "publication_clearance": "undetermined",
+          "license_source": "figure_caption_exclusion"
+        }
+      },
+      {
+        "tool": "get_figure_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "report",
+          "label": "missing-panel"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "image"
+        ],
+        "images": [
+          {
+            "mimeType": "image/png",
+            "bytes": 1495660,
+            "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+          }
+        ]
+      },
+      {
+        "tool": "get_figure_url",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_3",
+          "profile": "report",
+          "label": "missing-panel"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "url_issued": true
+        }
+      },
+      {
+        "tool": "get_figure_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_12",
+          "label": "A",
+          "profile": "manuscript"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "image"
+        ],
+        "images": [
+          {
+            "mimeType": "image/png",
+            "bytes": 1914742,
+            "sha256": "a992278c02d185f02d3ab65b6c48370e51a720b5fc5cd4c9fb7b3d2e9f9d9da6"
+          }
+        ]
+      },
+      {
+        "tool": "get_figure_roi_image",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_14",
+          "label": "E",
+          "profile": "manuscript"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "figure_id": "docling_14",
+          "crop": false,
+          "caption_completeness": "unverified"
+        }
+      },
+      {
+        "tool": "list_figure_rois",
+        "arguments": {
+          "paper_hash": "1648cd91e973",
+          "figure_id": "docling_14"
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "panel_labels": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ],
+          "pixel_roi_count": 0,
+          "pass3_status": "no_labels_found"
+        }
+      },
+      {
+        "tool": "get_figures_for_taxon",
+        "arguments": {
+          "taxon_name": "Nanomia septata",
+          "paper_hash": "1648cd91e973",
+          "caption_only": true,
+          "full_caption": true,
+          "limit": 30
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "figure_ids": [
+            "docling_12",
+            "docling_13",
+            "docling_14",
+            "docling_15",
+            "docling_3"
+          ],
+          "all_caption_has_taxon": true
+        }
+      },
+      {
+        "tool": "get_figure_dossier_for_taxon",
+        "arguments": {
+          "taxon_name": "Nanomia septata",
+          "max_figures": 30
+        },
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "figure_ids": [
+            "docling_12",
+            "docling_13",
+            "docling_14",
+            "docling_15",
+            "docling_3",
+            "docling_10",
+            "docling_11",
+            "docling_4",
+            "docling_5",
+            "docling_6",
+            "docling_7",
+            "docling_8",
+            "docling_9"
+          ],
+          "caption_figure_ids": [
+            "docling_12",
+            "docling_13",
+            "docling_14",
+            "docling_15",
+            "docling_3"
+          ]
+        }
+      },
+      {
+        "tool": "bundle_info",
+        "arguments": {},
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "figure_count": 15
+        }
+      },
+      {
+        "tool": "corpus_summary",
+        "arguments": {},
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "n_figures_total": 15
+        }
+      },
+      {
+        "tool": "list_papers",
+        "arguments": {},
+        "mcp_isError": false,
+        "content_types": [
+          "text"
+        ],
+        "images": [],
+        "observed": {
+          "papers": [
+            {
+              "n_figures": 15
+            }
+          ]
+        }
+      }
+    ],
+    "http_downloads": [
+      {
+        "figure_id": "docling_3",
+        "profile": "report",
+        "label": null,
+        "signed": true,
+        "status": 200,
+        "bytes": 1495660,
+        "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+      },
+      {
+        "figure_id": "docling_3",
+        "profile": "report",
+        "label": "A",
+        "signed": true,
+        "status": 200,
+        "bytes": 1495660,
+        "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+      },
+      {
+        "figure_id": "docling_3",
+        "profile": "report",
+        "label": "missing-panel",
+        "signed": true,
+        "status": 200,
+        "bytes": 1495660,
+        "sha256": "ea103194f4b45920c3faec9f385f2f86c89bd0f54d488af228c408952dd114e4"
+      }
+    ]
+  },
+  "original_replay_file_sha256": {
+    "acceptance.json": "f907ba88968c4b8855490af66ec745dbb9d4bf1da28c853ddc4b4bec9d30f978",
+    "live_acceptance.json": "b0f1a80ae1bcb848c59c903d4dc32d8cc7f3f06105978a038e7af11d86f0648a",
+    "excluded_boundaries.json": "7fc015fc3cb3bba144fed42ac55454b9f2987e70be4f4b26f0fc8e1f4aed7a58",
+    "permitted_boundaries.json": "42671046ed686eaa58ed45797b8f164500a661ef7d872044fbf410a3940818d3",
+    "missing_authority_control.json": "93dea0b7f1a9f9da96e82b71ddd6c790b4e5e88e61ea16d1596bd5e31a79e9c0",
+    "direct_figures.json": "66cb2a5aacea08ad128fbb26a451719478ae2ee883fc45612bc1aee8b336429f",
+    "caption_discovery.json": "d7e0354bca46b29f9d8865b3ee64d488342f3ab3a46a1d95139c3a212fa1a901",
+    "caption_source_replay.json": "51690946d0896972de249c6fe4952f4757093cd54c0b7161985e2a13efd03d93",
+    "panels.json": "824f80b1f1da6a96527b769cc5c71165c079d3c4e0156aa3ced250718c3acb1c",
+    "known_unlocated_panel.json": "93ec1e70eecb0e446c1b401a2aa9e0111451de6f1d8702c3dbab9ed804608931",
+    "counts.json": "586c9dba456dbc4b7e7f906a85026ec570c01a9f42357af4b5098858052730b9",
+    "replay.py": "4e9578bbacfab2d94a07d6876de3007940f3fdbe12e3dfced389cb175cd26fca",
+    "live_replay.py": "0dde328e71fc8b014ca1c880aa4a56e9b59b24f3483e7de29c166ae4e5256097"
+  },
+  "limits": [
+    "One completed frozen-gold document, not complete gold, deployment, or historical audited v1.4 acceptance.",
+    "Later surname-v3 and other producer changes require a fresh candidate; figure policies were unchanged at this replay.",
+    "No full-document/image data, signed URLs, or local filesystem paths retained here. Original raw replay hashes identify evidence not distributed by this fixture.",
+    "Figure 2 remains reported missing; Table 1 image remains classified as figure; missing-figure queue contains apparent cross-publication reference 24.",
+    "Count agreement means 15 stored records, not 15 correctly classified unique scientific figures.",
+    "Caption completeness stays unverified; retained source spacing artifacts were not repaired in acceptance scratch.",
+    "Figure 1 labelled cases exercise whole-image fallback; located excluded ROI and mixed-image inheritance use separate focused tests.",
+    "Actual Figure 10 permitted control inherits library license, not independent legal review; missing-authority case is deliberate fault injection.",
+    "Hosia A–E inventory does not establish Siebert A–N/A–U or all caption/figure recall.",
+    "No embedding, ranking, model-inference, new OCR, or extraction was performed by this acceptance replay."
+  ]
+}

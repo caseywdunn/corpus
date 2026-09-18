@@ -167,6 +167,51 @@ The available v1.2.1 Hays receipt and panel population differ from the audited
 snapshot; the original six-case seed/control manifest is still needed to claim
 reproduction of that earlier pilot.
 
+## Independent review and fresh gold findings
+
+A source-first notation review froze 24 selections from 14 gold papers before
+inspecting their candidate outputs. It contains 23 printed expressions and one
+unscorable transcription-note range; the latter was retained rather than
+replaced after review. At the recorded interim build snapshot, ten selections
+were on included pages of completed documents: five were faithful in Docling,
+three were corrupted, and two were omitted (a figure axis and a publisher
+footer). Four other source pages were deliberately excluded by `keeppages`;
+nine selections awaited document completion. Flattened text adds uncertainty
+about one footnote's role. This is occurrence-level evidence, not a complete
+corpus score or a repair-precision estimate.
+
+The review exposed corrupted Chen quantities and a Russian cubic unit despite
+passing named notation regressions. Two selected Mańko exponent repairs agree
+with their source, but both come from the same paper. The sample contains no
+selected ±, µm or subtraction-equation case. Labels remain frozen; subsequent
+fixes informed by these findings make it a regression sample, not a new unseen
+evaluation of those fixes.
+
+A separate [selected spacing review](../tests/fixtures/table_structure/spacing_review_2026_09_18/README.md)
+retains three available produced-repair
+records: two source-correct and one unresolved at a tight italic-to-roman
+authority boundary. That is 16 correct and one unresolved boundary; dropping
+the uncertainty would overstate precision. Five unchanged/rejected controls
+and a separately labelled historical reconstruction do not enter that repair
+denominator. Three additional geometric proposals have source-correct gaps,
+but missing historical per-proposal OCR receipts prevent classifying them as
+accepted repairs. The newly examined mixed-font DuClos run remains unresolved
+because actual OCR modes disagree at `at | Friday`.
+
+The [fresh Hosia acceptance record](../tests/fixtures/figure_integrity/hosia_gold_2026_09_18/README.md)
+uses completed artifacts from the frozen `6fbf4e0` gold build. These now pass
+real authority/taxon materialization, packaging and live serving under `9d1eac1`;
+the relevant figure/rights/query code is identical at those revisions.
+Twenty-seven direct/boundary cases and 25 live MCP calls plus three HTTP
+downloads verify caption exclusions, supported abbreviation links, panel
+fallbacks and matching stored/served record counts. Strict profiles refuse
+the excluded Figure 1; the report profile permits it. The bundle and source
+artifact inventories remain unchanged. All count routes agree on 15 records
+for this paper, which is not a claim of 15 scientifically correct objects:
+Figure 2 is missing, a Table 1 image is classified as a figure, and the missing
+figure queue includes an apparent cross-publication number. This source replay
+does not replace later-producer or full-corpus validation.
+
 ## Acceptance still required
 
 Rebuild the existing gold set and score text/figure/caption fidelity, including
