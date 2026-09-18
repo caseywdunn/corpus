@@ -17,14 +17,15 @@ are predefined release acceptance targets, not demonstrated retrieval quality.
 
 ## Freeze the evidence before tuning
 
-Use the existing gold corpuscle as the candidate population. A separate large
-corpuscle is unnecessary. Generate an independent set from materialized
-diagnosis/key units before inspecting their retrieval rankings:
+Use the existing gold corpuscle as the **independent source-sampling
+population**. A separate large fixture corpuscle is unnecessary. Generate an
+independent set from its materialized diagnosis/key units before inspecting
+their retrieval rankings:
 
 ```bash
 python tools/qc/retrieval.py sample \
   --manifest dev_docs/examples/siphonophore_retrieval_evaluation.json \
-  --output-dir /path/to/rebuilt/output --count 20 --seed 3202026 \
+  --output-dir /path/to/rebuilt/gold/output --count 20 --seed 3202026 \
   --out /tmp/retrieval-review.json
 ```
 
@@ -35,6 +36,14 @@ eligible population count and digest, seed, and selected-paper count. This is
 a sample of **materialized** diagnostic/key units in that corpus, not all
 possible scientific questions or unrecognized treatments. Missing or small
 populations remain explicit; do not silently replace difficult selections.
+
+The sampling population is distinct from the **retrieval population**. Keep the
+gold build identity with the sample's population digest and source review.
+Run the frozen queries against the full intended served reference and candidate
+corpora, including fixed audit papers outside the gold set. This preserves the
+corpus-wide competition that produced table crowding and keeps the original
+paper-scoped requests valid. Sampling from gold does not restrict retrieval to
+gold or change any query's paper filter.
 
 Review the selected PDF pages independently of retrieval results, write a
 natural query about each source unit, and add source targets. The generated
@@ -87,10 +96,10 @@ passage; these counts describe labels, not observed top-k retrieval outcomes.
 
 ```bash
 python tools/qc/retrieval.py capture --manifest /tmp/retrieval-reviewed.json \
-  --output-dir /path/to/reference/output --label retained-reference --role reference \
+  --output-dir /path/to/full/reference/output --label retained-reference --role reference \
   --out /tmp/retrieval-reference.json
 python tools/qc/retrieval.py capture --manifest /tmp/retrieval-reviewed.json \
-  --output-dir /path/to/candidate/output --label candidate-build --role candidate \
+  --output-dir /path/to/full/candidate/output --label candidate-build --role candidate \
   --out /tmp/retrieval-candidate.json
 ```
 
@@ -101,6 +110,15 @@ and the same MCP retrieval function, and may load its model. Use the normal
 offline model cache for controlled runs. Retain raw results, bundle manifest,
 embedding identity, paper-population digest and run label. Query failures are
 recorded as operational errors and block acceptance.
+
+Record the reference and candidate retrieval populations independently of the
+gold sampling population. Check their paper inventories and explain any
+membership difference before attributing a ranking change to the implementation;
+the paper count alone is insufficient. All fixed audit papers and sampled source
+papers must be present in both intended retrieval populations. A gold-only
+capture can diagnose local behavior, but its hit rates do not establish
+deployment retrieval quality or satisfy full-corpus release acceptance: removing
+competing documents changes the task, even with identical query strings.
 
 Do not identify a retained older output as the audited deployment. In the
 worked example, `output1.2.1` is a separate reference; the issue audited
