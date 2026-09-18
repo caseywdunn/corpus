@@ -117,13 +117,28 @@ citations (1971 and 1991). A separate retained-reference test demonstrates
 supported edge rematerialization without changing the original observations;
 that is not a fresh full-corpus Grobid/graph validation.
 
+Those atomic surname pilot receipts predate policy v3. The strict current crop
+fixtures retain their source-reviewed decisions, and the v3 producer invalidates
+extraction and its consumers. Candidate build acceptance must use the updated
+policy; a previous successful pilot does not establish that later rebuild.
+
+The four named #314 observations have separate retained v1.2.1 rows and fresh
+Grobid 0.8.1 source-page captures with raw citations enabled. A compact real
+authority refresh repairs the line-wrap and article-omission cases, preserves
+the already-correct fresh case, and leaves historical observations unchanged.
+All four citing documents resolve to the source-supported publication, with
+clean/incremental edge and missing-reference agreement. Full prepared-document
+parsing, the audited corpus's overlapping citation sets and its missing-work
+ranking remain unmeasured. See the source crops, TEI fragments and receipts in
+`tests/fixtures/bibliographic_integrity/publication_year_sources`.
+
 Read-only legacy-bundle transport acceptance passes all registered MCP tools,
 real query embedding, strict image crops, signed HTTP whole/panel delivery and
 authentication checks, with the artifact inventory unchanged. It uses the
 retained v1.2.1 snapshot identified below and proves compatibility/immutability,
 not correctness of freshly rebuilt evidence.
 
-The modelfree preparation for #305 copies three named source rasters (Siebert,
+Preparation for #305 copies three named source rasters (Siebert,
 Deevey–Brooks and Hays), verifies original PDF hashes and renders their physical
 source pages. `tools/qc/vision_source_pilot.py` runs these through the production
 local backend while capturing processor patch tensors, reconstructed input

@@ -81,9 +81,12 @@ mechanisms. Detector hits are review populations, not error counts.
   identity and rebuild/migration behavior before changing matching. `[plane:build]`
   Implemented with all seven source Delle Chiaje entries, Moore records,
   duplicate controls and clean/incremental checks; full-corpus replay remains.
-- [ ] **#301** — preserve volume, issue, pages and article locators through the
-  complete parser → authority → bundle → formatter round trip. Source-derived
-  round trips pass; regenerated bundle acceptance remains. `[plane:build]`
+- [x] **#301** — preserve volume, issue, pages and article locators through the
+  complete parser → authority → bundle → formatter round trip. The actual
+  bundler and a separate MCP formatter process preserve all 15 pinned source
+  records through source precedence, export/import and unchanged refresh.
+  Bundle hashes remain unchanged after queries; full-corpus release validation
+  remains pending. `[plane:build]`
 - [x] **#310** — share citation-query author parsing so additional correct
   author text cannot turn a match into false absence. Title-only search is
   outside this fix. Named examples, ambiguity/absence controls and twelve
@@ -100,8 +103,13 @@ mechanisms. Detector hits are review populations, not error counts.
   conflicts before ranking missing works. Depends on trustworthy identities;
   do not use broad title-only merges. Implemented with conservative fragment
   quarantine, visible uncertainty, source-supported per-observation year
-  adjudication and shared-edge deduplication. Raw evidence remains unchanged;
-  rebuilt-corpus acceptance remains. `[plane:build]`
+  adjudication and shared-edge deduplication. All four named #314 observations
+  now have fresh source-page Grobid captures: two narrow title-comparison fixes
+  repair line wrapping and a single omitted article corroborated by publication
+  locators. Compact clean/incremental authority replays agree on edges and
+  missing-reference counts while retaining historical raw observations.
+  Full prepared-document/corpus replay and ranking acceptance remain.
+  `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
 Unicode and ordered authors, duplicate-scan controls, distinct parts sharing an
@@ -118,6 +126,8 @@ decision provenance; document how old bundles obtain repaired mappings.
   now have same-region byte corroboration and geometric accent recovery,
   source replay, idempotence and conflicting-number controls. Incomplete
   surnames remain reviewable without guessed aliases or reverse-order merges.
+  The named Niño/Niña source and an explicit adjudicated-author link refresh
+  now also preserve original observations and complete author identity.
   #312 now retains original damaged-layer evidence before OCR and requires
   agreeing regional raster readings plus prepared-word geometry. A real
   extraction/materialization/chunk/query replay recovers the German example;
@@ -127,7 +137,11 @@ decision provenance; document how old bundles obtain repaired mappings.
   admits ten correct repairs and leaves four unresolved. The complete current
   catalog reaches extraction and figure resets, with both resume gates and
   audits tracking consumed evidence. Actual Mapstone extraction/chunk/query
-  replay recovers both tested names; fresh full-corpus citation mapping and
+  replay recovers both tested names. The v3 policy requires dual surname
+  agreement, at least one complete expected OCR year and no conflicting valid
+  year, preserving malformed date tokens without interpreting them. Its producer
+  change requires re-extraction; prior-policy pilots are not a v3 build gate.
+  Fresh full-corpus citation mapping and
   broader rebuilt-source acceptance remain pending. `[plane:build]`
 - [ ] **#303** — preserve scientific signs, units and exponents through stored
   text, chunks and embedding input. Word coverage alone cannot validate these
@@ -255,6 +269,13 @@ new licensing evidence and no cache writes into the bundle.
 - [ ] Bring correctness commits into the preserved enhancement history before
   resuming v1.6. The goal is the accepted fixes and verified gates, not an empty
   tracker or an indefinite extractor redesign.
+
+The current candidate qualifies for the standing **T3-bare waiver**: compared
+with v1.4.0, the installed apt packages, miniforge bootstrap and runtime pins
+are unchanged. #285 changes only unused Chrome-source cleanup and apt retry
+behavior on hosted CI runners, where that path is exercised directly. This
+does not waive T3, the operator walkthrough, source fidelity or full-corpus
+acceptance. Reassess the waiver if platform inputs change before release.
 
 ## v1.6 — preserved skills and usage
 
