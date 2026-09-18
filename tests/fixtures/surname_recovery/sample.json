@@ -1,0 +1,733 @@
+{
+  "library_revision": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+  "sample_scope": "Fourteen source-reviewed candidate occurrences across six papers, two correctly accented source controls from two additional papers, and four separately graded synthetic controls. Selected cases, not a representative corpus sample.",
+  "rows": [
+    {
+      "id": "mapstone-1971",
+      "image": "mapstone-1971.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/M/Mapstone2009.pdf",
+      "pdf_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+      "physical_page": 47,
+      "bbox": [
+        295.81561279296875,
+        108.98880004882812,
+        370.0156555175781,
+        125.8624038696289
+      ],
+      "dpi": 600,
+      "observed": "Alvarifio 1971",
+      "printed": "Alvariño 1971",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "80076fd690d7a6cef1b4a175b0cc2562bfd5fb92a93a1ee897697cf0adef3cec",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Alvariño",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "Alvariño 1971),",
+            "names": [
+              "Alvariño"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "Alvariño 1971),",
+            "names": [
+              "Alvariño"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mapstone-1991",
+      "image": "mapstone-1991.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/M/Mapstone2009.pdf",
+      "pdf_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+      "physical_page": 47,
+      "bbox": [
+        297.37640380859375,
+        661.233642578125,
+        374.7484436035156,
+        678.1072387695312
+      ],
+      "dpi": 600,
+      "observed": "Alvarifio 1991",
+      "printed": "Alvariño 1991",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "714bfaa88381ad709175d50aaa8f3db016531471a9b3ffc376bc754f1f5f0ed5",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Alvariño",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "(Alvariño 1991;",
+            "names": [
+              "Alvariño"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "(Alvariño 1991;",
+            "names": [
+              "Alvariño"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "printed-misspelling",
+      "image": "printed-misspelling.png",
+      "origin": "synthetic_Times-Roman_12pt",
+      "observed": "Alvarifio 1991",
+      "printed": "Alvarifio 1991",
+      "requires_repair": false,
+      "candidate_expected": true,
+      "dpi": 600,
+      "image_sha256": "d22b277a59543415e22beb1c2c19104aa534625e650587b55f024e49d3611f89",
+      "capture_ocr": {
+        "status": "source_supports_observed_spelling",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "Alvarifio 1991",
+            "names": [
+              "Alvarifio"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "Alvarifio 1991...",
+            "names": [
+              "Alvarifio"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "legitimate-fi",
+      "image": "legitimate-fi.png",
+      "origin": "synthetic_Times-Roman_12pt",
+      "observed": "Pacifici 1991",
+      "printed": "Pacifici 1991",
+      "requires_repair": false,
+      "candidate_expected": false,
+      "dpi": 600,
+      "image_sha256": "dbc4225850b582ae389406a55baea35303087b4085a133dc3e85d718815b2669"
+    },
+    {
+      "id": "unrelated-name",
+      "image": "unrelated-name.png",
+      "origin": "synthetic_Times-Roman_12pt",
+      "observed": "Affifi 1991",
+      "printed": "Affifi 1991",
+      "requires_repair": false,
+      "candidate_expected": false,
+      "dpi": 600,
+      "image_sha256": "a7941e1f4fbf4cd0107b1b3546314716acbc5d18d8a001637901259ede3752dd"
+    },
+    {
+      "id": "correct-unicode",
+      "image": "correct-unicode.png",
+      "origin": "synthetic_Times-Roman_12pt",
+      "observed": "Alvariño 1991",
+      "printed": "Alvariño 1991",
+      "requires_repair": false,
+      "candidate_expected": false,
+      "dpi": 600,
+      "image_sha256": "d900db377d1a997e16a3a473ff93c44fe18b5f2b55853403a0ded348adc8a33a"
+    },
+    {
+      "id": "Alvarinoetal1990-p11-Alvarino-1981",
+      "image": "Alvarinoetal1990-p11-Alvarino-1981.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/A/Alvarinoetal1990.pdf",
+      "pdf_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+      "physical_page": 11,
+      "bbox": [
+        413.4625244140625,
+        453.644287109375,
+        485.9390563964844,
+        468.5168762207031
+      ],
+      "dpi": 600,
+      "observed": "Alvarino 1981",
+      "printed": "Alvariño 1981",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "42b412d20cb84488d4beabd5ab20b1ded925c8a93f196c4f06a5d330def83b34",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Alvariño",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "[Alvariño, 1981 a].",
+            "names": [
+              "Alvariño"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "[Alvariño, 1981a].",
+            "names": [
+              "Alvariño"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Alvarinoetal1990-p13-Vanhoffen-1906",
+      "image": "Alvarinoetal1990-p13-Vanhoffen-1906.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/A/Alvarinoetal1990.pdf",
+      "pdf_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+      "physical_page": 13,
+      "bbox": [
+        206.34100341796875,
+        569.3282470703125,
+        280.2460021972656,
+        584.2008666992188
+      ],
+      "dpi": 600,
+      "observed": "Vanhoffen 1906",
+      "printed": "Vanhöffen 1906",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "5f94d6d611559f4bab01c3b183bea49dc8b32cc27d1b96d1af768d3f45a49c05",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Vanhöffen",
+        "ocr_outputs": [
+          {
+            "language": "deu",
+            "psm": 6,
+            "text": "[Vanhöffen, 1906].",
+            "names": [
+              "Vanhöffen"
+            ]
+          },
+          {
+            "language": "deu",
+            "psm": 13,
+            "text": "[Vanhöffen, 1906].",
+            "names": [
+              "Vanhöffen"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Alvarinoetal1990-p14-Alvarifio-1981",
+      "image": "Alvarinoetal1990-p14-Alvarifio-1981.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/A/Alvarinoetal1990.pdf",
+      "pdf_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+      "physical_page": 14,
+      "bbox": [
+        55.862396240234375,
+        543.4039916992188,
+        130.4874725341797,
+        558.276611328125
+      ],
+      "dpi": 600,
+      "observed": "Alvarifio 1981",
+      "printed": "Alvariño 1981",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "f01e1120f82fb30d7a6583175e0a2e2346b53559ed4ddb013ad619858e67b089",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Alvariño",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "[Alvariño, 1981al.",
+            "names": [
+              "Alvariño"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "[Alvariño, 1981a].",
+            "names": [
+              "Alvariño"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Alvarinoetal1990-p15-Forskal-1775",
+      "image": "Alvarinoetal1990-p15-Forskal-1775.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/A/Alvarinoetal1990.pdf",
+      "pdf_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+      "physical_page": 15,
+      "bbox": [
+        358.29693603515625,
+        652.4609985351562,
+        420.3019714355469,
+        666.4500122070312
+      ],
+      "dpi": 600,
+      "observed": "Forskal 1775",
+      "printed": "Forskål 1775",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "4b61de439360707b936d0230149cd52c01d18fdcec01773933a315a9dfa07d46",
+      "capture_ocr": {
+        "status": "ocr_disagreement",
+        "ocr_outputs": [
+          {
+            "language": "lat",
+            "psm": 6,
+            "text": "(Forskál, 1775)",
+            "names": [
+              "Forskál"
+            ]
+          },
+          {
+            "language": "lat",
+            "psm": 13,
+            "text": "(Forskàl, 1775)",
+            "names": [
+              "Forskàl"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Pages_Pugh_Gili1994-p16-Alvariiio-1976",
+      "image": "Pages_Pugh_Gili1994-p16-Alvariiio-1976.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/P/Pages_Pugh_Gili1994.pdf",
+      "pdf_sha256": "674e93c848b36a1e60a216c2bafd99f7ca69f2e31392f7fc639350404a207313",
+      "physical_page": 16,
+      "bbox": [
+        46.0,
+        269.5325927734375,
+        125.03594207763672,
+        284.0453796386719
+      ],
+      "dpi": 600,
+      "observed": "Alvariiio 1976",
+      "printed": "Alvariño 1976",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "4baea97cd2b84191549436587efa90f688c0cc0df0d352286bd973800f0b5b57",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Alvariño",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "(Alvariño, 1976). ”",
+            "names": [
+              "Alvariño"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "(Alvariño, 1976).",
+            "names": [
+              "Alvariño"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Pugh2001_Erenna-p1-Alvariiio-1980",
+      "image": "Pugh2001_Erenna-p1-Alvariiio-1980.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/P/Pugh2001_Erenna.pdf",
+      "pdf_sha256": "4fe914163f598ecb4fa0d964e35fe8ac9794979c3893b433490b099986b6ceb1",
+      "physical_page": 1,
+      "bbox": [
+        479.39886474609375,
+        483.64105224609375,
+        543.2291259765625,
+        496.60406494140625
+      ],
+      "dpi": 600,
+      "observed": "Alvariiio 1980",
+      "printed": "Alvariño 1980",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "431dfa890427bb49c5baa72298e1f75f8f33ab91b7f7877c0c97b37a25d0f720",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Alvariño",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "Alvariño, 1980:",
+            "names": [
+              "Alvariño"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "Alvariño, 1980;",
+            "names": [
+              "Alvariño"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Mapstone_Pugh2004-p2-Forskiil-1775",
+      "image": "Mapstone_Pugh2004-p2-Forskiil-1775.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/M/Mapstone_Pugh2004.pdf",
+      "pdf_sha256": "724ff05cda67630b9cbe167f6944a64bc82b25c1580a97a4a5a73734e62a089d",
+      "physical_page": 2,
+      "bbox": [
+        122.0999984741211,
+        155.2926788330078,
+        192.5435028076172,
+        169.80548095703125
+      ],
+      "dpi": 600,
+      "observed": "Forskiil 1775",
+      "printed": "Forskål 1775",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "e7345c7a5495d5976861252c4ec42ed051dbdb36c0e62dd3bf3928984d68de55",
+      "capture_ocr": {
+        "status": "ocr_disagreement",
+        "ocr_outputs": [
+          {
+            "language": "lat",
+            "psm": 6,
+            "text": "Forskál, 1775).",
+            "names": [
+              "Forskál"
+            ]
+          },
+          {
+            "language": "lat",
+            "psm": 13,
+            "text": "Forskál, 1775).",
+            "names": [
+              "Forskál"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Mapstone_Pugh2004-p2-Alvariiio-1981",
+      "image": "Mapstone_Pugh2004-p2-Alvariiio-1981.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/M/Mapstone_Pugh2004.pdf",
+      "pdf_sha256": "724ff05cda67630b9cbe167f6944a64bc82b25c1580a97a4a5a73734e62a089d",
+      "physical_page": 2,
+      "bbox": [
+        238.49952697753906,
+        491.292724609375,
+        310.78387451171875,
+        505.8055114746094
+      ],
+      "dpi": 600,
+      "observed": "Alvariiio 1981",
+      "printed": "Alvariño 1981",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "f39b4f22a1a2d4cab239276e35b5c32ea61eed10e1c7d15353db0ccc981aacdc",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Alvariño",
+        "ocr_outputs": [
+          {
+            "language": "spa",
+            "psm": 6,
+            "text": "Alvariño, 1981,",
+            "names": [
+              "Alvariño"
+            ]
+          },
+          {
+            "language": "spa",
+            "psm": 13,
+            "text": "Alvariño, 1981,",
+            "names": [
+              "Alvariño"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Mapstone_Pugh2004-p3-Carre-1969",
+      "image": "Mapstone_Pugh2004-p3-Carre-1969.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/M/Mapstone_Pugh2004.pdf",
+      "pdf_sha256": "724ff05cda67630b9cbe167f6944a64bc82b25c1580a97a4a5a73734e62a089d",
+      "physical_page": 3,
+      "bbox": [
+        95.9000015258789,
+        191.09278869628906,
+        157.88198852539062,
+        205.6055908203125
+      ],
+      "dpi": 600,
+      "observed": "Carre 1969",
+      "printed": "Carré 1969",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "8178fe2b0dbea18a7fe18b92e9c4709ccd4a2300758bc1d98906f2124894a0aa",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Carré",
+        "ocr_outputs": [
+          {
+            "language": "fra",
+            "psm": 6,
+            "text": "(Carré, 1969)",
+            "names": [
+              "Carré"
+            ]
+          },
+          {
+            "language": "fra",
+            "psm": 13,
+            "text": "(Carré, 1969).",
+            "names": [
+              "Carré"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Mapstone_Pugh2004-p3-Carre-1978",
+      "image": "Mapstone_Pugh2004-p3-Carre-1978.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/M/Mapstone_Pugh2004.pdf",
+      "pdf_sha256": "724ff05cda67630b9cbe167f6944a64bc82b25c1580a97a4a5a73734e62a089d",
+      "physical_page": 3,
+      "bbox": [
+        213.0,
+        238.7928009033203,
+        272.42633056640625,
+        253.30560302734375
+      ],
+      "dpi": 600,
+      "observed": "Carre 1978",
+      "printed": "Carré 1978",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "f2b39618dff8151109b1eb4d3042568c79326441ffcf909b99f9723c4c2b7ab8",
+      "capture_ocr": {
+        "status": "verified",
+        "replacement": "Carré",
+        "ocr_outputs": [
+          {
+            "language": "fra",
+            "psm": 6,
+            "text": "Carré, 1978,",
+            "names": [
+              "Carré"
+            ]
+          },
+          {
+            "language": "fra",
+            "psm": 13,
+            "text": "Carré, 1978,",
+            "names": [
+              "Carré"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Pugh_Gasca2009-p6-Forskal-1775",
+      "image": "Pugh_Gasca2009-p6-Forskal-1775.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/P/Pugh_Gasca2009.pdf",
+      "pdf_sha256": "7562a83aecc621d15bd3f9f9a3b5c549ed8b3b96ebf02571513b88ffe0c48e96",
+      "physical_page": 6,
+      "bbox": [
+        151.32080078125,
+        251.210693359375,
+        200.29443359375,
+        265.0160827636719
+      ],
+      "dpi": 600,
+      "observed": "Forskal 1775",
+      "printed": "Forskål 1775",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "c0c1bcfe8d5b288aebce0b546b1643eed34d4a6cc29b1b882f68cb6fb754cb7c",
+      "capture_ocr": {
+        "status": "ocr_disagreement",
+        "ocr_outputs": [
+          {
+            "language": "lat",
+            "psm": 6,
+            "text": "Forskàl, 1775",
+            "names": [
+              "Forskàl"
+            ]
+          },
+          {
+            "language": "lat",
+            "psm": 13,
+            "text": "Forskàl, 1775",
+            "names": [
+              "Forskàl"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Pugh_Gasca2009-p7-Forskiil-1776",
+      "image": "Pugh_Gasca2009-p7-Forskiil-1776.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/P/Pugh_Gasca2009.pdf",
+      "pdf_sha256": "7562a83aecc621d15bd3f9f9a3b5c549ed8b3b96ebf02571513b88ffe0c48e96",
+      "physical_page": 7,
+      "bbox": [
+        154.61790466308594,
+        657.800048828125,
+        208.92575073242188,
+        671.8722534179688
+      ],
+      "dpi": 600,
+      "observed": "Forskiil 1776",
+      "printed": "Forskål 1776",
+      "requires_repair": true,
+      "candidate_expected": true,
+      "image_sha256": "23aa40146e1f04d034c5cb9f22c2b4ca434e7cbce575296c2fdff434ac50562a",
+      "capture_ocr": {
+        "status": "ocr_disagreement",
+        "ocr_outputs": [
+          {
+            "language": "lat",
+            "psm": 6,
+            "text": "(Forskál, 1776)",
+            "names": [
+              "Forskál"
+            ]
+          },
+          {
+            "language": "lat",
+            "psm": 13,
+            "text": "(Forskál, 1776)",
+            "names": [
+              "Forskál"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "Hosiaetal2024-p19-correct-accent",
+      "image": "Hosiaetal2024-p19-correct-accent.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/H_J/Hosiaetal2024.pdf",
+      "pdf_sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+      "physical_page": 19,
+      "bbox": [
+        77.76704406738281,
+        374.672119140625,
+        139.741455078125,
+        386.672119140625
+      ],
+      "dpi": 600,
+      "observed": "Alvariño, 1971",
+      "printed": "Alvariño, 1971",
+      "requires_repair": false,
+      "candidate_expected": false,
+      "image_sha256": "0a4a8b63e63a2a32a154c7f9a68b29d6c1f3731346e69257243aaab63d50a756"
+    },
+    {
+      "id": "Manko_etal2023-p2-correct-accent",
+      "image": "Manko_etal2023-p2-correct-accent.png",
+      "origin": "source_pdf",
+      "pdf_path": "library/M/Manko_etal2023.pdf",
+      "pdf_sha256": "e06de9aa54beb17a4d6e833c06729ec4f6caff728a4ccd435d1df2ca1c5a265c",
+      "physical_page": 2,
+      "bbox": [
+        473.3529968261719,
+        571.218017578125,
+        534.1551513671875,
+        584.6788330078125
+      ],
+      "dpi": 600,
+      "observed": "Carré 1969a",
+      "printed": "Carré 1969a",
+      "requires_repair": false,
+      "candidate_expected": false,
+      "image_sha256": "b15f3bf6ffcb4ffb0d7fa71b592ea15aa4601d7ccd4482ff948900231208b1b9"
+    }
+  ],
+  "source_sampling": "Fixed six-paper filename list in this order; first up to four citation-shaped near-name proposals with unique native name/year geometry per paper, in native page order; plus the two reported Mapstone page47 occurrences. Selected sample, not random or representative. Correctly accented negative controls are the first uniquely anchored catalog author/year citation in Hosiaetal2024.pdf and Manko_etal2023.pdf.",
+  "capture_producer": {
+    "policy": "curated-author-year-source-ocr-consensus-v1",
+    "catalog_sha256": "018059e1ae190b9c1f5086d77af8d6a3c0e66b447d32ccf8ca95c7e0766fdff1",
+    "dpi": 600,
+    "ocr_modes": [
+      6,
+      13
+    ],
+    "dictionary_hints": false,
+    "max_candidates_per_page": 12,
+    "max_candidates_per_document": 64,
+    "timeout_seconds": 15,
+    "max_crop_pixels": 2000000,
+    "models": {
+      "deu": "8407331d6aa0229dc927685c01a7938fc5a641d1a9524f74838cdac599f0d06e",
+      "eng": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
+      "fra": "907743d98915c91a3906dfbf6e48b97598346698fe53aaa797e1a064ffcac913",
+      "lat": "60054dd32ac03ebd9b4f87d0665bd491a7ffe0d3ee99ceb91aefaf348b65e94f",
+      "spa": "e2c1ffdad8b30f26c45d4017a9183d3a7f9aa69e59918be4f88b126fac99ab2c"
+    },
+    "pymupdf_version": "1.28.0",
+    "available": true,
+    "executable": "/home/claude/miniforge3/envs/corpus/bin/tesseract",
+    "version": "tesseract 5.5.2\n leptonica-1.87.0\n  libgif 5.2.2 : libjpeg 8d (libjpeg-turbo 3.1.2) : libpng 1.6.58 : libtiff 4.7.2 : zlib 1.3.2 : libwebp 1.6.0 : libopenjp2 2.5.4\n Found AVX2\n Found AVX\n Found FMA\n Found SSE4.1\n Found OpenMP 201511\n Found libarchive 3.8.9 zlib/1.3.2 liblzma/5.8.3 bz2lib/1.0.8 liblz4/1.10.0 libzstd/1.5.7 liblzo2/2.10 openssl/3.5.7 libb2/bundled"
+  },
+  "source_search_files": [
+    "Alvarinoetal1990.pdf",
+    "Pages_Pugh_Gili1994.pdf",
+    "Pugh2001_Erenna.pdf",
+    "Mapstone_Pugh2004.pdf",
+    "Pugh1992c_Prayoides.pdf",
+    "Pugh_Gasca2009.pdf"
+  ],
+  "source_control_search_files": [
+    "Hosiaetal2024.pdf",
+    "Manko_etal2023.pdf"
+  ]
+}

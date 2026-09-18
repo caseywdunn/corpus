@@ -1967,6 +1967,7 @@ def _rebuild_reference_materialization(
     bhl_api_key: str,
     bhl_max_year: Optional[int],
     bhl_stats: Optional[Dict[str, int]] = None,
+    surname_reports: Optional[Dict] = None,
 ) -> Tuple[int, int]:
     """Derive current mappings and the frozen ``citations`` view from evidence."""
     observations = _active_reference_observations(conn)
@@ -2009,6 +2010,11 @@ def _rebuild_reference_materialization(
         if disposition == "quarantined_fragment":
             record(conn, observation_id, disposition, reasons)
             continue
+        from .surname_evidence import supported_reference
+        ref, surname_reasons = supported_reference(ref, (surname_reports or {}).get(corpus_hash))
+        reasons.extend(surname_reasons)
+        if any(reason.get("requires_source_review") for reason in surname_reasons):
+            disposition = "review_needed"
         supported_id, year_reasons = adjudicate(ref, year_candidates)
         reasons.extend(year_reasons)
         if year_reasons and not supported_id:
@@ -2163,9 +2169,12 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
         changed = True
 
     from .documents import work_map
+    from .surname_evidence import load_source_reports
+    surname_reports = load_source_reports(output_dir)
     corpus_identity = {
         "producer": REFERENCE_MAPPING_PRODUCER,
         "quality_producer": QUALITY_PRODUCER,
+        "surname_source_reports": surname_reports,
         # Requested enrichment is a materialization input too. Do not retain
         # API secrets (or their hashes) in receipts; availability is enough to
         # distinguish a formerly unavailable optional capability.
@@ -2189,6 +2198,7 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
             conn, enrich_bhl=enrich_bhl, bhl_api_key=bhl_api_key,
             bhl_max_year=bhl_max_year,
             bhl_stats=bhl_stats,
+            surname_reports=surname_reports,
         )
     else:
         n_citations = n_new_works = 0
