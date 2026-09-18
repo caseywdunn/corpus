@@ -32,6 +32,21 @@ and observation-specific unresolved identities unless an independent DOI is
 available. They cannot acquire guessed surname aliases or attract clean
 references through reverse-order fuzzy matching/reconciliation.
 
+`already_legible_chinese.json` adds a separate genuine negative control from
+Liu et al. 2012, physical page 2: the Chinese title
+`哥斯达黎加外海夏季表层浮游动物种类组成及分布`. The retained v1.2.1 served title matches
+the native glyphs and the separately rendered, visually checked source crop
+`liu2012_legible_title.png`. Its JSON records the source PDF hash, exact title
+bounds, native character boxes, retained artifact hash and heading offsets.
+The one-item Docling wrapper used in the test is an explicit reconstruction;
+its `text` label is a test choice, not a claimed new layout-model prediction.
+No fresh Docling conversion was run for this control. With
+`CORPUS_LIBRARY_DIR` set, the test replays the actual source region through
+encoding recovery, serialization, real HybridChunker with a local word counter,
+and bounded chunk retrieval. It requires no repair, no added repair receipt and
+the same readable title throughout. This establishes only this title region;
+it does not establish Liu's entire paper or the wider Chinese cluster.
+
 These tests do not establish complete-document or full-corpus fidelity. Fresh
 current-policy OCR pilots of Boysen-Ennen1987 page 12 and Mapstone2009 page 47
 still produce `Finge` and `Alvarifio`; #312/#315 remain under investigation.
