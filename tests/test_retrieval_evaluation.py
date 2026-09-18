@@ -91,6 +91,12 @@ def test_missing_source_review_or_runs_block_release_acceptance():
     assert report["missing_unassisted_runs"] == [{"query_id": "q", "variant": "original"}]
     c = capture(m, [{"error": "embedding unavailable"}])
     assert evaluate(m, c)["status"] == "blocked"
+    c = capture(m, [hit()])
+    c["runs"][0]["rows"] = [{"error": "original call failed"}]
+    report = evaluate(m, c)
+    assert all(g["status"] == "pass" for g in report["gates"])
+    assert report["status"] == "blocked"
+    assert report["failed_unassisted_runs"] == [{"query_id": "q", "variant": "original"}]
 
 
 def test_assisted_recovery_never_relabels_unassisted_failure():
@@ -172,13 +178,17 @@ def test_independent_source_sampling_is_reproducible_deduplicated_and_ungraded(t
     assert len(queries) == 10 and all(q["targets"] == [] for q in queries)
     assert all("paper_hash" not in q["call"] for q in queries)  # unassisted corpus-wide retrieval
     assert m["queries"][0]["targets"]  # input manifest not mutated
+    queries[0]["targets"] = [target(queries[0]["source_review_candidate"]["paper_hash"],
+                                    queries[0]["source_review_candidate"]["pages"][0])]
+    repeated = sample_independent(result, tmp_path, 10, 320)
+    assert repeated["independent_sampling"] == sample
 
 
 def test_enrichment_uses_materialized_source_metadata_without_inference(tmp_path):
     directory = tmp_path / "documents" / "abc"
     directory.mkdir(parents=True)
     artifact = {"treatment_context_policy": "source_treatments_v2", "chunks": [{
-        "chunk_id": "c1", "source_items": [{"page": 4}],
+        "chunk_id": "c1", "source_items": [{"page": 1, "source_page": 4}],
         "tables": [{"table_ref": "#/tables/2"}],
     }]}
     (directory / "chunks.json").write_text(json.dumps(artifact))
@@ -192,6 +202,23 @@ def test_enrichment_uses_materialized_source_metadata_without_inference(tmp_path
     (directory / "chunks.json").write_text(json.dumps(artifact))
     naive = enrich_rows([dict(hit(), chunk_id="c1")], tmp_path, {})
     assert naive[0]["table_metadata_available"] is False
+
+
+def test_independent_source_exclusion_uses_original_physical_pages(tmp_path):
+    m = manifest()
+    m["queries"][0]["group"] = "audit"
+    directory = tmp_path / "documents" / "abc"
+    directory.mkdir(parents=True)
+    row = {"chunk_id": "c1", "section_type": "diagnosis",
+           "treatment_context": {"status": "resolved", "name": "Species example"},
+           "source_items": [{"page": 1, "source_page": 4}]}
+    (directory / "chunks.json").write_text(json.dumps({"chunks": [row]}))
+    result = sample_independent(m, tmp_path, 10, 320)
+    assert result["independent_sampling"]["eligible_units"] == 0
+    row["source_items"][0]["source_page"] = 8
+    (directory / "chunks.json").write_text(json.dumps({"chunks": [row]}))
+    result = sample_independent(m, tmp_path, 10, 320)
+    assert result["independent_sampling"]["selection"][0]["pages"] == [8]
 
 
 def test_committed_verified_anchors_exist_in_the_referenced_source_fragments():

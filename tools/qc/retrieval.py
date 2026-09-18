@@ -160,9 +160,12 @@ def evaluate(manifest, capture):
     missing = [{"query_id": qid, "variant": variant} for qid in queries
                for variant in ("original", "at5", "at10")
                if (qid, "unassisted", variant) not in seen]
+    errors = [{"query_id": r["query_id"], "variant": r["variant"]} for r in reports
+              if r["mode"] == "unassisted" and r["execution_error"]]
     return {"manifest_sha256": digest(manifest), "run_identity": capture["identity"],
             "missing_unassisted_runs": missing,
-            "status": "blocked" if missing or any(g["status"] == "blocked" for g in gates)
+            "failed_unassisted_runs": errors,
+            "status": "blocked" if missing or errors or any(g["status"] == "blocked" for g in gates)
             else "fail" if any(g["status"] == "fail" for g in gates) else "pass",
             "gates": gates, "queries": reports,
             "interpretation": "Selected workflow benchmark; hit rates are not a deployment-wide failure rate. "
@@ -203,7 +206,9 @@ def enrich_rows(rows, output_dir, cache):
                             bool(artifact.get("treatment_context_policy")))
         chunks, available = cache[paper]
         chunk = chunks.get(row.get("chunk_id"), {})
-        row["source_pages"] = sorted({p["page"] for p in chunk.get("source_items", []) if p.get("page")})
+        row["source_pages"] = sorted({p.get("source_page", p.get("page"))
+                                       for p in chunk.get("source_items", [])
+                                       if p.get("source_page", p.get("page"))})
         row["table_refs"] = sorted({t["table_ref"] for t in chunk.get("tables", []) if t.get("table_ref")})
         row["table_metadata_available"] = available and bool(chunk) and (
             bool(chunk.get("source_items")) or "tables" in chunk)
@@ -249,7 +254,8 @@ def sample_independent(manifest, output_dir, count, seed):
     regions are excluded. Selection round-robins a seeded paper order so a
     single large treatment cannot fill the held-out set.
     """
-    excluded = {(t["paper_hash"], p) for q in manifest["queries"] for t in q.get("targets", [])
+    excluded = {(t["paper_hash"], p) for q in manifest["queries"] if q["group"] != "independent"
+                for t in q.get("targets", [])
                 for p in t.get("pages", [])}
     population = {}
     for path in sorted((output_dir / "documents").glob("*/chunks.json")):
@@ -258,7 +264,8 @@ def sample_independent(manifest, output_dir, count, seed):
             treatment = row.get("treatment_context", {})
             is_key = bool(row.get("key_branches")) or any(t.get("kind") == "identification_key" for t in row.get("tables", []))
             kind = "key" if is_key else "diagnosis" if row.get("section_type") == "diagnosis" else None
-            pages = sorted({i["page"] for i in row.get("source_items", []) if i.get("page")})
+            pages = sorted({i.get("source_page", i.get("page")) for i in row.get("source_items", [])
+                            if i.get("source_page", i.get("page"))})
             if not kind or not pages or any((paper, p) in excluded for p in pages):
                 continue
             subject = treatment.get("name") if treatment.get("status") == "resolved" else None
@@ -297,7 +304,7 @@ def sample_independent(manifest, output_dir, count, seed):
     result["independent_sampling"] = {"seed": seed, "population_sha256": digest(pool),
         "eligible_units": len(pool), "eligible_papers": len(by_paper), "requested": count,
         "selected": len(selected), "selected_papers": len({s["paper_hash"] for s in selected}),
-        "rule": "Materialized diagnosis/key source units; exclude all manifest target pages; seeded paper round-robin.",
+        "rule": "Materialized diagnosis/key source units; exclude fixed-query target pages; seeded paper round-robin.",
         "review_status": "pending_source_review; freeze source-graded targets before any ranking experiment",
         "selection": selected}
     return result
