@@ -172,6 +172,18 @@ def extract_docling_content(
         result = converter.convert(str(pdf_path))
         document = result.document
 
+        from .source_layout import recover_panel_caption_roles, repair_reading_order
+        from .scientific_text import prepare_scientific_text
+        from .table_structure import prepare_table_structure, export_source_markdown
+        from .treatment_context import recover_section_headings
+        source_text_integrity = {
+            "scientific_notation": prepare_scientific_text(document, pdf_path),
+            "section_headings": recover_section_headings(document, pdf_path),
+            "caption_roles": recover_panel_caption_roles(document),
+            "reading_order": repair_reading_order(document),
+            "table_structure": prepare_table_structure(document, pdf_path),
+        }
+
         # Extract text from docling if available
         text_content = {
             # #198 — record which device produced this. Two corpuscles that
@@ -180,8 +192,9 @@ def extract_docling_content(
             # comparison the #98 version pins exist to make possible.
             "accelerator": device,
             "title": document.name,
-            "text": document.export_to_markdown(),
+            "text": export_source_markdown(document),
             "pages": len(document.pages) if hasattr(document, "pages") else None,
+            "source_text_integrity": source_text_integrity,
         }
     except ImportError as e:
         logger.error("Docling not available (%s); cannot extract text", e)
