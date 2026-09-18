@@ -257,6 +257,127 @@ def test_missing_or_disagreeing_ocr_leaves_original_and_reports_reason(monkeypat
         "ocr_disagreement" if outputs else "ocr_unavailable")
 
 
+def test_actual_mixed_font_source_retains_disagreeing_ocr_and_taxon(monkeypatch):
+    doc, fixture = load("DuClos_etal2022-6-mixed-font")
+    fake_source(monkeypatch, fixture, ocr=True, outputs=fixture["ocr_observation"]["outputs"])
+    original = doc.texts[0].text
+    report = prepare_table_structure(doc, "source.pdf")
+    observation = report["source_gap_observations"][0]
+    assert observation["status"] == "ocr_disagreement"
+    assert observation["accepted"] == []
+    assert observation["isolated_font_runs"] is True
+    assert observation["choices"][0]["boundaries"] == [4, 13, 15, 21, 27, 39]
+    assert observation["choices"][0]["start"] == 23
+    assert observation["text"].startswith("offree-swimmingN.bijugawere")
+    assert observation["ocr_bbox"][0] > observation["bbox"][0]
+    assert observation["crop_bbox"] == fixture["ocr_observation"]["crop_bbox_top_left"]
+    assert report["unresolved_long_runs"][0]["runs"] == [
+        "werecollectedatFridayHarborLaboratoriesbetween"]
+    assert doc.texts[0].text == original
+    assert "free-swimming N.bijuga werecollected" in original
+    assert report["space_repairs"] == []
+    reloaded = DoclingDocument.model_validate_json(doc.model_dump_json())
+    assert "N.bijuga werecollectedatFridayHarborLaboratoriesbetween" in " ".join(
+        chunk.text for chunk in chunks(reloaded))
+
+
+@pytest.mark.parametrize("existing_boundary", [True, False])
+def test_controlled_subrun_agreement_never_adds_a_font_transition_space(monkeypatch, existing_boundary):
+    """Controlled agreement tests application; actual G1 OCR above disagrees."""
+    doc, fixture = load("DuClos_etal2022-6-mixed-font")
+    if not existing_boundary:
+        doc.texts[0].text = doc.texts[0].text.replace("N.bijuga were", "N.bijugawere")
+    original = doc.texts[0].text
+    phrase = "were collected at Friday Harbor Laboratories between"
+    fake_source(monkeypatch, fixture, ocr=True, outputs=[phrase, phrase])
+    report = prepare_table_structure(doc, "source.pdf")
+    assert doc.texts[0].text == original.replace(phrase.replace(" ", ""), phrase)
+    expected_taxon_boundary = "N.bijuga were collected" if existing_boundary else "N.bijugawere collected"
+    assert expected_taxon_boundary in doc.texts[0].text
+    assert "".join(original.split()) == "".join(doc.texts[0].text.split())
+    assert report["source_gap_observations"][0]["status"] == "verified"
+    proof = report["space_repairs"][0]["evidence"][0]
+    assert proof["route"] == source_spaces.SPACE_POLICY
+    assert proof["source_gap_evidence"][0]["original"] == phrase.replace(" ", "")
+    assert proof["source_gap_evidence"][0]["source_charspan"] == [23, 69]
+    assert doc.texts[0].meta.corpus__source_spaces[0]["original"] == original
+    reloaded = DoclingDocument.model_validate_json(doc.model_dump_json())
+    assert reloaded.texts[0].text == doc.texts[0].text
+    assert reloaded.texts[0].meta.corpus__source_spaces[0]["original"] == original
+    if existing_boundary:
+        assert prepare_table_structure(reloaded, "source.pdf")["space_repairs"] == []
+
+
+def _styled_line(parts, *, transition_gap=0):
+    """Synthetic native glyphs; spaces describe geometry, never literal text."""
+    spans = []
+    x = 0
+    for index, words in enumerate(parts):
+        chars = []
+        for char in words:
+            if char == " ":
+                x += 2
+            else:
+                chars.append({"c": char, "bbox": [x, 0, x + 5, 10]})
+                x += 5
+        spans.append({"font": f"style-{index}", "size": 10, "chars": chars})
+        x += transition_gap
+    return {"dir": [1, 0], "bbox": [0, 0, x, 10], "spans": spans}
+
+
+def test_subrun_provenance_links_only_overlapping_source_observations(monkeypatch):
+    doc, fixture = load("DuClos_etal2022-6-mixed-font")
+    other = copy.deepcopy(fixture["pdf_pages"]["6"]["raw_lines"][0])
+    for box in [other["bbox"], *[s["bbox"] for s in other["spans"]],
+                *[c["bbox"] for s in other["spans"] for c in s["chars"]]]:
+        box[1] -= 200
+        box[3] -= 200
+    fixture["pdf_pages"]["6"]["raw_lines"].append(other)
+    phrase = "were collected at Friday Harbor Laboratories between"
+    fake_source(monkeypatch, fixture, ocr=True, outputs=[phrase] * 4)
+    report = prepare_table_structure(doc, "source.pdf")
+    assert len(report["source_gap_observations"]) == 2
+    assert len(report["space_repairs"][0]["evidence"][0]["source_gap_evidence"]) == 1
+
+
+@pytest.mark.parametrize("parts", [
+    ["Nesselzellkapsel", "wandverdickung"],
+    ["electroencephalograph", "ically"],
+    ["ab cd ef gh", "ij kl mn op", "qr st uv wx"],
+])
+def test_font_transitions_and_short_styled_parts_are_not_word_boundaries(parts):
+    assert source_spaces.geometric_space_candidate(_styled_line(parts, transition_gap=2)) is None
+
+
+def test_multiple_uniform_subruns_share_one_crop_and_candidate_budget(monkeypatch):
+    line = _styled_line(["firstlong another thirdword finalword", "secondlong different fourthword lastword"])
+    candidate = source_spaces.geometric_space_candidate(line)
+    assert len(candidate["choices"]) == 2
+    assert candidate["isolated_font_runs"] is True
+    # Exact letters and supported internal gaps; the style junction stays joined.
+    output = "".join(choice["candidate"] for choice in candidate["choices"])
+    calls = []
+    monkeypatch.setattr(source_spaces.shutil, "which", lambda _: "tesseract-fixture")
+    def ocr(args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(stdout=output.encode())
+    monkeypatch.setattr(source_spaces.subprocess, "run", ocr)
+    import fitz
+    crops = []
+    def pixmap(**kwargs):
+        crops.append(kwargs["clip"])
+        return SimpleNamespace(tobytes=lambda _: b"synthetic-region")
+    page = SimpleNamespace(rect=fitz.Rect(0, 0, 1000, 20), get_pixmap=pixmap)
+    producer = {"available": True, "max_candidates_per_page": 1, "dpi": 400,
+                "ocr_modes": [6, 7], "language": "eng", "timeout_seconds": 15}
+    lines, observations = source_spaces.corroborate_source_gaps(page, [candidate, candidate], producer)
+    assert len(calls) == 2 and len(crops) == 1
+    assert lines == [output]
+    assert len(observations[0]["accepted"]) == 2
+    assert observations[1]["status"] == "candidate_budget_exceeded"
+    assert "finalwordsecondlong" in lines[0]
+
+
 @pytest.mark.parametrize("text", ["Nesselzellkapselwandverdickung", "nectophoral", "nectophores",
                                   "Polymorphismehydrozoaire", "межклеточноевзаимодействие"])
 def test_multilingual_compounds_and_morphology_are_not_dictionary_split(text):

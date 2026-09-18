@@ -371,6 +371,13 @@ def prepare_table_structure(document, pdf_path):
                          for choice in entry.get("accepted", [])}
             for value, entry in zip(verified, [e for e in observations if e.get("accepted")]):
                 lines.append((entry["bbox"], value))
+                if entry.get("isolated_font_runs"):
+                    # Both OCR modes corroborate the internal gaps of these
+                    # exact native runs. A captured item must already contain
+                    # the complete run as a word: restore_source_spaces never
+                    # adds a boundary at the surrounding font transition.
+                    lines.extend((entry["bbox"], choice["candidate"])
+                                 for choice in entry["accepted"])
             # A raw no-space native line does not compete with its verified
             # geometry+OCR representation when exact-letter matching below.
             lines = [(box, value) for box, value in lines
@@ -384,8 +391,19 @@ def prepare_table_structure(document, pdf_path):
                 repaired, evidence = restore_source_spaces(original, selected)
                 if evidence:
                     for proof in evidence:
-                        if proof["original"] in confirmed:
+                        gap_evidence = [
+                            {"page": page_no, "crop_sha256": entry["crop_sha256"],
+                             "source_charspan": [choice["start"], choice["end"]],
+                             "original": choice["original"], "replacement": choice["candidate"]}
+                            for entry in observations
+                            if min(x1, entry["bbox"][2]) > max(x0, entry["bbox"][0])
+                            and min(y1, entry["bbox"][3]) > max(y0, entry["bbox"][1])
+                            for choice in entry.get("accepted", [])
+                            if choice["original"] in proof["original"]
+                            and choice["candidate"] in proof["replacement"]]
+                        if gap_evidence:
                             proof["route"] = producer["policy"]
+                            proof["source_gap_evidence"] = gap_evidence
                     item.text = repaired
                     observation = {"item_ref": owner.self_ref, "cell_index": index,
                                    "page": page_no, "bbox": bbox.model_dump(mode="json"),

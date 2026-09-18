@@ -77,6 +77,7 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
               "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY,
               "chunking.key_branch_context_policy": KEY_BRANCH_CONTEXT_POLICY}
     from .figure_rights import FIGURE_RIGHTS_VERSION
+    from .stages import SOURCE_INTEGRITY_WARNING_POLICY
     figures = {**extract, "figures.panel_detection": panel_mode,
                "figures.rights_producer": FIGURE_RIGHTS_VERSION}
     if panel_mode.startswith("vision-"):
@@ -103,7 +104,10 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
         "figure_materialization": figures,
         "figure_crossref": {**chunks, **figures},
         "huge_document_check": select("huge_document", ("max_pages",)),
-        "quality_gates": select("quality_gates", _DEFAULT_CONFIG["quality_gates"]),
+        "quality_gates": {
+            **select("quality_gates", _DEFAULT_CONFIG["quality_gates"]),
+            "quality_gates.source_integrity_warning_policy": SOURCE_INTEGRITY_WARNING_POLICY,
+        },
     }
 
 

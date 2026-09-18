@@ -16,7 +16,7 @@ import shutil
 from statistics import median
 import subprocess
 
-SPACE_POLICY = "exact-letters-geometric-gaps-ocr-intersection-v1"
+SPACE_POLICY = "exact-letters-geometric-gaps-ocr-intersection-v2"
 
 
 @lru_cache(maxsize=4)
@@ -78,35 +78,64 @@ def geometric_space_candidate(line):
         chars.extend((char, span.get("font"), span.get("size")) for char in span.get("chars", []))
     text = "".join(c[0]["c"] for c in chars)
     choices = []
+    isolated = False
     for match in re.finditer(r"[^\W\d_]{20,}", text):
-        subset = chars[match.start():match.end()]
-        if len({(font, size) for _, font, size in subset}) != 1:
-            continue
-        widths = [c["bbox"][2] - c["bbox"][0] for c, _, _ in subset]
-        width = median(widths)
-        if width <= 0:
-            continue
-        gaps = [right[0]["bbox"][0] - left[0]["bbox"][2]
-                for left, right in zip(subset, subset[1:])]
-        baseline = median(gaps)
-        if baseline > width * .06 or baseline < -width * .06:
-            continue
-        threshold = max(.65, width * .2, baseline * 4 + .3)
-        boundaries = [i + 1 for i, gap in enumerate(gaps) if gap >= threshold]
-        high = [gaps[i - 1] for i in boundaries]
-        if not 3 <= len(high) <= len(gaps) * .3 or max(high) > min(high) * 1.25:
-            continue
-        candidate = match.group()
-        for i in reversed(boundaries):
-            candidate = candidate[:i] + " " + candidate[i:]
-        choices.append({"original": match.group(), "candidate": candidate,
-                        "start": match.start(), "end": match.end(),
-                        "boundaries": boundaries, "gaps": [round(v, 4) for v in high],
-                        "median_character_width": round(width, 4),
-                        "median_intra_word_gap": round(baseline, 4)})
+        # A PDF can omit the space between an italic name and upright prose.
+        # Evaluate existing uniform-font portions of that joined native run;
+        # a font transition itself is never evidence for an inserted space.
+        start = match.start()
+        portions = []
+        for end in range(start + 1, match.end()):
+            if chars[end][1:] != chars[end - 1][1:]:
+                portions.append((start, end))
+                start = end
+        portions.append((start, match.end()))
+        for start, end in portions:
+            if end - start < 20:
+                continue
+            choice = _geometric_choice(chars, text, start, end)
+            if choice:
+                choices.append(choice)
+                isolated |= len(portions) > 1
     if choices:
-        return {"text": text, "bbox": list(line["bbox"]), "choices": choices}
+        candidate = {"text": text, "bbox": list(line["bbox"]), "choices": choices}
+        if isolated:
+            # One crop per source line still covers every proposed run. Avoid
+            # making an unrelated style transition part of OCR segmentation.
+            boxes = [char["bbox"] for choice in choices
+                     for char, _, _ in chars[choice["start"]:choice["end"]]]
+            candidate["ocr_bbox"] = [min(b[0] for b in boxes), min(b[1] for b in boxes),
+                                     max(b[2] for b in boxes), max(b[3] for b in boxes)]
+            candidate["isolated_font_runs"] = True
+        return candidate
     return None
+
+
+def _geometric_choice(chars, text, start, end):
+    """Measure only internal gaps of one existing uniform-font letter run."""
+    subset = chars[start:end]
+    widths = [c["bbox"][2] - c["bbox"][0] for c, _, _ in subset]
+    width = median(widths)
+    if width <= 0:
+        return None
+    gaps = [right[0]["bbox"][0] - left[0]["bbox"][2]
+            for left, right in zip(subset, subset[1:])]
+    baseline = median(gaps)
+    if baseline > width * .06 or baseline < -width * .06:
+        return None
+    threshold = max(.65, width * .2, baseline * 4 + .3)
+    boundaries = [i + 1 for i, gap in enumerate(gaps) if gap >= threshold]
+    high = [gaps[i - 1] for i in boundaries]
+    if not 3 <= len(high) <= len(gaps) * .3 or max(high) > min(high) * 1.25:
+        return None
+    candidate = text[start:end]
+    for i in reversed(boundaries):
+        candidate = candidate[:i] + " " + candidate[i:]
+    return {"original": text[start:end], "candidate": candidate,
+            "start": start, "end": end,
+            "boundaries": boundaries, "gaps": [round(v, 4) for v in high],
+            "median_character_width": round(width, 4),
+            "median_intra_word_gap": round(baseline, 4)}
 
 
 def _supported_boundaries(original, ocr_text):
@@ -133,13 +162,15 @@ def corroborate_source_gaps(page, candidates, producer):
         if not producer["available"]:
             observations.append({**observation, "status": "ocr_unavailable"})
             continue
-        rect = fitz.Rect(candidate["bbox"]) + (-2, -2, 2, 2)
+        rect = fitz.Rect(candidate.get("ocr_bbox", candidate["bbox"])) + (-2, -2, 2, 2)
         rect &= page.rect
         # No page raster retained; only one small candidate line at a time.
         if rect.width * rect.height * (producer["dpi"] / 72) ** 2 > 4_000_000:
             observations.append({**observation, "status": "crop_pixel_budget_exceeded"})
             continue
         png = page.get_pixmap(clip=rect, dpi=producer["dpi"], alpha=False).tobytes("png")
+        observation.update({"crop_bbox": list(rect), "crop_dpi": producer["dpi"],
+                            "crop_sha256": hashlib.sha256(png).hexdigest()})
         outputs = []
         try:
             for mode in producer["ocr_modes"]:
@@ -162,7 +193,6 @@ def corroborate_source_gaps(page, candidates, producer):
                 repaired = repaired[:choice["start"]] + choice["candidate"] + repaired[choice["end"]:]
                 accepted.append(choice)
         observations.append({**observation, "ocr_outputs": outputs,
-                             "crop_sha256": hashlib.sha256(png).hexdigest(),
                              "accepted": accepted, "status": "verified" if accepted else "ocr_disagreement"})
         if accepted:
             lines.append(repaired)

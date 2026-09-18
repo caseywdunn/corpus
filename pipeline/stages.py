@@ -507,6 +507,9 @@ def _meaningful_extracted_text(raw: str) -> str:
     return _DOCLING_IMAGE_PLACEHOLDER_RE.sub("", raw or "").strip()
 
 
+SOURCE_INTEGRITY_WARNING_POLICY = "source-integrity-unresolved-union-v1"
+
+
 def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     """Cheap silent-failure detectors against the produced artifacts (#36).
 
@@ -546,8 +549,16 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     # receipts visible in status even when the words look superficially clean.
     integrity = text.get("source_text_integrity", {}) if isinstance(text, dict) else {}
     for producer, receipt in integrity.items():
-        if isinstance(receipt, dict) and receipt.get("unresolved"):
-            count = len(receipt["unresolved"])
+        if not isinstance(receipt, dict):
+            continue
+        # Long runs include legitimate compounds: these are review candidates,
+        # not an error census. A producer may expose the same observation under
+        # both receipt fields; count it once without losing distinct evidence.
+        unresolved = {json.dumps(item, sort_keys=True, ensure_ascii=False)
+                      for field in ("unresolved", "unresolved_long_runs")
+                      for item in receipt.get(field) or []}
+        if unresolved:
+            count = len(unresolved)
             flags.append({"gate": "source_text_integrity", "severity": "warning",
                           "detail": f"{producer}: {count} source-text candidates need review; see text.json provenance",
                           "metric": count})

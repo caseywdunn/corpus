@@ -28,6 +28,27 @@ model downloads. Actual source-page replay on the same producer repaired the
 primary phrase and two additional gap-supported runs; a fourth proposed run
 was retained because both OCR modes omitted a geometric boundary. That is a
 reviewable disagreement, not a successful repair or a corpus-wide error count.
+The extra three runs' individual OCR receipts were not retained; their earlier
+aggregate outcome is not a source-graded accepted-repair precision denominator.
+
+The additional `DuClos_etal2022-6-mixed-font.json` retains an unchanged item
+from that actual page capture and fresh regional OCR observations. Its native
+PDF joins italic `N.bijuga` to upright
+`werecollectedatFridayHarborLaboratoriesbetween`. The v2 spacing policy proposes
+only internal gaps of existing uniform-font portions, with the same numeric
+thresholds and both-mode exact-letter agreement. It never proposes a space at
+the font transition. Multiple portions still share one crop and two OCR calls
+within the original eight-line page budget; the actual crop bounds and hash
+are recorded alongside full native-line offsets.
+
+**This named phrase remains unresolved:** fresh full-line and narrowed-region
+mode 7 OCR both omit the `at | Friday` boundary. The original Docling text and
+`N.bijuga` spacing stay unchanged, and `ocr_disagreement` is retained. The
+controlled agreement tests exercise safe application and preservation of all
+letters/outer boundaries; they are explicitly not passing source OCR evidence.
+These captures used the existing stored Docling item, not a fresh extraction.
+Unresolved long-run receipts now also produce the existing review warning;
+they are not automatically counted as spacing errors or forcibly segmented.
 
 `pipeline.table_structure` runs before Markdown and chunk production. Logical
 cells retain row/column indexes and spans; extraction Markdown uses actual HTML

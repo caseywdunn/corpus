@@ -488,6 +488,19 @@ def test_ocr_producer_identity_invalidates_source_consumers_only(monkeypatch):
         assert before[stage]==after[stage]
 
 
+def test_spacing_subrun_policy_invalidates_extraction_and_consumers(monkeypatch):
+    from pipeline import source_spaces
+    monkeypatch.setattr(source_spaces.shutil, 'which', lambda _: None)
+    current = config_fingerprints({}, panel_mode='ocr')
+    monkeypatch.setattr(source_spaces, 'SPACE_POLICY', 'exact-letters-geometric-gaps-ocr-intersection-v1')
+    previous = config_fingerprints({}, panel_mode='ocr')
+    for stage in ('docling_extraction', 'text_chunking', 'taxa_and_lexicon_extraction',
+                  'figure_materialization', 'figure_crossref'):
+        assert current[stage] != previous[stage]
+    for stage in ('scan_detection', 'pdf_preparation', 'metadata_extraction'):
+        assert current[stage] == previous[stage]
+
+
 def test_native_recovery_changes_reprepare_and_retire_old_evidence(corpus, monkeypatch):
     """Exercise both resume gates and the scratch extraction publication path."""
     import shutil
