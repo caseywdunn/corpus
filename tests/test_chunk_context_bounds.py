@@ -110,3 +110,21 @@ def test_untrusted_nested_treatment_metadata_cannot_exceed_row_cap():
     assert context_bytes(row) <= MAX_CONTEXT_ROW_BYTES
     assert row["context_projection"]["truncated"]
     assert row["context_projection"]["records"]["text_integrity"]["available"] == 1000
+
+
+@pytest.mark.parametrize("with_text,limit", [(False,32), (True,96)])
+@pytest.mark.parametrize("field", ["original_native_token", "decoded_hint", "original_tokens"])
+def test_original_native_source_tokens_use_the_advertised_prose_preview(field,with_text,limit):
+    source="Quelltext-ä"*20
+    observation={field:[source] if field=="original_tokens" else source,
+                 "charspan":[40,40+len(source)],"source_bbox":[1,2,3,4]}
+    before=copy.deepcopy(observation)
+    row=ContextProjection(with_text=with_text).project({"text_integrity":[observation]})
+    returned=row["text_integrity"][0]
+    preview=returned[field][0] if field=="original_tokens" else returned[field]
+    assert preview=={"preview":source[:limit],"char_count":len(source),
+                     "preview_charspan":[0,limit],"truncated":True}
+    assert returned["charspan"]==observation["charspan"]
+    assert returned["source_bbox"]==observation["source_bbox"]
+    assert row["context_projection"]["truncated"] is True
+    assert observation==before
