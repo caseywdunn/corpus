@@ -103,6 +103,17 @@ claim. The replay also verifies receipt transfer into temporary extraction
 outputs. Resume tests cover producer/model changes, retirement of obsolete
 receipts, clean-build equivalence and an unchanged rerun.
 
+Saved source cases also pass through real HybridChunker, the production
+embedding callback, temporary LanceDB storage and bounded `get_chunks` calls.
+The exact callback inputs and stored row texts retain the reviewed signs,
+units, exponents, caption equations and German repair. An inexpensive recording
+backend checks the input contract; it does not measure semantic model quality.
+Unchanged notation and date-range controls survive, changed source text makes
+the old embedding receipt stale, and an unchanged rerun skips the backend.
+The German pilot has no figures, so it establishes no German caption result.
+See `tests/fixtures/text_integrity/materialized/README.md` for captured-artifact
+origins and limits; broader scientific precision/recall remains pending.
+
 The #315 surname policy uses curated author/year candidates and requires two
 unhinted regional OCR readings to agree. Its selected source sample covers
 14 proposals across six papers: ten repairs agree with visual source review,

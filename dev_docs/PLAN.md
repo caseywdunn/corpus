@@ -147,7 +147,10 @@ decision provenance; document how old bundles obtain repaired mappings.
   text, chunks and embedding input. Word coverage alone cannot validate these
   semantics because its normalization removes punctuation. Source-glyph and
   raster-supported repairs are implemented, with the falsely encoded Kidwai
-  dash retained as a negative control; integrated release replay remains.
+  dash retained as a negative control. Saved source cases now preserve signs,
+  units and exponents through real chunking, the production embedding callback,
+  vector-row text and bounded serving. Broader source-graded precision/recall
+  and integrated release replay remain.
   `[plane:build]`
 - [ ] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
@@ -155,7 +158,10 @@ decision provenance; document how old bundles obtain repaired mappings.
   treatment propagation and context-preserving chunk boundaries are integrated.
   Ordinary dated headings cannot create species treatments; global Results
   headings clear the prior context. Served provenance has explicit per-row and
-  shared optional-evidence limits. Complete rebuilt acceptance remains.
+  shared optional-evidence limits. Named Church and Haddock fragments now pass
+  actual serialization, split/merge and bounded retrieval, with adjacent-species,
+  missing-heading and unrepaired-order controls. Complete rebuilt acceptance
+  remains.
   `[plane:build]`
 - [ ] **#307**, **#308**, **#334** — preserve table/key cells and branch destinations,
   remove artificial repeated cell text, and recover source-supported word
@@ -169,6 +175,10 @@ decision provenance; document how old bundles obtain repaired mappings.
   acceptance boundaries. Fresh source TEI reproduces the named defects;
   coordinate-backed repair and complete-span regression checks pass while
   ambiguous/unmatched targets retain explicit status and raw observations.
+  Actual captured TEI now passes through authority materialization and rebuilt
+  in-text citations into all three citation/graph routes: the wrong Oderberg
+  paragraph link is absent, both Fraser years and the unambiguous Pugh groups
+  retain their source spans, and unchanged refresh preserves observations.
   Production/gold replay remains a release gate. `[plane:build]`
 
 Corrected text must invalidate downstream chunks, annotations, references and
