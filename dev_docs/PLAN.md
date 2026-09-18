@@ -50,7 +50,10 @@ mechanisms. Detector hits are review populations, not error counts.
   v1.4.0. Bring forward the existing root-replacement warning and honest help
   text for **#298** — `[plane:build]`; this does not add multi-root ingestion.
 - [ ] **#285** — remove the unused Chrome repository from the affected CI
-  runners before apt update; verify the actual runner path. *No plane.*
+  runners before apt update; verify the actual runner path. Both workflow
+  steps now identify/remove existing Chrome `.list` or `.sources` files and
+  retry transient downloads; YAML/shell checks pass. Hosted-runner execution
+  remains to confirm the actual image's source paths. *No plane.*
 - [ ] Inventory the audit cases against the existing gold source manifest and
   add explicit expectations for the failure mechanisms. *No plane; validation.*
   Reuse the existing 35-document siphonophore gold corpuscle and independent

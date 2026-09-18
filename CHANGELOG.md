@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Hosted-runner integration and clean-room jobs remove unused Chrome apt
+  sources before package refresh and retry transient downloads (#285). The
+  job logs identify any source file actually removed.
+
 - Citation formatting and reference lookup share author/year query parsing,
   including `et al.`, `and`, `&`, initials, surname particles and Unicode
   diacritics. Correct additional author/title text retains matching works or
