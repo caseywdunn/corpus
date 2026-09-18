@@ -553,6 +553,34 @@ def _scrub_input_fingerprint_path(serve_path: Path) -> bool:
     return True
 
 
+def _scrub_text_producer_path(serve_path: Path) -> bool:
+    """Keep the surname OCR producer portable in copied text.json receipts.
+
+    The build needs the absolute executable to run OCR and fingerprint its
+    inputs. The served copy needs its program name, version and model hashes,
+    not a path on another machine. Touch only this known runtime-path field;
+    source prose, decisions and the original build receipt remain unchanged.
+    Unknown future path fields still reach the ordinary bundle audit.
+    """
+    try:
+        data = json.loads(serve_path.read_text())
+    except (OSError, ValueError):
+        return False
+    producer = data
+    for key in ("source_text_integrity", "surnames", "producer"):
+        if not isinstance(producer, dict):
+            return False
+        producer = producer.get(key)
+    if not isinstance(producer, dict):
+        return False
+    executable = producer.get("executable")
+    if not isinstance(executable, str) or not Path(executable).is_absolute():
+        return False
+    producer["executable"] = Path(executable).name
+    serve_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    return True
+
+
 def _scrub_figures(serve_path: Path, output_root: Path) -> bool:
     """Rewrite absolute-path fields in a copied figures.json.
 
@@ -901,6 +929,8 @@ def _populate_bundle(output_dir, serve_dir, version, include_pdfs, dry_run, mode
             if _scrub_summary(hash_dir / "summary.json", output_dir):
                 n_scrubbed += 1
             if _scrub_figures(hash_dir / "figures.json", output_dir):
+                n_scrubbed += 1
+            if _scrub_text_producer_path(hash_dir / "text.json"):
                 n_scrubbed += 1
             # taxa.json + every lexicon <category>.json carry an
             # input_fingerprint.path → strip absolute prefix (#70).
