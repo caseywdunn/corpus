@@ -30,6 +30,9 @@ was retained because both OCR modes omitted a geometric boundary. That is a
 reviewable disagreement, not a successful repair or a corpus-wide error count.
 The extra three runs' individual OCR receipts were not retained; their earlier
 aggregate outcome is not a source-graded accepted-repair precision denominator.
+The [frozen 13-decision spacing review](spacing_review_2026_09_18/README.md)
+preserves the separate source grades, denominators, uncertainty and crop hashes,
+with instructions to re-render every region from hash-verified originals.
 
 The additional `DuClos_etal2022-6-mixed-font.json` retains an unchanged item
 from that actual page capture and fresh regional OCR observations. Its native
