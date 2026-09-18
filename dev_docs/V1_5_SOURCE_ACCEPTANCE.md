@@ -86,6 +86,13 @@ caption, `Nanomia bijuga`, `5301±8525`, and the exponent in `ind./100m³` in
 saved text/chunks. Encoding receipts survived into chunk metadata without
 being serialized into source prose. This is a two-page production-path pilot,
 not a full-paper build, embedding evaluation, or corpus acceptance.
+Bounded chunk discovery/fetch and figure-record/image calls now replay those
+saved artifacts: the returned caption matches the source and returned image
+bytes match the saved figure, with the complete pilot inventory unchanged.
+A source-verified, already-legible Liu2012 title survives encoding recovery,
+serialization, chunking and serving without edits. That control reconstructs
+one text item from captured source geometry; it makes no fresh conversion or
+whole-paper fidelity claim. See `tests/fixtures/text_encoding/README.md`.
 
 The current default classifier independently identifies Boysen-Ennen1987 and
 Mapstone2009 as scans and selects force-OCR. One-page pilots preserving those
