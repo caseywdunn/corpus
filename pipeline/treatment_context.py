@@ -58,7 +58,7 @@ def recover_section_headings(document, pdf_path):
                 rect = fitz.Rect(box[1:])+(-2,-2,2,2)
                 pix = pdf[box[0]-1].get_pixmap(clip=rect, dpi=450)
                 try:
-                    result = subprocess.run([executable,"stdin","stdout","--psm","7"],
+                    result = subprocess.run([executable,"stdin","stdout","-l","eng","--psm","7"],
                                             input=pix.tobytes("png"), capture_output=True, timeout=10)
                     reading = re.sub(r"[^a-z]", "", result.stdout.decode("utf-8", errors="replace").lower())
                     confirmed = result.returncode == 0 and reading == options[0][1]

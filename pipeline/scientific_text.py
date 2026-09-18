@@ -110,7 +110,7 @@ def _micro_ocr(page, glyph, next_glyph):
     box += (-2,-2,2,2)
     pix = page.get_pixmap(clip=box, dpi=600)
     try:
-        result = subprocess.run([executable, "stdin", "stdout", "--psm", "7"],
+        result = subprocess.run([executable, "stdin", "stdout", "-l", "eng", "--psm", "7"],
                                 input=pix.tobytes("png"), capture_output=True, timeout=10)
     except (OSError, subprocess.TimeoutExpired):
         return False

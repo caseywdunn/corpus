@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Scientific text recovery retains source evidence for signs, units, exponents,
+  Chinese encoding and overlapping accent glyphs (#303, #306, #316).
+  Multi-column order, enclosing species treatments, table cells and key
+  branches remain structured through chunking (#304, #307, #308, #319, #334).
+  Uncertain source readings stay visible; extraction policy and OCR producer
+  changes invalidate dependent artifacts.
+
+- Reference quality preserves observations while quarantining supported
+  caption debris and surfacing uncertain fragments and incomplete surnames
+  (#313, #316). Source-supported publication-year adjudication repairs mappings
+  without changing the parsed/raw history (#314).
+
+- Caption-specific taxon evidence is materialized after figure processing,
+  including unambiguous contextual abbreviations (#323). Figure routes share
+  the stored evidence; legacy bundles require rebuilding for abbreviation links.
+
 - Citation excerpts recover grouped source text from prepared-PDF coordinates
   and validate complete author/year spans, including shared-author year lists
   (#309, #317). Raw TEI surfaces and targets remain inspectable; ambiguous or

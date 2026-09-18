@@ -70,11 +70,29 @@ Rows are an inventory, not completion claims.
   from the specifically failing passages in Pugh, Oderberg and Mapstone. Their
   provenance and measured limits are documented in
   `tests/fixtures/citation_spans/README.md`.
-- Remaining encoding, notation, reading-order, table/key and word-boundary cases
-  require source-based expectations before any recovery policy is accepted.
-  Existing multilingual gold pages provide controls, but do not establish that
-  the named failure mechanisms are covered. Retain only the minimum additional
-  page evidence needed for a regression; keep full PDFs in the external library.
+- Encoding/accent assertions and compact native-glyph evidence are in
+  `tests/fixtures/text_encoding`; scientific notation and treatment/order
+  expectations are in `tests/fixtures/text_integrity`; logical tables, key
+  branches and word boundaries are in `tests/fixtures/table_structure`.
+  Their READMEs distinguish fresh reproductions, controlled historical forms,
+  source-printed anomalies and unresolved readings. Full PDFs remain external.
+
+## Integrated source pilots
+
+A CPU extraction/chunking pilot on 2026-09-18 used copies of Tung2003 physical
+pages 30 and 84 (mapped to pilot pages 1 and 2), preserving their source
+geometry. It passed source assertions for the Chinese heading and figure-1
+caption, `Nanomia bijuga`, `5301±8525`, and the exponent in `ind./100m³` in
+saved text/chunks. Encoding receipts survived into chunk metadata without
+being serialized into source prose. This is a two-page production-path pilot,
+not a full-paper build, embedding evaluation, or corpus acceptance.
+
+The current default classifier independently identifies Boysen-Ennen1987 and
+Mapstone2009 as scans and selects force-OCR. One-page pilots preserving those
+full-document decisions remove the old German mojibake but still misread
+`Fänge` as `Finge` and `Alvariño` as `Alvarifio`. Regional source OCR can recover
+the printed forms; #312/#315 still need a corroborated recovery policy and
+appropriate negative controls. Do not count the routing change alone as repair.
 
 ## Acceptance still required
 

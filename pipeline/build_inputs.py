@@ -35,7 +35,24 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
             **select("stage_timeouts", ("ocr", "ocr_per_page"))}
     extract = {**prep, **select("figures", ("resolution_mode", "images_scale", "vector_dpi", "max_dpi")),
                "compute.accelerator": cfg.get("compute", {}).get("accelerator", "auto")}
-    chunks = {**extract, **select("chunking", ("max_tokens",))}
+    from .source_layout import SOURCE_LAYOUT_POLICY
+    from .scientific_text import SCIENTIFIC_TEXT_POLICY
+    from .text_encoding import TEXT_ENCODING_POLICY
+    from .source_spaces import source_spacing_producer
+    from .treatment_context import TREATMENT_CONTEXT_POLICY
+    # These build decisions change stored evidence even when package/config
+    # versions are unchanged. English OCR availability/model identity also
+    # governs rendered heading and scientific-unit corroboration.
+    extract.update({
+        "extraction.source_layout_policy": SOURCE_LAYOUT_POLICY,
+        "extraction.scientific_notation_policy": SCIENTIFIC_TEXT_POLICY,
+        "extraction.text_encoding_policy": TEXT_ENCODING_POLICY,
+        "extraction.table_structure_policy": "logical-cells-key-geometry-source-spaces-v1",
+        "extraction.source_spacing_producer": source_spacing_producer(),
+        "extraction.section_heading_policy": "rendered_section_heading_v1",
+    })
+    chunks = {**extract, **select("chunking", ("max_tokens",)),
+              "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY}
     from .figure_rights import FIGURE_RIGHTS_VERSION
     figures = {**extract, "figures.panel_detection": panel_mode,
                "figures.rights_producer": FIGURE_RIGHTS_VERSION}

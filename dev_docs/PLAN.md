@@ -49,11 +49,12 @@ mechanisms. Detector hits are review populations, not error counts.
 - [x] Preserve the enhancement branch and create the correctness branch from
   v1.4.0. Bring forward the existing root-replacement warning and honest help
   text for **#298** — `[plane:build]`; this does not add multi-root ingestion.
-- [ ] **#285** — remove the unused Chrome repository from the affected CI
+- [x] **#285** — remove the unused Chrome repository from the affected CI
   runners before apt update; verify the actual runner path. Both workflow
   steps now identify/remove existing Chrome `.list` or `.sources` files and
-  retry transient downloads; YAML/shell checks pass. Hosted-runner execution
-  remains to confirm the actual image's source paths. *No plane.*
+  retry transient downloads. Hosted integration run `35375772899` passed and
+  confirms removal of `/etc/apt/sources.list.d/google-chrome.sources`;
+  clean-room run `35375772962` and T0 run `35375772896` also passed. *No plane.*
 - [ ] Inventory the audit cases against the existing gold source manifest and
   add explicit expectations for the failure mechanisms. *No plane; validation.*
   Reuse the existing 35-document siphonophore gold corpuscle and independent
@@ -97,7 +98,10 @@ mechanisms. Detector hits are review populations, not error counts.
 - [ ] **#313**, then **#314** — preserve raw reference observations while
   distinguishing parse debris and resolving source-supported publication-year
   conflicts before ranking missing works. Depends on trustworthy identities;
-  do not use broad title-only merges. `[plane:build]`
+  do not use broad title-only merges. Implemented with conservative fragment
+  quarantine, visible uncertainty, source-supported per-observation year
+  adjudication and shared-edge deduplication. Raw evidence remains unchanged;
+  rebuilt-corpus acceptance remains. `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
 Unicode and ordered authors, duplicate-scan controls, distinct parts sharing an
@@ -110,16 +114,29 @@ decision provenance; document how old bundles obtain repaired mappings.
 - [ ] **#306**, **#312**, **#315**, **#316** — reproduce and distinguish Big5-like
   text-layer corruption, other mojibake, surname substitutions and spacing
   diacritics/truncated names. Use source images and correct negative controls;
-  no global replacement or guessed correction is sufficient. `[plane:build]`
+  no global replacement or guessed correction is sufficient. #306 and #316
+  now have same-region byte corroboration and geometric accent recovery,
+  source replay, idempotence and conflicting-number controls. Incomplete
+  surnames remain reviewable without guessed aliases or reverse-order merges.
+  Fresh default-OCR pilots still misread the German and Mapstone examples;
+  #312/#315 require further source-backed recovery. `[plane:build]`
 - [ ] **#303** — preserve scientific signs, units and exponents through stored
   text, chunks and embedding input. Word coverage alone cannot validate these
-  semantics because its normalization removes punctuation. `[plane:build]`
+  semantics because its normalization removes punctuation. Source-glyph and
+  raster-supported repairs are implemented, with the falsely encoded Kidwai
+  dash retained as a negative control; integrated release replay remains.
+  `[plane:build]`
 - [ ] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
-  Wrong element order and missing headings need separate checks. `[plane:build]`
+  Wrong element order and missing headings need separate checks. Source order,
+  treatment propagation and context-preserving chunk boundaries are integrated;
+  bounded serving and complete rebuilt acceptance remain. `[plane:build]`
 - [ ] **#307**, **#308**, **#334** — preserve table/key cells and branch destinations,
   remove artificial repeated cell text, and recover source-supported word
-  boundaries without splitting legitimate compounds. `[plane:build]`
+  boundaries without splitting legitimate compounds. Logical-cell/key
+  serialization and source-supported Hissmann/DuClos spacing are implemented.
+  The source-printed Mapstone p200 typography is preserved; Daniel's disputed
+  spelling remains explicit. Rebuilt retrieval acceptance remains. `[plane:build]`
 - [x] **#309**, **#317** — validate complete citation spans and preserve the
   source paragraph across grouped citations; trace original TEI as well as
   extracted artifacts. Link validation and text preservation are separate
@@ -158,7 +175,10 @@ before claiming an old OCR-routing defect persists.
   Boundary/tie regressions pass; integrated corpus replay remains in the
   release acceptance gate. `[plane:serve]`
 - [ ] **#323** — match unambiguous caption abbreviations without inventing
-  associations. `[plane:build]`
+  associations. Post-build caption links and evidence are now materialized from
+  final figures, chunks and taxonomy with content receipts. Both figure routes
+  use those links; legacy bundles expose unavailable provenance. Source Hosia
+  checks pass; rebuilt bundle acceptance remains. `[plane:build]`
 - [x] **#327** — expose consistent structured refusal reasons while preserving
   successful MCP image responses. Actual MCP result conversion is covered by
   the regression suite; integrated audit replay remains a release gate.

@@ -173,10 +173,12 @@ def extract_docling_content(
         document = result.document
 
         from .source_layout import recover_panel_caption_roles, repair_reading_order
+        from .text_encoding import recover_text_encoding
         from .scientific_text import prepare_scientific_text
         from .table_structure import prepare_table_structure, export_source_markdown
         from .treatment_context import recover_section_headings
         source_text_integrity = {
+            "encoding": recover_text_encoding(document, pdf_path),
             "scientific_notation": prepare_scientific_text(document, pdf_path),
             "section_headings": recover_section_headings(document, pdf_path),
             "caption_roles": recover_panel_caption_roles(document),

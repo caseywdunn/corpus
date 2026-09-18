@@ -435,3 +435,38 @@ def test_ref_coordinates_invalidate_legacy_tei_receipt(tei_cache):
     assert len(c.calls) == 2
     c.run()
     assert len(c.calls) == 2
+
+
+def test_extraction_policy_change_refreshes_evidence_and_matches_clean(corpus, monkeypatch):
+    from pipeline import text_encoding
+    def extract(pdf,text,figures,images,**kwargs):
+        text.write_text(json.dumps({'text':'Recovered text using '+text_encoding.TEXT_ENCODING_POLICY}))
+        figures.write_text(json.dumps({'figures':[]}))
+    monkeypatch.setattr(runner,'extract_docling_content',extract)
+    corpus.run()
+    before=stages._load_pipeline_state(corpus.hd())['stages']
+    monkeypatch.setattr(text_encoding,'TEXT_ENCODING_POLICY','source-encoding-updated-test-policy')
+    corpus.run()
+    after=stages._load_pipeline_state(corpus.hd())['stages']
+    for stage in ('scan_detection','pdf_preparation','metadata_extraction'):
+        assert before[stage]==after[stage]
+    assert before['docling_extraction']!=after['docling_extraction']
+    assert before['text_chunking']!=after['text_chunking']
+    changed=json.loads((corpus.hd()/'chunks.json').read_text())
+    assert 'updated-test-policy' in changed['chunks'][0]['text']
+    clean=corpus.run(destination=corpus.output.parent/'clean-policy')
+    assert changed==json.loads((corpus.hd(destination=clean)/'chunks.json').read_text())
+    stable=stages._load_pipeline_state(corpus.hd())
+    corpus.run()
+    assert stages._load_pipeline_state(corpus.hd())==stable
+
+
+def test_ocr_producer_identity_invalidates_source_consumers_only(monkeypatch):
+    from pipeline import source_spaces
+    before=config_fingerprints({},panel_mode='ocr')
+    monkeypatch.setattr(source_spaces,'source_spacing_producer',lambda:{'available':True,'traineddata_sha256':'changed'})
+    after=config_fingerprints({},panel_mode='ocr')
+    for stage in ('docling_extraction','text_chunking','taxa_and_lexicon_extraction','figure_materialization','figure_crossref'):
+        assert before[stage]!=after[stage]
+    for stage in ('scan_detection','pdf_preparation','metadata_extraction'):
+        assert before[stage]==after[stage]
