@@ -1,0 +1,137 @@
+# Source-graded retrieval evaluation
+
+`tools/qc/retrieval.py` measures frozen query workflows against source-reviewed
+passages. It calls the existing `get_chunks_for_topic` implementation and does
+not change ranking, embeddings or artifacts. This is operator tooling; nothing
+in `pipeline/` or the server imports it.
+
+The [siphonophore worked example](examples/siphonophore_retrieval_evaluation.json)
+preserves the seven exact requests and three prose controls from issue #320,
+plus two explicit historical-intent controls. Its source targets come from the
+small source fragments already used for extraction regressions. The prose
+control labels and independent sample still require source review. Consequently
+the supplied manifest **cannot yet pass release acceptance**. Its thresholds
+are predefined release acceptance targets, not demonstrated retrieval quality.
+
+## Freeze the evidence before tuning
+
+Use the existing gold corpuscle as the candidate population. A separate large
+corpuscle is unnecessary. Generate an independent set from materialized
+diagnosis/key units before inspecting their retrieval rankings:
+
+```bash
+python tools/qc/retrieval.py sample \
+  --manifest dev_docs/examples/siphonophore_retrieval_evaluation.json \
+  --output-dir /path/to/rebuilt/output --count 20 --seed 3202026 \
+  --out /tmp/retrieval-review.json
+```
+
+The sampler excludes the fixed manifest's target pages, deduplicates split
+chunks describing the same source unit, and uses a seeded paper order so a
+large paper cannot occupy the whole sample. It records the full selection,
+eligible population count and digest, seed, and selected-paper count. This is
+a sample of **materialized** diagnostic/key units in that corpus, not all
+possible scientific questions or unrecognized treatments. Missing or small
+populations remain explicit; do not silently replace difficult selections.
+
+Review the selected PDF pages independently of retrieval results, write a
+natural query about each source unit, and add source targets. The generated
+queries are drafts; finalize them before capture. Also source-grade the prose
+controls. Each target records:
+
+- A stable target ID, PDF short hash and physical pages.
+- `source` evidence, including the source PDF hash and page/region or committed
+  source-fragment pointer, with the review basis.
+- `review_status="source_verified"` only after source review.
+- `all_text` passage anchors and grade 0 (irrelevant), 1 (topical context), or
+  2 (answer-bearing diagnostic/key/prose evidence).
+
+Use distinctive content anchors, not a taxon name or heading alone. A key
+heading in a table of contents does not establish retrieval of key branches.
+The Erenna nectophore request already retrieved part of that key in the audit;
+the manifest credits a relevant branch and separately tests the exact bract-key
+request. A grade-2 hit means useful evidence was retrieved, not that a full
+species comparison or complete identification key was recovered. Known-target
+coverage is reported separately. Unmatched results remain **unjudged**, not
+proven irrelevant; this is not precision or exhaustive recall measurement.
+
+Freeze and retain the reviewed manifest before changing a ranker. Its complete
+SHA-256 is recorded in each capture. The scorer refuses a capture from a
+different manifest, preventing after-the-fact label changes from silently
+changing the result. Correcting a label requires a documented new manifest and
+both reference and candidate captures under that manifest.
+
+## Capture the unchanged and candidate workflows
+
+```bash
+python tools/qc/retrieval.py capture --manifest /tmp/retrieval-reviewed.json \
+  --output-dir /path/to/reference/output --label retained-reference --role reference \
+  --out /tmp/retrieval-reference.json
+python tools/qc/retrieval.py capture --manifest /tmp/retrieval-reviewed.json \
+  --output-dir /path/to/candidate/output --label candidate-build --role candidate \
+  --out /tmp/retrieval-candidate.json
+```
+
+Capture runs the original call with its exact arguments and separate calls at
+5 and 10 results. Corpus-wide requests remain corpus-wide; original paper
+restrictions remain intact. The local route uses the bundle's query embedder
+and the same MCP retrieval function, and may load its model. Use the normal
+offline model cache for controlled runs. Retain raw results, bundle manifest,
+embedding identity, paper-population digest and run label. Query failures are
+recorded as operational errors and block acceptance.
+
+Do not identify a retained older output as the audited deployment. In the
+worked example, `output1.2.1` is a separate reference; the issue audited
+`1.4.0.dev0`, bundle timestamp `2026-09-09T09:23:59Z`, pipeline SHA
+`734be4cfc301531bdcf90a1d23c2956bcbeed2fd`. Neither identity substitutes for a
+fresh candidate build. Capture records `historical_audit_equivalence` as
+unasserted; compare recorded identities explicitly.
+
+To record assisted recovery, append a run with `mode="assisted"`, the same
+`query_id`, a unique `variant` describing the workflow, its actual `call` and
+returned `rows`. Paper discovery, narrowed queries and direct diagnosis fetches
+belong here. These rows are scored separately and never improve an unassisted
+gate. Preserve the actual assistance steps alongside the capture.
+
+## Score and compare
+
+```bash
+python tools/qc/retrieval.py score --manifest /tmp/retrieval-reviewed.json \
+  --capture /tmp/retrieval-reference.json --out /tmp/reference-score.json
+python tools/qc/retrieval.py score --manifest /tmp/retrieval-reviewed.json \
+  --capture /tmp/retrieval-candidate.json --out /tmp/candidate-score.json
+python tools/qc/retrieval.py compare --reference /tmp/reference-score.json \
+  --candidate /tmp/candidate-score.json --out /tmp/retrieval-comparison.json
+```
+
+`score` and `compare` exit 2 for failed or incomplete acceptance, while still
+writing the report. The worked example's pre-tuning targets are:
+
+| Group | Hit@5 | Hit@10 | Minimum source-reviewed set |
+| --- | --- | --- | --- |
+| Selected audit queries | 6/7 | 7/7 | All seven exact queries |
+| Prose controls | 3/3 | 3/3 | All three controls |
+| Historical-intent controls | 2/2 | 2/2 | Both controls |
+| Independent diagnostic/key sample | 0.80 | 0.90 | Ten queries from at least five papers |
+
+Missing labels, absent required runs, insufficient independent coverage, or
+query execution errors block acceptance. Passing these gates is separate from
+demonstrating an improvement: comparison requires increased independent hit
+rate at either depth without a decrease at the other depth or in controls, and
+a candidate that passes all gates. Historical evidence must remain retrievable
+for historical requests; no universal recency preference is implied.
+
+Each query/depth also reports unique-document diversity, the dominant-document
+fraction, identified table rows, repeated rows from the same source table,
+exact repeated table text, and known-positive-target coverage. Table
+continuations may contain different relevant branches, so repetition alone is
+not an error. Missing legacy table provenance yields an unknown repetition
+rate plus the observed lower bound; it never becomes an assumed zero.
+Source pages are checked when available. Old artifacts can match distinctive
+source-reviewed anchors without page metadata, with that route counted
+explicitly. Review unexpected misses and unjudged alternatives before making
+scientific quality claims.
+
+The selected audit queries are deliberately difficult examples. Their hit
+rates and the sampled materialized-unit results must not be presented as a
+deployment-wide failure percentage.

@@ -32,6 +32,16 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 
 ## What's tested
 
+### Source-graded retrieval workflows
+
+The [retrieval evaluation workflow](RETRIEVAL_EVALUATION.md) freezes source
+labels, exact query calls and release targets before ranking experiments.
+`tools/qc/retrieval.py` captures the existing local MCP route, scores hit@5/10,
+reports document/table crowding, and keeps assisted recovery separate. Missing
+source review blocks acceptance. Its siphonophore example reuses the existing
+gold corpuscle and small source fragments; it does not require another large
+fixture corpuscle.
+
 ### Scoped figure downloads and reverse proxies
 
 `tests/test_signed_figure_urls.py` covers scope tampering, expiry, restart,
