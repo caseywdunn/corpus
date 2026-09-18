@@ -311,6 +311,8 @@ def extract_docling_content(
                 "caption_confidence": caption_info.get("caption_confidence"),
                 "caption_page_distance": caption_info.get("caption_page_distance"),
                 "caption_candidates": caption_info.get("caption_candidates", []),
+                "caption_fragments": caption_info.get("caption_fragments", []),
+                "caption_completeness": caption_info.get("caption_completeness", "unverified"),
                 "figure_number": figure_number,
                 "figure_number_source": caption_info.get("figure_number_source"),
                 "bbox": bbox_meta.get("bbox"),
@@ -388,6 +390,8 @@ def extract_docling_content(
                         "caption_confidence": it.get("caption_confidence"),
                         "caption_page_distance": it.get("caption_page_distance"),
                         "caption_candidates": it.get("caption_candidates", []),
+                        "caption_fragments": it.get("caption_fragments", []),
+                        "caption_completeness": it.get("caption_completeness", "unverified"),
                         "shares_image_with": shares,
                     },
                 )
@@ -438,6 +442,8 @@ def extract_docling_content(
                 "caption_confidence": it.get("caption_confidence"),
                 "caption_page_distance": it.get("caption_page_distance"),
                 "caption_candidates": it.get("caption_candidates", []),
+                "caption_fragments": it.get("caption_fragments", []),
+                "caption_completeness": it.get("caption_completeness", "unverified"),
             }
             if it.get("figure_type") == FIGURE_TYPE_SUBPANEL:
                 meta["primary_figure_docling_idx"] = it.get("primary_figure_docling_idx")

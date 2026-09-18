@@ -314,3 +314,21 @@ records in `figures[]`, including graphical elements and distinct logical figure
 sharing one raster. They do not count unique image files. Figure-mutating passes
 recompute the total, and bundle validation rejects contradictory stored counts.
 Serving an older inconsistent artifact uses the actual record array (#332).
+
+Caption association confidence remains separate from source completeness (#322).
+`caption_completeness` defaults to `unverified` for both rebuilt and legacy
+records: neither a high-confidence structural link nor a bare figure label proves
+that every printed caption fragment was recovered. `full_caption=true` returns
+the complete **stored** caption string; it does not certify source completeness.
+This metadata is shared by direct figure lookup and figure dossiers.
+
+Caption reconstruction retains the contributing text, page and geometry in
+`caption_fragments` (long evidence fragments are explicitly marked truncated;
+the canonical caption string is not truncated). A picture-owned prose child may
+be recovered even when the layout model calls it `text`, while unrelated nearby
+body paragraphs remain excluded. A narrow caption cell that wraps around a wider
+prose line is assembled in label/body/tail order, preserving scale-bar endings.
+For adjacent extracted panels, a labelled caption beside the same picture row
+can override an erroneous unlabelled link to body prose; the rejected link and
+reason remain inspectable. These rules do not reject legitimate unlabelled,
+multilingual, bare-label or facing-page captions.

@@ -804,6 +804,10 @@ def caption_evidence_summary(figure: Dict) -> Dict:
         "caption_confidence": confidence,
         "caption_page_distance": page_distance,
         "caption_kind": kind if kind is not None else ("unknown" if caption else None),
+        # Association confidence and source completeness are independent.
+        # Neither a label nor a complete stored string proves the source's
+        # entire caption was recovered (#322).
+        "caption_completeness": figure.get("caption_completeness") or "unverified",
     }
 
 
@@ -824,11 +828,43 @@ _CROSS_PAGE_OWNER_MIN_AREA_RATIO = 0.20
 _CAPTION_EVIDENCE_TEXT_LIMIT = 600
 
 
-def _caption_bodies(document, page: int) -> List[Tuple[str, List[float]]]:
-    """Caption-labelled text fragments on one page."""
+def _picture_owns_text(picture, item) -> bool:
+    """Structural child membership, independent of a layout label (#322)."""
+    if picture is None:
+        return False
+    parent = getattr(item, "parent", None)
+    return bool(getattr(picture, "self_ref", None) and
+                getattr(parent, "cref", None) == picture.self_ref)
+
+
+def _wrapped_caption_label(label_bbox, body_bbox) -> bool:
+    """A narrow label cell wraps above and below a wider prose line."""
+    return (
+        label_bbox[3] >= body_bbox[3] - 2
+        and label_bbox[1] <= body_bbox[1] + 2
+        and label_bbox[2] - label_bbox[0] < .5 * (body_bbox[2] - body_bbox[0])
+        and _horizontal_overlap(label_bbox, body_bbox) > 0
+    )
+
+
+def _join_label_and_body(label, body, label_bbox, body_bbox):
+    """Restore label/body/tail order when one cell wraps another (#322)."""
+    match = _FIGURE_NUMBER_IN_CAPTION_RE.match(label)
+    if match and _wrapped_caption_label(label_bbox, body_bbox):
+        # E.g. "FIGURE 4 bar 1 mm." encloses a separate prose line ending
+        # "Scale". The tail belongs after that prose, not before it.
+        opener, tail = label[:match.end()], label[match.end():].strip()
+        return _join_caption_parts(opener, " ".join(x for x in (body, tail) if x))
+    return _join_caption_parts(label, body)
+
+
+def _caption_bodies(document, page: int, picture=None) -> List[Tuple[str, List[float]]]:
+    """Caption-labelled or explicitly picture-owned prose on one page."""
     out = []
     for item in getattr(document, "texts", None) or []:
-        if _item_label(item) != "caption":
+        if _item_label(item) != "caption" and not (
+            _item_label(item) == "text" and _picture_owns_text(picture, item)
+        ):
             continue
         for text, bbox, item_page in _text_fragments(item):
             if item_page == page:
@@ -836,10 +872,10 @@ def _caption_bodies(document, page: int) -> List[Tuple[str, List[float]]]:
     return out
 
 
-def _body_after_label(document, page: int, label_bbox: List[float]):
+def _body_after_label(document, page: int, label_bbox: List[float], picture=None):
     """Return a tightly adjacent caption body printed below a bare label."""
     matches = []
-    for text, bbox in _caption_bodies(document, page):
+    for text, bbox in _caption_bodies(document, page, picture):
         # In bottom-left coordinates a body printed below the label has a top
         # no higher than the label's bottom. Tolerate two points of overlap for
         # layout-model rounding, but do not jump into an unrelated paragraph.
@@ -934,7 +970,9 @@ def _label_before_body(document, page: int, body_bbox: List[float]):
             if item_page != page or not _FIGURE_NUMBER_IN_CAPTION_RE.match(text):
                 continue
             gap = bbox[1] - body_bbox[3]
-            if gap < -2.0 or gap > _CAPTION_COMPONENT_MAX_GAP_PTS:
+            if not _wrapped_caption_label(bbox, body_bbox) and (
+                gap < -2.0 or gap > _CAPTION_COMPONENT_MAX_GAP_PTS
+            ):
                 continue
             if _horizontal_overlap(bbox, body_bbox) <= 0:
                 continue
@@ -975,7 +1013,7 @@ def _substantial_picture_owns_candidate(
 def _caption_candidate(
     *, text: str, page: Optional[int], bbox: Optional[List[float]],
     source: str, picture_page: Optional[int], distance: Optional[float],
-    confidence: str,
+    confidence: str, fragments=None,
 ) -> Dict:
     figure_number = parse_figure_number(text)
     figure_number_source = "caption_start" if figure_number else None
@@ -991,6 +1029,12 @@ def _caption_candidate(
         # bounded below, but that must not truncate the canonical artifact.
         "_full_caption_text": text,
         "caption_text": text[:_CAPTION_EVIDENCE_TEXT_LIMIT],
+        "caption_fragments": [
+            {**part, "text": part["text"][:_CAPTION_EVIDENCE_TEXT_LIMIT],
+             "text_truncated": len(part["text"]) > _CAPTION_EVIDENCE_TEXT_LIMIT}
+            for part in (fragments or [{"text": text, "bbox": bbox, "page": page}])
+        ],
+        "caption_completeness": "unverified",
         "caption_page": page,
         "caption_bbox": bbox,
         "caption_source": source,
@@ -1006,6 +1050,48 @@ def _caption_candidate(
         "chosen": False,
         "rejection_reason": None,
     }
+
+
+def _caption_on_picture_row(document, picture, picture_bbox, page, candidate) -> bool:
+    """Recognize a labelled side caption beside adjacent extracted panels.
+
+    A layout model may split A/B into two picture objects and link the left
+    panel to body prose below it. Follow only a tightly adjacent same-row
+    picture chain; a caption in a different row is not competing evidence.
+    """
+    bbox = candidate.get("caption_bbox")
+    if not bbox or candidate.get("page_distance") != 0 or not candidate.get("figure_number"):
+        return False
+
+    def aligned(other):
+        overlap = max(0, min(picture_bbox[3], other[3]) - max(picture_bbox[1], other[1]))
+        height = min(picture_bbox[3] - picture_bbox[1], other[3] - other[1])
+        return height > 0 and overlap / height >= .75
+
+    def side_gap(a, b):
+        return max(a[0] - b[2], b[0] - a[2], 0)
+
+    if not aligned(bbox):
+        return False
+    remaining = []
+    for peer in getattr(document, "pictures", None) or []:
+        if peer is picture or not getattr(peer, "prov", None):
+            continue
+        peer_bbox, peer_page = _prov_to_bbox_and_page(peer.prov[0])
+        if peer_page == page and peer_bbox and aligned(peer_bbox):
+            remaining.append(peer_bbox)
+    row = list(picture_bbox)
+    while True:
+        adjacent = [b for b in remaining if side_gap(row, b) <= _CAPTION_COMPONENT_MAX_GAP_PTS]
+        if not adjacent:
+            break
+        for peer_bbox in adjacent:
+            row = _bbox_union(row, peer_bbox)
+            remaining.remove(peer_bbox)
+    # A side caption has its own column; ordinary prose inside the plot's
+    # horizontal span cannot win merely through overlapping vertical bounds.
+    return (_horizontal_overlap(row, bbox) <= 2
+            and side_gap(row, bbox) <= _CAPTION_COMPONENT_MAX_GAP_PTS)
 
 
 # ---------------------------------------------------------------------------
@@ -1442,6 +1528,26 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
                             )
                             choices.append((distance, item, entry))
                     _distance, item, entry = min(choices, key=lambda row: row[0])
+                    caption_text = entry["caption_text"]
+                    caption_bbox = entry.get("caption_bbox")
+                    fragments = None
+                    old_text = item.get("caption_text") or ""
+                    old_bbox = item.get("caption_bbox")
+                    if (old_text and not parse_figure_number(old_text)
+                            and item.get("caption_source") == "docling_caption_link"
+                            and old_bbox and caption_bbox
+                            and _wrapped_caption_label(caption_bbox, old_bbox)):
+                        # Number reconciliation must not discard the linked
+                        # prose lying between a label and its wrapped scale
+                        # tail. Preserve both pieces as source evidence (#322).
+                        fragments = [
+                            {"text": caption_text, "bbox": caption_bbox, "page": page},
+                            {"text": old_text, "bbox": old_bbox, "page": page},
+                        ]
+                        caption_text = _join_label_and_body(
+                            caption_text, old_text, caption_bbox, old_bbox,
+                        )
+                        caption_bbox = _bbox_union(caption_bbox, old_bbox)
                     old_candidates = item.get("caption_candidates") or []
                     for candidate in old_candidates:
                         candidate["chosen"] = False
@@ -1450,9 +1556,9 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
                                 "superseded_by_plate_legend_reconciliation"
                             )
                     evidence = _caption_candidate(
-                        text=entry["caption_text"],
+                        text=caption_text,
                         page=page,
-                        bbox=entry.get("caption_bbox"),
+                        bbox=caption_bbox,
                         source="plate_legend_reconciled",
                         picture_page=page,
                         distance=(
@@ -1461,6 +1567,7 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
                             else None
                         ),
                         confidence="medium",
+                        fragments=fragments,
                     )
                     evidence["chosen"] = True
                     evidence.pop("_full_caption_text", None)
@@ -1469,11 +1576,13 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
                     item.update({
                         "figure_number": entry["figure_number"],
                         "figure_number_source": "plate_legend_reconciled",
-                        "caption_text": entry["caption_text"],
+                        "caption_text": caption_text,
+                        "caption_fragments": evidence["caption_fragments"],
+                        "caption_completeness": "unverified",
                         "caption_page": page,
-                        "caption_bbox": entry.get("caption_bbox"),
+                        "caption_bbox": caption_bbox,
                         "caption_source": "plate_legend_reconciled",
-                        "caption_kind": _caption_kind(entry["caption_text"]),
+                        "caption_kind": _caption_kind(caption_text),
                         "caption_status": "bound",
                         "caption_confidence": "medium",
                         "caption_page_distance": 0,
@@ -1924,6 +2033,8 @@ def extract_caption_info(picture, document) -> Dict:
         "caption_confidence": None,
         "caption_page_distance": None,
         "caption_candidates": [],
+        "caption_fragments": [],
+        "caption_completeness": "unverified",
         "figure_number": None,
         "figure_number_source": None,
     }
@@ -1949,10 +2060,13 @@ def extract_caption_info(picture, document) -> Dict:
                         abs(row[2] - pic_page) if pic_page is not None else 0,
                     ),
                 )
+                parts = [{"text": text, "bbox": bbox, "page": page,
+                          "item_ref": getattr(target, "self_ref", None)}]
                 if _is_bare_figure_label(text):
-                    body = _body_after_label(document, page, bbox)
+                    body = _body_after_label(document, page, bbox, picture)
                     if body:
                         _gap, body_text, body_bbox = body
+                        parts.append({"text": body_text, "bbox": body_bbox, "page": page})
                         number = parse_figure_number(text)
                         text = (
                             _caption_entry_for_number(body_text, number)
@@ -1963,7 +2077,8 @@ def extract_caption_info(picture, document) -> Dict:
                     label = _label_before_body(document, page, bbox)
                     if label:
                         _gap, label_text, label_bbox = label
-                        text = _join_caption_parts(label_text, text)
+                        parts.insert(0, {"text": label_text, "bbox": label_bbox, "page": page})
+                        text = _join_label_and_body(label_text, text, label_bbox, bbox)
                         bbox = _bbox_union(label_bbox, bbox)
                 completion = _complete_panel_caption(
                     document, page, bbox, text,
@@ -1985,6 +2100,7 @@ def extract_caption_info(picture, document) -> Dict:
                     picture_page=pic_page,
                     distance=distance,
                     confidence=confidence,
+                    fragments=parts,
                 ))
         except Exception as e:
             logger.debug("docling caption resolve failed: %s", e)
@@ -1999,10 +2115,13 @@ def extract_caption_info(picture, document) -> Dict:
                     continue
                 candidate_text = text
                 candidate_bbox = bbox
+                parts = [{"text": text, "bbox": bbox, "page": page,
+                          "item_ref": getattr(text_item, "self_ref", None)}]
                 if _is_bare_figure_label(text):
-                    body = _body_after_label(document, page, bbox)
+                    body = _body_after_label(document, page, bbox, picture)
                     if body:
                         _gap, body_text, body_bbox = body
+                        parts.append({"text": body_text, "bbox": body_bbox, "page": page})
                         number = parse_figure_number(text)
                         candidate_text = (
                             _caption_entry_for_number(body_text, number)
@@ -2026,6 +2145,7 @@ def extract_caption_info(picture, document) -> Dict:
                     # of panel text appended below it.
                     distance=_vertical_gap(pic_bbox, bbox),
                     confidence=confidence,
+                    fragments=parts,
                 )
                 if page_distance and _substantial_picture_owns_candidate(
                     document, picture, pic_bbox, page, bbox,
@@ -2047,6 +2167,14 @@ def extract_caption_info(picture, document) -> Dict:
             ),
         )
         geometry_override = False
+        row_override = False
+        if chosen["caption_kind"] == "unlabelled_caption" and pic_bbox is not None:
+            side_captions = [candidate for candidate in viable if
+                             _caption_on_picture_row(document, picture, pic_bbox,
+                                                     pic_page, candidate)]
+            if side_captions:
+                chosen = min(side_captions, key=lambda c: c["distance_pts"] or 0)
+                row_override = True
         # A structural link is strong evidence, not an oracle. Dense pages can
         # link the lower picture to the preceding figure's caption. Override
         # it only when a same-page heuristic candidate names a different
@@ -2075,6 +2203,8 @@ def extract_caption_info(picture, document) -> Dict:
         for candidate in viable:
             if candidate is not chosen:
                 candidate["rejection_reason"] = (
+                    "labelled_caption_on_same_picture_row"
+                    if row_override and candidate["caption_source"] == "docling_caption_link" else
                     "materially_closer_same_page_candidate"
                     if geometry_override
                     and candidate["caption_source"] == "docling_caption_link"
@@ -2082,6 +2212,8 @@ def extract_caption_info(picture, document) -> Dict:
                 )
         info.update({
             "caption_text": chosen["_full_caption_text"],
+            "caption_fragments": chosen["caption_fragments"],
+            "caption_completeness": chosen["caption_completeness"],
             "caption_page": chosen["caption_page"],
             "caption_bbox": chosen["caption_bbox"],
             "bbox_coord_system": "pdf_pts_bottom_left",

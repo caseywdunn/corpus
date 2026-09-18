@@ -19,6 +19,7 @@ def test_explicit_build_evidence_is_preserved():
         "caption_confidence": "low",
         "caption_page_distance": 1,
         "caption_kind": "prose_caption",
+        "caption_completeness": "unverified",
     }
 
 
