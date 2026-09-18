@@ -65,18 +65,35 @@ def test_detector_and_recorded_source_decisions_on_graded_sample():
     assert CAPTURE["capture_producer"]["catalog_sha256"] == CATALOG["sha256"]
 
 
-def test_live_regional_ocr_replays_graded_source_and_printed_misspelling():
+@pytest.mark.parametrize(
+    "row",
+    [row for row in SAMPLE if row["candidate_expected"]],
+    ids=lambda row: row["id"],
+)
+def test_live_regional_ocr_replays_graded_source_and_printed_misspelling(row):
     producer = live_producer()
-    for row in SAMPLE:
-        candidates = propose(row["observed"], CATALOG)
-        if not candidates:
-            continue
-        result = adjudicate_crop(
-            (FIXTURE / row["image"]).read_bytes(), candidates[0], producer
-        )
-        assert result["status"] == row["capture_ocr"]["status"], row["id"]
+    candidate = propose(row["observed"], CATALOG)[0]
+    result = adjudicate_crop((FIXTURE / row["image"]).read_bytes(), candidate, producer)
+    evidence = {
+        "case": row["id"],
+        "version": producer["version"],
+        "models": producer["models"],
+        "result": result,
+    }
+    if not row["requires_repair"]:
+        # Different OCR engines/models can either reproduce the printed typo
+        # or disagree. Both preserve it. Neither may invent the curated name.
+        assert result["status"] in {
+            "source_supports_observed_spelling",
+            "ocr_disagreement",
+        }, evidence
+        assert "replacement" not in result, evidence
+    else:
+        # Keep the positive source acceptance strict, including the currently
+        # unresolved source cases. Changed repair behavior needs source review.
+        assert result["status"] == row["capture_ocr"]["status"], evidence
         if result["status"] == "verified":
-            assert row["requires_repair"] and result["replacement"] in row["printed"]
+            assert result["replacement"] in row["printed"], evidence
 
 
 def test_catalog_policy_is_order_independent_and_language_selection_is_declared():
@@ -352,7 +369,11 @@ def test_rotated_source_anchor_and_upright_crop_preserve_printed_alternative(rot
         image = fitz.Pixmap(png)
         assert image.width > image.height
         result = adjudicate_crop(png, proposal, producer)
-        assert result["status"] == "source_supports_observed_spelling"
+        assert result["status"] in {
+            "source_supports_observed_spelling",
+            "ocr_disagreement",
+        }
+        assert "replacement" not in result
 
 
 @pytest.mark.parametrize(
