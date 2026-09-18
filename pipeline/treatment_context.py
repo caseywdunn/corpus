@@ -186,6 +186,8 @@ def chunk_source_context(doc_items, context_by_ref):
         meta = getattr(item, "meta", None)
         text_integrity.extend(getattr(meta, "corpus__scientific_text", []) or [])
         text_integrity.extend(getattr(meta, "corpus__text_encoding", []) or [])
+        text_integrity.extend(getattr(meta, "corpus__native_text_recovery", []) or [])
+        text_integrity.extend(getattr(meta, "corpus__surname_recovery", []) or [])
         heading_repair = getattr(meta, "corpus__section_heading", None)
         if heading_repair:
             text_integrity.append(heading_repair)

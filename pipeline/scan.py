@@ -2962,18 +2962,26 @@ def prepare_pdf(
     Returns the OCR outcome — most importantly ``pages_blanked``, the pages
     the per-page timeout gave up on and left with no text (#254). The caller
     merges it into ``scan_detection.json``; ``_run_quality_gates`` reads it
-    back as the ``ocr_pages_blanked`` gate. Empty dict when no OCR ran.
+    back as the ``ocr_pages_blanked`` gate. Source-region evidence is retained
+    even when no full-page OCR ran; empty dict when neither produced a receipt.
     """
+    # Full-page OCR can erase a damaged-layer signature while introducing a
+    # different spelling error. Keep source-confirmed regional observations
+    # before replacing that layer; extraction consumes this build receipt.
+    from .native_text_recovery import inspect_native_text_regions
+    recovery = inspect_native_text_regions(input_pdf, detection_result.get("tesseract_packs"))
+    native_outcome = {"native_text_recovery": recovery} if recovery["candidate_count"] else {}
+
     if not detection_result.get("needs_ocr"):
         logger.info("Copying %s (detected as %s)",
                     input_pdf.name, detection_result.get("file_type"))
         shutil.copy2(input_pdf, output_pdf)
-        return {}
+        return native_outcome
 
     if shutil.which("ocrmypdf") is None:
         logger.warning("ocrmypdf not found on PATH, copying original PDF")
         shutil.copy2(input_pdf, output_pdf)
-        return {}
+        return native_outcome
 
     ocr_mode = detection_result.get("ocr_mode", "skip_text")
     mode_flag = {
@@ -3015,7 +3023,7 @@ def prepare_pdf(
             "No Tesseract languages available; copying original PDF (OCR skipped)"
         )
         shutil.copy2(input_pdf, output_pdf)
-        return {}
+        return native_outcome
     lang_arg = "+".join(langs)
 
     # Auto-degrade --optimize when pngquant isn't installed. ocrmypdf
@@ -3128,7 +3136,7 @@ def prepare_pdf(
         if result.stderr:
             logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
         shutil.copy2(input_pdf, output_pdf)
-        return {}
+        return native_outcome
 
     logger.info(
         "OCR completed successfully (mode=%s langs=%s)", mode_flag, lang_arg
@@ -3136,4 +3144,5 @@ def prepare_pdf(
     _log_ocr_warnings(result.stderr, input_pdf.name)
     outcome = _report_ocr_page_loss(output_pdf, input_pdf.name, result.stderr)
     outcome["ocr_jobs"] = ocr_jobs
+    outcome.update(native_outcome)
     return outcome
