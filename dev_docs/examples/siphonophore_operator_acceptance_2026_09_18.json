@@ -1,0 +1,557 @@
+{
+  "commit": "a3e638dc2003ffd7ebc0a32cefbc359d97c8461a",
+  "successful_commands": 39,
+  "source_extraction_commit": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+  "source_pdf_sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+  "unchanged_import_semantic_fields_and_authors_preserved": true,
+  "unchanged_import_provenance_changes": {
+    "bib_imported_at": [
+      1789761674.9826372,
+      1789763930.1871054
+    ],
+    "updated_at": [
+      1789761674.982848,
+      1789763930.187674
+    ],
+    "bib_key": [
+      "HosiaEtal2024",
+      "Hosia2024"
+    ],
+    "bib_source": [
+      "metadata",
+      "import"
+    ]
+  },
+  "first_import_sources_before_after": [
+    1,
+    2
+  ],
+  "export_roundtrip_byte_identical": true,
+  "dry_run_authority_byte_unchanged": true,
+  "explicit_title_edit_and_restore_verified": true,
+  "limits": [
+    "existing installed environment and copied completed one-paper build",
+    "first harness incorrectly assumed unchanged import meant identical database bytes; documented import provenance stamping (#100) intentionally updates them",
+    "no new extraction, embedding, model prefetch, or environment",
+    "full incremental build and live serving covered separately, not rerun here"
+  ],
+  "procedure": "Adapted dev_docs/clean_install_walkthrough.sh; existing installation and copied completed one-paper build.",
+  "commands": [
+    {
+      "label": "init",
+      "arguments": [
+        "init"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "0e776e2f891e4f0b3a17c3c2b59ab00bf2c821f8bf233f8ade3f27a4370658f3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "version",
+      "arguments": [
+        "--version"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "e4a7a557d62fcc80ce2548c1d9fd7dc5aca3c53dceaf3f9eda0f7736fc29ef78",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help",
+      "arguments": [
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "6fab49cd421c769941932ba7562d3cb464321c768a334d5e9cc81dd0d6184767",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "completion-bash",
+      "arguments": [
+        "completion",
+        "bash"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "3414e87eb0b5463f7d2d6d7aa49d275693dc5a3c828663023c48f4f4ff19d31f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-init",
+      "arguments": [
+        "init",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "bb7422c5ffccb7ab63a982e5ca12cf9f8c93cc991cc0abb42eac4e26e9ee544c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-run",
+      "arguments": [
+        "run",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "75603e89bcb453b908609aaaa65d7e3f3b45af10b169e7453a9af9460d2d52e7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-debug-pdf",
+      "arguments": [
+        "debug-pdf",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "424c5d0c2f9dad672ed6d5bfe1532f8fe02173f0f51ecc7a44de6d877430db0f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-status",
+      "arguments": [
+        "status",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "3ae78a542703be3ac0bd101b2a7471c00d275d045267c413e29c6bb076f3f005",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-serve",
+      "arguments": [
+        "serve",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "9ea04d5ef2bf680125bb2783b1bf49c566c4b937b21f90c5e67401a7f6086319",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-bib",
+      "arguments": [
+        "bib",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "4a55a4c22ee2a2f74e6b3a62d2388bc609c7d9d9d9632ead333b8f94496a94d7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-taxonomy",
+      "arguments": [
+        "taxonomy",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "1e359881c4ee1c6fe6f9a734b7b414c9221c5d14e2f627ed91e272729c8a49d5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-check",
+      "arguments": [
+        "check",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "258353938e27d3592cd80398aedc69ff89134917bff0843c614a8f26bcb90e29",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-prefetch",
+      "arguments": [
+        "prefetch",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "ae187563241187c9ed32492f6b905465bfab38f5af3eec1cb58c8202bc917544",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "help-completion",
+      "arguments": [
+        "completion",
+        "--help"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "ec59655d2aeaea68ec3bfa4bc87f2163fd475141423970d7523b0f379f6f2e7f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "completion-zsh",
+      "arguments": [
+        "completion",
+        "zsh"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "634b4026a339579b697d37e62cce79fdfd38e8735b98676916437c704621e7f2",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "completion-fish",
+      "arguments": [
+        "completion",
+        "fish"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "f3ec186d2f354bb2000297808d25294751c9b6421f04e123791181c281018194",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "cite-plain",
+      "arguments": [
+        "--cite"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "e1e2446ca4557800cf2c2f86d92eb617047dab1a870e38c1f55ea00b8addb385",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "cite-bibtex",
+      "arguments": [
+        "--cite=bibtex"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "93c4c7a7653dca3701ea3778751f1401b494ec4cc13f9e024caa6a6d662a348f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "check",
+      "arguments": [
+        "check"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0,
+        3
+      ],
+      "stdout_sha256": "272166ec23dd54a925b0fef19630bff7a9ac93a1823fbf657b86a46621b4d29d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "dry-run-0",
+      "arguments": [
+        "run",
+        "--dry-run"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "409c4f94af265bafa5c919473c00ca763de373322dc775591d685fe1deae135f",
+      "stderr_sha256": "be54ce78dfe3b32b6c62f17d6518a653a97689d1fe0d4bcad73fa35ff2f65599"
+    },
+    {
+      "label": "dry-run-1",
+      "arguments": [
+        "run",
+        "--dry-run",
+        "--no-vision"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "409c4f94af265bafa5c919473c00ca763de373322dc775591d685fe1deae135f",
+      "stderr_sha256": "f525e7dbe1036eb8e1f4ac7a61b2b8f45b2803cd72741854b2a21dcc2022a948"
+    },
+    {
+      "label": "dry-run-2",
+      "arguments": [
+        "run",
+        "--dry-run",
+        "--no-bundle"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "409c4f94af265bafa5c919473c00ca763de373322dc775591d685fe1deae135f",
+      "stderr_sha256": "dfdc14188ff9a5feace4e50f861464265da8b0040dacda05a5aaa98b968bcf81"
+    },
+    {
+      "label": "dry-run-3",
+      "arguments": [
+        "run",
+        "--dry-run",
+        "--no-prune"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "202e84fdbe9e73aadb25439725cbc2b89b49c130959cc62f99c82de7977e07e3",
+      "stderr_sha256": "1bfb4509383580f519da85c4607f9148d5f699f5e197e51166cc830f5e33d6a4"
+    },
+    {
+      "label": "dry-run-4",
+      "arguments": [
+        "run",
+        "--dry-run",
+        "--skip-checks"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "409c4f94af265bafa5c919473c00ca763de373322dc775591d685fe1deae135f",
+      "stderr_sha256": "49e72598008a9f7218937c52d6db8362b8bd03774b5f3d9d37314b9a2b5bd8b6"
+    },
+    {
+      "label": "dry-run-5",
+      "arguments": [
+        "run",
+        "--dry-run",
+        "--force-rebuild"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "409c4f94af265bafa5c919473c00ca763de373322dc775591d685fe1deae135f",
+      "stderr_sha256": "bdd07e62337bbb88825ddc2890ab726b9b20a1d08e2e5afeb9320a1681072bca"
+    },
+    {
+      "label": "status-report",
+      "arguments": [
+        "status",
+        "--report"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "410f6d3236bd80d21e6adc99115edd5f0a06c8f607b95284b40eae81ef5f6734",
+      "stderr_sha256": "8ced01c6265739661896f042ea015ac49302ebc64da7a8ce62160d1d4f8810d9"
+    },
+    {
+      "label": "status-json",
+      "arguments": [
+        "status",
+        "--json"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "38f2859830e39f9fd588791ee455a97d2edc7c608f43caafb30bb6519285da12",
+      "stderr_sha256": "5c6aa23f4fd59cf350aa0b9a376746e025fee7befdc94b5800a2ac34040dd8a6"
+    },
+    {
+      "label": "status-quality",
+      "arguments": [
+        "status",
+        "--sort-by",
+        "quality_flag_count",
+        "--tail",
+        "10"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "e6f7a2a30c460b7626323d4652d4737542358a5ab61e57f00c6cc3a15b8d6c6b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "status-failures",
+      "arguments": [
+        "status",
+        "--sort-by",
+        "stage_failure_count",
+        "--tail",
+        "10"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "07b182464e4e6559d94a958e0ec36fa123c31581a6cd049ac3d1583653ed2abf",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "status-propose",
+      "arguments": [
+        "status",
+        "--propose-skips",
+        "--min-flags",
+        "2"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "a946f0120d94e5f3ee34ecf8310774880a1ae7305fea9cbc9498513ec9a6f338",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "status-skipped",
+      "arguments": [
+        "status",
+        "--skipped"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "090ac70e9a1cab230cd8d446aa9156a5469c98fbc97f8fb5646aaada203bc348",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "bib-export",
+      "arguments": [
+        "bib",
+        "export",
+        "-o",
+        "<scratch>/exported.bib"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "82b1bb651d7180d0f9a803e00e5fc36eb91d8a9aef947ea49c094ccdd1733993"
+    },
+    {
+      "label": "bib-import-unchanged",
+      "arguments": [
+        "bib",
+        "import",
+        "<scratch>/exported.bib"
+      ],
+      "returncode": 0,
+      "allowed": [
+        0
+      ],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "a8c960124445704dc5b600674e55fd2f94754c75206d50e8c9647b3d471c26b9"
+    },
+    {
+      "label": "bib-export-again",
+      "arguments": [
+        "bib",
+        "export",
+        "-o",
+        "<scratch>/exported-again.bib"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "9cfc7baf023cb68dddfa384966ccbe2c8687c28399167cde390674cd632f07bb"
+    },
+    {
+      "label": "bib-import-edit-dry-run",
+      "arguments": [
+        "bib",
+        "import",
+        "<scratch>/edited-control.bib",
+        "--dry-run"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "ff318743d77e19da75c2a8534399dc1a5f768bc0b7e2e12bef4575a5fdfb0de4"
+    },
+    {
+      "label": "bib-import-edited",
+      "arguments": [
+        "bib",
+        "import",
+        "<scratch>/edited-control.bib"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "3da6d97057ff4c1bed19e1074fab9c80376e9f79388c5dcb7987d380037c447b"
+    },
+    {
+      "label": "bib-export-edited",
+      "arguments": [
+        "bib",
+        "export",
+        "-o",
+        "<scratch>/edited-export.bib"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "2e2a696ab2292ec5c5fd1a0566248919e9c0b5258c0508c083838c9615ab9fbb"
+    },
+    {
+      "label": "bib-import-restored",
+      "arguments": [
+        "bib",
+        "import",
+        "<scratch>/exported.bib"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "13990622404210bde50cb82233cfa495762e981e39c2b107dafc66d8bc62d83f"
+    },
+    {
+      "label": "bib-export-restored",
+      "arguments": [
+        "bib",
+        "export",
+        "-o",
+        "<scratch>/restored-export.bib"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c7c105e2fd347b43d4ebfb0bc78265dc4f78387d6bd446f7be9776a2edb23b63"
+    }
+  ],
+  "check_outcome": "Exit0; all prerequisites available for configured CPU/OCR mode. GPU absent; vision and embedding execution not tested.",
+  "harness_corrections": [
+    "Initial init invocation used an unsupported positional filename; the documented no-argument form passed.",
+    "The first import check assumed byte equality; #100 intentionally stamps import provenance. The corrected check verifies exact bibliographic fields/authors and byte-identical export."
+  ],
+  "completion_scope": "Partial operator walkthrough; fresh installation/build/resume/serve and final-candidate acceptance remain separate gates."
+}

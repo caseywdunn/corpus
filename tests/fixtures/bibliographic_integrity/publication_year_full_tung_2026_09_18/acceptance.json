@@ -1,0 +1,201 @@
+{
+  "started_at": "2026-09-18T20:37:26.382320+00:00",
+  "checkout": "a3e638dc2003ffd7ebc0a32cefbc359d97c8461a",
+  "pipeline_version": "1.5.0.dev0",
+  "scope": "Complete Tung source through real normal preparation and full Grobid metadata; complete references into compact two-paper authority, not full Docling/corpus build.",
+  "source_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+  "source_relative_path": "T/Tung2003.pdf",
+  "bib_sha256": "e3678544aa0de925aa86c6d3ef198271a02aefb7a7ce2cafd5f23c9c71c4c165",
+  "bib_entry": {
+    "author": "Tung, S-R.",
+    "year": "2003",
+    "title": "Species composition and seasonal distribution of siphonophores in the coastal water, southwestern Taiwan",
+    "journal": "M.Sc. Thesis. 108pp",
+    "file": "Tung2003.pdf",
+    "pagemap": "1--4 born-digital Traditional Chinese thesis title and bilingual abstract matter; 5--62 Chinese main text and references; 63--121 tables, figures, and appendices in Chinese with English scientific labels",
+    "_type": "article",
+    "_key": "Tung2003"
+  },
+  "gold_config_sha256": "5ab2ccded5d936e118bf0f6a1d829dd597ae28c72f04ee4b4c5404b4302d2295",
+  "keeppages": null,
+  "selected_source_pages": [],
+  "selection_warnings": [],
+  "grobid_container_identity": "\"541d6eddb00c0127854f48d73dcb908220f8902b598163a4f17ede203ef7e88b\" \"sha256:820a623a0234cda235d5eb83e924934162c5f0554a843cf665c339da8b51f900\" \"lfoppiano/grobid:0.8.1\" \"2026-09-18T15:16:34.236368654Z\"\n[\"lfoppiano/grobid@sha256:820a623a0234cda235d5eb83e924934162c5f0554a843cf665c339da8b51f900\"]\n",
+  "steps": [
+    {
+      "function": "pipeline.scan.detect_scan_type",
+      "seconds": 0.28191441200033296,
+      "needs_ocr": false
+    },
+    {
+      "function": "pipeline.scan.prepare_pdf",
+      "seconds": 0.6116189999993367,
+      "outcome": {},
+      "input_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+      "prepared_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+      "byte_preserving": true
+    },
+    {
+      "function": "pipeline.metadata.extract_metadata",
+      "seconds": 4.064965132998623,
+      "outcome": {
+        "outcome": "extracted",
+        "producer_id": null,
+        "fingerprint": {
+          "status": "complete",
+          "service_version": "0.8.1"
+        }
+      }
+    }
+  ],
+  "completed_at": "2026-09-18T20:37:31.713878+00:00",
+  "reference_count": 68,
+  "stored_observation_count": 68,
+  "named_observation": {
+    "observation_id": "refobs:0175ab7008f0ea58e8cbdfa0a5fc6539d4af7d241660500e3347aaf8e5878866",
+    "citing_corpus_hash": "db7338ea1867",
+    "ordinal": 40,
+    "grobid_xml_id": "b40",
+    "raw_citation": "Pugh, P. R. 1974. The vertical distribution of the siphonophores collected during the SOND cruise, 1965. Journal of Marine Biological Association of the United Kingdom. 54: 25-90.",
+    "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+    "year": 1965,
+    "journal": "Journal of Marine Biological Association of the United Kingdom",
+    "doi": "",
+    "authors_json": "[\"P Pugh\"]",
+    "first_seen_at": 1789763851.6681826,
+    "work_id": "10.1017/s0025315400022086",
+    "match_method": "raw_publication_year_title_authors",
+    "match_score": 0.95
+  },
+  "target_work_id": "10.1017/s0025315400022086",
+  "source_unchanged": true,
+  "target_header_scope": "BibTeX-driven header only",
+  "artifacts": {
+    "build/biblio_authority.sqlite": "0807d5c0d037c44aeae9a6b4c6913ef898c6d010852268d236fd9ac6e1e736e2",
+    "build/documents/b5a7af6140ca/metadata.json": "15497c9a1a3b313a12f9ad9e5bc0cf397ba8e4b3a732ba726118ea45d3124fd2",
+    "build/documents/db7338ea1867/metadata.json": "6bccdfa703e07cbe09f80a105543eace7b872457bbb9b1e67fb20ce2636f8115",
+    "build/documents/db7338ea1867/scan_detection.json": "3164533c7160cf2a795b4ec805d2396760ebdc4149c0e2bb0732f4423f87f1e1",
+    "build/documents/db7338ea1867/references.json": "a51f940a328ac61543aaf2664d2be1a03a06be252bb99c720612614f75a2d450",
+    "build/documents/db7338ea1867/processed.pdf": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+    "build/documents/db7338ea1867/grobid.tei.xml": "2ff750a015e1ee0c9f7e43554124d6d88c8bb53862942baff488b7c15e2b6f93",
+    "build/documents/db7338ea1867/intext_citations.json": "3a662c11085ef73e2a5ff588d2b440bf066035f8d770a607bc4994e9e1f00211",
+    "build/documents/db7338ea1867/grobid.tei.xml.provenance.json": "2182a1ab46211cd846a0d9181dd50b35604e72ce68db618fd2490736efe03f70"
+  },
+  "limits": [
+    "Only Tung complete preparation/Grobid; other three scans queued for normal OCR.",
+    "All Tung references are materialized; target identity supplied by actual BibTeX. Compact authority contains only these two corpus papers.",
+    "Missing-reference and graph replay is for this compact authority, not deployment/full-corpus ranking or historical overlap.",
+    "No Docling, chunking, reconciliation enrichment, embeddings, bundle or live MCP in this replay."
+  ],
+  "source_pages": 121,
+  "source_anchor": {
+    "physical_page": 60,
+    "source_region": {
+      "bbox": [
+        84.9998550415039,
+        224.3424072265625,
+        513.7929382324219,
+        298.1177673339844
+      ],
+      "lines": [
+        {
+          "bbox": [
+            89.9998550415039,
+            229.3424072265625,
+            508.7929382324219,
+            244.81826782226562
+          ],
+          "text": "Pugh, P. R. 1974. The vertical distribution of the siphonophores collected "
+        },
+        {
+          "bbox": [
+            131.9999542236328,
+            253.46209716796875,
+            508.68133544921875,
+            268.9379577636719
+          ],
+          "text": "during the SOND cruise, 1965. Journal of Marine Biological "
+        },
+        {
+          "bbox": [
+            131.9999542236328,
+            277.64190673828125,
+            399.9670715332031,
+            293.1177673339844
+          ],
+          "text": "Association of the United Kingdom. 54: 25-90. "
+        }
+      ]
+    },
+    "render": "db7338ea1867-b40.png",
+    "historical_xml_id": "b40",
+    "fixture": "tests/fixtures/bibliographic_integrity/publication_year_sources/cases.json",
+    "fixture_sha256": "f46b353d04abfac57e41714deba0fa11385812de292df6b71953931b6e1c3091"
+  },
+  "producer_module_sha256": {
+    "pipeline/scan.py": "9a66ca1290f2af18e46ccb83f9e8661394dd6140ab40794baa8220508a4e704f",
+    "pipeline/pageselect.py": "8f2ca141b1ba9c5ee36aca2183ea4a5102f30bf6d8ce0318b7c21e82234d48cc",
+    "pipeline/native_text_recovery.py": "f3eb962bf6fea5a4007317969956f914abbc40f6f16381047e8194c3a9c5fae3",
+    "pipeline/metadata.py": "3dd05b38f24e50125c5aadbb468da3d633f1aa90d96eae58893c087d09e61c55",
+    "pipeline/grobid_client.py": "4388e0d6bf659fb4badd2e2b654e4ed1270bf9f5467edf1db037cb370d82cc72",
+    "bib/authority.py": "dc58a56efdcbd7726c9b1d2b46552f9dfb89ee3cf4901c92a81a94829174c59d",
+    "bib/reference_year.py": "e8d323a53b83b3cb29f08d57596b43df2f00fcb433c13d4c9d48d5b2c378d4d8",
+    "bib/reference_quality.py": "f6af3c4da0dc32251a678a694666d9206afaf220c272ce62b747292d98fd112a",
+    "bib/parser.py": "3f69ab81e8f2adae6f9a5d453cc1bdb00ab7d5e703a9a6aa3565a80023e9ab80"
+  },
+  "current_issue_body_sha256": "e8ea57fc6ae6ceb7aa9d525c2d69d225de81dd39375392d2abb9e22833eee2bd",
+  "normal_detection_receipt": {
+    "schema_version": 1,
+    "pipeline_version": "1.5.0.dev0",
+    "filename": "Tung2003.pdf",
+    "file_type": "born_digital",
+    "detection_reason": "clean_text_layer",
+    "has_text": true,
+    "needs_ocr": false,
+    "detected_language": "en",
+    "language_confidence": 0.9999941575529501,
+    "gibberish_score": 0.16510903426791276,
+    "unmappable_char_fraction": 0.0,
+    "text_layer_scripts": {
+      "Latin": 0.8002287457110179,
+      "Other": 0.19977125428898207
+    },
+    "visual_script": null,
+    "scanned_page_fraction": 0.0,
+    "total_chars_sampled": 3276,
+    "pages_checked": 5,
+    "ocr_mode": null,
+    "tesseract_packs": [
+      "eng"
+    ],
+    "tesseract_pack_available": true
+  },
+  "tei_producer_receipt": {
+    "inputs": {
+      "pdf_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+      "consolidate_header": 1,
+      "consolidate_citations": 0,
+      "include_raw_citations": true,
+      "tei_coordinates": [
+        "ref"
+      ],
+      "pipeline_version": "1.5.0.dev0",
+      "service_version": "0.8.1",
+      "producer_id": null
+    },
+    "tei_sha256": "2ff750a015e1ee0c9f7e43554124d6d88c8bb53862942baff488b7c15e2b6f93"
+  },
+  "rerun_note": "Initial harness lacked conda executable PATH and marked Tesseract enumeration unavailable. Retained separately as incomplete-env; authoritative run used conda bin PATH, detected eng pack available, and independently repeated full Grobid request. No source/artifact substitutions.",
+  "serve_checks": {
+    "bibliography_page_lengths": [
+      50,
+      18,
+      0
+    ],
+    "unique_served_references": 68,
+    "raw_b40_year_retained": 1965,
+    "b40_quality_publication_year": 1974,
+    "canonical_formatter_year": 1974,
+    "authority_bytes_unchanged": true
+  }
+}

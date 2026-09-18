@@ -144,10 +144,15 @@ The four named #314 observations have separate retained v1.2.1 rows and fresh
 Grobid 0.8.1 source-page captures with raw citations enabled. A compact real
 authority refresh repairs the line-wrap and article-omission cases, preserves
 the already-correct fresh case, and leaves historical observations unchanged.
-All four citing documents resolve to the source-supported publication, with
-clean/incremental edge and missing-reference agreement. Full prepared-document
-parsing, the audited corpus's overlapping citation sets and its missing-work
-ranking remain unmeasured. See the source crops, TEI fragments and receipts in
+All four compact citing-document cases resolve to the source-supported publication,
+with clean/incremental edge and missing-reference agreement. The subsequent
+[full Tung replay](../tests/fixtures/bibliographic_integrity/publication_year_full_tung_2026_09_18/README.md)
+uses actual normal preparation and full Grobid parsing: all 121 PDF pages are
+preserved byte-for-byte, all 68 references are materialized, and the named
+observation maps to Pugh1974 while its original parsed 1965 remains inspectable.
+Three complete scanned documents still require normal OCR preparation; neither
+their full-document replay nor the audited corpus's overlapping citation sets
+and missing-work ranking is established. See the source crops, TEI fragments and receipts in
 `tests/fixtures/bibliographic_integrity/publication_year_sources`.
 
 Read-only legacy-bundle transport acceptance passes all registered MCP tools,
@@ -167,7 +172,39 @@ The available v1.2.1 Hays receipt and panel population differ from the audited
 snapshot; the original six-case seed/control manifest is still needed to claim
 reproduction of that earlier pilot.
 
+An [adapted operator tour](examples/siphonophore_operator_acceptance_2026_09_18.json)
+passes 39 public CLI calls in the installed environment against a separate copy
+of completed Hosia artifacts: scaffolding, all verb help, shell completions,
+citation output, preflight, dry-run variants, status reports and BibTeX
+export/import. Bibliographic fields and ordered authors survive unchanged
+imports, and a controlled title edit exports correctly and can be restored.
+Import deliberately refreshes provenance under #100, so the database is not
+byte-identical after an explicit unchanged import; dry-run leaves it untouched.
+This is partial operator acceptance, not a fresh environment, full build/resume,
+live-server walkthrough or final-candidate validation.
+
 ## Independent review and fresh gold findings
+
+The [intermediate gold baseline](examples/siphonophore_gold_baseline_2026_09_18/README.md)
+completed extraction at `6fbf4e0`: all 35 document summaries and required stage
+records report success, with no stage failures. The application logged successful
+completion; the retained session wrapper returned 143, whose cause is unknown.
+The receipt records both rather than claiming a clean shell exit. Three read-only
+scorers then exited zero. Curator page selection excludes 86 of the 761 gold pages;
+all 675 included pages are scored. Median prose-token coverage is 0.9448, physical
+figure-count recall/precision is 0.8803/0.8642, and caption-identity binding is
+0.5757/0.9817. These are intermediate CPU/OCR measurements, not final-producer,
+Qwen or full-corpus acceptance. Token coverage cannot validate scientific signs,
+and figure-count agreement cannot validate object identity.
+
+The documented independent retrieval sampler, frozen against this completed
+build before source review, found only five eligible units from two papers.
+That cannot meet the previously defined minimum of ten queries from five papers.
+Source inspection finds three usable units, all from Totton; two carry incorrect
+stored treatment names. The other two selections are a bibliography fragment
+and a nematocyst measurement table falsely classified as identification keys.
+Keep the insufficient population and false-positive findings explicit; do not
+replace them with convenient cases or claim a passing independent evaluation.
 
 A source-first notation review froze 24 selections from 14 gold papers before
 inspecting their candidate outputs. It contains 23 printed expressions and one
@@ -186,6 +223,18 @@ with their source, but both come from the same paper. The sample contains no
 selected ±, µm or subtraction-equation case. Labels remain frozen; subsequent
 fixes informed by these findings make it a regression sample, not a new unseen
 evaluation of those fixes.
+
+The subsequent [Chen regional repair](../tests/fixtures/pdf_cmap/README.md)
+requires exact same-region re-encoding through the original Type1 font map.
+Three `mg/m³` occurrences additionally have source geometry and agreeing unhinted
+digit OCR; reported statistical values retain their actual source typography.
+Original-PDF replay and the saved-document → chunk → production embedding-input
+→ vector-row → bounded-response path pass. Six hyphen candidates remain raw and
+unresolved where the raster evidence is insufficient. Normally decoded text and
+malformed source maps are nonmutating controls. This repair does not establish
+full-paragraph accuracy, fix the Russian exponent or complete broader #303
+source acceptance. The frozen [notation review](../tests/fixtures/text_integrity/source_review/README.md)
+and its historical denominators are retained unchanged.
 
 A separate [selected spacing review](../tests/fixtures/table_structure/spacing_review_2026_09_18/README.md)
 retains three available produced-repair

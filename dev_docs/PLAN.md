@@ -113,7 +113,10 @@ mechanisms. Detector hits are review populations, not error counts.
   repair line wrapping and a single omitted article corroborated by publication
   locators. Compact clean/incremental authority replays agree on edges and
   missing-reference counts while retaining historical raw observations.
-  Full prepared-document/corpus replay and ranking acceptance remain.
+  Full Tung preparation now preserves all 121 pages and fresh Grobid parsing
+  materializes all 68 references; its named observation resolves to 1974 while
+  retaining raw 1965 and source evidence. The three scanned documents still
+  require normal preparation, followed by full-corpus/ranking acceptance.
   `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
@@ -157,10 +160,14 @@ decision provenance; document how old bundles obtain repaired mappings.
   units and exponents through real chunking, the production embedding callback,
   vector-row text and bounded serving. An independent source-first sample
   exposed remaining Chen quantity and Russian exponent corruption; those
-  findings require repair and separate candidate revalidation. Broader
+  findings require separate candidate revalidation. Exact regional Type1 font
+  decoding now recovers the three tested Chen `mg/m³` occurrences and statistical
+  values through saved chunks, embedding input and bounded serving, with original
+  PDF/raster proof. Unconfirmed hyphens remain explicit; Russian recovery is
+  still pending. Broader
   source-graded precision/recall and integrated release replay remain.
   `[plane:build]`
-- [ ] **#304**, then **#319** — preserve multi-column reading order and enclosing
+- [x] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
   Wrong element order and missing headings need separate checks. Source order,
   treatment propagation and context-preserving chunk boundaries are integrated.
@@ -168,19 +175,25 @@ decision provenance; document how old bundles obtain repaired mappings.
   headings clear the prior context. Served provenance has explicit per-row and
   shared optional-evidence limits. Named Church and Haddock fragments now pass
   actual serialization, split/merge and bounded retrieval, with adjacent-species,
-  missing-heading and unrepaired-order controls. Complete rebuilt acceptance
-  remains.
+  missing-heading and unrepaired-order controls. Named Siebert and Mapstone
+  diagnoses retain source-supported context through the documented bounded
+  discovery/fetch workflow. Complete rebuilt acceptance remains a release gate.
   `[plane:build]`
-- [ ] **#307**, **#308**, **#334** — preserve table/key cells and branch destinations,
-  remove artificial repeated cell text, and recover source-supported word
-  boundaries without splitting legitimate compounds. Logical-cell/key
-  serialization and source-supported Hissmann/DuClos spacing are implemented.
-  The source-printed Mapstone p200 typography is preserved; Daniel's disputed
-  spelling remains explicit. All four named Daniel key destinations survive
+- [x] **#307**, **#308** — preserve table/key cells and branch destinations and
+  remove artificial repeated cell text. Four named Erenna semantic relations
+  and source-cell mention counts pass; the Daniel merged heading contributes
+  one logical occurrence. All four named Daniel key associations survive
   serialization and bounded retrieval across chunk splits. Build metadata now
   states complete/partial/unknown coverage and links adjacent fragments;
-  rechunking leaves extraction and unchanged vector payloads alone. Spacing
-  v2 now considers uniform-font portions without inferring a boundary at a
+  rechunking leaves extraction and unchanged vector payloads alone. The final
+  endpoint's captured `hargmannae` versus printed `bargmannae` remains explicitly
+  spelling-unverified in its separate source fixture; layout acceptance does
+  not claim spelling recovery. Broader rebuilt retrieval remains a release gate.
+  `[plane:build]`
+- [ ] **#334** — recover source-supported word boundaries without splitting
+  legitimate compounds. Hissmann/DuClos source-supported spacing is implemented;
+  the source-printed Mapstone p200 typography is preserved. Spacing v2 now
+  considers uniform-font portions without inferring a boundary at a
   font change; the newly examined DuClos phrase remains unchanged because
   actual OCR modes disagree. Long-run review warnings retain that uncertainty.
   Broader rebuilt retrieval and source-graded spacing acceptance remain.
@@ -273,18 +286,33 @@ new licensing evidence and no cache writes into the bundle.
   controls, deterministic independent sampler and pre-tuning acceptance targets
   are implemented. Prose controls now have independently reviewed source labels.
   The rebuilt independent population
-  and actual reference/candidate captures remain; no retrieval improvement is
-  claimed from the evaluator's unit tests.
+  has now been frozen from the completed intermediate gold build. The documented
+  count-20, seed-3202026 sampler finds only five eligible units from two papers,
+  below the required ten queries/five papers. Source review finds three usable
+  units from one paper, two false keys and two incorrect stored treatment names.
+  Preserve this insufficient sample and its findings.
+  Broader independently reviewed source coverage and actual reference/candidate
+  captures remain; no retrieval improvement is claimed from evaluator tests.
 
 ### 6. Release acceptance and return to enhancements
 
 - [ ] Relevant regressions, contract tests and established CI lanes pass on the
   integrated candidate. Additions follow the minor API policy; existing
   successful calls and fields remain compatible.
+  At `2998189`, local T0 passes 2,597 tests (five skipped, 90 deselected), Ruff
+  passes, and the optional original-PDF Chen replay passes separately. Hosted
+  T0/T1/T2/T3 passed at `a3e638d`; the CMap change still needs current-head CI.
+  An adapted operator tour passes 39 public CLI calls, including exact-field
+  BibTeX round trips and a controlled edit/restore, on a copied completed build.
+  It does not replace fresh install/build/resume/serve or final-candidate gates.
 - [ ] Rebuild and score the existing gold corpuscle; review build-reference
   differences and source-based expectations. Use small synthetic cases for
   logic/boundaries and add source material only for a demonstrated coverage gap.
   **Hydractinia is not a second fixture corpus.**
+  The intermediate `6fbf4e0` CPU/OCR extraction completed all 35 documents and
+  all three source scorers ran successfully. Its [baseline receipt](examples/siphonophore_gold_baseline_2026_09_18/README.md)
+  preserves included/excluded pages, weak strata and the terminal wrapper-code
+  discrepancy. Final-producer and Qwen acceptance remain pending.
 - [ ] Demonstrate clean/incremental semantic equivalence with the standing
   exclusions, artifact invalidation and unchanged-document checks below.
 - [ ] Run the full reference-corpus release validation, then replay the audit
