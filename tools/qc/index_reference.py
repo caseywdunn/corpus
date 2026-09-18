@@ -74,6 +74,7 @@ def index_snapshot(build):
         "bibliography": sqlite_snapshot(build / "biblio_authority.sqlite", {
             "works": ("created_at", "updated_at"),
             "work_documents": ("source_sha256",),
+            "work_bib_sources": (),
             "work_authors": (), "work_aliases": (), "citations": (),
             "reference_current_sets": ("selected_at",),
             "observation_work": ("mapped_at",), "taxon_work_links": (),

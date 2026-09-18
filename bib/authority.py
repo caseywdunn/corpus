@@ -11,6 +11,7 @@ source of truth for all bibliographic entities — whether or not the
 corresponding PDF is physically in the corpus.
 
 GUID priority: DOI > BHL Part/Item ID > normalized citation key.
+Conflicting document parts receive separate IDs under their shared identifier.
 
 Three phases:
   1. Seed from corpus papers (metadata.json)
@@ -548,7 +549,7 @@ _V12_WORKS_COLUMNS = [
 ]
 from .fields import LOCATOR_FIELDS
 
-_V15_WORKS_COLUMNS = [(key, "TEXT") for key in (*LOCATOR_FIELDS, "bib_key", "bib_source")]
+_V15_WORKS_COLUMNS = [(key, "TEXT") for key in (*LOCATOR_FIELDS, "bib_key", "bib_source", "shared_identifier")]
 
 _V13_WORKS_COLUMNS = [
     ("ocrmode", "TEXT"),  # #186
@@ -906,18 +907,14 @@ def insert_citation(conn: sqlite3.Connection, citing_work_id: str,
 # ── Lookup helpers ───────────────────────────────────────────────────
 
 def lookup_by_doi(conn: sqlite3.Connection, doi: str) -> Optional[str]:
-    """Return work_id for a given normalized DOI, or None."""
-    cur = conn.execute(
+    """Resolve a DOI only when it is not shared by distinct citation parts."""
+    rows = conn.execute(
         """SELECT work_id FROM works WHERE doi = ?
-           ORDER BY in_corpus DESC,
-                    (bib_imported_at IS NOT NULL) DESC,
-                    (guid_type = 'doi') DESC,
-                    work_id
-           LIMIT 1""",
-        (doi,),
-    )
-    row = cur.fetchone()
-    return row[0] if row else None
+           ORDER BY in_corpus DESC, (bib_imported_at IS NOT NULL) DESC,
+                    (guid_type = 'doi') DESC, work_id""", (doi,)).fetchall()
+    if len(rows) > 1 and any("#part:" in row[0] for row in rows):
+        return None
+    return rows[0][0] if rows else None
 
 
 def _doi_corruption_shape(left: str, right: str) -> Optional[str]:
@@ -981,6 +978,8 @@ def lookup_doi_variant_by_title(
         normalized_candidate = normalize_for_key(candidate_title or "")
         if not normalized_candidate:
             continue
+        if "#part:" in work_id and normalized_candidate != normalized_title:
+            continue
         set_score = int(fuzz.token_set_ratio(
             normalized_title, normalized_candidate,
         ))
@@ -993,6 +992,8 @@ def lookup_doi_variant_by_title(
         ))
     if not candidates:
         return None
+    if sum("#part:" in row[4] for row in candidates) > 1:
+        return None
     candidates.sort(key=lambda row: (-row[0], -row[1], -row[2], -row[3], row[4]))
     _in_corpus, _cited_count, set_score, _ratio_score, work_id, corruption = \
         candidates[0]
@@ -1000,19 +1001,14 @@ def lookup_doi_variant_by_title(
 
 
 def lookup_by_alias(conn: sqlite3.Connection, alias_key: str) -> Optional[str]:
-    """Return work_id for a given alias key, or None."""
-    cur = conn.execute(
-        """SELECT wa.work_id
-           FROM work_aliases wa JOIN works w ON w.work_id = wa.work_id
-           WHERE wa.alias_key = ?
-           ORDER BY w.in_corpus DESC,
-                    (w.bib_imported_at IS NOT NULL) DESC,
-                    wa.work_id
-           LIMIT 1""",
-        (alias_key,),
-    )
-    row = cur.fetchone()
-    return row[0] if row else None
+    """Resolve a short alias only when it does not collapse distinct parts."""
+    rows = conn.execute(
+        """SELECT wa.work_id FROM work_aliases wa JOIN works w ON w.work_id=wa.work_id
+           WHERE wa.alias_key=? ORDER BY w.in_corpus DESC,
+              (w.bib_imported_at IS NOT NULL) DESC, wa.work_id""", (alias_key,)).fetchall()
+    if len(rows) > 1 and any("#part:" in row[0] for row in rows):
+        return None
+    return rows[0][0] if rows else None
 
 
 def _normalized_ref_author_set(authors: List[str]) -> frozenset[str]:
@@ -1087,6 +1083,10 @@ def lookup_in_corpus_by_identity(
     else:
         candidate_rows = candidate_index.get(year, [])
     for work_id, candidate_title, candidate_doi, candidate_authors in candidate_rows:
+        if "#part:" in work_id:
+            # Parts use all available identity fields in the alias/DOI path;
+            # fuzzy title/author matching cannot erase that distinction.
+            continue
         normalized_candidate_title = normalize_for_key(candidate_title or "")
         if (
             sum(character.isalpha() for character in normalized_candidate_title)
@@ -1192,6 +1192,8 @@ def fuzzy_match_with_score(conn: sqlite3.Connection, surname: str,
     norm_title = normalize_for_key(title)
     best = None
     for cand_id, cand_title in candidates:
+        if "#part:" in cand_id:
+            continue
         if not cand_title:
             continue
         norm_cand = normalize_for_key(cand_title)
@@ -1264,6 +1266,8 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
     from .documents import consumed_metadata, create_schema as create_document_schema, refresh_representative
     inputs = _read_authority_inputs(docs_dir, "metadata")
     create_document_schema(conn)
+    from .identity import DOCUMENT_IDENTITY_PRODUCER, document_identities, record_decision
+    identities = document_identities(inputs)
     present = {p.name for p in docs_dir.iterdir() if p.is_dir()}
     for hash_dir, raw_meta in inputs:
         meta_path = hash_dir / "metadata.json"
@@ -1274,11 +1278,10 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
         except OSError as e:
             raise ValueError(f"Cannot ingest {meta_path}: {e}") from e
 
-        # Skip when we've already seeded this corpus_hash AND the
-        # source metadata.json hasn't been regenerated since. When
-        # metadata is newer than the stored mtime, fall through to
-        # refresh the row's title/year/journal/doi/license/serve
-        # fields and rebuild its author list.
+        # Legacy mtimes only govern scalar-row migration. Current receipts
+        # hash consumed metadata plus the identity policy and whole-inventory
+        # collision decision, so adding a part can invalidate an unchanged
+        # sibling's membership.
         seen, stale = _artifact_state(
             conn, corpus_hash, "metadata", current_mtime,
         )
@@ -1287,7 +1290,9 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
         membership = conn.execute(
             "SELECT work_id, source_sha256 FROM work_documents WHERE corpus_hash=?", (corpus_hash,),
         ).fetchone()
-        source_sha = hashlib.sha256(json.dumps(meta, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        source_sha = hashlib.sha256(json.dumps({"metadata": meta, "identity_producer": DOCUMENT_IDENTITY_PRODUCER,
+                                                 "work_identity": identities[corpus_hash]},
+                                                sort_keys=True, ensure_ascii=False).encode()).hexdigest()
         if membership and membership[1] == source_sha:
             continue
         if membership:
@@ -1317,32 +1322,23 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
                 if not first_surname:
                     first_surname = surname
 
-        # Determine work_id
+        # Shared identifiers do not necessarily identify interchangeable
+        # citation units. Plan the entire inventory before selecting IDs.
         doi = normalize_doi(doi_raw) if doi_raw else ""
-        if doi:
-            work_id = doi
-            guid_type = "doi"
-        elif first_surname and title:
-            work_id = make_corpus_guid(first_surname, year, title)
-            guid_type = "corpus_key"
-        elif first_surname:
-            # No title — use filename as title stand-in
-            filename = meta.get("filename", corpus_hash)
-            work_id = make_corpus_guid(first_surname, year, filename)
-            guid_type = "corpus_key"
-        else:
-            # No author, no DOI — use corpus hash directly
-            work_id = f"corpus:{corpus_hash}"
-            guid_type = "corpus_key"
-
-        migration_unchanged = membership is None and existing_work_id and seen and not stale
-        if migration_unchanged:
-            # Preserve the existing reconciled/curated identity on the first
-            # membership migration when the legacy receipt proves no edit.
-            work_id = existing_work_id
+        work_id, guid_type, base_id, collision = identities[corpus_hash]
+        migration_unchanged = bool(
+            membership is None and existing_work_id == work_id and seen and not stale
+            and not collision and meta.get("extraction_method") != "bib")
+        if collision:
+            record_decision(conn, corpus_hash, base_id, work_id,
+                            "shared_identifier_distinct_part", {"metadata": meta, "shared_identifier": base_id})
+        if existing_work_id and existing_work_id != work_id:
+            record_decision(conn, corpus_hash, existing_work_id, work_id,
+                            "rematerialized_document_identity", {"metadata": meta})
         inserted = insert_work(conn, work_id, guid_type, title, year, journal,
                                doi, corpus_hash, in_corpus=True,
                                source="corpus_paper")
+        conn.execute("UPDATE works SET shared_identifier=? WHERE work_id=?", (base_id if collision else None, work_id))
         if inserted:
             insert_authors(conn, work_id, authors)
             # Register alias for dedup matching
@@ -1389,6 +1385,7 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
         refresh_representative(conn, work_id, refresh_header=not migration_unchanged)
         if existing_work_id and existing_work_id != work_id:
             refresh_representative(conn, existing_work_id, refresh_header=True)
+            materialize(conn, existing_work_id)
         # Membership and seed changes affect mappings even when reference
         # JSON did not change (new local matches, removals and DOI edits).
         conn.execute("DELETE FROM build_meta WHERE key='reference_corpus_fingerprint'")
@@ -1457,6 +1454,18 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     # ── Cascade step 1: DOI exact ──────────────────────────────────
     doi = normalize_doi(doi_raw) if doi_raw else ""
     if doi:
+        candidates = [row[0] for row in conn.execute("SELECT work_id FROM works WHERE doi=? ORDER BY work_id", (doi,))]
+        from .identity import select_reference_candidate
+        if len(candidates) > 1 or any("#part:" in candidate for candidate in candidates):
+            selected = select_reference_candidate(conn, candidates, ref)
+            if selected and "#part:" in selected:
+                return selected, "doi_part_identity", 1.0
+            # Keep an underspecified book-level citation on its shared DOI,
+            # never choose whichever volume happened to be inserted first.
+            insert_work(conn, doi, "doi", title, year, journal, doi, None, False, "cited_reference")
+            insert_authors(conn, doi, [(extract_surname_from_ref_author(a), extract_forename_from_ref_author(a))
+                                       for a in authors_raw if extract_surname_from_ref_author(a)])
+            return doi, "shared_doi_unresolved_part", 0.5
         existing = lookup_by_doi(conn, doi)
         if existing:
             existing_in_corpus = conn.execute(
@@ -1500,7 +1509,12 @@ def _resolve_reference(conn: sqlite3.Connection, ref: dict,
     # ── Cascade step 2: Alias key exact ────────────────────────────
     if first_surname and (title or raw):
         alias = make_alias_key(first_surname, year, title or raw)
-        existing = lookup_by_alias(conn, alias)
+        candidates = [row[0] for row in conn.execute("SELECT work_id FROM work_aliases WHERE alias_key=? ORDER BY work_id", (alias,))]
+        if len(candidates) > 1 or any("#part:" in candidate for candidate in candidates):
+            from .identity import select_reference_candidate
+            existing = select_reference_candidate(conn, candidates, ref)
+        else:
+            existing = lookup_by_alias(conn, alias)
         if existing:
             # A successful BHL lookup installs this ordinary alias. On a
             # later rematerialization it resolves before the BHL cascade, but
@@ -2468,6 +2482,7 @@ def main() -> int:
                 DROP TABLE IF EXISTS reference_observations;
                 DROP TABLE IF EXISTS work_aliases;
                 DROP TABLE IF EXISTS work_authors;
+                DROP TABLE IF EXISTS work_identity_decisions;
                 DROP TABLE IF EXISTS work_bib_sources;
                 DROP TABLE IF EXISTS work_documents;
                 DROP TABLE IF EXISTS works;

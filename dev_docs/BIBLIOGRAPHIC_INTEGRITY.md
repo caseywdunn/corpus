@@ -46,3 +46,33 @@ when their producer or corpus identity changes. Explicit imports continue to
 be retained inputs; make the same curation changes in the library `.bib` so a
 clean build reproduces them. Rebuild the served bundle after updating the build.
 A server-only upgrade cannot restore fields missing from an old bundle.
+
+## Citation units and shared identifiers
+
+A DOI may describe a whole book, while the library holds separate volumes or
+an atlas. Phase 1 compares the full available title, journal, year, edition and
+publication locators before grouping documents. Without a DOI it also compares
+the ordered surname list. Compatible duplicate scans still share one work.
+Conflicting parts receive deterministic `#part:` work-ID suffixes; their DOI
+remains intact and `shared_identifier` records the common DOI or short key.
+A reference that supplies enough metadata selects the corresponding part. A
+shared DOI alone stays a separate unresolved part-level match, rather than
+acquiring one volume's identity arbitrarily. The document hash continues to
+select exactly the requested PDF, including its local rights directives.
+
+Reconciliation checks curated title-to-title evidence before considering
+first-page text or citation popularity. Conflicting titles, explicit parts,
+years, DOIs and locators cannot replace a BibTeX-backed identity. Rejected
+candidates and identity migrations are recorded with their evidence in
+`work_identity_decisions`. This guard still allows the existing reconstruction
+of uncurated misparsed headers and strongly supported duplicate titles.
+
+On the first authority pass using `document-identity-v2`, memberships are
+re-derived from current metadata and the reference graph is rematerialized.
+Previously conflated documents may acquire new work IDs; callers should resolve
+saved document hashes again. `work_reconciliation_decisions` and immutable
+reference observations remain available to audit earlier choices. This
+migration requires the build's metadata and references, followed by bundling;
+it cannot be performed on the immutable served bundle. Back up the build before
+an explicit `--rebuild`, which intentionally discards historical observations
+as documented by the authority CLI.

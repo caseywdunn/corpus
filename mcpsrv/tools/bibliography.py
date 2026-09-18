@@ -751,6 +751,8 @@ def _format_resolved_work(idx, work, style) -> Dict[str, Any]:
         "warning": _PROVENANCE_WARNING[provenance],
         "fields": fields,
         "bib_key": work.get("bib_key"),
+        "shared_identifier": work.get("shared_identifier"),
+        "corpus_hash": work.get("corpus_hash"),
         "bibliographic_conflicts": work.get("bibliographic_conflicts", []),
     }
 
