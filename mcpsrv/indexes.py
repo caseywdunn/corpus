@@ -725,4 +725,25 @@ class BiblioAuthority:
                WHERE wl.taxon_id = ?""",
             (taxon_id,),
         )
-        return [dict(r) for r in cur]
+        links = [dict(r) for r in cur]
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='taxon_authority_candidates'").fetchone():
+            return links
+        by_work = {}
+        for row in links:
+            previous = by_work.get(row["work_id"])
+            if previous is None or row["link_type"] != "authority_match":
+                by_work[row["work_id"]] = row
+        candidates = self.conn.execute("""SELECT w.work_id,w.title,w.year,w.in_corpus,w.corpus_hash,
+            c.confidence,c.basis_json,c.producer_version
+            FROM taxon_authority_candidates c JOIN works w ON w.work_id=c.work_id
+            WHERE c.taxon_id=? ORDER BY c.confidence DESC,w.work_id""", (taxon_id,))
+        for row in candidates:
+            item = dict(row)
+            item["basis"] = json.loads(item.pop("basis_json"))
+            item["link_type"] = "authority_candidate"
+            previous = by_work.get(item["work_id"])
+            if previous and previous["link_type"] != "authority_match":
+                previous["basis"] = {"kind": "curator_reviewed", "requires_source_review": False}
+                continue
+            by_work[item["work_id"]] = item
+        return sorted(by_work.values(), key=lambda item: (-item["confidence"], item["work_id"]))

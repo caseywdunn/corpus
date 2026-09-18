@@ -76,3 +76,23 @@ migration requires the build's metadata and references, followed by bundling;
 it cannot be performed on the immutable served bundle. Back up the build before
 an explicit `--rebuild`, which intentionally discards historical observations
 as documented by the authority CLI.
+
+## Original-description candidates
+
+Taxonomic author strings are parsed as complete lists, including comma-separated
+surnames, conjunctions, initials and surname particles. Botanical author-only
+forms remain explicitly unsupported for author/year linking.
+
+The build records `taxon_authority_candidates`, with its versioned policy,
+ordered-author agreement, year, confidence and any source evidence. A new-species
+marker immediately following the full or abbreviated binomial in the opening
+text supports a candidate; it does not constitute curator review. An ordinary
+taxon mention provides no such support. Text receipts identify the document,
+content hash, character span and a short excerpt.
+
+`get_original_description` returns unreviewed matches as `candidate_works`,
+including a single candidate, and empty-title records as `authority_stubs`.
+`original_description` is reserved for a unique non-derived, curator-reviewed
+link to a titled work. Candidate policy changes and changed document evidence
+are re-derived during the authority build; curator links survive refresh and
+reference rematerialization. The server only reads the resulting evidence.

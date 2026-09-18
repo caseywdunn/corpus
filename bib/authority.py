@@ -223,7 +223,7 @@ def _parse_authority_without_year(
     # Parenthesised original author first, then the combining author, in
     # printed order.
     for group in re.split(r"[()]", text):
-        for slot in re.split(r"\s*&\s*|,", group):
+        for slot in re.split(r"\s*&\s*|\s+and\s+|,", group):
             surname = _icn_surname(slot)
             if surname and surname not in surnames:
                 surnames.append(surname)
@@ -265,27 +265,27 @@ def parse_authority(authority: str) -> Optional[Tuple[List[str], Optional[int]]]
         return _parse_authority_without_year(authority)
     authors_str = m.group(1).strip()
     year: Optional[int] = int(m.group(2))
-    # Split on ' & ' or ' and '
-    raw_authors = re.split(r"\s*&\s*|\s+and\s+", authors_str)
+    # Commas separate authority surnames as well as the final year. A
+    # standalone initial slot ("Siebert, S., Pugh, P.R.") belongs to the
+    # preceding surname and must not become another author (#311).
+    raw_authors = re.split(r"\s*&\s*|\s+and\s+|,", authors_str)
     surnames = []
-    for a in raw_authors:
-        a = a.strip()
-        if not a:
+    initials_only = []
+    for author in raw_authors:
+        author = author.strip()
+        if not author:
             continue
-        # Strip leading initials: "L. Agassiz" -> "Agassiz", "M. Sars" -> "Sars"
-        # But keep "van Riemsdijk" as-is
-        parts = a.split()
-        # Drop parts that look like initials (single letter, optionally with period)
-        name_parts = []
-        for p in parts:
-            if re.match(r"^[A-Z]\.?$", p):
-                continue  # initial, skip
-            name_parts.append(p)
-        if name_parts:
-            surnames.append(" ".join(name_parts))
-        elif parts:
-            # All parts were initials? Use the last one stripped of period
-            surnames.append(parts[-1].rstrip("."))
+        if re.fullmatch(r"(?:[^\W\d_]\s*\.?\s*)+", author) and all(
+                len(token.rstrip(".")) <= 1 for token in author.split()):
+            initials_only.append(author.rstrip("."))
+            continue
+        stripped = _RUN_TOGETHER_INITIALS_RE.sub("", author)
+        parts = [token for token in stripped.split()
+                 if not re.fullmatch(r"(?:[^\W\d_]\.)+|[^\W\d_]\.?", token)]
+        if parts:
+            surnames.append(" ".join(parts).rstrip("."))
+    if not surnames:
+        surnames = initials_only
     return surnames, year
 
 
@@ -522,6 +522,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_document_schema(conn)
     from .fields import create_schema as create_bib_source_schema
     create_bib_source_schema(conn)
+    from .taxon_candidates import create_schema as create_candidate_schema
+    create_candidate_schema(conn)
     conn.commit()
 
 
@@ -1880,12 +1882,15 @@ def _clear_derived_reference_materialization(conn: sqlite3.Connection) -> None:
             """SELECT work_id FROM works
                WHERE source IN ('cited_reference', 'taxon_authority', 'corpus_paper')
                  AND guid_type != 'bhl' AND in_corpus = 0
-                 AND bib_imported_at IS NULL"""
+                 AND bib_imported_at IS NULL
+                 AND NOT EXISTS (SELECT 1 FROM taxon_work_links l WHERE l.work_id=works.work_id
+                                 AND l.link_type!='authority_match')"""
         )
     ]
     conn.execute("DELETE FROM citations")
     conn.execute("DELETE FROM observation_work")
     for work_id in derived_ids:
+        conn.execute("DELETE FROM taxon_authority_candidates WHERE work_id = ?", (work_id,))
         conn.execute("DELETE FROM taxon_work_links WHERE work_id = ?", (work_id,))
         conn.execute("DELETE FROM work_aliases WHERE work_id = ?", (work_id,))
         conn.execute("DELETE FROM work_authors WHERE work_id = ?", (work_id,))
@@ -2255,7 +2260,8 @@ def _record_authority_convention(
         )
 
 
-def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int:
+def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path, *,
+                           output_dir: Optional[Path] = None) -> int:
     """Re-derive current authority links; retain curator links and cited evidence.
 
     The author/year policy remains conservative. Historical taxon-only stubs
@@ -2266,8 +2272,10 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
     if taxonomy_path.exists():
         tx_conn = sqlite3.connect(taxonomy_path.resolve().as_uri() + "?mode=ro", uri=True)
         try:
+            columns = {row[1] for row in tx_conn.execute("PRAGMA table_info(taxa)")}
+            name = "scientific_name" if "scientific_name" in columns else "NULL"
             rows = tx_conn.execute(
-                "SELECT taxon_id,scientific_name_authorship FROM taxa "
+                f"SELECT taxon_id,scientific_name_authorship,{name} FROM taxa "
                 "WHERE scientific_name_authorship IS NOT NULL AND scientific_name_authorship != '' "
                 "ORDER BY taxon_id").fetchall()
         finally:
@@ -2275,11 +2283,13 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
     else:
         logger.info("No taxonomy snapshot; retiring derived authority links")
     desired = {}
+    desired_candidates = {}
+    from .taxon_candidates import candidates_for, replace_current
     n_stubs = 0
     n_year_bearing = 0
     n_author_only = 0
     n_unparseable = 0
-    for taxon_id, authority in rows:
+    for taxon_id, authority, scientific_name in rows:
         parsed = parse_authority(authority)
         if not parsed or not parsed[0]:
             n_unparseable += 1
@@ -2293,21 +2303,14 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
             n_author_only += 1
             continue
         n_year_bearing += 1
-        candidates = [r[0] for r in conn.execute(
-            """SELECT DISTINCT w.work_id FROM works w
-               JOIN work_authors a ON a.work_id=w.work_id
-               WHERE a.position=0 AND a.surname_normalized=? AND w.year=?
-                 AND (w.source != 'taxon_authority' OR w.in_corpus=1 OR w.bib_imported_at IS NOT NULL)
-               ORDER BY w.work_id""", (normalize_for_key(surnames[0]), year))]
+        candidate_evidence = candidates_for(conn, surnames, year,
+            output_dir=output_dir or taxonomy_path.parent, scientific_name=scientific_name)
+        desired_candidates.update({(taxon_id, wid): evidence for wid, evidence in candidate_evidence.items()})
+        exact = [wid for wid, (_, basis, _) in candidate_evidence.items()
+                 if json.loads(basis)["complete_author_list_match"]]
+        candidates = exact or list(candidate_evidence)
         matched_id = candidates[0] if len(candidates) == 1 else None
-        confidence = 0.7
-        if not matched_id and len(surnames) > 1:
-            second_matches = [work_id for work_id in candidates if conn.execute(
-                "SELECT 1 FROM work_authors WHERE work_id=? AND position=1 AND surname_normalized=?",
-                (work_id, normalize_for_key(surnames[1]))).fetchone()]
-            if len(second_matches) == 1:
-                matched_id = second_matches[0]
-                confidence = 0.85
+        confidence = candidate_evidence[matched_id][0] if matched_id else 0.5
         if matched_id is None:
             matched_id = make_corpus_guid(surnames[0], year, "")
             inserted = insert_work(conn, matched_id, "corpus_key", title="", year=year, journal="",
@@ -2331,6 +2334,7 @@ def phase3_authority_links(conn: sqlite3.Connection, taxonomy_path: Path) -> int
                 "INSERT OR REPLACE INTO taxon_work_links(taxon_id,work_id,link_type,confidence) "
                 "VALUES (?,?,'authority_match',?)", (*key, confidence))
             changed += 1
+    changed += replace_current(conn, desired_candidates)
     # Discard only unreferenced, uncurated taxonomy-derived stubs. Raw citation
     # observations and any works they still reference remain untouched.
     stale = [r[0] for r in conn.execute(
@@ -2472,6 +2476,7 @@ def main() -> int:
             # churn --rebuild is meant to address.
             logger.info("Rebuilding: dropping all tables except bhl_lookups")
             conn.executescript("""
+                DROP TABLE IF EXISTS taxon_authority_candidates;
                 DROP TABLE IF EXISTS taxon_work_links;
                 DROP TABLE IF EXISTS citations;
                 DROP TABLE IF EXISTS observation_work;
@@ -2536,7 +2541,7 @@ def main() -> int:
 
         # Phase 3
         logger.info("═══ Phase 3: Linking taxonomic authorities ═══")
-        phase3_authority_links(conn, args.taxonomy_db)
+        phase3_authority_links(conn, args.taxonomy_db, output_dir=args.output_dir)
 
         # Summary
         stats = {}

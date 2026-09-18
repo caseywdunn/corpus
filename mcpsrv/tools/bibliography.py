@@ -1004,12 +1004,22 @@ def get_original_description(taxon_name: str) -> Dict:
         w["authors"] = idx.biblio_db.get_authors(w["work_id"])
         w["cited_by_count"] = idx.biblio_db.citation_count(w["work_id"])
 
+    usable = [w for w in works if (w.get("title") or "").strip()]
+    reviewed = [w for w in usable if w.get("link_type") not in {"authority_match", "authority_candidate"}]
+    original = reviewed[0] if len(reviewed) == 1 else None
+    for candidate in usable:
+        candidate.setdefault("basis", {"kind": "legacy_author_year_match", "requires_source_review": True})
     return {
         "taxon": hit,
-        "original_description": works[0] if len(works) == 1 else None,
-        "candidate_works": works if len(works) > 1 else None,
-        "work": works[0] if len(works) == 1 else works,
+        "original_description": original,
+        "candidate_works": [w for w in usable if w is not original] or None,
+        "authority_stubs": [w for w in works if w not in usable] or None,
+        "work": original or (usable[0] if len(usable) == 1 else usable),
+        "note": ("curator-reviewed original description" if original else
+                 "Candidates require source review; author/year agreement alone does not establish an original description."
+                 if usable else "No located original description; only an unresolved taxonomic-authority stub is available."),
     }
+
 
 
 @mcp.tool()
