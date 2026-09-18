@@ -217,6 +217,7 @@ def chunk_source_context(doc_items, context_by_ref, *, chunk_text=None):
     for item in doc_items:
         meta = getattr(item, "meta", None)
         text_integrity.extend(getattr(meta, "corpus__scientific_text", []) or [])
+        text_integrity.extend(getattr(meta, "corpus__pdf_cmap", []) or [])
         text_integrity.extend(getattr(meta, "corpus__text_encoding", []) or [])
         text_integrity.extend(getattr(meta, "corpus__native_text_recovery", []) or [])
         text_integrity.extend(getattr(meta, "corpus__surname_recovery", []) or [])

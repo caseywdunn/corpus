@@ -55,6 +55,7 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
                "compute.accelerator": cfg.get("compute", {}).get("accelerator", "auto")}
     from .source_layout import SOURCE_LAYOUT_POLICY
     from .scientific_text import SCIENTIFIC_TEXT_POLICY
+    from .pdf_cmap_recovery import pdf_cmap_producer
     from .text_encoding import TEXT_ENCODING_POLICY
     from .source_spaces import source_spacing_producer
     from .treatment_context import TREATMENT_CONTEXT_POLICY
@@ -65,6 +66,7 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     extract.update({
         "extraction.source_layout_policy": SOURCE_LAYOUT_POLICY,
         "extraction.scientific_notation_policy": SCIENTIFIC_TEXT_POLICY,
+        "extraction.pdf_cmap_producer": pdf_cmap_producer(),
         "extraction.text_encoding_policy": TEXT_ENCODING_POLICY,
         "extraction.table_structure_policy": "logical-cells-key-geometry-source-spaces-v1",
         "extraction.source_spacing_producer": source_spacing_producer(),

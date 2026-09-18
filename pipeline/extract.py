@@ -177,6 +177,7 @@ def extract_docling_content(
 
         from .source_layout import recover_panel_caption_roles, repair_reading_order
         from .text_encoding import recover_text_encoding
+        from .pdf_cmap_recovery import recover_pdf_cmaps
         from .scientific_text import prepare_scientific_text
         from .table_structure import prepare_table_structure, export_source_markdown
         from .treatment_context import recover_section_headings
@@ -189,6 +190,7 @@ def extract_docling_content(
         source_text_integrity = {
             "original_native_layer": apply_native_text_recovery(
                 document, pdf_path, detection.get("native_text_recovery")),
+            "pdf_cmap": recover_pdf_cmaps(document, pdf_path),
             "encoding": recover_text_encoding(document, pdf_path),
             "scientific_notation": prepare_scientific_text(document, pdf_path),
             "section_headings": recover_section_headings(document, pdf_path),
