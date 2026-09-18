@@ -1,0 +1,118 @@
+{
+  "recorded_utc": "2026-09-18T20:11:02.792308+00:00",
+  "candidate_code_revision": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+  "stage_snapshot_utc": "2026-09-18T20:05:35.167723+00:00",
+  "scope": "Interim frozen stage snapshot; not a complete gold build or a current v3 rebuild.",
+  "counts": {
+    "docling_status": {
+      "faithful": 5,
+      "omitted": 2,
+      "corrupted": 3,
+      "pending": 9,
+      "excluded_by_source_page_selection": 4,
+      "unscorable_source": 1
+    },
+    "saved_markdown_status": {
+      "faithful": 4,
+      "omitted": 2,
+      "corrupted": 3,
+      "pending": 9,
+      "excluded_by_source_page_selection": 4,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    },
+    "chunks_status": {
+      "faithful": 4,
+      "omitted": 2,
+      "corrupted": 3,
+      "pending": 9,
+      "excluded_by_source_page_selection": 4,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    }
+  },
+  "denominators": {
+    "all_selected": 24,
+    "source_verified": 23,
+    "unscorable_source": 1,
+    "verified_with_document_stages_pending": 9,
+    "verified_in_completed_documents": 14,
+    "excluded_by_recorded_source_page_selection": 4,
+    "verified_on_selected_pages_of_completed_documents": 10
+  },
+  "metrics": {
+    "docling_expression_fidelity": {
+      "faithful": 5,
+      "corrupted": 3,
+      "fraction": "5/8",
+      "excludes_omitted": 2,
+      "excludes_source_page_selection": 4,
+      "meaning": "Fidelity among aligned emitted selected source expressions, not repair precision."
+    },
+    "docling_bounded_source_recall": {
+      "faithful": 5,
+      "completed_verified_denominator": 14,
+      "fraction": "5/14",
+      "selected_page_conditional_fraction": "5/10",
+      "meaning": "All-source selected occurrence coverage includes four deliberately excluded input pages; conditional fraction explicitly removes them."
+    },
+    "chunks_and_markdown_expression_fidelity": {
+      "faithful": 4,
+      "corrupted": 3,
+      "fidelity_indeterminate": 1,
+      "fraction_among_adjudicated": "4/7",
+      "bounded_fraction_all_emitted": [
+        "4/8",
+        "5/8"
+      ],
+      "meaning": "Footnote role in flattened text is indeterminate; report both bounds, not a selected favorable denominator."
+    },
+    "chunks_and_markdown_bounded_source_recall": {
+      "lower_fraction": "4/14",
+      "upper_fraction": "5/14",
+      "selected_page_conditional_bounds": [
+        "4/10",
+        "5/10"
+      ]
+    },
+    "admitted_scientific_repair_precision_in_selected_occurrences_only": {
+      "correct_operations": 2,
+      "admitted_operations": 2,
+      "fraction": "2/2",
+      "papers": 1,
+      "meaning": "Two independently source-selected inverse-exponent operations, both in Mańko. Does not estimate proposal-wide or corpus-wide repair precision."
+    },
+    "no_scientific_repair_expression_correctness": {
+      "docling_correct": 3,
+      "aligned_noop_expressions": 6,
+      "docling_fraction": "3/6",
+      "chunks_correct": 2,
+      "chunks_incorrect": 3,
+      "chunks_indeterminate": 1,
+      "chunks_bounds": [
+        "2/6",
+        "3/6"
+      ],
+      "meaning": "Correctness of expressions with no admitted scientific repair, not model routing accuracy; other build producers may have run."
+    },
+    "expression_output_precision": {
+      "status": "unavailable",
+      "reason": "All candidate renderings/spurious variants across all output surfaces have not been independently enumerated. Source occurrence fidelity is not substituted for this metric."
+    },
+    "proposal_precision": {
+      "status": "unavailable",
+      "reason": "No frozen proposal population graded."
+    },
+    "actual_embedding_input_and_served_text": {
+      "status": "unavailable",
+      "reason": "Gold launch is CPU extract only; no actual embedding input or bounded served replay inspected in this comparison."
+    }
+  },
+  "known_limitations": [
+    "No ±/∓, µm, or subtraction equation selected.",
+    "One paper supplies all selected inverse exponents.",
+    "Interim sample availability depends on live build order, not a random completion sample.",
+    "No inference from artifact presence alone: completed pipeline_state stages captured and verified stable while reading.",
+    "Footnote role uncertainty is explicitly recorded in assessment-clarification.md."
+  ]
+}

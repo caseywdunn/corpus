@@ -1,0 +1,1409 @@
+[
+  {
+    "id": "1a75487cf77c",
+    "stratum": "exponent_or_inverse_unit",
+    "stem": "Mańko_et al2020",
+    "physical_page": 11,
+    "transcription": "transcriptions/Mańko_et al2020/page_011.txt",
+    "transcription_sha256": "25ddb43a448b2ea9ed640b5b880c81d01d7dd6b35145aa07f0390b36db650d2e",
+    "charspan": [
+      208,
+      212
+    ],
+    "transcribed_expression": "m^−3",
+    "context": "ot\ntranscriber markers: the Fig. 7 y-axis label \"Abundance [ind.·10 m^-3]\" and the\nFig. 7 caption \"Abundance [ind. · 10 m^−3]\". Everywhere else on this page \"[\" is my\nmarker. Superscripts are rendered with \"^\".]\n\n[RUNNING HEAD] M.K. Mańko, et al.\n[RUNNING HEAD] Progress in Oceanograp",
+    "source_pdf": "library/M/Mańko_et al2020.pdf",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "rank": "1a75487cf77c899c8a8c5dd64e031e4d0d61e3a38f05aa368737d136f5b4e165",
+    "sample_number": 1,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "inverse_volume",
+      "source_literal": "ind. · 10 m⁻³",
+      "source_context": "Fig. 7 caption: Abundance [ind. · 10 m⁻³] of different life cycle stages.",
+      "required_meaning_features": [
+        "metre exponent −3",
+        "printed scale factor 10"
+      ],
+      "meaning": "Inverse cubic metres, with the literal printed factor 10 retained; do not silently change it to 1000.",
+      "notes": "Caption expression quoted in a transcriber note; traced to the printed caption. Superscript −3 and scale 10 are visually clear.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 1,
+        "source_pdf": "library/M/Mańko_et al2020.pdf",
+        "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+        "physical_page": 11,
+        "bbox_top_left_pdf_points": [
+          47.622080078125,
+          277.7953460693359,
+          565.5122009277344,
+          317.48039550781255
+        ],
+        "relative_page_bbox": [
+          0.08,
+          0.35,
+          0.95,
+          0.4
+        ],
+        "dpi": 250,
+        "raster": "crops/01.png",
+        "raster_sha256": "3f0513a972e839e5856fc96b260657612bd124389c3edca2af606771d286d3eb"
+      }
+    }
+  },
+  {
+    "id": "27e85acb1db6",
+    "stratum": "exponent_or_inverse_unit",
+    "stem": "Mańko_et al2020",
+    "physical_page": 5,
+    "transcription": "transcriptions/Mańko_et al2020/page_005.txt",
+    "transcription_sha256": "15249c3efad65e30a47a61f48ac2c35ed875d5be84761ff7b1571ff23aeb1b9f",
+    "charspan": [
+      5049,
+      5053
+    ],
+    "transcribed_expression": "m^−3",
+    "context": "r station was significantly higher along southern transect N (305 ind.·1000 m^−3) than along transect EB (265 ind.·1000 m^−3) (Table 2, Supp. mat. 1). The difference in the average abundance was more pronounced for the shelf stations (N: 568 ind.·1000 m^−3; EB: 432 ind.·1000 m^−3), w",
+    "source_pdf": "library/M/Mańko_et al2020.pdf",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "rank": "27e85acb1db68084378447f78e55cd97b298b74723089320cc21c93886e4b0a6",
+    "sample_number": 2,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "inverse_volume",
+      "source_literal": "265 ind.·1000 m⁻³",
+      "source_context": "Body, transect EB (265 ind.·1000 m⁻³), after the preceding transect N value.",
+      "required_meaning_features": [
+        "metre exponent −3",
+        "printed scale factor 1000",
+        "value 265"
+      ],
+      "meaning": "Abundance in inverse cubic metres at transect EB; the raised minus is part of the exponent.",
+      "notes": "The selected occurrence is the EB value, not the preceding N value or the later shelf values.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 2,
+        "source_pdf": "library/M/Mańko_et al2020.pdf",
+        "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+        "physical_page": 5,
+        "bbox_top_left_pdf_points": [
+          297.63800048828125,
+          476.2205932617187,
+          571.4649609375,
+          547.6536822509765
+        ],
+        "relative_page_bbox": [
+          0.5,
+          0.6,
+          0.96,
+          0.69
+        ],
+        "dpi": 250,
+        "raster": "crops/02.png",
+        "raster_sha256": "c0c04e825e2ccafc0d1dd4f165efdb53b104b82527cd3bfa04e2b7a4f00f423d"
+      }
+    }
+  },
+  {
+    "id": "2f14b09546d6",
+    "stratum": "exponent_or_inverse_unit",
+    "stem": "Mańko_et al2020",
+    "physical_page": 6,
+    "transcription": "transcriptions/Mańko_et al2020/page_006.txt",
+    "transcription_sha256": "db51e1b3ee0905700f297de6b58b8ae18e30330be3cc3e661a474113757afc78",
+    "charspan": [
+      191,
+      195
+    ],
+    "transcribed_expression": "m^-3",
+    "context": " source's own, not\ntranscriber markers: the Fig. 3 axis labels \"Relative abundance [%]\" and \"Total\nabundance [ind.·1000 m^-3]\", and \"[%]\" and \"[ind.·1000 m^−3]\" in the Fig. 3 caption.\nEverywhere else on this page \"[\" is my marker. Superscripts are rendered with \"^\".]\n\n[RUNNING HEAD] ",
+    "source_pdf": "library/M/Mańko_et al2020.pdf",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "rank": "2f14b09546d6a80c6a1d45458b481aefea19bb664bd5bdef04427791c0d074a3",
+    "sample_number": 3,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "inverse_volume",
+      "source_literal": "Total abundance [ind.·1000 m⁻³]",
+      "source_context": "Fig. 3 right-hand vertical abundance axis.",
+      "required_meaning_features": [
+        "metre exponent −3",
+        "printed scale factor 1000"
+      ],
+      "meaning": "Inverse cubic metre abundance unit in a figure axis; retain the negative exponent.",
+      "notes": "Expression quoted in a transcriber note; traced to the printed vertical axis. This is figure-interior text, not body prose or a caption.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 3,
+        "source_pdf": "library/M/Mańko_et al2020.pdf",
+        "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+        "physical_page": 6,
+        "bbox_top_left_pdf_points": [
+          375.02388061523436,
+          507.9686328125,
+          437.5278607177734,
+          682.5828503417969
+        ],
+        "relative_page_bbox": [
+          0.63,
+          0.64,
+          0.735,
+          0.86
+        ],
+        "dpi": 250,
+        "raster": "crops/03.png",
+        "raster_sha256": "2eb38842c6ae3d928ad77d35c3ce1e9954f6a51c9105c8cd5a7d53d391005be5"
+      }
+    }
+  },
+  {
+    "id": "55a1eb90fba6",
+    "stratum": "exponent_or_inverse_unit",
+    "stem": "Chenetal2015",
+    "physical_page": 2,
+    "transcription": "transcriptions/Chenetal2015/page_002.txt",
+    "transcription_sha256": "845a99515f5b7d65762efde298736c1095a980f2dc954e3302fe43881cf7518e",
+    "charspan": [
+      1249,
+      1251
+    ],
+    "transcribed_expression": "m³",
+    "context": "perature ( Tb, ℃) ，surface salinity ( Ss) ，middle salinity ( Sm) ，bottom salinity ( Sb) ，surface chlorophll a ( Chas，mg/m³) ，middle chlorophll a ( Cham，mg/m³) and bottom chlorophll a ( Chab，mg/m³) . Though the results showed details difference in 4 seasons，it could be divided into ",
+    "source_pdf": "library/C/Chenetal2015.pdf",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "rank": "55a1eb90fba602f00c2d02dcdd255c14c08e9c0f51b9e846f65b673a68053332",
+    "sample_number": 4,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "denominator_volume",
+      "source_literal": "mg/m³",
+      "source_context": "English abstract: surface chlorophll a (Chaₛ, mg/m³), before middle chlorophll.",
+      "required_meaning_features": [
+        "division slash",
+        "positive denominator metre exponent 3"
+      ],
+      "meaning": "Milligrams per cubic metre; positive 3 applies to the denominator metre.",
+      "notes": "The first surface chlorophyll unit is selected. The exponent is raised in the source.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 4,
+        "source_pdf": "library/C/Chenetal2015.pdf",
+        "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+        "physical_page": 2,
+        "bbox_top_left_pdf_points": [
+          47.6160009765625,
+          210.4499969482422,
+          547.5840112304687,
+          269.37599609375
+        ],
+        "relative_page_bbox": [
+          0.08,
+          0.25,
+          0.92,
+          0.32
+        ],
+        "dpi": 250,
+        "raster": "crops/04.png",
+        "raster_sha256": "ae3f619b694f2dad17e62b3ce6ed071e5297abcf70d908dc445686c3e47dbe26"
+      }
+    }
+  },
+  {
+    "id": "0278e9920e8f",
+    "stratum": "arithmetic_or_relation",
+    "stem": "Totton1965a",
+    "physical_page": 113,
+    "transcription": "transcriptions/Totton1965a/page_113.txt",
+    "transcription_sha256": "047bf3229bcf47cc1224433c7bf958ce24ebf5ed0688fa0723576e00eb38eedd",
+    "charspan": [
+      1663,
+      1672
+    ],
+    "transcribed_expression": "581, × 21",
+    "context": "'polygonal'.\n\n[FIGURE]\np\np¹\n♀\n♂\npr\np\ng\np\n1mm\n\nFIG. 60.   Forskalia leuckarti Bedot\nGonodendron of Villefranche specimen 581, × 21\ng = gonodendron; p = palpon; p¹ = primary palpon; pr = secondary protrusion from base of a palpon; ♂ and ♀ = male and female gonophores.\n[/FIGURE]\n\n[NOTE: prin",
+    "source_pdf": "library/T/Totton1965a.pdf",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "rank": "0278e9920e8fbf1e0187f1ca8e45e970b0f5328e4db05029e3bbbc02d321bd02",
+    "sample_number": 5,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "magnification",
+      "source_literal": "specimen 581, × 21",
+      "source_context": "Fig. 60: Gonodendron of Villefranche specimen 581, × 21.",
+      "required_meaning_features": [
+        "magnification sign ×",
+        "magnification factor 21",
+        "specimen identifier 581"
+      ],
+      "meaning": "Twenty-one-fold magnification; 581 is a specimen identifier, not an arithmetic operand.",
+      "notes": "A digit × digit regex spans punctuation but the source semantics are caption magnification.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 5,
+        "source_pdf": "library/T/Totton1965a.pdf",
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "physical_page": 113,
+        "bbox_top_left_pdf_points": [
+          54.47520263671875,
+          690.1775939941406,
+          575.0160278320312,
+          757.5119934082031
+        ],
+        "relative_page_bbox": [
+          0.09,
+          0.82,
+          0.95,
+          0.9
+        ],
+        "dpi": 250,
+        "raster": "crops/05.png",
+        "raster_sha256": "3376322f8ca56a2eb1a285e77dfc7ff6befcfaa1055a1b4944b9f0898299bb1b"
+      }
+    }
+  },
+  {
+    "id": "03a66f71be61",
+    "stratum": "arithmetic_or_relation",
+    "stem": "Totton1965a",
+    "physical_page": 168,
+    "transcription": "transcriptions/Totton1965a/page_168.txt",
+    "transcription_sha256": "c79095b596f57f80a10e0ae5677424685254a9ad7ca0df256ba104b5a4d4816d",
+    "charspan": [
+      2063,
+      2074
+    ],
+    "transcribed_expression": "217,  × 7.1",
+    "context": "fter Bigelow\n& Sears, 1937, fig. 27); B, Lensia multicristata (Moser)—lateral view of the anterior\nnectophore, Thor St. 217,  × 7.1 (after Bigelow & Sears, 1937, fig. 40)\n[/FIGURE]\n",
+    "source_pdf": "library/T/Totton1965a.pdf",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "rank": "03a66f71be615288be92d7240ca40f120fc8d4d61bf52c0e854aa620fd2f8166",
+    "sample_number": 6,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "magnification",
+      "source_literal": "St. 217, × 7·1",
+      "source_context": "Fig. 99, B Lensia multicristata: nectophore, Thor St. 217, × 7·1.",
+      "required_meaning_features": [
+        "magnification sign ×",
+        "decimal magnification factor 7.1",
+        "station identifier 217"
+      ],
+      "meaning": "7.1-fold magnification; 217 is a station identifier.",
+      "notes": "Decimal typography is represented here by a middle dot; an unambiguous decimal point spelling 7.1 preserves the meaning. The dot is not a second multiplication sign.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 6,
+        "source_pdf": "library/T/Totton1965a.pdf",
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "physical_page": 168,
+        "bbox_top_left_pdf_points": [
+          122.49599609375001,
+          694.3103759765625,
+          551.231982421875,
+          770.5151733398437
+        ],
+        "relative_page_bbox": [
+          0.2,
+          0.82,
+          0.9,
+          0.91
+        ],
+        "dpi": 250,
+        "raster": "crops/06.png",
+        "raster_sha256": "3a48872b2fe6b3ca2ba0f81226a0059e916fdc16234e141b48e55a46e075e6d0"
+      }
+    }
+  },
+  {
+    "id": "097ce324791d",
+    "stratum": "arithmetic_or_relation",
+    "stem": "Totton1965a",
+    "physical_page": 87,
+    "transcription": "transcriptions/Totton1965a/page_087.txt",
+    "transcription_sha256": "130a49c8a6eaeae297db351f5d918d3c45637c9af51379fb35bf5b6fd5db997d",
+    "charspan": [
+      178,
+      188
+    ],
+    "transcribed_expression": "681, × 3.2",
+    "context": "\n\n[FIGURE]\nA\nC\nB\nD\nE\nF\n\nFIG. 45.   Bargmannia elongata Totton. Nectophores\nA, B, upper and under views, 'Discovery' St. 681, × 3.2; C, D, lateral and upper views, 'Discovery' St. 699, × 6.3; E, F, lateral and under views, 'Discovery' St. 1769 (1,000–750 m), × 3.5. The muscular lamella is a",
+    "source_pdf": "library/T/Totton1965a.pdf",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "rank": "097ce324791d8d77157b44adc6e34928d05ab334c97803c967ca87c31773b030",
+    "sample_number": 7,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "magnification",
+      "source_literal": "St. 681, × 3·2",
+      "source_context": "Fig. 45, A and B upper and under views, Discovery St. 681, × 3·2.",
+      "required_meaning_features": [
+        "magnification sign ×",
+        "decimal magnification factor 3.2",
+        "station identifier 681"
+      ],
+      "meaning": "3.2-fold magnification; 681 is a station identifier.",
+      "notes": "Decimal typography is represented here by a middle dot; an unambiguous decimal point spelling 3.2 preserves the meaning. Later magnifications on the same line are not additional selected instances.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 7,
+        "source_pdf": "library/T/Totton1965a.pdf",
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "physical_page": 87,
+        "bbox_top_left_pdf_points": [
+          103.7544012451172,
+          449.5247857666016,
+          555.3912066650391,
+          517.3775836181641
+        ],
+        "relative_page_bbox": [
+          0.17,
+          0.53,
+          0.91,
+          0.61
+        ],
+        "dpi": 250,
+        "raster": "crops/07.png",
+        "raster_sha256": "84adf61a17b4a5d389f95e2f31d8e06fc36dd935fce46925e6a08e365ac2562e"
+      }
+    }
+  },
+  {
+    "id": "2af9bc6e317b",
+    "stratum": "arithmetic_or_relation",
+    "stem": "Chenetal2015",
+    "physical_page": 8,
+    "transcription": "transcriptions/Chenetal2015/page_008.txt",
+    "transcription_sha256": "389c07bce252ad087da5e25d6e7cbedfb42aad46d44909de032d0d0169698e5d",
+    "charspan": [
+      2721,
+      2730
+    ],
+    "transcribed_expression": "R = 0.596",
+    "context": "合性特点。此外双生水母离原点较近，说明其生态适应性较广。\n\n夏季: 群集 Ⅰ 分布在雷州半岛-广西沿岸海域，群集 Ⅱ 包括 B26、B30 和 J10 测站，群集 Ⅲ 分布在远岸海域（图 9）。Anosim 分析结果表明群集间的差异极显著（R = 0.596，P = 0.001）。\n\nSIMPER 分析表明，群集 Ⅰ 的主要种为球型侧腕水母、拟细浅室水母、锡兰和平水母（Eirene ceylonensis）和短腺和平水母（Phialucium benga），其中锡兰和平水母基本只分布在群集 Ⅰ，位于 DCCA 排序图（图 10）低温低盐区域，说明该群集受沿岸流影响；群集 ",
+    "source_pdf": "library/C/Chenetal2015.pdf",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "rank": "2af9bc6e317b21151e2fd066b5edfcac19800b5a9fddcf4f5eaf381ad9fecffd",
+    "sample_number": 8,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "equality",
+      "source_literal": "R = 0.596",
+      "source_context": "Body below Fig. 9: Anosim ... (R = 0.596, P = 0.001).",
+      "required_meaning_features": [
+        "equality sign =",
+        "decimal value 0.596"
+      ],
+      "meaning": "R equals 0.596; equals is not a plus-minus sign.",
+      "notes": "Source prints two horizontal strokes for equals. P = 0.001 is context, not an additional selected instance.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 8,
+        "source_pdf": "library/C/Chenetal2015.pdf",
+        "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+        "physical_page": 8,
+        "bbox_top_left_pdf_points": [
+          47.6160009765625,
+          614.5139910888672,
+          547.5840112304687,
+          673.439990234375
+        ],
+        "relative_page_bbox": [
+          0.08,
+          0.73,
+          0.92,
+          0.8
+        ],
+        "dpi": 250,
+        "raster": "crops/08.png",
+        "raster_sha256": "93b91cd015cc71a09ce2c6534c3bd94025117bb9d614f6df64e120c13fcb15f2"
+      }
+    }
+  },
+  {
+    "id": "00c7b77f7882",
+    "stratum": "measurement_unit",
+    "stem": "Vanhoeffen1906",
+    "physical_page": 28,
+    "transcription": "transcriptions/Vanhoeffen1906/page_028.txt",
+    "transcription_sha256": "7827b5abc6ad915c2c85d36f821bb89b30bc76de2d01b4c07498bb59d7961ece",
+    "charspan": [
+      975,
+      979
+    ],
+    "transcribed_expression": "30 m",
+    "context": "nn eine Länge von 20—30 cm bei einer Breite von 8—10 cm erreichen. Die längsten Tentakeln so großer Tiere sollen bis zu 30 m Tiefe herabhängen.\n\nEine junge Larve von etwa 3 mm Länge, in Figur 56 dargestellt, läßt bereits den Pneumatophor und den ersten Nährpolyp mit Tentakel erkennen",
+    "source_pdf": "library/U_Z/Vanhoeffen1906.pdf",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "rank": "00c7b77f7882b6d5829d18eba233198c647e33ce7601731c67e0a8e5c0b16e4c",
+    "sample_number": 9,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "measurement",
+      "source_literal": "30 m",
+      "source_context": "Tentakeln so großer Tiere sollen bis zu 30 m Tiefe herabhängen.",
+      "required_meaning_features": [
+        "value 30",
+        "unit metre m"
+      ],
+      "meaning": "Depth of up to 30 metres; do not reinterpret m as mm or µm.",
+      "notes": "Nearby centimetres and millimetres are context only.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 9,
+        "source_pdf": "library/U_Z/Vanhoeffen1906.pdf",
+        "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+        "physical_page": 28,
+        "bbox_top_left_pdf_points": [
+          104.10107299804689,
+          293.12861572265626,
+          520.5053649902344,
+          348.585380859375
+        ],
+        "relative_page_bbox": [
+          0.17,
+          0.37,
+          0.85,
+          0.44
+        ],
+        "dpi": 250,
+        "raster": "crops/09.png",
+        "raster_sha256": "5fd47af46d13b151e6cc759e9376af85f999b8f67c04686e370054b48e58d6bc"
+      }
+    }
+  },
+  {
+    "id": "0139dd6d0694",
+    "stratum": "measurement_unit",
+    "stem": "Carre1968_Hippopodius_tr",
+    "physical_page": 6,
+    "transcription": "transcriptions/Carre1968_Hippopodius_tr/page_006.txt",
+    "transcription_sha256": "702a9e5c77488e61dd41b77b49f39d48778acf4ba7df56a30222990dfc5f7876",
+    "charspan": [
+      2155,
+      2159
+    ],
+    "transcribed_expression": "50 m",
+    "context": "e bell showed two knobs, like the definitive bell of Vogtia glabra.\n\nWe have collected, in plankton nets fished between 50 m and the surface in the Bay of Villefranche-sur-Mer, numerous stages of development that we can attribute to the species Hippopodius hippopus. To our knowledge,",
+    "source_pdf": "library/C/Carre1968_Hippopodius_tr.pdf",
+    "source_sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+    "rank": "0139dd6d06947a799b66aec91540696cddf073dea5aecb4b896ee02f2538b8b8",
+    "sample_number": 10,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "measurement",
+      "source_literal": "50 m",
+      "source_context": "Plankton nets fished between 50 m and the surface in the Bay of Villefranche-sur-Mer.",
+      "required_meaning_features": [
+        "value 50",
+        "unit metre m"
+      ],
+      "meaning": "Sampling depth of 50 metres.",
+      "notes": "Source is the English translation page physically present in the original library PDF.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 10,
+        "source_pdf": "library/C/Carre1968_Hippopodius_tr.pdf",
+        "source_sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+        "physical_page": 6,
+        "bbox_top_left_pdf_points": [
+          47.57759765625,
+          395.58959655761714,
+          547.142373046875,
+          454.5071960449219
+        ],
+        "relative_page_bbox": [
+          0.08,
+          0.47,
+          0.92,
+          0.54
+        ],
+        "dpi": 250,
+        "raster": "crops/10.png",
+        "raster_sha256": "37a8357c8402da16d80df87060f31609d580d896d89650c6a578352ccaa680cc"
+      }
+    }
+  },
+  {
+    "id": "0402e706ecdd",
+    "stratum": "measurement_unit",
+    "stem": "Totton1965b",
+    "physical_page": 4,
+    "transcription": "transcriptions/Totton1965b/page_004.txt",
+    "transcription_sha256": "30059b6fe34461300b07ba636a2947afcaa289836630e3c80a91c5b46df49d3b",
+    "charspan": [
+      1130,
+      1136
+    ],
+    "transcribed_expression": "1250 m",
+    "context": "res.) Forty-two anterior nectophores were taken also at Station 1587 net TYFB on May 3, 1935 in a closing net haul from 1250 m.–800 m. Both stations were made off the East coast of Africa.\n\n[NOTE: \"Bigelows (1913)\" is printed without an apostrophe. The scale bar at the right of the fig",
+    "source_pdf": "library/T/Totton1965b.pdf",
+    "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+    "rank": "0402e706ecdd956c71408cb3585c15f88649c8dcc834a06ed8b3e2f3d669af96",
+    "sample_number": 11,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "measurement_with_range",
+      "source_literal": "1250 m.–800 m.",
+      "source_context": "Closing net haul from 1250 m.–800 m., Station 1587.",
+      "required_meaning_features": [
+        "start depth 1250",
+        "end depth 800",
+        "unit metre at both endpoints",
+        "ordinary range dash"
+      ],
+      "meaning": "Descending haul depth interval, 1250 to 800 metres; not subtraction or an uncertainty expression.",
+      "notes": "Preserve the stated endpoint order. Full stops abbreviate the unit.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 11,
+        "source_pdf": "library/T/Totton1965b.pdf",
+        "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+        "physical_page": 4,
+        "bbox_top_left_pdf_points": [
+          41.927893066406256,
+          548.3514770507812,
+          398.31498413085933,
+          599.9610278320313
+        ],
+        "relative_page_bbox": [
+          0.1,
+          0.85,
+          0.95,
+          0.93
+        ],
+        "dpi": 250,
+        "raster": "crops/11.png",
+        "raster_sha256": "95cfac59851cae4458595e25bb7ac7dfd550e424fa0eb12ed9eca592fcd376a8"
+      }
+    }
+  },
+  {
+    "id": "04e0937cdf57",
+    "stratum": "measurement_unit",
+    "stem": "Gasca_Suarez1993tr",
+    "physical_page": 2,
+    "transcription": "transcriptions/Gasca_Suarez1993tr/page_002.txt",
+    "transcription_sha256": "6a2d2c837ddf3d99112a5fe2afeed1892ae1d9d9803d5647ec23d27fdcc104f7",
+    "charspan": [
+      2011,
+      2019
+    ],
+    "transcribed_expression": "23.4 ° C",
+    "context": " station 27 (20°24.7N; 95°16.3'W), a superior nectophore of L. canopusi was found. The temperature in this locality was 23.4 ° C, and the salinity of 36.32‰; the sampling was nocturnal (11:15 pm).\n\nThe referred species is easily distinguishable by the absence of somatocyst (part of the g",
+    "source_pdf": "library/G/Gasca_Suarez1993tr.pdf",
+    "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+    "rank": "04e0937cdf5785af3a7838ace130e10625d3974adc74d54c7c95dba31271ca18",
+    "sample_number": 12,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "temperature",
+      "source_literal": "23.4 ° C",
+      "source_context": "The temperature in this locality was 23.4 ° C, and the salinity of 36.32 per mille.",
+      "required_meaning_features": [
+        "decimal value 23.4",
+        "degree sign",
+        "Celsius C"
+      ],
+      "meaning": "23.4 degrees Celsius; the raised circle denotes degrees, not a numeric exponent or plus-minus.",
+      "notes": "The adjacent per-mille value is not an additional selected instance.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 12,
+        "source_pdf": "library/G/Gasca_Suarez1993tr.pdf",
+        "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+        "physical_page": 2,
+        "bbox_top_left_pdf_points": [
+          53.56800109863281,
+          378.9179901123047,
+          541.6320111083985,
+          429.4403887939453
+        ],
+        "relative_page_bbox": [
+          0.09,
+          0.45,
+          0.91,
+          0.51
+        ],
+        "dpi": 250,
+        "raster": "crops/12.png",
+        "raster_sha256": "c71f0f67c206f017f749ae4ce3b388d13f5de7108c9268d46b30088a02316962"
+      }
+    }
+  },
+  {
+    "id": "00a85f3043cb",
+    "stratum": "ordinary_range",
+    "stem": "Chenetal2015",
+    "physical_page": 3,
+    "transcription": "transcriptions/Chenetal2015/page_003.txt",
+    "transcription_sha256": "c3678f7e6777ad48a894fa69a2da7e0f79c33c9d76c1983fce9899d2e2bee237",
+    "charspan": [
+      4853,
+      4862
+    ],
+    "transcribed_expression": "1994-2018",
+    "context": "Gulf\n[/FIGURE]\n\nhttp: / / www.ecologica.cn\n\n[NOTE: the URL is set with spaces around the two solidi, as transcribed.]\n\n?1994-2018 China Academic Journal Electronic Publishing House. All rights reserved.    http://www.cnki.net\n\n[NOTE: grey CNKI footer stamp added by the digitiser, printed ",
+    "source_pdf": "library/C/Chenetal2015.pdf",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "rank": "00a85f3043cbf944e7e927c6b07cca4d15dbca4476654dd4495f6cd713382c89",
+    "sample_number": 13,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "date_range_control",
+      "source_literal": "1994-2018",
+      "source_context": "Grey China Academic Journal Electronic Publishing House footer.",
+      "required_meaning_features": [
+        "year endpoint 1994",
+        "year endpoint 2018",
+        "ordinary hyphen range"
+      ],
+      "meaning": "Publisher footer date range; not subtraction, a signed scientific quantity, or an exponent.",
+      "notes": "Footer text may be intentionally omitted by a serving or chunking policy. Such omission must be reported separately from glyph corruption.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 13,
+        "source_pdf": "library/C/Chenetal2015.pdf",
+        "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+        "physical_page": 3,
+        "bbox_top_left_pdf_points": [
+          11.904000244140626,
+          799.7099884033203,
+          547.5840112304687,
+          833.3819879150391
+        ],
+        "relative_page_bbox": [
+          0.02,
+          0.95,
+          0.92,
+          0.99
+        ],
+        "dpi": 250,
+        "raster": "crops/13.png",
+        "raster_sha256": "3099c54e61c359c01640bf8b278802bd8521c66009633022645383ae0b982069"
+      }
+    }
+  },
+  {
+    "id": "0199789c3c2a",
+    "stratum": "ordinary_range",
+    "stem": "Stepanjants2014",
+    "physical_page": 4,
+    "transcription": "transcriptions/Stepanjants2014/page_004.txt",
+    "transcription_sha256": "375e920c727b8b2d78c56298741e74e31f78b641cc2f7dca490c5d183448b7f7",
+    "charspan": [
+      1529,
+      1538
+    ],
+    "transcribed_expression": "0.14–0.24",
+    "context": "ков, 1886); изолецитальные\t?\nLaomedea flexuosa\t0.25–0.30 (Tardent, 1978)\tМорульная деляминация\nTesserogastria musculosa\t0.14–0.24 (по: Tardent, 1978)?\t?\nEctopleura (Tubularia) radiata\t0.5–0.6 (по: Tardent, 1978)\t?\nSolmissus (Polyxenia) albescens\t1.5 (Мечников, 1886)?\t?\n\nПримечание. Видово",
+    "source_pdf": "library/S/Stepanjants2014.pdf",
+    "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+    "rank": "0199789c3c2a65aa97b354f799c41da371c2f1c74465bb827e3d53b000de60eb",
+    "sample_number": 14,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "measurement_range_control",
+      "source_literal": "0.14–0.24",
+      "source_context": "Table 1, Tesserogastria musculosa, egg-diameter column (мм).",
+      "required_meaning_features": [
+        "decimal endpoint 0.14",
+        "decimal endpoint 0.24",
+        "ordinary range dash",
+        "millimetre unit from column header"
+      ],
+      "meaning": "Egg-diameter interval 0.14 to 0.24 mm, with a printed uncertainty/question-mark annotation after the cited source; not a plus-minus expression.",
+      "notes": "The unit is in the table column header, visible in the retained full-page source raster. The selected crop retains the species row.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 14,
+        "source_pdf": "library/S/Stepanjants2014.pdf",
+        "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+        "physical_page": 4,
+        "bbox_top_left_pdf_points": [
+          20.96639892578125,
+          369.0287976074219,
+          503.19357421875,
+          429.27839721679686
+        ],
+        "relative_page_bbox": [
+          0.04,
+          0.49,
+          0.96,
+          0.57
+        ],
+        "dpi": 250,
+        "raster": "crops/14.png",
+        "raster_sha256": "ed009ec187fe9d17b339318d3c82fe690e95e265b2c17d3e714c8c4b91be9ab8"
+      }
+    }
+  },
+  {
+    "id": "029478ab50d3",
+    "stratum": "ordinary_range",
+    "stem": "Stepanjants_Dianov1997",
+    "physical_page": 9,
+    "transcription": "transcriptions/Stepanjants_Dianov1997/page_009.txt",
+    "transcription_sha256": "b97131f49349fc70fcf9e7eb70c65e43bb548ba6fd6be8a19557b425631cd02b",
+    "charspan": [
+      2923,
+      2930
+    ],
+    "transcribed_expression": "33.5-35",
+    "context": "ion.\n\n[NOTE: in \"(fig.1:1,2)\" and \"(fig.1:3-6)\" the numerals after the colon are set in\nitalic. The salinity unit after 33.5-35 is a per-mille sign drawn as a percent\nsign with a second small o after it. \"Pages\" is printed without the accent that\nthe name Pagès carries elsewhere.]\n\n162\n",
+    "source_pdf": "library/S/Stepanjants_Dianov1997.pdf",
+    "source_sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+    "rank": "029478ab50d3cd2def473c9c1733dddb0f410fd11974d613842194bc998d3241",
+    "sample_number": 15,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "salinity_range_control",
+      "source_literal": "33.5-35 ‰",
+      "source_context": "Body: temperature from −1° C to 22° C and salinity 33.5-35 followed by a percent-like sign with a second small o.",
+      "required_meaning_features": [
+        "decimal endpoint 33.5",
+        "endpoint 35",
+        "ordinary range dash",
+        "per-mille unit"
+      ],
+      "meaning": "Salinity interval 33.5 to 35 per mille, not percent or an uncertainty expression.",
+      "notes": "The printed unit uses the historical percent-plus-small-o construction; ‰ in this label records its meaning. This expression is quoted in a transcriber note and was traced to the body.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 15,
+        "source_pdf": "library/S/Stepanjants_Dianov1997.pdf",
+        "source_sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+        "physical_page": 9,
+        "bbox_top_left_pdf_points": [
+          24.00719940185547,
+          194.52960510253905,
+          315.5231921386719,
+          240.60240631103514
+        ],
+        "relative_page_bbox": [
+          0.07,
+          0.38,
+          0.92,
+          0.47
+        ],
+        "dpi": 250,
+        "raster": "crops/15.png",
+        "raster_sha256": "353c4abdbfb583a3fbdae32f797d2dc9e4ea41c656fc4075484430750582112c"
+      }
+    }
+  },
+  {
+    "id": "04003de47a1a",
+    "stratum": "ordinary_range",
+    "stem": "Stepanjants2014",
+    "physical_page": 8,
+    "transcription": "transcriptions/Stepanjants2014/page_008.txt",
+    "transcription_sha256": "8d21d1cb7d333e3da6df0c3fbe85d305cd0d0fc392d44d11122d404341680913",
+    "charspan": [
+      2225,
+      2231
+    ],
+    "transcribed_expression": "0.3–10",
+    "context": "д можно назвать \"ненормальным\". Его вместимость – 2000 мм3 газа в сравнении с таковой у пневматофоров других сифонофор (0.3–10 мм3) (Pugh, 1983, p. 278)), необычная форма колоний, морфология сифосома, у которого гастродермальная полость представлена либо мешком или системой ветвящихся ",
+    "source_pdf": "library/S/Stepanjants2014.pdf",
+    "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+    "rank": "04003de47a1af87e506803b0815114ecf9221525611422a5bbd5e7215b850bf8",
+    "sample_number": 16,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "volume_range_control",
+      "source_literal": "0.3–10 мм³",
+      "source_context": "Body, other siphonophore pneumatophores: (0.3–10 мм³) (Pugh, 1983, p. 278).",
+      "required_meaning_features": [
+        "decimal endpoint 0.3",
+        "endpoint 10",
+        "ordinary range dash",
+        "Cyrillic millimetre unit мм",
+        "positive volume exponent 3"
+      ],
+      "meaning": "Volume interval 0.3 to 10 cubic millimetres; the dash is a range and the raised 3 is a positive exponent.",
+      "notes": "Independent transcription flattened the exponent to мм3, but the source image clearly raises the 3. Nearby 2000 мм³ is context only.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 16,
+        "source_pdf": "library/S/Stepanjants2014.pdf",
+        "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+        "physical_page": 8,
+        "bbox_top_left_pdf_points": [
+          21.31199951171875,
+          614.0159899902343,
+          271.7279937744141,
+          685.1519888305664
+        ],
+        "relative_page_bbox": [
+          0.04,
+          0.82,
+          0.51,
+          0.915
+        ],
+        "dpi": 250,
+        "raster": "crops/16.png",
+        "raster_sha256": "f5ee7e018c9a08de49ca256d46f8d91e7c676ca57c969e8efdee1a96410b19c9"
+      }
+    }
+  },
+  {
+    "id": "0890f50333fd",
+    "stratum": "superscript_or_footnote_control",
+    "stem": "Beklemishev1969",
+    "physical_page": 13,
+    "transcription": "transcriptions/Beklemishev1969/page_013.txt",
+    "transcription_sha256": "344fe305d5badc85c5430902b0e2d6db92d07136ca10e44b05f7352cc4f8633f",
+    "charspan": [
+      4559,
+      4571
+    ],
+    "transcribed_expression": "[FOOTNOTE] ¹",
+    "context": "colonies.\"; \"cystids\"; \"not fused together,\"; and \"and in that respect the zooids are more independent than in most\".]\n\n[FOOTNOTE] ¹ In some species of Membranipora, however, the larva produces two ancestrulae simultaneously during metamorphosis (D. Atkins, 1955), i.e. here too coloniality e",
+    "source_pdf": "library/B/Beklemishev1969.pdf",
+    "source_sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+    "rank": "0890f50333fd528bd3d105e559f08e34067749762175285e377bbc27b6dfa4c2",
+    "sample_number": 17,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "footnote_control",
+      "source_literal": "¹ In some species of Membranipora",
+      "source_context": "Bottom footnote describing two ancestrulae.",
+      "required_meaning_features": [
+        "superscript footnote marker 1"
+      ],
+      "meaning": "Footnote reference number 1; not a scientific power or a unit.",
+      "notes": "The leading raised 1 is visibly separated from the footnote prose.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 17,
+        "source_pdf": "library/B/Beklemishev1969.pdf",
+        "source_sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+        "physical_page": 13,
+        "bbox_top_left_pdf_points": [
+          46.335542907714846,
+          572.4362176513672,
+          391.7459536743164,
+          631.0592037963868
+        ],
+        "relative_page_bbox": [
+          0.11,
+          0.83,
+          0.93,
+          0.915
+        ],
+        "dpi": 250,
+        "raster": "crops/17.png",
+        "raster_sha256": "7a2cfbc1d9c18ee0ce062cf5c2738b5cc221014e683f0821925f769c28c2766a"
+      }
+    }
+  },
+  {
+    "id": "092a36f1b337",
+    "stratum": "superscript_or_footnote_control",
+    "stem": "Vanhoeffen1906",
+    "physical_page": 2,
+    "transcription": "transcriptions/Vanhoeffen1906/page_002.txt",
+    "transcription_sha256": "77ad2d2f6929e6aaf16fee9633ab4d851ec3d12c10cd2c9a9df9820f6feeb23e",
+    "charspan": [
+      3274,
+      3286
+    ],
+    "transcribed_expression": "[FOOTNOTE] *",
+    "context": " dritten Tage bilden sich an der Oberfläche des gefurchten Dotters feine Wimpern aus und die Larve, die Eiform annimmt\n\n[FOOTNOTE] *) Beiträge zur näheren Kenntnis der Schwimmpolypen (Siphonophoren) Zeitschr. für wissensch. Zool. V, 1854.\n",
+    "source_pdf": "library/U_Z/Vanhoeffen1906.pdf",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "rank": "092a36f1b337cb3be0df06e1db4adccecfc04e8266a0d4de1fdf917fff934cb7",
+    "sample_number": 18,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "footnote_control",
+      "source_literal": "*) Beiträge zur näheren Kenntnis",
+      "source_context": "Bottom bibliographic footnote, ending Zool. V, 1854.",
+      "required_meaning_features": [
+        "asterisk footnote marker",
+        "closing parenthesis"
+      ],
+      "meaning": "Asterisk footnote marker; not multiplication or exponent notation.",
+      "notes": "The source has an asterisk followed by a parenthesis.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 18,
+        "source_pdf": "library/U_Z/Vanhoeffen1906.pdf",
+        "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+        "physical_page": 2,
+        "bbox_top_left_pdf_points": [
+          98.41904296875,
+          683.0805102539063,
+          522.8511657714844,
+          738.6800866699219
+        ],
+        "relative_page_bbox": [
+          0.16,
+          0.86,
+          0.85,
+          0.93
+        ],
+        "dpi": 250,
+        "raster": "crops/18.png",
+        "raster_sha256": "15ac1075485ac97f7b218ba3c733ec4ba9c8cc42c32770cec935a2e47313dce1"
+      }
+    }
+  },
+  {
+    "id": "0cd75bab08f6",
+    "stratum": "superscript_or_footnote_control",
+    "stem": "Vanhoeffen1906",
+    "physical_page": 5,
+    "transcription": "transcriptions/Vanhoeffen1906/page_005.txt",
+    "transcription_sha256": "3d49adaa7ad3f0a86b565c145075951f3d7b13c15c887b1b6705c857836ed980",
+    "charspan": [
+      2729,
+      2732
+    ],
+    "transcribed_expression": "m**",
+    "context": "Spitze der Glockenhöhle, sodaß der Öltropfen noch über der Spitze liegt. Dadurch unterscheidet sich diese nach Cunningham**) bei Plymouth und der Südwestküste Irlands im Herbst erscheinende Art wesentlich von Muggiaea Kochi Chun des Mittelmeeres, bei der\n\n[FOOTNOTE] *) Mitteilungen ",
+    "source_pdf": "library/U_Z/Vanhoeffen1906.pdf",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "rank": "0cd75bab08f64d06619e2afbb84006a7134599f393237622f4156e43c6604bda",
+    "sample_number": 19,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "footnote_control",
+      "source_literal": "Cunningham**)",
+      "source_context": "Body: nach Cunningham**) bei Plymouth und der Südwestküste Irlands.",
+      "required_meaning_features": [
+        "double-asterisk footnote marker",
+        "author surname ending in m"
+      ],
+      "meaning": "Double-asterisk footnote marker after Cunningham; terminal m is part of the surname, not metre.",
+      "notes": "Selected regex lead m** is retained as a hard negative for indiscriminate unit/exponent interpretation.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 19,
+        "source_pdf": "library/U_Z/Vanhoeffen1906.pdf",
+        "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+        "physical_page": 5,
+        "bbox_top_left_pdf_points": [
+          98.09279296875,
+          586.6125073242188,
+          521.1179626464843,
+          650.0300756835937
+        ],
+        "relative_page_bbox": [
+          0.16,
+          0.74,
+          0.85,
+          0.82
+        ],
+        "dpi": 250,
+        "raster": "crops/19.png",
+        "raster_sha256": "6a7dc56372765e232068e18be34696d7f475d14d3bc171df0cb148e6ea9b4e2d"
+      }
+    }
+  },
+  {
+    "id": "247946d7ee26",
+    "stratum": "superscript_or_footnote_control",
+    "stem": "Carre1969_Nanomia_tr",
+    "physical_page": 23,
+    "transcription": "transcriptions/Carre1969_Nanomia_tr/page_023.txt",
+    "transcription_sha256": "527fb14888f1e5444e7cf8c05988ed321e6c355b112f1372910cd1378b9541d2",
+    "charspan": [
+      4132,
+      4144
+    ],
+    "transcribed_expression": "[FOOTNOTE] 1",
+    "context": "tate, the eggs are released directly into the water and this represents, without doubt, the normal process of release.\n\n[FOOTNOTE] 1 It is almost impossible for us to precision the origin of the sexual cells, but we hope to be able to take up this problem in a future work.\n",
+    "source_pdf": "library/C/Carre1969_Nanomia_tr.pdf",
+    "source_sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+    "rank": "247946d7ee26cbd028b268a2147772a97f9fec2cb4407f2485cdbeac17f32288",
+    "sample_number": 20,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "footnote_control",
+      "source_literal": "¹ It is almost impossible",
+      "source_context": "Bottom footnote below a horizontal rule in the translated article.",
+      "required_meaning_features": [
+        "superscript footnote marker 1"
+      ],
+      "meaning": "Footnote marker 1; not a scientific exponent.",
+      "notes": "Independent transcription uses baseline 1 for the footnote marker; source image visibly raises it.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 20,
+        "source_pdf": "library/C/Carre1969_Nanomia_tr.pdf",
+        "source_sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+        "physical_page": 23,
+        "bbox_top_left_pdf_points": [
+          77.31359619140625,
+          723.8447937011719,
+          523.35357421875,
+          774.3455932617188
+        ],
+        "relative_page_bbox": [
+          0.13,
+          0.86,
+          0.88,
+          0.92
+        ],
+        "dpi": 250,
+        "raster": "crops/20.png",
+        "raster_sha256": "3de1a0c8d2a837a9e7d49aacae27004937017e3d3b5f6d61e0ab7e24151492c2"
+      }
+    }
+  },
+  {
+    "id": "046bfd15bb1c",
+    "stratum": "ordinary_range",
+    "stem": "Quoy_Gaimard1834Plates",
+    "physical_page": 5,
+    "transcription": "transcriptions/Quoy_Gaimard1834Plates/page_005.txt",
+    "transcription_sha256": "c9cf26ce0f90a4364635f020bf5e40bc2e1645228a2599c67e3d15c0c2d75e22",
+    "charspan": [
+      1032,
+      1036
+    ],
+    "transcribed_expression": "1–6,",
+    "context": "ng numerals were each checked at magnification. Numerals\n1 to 27 are all accounted for, matching the six legend ranges (1–6, 7–11, 12–17,\n18–20, 21–23, 24–27).]\n\n[?Quoy ad vivum p.t] [NOTE: draughtsman's credit in fine engraved script at lower\nleft; three word-shapes and a superscrip",
+    "source_pdf": "library/Q_R/Quoy_Gaimard1834Plates.pdf",
+    "source_sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+    "rank": "046bfd15bb1c6bd5cacea6fa0d07e0f9d21686e1cc6d98a1ad12b1d85674d5bb",
+    "sample_number": 21,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "not_a_printed_expression",
+      "eligible_for_literal_expression_comparison": false,
+      "role": "transcription_note_only",
+      "source_literal": null,
+      "source_context": "Plate 4 legend: separate numerals 1 and 6 before Diphyse Bory.",
+      "required_meaning_features": [],
+      "meaning": "The selected transcription-note range 1–6 is not literally printed. The engraved legend pairs 1 and 6 without a dash.",
+      "notes": "Retain this failed source lead without replacement. No range-sign recall judgment is possible for the selected string. Source legend actually reads 1 6.",
+      "unknowns": [
+        "No printed dash corresponds to the selected transcriber-note range."
+      ],
+      "rendered_source": {
+        "sample_number": 21,
+        "source_pdf": "library/Q_R/Quoy_Gaimard1834Plates.pdf",
+        "source_sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+        "physical_page": 5,
+        "bbox_top_left_pdf_points": [
+          179.42369384765624,
+          685.7459802246094,
+          424.6360754394531,
+          770.4059777832032
+        ],
+        "relative_page_bbox": [
+          0.3,
+          0.81,
+          0.71,
+          0.91
+        ],
+        "dpi": 250,
+        "raster": "crops/21.png",
+        "raster_sha256": "3521726d25bf5f03bae2d6a8f49c42ff02d61a8e28abb3e544cfff4d3ad69766"
+      }
+    }
+  },
+  {
+    "id": "0500907a5f18",
+    "stratum": "measurement_unit",
+    "stem": "Totton1965b",
+    "physical_page": 5,
+    "transcription": "transcriptions/Totton1965b/page_005.txt",
+    "transcription_sha256": "7c53c0afad7cc777abad344aaf67bd392cec0542210936a037f0086bc7ca52aa",
+    "charspan": [
+      984,
+      989
+    ],
+    "transcribed_expression": "500 m",
+    "context": "m.\t1 ant.\n1583\tTYFB\t530–0 m.\t3 „\n1586\tTYFB\t550–0 m.\t4 „\n1587\tTYFB\t450–0 m.\t7 „\n1639\tTYFB\t2400–1150 m.\t1 „\n1772\tN7OV\t750–500 m.\t1 „\n2015\tN7OV\t500–250 m.\t1 „\n2024\tN7OV\t250–100 m.\t1 „\n„\tN7OV\t500–250 m.\t1 „\n„\t1OOB\t650–400 m.\t14 „\n„\tN7OV\t1500–1000 m.\t1 „\n2025\tN7OV\t1000–750 m.\t1 „\n[MARGIN] ",
+    "source_pdf": "library/T/Totton1965b.pdf",
+    "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+    "rank": "0500907a5f1847bbf53862b153bb5154ec032d551a2273036ea85973138556fc",
+    "sample_number": 22,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "measurement_with_range",
+      "source_literal": "750–500 m.",
+      "source_context": "Table I(A), Discovery station 1772, net N7OV, one anterior nectophore.",
+      "required_meaning_features": [
+        "start depth 750",
+        "end depth 500",
+        "ordinary range dash",
+        "unit metre m"
+      ],
+      "meaning": "Descending net depth interval, 750 to 500 metres; not a negative value or subtraction.",
+      "notes": "Selected transcription match was the trailing 500 m; the full source table cell supplies the interval context.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 22,
+        "source_pdf": "library/T/Totton1965b.pdf",
+        "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+        "physical_page": 5,
+        "bbox_top_left_pdf_points": [
+          59.30397949218751,
+          304.6725659179687,
+          364.2958740234375,
+          382.46130615234375
+        ],
+        "relative_page_bbox": [
+          0.14,
+          0.47,
+          0.86,
+          0.59
+        ],
+        "dpi": 250,
+        "raster": "crops/22.png",
+        "raster_sha256": "257955ded3eddf424b11c385bbafff9a89f4d3f96188c724f1b7efbc3f3dcd51"
+      }
+    }
+  },
+  {
+    "id": "050303cabca3",
+    "stratum": "ordinary_range",
+    "stem": "DeHaan1827",
+    "physical_page": 8,
+    "transcription": "transcriptions/DeHaan1827/page_008.txt",
+    "transcription_sha256": "e7a988efe778596a3df7dc4ec46d3608174b3bbcbc9bb6ccabb82c9ef056d402",
+    "charspan": [
+      1334,
+      1344
+    ],
+    "transcribed_expression": "1820—1821.",
+    "context": "turforſcher , B. II. p. 419. — De derde van OLFERS , Abhandlungen der Königlichen Akademie der Wisſenſchaften zu Berlin 1820—1821. S. 347. — De vierde van BLAINVILLE , Dictionnaire des Sciences Naturelles , art. Phyſalie.\n\nEYSENHARDT onderſcheidt de Phyſaliën , als volgt :\n\n1.\n\n[FOOTNOTE] ",
+    "source_pdf": "library/D_E/DeHaan1827.pdf",
+    "source_sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+    "rank": "050303cabca3fe10ec92a5f9eca3884628fe3e1a3f58285dd679411a19988bda",
+    "sample_number": 23,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "date_range_control",
+      "source_literal": "1820—1821",
+      "source_context": "Bibliographic text: Abhandlungen ... zu Berlin 1820—1821. S. 347.",
+      "required_meaning_features": [
+        "year endpoint 1820",
+        "year endpoint 1821",
+        "ordinary long-dash range"
+      ],
+      "meaning": "Bibliographic publication-year range; not subtraction or a scientific minus.",
+      "notes": "Source dash is long; date endpoints and range meaning are certain.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 23,
+        "source_pdf": "library/D_E/DeHaan1827.pdf",
+        "source_sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+        "physical_page": 8,
+        "bbox_top_left_pdf_points": [
+          32.34,
+          718.9,
+          529.2,
+          851.62
+        ],
+        "relative_page_bbox": [
+          0.055,
+          0.65,
+          0.9,
+          0.77
+        ],
+        "dpi": 250,
+        "raster": "crops/23.png",
+        "raster_sha256": "975007a15a456a18a48d5164d4da9d356838199273f8b0e55bc14bf1b97208a6"
+      }
+    }
+  },
+  {
+    "id": "067dcf253503",
+    "stratum": "measurement_unit",
+    "stem": "Yamamori2014",
+    "physical_page": 3,
+    "transcription": "transcriptions/Yamamori2014/page_003.txt",
+    "transcription_sha256": "28bb00f6f4bc9fe086ef4cae8eedc1e1fdf723dbd9129129cc311e99c4d49bca",
+    "charspan": [
+      1186,
+      1192
+    ],
+    "transcribed_expression": "31.5 m",
+    "context": " number of individuals collected\t\t\t59\t3\t136\t4\t5\t1\t2\t37\t1\t0\t0\t2\t250\n[/TABLE]\n\n[FOOTNOTE] #, A, L, S, T, N, Se は表1と同様.\n\n離で31.5 m, 127.2 m, 126.6 m（各地点で一定距離を5往復）ネットを曳いた。採集したプランクトンは，予め氷冷濾過海水を少量入れたポリ容器の中で捕食等が起こらない様にし，生きた状態で半日以内にクラゲ類の同定と計数を行った（表1－3）。ただし，オベリアクラゲ類はクラゲ世代での同定が困難であるため複数種が存在している可能",
+    "source_pdf": "library/U_Z/Yamamori2014.pdf",
+    "source_sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+    "rank": "067dcf25350388d629cfd64c6536b9eb6b2384812e2c30a8f9bb9f7044b3e22f",
+    "sample_number": 24,
+    "review": {
+      "reviewer": "Codex source-image review; no independent second reviewer claimed",
+      "basis": [
+        "original full-page PDF raster at 110 dpi",
+        "original PDF crop at 250 dpi"
+      ],
+      "status": "verified_printed_expression",
+      "eligible_for_literal_expression_comparison": true,
+      "role": "measurement",
+      "source_literal": "31.5 m",
+      "source_context": "Japanese body below the table: 31.5 m, 127.2 m, 126.6 m followed by net-towing description.",
+      "required_meaning_features": [
+        "decimal value 31.5",
+        "unit metre m"
+      ],
+      "meaning": "A distance of 31.5 metres in the net-towing description.",
+      "notes": "Other listed distances on the same line are context only; Japanese prose was used only to locate the expression and does not expand the grading scope.",
+      "unknowns": [],
+      "rendered_source": {
+        "sample_number": 24,
+        "source_pdf": "library/U_Z/Yamamori2014.pdf",
+        "source_sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+        "physical_page": 3,
+        "bbox_top_left_pdf_points": [
+          23.922000122070315,
+          335.923212890625,
+          244.00440124511718,
+          388.4112149047852
+        ],
+        "relative_page_bbox": [
+          0.05,
+          0.48,
+          0.51,
+          0.555
+        ],
+        "dpi": 250,
+        "raster": "crops/24.png",
+        "raster_sha256": "7d96ef8cef5c8b83767854b8d88c0d19eb60610c8e0274834b17c8789cce1732"
+      }
+    }
+  }
+]
