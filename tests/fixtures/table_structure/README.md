@@ -53,3 +53,27 @@ rechunking old `text.json` cannot recover source boundaries or cell spans.
 The tests include save/reload stability and clean-versus-old-artifact repair
 agreement. These fixtures cover the named source cases, not every table, key,
 OCR spelling error or collapsed run in the full library.
+
+`tests/test_key_branch_retrieval.py` exercises the Daniel p271–272 key through
+the actual geometry-association helper, JSON save/reload, production
+`chunk_text`/HybridChunker, `CorpusIndex` and bounded `get_chunks` calls.
+Local word-count budgets of 12, 25 and 2000 force split and merged variants
+without downloading a tokenizer. Every captured branch retains its destination,
+source geometry and unverified-spelling status; partial branches additionally
+expose completeness, endpoint presence and adjacent fragment IDs. Removing
+geometry association leaves names as unassociated text. A missing-scope legacy
+artifact rechunks to the same result as fresh materialization, and policy
+changes invalidate chunk consumers without rerunning extraction. The test
+retains per-budget `acceptance.json` receipts in pytest's temporary directory.
+`tests/test_key_branch_resume.py` additionally exercises both production Stage 1
+resume gates after a policy change and compares incremental and clean chunks.
+The key metadata leaves the exact embedding payload and its fingerprint
+unchanged; a chunk text change still changes that fingerprint. Stage 2 does not
+store this scope in vector rows, so metadata-only rechunking requires no model
+rerun.
+
+This path begins at the captured Docling items; it does not rerun full-PDF
+extraction, OCR, the production embedding tokenizer or a live MCP transport.
+The served `hargmannae` spelling remains explicitly unverified against the
+rendered `bargmannae` crop; this acceptance proves the geometric association and
+fragment route, not a spelling correction.

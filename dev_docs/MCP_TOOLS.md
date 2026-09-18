@@ -59,6 +59,20 @@ preview_charspan, truncated}` objects: at most 32 characters with
 field; repair/source spans retain their original item-relative coordinates.
 Full evidence remains in build artifacts. The server does not recompute it.
 
+Newly chunked text keys also expose `key_branches[].chunk_scope`:
+`coverage` is `complete`, `partial` or `unknown` when exact source-text
+alignment is unavailable; unknown coverage leaves completeness flags null.
+`complete_branch` says whether this chunk contains the entire associated lead
+and destination; `continuation` marks partial context. `destination_in_text`
+distinguishes an endpoint visible in this chunk from one carried only by its
+source association. Zero-based `fragment_index`, `fragment_count` and adjacent
+`previous_chunk_id`/`next_chunk_id` support bounded continuation: fetch one
+adjacent ID with `get_chunks` and follow the same `item_ref`. The source
+association's status, including unverified spelling, remains separate from
+fragment completeness. Legacy chunks lacking this scope have unavailable
+split context until rechunked; the server does not infer it. These fields use
+the same context projection limits as other producer evidence.
+
 `context_projection` reports record counts (`available`, `returned`, `truncated`)
 for each evidence array and a combined truncation flag. At most six records per
 array and six entries per nested list are projected, with nested list counts

@@ -200,7 +200,7 @@ def materialize_treatment_context(document):
     return contexts
 
 
-def chunk_source_context(doc_items, context_by_ref):
+def chunk_source_context(doc_items, context_by_ref, *, chunk_text=None):
     """Collapse only unanimous treatment/section evidence across a chunk."""
     evidence = [context_by_ref.get(item.self_ref, {}) for item in doc_items]
     treatments = [e.get("treatment_context", {"status": "unknown", "name": None}) for e in evidence]
@@ -212,7 +212,8 @@ def chunk_source_context(doc_items, context_by_ref):
     for entry in evidence:
         if entry.get("section_evidence") and entry["section_evidence"] not in text_integrity:
             text_integrity.append(entry["section_evidence"])
-    key_branches = []
+    from .key_context import key_branch_context
+    key_branches = key_branch_context(doc_items, chunk_text)
     for item in doc_items:
         meta = getattr(item, "meta", None)
         text_integrity.extend(getattr(meta, "corpus__scientific_text", []) or [])
@@ -222,9 +223,6 @@ def chunk_source_context(doc_items, context_by_ref):
         heading_repair = getattr(meta, "corpus__section_heading", None)
         if heading_repair:
             text_integrity.append(heading_repair)
-        branch = getattr(meta, "corpus__key_branch", None)
-        if branch:
-            key_branches.append({"item_ref": item.self_ref, **branch})
         for prov in getattr(item, "prov", []):
             source_items.append({"item_ref": item.self_ref, "page": prov.page_no,
                                  "bbox": prov.bbox.model_dump(mode="json"),

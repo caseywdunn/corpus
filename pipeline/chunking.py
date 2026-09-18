@@ -15,6 +15,7 @@ from typing import List, Optional
 
 from . import stamp_artifact
 from .config import CONFIG, classify_section
+from .key_context import KEY_BRANCH_CONTEXT_POLICY, link_key_fragments
 from .treatment_context import TREATMENT_CONTEXT_POLICY
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ def chunk_text(
             for i, c in enumerate(chunk_iter):
                 headings = list(getattr(c.meta, "headings", []) or [])
                 captions = list(getattr(c.meta, "captions", []) or [])
-                context = chunk_source_context(c.meta.doc_items, context_by_ref)
+                context = chunk_source_context(c.meta.doc_items, context_by_ref, chunk_text=c.text)
                 table_context = table_chunk_metadata(c.meta.doc_items, c.text, dl_doc)
                 if table_context:
                     context["tables"] = table_context
@@ -159,9 +160,11 @@ def chunk_text(
             )
         logger.info("Naive chunker produced %d chunks", len(chunks))
 
+    link_key_fragments(chunks)
     chunks_data = {
         "chunker": chunker_name,
         "treatment_context_policy": TREATMENT_CONTEXT_POLICY,
+        "key_branch_context_policy": KEY_BRANCH_CONTEXT_POLICY,
         "total_chunks": len(chunks),
         "chunks": chunks,
     }

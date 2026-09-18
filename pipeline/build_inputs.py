@@ -58,6 +58,7 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     from .text_encoding import TEXT_ENCODING_POLICY
     from .source_spaces import source_spacing_producer
     from .treatment_context import TREATMENT_CONTEXT_POLICY
+    from .key_context import KEY_BRANCH_CONTEXT_POLICY
     # These build decisions change stored evidence even when package/config
     # versions are unchanged. English OCR availability/model identity also
     # governs rendered heading and scientific-unit corroboration.
@@ -73,7 +74,8 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
                                        else surname_recovery_inputs(None)[1])),
     })
     chunks = {**extract, **select("chunking", ("max_tokens",)),
-              "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY}
+              "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY,
+              "chunking.key_branch_context_policy": KEY_BRANCH_CONTEXT_POLICY}
     from .figure_rights import FIGURE_RIGHTS_VERSION
     figures = {**extract, "figures.panel_detection": panel_mode,
                "figures.rights_producer": FIGURE_RIGHTS_VERSION}
