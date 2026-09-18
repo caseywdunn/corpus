@@ -120,10 +120,13 @@ decision provenance; document how old bundles obtain repaired mappings.
 - [ ] **#307**, **#308**, **#334** — preserve table/key cells and branch destinations,
   remove artificial repeated cell text, and recover source-supported word
   boundaries without splitting legitimate compounds. `[plane:build]`
-- [ ] **#309**, **#317** — validate complete citation spans and preserve the
+- [x] **#309**, **#317** — validate complete citation spans and preserve the
   source paragraph across grouped citations; trace original TEI as well as
   extracted artifacts. Link validation and text preservation are separate
-  acceptance boundaries. `[plane:build]`
+  acceptance boundaries. Fresh source TEI reproduces the named defects;
+  coordinate-backed repair and complete-span regression checks pass while
+  ambiguous/unmatched targets retain explicit status and raw observations.
+  Production/gold replay remains a release gate. `[plane:build]`
 
 Corrected text must invalidate downstream chunks, annotations, references and
 embeddings as appropriate. Source-grounded assertions must cover relationships

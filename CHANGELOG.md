@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Citation excerpts recover grouped source text from prepared-PDF coordinates
+  and validate complete author/year spans, including shared-author year lists
+  (#309, #317). Raw TEI surfaces and targets remain inspectable; ambiguous or
+  unmatched targets carry explicit status. Rebuild metadata to obtain the
+  reference coordinates absent from legacy TEI caches.
+
 - Taxonomic-authority parsing handles comma-separated authors and initials;
   original-description queries expose build-time candidate evidence and
   unresolved stubs separately from curator-reviewed descriptions (#311).

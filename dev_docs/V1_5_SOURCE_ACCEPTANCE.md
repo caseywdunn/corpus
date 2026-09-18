@@ -69,7 +69,7 @@ Rows are an inventory, not completion claims.
 - Citation-span tests use compact TEI fragments and source-coordinate evidence
   from the specifically failing passages in Pugh, Oderberg and Mapstone. Their
   provenance and measured limits are documented in
-  `tests/fixtures/citation_spans/README.md` once that change is integrated.
+  `tests/fixtures/citation_spans/README.md`.
 - Remaining encoding, notation, reading-order, table/key and word-boundary cases
   require source-based expectations before any recovery policy is accepted.
   Existing multilingual gold pages provide controls, but do not establish that
