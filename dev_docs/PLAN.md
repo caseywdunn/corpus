@@ -168,7 +168,11 @@ decision provenance; document how old bundles obtain repaired mappings.
   boundaries without splitting legitimate compounds. Logical-cell/key
   serialization and source-supported Hissmann/DuClos spacing are implemented.
   The source-printed Mapstone p200 typography is preserved; Daniel's disputed
-  spelling remains explicit. Rebuilt retrieval acceptance remains. `[plane:build]`
+  spelling remains explicit. All four named Daniel key destinations survive
+  serialization and bounded retrieval across chunk splits. Build metadata now
+  states complete/partial/unknown coverage and links adjacent fragments;
+  rechunking leaves extraction and unchanged vector payloads alone. Broader
+  rebuilt retrieval and source-graded spacing acceptance remain. `[plane:build]`
 - [x] **#309**, **#317** — validate complete citation spans and preserve the
   source paragraph across grouped citations; trace original TEI as well as
   extracted artifacts. Link validation and text preservation are separate
