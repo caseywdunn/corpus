@@ -16,9 +16,7 @@ from typing import Dict, List, Optional
 from pipeline.embeddings import EmbeddingError
 
 from ..app import _load_json, _need_index, _validate_collection, _validated_limit, error, mcp
-
-
-_CONTEXT_FIELDS = ("text_integrity", "tables", "key_branches")
+from ..chunk_context import ContextProjection
 
 
 def _validate_context_filters(treatment_name, section_type):
@@ -58,19 +56,6 @@ def _matches_context(chunk, treatment_name, section_type):
     return section_type is None or chunk.get("section_type") == section_type
 
 
-def _context_fields(chunk):
-    # These are build observations. No heading/name inference, taxonomy lookup,
-    # context expansion or annotation mutation belongs in this read-only route.
-    result = {
-        "treatment_context": chunk.get("treatment_context") or {"status": "unavailable", "name": None},
-        "section_type": chunk.get("section_type"),
-        "source_items": chunk.get("source_items") or [],
-    }
-    for field in _CONTEXT_FIELDS:
-        if field in chunk:
-            result[field] = chunk[field]
-    return result
-
 
 @mcp.tool()
 def get_chunks(
@@ -88,7 +73,11 @@ def get_chunks(
     list returns just those (unknown IDs silently skipped).
     ``with_text=False`` omits chunk prose and returns metadata:
     chunk_id, section_class, headings, len_chars, figure_refs, and stored
-    source/treatment context.
+    source/treatment context. Source prose in context uses bounded preview
+    objects (32 characters without text, 96 with text); ``context_projection``
+    reports evidence counts and truncation. New context fields have an 8 KiB
+    per-row cap and optional evidence arrays share 64 KiB per response.
+    Existing row/text semantics are unchanged by these context-only limits.
 
     Optional ``treatment_name`` matches only an exact stored resolved treatment
     name; it is separate from literal taxon mentions. ``section_type`` matches
@@ -131,6 +120,7 @@ def get_chunks(
     if context_error:
         return [context_error]
     out: List[Dict] = []
+    context_projection = ContextProjection(with_text=with_text)
     for c in selected:
         if not _matches_context(c, treatment_name, section_type):
             continue
@@ -140,7 +130,7 @@ def get_chunks(
             "section_class": c.get("section_class"),
             "headings": c.get("headings") or [],
             "figure_refs": c.get("figure_refs") or [],
-            **_context_fields(c),
+            **context_projection.project(c),
         }
         if with_text:
             row["text"] = text
@@ -178,6 +168,10 @@ def get_chunks_by_section(
     Responses include stored ``treatment_context``, ``section_type``, and
     ``source_items``, plus ``text_integrity``, ``tables`` and ``key_branches``
     where the producer materialized them. Unknown context stays explicit.
+    Context has an 8 KiB per-row cap; optional evidence arrays share 64 KiB
+    per response. ``context_projection`` reports omissions/counts. Source prose
+    uses previews (32 characters without text, 96 with text), full character
+    counts and original source offsets; full evidence stays in build artifacts.
 
     ``with_text=False`` (#84) drops the chunk text and adds
     ``len_chars`` — same scan-then-drill-down pattern as
@@ -200,6 +194,7 @@ def get_chunks_by_section(
     if context_error:
         return [context_error]
     rows: List[Dict] = []
+    context_projection = ContextProjection(with_text=with_text)
     for c in candidates:
         if section_class is not None and c.get("section_class") != section_class:
             continue
@@ -211,7 +206,7 @@ def get_chunks_by_section(
             "chunk_id": c.get("chunk_id"),
             "section_class": c.get("section_class"),
             "headings": c.get("headings") or [],
-            **_context_fields(c),
+            **context_projection.project(c),
         }
         if with_text:
             row["text"] = text

@@ -50,11 +50,24 @@ resolve taxonomy synonyms or search for names in prose. The existing
 `section_class="description"` remains valid and includes materialized diagnoses.
 
 Both tools expose `treatment_context`, `section_type` and `source_items` (source
-item, page, box and character span). Available producer observations pass through
-as `text_integrity`, `tables` and `key_branches`, including partial-table and
-unverified-spelling flags. `with_text=False` removes the chunk's prose; source
-evidence metadata can still contain original/repaired source passages. These
-fields report build observations and are not recomputed by the server.
+item, page, box and character span). Bounded producer observations appear as
+`text_integrity`, `tables` and `key_branches`, including partial-table and
+unverified-spelling flags. Source prose fields (including original/replacement
+text, headings and table-cell text) use `{preview, char_count,
+preview_charspan, truncated}` objects: at most 32 characters with
+`with_text=False`, or 96 with text. Preview offsets refer to that stored source
+field; repair/source spans retain their original item-relative coordinates.
+Full evidence remains in build artifacts. The server does not recompute it.
+
+`context_projection` reports record counts (`available`, `returned`, `truncated`)
+for each evidence array and a combined truncation flag. At most six records per
+array and six entries per nested list are projected, with nested list counts
+reported as `<field>_scope`. New context fields together are capped at 8 KiB per
+row, measured as compact UTF-8 JSON. Nonempty optional evidence arrays share a
+64 KiB budget across the response. These limits apply to the new context fields,
+not existing chunk prose, headings, or the whole response: required context
+status/count notices still scale with the number of requested rows. Requested
+rows are retained when evidence is omitted, with explicit counts.
 
 `status="resolved"` carries the enclosing treatment name and its heading
 evidence; `status="unknown"` means the build examined context but could not

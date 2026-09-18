@@ -76,8 +76,12 @@ def test_stored_evidence_passes_through_in_metadata_and_text_modes(corpus, tool)
     for with_text in (True, False):
         rows = tool(HASH, with_text=with_text, treatment_name="Apolemia lanosa", section_type="diagnosis")
         result = rows[0]
-        for field in ("treatment_context", "section_type", "source_items", "text_integrity", "tables", "key_branches"):
+        for field in ("treatment_context", "section_type", "source_items"):
             assert result[field] == artifact["chunks"][1][field]
+        assert result["text_integrity"][0]["before"]["preview"] == "x2"
+        assert result["key_branches"][0]["original_destination"]["preview"] == "kochi"
+        assert result["tables"][0]["row_indices_scope"]["returned"] == 1
+        assert result["context_projection"]["truncated"] is False
         assert ("text" in result) == with_text
         assert ("len_chars" in result) != with_text
         if not with_text:
