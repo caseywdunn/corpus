@@ -580,6 +580,16 @@ def extract_docling_content(
             stats["skipped_no_bbox"], stats["errors"],
         )
 
+    elif figures_data:
+        # Fixed mode retains Docling's render except when independent PDF
+        # image bounds establish that layout detection clipped an edge (#329).
+        render_figures(
+            pdf_path, figures_data, figures_dir, native=False,
+            fixed_scale=float(fig_cfg.get("images_scale", 2.0)),
+            pixel_cap=fig_cfg.get("max_pixels_long_side"),
+            repair_bounds_only=True,
+        )
+
     # #184 — lossless size pass, after every producer has written its final
     # bytes. Figures are ~97% of the served bundle and roughly half of them
     # are greyscale stored as RGB.

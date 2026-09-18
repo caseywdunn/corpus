@@ -260,8 +260,10 @@ def _count_figures_and_chunks(
     actually plan to serve. ``excluded_hashes`` is the set of hashes
     flagged ``works.serve = 0`` (#54) — they live in the build bundle
     but are filtered out of the distilled bundle, so the manifest must
-    not count them. Best-effort — missing/malformed JSONs are silently
-    skipped."""
+    not count them. Figure counts include every record, including furniture
+    and shared-image siblings; they do not count unique rasters. Missing or
+    malformed JSONs are skipped. A stale stored figure total fails validation
+    so a new bundle cannot preserve inconsistent build artifacts (#332)."""
     skip = set(excluded_hashes or ())
     fig_total = 0
     chunk_total = 0
@@ -273,9 +275,19 @@ def _count_figures_and_chunks(
         fig_path = hash_dir / "figures.json"
         if fig_path.exists():
             try:
-                fig_total += len(json.loads(fig_path.read_text()).get("figures", []))
-            except Exception:
+                figure_data = json.loads(fig_path.read_text())
+            except (OSError, ValueError):
                 pass
+            else:
+                count = len(figure_data.get("figures") or [])
+                stored = figure_data.get("total_figures", count)
+                if stored != count:
+                    raise ValueError(
+                        f"{hash_dir.name}/figures.json: total_figures={stored} "
+                        f"but figures contains {count} records; rerun figure "
+                        "materialization before bundling"
+                    )
+                fig_total += count
         chunks_path = hash_dir / "chunks.json"
         if chunks_path.exists():
             try:

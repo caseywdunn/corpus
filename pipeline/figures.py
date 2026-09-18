@@ -190,7 +190,7 @@ _CAPTION_BODY_PREFIX_RE = re.compile(
 # A letter followed by period, with word-boundary guards: not preceded by
 # another letter (so "Dr." / "Mr." / "pH" don't match), the period must be
 # followed by whitespace or end-of-string.
-_PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-L])\.(?=\s|$)")
+_PANEL_PERIOD_RE = re.compile(r"(?<![A-Za-z.])([A-Z])\.(?=\s|$)")
 
 # A person's initial looks exactly like a period-style panel label. In a
 # taxonomic corpus both are everywhere: "(A. Agassiz)" is a species
@@ -222,9 +222,17 @@ def _is_person_initial(body: str, start: int, end: int) -> bool:
     if re.search(r"(?:\(|&)\s*$", before):
         return True
     after = body[end:]
+    if re.match(r"\s*&\s*[A-Z]\.", after):
+        return True
     if not _INITIAL_SURNAME_RE.match(after):
         return False
     if _CREDIT_CONTEXT_RE.search(before):
+        return True
+    if re.search(
+        r"(?:photo(?:graph)?s?\s+by|credit\s+to|courtesy\s+of)\s+"
+        r"(?:[A-Z]\.\s*[A-Z][a-zÀ-ÿ]+\s+(?:and|&)\s+)+$",
+        before, re.IGNORECASE,
+    ):
         return True
     if re.search(r"\(\s*$", before):
         return True
@@ -234,7 +242,10 @@ def _is_person_initial(body: str, start: int, end: int) -> bool:
 
 # Parenthesized panel label — tolerates Siebert-style "( A )" with internal
 # whitespace. Must not be adjacent to letters (so "(NaCl)" doesn't match).
-_PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-L])\s*\)(?![A-Za-z])")
+_PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-Z])\s*\)(?![A-Za-z])")
+
+# Explicit parenthesized lists, e.g. "upper (A, D), lower (B, E)".
+_PANEL_LIST_RE = re.compile(r"\(\s*([A-Z](?:\s*,\s*[A-Z])+)\s*\)")
 
 # Comma-style panel labels are common in monograph captions: ``A, dorsal
 # view; B, lateral view`` and ``A, B, female gonophore``.  Requiring an
@@ -242,12 +253,12 @@ _PANEL_PAREN_RE = re.compile(r"(?<![A-Za-z])\(\s*([A-L])\s*\)(?![A-Za-z])")
 # lowercase abbreviation keys out; the contiguous-A sanity check below is
 # the second guard.  This is a panel marker, not a numeric figure-list
 # connector (#203).
-_PANEL_COMMA_RE = re.compile(r"(?<![A-Za-z])([A-L])\s*,(?=\s)")
+_PANEL_COMMA_RE = re.compile(r"(?<![A-Za-z])([A-Z])\s*,(?=\s)")
 
 # A-C / A–C / A—C ranges. The end letter must come after the start letter
 # alphabetically — otherwise it's not a valid range.
 _PANEL_RANGE_RE = re.compile(
-    r"(?<![A-Za-z])([A-L])\s*[\-\u2013\u2014]\s*([A-L])(?=[.,:;\s)]|$)"
+    r"(?<![A-Za-z])([A-Z])\s*[\-\u2013\u2014]\s*([A-Z])(?=[.,:;\s)]|$)"
 )
 
 # Figure captions often end in an abbreviation glossary (``C.ped = pedicular
@@ -273,7 +284,9 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
     Returns a list ``[{label, description, kind}]`` in alphabetical order
     of label, one entry per unique panel. Duplicate labels (common in
     captions that list panels once for description and again for a scale
-    spec) keep the first-encountered description — the primary one.
+    spec) keep the first individual description. A range supplies shared
+    context, retained in ``shared_descriptions`` when an individual
+    description is also present.
 
     Returns an empty list for captions with no panel markers; callers
     decide what to do with that (non-panelled figures are the common
@@ -310,6 +323,10 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
     def _in_range_span(pos: int) -> bool:
         return any(s <= pos < e for s, e in range_spans)
 
+    for m in _PANEL_LIST_RE.finditer(body):
+        markers.append((m.start(), m.end(), re.findall(r"[A-Z]", m.group(1)), "list"))
+        range_spans.append((m.start(), m.end()))
+
     for m in _PANEL_PAREN_RE.finditer(body):
         if _in_range_span(m.start()):
             continue
@@ -329,26 +346,48 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
             continue
         markers.append((m.start(), m.end(), m.group(1), "period"))
 
+    markers = [marker for marker in markers if not re.search(
+        r"\b(?:fig(?:ure)?s?\.?|abb\.?)\s*\d+[\s,:(]*$",
+        body[:marker[0]], re.IGNORECASE,
+    )]
     markers.sort(key=lambda t: t[0])
     if not markers:
         return []
 
-    # First-occurrence wins for descriptions — duplicate labels later in
-    # the caption (scale specs, cross-refs) append nothing.
+    # Individual descriptions identify a panel more precisely than an opening
+    # range. Retain the shared context without letting a later scale repeat
+    # replace the first individual description (#324).
     panels: Dict[str, Dict] = {}
     for i, (start, end, data, kind) in enumerate(markers):
         next_start = markers[i + 1][0] if i + 1 < len(markers) else len(body)
         raw_desc = body[end:next_start]
         # Clean up leading punctuation/whitespace and trailing separators.
-        desc = raw_desc.strip(" \t\n.,;:)")
-        if kind == "range":
-            s_label, e_label = data
-            for code in range(ord(s_label), ord(e_label) + 1):
-                lbl = chr(code)
-                panels.setdefault(lbl, {"label": lbl, "description": desc, "kind": kind})
+        desc = raw_desc.strip(" \t\n.,;:)(")
+        if kind == "period" and not desc:
+            continue
+        if kind == "list":
+            # In "upper (A, D), lower (B, E)", each list qualifies the
+            # preceding phrase. Do not assign the following view to it.
+            previous_end = markers[i - 1][1] if i else 0
+            preceding = body[previous_end:start].strip(" \t\n.,;:)(")
+            desc = preceding or desc
+        if kind in {"range", "list"}:
+            labels = (list(map(chr, range(ord(data[0]), ord(data[1]) + 1)))
+                      if kind == "range" else data)
+            for lbl in labels:
+                entry = panels.setdefault(
+                    lbl, {"label": lbl, "description": desc, "kind": kind},
+                )
+                shared = entry.setdefault("shared_descriptions", [])
+                if desc and desc not in shared:
+                    shared.append(desc)
         else:
             lbl = data
-            panels.setdefault(lbl, {"label": lbl, "description": desc, "kind": kind})
+            entry = panels.setdefault(
+                lbl, {"label": lbl, "description": desc, "kind": kind},
+            )
+            if desc and (entry["kind"] in {"range", "list"} or not entry["description"]):
+                entry.update(description=desc, kind=kind)
 
     # Sanity filter: real panel sets are a contiguous run starting at 'A'
     # ({A}, {A,B}, {A,B,C}, …). A sparse set of fewer than four labels with a
@@ -357,15 +396,14 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
     # abbreviations (``L. patritii``, ``E. richardi``) or section
     # letters ("Section B: …"). A long explicit set may contain real gaps —
     # Totton Figure 74 is A--H, K, L — so four or more markers are sufficient
-    # to retain the printed set. We cap at L; anything beyond is vanishingly
-    # rare in this corpus and the false-positive risk grows with the count.
+    # to retain the printed set, including later letters through Z (#324).
     if panels:
         letters = sorted(panels)
         if letters[0] != "A":
             return []
         # Require contiguous a..n sequence
         expected = [chr(ord("A") + i) for i in range(len(letters))]
-        if letters[-1] > "L" or (letters != expected and len(letters) < 4):
+        if letters != expected and len(letters) < 4:
             return []
 
     return [panels[k] for k in sorted(panels)]
@@ -2345,6 +2383,7 @@ def _normalize_vision_figure_discovery(backend_rois: List[Dict]) -> Dict:
             "roi_px": region,
             "confidence": confidence,
             "source": roi.get("source"),
+            "coordinate_provenance": roi.get("coordinate_provenance"),
             "accepted": False,
             "rejection_reason": None,
         }
@@ -2375,7 +2414,7 @@ def _normalize_vision_figure_discovery(backend_rois: List[Dict]) -> Dict:
         if candidate["emitted_type"] == "panel"
         and candidate["rejection_reason"] == "unsupported_number_format"
         and re.fullmatch(
-            r"[A-L]", candidate.get("figure_number_raw") or "", re.IGNORECASE
+            r"[A-Z]", candidate.get("figure_number_raw") or "", re.IGNORECASE
         )
         and isinstance(candidate.get("roi_px"), list)
         and len(candidate["roi_px"]) == 4
@@ -2432,6 +2471,7 @@ def _normalize_vision_figure_discovery(backend_rois: List[Dict]) -> Dict:
         "roi_px": candidate["roi_px"],
         "source": candidate["source"],
         "confidence": candidate["confidence"],
+        "coordinate_provenance": candidate.get("coordinate_provenance"),
     } for candidate in accepted]
     return {
         "rois": rois,
@@ -2561,6 +2601,7 @@ def detect_figure_rois_via_vision(
                     "source": r.get("source") or backend.name,
                     "confidence": r.get("confidence"),
                     "description_from_vision": r.get("description", ""),
+                    "coordinate_provenance": r.get("coordinate_provenance"),
                 }
                 if r.get("label_bbox_px"):
                     entry["label_bbox_px"] = r["label_bbox_px"]
@@ -2573,6 +2614,7 @@ def detect_figure_rois_via_vision(
                 "source": r.get("source") or backend.name,
                 "confidence": r.get("confidence"),
                 "description_from_vision": r.get("description", ""),
+                "coordinate_provenance": r.get("coordinate_provenance"),
             }
             if r.get("parent_figure_index") is not None:
                 entry["parent_figure_index"] = r["parent_figure_index"]
@@ -2589,6 +2631,7 @@ def detect_figure_rois_via_vision(
                 "type": "figure",
                 "figure_number": figure_number or None,
                 "parent_figure_index": r.get("parent_figure_index"),
+                "coordinate_provenance": r.get("coordinate_provenance"),
                 "roi_px": r.get("bbox_px"),
                 "source": r.get("source") or backend.name,
                 "confidence": r.get("confidence"),
@@ -3105,6 +3148,8 @@ def resolve_compound_figures(figures_file: Path) -> Dict:
         ]
         data["total_missing_figures"] = len(data["missing_figures"])
 
+    # Count logical records, including records sharing a raster (#332).
+    data["total_figures"] = len(data.get("figures") or [])
     with figures_file.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
@@ -3672,6 +3717,47 @@ def native_render_scale(doc, page, rect, vector_dpi: float, max_dpi):
     return scale, round(scale * 72), mode
 
 
+def complete_embedded_raster_bounds(page, rect):
+    """Recover a narrowly clipped image edge from independent PDF geometry.
+
+    Layout detection can cut lettering that is part of an embedded raster
+    (#329). Only a near-identical image placement is evidence to extend it:
+    at least 95% mutual overlap, every edge within 5 PDF points, and no new
+    text block captured. Whole-page scans, adjacent images and prose do not
+    justify expanding an ordinary figure. Returns (rect, evidence | None).
+    """
+    import fitz
+
+    candidates = []
+    for image in page.get_image_info():
+        image_rect = fitz.Rect(image["bbox"])
+        intersection = rect & image_rect
+        if (intersection.is_empty or image_rect.is_empty
+                or intersection.get_area() / rect.get_area() < .95
+                or intersection.get_area() / image_rect.get_area() < .95
+                or any(abs(a - b) > 5 for a, b in zip(rect, image_rect))):
+            continue
+        expanded = (rect | image_rect) & fitz.Rect(0, 0, page.cropbox.width, page.cropbox.height)
+        if expanded == rect:
+            continue
+        # Any prose newly captured vetoes this repair. Raster lettering and
+        # scale bars remain part of the corroborating image, not text blocks.
+        if any(
+            block[6] == 0
+            and (fitz.Rect(block[:4]) & expanded).get_area()
+                > (fitz.Rect(block[:4]) & rect).get_area() + .01
+            for block in page.get_text("blocks")
+        ):
+            continue
+        candidates.append((expanded, list(image_rect)))
+    if len(candidates) != 1:
+        return rect, None
+    expanded, image_bbox = candidates[0]
+    return expanded, {"source": "embedded_image_extent",
+                      "image_bbox_pdf_pts_top_left": image_bbox,
+                      "detected_bbox_pdf_pts_top_left": list(rect)}
+
+
 def render_figures(
     pdf_path: Path,
     figures: List[Dict],
@@ -3684,6 +3770,7 @@ def render_figures(
     pixel_cap=None,
     dry_run: bool = False,
     label_prefix: str = "",
+    repair_bounds_only: bool = False,
 ) -> Dict[str, int]:
     """Render each figure record's PNG from its bbox + ``pdf_path`` (#121).
 
@@ -3694,6 +3781,9 @@ def render_figures(
     ``fig`` with ``width``/``height``/``images_scale``/``render_dpi``/
     ``resolution_mode``. Returns counts.
 
+    Near-identical embedded-raster boundaries can extend a clipped edge;
+    ``repair_bounds_only`` re-renders just those repairs (for fixed mode).
+
     ``pixel_cap`` bounds each saved figure's longest side in pixels
     (#184) — see :func:`cap_scale_to_pixels` for why that is a different
     control from ``max_dpi`` and not substitutable by it.
@@ -3701,6 +3791,8 @@ def render_figures(
     import fitz
 
     stats = {"rendered": 0, "skipped_no_bbox": 0, "skipped_method": 0, "errors": 0}
+    if repair_bounds_only:
+        stats["skipped_unchanged"] = 0
     if not Path(pdf_path).is_file():
         stats["skipped_no_bbox"] = len(figures)
         return stats
@@ -3723,9 +3815,15 @@ def render_figures(
                 stats["skipped_no_bbox"] += 1
                 continue
             pg = doc[page_idx]
-            rect = figure_rect_for_bbox(bbox, coord, pg.rect.height)
+            # Stored extraction coordinates are on the unrotated page.
+            rect = figure_rect_for_bbox(bbox, coord, pg.cropbox.height)
             if rect is None or rect.is_empty or rect.width <= 0 or rect.height <= 0:
                 stats["skipped_no_bbox"] += 1
+                continue
+
+            rect, boundary_evidence = complete_embedded_raster_bounds(pg, rect)
+            if repair_bounds_only and boundary_evidence is None:
+                stats["skipped_unchanged"] += 1
                 continue
 
             if native:
@@ -3746,10 +3844,34 @@ def render_figures(
                 stats["rendered"] += 1
                 continue
             try:
-                pix = pg.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=rect)
+                render_rect = rect * pg.rotation_matrix
+                pix = pg.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=render_rect)
                 out_path = figures_dir / fname
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 pix.save(str(out_path))
+                if boundary_evidence is not None:
+                    fig.setdefault("detected_bbox", list(bbox))
+                    fig["bbox_boundary_evidence"] = boundary_evidence
+                    fig["bbox"] = (
+                        [rect.x0, pg.cropbox.height - rect.y1,
+                         rect.x1, pg.cropbox.height - rect.y0]
+                        if coord == "pdf_pts_bottom_left" else list(rect)
+                    )
+                previous_size = fig.get("image_size_px") or [fig.get("width"), fig.get("height")]
+                if fig.get("rois") and (
+                    boundary_evidence is not None or previous_size != [pix.width, pix.height]
+                ):
+                    # Re-rendering an existing build must never leave pixel
+                    # boxes in the old raster frame (#305/#329). The caption
+                    # inventory survives; a new panel pass must locate it.
+                    fig["rois"] = []
+                    fig["pass3_status"] = "stale_image_geometry"
+                    fig["roi_geometry_invalidated"] = {
+                        "reason": "raster_bounds_or_size_changed",
+                        "previous_image_size_px": previous_size,
+                    }
+                    fig.pop("plate_number_discovery", None)
+                fig["image_size_px"] = [pix.width, pix.height]
                 fig["width"], fig["height"] = pix.width, pix.height
                 fig["images_scale"] = round(scale, 4)
                 fig["render_dpi"] = dpi

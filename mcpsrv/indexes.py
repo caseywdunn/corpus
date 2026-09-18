@@ -408,7 +408,9 @@ class CorpusIndex:
                 "filename": metadata.get("filename"),
                 "hash_dir": str(hash_dir),
                 "n_chunks": chunks.get("total_chunks", len(chunks.get("chunks", []) or [])),
-                "n_figures": figures.get("total_figures", len(figures.get("figures", []) or [])),
+                # Older builds may have stale totals after compound expansion
+                # (#332). The actual record array is the counting authority.
+                "n_figures": len(figures.get("figures") or []),
                 "n_taxa": taxa.get("unique_taxa", 0),
                 "n_lexicon_terms": {
                     cat: payload.get("unique_terms", 0)

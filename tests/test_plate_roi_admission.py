@@ -306,8 +306,9 @@ def test_pass3b_materializes_bare_plate_numbers_without_inventing_captions(tmp_p
     # A refresh replaces the derived generation rather than appending it.
     _pass3b_annotate_rois(figures_file, Backend())
 
-    records = json.loads(figures_file.read_text(encoding="utf-8"))["figures"]
-    assert len(records) == 3
+    data = json.loads(figures_file.read_text(encoding="utf-8"))
+    records = data["figures"]
+    assert data["total_figures"] == len(records) == 3
     host = records[0]
     assert host["pass3_status"] == "discovery_materialized"
     assert host["plate_number_discovery"]["accepted_count"] == 2
@@ -319,3 +320,26 @@ def test_pass3b_materializes_bare_plate_numbers_without_inventing_captions(tmp_p
                for record in discovered)
     assert all(record["caption_text"] == "" for record in discovered)
     assert all(record["caption_status"] == "unbound" for record in discovered)
+
+
+def test_plate_refresh_removes_old_discoveries_and_recounts(tmp_path):
+    from PIL import Image
+    image = tmp_path / "plate.png"
+    Image.new("RGB", (200, 100)).save(image)
+    figures_file = tmp_path / "figures.json"
+    figures_file.write_text(json.dumps({"total_figures": 2, "figures": [
+        {"figure_id": "host", "figure_type": "plate", "caption_kind": "bare_label",
+         "caption_status": "bound", "caption_text": "PLATE I", "file_path": str(image)},
+        {"figure_id": "old_child", "figure_number_source": "vision_plate_discovery"},
+    ]}))
+
+    class Backend:
+        name = "vision:test"
+
+        @staticmethod
+        def detect_figure_panels(*args):
+            return []
+
+    _pass3b_annotate_rois(figures_file, Backend())
+    data = json.loads(figures_file.read_text())
+    assert data["total_figures"] == len(data["figures"]) == 1
