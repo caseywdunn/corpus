@@ -1,0 +1,55 @@
+# Source table, identification-key and word-boundary regressions
+
+These are small **source-derived item/cell fragments**, not whole corpuscles or
+PDF fixtures. They were captured from local library PDFs with the installed
+Docling native-text CPU route (`do_ocr=False`, TableFormer enabled) on
+2026-09-18. Each JSON records the original PDF SHA-256, physical page numbers,
+unchanged selected text/cell geometry/spans, and independent PyMuPDF source-line
+observations. Reference indexes were renumbered after selecting the relevant
+items; derived grid copies were omitted. Full unmodified page captures were
+retained locally under `/tmp/table-integrity-source/` during investigation.
+
+| Source / physical page | Hand-checked expectation and scope |
+| --- | --- |
+| Daniel 1974 / 20 | The `Genus ?Epibulia Eschscholtz, 1829` heading is one merged cell spanning four columns. Upstream Markdown repeats it four times. Logical serialization emits it once; distinct equal-valued cells are still separate observations. The surrounding OCR spelling and TableFormer row assignments are not claimed corrected. |
+| Pugh & Haddock 2016 / 42 | All eight nectophore-key leads retain their destinations, including `Erenna cornuta Pugh, 2001` as one endpoint. |
+| Pugh & Haddock 2016 / 44 | The bract key maps largest bracts >35 mm to 2 and <35 mm to 3; the complete transverse-ridge branch maps to `Erenna cornuta Pugh, 2001`. All eight leads retain endpoints within the tested 80-word chunk budget. Larger individual rows receive explicit partial-row metadata if they must split. |
+| Daniel 1985 / 271–272 | Geometry binds the sharply conical hydroecium lead to `kochi`, shallower/nearly horizontal lead to `delsmani`, beyond-apex/deep-hydroecium lead to `atlantica`, and rounded-apex/sausage-shaped lead to the final destination. **Spelling remains unresolved:** the native PDF and Docling say `hargmannae`, but the included p272 crop visibly prints `bargmannae`. The association records `geometry_verified_spelling_unverified`; no global b/h substitution or bibliography-based renaming is made. |
+| Hosia et al. 2024 / 5 | Positive control: the usable comparative Nanomia character table retains every cell value, column position, and source header. It is not classified as an identification key. |
+| Mapstone 2009 / 68 | Source lines print `Anterior nectophore alone developed`; current Docling preserves these spaces. Replaying the reported old collapsed value against this same source evidence regenerates the same source text/chunks as a clean extraction. |
+| Hissmann 2005 / 7 | Fresh Docling still emits `Theholotypepossessedninenectophoresandaboutnine`; exact native source letters plus spaces recover the sentence. An independent whole-word annotation check recovers the missing nectophore mention. |
+| DuClos et al. 2022 / 6 | The PDF visibly separates the primary phrase's words, but native text omits spaces. Source boxes have uniform ~1.085 pt interword jumps and zero intraword gaps. Both recorded crop-OCR modes support these boundaries. OCR's extra `cou nt` split has **no** geometric support and is discarded. |
+| Mapstone 2009 / 200 | **Adjudicated source typography, not an extraction error:** the included rendered crop actually prints `Anteriornectophorewithsevencompletelongitudinal`. Source character gaps are uniform. This remains unchanged and is a negative control against invented segmentation. |
+
+The DuClos observation includes its crop hash, both OCR outputs, Tesseract /
+Leptonica identity, English traineddata SHA-256, PyMuPDF version and fixed crop
+policy. Tests replay these captured observations without OCR executables or
+model downloads. Actual source-page replay on the same producer repaired the
+primary phrase and two additional gap-supported runs; a fourth proposed run
+was retained because both OCR modes omitted a geometric boundary. That is a
+reviewable disagreement, not a successful repair or a corpus-wide error count.
+
+`pipeline.table_structure` runs before Markdown and chunk production. Logical
+cells retain row/column indexes and spans; extraction Markdown uses actual HTML
+spans, while chunk prose uses one logical row per line. Dotted key leaders are
+layout-normalized so they do not consume the token budget. Headers, row spans,
+couplet context and partial-row flags are chunk metadata, not repeated source
+mentions. Custom `corpus__*` repair metadata is blocked from Docling's prose
+serializer; raw observations remain in the structured build artifact.
+
+Missing spaces use exact same-letter source lines first. The optional OCR route
+requires a strongly separated native character-gap pattern plus confirmation
+from both OCR segmentation modes. It accepts only existing geometric gaps,
+never OCR-only word splits or new letters. At most eight small line crops per
+page are considered, with a pixel ceiling and subprocess deadlines. Missing
+OCR, timeouts and disagreement keep source text unchanged and retain quality
+observations. Ordinary letter spacing, intact compounds, multilingual words
+and morphological variants are explicit negative controls.
+
+Deployment requires extraction/chunk regeneration, annotation rebuilding and
+new embeddings/bundling. The producer policy and OCR/model identity belong in
+the extraction input fingerprint, inherited by downstream stages; merely
+rechunking old `text.json` cannot recover source boundaries or cell spans.
+The tests include save/reload stability and clean-versus-old-artifact repair
+agreement. These fixtures cover the named source cases, not every table, key,
+OCR spelling error or collapsed run in the full library.
