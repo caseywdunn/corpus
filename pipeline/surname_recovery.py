@@ -1,8 +1,9 @@
 """Conservative, source-local recovery of citation surnames (#315).
 
 Curated author/year pairs only propose candidates. Unhinted regional OCR must
-read the proposed surname and year in two segmentation modes; no name is
-injected into OCR dictionaries. Printed alternatives remain untouched.
+agree on the complete surname in two segmentation modes, with an independently
+valid matching year and no conflicting date. No name is injected into OCR
+dictionaries. Printed alternatives remain untouched.
 """
 
 from __future__ import annotations
@@ -19,11 +20,21 @@ import subprocess
 import sys
 import unicodedata
 
-SURNAME_POLICY = "curated-author-year-source-ocr-consensus-v2"
+SURNAME_POLICY = "curated-author-year-source-ocr-consensus-v3"
 _CITATION = re.compile(
     r"(?<!\w)([^\W\d_]{5,})\s*(?:,\s*|\(\s*|et\s+al\.\s*)?((?:1[5-9]|20)\d{2})[a-z]?(?!\d)",
     re.UNICODE,
 )
+
+# Read complete numeric tokens, including damaged suffixes, without treating a
+# prefix of e.g. 19814 as the year 1981. The independent name and year evidence
+# is adjudicated below; this pattern does not change the document's date text.
+_OCR_NAME_NUMBER = re.compile(
+    r"(?<!\w)([^\W\d_]{5,})\s*(?:,\s*|\(\s*|et\s+al\.\s*)?([0-9]\w*)(?!\w)",
+    re.UNICODE,
+)
+_OCR_NUMBER = re.compile(r"(?<!\d)([0-9]\w*)(?!\w)")
+_OCR_YEAR = re.compile(r"((?:1[5-9]|20)[0-9]{2})[a-z]?")
 
 
 def _key(value):
@@ -276,6 +287,28 @@ def _render_source_crop(page, rect, dpi):
             page.set_rotation(rotation)
 
 
+def _ocr_reading(text):
+    """Keep adjacent name/number evidence separate from valid date readings."""
+    pairs = _OCR_NAME_NUMBER.findall(text)
+    tokens = _OCR_NUMBER.findall(text)
+
+    def valid_year(token):
+        match = _OCR_YEAR.fullmatch(token)
+        return int(match[1]) if match else None
+
+    return {
+        "names": [name for name, _ in pairs],
+        "year_tokens": tokens,
+        "valid_years": [
+            year for token in tokens if (year := valid_year(token)) is not None
+        ],
+        "adjacent_years": [
+            year for _, token in pairs if (year := valid_year(token)) is not None
+        ],
+        "invalid_year_tokens": [token for token in tokens if valid_year(token) is None],
+    }
+
+
 def adjudicate_crop(png, proposal, producer):
     """No user words/whitelist: preserve source-printed alternative spellings."""
     candidate = proposal["candidates"][0]
@@ -312,29 +345,56 @@ def adjudicate_crop(png, proposal, producer):
                     "error": type(exc).__name__,
                     "ocr_outputs": outputs,
                 }
-            names = [
-                name
-                for name, year in _CITATION.findall(text)
-                if int(year) == proposal["year"]
-            ]
             outputs.append(
-                {"language": lang, "psm": mode, "text": text, "names": names}
+                {"language": lang, "psm": mode, "text": text, **_ocr_reading(text)}
             )
     expected = _key(candidate["surname"])
-    if all(
-        len(row["names"]) == 1 and _key(row["names"][0]) == expected for row in outputs
+    year_evidence = {
+        "source_anchor_year": proposal["year"],
+        "matching_readings": [
+            {"language": row["language"], "psm": row["psm"]}
+            for row in outputs
+            if proposal["year"] in row["adjacent_years"]
+        ],
+        "conflicting_valid_years": sorted(
+            {
+                year
+                for row in outputs
+                for year in row["valid_years"]
+                if year != proposal["year"]
+            }
+        ),
+        "invalid_tokens": [
+            token for row in outputs for token in row["invalid_year_tokens"]
+        ],
+        "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year",
+    }
+    supported_year = (
+        bool(year_evidence["matching_readings"])
+        and not year_evidence["conflicting_valid_years"]
+    )
+    distinct_modes = len({row["psm"] for row in outputs}) >= 2
+    result = {"ocr_outputs": outputs, "year_evidence": year_evidence}
+    if (
+        distinct_modes
+        and supported_year
+        and all(
+            len(row["names"]) == 1 and _key(row["names"][0]) == expected
+            for row in outputs
+        )
     ):
-        return {
-            "status": "verified",
-            "replacement": candidate["surname"],
-            "ocr_outputs": outputs,
-        }
-    if all(
-        len(row["names"]) == 1 and _key(row["names"][0]) == _key(proposal["original"])
-        for row in outputs
+        return {"status": "verified", "replacement": candidate["surname"], **result}
+    if (
+        distinct_modes
+        and supported_year
+        and all(
+            len(row["names"]) == 1
+            and _key(row["names"][0]) == _key(proposal["original"])
+            for row in outputs
+        )
     ):
-        return {"status": "source_supports_observed_spelling", "ocr_outputs": outputs}
-    return {"status": "ocr_disagreement", "ocr_outputs": outputs}
+        return {"status": "source_supports_observed_spelling", **result}
+    return {"status": "ocr_disagreement", **result}
 
 
 def recover_citation_surnames(document, pdf_path, catalog, *, producer=None):

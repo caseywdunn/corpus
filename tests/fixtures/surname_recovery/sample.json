@@ -31,7 +31,17 @@
             "text": "Alvariño 1971),",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1971"
+            ],
+            "valid_years": [
+              1971
+            ],
+            "adjacent_years": [
+              1971
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "spa",
@@ -39,9 +49,35 @@
             "text": "Alvariño 1971),",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1971"
+            ],
+            "valid_years": [
+              1971
+            ],
+            "adjacent_years": [
+              1971
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1971,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 6
+            },
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -73,7 +109,17 @@
             "text": "(Alvariño 1991;",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1991"
+            ],
+            "valid_years": [
+              1991
+            ],
+            "adjacent_years": [
+              1991
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "spa",
@@ -81,9 +127,35 @@
             "text": "(Alvariño 1991;",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1991"
+            ],
+            "valid_years": [
+              1991
+            ],
+            "adjacent_years": [
+              1991
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1991,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 6
+            },
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -105,7 +177,17 @@
             "text": "Alvarifio 1991",
             "names": [
               "Alvarifio"
-            ]
+            ],
+            "year_tokens": [
+              "1991"
+            ],
+            "valid_years": [
+              1991
+            ],
+            "adjacent_years": [
+              1991
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "spa",
@@ -113,9 +195,35 @@
             "text": "Alvarifio 1991...",
             "names": [
               "Alvarifio"
-            ]
+            ],
+            "year_tokens": [
+              "1991"
+            ],
+            "valid_years": [
+              1991
+            ],
+            "adjacent_years": [
+              1991
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1991,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 6
+            },
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -180,7 +288,17 @@
             "text": "[Alvariño, 1981 a].",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1981"
+            ],
+            "valid_years": [
+              1981
+            ],
+            "adjacent_years": [
+              1981
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "spa",
@@ -188,9 +306,35 @@
             "text": "[Alvariño, 1981a].",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1981a"
+            ],
+            "valid_years": [
+              1981
+            ],
+            "adjacent_years": [
+              1981
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1981,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 6
+            },
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -222,7 +366,17 @@
             "text": "[Vanhöffen, 1906].",
             "names": [
               "Vanhöffen"
-            ]
+            ],
+            "year_tokens": [
+              "1906"
+            ],
+            "valid_years": [
+              1906
+            ],
+            "adjacent_years": [
+              1906
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "deu",
@@ -230,9 +384,35 @@
             "text": "[Vanhöffen, 1906].",
             "names": [
               "Vanhöffen"
-            ]
+            ],
+            "year_tokens": [
+              "1906"
+            ],
+            "valid_years": [
+              1906
+            ],
+            "adjacent_years": [
+              1906
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1906,
+          "matching_readings": [
+            {
+              "language": "deu",
+              "psm": 6
+            },
+            {
+              "language": "deu",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -264,6 +444,14 @@
             "text": "[Alvariño, 1981al.",
             "names": [
               "Alvariño"
+            ],
+            "year_tokens": [
+              "1981al"
+            ],
+            "valid_years": [],
+            "adjacent_years": [],
+            "invalid_year_tokens": [
+              "1981al"
             ]
           },
           {
@@ -272,9 +460,33 @@
             "text": "[Alvariño, 1981a].",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1981a"
+            ],
+            "valid_years": [
+              1981
+            ],
+            "adjacent_years": [
+              1981
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1981,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [
+            "1981al"
+          ],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -305,7 +517,17 @@
             "text": "(Forskál, 1775)",
             "names": [
               "Forskál"
-            ]
+            ],
+            "year_tokens": [
+              "1775"
+            ],
+            "valid_years": [
+              1775
+            ],
+            "adjacent_years": [
+              1775
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "lat",
@@ -313,9 +535,35 @@
             "text": "(Forskàl, 1775)",
             "names": [
               "Forskàl"
-            ]
+            ],
+            "year_tokens": [
+              "1775"
+            ],
+            "valid_years": [
+              1775
+            ],
+            "adjacent_years": [
+              1775
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1775,
+          "matching_readings": [
+            {
+              "language": "lat",
+              "psm": 6
+            },
+            {
+              "language": "lat",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -347,7 +595,17 @@
             "text": "(Alvariño, 1976). ”",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1976"
+            ],
+            "valid_years": [
+              1976
+            ],
+            "adjacent_years": [
+              1976
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "spa",
@@ -355,9 +613,35 @@
             "text": "(Alvariño, 1976).",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1976"
+            ],
+            "valid_years": [
+              1976
+            ],
+            "adjacent_years": [
+              1976
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1976,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 6
+            },
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -389,7 +673,17 @@
             "text": "Alvariño, 1980:",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1980"
+            ],
+            "valid_years": [
+              1980
+            ],
+            "adjacent_years": [
+              1980
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "spa",
@@ -397,9 +691,35 @@
             "text": "Alvariño, 1980;",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1980"
+            ],
+            "valid_years": [
+              1980
+            ],
+            "adjacent_years": [
+              1980
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1980,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 6
+            },
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -430,7 +750,17 @@
             "text": "Forskál, 1775).",
             "names": [
               "Forskál"
-            ]
+            ],
+            "year_tokens": [
+              "1775"
+            ],
+            "valid_years": [
+              1775
+            ],
+            "adjacent_years": [
+              1775
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "lat",
@@ -438,9 +768,35 @@
             "text": "Forskál, 1775).",
             "names": [
               "Forskál"
-            ]
+            ],
+            "year_tokens": [
+              "1775"
+            ],
+            "valid_years": [
+              1775
+            ],
+            "adjacent_years": [
+              1775
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1775,
+          "matching_readings": [
+            {
+              "language": "lat",
+              "psm": 6
+            },
+            {
+              "language": "lat",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -472,7 +828,17 @@
             "text": "Alvariño, 1981,",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1981"
+            ],
+            "valid_years": [
+              1981
+            ],
+            "adjacent_years": [
+              1981
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "spa",
@@ -480,9 +846,35 @@
             "text": "Alvariño, 1981,",
             "names": [
               "Alvariño"
-            ]
+            ],
+            "year_tokens": [
+              "1981"
+            ],
+            "valid_years": [
+              1981
+            ],
+            "adjacent_years": [
+              1981
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1981,
+          "matching_readings": [
+            {
+              "language": "spa",
+              "psm": 6
+            },
+            {
+              "language": "spa",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -514,7 +906,17 @@
             "text": "(Carré, 1969)",
             "names": [
               "Carré"
-            ]
+            ],
+            "year_tokens": [
+              "1969"
+            ],
+            "valid_years": [
+              1969
+            ],
+            "adjacent_years": [
+              1969
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "fra",
@@ -522,9 +924,35 @@
             "text": "(Carré, 1969).",
             "names": [
               "Carré"
-            ]
+            ],
+            "year_tokens": [
+              "1969"
+            ],
+            "valid_years": [
+              1969
+            ],
+            "adjacent_years": [
+              1969
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1969,
+          "matching_readings": [
+            {
+              "language": "fra",
+              "psm": 6
+            },
+            {
+              "language": "fra",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -556,7 +984,17 @@
             "text": "Carré, 1978,",
             "names": [
               "Carré"
-            ]
+            ],
+            "year_tokens": [
+              "1978"
+            ],
+            "valid_years": [
+              1978
+            ],
+            "adjacent_years": [
+              1978
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "fra",
@@ -564,9 +1002,35 @@
             "text": "Carré, 1978,",
             "names": [
               "Carré"
-            ]
+            ],
+            "year_tokens": [
+              "1978"
+            ],
+            "valid_years": [
+              1978
+            ],
+            "adjacent_years": [
+              1978
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1978,
+          "matching_readings": [
+            {
+              "language": "fra",
+              "psm": 6
+            },
+            {
+              "language": "fra",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -597,7 +1061,17 @@
             "text": "Forskàl, 1775",
             "names": [
               "Forskàl"
-            ]
+            ],
+            "year_tokens": [
+              "1775"
+            ],
+            "valid_years": [
+              1775
+            ],
+            "adjacent_years": [
+              1775
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "lat",
@@ -605,9 +1079,35 @@
             "text": "Forskàl, 1775",
             "names": [
               "Forskàl"
-            ]
+            ],
+            "year_tokens": [
+              "1775"
+            ],
+            "valid_years": [
+              1775
+            ],
+            "adjacent_years": [
+              1775
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1775,
+          "matching_readings": [
+            {
+              "language": "lat",
+              "psm": 6
+            },
+            {
+              "language": "lat",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -638,7 +1138,17 @@
             "text": "(Forskál, 1776)",
             "names": [
               "Forskál"
-            ]
+            ],
+            "year_tokens": [
+              "1776"
+            ],
+            "valid_years": [
+              1776
+            ],
+            "adjacent_years": [
+              1776
+            ],
+            "invalid_year_tokens": []
           },
           {
             "language": "lat",
@@ -646,9 +1156,35 @@
             "text": "(Forskál, 1776)",
             "names": [
               "Forskál"
-            ]
+            ],
+            "year_tokens": [
+              "1776"
+            ],
+            "valid_years": [
+              1776
+            ],
+            "adjacent_years": [
+              1776
+            ],
+            "invalid_year_tokens": []
           }
-        ]
+        ],
+        "year_evidence": {
+          "source_anchor_year": 1776,
+          "matching_readings": [
+            {
+              "language": "lat",
+              "psm": 6
+            },
+            {
+              "language": "lat",
+              "psm": 13
+            }
+          ],
+          "conflicting_valid_years": [],
+          "invalid_tokens": [],
+          "basis": "unique_native_anchor_and_at_least_one_complete_matching_ocr_year"
+        }
       }
     },
     {
@@ -694,7 +1230,7 @@
   ],
   "source_sampling": "Fixed six-paper filename list in this order; first up to four citation-shaped near-name proposals with unique native name/year geometry per paper, in native page order; plus the two reported Mapstone page47 occurrences. Selected sample, not random or representative. Correctly accented negative controls are the first uniquely anchored catalog author/year citation in Hosiaetal2024.pdf and Manko_etal2023.pdf.",
   "capture_producer": {
-    "policy": "curated-author-year-source-ocr-consensus-v2",
+    "policy": "curated-author-year-source-ocr-consensus-v3",
     "catalog_sha256": "0ae948c173883e064385ebbcbcea36ccd106e2db5b51f162eb50a2ea21a262a1",
     "dpi": 600,
     "ocr_modes": [

@@ -19,7 +19,12 @@ Docling item's page and bounding box. Native PDF word coordinates are transforme
 to the displayed page; the crop is rendered upright even for rotated pages.
 A small 600 DPI crop is read in two
 Tesseract segmentation modes. Both readings must independently contain exactly
-the proposed surname and the same year. No candidate is supplied as a user
+the complete proposed surname next to a number token. At least one reading must
+contain the complete expected four-digit year, optionally followed by a single
+lowercase citation suffix. Any other valid year in either reading blocks the
+repair. A malformed token such as `19814` is retained as invalid evidence; it
+never supplies `1981` by taking a prefix. This check changes only the surname,
+not the year or its suffix. No candidate is supplied as a user
 word or character whitelist, and system/frequency dictionary hints are disabled.
 The two modes share a model; their agreement is corroboration, not an independent
 human judgment. A printed alternate spelling that OCR reproduces stays unchanged.
@@ -106,3 +111,23 @@ track these inputs; tests cover catalog changes/removal, unchanged reruns and
 clean-build equivalence. A direct module invocation also resolves the configured
 BibTeX relative to its config file, with an explicit CLI argument taking
 precedence. Full rebuilt-corpus acceptance remains required.
+
+## Hosted OCR year variation
+
+The v3 policy was prompted by an actual hosted Tesseract 5.5.3 result on the
+Alvarinoetal1990 page 14 source crop: mode 6 read `[Alvariño, 19814].` and mode 13
+read `[Alvariño, 1981a].`. Both modes recovered the complete surname; only the
+second supplied a valid matching year. The previous policy discarded the first
+name along with its damaged date and left the surname unresolved. The hosted
+outputs and selected model identity are preserved in
+`tests/fixtures/surname_recovery/hosted_ocr_553.json`; the regression replays those
+outputs, rather than claiming to run that hosted binary locally.
+
+The source anchor still supplies the expected year, and OCR must independently
+corroborate it. Swapping the modes does not change the decision. Conflicting valid
+years, two malformed dates, different or incomplete names, multiple name/date
+readings, and a single available segmentation mode cannot authorize a repair.
+Raw OCR outputs and the matching, conflicting and invalid year evidence remain
+in the receipt. The producer policy changes from v2 to v3, invalidating extraction
+and its existing chunk, annotation and figure consumers; builds made with v2 do
+not acquire v3 acceptance evidence without re-extraction.
