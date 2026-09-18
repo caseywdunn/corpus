@@ -1,0 +1,41 @@
+{
+  "source": "siphonophores/siphonophores.bib",
+  "library_revision": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+  "source_sha256": "e3678544aa0de925aa86c6d3ef198271a02aefb7a7ce2cafd5f23c9c71c4c165",
+  "scope": "Exact selected parsed fields for three citing documents only. Reference targets come solely from captured original TEI, not these header records.",
+  "entries": {
+    "Mapstone2009": {
+      "_type": "article",
+      "_key": "Mapstone2009",
+      "author": "Mapstone, G.M.",
+      "year": "2009",
+      "title": "Siphonophora (Cnidaria, Hydrozoa) of Canadian Pacific waters",
+      "journal": "National Research Council Research Press, Ottawa, 302pp",
+      "file": "Mapstone2009.pdf"
+    },
+    "Oderberg2020": {
+      "_type": "article",
+      "_key": "Oderberg2020",
+      "author": "Oderberg, D.S.",
+      "year": "2020",
+      "title": "Siphonophores",
+      "journal": "Biological Identity",
+      "doi": "10.4324/9781351066389-2",
+      "pages": "22--39",
+      "file": "Oderberg2020.pdf"
+    },
+    "Pugh1974": {
+      "_type": "article",
+      "_key": "Pugh1974",
+      "author": "Pugh, P.R.",
+      "year": "1974",
+      "title": "The vertical distribution of the siphonophores collected during the SOND Cruise, 1965",
+      "journal": "Journal of the Marine Biological Association of the United Kingdom",
+      "doi": "10.1017/s0025315400022086",
+      "volume": "54",
+      "number": "1",
+      "pages": "25--90",
+      "file": "Pugh1974.pdf"
+    }
+  }
+}

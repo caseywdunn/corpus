@@ -75,3 +75,41 @@ those coordinates. `pipeline.intext_citations --force` reuses existing TEI and
 uses `processed.pdf` only when its receipt matches both byte hashes; it cannot
 recover source-backed text from legacy TEI that lacks coordinates. Production
 bundle and gold-subsample replays remain release acceptance work.
+
+## Materialized authority and served evidence
+
+`test_citation_materialized_source.py` parses these unmodified XML fragments
+with `parse_tei_references`, then runs the real `phase1_corpus_papers` and
+`phase2_references` materializers. The three citing-document headers are exact
+selected fields from the source library's BibTeX at revision
+`5ad0164e6840ea16adb6e54a3a5712e20b234feb`; `citing_headers.json` records the
+BibTeX file hash and selected fields. Only those three headers seed phase 1.
+All 63 reference observations and bibliography edges come from the captured TEI;
+the test inserts no work or citation rows manually. This is a small reference
+subset replay, not the complete bibliographies or a rebuilt corpuscle.
+
+The test regenerates `intext_citations.json` through the actual parser with the
+existing captured PDF character reader, then invokes `get_excerpts_citing`,
+`get_intext_citations`, and `get_citation_graph` through their production tool
+functions. It verifies:
+
+- Oderberg's source paragraph is returned for the materialized Totton and Mackie
+  1960 work (`b31`) and for Bardi and Marques 2007, and never for the 1965 Synopsis
+  (`b30`). The bibliography graph correctly retains both the 1960 and 1965 works:
+  bibliography membership is separate from a paragraph's in-text target.
+- Both materialized Fraser works receive the original `Fraser (1961, 1967)`
+  paragraph, with complete author and year spans. The unrelated real Leloup
+  1955/1910 discrepancy remains unresolved.
+- All ten unambiguous Pugh markers in the shared-year group reach their actual
+  materialized works, including each of 1992a–c. Shared spans retain the printed
+  `1992a-c`, `1999a and b`, and `2006a and b` groups. The ambiguous 1999b marker
+  remains visible with both candidate IDs in the in-text route and contributes
+  no excerpt to either candidate. Both bibliography records remain graph entries.
+- Raw parsed reference observations are unchanged by paragraph regeneration.
+  Repeating source regeneration gives identical artifact bytes; repeating both
+  authority phases changes no database rows, timestamps or immutable history.
+
+The earlier synthetic valid-1965 paragraph test remains a separate control. This
+source replay adds no paragraphs or target references to the captured XML. It
+does not re-run Grobid, copy PDFs into the fixture, exercise bundle/SSE transport,
+or expand the detector sample beyond the three previously measured documents.
