@@ -72,7 +72,7 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v7"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v8"
 
 # Cross-block escape hatch measured by the #155 audit. Short/generic titles
 # are excluded; the threshold is public so the read-only QC tool uses the same

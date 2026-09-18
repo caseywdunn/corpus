@@ -121,14 +121,23 @@ without rematerializing the build does not retroactively classify its data.
 
 A parsed date that occurs in a curated title can be a title date rather than
 the publication year. The build checks each reference independently: a complete
-normalized surname-set match and exact title agreement after removing that
-date establish a candidate. Automatic reassignment additionally requires the
-full canonical title in the raw citation and only the curated publication year
-in its author prefix. Ambiguous editions or shared-identifier parts are not
-selected. Insufficient evidence leaves an explicit review warning.
+normalized surname-set match and title agreement after removing that date
+establish a candidate. Automatic reassignment additionally requires the full
+canonical title in the raw citation and only the curated publication year in
+its author prefix. A printed word split by a hyphen and whitespace may be joined
+for this comparison only when it reproduces a curated title word. A single
+omitted “the” is also supported, but when the raw title omits it the same
+citation must contain the exact curated volume/page pair. Substantive title
+words are not fuzzily repaired by this year rule. Ambiguous editions or
+shared-identifier parts are not selected. Insufficient evidence leaves an
+explicit review warning.
 
 The original parsed year and raw citation remain unchanged. The derived mapping
 records its producer and method; the quality record retains the parsed year,
 publication year, candidate and supporting basis. Citation edges are regenerated
 with their usual per-citing-document uniqueness, rather than adding counts from
 previously split nodes. Changed metadata or mapping policy re-derives decisions.
+Missing historical raw text requires fresh metadata extraction with raw
+citations enabled; an authority rebuild cannot invent that evidence. See the
+four named source-page captures and compact clean/incremental acceptance in
+`tests/fixtures/bibliographic_integrity/publication_year_sources/README.md`.

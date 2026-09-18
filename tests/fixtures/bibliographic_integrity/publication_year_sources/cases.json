@@ -1,0 +1,529 @@
+{
+  "issue": 314,
+  "capture_date": "2026-09-18",
+  "scope": "Named source references, not the September 9 deployment or a full-corpus rebuild",
+  "historical_bundle": "siphonophore_20260831/_serve, retained v1.2.1 (2026-09-01)",
+  "cases": [
+    {
+      "paper_hash": "db7338ea1867",
+      "historical_xml_id": "b40",
+      "source_relative_path": "T/Tung2003.pdf",
+      "source_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+      "physical_page": 60,
+      "source_region": {
+        "bbox": [
+          84.9998550415039,
+          224.3424072265625,
+          513.7929382324219,
+          298.1177673339844
+        ],
+        "lines": [
+          {
+            "bbox": [
+              89.9998550415039,
+              229.3424072265625,
+              508.7929382324219,
+              244.81826782226562
+            ],
+            "text": "Pugh, P. R. 1974. The vertical distribution of the siphonophores collected "
+          },
+          {
+            "bbox": [
+              131.9999542236328,
+              253.46209716796875,
+              508.68133544921875,
+              268.9379577636719
+            ],
+            "text": "during the SOND cruise, 1965. Journal of Marine Biological "
+          },
+          {
+            "bbox": [
+              131.9999542236328,
+              277.64190673828125,
+              399.9670715332031,
+              293.1177673339844
+            ],
+            "text": "Association of the United Kingdom. 54: 25-90. "
+          }
+        ]
+      },
+      "render": "db7338ea1867-b40.png",
+      "retained_reference": {
+        "xml_id": "b40",
+        "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "Journal of Marine Biological Association of the United Kingdom",
+        "doi": "",
+        "raw": ""
+      },
+      "curated_entry": {
+        "author": "Tung, S-R.",
+        "year": "2003",
+        "title": "Species composition and seasonal distribution of siphonophores in the coastal water, southwestern Taiwan",
+        "journal": "M.Sc. Thesis. 108pp",
+        "file": "Tung2003.pdf",
+        "pagemap": "1--4 born-digital Traditional Chinese thesis title and bilingual abstract matter; 5--62 Chinese main text and references; 63--121 tables, figures, and appendices in Chinese with English scientific labels",
+        "_type": "article",
+        "_key": "Tung2003"
+      },
+      "fresh_reference": {
+        "xml_id": "b2",
+        "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "Journal of Marine Biological Association of the United Kingdom",
+        "doi": "",
+        "raw": "Pugh, P. R. 1974. The vertical distribution of the siphonophores collected during the SOND cruise, 1965. Journal of Marine Biological Association of the United Kingdom. 54: 25-90."
+      },
+      "fresh_capture": {
+        "endpoint": "processFulltextDocument",
+        "consolidate_header": 0,
+        "consolidate_citations": 0,
+        "include_raw_citations": true,
+        "service_version": "0.8.1",
+        "source_page_sha256": "1061492aa9beb9332704a57bbde2017fdf9dfbb56e83de44878bd15023b2b7c5",
+        "tei_sha256": "c4d9e884a13dab481c51625f685a13fa1a1e3bd4ae0447b993f7674ad91cbce4",
+        "scope": "one source page, not complete document",
+        "seconds": 1.046074829000645,
+        "tei_fragment": "db7338ea1867-fresh.tei.xml",
+        "fragment_sha256": "020d7771939326cbc215786837ca65dfb67614fb5e39fc945af77e57eba962a0",
+        "historical_id_relation": "Same printed reference on the identified source page; page-only Grobid XML IDs are newly assigned."
+      }
+    },
+    {
+      "paper_hash": "d0894c24715f",
+      "historical_xml_id": "b26",
+      "source_relative_path": "P/Pugh1992a_Nectopyramidinae.pdf",
+      "source_sha256": "d0894c24715f2a058ba4e89af1c1d775eb2b171aeea2f61bd1134b037e771f78",
+      "physical_page": 42,
+      "source_region": {
+        "bbox": [
+          50.038700103759766,
+          256.8306884765625,
+          285.7755126953125,
+          298.2760925292969
+        ],
+        "lines": [
+          {
+            "bbox": [
+              55.038700103759766,
+              261.8306884765625,
+              96.21552276611328,
+              272.6360778808594
+            ],
+            "text": "Pugh, P.R."
+          },
+          {
+            "bbox": [
+              103.75520324707031,
+              261.8306884765625,
+              280.7755126953125,
+              272.6360778808594
+            ],
+            "text": "1974 The vertical distribution of the siphono-"
+          },
+          {
+            "bbox": [
+              63.72850036621094,
+              272.15069580078125,
+              280.5333557128906,
+              283.0019836425781
+            ],
+            "text": "phores collected during the SOND Cruise, 1965. J. mar."
+          },
+          {
+            "bbox": [
+              63.902984619140625,
+              282.470703125,
+              158.62405395507812,
+              293.2760925292969
+            ],
+            "text": "bioi. Ass. U.K. 54, 25-90."
+          }
+        ]
+      },
+      "render": "d0894c24715f-b26.png",
+      "retained_reference": {
+        "xml_id": "b26",
+        "title": "The vertical distribution of the siphonophores collected during the SOND Cruise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "J. mar. biol. Ass. U.K",
+        "doi": "",
+        "raw": ""
+      },
+      "curated_entry": {
+        "author": "Pugh, P.R.",
+        "year": "1992",
+        "title": "A revision of the sub-family Nectopyramidinae (Siphonophora, Prayidae)",
+        "journal": "Philosophical Transactions of the Royal Society of London. Series B: Biological Sciences",
+        "volume": "335",
+        "number": "1274",
+        "pages": "281--322",
+        "doi": "10.1098/rstb.1992.0023",
+        "url": "https://doi.org/10.1098/rstb.1992.0023",
+        "file": "Pugh1992a_Nectopyramidinae.pdf",
+        "doclang": "en",
+        "ocrlang": "eng",
+        "pagemap": "1--42 complete English document; all physical pages belong to the target work",
+        "_type": "article",
+        "_key": "Pugh1992a"
+      },
+      "fresh_reference": {
+        "xml_id": "b5",
+        "title": "The vertical distribution of the siphonophores collected during the SOND Cruise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "J. mar. bioi. Ass. U.K",
+        "doi": "",
+        "raw": "Pugh, P.R. 1974 The vertical distribution of the siphono- phores collected during the SOND Cruise, 1965. J. mar. bioi. Ass. U.K. 54, 25-90."
+      },
+      "fresh_capture": {
+        "endpoint": "processFulltextDocument",
+        "consolidate_header": 0,
+        "consolidate_citations": 0,
+        "include_raw_citations": true,
+        "service_version": "0.8.1",
+        "source_page_sha256": "da3db406ea71ea5881fbb14815bfeb265b1b8981bf4f5ee05248e25218ed15f7",
+        "tei_sha256": "baa7d09a990430b0949f479b872a801c7ebdf1084a0014eff3e38861ac42b6b3",
+        "scope": "one source page, not complete document",
+        "seconds": 1.1128953309998906,
+        "tei_fragment": "d0894c24715f-fresh.tei.xml",
+        "fragment_sha256": "b9679e6874c7f88be510ccf63b6a6281128d4d408ea0ca6331503d945dd56125",
+        "historical_id_relation": "Same printed reference on the identified source page; page-only Grobid XML IDs are newly assigned."
+      }
+    },
+    {
+      "paper_hash": "b8ae22a47c6a",
+      "historical_xml_id": "b80",
+      "source_relative_path": "A/Alvarinoetal1990.pdf",
+      "source_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+      "physical_page": 439,
+      "source_region": {
+        "bbox": [
+          41.38801574707031,
+          496.8279724121094,
+          265.8677062988281,
+          546.49755859375
+        ],
+        "lines": [
+          {
+            "bbox": [
+              43.38801574707031,
+              498.8279724121094,
+              83.5040512084961,
+              510.70086669921875
+            ],
+            "text": "Pugh, P. R."
+          },
+          {
+            "bbox": [
+              55.60710144042969,
+              510.3482666015625,
+              73.28160858154297,
+              522.2208862304688
+            ],
+            "text": "1974"
+          },
+          {
+            "bbox": [
+              90.87779998779297,
+              510.3482666015625,
+              263.8677062988281,
+              522.2208862304688
+            ],
+            "text": "The vertical distribution of the siphonophores"
+          },
+          {
+            "bbox": [
+              91.34481811523438,
+              521.1439819335938,
+              248.2413330078125,
+              533.0209350585938
+            ],
+            "text": "collected during the Sond Cruise, 1965."
+          },
+          {
+            "bbox": [
+              258.2047119140625,
+              521.7800903320312,
+              263.80389404296875,
+              532.852294921875
+            ],
+            "text": "1."
+          },
+          {
+            "bbox": [
+              91.15570068359375,
+              531.691162109375,
+              209.46481323242188,
+              544.49755859375
+            ],
+            "text": "Mar. BioI. Ass. U. K., 54:25-90."
+          }
+        ]
+      },
+      "render": "b8ae22a47c6a-b80.png",
+      "retained_reference": {
+        "xml_id": "b80",
+        "title": "The vertical distribution of the siphonophores collected during the Sond Crise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "J. Mar. Biol. Ass. U. K",
+        "doi": "",
+        "raw": ""
+      },
+      "curated_entry": {
+        "author": "Alvariño, A. and Wojtan, J.M. and Martinez, M.R.",
+        "year": "1990",
+        "title": "Antarctic siphonophores from plankton samples of the United States Antarctic Research Program",
+        "journal": "Antarctic Research Series",
+        "volume": "49",
+        "pages": "1--436",
+        "file": "Alvarinoetal1990.pdf",
+        "doclang": "en",
+        "ocrlang": "eng",
+        "pagemap": "1--440 complete English monograph: title and series matter, contents and introductory matter, main systematic treatment, references, and index",
+        "_type": "article",
+        "_key": "Alvarinoetal1990"
+      },
+      "fresh_reference": {
+        "xml_id": "b18",
+        "title": "The vertical distribution of the siphonophores collected during the Sond Cruise, 1965. 1. Mar",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1974,
+        "journal": "BioI. Ass. U. K",
+        "doi": "",
+        "raw": "Pugh, P. R. 1974 The vertical distribution of the siphonophores collected during the Sond Cruise, 1965. 1. Mar. BioI. Ass. U. K., 54:25-90."
+      },
+      "fresh_capture": {
+        "endpoint": "processFulltextDocument",
+        "consolidate_header": 0,
+        "consolidate_citations": 0,
+        "include_raw_citations": true,
+        "service_version": "0.8.1",
+        "source_page_sha256": "42eacc407e38f29b05d110628c7d8bb4cfcd6ecbfeee8e8ea469c05336333c47",
+        "tei_sha256": "3729761e1d642180453da3560948aa84d967c038c114dcb5cc08bf623e0015cb",
+        "scope": "one source page, not complete document",
+        "seconds": 1.1242958110015024,
+        "tei_fragment": "b8ae22a47c6a-fresh.tei.xml",
+        "fragment_sha256": "7ee35ae97212946b155b12f9ec914411b15226d019c0f444e8732be701e41d09",
+        "historical_id_relation": "Same printed reference on the identified source page; page-only Grobid XML IDs are newly assigned."
+      }
+    },
+    {
+      "paper_hash": "a16337443af7",
+      "historical_xml_id": "b15",
+      "source_relative_path": "P/Pugh1990.pdf",
+      "source_sha256": "a16337443af781b9c8ee65431c55cf61e3ecc36dc28378bebd95da614aa1432f",
+      "physical_page": 75,
+      "source_region": {
+        "bbox": [
+          41.97100830078125,
+          687.493408203125,
+          511.7054443359375,
+          722.9622192382812
+        ],
+        "lines": [
+          {
+            "bbox": [
+              46.97100830078125,
+              692.493408203125,
+              506.7054443359375,
+              705.683837890625
+            ],
+            "text": "PUGH, P.R. 1974 The vertical distribution of siphonophores collected during the SOND Cruise, 1965."
+          },
+          {
+            "bbox": [
+              82.519775390625,
+              704.7717895507812,
+              433.855712890625,
+              717.9622192382812
+            ],
+            "text": "Journal of the Marine Biological Association of the United Kingdom, 54, 25-90."
+          }
+        ]
+      },
+      "render": "a16337443af7-b15.png",
+      "retained_reference": {
+        "xml_id": "b15",
+        "title": "The vertical distribution of siphonophores collected during the SOND Cruise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "Journal of the Marine Biological Association of the United Kingdom",
+        "doi": "",
+        "raw": ""
+      },
+      "curated_entry": {
+        "author": "Pugh, P.R.",
+        "year": "1990",
+        "title": "Biological collections made during Discovery CR 175 to BIOTRANS site (c.47°N,20°W)",
+        "journal": "Institute of Oceanographic Sciences. Report",
+        "volume": "277",
+        "pages": "1--78",
+        "file": "Pugh1990.pdf",
+        "doclang": "en",
+        "ocrlang": "eng",
+        "pagemap": "1--76 complete English document; all physical pages belong to the target work",
+        "_type": "article",
+        "_key": "Pugh1990"
+      },
+      "fresh_reference": {
+        "xml_id": "b13",
+        "title": "The vertical distribution of siphonophores collected during the SOND Cruise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "Journal of the Marine Biological Association of the United Kingdom",
+        "doi": "",
+        "raw": "PUGH, P.R. 1974 The vertical distribution of siphonophores collected during the SOND Cruise, 1965. Journal of the Marine Biological Association of the United Kingdom, 54, 25-90."
+      },
+      "fresh_capture": {
+        "endpoint": "processFulltextDocument",
+        "consolidate_header": 0,
+        "consolidate_citations": 0,
+        "include_raw_citations": true,
+        "service_version": "0.8.1",
+        "source_page_sha256": "dcf653815ec192fb7a833b6974a560b42af62858809149aaa7bb80a9370c4364",
+        "tei_sha256": "3433f865957966bfbc49379b2aadc91d1eeca3739fcff86efdde7a9fd9d0c786",
+        "scope": "one source page, not complete document",
+        "seconds": 1.0805899210008647,
+        "tei_fragment": "a16337443af7-fresh.tei.xml",
+        "fragment_sha256": "d9271294167363c17c85561fc85571b7ec00dd07f49a681753f360f1d2a32975",
+        "historical_id_relation": "Same printed reference on the identified source page; page-only Grobid XML IDs are newly assigned."
+      }
+    }
+  ],
+  "target": {
+    "paper_hash": "b5a7af6140ca",
+    "source_relative_path": "P/Pugh1974.pdf",
+    "source_sha256": "b5a7af6140ca64789216a1a11343a9178d044aa3fe0a569e8fe99a9181ca7a65",
+    "physical_page": 1,
+    "source_region": {
+      "bbox": [
+        75.9000015258789,
+        48.69319534301758,
+        519.510009765625,
+        213.52960205078125
+      ],
+      "lines": [
+        {
+          "bbox": [
+            80.9000015258789,
+            53.69319534301758,
+            244.1079864501953,
+            65.98959350585938
+          ],
+          "text": "J. mar. biol. Ass. U.K. (1974) 54, 25-90 "
+        },
+        {
+          "bbox": [
+            118.0,
+            65.66050720214844,
+            219.39906311035156,
+            76.8412094116211
+          ],
+          "text": "Printed in Great Britain "
+        },
+        {
+          "bbox": [
+            497.6000061035156,
+            59.162208557128906,
+            511.53204345703125,
+            67.99960327148438
+          ],
+          "text": "2.5 "
+        },
+        {
+          "bbox": [
+            168.3000030517578,
+            98.62919616699219,
+            427.8345031738281,
+            114.56999206542969
+          ],
+          "text": "THE VERTICAL DISTRIBUTION "
+        },
+        {
+          "bbox": [
+            82.30000305175781,
+            114.92924499511719,
+            514.510009765625,
+            130.8700408935547
+          ],
+          "text": "OF THE SIPHONOPHORES COLLECTED DURING THE "
+        },
+        {
+          "bbox": [
+            218.9005126953125,
+            131.4287567138672,
+            379.45599365234375,
+            147.3695526123047
+          ],
+          "text": "SOND CRUISE, 1965 "
+        },
+        {
+          "bbox": [
+            257.29998779296875,
+            158.93682861328125,
+            338.4288330078125,
+            170.89242553710938
+          ],
+          "text": "By P. R. PUGH "
+        },
+        {
+          "bbox": [
+            171.3000030517578,
+            174.4604949951172,
+            421.901611328125,
+            185.6411895751953
+          ],
+          "text": "Institute of Oceanographic Sciences, Wormley, Surrey, U.K. "
+        },
+        {
+          "bbox": [
+            263.0,
+            197.16050720214844,
+            332.89996337890625,
+            208.52960205078125
+          ],
+          "text": "(Text-figs. 1-13) "
+        }
+      ]
+    },
+    "render": "Pugh1974-title.png",
+    "curated_entry": {
+      "author": "Pugh, P.R.",
+      "year": "1974",
+      "title": "The vertical distribution of the siphonophores collected during the SOND Cruise, 1965",
+      "journal": "Journal of the Marine Biological Association of the United Kingdom",
+      "volume": "54",
+      "number": "1",
+      "pages": "25--90",
+      "doi": "10.1017/s0025315400022086",
+      "url": "https://doi.org/10.1017/s0025315400022086",
+      "file": "Pugh1974.pdf",
+      "doclang": "en",
+      "ocrlang": "eng",
+      "pagemap": "1--66 complete English document; all physical pages belong to the target work",
+      "_type": "article",
+      "_key": "Pugh1974"
+    }
+  }
+}
