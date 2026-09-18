@@ -182,6 +182,7 @@
   },
   "figure_manuscript": {
     "attribution": "str",
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
@@ -214,6 +215,7 @@
   },
   "figure_report": {
     "attribution": "str",
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
@@ -243,6 +245,7 @@
     ]
   },
   "figure_roi_manuscript": {
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
@@ -260,6 +263,7 @@
     ]
   },
   "figure_roi_report": {
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
@@ -344,6 +348,7 @@
     ],
     "figure_index": [
       {
+        "caption_completeness": "str",
         "caption_confidence": "str",
         "caption_has_taxon": "bool",
         "caption_kind": "str",

@@ -39,6 +39,22 @@ def test_materializes_explicit_source_exclusion_with_provenance():
                                   "text": EXCLUSION}]
 
 
+def test_source_caption_reconstruction_reaches_strict_delivery(tmp_path):
+    from pipeline.figures import extract_caption_info
+    from tests.test_caption_fragment_recovery import source_document
+
+    document = source_document("hosia")
+    extracted = extract_caption_info(document.pictures[2], document)
+    assert EXCLUSION in extracted["caption_text"]
+    _idx, hd = _build_figure(tmp_path, caption=extracted["caption_text"])
+    built = json.loads((hd / "figures.json").read_text())["figures"][0]
+    assert built["figure_rights"]["status"] == "excluded_from_publication_license"
+    refusal = get_figure_image(HASH, "docling_1", profile="manuscript")
+    assert refusal.is_error
+    assert refusal.structured_content["license_source"] == "figure_caption_exclusion"
+    assert get_figure_url(HASH, "docling_1", profile="manuscript")["code"] == "forbidden"
+
+
 @pytest.mark.parametrize("caption", [
     "Figure 1. A colony.",
     "Reproduced with permission of the Natural History Museum.",

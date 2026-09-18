@@ -59,20 +59,30 @@ mechanisms. Detector hits are review populations, not error counts.
   Reuse the existing 35-document siphonophore gold corpuscle and independent
   transcriptions. Chun1898b and Hosia2024 are already present. A document's
   presence does not establish that its citation identity or clearance is tested.
+  The hash-to-manifest inventory and remaining source gates are recorded in
+  [V1_5_SOURCE_ACCEPTANCE.md](V1_5_SOURCE_ACCEPTANCE.md); the remaining extraction
+  families still need their issue-specific expectations.
 
 ### 2. Restore bibliographic identity and authoritative fields
 
 - [ ] **#296** — preserve build-time BibTeX origin, ordered authors and canonical
   field precedence through materialization, reconciliation and import/export.
+  Implementation and source-derived bibliography regressions landed; the
+  named production merge-history review remains pending.
   `[plane:build]`
 - [ ] **#299** — reject incompatible reconciliation of a curated document onto
   another same-author/year work; repair identity and graph membership, not just
-  the displayed title. Depends on retaining #296's evidence. `[plane:build]`
+  the displayed title. Depends on retaining #296's evidence. Implemented with
+  source-derived Chun controls; rebuilt-corpus mappings remain to verify.
+  `[plane:build]`
 - [ ] **#300** — distinguish publication parts from shared book DOIs and short
   key collisions while preserving genuine duplicate scans. Define deterministic
   identity and rebuild/migration behavior before changing matching. `[plane:build]`
+  Implemented with all seven source Delle Chiaje entries, Moore records,
+  duplicate controls and clean/incremental checks; full-corpus replay remains.
 - [ ] **#301** — preserve volume, issue, pages and article locators through the
-  complete parser → authority → bundle → formatter round trip. `[plane:build]`
+  complete parser → authority → bundle → formatter round trip. Source-derived
+  round trips pass; regenerated bundle acceptance remains. `[plane:build]`
 - [x] **#310** — share citation-query author parsing so additional correct
   author text cannot turn a match into false absence. Title-only search is
   outside this fix. Named examples, ambiguity/absence controls and twelve
@@ -80,6 +90,9 @@ mechanisms. Detector hits are review populations, not error counts.
   the rebuilt candidate's audit replay remains a release gate. `[plane:serve]`
 - [ ] **#311** — parse comma-separated taxonomic authors and expose supported
   original-description candidates without asserting an ambiguous match.
+  Implemented with the source-supported Apolemia example and ambiguous
+  Physalia/Nectopyramis controls. Candidate evidence stays separate from
+  curator-reviewed originals; rebuilt taxonomy-link acceptance remains.
   `[plane:build]` (bounded candidate presentation: `[plane:serve]`)
 - [ ] **#313**, then **#314** — preserve raw reference observations while
   distinguishing parse debris and resolving source-supported publication-year
@@ -122,13 +135,20 @@ before claiming an old OCR-routing defect persists.
 - [ ] **#305** — record and transform ROI coordinate frames correctly. Fix the
   deterministic Claude resize bug, investigate the deployed Qwen failures
   separately, and validate actual panel content after rebuild. Bounds checks
-  and the Claude fix alone do not close the issue. `[plane:build]`
-- [ ] **#324**, **#322**, **#329** — parse panels beyond L with specific
+  and the Claude fix alone do not close the issue. Both backend frame fixes
+  and provenance are implemented; cached Qwen processor dimensions corroborate
+  the double-resize mechanism. Fresh source-pilot inference remains.
+  `[plane:build]`
+- [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
   descriptions, preserve caption fragments and incomplete-binding evidence,
-  and retain the edge species label in the source-verified figure. `[plane:build]`
+  and retain the edge species label in the source-verified figure. Source
+  geometry replay passes for Hosia, Sutherland and the clipped Erenna figure;
+  integrated rebuilt-corpus validation remains the release gate. `[plane:build]`
 - [ ] **#302** — materialize figure-specific rights exclusions and provenance;
   apply them before inherited publication clearance at every strict delivery
   boundary. Whole figures, panels, fallbacks, URLs and HTTP must agree.
+  Implemented; #322 now recovers the actual Hosia exclusion from source
+  caption fragments. Rebuilt gold/bundle replay remains pending.
   `[plane:build]` (enforcement: `[plane:serve]`)
 - [x] **#321** — caption matches precede paper-only mentions in both taxon
   figure routes, with deterministic ties and preserved legacy scores.
@@ -141,7 +161,8 @@ before claiming an old OCR-routing defect persists.
   the regression suite; integrated audit replay remains a release gate.
   `[plane:serve]`
 - [ ] **#332** — recompute record totals after expansion/removal and validate
-  them before bundling; consistently read legacy artifacts. `[plane:build]`
+  them before bundling; consistently read legacy artifacts. Implemented and
+  integration-tested; full rebuilt count concordance remains. `[plane:build]`
 
 Acceptance uses source-reviewed complete panels, labels and scale context,
 permitted/restricted/unknown rights controls, mixed-panel inheritance, and
@@ -150,17 +171,17 @@ new licensing evidence and no cache writes into the bundle.
 
 ### 5. Make bounded query results interpretable
 
-- [ ] **#318** — expose aggregate scope and selected/available paper counts
+- [x] **#318** — expose aggregate scope and selected/available paper counts
   without silently changing existing aggregate meanings. `[plane:serve]`
-- [ ] **#325** — add deterministic excerpt pagination, available/returned counts,
+- [x] **#325** — add deterministic excerpt pagination, available/returned counts,
   truthful truncation and response-byte bounds; distinguish markers from unique
   paragraphs and retrieve every eligible row without gaps. `[plane:serve]`
-- [ ] **#326** — share one total graph-edge budget across both directions and
+- [x] **#326** — share one total graph-edge budget across both directions and
   return a structured invalid-argument error for an unsupported direction.
   `[plane:serve]`
-- [ ] **#328** — select default top lexicon terms after paper/year filtering;
+- [x] **#328** — select default top lexicon terms after paper/year filtering;
   retain caller-specified term order and deterministic ties. `[plane:serve]`
-- [ ] **#331** — correct unavailable tool names, parameters and stale examples.
+- [x] **#331** — correct unavailable tool names, parameters and stale examples.
   *No plane; documentation.*
 - [ ] **#320** — after text/context corrections, add a bounded independent
   diagnostic/key retrieval evaluation and measure repetitive-table crowding.

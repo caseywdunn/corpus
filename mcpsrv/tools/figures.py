@@ -342,7 +342,9 @@ def get_figures_for_taxon(
     see every extracted item including the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    pass ``full_caption=True`` for the entire stored caption. This removes
+    response truncation; ``caption_completeness`` separately reports whether
+    source completeness was verified. Caption ownership is
     qualified by ``caption_status``, ``caption_confidence``,
     ``caption_page_distance``, and ``caption_kind``; do not treat an
     ``uncertain`` association as ordinary bound evidence.
@@ -436,7 +438,9 @@ def get_figures_for_lexicon_term(
     the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    pass ``full_caption=True`` for the entire stored caption. This removes
+    response truncation; ``caption_completeness`` separately reports whether
+    source completeness was verified. Caption ownership is
     qualified by ``caption_status``, ``caption_confidence``,
     ``caption_page_distance``, and ``caption_kind``.
     """

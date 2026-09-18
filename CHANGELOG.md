@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Taxonomic-authority parsing handles comma-separated authors and initials;
+  original-description queries expose build-time candidate evidence and
+  unresolved stubs separately from curator-reviewed descriptions (#311).
+
+- Build-time bibliographic authority retains curated source fields and ordered
+  authors, including publication locators, through export/import and citation
+  formatting (#296, #301). Distinct publication parts sharing a DOI or short
+  citation key receive separate identities, while compatible duplicate scans
+  retain one work; curated contradictions block heuristic reconciliation
+  (#299, #300). Rebuild to regenerate document membership and reference mappings.
+
+- Caption reconstruction retains picture-owned text and wrapped caption
+  fragments, and corrects a body-paragraph link when explicit same-row caption
+  evidence is present (#322). Caption association confidence is separate from
+  the new source-completeness field; requesting an entire stored caption does
+  not claim that extraction recovered every source word. Panel parsing covers
+  A–Z and preserves individual descriptions alongside shared range context
+  (#324).
+
+- Vision outputs retain model-input coordinate provenance and are scaled into
+  the actual figure raster frame (#305). Narrow raster-edge recovery preserves
+  labels clipped by layout detection and invalidates old pixel ROIs (#329).
+  Figure counts track logical records after expansion/removal; new bundles
+  reject inconsistent stored totals, and legacy summaries count actual records
+  (#332).
+
+- Taxon dossiers expose aggregate scope; citation excerpts support deterministic
+  pagination with explicit availability and byte bounds; both graph directions
+  share one total edge budget (#318, #325, #326). Default lexicon terms are
+  ranked after caller filters, and tool examples use the available surface
+  (#328, #331).
+
 - Hosted-runner integration and clean-room jobs remove unused Chrome apt
   sources before package refresh and retry transient downloads (#285). The
   job logs identify any source file actually removed.
