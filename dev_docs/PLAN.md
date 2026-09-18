@@ -70,9 +70,11 @@ mechanisms. Detector hits are review populations, not error counts.
   identity and rebuild/migration behavior before changing matching. `[plane:build]`
 - [ ] **#301** — preserve volume, issue, pages and article locators through the
   complete parser → authority → bundle → formatter round trip. `[plane:build]`
-- [ ] **#310** — share citation-query author parsing so additional correct
+- [x] **#310** — share citation-query author parsing so additional correct
   author text cannot turn a match into false absence. Title-only search is
-  outside this fix. `[plane:serve]`
+  outside this fix. Named examples, ambiguity/absence controls and twelve
+  additional real-work queries pass against the retained v1.2.1 authority;
+  the rebuilt candidate's audit replay remains a release gate. `[plane:serve]`
 - [ ] **#311** — parse comma-separated taxonomic authors and expose supported
   original-description candidates without asserting an ambiguous match.
   `[plane:build]` (bounded candidate presentation: `[plane:serve]`)

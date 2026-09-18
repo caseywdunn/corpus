@@ -558,7 +558,15 @@ def _author_candidates(blob: str) -> List[str]:
     blob = (blob or "").strip()
     if not blob:
         return []
-    candidates = [blob]
+    # Remove collective-author notation before considering surnames. Explicit
+    # separators preserve particles in each name ("van Soest & De Haan").
+    blob = re.sub(r"\bet\s+al\.?\s*$", "", blob, flags=re.IGNORECASE).strip(" ,")
+    candidates = [blob] if blob else []
+    for name in re.split(r"\s*(?:&|,|\b(?:and|und|with|et)\b)\s*", blob):
+        name = name.strip(" ,")
+        name = re.sub(r"^(?:[^\W\d_]\.\s*)+", "", name).strip()
+        if name and len(name.rstrip(".")) > 1 and name not in candidates:
+            candidates.append(name)
     tokens = [t.strip(".,&") for t in re.split(r"[\s,&]+", blob)]
     for tok in tokens:
         if (
@@ -571,6 +579,57 @@ def _author_candidates(blob: str) -> List[str]:
     return candidates
 
 
+def _query_work_matches(biblio, query, *, author=None, year=None):
+    """Shared author/year query interpretation for lookup and formatting (#310).
+
+    Preserve the full surname before trying author-list components. Unicode
+    letters/marks, initials and name punctuation are accepted; arbitrary text
+    without an author/year form needs explicit selectors, not a false absence.
+    """
+    import re
+    import unicodedata
+
+    query = (query or "").strip()
+    explicit_author = bool(author)
+    parsed = re.match(r"^(.+?)[\s,]+\(?(\d{4})[a-z]?\)?(?:\b|(?<=\)))", query)
+    if parsed:
+        blob = parsed.group(1).strip(" ,")
+        if not any(c.isalpha() for c in blob) or not all(
+            c.isalpha() or c.isspace() or unicodedata.category(c).startswith("M")
+            or c in ".,&'’()-" for c in blob
+        ):
+            parsed = None
+    if not author and parsed:
+        author = blob
+    if not author:
+        return error(
+            "could not parse author/year from query; pass author/year to "
+            "resolve_reference or a work_id to format_citations",
+            "invalid_argument", queried=query,
+        )
+    if year is None and parsed:
+        year = int(parsed.group(2))
+    if parsed:
+        title_frag = query[parsed.end():].strip(" ,;:.")
+    else:
+        title_frag = query.replace(author, "", 1)
+        if year is not None:
+            title_frag = title_frag.replace(str(year), "", 1)
+        title_frag = title_frag.strip(" ,;:.")
+    candidates = [author] if explicit_author else _author_candidates(author)
+    results = []
+    # Try the supplied title across all author candidates before broadening.
+    # A correct extra surname must not hide an existing title match.
+    for title in ([title_frag, None] if title_frag else [None]):
+        for candidate in candidates:
+            results = biblio.search_works(candidate, year, title)
+            if results:
+                return {"results": results, "parsed_author": candidate,
+                        "parsed_year": year, "authors_tried": candidates}
+    return {"results": [], "parsed_author": author,
+            "parsed_year": year, "authors_tried": candidates}
+
+
 @mcp.tool()
 def resolve_reference(
     query: str,
@@ -581,61 +640,25 @@ def resolve_reference(
     authority database.
 
     Accepts forms like ``"Haeckel 1888"``, ``"Totton 1965 A Synopsis"``,
-    or a raw citation string. Optionally pass ``author`` and ``year``
+    ``"Totton & Bargmann 1965"`` or ``"Mańko et al. 2020 Footprints"``.
+    Optionally pass ``author`` and ``year``
     separately for more precise matching. Returns the matched work with
-    all known identifiers, in-corpus status, and citation counts.
+    all known identifiers, in-corpus status, and citation counts. A failed
+    query is not proof that a publication is absent from the corpus; refine
+    the query or use an identifier before concluding that.
     """
     idx = _need_index()
     if idx.biblio_db is None:
         return error("bibliographic authority database not configured", "not_configured")
 
-    # Parse author and year from query if not provided separately
-    explicit_author = bool(author)
-    if not author:
-        import re
-        # Try to extract "Author Year" or "Author, Year"
-        m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", query.strip())
-        if m:
-            author = m.group(1).strip()
-            if not year:
-                year = int(m.group(2))
-
-    if not author:
-        return error("could not parse author from query; pass author= explicitly", "invalid_argument")
-
-    # Title fragment is whatever remains after author+year
-    title_frag = query
-    if author:
-        title_frag = title_frag.replace(author, "", 1).strip()
-    if year:
-        title_frag = title_frag.replace(str(year), "", 1).strip()
-    title_frag = title_frag.strip(" ,;:")
-
-    # Everything before the year is captured as one author string, so a
-    # two-author reference arrives as "Totton Bargmann" and matches
-    # nothing — `works` rows are keyed on a single surname. Typing both
-    # surnames is the natural way to look up a two-author work, so this
-    # failed on first use. Try the whole blob first (multi-word surnames
-    # like "van Soest" and "De Haan" are real), then each surname in it.
-    candidates = [author] if explicit_author else _author_candidates(author)
-    results = []
-    matched_author = author
-    for cand in candidates:
-        results = idx.biblio_db.search_works(
-            cand, year, title_frag if title_frag else None,
-        )
-        if not results:
-            # Broaden: try without title
-            results = idx.biblio_db.search_works(cand, year)
-        if results:
-            matched_author = cand
-            break
-    author = matched_author
+    match = _query_work_matches(idx.biblio_db, query, author=author, year=year)
+    if "error" in match:
+        return match
+    results = match.pop("results")
     if not results:
         return {
             "not_found": True, "queried": query,
-            "parsed_author": author, "parsed_year": year,
-            "authors_tried": candidates,
+            **match,
         }
     if len(results) == 1:
         w = results[0]
@@ -686,29 +709,15 @@ def _resolve_work_for_citation(
                          "not_found", paper_hash=paper_hash)
         return {"work": work}
 
-    # query: parse "Author Year [Title]".
-    import re
-    m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", (query or "").strip())
-    if not m:
-        return error(
-            "could not parse author/year from query — "
-            "pass work_id explicitly or refine query",
-            "invalid_argument", queried=query,
-        )
-    author = m.group(1).strip()
-    year = int(m.group(2))
-    title_frag = query.replace(author, "", 1).strip()
-    title_frag = title_frag.replace(str(year), "", 1).strip(" ,;:")
-    results = idx.biblio_db.search_works(
-        author, year, title_frag if title_frag else None,
-    )
-    if not results:
-        # Broaden: drop the title constraint and retry.
-        results = idx.biblio_db.search_works(author, year)
+    match = _query_work_matches(idx.biblio_db, query)
+    if "error" in match:
+        return match
+    results = match.pop("results")
     if not results:
         return error(
-            "reference not in the corpus bibliography",
-            "not_found", queried=query, parsed_author=author, parsed_year=year,
+            "no match for the parsed query in this bibliography; this does "
+            "not establish publication absence — refine the query or pass work_id",
+            "not_found", queried=query, **match,
         )
     if len(results) > 1:
         return error(
@@ -722,7 +731,7 @@ def _resolve_work_for_citation(
         )
     work = idx.biblio_db.get_work(results[0]["work_id"])
     if work is None:  # search_works returned a row, get_work lost it
-        return error("reference not in the corpus bibliography",
+        return error("matched work is unavailable; retry using its work_id",
                      "not_found", queried=query)
     return {"work": work}
 
@@ -801,6 +810,8 @@ def format_citations(
     failure / ``empty_item``). The batch as a whole succeeds even if
     individual items fail. Top-level errors (bad ``style``, no/many
     selectors) return ``{error: ...}`` without a ``citations`` list.
+    ``not_found`` means this query did not resolve, not a verified absence
+    from the corpus. Refine the query or use a known identifier.
     """
     from bib.format import SUPPORTED_STYLES
 

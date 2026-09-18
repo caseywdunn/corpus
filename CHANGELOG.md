@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Citation formatting and reference lookup share author/year query parsing,
+  including `et al.`, `and`, `&`, initials, surname particles and Unicode
+  diacritics. Correct additional author/title text retains matching works or
+  exposes ambiguity; a lookup miss no longer tells clients that a publication
+  is proven absent from the corpus (#310).
+
 - Inline figure refusals retain the MCP error flag and now expose structured
   reason codes and licensing state, matching URL delivery; successful image
   responses are unchanged (#327).
