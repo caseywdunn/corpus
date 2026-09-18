@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Caption matches now precede paper-only mentions in both taxon figure routes,
+  even when an unrelated paper has more than 100 mentions. Ties are stable
+  across paper traversal order; the existing score field remains available
+  (#321).
+
 - Taxonomy ingestion warns when replacing a snapshot with a different root,
   and its help describes whole-snapshot replacement (#298; carried forward
   from the preserved skills branch).

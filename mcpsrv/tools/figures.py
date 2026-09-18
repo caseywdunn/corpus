@@ -290,10 +290,11 @@ def get_figures_for_taxon(
     a figure from a paper that merely mentions it elsewhere. **This means
     the list also includes figures whose caption does *not* name the
     taxon** — returned from any paper that mentions the taxon anywhere,
-    with ``caption_has_taxon: false`` and a low ``score`` (the caption
-    match contributes 100 to the score; a bare mention contributes only
-    the mention count). For a precise "figures of this taxon" answer,
-    filter on ``caption_has_taxon`` (or ``score``), or pass
+    with ``caption_has_taxon: false``. Caption matches always sort first;
+    paper mention counts rank figures within each group. The legacy ``score``
+    still adds 100 for a caption match, but is not the primary sort key.
+    For a precise "figures of this taxon" answer, filter on
+    ``caption_has_taxon``, or pass
     ``caption_only=True`` to return only caption-matched figures.
 
     By default only returns items classified as ``figure`` or ``plate``
@@ -336,7 +337,7 @@ def get_figures_for_taxon(
                 continue
             cap_full = f.get("caption_text") or f.get("caption") or ""
             caption = cap_full.lower()
-            caption_hit = accepted_name_low in caption or (
+            caption_hit = bool(accepted_name_low and accepted_name_low in caption) or bool(
                 matched_name_low and matched_name_low in caption
             )
             if caption_only and not caption_hit:
@@ -356,7 +357,10 @@ def get_figures_for_taxon(
                 **_caption_evidence_fields(f),
                 "score": (100 if caption_hit else 0) + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             })
-    rows.sort(key=lambda r: -r["score"])
+    # A popular paper is not stronger figure evidence than a named caption
+    # (#321). Keep the legacy score, but make relevance precedence explicit.
+    rows.sort(key=lambda r: (not r["caption_has_taxon"], -r["score"],
+                             r["paper_hash"], str(r["figure_id"])))
     return rows[:n]
 
 
@@ -640,7 +644,8 @@ def get_figure_dossier_for_taxon(
         if had_a_figure:
             n_papers_with_figures += 1
 
-    scored.sort(key=lambda pair: -pair[0])
+    scored.sort(key=lambda pair: (not pair[1]["caption_has_taxon"], -pair[0],
+                                 pair[1]["paper_hash"], str(pair[1]["figure_id"])))
     figures_out = [entry for _, entry in scored[: max_figures]]
     return {
         "taxon": taxon_block,

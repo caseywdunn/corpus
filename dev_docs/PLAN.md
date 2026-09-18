@@ -125,9 +125,12 @@ before claiming an old OCR-routing defect persists.
   apply them before inherited publication clearance at every strict delivery
   boundary. Whole figures, panels, fallbacks, URLs and HTTP must agree.
   `[plane:build]` (enforcement: `[plane:serve]`)
-- [ ] **#321**, **#323** — make caption matches outrank paper mention counts and
-  match unambiguous caption abbreviations without inventing associations.
-  `[plane:serve]` for ordering; `[plane:build]` for inferred caption associations.
+- [x] **#321** — caption matches precede paper-only mentions in both taxon
+  figure routes, with deterministic ties and preserved legacy scores.
+  Boundary/tie regressions pass; integrated corpus replay remains in the
+  release acceptance gate. `[plane:serve]`
+- [ ] **#323** — match unambiguous caption abbreviations without inventing
+  associations. `[plane:build]`
 - [ ] **#327** — expose consistent structured refusal reasons while preserving
   successful MCP image responses. `[plane:serve]`
 - [ ] **#332** — recompute record totals after expansion/removal and validate
