@@ -275,3 +275,60 @@ image after three rounds of JSON analysis had pointed the wrong way.
   better posed question, and it is the one with the lower score.
 - **The metrics weight every figure equally**, which — as with prose coverage
   and taxonomic tokens (#244) — is not how they are valued downstream.
+
+## Raster boundaries, panel coordinates, and record totals
+
+The detector's PDF bounding box and the panel model's image coordinates are
+separate evidence. A detected figure boundary may be extended to an independently
+recorded embedded-image boundary only when the boxes nearly coincide (at least
+95% mutual overlap, at most 5 PDF points per edge) and the extension captures no
+new text block. The original detection and the corroborating PDF image placement
+remain in `detected_bbox` and `bbox_boundary_evidence`. This repairs a clipped
+raster label without applying blanket padding to every figure (#329).
+
+Pass 3b converts boxes to the final saved raster's pixel frame exactly once.
+Claude uses the dimensions of the encoded image; Qwen uses its actual processor
+patch grid, including resizing after `qwen_vl_utils`. The prompt names that
+model-input frame. Each accepted ROI preserves raw model coordinates, their
+units, input/output dimensions, and the transform in `coordinate_provenance`.
+The vision implementation digest participates in resume fingerprints, so the
+coordinate correction invalidates older model-derived ROI generations (#305).
+Re-rendering a raster with changed bounds or dimensions clears existing ROIs and
+marks them `stale_image_geometry`; another panel pass must locate the labels.
+
+Numeric bounds are not a panel-content accuracy test. Release replay must compare
+source-reviewed crops for the intended specimen or plot, label, and scale bar,
+and retain known passing controls. Stubbed backend tests establish coordinate
+conversion, not the accuracy of fresh Qwen or Claude detections. The source replay
+in `tests/test_figure_integrity_sources.py` reads PDFs from `CORPUS_LIBRARY_DIR`;
+it does not create another fixture corpus.
+
+Caption inventories support A–Z, including ranges and explicit lists such as
+`upper (A, D), lower (B, E)`. An individual panel description takes precedence over
+shared range prose, with shared prose retained in `shared_descriptions`. Known
+labels without detected geometry remain in the caption inventory; they prevent
+a `completed` status, and retrieval must retain whole-image fallback (#324).
+
+`total_figures`, bundle `figure_count`, and paper/summary `n_figures` totals count
+records in `figures[]`, including graphical elements and distinct logical figures
+sharing one raster. They do not count unique image files. Figure-mutating passes
+recompute the total, and bundle validation rejects contradictory stored counts.
+Serving an older inconsistent artifact uses the actual record array (#332).
+
+Caption association confidence remains separate from source completeness (#322).
+`caption_completeness` defaults to `unverified` for both rebuilt and legacy
+records: neither a high-confidence structural link nor a bare figure label proves
+that every printed caption fragment was recovered. `full_caption=true` returns
+the complete **stored** caption string; it does not certify source completeness.
+This metadata is shared by direct figure lookup and figure dossiers.
+
+Caption reconstruction retains the contributing text, page and geometry in
+`caption_fragments` (long evidence fragments are explicitly marked truncated;
+the canonical caption string is not truncated). A picture-owned prose child may
+be recovered even when the layout model calls it `text`, while unrelated nearby
+body paragraphs remain excluded. A narrow caption cell that wraps around a wider
+prose line is assembled in label/body/tail order, preserving scale-bar endings.
+For adjacent extracted panels, a labelled caption beside the same picture row
+can override an erroneous unlabelled link to body prose; the rejected link and
+reason remain inspectable. These rules do not reject legitimate unlabelled,
+multilingual, bare-label or facing-page captions.

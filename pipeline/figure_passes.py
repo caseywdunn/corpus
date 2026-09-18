@@ -161,6 +161,8 @@ def _apply_plate_roi_result(figures, host, targets, result) -> None:
             if str(roi.get("figure_number") or roi.get("label") or "") == number
         ]
         record["pass3_status"] = result.get("pass3_status")
+        if result.get("pass3_status") not in {"vision_backend_failed", "image_open_failed"}:
+            record.pop("roi_geometry_invalidated", None)
         record["pass3_target_kind"] = "figure"
         record["plate_roi_source_figure_id"] = host.get("figure_id")
         if result.get("pass3_backend"):
@@ -193,6 +195,8 @@ def _apply_plate_discovery_result(host, result):
     rois = result.get("rois") or []
     host["rois"] = rois
     host["pass3_status"] = result.get("pass3_status")
+    if result.get("pass3_status") not in {"vision_backend_failed", "image_open_failed"}:
+        host.pop("roi_geometry_invalidated", None)
     host["pass3_target_kind"] = "figure_discovery"
     host["pass3_backend"] = result.get("pass3_backend")
     if result.get("image_size_px"):
@@ -316,7 +320,10 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
     plate_groups = _annotate_plate_figure_groups(figures, running_text)
     figures_data["missing_figures"] = missing
     figures_data["total_missing_figures"] = len(missing)
+    from .figure_rights import materialize_figure_rights
+    materialize_figure_rights(figures, preserve_existing=True)
 
+    figures_data["total_figures"] = len(figures_data.get("figures") or [])
     with figures_file.open("w", encoding="utf-8") as f:
         json.dump(stamp_artifact(figures_data), f, indent=2, ensure_ascii=False)
 
@@ -378,6 +385,8 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
         else:
             fig["rois"] = result.get("rois") or []
             fig["pass3_status"] = result.get("pass3_status")
+            if result.get("pass3_status") not in {"vision_backend_failed", "image_open_failed"}:
+                fig.pop("roi_geometry_invalidated", None)
             fig["pass3_target_kind"] = "panel"
             fig["ocr_token_count"] = result.get("ocr_token_count", 0)
             if result.get("image_size_px"):
@@ -391,6 +400,7 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
             n_none += 1
         else:
             n_skipped += 1
+    data["total_figures"] = len(data.get("figures") or [])
     with figures_file.open("w", encoding="utf-8") as f:
         json.dump(stamp_artifact(data), f, indent=2, ensure_ascii=False)
     logger.info(
@@ -485,6 +495,8 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         else:
             fig["rois"] = result.get("rois") or []
             fig["pass3_status"] = result.get("pass3_status")
+            if result.get("pass3_status") not in {"vision_backend_failed", "image_open_failed"}:
+                fig.pop("roi_geometry_invalidated", None)
             fig["pass3_target_kind"] = "panel"
             fig["pass3_backend"] = result.get("pass3_backend")
             if result.get("pass3_error"):
@@ -510,6 +522,7 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
         else:
             n_skipped += 1
     figures.extend(discovered_records)
+    data["total_figures"] = len(data.get("figures") or [])
     with figures_file.open("w", encoding="utf-8") as f:
         json.dump(stamp_artifact(data), f, indent=2, ensure_ascii=False)
     logger.info(
@@ -539,11 +552,16 @@ def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
     chunks = chunks_data.get("chunks", []) or []
     figures = figures_data.get("figures", []) or []
     link_chunks_to_figures(chunks, figures)
+    # Pass 3 can expand records sharing an image; children must retain any
+    # image-level exclusion before the build is bundled (#302).
+    from .figure_rights import materialize_figure_rights
+    materialize_figure_rights(figures, preserve_existing=True)
 
     # Write back — data was modified in place but be explicit about
     # re-serialization to keep JSON formatting consistent.
     chunks_data["chunks"] = chunks
     figures_data["figures"] = figures
+    figures_data["total_figures"] = len(figures_data.get("figures") or [])
     with figures_file.open("w", encoding="utf-8") as f:
         json.dump(stamp_artifact(figures_data), f, indent=2, ensure_ascii=False)
     with chunks_file.open("w", encoding="utf-8") as f:

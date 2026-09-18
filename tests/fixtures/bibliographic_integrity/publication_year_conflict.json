@@ -1,0 +1,18 @@
+{
+  "provenance": {
+    "issue": 314,
+    "source": "Reported immutable observation from audited v1.4.0.dev0 bundle; original TEI unavailable",
+    "citing_corpus_hash": "db7338ea1867",
+    "grobid_xml_id": "b40",
+    "authors": "P R Pugh supplied in pipeline reference-author order from the reported raw citation; parsed authors not included in issue evidence"
+  },
+  "reference": {
+    "xml_id": "b40",
+    "authors": [
+      "P R Pugh"
+    ],
+    "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+    "year": 1965,
+    "raw": "Pugh, P. R. 1974. The vertical distribution of the siphonophores collected during the SOND cruise, 1965. Journal of Marine Biological Association of the United Kingdom. 54: 25-90."
+  }
+}

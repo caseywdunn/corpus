@@ -68,6 +68,10 @@ def classify_section(headings: Optional[List[str]]) -> Optional[str]:
             continue
         hlow = h.lower()
         for cls, pat in _SECTION_PATTERNS:
+            # A paper title mentioning "with description of two new species"
+            # is not a description heading for author/affiliation chunks.
+            if cls == "description" and re.search(r"\bwith\s+(?:a\s+)?description\b", hlow):
+                continue
             if re.search(pat, hlow):
                 return cls
     return None

@@ -1,0 +1,1948 @@
+{
+  "Sutherland_etal2019b-1-1": {
+    "pdf": "S/Sutherland_etal2019b.pdf",
+    "sha256": "e893ef271e78a02a1af67f5bc468d3d49acae6c7ac602898aa148bdadf1ef038",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "1": {
+        "width": 595.2760009765625,
+        "height": 841.8900146484375
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/15",
+        "label": "text",
+        "text": "Abstract: The colonial cnidarian, Nanomia bijuga , is highly proficient at moving in three-dimensional space through forward swimming, reverse swimming and turning. We used high speed videography, particle tracking, and particle image velocimetry (PIV) with frame rates up to 6400 s 1 to study the kinematics and fluid mechanics of N. bijuga during turning and reversing. N. bijuga achieved turns with high maneuverability (mean length-specific turning radius, R / L = 0.15 0.10) and agility (mean angular velocity, ω = 104 41 deg. s 1 ). The maximum angular velocity of N. bijuga , 215 deg. s 1 , exceeded that of many vertebrates with more complex body forms and neurocircuitry. Through the combination of rapid nectophore contraction and velum modulation, N. bijuga generated high speed, narrow jets (maximum = 1063 176 mm s 1 ; 295 nectophore lengths s 1 ) and thrust vectoring, which enabled high speed reverse swimming (maximum = 134 28 mm s 1 ; 37 nectophore lengths s 1 ) that matched previously reported forward swimming speeds. A 1:1 ratio of forward to reverse swimming speed has not been recorded in other swimming organisms. Taken together, the colonial architecture, simple neurocircuitry, and tightly controlled pulsed jets by N. bijuga allow for a diverse repertoire of movements. Considering the further advantages of scalability and redundancy in colonies, N. bijuga is a model system for informing underwater propulsion and navigation of complex environments.",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 81.78599999999994,
+              "t": 542.1000964484375,
+              "r": 519.989738532,
+              "b": 343.3968188719012,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              1478
+            ]
+          }
+        ],
+        "native_compact": "Abstract:Thecolonialcnidarian,Nanomiabijuga,ishighlyproficientatmovinginthree-dimensionalspacethroughforwardswimming,reverseswimmingandturning.Weusedhighspeedvideography,particletracking,andparticleimagevelocimetry(PIV)withframeratesupto6400s⁻¹tostudythekinematicsandfluidmechanicsofN.bijugaduringturningandreversing.N.bijugaachievedturnswithhighmaneuverability(meanlength–specificturningradius,R/L=0.15±0.10)andagility(meanangularvelocity,ω=104±41deg.s⁻¹).ThemaximumangularvelocityofN.bijuga,215deg.s⁻¹,exceededthatofmanyvertebrateswithmorecomplexbodyformsandneurocircuitry.Throughthecombinationofrapidnectophorecontractionandvelummodulation,N.bijugageneratedhighspeed,narrowjets(maximum=1063±176mms⁻¹;295nectophorelengthss⁻¹)andthrustvectoring,whichenabledhighspeedreverseswimming(maximum=134±28mms⁻¹;37nectophorelengthss⁻¹)thatmatchedpreviouslyreportedforwardswimmingspeeds.A1:1ratioofforwardtoreverseswimmingspeedhasnotbeenrecordedinotherswimmingorganisms.Takentogether,thecolonialarchitecture,simpleneurocircuitry,andtightlycontrolledpulsedjetsbyN.bijugaallowforadiverserepertoireofmovements.Consideringthefurtheradvantagesofscalabilityandredundancyincolonies,N.bijugaisamodelsystemforinformingunderwaterpropulsionandnavigationofcomplexenvironments.",
+        "glyph_evidence": [
+          {
+            "offset": 242,
+            "bbox": [
+              453.8869934082031,
+              322.5348815917969,
+              458.952392578125,
+              330.10650634765625
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 243,
+            "bbox": [
+              458.9519958496094,
+              324.66387939453125,
+              462.73779296875,
+              332.2354736328125
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 403,
+            "bbox": [
+              410.6449890136719,
+              350.7822265625,
+              417.3099670410156,
+              360.74481201171875
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 445,
+            "bbox": [
+              196.98800659179688,
+              364.292236328125,
+              203.65298461914062,
+              374.25482177734375
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 453,
+            "bbox": [
+              245.86399841308594,
+              363.0628967285156,
+              250.9293975830078,
+              370.634521484375
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 454,
+            "bbox": [
+              250.9290008544922,
+              365.19189453125,
+              254.7147979736328,
+              372.76348876953125
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 501,
+            "bbox": [
+              508.09600830078125,
+              363.0628967285156,
+              513.1614379882812,
+              370.634521484375
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 502,
+            "bbox": [
+              513.1610107421875,
+              365.19189453125,
+              516.9468383789062,
+              372.76348876953125
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 693,
+            "bbox": [
+              213.91700744628906,
+              404.8202209472656,
+              220.5819854736328,
+              414.7828063964844
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 700,
+            "bbox": [
+              263.8320007324219,
+              403.59088134765625,
+              268.89739990234375,
+              411.1625061035156
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 701,
+            "bbox": [
+              268.8970031738281,
+              405.7198791503906,
+              272.68280029296875,
+              413.2914733886719
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 724,
+            "bbox": [
+              384.1390075683594,
+              403.59088134765625,
+              389.20440673828125,
+              411.1625061035156
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 725,
+            "bbox": [
+              389.2040100097656,
+              405.7198791503906,
+              392.98980712890625,
+              413.2914733886719
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 794,
+            "bbox": [
+              326.6759948730469,
+              418.3292236328125,
+              333.3409729003906,
+              428.29180908203125
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 800,
+            "bbox": [
+              371.5790100097656,
+              417.10089111328125,
+              376.6444091796875,
+              424.6725158691406
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 801,
+            "bbox": [
+              376.6440124511719,
+              419.2298889160156,
+              380.4298095703125,
+              426.8014831542969
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 823,
+            "bbox": [
+              486.84600830078125,
+              417.10089111328125,
+              491.9114074707031,
+              424.6725158691406
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 824,
+            "bbox": [
+              491.9110107421875,
+              419.2298889160156,
+              495.6968078613281,
+              426.8014831542969
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          }
+        ]
+      }
+    ]
+  },
+  "Sutherland_etal2019b-4-4": {
+    "pdf": "S/Sutherland_etal2019b.pdf",
+    "sha256": "e893ef271e78a02a1af67f5bc468d3d49acae6c7ac602898aa148bdadf1ef038",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "4": {
+        "width": 595.2760009765625,
+        "height": 841.8900146484375
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/10",
+        "label": "text",
+        "text": "Turns in N. bijuga colonies were accomplished by pulsing of a single apical nectophore. Nectophore kinematics and resultant fluid mechanics during turning matched those of straight swimming and are described elsewhere [8]. By pulsing one apical nectophore, colonies were capable of rapid turns with a mean angular velocity, ω , of 104 41 deg. s 1 and a maximum of 215 90 deg. s 1 (Table 1). The maximum measured angular velocity for all colonies was 363 deg. s 1 . The mean peak acceleration was 9795 7469 deg s 2 . Turns were characterized by very little forward motion and a tight turning radius: the average length specific radius of curvature, L / R, was 0.15 0.10 (Table 1). As angular velocity increased, R / L also increased (Figure 2), which was indicative of a trade-o between these two performance variables. Nectophore  kinematics  and  resultant  fluid  mechanics  during  turning  matched  those  of  straight swimming and are described elsewhere [8]. By pulsing one apical nectophore, colonies were capable of rapid turns with a mean angular velocity, ω , of 104 ± 41 deg. s -1  and a maximum of 215 ± 90 deg. s -1  (Table 1). The maximum measured angular velocity for all colonies was 363 deg. s -1 .  The mean peak acceleration was 9795 ± 7469 deg s -2 .  Turns were characterized by very little forward motion and a tight turning radius: the average length specific radius of curvature, L/R, was 0.15 ± 0.10 (Table 1). As angular velocity increased, R/L also increased (Figure 2), which was indicative of a trade-off between these two performance variables.",
+        "prov": [
+          {
+            "page_no": 4,
+            "bbox": {
+              "l": 76.117,
+              "t": 677.7814206484375,
+              "r": 526.0917939999987,
+              "b": 557.6018188719012,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              1574
+            ]
+          }
+        ],
+        "native_compact": "TurnsinN.bijugacolonieswereaccomplishedbypulsingofasingleapicalnectophore.Nectophorekinematicsandresultantfluidmechanicsduringturningmatchedthoseofstraightswimmingandaredescribedelsewhere[8].Bypulsingoneapicalnectophore,colonieswerecapableofrapidturnswithameanangularvelocity,ω,of104±41deg.s⁻¹andamaximumof215±90deg.s⁻¹(Table1).Themaximummeasuredangularvelocityforallcolonieswas363deg.s⁻¹.Themeanpeakaccelerationwas9795±7469degs⁻².Turnswerecharacterizedbyverylittleforwardmotionandatightturningradius:theaveragelengthspecificradiusofcurvature,L/R,was0.15±0.10(Table1).Asangularvelocityincreased,R/Lalsoincreased(Figure2),whichwasindicativeofatrade-offbetweenthesetwoperformancevariables.",
+        "glyph_evidence": [
+          {
+            "offset": 283,
+            "bbox": [
+              253.40499877929688,
+              204.1241912841797,
+              260.0699768066406,
+              214.0867919921875
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 291,
+            "bbox": [
+              302.2229919433594,
+              202.89488220214844,
+              307.28839111328125,
+              210.4664764404297
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 292,
+            "bbox": [
+              307.28900146484375,
+              205.02386474609375,
+              311.0747985839844,
+              212.595458984375
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 309,
+            "bbox": [
+              419.1629943847656,
+              204.1241912841797,
+              425.8279724121094,
+              214.0867919921875
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 317,
+            "bbox": [
+              467.98199462890625,
+              202.89488220214844,
+              473.0473937988281,
+              210.4664764404297
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 318,
+            "bbox": [
+              473.0469970703125,
+              205.02386474609375,
+              476.8327941894531,
+              212.595458984375
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 386,
+            "bbox": [
+              385.010986328125,
+              216.40489196777344,
+              390.0763854980469,
+              223.9764862060547
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 387,
+            "bbox": [
+              390.07598876953125,
+              218.53387451171875,
+              393.8617858886719,
+              226.10546875
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 419,
+            "bbox": [
+              118.79499816894531,
+              231.1432342529297,
+              125.45997619628906,
+              241.1058349609375
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 428,
+            "bbox": [
+              173.75599670410156,
+              229.91392517089844,
+              178.82139587402344,
+              237.4855194091797
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 429,
+            "bbox": [
+              178.82199096679688,
+              232.04290771484375,
+              182.6077880859375,
+              239.614501953125
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          },
+          {
+            "offset": 554,
+            "bbox": [
+              392.0320129394531,
+              244.65220642089844,
+              398.6969909667969,
+              254.61480712890625
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/18",
+        "label": "caption",
+        "text": "Figure 2. Mean angular velocity, ω , versus length specific radius of turn, R/L; y = 0.002 x -0.0715; R² = 0.6; p = 0.024; n = 8. Figure 2. Mean angular velocity, ω , versus length specific radius of turn, R / L; y = 0.002 x 0.0715; R 2 = 0.6; p = 0.024; n = 8.",
+        "prov": [
+          {
+            "page_no": 4,
+            "bbox": {
+              "l": 97.795,
+              "t": 260.6435538484375,
+              "r": 504.4743999999999,
+              "b": 232.30001464843747,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              261
+            ]
+          }
+        ],
+        "native_compact": "Figure2.Meanangularvelocity,ω,versuslengthspecificradiusofturn,R/L;y=0.002x−0.0715;R²=0.6;p=0.024;n=8.",
+        "glyph_evidence": [
+          {
+            "offset": 75,
+            "bbox": [
+              462.4440002441406,
+              578.820068359375,
+              468.4425354003906,
+              587.7864379882812
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 84,
+            "bbox": [
+              103.78499603271484,
+              592.3377685546875,
+              107.27189636230469,
+              599.3115844726562
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          }
+        ]
+      }
+    ]
+  },
+  "Hauss_et2016-4-4": {
+    "pdf": "H_J/Hauss_et2016.pdf",
+    "sha256": "71c01d252e97b0044d2022fd0a239817dee78c3cc3651ef2afedbf82d8456085",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "4": {
+        "width": 595.2755737304688,
+        "height": 785.1968383789062
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/2",
+        "label": "text",
+        "text": "pling volume for the upper 600 m of the water column was 6.34 ( 0.99) m 3 . Volume-specific abundance was calculated in 5 m depth bins.",
+        "prov": [
+          {
+            "page_no": 4,
+            "bbox": {
+              "l": 46.48808,
+              "t": 719.0657309789062,
+              "r": 287.4375034,
+              "b": 686.6038527718265,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              135
+            ]
+          }
+        ],
+        "native_compact": "plingvolumefortheupper600mofthewatercolumnwas6.34(±0.99)m³.Volume-specificabundancewascalculatedin5mdepthbins.",
+        "glyph_evidence": [
+          {
+            "offset": 50,
+            "bbox": [
+              69.78707885742188,
+              75.79363250732422,
+              77.55790710449219,
+              85.75623321533203
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": true
+          },
+          {
+            "offset": 57,
+            "bbox": [
+              107.72207641601562,
+              75.21353149414062,
+              111.50787353515625,
+              82.78512573242188
+            ],
+            "method": "raised_source_span",
+            "verified": true
+          }
+        ]
+      }
+    ]
+  },
+  "Haddock_etal2005-1-1": {
+    "pdf": "H_J/Haddock_etal2005.pdf",
+    "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "1": {
+        "width": 594.0,
+        "height": 756.0
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/0",
+        "label": "section_header",
+        "text": "Bioluminescent and Red-Fluorescent Lures in a Deep-Sea Siphonophore",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 59.7543,
+              "t": 682.3337726999999,
+              "r": 352.6123743400001,
+              "b": 640.920314345791,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              67
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/1",
+        "label": "text",
+        "text": "Steven H. D. Haddock, 1 * Casey W. Dunn, 2 Philip R. Pugh, 3 Christine E. Schnitzler 1",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 76.5354,
+              "t": 634.177819,
+              "r": 335.9093516,
+              "b": 611.2380219646892,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              86
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/2",
+        "label": "text",
+        "text": "Examples of bioluminescent lures in the sea are quite rare, posited only for a few fish and cephalopods ( 1 ). In many marine organisms, inc […] ns of meters in length. Nearly all members of this group are luminous ( 2 ), but because of their fragility, they are rarely observed alive.",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 35.8866,
+              "t": 597.8661906000001,
+              "r": 199.27858827,
+              "b": 485.4952606655623,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              469
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/3",
+        "label": "text",
+        "text": "Using a submersible at depths between 1600 m and 2300 m ( 3 ), we collected three specimens of an undescribed species in the genus Erenna (F […] ). Unlike most siphonophores, Erenna do not feed on crustaceans but prey instead upon fish ( 4 ), remnants of which were found inside two of",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 35.8866,
+              "t": 482.8384245300003,
+              "r": 199.26155229999998,
+              "b": 412.3060436555623,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              299
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/4",
+        "label": "text",
+        "text": "(583, 620, and 680 nm) (Fig. 1, D and E). These mature tentilla also displayed a unique rhythmic flicking behavior (movie S1).",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 213.22285614999998,
+              "t": 597.87063402,
+              "r": 376.5825657400006,
+              "b": 569.176802205562,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              126
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/5",
+        "label": "text",
+        "text": "We observed blue-green (immature) and orange-red (mature) in vivo emission by eye, but we were unable to record bioluminescence emission spe […] ize of the photophores. We expect bioluminescence spectra to be similar to fluorescence emissions, as is the case in other cnidarians ( 2 ).",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 213.22285614999998,
+              "t": 566.5199660700001,
+              "r": 376.6166376800004,
+              "b": 485.4997040855622,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              337
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/6",
+        "label": "text",
+        "text": "Among all marine organisms, only the rare scaleless dragonfishes (Stomiidae) have been known to produce red luminescence ( 1 ), but red fluo […] in several marine phyla ( 5-7 ). The fluorescent material of Erenna does not appear to belong to the green fluorescent protein family ( 5 ),",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 213.22285614999996,
+              "t": 482.8428679500002,
+              "r": 376.69285123000003,
+              "b": 412.3104870755622,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              315
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/7",
+        "label": "text",
+        "text": "our specimens. At great depths where chance encounters with vertebrates are rare, it is unclear how they obtain prey. Here we show that the nonvisual Erenna sp. we captured possesses redemitting bioluminescent appendages that may act as lures for fish prey.",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 35.886600000000016,
+              "t": 409.5927198300003,
+              "r": 148.67548096000004,
+              "b": 318.1410644255623,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              257
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/8",
+        "label": "text",
+        "text": "Erenna tentacles have numerous side branches (tentilla), each consisting of a large cnidoband (an array of È 3000 stinging cells) attached t […] 2 þ -regulated photoproteins. Unlike typical cnidarian photocytes, these terminal photophores did not readily flash upon direct stimulation.",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 35.885703370000016,
+              "t": 315.42774060000033,
+              "r": 148.7103276499999,
+              "b": 129.85948425556194,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              558
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/9",
+        "label": "text",
+        "text": "Photophores of young tentilla (Fig. 1B) contained only bioluminescent tissue, but when mature, they were surrounded by red fluorescent material (Fig. 1C). This substance produced a multimodal fluorescence emission, spanning yellow to red",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 35.88647811999999,
+              "t": 127.14616043000001,
+              "r": 148.73095013999995,
+              "b": 46.125898445561916,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              237
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/10",
+        "label": "caption",
+        "text": "Fig. 1. ( A ) Erenna sp. at 1662 m. Scale bar, 2 cm. ( B ) Scanning electron micrograph of immature photophore (pi) and cnidoband (cn). Scale bar, 200 m m. ( C ) Live tentilla with mature photophores (pm). Scale bar, 1 mm. ( D to F ) Fluorescence emission spectra of (D) a live mature photophore (excitation wavelength l ex 0 410 nm), (E) unpurified extract ( l ex 0 473 nm), and (F) purified extract ( l ex 0 410 nm). Dashed vertical lines show primary conserved emission peaks. ( G ) The absorbance spectrum of purified photophore extract.",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 160.61099999999996,
+              "t": 125.31594380000001,
+              "r": 376.58618686,
+              "b": 46.15829481333333,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              541
+            ]
+          }
+        ],
+        "native_compact": "Fig.1.(A)Erennasp.at1662m.Scalebar,2cm.(B)Scanningelectronmicrographofimmaturephotophore(pi)andcnido-band(cn).Scalebar,200µm.(C)Livetentillawithmaturephotophores(pm).Scalebar,1mm.(DtoF)Fluorescenceemissionspectraof(D)alivematurephotophore(excitationwavelengthlex0410nm),(E)unpurifiedextract(lex0473nm),and(F)purifiedextract(lex0410nm).Dashedverticallinesshowprimaryconservedemissionpeaks.(G)Theabsorb-ancespectrumofpurifiedphotophoreextract.",
+        "glyph_evidence": [
+          {
+            "offset": 122,
+            "bbox": [
+              255.57171630859375,
+              647.7263793945312,
+              259.9751892089844,
+              656.194580078125
+            ],
+            "method": "source_descender_font_and_rendered_ocr",
+            "verified": true
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/11",
+        "label": "section_header",
+        "text": "BREVIA",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 423.3259,
+              "t": 744.2185563,
+              "r": 553.8846432,
+              "b": 698.7468348439266,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              6
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/12",
+        "label": "text",
+        "text": "nor does it resemble the biliproteins of the siphonophore Physalia ( 6 ). On the basis of emission and absorption spectra, with a Soret band […] secondary Q bands at 570 and 583 nm (Fig. 1, F and G), the main constituents are most similar to porphyrins found in medusae and fish ( 7 ).",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 390.56013081000003,
+              "t": 692.0418896600003,
+              "r": 553.9350831100003,
+              "b": 621.5095087855624,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              295
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/13",
+        "label": "text",
+        "text": "Given the characteristic flicking of the bioluminescent and fluorescent filaments, we concluded that the siphonophore Erenna uses them as lu […]  medusae. In shallow waters, fluorescence could be excited by ambient blue light rather than by bioluminescence as in deep-dwelling Erenna .",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 390.56013081000003,
+              "t": 618.8526726500005,
+              "r": 553.9664651600001,
+              "b": 506.4817427155627,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              499
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/14",
+        "label": "text",
+        "text": "The assertion that red light acts as an attractant is at odds with the prevailing view that deep-living creatures cannot detect long wavelen […] en presented only recently ( 8 ). Our findings suggest that the role of long-wavelength light in marine visual ecology merits a closer look.",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 390.5601308099999,
+              "t": 503.7684188900007,
+              "r": 553.9557056000008,
+              "b": 391.3974889555627,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              505
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Kidwai_Amjad2000-1-1": {
+    "pdf": "K/Kidwai_Amjad2000.pdf",
+    "sha256": "392857a972b9bd0023b70c19b7528fa2f885d5742b4f812e7808037b93814071",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "1": {
+        "width": 595.0,
+        "height": 785.0
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/14",
+        "label": "text",
+        "text": "Studies of zooplankton in the Arabian Sea date back to 1857-1859 (Rao 1973). Several later research surveys have also been conducted in the area [IIOE (1960 to 1965), R.V. ''Dr. Fridtjof Nansen'' (1977), INDEX (1979), R.V. ''Meteor'' (1987)], leading to the publication of atlases and papers (e.g. IOBC 1968a, b; Prasad 1968; Wyrtiki 1971). Earlier works on zooplankton have",
+        "prov": [
+          {
+            "page_no": 1,
+            "bbox": {
+              "l": 303.307,
+              "t": 126.81854120000014,
+              "r": 547.0897462000004,
+              "b": 48.88196360000018,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              374
+            ]
+          }
+        ],
+        "native_compact": "StudiesofzooplanktonintheArabianSeadatebackto1857±1859(Rao1973).Severallaterresearchsurveyshavealsobeenconductedinthearea[IIOE(1960to1965),R.V.``Dr.FridtjofNansen''(1977),INDEX(1979),R.V.``Meteor''(1987)],leadingtothepublica-tionofatlasesandpapers(e.g.IOBC1968a,b;Prasad1968;Wyrtiki1971).Earlierworksonzooplanktonhave",
+        "glyph_evidence": [
+          {
+            "offset": 49,
+            "bbox": [
+              335.7543029785156,
+              669.1756591796875,
+              340.8188171386719,
+              679.3046875
+            ],
+            "method": "aligned_native_and_rendered_sign",
+            "verified": false
+          }
+        ]
+      }
+    ]
+  },
+  "Church_etal2025-7-8": {
+    "pdf": "C/Church_etal2025.pdf",
+    "sha256": "a0acf593517406b75079637dd674ec8d0fbe58d1dd2de8b31e46cf86bfdc2e55",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "7": {
+        "width": 602.9860229492188,
+        "height": 782.9860229492188
+      },
+      "8": {
+        "width": 602.9860229492188,
+        "height": 782.9860229492188
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/7",
+        "label": "section_header",
+        "text": "Physalia minuta Church and Dunn, sp. nov.",
+        "prov": [
+          {
+            "page_no": 7,
+            "bbox": {
+              "l": 304.15653,
+              "t": 637.1175669492187,
+              "r": 484.92043440000003,
+              "b": 630.0254494492187,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              41
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/22",
+        "label": "section_header",
+        "text": "Diagnosis",
+        "prov": [
+          {
+            "page_no": 7,
+            "bbox": {
+              "l": 304.15662,
+              "t": 78.12660694921874,
+              "r": 345.58305440000004,
+              "b": 71.03448944921877,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              9
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/23",
+        "label": "text",
+        "text": "Distinguished from other Physalia by its small size at maturity and colony arrangement with multiple principal tentacles. Float transparent and often with a green patch at anterior apex. Palpons and",
+        "prov": [
+          {
+            "page_no": 7,
+            "bbox": {
+              "l": 304.15662,
+              "t": 67.18484694921881,
+              "r": 543.2685219607998,
+              "b": 38.153309449218796,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              198
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/27",
+        "label": "section_header",
+        "text": "Life Science Identifier",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 310.84659,
+              "t": 123.19770694921874,
+              "r": 403.9264916,
+              "b": 116.10558944921877,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              23
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/28",
+        "label": "text",
+        "text": "ZooBank Life Science Identifier (LSID): urn:lsid:zoobank.org:pub: 54F48E37-35F8-4D0A-A20A-095EA1204422.",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 310.84656,
+              "t": 112.20005694921872,
+              "r": 549.832265648,
+              "b": 94.16617944921882,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              103
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/29",
+        "label": "section_header",
+        "text": "Other Physalia names used here",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 310.84662,
+              "t": 78.12740694921877,
+              "r": 447.45135600000003,
+              "b": 71.0352894492188,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              30
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/30",
+        "label": "section_header",
+        "text": "Physalia physalis (Linnaeus, 1758)",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 310.84656,
+              "t": 67.18564694921872,
+              "r": 454.78315619999995,
+              "b": 60.09352944921875,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              34
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/31",
+        "label": "text",
+        "text": "Described as Holothuria physalis , 50 with a reddish color (''rufescens'') and many tentacles of differing sizes, matching the",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 310.84662,
+              "t": 58.093905949218765,
+              "r": 549.9126509999999,
+              "b": 38.15397944921881,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              126
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/32",
+        "label": "text",
+        "text": "Article",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 503.77301,
+              "t": 713.1308579492188,
+              "r": 549.9252875000001,
+              "b": 701.4498266992188,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              7
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/33",
+        "label": "caption",
+        "text": "Figure 3. Distinct morphologies are detectable in citizen-science images",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.7543,
+              "t": 236.48313894921876,
+              "r": 319.44416700000005,
+              "b": 230.22550644921876,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              72
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/34",
+        "label": "text",
+        "text": "(A) Morphological traits such as aspects of size, color, and tentacle number were scored for thousands of images on iNaturalist.org. From these, four morphologies were identified, three of which correspond to historically proposed species. 50-53",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75425,
+              "t": 226.68140194921875,
+              "r": 549.8993545,
+              "b": 211.37342819921878,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              245
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/35",
+        "label": "text",
+        "text": "(B) Representative photos of each morphology from iNaturalist, all made available under Creative Commons license CC-0 or CC-BY, credited (le […] llespie, Manuel R. Popp, Hazel Valerie, Jacqui Geux, Emily Roberts, Arnim Littek, Arnim Littek, Jacqui Geux, Roderic Page, and Arnim Littek.",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75425,
+              "t": 207.74641194921878,
+              "r": 549.8993707999999,
+              "b": 183.02812819921883,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              400
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/36",
+        "label": "text",
+        "text": "(C) Ranges of positively identified iNaturalist records for each morphology, using a rule-based analysis of morphological traits (Figure S4).",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75425,
+              "t": 179.40041194921878,
+              "r": 487.4840417,
+              "b": 173.55993819921878,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              141
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/37",
+        "label": "text",
+        "text": "(D) Morphologies were assigned to a genomic cluster by scoring the same traits of genomic specimens. Cluster B2 could not be definitively assigned due to lack of images of specimens upon collection.",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75425,
+              "t": 169.9329119492188,
+              "r": 549.906974,
+              "b": 154.62495819921878,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              198
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/38",
+        "label": "text",
+        "text": "See Figure S4.",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75425,
+              "t": 150.9979319492188,
+              "r": 105.5505397,
+              "b": 145.1574581992188,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              14
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/39",
+        "label": "text",
+        "text": "principal tentacles are often a vibrant blue-green. Gastrozooids are blue at base and terminate in a pale tip. While crest shape may change with state of contraction in Physalia , in P. minuta crest is typically fl ush with the fl oat in beached specimens.",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75429,
+              "t": 123.19770694921874,
+              "r": 298.84623492160006,
+              "b": 83.22441944921877,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              256
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/40",
+        "label": "section_header",
+        "text": "Etymology",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75427,
+              "t": 67.18564694921872,
+              "r": 103.90746480000001,
+              "b": 60.09352944921875,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              9
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/41",
+        "label": "text",
+        "text": "The species name minuta refers to the small size of the mature colony.",
+        "prov": [
+          {
+            "page_no": 8,
+            "bbox": {
+              "l": 59.75427,
+              "t": 56.1871469492188,
+              "r": 298.8259706,
+              "b": 38.15325944921881,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              70
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Siebert_etal2013-4-5": {
+    "pdf": "S/Siebert_etal2013.pdf",
+    "sha256": "c9e7e8ae50a2ef2a16a733b80d4670a7d2120b04139b9820f7da0d6214ccc1af",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "4": {
+        "width": 595.0,
+        "height": 842.0
+      },
+      "5": {
+        "width": 595.0,
+        "height": 842.0
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/46",
+        "label": "section_header",
+        "text": "Genus Apolemia Eschscholtz, 1829",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 56.52,
+              "t": 785.11658,
+              "r": 219.57962400000002,
+              "b": 775.64894,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              32
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/47",
+        "label": "text",
+        "text": "Apolemia lanosa sp. nov .",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 56.52,
+              "t": 759.1967000000001,
+              "r": 170.642736,
+              "b": 749.59802,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              25
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/48",
+        "label": "text",
+        "text": "Material examined: Doc Ricketts Dive D327-D4, 4 Dec 2011, 35°56'N, 122°55'W, depth 636 m.",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 56.52,
+              "t": 732.6733399999999,
+              "r": 466.3442880000012,
+              "b": 723.4443799999999,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              89
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/49",
+        "label": "text",
+        "text": "Doc Ricketts Dive D329-SS6, 6 Dec 2011, 36°6.99'N, 122°54.01'W, depth 1030 m.",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 74.51960399999999,
+              "t": 719.2328839999999,
+              "r": 423.6373800000007,
+              "b": 710.117557666191,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              77
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/50",
+        "label": "text",
+        "text": "Doc Ricketts Dive D423-D12, 1 Oct 2012, 36°15.02'N, 123°9.98'W, depth 1325 m.",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 74.51960399999999,
+              "t": 705.6734119999999,
+              "r": 423.5173200000007,
+              "b": 696.558085666191,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              77
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/51",
+        "label": "text",
+        "text": "Due  to  their  lengths,  only  the  anterior  parts  of  the  specimens  D327-D4  and  D329-SS6,  including  the pneumatophore, nectosome, and anterior siphosome, could be collected. A posterior part of the siphosomal stem bearing gonophores was collected for D423-D12. In situ high definition (HD) videos were recorded for specimen D327-D4 and D329-SS6, and are provided as supplementary video (Supplementary video).",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 56.51999999999999,
+              "t": 692.2329559999998,
+              "r": 541.147932,
+              "b": 642.5571856661909,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              418
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/52",
+        "label": "text",
+        "text": "Holotype : The specimen D327-D4 has been designated as the holotype and specimens D329-SS6 and D423D12  as  paratypes.  All  three  specimens  have  been  deposited  at  the  National  Museum  of  Natural  History, Smithsonian Institution, Washington DC (USNM 1207944, USNM 1207945, and USNM 1207946, respectively). All  of  the  following  observations  were  made  on  the  holotype  and  on  living  tissue,  unless  explicitly  stated otherwise.",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 56.52000000000001,
+              "t": 638.2320559999997,
+              "r": 541.1312280000005,
+              "b": 575.1158296661907,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              449
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/53",
+        "label": "text",
+        "text": "Diagnosis. Large  nectophores  with  patches  of  nematocysts  covering  their  upper  and  upper-lateral  sides. Refractile cells scattered in and around these patches. No distinct diverticula on lateral radial canals. Number of nectosomal palpons per nectophore increasing in posterior direction, with an observed maximum of four. Bracts with  similar  patches  and  refractile  cells  on  distal  two-thirds  of  upper  surface.  Siphosomal  growth  zone  with inconspicuous horn. Cormidia dispersed, each with one type of palpon. Cormidia with one primary gastrozooid and an increasing number of secondary gastrozooids in more posterior parts of the colony.",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 56.520000000000024,
+              "t": 570.6706399999996,
+              "r": 541.1437560000004,
+              "b": 494.1139576661907,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              661
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/54",
+        "label": "text",
+        "text": "General appearance: The orange-white tinge of the siphosome, with deep red gastrozooids, contrasted with the  complete  lack  of  color  in  the  nectosome  (Fig.  2A,C).  The  zooids  of  the  siphosome  were  densely  packed, without any obvious bare stem between them. The bracts were conspicuous. Bracts, gastrozooids and numerous palpons gave the siphosome a relatively thick and well-defined fleece-like outline (Supplementary Video).",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 56.52000000000001,
+              "t": 489.6687679999995,
+              "r": 541.1166120000003,
+              "b": 440.1120136661907,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              440
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Siebert_etal2013-13-14": {
+    "pdf": "S/Siebert_etal2013.pdf",
+    "sha256": "c9e7e8ae50a2ef2a16a733b80d4670a7d2120b04139b9820f7da0d6214ccc1af",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "13": {
+        "width": 595.0,
+        "height": 842.0
+      },
+      "14": {
+        "width": 595.0,
+        "height": 842.0
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/4",
+        "label": "section_header",
+        "text": "Apolemia rubriversa sp. nov .",
+        "prov": [
+          {
+            "page_no": 13,
+            "bbox": {
+              "l": 56.52,
+              "t": 194.71669999999995,
+              "r": 187.68230400000004,
+              "b": 185.11802,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              29
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/5",
+        "label": "text",
+        "text": "Material examined: Doc Ricketts Dive D331-D4, 07 Dec 2011, 36°41.99'N, 122° 5.99'W, depth 650m.",
+        "prov": [
+          {
+            "page_no": 13,
+            "bbox": {
+              "l": 56.52,
+              "t": 168.07333999999992,
+              "r": 495.74124000000126,
+              "b": 158.84438,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              95
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/11",
+        "label": "text",
+        "text": "Holotype : The specimen from Doc Ricketts dive D311-D4 has been designated as the holotype. The specimens from Doc Ricketts dive D195-D5 and Ventana Dive V908 have been designated as paratypes. All three specimens have been deposited at the National Museum of Natural History, Smithsonian Institution, Washington DC (USNM 1207947, USNM 1207948 and USNM 1207949, respectively).",
+        "prov": [
+          {
+            "page_no": 14,
+            "bbox": {
+              "l": 56.520396000000005,
+              "t": 785.23334,
+              "r": 541.1358000000001,
+              "b": 735.558613666191,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              376
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/12",
+        "label": "text",
+        "text": "Diagnosis. Nectophores, with upper and upper lateral surfaces densely covered in patches of nematocysts. Refractile cells sparsely scattered between, but not within, these patches. Lateral radial canals with up to three distinctive diverticula extending along the wall of the nectosac and not penetrating into the mesoglea. Two median patches of red pigmentation present on the lower surface; one in the vicinity of the thrust block and the other, more prominent, one in the ventral groove.",
+        "prov": [
+          {
+            "page_no": 14,
+            "bbox": {
+              "l": 56.51935200000004,
+              "t": 731.2334839999999,
+              "r": 541.105524,
+              "b": 668.1183016661909,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              490
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/13",
+        "label": "text",
+        "text": "Siphosomal growth zone with pronounced horn. Cormidia pedunculate. All siphosomal zooids borne on the peduncle of the gastrozooid, with naked stem between them. The cormidia with distinct biserial arrangement and peduncles  attach  left  and  right  from  the  midline.  Upper  surface  of  bract  entirely  covered  with  patches  of nematocysts, with refractile cells present outside of nematocyst patches predominately at the margins of the upper bract surface. Bracteal canal usually with distinct diverticula penetrating into the mesoglea. One type of palpon.",
+        "prov": [
+          {
+            "page_no": 14,
+            "bbox": {
+              "l": 56.51935200000003,
+              "t": 663.6741559999997,
+              "r": 541.107612000001,
+              "b": 600.5579296661907,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              564
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/14",
+        "label": "text",
+        "text": "General appearance : The overall appearance of the colony was brown-red in color. This was mainly caused by colored gastrovascular fluid within the gastric system (Fig. 2B,D). The bracts were nearly transparent and gave the siphosome a ragged appearance rather than a well-defined outline (Fig. 2B,D).",
+        "prov": [
+          {
+            "page_no": 14,
+            "bbox": {
+              "l": 56.51935200000004,
+              "t": 596.2327999999995,
+              "r": 541.0794240000002,
+              "b": 560.1165016661906,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              301
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/16",
+        "label": "caption",
+        "text": "FIGURE  11. Apolemia  rubriversa sp.  nov . Nectosome  of  the  holotype  (live,  A,B)  and  specimen  D195  (fixed,  C).  (A) Nectosomal growth zone and pnematophore. Older nectophores, densely covered in nematocysts, are at the bottom of the frame. Scale bar 1 mm. Anterior is pointing out of the page, ventral to the lower right of the pane. (B) Contracted nectosome and anterior portion of the siphosome. Anterior is to the left, ventral is down. 1, 2, 3: nectophoral palpons accompanying a single nectophore. Nectosomal palpons with colored gastric content. Scale bar 2 mm. (C) Ventral view of posterior part of the nectosome  showing nectophoral palpon attachment  scars (dashed circles)  to  the  left  of  the  posterior  end  of  the  associated nectophore lamellae. Dashed line indicates one nectophore lamella. Scale bar 2 mm.",
+        "prov": [
+          {
+            "page_no": 14,
+            "bbox": {
+              "l": 56.52,
+              "t": 249.07786399999998,
+              "r": 540.732804,
+              "b": 171.91292503448278,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              837
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Mapstone2009-213-214": {
+    "pdf": "M/Mapstone2009.pdf",
+    "sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+    "docling_version": "2.94.0",
+    "capture": "CPU, OCR disabled, TableFormer enabled; selected layout/text excerpts only",
+    "pages": {
+      "213": {
+        "width": 566.1599731445312,
+        "height": 792.0
+      },
+      "214": {
+        "width": 566.1599731445312,
+        "height": 792.0
+      }
+    },
+    "items": [
+      {
+        "source_item_ref": "#/texts/12",
+        "label": "section_header",
+        "text": "Muggiaea at/antica Cunningham, 1892",
+        "prov": [
+          {
+            "page_no": 213,
+            "bbox": {
+              "l": 318.6856,
+              "t": 231.95859999999993,
+              "r": 518.7359999999999,
+              "b": 208.45090000000005,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              35
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/13",
+        "label": "text",
+        "text": "(Fig. 54)",
+        "prov": [
+          {
+            "page_no": 213,
+            "bbox": {
+              "l": 399.3373,
+              "t": 194.51919999999996,
+              "r": 441.2145269,
+              "b": 184.40019560761345,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              9
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/14",
+        "label": "text",
+        "text": "Muggiaea (Diphyes) kochii Boume, 1889: 321 (not Will, 1844: 77, pl. 2 fig. 22, = M kochi).",
+        "prov": [
+          {
+            "page_no": 213,
+            "bbox": {
+              "l": 305.026,
+              "t": 163.89239999999995,
+              "r": 533.7864000000001,
+              "b": 142.83933997071745,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              90
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/15",
+        "label": "text",
+        "text": "Muggiaea atlantica Cunningham, 1892: 212,figs 1,2; Vanhoffen, 1906: 13(inpart), figs 8,9;Bigelow, 1911b: 187(inpart),pI.7fig. 1and pl. 9 figs 7,8; Kawamura, 1915a: 193; pl. 7 fig. 1 (this plate is in 19l5b); Moser, 1925: 106, pl. 1 fig. 5; Russell, 1938a: 441, figs 1--6; Russell, 1938b: 159, fig. 88; Chiu, 1954: 46, fig. 22; Cervigon, 1958: 30, fig. 10; Hong, 1964: 111,pl. 1fig. 3; Stepanjants, 1967: 183, figs 124, 125; Pa1ma, 1973:48, pls 23, 24;Alvarifio, 1981:421, fig. 174.63; Santander et al., 1981: 16, pl, 3; Freeman, 1983: 604, figs 9, 10, 14-16; Daniel, 1985: 254, fig. 69; Girola, 1991: 291, figs 2,3; Suarez and Gasca, 1991: 118, pl, 6 fig. 42; Pages and Gili, 1992b: 93, fig. 38; Gamulin and Krsinic 2000: 100, fig. 57.",
+        "prov": [
+          {
+            "page_no": 213,
+            "bbox": {
+              "l": 305.0308,
+              "t": 128.13480000000004,
+              "r": 533.1441,
+              "b": 70.83933997071745,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              260
+            ]
+          },
+          {
+            "page_no": 214,
+            "bbox": {
+              "l": 46.4408,
+              "t": 188.61239999999998,
+              "r": 263.1279,
+              "b": 83.3936219619327,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              261,
+              735
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/18",
+        "label": "caption",
+        "text": "Fig. 54. Muggiaea atlantiea: A: anterior nectophore, right lateral view; B: anterior nectophore, lower view (radial canals omitted) (eu, cusp; dll, distallamella (lappets);f u, furrow; h, hydroecium; lIor, left lower ridge; lIr, left lateral ridge; loe, lower radial canal; 101, lower facet; Ire, lateral radial canal; ns, nectosac; pom, posterior margin of lower facet; 0, ostium; or, ostial ridge; rlor, right lower ridge; rlr, right lateral ridge; s, somatocyst; stp, stem-attachment point; ur, upper ridge; ure, upper radial canal).",
+        "prov": [
+          {
+            "page_no": 214,
+            "bbox": {
+              "l": 32.8375,
+              "t": 244.74559999999997,
+              "r": 504.8165999999999,
+              "b": 207.06911390922403,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              536
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/19",
+        "label": "text",
+        "text": "Diphyes sp. Darwin (unpublished) in Keynes, 2000: 259, pl. 15 fig. 1.",
+        "prov": [
+          {
+            "page_no": 214,
+            "bbox": {
+              "l": 274.4156,
+              "t": 188.5471,
+              "r": 503.1479999999999,
+              "b": 167.09052357247435,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              69
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/20",
+        "label": "section_header",
+        "text": "Diagnosis",
+        "prov": [
+          {
+            "page_no": 214,
+            "bbox": {
+              "l": 274.4985,
+              "t": 148.22399999999993,
+              "r": 324.4089000000002,
+              "b": 137.75606442166907,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              9
+            ]
+          }
+        ]
+      },
+      {
+        "source_item_ref": "#/texts/21",
+        "label": "text",
+        "text": "Anterior nectophore with five complete longitudinal ridges; somatocyst extending to 4/5 nectophore length and hydroecium to 3/10 nectophore length.",
+        "prov": [
+          {
+            "page_no": 214,
+            "bbox": {
+              "l": 274.7759,
+              "t": 128.3786,
+              "r": 504.7676899999999,
+              "b": 83.39512196193266,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              147
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Pakhomov_etal2000-5-5": {
+    "pdf": "P/Pakhomov_etal2000.pdf",
+    "sha256": "8dd620bc32cee2434e90f143ac4b61202a4b69dc63e05063bf5ba04fc5e6cde6",
+    "pages": {
+      "5": {
+        "width": 785.0399780273438,
+        "height": 595.2000122070312
+      }
+    },
+    "table": {
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 49.54015350341797,
+            "t": 505.36193084716797,
+            "r": 716.30615234375,
+            "b": 68.91162109375,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ],
+      "cells": [
+        {
+          "bbox": {
+            "l": 182.87568992376328,
+            "t": 129.37011834979057,
+            "r": 228.06789433956146,
+            "b": 139.48142901062965,
+            "coord_origin": "TOPLEFT"
+          },
+          "row_span": 1,
+          "col_span": 1,
+          "start_row_offset_idx": 2,
+          "end_row_offset_idx": 3,
+          "start_col_offset_idx": 2,
+          "end_col_offset_idx": 3,
+          "text": "12.5 ± 6.1",
+          "column_header": false,
+          "row_header": false,
+          "row_section": false,
+          "fillable": false
+        },
+        {
+          "bbox": {
+            "l": 239.33359760046005,
+            "t": 128.79952430725098,
+            "r": 288.9747493863106,
+            "b": 141.5229616165161,
+            "coord_origin": "TOPLEFT"
+          },
+          "row_span": 1,
+          "col_span": 1,
+          "start_row_offset_idx": 2,
+          "end_row_offset_idx": 3,
+          "start_col_offset_idx": 3,
+          "end_col_offset_idx": 4,
+          "text": "35.5 ± 39.7",
+          "column_header": false,
+          "row_header": false,
+          "row_section": false,
+          "fillable": false
+        }
+      ],
+      "num_rows": 44,
+      "num_cols": 11
+    },
+    "items": [],
+    "capture": "Two current Docling TableFormer cells, rotated source page; source agrees with ±. Legacy served + is replayed as a controlled corruption."
+  }
+}

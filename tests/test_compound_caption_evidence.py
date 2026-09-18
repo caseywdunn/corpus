@@ -6,6 +6,7 @@ from pipeline.figures import resolve_compound_figures
 def test_compound_split_marks_inferred_caption_as_uncertain(tmp_path):
     figures_file = tmp_path / "figures.json"
     figures_file.write_text(json.dumps({
+        "total_figures": 1,
         "figures": [{
             "figure_id": "docling_1",
             "figure_type": "figure",
@@ -35,6 +36,7 @@ def test_compound_split_marks_inferred_caption_as_uncertain(tmp_path):
     result = resolve_compound_figures(figures_file)
     data = json.loads(figures_file.read_text(encoding="utf-8"))
     recovered = data["figures"][1]
+    assert data["total_figures"] == len(data["figures"]) == 2
 
     assert result["resolved"] == 1
     assert recovered["figure_number"] == "4"

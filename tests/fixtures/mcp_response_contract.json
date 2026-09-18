@@ -2,6 +2,20 @@
   "chunks_metadata": [
     {
       "chunk_id": "str",
+      "context_projection": {
+        "optional_response_byte_limit": "int",
+        "policy": "str",
+        "preview_char_limit": "int",
+        "records": {
+          "source_items": {
+            "available": "int",
+            "returned": "int",
+            "truncated": "bool"
+          }
+        },
+        "row_byte_limit": "int",
+        "truncated": "bool"
+      },
       "figure_refs": [
         "str"
       ],
@@ -9,16 +23,42 @@
         "str"
       ],
       "len_chars": "int",
-      "section_class": "str"
+      "section_class": "str",
+      "section_type": "NoneType",
+      "source_items": [],
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     },
     {
       "chunk_id": "str",
+      "context_projection": {
+        "optional_response_byte_limit": "int",
+        "policy": "str",
+        "preview_char_limit": "int",
+        "records": {
+          "source_items": {
+            "available": "int",
+            "returned": "int",
+            "truncated": "bool"
+          }
+        },
+        "row_byte_limit": "int",
+        "truncated": "bool"
+      },
       "figure_refs": [],
       "headings": [
         "str"
       ],
       "len_chars": "int",
-      "section_class": "str"
+      "section_class": "str",
+      "section_type": "NoneType",
+      "source_items": [],
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     }
   ],
   "chunks_missing": [
@@ -30,6 +70,20 @@
   "chunks_text": [
     {
       "chunk_id": "str",
+      "context_projection": {
+        "optional_response_byte_limit": "int",
+        "policy": "str",
+        "preview_char_limit": "int",
+        "records": {
+          "source_items": {
+            "available": "int",
+            "returned": "int",
+            "truncated": "bool"
+          }
+        },
+        "row_byte_limit": "int",
+        "truncated": "bool"
+      },
       "figure_refs": [
         "str"
       ],
@@ -37,22 +91,52 @@
         "str"
       ],
       "section_class": "str",
-      "text": "str"
+      "section_type": "NoneType",
+      "source_items": [],
+      "text": "str",
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     },
     {
       "chunk_id": "str",
+      "context_projection": {
+        "optional_response_byte_limit": "int",
+        "policy": "str",
+        "preview_char_limit": "int",
+        "records": {
+          "source_items": {
+            "available": "int",
+            "returned": "int",
+            "truncated": "bool"
+          }
+        },
+        "row_byte_limit": "int",
+        "truncated": "bool"
+      },
       "figure_refs": [],
       "headings": [
         "str"
       ],
       "section_class": "str",
-      "text": "str"
+      "section_type": "NoneType",
+      "source_items": [],
+      "text": "str",
+      "treatment_context": {
+        "name": "NoneType",
+        "status": "str"
+      }
     }
   ],
   "citations_bib": {
     "citations": [
       {
+        "bib_key": "NoneType",
+        "bibliographic_conflicts": [],
+        "corpus_hash": "str",
         "fields": {
+          "articleno": "NoneType",
           "authors": [
             {
               "forename": "str",
@@ -60,9 +144,16 @@
               "surname": "str"
             }
           ],
+          "booktitle": "NoneType",
+          "chapter": "NoneType",
           "doi": "str",
+          "edition": "NoneType",
+          "eid": "NoneType",
           "journal": "str",
+          "number": "NoneType",
           "pages": "NoneType",
+          "publisher": "NoneType",
+          "series": "NoneType",
           "title": "str",
           "volume": "NoneType",
           "year": "int"
@@ -70,6 +161,8 @@
         "formatted": "str",
         "inline": "str",
         "provenance": "str",
+        "reference_quality_warnings": [],
+        "shared_identifier": "NoneType",
         "warning": "str",
         "work_id": "str"
       }
@@ -91,7 +184,11 @@
   "citations_reconciled": {
     "citations": [
       {
+        "bib_key": "NoneType",
+        "bibliographic_conflicts": [],
+        "corpus_hash": "str",
         "fields": {
+          "articleno": "NoneType",
           "authors": [
             {
               "forename": "str",
@@ -99,9 +196,16 @@
               "surname": "str"
             }
           ],
+          "booktitle": "NoneType",
+          "chapter": "NoneType",
           "doi": "NoneType",
+          "edition": "NoneType",
+          "eid": "NoneType",
           "journal": "str",
+          "number": "NoneType",
           "pages": "NoneType",
+          "publisher": "NoneType",
+          "series": "NoneType",
           "title": "str",
           "volume": "NoneType",
           "year": "int"
@@ -109,6 +213,8 @@
         "formatted": "str",
         "inline": "str",
         "provenance": "str",
+        "reference_quality_warnings": [],
+        "shared_identifier": "NoneType",
         "warning": "str",
         "work_id": "str"
       }
@@ -119,7 +225,11 @@
   "citations_unresolved": {
     "citations": [
       {
+        "bib_key": "NoneType",
+        "bibliographic_conflicts": [],
+        "corpus_hash": "NoneType",
         "fields": {
+          "articleno": "NoneType",
           "authors": [
             {
               "forename": "NoneType",
@@ -127,9 +237,16 @@
               "surname": "str"
             }
           ],
+          "booktitle": "NoneType",
+          "chapter": "NoneType",
           "doi": "NoneType",
+          "edition": "NoneType",
+          "eid": "NoneType",
           "journal": "NoneType",
+          "number": "NoneType",
           "pages": "NoneType",
+          "publisher": "NoneType",
+          "series": "NoneType",
           "title": "str",
           "volume": "NoneType",
           "year": "int"
@@ -137,6 +254,8 @@
         "formatted": "str",
         "inline": "str",
         "provenance": "str",
+        "reference_quality_warnings": [],
+        "shared_identifier": "NoneType",
         "warning": "str",
         "work_id": "str"
       }
@@ -146,10 +265,16 @@
   },
   "figure_manuscript": {
     "attribution": "str",
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
     "caption_status": "str",
+    "caption_taxa": {
+      "availability": "str",
+      "matches": [],
+      "unresolved": []
+    },
     "caption_text": "str",
     "figure_id": "str",
     "figure_type": "str",
@@ -178,10 +303,16 @@
   },
   "figure_report": {
     "attribution": "str",
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
     "caption_status": "str",
+    "caption_taxa": {
+      "availability": "str",
+      "matches": [],
+      "unresolved": []
+    },
     "caption_text": "str",
     "figure_id": "str",
     "figure_type": "str",
@@ -207,6 +338,7 @@
     ]
   },
   "figure_roi_manuscript": {
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
@@ -224,6 +356,7 @@
     ]
   },
   "figure_roi_report": {
+    "caption_completeness": "str",
     "caption_confidence": "NoneType",
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
@@ -282,6 +415,12 @@
     }
   ],
   "taxon_dossier": {
+    "aggregate_scope": {
+      "kind": "str",
+      "papers_available": "int",
+      "papers_selected": "int",
+      "selection_policy": "str"
+    },
     "chunk_index": [
       {
         "chunk_id": "str",
@@ -302,6 +441,7 @@
     ],
     "figure_index": [
       {
+        "caption_completeness": "str",
         "caption_confidence": "str",
         "caption_has_taxon": "bool",
         "caption_kind": "str",

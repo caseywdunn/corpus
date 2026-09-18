@@ -193,11 +193,13 @@ def export_bibtex(
     }
     ocrmode_select = "ocrmode" if "ocrmode" in works_columns else "NULL AS ocrmode"
     where = "WHERE in_corpus = 1" if corpus_only else ""
+    from .fields import LOCATOR_FIELDS
+    locator_select = ", ".join(key if key in works_columns else f"NULL AS {key}" for key in LOCATOR_FIELDS)
     works_sql = f"""
         SELECT work_id, title, year, journal, doi, corpus_hash, in_corpus,
                license, license_url, serve, serve_reason, ocrlang,
                {ocrmode_select},
-               doclang, pagemap, keeppages
+               doclang, pagemap, keeppages, {locator_select}
         FROM works
         {where}
         ORDER BY year, work_id
@@ -256,6 +258,7 @@ def export_bibtex(
             file_field = str(hash_dir / "processed.pdf")
 
         fields: Dict[str, Optional[str]] = {
+            **{key: r[key] for key in LOCATOR_FIELDS},
             "author": authors_str or None,
             "title": r["title"],
             "year": str(r["year"]) if r["year"] is not None else None,

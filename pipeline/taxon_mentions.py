@@ -116,6 +116,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE papers_processed ADD COLUMN taxonomy_sha TEXT")
     if "source_sha256" not in have_cols:
         conn.execute("ALTER TABLE papers_processed ADD COLUMN source_sha256 TEXT")
+    from .caption_taxa import create_schema as caption_schema
+    caption_schema(conn)
     conn.commit()
 
 
@@ -326,6 +328,11 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
                 total_papers, total_mentions, skipped, refreshed,
             )
 
+    # Final figures may change in the separately scheduled vision pass even
+    # when taxa.json is unchanged. Their own content receipts own freshness.
+    from .caption_taxa import materialize
+    caption_stats = materialize(conn, output_dir)
+    errors += caption_stats["errors"]
     conn.commit()
     logger.info(
         "Build complete: %d papers, %d mentions, %d skipped, %d refreshed, %d errors",
@@ -347,6 +354,7 @@ def build(conn: sqlite3.Connection, output_dir: Path) -> dict:
         "errors": errors,
         "lagging": lagging,
         "retired": retired,
+        "captions": caption_stats,
     }
 
 
@@ -446,6 +454,9 @@ def main() -> int:
                 DROP TABLE IF EXISTS taxon_mentions;
                 DROP TABLE IF EXISTS papers_processed;
                 DROP TABLE IF EXISTS build_meta;
+                DROP TABLE IF EXISTS caption_taxon_evidence;
+                DROP TABLE IF EXISTS caption_taxon_links;
+                DROP TABLE IF EXISTS caption_taxon_receipts;
             """)
 
         create_schema(conn)

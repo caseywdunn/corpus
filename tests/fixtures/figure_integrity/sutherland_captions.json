@@ -1,0 +1,475 @@
+{
+  "paper_hash": "a65c78792a7e",
+  "source_pdf_pages": [
+    5
+  ],
+  "texts": [
+    {
+      "self_ref": "#/texts/3",
+      "parent": {
+        "$ref": "#/pictures/0"
+      },
+      "label": "caption",
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 48.017949999999985,
+            "t": 594.3283,
+            "r": 300.01210000000003,
+            "b": 244.68364999999972,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            2088
+          ]
+        }
+      ],
+      "text": "result, N. bijuga traveled twice as far during refill than would be expected based on a passive model (two-tailed paired t -test, t =6.7, P <0.01, N =5; Fig. 6B). Overall, the colonies traveled 17±4% further during each pulse cycle than expected (Fig. 6). A quantification of the fluid mechanics and associated pressure fields during refill helps to explain the mechanism underlying this performance benefit. The morphology of the nectophore allowed fluid to be pulled in from water upstream of the nectophore opening. The fluid was accelerated as it moved through the velar opening and along the wall of the nectophore (Fig. 7A, Movie 3). As the fluid was forced towards the inner wall of the nectophore it was also deflected upwards, and as it continued to move along the wall of the nectophore it decelerated so that when the fluid reached the entrance of the nectophore again it had decelerated considerably. This movement of fluid against the inner walls resulted in a temporary vortex being formed within the nectophore during each refill. The pressure fields within the nectophore (Fig. 7B) calculated from the velocity vectors suggest that the performance benefit experienced by N. bijuga was due to advantageously located high-pressure fields. Fluid movement within the nectophore itself resulted in fluid being forced against the inner and upper walls of the nectophore, which in turn generated high pressure in these regions of the nectophore. This has the potential of generating upward thrust against the nectophore wall owing to the angled orientation of the nectophore, which produced an upward component of thrust instead of downward thrust as water entered during refilling. A negative pressure region created by the rotating inside the nectophore would have no direct influence on thrust because the negative pressure region did not interact with any surface of the nectophore (Fig. 7). The net result of the pressure field was therefore an added component of upward thrust, which helps to explain the performance benefit experienced by N. bijuga during refill (Fig. 6)."
+    },
+    {
+      "self_ref": "#/texts/39",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 48.0189,
+            "t": 220.02120000000002,
+            "r": 299.98359999999997,
+            "b": 200.7766667146974,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            128
+          ]
+        },
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 311.9792499999999,
+            "t": 594.02385,
+            "r": 564.0190000000005,
+            "b": 332.82001671469726,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            129,
+            1672
+          ]
+        }
+      ],
+      "text": "Here, we show that at the individual nectophore scale, a highly maneuverable velum and tight coordination between the kinematics of the nectophore and velum produce impressive jet speeds and rapid refill between jets. The details of kinematics and fluid mechanics at the level of individual nectophores have been elusive because N. bijuga is fragile and requires careful collection. Additionally, the nectophores produce small-scale yet highvelocity jets over short time intervals (Fig. 3), which requires high shutter speeds and a sufficiently large field of view with high resolution. We found that the velum is highly maneuverable and changes diameter and shape rapidly to control fluid during jetting and refill (Figs 2 and 4). Orchestration of the velum diameter and nectophore volume drive a high-speed narrow jet, equivalent to ∼ 300 nectophore lengths per second, and a low-speed refill (Fig. 4). The velum closes slightly in advance of the nectophore contraction so that as the volume of the nectophore decreases, the velum opening also decreases, allowing for a narrow, high-velocity jet. The velum then opens very rapidly ( ∼ 0.03 s) and the large area of the velar opening slows the fluid down as it is pulled inside the nectophore. Fluid is pulled primarily from upstream of the nectophore, potentially mitigating rearward thrust that would be generated if fluid was drawn in from downstream of the nectophore (Figs 3 and 7). In addition to directing the fluid, the velum ' s rapid movements result in a 0.95:1 ratio of time spent jetting to time spent refilling and a short overall jet cycle time (0.26 s) compared with other jet-propelled swimmers (Fig. 5)."
+    },
+    {
+      "self_ref": "#/texts/40",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "caption",
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 400.53455001,
+            "t": 733.3067284000002,
+            "r": 561.9931472,
+            "b": 621.8777141400001,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            542
+          ]
+        }
+      ],
+      "text": "Fig. 5. Jetting versus refill time. (A) Time spent jetting (mean±s.d.=0.125±0.013 s) and refilling (mean±s.d.=0.131±0.057 s) during forward swimming by N. bijuga ( N =10). (B) Jetting time plotted with refill time for jet-propelled swimmers between 0.1 and 2 cm in length (Table S1). Data points are from siphonophores (circles; with N. bijuga from the present study in red), pelagic tunicates (triangles), larval squid (diamond) and hydromedusae (squares). Solid line is a regression fitted to all data points and dotted line represents 1:1."
+    },
+    {
+      "self_ref": "#/texts/41",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 311.9792499999999,
+            "t": 330.0682499999998,
+            "r": 564.0009500000006,
+            "b": 200.78521671469707,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            784
+          ]
+        }
+      ],
+      "text": "Jetting in cnidarian medusae has previously been characterized as asymmetric, with a shorter time spent jetting relative to refill time (Costello et al., 2008), and this pattern holds across most other jetting marine organisms. Ratios of jetting to refill are therefore <1 (Fig. 5B, Table S2). Previously, the highest reported jetting to refill ratio (0.8) among small jetters ( ∼ 1 -10 mm) was for another siphonophore, Chelophyes appendiculata (Bone and Trueman, 1982) (Fig. 5B, Table S2). In single jet animals, this asymmetry has been considered essential for forward movement so that the contraction jets produce more forward thrust than the rearward relaxation flow. In hydromedusae, contraction of the bell during jetting is governed by subumbrellar muscles. During refill, the"
+    },
+    {
+      "self_ref": "#/texts/42",
+      "parent": {
+        "$ref": "#/pictures/2"
+      },
+      "label": "caption",
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 399.3447999999999,
+            "t": 178.85022840000022,
+            "r": 563.9923546699999,
+            "b": 86.4132109100002,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            453
+          ]
+        }
+      ],
+      "text": "Fig. 6. Performance benefits during refill. (A) Representative profile showing N. bijuga colony speed over one full jet/refill cycle. Dashed line shows expected speed of a model based on inertia alone. (B) Total distance traveled during jetting/refill (mean±s.d.=24.5±5.5 mm, N =8), distance traveled by N. bijuga during refill (mean±s.d.=9.2±1.4 mm, N =5) and distance traveled by a passive model during the refill period (mean±s.d.=4.6±0.63 mm, N =5)."
+    }
+  ],
+  "pictures": [
+    {
+      "self_ref": "#/pictures/0",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/3"
+        },
+        {
+          "$ref": "#/texts/4"
+        },
+        {
+          "$ref": "#/texts/5"
+        },
+        {
+          "$ref": "#/texts/6"
+        },
+        {
+          "$ref": "#/texts/7"
+        },
+        {
+          "$ref": "#/texts/8"
+        },
+        {
+          "$ref": "#/texts/9"
+        },
+        {
+          "$ref": "#/texts/10"
+        },
+        {
+          "$ref": "#/texts/11"
+        },
+        {
+          "$ref": "#/texts/12"
+        },
+        {
+          "$ref": "#/texts/13"
+        },
+        {
+          "$ref": "#/texts/14"
+        }
+      ],
+      "captions": [
+        {
+          "$ref": "#/texts/3"
+        }
+      ],
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 47.192928314208984,
+            "t": 733.9244689941406,
+            "r": 206.8461151123047,
+            "b": 620.1721038818359,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "self_ref": "#/pictures/1",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/15"
+        },
+        {
+          "$ref": "#/texts/16"
+        },
+        {
+          "$ref": "#/texts/17"
+        },
+        {
+          "$ref": "#/texts/18"
+        },
+        {
+          "$ref": "#/texts/19"
+        },
+        {
+          "$ref": "#/texts/20"
+        },
+        {
+          "$ref": "#/texts/21"
+        },
+        {
+          "$ref": "#/texts/22"
+        },
+        {
+          "$ref": "#/texts/23"
+        },
+        {
+          "$ref": "#/texts/24"
+        },
+        {
+          "$ref": "#/texts/25"
+        },
+        {
+          "$ref": "#/texts/26"
+        },
+        {
+          "$ref": "#/texts/27"
+        },
+        {
+          "$ref": "#/texts/28"
+        },
+        {
+          "$ref": "#/texts/29"
+        },
+        {
+          "$ref": "#/texts/30"
+        },
+        {
+          "$ref": "#/texts/31"
+        },
+        {
+          "$ref": "#/texts/32"
+        },
+        {
+          "$ref": "#/texts/33"
+        },
+        {
+          "$ref": "#/texts/34"
+        },
+        {
+          "$ref": "#/texts/35"
+        },
+        {
+          "$ref": "#/texts/36"
+        },
+        {
+          "$ref": "#/texts/37"
+        }
+      ],
+      "captions": [],
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 222.47604370117188,
+            "t": 733.4264068603516,
+            "r": 388.8492736816406,
+            "b": 611.5196990966797,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "self_ref": "#/pictures/2",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/42"
+        },
+        {
+          "$ref": "#/texts/43"
+        },
+        {
+          "$ref": "#/texts/44"
+        },
+        {
+          "$ref": "#/texts/45"
+        },
+        {
+          "$ref": "#/texts/46"
+        },
+        {
+          "$ref": "#/texts/47"
+        },
+        {
+          "$ref": "#/texts/48"
+        },
+        {
+          "$ref": "#/texts/49"
+        },
+        {
+          "$ref": "#/texts/50"
+        },
+        {
+          "$ref": "#/texts/51"
+        },
+        {
+          "$ref": "#/texts/52"
+        },
+        {
+          "$ref": "#/texts/53"
+        },
+        {
+          "$ref": "#/texts/54"
+        },
+        {
+          "$ref": "#/texts/55"
+        },
+        {
+          "$ref": "#/texts/56"
+        },
+        {
+          "$ref": "#/texts/57"
+        },
+        {
+          "$ref": "#/texts/58"
+        },
+        {
+          "$ref": "#/texts/59"
+        }
+      ],
+      "captions": [
+        {
+          "$ref": "#/texts/42"
+        }
+      ],
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 47.642173767089844,
+            "t": 178.08203125,
+            "r": 222.731201171875,
+            "b": 61.343505859375,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "self_ref": "#/pictures/3",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/60"
+        },
+        {
+          "$ref": "#/texts/61"
+        },
+        {
+          "$ref": "#/texts/62"
+        },
+        {
+          "$ref": "#/texts/63"
+        },
+        {
+          "$ref": "#/texts/64"
+        },
+        {
+          "$ref": "#/texts/65"
+        },
+        {
+          "$ref": "#/texts/66"
+        },
+        {
+          "$ref": "#/texts/67"
+        },
+        {
+          "$ref": "#/texts/68"
+        },
+        {
+          "$ref": "#/texts/69"
+        },
+        {
+          "$ref": "#/texts/70"
+        },
+        {
+          "$ref": "#/texts/71"
+        },
+        {
+          "$ref": "#/texts/72"
+        },
+        {
+          "$ref": "#/texts/73"
+        },
+        {
+          "$ref": "#/texts/74"
+        },
+        {
+          "$ref": "#/texts/75"
+        },
+        {
+          "$ref": "#/texts/76"
+        }
+      ],
+      "captions": [],
+      "prov": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 233.80247497558594,
+            "t": 179.13165283203125,
+            "r": 386.12017822265625,
+            "b": 56.795654296875,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "issue": 322,
+    "source": "fresh source-PDF one-page Docling conversion on 2026-09-18",
+    "contents": "Caption and adjacent prose text, ownership references and geometry only; images, axis lettering and page furniture omitted.",
+    "docling_version": "2.94.0",
+    "do_ocr": false,
+    "do_table_structure": true,
+    "do_picture_classification": false,
+    "page_range": [
+      5,
+      5
+    ]
+  }
+}

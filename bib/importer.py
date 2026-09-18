@@ -55,6 +55,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from .fields import LOCATOR_FIELDS
 from .parser import _split_authors, _strip_outer_braces, parse_bibtex
 
 logger = logging.getLogger("corpus.bib.import")
@@ -97,29 +98,18 @@ def find_matching_work_id(
         if work_id:
             return work_id, "corpus_hash"
 
+    # Exported work identity is more specific than a potentially shared DOI.
+    work_id_field = _strip_outer_braces(entry.get("work_id", "") or "")
+    if work_id_field and conn.execute("SELECT 1 FROM works WHERE work_id=?", (work_id_field,)).fetchone():
+        return work_id_field, "work_id"
     doi_raw = _strip_outer_braces(entry.get("doi", "") or "")
     if doi_raw:
-        doi = _normalize_doi(doi_raw)
-        row = conn.execute(
-            "SELECT work_id FROM works WHERE doi = ?",
-            (doi,),
-        ).fetchone()
-        if row:
-            return row[0], "doi"
-
-    # 3. work_id field — exact match on ``works.work_id`` (#100). The
-    # exporter writes ``work_id`` into every entry, so a hand-curated
-    # cited reference with neither corpus_hash nor DOI (common for
-    # pre-DOI literature) can still be matched back to its row and
-    # stamped as bib provenance.
-    work_id_field = _strip_outer_braces(entry.get("work_id", "") or "")
-    if work_id_field:
-        row = conn.execute(
-            "SELECT work_id FROM works WHERE work_id = ?",
-            (work_id_field,),
-        ).fetchone()
-        if row:
-            return row[0], "work_id"
+        rows = conn.execute("SELECT work_id FROM works WHERE doi=? ORDER BY work_id",
+                            (_normalize_doi(doi_raw),)).fetchall()
+        if len(rows) == 1:
+            return rows[0][0], "doi"
+        if len(rows) > 1:
+            return None, "ambiguous_doi"
 
     return None, "no_match"
 
@@ -137,7 +127,7 @@ def find_matching_work_id(
 # serve / servereason. The BibTeX field name → works column map covers
 # the rename: e.g. ``licenseurl`` (BibTeX flat) → ``license_url`` (SQL).
 _WORK_FIELDS = (
-    "title", "year", "journal", "doi",
+    "title", "year", "journal", "doi", *LOCATOR_FIELDS,
     "license", "license_url", "serve", "serve_reason",
     "ocrlang",   # #176 — flat BibTeX name, no rename needed
     "ocrmode",   # #186 — force | redo | skip-text
@@ -272,10 +262,20 @@ def apply_entry(
     author field differs from the DB's. Caller commits the transaction.
     """
     from .authority import normalize_for_key
+    from .fields import create_schema as create_bib_source_schema
+    create_bib_source_schema(conn)
 
     now = time.time()
 
     changes = diff_entry_against_work(conn, work_id, entry)
+    from .fields import BIBLIOGRAPHIC_FIELDS, record_source, materialize
+    from .parser import bib_entry_to_metadata
+    supplied = bib_entry_to_metadata(entry, "")
+    supplied = {key: value for key, value in supplied.items()
+                if key in (*BIBLIOGRAPHIC_FIELDS, "authors", "bib_key")
+                and value not in (None, "", [])}
+    source_id = "import:" + (entry.get("_key") or work_id)
+    record_source(conn, work_id, source_id, supplied, origin="import")
     if not changes:
         # No field-level diff, but the entry IS present in the user's
         # authoritative .bib — stamp bib provenance anyway (#100).
@@ -287,6 +287,7 @@ def apply_entry(
             "WHERE work_id = ?",
             (now, now, work_id),
         )
+        materialize(conn, work_id)
         return 0
 
     # Update works.* for the simple fields, plus always touch
@@ -359,6 +360,7 @@ def apply_entry(
                 ),
             )
 
+    materialize(conn, work_id)
     return len(changes)
 
 

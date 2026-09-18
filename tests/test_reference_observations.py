@@ -479,7 +479,7 @@ def test_old_mapping_producer_forces_complete_rematerialization(
     conn.close()
 
 
-def test_multiple_documents_share_a_work_without_losing_observations(
+def test_distinct_volumes_keep_separate_works_without_losing_observations(
     tmp_path: Path,
 ) -> None:
     """Both volumes map references; repeating the mapping is a true no-op."""
@@ -495,7 +495,8 @@ def test_multiple_documents_share_a_work_without_losing_observations(
         )
     conn = sqlite3.connect(":memory:")
     authority.create_schema(conn)
-    assert authority.phase1_corpus_papers(conn, output_dir) == 1
+    assert authority.phase1_corpus_papers(conn, output_dir) == 2
+    assert conn.execute("SELECT COUNT(DISTINCT work_id) FROM work_documents").fetchone()[0] == 2
     assert authority.phase2_references(conn, output_dir)[0] == 2
     assert conn.execute(
         "SELECT COUNT(*) FROM reference_observations"

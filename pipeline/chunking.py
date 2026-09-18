@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import json
 import logging
+from itertools import groupby
 from pathlib import Path
 from typing import List, Optional
 
 from . import stamp_artifact
 from .config import CONFIG, classify_section
+from .key_context import KEY_BRANCH_CONTEXT_POLICY, link_key_fragments
+from .treatment_context import TREATMENT_CONTEXT_POLICY
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +60,13 @@ def chunk_text(
             from docling_core.types.doc import DoclingDocument
 
             dl_doc = DoclingDocument.load_from_json(docling_doc_file)
-            chunker = HybridChunker()
+            from .treatment_context import (chunk_source_context, context_merge_key,
+                                            materialize_treatment_context)
+            from .table_structure import SourceTableSerializerProvider, table_chunk_metadata
+            context_by_ref = materialize_treatment_context(dl_doc)
+            # First obtain item-sized chunks, then apply the pinned Docling
+            # token-aware merge within source treatment/section boundaries.
+            chunker = HybridChunker(merge_peers=False, serializer_provider=SourceTableSerializerProvider())
             # HybridChunker deliberately over-feeds its tokenizer while
             # measuring where to split, so transformers prints
             # "Token indices sequence length is longer than the specified
@@ -71,19 +80,33 @@ def chunk_text(
             _prev_level = _tok_log.level
             _tok_log.setLevel(logging.ERROR)
             try:
-                chunk_iter = list(chunker.chunk(dl_doc=dl_doc))
+                item_chunks = list(chunker.chunk(dl_doc=dl_doc))
+                chunk_iter = []
+                for _, group in groupby(item_chunks, key=lambda c: context_merge_key(c, context_by_ref)):
+                    chunk_iter.extend(chunker._merge_chunks_with_matching_metadata(list(group)))
             finally:
                 _tok_log.setLevel(_prev_level)
             for i, c in enumerate(chunk_iter):
                 headings = list(getattr(c.meta, "headings", []) or [])
                 captions = list(getattr(c.meta, "captions", []) or [])
+                context = chunk_source_context(c.meta.doc_items, context_by_ref, chunk_text=c.text)
+                table_context = table_chunk_metadata(c.meta.doc_items, c.text, dl_doc)
+                if table_context:
+                    context["tables"] = table_context
+                section_class = classify_section(headings)
+                if c.meta.doc_items and all(getattr(item.label, "value", str(item.label)) in
+                                             {"caption", "picture", "table"} for item in c.meta.doc_items):
+                    section_class = None
+                if context["section_type"] == "diagnosis" or (context["section_type"] or "").startswith("description"):
+                    section_class = "description"
                 chunks.append(
                     {
                         "chunk_id": f"chunk_{i}",
                         "text": c.text,
                         "headings": headings,
-                        "section_class": classify_section(headings),
+                        "section_class": section_class,
                         "captions": captions,
+                        **context,
                     }
                 )
             logger.info("HybridChunker produced %d chunks", len(chunks))
@@ -128,14 +151,20 @@ def chunk_text(
                     "headings": [],
                     "section_class": None,
                     "captions": [],
+                    "treatment_context": {"status": "unknown", "name": None},
+                    "section_type": None,
+                    "source_items": [],
                     "start_char": i,
                     "end_char": min(i + chunk_size, len(text)),
                 }
             )
         logger.info("Naive chunker produced %d chunks", len(chunks))
 
+    link_key_fragments(chunks)
     chunks_data = {
         "chunker": chunker_name,
+        "treatment_context_policy": TREATMENT_CONTEXT_POLICY,
+        "key_branch_context_policy": KEY_BRANCH_CONTEXT_POLICY,
         "total_chunks": len(chunks),
         "chunks": chunks,
     }

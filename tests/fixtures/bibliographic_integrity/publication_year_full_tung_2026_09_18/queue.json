@@ -1,0 +1,159 @@
+{
+  "checkout": "a3e638dc2003ffd7ebc0a32cefbc359d97c8461a",
+  "bib_sha256": "e3678544aa0de925aa86c6d3ef198271a02aefb7a7ce2cafd5f23c9c71c4c165",
+  "cases_fixture_sha256": "f46b353d04abfac57e41714deba0fa11385812de292df6b71953931b6e1c3091",
+  "scope": "Read-only source/Bib and geometry inventory. Queued scan rows did not run normal detection probes, preparation, OCR or Grobid.",
+  "queued_scan_pages": 558,
+  "rows": [
+    {
+      "paper_hash": "db7338ea1867",
+      "source_relative_path": "T/Tung2003.pdf",
+      "source_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+      "source_pages": 121,
+      "keeppages": null,
+      "ocrlang": null,
+      "ocrmode": null,
+      "pinned_bib_entry": {
+        "author": "Tung, S-R.",
+        "year": "2003",
+        "title": "Species composition and seasonal distribution of siphonophores in the coastal water, southwestern Taiwan",
+        "journal": "M.Sc. Thesis. 108pp",
+        "file": "Tung2003.pdf",
+        "pagemap": "1--4 born-digital Traditional Chinese thesis title and bilingual abstract matter; 5--62 Chinese main text and references; 63--121 tables, figures, and appendices in Chinese with English scientific labels",
+        "_type": "article",
+        "_key": "Tung2003"
+      },
+      "named_reference_source_page": 60,
+      "historical_xml_id": "b40",
+      "first_five_pages_geometry": {
+        "raster_fraction": 0.0,
+        "chars": 3278,
+        "gibberish": 0.16510903426791276
+      },
+      "status": "completed_full_preparation_grobid_authority",
+      "queue_reason": null,
+      "next_required_functions": []
+    },
+    {
+      "paper_hash": "d0894c24715f",
+      "source_relative_path": "P/Pugh1992a_Nectopyramidinae.pdf",
+      "source_sha256": "d0894c24715f2a058ba4e89af1c1d775eb2b171aeea2f61bd1134b037e771f78",
+      "source_pages": 42,
+      "keeppages": null,
+      "ocrlang": "eng",
+      "ocrmode": null,
+      "pinned_bib_entry": {
+        "author": "Pugh, P.R.",
+        "year": "1992",
+        "title": "A revision of the sub-family Nectopyramidinae (Siphonophora, Prayidae)",
+        "journal": "Philosophical Transactions of the Royal Society of London. Series B: Biological Sciences",
+        "volume": "335",
+        "number": "1274",
+        "pages": "281--322",
+        "doi": "10.1098/rstb.1992.0023",
+        "url": "https://doi.org/10.1098/rstb.1992.0023",
+        "file": "Pugh1992a_Nectopyramidinae.pdf",
+        "doclang": "en",
+        "ocrlang": "eng",
+        "pagemap": "1--42 complete English document; all physical pages belong to the target work",
+        "_type": "article",
+        "_key": "Pugh1992a"
+      },
+      "named_reference_source_page": 42,
+      "historical_xml_id": "b26",
+      "first_five_pages_geometry": {
+        "raster_fraction": 1.0,
+        "chars": 25725,
+        "gibberish": 0.22508038585209003
+      },
+      "status": "queued_no_ocr_started",
+      "queue_reason": "Current default reocr_scanned_text_layers policy sees full-page raster images; normal preparation requires full-document OCR. No proven full prepared PDF available; avoid competing with gold build.",
+      "next_required_functions": [
+        "pipeline.pageselect.selection_for/write_subset only if pinned keeppages exists (none currently)",
+        "pipeline.scan.detect_scan_type with pinned ocrlang/ocrmode and current resolved config",
+        "pipeline.scan.prepare_pdf on entire selected source (actual full OCR; preserve original native recovery evidence)",
+        "pipeline.metadata.extract_metadata with live Grobid and exact prepared PDF",
+        "bib.authority.phase1_corpus_papers and phase2_references using all references; inspect named source-supported observation"
+      ]
+    },
+    {
+      "paper_hash": "b8ae22a47c6a",
+      "source_relative_path": "A/Alvarinoetal1990.pdf",
+      "source_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+      "source_pages": 440,
+      "keeppages": null,
+      "ocrlang": "eng",
+      "ocrmode": null,
+      "pinned_bib_entry": {
+        "author": "Alvariño, A. and Wojtan, J.M. and Martinez, M.R.",
+        "year": "1990",
+        "title": "Antarctic siphonophores from plankton samples of the United States Antarctic Research Program",
+        "journal": "Antarctic Research Series",
+        "volume": "49",
+        "pages": "1--436",
+        "file": "Alvarinoetal1990.pdf",
+        "doclang": "en",
+        "ocrlang": "eng",
+        "pagemap": "1--440 complete English monograph: title and series matter, contents and introductory matter, main systematic treatment, references, and index",
+        "_type": "article",
+        "_key": "Alvarinoetal1990"
+      },
+      "named_reference_source_page": 439,
+      "historical_xml_id": "b80",
+      "first_five_pages_geometry": {
+        "raster_fraction": 1.0,
+        "chars": 9179,
+        "gibberish": 0.22740524781341107
+      },
+      "status": "queued_no_ocr_started",
+      "queue_reason": "Current default reocr_scanned_text_layers policy sees full-page raster images; normal preparation requires full-document OCR. No proven full prepared PDF available; avoid competing with gold build.",
+      "next_required_functions": [
+        "pipeline.pageselect.selection_for/write_subset only if pinned keeppages exists (none currently)",
+        "pipeline.scan.detect_scan_type with pinned ocrlang/ocrmode and current resolved config",
+        "pipeline.scan.prepare_pdf on entire selected source (actual full OCR; preserve original native recovery evidence)",
+        "pipeline.metadata.extract_metadata with live Grobid and exact prepared PDF",
+        "bib.authority.phase1_corpus_papers and phase2_references using all references; inspect named source-supported observation"
+      ]
+    },
+    {
+      "paper_hash": "a16337443af7",
+      "source_relative_path": "P/Pugh1990.pdf",
+      "source_sha256": "a16337443af781b9c8ee65431c55cf61e3ecc36dc28378bebd95da614aa1432f",
+      "source_pages": 76,
+      "keeppages": null,
+      "ocrlang": "eng",
+      "ocrmode": null,
+      "pinned_bib_entry": {
+        "author": "Pugh, P.R.",
+        "year": "1990",
+        "title": "Biological collections made during Discovery CR 175 to BIOTRANS site (c.47°N,20°W)",
+        "journal": "Institute of Oceanographic Sciences. Report",
+        "volume": "277",
+        "pages": "1--78",
+        "file": "Pugh1990.pdf",
+        "doclang": "en",
+        "ocrlang": "eng",
+        "pagemap": "1--76 complete English document; all physical pages belong to the target work",
+        "_type": "article",
+        "_key": "Pugh1990"
+      },
+      "named_reference_source_page": 75,
+      "historical_xml_id": "b15",
+      "first_five_pages_geometry": {
+        "raster_fraction": 1.0,
+        "chars": 6288,
+        "gibberish": 0.2625250501002004
+      },
+      "status": "queued_no_ocr_started",
+      "queue_reason": "Current default reocr_scanned_text_layers policy sees full-page raster images; normal preparation requires full-document OCR. No proven full prepared PDF available; avoid competing with gold build.",
+      "next_required_functions": [
+        "pipeline.pageselect.selection_for/write_subset only if pinned keeppages exists (none currently)",
+        "pipeline.scan.detect_scan_type with pinned ocrlang/ocrmode and current resolved config",
+        "pipeline.scan.prepare_pdf on entire selected source (actual full OCR; preserve original native recovery evidence)",
+        "pipeline.metadata.extract_metadata with live Grobid and exact prepared PDF",
+        "bib.authority.phase1_corpus_papers and phase2_references using all references; inspect named source-supported observation"
+      ]
+    }
+  ],
+  "scheduling": "Run the three scans sequentially only after the active gold build releases CPU/OCR resources, or on independently authorized compute. Preserve normal policy, no trusting old text-layer override to bypass acceptance."
+}

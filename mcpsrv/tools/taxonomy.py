@@ -118,7 +118,7 @@ def get_papers_for_taxon(
 
     Papers are returned ordered by mention count (desc). Synonymy is
     followed to the accepted ``taxonID`` — so a query for
-    'Stephanomia amphitridis' returns papers citing its accepted synonym
+    'Stephanomia uvaria' returns papers citing its accepted synonym
     *Apolemia uvaria*, without the caller needing to know the synonymy.
     """
     idx = _need_index()
@@ -251,7 +251,7 @@ def get_taxon_dossier(
     top_n_cooccurring: int = _DOSSIER_COOCCURRING_TOP_N_DEFAULT,
 ) -> Dict[str, Any]:
     """One-call view of a taxon across the corpus (#76). Supersedes
-    ``search_taxon`` + ``get_papers_for_taxon`` + N× ``get_paper`` +
+    ``search_taxon`` + ``get_papers_for_taxon`` + ``get_papers`` +
     N× ``get_chunks_for_taxon`` + ``get_figures_for_taxon``. Pair with
     ``get_chunks(paper_hash, chunk_ids=[...])`` for full text — the
     chunk_index returns IDs only.
@@ -261,7 +261,11 @@ def get_taxon_dossier(
     max_papers (50), max_chunks (100), max_figures (25),
     top_n_lexicon (10/category), top_n_cooccurring (20 taxa).
 
-    Returns ``{taxon, n_papers_mentioning, papers?, chunk_index?,
+    Lexicon and cooccurrence counts cover the selected papers, not all
+    mentioning papers. ``aggregate_scope`` reports the selected/available
+    paper counts and selection policy, including when ``papers`` is omitted.
+
+    Returns ``{taxon, n_papers_mentioning, aggregate_scope?, papers?, chunk_index?,
     figure_index?, lexicon_aggregated?, cooccurring_taxa?}``:
 
         {
@@ -312,17 +316,24 @@ def get_taxon_dossier(
             out["taxon"].pop(k, None)
 
     paper_hashes = list(idx.taxon_to_papers.get(aid, []))
-    if not paper_hashes:
-        return out  # taxon known but no corpus papers mention it
-
-    # Sort papers by mention count desc, ties by year desc.
+    # Sort papers by mention count desc, then year desc and hash asc.
     paper_hashes.sort(
         key=lambda h: (
             -idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             -(idx.papers.get(h, {}).get("year") or 0),
+            h,
         ),
     )
-    in_scope = paper_hashes[: max_papers]
+    in_scope = paper_hashes[: max(0, max_papers)]
+    if requested & {"lexicon", "cooccurring_taxa"}:
+        out["aggregate_scope"] = {
+            "kind": "selected_papers",
+            "papers_selected": len(in_scope),
+            "papers_available": len(paper_hashes),
+            "selection_policy": "taxon_mentions_desc, year_desc, paper_hash_asc",
+        }
+    if not paper_hashes:
+        return out  # taxon known but no corpus papers mention it
 
     if "papers" in requested:
         papers_out: List[Dict[str, Any]] = []

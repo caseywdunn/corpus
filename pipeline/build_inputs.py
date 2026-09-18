@@ -12,7 +12,21 @@ from pathlib import Path
 from .config import _DEFAULT_CONFIG, _deep_merge, load_config
 
 
-def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_vision_producer=None):
+def surname_recovery_inputs(bib_index):
+    """Resolve the curated citation catalog and its local OCR producer once."""
+    from .surname_recovery import author_catalog, surname_recovery_producer
+    catalog = author_catalog(bib_index.entries if bib_index is not None else [])
+    return catalog, surname_recovery_producer(catalog)
+
+
+def _surname_producer_identity(producer):
+    # The runtime executable path changes with host/conda prefix, not the
+    # evidence. Version and traineddata identities still belong in receipts.
+    return {key: deepcopy(value) for key, value in producer.items() if key != "executable"}
+
+
+def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_vision_producer=None,
+                        surname_producer=None):
     """Return direct and inherited configuration inputs by stage.
 
     ``panel_mode`` is the applied CLI/config mode, not a backend availability
@@ -33,10 +47,41 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     ))
     prep = {**scan, **select("ocr", ("optimize_level", "tesseract_page_timeout", "jobs")),
             **select("stage_timeouts", ("ocr", "ocr_per_page"))}
+    from .native_text_recovery import native_text_recovery_producer
+    # Original-layer recovery runs before OCR replaces that evidence. Its
+    # policy and installed models must invalidate preparation and consumers.
+    prep["ocr.native_text_recovery_producer"] = native_text_recovery_producer()
     extract = {**prep, **select("figures", ("resolution_mode", "images_scale", "vector_dpi", "max_dpi")),
                "compute.accelerator": cfg.get("compute", {}).get("accelerator", "auto")}
-    chunks = {**extract, **select("chunking", ("max_tokens",))}
-    figures = {**extract, "figures.panel_detection": panel_mode}
+    from .source_layout import SOURCE_LAYOUT_POLICY
+    from .scientific_text import SCIENTIFIC_TEXT_POLICY
+    from .pdf_cmap_recovery import pdf_cmap_producer
+    from .text_encoding import TEXT_ENCODING_POLICY
+    from .source_spaces import source_spacing_producer
+    from .treatment_context import TREATMENT_CONTEXT_POLICY
+    from .key_context import KEY_BRANCH_CONTEXT_POLICY
+    # These build decisions change stored evidence even when package/config
+    # versions are unchanged. English OCR availability/model identity also
+    # governs rendered heading and scientific-unit corroboration.
+    extract.update({
+        "extraction.source_layout_policy": SOURCE_LAYOUT_POLICY,
+        "extraction.scientific_notation_policy": SCIENTIFIC_TEXT_POLICY,
+        "extraction.pdf_cmap_producer": pdf_cmap_producer(),
+        "extraction.text_encoding_policy": TEXT_ENCODING_POLICY,
+        "extraction.table_structure_policy": "logical-cells-key-destinations-source-spaces-v2",
+        "extraction.source_spacing_producer": source_spacing_producer(),
+        "extraction.section_heading_policy": "rendered_section_heading_v1",
+        "extraction.surname_recovery_producer": (
+            _surname_producer_identity(surname_producer if surname_producer is not None
+                                       else surname_recovery_inputs(None)[1])),
+    })
+    chunks = {**extract, **select("chunking", ("max_tokens",)),
+              "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY,
+              "chunking.key_branch_context_policy": KEY_BRANCH_CONTEXT_POLICY}
+    from .figure_rights import FIGURE_RIGHTS_VERSION
+    from .stages import SOURCE_INTEGRITY_WARNING_POLICY
+    figures = {**extract, "figures.panel_detection": panel_mode,
+               "figures.rights_producer": FIGURE_RIGHTS_VERSION}
     if panel_mode.startswith("vision-"):
         from .model_provenance import DEFAULT_VISION_MODELS, vision_producer
         # Unknown/custom test backends keep their declared model only.
@@ -61,7 +106,10 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
         "figure_materialization": figures,
         "figure_crossref": {**chunks, **figures},
         "huge_document_check": select("huge_document", ("max_pages",)),
-        "quality_gates": select("quality_gates", _DEFAULT_CONFIG["quality_gates"]),
+        "quality_gates": {
+            **select("quality_gates", _DEFAULT_CONFIG["quality_gates"]),
+            "quality_gates.source_integrity_warning_policy": SOURCE_INTEGRITY_WARNING_POLICY,
+        },
     }
 
 
@@ -81,9 +129,13 @@ def configuration_drift(output_dir: Path, config_path: Path):
         raise FileNotFoundError(config_path)
     config = load_config(config_path)
     validate_config(config)
+    from bib import BibIndex
+    bib_path = config.get("bib")
+    bib_index = BibIndex.from_path((config_path.parent / bib_path).resolve()) if bib_path else None
+    _, surname_producer = surname_recovery_inputs(bib_index)
     figures = config.get("figures", {})
     expected = config_fingerprints(config, panel_mode=figures.get("panel_detection", "ocr"),
-                                   vision_model=figures.get("model"))
+                                   vision_model=figures.get("model"), surname_producer=surname_producer)
     affected = {}
     checked = 0
     for hd in sorted((output_dir / "documents").iterdir()):
@@ -105,7 +157,8 @@ def configuration_drift(output_dir: Path, config_path: Path):
             "documents_with_differences": len(affected), "differences": affected,
             "scope": "Stage 1 configuration only; CLI/CPU-floor overrides may differ. "
                      "Includes offline vision identities; no remote registry/service probes. "
-                     "Does not audit source files, BibTeX or annotation inputs."}
+                     "Includes the curated author catalog consumed by extraction. "
+                     "Does not audit source PDFs, per-paper BibTeX metadata or annotation inputs."}
 
 
 def source_input_drift(output_dir: Path, config_path: Path):
@@ -129,6 +182,7 @@ def source_input_drift(output_dir: Path, config_path: Path):
         return {"available": False, "scope": "No input_pdfs configured; source inventory not checked."}
     bib_path = resolved(config.get("bib"))
     bib_index = BibIndex.from_path(bib_path) if bib_path else None
+    _, surname_producer = surname_recovery_inputs(bib_index)
     lexicon_path = resolved(config.get("lexicon"))
     if lexicon_path:
         load_lexicon(lexicon_path)  # Validate before treating it as current input.
@@ -150,7 +204,7 @@ def source_input_drift(output_dir: Path, config_path: Path):
         raise ValueError("Source inventory has a PDF hash-prefix collision")
     docs = {p.name: p for p in (output_dir / "documents").iterdir() if p.is_dir()}
     differences = {}
-    consumed = {"bib_entry_sha256", "filename", "ocrlang", "ocrmode", "keeppages", "taxonomy", "lexicons"}
+    consumed = {"metadata_producer", "bib_entry_sha256", "filename", "ocrlang", "ocrmode", "keeppages", "taxonomy", "lexicons"}
     for sha in sorted(current.keys() & docs.keys()):
         full, paths = current[sha]
         hd = docs[sha]
@@ -168,6 +222,10 @@ def source_input_drift(output_dir: Path, config_path: Path):
             old = (records.get(stage) or {}).get("input_fingerprint") or {}
             fp = {k: v for k, v in old.items() if k not in consumed}
             fp.update(expected.get(stage, {}))
+            if stage in {"docling_extraction", "text_chunking", "taxa_and_lexicon_extraction",
+                         "figure_materialization", "figure_crossref"}:
+                fp["config"] = {**fp.get("config", {}),
+                                "extraction.surname_recovery_producer": _surname_producer_identity(surname_producer)}
             if stage in ("figure_materialization", "figure_crossref"):
                 fp.update({k: v for k, v in expected["docling_extraction"].items()
                            if k in {"ocrlang", "ocrmode", "keeppages"}})

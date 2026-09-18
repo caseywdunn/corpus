@@ -5,6 +5,109 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Scientific text recovery retains source evidence for signs, units, exponents,
+  Chinese encoding and overlapping accent glyphs (#303, #306, #316).
+  Multi-column order, enclosing species treatments, table cells and key
+  branches remain structured through chunking (#304, #307, #308, #319, #334).
+  Uncertain source readings stay visible; extraction policy and OCR producer
+  changes invalidate dependent artifacts.
+
+- Original damaged-text evidence survives full-page OCR; agreeing regional
+  readings and prepared-word geometry can recover accented tokens without
+  blindly decoding source text (#312). Preparation receipts reach scratch
+  extraction, and stale receipts retire when the producer changes.
+  Treatment headings require explicit taxonomic authority syntax; global
+  sections clear prior species context. Served source provenance uses bounded
+  previews with explicit truncation and evidence counts (#319).
+
+- Citation surname recovery requires curated author/year evidence and two
+  agreeing unhinted source-crop OCR readings (#315). Raw reference observations
+  remain unchanged; complete title/year corroboration supports derived mappings,
+  while unresolved candidates produce review warnings. Relevant catalog/model
+  changes invalidate extraction consumers; unrelated title edits retain their
+  existing resume behavior.
+
+- Reference quality preserves observations while quarantining supported
+  caption debris and surfacing uncertain fragments and incomplete surnames
+  (#313, #316). Source-supported publication-year adjudication repairs mappings
+  without changing the parsed/raw history (#314).
+
+- Caption-specific taxon evidence is materialized after figure processing,
+  including unambiguous contextual abbreviations (#323). Figure routes share
+  the stored evidence; legacy bundles require rebuilding for abbreviation links.
+
+- Citation excerpts recover grouped source text from prepared-PDF coordinates
+  and validate complete author/year spans, including shared-author year lists
+  (#309, #317). Raw TEI surfaces and targets remain inspectable; ambiguous or
+  unmatched targets carry explicit status. Rebuild metadata to obtain the
+  reference coordinates absent from legacy TEI caches.
+
+- Taxonomic-authority parsing handles comma-separated authors and initials;
+  original-description queries expose build-time candidate evidence and
+  unresolved stubs separately from curator-reviewed descriptions (#311).
+
+- Build-time bibliographic authority retains curated source fields and ordered
+  authors, including publication locators, through export/import and citation
+  formatting (#296, #301). Distinct publication parts sharing a DOI or short
+  citation key receive separate identities, while compatible duplicate scans
+  retain one work; curated contradictions block heuristic reconciliation
+  (#299, #300). Rebuild to regenerate document membership and reference mappings.
+
+- Caption reconstruction retains picture-owned text and wrapped caption
+  fragments, and corrects a body-paragraph link when explicit same-row caption
+  evidence is present (#322). Caption association confidence is separate from
+  the new source-completeness field; requesting an entire stored caption does
+  not claim that extraction recovered every source word. Panel parsing covers
+  A–Z and preserves individual descriptions alongside shared range context
+  (#324).
+
+- Vision outputs retain model-input coordinate provenance and are scaled into
+  the actual figure raster frame (#305). Narrow raster-edge recovery preserves
+  labels clipped by layout detection and invalidates old pixel ROIs (#329).
+  Figure counts track logical records after expansion/removal; new bundles
+  reject inconsistent stored totals, and legacy summaries count actual records
+  (#332).
+
+- Taxon dossiers expose aggregate scope; citation excerpts support deterministic
+  pagination with explicit availability and byte bounds; both graph directions
+  share one total edge budget (#318, #325, #326). Default lexicon terms are
+  ranked after caller filters, and tool examples use the available surface
+  (#328, #331).
+
+- Hosted-runner integration and clean-room jobs remove unused Chrome apt
+  sources before package refresh and retry transient downloads (#285). The
+  job logs identify any source file actually removed.
+
+- Citation formatting and reference lookup share author/year query parsing,
+  including `et al.`, `and`, `&`, initials, surname particles and Unicode
+  diacritics. Correct additional author/title text retains matching works or
+  exposes ambiguity; a lookup miss no longer tells clients that a publication
+  is proven absent from the corpus (#310).
+
+- Inline figure refusals retain the MCP error flag and now expose structured
+  reason codes and licensing state, matching URL delivery; successful image
+  responses are unchanged (#327).
+
+- Figure-specific license exclusions are recorded during the build and take
+  precedence over inherited publication clearance at figure, crop, URL and
+  HTTP delivery boundaries (#302). Source notices survive image splitting;
+  an exclusion is reported as undetermined separate permission, not as a claim
+  that all reuse is forbidden. Rebuild affected bundles to materialize this
+  evidence; legacy bundles cannot be repaired by a server-only update.
+
+- Caption matches now precede paper-only mentions in both taxon figure routes,
+  even when an unrelated paper has more than 100 mentions. Ties are stable
+  across paper traversal order; the existing score field remains available
+  (#321).
+
+- Taxonomy ingestion warns when replacing a snapshot with a different root,
+  and its help describes whole-snapshot replacement (#298; carried forward
+  from the preserved skills branch).
+
 ## [1.4.0] - 2026-09-09
 
 ### Theme — v1.4 silent wrongs and the hazards behind them

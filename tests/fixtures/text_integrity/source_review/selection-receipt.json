@@ -1,0 +1,39 @@
+{
+  "policy_sha256": "2809bd295a3f45bee1be73d1103f2f066e4b02f9abc210aac4fa0272feba49b3",
+  "selection_script_sha256": "fe14f2d7372378a220a52712f060c9435a1229a560aa8a2e61a9e0eda1410b5d",
+  "eligible_transcription_pages": 688,
+  "candidate_occurrences": 2177,
+  "population_by_stratum": {
+    "ordinary_range": 1010,
+    "measurement_unit": 881,
+    "superscript_or_footnote_control": 149,
+    "exponent_or_inverse_unit": 54,
+    "arithmetic_or_relation": 83
+  },
+  "selected_count": 24,
+  "selected_by_stratum": {
+    "exponent_or_inverse_unit": 4,
+    "arithmetic_or_relation": 4,
+    "measurement_unit": 6,
+    "ordinary_range": 6,
+    "superscript_or_footnote_control": 4
+  },
+  "selected_by_document": {
+    "Ma\u0144ko_et al2020": 3,
+    "Chenetal2015": 3,
+    "Totton1965a": 3,
+    "Vanhoeffen1906": 3,
+    "Carre1968_Hippopodius_tr": 1,
+    "Totton1965b": 2,
+    "Gasca_Suarez1993tr": 1,
+    "Stepanjants2014": 2,
+    "Stepanjants_Dianov1997": 1,
+    "Beklemishev1969": 1,
+    "Carre1969_Nanomia_tr": 1,
+    "Quoy_Gaimard1834Plates": 1,
+    "DeHaan1827": 1,
+    "Yamamori2014": 1
+  },
+  "selected_sha256": "be4c66115502d9b7604e776fcf62c875fede22d3d1e5b39fa5e509e6806a9bb5",
+  "frozen_before_visual_review_utc": "2026-09-18T19:53:52.568873+00:00"
+}

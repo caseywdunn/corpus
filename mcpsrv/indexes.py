@@ -408,7 +408,9 @@ class CorpusIndex:
                 "filename": metadata.get("filename"),
                 "hash_dir": str(hash_dir),
                 "n_chunks": chunks.get("total_chunks", len(chunks.get("chunks", []) or [])),
-                "n_figures": figures.get("total_figures", len(figures.get("figures", []) or [])),
+                # Older builds may have stale totals after compound expansion
+                # (#332). The actual record array is the counting authority.
+                "n_figures": len(figures.get("figures") or []),
                 "n_taxa": taxa.get("unique_taxa", 0),
                 "n_lexicon_terms": {
                     cat: payload.get("unique_terms", 0)
@@ -512,6 +514,19 @@ class TaxonMentionDB:
         )
         return cur.fetchone()[0]
 
+    def caption_evidence(self, corpus_hash: str, figure_id: str) -> Optional[Dict]:
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='caption_taxon_evidence'").fetchone():
+            return None
+        row = self.conn.execute('SELECT evidence_json FROM caption_taxon_evidence WHERE corpus_hash=? AND figure_id=?',
+                                (corpus_hash,figure_id)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def caption_papers(self, taxon_id: str) -> List[str]:
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='caption_taxon_links'").fetchone():
+            return []
+        return [r[0] for r in self.conn.execute('SELECT DISTINCT corpus_hash FROM caption_taxon_links WHERE taxon_id=? ORDER BY corpus_hash',
+                                               (str(taxon_id),))]
+
     def papers_for_taxon_id(self, taxon_id: int) -> List[Dict]:
         """Distinct papers mentioning a taxon, with mention count."""
         cur = self.conn.execute(
@@ -556,7 +571,42 @@ class BiblioAuthority:
     def get_work(self, work_id: str) -> Optional[Dict]:
         cur = self.conn.execute("SELECT * FROM works WHERE work_id = ?", (work_id,))
         row = cur.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        result = dict(row)
+        if self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='work_bib_sources'").fetchone():
+            from bib.fields import conflicts
+            result["bibliographic_conflicts"] = conflicts(self.conn, work_id)
+        result["reference_quality_warnings"] = self.work_quality_warnings(work_id)
+        return result
+
+    def work_quality_warnings(self, work_id: str) -> List[Dict]:
+        """Bounded review signals derived at build time, never serve-time adjudication."""
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='reference_observation_quality'").fetchone():
+            return []
+        rows = self.conn.execute("""SELECT q.reasons_json,COUNT(*) AS observations
+            FROM reference_observation_quality q JOIN observation_work ow USING(observation_id)
+            WHERE ow.work_id=? AND q.disposition='review_needed'
+            GROUP BY q.reasons_json ORDER BY observations DESC,q.reasons_json LIMIT 5""", (work_id,))
+        return [{"reasons": json.loads(raw), "observations": count} for raw, count in rows]
+
+    def reference_quality(self, corpus_hash: str, ordinal: int) -> Optional[Dict]:
+        """Read the current build verdict for one source occurrence, not its work."""
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='reference_observation_quality'").fetchone():
+            return None
+        row = self.conn.execute("""SELECT q.observation_id,q.disposition,q.reasons_json,q.producer_version,
+            ro.citing_corpus_hash,ro.grobid_xml_id
+            FROM reference_observation_quality q
+            JOIN reference_observations ro ON ro.observation_id=q.observation_id
+            JOIN reference_observation_memberships member ON member.observation_id=q.observation_id
+            JOIN reference_current_sets current ON current.corpus_hash=member.corpus_hash
+               AND current.source_fingerprint=member.source_fingerprint
+            WHERE member.corpus_hash=? AND member.ordinal=?""", (corpus_hash, ordinal)).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["reasons"] = json.loads(result.pop("reasons_json"))
+        return result
 
     def provenance(self, work_id: str) -> str:
         """Provenance tier for the format_citation MCP tool (#79).
@@ -607,7 +657,7 @@ class BiblioAuthority:
         row = cur.fetchone()
         if row is None:
             return None
-        result = dict(row)
+        result = self.get_work(work_id)
         meta = document_metadata(self.conn, corpus_hash)
         if meta is not None:
             result.update(document_fields(meta))
@@ -666,6 +716,8 @@ class BiblioAuthority:
         if title_fragment and results:
             frag = title_fragment.lower()
             results = [r for r in results if r.get("title") and frag in r["title"].lower()]
+        for result in results:
+            result["reference_quality_warnings"] = self.work_quality_warnings(result["work_id"])
         return results
 
     def citation_count(self, work_id: str) -> int:
@@ -717,4 +769,25 @@ class BiblioAuthority:
                WHERE wl.taxon_id = ?""",
             (taxon_id,),
         )
-        return [dict(r) for r in cur]
+        links = [dict(r) for r in cur]
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='taxon_authority_candidates'").fetchone():
+            return links
+        by_work = {}
+        for row in links:
+            previous = by_work.get(row["work_id"])
+            if previous is None or row["link_type"] != "authority_match":
+                by_work[row["work_id"]] = row
+        candidates = self.conn.execute("""SELECT w.work_id,w.title,w.year,w.in_corpus,w.corpus_hash,
+            c.confidence,c.basis_json,c.producer_version
+            FROM taxon_authority_candidates c JOIN works w ON w.work_id=c.work_id
+            WHERE c.taxon_id=? ORDER BY c.confidence DESC,w.work_id""", (taxon_id,))
+        for row in candidates:
+            item = dict(row)
+            item["basis"] = json.loads(item.pop("basis_json"))
+            item["link_type"] = "authority_candidate"
+            previous = by_work.get(item["work_id"])
+            if previous and previous["link_type"] != "authority_match":
+                previous["basis"] = {"kind": "curator_reviewed", "requires_source_review": False}
+                continue
+            by_work[item["work_id"]] = item
+        return sorted(by_work.values(), key=lambda item: (-item["confidence"], item["work_id"]))

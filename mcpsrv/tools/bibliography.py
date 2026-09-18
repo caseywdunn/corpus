@@ -37,7 +37,7 @@ def get_bibliography(
     With ``resolved=True``, each reference is enriched with its
     bibliographic authority record: ``work_id``, ``in_corpus``,
     ``corpus_hash`` (if in corpus), and ``cited_by_count``. Click
-    through to a cited work via ``get_paper(corpus_hash)``. Requires
+    through to a cited work via ``get_papers(hashes=[corpus_hash])``. Requires
     the bibliographic authority database; falls back to unresolved
     output if unavailable.
     """
@@ -47,6 +47,12 @@ def get_bibliography(
         return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     refs = _load_json(Path(p["hash_dir"]) / "references.json", default={}) or {}
     ref_list = (refs.get("references", []) or [])[offset: offset + int(limit)]
+    quality_reader = getattr(getattr(idx, "biblio_db", None), "reference_quality", None)
+    if quality_reader is not None:
+        for ordinal, ref in enumerate(ref_list, start=offset):
+            quality = quality_reader(paper_hash, ordinal)
+            if quality is not None:
+                ref["quality"] = quality
     if not resolved or idx.biblio_db is None:
         return ref_list
 
@@ -84,7 +90,8 @@ def get_intext_citations(
 
     Returns ``{paragraphs, citations, total_paragraphs,
     total_citations}``. Each citation record carries
-    ``target_xml_id`` (links to ``get_bibliography(xml_id=...)``;
+    ``target_xml_id`` (select the matching ``xml_id`` from
+    ``get_bibliography(paper_hash=...)``, ignoring a leading ``#``;
     ``None`` for unresolved), ``surface`` (the cited text), the
     enclosing ``section`` heading, and ``para_index`` into the
     returned ``paragraphs`` list.
@@ -98,7 +105,7 @@ def get_intext_citations(
     citation list and the paragraph sublist follows.
 
     Returns ``{"error": ...}`` if intext_citations.json is missing
-    (backfill with ``backfill_intext_citations.py``).
+    (backfill with ``python -m pipeline.intext_citations <output_dir>``).
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
@@ -108,7 +115,7 @@ def get_intext_citations(
     if data is None:
         return error(
             "intext_citations.json missing — backfill with "
-            "`python backfill_intext_citations.py <output_dir>`",
+            "`python -m pipeline.intext_citations <output_dir>`",
             "not_configured",
         )
     paragraphs_full = data.get("paragraphs") or []
@@ -145,69 +152,156 @@ def get_intext_citations(
     }
 
 
-@mcp.tool()
-def get_excerpts_citing(work_id: str, limit: int = 50) -> Dict:
-    """Cross-corpus passages citing ``work_id`` — actual paragraph
-    text around each citation marker. Answers "show me every passage
-    where <Author Year> is cited" (issue #7).
+# Serialized JSON ceiling, including completeness/provenance metadata.
+EXCERPTS_MAX_BYTES = int(os.environ.get("CORPUS_EXCERPTS_MAX_BYTES", 128 * 1024))
 
-    ``work_id`` is a DOI / ``corpus:...`` / ``bhl:...`` key — same
-    space as ``get_citation_graph``. Only resolved citations
-    contribute (~60% of in-text refs); Grobid-unmatched refs don't
-    surface here.
 
-    Returns ``{work_id, n_excerpts, excerpts: [{citing_paper_hash,
-    citing_paper_title, surface, section, paragraph}, ...]}``.
+def _excerpts_citing(idx, work_id: str):
+    """Yield one row per matching marker, ordered by paper hash and marker index.
+
+    Group authority targets before reading the in-text file, so duplicate
+    authority edges never duplicate markers and each paper is read once.
     """
+    from itertools import groupby
+
+    rows = idx.biblio_db.conn.execute(
+        """SELECT DISTINCT citing_corpus_hash, grobid_xml_id FROM citations
+           WHERE cited_work_id = ? AND citing_corpus_hash IS NOT NULL
+             AND grobid_xml_id IS NOT NULL
+           ORDER BY citing_corpus_hash, grobid_xml_id""",
+        (work_id,),
+    )
+    for citing_hash, group in groupby(rows, key=lambda r: r["citing_corpus_hash"]):
+        targets = {"#" + r["grobid_xml_id"].lstrip("#") for r in group
+                   if r["grobid_xml_id"]}
+        paper = idx.papers.get(citing_hash)
+        if not paper or not targets:
+            continue
+        data = _load_json(Path(paper["hash_dir"]) / "intext_citations.json", default=None)
+        if data is None:
+            continue
+        paras = data.get("paragraphs") or []
+        for citation_index, citation in enumerate(data.get("citations") or []):
+            if citation.get("target_xml_id") not in targets:
+                continue
+            pi = citation.get("para_index")
+            yield {
+                "citing_paper_hash": citing_hash,
+                "citing_paper_title": paper.get("title") or "",
+                "surface": citation.get("surface", ""),
+                "section": citation.get("section", ""),
+                "paragraph": paras[pi] if isinstance(pi, int) and 0 <= pi < len(paras) else "",
+                "citation_index": citation_index,
+                "target_xml_id": citation["target_xml_id"],
+                "para_index": pi,
+                **{key: citation[key] for key in (
+                    "citation_year", "author_span", "year_span", "validation_status", "text_source",
+                ) if key in citation},
+            }
+
+
+@mcp.tool()
+def get_excerpts_citing(work_id: str, limit: int = 50, offset: int = 0) -> Dict:
+    """Cross-corpus paragraphs citing a resolved authority ``work_id``.
+
+    ``limit`` and ``offset`` paginate citation markers in deterministic paper
+    hash / source marker order within a stable bundle. Several markers may
+    share a paragraph: ``excerpts_available`` and ``n_excerpts`` count markers,
+    not unique paragraphs. Only markers linked through authority citation
+    targets contribute; unresolved references do not surface here.
+
+    Returns the existing ``work_id``, ``n_excerpts`` and ``excerpts`` fields,
+    plus ``excerpts_available``, ``excerpts_returned``, ``offset``,
+    ``next_offset`` (null at the end), ``counting_unit``, ``truncated``,
+    ``truncated_reason`` and ``response_bytes``. Follow ``next_offset`` to
+    retrieve remaining markers, including when the byte cap shortens a page.
+    ``limit=0`` returns counts only; use a positive limit to make progress.
+
+    Each row retains ``citing_paper_hash``, ``citing_paper_title``, ``surface``,
+    ``section`` and ``paragraph``, and adds source ``citation_index``,
+    ``target_xml_id`` and ``para_index``. Rebuilt artifacts also carry
+    ``citation_year``, author/year spans, ``validation_status`` and
+    ``text_source``; spans refer to the stored paragraph, which a byte-limited
+    preview may not contain in full. Full source records can be requested
+    with ``get_intext_citations(paper_hash=..., offset=citation_index, limit=1)``.
+
+    Serialized JSON (default json.dumps separators and ASCII escaping) is
+    bounded by ``CORPUS_EXCERPTS_MAX_BYTES`` (default 128 KiB), including
+    metadata. If one marker alone is too large, text fields become explicitly
+    marked previews: ``truncated_fields`` gives each original character count.
+    Marker identity is preserved and pagination advances past that marker.
+    """
+    if limit < 0 or offset < 0:
+        return error("limit and offset must be non-negative", "invalid_argument")
     idx = _need_index()
     if idx.biblio_db is None:
         return error("biblio_authority DB not loaded", "not_configured")
 
-    rows = idx.biblio_db.conn.execute(
-        """SELECT c.citing_corpus_hash, c.grobid_xml_id
-           FROM citations c
-           WHERE c.cited_work_id = ?""",
-        (work_id,),
-    ).fetchall()
-
     excerpts: List[Dict] = []
-    for row in rows:
-        if len(excerpts) >= limit:
-            break
-        citing_hash = row["citing_corpus_hash"]
-        grobid_id = row["grobid_xml_id"]
-        if not citing_hash or not grobid_id:
+    available = 0
+    collected_bytes = 0
+    byte_limited = False
+    # Count all eligible markers while retaining only one bounded page.
+    # Do not cache a corpus-wide list of paragraph-bearing rows.
+    for row in _excerpts_citing(idx, work_id):
+        available += 1
+        if available <= offset or len(excerpts) >= limit or byte_limited:
             continue
-        p = idx.papers.get(citing_hash)
-        if not p:
+        row_bytes = _payload_bytes(row)
+        if excerpts and collected_bytes + row_bytes > EXCERPTS_MAX_BYTES:
+            byte_limited = True
             continue
-        data = _load_json(
-            Path(p["hash_dir"]) / "intext_citations.json", default=None,
-        )
-        if data is None:
-            continue
-        paras = data.get("paragraphs", [])
-        target_match = "#" + grobid_id
-        for c in data.get("citations", []):
-            if c.get("target_xml_id") != target_match:
-                continue
-            pi = c.get("para_index")
-            paragraph = paras[pi] if isinstance(pi, int) and 0 <= pi < len(paras) else ""
-            excerpts.append({
-                "citing_paper_hash": citing_hash,
-                "citing_paper_title": p.get("title") or "",
-                "surface": c.get("surface", ""),
-                "section": c.get("section", ""),
-                "paragraph": paragraph,
-            })
-            if len(excerpts) >= limit:
-                break
+        excerpts.append(row)
+        collected_bytes += row_bytes
+        if collected_bytes > EXCERPTS_MAX_BYTES:
+            byte_limited = True
 
-    return {
+    result = {
         "work_id": work_id,
-        "n_excerpts": len(excerpts),
         "excerpts": excerpts,
+        "excerpts_available": available,
+        "counting_unit": "citation_markers",
+        "offset": offset,
     }
+
+    def finish() -> int:
+        n = len(excerpts)
+        more = offset + n < available
+        result["n_excerpts"] = n
+        result["excerpts_returned"] = n
+        result["next_offset"] = offset + n if more else None
+        result["truncated"] = more or byte_limited
+        result["truncated_reason"] = (
+            (["limit"] if more and n >= limit else [])
+            + (["response_bytes"] if byte_limited else [])
+        )
+        result["response_bytes"] = 0
+        size = _payload_bytes(result)
+        while result["response_bytes"] != size:
+            result["response_bytes"] = size
+            size = _payload_bytes(result)
+        return size
+
+    # Include the metadata itself in the budget. Removing rows only from
+    # the end preserves the contiguous offset window for the next request.
+    while finish() > EXCERPTS_MAX_BYTES and len(excerpts) > 1:
+        byte_limited = True
+        excerpts.pop()
+    while finish() > EXCERPTS_MAX_BYTES and excerpts:
+        byte_limited = True
+        row = excerpts[0]
+        field = max(
+            (f for f in ("paragraph", "citing_paper_title", "surface", "section")
+             if isinstance(row.get(f), str) and row[f]),
+            key=lambda f: len(row[f]), default=None,
+        )
+        if field is None:
+            break
+        row.setdefault("truncated_fields", {}).setdefault(field, len(row[field]))
+        row[field] = row[field][:len(row[field]) // 2]
+    if finish() > EXCERPTS_MAX_BYTES:
+        return error("excerpt byte budget cannot fit response metadata", "unavailable")
+    return result
 
 
 @mcp.tool()
@@ -231,7 +325,8 @@ def get_citation_graph(
     ``max_edges_per_node`` caps how many edges each node contributes
     (when a node exceeds it, its edges are ranked by ``cited_by_count``
     descending and the top ones kept), and ``max_total_edges`` caps the
-    whole walk. The response carries ``truncated: bool`` so a caller can
+    combined walk (``citing`` first, then ``cited_by`` from the remaining
+    budget). The response carries ``truncated: bool`` so a caller can
     tell whether either cap fired.
 
     ``max_edges_per_node`` defaults to *unbounded at ``depth=1``* and to
@@ -255,8 +350,8 @@ def get_citation_graph(
     So the response carries the numbers a caller needs rather than one
     boolean:
 
-    * ``edges_available`` — how many edges exist per direction, before
-      any cap. Compare with ``edges_returned`` to know what you got.
+    * ``edges_available`` — root immediate-edge counts per direction, before
+      any cap (also at greater depths). Compare with ``edges_returned`` to know what you got.
     * ``edges_returned`` — what is in this payload.
     * ``response_bytes`` — its serialized size, so a client near its own
       transport limit can see it coming.
@@ -276,6 +371,10 @@ def get_citation_graph(
     idx = _need_index()
     if idx.biblio_db is None:
         return error("bibliographic authority database not configured", "not_configured")
+    if direction not in {"citing", "cited_by", "both"}:
+        return error("direction must be citing, cited_by, or both", "invalid_argument")
+    if max_total_edges < 0 or (max_edges_per_node is not None and max_edges_per_node < 0):
+        return error("edge budgets must be non-negative", "invalid_argument")
     # Resolve paper_hash to work_id if needed
     if not work_id and paper_hash:
         w = idx.biblio_db.get_work_by_corpus_hash(paper_hash)
@@ -293,7 +392,7 @@ def get_citation_graph(
     if max_edges_per_node is None:
         # Only the total cap applies at depth 1 — one node is expanded,
         # so there is no fan-out to multiply. See the docstring.
-        max_edges_per_node = max_total_edges if depth <= 1 else 50
+        max_edges_per_node = None if depth <= 1 else 50
     result: Dict[str, Any] = {
         "root": {
             **root,
@@ -306,14 +405,16 @@ def get_citation_graph(
     reasons: List[str] = []
     available: Dict[str, int] = {}
     returned: Dict[str, int] = {}
+    remaining_edges = max_total_edges
     for name in ("citing", "cited_by"):
         if direction not in (name, "both"):
             continue
         edges, t, why, n_available = _walk_citations(
             idx.biblio_db, work_id, name, depth,
             max_edges_per_node=max_edges_per_node,
-            max_total_edges=max_total_edges,
+            max_total_edges=remaining_edges,
         )
+        remaining_edges -= len(edges)
         result[name] = edges
         available[name] = n_available
         returned[name] = len(edges)
@@ -388,7 +489,7 @@ def _payload_bytes(payload: Dict) -> int:
 
 def _walk_citations(
     biblio: BiblioAuthority, work_id: str, direction: str, depth: int,
-    *, max_edges_per_node: int, max_total_edges: int,
+    *, max_edges_per_node: Optional[int], max_total_edges: int,
 ) -> "tuple[List[Dict], bool, List[str], int]":
     """BFS citation walk with breadth + total-edge caps (#87).
 
@@ -421,7 +522,7 @@ def _walk_citations(
             rows = biblio.citing(wid) if direction == "citing" else biblio.cited_by(wid)
             if wid == work_id:
                 root_available = len(rows)
-            if len(rows) > max_edges_per_node:
+            if max_edges_per_node is not None and len(rows) > max_edges_per_node:
                 truncated = True
                 if "max_edges_per_node" not in reasons:
                     reasons.append("max_edges_per_node")
@@ -469,7 +570,15 @@ def _author_candidates(blob: str) -> List[str]:
     blob = (blob or "").strip()
     if not blob:
         return []
-    candidates = [blob]
+    # Remove collective-author notation before considering surnames. Explicit
+    # separators preserve particles in each name ("van Soest & De Haan").
+    blob = re.sub(r"\bet\s+al\.?\s*$", "", blob, flags=re.IGNORECASE).strip(" ,")
+    candidates = [blob] if blob else []
+    for name in re.split(r"\s*(?:&|,|\b(?:and|und|with|et)\b)\s*", blob):
+        name = name.strip(" ,")
+        name = re.sub(r"^(?:[^\W\d_]\.\s*)+", "", name).strip()
+        if name and len(name.rstrip(".")) > 1 and name not in candidates:
+            candidates.append(name)
     tokens = [t.strip(".,&") for t in re.split(r"[\s,&]+", blob)]
     for tok in tokens:
         if (
@@ -482,6 +591,57 @@ def _author_candidates(blob: str) -> List[str]:
     return candidates
 
 
+def _query_work_matches(biblio, query, *, author=None, year=None):
+    """Shared author/year query interpretation for lookup and formatting (#310).
+
+    Preserve the full surname before trying author-list components. Unicode
+    letters/marks, initials and name punctuation are accepted; arbitrary text
+    without an author/year form needs explicit selectors, not a false absence.
+    """
+    import re
+    import unicodedata
+
+    query = (query or "").strip()
+    explicit_author = bool(author)
+    parsed = re.match(r"^(.+?)[\s,]+\(?(\d{4})[a-z]?\)?(?:\b|(?<=\)))", query)
+    if parsed:
+        blob = parsed.group(1).strip(" ,")
+        if not any(c.isalpha() for c in blob) or not all(
+            c.isalpha() or c.isspace() or unicodedata.category(c).startswith("M")
+            or c in ".,&'’()-" for c in blob
+        ):
+            parsed = None
+    if not author and parsed:
+        author = blob
+    if not author:
+        return error(
+            "could not parse author/year from query; pass author/year to "
+            "resolve_reference or a work_id to format_citations",
+            "invalid_argument", queried=query,
+        )
+    if year is None and parsed:
+        year = int(parsed.group(2))
+    if parsed:
+        title_frag = query[parsed.end():].strip(" ,;:.")
+    else:
+        title_frag = query.replace(author, "", 1)
+        if year is not None:
+            title_frag = title_frag.replace(str(year), "", 1)
+        title_frag = title_frag.strip(" ,;:.")
+    candidates = [author] if explicit_author else _author_candidates(author)
+    results = []
+    # Try the supplied title across all author candidates before broadening.
+    # A correct extra surname must not hide an existing title match.
+    for title in ([title_frag, None] if title_frag else [None]):
+        for candidate in candidates:
+            results = biblio.search_works(candidate, year, title)
+            if results:
+                return {"results": results, "parsed_author": candidate,
+                        "parsed_year": year, "authors_tried": candidates}
+    return {"results": [], "parsed_author": author,
+            "parsed_year": year, "authors_tried": candidates}
+
+
 @mcp.tool()
 def resolve_reference(
     query: str,
@@ -492,61 +652,25 @@ def resolve_reference(
     authority database.
 
     Accepts forms like ``"Haeckel 1888"``, ``"Totton 1965 A Synopsis"``,
-    or a raw citation string. Optionally pass ``author`` and ``year``
+    ``"Totton & Bargmann 1965"`` or ``"Mańko et al. 2020 Footprints"``.
+    Optionally pass ``author`` and ``year``
     separately for more precise matching. Returns the matched work with
-    all known identifiers, in-corpus status, and citation counts.
+    all known identifiers, in-corpus status, and citation counts. A failed
+    query is not proof that a publication is absent from the corpus; refine
+    the query or use an identifier before concluding that.
     """
     idx = _need_index()
     if idx.biblio_db is None:
         return error("bibliographic authority database not configured", "not_configured")
 
-    # Parse author and year from query if not provided separately
-    explicit_author = bool(author)
-    if not author:
-        import re
-        # Try to extract "Author Year" or "Author, Year"
-        m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", query.strip())
-        if m:
-            author = m.group(1).strip()
-            if not year:
-                year = int(m.group(2))
-
-    if not author:
-        return error("could not parse author from query; pass author= explicitly", "invalid_argument")
-
-    # Title fragment is whatever remains after author+year
-    title_frag = query
-    if author:
-        title_frag = title_frag.replace(author, "", 1).strip()
-    if year:
-        title_frag = title_frag.replace(str(year), "", 1).strip()
-    title_frag = title_frag.strip(" ,;:")
-
-    # Everything before the year is captured as one author string, so a
-    # two-author reference arrives as "Totton Bargmann" and matches
-    # nothing — `works` rows are keyed on a single surname. Typing both
-    # surnames is the natural way to look up a two-author work, so this
-    # failed on first use. Try the whole blob first (multi-word surnames
-    # like "van Soest" and "De Haan" are real), then each surname in it.
-    candidates = [author] if explicit_author else _author_candidates(author)
-    results = []
-    matched_author = author
-    for cand in candidates:
-        results = idx.biblio_db.search_works(
-            cand, year, title_frag if title_frag else None,
-        )
-        if not results:
-            # Broaden: try without title
-            results = idx.biblio_db.search_works(cand, year)
-        if results:
-            matched_author = cand
-            break
-    author = matched_author
+    match = _query_work_matches(idx.biblio_db, query, author=author, year=year)
+    if "error" in match:
+        return match
+    results = match.pop("results")
     if not results:
         return {
             "not_found": True, "queried": query,
-            "parsed_author": author, "parsed_year": year,
-            "authors_tried": candidates,
+            **match,
         }
     if len(results) == 1:
         w = results[0]
@@ -597,29 +721,15 @@ def _resolve_work_for_citation(
                          "not_found", paper_hash=paper_hash)
         return {"work": work}
 
-    # query: parse "Author Year [Title]".
-    import re
-    m = re.match(r"^([A-Za-zÀ-ÿ\-\s]+?)[\s,]+(\d{4})\b", (query or "").strip())
-    if not m:
-        return error(
-            "could not parse author/year from query — "
-            "pass work_id explicitly or refine query",
-            "invalid_argument", queried=query,
-        )
-    author = m.group(1).strip()
-    year = int(m.group(2))
-    title_frag = query.replace(author, "", 1).strip()
-    title_frag = title_frag.replace(str(year), "", 1).strip(" ,;:")
-    results = idx.biblio_db.search_works(
-        author, year, title_frag if title_frag else None,
-    )
-    if not results:
-        # Broaden: drop the title constraint and retry.
-        results = idx.biblio_db.search_works(author, year)
+    match = _query_work_matches(idx.biblio_db, query)
+    if "error" in match:
+        return match
+    results = match.pop("results")
     if not results:
         return error(
-            "reference not in the corpus bibliography",
-            "not_found", queried=query, parsed_author=author, parsed_year=year,
+            "no match for the parsed query in this bibliography; this does "
+            "not establish publication absence — refine the query or pass work_id",
+            "not_found", queried=query, **match,
         )
     if len(results) > 1:
         return error(
@@ -633,7 +743,7 @@ def _resolve_work_for_citation(
         )
     work = idx.biblio_db.get_work(results[0]["work_id"])
     if work is None:  # search_works returned a row, get_work lost it
-        return error("reference not in the corpus bibliography",
+        return error("matched work is unavailable; retry using its work_id",
                      "not_found", queried=query)
     return {"work": work}
 
@@ -642,15 +752,14 @@ def _format_resolved_work(idx, work, style) -> Dict[str, Any]:
     """Render a resolved ``works`` row to the citation payload."""
     from bib.format import format_citation as _format_str
 
-    # Assemble fields. volume + pages aren't on works.* — TODO when
-    # the bibliography subsystem persists per-citation locator info.
+    from bib.fields import LOCATOR_FIELDS
+
     fields: Dict[str, Any] = {
         "authors": idx.biblio_db.get_authors(work["work_id"]),
         "year": work.get("year"),
         "title": work.get("title"),
         "journal": work.get("journal"),
-        "volume": None,
-        "pages": None,
+        **{key: work.get(key) for key in LOCATOR_FIELDS},
         "doi": work.get("doi"),
     }
     rendered = _format_str(fields, style=style)
@@ -662,6 +771,11 @@ def _format_resolved_work(idx, work, style) -> Dict[str, Any]:
         "provenance": provenance,
         "warning": _PROVENANCE_WARNING[provenance],
         "fields": fields,
+        "bib_key": work.get("bib_key"),
+        "shared_identifier": work.get("shared_identifier"),
+        "corpus_hash": work.get("corpus_hash"),
+        "bibliographic_conflicts": work.get("bibliographic_conflicts", []),
+        "reference_quality_warnings": work.get("reference_quality_warnings", []),
     }
 
 
@@ -709,6 +823,8 @@ def format_citations(
     failure / ``empty_item``). The batch as a whole succeeds even if
     individual items fail. Top-level errors (bad ``style``, no/many
     selectors) return ``{error: ...}`` without a ``citations`` list.
+    ``not_found`` means this query did not resolve, not a verified absence
+    from the corpus. Refine the query or use a known identifier.
     """
     from bib.format import SUPPORTED_STYLES
 
@@ -815,6 +931,8 @@ def get_missing_references(
     results = []
     for row in cur:
         r = dict(row)
+        quality_reader = getattr(idx.biblio_db, "work_quality_warnings", None)
+        r["reference_quality_warnings"] = quality_reader(r["work_id"]) if quality_reader else []
         r["authors"] = idx.biblio_db.get_authors(r["work_id"])
         results.append(r)
     # Say how many rows the filter took. Silently dropping them would be
@@ -847,7 +965,7 @@ def get_original_description(taxon_name: str) -> Dict:
     parses ``scientificNameAuthorship``, and looks up the corresponding
     work in the bibliographic authority database. Returns the work
     record, whether it's in the corpus, and if so the ``corpus_hash``
-    for direct access via ``get_paper()``.
+    for direct access via ``get_papers(hashes=[corpus_hash])``.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:
@@ -901,12 +1019,22 @@ def get_original_description(taxon_name: str) -> Dict:
         w["authors"] = idx.biblio_db.get_authors(w["work_id"])
         w["cited_by_count"] = idx.biblio_db.citation_count(w["work_id"])
 
+    usable = [w for w in works if (w.get("title") or "").strip()]
+    reviewed = [w for w in usable if w.get("link_type") not in {"authority_match", "authority_candidate"}]
+    original = reviewed[0] if len(reviewed) == 1 else None
+    for candidate in usable:
+        candidate.setdefault("basis", {"kind": "legacy_author_year_match", "requires_source_review": True})
     return {
         "taxon": hit,
-        "original_description": works[0] if len(works) == 1 else None,
-        "candidate_works": works if len(works) > 1 else None,
-        "work": works[0] if len(works) == 1 else works,
+        "original_description": original,
+        "candidate_works": [w for w in usable if w is not original] or None,
+        "authority_stubs": [w for w in works if w not in usable] or None,
+        "work": original or (usable[0] if len(usable) == 1 else usable),
+        "note": ("curator-reviewed original description" if original else
+                 "Candidates require source review; author/year agreement alone does not establish an original description."
+                 if usable else "No located original description; only an unresolved taxonomic-authority stub is available."),
     }
+
 
 
 @mcp.tool()
@@ -950,5 +1078,7 @@ def get_works_by_author(
         r = dict(row)
         r["authors"] = idx.biblio_db.get_authors(r["work_id"])
         r["cited_by_count"] = idx.biblio_db.citation_count(r["work_id"])
+        quality_reader = getattr(idx.biblio_db, "work_quality_warnings", None)
+        r["reference_quality_warnings"] = quality_reader(r["work_id"]) if quality_reader else []
         results.append(r)
     return results
