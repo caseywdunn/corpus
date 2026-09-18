@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Uncertain source readings stay visible; extraction policy and OCR producer
   changes invalidate dependent artifacts.
 
+- Original damaged-text evidence survives full-page OCR; agreeing regional
+  readings and prepared-word geometry can recover accented tokens without
+  blindly decoding source text (#312). Preparation receipts reach scratch
+  extraction, and stale receipts retire when the producer changes.
+  Treatment headings require explicit taxonomic authority syntax; global
+  sections clear prior species context. Served source provenance uses bounded
+  previews with explicit truncation and evidence counts (#319).
+
 - Reference quality preserves observations while quarantining supported
   caption debris and surfacing uncertain fragments and incomplete surnames
   (#313, #316). Source-supported publication-year adjudication repairs mappings

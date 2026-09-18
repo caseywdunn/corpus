@@ -90,9 +90,19 @@ not a full-paper build, embedding evaluation, or corpus acceptance.
 The current default classifier independently identifies Boysen-Ennen1987 and
 Mapstone2009 as scans and selects force-OCR. One-page pilots preserving those
 full-document decisions remove the old German mojibake but still misread
-`Fänge` as `Finge` and `Alvariño` as `Alvarifio`. Regional source OCR can recover
-the printed forms; #312/#315 still need a corroborated recovery policy and
-appropriate negative controls. Do not count the routing change alone as repair.
+`Fänge` as `Finge` and `Alvariño` as `Alvarifio`. Do not count the routing change
+alone as repair.
+
+The integrated #312 policy retains candidate regions from the original native
+layer before preparation. It requires agreeing 300/600-dpi regional readings
+and aligned prepared-word geometry. Replaying Boysen-Ennen physical page 12
+through atomic figure/text materialization, real HybridChunker and `get_chunks`
+returns `RMT-8-Fänge` with its original evidence retained. Eight other suspect
+tokens remain explicitly unresolved; this is not a whole-paper German accuracy
+claim. The replay also verifies receipt transfer into temporary extraction
+outputs. Resume tests cover producer/model changes, retirement of obsolete
+receipts, clean-build equivalence and an unchanged rerun. #315's surname policy
+and broader source acceptance remain pending.
 
 ## Acceptance still required
 

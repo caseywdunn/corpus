@@ -296,6 +296,9 @@ def run_pdf_processing_pipeline(
                         input_fingerprint=prep_fingerprint):
                 plog.info("Preparing PDF...")
                 ocr_outcome = prepare_pdf(temp_pdf, detection_result, processed_pdf)
+                # A new preparation can find no repair candidates. Retire its
+                # prior receipt instead of reusing evidence from an old policy.
+                retired_native_receipt = detection_result.pop("native_text_recovery", None)
                 # #254 — pages the per-page OCR timeout gave up on. ocrmypdf
                 # copies the un-OCR'd image through and exits 0, so without
                 # this the loss reaches summary.json as nothing at all: the
@@ -303,8 +306,8 @@ def run_pdf_processing_pipeline(
                 # the only trace is a warning in one array task's log.
                 # scan_detection.json is where OCR's account of the document
                 # already lives, and it is what _run_quality_gates reads.
-                if ocr_outcome:
-                    detection_result.update(ocr_outcome)
+                if ocr_outcome or retired_native_receipt is not None:
+                    detection_result.update(ocr_outcome or {})
                     with open(detection_file, "w") as f:
                         json.dump(stamp_artifact(detection_result), f, indent=2)
                 processing_summary["files_created"].append(str(processed_pdf))

@@ -57,7 +57,7 @@ def rebuild_figure_base(hash_dir: Path, extract, *, figures_only=True):
         fresh_dir.mkdir()
         fresh_json = scratch / "figures.json"
         extract(pdf, scratch / "text.json", fresh_json, fresh_dir,
-                scan_file_type=scan.get("file_type"))
+                scan_file_type=scan.get("file_type"), scan_detection=scan)
         data = json.loads(fresh_json.read_text())
         if not isinstance(data.get("figures"), list):
             raise ValueError("Fresh extraction did not produce a figures list")

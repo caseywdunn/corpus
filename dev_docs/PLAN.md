@@ -118,8 +118,12 @@ decision provenance; document how old bundles obtain repaired mappings.
   now have same-region byte corroboration and geometric accent recovery,
   source replay, idempotence and conflicting-number controls. Incomplete
   surnames remain reviewable without guessed aliases or reverse-order merges.
-  Fresh default-OCR pilots still misread the German and Mapstone examples;
-  #312/#315 require further source-backed recovery. `[plane:build]`
+  #312 now retains original damaged-layer evidence before OCR and requires
+  agreeing regional raster readings plus prepared-word geometry. A real
+  extraction/materialization/chunk/query replay recovers the German example;
+  eight other suspect tokens remain unresolved. Producer changes reprepare
+  dependent artifacts and retire obsolete receipts. The Mapstone surname
+  policy and broader rebuilt-source acceptance remain pending. `[plane:build]`
 - [ ] **#303** — preserve scientific signs, units and exponents through stored
   text, chunks and embedding input. Word coverage alone cannot validate these
   semantics because its normalization removes punctuation. Source-glyph and
@@ -129,8 +133,11 @@ decision provenance; document how old bundles obtain repaired mappings.
 - [ ] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
   Wrong element order and missing headings need separate checks. Source order,
-  treatment propagation and context-preserving chunk boundaries are integrated;
-  bounded serving and complete rebuilt acceptance remain. `[plane:build]`
+  treatment propagation and context-preserving chunk boundaries are integrated.
+  Ordinary dated headings cannot create species treatments; global Results
+  headings clear the prior context. Served provenance has explicit per-row and
+  shared optional-evidence limits. Complete rebuilt acceptance remains.
+  `[plane:build]`
 - [ ] **#307**, **#308**, **#334** — preserve table/key cells and branch destinations,
   remove artificial repeated cell text, and recover source-supported word
   boundaries without splitting legitimate compounds. Logical-cell/key

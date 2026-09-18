@@ -33,6 +33,10 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     ))
     prep = {**scan, **select("ocr", ("optimize_level", "tesseract_page_timeout", "jobs")),
             **select("stage_timeouts", ("ocr", "ocr_per_page"))}
+    from .native_text_recovery import native_text_recovery_producer
+    # Original-layer recovery runs before OCR replaces that evidence. Its
+    # policy and installed models must invalidate preparation and consumers.
+    prep["ocr.native_text_recovery_producer"] = native_text_recovery_producer()
     extract = {**prep, **select("figures", ("resolution_mode", "images_scale", "vector_dpi", "max_dpi")),
                "compute.accelerator": cfg.get("compute", {}).get("accelerator", "auto")}
     from .source_layout import SOURCE_LAYOUT_POLICY

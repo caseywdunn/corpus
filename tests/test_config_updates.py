@@ -470,3 +470,58 @@ def test_ocr_producer_identity_invalidates_source_consumers_only(monkeypatch):
         assert before[stage]!=after[stage]
     for stage in ('scan_detection','pdf_preparation','metadata_extraction'):
         assert before[stage]==after[stage]
+
+
+def test_native_recovery_changes_reprepare_and_retire_old_evidence(corpus, monkeypatch):
+    """Exercise both resume gates and the scratch extraction publication path."""
+    import shutil
+    from pipeline import native_text_recovery
+
+    producer = {"policy": "native-v1", "models": {"deu": "model-v1"}}
+    monkeypatch.setattr(native_text_recovery, "native_text_recovery_producer",
+                        lambda: copy.deepcopy(producer))
+
+    def prepare(src, detection, dst):
+        shutil.copyfile(src, dst)
+        return ({"native_text_recovery": {"confirmed_text": "Fänge"}}
+                if producer["policy"] == "native-v1" else {})
+
+    def extract(pdf, text, figures, images, **kwargs):
+        assert text.parent != pdf.parent  # The actual atomic publication path.
+        receipt = kwargs["scan_detection"].get("native_text_recovery", {})
+        text.write_text(json.dumps({"text": receipt.get("confirmed_text", "unconfirmed")}))
+        figures.write_text(json.dumps({"figures": []}))
+
+    monkeypatch.setattr(runner, "prepare_pdf", prepare)
+    monkeypatch.setattr(runner, "extract_docling_content", extract)
+    corpus.run()
+    before = stages._load_pipeline_state(corpus.hd())["stages"]
+    assert "Fänge" in (corpus.hd() / "chunks.json").read_text()
+    producer.update(policy="native-v2", models={"deu": "model-v2"})
+    corpus.run()
+    after = stages._load_pipeline_state(corpus.hd())["stages"]
+    assert before["scan_detection"] == after["scan_detection"]
+    for stage in ("pdf_preparation", "docling_extraction", "metadata_extraction", "text_chunking"):
+        assert before[stage] != after[stage]
+    assert "native_text_recovery" not in json.loads((corpus.hd() / "scan_detection.json").read_text())
+    actual = json.loads((corpus.hd() / "chunks.json").read_text())
+    assert actual["chunks"][0]["text"] == "unconfirmed"
+    clean = corpus.run(destination=corpus.output.parent / "clean-native")
+    assert actual == json.loads((corpus.hd(destination=clean) / "chunks.json").read_text())
+    stable = stages._load_pipeline_state(corpus.hd())
+    corpus.run()
+    assert stages._load_pipeline_state(corpus.hd()) == stable
+
+
+def test_native_ocr_model_identity_invalidates_preparation_and_consumers(monkeypatch):
+    from pipeline import native_text_recovery
+    producer = {"policy": "stable-policy", "models": {"deu": "first"}}
+    monkeypatch.setattr(native_text_recovery, "native_text_recovery_producer",
+                        lambda: copy.deepcopy(producer))
+    before = config_fingerprints({}, panel_mode="ocr")
+    producer["models"]["deu"] = "second"
+    after = config_fingerprints({}, panel_mode="ocr")
+    for stage in ("pdf_preparation", "docling_extraction", "metadata_extraction", "text_chunking",
+                  "taxa_and_lexicon_extraction", "figure_materialization", "figure_crossref"):
+        assert before[stage] != after[stage]
+    assert before["scan_detection"] == after["scan_detection"]

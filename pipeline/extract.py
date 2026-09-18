@@ -63,6 +63,7 @@ def extract_docling_content(
     figures_dir: Path,
     docling_doc_output: Optional[Path] = None,
     scan_file_type: Optional[str] = None,
+    scan_detection: Optional[Dict] = None,
 ):
     """Extract text and figures using docling, with PyMuPDF fallback for figures.
 
@@ -178,8 +179,11 @@ def extract_docling_content(
         from .table_structure import prepare_table_structure, export_source_markdown
         from .treatment_context import recover_section_headings
         from .native_text_recovery import apply_native_text_recovery
-        detection_file = text_output.parent / "scan_detection.json"
-        detection = json.loads(detection_file.read_text()) if detection_file.is_file() else {}
+        # Full extraction publishes through a scratch directory; preparation
+        # receipts belong to the input PDF, never that temporary output path.
+        detection_file = pdf_path.parent / "scan_detection.json"
+        detection = scan_detection if scan_detection is not None else (
+            json.loads(detection_file.read_text()) if detection_file.is_file() else {})
         source_text_integrity = {
             "original_native_layer": apply_native_text_recovery(
                 document, pdf_path, detection.get("native_text_recovery")),
