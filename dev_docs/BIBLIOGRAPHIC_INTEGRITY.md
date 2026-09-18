@@ -130,7 +130,8 @@ omitted “the” is also supported, but when the raw title omits it the same
 citation must contain the exact curated volume/page pair. Substantive title
 words are not fuzzily repaired by this year rule. Ambiguous editions or
 shared-identifier parts are not selected. Insufficient evidence leaves an
-explicit review warning.
+explicit review warning. A continued page range or contradictory parsed
+volume/page fields cannot corroborate an omitted article.
 
 The original parsed year and raw citation remain unchanged. The derived mapping
 records its producer and method; the quality record retains the parsed year,

@@ -37,15 +37,24 @@ def _title_forms(title):
             yield " ".join(words[:i] + words[i + 1:]), "single_article_omission"
 
 
-def _locator_supported(raw_tail, candidate):
+def _locator_supported(raw_tail, candidate, ref):
     """Require a contiguous volume/page pair, never numbers anywhere in text."""
     volume = str(candidate.get("volume") or "").strip()
     pages = re.fullmatch(r"(\d+)\s*[-–—]+\s*(\d+)", str(candidate.get("pages") or ""))
     if not volume.isdigit() or not pages:
         return False
     first, last = pages.groups()
+    # Some producers expose parsed locators as well as raw text. Contradictory
+    # fields need review; this rule is not a general locator-repair mechanism.
+    if ref.get("volume") and str(ref["volume"]).strip() != volume:
+        return False
+    if ref.get("pages"):
+        parsed_pages = re.fullmatch(r"(\d+)\s*[-–—]+\s*(\d+)", str(ref["pages"]).strip())
+        if parsed_pages is None or parsed_pages.groups() != (first, last):
+            return False
     return bool(re.search(rf"(?<!\w){re.escape(volume)}\s*[,;:]\s*"
-                          rf"{re.escape(first)}\s*[-–—]+\s*{re.escape(last)}(?!\w)", raw_tail))
+                          rf"{re.escape(first)}\s*[-–—]+\s*{re.escape(last)}"
+                          rf"(?!\w|\s*[-–—])", raw_tail))
 
 
 def adjudicate(ref, index):
@@ -98,7 +107,7 @@ def adjudicate(ref, index):
                 # The prefix has already excluded this date, so its first
                 # occurrence ends the matched title. Preserve locator dashes.
                 title_date_end = re.search(rf"\b{parsed_year}\b", raw_joined)
-                if title_date_end is None or not _locator_supported(raw_joined[title_date_end.end():], candidate):
+                if title_date_end is None or not _locator_supported(raw_joined[title_date_end.end():], candidate, ref):
                     continue
             supported.append((candidate, alignment))
             break

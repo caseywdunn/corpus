@@ -107,12 +107,16 @@ def test_real_refreshed_observations_rebuild_counts_missing_and_preserve_old_row
     {'raw_replace': ('54, 25-90', '55, 25-90')},
     {'raw_replace': ('54, 25-90', '54, 25-91')},
     {'raw_replace': ('54, 25-90', '54, 25 90')},
+    {'raw_replace': ('54, 25-90', '54, 25–90–105')},
+    {'raw_replace': ('54, 25-90', '54, 25-90 - 105')},
     {'raw_replace': ('P.R. 1974', 'P.R. 1975')},
     {'raw_replace': ('P.R. 1974', 'P.R. 1974, 1975')},
     {'raw_replace': ('PUGH', 'P- UGH')},
     {'raw_replace': ('of siphonophores', 'of plankton')},
     {'authors': ['P Pugh', 'A Another']},
     {'doi': '10.9999/conflicting'},
+    {'volume': '55'},
+    {'pages': '25–91'},
 ])
 def test_printed_article_omission_needs_all_independent_evidence(tmp_path, change):
     conn, _ = make_authority(tmp_path)
@@ -132,6 +136,23 @@ def test_no_substantive_fuzzy_title_repair_or_multiple_article_omissions(tmp_pat
     assert adjudicate(dict(ref, title=ref['title'].replace('cruise', 'crise')), index) == (None, [])
     omitted = CASES[3]['fresh_reference']
     assert adjudicate(dict(omitted, title=omitted['title'].removeprefix('The ')), index) == (None, [])
+
+
+@pytest.mark.parametrize('title_change', [
+    lambda title: title.replace('collected ', ''),
+    lambda title: 'A reconsideration of ' + title,
+    lambda title: title + ' and a comparison with other collections',
+])
+def test_substantive_omissions_and_title_prefix_or_suffix_are_not_candidates(tmp_path, title_change):
+    conn, _ = make_authority(tmp_path)
+    ref = CASES[3]['fresh_reference']
+    assert adjudicate(dict(ref, title=title_change(ref['title'])), candidate_index(conn)) == (None, [])
+
+
+def test_matching_explicit_parsed_locators_preserve_source_supported_omission(tmp_path):
+    conn, _ = make_authority(tmp_path)
+    ref = dict(CASES[3]['fresh_reference'], volume='54', pages='25–90')
+    assert adjudicate(ref, candidate_index(conn))[0] == find_work(conn, TARGET['paper_hash'])
 
 
 @pytest.mark.parametrize('same_doi', [False, True])
