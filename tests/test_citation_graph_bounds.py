@@ -88,7 +88,7 @@ def test_a_capped_answer_says_how_much_it_did_not_return(served):
     assert out["truncated"] is True
     assert out["edges_available"] == {"cited_by": 2277}
     assert out["edges_returned"]["cited_by"] == 500
-    assert "max_edges_per_node" in out["truncated_reason"]
+    assert "max_total_edges" in out["truncated_reason"]
 
 
 @pytest.mark.parametrize("served", [(_edges(20), _edges(5, "c"))], indirect=True)
@@ -190,3 +190,47 @@ def test_the_tool_signature_is_unchanged():
         "work_id", "paper_hash", "direction", "depth",
         "max_edges_per_node", "max_total_edges",
     ]
+
+
+@pytest.mark.parametrize("served", [(_edges(7), _edges(4, "c"))], indirect=True)
+@pytest.mark.parametrize("budget", [0, 1, 4, 5, 11, 12])
+def test_both_directions_share_one_total_edge_budget(served, budget):
+    out = get_citation_graph(work_id="root", direction="both", max_total_edges=budget)
+    assert out["edges_available"] == {"citing": 4, "cited_by": 7}
+    returned = sum(out["edges_returned"].values())
+    assert returned == min(budget, 11)
+    assert returned == len(out["citing"]) + len(out["cited_by"])
+    assert out["truncated"] is (budget < 11)
+    if budget < 11:
+        assert out["truncated_reason"] == ["max_total_edges"]
+
+
+@pytest.mark.parametrize("served", [(_edges(7), _edges(4, "c"))], indirect=True)
+def test_shared_budget_with_explicit_per_node_cap(served):
+    out = get_citation_graph(work_id="root", max_total_edges=1, max_edges_per_node=3)
+    assert out["edges_returned"] == {"citing": 1, "cited_by": 0}
+    assert out["edges_available"] == {"citing": 4, "cited_by": 7}
+    assert set(out["truncated_reason"]) == {"max_total_edges", "max_edges_per_node"}
+
+
+@pytest.mark.parametrize("direction", ["in", "out", "", "BOTH"])
+def test_unsupported_direction_is_a_structured_error(served, direction):
+    out = get_citation_graph(work_id="root", direction=direction)
+    assert out["code"] == "invalid_argument"
+    assert "direction" in out["error"]
+
+
+def test_shared_budget_applies_across_transitive_walks(monkeypatch):
+    class Graph(_FakeBiblio):
+        def citing(self, wid):
+            return _edges(2, prefix=wid + ":")
+
+        def cited_by(self, wid):
+            return _edges(2, prefix=wid + "-out:")
+
+    monkeypatch.setattr(mcp_app, "_INDEX", types.SimpleNamespace(biblio_db=Graph()))
+    out = get_citation_graph(work_id="root", depth=3, max_total_edges=5)
+    assert sum(out["edges_returned"].values()) == 5
+    assert max(row["depth"] for row in out["citing"]) == 2
+    assert out["edges_available"] == {"citing": 2, "cited_by": 2}
+    assert out["truncated_reason"] == ["max_total_edges"]

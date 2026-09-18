@@ -37,7 +37,7 @@ def get_bibliography(
     With ``resolved=True``, each reference is enriched with its
     bibliographic authority record: ``work_id``, ``in_corpus``,
     ``corpus_hash`` (if in corpus), and ``cited_by_count``. Click
-    through to a cited work via ``get_paper(corpus_hash)``. Requires
+    through to a cited work via ``get_papers(hashes=[corpus_hash])``. Requires
     the bibliographic authority database; falls back to unresolved
     output if unavailable.
     """
@@ -84,7 +84,8 @@ def get_intext_citations(
 
     Returns ``{paragraphs, citations, total_paragraphs,
     total_citations}``. Each citation record carries
-    ``target_xml_id`` (links to ``get_bibliography(xml_id=...)``;
+    ``target_xml_id`` (select the matching ``xml_id`` from
+    ``get_bibliography(paper_hash=...)``, ignoring a leading ``#``;
     ``None`` for unresolved), ``surface`` (the cited text), the
     enclosing ``section`` heading, and ``para_index`` into the
     returned ``paragraphs`` list.
@@ -145,69 +146,150 @@ def get_intext_citations(
     }
 
 
-@mcp.tool()
-def get_excerpts_citing(work_id: str, limit: int = 50) -> Dict:
-    """Cross-corpus passages citing ``work_id`` — actual paragraph
-    text around each citation marker. Answers "show me every passage
-    where <Author Year> is cited" (issue #7).
+# Serialized JSON ceiling, including completeness/provenance metadata.
+EXCERPTS_MAX_BYTES = int(os.environ.get("CORPUS_EXCERPTS_MAX_BYTES", 128 * 1024))
 
-    ``work_id`` is a DOI / ``corpus:...`` / ``bhl:...`` key — same
-    space as ``get_citation_graph``. Only resolved citations
-    contribute (~60% of in-text refs); Grobid-unmatched refs don't
-    surface here.
 
-    Returns ``{work_id, n_excerpts, excerpts: [{citing_paper_hash,
-    citing_paper_title, surface, section, paragraph}, ...]}``.
+def _excerpts_citing(idx, work_id: str):
+    """Yield one row per matching marker, ordered by paper hash and marker index.
+
+    Group authority targets before reading the in-text file, so duplicate
+    authority edges never duplicate markers and each paper is read once.
     """
+    from itertools import groupby
+
+    rows = idx.biblio_db.conn.execute(
+        """SELECT DISTINCT citing_corpus_hash, grobid_xml_id FROM citations
+           WHERE cited_work_id = ? AND citing_corpus_hash IS NOT NULL
+             AND grobid_xml_id IS NOT NULL
+           ORDER BY citing_corpus_hash, grobid_xml_id""",
+        (work_id,),
+    )
+    for citing_hash, group in groupby(rows, key=lambda r: r["citing_corpus_hash"]):
+        targets = {"#" + r["grobid_xml_id"].lstrip("#") for r in group
+                   if r["grobid_xml_id"]}
+        paper = idx.papers.get(citing_hash)
+        if not paper or not targets:
+            continue
+        data = _load_json(Path(paper["hash_dir"]) / "intext_citations.json", default=None)
+        if data is None:
+            continue
+        paras = data.get("paragraphs") or []
+        for citation_index, citation in enumerate(data.get("citations") or []):
+            if citation.get("target_xml_id") not in targets:
+                continue
+            pi = citation.get("para_index")
+            yield {
+                "citing_paper_hash": citing_hash,
+                "citing_paper_title": paper.get("title") or "",
+                "surface": citation.get("surface", ""),
+                "section": citation.get("section", ""),
+                "paragraph": paras[pi] if isinstance(pi, int) and 0 <= pi < len(paras) else "",
+                "citation_index": citation_index,
+                "target_xml_id": citation["target_xml_id"],
+                "para_index": pi,
+            }
+
+
+@mcp.tool()
+def get_excerpts_citing(work_id: str, limit: int = 50, offset: int = 0) -> Dict:
+    """Cross-corpus paragraphs citing a resolved authority ``work_id``.
+
+    ``limit`` and ``offset`` paginate citation markers in deterministic paper
+    hash / source marker order within a stable bundle. Several markers may
+    share a paragraph: ``excerpts_available`` and ``n_excerpts`` count markers,
+    not unique paragraphs. Only markers linked through authority citation
+    targets contribute; unresolved references do not surface here.
+
+    Returns the existing ``work_id``, ``n_excerpts`` and ``excerpts`` fields,
+    plus ``excerpts_available``, ``excerpts_returned``, ``offset``,
+    ``next_offset`` (null at the end), ``counting_unit``, ``truncated``,
+    ``truncated_reason`` and ``response_bytes``. Follow ``next_offset`` to
+    retrieve remaining markers, including when the byte cap shortens a page.
+    ``limit=0`` returns counts only; use a positive limit to make progress.
+
+    Each row retains ``citing_paper_hash``, ``citing_paper_title``, ``surface``,
+    ``section`` and ``paragraph``, and adds source ``citation_index``,
+    ``target_xml_id`` and ``para_index``. Full source records can be requested
+    with ``get_intext_citations(paper_hash=..., offset=citation_index, limit=1)``.
+
+    Serialized JSON (default json.dumps separators and ASCII escaping) is
+    bounded by ``CORPUS_EXCERPTS_MAX_BYTES`` (default 128 KiB), including
+    metadata. If one marker alone is too large, text fields become explicitly
+    marked previews: ``truncated_fields`` gives each original character count.
+    Marker identity is preserved and pagination advances past that marker.
+    """
+    if limit < 0 or offset < 0:
+        return error("limit and offset must be non-negative", "invalid_argument")
     idx = _need_index()
     if idx.biblio_db is None:
         return error("biblio_authority DB not loaded", "not_configured")
 
-    rows = idx.biblio_db.conn.execute(
-        """SELECT c.citing_corpus_hash, c.grobid_xml_id
-           FROM citations c
-           WHERE c.cited_work_id = ?""",
-        (work_id,),
-    ).fetchall()
-
     excerpts: List[Dict] = []
-    for row in rows:
-        if len(excerpts) >= limit:
-            break
-        citing_hash = row["citing_corpus_hash"]
-        grobid_id = row["grobid_xml_id"]
-        if not citing_hash or not grobid_id:
+    available = 0
+    collected_bytes = 0
+    byte_limited = False
+    # Count all eligible markers while retaining only one bounded page.
+    # Do not cache a corpus-wide list of paragraph-bearing rows.
+    for row in _excerpts_citing(idx, work_id):
+        available += 1
+        if available <= offset or len(excerpts) >= limit or byte_limited:
             continue
-        p = idx.papers.get(citing_hash)
-        if not p:
+        row_bytes = _payload_bytes(row)
+        if excerpts and collected_bytes + row_bytes > EXCERPTS_MAX_BYTES:
+            byte_limited = True
             continue
-        data = _load_json(
-            Path(p["hash_dir"]) / "intext_citations.json", default=None,
-        )
-        if data is None:
-            continue
-        paras = data.get("paragraphs", [])
-        target_match = "#" + grobid_id
-        for c in data.get("citations", []):
-            if c.get("target_xml_id") != target_match:
-                continue
-            pi = c.get("para_index")
-            paragraph = paras[pi] if isinstance(pi, int) and 0 <= pi < len(paras) else ""
-            excerpts.append({
-                "citing_paper_hash": citing_hash,
-                "citing_paper_title": p.get("title") or "",
-                "surface": c.get("surface", ""),
-                "section": c.get("section", ""),
-                "paragraph": paragraph,
-            })
-            if len(excerpts) >= limit:
-                break
+        excerpts.append(row)
+        collected_bytes += row_bytes
+        if collected_bytes > EXCERPTS_MAX_BYTES:
+            byte_limited = True
 
-    return {
+    result = {
         "work_id": work_id,
-        "n_excerpts": len(excerpts),
         "excerpts": excerpts,
+        "excerpts_available": available,
+        "counting_unit": "citation_markers",
+        "offset": offset,
     }
+
+    def finish() -> int:
+        n = len(excerpts)
+        more = offset + n < available
+        result["n_excerpts"] = n
+        result["excerpts_returned"] = n
+        result["next_offset"] = offset + n if more else None
+        result["truncated"] = more or byte_limited
+        result["truncated_reason"] = (
+            (["limit"] if more and n >= limit else [])
+            + (["response_bytes"] if byte_limited else [])
+        )
+        result["response_bytes"] = 0
+        size = _payload_bytes(result)
+        while result["response_bytes"] != size:
+            result["response_bytes"] = size
+            size = _payload_bytes(result)
+        return size
+
+    # Include the metadata itself in the budget. Removing rows only from
+    # the end preserves the contiguous offset window for the next request.
+    while finish() > EXCERPTS_MAX_BYTES and len(excerpts) > 1:
+        byte_limited = True
+        excerpts.pop()
+    while finish() > EXCERPTS_MAX_BYTES and excerpts:
+        byte_limited = True
+        row = excerpts[0]
+        field = max(
+            (f for f in ("paragraph", "citing_paper_title", "surface", "section")
+             if isinstance(row.get(f), str) and row[f]),
+            key=lambda f: len(row[f]), default=None,
+        )
+        if field is None:
+            break
+        row.setdefault("truncated_fields", {}).setdefault(field, len(row[field]))
+        row[field] = row[field][:len(row[field]) // 2]
+    if finish() > EXCERPTS_MAX_BYTES:
+        return error("excerpt byte budget cannot fit response metadata", "unavailable")
+    return result
 
 
 @mcp.tool()
@@ -231,7 +313,8 @@ def get_citation_graph(
     ``max_edges_per_node`` caps how many edges each node contributes
     (when a node exceeds it, its edges are ranked by ``cited_by_count``
     descending and the top ones kept), and ``max_total_edges`` caps the
-    whole walk. The response carries ``truncated: bool`` so a caller can
+    combined walk (``citing`` first, then ``cited_by`` from the remaining
+    budget). The response carries ``truncated: bool`` so a caller can
     tell whether either cap fired.
 
     ``max_edges_per_node`` defaults to *unbounded at ``depth=1``* and to
@@ -255,8 +338,8 @@ def get_citation_graph(
     So the response carries the numbers a caller needs rather than one
     boolean:
 
-    * ``edges_available`` — how many edges exist per direction, before
-      any cap. Compare with ``edges_returned`` to know what you got.
+    * ``edges_available`` — root immediate-edge counts per direction, before
+      any cap (also at greater depths). Compare with ``edges_returned`` to know what you got.
     * ``edges_returned`` — what is in this payload.
     * ``response_bytes`` — its serialized size, so a client near its own
       transport limit can see it coming.
@@ -276,6 +359,10 @@ def get_citation_graph(
     idx = _need_index()
     if idx.biblio_db is None:
         return error("bibliographic authority database not configured", "not_configured")
+    if direction not in {"citing", "cited_by", "both"}:
+        return error("direction must be citing, cited_by, or both", "invalid_argument")
+    if max_total_edges < 0 or (max_edges_per_node is not None and max_edges_per_node < 0):
+        return error("edge budgets must be non-negative", "invalid_argument")
     # Resolve paper_hash to work_id if needed
     if not work_id and paper_hash:
         w = idx.biblio_db.get_work_by_corpus_hash(paper_hash)
@@ -293,7 +380,7 @@ def get_citation_graph(
     if max_edges_per_node is None:
         # Only the total cap applies at depth 1 — one node is expanded,
         # so there is no fan-out to multiply. See the docstring.
-        max_edges_per_node = max_total_edges if depth <= 1 else 50
+        max_edges_per_node = None if depth <= 1 else 50
     result: Dict[str, Any] = {
         "root": {
             **root,
@@ -306,14 +393,16 @@ def get_citation_graph(
     reasons: List[str] = []
     available: Dict[str, int] = {}
     returned: Dict[str, int] = {}
+    remaining_edges = max_total_edges
     for name in ("citing", "cited_by"):
         if direction not in (name, "both"):
             continue
         edges, t, why, n_available = _walk_citations(
             idx.biblio_db, work_id, name, depth,
             max_edges_per_node=max_edges_per_node,
-            max_total_edges=max_total_edges,
+            max_total_edges=remaining_edges,
         )
+        remaining_edges -= len(edges)
         result[name] = edges
         available[name] = n_available
         returned[name] = len(edges)
@@ -388,7 +477,7 @@ def _payload_bytes(payload: Dict) -> int:
 
 def _walk_citations(
     biblio: BiblioAuthority, work_id: str, direction: str, depth: int,
-    *, max_edges_per_node: int, max_total_edges: int,
+    *, max_edges_per_node: Optional[int], max_total_edges: int,
 ) -> "tuple[List[Dict], bool, List[str], int]":
     """BFS citation walk with breadth + total-edge caps (#87).
 
@@ -421,7 +510,7 @@ def _walk_citations(
             rows = biblio.citing(wid) if direction == "citing" else biblio.cited_by(wid)
             if wid == work_id:
                 root_available = len(rows)
-            if len(rows) > max_edges_per_node:
+            if max_edges_per_node is not None and len(rows) > max_edges_per_node:
                 truncated = True
                 if "max_edges_per_node" not in reasons:
                     reasons.append("max_edges_per_node")
@@ -847,7 +936,7 @@ def get_original_description(taxon_name: str) -> Dict:
     parses ``scientificNameAuthorship``, and looks up the corresponding
     work in the bibliographic authority database. Returns the work
     record, whether it's in the corpus, and if so the ``corpus_hash``
-    for direct access via ``get_paper()``.
+    for direct access via ``get_papers(hashes=[corpus_hash])``.
     """
     idx = _need_index()
     if idx.taxonomy_db is None:

@@ -271,3 +271,50 @@ def test_term_dossier_chunk_examples_capped(corpus):
     out = get_lexicon_term_dossier("anatomy", "pneumatophore",
                                    max_chunk_examples=1)
     assert len(out["chunk_examples"]) == 1
+
+
+@pytest.mark.parametrize("selection", [
+    {"year_from": 2010, "year_to": 2010},
+    {"paper_hashes": ["bbbbbbbbbbbb"]},
+])
+@pytest.mark.parametrize("detail", [False, True])
+def test_top_terms_are_selected_after_paper_filter(corpus, selection, detail):
+    """The global winner is not the winner in the selected paper set (#328)."""
+    out = lexicon_matrix("anatomy", top_n=1, detail=detail, **selection)
+    if detail:
+        assert out["terms"] == ["tentacle"]
+        assert sum(r["counts"][0] for r in out["rows"]) == 3
+    else:
+        assert out["term_totals"] == [
+            {"term": "tentacle", "total_mentions": 3, "papers_with_mentions": 1},
+        ]
+
+
+def test_filtered_top_terms_ties_are_alphabetical(corpus):
+    corpus.lexicon_mention_counts["anatomy"]["nectophore"]["bbbbbbbbbbbb"] = 3
+    out = lexicon_matrix("anatomy", paper_hashes=["bbbbbbbbbbbb"], top_n=2)
+    assert [r["term"] for r in out["term_totals"]] == ["nectophore", "tentacle"]
+
+
+def test_filtered_explicit_terms_preserve_caller_order(corpus):
+    out = lexicon_matrix("anatomy", terms=["pneumatophore", "tentacle"],
+                         year_from=2010)
+    assert [r["term"] for r in out["term_totals"]] == ["pneumatophore", "tentacle"]
+
+
+@pytest.mark.parametrize("selection", [
+    {"year_from": 1850, "year_to": 1900}, {"paper_hashes": ["historical"]},
+])
+def test_two_paper_audit_reproduction_selects_historical_leader(monkeypatch, selection):
+    idx = types.SimpleNamespace(
+        papers={"modern": {"year": 2020}, "historical": {"year": 1890}},
+        lexicon_to_papers={"anatomy": {"global_leader": ["modern"],
+                                       "historical_leader": ["historical"]}},
+        lexicon_mention_counts={"anatomy": {"global_leader": {"modern": 100},
+                                           "historical_leader": {"historical": 10}}},
+    )
+    monkeypatch.setattr(mcp_app, "_INDEX", idx)
+    out = lexicon_matrix("anatomy", top_n=1, **selection)
+    assert out["term_totals"] == [
+        {"term": "historical_leader", "total_mentions": 10, "papers_with_mentions": 1},
+    ]

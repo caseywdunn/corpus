@@ -530,3 +530,38 @@ def test_get_chunks_for_taxon_limit_zero_returns_error(corpus):
 def test_get_chunks_for_taxon_limit_positive_caps_results(corpus):
     rows = get_chunks_for_taxon("Marrus", limit=2)
     assert len(rows) == 2
+
+
+def test_aggregate_scope_exposes_cap_denominator_without_papers_section(corpus):
+    """Capping the dossier must never disguise selected-paper totals (#318)."""
+    small = get_taxon_dossier("Marrus", max_papers=1,
+                              include=["lexicon", "cooccurring_taxa"])
+    full = get_taxon_dossier("Marrus", max_papers=2,
+                             include=["lexicon", "cooccurring_taxa"])
+    assert small["n_papers_mentioning"] == full["n_papers_mentioning"] == 2
+    assert small["aggregate_scope"] == {
+        "kind": "selected_papers", "papers_selected": 1, "papers_available": 2,
+        "selection_policy": "taxon_mentions_desc, year_desc, paper_hash_asc",
+    }
+    assert full["aggregate_scope"]["papers_selected"] == 2
+    assert full["aggregate_scope"]["papers_available"] == 2
+    assert "papers" not in small
+    assert small["lexicon_aggregated"] != full["lexicon_aggregated"]
+
+
+def test_aggregate_scope_zero_and_empty_corpus(corpus):
+    zero = get_taxon_dossier("Marrus", max_papers=0)
+    assert zero["aggregate_scope"]["papers_selected"] == 0
+    assert zero["lexicon_aggregated"] == {}
+    corpus.taxon_to_papers["t:marrus"] = []
+    empty = get_taxon_dossier("Marrus")
+    assert empty["aggregate_scope"]["papers_selected"] == 0
+    assert empty["aggregate_scope"]["papers_available"] == 0
+
+
+def test_dossier_paper_order_ties_have_stable_hash_tiebreak(corpus):
+    corpus.taxon_to_papers["t:marrus"] = ["bbbbbbbbbbbb", "aaaaaaaaaaaa"]
+    corpus.taxon_mention_counts["t:marrus"] = {"aaaaaaaaaaaa": 1, "bbbbbbbbbbbb": 1}
+    corpus.papers["bbbbbbbbbbbb"]["year"] = corpus.papers["aaaaaaaaaaaa"]["year"]
+    out = get_taxon_dossier("Marrus", max_papers=1, include=["papers", "lexicon"])
+    assert out["papers"][0]["hash"] == "aaaaaaaaaaaa"

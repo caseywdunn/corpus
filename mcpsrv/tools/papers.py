@@ -200,7 +200,7 @@ def list_papers(
     English translation answers to both ``ru`` and ``en``.
 
     Defaults to 100 rows; paginate via ``offset``. Call
-    ``get_paper(hash)`` for full metadata (authors, abstract, DOI,
+    ``get_papers(hashes=[hash])`` for full metadata (authors, abstract, DOI,
     filename, top taxa, top lexicon terms).
     """
     idx = _need_index()

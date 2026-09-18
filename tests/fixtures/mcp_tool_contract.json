@@ -352,6 +352,11 @@
           "title": "Limit",
           "type": "integer"
         },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
         "work_id": {
           "title": "Work Id",
           "type": "string"
@@ -363,7 +368,7 @@
       "title": "get_excerpts_citingArguments",
       "type": "object"
     },
-    "signature": "(work_id: 'str', limit: 'int' = 50) -> 'Dict'"
+    "signature": "(work_id: 'str', limit: 'int' = 50, offset: 'int' = 0) -> 'Dict'"
   },
   "get_figure": {
     "input_schema": {

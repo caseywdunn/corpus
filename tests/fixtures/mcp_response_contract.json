@@ -282,6 +282,12 @@
     }
   ],
   "taxon_dossier": {
+    "aggregate_scope": {
+      "kind": "str",
+      "papers_available": "int",
+      "papers_selected": "int",
+      "selection_policy": "str"
+    },
     "chunk_index": [
       {
         "chunk_id": "str",
