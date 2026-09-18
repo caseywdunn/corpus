@@ -307,3 +307,50 @@ def test_curated_volume_number_in_title_is_identity_evidence(tmp_path):
     insert_work(conn, "wrong-volume", "corpus_key", "A long book about colonial animals. Volume 5", 2018, "Zootaxa", "", None, False, "cited_reference")
     conflict = _curated_candidate_conflict(conn, wid, "wrong-volume")
     assert "authoritative_title_part_disagrees" in conflict["reasons"]
+
+
+def test_reported_library_entries_preserve_real_values_through_fresh_and_unchanged_build(tmp_path, monkeypatch):
+    from pathlib import Path
+    from mcpsrv.tools.bibliography import get_citation_graph
+    fixtures = Path(__file__).parent / "fixtures/bibliographic_integrity"
+    provenance = json.loads((fixtures / "provenance.json").read_text())
+    entries = {e["_key"]: e for e in parse_bibtex((fixtures / "source.bib").read_text())}
+    assert entries.keys() == provenance["entries"].keys()
+    by_hash = {provenance["entries"][key]["pdf_hash"]: entry for key, entry in entries.items()}
+    conn, db = build(tmp_path, by_hash)
+    monkeypatch.setattr(app, "_INDEX", SimpleNamespace(biblio_db=BiblioAuthority(db)))
+
+    def collect():
+        return {key: format_citations(paper_hashes=[e["pdf_hash"]])["citations"][0]
+                for key, e in provenance["entries"].items()}
+
+    first = collect()
+    for key, result in first.items():
+        assert result["fields"]["title"] == entries[key]["title"]
+        assert result["provenance"] == "bib"
+        assert result["bib_key"] == key
+    church = first["Churchetal2015"]["fields"]
+    assert (church["volume"], church["number"], church["pages"]) == ("324", "5", "435--449")
+    article_number = first["Ahujaetal2024"]["fields"]
+    assert article_number["pages"] == "evae048"
+    assert article_number["eid"] is None  # preserve source representation, do not invent a field
+    volumes = [result for key, result in first.items() if key.startswith("delleChiaje")]
+    assert len(volumes) == len({r["work_id"] for r in volumes}) == 7
+    assert all(r["fields"]["volume"] is None for r in volumes)  # identity lives in supplied title
+    assert all(r["shared_identifier"] == "10.5962/bhl.title.10031" for r in volumes)
+    assert len(first["Moore1953"]["fields"]["authors"]) == 1
+    assert len(first["Mooreetal1953"]["fields"]["authors"]) == 4
+    assert first["Mooreetal1953"]["fields"]["authors"][-1]["surname"] == "Dow. T."
+    assert first["MankoPugh2018"]["fields"]["authors"][0]["surname"] == "Mańko"
+    chun_hash = provenance["entries"]["Chun1898b"]["pdf_hash"]
+    assert first["Chun1898b"]["fields"]["pages"] == "309--313"
+    assert document_metadata(conn, chun_hash)["keeppages"] == "2--6"
+    assert get_citation_graph(paper_hash=chun_hash)["root"]["title"] == entries["Chun1898b"]["title"]
+    # Public export/import includes every distinct part, even with one DOI.
+    exported = tmp_path / "exported.bib"
+    exported.write_text(export_bibtex(db))
+    counters = import_bibtex(db, exported)
+    assert counters["no_changes"] == len(entries)
+    phase1_corpus_papers(conn, tmp_path)
+    after = collect()
+    assert {key: result["fields"] for key, result in first.items()} == {key: result["fields"] for key, result in after.items()}

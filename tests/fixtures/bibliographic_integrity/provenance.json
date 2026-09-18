@@ -1,0 +1,66 @@
+{
+  "source_repository": "https://github.com/dunnlab/siphonophores",
+  "source_commit": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+  "source_path": "siphonophores.bib",
+  "source_file_sha256": "e3678544aa0de925aa86c6d3ef198271a02aefb7a7ce2cafd5f23c9c71c4c165",
+  "fixture_scope": "Selected bibliographic fields copied as parsed values; no PDFs or derived authority rows. Physical keeppages retained only for Chun1898b.",
+  "pdf_hash_evidence": {
+    "bundle_version": "1.2.1",
+    "created_at": "2026-09-01T10:23:34Z",
+    "pipeline_git_sha": "31784560ceaed157192ba2e4fa35a5f5c4b6feca"
+  },
+  "entries": {
+    "Ahujaetal2024": {
+      "pdf_hash": "1fd81399212c",
+      "filename": "Ahuja_etal2024.pdf"
+    },
+    "MankoPugh2018": {
+      "pdf_hash": "cd108374456b",
+      "filename": "Manko_Pugh2018.pdf"
+    },
+    "Churchetal2015": {
+      "pdf_hash": "202b537d0a02",
+      "filename": "Churchetal2015.pdf"
+    },
+    "delleChiaje1841Volume1": {
+      "pdf_hash": "437c17ceb0d9",
+      "filename": "delle Chiaje1841Volume1.pdf"
+    },
+    "delleChiaje1841Volume2": {
+      "pdf_hash": "480e92a04fa6",
+      "filename": "delle Chiaje1841Volume2.pdf"
+    },
+    "delleChiaje1841Volume3": {
+      "pdf_hash": "c479a415924d",
+      "filename": "delle Chiaje1841Volume3.pdf"
+    },
+    "Moore1953": {
+      "pdf_hash": "d0b8cb7b011d",
+      "filename": "Moore1953.pdf"
+    },
+    "Mooreetal1953": {
+      "pdf_hash": "663f82651371",
+      "filename": "Moore_etal1953.pdf"
+    },
+    "Chun1898b": {
+      "pdf_hash": "3461e68936b6",
+      "filename": "Chun1898b.pdf"
+    },
+    "delleChiaje1841Volume5": {
+      "pdf_hash": "4146f5feabcb",
+      "filename": "delle Chiaje1841Volume5.pdf"
+    },
+    "delleChiaje1841PlatesVolumes6_7": {
+      "pdf_hash": "6252807d0b0e",
+      "filename": "delle Chiaje1841PlatesVolumes6-7.pdf"
+    },
+    "delleChiaje1841Volume8": {
+      "pdf_hash": "434b8cbc1a05",
+      "filename": "delle Chiaje1841Volume8.pdf"
+    },
+    "delleChiaje1841Volume4": {
+      "pdf_hash": "40664a677b70",
+      "filename": "delle Chiaje1841Volume4.pdf"
+    }
+  }
+}
