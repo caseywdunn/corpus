@@ -302,32 +302,16 @@ def merge_phase1_into_ghost(conn: sqlite3.Connection,
         "DELETE FROM citations WHERE citing_work_id = ?", (phase1_work_id,),
     )
 
-    # 2. Copy authors the ghost doesn't already have, appending at the end.
-    cur = conn.execute(
-        "SELECT position, surname, surname_normalized, forename "
-        "FROM work_authors WHERE work_id = ? ORDER BY position",
-        (phase1_work_id,),
-    )
-    phase1_authors = list(cur)
-    cur = conn.execute(
-        "SELECT MAX(position) FROM work_authors WHERE work_id = ?", (ghost_work_id,),
-    )
-    row = cur.fetchone()
-    next_pos = (row[0] + 1) if row and row[0] is not None else 0
-    for _, surname, surname_norm, forename in phase1_authors:
-        dup = conn.execute(
-            "SELECT 1 FROM work_authors WHERE work_id = ? AND surname_normalized = ?",
-            (ghost_work_id, surname_norm),
-        ).fetchone()
-        if dup:
-            continue
-        conn.execute(
-            """INSERT OR IGNORE INTO work_authors
-               (work_id, position, surname, surname_normalized, forename)
-               VALUES (?, ?, ?, ?, ?)""",
-            (ghost_work_id, next_pos, surname, surname_norm, forename),
-        )
-        next_pos += 1
+    # Author order/spelling is a source fact, not a set to union by surname.
+    # Preserve complete authoritative lists even when the surviving ID belongs
+    # to an extracted ghost (#296).
+    from .fields import capture_legacy, move_sources
+    capture_legacy(conn, phase1_work_id)
+    capture_legacy(conn, ghost_work_id)
+    if not conn.execute("SELECT 1 FROM work_authors WHERE work_id=?", (ghost_work_id,)).fetchone():
+        conn.execute("""INSERT INTO work_authors
+            SELECT ?,position,surname,surname_normalized,forename FROM work_authors WHERE work_id=?""",
+            (ghost_work_id, phase1_work_id))
 
     # 3. Copy aliases that aren't already on the ghost.
     conn.execute(
@@ -374,6 +358,8 @@ def merge_phase1_into_ghost(conn: sqlite3.Connection,
                WHERE work_id = ?""",
             (corpus_hash, carried_bib, time.time(), ghost_work_id),
         )
+
+    move_sources(conn, phase1_work_id, ghost_work_id)
 
     # 5. Clean up the now-orphan Phase-1 row.
     from .documents import move_memberships

@@ -731,15 +731,14 @@ def _format_resolved_work(idx, work, style) -> Dict[str, Any]:
     """Render a resolved ``works`` row to the citation payload."""
     from bib.format import format_citation as _format_str
 
-    # Assemble fields. volume + pages aren't on works.* — TODO when
-    # the bibliography subsystem persists per-citation locator info.
+    from bib.fields import LOCATOR_FIELDS
+
     fields: Dict[str, Any] = {
         "authors": idx.biblio_db.get_authors(work["work_id"]),
         "year": work.get("year"),
         "title": work.get("title"),
         "journal": work.get("journal"),
-        "volume": None,
-        "pages": None,
+        **{key: work.get(key) for key in LOCATOR_FIELDS},
         "doi": work.get("doi"),
     }
     rendered = _format_str(fields, style=style)
@@ -751,6 +750,8 @@ def _format_resolved_work(idx, work, style) -> Dict[str, Any]:
         "provenance": provenance,
         "warning": _PROVENANCE_WARNING[provenance],
         "fields": fields,
+        "bib_key": work.get("bib_key"),
+        "bibliographic_conflicts": work.get("bibliographic_conflicts", []),
     }
 
 

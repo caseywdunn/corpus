@@ -71,7 +71,7 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v3"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v4"
 
 # Cross-block escape hatch measured by the #155 audit. Short/generic titles
 # are excluded; the threshold is public so the read-only QC tool uses the same
@@ -519,6 +519,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
     _migrate_works_columns(conn)
     from .documents import create_schema as create_document_schema
     create_document_schema(conn)
+    from .fields import create_schema as create_bib_source_schema
+    create_bib_source_schema(conn)
     conn.commit()
 
 
@@ -544,6 +546,10 @@ _V12_WORKS_COLUMNS = [
     ("pagemap", "TEXT"),    # #214
     ("keeppages", "TEXT"),  # #188
 ]
+from .fields import LOCATOR_FIELDS
+
+_V15_WORKS_COLUMNS = [(key, "TEXT") for key in (*LOCATOR_FIELDS, "bib_key", "bib_source")]
+
 _V13_WORKS_COLUMNS = [
     ("ocrmode", "TEXT"),  # #186
 ]
@@ -554,7 +560,7 @@ def _migrate_works_columns(conn: sqlite3.Connection) -> None:
     have = {row[1] for row in conn.execute("PRAGMA table_info(works)")}
     for name, decl in (*_V03_WORKS_COLUMNS, *_V05_WORKS_COLUMNS,
                        *_V11_WORKS_COLUMNS, *_V12_WORKS_COLUMNS,
-                       *_V13_WORKS_COLUMNS):
+                       *_V13_WORKS_COLUMNS, *_V15_WORKS_COLUMNS):
         if name not in have:
             conn.execute(f"ALTER TABLE works ADD COLUMN {name} {decl}")
 
@@ -1348,7 +1354,8 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
             # surfaces license / licenseurl / serve / servereason).
             _seed_license_and_serve(conn, work_id, meta)
             count += 1
-        elif existing_work_id == work_id and not migration_unchanged:
+        elif existing_work_id == work_id and not migration_unchanged and not conn.execute(
+                "SELECT bib_imported_at FROM works WHERE work_id=?", (work_id,)).fetchone()[0]:
             # Same work_id — refresh fields and rebuild the author list.
             now = time.time()
             conn.execute(
@@ -1373,6 +1380,12 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
         )
         if first_surname:
             insert_alias(conn, make_alias_key(first_surname, year, title or meta.get("filename", "")), work_id)
+        from .fields import record_source, materialize
+        source_id = "document:" + corpus_hash
+        conn.execute("DELETE FROM work_bib_sources WHERE source_id=? AND origin='metadata'", (source_id,))
+        if meta.get("extraction_method") == "bib":
+            record_source(conn, work_id, source_id, meta, origin="metadata")
+        materialize(conn, work_id)
         refresh_representative(conn, work_id, refresh_header=not migration_unchanged)
         if existing_work_id and existing_work_id != work_id:
             refresh_representative(conn, existing_work_id, refresh_header=True)
@@ -1393,6 +1406,7 @@ def phase1_corpus_papers(conn: sqlite3.Connection, output_dir: Path) -> int:
     for sha, work_id in work_map(conn).items():
         if sha not in present:
             conn.execute("DELETE FROM work_documents WHERE corpus_hash=?", (sha,))
+            conn.execute("DELETE FROM work_bib_sources WHERE source_id=? AND origin='metadata'", ("document:" + sha,))
             conn.execute("DELETE FROM paper_artifacts_processed WHERE corpus_hash=?", (sha,))
             refresh_representative(conn, work_id, refresh_header=True)
             conn.execute("DELETE FROM build_meta WHERE key='reference_corpus_fingerprint'")
@@ -2454,6 +2468,7 @@ def main() -> int:
                 DROP TABLE IF EXISTS reference_observations;
                 DROP TABLE IF EXISTS work_aliases;
                 DROP TABLE IF EXISTS work_authors;
+                DROP TABLE IF EXISTS work_bib_sources;
                 DROP TABLE IF EXISTS work_documents;
                 DROP TABLE IF EXISTS works;
                 DROP TABLE IF EXISTS build_meta;

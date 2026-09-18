@@ -556,7 +556,13 @@ class BiblioAuthority:
     def get_work(self, work_id: str) -> Optional[Dict]:
         cur = self.conn.execute("SELECT * FROM works WHERE work_id = ?", (work_id,))
         row = cur.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        result = dict(row)
+        if self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='work_bib_sources'").fetchone():
+            from bib.fields import conflicts
+            result["bibliographic_conflicts"] = conflicts(self.conn, work_id)
+        return result
 
     def provenance(self, work_id: str) -> str:
         """Provenance tier for the format_citation MCP tool (#79).
@@ -607,7 +613,7 @@ class BiblioAuthority:
         row = cur.fetchone()
         if row is None:
             return None
-        result = dict(row)
+        result = self.get_work(work_id)
         meta = document_metadata(self.conn, corpus_hash)
         if meta is not None:
             result.update(document_fields(meta))

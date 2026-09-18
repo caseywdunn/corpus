@@ -383,7 +383,8 @@ def _metadata_fingerprint_for_pdf(bib_index, filename: str, *,
     entry = bib_index.lookup(filename) if bib_index is not None else None
     canonical = json.dumps(entry, sort_keys=True, ensure_ascii=False,
                            separators=(",", ":"))
-    result = {"bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    result = {"metadata_producer": "bibliographic-metadata-v2",
+              "bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
               "filename": filename}
     if grobid_context is not None:
         from .grobid_state import REFERENCE_EVIDENCE_VERSION, grobid_input

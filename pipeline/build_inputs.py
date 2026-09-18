@@ -152,7 +152,7 @@ def source_input_drift(output_dir: Path, config_path: Path):
         raise ValueError("Source inventory has a PDF hash-prefix collision")
     docs = {p.name: p for p in (output_dir / "documents").iterdir() if p.is_dir()}
     differences = {}
-    consumed = {"bib_entry_sha256", "filename", "ocrlang", "ocrmode", "keeppages", "taxonomy", "lexicons"}
+    consumed = {"metadata_producer", "bib_entry_sha256", "filename", "ocrlang", "ocrmode", "keeppages", "taxonomy", "lexicons"}
     for sha in sorted(current.keys() & docs.keys()):
         full, paths = current[sha]
         hd = docs[sha]
