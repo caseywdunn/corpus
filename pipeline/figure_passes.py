@@ -316,6 +316,8 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
     plate_groups = _annotate_plate_figure_groups(figures, running_text)
     figures_data["missing_figures"] = missing
     figures_data["total_missing_figures"] = len(missing)
+    from .figure_rights import materialize_figure_rights
+    materialize_figure_rights(figures, preserve_existing=True)
 
     with figures_file.open("w", encoding="utf-8") as f:
         json.dump(stamp_artifact(figures_data), f, indent=2, ensure_ascii=False)
@@ -539,6 +541,10 @@ def _crossref_chunks_and_figures(figures_file: Path, chunks_file: Path) -> None:
     chunks = chunks_data.get("chunks", []) or []
     figures = figures_data.get("figures", []) or []
     link_chunks_to_figures(chunks, figures)
+    # Pass 3 can expand records sharing an image; children must retain any
+    # image-level exclusion before the build is bundled (#302).
+    from .figure_rights import materialize_figure_rights
+    materialize_figure_rights(figures, preserve_existing=True)
 
     # Write back — data was modified in place but be explicit about
     # re-serialization to keep JSON formatting consistent.

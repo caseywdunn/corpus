@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Figure-specific license exclusions are recorded during the build and take
+  precedence over inherited publication clearance at figure, crop, URL and
+  HTTP delivery boundaries (#302). Source notices survive image splitting;
+  an exclusion is reported as undetermined separate permission, not as a claim
+  that all reuse is forbidden. Rebuild affected bundles to materialize this
+  evidence; legacy bundles cannot be repaired by a server-only update.
+
 - Caption matches now precede paper-only mentions in both taxon figure routes,
   even when an unrelated paper has more than 100 mentions. Ties are stable
   across paper traversal order; the existing score field remains available

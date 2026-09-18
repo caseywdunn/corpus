@@ -68,6 +68,11 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
                 "age-based public domain; this is an ABSENCE of evidence, "
                 "not a refusal by the rightsholder",
         }.get(state, "clearance could not be established")
+        if (lic.get("figure_rights") or {}).get("status") == "excluded_from_publication_license":
+            because = (
+                "the figure is explicitly excluded from the publication's license; "
+                "separate figure permission has not been established"
+            )
         return (
             f"figure withheld under profile {active.name!r} — "
             f"publication_clearance={state!r}: {because}. "
@@ -201,6 +206,27 @@ def _license_metadata_for_paper(paper_hash: str) -> Dict:
     }
 
 
+def _license_metadata_for_figure(paper_hash: str, figure: Dict) -> Dict:
+    """Resolve persisted figure exclusions before publication inheritance.
+
+    This is policy over build facts, never interpretation of caption text.
+    Legacy bundles retain their existing inheritance until rebuilt (#302).
+    """
+    lic = _license_metadata_for_paper(paper_hash)
+    rights = figure.get("figure_rights") or {}
+    if rights.get("status") == "excluded_from_publication_license":
+        lic.update({
+            "license": None,
+            "license_url": None,
+            "license_source": "figure_caption_exclusion",
+            "publishable": False,
+            # Exclusion from one license does not prove all reuse forbidden.
+            "publication_clearance": "undetermined",
+            "figure_rights": rights,
+        })
+    return lic
+
+
 def _license_fields_for_wire(
     lic: Dict, active, include_licensing: bool = False,
 ) -> Dict:
@@ -234,6 +260,8 @@ def _license_fields_for_wire(
     if include_licensing or active.figure_licensing == "strict":
         out["publication_clearance"] = lic.get("publication_clearance")
         out["license_source"] = lic.get("license_source")
+        if lic.get("figure_rights"):
+            out["figure_rights"] = lic["figure_rights"]
     return out
 
 
@@ -782,9 +810,9 @@ def get_figure(
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
-            lic = _license_metadata_for_paper(paper_hash)
+            lic = _license_metadata_for_figure(paper_hash, f)
             return {
-                **f,
+                **{k: v for k, v in f.items() if k != "figure_rights"},
                 **_caption_evidence_fields(f),
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
@@ -880,14 +908,7 @@ def get_figure_roi_image(
     p = idx.papers.get(paper_hash)
     if not p:
         return error(f"no such paper_hash: {paper_hash}", "not_found")
-    # Gate before touching disk, matching the other enforcement points —
-    # and before the `roi_entry is None` fallback, which returns the whole
-    # figure and was the widest part of the bypass.
     active = _active_figure_profile(idx, profile)
-    lic = _license_metadata_for_paper(paper_hash)
-    refusal = _figure_licensing_refusal(active, lic)
-    if refusal:
-        return error(refusal, "forbidden")
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
     fig = next(
@@ -896,6 +917,11 @@ def get_figure_roi_image(
     )
     if fig is None:
         return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
+
+    lic = _license_metadata_for_figure(paper_hash, fig)
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        return error(refusal, "forbidden", profile=active.name, **lic)
 
     from ..figure_cache import figure_path
     try:
@@ -999,18 +1025,6 @@ def get_figure_image(
         )
     active = _active_figure_profile(idx, profile)
 
-    # #101 — figure-licensing gate, keyed to the active profile. Refuses
-    # with a structured ValueError so clients can branch on the message.
-    lic = _license_metadata_for_paper(paper_hash)
-    refusal = _figure_licensing_refusal(active, lic)
-    if refusal:
-        raise ValueError(
-            f"{refusal}. The image is not returned to avoid downstream "
-            f"copyright issues. Read get_figure({paper_hash!r}, "
-            f"{figure_id!r}) for the raw license fields, or pass "
-            f"profile='report' for in-chat display."
-        )
-
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
     fig = next(
@@ -1019,6 +1033,18 @@ def get_figure_image(
     )
     if fig is None:
         raise ValueError(f"no such figure_id {figure_id!r} in paper {paper_hash}")
+
+    # #101 — figure-licensing gate, keyed to the active profile. Refuses
+    # with a structured ValueError so clients can branch on the message.
+    lic = _license_metadata_for_figure(paper_hash, fig)
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        raise ValueError(
+            f"{refusal}. The image is not returned to avoid downstream "
+            f"copyright issues. Read get_figure({paper_hash!r}, "
+            f"{figure_id!r}) for the raw license fields, or pass "
+            f"profile='report' for in-chat display."
+        )
 
     from ..figure_cache import figure_path
     whole_image = figure_path(hash_dir, fig)
@@ -1101,7 +1127,7 @@ def get_figure_url(
     if fig is None:
         return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
-    lic = _license_metadata_for_paper(paper_hash)
+    lic = _license_metadata_for_figure(paper_hash, fig)
     refusal = _figure_licensing_refusal(active, lic)
     if refusal:
         return error(

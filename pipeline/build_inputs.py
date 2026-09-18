@@ -36,7 +36,9 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     extract = {**prep, **select("figures", ("resolution_mode", "images_scale", "vector_dpi", "max_dpi")),
                "compute.accelerator": cfg.get("compute", {}).get("accelerator", "auto")}
     chunks = {**extract, **select("chunking", ("max_tokens",))}
-    figures = {**extract, "figures.panel_detection": panel_mode}
+    from .figure_rights import FIGURE_RIGHTS_VERSION
+    figures = {**extract, "figures.panel_detection": panel_mode,
+               "figures.rights_producer": FIGURE_RIGHTS_VERSION}
     if panel_mode.startswith("vision-"):
         from .model_provenance import DEFAULT_VISION_MODELS, vision_producer
         # Unknown/custom test backends keep their declared model only.

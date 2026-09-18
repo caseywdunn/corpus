@@ -66,7 +66,7 @@ def make_figure_app(idx, default_profile: Optional[str] = None):
     """
     # Lazy import — keeps the load-time cost off `import mcpsrv` for
     # non-serve uses (tests, bundle distillation).
-    from .tools.figures import _license_metadata_for_paper
+    from .tools.figures import _license_metadata_for_figure
     from .profiles import get_profile, resolve_profile, unknown_profile_error
 
     async def app(scope, receive, send):
@@ -136,29 +136,6 @@ def make_figure_app(idx, default_profile: Optional[str] = None):
             await _send_text(send, 404, f"no such paper_hash: {paper_hash}")
             return
 
-        # Figure-licensing gate (#101) — keyed to the request profile,
-        # falling back to the server default. Mirrors get_figure_url.
-        active = resolve_profile(req_profile, default_profile)
-        if active.figure_licensing == "strict":
-            lic = _license_metadata_for_paper(paper_hash)
-            if not lic.get("publishable"):
-                body = {
-                    "error": "figure withheld under a strict profile",
-                    "profile": active.name,
-                    # #154 §2 — say which state caused it. `no_record` is
-                    # an absence of evidence, not a refusal.
-                    "publication_clearance": lic.get("publication_clearance"),
-                    "license": lic.get("license") or "none recorded",
-                    "license_source": lic.get("license_source"),
-                    "hint": (
-                        "this URL was issued under a strict profile; request "
-                        "with profile=report for in-chat display, or read "
-                        "get_figure() for the raw license fields"
-                    ),
-                }
-                await _send_json(send, 403, body)
-                return
-
         hash_dir = Path(p["hash_dir"])
         figs_path = hash_dir / "figures.json"
         try:
@@ -173,6 +150,31 @@ def make_figure_app(idx, default_profile: Optional[str] = None):
         if fig is None:
             await _send_text(send, 404, f"no such figure_id {figure_id!r}")
             return
+
+        # Figure-licensing gate (#101) — keyed to the request profile,
+        # falling back to the server default. Mirrors get_figure_url.
+        active = resolve_profile(req_profile, default_profile)
+        if active.figure_licensing == "strict":
+            lic = _license_metadata_for_figure(paper_hash, fig)
+            if not lic.get("publishable"):
+                body = {
+                    "error": "figure withheld under a strict profile",
+                    "code": "forbidden",
+                    "figure_rights": lic.get("figure_rights"),
+                    "profile": active.name,
+                    # #154 §2 — say which state caused it. `no_record` is
+                    # an absence of evidence, not a refusal.
+                    "publication_clearance": lic.get("publication_clearance"),
+                    "license": lic.get("license") or "none recorded",
+                    "license_source": lic.get("license_source"),
+                    "hint": (
+                        "this URL was issued under a strict profile; request "
+                        "with profile=report for in-chat display, or read "
+                        "get_figure() for the raw license fields"
+                    ),
+                }
+                await _send_json(send, 403, body)
+                return
 
         whole = hash_dir / "figures" / (fig.get("filename") or "")
         # Defense in depth: confirm the resolved file is inside the

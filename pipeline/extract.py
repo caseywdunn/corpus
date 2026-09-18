@@ -591,6 +591,11 @@ def extract_docling_content(
                 shrunk_n, len(figures_data), shrunk_bytes / (1024 * 1024),
             )
 
+    # Materialize source rights evidence before publication; serving only
+    # consumes this record and cannot infer licensing from captions (#302).
+    from .figure_rights import materialize_figure_rights
+    materialize_figure_rights(figures_data)
+
     # Write figures.json
     figures_info = {
         "figures": figures_data,
