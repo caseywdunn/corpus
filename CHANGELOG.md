@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Inline figure refusals retain the MCP error flag and now expose structured
+  reason codes and licensing state, matching URL delivery; successful image
+  responses are unchanged (#327).
+
 - Figure-specific license exclusions are recorded during the build and take
   precedence over inherited publication clearance at figure, crop, URL and
   HTTP delivery boundaries (#302). Source notices survive image splitting;

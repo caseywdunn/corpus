@@ -131,8 +131,10 @@ before claiming an old OCR-routing defect persists.
   release acceptance gate. `[plane:serve]`
 - [ ] **#323** — match unambiguous caption abbreviations without inventing
   associations. `[plane:build]`
-- [ ] **#327** — expose consistent structured refusal reasons while preserving
-  successful MCP image responses. `[plane:serve]`
+- [x] **#327** — expose consistent structured refusal reasons while preserving
+  successful MCP image responses. Actual MCP result conversion is covered by
+  the regression suite; integrated audit replay remains a release gate.
+  `[plane:serve]`
 - [ ] **#332** — recompute record totals after expansion/removal and validate
   them before bundling; consistently read legacy artifacts. `[plane:build]`
 

@@ -28,9 +28,11 @@ rightsholder refused".
 from __future__ import annotations
 
 from pathlib import Path
+import json
 from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.mcpserver import Image
+from mcp.types import CallToolResult, TextContent
 from pipeline.figures import EVIDENCE_FIGURE_TYPES, caption_evidence_summary
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
@@ -81,6 +83,15 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
             "For in-chat display request profile='report'."
         )
     return None
+
+
+def _image_error(payload: Dict) -> CallToolResult:
+    """Keep image-tool transport errors structured as well as readable (#327)."""
+    return CallToolResult(
+        is_error=True,
+        structured_content=payload,
+        content=[TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))],
+    )
 
 
 # Restricted to the figure types that get returned by get_figures_for_*.
@@ -989,7 +1000,7 @@ def get_figure_image(
     figure_id: str,
     label: Optional[str] = None,
     profile: Optional[str] = None,
-) -> Image:
+) -> Any:
     """Return a figure (or panel crop) as inline PNG bytes.
 
     Use this when you need the image content itself; ``get_figure`` and
@@ -1011,18 +1022,18 @@ def get_figure_image(
     ``report``, display them — a clearance determination is not included
     there precisely because it is not being enforced. ``get_figure(...,
     include_licensing=True)`` gives you the determination explicitly if
-    you need to reason about it. Unknown
-    profile names raise.
+    you need to reason about it. Refusals retain MCP ``isError: true`` and
+    carry structured ``error`` / ``code`` fields. Licensing refusals also
+    identify ``profile``, ``publication_clearance`` and ``license_source``,
+    matching URL delivery. Successful responses remain inline images.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        raise ValueError(f"no such paper_hash: {paper_hash}")
+        return _image_error(error(f"no such paper_hash: {paper_hash}", "not_found"))
 
     if profile is not None and get_profile(profile) is None:
-        raise ValueError(
-            f"unknown profile {profile!r}; use list_output_profiles()"
-        )
+        return _image_error(unknown_profile_error(profile))
     active = _active_figure_profile(idx, profile)
 
     hash_dir = Path(p["hash_dir"])
@@ -1032,19 +1043,13 @@ def get_figure_image(
         None,
     )
     if fig is None:
-        raise ValueError(f"no such figure_id {figure_id!r} in paper {paper_hash}")
+        return _image_error(error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found"))
 
-    # #101 — figure-licensing gate, keyed to the active profile. Refuses
-    # with a structured ValueError so clients can branch on the message.
+    # Use the same policy and machine-readable fields as URL delivery (#327).
     lic = _license_metadata_for_figure(paper_hash, fig)
     refusal = _figure_licensing_refusal(active, lic)
     if refusal:
-        raise ValueError(
-            f"{refusal}. The image is not returned to avoid downstream "
-            f"copyright issues. Read get_figure({paper_hash!r}, "
-            f"{figure_id!r}) for the raw license fields, or pass "
-            f"profile='report' for in-chat display."
-        )
+        return _image_error(error(refusal, "forbidden", profile=active.name, **lic))
 
     from ..figure_cache import figure_path
     whole_image = figure_path(hash_dir, fig)

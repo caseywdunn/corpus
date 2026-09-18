@@ -120,8 +120,10 @@ def test_all_strict_delivery_paths_use_figure_exclusion(tmp_path, label):
     assert meta["license_source"] == "figure_caption_exclusion"
     assert meta["figure_rights"]["evidence"][0]["text"] == EXCLUSION
     assert "figure_rights" not in get_figure(HASH, "docling_1")
-    with pytest.raises(ValueError, match="explicitly excluded"):
-        get_figure_image(HASH, "docling_1", label, profile="manuscript")
+    refused = get_figure_image(HASH, "docling_1", label, profile="manuscript")
+    assert refused.is_error
+    assert refused.structured_content["code"] == "forbidden"
+    assert "explicitly excluded" in refused.structured_content["error"]
     assert get_figure_url(HASH, "docling_1", label, profile="manuscript")["code"] == "forbidden"
     if label:
         assert get_figure_roi_image(HASH, "docling_1", label, profile="manuscript")["code"] == "forbidden"

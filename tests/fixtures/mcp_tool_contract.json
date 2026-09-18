@@ -518,7 +518,7 @@
       "title": "get_figure_imageArguments",
       "type": "object"
     },
-    "signature": "(paper_hash: 'str', figure_id: 'str', label: 'Optional[str]' = None, profile: 'Optional[str]' = None) -> 'Image'"
+    "signature": "(paper_hash: 'str', figure_id: 'str', label: 'Optional[str]' = None, profile: 'Optional[str]' = None) -> 'Any'"
   },
   "get_figure_roi_image": {
     "input_schema": {
