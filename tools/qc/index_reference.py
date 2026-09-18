@@ -78,6 +78,7 @@ def index_snapshot(build):
             "taxon_authority_candidates": (),
             "work_authors": (), "work_aliases": (), "citations": (),
             "reference_current_sets": ("selected_at",),
+            "reference_observation_quality": (),
             "observation_work": ("mapped_at",), "taxon_work_links": (),
         }),
         "taxon_mentions": sqlite_snapshot(build / "taxon_mentions.sqlite", {

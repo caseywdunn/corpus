@@ -566,6 +566,24 @@ class BiblioAuthority:
             result["bibliographic_conflicts"] = conflicts(self.conn, work_id)
         return result
 
+    def reference_quality(self, corpus_hash: str, ordinal: int) -> Optional[Dict]:
+        """Read the current build verdict for one source occurrence, not its work."""
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='reference_observation_quality'").fetchone():
+            return None
+        row = self.conn.execute("""SELECT q.observation_id,q.disposition,q.reasons_json,q.producer_version,
+            ro.citing_corpus_hash,ro.grobid_xml_id
+            FROM reference_observation_quality q
+            JOIN reference_observations ro ON ro.observation_id=q.observation_id
+            JOIN reference_observation_memberships member ON member.observation_id=q.observation_id
+            JOIN reference_current_sets current ON current.corpus_hash=member.corpus_hash
+               AND current.source_fingerprint=member.source_fingerprint
+            WHERE member.corpus_hash=? AND member.ordinal=?""", (corpus_hash, ordinal)).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["reasons"] = json.loads(result.pop("reasons_json"))
+        return result
+
     def provenance(self, work_id: str) -> str:
         """Provenance tier for the format_citation MCP tool (#79).
 

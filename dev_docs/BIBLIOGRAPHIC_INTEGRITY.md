@@ -96,3 +96,21 @@ including a single candidate, and empty-title records as `authority_stubs`.
 link to a titled work. Candidate policy changes and changed document evidence
 are re-derived during the authority build; curator links survive refresh and
 reference rematerialization. The server only reads the resulting evidence.
+
+## Extracted reference quality
+
+The build preserves every raw/parsed reference occurrence, including its source
+hash and XML ID, while recording a versioned disposition in
+`reference_observation_quality`. Recognizable plate labels, repeated legend
+abbreviation definitions, and caption panel/view descriptions without
+publication-year or DOI evidence are quarantined. Missing fields and long
+titles alone are never grounds for quarantine. A matching curated publication
+title is counter-evidence to these typography rules.
+
+Quarantined observations do not create canonical works or citation edges, so
+they cannot become unqualified author-search results or acquisition leads.
+`get_bibliography` still returns their original extracted fields and an explicit
+`quality` object; with `resolved=True` their `work_id` is null. Updating the
+source or the quality policy re-derives the current disposition and mappings
+without deleting historical reference observations. Updating an old server
+without rematerializing the build does not retroactively classify its data.

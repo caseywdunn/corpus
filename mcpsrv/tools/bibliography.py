@@ -47,6 +47,12 @@ def get_bibliography(
         return [error(f"no such paper_hash: {paper_hash}", "not_found")]
     refs = _load_json(Path(p["hash_dir"]) / "references.json", default={}) or {}
     ref_list = (refs.get("references", []) or [])[offset: offset + int(limit)]
+    quality_reader = getattr(getattr(idx, "biblio_db", None), "reference_quality", None)
+    if quality_reader is not None:
+        for ordinal, ref in enumerate(ref_list, start=offset):
+            quality = quality_reader(paper_hash, ordinal)
+            if quality is not None:
+                ref["quality"] = quality
     if not resolved or idx.biblio_db is None:
         return ref_list
 

@@ -72,7 +72,7 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v4"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v5"
 
 # Cross-block escape hatch measured by the #155 audit. Short/generic titles
 # are excluded; the threshold is public so the read-only QC tool uses the same
@@ -524,6 +524,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_bib_source_schema(conn)
     from .taxon_candidates import create_schema as create_candidate_schema
     create_candidate_schema(conn)
+    from .reference_quality import create_schema as create_quality_schema
+    create_quality_schema(conn)
     conn.commit()
 
 
@@ -1889,6 +1891,7 @@ def _clear_derived_reference_materialization(conn: sqlite3.Connection) -> None:
     ]
     conn.execute("DELETE FROM citations")
     conn.execute("DELETE FROM observation_work")
+    conn.execute("DELETE FROM reference_observation_quality")
     for work_id in derived_ids:
         conn.execute("DELETE FROM taxon_authority_candidates WHERE work_id = ?", (work_id,))
         conn.execute("DELETE FROM taxon_work_links WHERE work_id = ?", (work_id,))
@@ -1979,6 +1982,11 @@ def _rebuild_reference_materialization(
             "doi": doi or "",
             "authors": authors,
         }
+        from .reference_quality import classify, record
+        disposition, reasons = classify(conn, ref)
+        record(conn, observation_id, disposition, reasons)
+        if disposition == "quarantined_fragment":
+            continue
         cited_work_id, match_method, match_score = _resolve_reference(
             conn, ref, enrich_bhl=enrich_bhl,
             bhl_api_key=bhl_api_key, bhl_max_year=bhl_max_year,
@@ -2112,12 +2120,22 @@ def phase2_references(conn: sqlite3.Connection, output_dir: Path,
            WHERE ow.producer_version = ?""",
         (REFERENCE_MAPPING_PRODUCER,),
     ).fetchone()[0]
-    if current_mapping_count != mappable_active_count:
+    from .reference_quality import PRODUCER as QUALITY_PRODUCER
+    quality_counts = conn.execute("""SELECT q.disposition,COUNT(*)
+        FROM reference_observation_quality q
+        JOIN reference_observation_memberships member ON member.observation_id=q.observation_id
+        JOIN reference_current_sets current ON current.corpus_hash=member.corpus_hash
+           AND current.source_fingerprint=member.source_fingerprint
+        WHERE q.producer_version=? GROUP BY q.disposition""", (QUALITY_PRODUCER,)).fetchall()
+    dispositions = dict(quality_counts)
+    if (sum(dispositions.values()) != mappable_active_count
+            or current_mapping_count + dispositions.get("quarantined_fragment", 0) != mappable_active_count):
         changed = True
 
     from .documents import work_map
     corpus_identity = {
         "producer": REFERENCE_MAPPING_PRODUCER,
+        "quality_producer": QUALITY_PRODUCER,
         # Requested enrichment is a materialization input too. Do not retain
         # API secrets (or their hashes) in receipts; availability is enough to
         # distinguish a formerly unavailable optional capability.
@@ -2480,6 +2498,7 @@ def main() -> int:
                 DROP TABLE IF EXISTS taxon_work_links;
                 DROP TABLE IF EXISTS citations;
                 DROP TABLE IF EXISTS observation_work;
+                DROP TABLE IF EXISTS reference_observation_quality;
                 DROP TABLE IF EXISTS work_reconciliation_decisions;
                 DROP TABLE IF EXISTS reference_current_sets;
                 DROP TABLE IF EXISTS reference_observation_memberships;
