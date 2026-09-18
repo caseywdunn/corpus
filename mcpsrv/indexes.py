@@ -514,6 +514,19 @@ class TaxonMentionDB:
         )
         return cur.fetchone()[0]
 
+    def caption_evidence(self, corpus_hash: str, figure_id: str) -> Optional[Dict]:
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='caption_taxon_evidence'").fetchone():
+            return None
+        row = self.conn.execute('SELECT evidence_json FROM caption_taxon_evidence WHERE corpus_hash=? AND figure_id=?',
+                                (corpus_hash,figure_id)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def caption_papers(self, taxon_id: str) -> List[str]:
+        if not self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='caption_taxon_links'").fetchone():
+            return []
+        return [r[0] for r in self.conn.execute('SELECT DISTINCT corpus_hash FROM caption_taxon_links WHERE taxon_id=? ORDER BY corpus_hash',
+                                               (str(taxon_id),))]
+
     def papers_for_taxon_id(self, taxon_id: int) -> List[Dict]:
         """Distinct papers mentioning a taxon, with mention count."""
         cur = self.conn.execute(

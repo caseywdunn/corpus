@@ -83,6 +83,8 @@ def index_snapshot(build):
         }),
         "taxon_mentions": sqlite_snapshot(build / "taxon_mentions.sqlite", {
             "taxon_mentions": ("mention_id",),
+            "caption_taxon_evidence": (),
+            "caption_taxon_links": (),
         }),
         "taxonomy": sqlite_snapshot(build / "taxonomy.sqlite", {"taxa": ("fetched_at",), "names": ()}),
         "vectors": vector_snapshot(build / "vector_db/lancedb"),

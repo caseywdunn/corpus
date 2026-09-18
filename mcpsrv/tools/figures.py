@@ -27,6 +27,7 @@ rightsholder refused".
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 import json
 from typing import Any, Dict, List, Optional, Union
@@ -238,6 +239,36 @@ def _license_metadata_for_figure(paper_hash: str, figure: Dict) -> Dict:
     return lic
 
 
+def _caption_taxon_fields(idx, paper_hash: str, figure: Dict) -> Dict:
+    database = getattr(idx, "taxon_mention_db", None)
+    reader = getattr(database, "caption_evidence", None)
+    evidence = reader(paper_hash, figure.get("figure_id")) if reader else None
+    return {"caption_taxa": evidence or {
+        "availability": "legacy_unavailable", "matches": [], "unresolved": [],
+    }}
+
+
+def _caption_taxon_match(idx, paper_hash: str, figure: Dict, hit: Dict):
+    fields = _caption_taxon_fields(idx, paper_hash, figure)
+    evidence = fields["caption_taxa"]
+    if evidence["availability"] == "materialized":
+        return any(str(m["accepted_taxon_id"]) == str(hit["accepted_taxon_id"])
+                   for m in evidence["matches"]), fields
+    # Legacy bundles remain readable. Only explicit full-name matching is
+    # supported without materialized links; never infer abbreviations here.
+    caption = figure.get("caption_text") or figure.get("caption") or ""
+    names = (hit.get("accepted_name"), hit.get("matched_name"))
+    matched = any(name and re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", caption, re.IGNORECASE)
+                  for name in names)
+    return bool(matched), fields
+
+
+def _caption_taxon_papers(idx, taxon_id):
+    database = getattr(idx, "taxon_mention_db", None)
+    reader = getattr(database, "caption_papers", None)
+    return reader(taxon_id) if reader else []
+
+
 def _license_fields_for_wire(
     lic: Dict, active, include_licensing: bool = False,
 ) -> Dict:
@@ -360,10 +391,8 @@ def get_figures_for_taxon(
     if not hit:
         return []
     aid = hit["accepted_taxon_id"]
-    accepted_name_low = (hit["accepted_name"] or "").lower()
-    matched_name_low = (hit["matched_name"] or "").lower()
     target_hashes = (
-        [paper_hash] if paper_hash else idx.taxon_to_papers.get(aid, [])
+        [paper_hash] if paper_hash else sorted(set(idx.taxon_to_papers.get(aid, [])) | set(_caption_taxon_papers(idx, aid)))
     )
 
     rows: List[Dict] = []
@@ -377,10 +406,7 @@ def get_figures_for_taxon(
             if not include_all and ftype not in _REAL_FIGURE_TYPES:
                 continue
             cap_full = f.get("caption_text") or f.get("caption") or ""
-            caption = cap_full.lower()
-            caption_hit = bool(accepted_name_low and accepted_name_low in caption) or bool(
-                matched_name_low and matched_name_low in caption
-            )
+            caption_hit, taxon_fields = _caption_taxon_match(idx, h, f, hit)
             if caption_only and not caption_hit:
                 continue
             rows.append({
@@ -396,6 +422,7 @@ def get_figures_for_taxon(
                 "image_path": f"{h}/figures/{f.get('filename') or ''}",
                 "caption_has_taxon": caption_hit,
                 **_caption_evidence_fields(f),
+                **taxon_fields,
                 "score": (100 if caption_hit else 0) + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             })
     # A popular paper is not stronger figure evidence than a named caption
@@ -584,6 +611,7 @@ def _figure_dossier_entry(
             figure_record.get("caption_text") or figure_record.get("caption") or "",
         ),
         **_caption_evidence_fields(figure_record),
+        **_caption_taxon_fields(idx, paper_hash, figure_record),
         "image_path": f"{paper_hash}/figures/{figure_record.get('filename') or ''}",
         "linked_chunks": _linked_chunks_for_figure(
             figure_id, chunks_by_id, max_linked_chunks,
@@ -638,9 +666,7 @@ def get_figure_dossier_for_taxon(
         return {"not_found": True, "queried": taxon_name}
 
     aid = hit["accepted_taxon_id"]
-    accepted_low = (hit.get("accepted_name") or "").lower()
-    matched_low = (hit.get("matched_name") or "").lower()
-    paper_hashes = list(idx.taxon_to_papers.get(aid, []))
+    paper_hashes = sorted(set(idx.taxon_to_papers.get(aid, [])) | set(_caption_taxon_papers(idx, aid)))
 
     taxon_block: Dict[str, Any] = {
         "taxon_id": aid,
@@ -669,11 +695,7 @@ def get_figure_dossier_for_taxon(
             if f.get("figure_type") not in _REAL_FIGURE_TYPES:
                 continue
             had_a_figure = True
-            caption = (f.get("caption_text") or f.get("caption") or "").lower()
-            caption_hit = (
-                bool(accepted_low and accepted_low in caption)
-                or bool(matched_low and matched_low in caption)
-            )
+            caption_hit, _ = _caption_taxon_match(idx, h, f, hit)
             score = (100 if caption_hit else 0) + idx.taxon_mention_counts.get(
                 aid, {},
             ).get(h, 0)
@@ -829,6 +851,7 @@ def get_figure(
             return {
                 **{k: v for k, v in f.items() if k != "figure_rights"},
                 **_caption_evidence_fields(f),
+                **_caption_taxon_fields(idx, paper_hash, f),
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
                 # Relative to the corpuscle's documents/ dir.

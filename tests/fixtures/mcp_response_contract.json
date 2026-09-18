@@ -190,6 +190,11 @@
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
     "caption_status": "str",
+    "caption_taxa": {
+      "availability": "str",
+      "matches": [],
+      "unresolved": []
+    },
     "caption_text": "str",
     "figure_id": "str",
     "figure_type": "str",
@@ -223,6 +228,11 @@
     "caption_kind": "str",
     "caption_page_distance": "NoneType",
     "caption_status": "str",
+    "caption_taxa": {
+      "availability": "str",
+      "matches": [],
+      "unresolved": []
+    },
     "caption_text": "str",
     "figure_id": "str",
     "figure_type": "str",
