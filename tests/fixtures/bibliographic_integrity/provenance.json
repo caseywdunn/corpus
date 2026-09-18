@@ -65,6 +65,11 @@
     "Siebertetal2013": {
       "pdf_hash": "c9e7e8ae50a2",
       "filename": "Siebert_etal2013.pdf"
+    },
+    "Pugh1974": {
+      "pdf_hash": "b5a7af6140ca",
+      "filename": "Pugh1974.pdf",
+      "hash_source": "issue #314 audited v1.4.0.dev0 bundle"
     }
   }
 }

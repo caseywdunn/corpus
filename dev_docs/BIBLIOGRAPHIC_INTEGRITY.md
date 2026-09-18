@@ -102,8 +102,10 @@ reference rematerialization. The server only reads the resulting evidence.
 The build preserves every raw/parsed reference occurrence, including its source
 hash and XML ID, while recording a versioned disposition in
 `reference_observation_quality`. Recognizable plate labels, repeated legend
-abbreviation definitions, and caption panel/view descriptions without
-publication-year or DOI evidence are quarantined. Missing fields and long
+abbreviation definitions, and caption panel/view descriptions with independent
+figure-label evidence and without publication-year or DOI evidence are
+quarantined. Panel/view wording alone remains reviewable, with explicit
+`reference_quality_warnings` on authority and acquisition results. Missing fields and long
 titles alone are never grounds for quarantine. A matching curated publication
 title is counter-evidence to these typography rules.
 
@@ -114,3 +116,19 @@ they cannot become unqualified author-search results or acquisition leads.
 source or the quality policy re-derives the current disposition and mappings
 without deleting historical reference observations. Updating an old server
 without rematerializing the build does not retroactively classify its data.
+
+## Publication-year conflicts
+
+A parsed date that occurs in a curated title can be a title date rather than
+the publication year. The build checks each reference independently: a complete
+normalized surname-set match and exact title agreement after removing that
+date establish a candidate. Automatic reassignment additionally requires the
+full canonical title in the raw citation and only the curated publication year
+in its author prefix. Ambiguous editions or shared-identifier parts are not
+selected. Insufficient evidence leaves an explicit review warning.
+
+The original parsed year and raw citation remain unchanged. The derived mapping
+records its producer and method; the quality record retains the parsed year,
+publication year, candidate and supporting basis. Citation edges are regenerated
+with their usual per-citing-document uniqueness, rather than adding counts from
+previously split nodes. Changed metadata or mapping policy re-derives decisions.

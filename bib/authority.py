@@ -72,7 +72,7 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v5"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v6"
 
 # Cross-block escape hatch measured by the #155 audit. Short/generic titles
 # are excluded; the threshold is public so the read-only QC tool uses the same
@@ -1953,6 +1953,8 @@ def _rebuild_reference_materialization(
     _clear_derived_reference_materialization(conn)
     known_work_ids = {row[0] for row in conn.execute("SELECT work_id FROM works")}
     identity_index = _in_corpus_identity_index(conn)
+    from .reference_year import candidate_index, adjudicate
+    year_candidates = candidate_index(conn)
     from .documents import work_map
     citing_ids = work_map(conn)
     n_mapped = 0
@@ -1984,16 +1986,24 @@ def _rebuild_reference_materialization(
         }
         from .reference_quality import classify, record
         disposition, reasons = classify(conn, ref)
-        record(conn, observation_id, disposition, reasons)
         if disposition == "quarantined_fragment":
+            record(conn, observation_id, disposition, reasons)
             continue
-        cited_work_id, match_method, match_score = _resolve_reference(
-            conn, ref, enrich_bhl=enrich_bhl,
-            bhl_api_key=bhl_api_key, bhl_max_year=bhl_max_year,
-            fallback_key=observation_id,
-            bhl_stats=bhl_stats,
-            identity_index=identity_index,
-        )
+        supported_id, year_reasons = adjudicate(ref, year_candidates)
+        reasons.extend(year_reasons)
+        if year_reasons and not supported_id:
+            disposition = "review_needed"
+        record(conn, observation_id, disposition, reasons)
+        if supported_id:
+            cited_work_id, match_method, match_score = supported_id, "raw_publication_year_title_authors", 0.95
+        else:
+            cited_work_id, match_method, match_score = _resolve_reference(
+                conn, ref, enrich_bhl=enrich_bhl,
+                bhl_api_key=bhl_api_key, bhl_max_year=bhl_max_year,
+                fallback_key=observation_id,
+                bhl_stats=bhl_stats,
+                identity_index=identity_index,
+            )
         if cited_work_id not in known_work_ids:
             known_work_ids.add(cited_work_id)
             n_new_works += 1
