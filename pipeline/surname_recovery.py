@@ -19,7 +19,7 @@ import subprocess
 import sys
 import unicodedata
 
-SURNAME_POLICY = "curated-author-year-source-ocr-consensus-v1"
+SURNAME_POLICY = "curated-author-year-source-ocr-consensus-v2"
 _CITATION = re.compile(
     r"(?<!\w)([^\W\d_]{5,})\s*(?:,\s*|\(\s*|et\s+al\.\s*)?((?:1[5-9]|20)\d{2})[a-z]?(?!\d)",
     re.UNICODE,
@@ -74,6 +74,22 @@ def author_catalog(entries):
                 )
     records = []
     for key, row in sorted(pairs.items()):
+        if len(row["surname"]) < 5 or not any(ord(c) > 127 for c in row["surname"]):
+            # These pairs only exclude already known names in propose(). Their
+            # titles, entry keys and language declarations cannot support an
+            # OCR candidate or reference repair, so do not invalidate extraction
+            # for ordinary title/key curation on these records.
+            records.append(
+                {
+                    "surname": row["surname"],
+                    "year": row["year"],
+                    "sources": [],
+                    "languages": [],
+                    "language_basis": "known_name_exclusion",
+                    "language_sources": [],
+                }
+            )
+            continue
         row["sources"] = sorted(
             row["sources"], key=lambda s: (s["bib_key"] or "", s["title"])
         )
@@ -400,4 +416,14 @@ def recover_citation_surnames(document, pdf_path, catalog, *, producer=None):
                 if decision["item_ref"] == item.self_ref and decision not in notes:
                     notes.append(decision)
             item.meta.corpus__surname_recovery = notes
+    report["unresolved"] = [
+        decision
+        for decision in report["decisions"]
+        if decision["status"]
+        not in {
+            "verified",
+            "source_supports_observed_spelling",
+            "quoted_or_sic_context",
+        }
+    ]
     return report

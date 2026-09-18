@@ -97,6 +97,53 @@ def test_catalog_policy_is_order_independent_and_language_selection_is_declared(
     assert author_catalog(updated)["sha256"] != CATALOG["sha256"]
 
 
+def test_non_candidate_catalog_fields_do_not_invalidate_extraction():
+    ascii_entry = {
+        "author": "Pacifici, A",
+        "year": "1991",
+        "title": "Original title",
+        "_key": "Pacifici1991",
+        "ocrlang": "eng",
+    }
+    accented = {
+        "author": "Alvariño, A",
+        "year": "1991",
+        "title": "Curated source title",
+        "_key": "Alvarino1991",
+        "ocrlang": "spa",
+    }
+    baseline = author_catalog([ascii_entry, accented])
+    producer = surname_recovery_producer(baseline)
+    for field, value in [("title", "Corrected title"), ("_key", "RevisedKey")]:
+        edited = author_catalog([dict(ascii_entry, **{field: value}), accented])
+        assert edited == baseline
+        assert surname_recovery_producer(edited) == producer
+    for field, value in [("author", "Alvarifio, A"), ("year", "1992")]:
+        edited = author_catalog([dict(ascii_entry, **{field: value}), accented])
+        assert edited["sha256"] != baseline["sha256"]
+        assert (
+            surname_recovery_producer(edited)["catalog_sha256"]
+            != producer["catalog_sha256"]
+        )
+    # Known ASCII spellings still stop a near-name proposal, including a name
+    # that otherwise resembles the accented author's spelling in the same year.
+    known = author_catalog([dict(ascii_entry, author="Alvarifio, A"), accented])
+    assert propose("Alvarifio 1991", known) == []
+    assert propose("Alvarifio 1991", baseline)
+    for field, value in [("title", "Corrected candidate title"), ("ocrlang", "fra")]:
+        edited = author_catalog([ascii_entry, dict(accented, **{field: value})])
+        assert edited["sha256"] != baseline["sha256"]
+        assert (
+            surname_recovery_producer(edited)["catalog_sha256"]
+            != producer["catalog_sha256"]
+        )
+    candidate = propose("Alvarifio 1991", baseline)[0]["candidates"][0]
+    assert candidate["sources"] == [
+        {"bib_key": "Alvarino1991", "title": "Curated source title"}
+    ]
+    assert candidate["languages"] == ["spa"]
+
+
 def test_near_names_without_unique_citation_context_are_never_automatic():
     assert propose("Alvarifio is a quoted spelling", CATALOG) == []
     assert propose("Alvarifio 1800", CATALOG) == []
@@ -306,3 +353,85 @@ def test_rotated_source_anchor_and_upright_crop_preserve_printed_alternative(rot
         assert image.width > image.height
         result = adjudicate_crop(png, proposal, producer)
         assert result["status"] == "source_supports_observed_spelling"
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        "verified",
+        "source_supports_observed_spelling",
+        "quoted_or_sic_context",
+        "ocr_disagreement",
+        "ocr_language_unavailable",
+    ],
+)
+def test_extraction_quality_gate_reports_only_unresolved_surname_decisions(
+    tmp_path, monkeypatch, status
+):
+    import fitz
+    from docling_core.types.doc import (
+        DoclingDocument,
+        DocItemLabel,
+        Size,
+        BoundingBox,
+        ProvenanceItem,
+    )
+    from pipeline.stages import _run_quality_gates
+    import pipeline.surname_recovery as recovery
+
+    pdf_path = tmp_path / "source.pdf"
+    with fitz.open() as pdf:
+        page = pdf.new_page(width=360, height=180)
+        page.insert_text((45, 70), "Alvarifio 1991", fontname="tiro", fontsize=12)
+        bbox = page.search_for("Alvarifio 1991")[0]
+        pdf.save(pdf_path)
+    observed = "Alvarifio 1991"
+    if status == "quoted_or_sic_context":
+        observed = "“Alvarifio 1991” [sic]"
+    doc = DoclingDocument(name="Source quality gate")
+    doc.add_page(page_no=1, size=Size(width=360, height=180))
+    doc.add_text(
+        label=DocItemLabel.TEXT,
+        text=observed,
+        orig=observed,
+        prov=ProvenanceItem(
+            page_no=1,
+            bbox=BoundingBox(
+                l=bbox.x0, t=bbox.y0, r=bbox.x1, b=bbox.y1, coord_origin="TOPLEFT"
+            ),
+            charspan=(0, len(observed)),
+        ),
+    )
+    monkeypatch.setattr(
+        recovery,
+        "adjudicate_crop",
+        lambda *args: {"status": status, "replacement": "Alvariño", "ocr_outputs": []},
+    )
+    report = recovery.recover_citation_surnames(
+        doc, pdf_path, CATALOG, producer=CAPTURE["capture_producer"]
+    )
+    assert len(report["decisions"]) == 1
+    assert report["decisions"][0]["status"] == status
+    needs_review = status in {"ocr_disagreement", "ocr_language_unavailable"}
+    assert report["unresolved"] == (report["decisions"] if needs_review else [])
+    (tmp_path / "text.json").write_text(
+        json.dumps(
+            {
+                "text": "Recovered scientific text. " * 250,
+                "pages": 1,
+                "source_text_integrity": {"surnames": report},
+            }
+        )
+    )
+    flags = [
+        flag
+        for flag in _run_quality_gates(tmp_path)
+        if flag["gate"] == "source_text_integrity"
+    ]
+    assert len(flags) == int(needs_review)
+    if needs_review:
+        assert flags[0]["severity"] == "warning"
+        assert flags[0]["metric"] == 1
+        assert flags[0]["detail"].startswith(
+            "surnames: 1 source-text candidates need review"
+        )

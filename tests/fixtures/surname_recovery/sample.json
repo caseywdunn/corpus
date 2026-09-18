@@ -694,8 +694,8 @@
   ],
   "source_sampling": "Fixed six-paper filename list in this order; first up to four citation-shaped near-name proposals with unique native name/year geometry per paper, in native page order; plus the two reported Mapstone page47 occurrences. Selected sample, not random or representative. Correctly accented negative controls are the first uniquely anchored catalog author/year citation in Hosiaetal2024.pdf and Manko_etal2023.pdf.",
   "capture_producer": {
-    "policy": "curated-author-year-source-ocr-consensus-v1",
-    "catalog_sha256": "018059e1ae190b9c1f5086d77af8d6a3c0e66b447d32ccf8ca95c7e0766fdff1",
+    "policy": "curated-author-year-source-ocr-consensus-v2",
+    "catalog_sha256": "0ae948c173883e064385ebbcbcea36ccd106e2db5b51f162eb50a2ea21a262a1",
     "dpi": 600,
     "ocr_modes": [
       6,
@@ -708,7 +708,6 @@
     "max_crop_pixels": 2000000,
     "models": {
       "deu": "8407331d6aa0229dc927685c01a7938fc5a641d1a9524f74838cdac599f0d06e",
-      "eng": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
       "fra": "907743d98915c91a3906dfbf6e48b97598346698fe53aaa797e1a064ffcac913",
       "lat": "60054dd32ac03ebd9b4f87d0665bd491a7ffe0d3ee99ceb91aefaf348b65e94f",
       "spa": "e2c1ffdad8b30f26c45d4017a9183d3a7f9aa69e59918be4f88b126fac99ab2c"

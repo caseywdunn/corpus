@@ -41,11 +41,20 @@ report belongs in `text.json` under `source_text_integrity.surnames`, and struct
 chunk integrity carries the source decisions without placing them in chunk prose.
 Changing the source/catalog/model inputs must invalidate extraction and its
 consumers; the server only reads these materialized artifacts. The current
-receipt intentionally covers the full catalog, including titles consumed by
-reference corroboration. A catalog title edit therefore invalidates extraction
-across the corpus. Narrowing this cost safely requires an independent current
-curated-title lookup in reference materialization, rather than ignoring a field
-that the stored source report still consumes.
+receipt retains only surname/year exclusions for ASCII names and names too short
+to be candidates. Title or BibTeX-key changes to those records do not invalidate
+extraction. Eligible non-ASCII candidate records still include all title and
+language evidence consumed by recovery and reference corroboration, so edits to
+those fields invalidate extraction across the corpus. Narrowing that remaining
+cost safely requires an independent current curated-title lookup in reference
+materialization, rather than ignoring a field that the stored source report
+still consumes.
+
+The report retains every decision and also materializes an `unresolved` subset
+for the extraction quality gate. Confirmed repairs, source-confirmed alternate
+spellings, and quoted/`[sic]` contexts do not enter that subset. Ambiguous anchors,
+unavailable OCR, disagreements and other unverified candidates produce a source
+integrity warning with the review count.
 
 ## Bibliographic identity
 
