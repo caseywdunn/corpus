@@ -287,44 +287,81 @@ def pdf_cmap_producer():
                 "document_seconds": _DigitVerifier.DOCUMENT_SECONDS, "call_seconds": _DigitVerifier.CALL_SECONDS}}
 
 
+def _xref_value(pair):
+    """Validate a backend key response without treating local bugs as PDF errors."""
+    if not isinstance(pair, (tuple, list)) or len(pair) != 2 or not all(isinstance(v, str) for v in pair):
+        raise ValueError("invalid_xref_key_response")
+    kind, value = pair
+    if kind != "xref":
+        return None
+    if not re.fullmatch(r"[1-9][0-9]*\s+[0-9]+\s+R", value):
+        raise ValueError("invalid_xref_value")
+    return int(value.split()[0])
+
+
 def _font_map_record(pdf, font_xref):
     record = {"font_xref": font_xref}
+
+    def unreadable(reason):
+        return {**record, "error": f"unreadable_or_unsupported_source_map:{reason}"}
+
+    # Catch backend failures only at the calls that read the optional PDF
+    # object. RuntimeError/TypeError in our own parser must remain visible.
     try:
-        kind, value = pdf.xref_get_key(font_xref, "ToUnicode")
-        if kind != "xref":
-            return None
-        cmap_xref = int(value.split()[0])
-        record["tounicode_xref"] = cmap_xref
+        key = pdf.xref_get_key(font_xref, "ToUnicode")
+    except (ValueError, RuntimeError) as exc:
+        return unreadable(type(exc).__name__)
+    try:
+        cmap_xref = _xref_value(key)
+    except ValueError as exc:
+        return unreadable(str(exc))
+    if cmap_xref is None:
+        return None
+    record["tounicode_xref"] = cmap_xref
+    try:
         data = pdf.xref_stream(cmap_xref)
-        if not isinstance(data, bytes):
-            raise ValueError("tounicode_is_not_a_stream")
-        record["cmap_sha256"] = hashlib.sha256(data).hexdigest()
+    except (ValueError, RuntimeError) as exc:
+        return unreadable(type(exc).__name__)
+    if not isinstance(data, bytes):
+        return unreadable("tounicode_is_not_a_stream")
+    record["cmap_sha256"] = hashlib.sha256(data).hexdigest()
+    try:
         record["mapping"] = parse_scalar_cmap(data)
-        encoding_kind, encoding_value = pdf.xref_get_key(font_xref, "Encoding")
-        if encoding_kind == "xref":
-            encoding_xref = int(encoding_value.split()[0])
-            encoding = pdf.xref_object(encoding_xref)
-            record["encoding_xref"] = encoding_xref
-            record["encoding_sha256"] = hashlib.sha256(encoding.encode()).hexdigest()
-            differences = re.search(r"/Differences\s*\[([^\]]*)\]", encoding)
-            if differences:
-                observed_codes = {}
-                code = None
-                for token in re.findall(r"\d+|/[A-Za-z0-9_.]+", differences[1]):
-                    if token.isdigit():
-                        code = int(token)
-                    elif code is not None:
-                        # PDF /Encoding supplies quote-left/right glyphs;
-                        # Docling PageAssembleModel.sanitize_text collapses
-                        # both curly quotes to the single ASCII apostrophe.
-                        if token in {"/quoteleft", "/quoteright"}:
-                            observed_codes[code] = "'"
-                        code += 1
-                record["observed_codes"] = observed_codes
-    except (ValueError, TypeError, RuntimeError, AttributeError, IndexError) as exc:
-        # An optional source map must not break readable extraction when a
-        # PDF contains a dangling xref or a non-stream ToUnicode object.
-        record["error"] = f"unreadable_or_unsupported_source_map:{type(exc).__name__}"
+    except ValueError as exc:  # Includes UnicodeError from strict ASCII decoding.
+        return unreadable(str(exc))
+    try:
+        key = pdf.xref_get_key(font_xref, "Encoding")
+    except (ValueError, RuntimeError) as exc:
+        return unreadable(type(exc).__name__)
+    try:
+        encoding_xref = _xref_value(key)
+    except ValueError as exc:
+        return unreadable(str(exc))
+    if encoding_xref is None:
+        return record
+    try:
+        encoding = pdf.xref_object(encoding_xref)
+    except (ValueError, RuntimeError) as exc:
+        return unreadable(type(exc).__name__)
+    if not isinstance(encoding, str):
+        return unreadable("encoding_is_not_a_string")
+    record["encoding_xref"] = encoding_xref
+    record["encoding_sha256"] = hashlib.sha256(encoding.encode()).hexdigest()
+    differences = re.search(r"/Differences\s*\[([^\]]*)\]", encoding)
+    if differences:
+        observed_codes = {}
+        code = None
+        for token in re.findall(r"\d+|/[A-Za-z0-9_.]+", differences[1]):
+            if token.isdigit():
+                code = int(token)
+            elif code is not None:
+                # PDF /Encoding supplies quote-left/right glyphs;
+                # Docling PageAssembleModel.sanitize_text collapses
+                # both curly quotes to the single ASCII apostrophe.
+                if token in {"/quoteleft", "/quoteright"}:
+                    observed_codes[code] = "'"
+                code += 1
+        record["observed_codes"] = observed_codes
     return record
 
 

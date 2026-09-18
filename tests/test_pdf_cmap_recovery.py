@@ -308,3 +308,42 @@ def test_pinned_source_crops_keep_the_scientific_guard_decisions():
             pix=fitz.Pixmap(str(FIXTURE/decision['raster']))
             page=SimpleNamespace(get_pixmap=lambda **kw:pix)
             assert bool(cmap._verify_source_sign(page,{'bbox':json.loads(box)},decision['native']))==decision['verified']
+
+
+@pytest.mark.parametrize('error',[RuntimeError,TypeError,AttributeError,IndexError])
+def test_local_parser_programming_errors_are_not_mislabeled_as_pdf_damage(monkeypatch,error):
+    pdf=SimpleNamespace(xref_get_key=lambda *args:('xref','2 0 R'),
+                        xref_stream=lambda _:b'1 beginbfchar <21> <0061> endbfchar')
+    def broken_parser(_): raise error('local implementation failure')
+    monkeypatch.setattr(cmap,'parse_scalar_cmap',broken_parser)
+    with pytest.raises(error,match='local implementation failure'):
+        cmap._font_map_record(pdf,1)
+
+
+@pytest.mark.parametrize('key',[None,('xref',None),('xref',''),('xref','2'),('xref','bad 0 R'),('xref','2 0 R','extra')])
+def test_malformed_returned_xref_values_are_explicitly_validated(key):
+    pdf=SimpleNamespace(xref_get_key=lambda *args:key)
+    assert cmap._font_map_record(pdf,1)['error'].startswith('unreadable_or_unsupported_source_map:invalid_xref')
+
+
+@pytest.mark.parametrize('stage',['tounicode_key','stream','encoding_key','encoding_object'])
+def test_pdf_backend_read_errors_remain_non_mutating(stage):
+    class PDF:
+        def xref_get_key(self,_,name):
+            if stage==('tounicode_key' if name=='ToUnicode' else 'encoding_key'):
+                raise RuntimeError('backend read failure')
+            return ('xref','2 0 R')
+        def xref_stream(self,_):
+            if stage=='stream': raise RuntimeError('backend read failure')
+            return b'1 beginbfchar <21> <0061> endbfchar'
+        def xref_object(self,_):
+            if stage=='encoding_object': raise RuntimeError('backend read failure')
+            return '<< /Differences [] >>'
+    assert cmap._font_map_record(PDF(),1)['error'].endswith(':RuntimeError')
+
+
+def test_non_string_encoding_object_is_safe_without_catching_transform_errors():
+    pdf=SimpleNamespace(xref_get_key=lambda *args:('xref','2 0 R'),
+                        xref_stream=lambda _:b'1 beginbfchar <21> <0061> endbfchar',
+                        xref_object=lambda _:None)
+    assert cmap._font_map_record(pdf,1)['error'].endswith(':encoding_is_not_a_string')
