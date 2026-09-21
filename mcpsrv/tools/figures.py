@@ -356,16 +356,16 @@ def get_figures_for_taxon(
     """Figures from papers that mention the taxon, ranked by caption
     relevance.
 
-    A figure whose caption names the taxon directly scores higher than
+    A figure whose caption names the taxon ranks before
     a figure from a paper that merely mentions it elsewhere. **This means
     the list also includes figures whose caption does *not* name the
     taxon** — returned from any paper that mentions the taxon anywhere,
     with ``caption_has_taxon: false``. Caption matches always sort first;
     paper mention counts rank figures within each group. The legacy ``score``
     still adds 100 for a caption match, but is not the primary sort key.
-    For a precise "figures of this taxon" answer, filter on
-    ``caption_has_taxon``, or pass
-    ``caption_only=True`` to return only caption-matched figures.
+    Filter on ``caption_has_taxon``, or pass ``caption_only=True``, to
+    return only caption matches. A caption match is textual evidence;
+    neither it nor a paper association verifies what the image depicts.
 
     By default only returns items classified as ``figure`` or ``plate``
     (skipping journal furniture, subpanels of already-returned figures,
@@ -648,7 +648,9 @@ def get_figure_dossier_for_taxon(
     explanatory passages.
 
     Real figures + plates only (graphical_element / plate_label
-    skipped). Ranked by caption-name match > mere paper-mention.
+    skipped). Caption-name matches rank first, then paper mention count
+    within each group; paper hash and figure ID break ties. A caption
+    match is textual evidence, not verification of what the image depicts.
 
     Returns ``{taxon, n_papers_with_figures, n_figures, figures:
     [{paper_hash, paper_title, paper_year, figure_id, figure_type,

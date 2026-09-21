@@ -54,7 +54,8 @@ mechanisms. Detector hits are review populations, not error counts.
   steps now identify/remove existing Chrome `.list` or `.sources` files and
   retry transient downloads. Hosted integration run `35375772899` passed and
   confirms removal of `/etc/apt/sources.list.d/google-chrome.sources`;
-  clean-room run `35375772962` and T0 run `35375772896` also passed. *No plane.*
+  clean-room run `35375772962` and T0 run `35375772896` also passed. The issue
+  is closed with the actual runner-path evidence. *No plane.*
 - [ ] Inventory the audit cases against the existing gold source manifest and
   add explicit expectations for the failure mechanisms. *No plane; validation.*
   Reuse the existing 35-document siphonophore gold corpuscle and independent
@@ -208,7 +209,9 @@ decision provenance; document how old bundles obtain repaired mappings.
   in-text citations into all three citation/graph routes: the wrong Oderberg
   paragraph link is absent, both Fraser years and the unambiguous Pugh groups
   retain their source spans, and unchanged refresh preserves observations.
-  Production/gold replay remains a release gate. `[plane:build]`
+  #309 is closed on this source-span/materialization acceptance; #317 remains
+  open for broader paragraph-repair acceptance. Production/gold replay remains
+  a release gate. `[plane:build]`
 
 Corrected text must invalidate downstream chunks, annotations, references and
 embeddings as appropriate. Source-grounded assertions must cover relationships
@@ -241,8 +244,13 @@ before claiming an old OCR-routing defect persists.
   `[plane:build]` (enforcement: `[plane:serve]`)
 - [x] **#321** — caption matches precede paper-only mentions in both taxon
   figure routes, with deterministic ties and preserved legacy scores.
-  Boundary/tie regressions pass; integrated corpus replay remains in the
-  release acceptance gate. `[plane:serve]`
+  [Retained-bundle replay](examples/siphonophore_caption_ranking_2026_09_21.json)
+  returns 12/12 caption matches for Nanomia and Lensia and all three controls
+  through both routes, with repeatable order and unchanged bundle files.
+  Extreme-count, tie and no-caption controls pass (22 focused tests). Rank and
+  evidence definitions are documented without claiming verified depiction.
+  This v1.2.1 replay does not replace final rebuilt-corpus acceptance.
+  `[plane:serve]`
 - [x] **#323** — match unambiguous caption abbreviations without inventing
   associations. Post-build caption links and evidence are now materialized from
   final figures, chunks and taxonomy with content receipts. Both figure routes

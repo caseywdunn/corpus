@@ -200,6 +200,24 @@ def test_figure_caption_ranking_ties_are_independent_of_paper_order(corpus):
     assert get_figure_dossier_for_taxon("Marrus") == dossier_before
 
 
+def test_no_caption_matches_retain_explicit_paper_associations(corpus):
+    from mcpsrv.tools.figures import get_figures_for_taxon
+
+    path = Path(corpus.papers["aaaaaaaaaaaa"]["hash_dir"]) / "figures.json"
+    data = json.loads(path.read_text())
+    data["figures"][0]["caption_text"] = "Unidentified colony, lateral view."
+    path.write_text(json.dumps(data))
+    corpus.taxon_mention_counts["t:marrus"]["bbbbbbbbbbbb"] = 1000
+
+    dossier = get_figure_dossier_for_taxon("Marrus", max_figures=12)
+    discovery = get_figures_for_taxon("Marrus", limit=12)
+    for rows in (dossier["figures"], discovery):
+        assert [row["paper_hash"] for row in rows] == ["bbbbbbbbbbbb", "aaaaaaaaaaaa"]
+        assert all(row["caption_has_taxon"] is False for row in rows)
+    assert dossier["figures"][0]["linked_chunks"][0]["chunk_id"] == "c0"
+    assert get_figures_for_taxon("Marrus", caption_only=True) == []
+
+
 def test_taxon_dossier_linked_chunks_collected(corpus):
     """fig1 of paper aaa is referenced by c0 + c2 (not c1).
     linked_chunks must list both, with section + headings."""
