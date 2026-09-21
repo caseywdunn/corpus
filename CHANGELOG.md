@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Concurrent orphan retirement serializes directory and vector cleanup and
+  tolerates an already-moved source without hiding storage errors (#339).
+  Extract-only runs defer unavailable vision instead of running the OCR panel
+  pass that later vision replaces; explicit OCR and standalone fallback remain
+  supported (#341).
+
+- Separate captions beside an ordinary image no longer establish shared-plate
+  ownership when a following image competes (#336). Rejected caption evidence
+  remains inspectable; explicit plates, jointly captioned groups and structural
+  caption links remain supported. The extraction policy change invalidates
+  dependent materialized figures and chunks.
+
+- The SSE smoke test discovers paper, author, taxon and lexicon values from
+  the active bundle (#337). Empty and singleton list encodings are accepted;
+  transport failures and malformed/error payloads still fail validation.
+
+- Species enumeration supports optional `limit`/`offset` and continuation in
+  MCP `_meta.pagination`, preserving existing list fields (#338). Results
+  have a 256 KiB serialized budget. **Compatibility restriction:** oversized
+  calls without a limit now return `pagination_required`; clients enumerating
+  large clades must follow the returned pagination metadata. Small unpaged
+  calls remain complete. See [species-list pagination](dev_docs/MCP_TOOLS.md#species-list-pagination).
+
 - Scientific text recovery retains source evidence for signs, units, exponents,
   Chinese encoding and overlapping accent glyphs (#303, #306, #316).
   Multi-column order, enclosing species treatments, table cells and key
@@ -66,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (#324).
 
 - Vision outputs retain model-input coordinate provenance and are scaled into
-  the actual figure raster frame (#305). Narrow raster-edge recovery preserves
+  the actual figure raster frame (#305, #342). Narrow raster-edge recovery preserves
   labels clipped by layout detection and invalidates old pixel ROIs (#329).
   Figure counts track logical records after expansion/removal; new bundles
   reject inconsistent stored totals, and legacy summaries count actual records

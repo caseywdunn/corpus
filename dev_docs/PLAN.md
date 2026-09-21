@@ -7,8 +7,10 @@ scientific text, figures and bounded retrieval. Repairing that evidence takes
 priority over the skills that consume it. **v1.5.0 is the correctness release;
 the skills release moves to v1.6.0.** Additional response metadata and optional
 pagination require a minor release under [API_STABILITY.md](API_STABILITY.md).
-Existing fields, defaults and successful calls remain compatible; fixes must
-not silently redesign the frozen MCP surface.
+Existing result fields remain compatible; fixes must not silently redesign the
+frozen MCP surface. #338 adds one documented transport-safety restriction:
+oversized legacy species lists require explicit pagination rather than
+terminating the client's session.
 
 The enhancement work through `44977fea1657985f075f7e3bafc7833d2ab914cd` is
 preserved on **`enhancements/v1.6`**, and `dev` remains at that history.
@@ -62,18 +64,33 @@ priority over finishing within the current week's usage allowance.
   confirms removal of `/etc/apt/sources.list.d/google-chrome.sources`;
   clean-room run `35375772962` and T0 run `35375772896` also passed. The issue
   is closed with the actual runner-path evidence. *No plane.*
-- [ ] **#339** — make orphan retirement safe across concurrent build tasks,
+- [x] **#339** — make orphan retirement safe across concurrent build tasks,
   including marker moves and vector pruning. Preserve real I/O failures and
   recoverable evidence; a task that loses a legitimate cleanup race must not
-  cancel the downstream build. `[plane:build]`
-- [ ] **#341** — when extract-only work cannot use the configured vision
+  cancel the downstream build. A persistent advisory lock serializes the
+  current directory inventory, vector pruning and recoverable retirement;
+  missing-source races are handled narrowly. Eighteen retirement tests pass,
+  including three independent processes against real LanceDB with surviving
+  documents and with every document retired. This verifies local POSIX
+  concurrency; live SLURM/shared-filesystem operation was not replayed.
+  `[plane:build]`
+- [x] **#341** — when extract-only work cannot use the configured vision
   backend, skip the OCR panel pass that a later vision stage would replace.
-  Preserve explicit OCR mode and standalone-run fallback behavior.
+  Explicit/configured OCR and standalone fallback remain intact; cloud vision
+  checks credentials rather than local accelerators. Forty-nine panel/HPC
+  routing tests pass, including the later vision phase using unchanged config.
   `[plane:build]`
 - [ ] **#337** — adapt the contributed corpus-agnostic SSE smoke-test patch,
   discover paper/taxon/author/figure values from the active bundle, and accept
   valid empty-list encodings without hiding transport or tool errors. Validate
   the demo and a non-reference production bundle using the same script.
+  The contributed patch and follow-up discovery/error checks are integrated;
+  bounded chunk discovery avoids fetching a whole book's chunk index. Live
+  SSE passes against the retained four-paper demo and v1.2.1 reference bundles,
+  including query embedding; 26 focused smoke regressions pass. This is server
+  compatibility, not a fresh demo build. The
+  non-reference production bundle remains unavailable locally, so its source
+  acceptance is still open.
   *No plane; validation tooling.*
 - [ ] Inventory the audit cases against the existing gold source manifest and
   add explicit expectations for the failure mechanisms. *No plane; validation.*
@@ -258,7 +275,13 @@ before claiming an old OCR-routing defect persists.
   numbered clone of the preceding image without supporting evidence. Bind to
   the following image only when justified; otherwise retain explicit unbound
   evidence. Preserve true grouped plates and running-text precision controls,
-  and ensure vision receives no false shared-image target. `[plane:build]`
+  and ensure vision receives no false shared-image target. The conservative
+  competing-image guard is implemented with extraction-policy invalidation;
+  124 focused tests pass, including production vision-target exclusion.
+  Three saved gold captures preserve all 75 records, including 37 shared-image
+  records. The negative fixture is explicitly synthetic issue-derived geometry;
+  the Porifera source PDF/artifacts remain unavailable and source acceptance
+  stays open. `[plane:build]`
 - [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
   descriptions, preserve caption fragments and incomplete-binding evidence,
   and retain the edge species label in the source-verified figure. Source
@@ -311,10 +334,18 @@ new licensing evidence and no cache writes into the bundle.
 
 ### 5. Make bounded query results interpretable
 
-- [ ] **#338** — bound valid-species enumeration by rows and transport bytes,
+- [x] **#338** — bound valid-species enumeration by rows and transport bytes,
   with deterministic pagination and explicit continuation metadata. Preserve
   synonym/rank behavior and the existing successful response contract; prove
-  a large taxonomy query leaves the MCP session usable. `[plane:serve]`
+  a large taxonomy query leaves the MCP session usable. Sixty-six focused
+  taxonomy/contract tests pass. The actual MCP client/server regression uses a
+  synthetic response that previously exceeded 1 MiB, checks bounded refusal
+  and successive pages, then successfully searches and pings on the same
+  session. Unicode byte accounting, complete rows, ties, cycles, missing
+  snapshots and unreturnably large single rows are covered. The complete
+  serialized MCP result is capped at 256 KiB; continuation lives only in
+  `_meta.pagination`. The explicit oversized-unpaged restriction is documented
+  in API_STABILITY.md and MCP_TOOLS.md. `[plane:serve]`
 - [x] **#318** — expose aggregate scope and selected/available paper counts
   without silently changing existing aggregate meanings. `[plane:serve]`
 - [x] **#325** — add deterministic excerpt pagination, available/returned counts,
@@ -359,12 +390,16 @@ new licensing evidence and no cache writes into the bundle.
 ### 6. Release acceptance and return to enhancements
 
 - [ ] Relevant regressions, contract tests and established CI lanes pass on the
-  integrated candidate. Additions follow the minor API policy; existing
-  successful calls and fields remain compatible.
-  At `2998189`, local T0 passes 2,597 tests (five skipped, 90 deselected), Ruff
-  passes, and the optional original-PDF Chen replay passes separately. Hosted
-  T0/T1/T2/T3 passed at `c2d1378`; the treatment-boundary change still needs
-  current-head CI.
+  integrated candidate. Additions follow the minor API policy, with #338's
+  specific transport-safety restriction documented explicitly.
+  At `db31217`, local T0 passes 2,677 tests (26 optional checks skipped,
+  90 corpus/resume tests deselected), and Ruff passes. The first invocation's
+  sole failure was the test launcher omitting installed Ruff from PATH; the
+  corrected full run passes. Both retained-demo and reference-bundle live SSE
+  checks pass with real query embedding. Hosted T0/T1/T2 passed at `b30d02b`,
+  and T0/T1/T2/T3 previously passed at `c2d1378`; the new integrated batch
+  still needs current-head CI. Source-specific checks recorded elsewhere are
+  separate from this unit gate's optional-source skips.
   An adapted operator tour passes 39 public CLI calls, including exact-field
   BibTeX round trips and a controlled edit/restore, on a copied completed build.
   It does not replace fresh install/build/resume/serve or final-candidate gates.
