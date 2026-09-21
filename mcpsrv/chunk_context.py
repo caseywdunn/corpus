@@ -15,7 +15,7 @@ _CONTEXT_LISTS = ("source_items", "text_integrity", "tables", "key_branches")
 _PROSE = {"original", "replacement", "before", "after", "text", "source_text",
           "original_lead", "original_destination", "heading", "caption",
           "original_native_token", "decoded_hint", "original_tokens"}
-_TREATMENT_FIELDS = ("status", "name", "heading", "heading_ref", "heading_page",
+_TREATMENT_FIELDS = ("status", "name", "rank", "heading", "heading_ref", "heading_page",
                      "evidence", "name_evidence_ref")
 
 

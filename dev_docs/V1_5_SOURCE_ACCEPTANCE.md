@@ -215,6 +215,18 @@ serialization/chunk checks. This corrects the demonstrated classification defect
 it does not repair the two inherited treatment names, establish general key
 recall or fill the missing independent evaluation coverage.
 
+The subsequent treatment-context v3 correction addresses those two names.
+The Prayinae key is a structural `TableItem` labelled `document_index`; it now
+receives the same unknown treatment and separate merge role as other tables.
+The printed `Sub-family` and key headings also end the preceding species scope.
+For the other case, the entire plain-text item `Genus: PRAYOIDES Leloup 1934`
+provides an explicit genus and dated authority. Its diagnosis is served under
+`Prayoides` with `rank="genus"`, until the following explicit species heading
+establishes `Prayoides intermedia`. No species is inferred from monotypic prose.
+Both original saved-document contexts and compact save/chunk/serve replays pass;
+the v3 resume test refreshes chunks and preserves extraction. This does not
+establish complete treatment-boundary recall or replace integrated evaluation.
+
 A source-first notation review froze 24 selections from 14 gold papers before
 inspecting their candidate outputs. It contains 23 printed expressions and one
 unscorable transcription-note range; the latter was retained rather than

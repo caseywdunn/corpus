@@ -43,3 +43,14 @@ including provenance and adjacent-species controls. The deliberate `[…]`
 shortening remains in these fixtures, so these tests do not claim a fresh
 complete-document parse, default-model token boundaries, embedding retrieval
 quality, corpus-wide reading-order recall or a deployed bundle repair.
+
+
+`totton_treatment_boundaries.json` captures exact selected item text, original
+layout labels, table cells and page provenance from the frozen `6fbf4e0` Totton
+extraction. Minimal document wrappers omit intervening prose; original refs and
+the complete extraction/PDF hashes remain recorded. The source-reviewed cases
+are the Prayinae key (physical p120) and Prayoides genus/diagnosis transition
+(pp129–130), retaining prior and next species headings as boundary controls.
+The table's `document_index` label is intentionally preserved. Tests use actual
+save/reload, production chunking and bounded serving; only the tokenizer is
+instrumented. No PDF, gold artifact or frozen source label was modified.

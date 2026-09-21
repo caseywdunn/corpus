@@ -295,8 +295,14 @@ new licensing evidence and no cache writes into the bundle.
   source-reviewed false keys while retaining the four source key controls and
   short two-couplet/separate-column forms. Save/reload, chunk metadata and resume
   checks pass (55 focused tests); the producer change invalidates extraction and
-  downstream consumers. Wrong treatment names and rebuilt retrieval acceptance
-  remain pending; the frozen sample is not replaced after this correction.
+  downstream consumers. The two wrong treatment assignments now have a separate
+  source-backed correction: structural tables cannot inherit prose treatments,
+  higher-rank/key headings reset species context, and explicit ranked
+  author/year headings can establish genus context despite a missed layout
+  label. Both cases pass saved-document/chunk/serve checks and current full
+  source-document context replay; 100 focused regressions pass (seven optional
+  external-source checks skipped). Policy v3 rechunks without redoing extraction.
+  Rebuilt retrieval acceptance remains pending; the frozen sample is unchanged.
   Broader independently reviewed source coverage and actual reference/candidate
   captures remain; no retrieval improvement is claimed from evaluator tests.
 
@@ -307,7 +313,8 @@ new licensing evidence and no cache writes into the bundle.
   successful calls and fields remain compatible.
   At `2998189`, local T0 passes 2,597 tests (five skipped, 90 deselected), Ruff
   passes, and the optional original-PDF Chen replay passes separately. Hosted
-  T0/T1/T2/T3 passed at `a3e638d`; the CMap change still needs current-head CI.
+  T0/T1/T2/T3 passed at `c2d1378`; the treatment-boundary change still needs
+  current-head CI.
   An adapted operator tour passes 39 public CLI calls, including exact-field
   BibTeX round trips and a controlled edit/restore, on a copied completed build.
   It does not replace fresh install/build/resume/serve or final-candidate gates.

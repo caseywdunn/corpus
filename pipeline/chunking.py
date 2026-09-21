@@ -94,7 +94,7 @@ def chunk_text(
                 if table_context:
                     context["tables"] = table_context
                 section_class = classify_section(headings)
-                if c.meta.doc_items and all(getattr(item.label, "value", str(item.label)) in
+                if c.meta.doc_items and all(context_by_ref.get(item.self_ref, {}).get("role") in
                                              {"caption", "picture", "table"} for item in c.meta.doc_items):
                     section_class = None
                 if context["section_type"] == "diagnosis" or (context["section_type"] or "").startswith("description"):

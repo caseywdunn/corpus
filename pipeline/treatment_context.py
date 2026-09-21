@@ -15,7 +15,7 @@ import subprocess
 from .config import classify_section
 from .source_layout import _label, item_bounds
 
-TREATMENT_CONTEXT_POLICY = "source_treatments_v2"
+TREATMENT_CONTEXT_POLICY = "source_treatments_v3"
 _NAME = re.compile(r"^([A-Z][a-z]{2,})\s+([a-z][a-z/-]{2,})\b(.*)$", re.S)
 _NEW_SPECIES = re.compile(r"(?:sp\s*\.?\s*nov\s*\.?|n\s*\.?\s*sp\s*\.?)\s*$", re.I)
 _SECTION = re.compile(
@@ -24,6 +24,9 @@ _SECTION = re.compile(
     r"Type\s+locality|Remarks|Notes|Nectosome|Siphosome|Pneumatophore)\s*(?:[.:]|$)", re.I)
 _NON_TREATMENT = {"abstract", "introduction", "methods", "results", "discussion", "conclusion",
                   "references", "acknowledgements", "appendix"}
+_RANK_BOUNDARY = re.compile(
+    r"^(?:(?:Sub|Super|Infra)[ -]?)?(?:Genus|Family|Order|Class|Phylum)\b", re.I)
+_GENUS_HEADING = re.compile(r"^(?i:Genus|Subgenus)\s*:?\s+([A-Z][A-Za-z-]{2,})\s+(.+)$")
 
 
 def _authority_names(text):
@@ -48,6 +51,13 @@ def _authority_names(text):
     return True
 
 
+def _dated_authority(suffix):
+    if suffix.startswith("(") and suffix.endswith(")"):
+        suffix = suffix[1:-1].strip()
+    authority = re.fullmatch(r"(.+?)(?:,\s*|\s+)(?:17|18|19|20)\d{2}[a-z]?\.?", suffix)
+    return bool(authority and _authority_names(authority[1]))
+
+
 def _treatment_suffix(suffix):
     # Parenthesized original authorities are common. An unmatched parenthesis
     # or material after the authority remains unconfirmed.
@@ -57,8 +67,7 @@ def _treatment_suffix(suffix):
     if new_species:
         authors = suffix[:new_species.start()].strip().removesuffix(",").strip()
         return not authors or _authority_names(authors)
-    authority = re.fullmatch(r"(.+?)(?:,\s*|\s+)(?:17|18|19|20)\d{2}[a-z]?\.?", suffix)
-    return bool(authority and _authority_names(authority[1]))
+    return _dated_authority(suffix)
 
 
 def recover_section_headings(document, pdf_path):
@@ -125,6 +134,20 @@ def _name_heading(item):
     return match[1]+" "+match[2], text, suffix
 
 
+def _genus_heading(item):
+    """Accept a standalone, explicitly ranked name with a complete authority.
+
+    A layout model may label a printed genus heading as ordinary text. Require
+    its complete rank/name/authority syntax, never a genus mentioned in prose.
+    """
+    text = " ".join(getattr(item, "text", "").split())
+    match = _GENUS_HEADING.fullmatch(text)
+    if not match or len(text) > 180 or not _dated_authority(match[2]):
+        return None
+    name = match[1].capitalize() if match[1].isupper() else match[1]
+    return name, text, match[2]
+
+
 def _corroborated_name(candidate, suffix, following):
     """Resolve a damaged epithet only from the same nearby name and authority."""
     if "/" not in candidate:
@@ -152,20 +175,25 @@ def _corroborated_name(candidate, suffix, following):
 
 def materialize_treatment_context(document):
     """Return item-reference metadata; do not alter literal taxon annotations."""
+    from docling_core.types.doc import TableItem
+
     items = [item for item, _ in document.iterate_items()]
     contexts = {}
     current = {"status": "unknown", "name": None}
     section_type = None
     section_evidence = None
     for i,item in enumerate(items):
-        label = _label(item)
+        # A TableItem can be labelled document_index, including genuine keys.
+        # Its structure, rather than that layout label, determines this role.
+        label = "table" if isinstance(item, TableItem) else _label(item)
         text = " ".join(getattr(item, "text", "").split())
         box = item_bounds(item, document)
         if label in {"caption", "picture", "table", "page_header", "page_footer", "footnote"}:
             contexts[item.self_ref] = {"treatment_context": {"status": "unknown", "name": None},
                                        "section_type": None, "role": label}
             continue
-        named = _name_heading(item)
+        genus = _genus_heading(item)
+        named = _name_heading(item) or genus
         if named:
             name, heading, suffix = named
             name, corroboration = _corroborated_name(name, suffix, items[i+1:])
@@ -173,6 +201,9 @@ def materialize_treatment_context(document):
                        "heading": heading, "heading_ref": item.self_ref,
                        "heading_page": box[0] if box else None,
                        "evidence": "standalone_treatment_heading"}
+            if genus:
+                current["rank"] = "subgenus" if heading.lower().startswith("subgenus") else "genus"
+                current["evidence"] = "explicit_rank_name_authority_heading"
             if corroboration:
                 current["name_evidence_ref"] = corroboration
                 current["evidence"] = "heading_and_repeated_name_authority"
@@ -180,7 +211,8 @@ def materialize_treatment_context(document):
             section_evidence = None
         elif label == "section_header":
             cls = classify_section([text])
-            if cls in _NON_TREATMENT or re.match(r"^(?:Genus|Family|Order|Subfamily|Suborder)\b", text):
+            if (cls in _NON_TREATMENT or _RANK_BOUNDARY.match(text)
+                    or re.match(r"^Key\s+(?:to|10)\b", text, re.I)):
                 current = {"status": "unknown", "name": None}
             section_type = None
             section_evidence = None

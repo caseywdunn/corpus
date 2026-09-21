@@ -48,6 +48,10 @@ restrict the result, then fetch the selected IDs with
 case-sensitive comparison of the build's resolved treatment name; it does not
 resolve taxonomy synonyms or search for names in prose. The existing
 `section_class="description"` remains valid and includes materialized diagnoses.
+An explicit genus or subgenus treatment carries `rank="genus"` or
+`rank="subgenus"`; its name is not an inferred species assignment. A later
+evidenced species heading replaces that context. Missing species evidence does
+not justify choosing a species from nearby prose.
 
 Both tools expose `treatment_context`, `section_type` and `source_items` (source
 item, page, box and character span). Bounded producer observations appear as

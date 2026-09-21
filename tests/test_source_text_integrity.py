@@ -173,13 +173,22 @@ def test_inline_and_multipage_diagnoses_have_evidenced_species(case,species):
         assert diagnostic[0]["treatment_context"]["heading_page"] == 213
 
 
-def test_missing_heading_and_comparative_prose_do_not_imply_species():
+@pytest.mark.parametrize("omit_genus", [False, True])
+def test_missing_heading_and_comparative_prose_do_not_imply_species(omit_genus):
     doc = document("Siebert_etal2013-4-5")
     doc.body.children = [r for r in doc.body.children if not r.resolve(doc).text.startswith("Apolemia lanosa")]
+    if omit_genus:
+        doc.body.children = [r for r in doc.body.children if not r.resolve(doc).text.startswith("Genus Apolemia")]
     diagnostic = next(t for t in doc.texts if t.text.startswith("Diagnosis."))
     diagnostic.text += " Unlike Apolemia rubriversa, this species lacks diverticula."
     context = materialize_treatment_context(doc)[diagnostic.self_ref]
-    assert context["treatment_context"] == {"status": "unknown", "name": None}
+    if omit_genus:
+        assert context["treatment_context"] == {"status": "unknown", "name": None}
+    else:
+        # The explicit enclosing genus remains known, never the omitted species
+        # or the comparison name in ordinary prose.
+        assert context["treatment_context"]["name"] == "Apolemia"
+        assert context["treatment_context"]["rank"] == "genus"
 
 
 @pytest.mark.parametrize("heading", ["Oceanographic sampling in 1967", "Sampling strategy 1991",
