@@ -150,9 +150,20 @@ with clean/incremental edge and missing-reference agreement. The subsequent
 uses actual normal preparation and full Grobid parsing: all 121 PDF pages are
 preserved byte-for-byte, all 68 references are materialized, and the named
 observation maps to Pugh1974 while its original parsed 1965 remains inspectable.
-Three complete scanned documents still require normal OCR preparation; neither
-their full-document replay nor the audited corpus's overlapping citation sets
-and missing-work ranking is established. See the source crops, TEI fragments and receipts in
+The [subsequent scanned-document replay](examples/siphonophore_citation_year_2026_09_21.json)
+uses normal preparation and full Grobid parsing for Pugh1990 (76 pages/28
+references), Pugh1992a (42/40), and Alvarino1990 (440/110). Every page is retained;
+all three OCR subprocesses exit zero, without blanked, timed-out or textless
+pages. All 178 reference observations survive real authority materialization.
+The named observations map to Pugh1974 and are absent from the compact missing
+list; Alvarino's fresh XML identifier is b83, distinct from historical b80.
+Unchanged refresh is a no-op. The original report SQL used the wrong column
+name; saved-artifact replay fixes reporting without repeating OCR/Grobid.
+A broad report selector also included unrelated Kinzer raw1977/parsed1972;
+that conflict remains unresolved and separate from the named Pugh acceptance.
+The receipt preserves both failed reporting statuses and the final scoped pass.
+Full-corpus overlapping citation sets and missing-work ranking remain unproved.
+See the source crops, TEI fragments and receipts in
 `tests/fixtures/bibliographic_integrity/publication_year_sources`.
 
 Read-only legacy-bundle transport acceptance passes all registered MCP tools,
@@ -283,6 +294,14 @@ figure queue includes an apparent cross-publication number. This source replay
 does not replace later-producer or full-corpus validation.
 
 ## Acceptance still required
+
+The [Erenna Figure 51 delivery replay](../tests/fixtures/figure_integrity/erenna_fig51_delivery_2026_09_21/README.md)
+completes #329's named crop check using saved real extraction geometry and the
+original PDF. Production rendering, bundling and in-process MCP image conversion
+preserve identical PNG bytes with the complete right/bottom species label, five
+source panels and five scale bars, excluding neighboring prose. Fourteen
+raster-edge controls pass, including rotation, cropbox margins and a prose veto.
+This does not replace fresh layout extraction or corpus-wide figure recall.
 
 Rebuild the existing gold set and score text/figure/caption fidelity, including
 issue-specific assertions; do not substitute fixture presence or token coverage

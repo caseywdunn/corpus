@@ -116,8 +116,13 @@ mechanisms. Detector hits are review populations, not error counts.
   missing-reference counts while retaining historical raw observations.
   Full Tung preparation now preserves all 121 pages and fresh Grobid parsing
   materializes all 68 references; its named observation resolves to 1974 while
-  retaining raw 1965 and source evidence. The three scanned documents still
-  require normal preparation, followed by full-corpus/ranking acceptance.
+  retaining parsed 1965 and raw publication-year evidence. The three complete
+  scanned documents now also pass normal preparation and full Grobid replay:
+  [558 pages and 178 references](examples/siphonophore_citation_year_2026_09_21.json),
+  with each named observation mapped to 1974, raw observations preserved and
+  unchanged refresh verified. Reporting-harness failures and a separate
+  unresolved Kinzer year conflict remain explicit in the receipt. Full-corpus
+  citation-overlap and acquisition-ranking acceptance remain pending.
   `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
@@ -233,7 +238,12 @@ before claiming an old OCR-routing defect persists.
   descriptions, preserve caption fragments and incomplete-binding evidence,
   and retain the edge species label in the source-verified figure. Source
   geometry replay passes for Hosia, Sutherland and the clipped Erenna figure;
-  integrated rebuilt-corpus validation remains the release gate. `[plane:build]`
+  [Erenna Figure 51](../tests/fixtures/figure_integrity/erenna_fig51_delivery_2026_09_21/README.md)
+  now also passes production rendering, real bundling and MCP
+  image conversion with identical PNG bytes: the complete edge label, all five
+  source panels and scale bars remain visible. Fourteen edge/rotation/margin
+  controls pass. Integrated rebuilt-corpus validation remains the release gate.
+  `[plane:build]`
 - [x] **#302** — materialize figure-specific rights exclusions and provenance;
   apply them before inherited publication clearance at every strict delivery
   boundary. Whole figures, panels, fallbacks, URLs and HTTP must agree.
