@@ -259,8 +259,11 @@ before claiming an old OCR-routing defect persists.
   discovery/dossier evidence through live MCP. Full-corpus release validation
   remains pending. `[plane:build]`
 - [x] **#327** — expose consistent structured refusal reasons while preserving
-  successful MCP image responses. Actual MCP result conversion is covered by
-  the regression suite; integrated audit replay remains a release gate.
+  successful MCP image responses. Actual MCP conversion and structured profile
+  discovery now cover a client choosing permitted in-chat delivery without
+  parsing refusal prose; strict/default policy remains unchanged. The real
+  Hosia bundle supplies live refusal and permitted-image evidence. Combined
+  ranking, licensing, profile and refusal checks pass (64 focused tests).
   `[plane:serve]`
 - [ ] **#332** — recompute record totals after expansion/removal and validate
   them before bundling; consistently read legacy artifacts. Implemented and
