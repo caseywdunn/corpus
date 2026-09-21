@@ -44,6 +44,12 @@ symptom is not by itself a fresh reproduction on this release baseline.
 Separate source-verified failures, current-code reproductions and unproven
 mechanisms. Detector hits are review populations, not error counts.
 
+On September 21 the release scope expanded to include **#336–#339, #341 and
+#342**. #342 shares #305's coordinate-frame implementation and GPU acceptance;
+it is not a second model rewrite. **#340 is explicitly deferred to a later
+release**, with no version assigned. Correctness and adequate acceptance take
+priority over finishing within the current week's usage allowance.
+
 ### 1. Establish the release baseline and regression cases
 
 - [x] Preserve the enhancement branch and create the correctness branch from
@@ -56,6 +62,19 @@ mechanisms. Detector hits are review populations, not error counts.
   confirms removal of `/etc/apt/sources.list.d/google-chrome.sources`;
   clean-room run `35375772962` and T0 run `35375772896` also passed. The issue
   is closed with the actual runner-path evidence. *No plane.*
+- [ ] **#339** — make orphan retirement safe across concurrent build tasks,
+  including marker moves and vector pruning. Preserve real I/O failures and
+  recoverable evidence; a task that loses a legitimate cleanup race must not
+  cancel the downstream build. `[plane:build]`
+- [ ] **#341** — when extract-only work cannot use the configured vision
+  backend, skip the OCR panel pass that a later vision stage would replace.
+  Preserve explicit OCR mode and standalone-run fallback behavior.
+  `[plane:build]`
+- [ ] **#337** — adapt the contributed corpus-agnostic SSE smoke-test patch,
+  discover paper/taxon/author/figure values from the active bundle, and accept
+  valid empty-list encodings without hiding transport or tool errors. Validate
+  the demo and a non-reference production bundle using the same script.
+  *No plane; validation tooling.*
 - [ ] Inventory the audit cases against the existing gold source manifest and
   add explicit expectations for the failure mechanisms. *No plane; validation.*
   Reuse the existing 35-document siphonophore gold corpuscle and independent
@@ -225,7 +244,7 @@ before claiming an old OCR-routing defect persists.
 
 ### 4. Restore figure content, captions and clearance
 
-- [ ] **#305** — record and transform ROI coordinate frames correctly. Fix the
+- [ ] **#305**, **#342** — record and transform ROI coordinate frames correctly. Fix the
   deterministic Claude resize bug, investigate the deployed Qwen failures
   separately, and validate actual panel content after rebuild. Bounds checks
   and the Claude fix alone do not close the issue. Both backend frame fixes
@@ -234,6 +253,12 @@ before claiming an old OCR-routing defect persists.
   processor frames, raw responses and production crops for review. Fresh
   source-pilot inference and scientific panel review remain.
   `[plane:build]`
+- [ ] **#336** — distinguish captions preceding the next page's ordinary image
+  from legends describing a shared historical plate. Never create a confident
+  numbered clone of the preceding image without supporting evidence. Bind to
+  the following image only when justified; otherwise retain explicit unbound
+  evidence. Preserve true grouped plates and running-text precision controls,
+  and ensure vision receives no false shared-image target. `[plane:build]`
 - [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
   descriptions, preserve caption fragments and incomplete-binding evidence,
   and retain the edge species label in the source-verified figure. Source
@@ -286,6 +311,10 @@ new licensing evidence and no cache writes into the bundle.
 
 ### 5. Make bounded query results interpretable
 
+- [ ] **#338** — bound valid-species enumeration by rows and transport bytes,
+  with deterministic pagination and explicit continuation metadata. Preserve
+  synonym/rank behavior and the existing successful response contract; prove
+  a large taxonomy query leaves the MCP session usable. `[plane:serve]`
 - [x] **#318** — expose aggregate scope and selected/available paper counts
   without silently changing existing aggregate meanings. `[plane:serve]`
 - [x] **#325** — add deterministic excerpt pagination, available/returned counts,
@@ -490,6 +519,11 @@ Adjacent, found while scoping the above:
 
 ## Other deferred work
 
+- **#340** — enforce configurable timeouts for scan detection and OCR panel
+  detection through safely terminable execution, structured document failure
+  and retryable artifacts. Explicitly deferred on September 21; version
+  unassigned. The current heartbeat does not stop hung native work.
+  `[plane:build]`
 - **#330** — optional lexicon surface-form dossier support. `[plane:serve]`
 - **#333** — optional taxonomy miss diagnostics and matched-name presentation;
   preserve truthful snapshot scope. `[plane:serve]`
