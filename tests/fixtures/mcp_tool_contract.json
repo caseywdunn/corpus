@@ -1278,6 +1278,23 @@
   "list_valid_species_under": {
     "input_schema": {
       "properties": {
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limit"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
         "parent_taxon_name": {
           "title": "Parent Taxon Name",
           "type": "string"
@@ -1289,7 +1306,7 @@
       "title": "list_valid_species_underArguments",
       "type": "object"
     },
-    "signature": "(parent_taxon_name: 'str') -> 'List[Dict]'"
+    "signature": "(parent_taxon_name: 'str', limit: 'Optional[int]' = None, offset: 'int' = 0) -> 'List[Dict]'"
   },
   "resolve_reference": {
     "input_schema": {

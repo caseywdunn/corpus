@@ -8,12 +8,14 @@ form is the accepted name, an unaccepted one, or a registered synonym.
 """
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from bib.authority import normalize_for_key
+from mcp.types import CallToolResult, TextContent
 
 from ..app import _load_json, _need_index, _validate_collection, _validated_limit, error, mcp
 
@@ -880,59 +882,124 @@ def get_taxon_subtree_dossier(
     }
 
 
+SPECIES_MAX_RESULT_BYTES = 256 * 1024
+_SPECIES_CTE = """
+    WITH RECURSIVE subtree(taxon_id) AS (
+        SELECT ?
+        UNION
+        SELECT taxa.taxon_id FROM taxa
+        JOIN subtree ON taxa.parent_name_usage_id = subtree.taxon_id
+    ), species AS (
+        SELECT taxa.taxon_id, scientific_name, scientific_name_authorship, taxon_rank
+        FROM taxa JOIN subtree USING (taxon_id)
+        WHERE taxa.taxon_id != ? AND taxonomic_status = 'accepted'
+          AND lower(taxon_rank) IN ('species', 'subspecies')
+    )
+"""
+
+
+def _species_result(rows, pagination=None, *, failed=False):
+    """Keep the SDK's list representations; add pagination only to MCP metadata."""
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(row, ensure_ascii=False, indent=2))
+                 for row in rows],
+        structured_content={"result": rows},
+        is_error=failed,
+        **({"_meta": {"pagination": pagination}} if pagination is not None else {}),
+    )
+
+
+def _species_result_bytes(result):
+    return len(result.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
+
+
 @mcp.tool()
-def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
-    """All currently-valid species descending from the given taxon in
-    the configured Darwin Core taxonomy snapshot.
+def list_valid_species_under(
+    parent_taxon_name: str, limit: Optional[int] = None, offset: int = 0,
+) -> List[Dict]:
+    """Currently-valid species/subspecies below a taxon in the taxonomy snapshot.
 
     Accepts any rank above species (genus, family, order, …). The result
     is a filtered view of the taxonomy snapshot; it does not consult the
     corpus — pair with :func:`get_papers_for_taxon` for per-species
     corpus coverage.
+
+    The successful species-list shape is unchanged. Omit ``limit`` for the
+    complete legacy list when it fits the 256 KiB MCP result budget. Oversized
+    unpaged calls now return an explicit ``invalid_argument`` error row with
+    ``reason="pagination_required"`` instead of a partial list or an oversized
+    transport event. This is a deliberate safety restriction on legacy calls.
+
+    Pass ``limit`` (1–500; larger values clamp to 500) to paginate in stable
+    scientific-name / taxon-ID order within an immutable snapshot. ``offset``
+    requires an explicit limit. MCP ``_meta.pagination`` reports ``offset``,
+    effective ``limit``, ``returned``, ``total_available``, ``next_offset``
+    (null at the end), ``truncated``, ``truncated_reason``, ``result_bytes``
+    and ``max_result_bytes``. The SDK's ``structuredContent.result`` remains
+    a list, as do its per-row text blocks; pagination is only in ``_meta``.
+    Follow ``next_offset``, since the byte budget can shorten a page.
+
+    Rows are never clipped or silently skipped. If one row cannot fit by
+    itself, a bounded error identifies ``blocked_offset`` and has no next
+    offset; the full row cannot be delivered under this contract. The budget
+    includes both MCP content representations and metadata, excluding only
+    the small JSON-RPC/SSE envelope. Errors never echo oversized taxon fields.
     """
+    if not isinstance(offset, int) or not 0 <= offset <= 2**63 - 1:
+        return [error("offset must be an integer between 0 and 2^63-1", "invalid_argument")]
+    if limit is None and offset:
+        return [error("offset requires an explicit positive limit", "invalid_argument")]
+    if limit is not None:
+        try:
+            limit = _validated_limit(limit)
+        except (TypeError, ValueError, OverflowError) as exc:
+            return [error(str(exc), "invalid_argument")]
     idx = _need_index()
     if idx.taxonomy_db is None:
         return [error("no taxonomy snapshot configured", "not_configured")]
     hit = idx.taxonomy_db.lookup(parent_taxon_name)
-    if not hit:
-        return []
-    parent_id = hit["accepted_taxon_id"]
-    # Walk the parent_name_usage_id tree in the snapshot. BFS — the tree
-    # may not be strictly shallow. Only accepted species/subspecies are
-    # returned, matching the DwC taxonomicStatus convention.
-    conn = idx.taxonomy_db.conn
-    frontier = [parent_id]
-    descendants: List[str] = []
-    seen: set = set()
-    while frontier:
-        parent = frontier.pop(0)
-        if parent in seen:
-            continue
-        seen.add(parent)
+    available = 0
+    cur = ()
+    if hit:
+        parent_id = hit["accepted_taxon_id"]
+        conn = idx.taxonomy_db.conn
+        # UNION makes malformed cycles finite. SQLite traverses the snapshot;
+        # Python retains only one bounded page, not every descendant ID/row.
+        args = (parent_id, parent_id)
+        available = conn.execute(_SPECIES_CTE + "SELECT count(*) FROM species", args).fetchone()[0]
         cur = conn.execute(
-            "SELECT taxon_id, taxon_rank, taxonomic_status FROM taxa "
-            "WHERE parent_name_usage_id = ?",
-            (parent,),
+            _SPECIES_CTE + "SELECT * FROM species ORDER BY scientific_name, taxon_id LIMIT ? OFFSET ?",
+            (*args, limit + 1 if limit is not None else -1, offset),
         )
-        for row in cur:
-            descendants.append(row[0])
-            frontier.append(row[0])
-    if not descendants:
-        return []
-    placeholders = ",".join("?" * len(descendants))
-    cur = conn.execute(
-        f"""
-        SELECT taxon_id, scientific_name, scientific_name_authorship, taxon_rank
-        FROM taxa
-        WHERE taxon_id IN ({placeholders})
-          AND taxonomic_status = 'accepted'
-          AND lower(taxon_rank) IN ('species', 'subspecies')
-        ORDER BY scientific_name
-        """,
-        descendants,
-    )
     out: List[Dict] = []
+    byte_limited = False
+
+    def finish(*, failed=False):
+        if limit is None:
+            return _species_result(out, failed=failed)
+        n = 0 if failed else len(out)
+        more = offset + n < available
+        pagination = {
+            "offset": offset, "limit": limit, "returned": n,
+            "total_available": available,
+            "next_offset": offset + n if more and not failed else None,
+            "truncated": more,
+            "truncated_reason": (["row_exceeds_response_budget"] if failed else
+                                 ["response_bytes"] if byte_limited else
+                                 ["limit"] if more else []),
+            "max_result_bytes": SPECIES_MAX_RESULT_BYTES, "result_bytes": 0,
+        }
+        result = _species_result(out, pagination, failed=failed)
+        size = _species_result_bytes(result)
+        while pagination["result_bytes"] != size:
+            pagination["result_bytes"] = size
+            result = _species_result(out, pagination, failed=failed)
+            size = _species_result_bytes(result)
+        return result
+
     for row in cur:
+        if limit is not None and len(out) == limit:
+            break
         tid = row[0]
         out.append({
             "accepted_taxon_id": tid,
@@ -941,4 +1008,33 @@ def list_valid_species_under(parent_taxon_name: str) -> List[Dict]:
             "rank": row[3],
             "mentioning_paper_count": len(idx.taxon_to_papers.get(tid, [])),
         })
-    return out
+        if _species_result_bytes(finish()) > SPECIES_MAX_RESULT_BYTES:
+            if limit is None:
+                return [error(
+                    "complete species list exceeds the response budget; retry with limit and offset",
+                    "invalid_argument", reason="pagination_required", suggested_limit=100,
+                    total_available=available, next_offset=0,
+                    max_result_bytes=SPECIES_MAX_RESULT_BYTES,
+                )]
+            out.pop()
+            byte_limited = True
+            if not out:
+                out.append(error(
+                    "one species row exceeds the response budget; it cannot be returned without clipping",
+                    "unavailable", reason="row_exceeds_response_budget", blocked_offset=offset,
+                ))
+                return finish(failed=True)
+            break
+    # Metadata can grow when a byte-shortened page changes its reason/counts.
+    result = finish()
+    while limit is not None and _species_result_bytes(result) > SPECIES_MAX_RESULT_BYTES and out:
+        out.pop()
+        byte_limited = True
+        if not out:
+            out.append(error(
+                "one species row exceeds the response budget; it cannot be returned without clipping",
+                "unavailable", reason="row_exceeds_response_budget", blocked_offset=offset,
+            ))
+            return finish(failed=True)
+        result = finish()
+    return out if limit is None else result

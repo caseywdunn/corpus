@@ -109,11 +109,46 @@ provide the new context. The tools do not repair an old bundle while serving.
 | `get_papers_for_taxon` | Papers mentioning a taxon, resolved through synonymy. |
 | `get_chunks_for_taxon` | Every chunk that mentions the taxon (resolved through synonymy). |
 | `get_taxon_mentions` | All text-span mentions of a taxon across the corpus, with surrounding context. |
-| `list_valid_species_under` | All currently-valid species descending from the given taxon in the configured taxonomy snapshot. |
+| `list_valid_species_under` | Accepted species/subspecies descending from a taxon, resolving synonyms in the configured snapshot. Optional `limit`/`offset` pagination preserves the species-list payload and reports continuation in MCP `_meta.pagination`; oversized unpaged calls fail explicitly. |
 | `get_papers_by_author` | Papers authored by the given surname (case-insensitive). |
 | `get_taxon_dossier` | One-call comprehensive view of a taxon across the corpus: metadata, papers (sorted by mention count), chunk_index (IDs only — pair with `get_chunks`), figure_index, top lexicon terms per category, cooccurring taxa. Supersedes the `search_taxon` + `get_papers_for_taxon` + `get_papers` + N× `get_chunks_for_taxon` + `get_figures_for_taxon` chain (~45 round-trips → 1). `include=[...]` trims sections. Lexicon/cooccurrence totals cover the capped paper selection; `aggregate_scope` reports selected/available paper counts and the deterministic selection policy, even when the paper list is omitted (#318). |
 | `get_taxon_lexicon_slice` | Lexicon coverage for one taxon under one category, joined at the chunk level. Same-chunk co-occurrence — tighter than `corpus_summary` / dossier rollups: a term only counts when it appears in a chunk where the taxon is also mentioned. Returns `{term, n_chunks, n_papers, paper_examples}` per term. Category-agnostic; unknown category returns the available list. |
 | `get_taxon_subtree_dossier` | Walk a clade's accepted species/subspecies via the DwC `parent_name_usage_id` tree; for each species with corpus coverage, return a capsule (paper count, mention count, authorship). Plus a deduplicated aggregate paper list across the subtree with `n_species_covered` per paper. Supersedes the p07 monographic pattern of `list_valid_species_under` + N× `get_papers_for_taxon`. |
+
+### Species-list pagination
+
+`list_valid_species_under(parent_taxon_name, limit=None, offset=0)` preserves
+the existing list of species objects. With no limit, a complete list is
+returned if its MCP result fits 256 KiB. **Safety change:** a larger unpaged
+request now returns a bounded error row (`code="invalid_argument"`,
+`reason="pagination_required"`, `suggested_limit=100`, `next_offset=0`),
+rather than emitting an oversized event or silently returning a prefix.
+
+Pass a positive `limit` to opt into pagination. The shared cap is 500;
+`limit=0` is invalid, and a nonzero `offset` requires an explicit limit.
+Ordering is by scientific name, then taxon ID, within the immutable snapshot.
+Synonyms still resolve to their accepted parent; only accepted species and
+subspecies below that parent are returned, with existing fields unchanged.
+
+The MCP result retains its per-row text blocks and its
+`structuredContent.result` list. One additive metadata object,
+`_meta.pagination`, contains `offset`, effective `limit`, `returned`,
+`total_available`, `next_offset`, `truncated`, `truncated_reason`,
+`result_bytes` and `max_result_bytes`. For example, a client requests
+`limit=3, offset=0`, reads the same species list, then requests the metadata's
+`next_offset` until it is null. Read metadata even when fewer than `limit`
+rows arrive: the byte budget can shorten a page (`response_bytes` reason).
+Empty successful pages also carry metadata. The budget measures UTF-8 JSON
+for the entire MCP result, including both content representations and
+pagination metadata; the small JSON-RPC/SSE framing is additional.
+
+Rows and taxon names are never clipped. An individual row exceeding the
+budget returns an explicit `unavailable` error with
+`reason="row_exceeds_response_budget"` and `blocked_offset`; pagination
+reports zero returned and no next offset. This is a failed page, not the end
+of a complete enumeration. That row requires inspection of the source
+snapshot; the server does not silently skip it or repeat a nonadvancing
+continuation. Ordinary configuration/argument failures retain error rows.
 
 ## Bibliography + citation graph
 
