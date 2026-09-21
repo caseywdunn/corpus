@@ -8,7 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from tools.smoke_test_sse import _parse_tool_result, _result_items, layer3_tool_coverage
+from tools.smoke_test_sse import (
+    _parse_tool_result, _result_items, layer2_mcp_client, layer3_tool_coverage,
+)
 
 
 def _result(*texts):
@@ -75,6 +77,7 @@ def _install_session(monkeypatch, *, count=0, taxonomy=True, author=True, overri
     surname = "del Río"
     taxon_name = "Quercus robur"
     responses = {
+        "bundle_info": {"bundle_version": "test-fixture"},
         "list_papers": [{"hash": paper_hash, "first_author": "M. del Río" if author else ""}],
         "get_papers": [{"hash": paper_hash, "first_author": surname}],
         "corpus_summary": {
@@ -110,6 +113,9 @@ def _install_session(monkeypatch, *, count=0, taxonomy=True, author=True, overri
 
         async def initialize(self):
             pass
+
+        async def list_tools(self):
+            return SimpleNamespace(tools=[SimpleNamespace(name=name) for name in responses])
 
         async def call_tool(self, name, arguments):
             calls.append((name, arguments))
@@ -160,6 +166,8 @@ def test_layer3_runs_paper_checks_without_taxonomy_lexicon_or_authors(monkeypatc
     ("get_chunks_for_topic", {"error": "embedding failed", "code": "unavailable"}),
     ("get_papers_for_taxon", [{"error": "lookup failed"}]),
     ("get_figures_for_taxon", SimpleNamespace(content=[], isError=True)),
+    ("list_output_profiles", {"error": "profiles failed", "code": "unavailable"}),
+    ("list_output_profiles", {"unexpected": "wrong shape"}),
 ])
 def test_layer3_fails_discovery_and_tool_errors(monkeypatch, tool, value):
     _install_session(monkeypatch, overrides={tool: value})
@@ -173,3 +181,14 @@ def test_layer3_skips_explicitly_unconfigured_optional_features(monkeypatch, cap
     })
     assert asyncio.run(layer3_tool_coverage("localhost", 1, "test-token")) == 0
     assert "skipping semantic search" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("value,expected", [
+    ([], 0),
+    ([{"hash": "a1b2c3d4e5f6"}], 0),
+    ({"error": "database failed", "code": "unavailable"}, 1),
+    ("not a list", 1),
+])
+def test_layer2_validates_paper_results_without_layer3(monkeypatch, value, expected):
+    _install_session(monkeypatch, overrides={"list_papers": value})
+    assert asyncio.run(layer2_mcp_client("localhost", 1, "test-token")) == expected

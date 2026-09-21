@@ -211,14 +211,8 @@ async def layer2_mcp_client(host: str, port: int, token: str) -> int:
                     result = await session.call_tool(
                         "list_papers", {"limit": 1}
                     )
-                    parsed = _parse_tool_result(result)
-                    if isinstance(parsed, list):
-                        _ok(f"list_papers(limit=1) → list of {len(parsed)}")
-                    else:
-                        _ok(
-                            f"list_papers(limit=1) returned "
-                            f"{type(parsed).__name__}"
-                        )
+                    rows = _result_items(_parse_tool_result(result), "hash")
+                    _ok(f"list_papers(limit=1) → {len(rows)} papers")
                 except Exception as e:
                     rc |= _fail(f"call_tool(list_papers) raised: {e}")
 
@@ -511,12 +505,10 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
             try:
                 r = await session.call_tool("list_output_profiles", {})
                 d = _parse_tool_result(r)
-                if isinstance(d, dict) and "profiles" in d:
+                if isinstance(d, dict) and "error" not in d and isinstance(d.get("profiles"), list):
                     _ok(f"list_output_profiles → "
-                        f"{len(d['profiles'])} profiles: "
-                        f"{list(d['profiles'])}")
-                elif isinstance(d, dict):
-                    _ok(f"list_output_profiles → {sorted(d)[:5]}")
+                            f"{len(d['profiles'])} profiles: "
+                            f"{list(d['profiles'])}")
                 else:
                     rc |= _fail(f"list_output_profiles unexpected: {type(d)}")
             except Exception as e:
