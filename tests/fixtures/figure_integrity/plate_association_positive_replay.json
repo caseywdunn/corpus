@@ -1,0 +1,41 @@
+{
+  "issue": 336,
+  "date": "2026-09-21",
+  "method": "Deserialize saved real DoclingDocument; extract_caption_info for every picture; collect provenance fragments with _text_fragments; plate_legend_entries; compare expand_plate_figures with and without the new following-image guard. Identity comparison includes docling_idx, page, figure_number, caption_text, shares_image_with.",
+  "scope": "Stored extraction replay, not fresh extraction, visual source grading or remeasurement of full #203/#231 scores. Original source PDF for the new #336 case remains unavailable. Absolute capture paths are historical provenance.",
+  "cases": [
+    {
+      "document_id": "d64d1b9da678",
+      "capture_sha256": "0c66f6fe9de6fdfcce72dae12fdff58fe3afcd9d568bdd6256f4890f4f1ae0c0",
+      "pictures": 3,
+      "previous_records": 6,
+      "current_records": 6,
+      "identical_identity_and_caption": true,
+      "shared_records_preserved": 3,
+      "title": "Osservazioni sullo sviluppo dei gonofori fi Muggiaea kochi Will",
+      "source": "/tmp/corpus-v15-acceptance/gold/output/documents/d64d1b9da678/docling_doc.json"
+    },
+    {
+      "document_id": "0cf9f253f75b",
+      "capture_sha256": "a16d8883c10d1b0885c7cc88425890d22e2f18ab75ca7468c743bb732641fafe",
+      "pictures": 1,
+      "previous_records": 7,
+      "current_records": 7,
+      "identical_identity_and_caption": true,
+      "shared_records_preserved": 6,
+      "title": "Die microscopischen Waffen der C\u00f6leneraten",
+      "source": "/tmp/corpus-v15-acceptance/gold/output/documents/0cf9f253f75b/docling_doc.json"
+    },
+    {
+      "document_id": "9c0af2a4e494",
+      "capture_sha256": "43acb4da1de115a583cd33e981a9e997cd0db464c39d6818bbc1398d2fef332d",
+      "pictures": 34,
+      "previous_records": 62,
+      "current_records": 62,
+      "identical_identity_and_caption": true,
+      "shared_records_preserved": 28,
+      "title": "Siphonophoren",
+      "source": "/tmp/corpus-v15-acceptance/gold/output/documents/9c0af2a4e494/docling_doc.json"
+    }
+  ]
+}

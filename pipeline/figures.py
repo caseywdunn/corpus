@@ -1203,10 +1203,10 @@ def _position_key(bbox):
     return tuple(round(v / _POSITION_TOLERANCE_PTS) for v in bbox)
 
 
-# A page's legend has to name at least this many distinct figures before the
-# page is treated as a plate holding several. Two is a caption that mentions a
-# neighbour; a run of them is a legend.
+# This is only the minimum for collecting candidate legend entries. Caption
+# count alone cannot establish that the figures share one image (#336).
 _MIN_PLATE_LEGEND_ENTRIES = 2
+PLATE_ASSOCIATION_POLICY = "caption-source-groups-following-image-conflict-v1"
 
 # A legend line *opens* with the label of the figure it describes. A line that
 # merely mentions a figure number somewhere in its middle is a cross-reference,
@@ -1290,7 +1290,8 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
             plate_number_context and _FUZZY_PLATE_LEGEND_OPENER.match(text)
         ):
             continue
-        for entry in caption_figure_entries(text):
+        grouped_entries = caption_figure_entries(text)
+        for entry in grouped_entries:
             num = entry["figure_number"]
             if num in seen:
                 continue
@@ -1300,9 +1301,75 @@ def plate_legend_entries(page_texts: List[Dict]) -> List[Dict]:
             }
             if plate_number_context:
                 seen[num]["plate_number_context"] = plate_number_context
+            if len(grouped_entries) > 1:
+                # Keep the shared source-block evidence, not just the count
+                # of independently opened captions elsewhere on this page.
+                seen[num]["caption_group_numbers"] = [
+                    grouped["figure_number"] for grouped in grouped_entries
+                ]
     if len(seen) < _MIN_PLATE_LEGEND_ENTRIES:
         return []
     return list(seen.values())
+
+
+def _withhold_following_image_captions(plate, entries, following):
+    """Refuse an ambiguous ordinary caption as evidence of a shared plate.
+
+    A prose-captioned figure and another caption on its page can precede an
+    uncaptioned image on the next page (#336). Neither adjacency nor the
+    number of captions proves image ownership. Preserve the competing text
+    as rejected evidence; only a structural link can bind that next image.
+    Explicit plate context and a source block jointly naming the host and
+    child remain independent shared-plate evidence.
+    """
+    number = str(plate.get("figure_number") or "")
+    if (not number or not _bbox_area(plate.get("bbox"))
+            or plate.get("caption_status") != "bound"
+            or plate.get("caption_page") != plate.get("page")
+            or _caption_kind(plate.get("caption_text") or "") != "prose_caption"
+            or _PLATE_CAPTION_RE.match(plate.get("caption_text") or "")
+            or any(entry.get("plate_number_context") for entry in entries)):
+        return entries
+    if not any(entry["figure_number"] == number for entry in entries):
+        return entries
+
+    retained = []
+    for entry in entries:
+        if (entry["figure_number"] == number
+                or number in entry.get("caption_group_numbers", [])):
+            retained.append(entry)
+            continue
+        competing = [
+            item for item in following
+            if _bbox_area(item.get("bbox")) >= (
+                _bbox_area(plate.get("bbox")) * _CROSS_PAGE_OWNER_MIN_AREA_RATIO
+            )
+            and (
+                (not item.get("figure_number") and not item.get("caption_text"))
+                or (str(item.get("figure_number") or "") == entry["figure_number"]
+                    and item.get("caption_source") == "docling_caption_link"
+                    and item.get("caption_page") == plate.get("page"))
+            )
+        ]
+        if not competing:
+            retained.append(entry)
+            continue
+        evidence = _caption_candidate(
+            text=entry["caption_text"], page=plate.get("page"),
+            bbox=entry.get("caption_bbox"), source="plate_legend",
+            picture_page=plate.get("page"), distance=None, confidence="low",
+        )
+        evidence.pop("_full_caption_text", None)
+        evidence["rejection_reason"] = "separate_caption_with_following_picture"
+        evidence["competing_docling_indices"] = [
+            item.get("docling_idx") for item in competing
+        ]
+        candidates = plate.setdefault("caption_candidates", [])
+        if evidence not in candidates:
+            # Chosen evidence stays first; a repeated pass must not duplicate
+            # the rejection or grow a stored candidate list without bound.
+            candidates[:] = [*candidates[:4], evidence]
+    return retained
 
 
 def _append_plate_legend_siblings(
@@ -1596,6 +1663,11 @@ def expand_plate_figures(items: List[Dict], legends: Dict) -> List[Dict]:
         # The plate is the largest picture on the page; the legend describes
         # what is drawn on it.
         plate = max(on_page, key=lambda x: _bbox_area(x.get("bbox")))
+        entries = _withhold_following_image_captions(
+            plate, entries, by_page.get(page + 1) or [],
+        )
+        if len(entries) <= len(on_page_figures):
+            continue
         _append_plate_legend_siblings(
             out,
             plate,

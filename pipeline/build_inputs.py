@@ -60,10 +60,12 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     from .source_spaces import source_spacing_producer
     from .treatment_context import TREATMENT_CONTEXT_POLICY
     from .key_context import KEY_BRANCH_CONTEXT_POLICY
+    from .figures import PLATE_ASSOCIATION_POLICY
     # These build decisions change stored evidence even when package/config
     # versions are unchanged. English OCR availability/model identity also
     # governs rendered heading and scientific-unit corroboration.
     extract.update({
+        "extraction.plate_association_policy": PLATE_ASSOCIATION_POLICY,
         "extraction.source_layout_policy": SOURCE_LAYOUT_POLICY,
         "extraction.scientific_notation_policy": SCIENTIFIC_TEXT_POLICY,
         "extraction.pdf_cmap_producer": pdf_cmap_producer(),

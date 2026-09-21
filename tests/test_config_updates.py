@@ -501,6 +501,18 @@ def test_spacing_subrun_policy_invalidates_extraction_and_consumers(monkeypatch)
         assert current[stage] == previous[stage]
 
 
+def test_plate_association_policy_invalidates_extraction_and_consumers(monkeypatch):
+    from pipeline import figures
+    current = config_fingerprints({}, panel_mode="ocr")
+    monkeypatch.setattr(figures, "PLATE_ASSOCIATION_POLICY", "legacy-caption-count-only")
+    previous = config_fingerprints({}, panel_mode="ocr")
+    for stage in ("docling_extraction", "text_chunking", "taxa_and_lexicon_extraction",
+                  "figure_materialization", "figure_crossref"):
+        assert current[stage] != previous[stage]
+    for stage in ("scan_detection", "pdf_preparation", "metadata_extraction"):
+        assert current[stage] == previous[stage]
+
+
 def test_native_recovery_changes_reprepare_and_retire_old_evidence(corpus, monkeypatch):
     """Exercise both resume gates and the scratch extraction publication path."""
     import shutil
