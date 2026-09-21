@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "issue": 329,
+  "recorded_date": "2026-09-21",
+  "code_revision": "eb50d755a700492ef17b83def3058e8837e2db02",
+  "scope": "Saved actual legacy extraction geometry -> current render_figures -> package -> CorpusIndex -> MCPServer.call_tool; no fresh layout extraction/full build",
+  "source_pdf": {
+    "library_path": "P/Pugh_Haddock2016.pdf",
+    "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+    "physical_page": 44
+  },
+  "input_artifacts_sha256": {
+    "legacy_figures_json": "2957aa3656665f7f8246fbee1e8efc295c43829f17369eee9a1d91ee12b6ee48",
+    "legacy_metadata_json": "eabc6d85e903de0c728c66a5bffce651d3eed74cad9ed785a85af64da43a4454",
+    "legacy_fig51_png": "2ee8cc6c2d482015376a24376957b43c21ffe8d56ca1e913e9015d79a2fe8ee7",
+    "later_docling_pages43_44_json": "7be2daf10b5084528ea44c0f909f599ad186b53fe6f6c2e2dac8cb6c6413f3f1"
+  },
+  "later_docling_picture": {
+    "self_ref": "#/pictures/1",
+    "parent": {
+      "$ref": "#/body"
+    },
+    "children": [
+      {
+        "$ref": "#/texts/6"
+      }
+    ],
+    "content_layer": "body",
+    "label": "picture",
+    "prov": [
+      {
+        "page_no": 44,
+        "bbox": {
+          "l": 55.63229751586914,
+          "t": 365.42144775390625,
+          "r": 535.263671875,
+          "b": 177.73931884765625,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          0
+        ]
+      }
+    ],
+    "captions": [
+      {
+        "$ref": "#/texts/6"
+      }
+    ],
+    "references": [],
+    "footnotes": [],
+    "annotations": []
+  },
+  "original_figure": {
+    "figure_id": "docling_53",
+    "filename": "fig_51.png",
+    "file_path": "documents/da370f1e0434/figures/fig_51.png",
+    "caption_text": "FIGURE 51. Comparison of the tentilla of Erenna species. Scale bars: 1 mm for E. laciniata, E. cornuta & E. sirena sp. nov .; 5 mm for E. richardi & E. insidiator sp. nov .",
+    "extraction_method": "docling",
+    "figure_type": "figure",
+    "figure_number": "51",
+    "page": 44,
+    "bbox": [
+      55.63226318359375,
+      177.7393798828125,
+      535.2636108398438,
+      365.4214782714844
+    ],
+    "bbox_coord_system": "pdf_pts_bottom_left",
+    "caption_page": 44,
+    "caption_bbox": [
+      56.52,
+      147.442004,
+      540.8361689599999,
+      167.23814000000004
+    ],
+    "caption_source": "docling_caption_link",
+    "width": 2852,
+    "height": 1117,
+    "images_scale": 5.9441,
+    "render_dpi": 428,
+    "resolution_mode": "native",
+    "panels_from_caption": [],
+    "panel_count_from_caption": 0,
+    "referenced_in_chunks": [
+      "chunk_157",
+      "chunk_159"
+    ]
+  },
+  "repaired_figure": {
+    "figure_id": "docling_53",
+    "filename": "fig_51.png",
+    "caption_text": "FIGURE 51. Comparison of the tentilla of Erenna species. Scale bars: 1 mm for E. laciniata, E. cornuta & E. sirena sp. nov .; 5 mm for E. richardi & E. insidiator sp. nov .",
+    "extraction_method": "docling",
+    "figure_type": "figure",
+    "figure_number": "51",
+    "page": 44,
+    "bbox": [
+      55.63226318359375,
+      175.280029296875,
+      538.4400024414062,
+      365.72003173828125
+    ],
+    "bbox_coord_system": "pdf_pts_bottom_left",
+    "caption_page": 44,
+    "caption_bbox": [
+      56.52,
+      147.442004,
+      540.8361689599999,
+      167.23814000000004
+    ],
+    "caption_source": "docling_caption_link",
+    "width": 2871,
+    "height": 1133,
+    "images_scale": 5.9441,
+    "render_dpi": 428,
+    "resolution_mode": "native",
+    "panels_from_caption": [],
+    "panel_count_from_caption": 0,
+    "referenced_in_chunks": [
+      "chunk_157",
+      "chunk_159"
+    ],
+    "detected_bbox": [
+      55.63226318359375,
+      177.7393798828125,
+      535.2636108398438,
+      365.4214782714844
+    ],
+    "bbox_boundary_evidence": {
+      "source": "embedded_image_extent",
+      "image_bbox_pdf_pts_top_left": [
+        56.52000045776367,
+        476.27996826171875,
+        538.4400024414062,
+        666.719970703125
+      ],
+      "detected_bbox_pdf_pts_top_left": [
+        55.63226318359375,
+        476.5785217285156,
+        535.2636108398438,
+        664.2606201171875
+      ]
+    },
+    "image_size_px": [
+      2871,
+      1133
+    ]
+  },
+  "render_result": {
+    "rendered": 1,
+    "skipped_no_bbox": 0,
+    "skipped_method": 0,
+    "errors": 0
+  },
+  "served": {
+    "tool": "get_figure_image",
+    "arguments": {
+      "paper_hash": "da370f1e0434",
+      "figure_id": "docling_53",
+      "profile": "report"
+    },
+    "transport": "in-process production MCPServer dispatch and ImageContent serialization; no external client/deployment",
+    "image_size": [
+      2871,
+      1133
+    ],
+    "image_sha256": "5ca44a19da9633bdabb928a5719934178e5e85213c55d271e39cb6f56dfe1108",
+    "bundled_rendered_served_bytes_equal": true,
+    "bundle_unchanged_by_serve": true,
+    "original_inputs_unchanged": true,
+    "probe_bundle_scope": "One real figure record plus actual paper metadata; no chunks, embeddings or authority/taxonomy databases; not a complete corpuscle."
+  },
+  "visual_review": {
+    "reviewer": "/root/fix_figures, Codex team agent visual review",
+    "source_page": 44,
+    "species_labels": [
+      "E. laciniata",
+      "E. richardi",
+      "E. cornuta",
+      "E. sirena",
+      "E. insidiator"
+    ],
+    "specimens_complete": 5,
+    "scale_bars_complete": 5,
+    "right_bottom_label_complete": true,
+    "caption_and_neighboring_prose_excluded": true,
+    "control_visual_review": "All four rotations preserve the complete red edge marker and exclude caption; nonzero cropbox at0/90 agrees; nearby-prose veto retains the original rectangle and deliberately leaves the edge clipped. Synthetic controls are separate from the actual Fig51 source case."
+  },
+  "second_visual_review": {
+    "reviewer": "/root, Codex team agent; separate image inspection, not human/domain review",
+    "images": [
+      "served-whole.png",
+      "source-edge-context.png"
+    ],
+    "finding": "Complete E. insidiator label; five panels and scale bars; adjacent printed prose excluded."
+  },
+  "review_artifacts_sha256": {
+    "source-page44.png": "b502cee086cb1bbea34fa4b3203dac08e8cdc758d929e696d34242c13129a5d6",
+    "legacy-clipped.png": "2ee8cc6c2d482015376a24376957b43c21ffe8d56ca1e913e9015d79a2fe8ee7",
+    "served-whole.png": "5ca44a19da9633bdabb928a5719934178e5e85213c55d271e39cb6f56dfe1108",
+    "source-edge-context.png": "ba9f3d991ab8db38c207bd530d934ea9be58a1cc3ef946c63a8395d2c53c2934",
+    "control-visual-comparison.png": "cd7442ef07135265334f9efee7adf317be0da53ce026d922ec1255267504e286"
+  },
+  "focused_controls": {
+    "test_file": "tests/test_figure_raster_edges.py",
+    "result": "14 passed in 0.27s",
+    "coverage": [
+      "rotations0/90/180/270 × top-left/bottom-left bbox conventions",
+      "nonzero cropbox at0/90 degrees",
+      "nearby prose veto",
+      "partial panel is not expanded to whole image",
+      "correct fixed-mode crop unchanged",
+      "old ROI frame invalidated after changed raster"
+    ]
+  },
+  "limits": [
+    "Saved actual extraction geometry replay; no fresh Docling conversion or complete candidate build.",
+    "In-process real MCP dispatch/serialization; no external deployment or client transport acceptance.",
+    "One source figure and existing synthetic controls; no corpus-wide clipping rate or figure recall.",
+    "Panel ROI geometry is separate; no panel-model or licensing acceptance claim."
+  ]
+}
