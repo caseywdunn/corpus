@@ -63,7 +63,7 @@ def required_papers(manifest):
     return sorted(papers)
 
 
-def check_population(identity, required):
+def _check_paper_inventory(identity, required):
     """Require inventory evidence; a digest alone cannot prove target presence."""
     identity = identity if isinstance(identity, dict) else {}
     reasons = []
@@ -100,6 +100,96 @@ def check_population(identity, required):
             "identity_complete": identity_complete,
             "required_paper_hashes": sorted(set(required)) if required_known else None,
             "missing_required_paper_hashes": missing}
+
+
+def check_population(identity, required):
+    """Check artifact membership and the papers actually competing in search."""
+    identity = identity if isinstance(identity, dict) else {}
+    result = _check_paper_inventory(identity, required)
+    indexed = identity.get("indexed_population")
+    indexed = indexed if isinstance(indexed, dict) else {}
+    index_check = _check_paper_inventory(indexed, required)
+    problems = []
+    if indexed.get("status") != "recorded":
+        problems.append("indexed_population_unavailable")
+    if (indexed.get("method") != "pipeline.embedding_state.row_census"
+            or indexed.get("table_name") != "document_chunks"):
+        problems.append("indexed_census_method_unknown")
+    if indexed.get("version_scope") != "capture":
+        problems.append("indexed_population_not_bracketed_at_capture")
+    before, after = indexed.get("table_version_before"), indexed.get("table_version_after")
+    if type(before) is not int or type(after) is not int or before <= 0 or after <= 0:
+        problems.append("indexed_table_version_unknown")
+    elif before != after:
+        problems.append("indexed_table_changed_during_capture")
+    counts = indexed.get("paper_row_counts")
+    rows = indexed.get("row_count")
+    papers = indexed.get("paper_hashes")
+    if (not isinstance(counts, dict) or not isinstance(papers, list)
+            or not all(isinstance(p, str) for p in papers)
+            or set(counts) != set(papers)
+            or any(type(n) is not int or n <= 0 for n in counts.values())
+            or type(rows) is not int or rows <= 0 or rows != sum(counts.values())):
+        problems.append("indexed_row_counts_invalid")
+    artifact_only, orphans = None, None
+    if result["identity_complete"] and index_check["identity_complete"]:
+        artifact_only = sorted(set(identity["paper_hashes"])-set(papers))
+        orphans = sorted(set(papers)-set(identity["paper_hashes"]))
+        if orphans:
+            problems.append("indexed_papers_outside_artifact_inventory")
+    index_check["identity_complete"] &= not problems
+    index_check["reasons"].extend(problems)
+    index_check["status"] = "blocked" if index_check["reasons"] else "pass"
+    index_check.update(row_count=rows, artifact_only_paper_hashes=artifact_only,
+                       orphan_indexed_paper_hashes=orphans)
+    result["indexed_population"] = index_check
+    if index_check["status"] != "pass":
+        result["status"] = "blocked"
+        result["reasons"].append("indexed_population_incomplete")
+    return result
+
+
+def _open_index_table(output_dir):
+    import lancedb
+    location = Path(output_dir) / "vector_db" / "lancedb"
+    if not location.is_dir():
+        raise FileNotFoundError("vector index directory is absent")
+    return lancedb.connect(str(location)).open_table("document_chunks")
+
+
+def _finish_index_population(output_dir, population):
+    """Read the latest table version without loading any vectors or model."""
+    try:
+        population["table_version_after"] = _open_index_table(output_dir).version
+        if (population.get("status") == "recorded"
+                and population["table_version_after"] != population.get("table_version_before")):
+            population["status"] = "changed"
+    except Exception as exc:
+        population["status"] = "unavailable"
+        population.setdefault("error", str(exc))
+        population.setdefault("exception_type", type(exc).__name__)
+    return population
+
+
+def capture_index_population(output_dir):
+    """One projected hash/generation census; a standalone census is diagnostic."""
+    from pipeline.embedding_state import row_census
+    result = {"status": "unavailable", "method": "pipeline.embedding_state.row_census",
+              "table_name": "document_chunks", "version_scope": "supplementary_census"}
+    try:
+        table = _open_index_table(output_dir)
+        result["table_version_before"] = table.version
+        census = row_census(table)
+        counts = {paper: sum(generations.values()) for paper, generations in census.items()}
+        result["row_count"] = sum(counts.values())
+        if any(not isinstance(p, str) or not p.strip() for p in counts):
+            raise ValueError("indexed rows lack a nonempty paper hash")
+        papers = sorted(counts)
+        result.update(status="recorded", paper_hashes=papers, paper_hashes_sha256=digest(papers),
+                      paper_count=len(papers), paper_row_counts=counts)
+    except Exception as exc:
+        result.update(error=str(exc), exception_type=type(exc).__name__)
+    return _finish_index_population(output_dir, result)
 
 
 def target_match(target, row):
@@ -245,6 +335,11 @@ def compare_reports(reference, candidate):
         if any(reference["run_identity"][key] != candidate["run_identity"][key]
                for key in ("paper_hashes_sha256", "paper_count")):
             blockers.append("different_paper_populations")
+    if all(check["indexed_population"]["identity_complete"] for check in checks.values()):
+        if any(reference["run_identity"]["indexed_population"][key]
+               != candidate["run_identity"]["indexed_population"][key]
+               for key in ("paper_hashes_sha256", "paper_count")):
+            blockers.append("different_indexed_paper_populations")
     if checks["reference"]["required_paper_hashes"] != checks["candidate"]["required_paper_hashes"]:
         blockers.append("different_required_paper_evidence")
     complete = (not blockers and reference["status"] in {"pass", "fail"}
@@ -289,6 +384,8 @@ def capture_local(manifest, output_dir, label, role):
     from mcpsrv.tools.chunks import get_chunks_for_topic
     index = CorpusIndex(output_dir)
     index.load()
+    population = capture_index_population(output_dir)
+    population["version_scope"] = "capture"
     previous = app._INDEX
     app.set_index(index)
     runs, cache = [], {}
@@ -303,12 +400,14 @@ def capture_local(manifest, output_dir, label, role):
                              "call": call, "rows": enrich_rows(rows, output_dir, cache)})
     finally:
         app.set_index(previous)
+        _finish_index_population(output_dir, population)
     papers = sorted(index.papers)
     return {"manifest_sha256": digest(manifest), "identity": {
         "label": label, "role": role, "output_dir": str(output_dir.resolve()),
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "bundle_manifest": index.bundle_manifest, "embedding_identity": index._embedding_identity,
         "paper_hashes_sha256": digest(papers), "paper_count": len(papers), "paper_hashes": papers,
+        "indexed_population": population,
         "historical_audit_equivalence": "not_asserted; compare the recorded bundle identity explicitly",
     }, "runs": runs}
 

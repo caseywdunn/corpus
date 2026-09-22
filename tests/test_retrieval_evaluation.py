@@ -2,11 +2,12 @@
 import copy
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from tools.qc.retrieval import (
-    capture_local, compare_reports, digest, enrich_rows, evaluate, expected_calls,
+    capture_index_population, capture_local, compare_reports, digest, enrich_rows, evaluate, expected_calls,
     sample_independent, score_rows, target_match, validate_manifest,
 )
 
@@ -26,10 +27,21 @@ def manifest():
             "acceptance": {"groups": {"independent": {"hit5": 1, "hit10": 1}}}}
 
 
+def indexed_population(papers, counts=None):
+    papers = sorted(papers)
+    counts = counts if counts is not None else dict.fromkeys(papers, 1)
+    return {"status": "recorded", "method": "pipeline.embedding_state.row_census",
+            "table_name": "document_chunks", "version_scope": "capture",
+            "table_version_before": 7, "table_version_after": 7,
+            "paper_hashes": papers, "paper_hashes_sha256": digest(papers), "paper_count": len(papers),
+            "row_count": sum(counts.values()), "paper_row_counts": counts}
+
+
 def capture(m, rows, papers=("abc", "competitor")):
     papers = sorted(papers)
     return {"manifest_sha256": digest(m), "identity": {"label": "synthetic test; no ranking claim",
-            "paper_hashes": papers, "paper_hashes_sha256": digest(papers), "paper_count": len(papers)},
+            "paper_hashes": papers, "paper_hashes_sha256": digest(papers), "paper_count": len(papers),
+            "indexed_population": indexed_population(papers)},
             "runs": [{"query_id": "q", "mode": "unassisted", "variant": variant,
                       "call": call, "rows": rows} for variant, call in expected_calls(m["queries"][0]).items()]}
 
@@ -166,7 +178,8 @@ def test_equal_counts_different_membership_and_reduced_competition_block_improve
     result = compare_reports(reference, candidate)
     assert result["status"] == "blocked"
     assert not result["independent_improvement_demonstrated"]
-    assert result["population_comparison"]["reasons"] == ["different_paper_populations"]
+    assert result["population_comparison"]["reasons"] == [
+        "different_paper_populations", "different_indexed_paper_populations"]
     assert all(change["delta"] == 1 for change in result["changes"])
 
 
@@ -255,6 +268,94 @@ def test_comparison_rechecks_required_paper_presence_and_matching_requirements()
     assert "different_required_paper_evidence" in compare_reports(reference, candidate)["population_comparison"]["reasons"]
 
 
+@pytest.mark.parametrize("candidate_papers", [("abc", "other"), ("abc",)])
+def test_identical_artifacts_with_different_indexed_competitors_block_comparison(candidate_papers):
+    m = manifest()
+    reference = capture(m, [], papers=("abc", "competitor", "other"))
+    candidate = capture(m, [hit()], papers=("abc", "competitor", "other"))
+    reference["identity"]["indexed_population"] = indexed_population(("abc", "competitor"))
+    candidate["identity"]["indexed_population"] = indexed_population(candidate_papers)
+    result = compare_reports(evaluate(m, reference), evaluate(m, candidate))
+    assert result["status"] == "blocked" and not result["independent_improvement_demonstrated"]
+    assert result["population_comparison"]["reasons"] == ["different_indexed_paper_populations"]
+    assert all(change["delta"] == 1 for change in result["changes"])
+
+
+def test_matching_indexed_papers_allow_rechunking_and_disclose_artifact_only_papers():
+    m = manifest()
+    reference = capture(m, [], papers=("abc", "competitor", "empty-text"))
+    candidate = capture(m, [hit()], papers=("abc", "competitor", "empty-text"))
+    for c, counts in ((reference, {"abc": 2, "competitor": 3}),
+                      (candidate, {"abc": 4, "competitor": 5})):
+        c["identity"]["indexed_population"] = indexed_population(counts, counts)
+    report = evaluate(m, candidate)
+    population = report["population_check"]["indexed_population"]
+    assert report["status"] == "pass"
+    assert population["row_count"] == 9
+    assert population["artifact_only_paper_hashes"] == ["empty-text"]
+    assert population["orphan_indexed_paper_hashes"] == []
+    comparison = compare_reports(evaluate(m, reference), report)
+    assert comparison["status"] == "pass" and comparison["independent_improvement_demonstrated"]
+
+
+def test_required_paper_in_artifacts_but_not_in_searchable_index_blocks_acceptance():
+    m = manifest()
+    c = capture(m, [hit()])
+    c["identity"]["indexed_population"] = indexed_population(["competitor"])
+    report = evaluate(m, c)
+    assert report["status"] == "blocked" and all(q["hit"] for q in report["queries"])
+    assert all(g["status"] == "pass" for g in report["gates"])
+    assert report["population_check"]["missing_required_paper_hashes"] == []
+    check = report["population_check"]["indexed_population"]
+    assert check["missing_required_paper_hashes"] == ["abc"]
+    assert "required_papers_absent" in check["reasons"]
+
+
+def test_indexed_paper_outside_artifact_inventory_blocks_acceptance():
+    m = manifest()
+    c = capture(m, [hit()])
+    c["identity"]["indexed_population"] = indexed_population(["abc", "orphan"])
+    report = evaluate(m, c)
+    assert report["status"] == "blocked"
+    check = report["population_check"]["indexed_population"]
+    assert check["orphan_indexed_paper_hashes"] == ["orphan"]
+    assert "indexed_papers_outside_artifact_inventory" in check["reasons"]
+
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("status", "unavailable", "indexed_population_unavailable"),
+    ("method", None, "indexed_census_method_unknown"),
+    ("version_scope", "supplementary_census", "indexed_population_not_bracketed_at_capture"),
+    ("table_version_before", None, "indexed_table_version_unknown"),
+    ("table_version_after", True, "indexed_table_version_unknown"),
+    ("table_version_after", 8, "indexed_table_changed_during_capture"),
+    ("paper_hashes_sha256", None, "missing_or_invalid_population_digest"),
+    ("paper_row_counts", {"abc": 1}, "indexed_row_counts_invalid"),
+    ("paper_row_counts", {"abc": -1, "competitor": 3}, "indexed_row_counts_invalid"),
+    ("paper_row_counts", {"abc": "1", "competitor": 1}, "indexed_row_counts_invalid"),
+    ("row_count", True, "indexed_row_counts_invalid"),
+    ("row_count", 3, "indexed_row_counts_invalid"),
+])
+def test_invalid_index_evidence_retains_scores_but_blocks_acceptance(field, value, reason):
+    m = manifest()
+    c = capture(m, [hit()])
+    c["identity"]["indexed_population"][field] = value
+    report = evaluate(m, c)
+    assert report["status"] == "blocked" and all(q["hit"] for q in report["queries"])
+    assert reason in report["population_check"]["indexed_population"]["reasons"]
+    comparison = compare_reports(evaluate(m, capture(m, [])), report)
+    assert comparison["status"] == "blocked" and not comparison["independent_improvement_demonstrated"]
+
+
+def test_comparison_rechecks_missing_index_inventory_despite_stored_pass():
+    m = manifest()
+    candidate = evaluate(m, capture(m, [hit()]))
+    candidate["run_identity"].pop("indexed_population")
+    comparison = compare_reports(evaluate(m, capture(m, [])), candidate)
+    assert candidate["status"] == "pass"
+    assert comparison["status"] == "blocked" and not comparison["independent_improvement_demonstrated"]
+
+
 def test_independent_source_sampling_is_reproducible_deduplicated_and_ungraded(tmp_path):
     m = manifest()
     m["queries"][0]["group"] = "audit"
@@ -340,10 +441,44 @@ def test_committed_verified_anchors_exist_in_the_referenced_source_fragments():
             assert target_match(label, {"paper_hash": sha[:12], "text": "\n".join(texts)})
 
 
-def test_local_capture_uses_exact_tool_calls_and_records_identity(tmp_path, monkeypatch):
+@pytest.mark.parametrize("index_condition", ["stable", "changed", "unavailable", "census_failure"])
+def test_local_capture_uses_exact_calls_and_brackets_index_without_model_work(tmp_path, monkeypatch, index_condition):
     from mcpsrv import app, indexes
     from mcpsrv.tools import chunks
+    from tools.qc import retrieval
     calls = []
+    opened_versions = []
+
+    class Table:
+        version = 7
+        schema = SimpleNamespace(names=["metadata", "embedding_generation", "text", "vector"])
+
+        def search(self):
+            return self
+
+        def select(self, columns):
+            assert columns == ["metadata.pdf_hash", "embedding_generation"]
+            return self
+
+        def limit(self, count):
+            assert count is None  # Census must cover the whole index, not the search default.
+            return self
+
+        def to_batches(self):
+            if index_condition == "census_failure":
+                raise RuntimeError("projected census failed")
+            return [SimpleNamespace(to_pylist=lambda: [
+                {"metadata.pdf_hash": "abc", "embedding_generation": "g1"},
+                {"metadata.pdf_hash": "abc", "embedding_generation": "g2"}])]
+
+    table = Table()
+
+    def open_table(output):
+        assert output == tmp_path
+        opened_versions.append(table.version)
+        if index_condition == "unavailable":
+            raise FileNotFoundError("absent test index")
+        return table
 
     class Index:
         def __init__(self, output):
@@ -356,10 +491,13 @@ def test_local_capture_uses_exact_tool_calls_and_records_identity(tmp_path, monk
 
     def query(**kwargs):
         calls.append(kwargs)
+        if index_condition == "changed":
+            table.version = 8
         return [hit()]
 
     monkeypatch.setattr(indexes, "CorpusIndex", Index)
     monkeypatch.setattr(chunks, "get_chunks_for_topic", query)
+    monkeypatch.setattr(retrieval, "_open_index_table", open_table)
     original_index = app._INDEX
     m = manifest()
     result = capture_local(m, tmp_path, "older-reference", "reference")
@@ -368,7 +506,50 @@ def test_local_capture_uses_exact_tool_calls_and_records_identity(tmp_path, monk
     assert result["identity"]["paper_hashes"] == ["abc"]
     assert result["identity"]["paper_count"] == 1
     assert result["identity"]["paper_hashes_sha256"] == digest(["abc"])
-    assert evaluate(m, result)["population_check"]["status"] == "pass"
+    population = result["identity"]["indexed_population"]
+    assert population["version_scope"] == "capture"
+    assert opened_versions == [7, 7, 8 if index_condition == "changed" else 7]
+    report = evaluate(m, result)
+    assert all(q["hit"] for q in report["queries"])  # Raw query diagnostics survive census failures.
+    if index_condition == "stable":
+        assert report["population_check"]["status"] == "pass"
+        assert population == indexed_population(["abc"], {"abc": 2})
+    else:
+        assert report["status"] == "blocked"
+        if index_condition == "changed":
+            assert population["status"] == "changed"
+            assert population["table_version_before"] == 7 and population["table_version_after"] == 8
+        else:
+            assert population["status"] == "unavailable"
+            assert population["error"] == ("absent test index" if index_condition == "unavailable"
+                                           else "projected census failed")
     assert result["identity"]["historical_audit_equivalence"].startswith("not_asserted")
     assert result["manifest_sha256"] == digest(m)
     assert app._INDEX is original_index
+
+
+def test_actual_lancedb_census_counts_generations_without_text_or_vectors(tmp_path):
+    import lancedb
+    database = lancedb.connect(str(tmp_path / "vector_db" / "lancedb"))
+    table = database.create_table("document_chunks", data=[
+        {"metadata": {"pdf_hash": paper}, "embedding_generation": generation,
+         "text": "source text is not census evidence", "vector": [0.1, 0.2]}
+        for paper, generation in (("abc", "old"), ("abc", "new"), ("competitor", "new"))])
+    before = table.version
+    result = capture_index_population(tmp_path)
+    expected = indexed_population(["abc", "competitor"], {"abc": 2, "competitor": 1})
+    expected.update(version_scope="supplementary_census", table_version_before=before,
+                    table_version_after=before)
+    assert result == expected
+    assert database.open_table("document_chunks").version == before
+    # A later census cannot retrospectively prove which index competed in earlier queries.
+    m = manifest()
+    c = capture(m, [hit()])
+    c["identity"]["indexed_population"] = result
+    assert evaluate(m, c)["status"] == "blocked"
+
+
+def test_absent_index_is_reported_without_creating_database(tmp_path):
+    result = capture_index_population(tmp_path)
+    assert result["status"] == "unavailable" and result["exception_type"] == "FileNotFoundError"
+    assert not (tmp_path / "vector_db").exists()

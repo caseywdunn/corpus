@@ -116,6 +116,14 @@ offline model cache for controlled runs. Retain raw results, bundle manifest,
 embedding identity, sorted paper inventory, population digest/count and run label. Query failures are
 recorded as operational errors and block acceptance.
 
+Capture also records `identity.indexed_population`: the sorted papers actually
+present in `document_chunks`, their digest/count, total vector-row count and
+per-paper row counts. It uses `pipeline.embedding_state.row_census`, which
+projects only paper hashes and optional embedding-generation identifiers, without
+loading vectors, source text or a model. Table versions are recorded before the
+census and after all queries; a changed or unavailable version blocks acceptance.
+The census itself also checks for concurrent table changes.
+
 Record the reference and candidate retrieval populations independently of the
 gold sampling population. Check their paper inventories and explain any
 membership difference before attributing a ranking change to the implementation;
@@ -125,14 +133,23 @@ capture can diagnose local behavior, but its hit rates do not establish
 deployment retrieval quality or satisfy full-corpus release acceptance: removing
 competing documents changes the task, even with identical query strings.
 
-The scorer validates the inventory against its recorded digest/count and requires
+The scorer validates both artifact and indexed inventories against their recorded
+digests/counts and requires
 every manifest target paper (including negative or pending labels) and explicit
-query paper filter to be present. Missing inventory evidence or required papers
+query paper filter to be present in both. Artifact-only papers are reported and
+allowed (for example, an empty-text document with no indexed chunks); indexed
+papers absent from the artifact inventory block acceptance. Missing inventory evidence or required papers
 blocks acceptance while retaining per-query metrics. Older digest-only captures
 do not prove target membership; their scores remain diagnostic. Do not infer
 membership from returned hits or silently add missing identities to old captures.
-Comparison rechecks this evidence and requires equal population digests and
-counts. A membership change needs a separately identified experiment; it cannot
+An index census taken later is supplementary evidence, not proof of the index
+present during earlier queries. Preserve the original capture and perform a new
+capture with versions bracketing its queries for acceptance.
+Comparison rechecks this evidence and requires equal artifact populations and
+equal indexed populations. Equal document trees alone do not establish equal
+search competition. Vector-row counts may differ when documents are rechunked;
+comparison requires equal paper membership, not equal chunk counts.
+A membership change needs a separately identified experiment; it cannot
 pass the same-population improvement comparison, even if both hit-rate scores pass.
 
 Do not identify a retained older output as the audited deployment. In the
