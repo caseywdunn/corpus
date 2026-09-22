@@ -269,7 +269,7 @@ def _capture_ocr_cmd(monkeypatch, tmp_path, detection_result):
         # `cmd[-1]` created a file named after whatever argument happened to
         # land last — `--jobs 6` put a stray `6` in the repo root, tracked,
         # for three days.
-        out.write_bytes(b"%PDF-1.4\n")
+        out.write_bytes(src.read_bytes())
         return _Result()
 
     monkeypatch.setattr(scan.shutil, "which", lambda n: f"/usr/bin/{n}")
@@ -279,7 +279,12 @@ def _capture_ocr_cmd(monkeypatch, tmp_path, detection_result):
     monkeypatch.setattr(scan, "_report_ocr_page_loss", lambda *a, **k: {})
 
     src = tmp_path / "in.pdf"
-    src.write_bytes(b"%PDF-1.4\n")
+    # Successful preparation now compares original/prepared geometry. Use a
+    # real blank PDF while keeping this test about the ocrmypdf argv contract.
+    import fitz
+    with fitz.open() as pdf:
+        pdf.new_page()
+        pdf.save(src)
     scan.prepare_pdf(src, detection_result, out)
     return captured["cmd"]
 
