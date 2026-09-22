@@ -162,7 +162,11 @@ priority over finishing within the current week's usage allowance.
   with each named observation mapped to 1974, raw observations preserved and
   unchanged refresh verified. Reporting-harness failures and a separate
   unresolved Kinzer year conflict remain explicit in the receipt. Full-corpus
-  citation-overlap and acquisition-ranking acceptance remain pending.
+  citation-overlap and acquisition-ranking acceptance remain pending. The
+  [retained v1.2.1 census](examples/siphonophore_pugh_split_v1_2_1_2026_09_22.json)
+  reproduces the 59/23 citing-paper split with zero overlap, but every relevant
+  raw citation is empty. Those counts cannot justify remapping observations or
+  substitute for the audited v1.4 authority database.
   `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
@@ -202,7 +206,7 @@ decision provenance; document how old bundles obtain repaired mappings.
   Niño/Niña controls pass; explicit author adjudication rematerializes the
   correct link while retaining raw observations and complete identity.
   Detector-positive totals are not a graded error denominator. `[plane:build]`
-- [ ] **#303** — preserve scientific signs, units and exponents through stored
+- [x] **#303** — preserve scientific signs, units and exponents through stored
   text, chunks and embedding input. Word coverage alone cannot validate these
   semantics because its normalization removes punctuation. Source-glyph and
   raster-supported repairs are implemented, with the falsely encoded Kidwai
@@ -221,8 +225,16 @@ decision provenance; document how old bundles obtain repaired mappings.
   and one lead is not printed. Among the 19 consumed expressions, chunks retain
   12–13 faithfully (one footnote role is indeterminate); selected admitted repair
   precision is 2/2, both in one paper. Missing-text recall and repair precision
-  remain separate. No pending baseline grades remain, but the current-producer
-  comparison and release replay are still required.
+  remain separate. The [completed current comparison](../tests/fixtures/text_integrity/source_review/current_ab6353f/README.md)
+  grades the same 24 selections after all 35 documents pass current-producer
+  checks. Chunks now preserve 14–15/19 consumed expressions; the two selected
+  Chen expressions improve, while the Russian unit and table/axis/footer
+  omissions remain explicit. Current selected atomic repair precision is 2/2
+  Mańko exponents and 1/1 Chen exponent formatting, without treating an entire
+  decoded paragraph as verified. All grades are complete. The normal gold build
+  embeds all 35 documents; all 3,336 vector rows and served chunks agree with
+  materialized text, and all 14 faithful source-sample expressions survive live
+  MCP calls. The broader sample's unresolved outcomes remain in its denominator.
   `[plane:build]`
 - [x] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
@@ -433,6 +445,15 @@ new licensing evidence and no cache writes into the bundle.
   outcomes remain withheld until the candidate behavior is fixed. Actual
   candidate improvement is unmeasured; matching-population candidate capture
   remains, with no improvement claim from evaluator tests.
+  All 1,775 source PDFs for the dated retained baseline are locally available.
+  A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
+  has now started from independently copied, SHA-verified sources and frozen
+  supporting inputs, at `7b4343f` (production modules identical to `ab6353f`).
+  Taxonomy ingestion passes; extraction is running at the recorded launch.
+  Normal complete embedding/post/bundle phases follow only successful checks.
+  The gold fixture stays unchanged. Launch is not retrieval acceptance; a
+  recovered formerly empty paper must be disclosed as an indexed-population
+  difference, and the older reference's embedding producer remains unknown.
 
 ### 6. Release acceptance and return to enhancements
 
@@ -444,21 +465,32 @@ new licensing evidence and no cache writes into the bundle.
   run exposed two invalid-PDF argument-test stubs; valid blank PDFs fix them
   and the complete repeated gate passes. Both retained-demo and reference-bundle
   live SSE checks pass with real query embedding. All five required hosted PR
-  lanes pass at `ab6353f`, including T3 clean-room installation. Subsequent
+  lanes pass at `25fed1d`, including T3 clean-room installation. Subsequent
   production changes require their own integrated checks.
   The nine-document source-page build passes normal extraction, embedding,
   post-processing, bundling, unchanged resume and live stdio MCP acceptance.
   An adapted operator tour passes 39 public CLI calls, including exact-field
   BibTeX round trips and a controlled edit/restore, on a copied completed build.
   It does not replace fresh install/build/resume/serve or final-candidate gates.
-- [ ] Rebuild and score the existing gold corpuscle; review build-reference
+- [x] Rebuild and score the existing CPU gold corpuscle; review build-reference
   differences and source-based expectations. Use small synthetic cases for
   logic/boundaries and add source material only for a demonstrated coverage gap.
   **Hydractinia is not a second fixture corpus.**
   The intermediate `6fbf4e0` CPU/OCR extraction completed all 35 documents and
   all three source scorers ran successfully. Its [baseline receipt](examples/siphonophore_gold_baseline_2026_09_18/README.md)
   preserves included/excluded pages, weak strata and the terminal wrapper-code
-  discrepancy. Final-producer and Qwen acceptance remain pending.
+  discrepancy. The [September 22 current-producer refresh](examples/siphonophore_gold_refresh_2026_09_22/README.md)
+  completes all 35 documents with a clean exit and no stage failures. All three
+  scorers pass over the same 675 included pages: median prose coverage rises
+  from 0.9448 to 0.9482; figure and caption aggregate scores are unchanged.
+  Fourteen pages improve, with no decreases in the six compared fidelity
+  measures. Scientific notation has separate source-reviewed denominators.
+  Normal embedding, post-processing and bundling pass. Unchanged extraction and
+  embedding skip all 35 papers; actual rows remain identical. A no-row orphan
+  check creates LanceDB transaction bookkeeping, so physical index-file equality
+  is explicitly not claimed. Live stdio MCP verifies all 3,336 chunks, 14 faithful
+  source expressions and six figure deliveries without changing the bundle.
+  Fresh Qwen acceptance remains separately pending under #305/#342.
 - [ ] Demonstrate clean/incremental semantic equivalence with the standing
   exclusions, artifact invalidation and unchanged-document checks below.
 - [ ] Run the full reference-corpus release validation, then replay the audit

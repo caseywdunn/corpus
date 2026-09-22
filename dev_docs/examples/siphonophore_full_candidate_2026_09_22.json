@@ -1,0 +1,242 @@
+{
+  "observed_at": "2026-09-22T17:50:02.362573+00:00",
+  "scope": "Complete normal CPU reference-corpus candidate for remaining release acceptance and issue320. A separate build, not an expanded gold fixture. No Qwen or retrieval acceptance is implied by launch.",
+  "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+  "production_code_identical_to": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+  "source_document_count": 1775,
+  "source_bytes": 6878588072,
+  "input_receipt_sha256": "184be93f25ffa8d6d71e1baeaeb68ac7f9aee24ca7c8a8a392acf88d24a25c79",
+  "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+  "driver_sha256": "acc59cf8e94143b20c2fe5ed6efe12082b3f47fbef525e613a29351714237e1a",
+  "audit_sha256": "71a6d39d146520e6a9b3a541f2fe40875443adae17319c4447cdf11338a8bc80",
+  "preparation_receipt_sha256": "0b8e4614edce82ff1e8b245eeef6291571fe40eda632643c7aa15ff016988d10",
+  "launch_record": {
+    "authorized": true,
+    "gold_resume_and_mcp_complete": true,
+    "reviewed_by": "/root",
+    "gold_completion_evidence": {
+      "path": "/tmp/corpus-gold-serving-verification-20260922/run-2/serving-receipt.json",
+      "sha256": "ca8a0f3d5626d22f22ac814b65a918467ad3ce4db8d51035595602df0ae6aeef",
+      "phase_receipt": "/tmp/corpus-correctness-validation/dev_docs/examples/siphonophore_gold_refresh_2026_09_22/pipeline-acceptance.json"
+    },
+    "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+    "input_receipt_sha256": "184be93f25ffa8d6d71e1baeaeb68ac7f9aee24ca7c8a8a392acf88d24a25c79",
+    "driver_sha256": "acc59cf8e94143b20c2fe5ed6efe12082b3f47fbef525e613a29351714237e1a",
+    "audit_sha256": "71a6d39d146520e6a9b3a541f2fe40875443adae17319c4447cdf11338a8bc80",
+    "reviewed_at": "2026-09-22T17:48:27.118455+00:00",
+    "authorization_basis": "User instruction to proceed on remaining original issues, then additional in-scope issues; complete reference build is required for issue320 acceptance.",
+    "candidate_policy": "Pinned current source/text/context fixes; unchanged retrieval ranking and frozen22-query protocol. Independent retrieval outcomes remain sealed until this candidate is complete and its controls pass."
+  },
+  "run_directory": "/tmp/corpus-v15-full-candidate-20260922/runs/20260922T174832.798244Z",
+  "run_state_at_observation": {
+    "status": "running",
+    "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+    "code": "/tmp/corpus-v15-full-candidate-code-20260922",
+    "config": "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+    "environment_overrides": {
+      "PYTHONPATH": "/tmp/corpus-v15-full-candidate-code-20260922",
+      "PYTHONUNBUFFERED": "1",
+      "HF_HUB_OFFLINE": "1",
+      "PATH": "/home/claude/miniforge3/envs/corpus/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "TRANSFORMERS_OFFLINE": "1",
+      "CORPUS_DEVICE": "cpu",
+      "CUDA_VISIBLE_DEVICES": "",
+      "OMP_NUM_THREADS": "4",
+      "MKL_NUM_THREADS": "4",
+      "OPENBLAS_NUM_THREADS": "4",
+      "RAYON_NUM_THREADS": "4",
+      "TOKENIZERS_PARALLELISM": "false",
+      "GROBID_URL": "http://localhost:8070",
+      "CORPUS_STRICT_NETWORK": "1",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "phases": {
+      "taxonomy": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+        "taxonomy",
+        "ingest"
+      ],
+      "extract": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+        "run",
+        "--only",
+        "extract"
+      ],
+      "embed": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+        "run",
+        "--only",
+        "embed"
+      ],
+      "post": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+        "run",
+        "--only",
+        "post"
+      ],
+      "bundle": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+        "run",
+        "--only",
+        "bundle"
+      ]
+    },
+    "minimum_free_gib": 50,
+    "scope": "Normal complete CPU source build, independent fresh output. No Qwen acceptance. No retrieval/issue actions.",
+    "started_at": "2026-09-22T17:48:32.798323+00:00",
+    "authorization": {
+      "path": "/tmp/corpus-v15-full-candidate-20260922/launch-authorization.json",
+      "sha256": "f49efdfdca5ee036148b1bd2a3c84d684b595380979fbf33a72bdfeda1706760",
+      "record": {
+        "authorized": true,
+        "gold_resume_and_mcp_complete": true,
+        "reviewed_by": "/root",
+        "gold_completion_evidence": {
+          "path": "/tmp/corpus-gold-serving-verification-20260922/run-2/serving-receipt.json",
+          "sha256": "ca8a0f3d5626d22f22ac814b65a918467ad3ce4db8d51035595602df0ae6aeef",
+          "phase_receipt": "/tmp/corpus-correctness-validation/dev_docs/examples/siphonophore_gold_refresh_2026_09_22/pipeline-acceptance.json"
+        },
+        "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+        "input_receipt_sha256": "184be93f25ffa8d6d71e1baeaeb68ac7f9aee24ca7c8a8a392acf88d24a25c79",
+        "driver_sha256": "acc59cf8e94143b20c2fe5ed6efe12082b3f47fbef525e613a29351714237e1a",
+        "audit_sha256": "71a6d39d146520e6a9b3a541f2fe40875443adae17319c4447cdf11338a8bc80",
+        "reviewed_at": "2026-09-22T17:48:27.118455+00:00",
+        "authorization_basis": "User instruction to proceed on remaining original issues, then additional in-scope issues; complete reference build is required for issue320 acceptance.",
+        "candidate_policy": "Pinned current source/text/context fixes; unchanged retrieval ranking and frozen22-query protocol. Independent retrieval outcomes remain sealed until this candidate is complete and its controls pass."
+      }
+    },
+    "pid": 820851,
+    "run_directory": "/tmp/corpus-v15-full-candidate-20260922/runs/20260922T174832.798244Z",
+    "phase_results": {
+      "taxonomy": {
+        "phase": "taxonomy",
+        "status": "completed",
+        "started_at": "2026-09-22T17:48:46.426653+00:00",
+        "command": [
+          "/home/claude/miniforge3/envs/corpus/bin/python",
+          "-m",
+          "pipeline.cli",
+          "--config",
+          "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+          "taxonomy",
+          "ingest"
+        ],
+        "cwd": "/tmp/corpus-v15-full-candidate-code-20260922",
+        "disk_before": {
+          "available_bytes": 283626192896,
+          "minimum_free_bytes": 53687091200,
+          "scope": "Operational reserve, not a forecast that peak output will fit."
+        },
+        "input_verification": {
+          "verified_at": "2026-09-22T17:48:46.523901+00:00",
+          "pdf_count": 1775,
+          "full_pdf_hashes_checked": false,
+          "input_receipt_sha256": "184be93f25ffa8d6d71e1baeaeb68ac7f9aee24ca7c8a8a392acf88d24a25c79",
+          "code_revision": "7b4343f7c466d091568132203db169e9126f14ee"
+        },
+        "log": "/tmp/corpus-v15-full-candidate-20260922/runs/20260922T174832.798244Z/taxonomy.log",
+        "exit_code": 0,
+        "process_elapsed_seconds": 0.43,
+        "audit_command": [
+          "/home/claude/miniforge3/envs/corpus/bin/python",
+          "/tmp/corpus-v15-full-candidate-20260922/audit_candidate.py",
+          "taxonomy",
+          "--result",
+          "/tmp/corpus-v15-full-candidate-20260922/runs/20260922T174832.798244Z/taxonomy-audit.json"
+        ],
+        "audit_exit_code": 0,
+        "audit_result": "/tmp/corpus-v15-full-candidate-20260922/runs/20260922T174832.798244Z/taxonomy-audit.json",
+        "audit_sha256": "787eac09a6986d7a3ef96b1adfe4adcb7c854433be9f9b3e49339dec56cb5e78",
+        "log_sha256": "3e413ad768861b068e3271e3cd12abc38c3fb9a7f25ce84835d58eb91cc94951",
+        "completed_at": "2026-09-22T17:48:47.063391+00:00",
+        "elapsed_seconds_including_audit": 0.637
+      },
+      "extract": {
+        "phase": "extract",
+        "status": "running",
+        "started_at": "2026-09-22T17:48:47.063804+00:00",
+        "command": [
+          "/home/claude/miniforge3/envs/corpus/bin/python",
+          "-m",
+          "pipeline.cli",
+          "--config",
+          "/tmp/corpus-v15-full-candidate-20260922/config.yaml",
+          "run",
+          "--only",
+          "extract"
+        ],
+        "cwd": "/tmp/corpus-v15-full-candidate-code-20260922",
+        "disk_before": {
+          "available_bytes": 283625553920,
+          "minimum_free_bytes": 53687091200,
+          "scope": "Operational reserve, not a forecast that peak output will fit."
+        },
+        "input_verification": {
+          "verified_at": "2026-09-22T17:48:47.162895+00:00",
+          "pdf_count": 1775,
+          "full_pdf_hashes_checked": false,
+          "input_receipt_sha256": "184be93f25ffa8d6d71e1baeaeb68ac7f9aee24ca7c8a8a392acf88d24a25c79",
+          "code_revision": "7b4343f7c466d091568132203db169e9126f14ee"
+        },
+        "log": "/tmp/corpus-v15-full-candidate-20260922/runs/20260922T174832.798244Z/extract.log"
+      }
+    },
+    "preflight_disk": {
+      "available_bytes": 283626201088,
+      "minimum_free_bytes": 53687091200,
+      "scope": "Operational reserve, not a forecast that peak output will fit."
+    },
+    "input_verification": {
+      "verified_at": "2026-09-22T17:48:46.374399+00:00",
+      "pdf_count": 1775,
+      "full_pdf_hashes_checked": true,
+      "input_receipt_sha256": "184be93f25ffa8d6d71e1baeaeb68ac7f9aee24ca7c8a8a392acf88d24a25c79",
+      "code_revision": "7b4343f7c466d091568132203db169e9126f14ee"
+    },
+    "python": {
+      "executable": "/home/claude/miniforge3/envs/corpus/bin/python",
+      "version": "3.12.13 | packaged by conda-forge | (main, Mar  5 2026, 16:50:00) [GCC 14.3.0]"
+    },
+    "packages": {
+      "docling": "2.94.0",
+      "torch": "2.12.0",
+      "transformers": "5.8.1",
+      "sentence-transformers": "5.5.0",
+      "lancedb": "0.36.0",
+      "pyarrow": "25.0.0",
+      "PyMuPDF": "1.28.0"
+    },
+    "grobid_context": {
+      "enabled": true,
+      "available": true,
+      "service_version": "0.8.1"
+    }
+  },
+  "limits": [
+    "The run state above is a launch-time snapshot, not the current live status. Inspect the retained run.json and phase logs for progress.",
+    "All1775 source copies were fully hash-verified; historical reference vector producer remains unknown.",
+    "Complete artifact and actual indexed populations must pass the retrieval comparison guard before scoring.",
+    "Independent retrieval outcomes remain sealed; no ranker changes or improvement claims.",
+    "Source inputs, completed gold and retained reference bundle are preserved."
+  ]
+}

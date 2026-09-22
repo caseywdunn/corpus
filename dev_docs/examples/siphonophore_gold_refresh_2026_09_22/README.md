@@ -1,11 +1,11 @@
-# Existing gold set: completed CPU refresh and source scoring, 2026-09-22
+# Existing gold set: completed CPU build and source acceptance, 2026-09-22
 
 The three independent gold scorers completed successfully after the normal
 35-document CPU extraction refresh finished. Extraction used `ab6353f`; scoring
 used integration revision `bb84b4b55f9f1611afd695c22cf7aaf4c6a5cd25`. This packet
-covers source scoring of saved extraction artifacts. Embedding, post-processing,
-bundling, live serving and unchanged-resume evidence are separate phases; their
-receipts are added here by the release coordinator.
+covers source scoring plus the subsequent normal embedding, post-processing,
+bundling, live serving and unchanged-resume checks. Those phases have separate
+receipts so successful execution is not confused with source fidelity.
 
 The comparison preserves the same **35 documents and 675 scored gold pages**.
 The gold contains 761 pages; configured `keeppages` excludes the same 86 pages
@@ -58,6 +58,51 @@ recovers; missing/garbled extraction must not be dropped as unscorable. The
 scorer normalizes case, diacritics and punctuation, so these token scores cannot
 establish exact scientific signs, exponent roles or freedom from invented text.
 The separate source-region notation review remains necessary.
+
+## Complete pipeline, serving and unchanged resume
+
+`pipeline-acceptance.json` records the normal CLI phases and input identities.
+Extraction finishes with a clean exit after 5,203.7 seconds: all 35 summaries
+and required stages are complete, current producer checks pass, and there are
+no stage failures. Existing source-integrity, low-text and missing-reference
+warnings remain visible. Real CPU BGE-M3 embedding completes all 35 documents
+with zero failures in 1,319.4 seconds. All four post-processing steps and bundling
+pass. The bundle holds 35 papers, 3,336 chunks and 605 figure records; path
+scrubbing reports a clean audit. Production modules remain identical to
+`ab6353f` throughout the later receipt-only commits.
+
+`serving-summary.json` records an actual stdio MCP replay at `7b4343f`. All
+3,336 unique 1,024-dimensional vectors are finite and nonzero, match exact
+materialized payloads, and have valid current producer/generation markers.
+The same 3,336 chunk texts/headings survive 152 bounded `get_chunks` calls;
+the largest response is 257,019 bytes against a 524,288-byte verifier limit.
+All fourteen clearly faithful source-sample expressions survive at their exact
+reviewed occurrences. The ten other source selections remain in the separate
+[notation review](../../../tests/fixtures/text_integrity/source_review/current_ab6353f/README.md),
+not silently excluded from its fidelity denominator. Six report-profile image
+deliveries preserve bytes. Manuscript mode permits one licensed-open figure
+and issues five structured refusals for absent clearance records. The full
+bundle file inventory remains unchanged during verification.
+
+Unchanged extraction skips all 35 papers; unchanged embedding reports
+`embedded=0, skipped=35, failed=0`. Document artifacts and embedding markers
+retain their hashes. The first, deliberately strict physical-file comparison
+returns false: normal orphan pruning creates a no-row deletion transaction,
+adding a transaction and manifest and updating the version hint. Both strict
+receipts are preserved. Direct comparison of every row in the pre-resume bundle
+(table version 36) and resumed build (version 37) proves exact equality of
+keys, text, full metadata, vector values and generations. This meets semantic
+unchanged-resume acceptance without claiming byte-identical database files or
+a complete clean/incremental change-class matrix.
+
+The initial live verifier attempt also remains recorded: it stopped after 135
+successful chunk calls because its decoder unwrapped a singleton list. Using
+the SDK's structured list envelope fixes that scratch harness; the complete
+second attempt passes. No product change or model rerun was needed.
+
+These results complete CPU gold acceptance. Fresh Qwen inference, a complete
+reference-corpus build and matching-population retrieval evaluation remain
+separate release work.
 
 ## Evidence and reproduction
 

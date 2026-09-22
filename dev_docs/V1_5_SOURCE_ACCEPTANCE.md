@@ -131,7 +131,8 @@ Unchanged notation and date-range controls survive, changed source text makes
 the old embedding receipt stale, and an unchanged rerun skips the backend.
 The German pilot has no figures, so it establishes no German caption result.
 See `tests/fixtures/text_integrity/materialized/README.md` for captured-artifact
-origins and limits; broader scientific precision/recall remains pending.
+origins and limits; broader scientific precision/recall is reported separately
+in the source-sample review below.
 
 The #315 surname policy uses curated author/year candidates and requires two
 unhinted regional OCR readings to agree. Its selected source sample covers
@@ -175,6 +176,13 @@ A broad report selector also included unrelated Kinzer raw1977/parsed1972;
 that conflict remains unresolved and separate from the named Pugh acceptance.
 The receipt preserves both failed reporting statuses and the final scoped pass.
 Full-corpus overlapping citation sets and missing-work ranking remain unproved.
+The [read-only retained v1.2.1 census](examples/siphonophore_pugh_split_v1_2_1_2026_09_22.json)
+reproduces 59 citing papers for the 1965 ghost and 23 for the 1974 DOI, with no
+overlap; the ghost ranks first in the retained missing-reference list. However,
+all 84,950 raw citation fields in that snapshot are empty, including the 82
+relevant observations. This older snapshot cannot establish the audited v1.4
+history or support bulk reassignment from title/count agreement. The fresh
+source captures above retain separate provenance.
 See the source crops, TEI fragments and receipts in
 `tests/fixtures/bibliographic_integrity/publication_year_sources`.
 
@@ -220,6 +228,23 @@ figure-count recall/precision is 0.8803/0.8642, and caption-identity binding is
 Qwen or full-corpus acceptance. Token coverage cannot validate scientific signs,
 and figure-count agreement cannot validate object identity.
 
+The [September 22 current-producer refresh](examples/siphonophore_gold_refresh_2026_09_22/README.md)
+finishes all 35 documents with a clean shell exit and no stage failures. The
+same 675 included pages are scored; all three scorers pass. Median prose
+coverage rises to 0.9482, with 14 pages improving and no decreases in the six
+compared fidelity measures. Figure/caption aggregate scores remain unchanged.
+The 48 extraction-empty pages and one script-missing page stay in the
+denominator. The earlier OCR-panel override and currently deferred local vision
+differ, so these scores establish no panel-model comparison or Qwen acceptance.
+Normal embedding completes all 35 documents with zero failures, followed by
+post-processing and bundling. All 3,336 actual vector rows and live served chunks
+match materialized text and metadata; the fourteen faithful source-sample
+expressions survive. Six report images preserve their bytes, while strict
+profiles enforce recorded clearance. Unchanged extraction/embedding skips all
+papers and preserves actual rows. LanceDB adds a no-row deletion transaction,
+so the receipt records physical bookkeeping differences separately. The served
+bundle remains unchanged throughout verification.
+
 The [independent retrieval sample and source decisions](examples/siphonophore_retrieval_review_2026_09_18/README.md), frozen against this completed
 build before source review, found only five eligible units from two papers.
 That cannot meet the previously defined minimum of ten queries from five papers.
@@ -248,6 +273,12 @@ read verifies 4,266 target-paper rows against stored chunks, without text or ID
 differences. One additional bract branch is split across two chunks. Independent
 outcomes remain withheld; a comparable corrected candidate has not been measured.
 This retained bundle is not the audited v1.4 snapshot.
+The [complete CPU candidate launch](examples/siphonophore_full_candidate_2026_09_22.json)
+now records independently copied and fully hash-verified originals for all 1,775
+artifact papers, matching frozen gold supporting inputs and pinned production
+code. Taxonomy ingestion passes and extraction has started. Subsequent normal
+phases retain their own completion gates. The launch receipt is a dated status
+snapshot; the live run remains outside Git, and no retrieval outcome is inferred.
 
 The subsequent table-classification correction requires destinations that resolve
 to observed couplet numbers, supported by dotted leaders or paired alternatives
@@ -283,7 +314,19 @@ emitted expressions, the corresponding fidelity is 14/17 in Docling and
 under a picture are counted as missing-text recall, not incorrect repairs.
 The two selected admitted repairs are correct, but both are inverse units in
 one Mańko paper; 2/2 is not a corpus-wide precision estimate. No pending baseline
-rows remain. The ongoing September 22 refresh requires its own comparison.
+rows remain.
+
+The [completed September 22 comparison](../tests/fixtures/text_integrity/source_review/current_ab6353f/README.md)
+uses the same frozen labels and all 35 completed current producers. Docling
+preserves 16/19 consumed expressions and chunks preserve 14–15/19; emitted
+fidelity is 16/17 and 14–15/16 respectively. The two selected Chen expressions
+improve. The Russian unit remains explicitly unresolved, the same three
+axis/footer/table expressions remain omitted, and the footnote role remains
+indeterminate. Current selected atomic-repair precision is 2/2 Mańko signed
+exponents and 1/1 Chen raised-digit formatting. This does not validate whole
+decoded paragraphs, all rejected proposals or corpus-wide precision. All 24
+rows are graded, with independent checks of the selected operations and final
+denominators. Vector and live-server propagation have separate receipts.
 
 The review exposed corrupted Chen quantities and a Russian cubic unit despite
 passing named notation regressions. Two selected Mańko exponent repairs agree
@@ -300,7 +343,7 @@ Original-PDF replay and the saved-document → chunk → production embedding-in
 → vector-row → bounded-response path pass. Six hyphen candidates remain raw and
 unresolved where the raster evidence is insufficient. Normally decoded text and
 malformed source maps are nonmutating controls. This repair does not establish
-full-paragraph accuracy or complete current-build #303 acceptance. Separately,
+full-paragraph accuracy; the broader current-build comparison is recorded above. Separately,
 fresh normal OCR/extraction, real embeddings and stdio serving preserve the
 first Russian cubic exponent, while frozen sample row 16's second exponent
 remains damaged and explicitly marked `digit_ocr_disagreement`. These later
@@ -343,10 +386,10 @@ source panels and five scale bars, excluding neighboring prose. Fourteen
 raster-edge controls pass, including rotation, cropbox margins and a prose veto.
 This does not replace fresh layout extraction or corpus-wide figure recall.
 
-Rebuild the existing gold set and score text/figure/caption fidelity, including
-issue-specific assertions; do not substitute fixture presence or token coverage
-for scientific correctness. Verify clean/incremental equivalence and downstream
-invalidation. Inspect fresh Qwen source-pilot crops: coordinate arithmetic alone
+The current CPU gold build and source scoring are complete as recorded above;
+future producer changes require renewed affected-source validation. Verify the
+remaining clean/incremental equivalence and downstream invalidation gates.
+Inspect fresh Qwen source-pilot crops: coordinate arithmetic alone
 does not prove the model selected the right panel. Finally rebuild the full
 reference corpus, compare counts/mappings and replay the audited MCP calls.
 

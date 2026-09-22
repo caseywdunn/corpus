@@ -1,0 +1,480 @@
+{
+  "scope": "Completed normal CPU gold extraction, real embeddings, post-build indexes, bundle, unchanged resume and live stdio MCP. Source fidelity is graded separately; vision is deferred. No full-reference-corpus or Qwen acceptance.",
+  "input_receipt": {
+    "source_library_git_sha": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+    "prepared_at_corpus_git_sha": "9503db05815bc7c904de50f09a59db240b5e963f",
+    "gold_document_count": 35,
+    "source_manifest_sha256": "6efcf5b9f2a5c537e1bebcedcbab7bc730854912a128c14af99f4c59f303e378",
+    "inputs": [
+      {
+        "stem": "Adanson1757",
+        "path": "inputs/library/A/Adanson1757.pdf",
+        "sha256": "68e78d6c90e23830856da6bffc78f48118966f3c909091e84afc9f3b6d22802a"
+      },
+      {
+        "stem": "Ahuja_etal2026",
+        "path": "inputs/library/A/Ahuja_etal2026.pdf",
+        "sha256": "a53f93badacc4fbbc0aa027d21644a9bd1eb330468237db6dfd78e3aa6a75ebb"
+      },
+      {
+        "stem": "Barrere1741",
+        "path": "inputs/library/B/Barrere1741.pdf",
+        "sha256": "6050b5c6f57506aef6110bc93161660d0d90c7bac7e0c9c7f04576344a8341bb"
+      },
+      {
+        "stem": "Beklemishev1969",
+        "path": "inputs/library/B/Beklemishev1969.pdf",
+        "sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c"
+      },
+      {
+        "stem": "Benasso_Stroiazzo1976",
+        "path": "inputs/library/B/Benasso_Stroiazzo1976.pdf",
+        "sha256": "d64d1b9da678ea1ed329f347b0e84cbe2d3c777398456e35ee8037a046e0b7c0"
+      },
+      {
+        "stem": "Bernstein1934",
+        "path": "inputs/library/B/Bernstein1934.pdf",
+        "sha256": "d9623d970b33843a16864d4338c8235772b0c614b3ece23709bac7128678be37"
+      },
+      {
+        "stem": "Candeias1932",
+        "path": "inputs/library/C/Candeias1932.pdf",
+        "sha256": "6307a3c5f85ade76ee10b4312ce2bd804e0654d111aee91aae79a06efdde4419"
+      },
+      {
+        "stem": "Carre1968_Hippopodius_tr",
+        "path": "inputs/library/C/Carre1968_Hippopodius_tr.pdf",
+        "sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763"
+      },
+      {
+        "stem": "Carre1969_Nanomia_tr",
+        "path": "inputs/library/C/Carre1969_Nanomia_tr.pdf",
+        "sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6"
+      },
+      {
+        "stem": "Chenetal2015",
+        "path": "inputs/library/C/Chenetal2015.pdf",
+        "sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3"
+      },
+      {
+        "stem": "Chun1882c",
+        "path": "inputs/library/C/Chun1882c.pdf",
+        "sha256": "0cf9f253f75b6ab2ef2377d7a9082e6613c0e0d76d41066aa8aa55848df4bc4c"
+      },
+      {
+        "stem": "Chun1898b",
+        "path": "inputs/library/C/Chun1898b.pdf",
+        "sha256": "3461e68936b6a9e99648a11f8422023a08d673b07e81e71e0eeb88689d15407f"
+      },
+      {
+        "stem": "DeHaan1827",
+        "path": "inputs/library/D_E/DeHaan1827.pdf",
+        "sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4"
+      },
+      {
+        "stem": "Eschscholtz1825",
+        "path": "inputs/library/D_E/Eschscholtz1825.pdf",
+        "sha256": "c5c34c1bb1048b290a8357c4b27a2d4779fe815c3d77a6f2935da1434d004cdf"
+      },
+      {
+        "stem": "Gasca_Suarez1993tr",
+        "path": "inputs/library/G/Gasca_Suarez1993tr.pdf",
+        "sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5"
+      },
+      {
+        "stem": "Hjortberg1769",
+        "path": "inputs/library/H_J/Hjortberg1769.pdf",
+        "sha256": "cc2908a7a17078772a56372548f7a69fc03754c131599e93e9dd139c032762f2"
+      },
+      {
+        "stem": "Hosiaetal2024",
+        "path": "inputs/library/H_J/Hosiaetal2024.pdf",
+        "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413"
+      },
+      {
+        "stem": "Kawamura1911a",
+        "path": "inputs/library/K/Kawamura1911a.pdf",
+        "sha256": "31cedc91d73a08cefce01007e99de460e4d65714e5e932e1c47371e91787f162"
+      },
+      {
+        "stem": "Keferstein_Ehlers1860",
+        "path": "inputs/library/K/Keferstein_Ehlers1860.pdf",
+        "sha256": "8a1321ca549db560f0a4392a4d2ec41bf2864db35f15fc72ad0690e77becc375"
+      },
+      {
+        "stem": "Lery1594",
+        "path": "inputs/library/L/Lery1594.pdf",
+        "sha256": "830c73a89f829ef2c27601131826c038c67b9eae9746b68f6c588e831bffd031"
+      },
+      {
+        "stem": "Linnaeus1735",
+        "path": "inputs/library/L/Linnaeus1735.pdf",
+        "sha256": "d7c1193c06faa82b340668b2c92f14f6637a1bda0047ec3a111c0f0aec27190d"
+      },
+      {
+        "stem": "LoBianco1909",
+        "path": "inputs/library/L/LoBianco1909.pdf",
+        "sha256": "d7210cd94ae23c3bc07931f395ebc7f795390eb967f5207dc35aa78b43861fed"
+      },
+      {
+        "stem": "Mackie1966",
+        "path": "inputs/library/M/Mackie1966.pdf",
+        "sha256": "93e29178db12b19d7f6a8ab0ec3b5dbe3c1b44d92b1bda3ed3a2cd31ece82fde"
+      },
+      {
+        "stem": "Margulis1976a_Atlantictr",
+        "path": "inputs/library/M/Margulis1976a_Atlantictr.pdf",
+        "sha256": "6f3a3ae4dd898f91696dc97be4f849dd8b1ab0fc2cc03858771ec5b983c89d14"
+      },
+      {
+        "stem": "Margulis1984b_Lcamptr",
+        "path": "inputs/library/M/Margulis1984b_Lcamptr.pdf",
+        "sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e"
+      },
+      {
+        "stem": "Mańko_et al2020",
+        "path": "inputs/library/M/Mańko_et al2020.pdf",
+        "sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa"
+      },
+      {
+        "stem": "Olfers1824",
+        "path": "inputs/library/N-O/Olfers1824.pdf",
+        "sha256": "39b9c2f978dd2d0be04a6e724cf4056c8b12c87ed1d04a589253b76af837def0"
+      },
+      {
+        "stem": "Quoy_Gaimard1834Plates",
+        "path": "inputs/library/Q_R/Quoy_Gaimard1834Plates.pdf",
+        "sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c"
+      },
+      {
+        "stem": "Stepanjants2014",
+        "path": "inputs/library/S/Stepanjants2014.pdf",
+        "sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a"
+      },
+      {
+        "stem": "Stepanjants_Dianov1997",
+        "path": "inputs/library/S/Stepanjants_Dianov1997.pdf",
+        "sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121"
+      },
+      {
+        "stem": "Tilesius1814",
+        "path": "inputs/library/T/Tilesius1814.pdf",
+        "sha256": "1254e10f0c932e702432daa58582cdb2502123668369ba5f0ff7fc2193b715d0"
+      },
+      {
+        "stem": "Totton1965a",
+        "path": "inputs/library/T/Totton1965a.pdf",
+        "sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c"
+      },
+      {
+        "stem": "Totton1965b",
+        "path": "inputs/library/T/Totton1965b.pdf",
+        "sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021"
+      },
+      {
+        "stem": "Vanhoeffen1906",
+        "path": "inputs/library/U_Z/Vanhoeffen1906.pdf",
+        "sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af"
+      },
+      {
+        "stem": "Yamamori2014",
+        "path": "inputs/library/U_Z/Yamamori2014.pdf",
+        "sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363"
+      },
+      {
+        "path": "inputs/siphonophores.bib",
+        "sha256": "e3678544aa0de925aa86c6d3ef198271a02aefb7a7ce2cafd5f23c9c71c4c165"
+      },
+      {
+        "path": "inputs/lexicon.yaml",
+        "sha256": "fd7fcfedc2e617e9588311b6cd3e1c3538685404eeedf85391d619c0a64c5af3"
+      },
+      {
+        "path": "inputs/taxonomy.dwca.zip",
+        "sha256": "84742790a1b6836e9615ae59d10b9620eb00979665f1fe2d4cd457d43fb4921c"
+      },
+      {
+        "path": "inputs/instructions.md",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "scope": "Existing 35-document gold manifest; no additional fixture corpus. No build launched yet."
+  },
+  "input_receipt_sha256": "059b15bf1a681c14b655e21d97463f7df43fa108b9e868ee295771e5f34837f0",
+  "config_yaml": "input_pdfs: ./inputs/library\noutput_dir: ./output\nbib: ./inputs/siphonophores.bib\nlexicon: ./inputs/lexicon.yaml\ntaxonomy:\n  source: dwca\n  path: ./inputs/taxonomy.dwca.zip\nfigures:\n  panel_detection: vision-local\n  resolution_mode: native\n  vector_dpi: 300\ncompute:\n  accelerator: cpu\n  num_threads: 4\ngrobid:\n  url: http://localhost:8070\nbibliography:\n  enrich_bhl: false\nocr:\n  jobs: 2\n",
+  "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+  "extraction_receipt": "refresh-20260922-completion.json",
+  "extraction_receipt_sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab",
+  "phases": {
+    "embed": {
+      "receipt_sha256": "9fbc3becde766421adfc039e8332ec08d609305cd5e1501a9242ee4a8ff25e3c",
+      "phase": "embed",
+      "label": "embed",
+      "command": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-u",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-acceptance/gold/config-v15-sep22.yaml",
+        "run",
+        "--only",
+        "embed"
+      ],
+      "cwd": "/tmp/corpus-correctness-validation",
+      "code_revision": "bb84b4b55f9f1611afd695c22cf7aaf4c6a5cd25",
+      "production_code_identical_to": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+      "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+      "extraction_completion_sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab",
+      "script_sha256": "726e9e111524220affacb4fee2ff5a5b585465d7966778a3821822a9c3146771",
+      "started_at": "2026-09-22T17:10:00.039989+00:00",
+      "environment": {
+        "PYTHONPATH": "/tmp/corpus-correctness-validation",
+        "CUDA_VISIBLE_DEVICES": "",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "TOKENIZERS_PARALLELISM": "false"
+      },
+      "ended_at": "2026-09-22T17:31:59.465821+00:00",
+      "elapsed_seconds": 1319.426,
+      "exit_code": 0,
+      "log_sha256": "03645fc24edf885ade95d5e2caa6a76c04c550aee76064610988ee66b421c62e"
+    },
+    "post": {
+      "receipt_sha256": "cb6f5525858bb513876833f0c25422aff8aaf82233c20f85870f4c1508cb2a8a",
+      "phase": "post",
+      "label": "post",
+      "command": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-u",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-acceptance/gold/config-v15-sep22.yaml",
+        "run",
+        "--only",
+        "post"
+      ],
+      "cwd": "/tmp/corpus-correctness-validation",
+      "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+      "production_code_identical_to": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+      "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+      "extraction_completion_sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab",
+      "script_sha256": "726e9e111524220affacb4fee2ff5a5b585465d7966778a3821822a9c3146771",
+      "started_at": "2026-09-22T17:32:28.673531+00:00",
+      "environment": {
+        "PYTHONPATH": "/tmp/corpus-correctness-validation",
+        "CUDA_VISIBLE_DEVICES": "",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "TOKENIZERS_PARALLELISM": "false"
+      },
+      "ended_at": "2026-09-22T17:32:32.447770+00:00",
+      "elapsed_seconds": 3.774,
+      "exit_code": 0,
+      "log_sha256": "37eb9d7985b6baa02fb32f3fba866caa514a87f52911de09bb721a5b29ad3bc3"
+    },
+    "bundle": {
+      "receipt_sha256": "9dd3109ff525a5556237c08c6365a3015e2567e91b9efa36dd72b3f08099d482",
+      "phase": "bundle",
+      "label": "bundle",
+      "command": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-u",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-acceptance/gold/config-v15-sep22.yaml",
+        "run",
+        "--only",
+        "bundle"
+      ],
+      "cwd": "/tmp/corpus-correctness-validation",
+      "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+      "production_code_identical_to": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+      "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+      "extraction_completion_sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab",
+      "script_sha256": "726e9e111524220affacb4fee2ff5a5b585465d7966778a3821822a9c3146771",
+      "started_at": "2026-09-22T17:33:18.119995+00:00",
+      "environment": {
+        "PYTHONPATH": "/tmp/corpus-correctness-validation",
+        "CUDA_VISIBLE_DEVICES": "",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "TOKENIZERS_PARALLELISM": "false"
+      },
+      "ended_at": "2026-09-22T17:33:20.914189+00:00",
+      "elapsed_seconds": 2.794,
+      "exit_code": 0,
+      "log_sha256": "a5e0737cc4887fd82fe9ca718338bb710f42de1358fca43fa471cb0aa36f3fa1"
+    },
+    "unchanged-extract": {
+      "receipt_sha256": "a9c0d446320c65552b5f355b5e7a4c38cf2cdd8c1a784aa1e64fcf6b90f506f2",
+      "phase": "extract",
+      "label": "unchanged-extract",
+      "command": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-u",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-acceptance/gold/config-v15-sep22.yaml",
+        "run",
+        "--only",
+        "extract"
+      ],
+      "cwd": "/tmp/corpus-correctness-validation",
+      "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+      "production_code_identical_to": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+      "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+      "extraction_completion_sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab",
+      "script_sha256": "726e9e111524220affacb4fee2ff5a5b585465d7966778a3821822a9c3146771",
+      "started_at": "2026-09-22T17:34:37.954944+00:00",
+      "environment": {
+        "PYTHONPATH": "/tmp/corpus-correctness-validation",
+        "CUDA_VISIBLE_DEVICES": "",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "TOKENIZERS_PARALLELISM": "false"
+      },
+      "ended_at": "2026-09-22T17:34:44.369432+00:00",
+      "elapsed_seconds": 6.414,
+      "exit_code": 0,
+      "log_sha256": "8461d13e7faef1260b31a667765de673a2474a5c9a273d46d751bbbb4f27024f"
+    },
+    "unchanged-embed": {
+      "receipt_sha256": "ee8c8dbbc2de1b020a22ea5a90e4f23d6db7e2bcbaa6e6d509c8c348fde39d1f",
+      "phase": "embed",
+      "label": "unchanged-embed",
+      "command": [
+        "/home/claude/miniforge3/envs/corpus/bin/python",
+        "-u",
+        "-m",
+        "pipeline.cli",
+        "--config",
+        "/tmp/corpus-v15-acceptance/gold/config-v15-sep22.yaml",
+        "run",
+        "--only",
+        "embed"
+      ],
+      "cwd": "/tmp/corpus-correctness-validation",
+      "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+      "production_code_identical_to": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+      "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+      "extraction_completion_sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab",
+      "script_sha256": "726e9e111524220affacb4fee2ff5a5b585465d7966778a3821822a9c3146771",
+      "started_at": "2026-09-22T17:35:01.429850+00:00",
+      "environment": {
+        "PYTHONPATH": "/tmp/corpus-correctness-validation",
+        "CUDA_VISIBLE_DEVICES": "",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "TOKENIZERS_PARALLELISM": "false"
+      },
+      "ended_at": "2026-09-22T17:35:11.199587+00:00",
+      "elapsed_seconds": 9.77,
+      "exit_code": 0,
+      "log_sha256": "c3effe888e305297835763d43cade4a9f482c6b4bd1baccac8cea2b6ec032474"
+    }
+  },
+  "bundle_manifest": {
+    "bundle_version": "1.5.0.dev0",
+    "created_at": "2026-09-22T17:33:20Z",
+    "pipeline_git_sha": "7b4343f7c466d091568132203db169e9126f14ee",
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_dim": 1024,
+    "taxonomy_snapshot_date": "2026-09-18",
+    "paper_count": 35,
+    "figure_count": 605,
+    "chunk_count": 3336,
+    "includes_pdfs": false,
+    "citation": {
+      "title": "Extracting AI agent-accessible data from biodiversity literature with corpus",
+      "year": null,
+      "doi": "10.5281/zenodo.19964909",
+      "url": "https://doi.org/10.5281/zenodo.19964909",
+      "authors": [
+        {
+          "family-names": "Church",
+          "given-names": "Samuel H."
+        },
+        {
+          "family-names": "Mańko",
+          "given-names": "Maciej K."
+        },
+        {
+          "family-names": "Zapata",
+          "given-names": "Felipe"
+        },
+        {
+          "family-names": "Dunn",
+          "given-names": "Casey W."
+        }
+      ]
+    }
+  },
+  "embedding_producer": {
+    "schema_version": 1,
+    "model": "BAAI/bge-m3",
+    "dimension": 1024,
+    "producer": {
+      "model": "BAAI/bge-m3",
+      "recipe": "sentence-transformers-unit-l2-v1",
+      "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+      "verification": "repository-revision"
+    }
+  },
+  "resume": {
+    "before_receipt_sha256": "df05244cfcd8869a251a4aabab3f5cf97fbb1ba8b09eacb7d226b94d9f5aeb8f",
+    "after_receipt_sha256": "2da5abbcd6642463178916ac0a00b8764875110e0f54817cbd02101b1e73232e",
+    "before_file_count": 1192,
+    "after_file_count": 1194,
+    "strict_file_equality": false,
+    "changed_paths": [
+      "vector_db/lancedb/document_chunks.lance/_transactions/36-8c2868eb-c335-45df-a92b-a88bce32d745.txn",
+      "vector_db/lancedb/document_chunks.lance/_versions/18446744073709551578.manifest",
+      "vector_db/lancedb/document_chunks.lance/_versions/latest_version_hint.json"
+    ],
+    "document_artifacts_and_embedding_markers_unchanged": true,
+    "interpretation": "Normal orphan pruning issues a delete predicate even when no rows match. Only transaction/version bookkeeping differs; compare actual semantic vector rows, not physical database files.",
+    "semantic_comparison": {
+      "status": "pass",
+      "rows_directly_compared": 3336,
+      "all_keys_text_typed_metadata_vectors_and_generations_equal": true,
+      "bundle_table_version_before": 36,
+      "bundle_table_version_after": 36,
+      "resumed_build_table_version_before": 37,
+      "resumed_build_table_version_after": 37,
+      "strict_file_hash_resume_unchanged": false,
+      "strict_before_receipt_sha256": "df05244cfcd8869a251a4aabab3f5cf97fbb1ba8b09eacb7d226b94d9f5aeb8f",
+      "strict_after_receipt_sha256": "2da5abbcd6642463178916ac0a00b8764875110e0f54817cbd02101b1e73232e",
+      "strict_receipt_preserved_without_changes": true,
+      "changed_file_paths": [
+        "vector_db/lancedb/document_chunks.lance/_transactions/36-8c2868eb-c335-45df-a92b-a88bce32d745.txn",
+        "vector_db/lancedb/document_chunks.lance/_versions/18446744073709551578.manifest",
+        "vector_db/lancedb/document_chunks.lance/_versions/latest_version_hint.json"
+      ],
+      "changed_files_are_lance_transaction_bookkeeping_only": true,
+      "interpretation": "Semantic row equality is proved independently. Strict file-byte resume equality remains false when Lance commits bookkeeping; no document, marker or vector data-file difference is suppressed.",
+      "row_comparison_sha256": "3ff912ecd805a260261232a8bf0a6e7c19a3edc32b08e81ff3d44f7f92c9c302"
+    }
+  },
+  "serving_receipt_sha256": "ca8a0f3d5626d22f22ac814b65a918467ad3ce4db8d51035595602df0ae6aeef",
+  "serving_status": "pass",
+  "serving_summary": "serving-summary.json",
+  "verification_scripts": {
+    "/tmp/corpus-v15-gold-phases.py": "726e9e111524220affacb4fee2ff5a5b585465d7966778a3821822a9c3146771",
+    "/tmp/corpus-v15-gold-refresh-receipt.py": "3c00f70b73750517534cfc5d3c351ae68e22b59602d58450584ce355686e70e8",
+    "/tmp/corpus-v15-gold-resume-snapshot.py": "03a6b60a136af97128ee5591353ce251d39ad8f29e3cc2ae17c767d7bd27e1b0"
+  }
+}
