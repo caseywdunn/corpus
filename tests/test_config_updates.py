@@ -513,6 +513,18 @@ def test_plate_association_policy_invalidates_extraction_and_consumers(monkeypat
         assert current[stage] == previous[stage]
 
 
+def test_panel_inventory_policy_invalidates_figure_consumers_only(monkeypatch):
+    from pipeline import figure_passes
+    current = config_fingerprints({}, panel_mode="ocr")
+    monkeypatch.setattr(figure_passes, "PANEL_INVENTORY_POLICY", "previous-policy")
+    previous = config_fingerprints({}, panel_mode="ocr")
+    for stage in ("figure_materialization", "figure_crossref"):
+        assert current[stage] != previous[stage]
+    for stage in ("scan_detection", "pdf_preparation", "metadata_extraction",
+                  "docling_extraction", "text_chunking", "taxa_and_lexicon_extraction"):
+        assert current[stage] == previous[stage]
+
+
 def test_native_recovery_changes_reprepare_and_retire_old_evidence(corpus, monkeypatch):
     """Exercise both resume gates and the scratch extraction publication path."""
     import shutil

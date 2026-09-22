@@ -1,5 +1,6 @@
 """Figure count and caption regressions from the September audit (#324/#332)."""
 import json
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +14,84 @@ def test_ranges_cover_the_full_uppercase_alphabet(end):
         f'FIGURE 1. A-C. live specimens. D-{end}. preserved specimens.'
     )
     assert [p['label'] for p in panels] == list(map(chr, range(65, ord(end) + 1)))
+
+
+def test_individual_late_letters_follow_an_earlier_range():
+    panels = parse_panels_from_caption('FIGURE 1. A-X. views. (Y) upper. (Z) lower.')
+    assert [p['label'] for p in panels] == list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    assert panels[-1]['description'] == 'lower'
+
+
+def test_source_sutherland_inline_genus_does_not_destroy_explicit_panel_inventory():
+    fixture = json.loads((Path(__file__).parent / 'fixtures/figure_integrity/'
+                          'sutherland_captions.json').read_text())
+    caption = next(t['text'] for t in fixture['texts'] if t['self_ref'] == '#/texts/40')
+    panels = parse_panels_from_caption(caption)
+    assert [p['label'] for p in panels] == ['A', 'B']
+    assert 'swimming by N. bijuga' in panels[0]['description']
+    assert 'with N. bijuga' in panels[1]['description']
+
+
+@pytest.mark.parametrize('caption', [
+    'FIGURE 1. A-M. specimens. N. upper view.',
+    'FIGURE 1. A-N. specimens viewed with N. upper view.',
+    'FIGURE 1. A-M. specimens viewed with (N) upper view.',
+])
+def test_late_panel_definitions_and_independent_declarations_survive(caption):
+    assert [p['label'] for p in parse_panels_from_caption(caption)] == list('ABCDEFGHIJKLMN')
+
+
+def test_new_caption_labels_retire_old_completion_without_inventing_rois(tmp_path):
+    from pipeline.figure_passes import _pass25_annotate_figures
+    figures = tmp_path / 'figures.json'
+    original_rois = [{'label': letter, 'roi_px': [0, 0, 10, 10]} for letter in 'ABCDEF']
+    figures.write_text(json.dumps({'figures': [{
+        'figure_id': 'fig12', 'figure_number': '12',
+        'caption_text': 'FIGURE 12. (A-F) living. (G-N) fixed.',
+        'pass3_status': 'completed', 'rois': original_rois,
+    }]}))
+    _pass25_annotate_figures(tmp_path / 'absent-text.json', figures)
+    updated = json.loads(figures.read_text())['figures'][0]
+    assert updated['panel_count_from_caption'] == 14
+    assert updated['pass3_status'] == 'partial_caption_inventory'
+    assert updated['pass3_inventory_reconciliation']['unlocated_labels'] == list('GHIJKLMN')
+    assert updated['rois'] == original_rois
+    before = figures.read_bytes()
+    _pass25_annotate_figures(tmp_path / 'absent-text.json', figures)
+    assert figures.read_bytes() == before
+
+
+@pytest.mark.parametrize('target_kind', ['panel', 'figure', 'figure_discovery'])
+def test_completion_reconciliation_preserves_full_coverage_and_numbered_targets(target_kind):
+    from pipeline.figure_passes import _reconcile_panel_completion
+    figure = {'pass3_status': 'completed', 'pass3_target_kind': target_kind,
+              'panels_from_caption': [{'label': 'A'}, {'label': 'B'}],
+              'rois': [{'label': 'A', 'roi_px': [0, 0, 5, 5]},
+                       {'label': 'B', 'roi_px': [5, 0, 10, 5]}] if target_kind == 'panel' else []}
+    _reconcile_panel_completion(figure)
+    assert figure['pass3_status'] == 'completed'
+    assert 'pass3_inventory_reconciliation' not in figure
+
+
+@pytest.mark.parametrize('status', ['completed', 'vision_backend_failed'])
+def test_new_vision_result_retires_inventory_note_only_after_success(tmp_path, monkeypatch, status):
+    from pipeline import figure_passes
+    figures = tmp_path / 'figures.json'
+    image = tmp_path / 'figure.png'
+    image.write_bytes(b'not opened by the controlled detection backend')
+    note = {'previous_status': 'completed', 'unlocated_labels': ['B']}
+    figures.write_text(json.dumps({'figures': [{
+        'figure_id': 'fig1', 'figure_type': 'figure', 'file_path': str(image),
+        'panels_from_caption': [{'label': 'A'}, {'label': 'B'}],
+        'pass3_status': 'partial_caption_inventory', 'pass3_inventory_reconciliation': note,
+    }]}))
+    rois = [{'label': label, 'roi_px': box} for label, box in
+            [('A', [0, 0, 5, 10]), ('B', [5, 0, 10, 10])]] if status == 'completed' else []
+    monkeypatch.setattr(figure_passes, 'detect_figure_rois_via_vision',
+                        lambda *args, **kwargs: {'pass3_status': status, 'rois': rois})
+    figure_passes._pass3b_annotate_rois(figures, object())
+    updated = json.loads(figures.read_text())['figures'][0]
+    assert ('pass3_inventory_reconciliation' in updated) == (status == 'vision_backend_failed')
 
 
 def test_specific_species_description_retains_shared_context():
@@ -45,6 +124,21 @@ def test_source_caption_late_ranges(caption, end):
     assert [p['label'] for p in parse_panels_from_caption(caption)] == list(
         map(chr, range(65, ord(end) + 1)),
     )
+
+
+@pytest.mark.parametrize('number,expected', [('2', 'ABCD'), ('4', 'ABCDEFGHIJKLMNOPQRSTU'),
+                                             ('12', 'ABCDEFGHIJKLMN')])
+def test_complete_source_checked_siebert_captions(number, expected):
+    fixture = json.loads((Path(__file__).parent / 'fixtures/figure_integrity/'
+                          'siebert_panel_captions.json').read_text())
+    caption = next(f['caption_text'] for f in fixture['figures'] if f['figure_number'] == number)
+    panels = parse_panels_from_caption(caption)
+    assert ''.join(p['label'] for p in panels) == expected
+    if number == '2':
+        assert 'Apolemia lanosa' in panels[0]['description']
+        assert 'Apolemia rubriversa' in panels[1]['description']
+        assert all('In situ photographs of holotype specimens' in p['shared_descriptions'][0]
+                   for p in panels[:2])
 
 
 @pytest.mark.parametrize('suffix', [

@@ -32,6 +32,26 @@ from .figures import (
 logger = logging.getLogger(__name__)
 
 _VISION_PLATE_DISCOVERY_SOURCE = "vision_plate_discovery"
+PANEL_INVENTORY_POLICY = "inline-abbreviation-expected-label-completion-v1"
+
+
+def _reconcile_panel_completion(figure):
+    """A former completion cannot cover newly recovered caption labels."""
+    if (figure.get("pass3_status") != "completed"
+            or figure.get("plate_figures_from_caption")
+            or figure.get("pass3_target_kind") in {"figure", "figure_discovery"}):
+        return
+    expected = [p["label"] for p in figure.get("panels_from_caption") or []]
+    located = {r.get("label") for r in figure.get("rois") or [] if r.get("roi_px")}
+    missing = [label for label in expected if label not in located]
+    if missing:
+        figure["pass3_status"] = "partial_caption_inventory"
+        figure["pass3_inventory_reconciliation"] = {
+            "previous_status": "completed",
+            "reason": "known_caption_labels_without_pixel_rois",
+            "unlocated_labels": missing,
+            "policy": PANEL_INVENTORY_POLICY,
+        }
 
 
 def _annotate_plate_figure_groups(figures, running_text: str) -> int:
@@ -318,6 +338,8 @@ def _pass25_annotate_figures(text_file: Path, figures_file: Path) -> None:
         }
         missing = detect_missing_figures(running_text, extracted_nums)
     plate_groups = _annotate_plate_figure_groups(figures, running_text)
+    for figure in figures:
+        _reconcile_panel_completion(figure)
     figures_data["missing_figures"] = missing
     figures_data["total_missing_figures"] = len(missing)
     from .figure_rights import materialize_figure_rights
@@ -387,6 +409,7 @@ def _pass3a_annotate_rois(figures_file: Path) -> None:
             fig["pass3_status"] = result.get("pass3_status")
             if result.get("pass3_status") not in {"vision_backend_failed", "image_open_failed"}:
                 fig.pop("roi_geometry_invalidated", None)
+                fig.pop("pass3_inventory_reconciliation", None)
             fig["pass3_target_kind"] = "panel"
             fig["ocr_token_count"] = result.get("ocr_token_count", 0)
             if result.get("image_size_px"):
@@ -497,6 +520,7 @@ def _pass3b_annotate_rois(figures_file: Path, vision_backend) -> None:
             fig["pass3_status"] = result.get("pass3_status")
             if result.get("pass3_status") not in {"vision_backend_failed", "image_open_failed"}:
                 fig.pop("roi_geometry_invalidated", None)
+                fig.pop("pass3_inventory_reconciliation", None)
             fig["pass3_target_kind"] = "panel"
             fig["pass3_backend"] = result.get("pass3_backend")
             if result.get("pass3_error"):

@@ -81,8 +81,10 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
               "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY,
               "chunking.key_branch_context_policy": KEY_BRANCH_CONTEXT_POLICY}
     from .figure_rights import FIGURE_RIGHTS_VERSION
+    from .figure_passes import PANEL_INVENTORY_POLICY
     from .stages import SOURCE_INTEGRITY_WARNING_POLICY
     figures = {**extract, "figures.panel_detection": panel_mode,
+               "figures.panel_inventory_policy": PANEL_INVENTORY_POLICY,
                "figures.rights_producer": FIGURE_RIGHTS_VERSION}
     if panel_mode.startswith("vision-"):
         from .model_provenance import DEFAULT_VISION_MODELS, vision_producer

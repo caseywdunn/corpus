@@ -344,6 +344,22 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
             continue
         if _is_person_initial(body, m.start(), m.end()):
             continue
+        # An inline genus abbreviation is not a new dotted panel marker.
+        # The measured Sutherland caption has explicit (A)/(B), then
+        # "swimming by N. bijuga" and "with N. bijuga". Admitting N (#324)
+        # otherwise makes the sparse-label check discard both real panels.
+        # Preserve a letter independently declared by a range/list/parenthesis,
+        # and ordinary dotted definitions such as "N. upper view".
+        declared = any(
+            (data[0] <= m.group(1) <= data[1] if kind == "range"
+             else m.group(1) in data if kind == "list"
+             else m.group(1) == data)
+            for _start, _end, data, kind in markers
+        )
+        if (not declared
+                and re.search(r"\b(?:by|with)\s+$", body[:m.start()], re.IGNORECASE)
+                and re.match(r"\s+[a-z][a-z]+\b", body[m.end():])):
+            continue
         markers.append((m.start(), m.end(), m.group(1), "period"))
 
     markers = [marker for marker in markers if not re.search(
