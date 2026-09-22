@@ -216,7 +216,13 @@ decision provenance; document how old bundles obtain repaired mappings.
   PDF/raster proof. Original Russian glyph/ink evidence now survives fresh
   OCR, extraction, real embeddings and serving: the first exponent is repaired,
   the second remains an explicit unhinted-OCR disagreement. Unconfirmed hyphens
-  remain explicit. Broader source-graded precision/recall and release replay remain.
+  remain explicit. The [completed broader baseline review](../tests/fixtures/text_integrity/source_review/complete_6fb/README.md)
+  grades all 24 frozen selections: four pages were excluded by curator directives
+  and one lead is not printed. Among the 19 consumed expressions, chunks retain
+  12–13 faithfully (one footnote role is indeterminate); selected admitted repair
+  precision is 2/2, both in one paper. Missing-text recall and repair precision
+  remain separate. No pending baseline grades remain, but the current-producer
+  comparison and release replay are still required.
   `[plane:build]`
 - [x] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
@@ -414,12 +420,14 @@ new licensing evidence and no cache writes into the bundle.
   source-document context replay; 100 focused regressions pass (seven optional
   external-source checks skipped). Policy v3 rechunks without redoing extraction.
   Replaying v3 context across all 35 saved documents still cannot supply five
-  papers. Additional source-first candidates have been identified, but a
-  separately frozen/graded protocol is not yet complete. Do not replace or
-  relabel the insufficient original sample. Rebuilt retrieval acceptance remains
-  pending; the frozen sample is unchanged.
-  Broader independently reviewed source coverage and actual reference/candidate
-  captures remain; no retrieval improvement is claimed from evaluator tests.
+  papers. A separately frozen [source-first supplement](examples/siphonophore_retrieval_review_2026_09_22/README.md)
+  now provides ten distinct questions/five papers and sixteen source-reviewed
+  answer-bearing anchors, with all twelve fixed audit/control requests unchanged.
+  Selection is purposive and retrieval-rank-unseen, not representative. All
+  candidates and the insufficient original draw remain recorded. Retrieval
+  outcomes/improvement are still unmeasured; reference/candidate captures with
+  matching paper populations remain. No retrieval improvement is claimed from
+  evaluator tests.
 
 ### 6. Release acceptance and return to enhancements
 
@@ -430,8 +438,9 @@ new licensing evidence and no cache writes into the bundle.
   90 corpus/resume tests deselected), and required Ruff checks pass. The first
   run exposed two invalid-PDF argument-test stubs; valid blank PDFs fix them
   and the complete repeated gate passes. Both retained-demo and reference-bundle
-  live SSE checks pass with real query embedding. All five hosted lanes passed
-  at prior `4d0ecfd`; current-head CI is required after this batch is pushed.
+  live SSE checks pass with real query embedding. All five required hosted PR
+  lanes pass at `ab6353f`, including T3 clean-room installation. Subsequent
+  production changes require their own integrated checks.
   The nine-document source-page build passes normal extraction, embedding,
   post-processing, bundling, unchanged resume and live stdio MCP acceptance.
   An adapted operator tour passes 39 public CLI calls, including exact-field

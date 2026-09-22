@@ -229,6 +229,15 @@ and a nematocyst measurement table falsely classified as identification keys.
 Keep the insufficient population and false-positive findings explicit; do not
 replace them with convenient cases or claim a passing independent evaluation.
 
+A separately frozen [September 22 source-first supplement](examples/siphonophore_retrieval_review_2026_09_22/README.md)
+adds ten distinct diagnostic/key questions from five papers, with sixteen
+visually verified answer-bearing anchors. All twelve fixed audit/control query
+objects remain unchanged, as do the insufficient original draw and its findings.
+The supplement is purposive and retrieval-rank-unseen; its candidates were frozen
+before visual grading and query formulation, after source-text inspection. It is
+not a representative or random sample. This supplies source coverage, not a
+retrieval outcome: matching-population reference/candidate captures remain.
+
 The subsequent table-classification correction requires destinations that resolve
 to observed couplet numbers, supported by dotted leaders or paired alternatives
 and separate destination cells. Both false-key source tables now remain ordinary
@@ -253,13 +262,17 @@ establish complete treatment-boundary recall or replace integrated evaluation.
 A source-first notation review froze 24 selections from 14 gold papers before
 inspecting their candidate outputs. It contains 23 printed expressions and one
 unscorable transcription-note range; the latter was retained rather than
-replaced after review. At the recorded interim build snapshot, ten selections
-were on included pages of completed documents: five were faithful in Docling,
-three were corrupted, and two were omitted (a figure axis and a publisher
-footer). Four other source pages were deliberately excluded by `keeppages`;
-nine selections awaited document completion. Flattened text adds uncertainty
-about one footnote's role. This is occurrence-level evidence, not a complete
-corpus score or a repair-precision estimate.
+replaced after review. The [completed baseline review](../tests/fixtures/text_integrity/source_review/complete_6fb/README.md)
+now grades all selections against the preserved complete `6fbf4e0` output;
+the prior interim report remains unchanged. Four source pages are excluded by
+`keeppages`, leaving 19 consumed expressions. Docling preserves 14 of those 19;
+markdown/chunks preserve 12–13, with one footnote role indeterminate. Among
+emitted expressions, the corresponding fidelity is 14/17 in Docling and
+12–13/16 in markdown/chunks. Missing figure-axis/footer text and a table stored
+under a picture are counted as missing-text recall, not incorrect repairs.
+The two selected admitted repairs are correct, but both are inverse units in
+one Mańko paper; 2/2 is not a corpus-wide precision estimate. No pending baseline
+rows remain. The ongoing September 22 refresh requires its own comparison.
 
 The review exposed corrupted Chen quantities and a Russian cubic unit despite
 passing named notation regressions. Two selected Mańko exponent repairs agree
@@ -276,8 +289,12 @@ Original-PDF replay and the saved-document → chunk → production embedding-in
 → vector-row → bounded-response path pass. Six hyphen candidates remain raw and
 unresolved where the raster evidence is insufficient. Normally decoded text and
 malformed source maps are nonmutating controls. This repair does not establish
-full-paragraph accuracy, fix the Russian exponent or complete broader #303
-source acceptance. The frozen [notation review](../tests/fixtures/text_integrity/source_review/README.md)
+full-paragraph accuracy or complete current-build #303 acceptance. Separately,
+fresh normal OCR/extraction, real embeddings and stdio serving preserve the
+first Russian cubic exponent, while frozen sample row 16's second exponent
+remains damaged and explicitly marked `digit_ocr_disagreement`. These later
+overlays are not pooled into the baseline score. The frozen
+[notation review](../tests/fixtures/text_integrity/source_review/README.md)
 and its historical denominators are retained unchanged.
 
 A separate [selected spacing review](../tests/fixtures/table_structure/spacing_review_2026_09_18/README.md)

@@ -11,9 +11,14 @@ plus two explicit historical-intent controls. Diagnostic/key source targets
 come from small fragments already used for extraction regressions. The three
 prose controls now also have labels verified against original PDFs and rendered
 paragraph regions in the [prose source review](examples/siphonophore_prose_source_review.json).
-The independent sample still requires selection and source review. Consequently
-the supplied manifest **cannot yet pass release acceptance**. Its thresholds
-are predefined release acceptance targets, not demonstrated retrieval quality.
+The base manifest has no sufficient independent sample. The separately frozen
+[September 22 source-first supplement](examples/siphonophore_retrieval_review_2026_09_22/README.md)
+adds ten source-reviewed questions across five papers while preserving all fixed
+queries and the earlier insufficient materialized-unit draw. Its selection is
+purposive and rank-unseen, not representative. Neither manifest has demonstrated
+release retrieval acceptance; thresholds are predefined targets, not measured
+quality. Use the supplement's exact frozen manifest for both full-population
+captures.
 
 ## Freeze the evidence before tuning
 
