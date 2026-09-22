@@ -461,6 +461,43 @@ def recorded_root_id(path) -> Optional[str]:
     return str(row[0])
 
 
+def warn_snapshot_scope_change(path, root_id, *, dry_run=False):
+    """Announce replacement before source reads, without predicting lost taxa.
+
+    A null root in a receipt means an unrestricted snapshot; an absent
+    receipt/root in a legacy database means its previous scope is unknown.
+    Neither case should silently look like a fresh output (#298).
+    """
+    if not Path(path).is_file():
+        return
+    previous_root = recorded_root_id(path)
+    receipt = snapshot_receipt(path)
+    scope_known = previous_root is not None
+    if not scope_known and isinstance(receipt, dict) and "root_id" in receipt:
+        previous_root = receipt["root_id"]
+        previous_root = str(previous_root) if previous_root is not None else None
+        scope_known = True
+    new_root = str(root_id) if root_id is not None else None
+    if scope_known and previous_root == new_root:
+        return
+
+    def describe(root):
+        return f"--root-id {root}" if root is not None else "no root restriction"
+
+    logger.warning(
+        "%s the snapshot at %s (%s) with a snapshot using %s. "
+        "Snapshots replace rather than merge: previous taxa are not carried "
+        "forward automatically. A successful replacement keeps the previous "
+        "file under .retired/. Sequential root selections do not create a "
+        "multi-root snapshot.%s",
+        "Would replace" if dry_run else "Replacing",
+        path,
+        describe(previous_root) if scope_known else "previous root scope unknown",
+        describe(new_root),
+        " Dry-run leaves the snapshot unchanged." if dry_run else "",
+    )
+
+
 def iter_dwca(path: Path) -> Iterator[Dict]:
     """Yield records from a DwC-A. Accepts a .zip, an extracted directory,
     or a bare ``Taxon.tsv``/``taxa.tsv``. See ``_is_taxon_core_file`` for
@@ -871,7 +908,8 @@ def main() -> int:
         "--root-id", type=str, default=None,
         help="Optional taxonID. For --source worms this is the AphiaID to "
              "start walking from (required). For dwc/dwca this prunes the "
-             "ingest to descendants of this taxon (plus their synonyms).",
+             "ingest to descendants of this taxon (plus their synonyms). "
+             "One root restriction per snapshot; sequential ingests replace, never merge.",
     )
     parser.add_argument(
         "-o", "--output", type=Path, default=None,
@@ -879,8 +917,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--rebuild", action="store_true",
-        help="Drop and recreate tables before inserting. Also acknowledges "
-             "replacing a snapshot built from a different --root-id.",
+        help="Force ingestion even when the source/config receipt is unchanged. "
+             "Every ingestion replaces the complete snapshot; it never merges "
+             "with the previous one. Successful replacements retain the "
+             "previous snapshot under .retired/.",
     )
     parser.add_argument(
         "--min-interval", type=float, default=0.3,
@@ -888,9 +928,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--dry-run", action="store_true",
-        help="Read the source and report record counts without writing the SQLite. "
-             "For --source worms this still walks the API (counting is the only "
-             "way to know what would be ingested).",
+        help="For dwc/dwca, read the source and report record counts without "
+             "writing the SQLite. For worms, report the requested operation "
+             "without walking the API or counting records.",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -908,28 +948,8 @@ def main() -> int:
     if args.output is None:
         args.output = args.output_dir / "taxonomy.sqlite"
 
-    # Say so when a root change replaces a snapshot (#298).
-    #
-    # Replacing rather than accumulating is deliberate — see
-    # tests/test_taxonomy_source_updates.py, "Taxonomy snapshots own source
-    # receipts and replace, rather than accumulate" — so this does not refuse.
-    # What was missing is that it happened in silence: a multi-clade library
-    # ingesting six roots into one output keeps the sixth, exits 0, and logs
-    # nothing about the five it dropped.
-    #
-    # Warn here rather than after the work, and name `.retired/` so the
-    # previous snapshot is recoverable by someone who did not intend this.
-    if args.root_id is not None:
-        previous_root = recorded_root_id(args.output)
-        if previous_root is not None and previous_root != str(args.root_id):
-            logger.warning(
-                "Replacing the snapshot at %s, which was built from --root-id "
-                "%s, with one rooted at %s. Snapshots replace rather than "
-                "merge, so %s will NOT be in the result; the previous file is "
-                "kept under .retired/. For a multi-clade library give each root "
-                "its own output directory and union them.",
-                args.output, previous_root, args.root_id, previous_root,
-            )
+    # Keep deliberate replacement visible before archive reads or network work.
+    warn_snapshot_scope_change(args.output, args.root_id, dry_run=args.dry_run)
 
     fingerprint = source_fingerprint(args.source, args.root_id, args.input)
     if not args.rebuild and snapshot_matches(args.output, fingerprint):
@@ -938,8 +958,8 @@ def main() -> int:
 
     if args.dry_run:
         if args.source == "worms":
-            logger.info("Dry-run: --source worms still walks the API; aborting "
-                        "before any writes. Use --source dwc/dwca to plan offline.")
+            logger.info("Dry-run: would walk WoRMS from --root-id %s; no API "
+                        "requests, record counts, or SQLite writes.", args.root_id)
             return 0
         logger.info("Reading %s %s for dry-run …", args.source, args.input)
         if args.source == "dwc":

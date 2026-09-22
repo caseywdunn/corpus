@@ -278,6 +278,13 @@ Unchanged inputs reuse the snapshot without writes. Changes—including removing
 a root restriction—build a fresh SQLite before replacing the old one; failed
 ingestion leaves the old database untouched, and superseded snapshots remain
 under `.retired/taxonomy-*.sqlite`. Legacy snapshots without proof rebuild once.
+The ingest warning names the old and requested root scopes before reading the
+source, including changes to or from an unrestricted snapshot. It does not
+assume the old root disappears: an ancestor selection can still include it.
+Dry runs describe a proposed replacement and leave the snapshot untouched.
+`--rebuild` forces an ingest despite an unchanged receipt; it is not needed to
+allow a root change. Each snapshot supports one root restriction. Sequential
+root ingests do not implement a multi-root union (#298).
 Full `corpus run` notices source drift; phase-split extraction requires a matching
 pre-built snapshot. WoRMS is deliberately pinned between explicit
 `corpus taxonomy ingest --rebuild` refreshes; no status request polls the API.
