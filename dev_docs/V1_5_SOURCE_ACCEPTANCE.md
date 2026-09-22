@@ -236,7 +236,18 @@ objects remain unchanged, as do the insufficient original draw and its findings.
 The supplement is purposive and retrieval-rank-unseen; its candidates were frozen
 before visual grading and query formulation, after source-text inspection. It is
 not a representative or random sample. This supplies source coverage, not a
-retrieval outcome: matching-population reference/candidate captures remain.
+retrieval outcome.
+
+The subsequent [retained v1.2.1 diagnostic baseline](examples/siphonophore_retrieval_baseline_2026_09_22/README.md)
+runs the frozen requests through the current query implementation against the
+complete retained corpus. Fixed audit known-target hits are 1/7 at five results
+and 2/7 at ten; prose controls are 2/3 at both depths, and historical controls
+are 1/2 and 2/2. Unmatched passages remain unjudged, including potentially useful
+somatocyst alternatives. All fixed questions have indexed positives: a bounded
+read verifies 4,266 target-paper rows against stored chunks, without text or ID
+differences. One additional bract branch is split across two chunks. Independent
+outcomes remain withheld; a comparable corrected candidate has not been measured.
+This retained bundle is not the audited v1.4 snapshot.
 
 The subsequent table-classification correction requires destinations that resolve
 to observed couplet numbers, supported by dotted leaders or paired alternatives

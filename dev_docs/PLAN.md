@@ -424,10 +424,15 @@ new licensing evidence and no cache writes into the bundle.
   now provides ten distinct questions/five papers and sixteen source-reviewed
   answer-bearing anchors, with all twelve fixed audit/control requests unchanged.
   Selection is purposive and retrieval-rank-unseen, not representative. All
-  candidates and the insufficient original draw remain recorded. Retrieval
-  outcomes/improvement are still unmeasured; reference/candidate captures with
-  matching paper populations remain. No retrieval improvement is claimed from
-  evaluator tests.
+  candidates and the insufficient original draw remain recorded. The
+  [retained v1.2.1 diagnostic baseline](examples/siphonophore_retrieval_baseline_2026_09_22/README.md)
+  reproduces abundance-table crowding and paper-filtered misses. Fixed audit
+  targets score 1/7 at five results and 2/7 at ten; these are selected known-target
+  hits, not a deployment-wide error rate. All fixed questions have indexed
+  source-supported positives; alternative passages remain unjudged. Independent
+  outcomes remain withheld until the candidate behavior is fixed. Actual
+  candidate improvement is unmeasured; matching-population candidate capture
+  remains, with no improvement claim from evaluator tests.
 
 ### 6. Release acceptance and return to enhancements
 
