@@ -1,0 +1,209 @@
+{
+  "written_at_utc": "2026-09-22T16:22:37.123356+00:00",
+  "purpose": "Completed read-only retained-v1.2.1 baseline; fixed outcomes only, independent outcomes withheld until candidate policy freeze.",
+  "capture_implementation": "d0014a34d48e45ff3fedb6f2f77ce09eec8e92ad",
+  "manifest_file_sha256": "c56207d4335861e33ce90d5c599e0abe5a3e2379e9355ccb3e610b41b1259b07",
+  "manifest_canonical_sha256": "8b0ab86d8886169fd57ee1b5923ab3a6441a82558a69274aee14d8baacd3c015",
+  "capture_identity": {
+    "label": "retained-v1.2.1-full-diagnostic-20260922",
+    "role": "reference",
+    "output_dir": "/home/claude/corpuscles/siphonophore_20260831/_serve",
+    "captured_at": "2026-09-22T16:15:21.364957+00:00",
+    "bundle_manifest": {
+      "bundle_version": "1.2.1",
+      "created_at": "2026-09-01T10:23:34Z",
+      "pipeline_git_sha": "31784560ceaed157192ba2e4fa35a5f5c4b6feca",
+      "embedding_model": "BAAI/bge-m3",
+      "embedding_dim": 1024,
+      "taxonomy_snapshot_date": "2026-08-31",
+      "paper_count": 1775,
+      "figure_count": 22171,
+      "chunk_count": 259952,
+      "includes_pdfs": false,
+      "citation": {
+        "title": "Extracting AI agent-accessible data from biodiversity literature with corpus",
+        "year": null,
+        "doi": "10.5281/zenodo.19964909",
+        "url": "https://doi.org/10.5281/zenodo.19964909",
+        "authors": [
+          {
+            "family-names": "Church",
+            "given-names": "Samuel H."
+          },
+          {
+            "family-names": "Mańko",
+            "given-names": "Maciej K."
+          },
+          {
+            "family-names": "Zapata",
+            "given-names": "Felipe"
+          },
+          {
+            "family-names": "Dunn",
+            "given-names": "Casey W."
+          }
+        ]
+      }
+    },
+    "embedding_identity": {
+      "model": "BAAI/bge-m3",
+      "dimension": 1024,
+      "producer": null
+    },
+    "paper_hashes_sha256": "21e547692636fef6cca1cbfab9f44104691004fb9403078d950908e47ce03a0f",
+    "paper_count": 1775,
+    "historical_audit_equivalence": "not_asserted; compare the recorded bundle identity explicitly"
+  },
+  "population_check": {
+    "status": "pass",
+    "reasons": [],
+    "identity_complete": true,
+    "required_paper_hashes": [
+      "1409a2155981",
+      "1648cd91e973",
+      "34712b25bc52",
+      "3507422334c6",
+      "5e74ac01e8ac",
+      "79bcb551c1f1",
+      "8a4548d8d5d7",
+      "9c0af2a4e494",
+      "a0acf5935174",
+      "b4146be29447",
+      "b4425fd6ae7a",
+      "bc251c7a6346",
+      "c806191c35c4",
+      "c887fb198ebc",
+      "c9e7e8ae50a2",
+      "da370f1e0434",
+      "ffc7ebff40b4"
+    ],
+    "missing_required_paper_hashes": []
+  },
+  "total_calls": 66,
+  "operational_error_rows": 0,
+  "fixed_gates": [
+    {
+      "group": "audit",
+      "variant": "at5",
+      "queries": 7,
+      "judged_queries": 7,
+      "hits": 1,
+      "hit_rate": 0.14285714285714285,
+      "required_rate": 0.8571428571428571,
+      "status": "fail"
+    },
+    {
+      "group": "audit",
+      "variant": "at10",
+      "queries": 7,
+      "judged_queries": 7,
+      "hits": 2,
+      "hit_rate": 0.2857142857142857,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at5",
+      "queries": 3,
+      "judged_queries": 3,
+      "hits": 2,
+      "hit_rate": 0.6666666666666666,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at10",
+      "queries": 3,
+      "judged_queries": 3,
+      "hits": 2,
+      "hit_rate": 0.6666666666666666,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at5",
+      "queries": 2,
+      "judged_queries": 2,
+      "hits": 1,
+      "hit_rate": 0.5,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at10",
+      "queries": 2,
+      "judged_queries": 2,
+      "hits": 2,
+      "hit_rate": 1.0,
+      "required_rate": 1.0,
+      "status": "pass"
+    }
+  ],
+  "fixed_index_check": {
+    "table_version": 1775,
+    "selected_paper_count": 12,
+    "selected_row_count": 4266,
+    "index_rows_sha256": "18160c170a535eba2a5528314932ec255ba3b100e292b3a76a43307228d83751"
+  },
+  "resources": {
+    "wall_seconds": 43.54,
+    "maximum_rss_kib": 3663600,
+    "swaps": 0,
+    "aggregate_cpu_percent": 305,
+    "thread_environment_requested": 1
+  },
+  "limitations": [
+    "Not audited v1.4; not a candidate comparison or issue closure.",
+    "All independent results/overall score remain undisplayed until policy freeze.",
+    "Known-target hit scoring does not grade unmatched alternative passages.",
+    "Legacy table repetition coverage and embedding producer identity unavailable."
+  ],
+  "evidence_kind": "Pre-candidate diagnostic baseline; no ranking or label changes.",
+  "raw_artifacts_retained_in_scratch": {
+    "capture.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/capture.json",
+      "sha256": "62be6305b2cd9ad109eac789b1b977d1a597183233b43ada122bb37eb75137d9"
+    },
+    "score.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/score.json",
+      "sha256": "8f1b7f9c99f8e75e64720a1b152bc836748d67d056d4b58d00665cf6c25533f7"
+    },
+    "fixed-review.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/fixed-review.json",
+      "sha256": "be7bb774c6373c77c584bf551928ee91deca259913fe184d13f7cbfd14afe89a"
+    },
+    "fixed-target-availability.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/fixed-target-availability.json",
+      "sha256": "0b8fcc01110f17a57c7987fc228743097b7e1a21059eead106d14167cef2846c"
+    },
+    "fixed-index-availability.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/fixed-index-availability.json",
+      "sha256": "1f5ff6c97fc394dff713875d6a3aff9cd2f452c38f9ee717f22184725d5c1e3d"
+    },
+    "resources.txt": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/resources.txt",
+      "sha256": "7e963b806fb3762cd91845ddab717849af990048e11502dc8cf5e7b364aacc5d"
+    },
+    "capture.log": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/capture.log",
+      "sha256": "e70fff0e6e418c9295eae43214a31466d796c381f904211f35527756faad7de1"
+    },
+    "project_fixed.py": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/project_fixed.py",
+      "sha256": "5d57e86f90d501c952743d8e74df843b248c5a4889589f705484ca35f0299c1e"
+    },
+    "check_fixed_target_availability.py": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/check_fixed_target_availability.py",
+      "sha256": "984e051b2970cc1b6d3742abe7dd8f46e4ca314e83da40437be0bf655dc57d04"
+    },
+    "check_fixed_index_availability.py": {
+      "historical_path": "/tmp/corpus-issue320-retained-capture-20260922/check_fixed_index_availability.py",
+      "sha256": "52540f4857a3e1a74f4e7e9899059163a2a9f7faed776d4a6b1f3d341fffdfb3"
+    }
+  },
+  "durable_projection": "Only fixed query/control metrics, indexed positive availability and producer/population identities are copied here; no independent outputs or overall result."
+}
