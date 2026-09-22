@@ -1,7 +1,13 @@
 # Retained v1.2.1 fixed-query diagnostic baseline — 2026-09-22
 
-This is a read-only capture of the complete retained **v1.2.1** bundle under the
-current MCP query implementation at `d0014a34d48e45ff3fedb6f2f77ce09eec8e92ad`.
+The original read-only capture used the complete retained **v1.2.1** bundle and
+MCP query implementation `d0014a34d48e45ff3fedb6f2f77ce09eec8e92ad`.
+A normal guarded repeat at `8e11fee63dee06fef2f0452668d89a0836757863` now
+records actual indexed-paper membership and table version 1775 before and after
+all 66 queries. Its population guard passes. All 36 fixed calls returned identical
+rows and distances, with identical metric rows and gates; no drift was found.
+`guarded-receipt.json` and `guarded-command.json` identify this final baseline.
+The original raw capture and score remain unchanged.
 It is not the audited v1.4 deployment and is not a candidate/reference improvement
 claim. The full 22-query manifest produced 66 serial calls; only the 12 fixed
 queries and their 36 calls have been inspected. All independent ranks, distances,
@@ -49,25 +55,45 @@ anchor occurs in chunk 154 and endpoint in 155; the remaining four bract targets
 are available. No absent indexed positive explains any fixed query's hit miss.
 This is exact anchor availability, not exhaustive semantic fidelity grading.
 
-The population guard passes: 1,775 indexed papers and all 17 source-target papers
-are present. Population digest:
+The original guard checked **artifact membership**: 1,775 papers and all 17
+source-target papers were present. Artifact population digest:
 `21e547692636fef6cca1cbfab9f44104691004fb9403078d950908e47ce03a0f`.
+A subsequent projected full-index census found **1,774 indexed papers** with
+259,952 rows, digest
+`bdebea69fa74346e2afa29b43817fefbfdaf3b3136f852dd8c03b668076953c4`.
+The sole artifact-only paper, Wangersky_Lane1960 (`62e07c061591`), has zero
+materialized chunks and an empty-text quality error. There are no orphan index
+papers. Thus artifact membership and actual retrieval competition must remain
+separate; the original artifact-only guard was insufficient.
+
+`indexed-population-census.json` preserves the full per-paper row counts,
+reconstructible sorted inventory and evidence for the empty artifact. Its version
+checks (1775 before and after) bracket this later census, **not** the original
+queries. It is diagnostic evidence; it does not retroactively add query-bracketing
+checks to the original capture. The later **normal** guarded capture separately
+records version 1775 around all queries and reproduces the exact same full census.
+Its compact receipt references that identical stored count map instead of
+duplicating 1,774 entries. All 17 target papers are indexed; no paper population
+was removed or added between the two baseline runs.
 The retained document embeddings expose BGE-M3/1024 dimensions but no versioned
 producer receipt. This limitation precludes presenting the run as a producer-
 verified embedding migration or splicing in new document embeddings.
 
-Capture cost: 43.54 seconds wall; peak RSS 3,663,600 KiB (about 3.49 GiB); zero swaps.
+Original capture cost: 43.54 seconds wall; peak RSS 3,663,600 KiB (about 3.49 GiB);
+zero swaps. The guarded repeat cost 47.06 seconds, peak RSS 3,647,528 KiB (about
+3.48 GiB), zero swaps and aggregate CPU 301%.
 The requested offline/CPU/OMP/MKL/OpenBLAS/Rayon settings are preserved in
-`command.json`. Native aggregate CPU was 305%, despite thread variables set to 1; this
+`command.json`. Original native aggregate CPU was 305%, despite thread variables set to 1; this
 was not literally a one-core process. No OCR, document embedding, network request
 or source-library mutation was performed. The model process has exited.
 
 Reproduction and durable evidence:
 
-- `command.json` pins the capture implementation, arguments, environment, package
-  versions, evaluator hash and manifest file hash. `receipt.json` pins the full
-  capture and score bytes retained in scratch, together with population identity
-  and operational/resource evidence. The raw files contain withheld independent
+- `command.json` / `receipt.json` preserve the original run.
+  `guarded-command.json` / `guarded-receipt.json` preserve the final normal
+  guarded run, exact implementation/environment, raw output hashes, actual
+  index membership and query-bracketing versions, fixed-only drift checks,
+  and measured resources. Raw captures/scores contain withheld independent
   outcomes and are intentionally not copied into this directory.
 - `fixed-results.json` contains every fixed query's original/at5/at10 metric row
   and the six fixed group gates. It contains no independent metrics or rows.
@@ -76,12 +102,13 @@ Reproduction and durable evidence:
 - `index-consistency.json` retains the read-only scalar filter, table version,
   complete-paper row/text checks, all fixed target matches and the selected
   index-row digest. It uses no embedding or vector search.
-- `SHA256SUMS` protects these durable projections. Old absolute scratch paths
+- `guarded-validation.json` records reconstruction, checksum and fixed-only
+  comparison checks. `SHA256SUMS` protects these durable projections. Old absolute scratch paths
   are provenance, not portable dependencies. The retained bundle/source build
   is external and must remain available to repeat the measurement.
 
 To reproduce the complete baseline, check out the exact implementation in
-`command.json`, provide that same immutable v1.2.1 bundle and use the frozen
+`guarded-command.json`, provide that same immutable v1.2.1 bundle and use the frozen
 manifest in the sibling `siphonophore_retrieval_review_2026_09_22` directory:
 
 ```bash
@@ -90,7 +117,7 @@ env HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CORPUS_DEVICE=cpu \
   TOKENIZERS_PARALLELISM=false python tools/qc/retrieval.py capture \
   --manifest dev_docs/examples/siphonophore_retrieval_review_2026_09_22/manifest.frozen.json \
   --output-dir /path/to/retained-v1.2.1/_serve \
-  --label retained-v1.2.1-full-diagnostic-20260922 --role reference \
+  --label retained-v1.2.1-full-guarded-diagnostic-20260922 --role reference \
   --out /tmp/retained-capture.json
 python tools/qc/retrieval.py score \
   --manifest dev_docs/examples/siphonophore_retrieval_review_2026_09_22/manifest.frozen.json \
@@ -98,10 +125,11 @@ python tools/qc/retrieval.py score \
   > /tmp/retained-score-command.json
 ```
 
-The score command prints the full report; while independent outcomes are sealed,
-redirect its stdout to a file and inspect only a projection filtered by manifest
-`group != "independent"`. Do not inspect the overall status, because it combines
-independent outcomes. Operational call-error counts may be checked separately.
+The score file contains the full report; while independent outcomes are sealed,
+inspect only a projection filtered by manifest `group != "independent"`. Do not
+inspect the overall status or infer it from the score command exit code, because
+it combines independent outcomes. Operational call-error counts may be checked
+separately.
 
 The availability scan selected only those 12 fixed queries, read all chunks of
 their positive-target papers, attached `paper_hash`, and applied evaluator

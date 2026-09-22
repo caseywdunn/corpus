@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "All durable file checksums verified.",
+    "Full indexed census reconstructs1,774 hashes and259,952 rows; both digests match.",
+    "Artifact census reconstructs1,775 hashes, including the one empty-chunk paper.",
+    "Reconstructed guarded identity passes exact current check_population with all required targets.",
+    "The same identity with supplementary_census scope correctly blocks acceptance.",
+    "All36 fixed return rows/distances, metric rows and6 gates match original capture.",
+    "Original and guarded raw artifact hashes verified unchanged.",
+    "Independent results and overall status not inspected or compared."
+  ],
+  "model_or_query_rerun_for_validation": false
+}
