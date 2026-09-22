@@ -1,0 +1,9 @@
+{
+  "recorded_utc": "2026-09-22T15:48:45.885267+00:00",
+  "source_label_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+  "baseline": "/tmp/corpus-v15-acceptance/gold/baseline-before-sep22-refresh/documents",
+  "code_revision": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+  "scope": "Complete preserved baseline. Historical early grades are checked against matching artifact hashes; nine formerly pending rows newly graded. Current candidates stay separately identified.",
+  "metric_policy": "Inherited frozen comparison-policy.json and assessment-clarification.md; no source labels change. Enumerate selected expression copies only within aligned source item/chunk regions. No global output or proposal precision is inferred from passage fidelity.",
+  "contamination": "All labels were frozen source-first, separately from issue named regressions. Chen rows4/8 and Russian row16 informed subsequent fixes. This sample is a regression set for those later candidates; no fresh unseen holdout claim."
+}

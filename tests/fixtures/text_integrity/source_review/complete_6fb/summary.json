@@ -1,0 +1,104 @@
+{
+  "candidate_code_revision": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+  "candidate_scope": "Completed preserved CPU baseline, not the running Sep22 current-producer refresh. All14 sampled documents have completed extraction/chunking; nine formerly pending labels are now graded.",
+  "source_label_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+  "counts": {
+    "docling_status": {
+      "faithful": 14,
+      "omitted": 2,
+      "corrupted": 3,
+      "excluded_by_source_page_selection": 4,
+      "unscorable_source": 1
+    },
+    "saved_markdown_status": {
+      "faithful": 12,
+      "omitted": 3,
+      "corrupted": 3,
+      "excluded_by_source_page_selection": 4,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    },
+    "chunks_status": {
+      "faithful": 12,
+      "omitted": 3,
+      "corrupted": 3,
+      "excluded_by_source_page_selection": 4,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    }
+  },
+  "denominators": {
+    "selected": 24,
+    "source_verified": 23,
+    "not_printed": 1,
+    "excluded_by_recorded_keeppages": 4,
+    "verified_on_consumed_pages": 19,
+    "pending_baseline": 0
+  },
+  "metrics": {
+    "docling_expression_fidelity": {
+      "fraction": "14/17",
+      "faithful": 14,
+      "corrupted": 3,
+      "omitted": 2,
+      "meaning": "Semantic fidelity among emitted, aligned selected expressions; not proposal/output precision. Three caption magnifications retain meaning via x/X equivalents, with literal substitutions reported."
+    },
+    "docling_bounded_source_expression_recall": {
+      "all_source_fraction": "14/23",
+      "consumed_page_conditional_fraction": "14/19"
+    },
+    "markdown_and_chunks_expression_fidelity": {
+      "adjudicated_fraction": "12/15",
+      "all_emitted_lower_fraction": "12/16",
+      "all_emitted_upper_fraction": "13/16",
+      "faithful": 12,
+      "corrupted": 3,
+      "footnote_role_indeterminate": 1,
+      "omitted": 3
+    },
+    "markdown_and_chunks_bounded_source_expression_recall": {
+      "all_source_bounds": [
+        "12/23",
+        "13/23"
+      ],
+      "consumed_page_conditional_bounds": [
+        "12/19",
+        "13/19"
+      ]
+    },
+    "admitted_scientific_repair_precision_in_selected_occurrences": {
+      "correct": 2,
+      "admitted": 2,
+      "fraction": "2/2",
+      "papers": 1,
+      "scope": "Selected inverse-exponent operations in Mańko only. No new admitted operations in the nine completed rows. Not corpuswide precision or general detector precision."
+    },
+    "no_scientific_repair_expression_correctness": {
+      "docling_fraction": "12/15",
+      "chunks_bounds": [
+        "10/14",
+        "11/14"
+      ],
+      "note": "Emitted no-op expressions; omissions separately reported. Scientific repair absence does not imply absence of other OCR/extraction producers."
+    },
+    "expression_output_precision": {
+      "status": "unavailable",
+      "reason": "All spurious and contradictory notation outputs in the broader region/output population have not been independently enumerated. Source-expression fidelity is not relabeled as output precision."
+    },
+    "proposal_precision": {
+      "status": "unavailable",
+      "reason": "No separately frozen candidate-proposal population including rejections."
+    },
+    "embedding_and_serving_for_whole_sample": {
+      "status": "unavailable",
+      "reason": "Baseline capture is CPU extraction; no whole-sample vector/tool replay in this comparison."
+    }
+  },
+  "limits": [
+    "No selected±/∓,µm,or subtraction equation. All inverse-unit cases come from Mańko.",
+    "Source-first labels were independent of candidate inspection and the named issue regressions. Chen4/8 and Russian16 then informed fixes; future candidate scores on this unchanged sample are regression results, not unseen holdout evidence.",
+    "Single-agent source grades; independent peer review is recorded separately, not attributed to every label.",
+    "Three magnification glyph substitutions remain literal discrepancies even though their caption role is semantically preserved.",
+    "Source-table-as-picture row22 is a chunk omission. Japanese row24 notation success does not validate corrupted surrounding prose."
+  ]
+}

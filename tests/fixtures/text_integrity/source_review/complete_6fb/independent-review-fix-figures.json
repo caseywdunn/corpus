@@ -1,0 +1,55 @@
+{
+  "reviewer": "Codex /root/fix_figures",
+  "reviewed_at_utc": "2026-09-22T15:57:11.091313+00:00",
+  "review_type": "separate agent read-only source/denominator review; not human/domain review",
+  "reviewed_files": {
+    "results.json": "01bf47de9c3da4e4efd4d381e40318dfca22f5ed53cec11a016cd6dfe3a0c174",
+    "summary.json": "9cd4090890da1add523b6cfa7c8b4a277e9e3e48ca6af4cf8c714f0625dfb8a4",
+    "grade.py": "49a4df29c977f9314b8453af51120991538188a627d565c653b9b25c32af0766",
+    "region-candidates.json": "52d5bec3616d81e32b91dc339f55b7b5ae7fdc16fa420a938cc0e1283695b5d7"
+  },
+  "source_crops": {
+    "5": "3376322f8ca56a2eb1a285e77dfc7ff6befcfaa1055a1b4944b9f0898299bb1b",
+    "6": "3a48872b2fe6b3ca2ba0f81226a0059e916fdc16234e141b48e55a46e075e6d0",
+    "7": "84adf61a17b4a5d389f95e2f31d8e06fc36dd935fce46925e6a08e365ac2562e",
+    "22": "257955ded3eddf424b11c385bbafff9a89f4d3f96188c724f1b7efbc3f3dcd51"
+  },
+  "findings": {
+    "magnifications": "Agree semantic-fidelity pass for the selected caption occurrences: specimen581×21, station217×7.1 and station681×3.2. Numeric factor and magnification role remain unambiguous in the corresponding candidate item/chunk. Literal ×→x/X and middle-dot→period differences remain explicitly reported. No general operator/variable substitution is endorsed; neighboring caption instances and corrupted surrounding labels were not graded as successes.",
+    "row22": "Agree faithful Docling expression and omitted markdown/chunks. Original source crop identifies station1772/netN7OV and depth750–500m; direct captured Docling text121 contains750-500m and parent#/pictures/3. A dash-tolerant search found zero occurrences in full saved markdown/chunks. No neighboring table/prose value substitutes for this occurrence.",
+    "denominators": "Independently recomputed from all24 rows:19 consumed-page source occurrences; Docling17 emitted=14 faithful+3corrupted,2omitted. Markdown/chunks16 emitted=12faithful+3corrupted+1indeterminate,3omitted. Four configured-page exclusions and one nonprinted source remain outside19. Fractions and bounds in summary are arithmetically consistent.",
+    "repair_precision": "Two admitted operations and two correct, both existing selected inverse-unit repairs in one paper. 2/2 describes those repair operations, not all output expressions, general detector precision or corpuswide precision.",
+    "verdict": "No blocker in the reviewed source occurrences, status distinctions, arithmetic or stated limits."
+  },
+  "independently_recomputed_counts": {
+    "docling_status": {
+      "faithful": 14,
+      "omitted": 2,
+      "corrupted": 3,
+      "excluded_by_source_page_selection": 4,
+      "unscorable_source": 1
+    },
+    "saved_markdown_status": {
+      "faithful": 12,
+      "omitted": 3,
+      "corrupted": 3,
+      "excluded_by_source_page_selection": 4,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    },
+    "chunks_status": {
+      "faithful": 12,
+      "omitted": 3,
+      "corrupted": 3,
+      "excluded_by_source_page_selection": 4,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    }
+  },
+  "limits": [
+    "Visually re-reviewed only source rows5,6,7,22; not all24 source grades.",
+    "Inspected candidate geometry/context and directly checked row22 complete saved text/chunks; did not rerun extraction or grading scripts.",
+    "Arithmetical review uses recorded page-selection classifications; did not independently re-audit all keeppages receipts.",
+    "No assertion about final-producer refresh, embedding or serving; no builds/OCR/models/tests or artifact mutations performed."
+  ]
+}

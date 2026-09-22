@@ -1,0 +1,261 @@
+{
+  "code_revision": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+  "producer_sha256": "702a1c69ac79ef335390f6d7fbd595994f6952e99180d3ca57d379398e6876a0",
+  "fixture_sha256": "8bfac6cc32878e2f1459aafdafc5ad817cb8ce1f8032f3d722dbcb0605ebfa8b",
+  "cases": [
+    {
+      "sample_number": 4,
+      "candidate_scope": "Current pure CMap helper replay of pinned actual native glyphs, font maps, original Docling item and prior independent raster decisions. Not a fresh normal full-document extraction.",
+      "item_ref": "#/texts/28",
+      "page": 2,
+      "source_bbox": {
+        "l": 53.85444304649502,
+        "t": 761.9289526654939,
+        "r": 546.1132516964949,
+        "b": 493.2087799055008,
+        "coord_origin": "BOTTOMLEFT"
+      },
+      "candidate_expression": "mg/m³",
+      "source_expression_status": "faithful",
+      "unresolved_count": 5,
+      "unresolved_reasons": [
+        "cmap_scientific_glyph_not_source_confirmed"
+      ],
+      "full_operations_sha256": "cbcb63343ea09113282eb16a5df2ac6ff26e69873c8f122b5e6cc5b6f031f3a4",
+      "operation_summaries": [
+        {
+          "charspan": [
+            0,
+            2023
+          ],
+          "evidence": "same_region_exact_font_cmap_reencoding",
+          "matched_scalars": 1638,
+          "changed_scalars": 1576,
+          "source_glyphs_sha256": "7acf469a2961782d90a62b9f8566a4ea2d46c4a0173720e0ad03ba8faf97ba91",
+          "formatting": [
+            {
+              "char_offset": 1249,
+              "scalar": "3",
+              "source_bbox": [
+                77.33692169189453,
+                240.57110595703125,
+                80.00538635253906,
+                245.9080352783203
+              ],
+              "source_origin": [
+                77.33692169189453,
+                244.55413818359375
+              ],
+              "source_size": 5.3369269371032715,
+              "base_glyph": {
+                "text": "m",
+                "bbox": [
+                  70.25337219238281,
+                  241.994140625,
+                  77.24959564208984,
+                  251.69764709472656
+                ],
+                "origin": [
+                  70.25337219238281,
+                  249.23602294921875
+                ],
+                "font": "E-BZ+ZGdCaS-1",
+                "size": 9.70350456237793,
+                "raised": false
+              },
+              "raster": {
+                "verified": true,
+                "dpi": 600,
+                "modes": [
+                  7,
+                  10
+                ],
+                "language": "eng",
+                "observations": [
+                  {
+                    "mode": 7,
+                    "text": "3\n",
+                    "returncode": 0
+                  },
+                  {
+                    "mode": 10,
+                    "text": "3\n",
+                    "returncode": 0
+                  }
+                ],
+                "crop_sha256": "fcc883e3d76f17e444bfd98cbf288f01cc4ecc3853538fc5fe9b39f146e087c6",
+                "crop_bbox": [
+                  76.83692169189453,
+                  240.07110595703125,
+                  80.50538635253906,
+                  246.4080352783203
+                ],
+                "raster": "item28-digit01.png"
+              },
+              "replacement": "³",
+              "evidence": "raised_unit_geometry_and_dual_unhinted_digit_ocr"
+            },
+            {
+              "char_offset": 1290,
+              "scalar": "3",
+              "source_bbox": [
+                237.6387939453125,
+                240.57110595703125,
+                240.3072509765625,
+                245.9080352783203
+              ],
+              "source_origin": [
+                237.6387939453125,
+                244.55413818359375
+              ],
+              "source_size": 5.3369269371032715,
+              "base_glyph": {
+                "text": "m",
+                "bbox": [
+                  230.55526733398438,
+                  241.994140625,
+                  237.55149841308594,
+                  251.69764709472656
+                ],
+                "origin": [
+                  230.55526733398438,
+                  249.23602294921875
+                ],
+                "font": "E-BZ+ZGdCaS-1",
+                "size": 9.70350456237793,
+                "raised": false
+              },
+              "raster": {
+                "verified": true,
+                "dpi": 600,
+                "modes": [
+                  7,
+                  10
+                ],
+                "language": "eng",
+                "observations": [
+                  {
+                    "mode": 7,
+                    "text": "3\n",
+                    "returncode": 0
+                  },
+                  {
+                    "mode": 10,
+                    "text": "3\n",
+                    "returncode": 0
+                  }
+                ],
+                "crop_sha256": "fcc883e3d76f17e444bfd98cbf288f01cc4ecc3853538fc5fe9b39f146e087c6",
+                "crop_bbox": [
+                  237.1387939453125,
+                  240.07110595703125,
+                  240.8072509765625,
+                  246.4080352783203
+                ],
+                "raster": "item28-digit02.png"
+              },
+              "replacement": "³",
+              "evidence": "raised_unit_geometry_and_dual_unhinted_digit_ocr"
+            },
+            {
+              "char_offset": 1333,
+              "scalar": "3",
+              "source_bbox": [
+                413.3692321777344,
+                240.57110595703125,
+                416.0376892089844,
+                245.9080352783203
+              ],
+              "source_origin": [
+                413.3692321777344,
+                244.55413818359375
+              ],
+              "source_size": 5.3369269371032715,
+              "base_glyph": {
+                "text": "m",
+                "bbox": [
+                  406.28570556640625,
+                  241.994140625,
+                  413.28192138671875,
+                  251.69764709472656
+                ],
+                "origin": [
+                  406.28570556640625,
+                  249.23602294921875
+                ],
+                "font": "E-BZ+ZGdCaS-1",
+                "size": 9.70350456237793,
+                "raised": false
+              },
+              "raster": {
+                "verified": true,
+                "dpi": 600,
+                "modes": [
+                  7,
+                  10
+                ],
+                "language": "eng",
+                "observations": [
+                  {
+                    "mode": 7,
+                    "text": "3\n",
+                    "returncode": 0
+                  },
+                  {
+                    "mode": 10,
+                    "text": "3\n",
+                    "returncode": 0
+                  }
+                ],
+                "crop_sha256": "3301aa497c903c3a8365909f62be57b0db6817c757a872ef1fefd553b7d53756",
+                "crop_bbox": [
+                  412.8692321777344,
+                  240.07110595703125,
+                  416.5376892089844,
+                  246.4080352783203
+                ],
+                "raster": "item28-digit03.png"
+              },
+              "replacement": "³",
+              "evidence": "raised_unit_geometry_and_dual_unhinted_digit_ocr"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sample_number": 8,
+      "candidate_scope": "Current pure CMap helper replay of pinned actual native glyphs, font maps, original Docling item and prior independent raster decisions. Not a fresh normal full-document extraction.",
+      "item_ref": "#/texts/112",
+      "page": 8,
+      "source_bbox": {
+        "l": 53.854450597035,
+        "t": 213.48138165377884,
+        "r": 541.1539404372747,
+        "b": 187.50227852708736,
+        "coord_origin": "BOTTOMLEFT"
+      },
+      "candidate_expression": "Ｒ =0． 596",
+      "source_expression_status": "faithful",
+      "unresolved_count": 1,
+      "unresolved_reasons": [
+        "cmap_scientific_glyph_not_source_confirmed"
+      ],
+      "full_operations_sha256": "d1c75befa28ba2bb64cd6608da96fe3728e3f4d94e7e383abd887fa83e7e873e",
+      "operation_summaries": [
+        {
+          "charspan": [
+            0,
+            127
+          ],
+          "evidence": "same_region_exact_font_cmap_reencoding",
+          "matched_scalars": 94,
+          "changed_scalars": 36,
+          "source_glyphs_sha256": "b1cd4dc2a59e6d80cfa6f71985f1983a3b79a3663dcf4cbeab90c9977edc2019",
+          "formatting": []
+        }
+      ]
+    }
+  ],
+  "contamination": "Both source-selected occurrences informed the fix; regression evidence only. Fullwidth R/decimal punctuation preserves the exact values. Unresolved hyphens elsewhere remain explicit."
+}

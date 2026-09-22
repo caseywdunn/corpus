@@ -1,0 +1,562 @@
+[
+  {
+    "stem": "Mańko_et al2020",
+    "hash": "2da3e5f7da3c",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "74a5d5639de320cbb4ebfaa5ad95af157468c2c126ed1ec94b2871e94fc616df",
+        "size": 114630
+      },
+      "docling_doc.json": {
+        "sha256": "0ac55bef2fa3a4ddc852a7d705b5efd6553b7543a2bd0d68c8eb6f4b2746ff5f",
+        "size": 2857428
+      },
+      "text.json": {
+        "sha256": "a3de7889342c571722d86c490e0cae383a4cfd5deebeaff78a230f80f02fbd9e",
+        "size": 143451
+      },
+      "chunks.json": {
+        "sha256": "d464c8bfbd19d062fb494ad4b80a27ea0d7377113c1b0eafcc21a9363467f82b",
+        "size": 386118
+      },
+      "figures.json": {
+        "sha256": "f08b27ebd43a4b172409b432202d2dff9780f51cb849ab6ada8aefd427d6a4f1",
+        "size": 49376
+      },
+      "metadata.json": {
+        "sha256": "8263672003dcd8e545cbc3e82f2c161b76ee3036e82a268e8fcf38507966c958",
+        "size": 1356
+      },
+      "scan_detection.json": {
+        "sha256": "7919db2a6509bc1317489bf3d2786186f29e4d648fafa249ec0ddb30d4a07079",
+        "size": 620
+      },
+      "summary.json": {
+        "sha256": "a9f300a7014178d5d4cabc15ab015c82aff50167b1cd2aef7f1160210a8deee9",
+        "size": 6087
+      }
+    }
+  },
+  {
+    "stem": "Chenetal2015",
+    "hash": "726d507fcca4",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "59ed8ad0458b65f34ad3ad5cd74d7a1de9342a974e0db609150ce100c5ef5653",
+        "size": 114622
+      },
+      "docling_doc.json": {
+        "sha256": "bb64292e0431fe33b518313b18a4e45b310ff772485de486908db5195741f24a",
+        "size": 4221041
+      },
+      "text.json": {
+        "sha256": "5e731124266a935ab20696dfdaacd42f9a7211c35b3b4dc50a4af597bf289e04",
+        "size": 43899
+      },
+      "chunks.json": {
+        "sha256": "8f2e2927f49607ad7c15e41433d1b2e647ec2fbefb0e2f9542be0ba5711537e5",
+        "size": 158136
+      },
+      "figures.json": {
+        "sha256": "64acf502678c8912663c723ec363714dbc6a272c58bcab905ea14d4cb58a8918",
+        "size": 27118
+      },
+      "metadata.json": {
+        "sha256": "0f70f1517c93e6a57dd5b42251bca3bc16e831792a0ad9d0dc354e3400453ce1",
+        "size": 1320
+      },
+      "scan_detection.json": {
+        "sha256": "b89c70bcec6e5aaf474acf0569a0d12bba2d8de9613a096e676858f6cee01dfd",
+        "size": 645
+      },
+      "summary.json": {
+        "sha256": "f4afd81e7deb95486031041aadc0e731c0d9f4e51fd801ea86789cf402b2875c",
+        "size": 5858
+      }
+    }
+  },
+  {
+    "stem": "Totton1965a",
+    "hash": "8a4548d8d5d7",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "f539ed103f777db04b94dff965d1e629fdd070a53732fa06511718175ed87559",
+        "size": 114829
+      },
+      "docling_doc.json": {
+        "sha256": "d4434d25d1e01d6e200f9a3aa29322687c5501225dd942eb11a669c03b907389",
+        "size": 147078331
+      },
+      "text.json": {
+        "sha256": "e9352c16f9626c45a36299a0997fd737d2c75d83302dff9d9672a0fbf9b64e78",
+        "size": 728978
+      },
+      "chunks.json": {
+        "sha256": "e13708bf006d307c0191548fdfcda87ab4249688e08dc93afc3ef0362204ad9a",
+        "size": 2861832
+      },
+      "figures.json": {
+        "sha256": "79b2891588392decc02fc4c517283f69cdafe45992e5f559e994a7fc3942155a",
+        "size": 2746472
+      },
+      "metadata.json": {
+        "sha256": "6b1cdce66cde7b28355ce3f7038ec11b92172bb37f8fd7ba620620f7d7a8f982",
+        "size": 1228
+      },
+      "scan_detection.json": {
+        "sha256": "41ca76e2fe667422cb34fc12137b33a686d2732aecb17e0ff28b648b5111cf49",
+        "size": 1177
+      },
+      "summary.json": {
+        "sha256": "d27b0fbad72279a78ba4ec3d91722f85624c98e2b5b5828536f275e312c667d8",
+        "size": 6072
+      }
+    }
+  },
+  {
+    "stem": "Vanhoeffen1906",
+    "hash": "9c0af2a4e494",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "949a746149599aef62419fee1bfef7d891968bd948c641db86315d2e11cbbff2",
+        "size": 114864
+      },
+      "docling_doc.json": {
+        "sha256": "43acb4da1de115a583cd33e981a9e997cd0db464c39d6818bbc1398d2fef332d",
+        "size": 12298137
+      },
+      "text.json": {
+        "sha256": "fe1abd6183fb8dbc929550f20d5b7ea09922b5d4ce8a67ac89214dc1014692a2",
+        "size": 62094
+      },
+      "chunks.json": {
+        "sha256": "4b29fd2ce6602581821b2eddfab16d89971178acb9cc6f54a284dfbb08cf086b",
+        "size": 182133
+      },
+      "figures.json": {
+        "sha256": "75785f2bff9740a63610a9f0fb7f17a7c3c058a6f0df8fb4eaaaa861fc658c71",
+        "size": 390075
+      },
+      "metadata.json": {
+        "sha256": "83364985f8826753dcce5252a7b44edb71794ed9937e4894af59c3ed956380c6",
+        "size": 1074
+      },
+      "scan_detection.json": {
+        "sha256": "9b91d686626a416222e06d906b0d0a43c1f34971d0375cf6441b8bf78812736b",
+        "size": 1291
+      },
+      "summary.json": {
+        "sha256": "e194aaa7885932d76f1ba6e627342b6d2447ad5c23b850f5f078230c1131c655",
+        "size": 5830
+      }
+    }
+  },
+  {
+    "stem": "Carre1968_Hippopodius_tr",
+    "hash": "02049c8322a1",
+    "source_sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "003142fcf3993be79d587346d983893cd2edf331bbf420339f747a3f8c7da971",
+        "size": 115437
+      },
+      "docling_doc.json": {
+        "sha256": "1295250d6ee851c9b357b3f5c4bb4b1af70e400e0b1302e1c78b4122f563bd8f",
+        "size": 1413838
+      },
+      "text.json": {
+        "sha256": "11687ff67dba8896862393ac62cc2e32a53bbad7ec80d33bd3b36f61ad694c41",
+        "size": 14547
+      },
+      "chunks.json": {
+        "sha256": "284671718836d72014a62dbb925f7fc1695579394e6ca1a0d97e58d01ecbb218",
+        "size": 33195
+      },
+      "figures.json": {
+        "sha256": "348b8d8a1b1fb69c5002962bf6cae53bbb4ac86e98b37bf05ceb06a43d52440a",
+        "size": 7220
+      },
+      "metadata.json": {
+        "sha256": "10a6cafdc193e5fcb190bbec67492fea4d4dd8315ba2d50d492b90448b779d10",
+        "size": 1185
+      },
+      "scan_detection.json": {
+        "sha256": "3f956ac544ba118a9f62bdcf92efcde1f71fd928756ca84141cd2396c533714b",
+        "size": 1302
+      },
+      "summary.json": {
+        "sha256": "7d53acbf8b8fcd57e08788086adb1f9703a2eac01d938d87b746db07db9fcc01",
+        "size": 6229
+      }
+    }
+  },
+  {
+    "stem": "Totton1965b",
+    "hash": "79bcb551c1f1",
+    "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "221463758c72ed924784762018704a2321feee71084dca90a7908a43d5db540b",
+        "size": 114829
+      },
+      "docling_doc.json": {
+        "sha256": "fa16751c54d9a6ad1db4b0267511e59f63089fc927814b86af9ef572a9c171fd",
+        "size": 1408831
+      },
+      "text.json": {
+        "sha256": "3c0b8b59855b6a78fca6f91cc51e8c2087ec9293cc68082a3494ed43554b0127",
+        "size": 11437
+      },
+      "chunks.json": {
+        "sha256": "f373848af3b920f44cd8ca2cba41de093ff7c1e507e017df1ea3009cbaa5dcee",
+        "size": 27441
+      },
+      "figures.json": {
+        "sha256": "956965bbb90453480a000cc90b71c62c889882998018dd3209412b06aedf6319",
+        "size": 24430
+      },
+      "metadata.json": {
+        "sha256": "0214866b7068b6eeb01d6740897083e6a9dacfab6cb95a63f31d9b660e878bbe",
+        "size": 1202
+      },
+      "scan_detection.json": {
+        "sha256": "53dc4e39c87cc35930ea5ff263992bd5347cd6d1c05b51bfcc3b7895b9a0a2fd",
+        "size": 1165
+      },
+      "summary.json": {
+        "sha256": "e7847e684a7a40a3cd4869e4ed977c0d8908f65ad0e37db3e0b939f1fb9b2ada",
+        "size": 5642
+      }
+    }
+  },
+  {
+    "stem": "Gasca_Suarez1993tr",
+    "hash": "c806191c35c4",
+    "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "3a7e5e28de4da9b9076258feab9f3916263b0c931f162a869ab5d46f59a8e1aa",
+        "size": 115375
+      },
+      "docling_doc.json": {
+        "sha256": "6ba5854cfcee32574fd467c7bd34b11a20abcc3b2498a64f76152c62d99d0e7f",
+        "size": 160391
+      },
+      "text.json": {
+        "sha256": "bc1546ad3915c238a6593d666b29a46f182e98a64f70eb1bf500517c636ca0f7",
+        "size": 10314
+      },
+      "chunks.json": {
+        "sha256": "6252492a2e1e1fa4b02778a00c57a25ec9c0db42248ff02ef2179bba293d4077",
+        "size": 15424
+      },
+      "figures.json": {
+        "sha256": "9e696541558e0066755aa05cdde4ed3563b0ab9670c34279c78028141d6e84e6",
+        "size": 5381
+      },
+      "metadata.json": {
+        "sha256": "4a782a69f561672ede6eee562eee8b5d48a9ca6b58ad3253c4d505959d0aaf4c",
+        "size": 1179
+      },
+      "scan_detection.json": {
+        "sha256": "42491eb6a591851ef2dd387518f45deec4046a0577f02bb975f7bb16b82eeb7f",
+        "size": 1147
+      },
+      "summary.json": {
+        "sha256": "3df62bc377b5810d7491e61aabf9dccf004851eadd76dd6b3f1d60989ce31b1a",
+        "size": 6041
+      }
+    }
+  },
+  {
+    "stem": "Stepanjants2014",
+    "hash": "d183f5012c54",
+    "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "1e7e8eb3c8f96e7ed85aa742f2007e4fa25194f79362a81496032392922be1c2",
+        "size": 114865
+      },
+      "docling_doc.json": {
+        "sha256": "c7badd6f0750e0b1c2d425e4f7e6f7f6f7c6f3dc3c4a882c95d541f8d54a4c0e",
+        "size": 3606272
+      },
+      "text.json": {
+        "sha256": "d94c7840c0b2301c002734993ae49ea4d61158e21de4ccb3a572dddeb29e3082",
+        "size": 79206
+      },
+      "chunks.json": {
+        "sha256": "8633cde6160ba9c8b63f61dfb5993a33e3eb6c4c0e3a8c59395092a64ff182d4",
+        "size": 248331
+      },
+      "figures.json": {
+        "sha256": "655495349b2ce707fbe65ce1dc9892752d600276b0f1e0771e106ae82fd20949",
+        "size": 78134
+      },
+      "metadata.json": {
+        "sha256": "9cfb1c7cd33f8747e90e99c2233a8d35fef4eb138ed5fd967123ebe6b21f410e",
+        "size": 1161
+      },
+      "scan_detection.json": {
+        "sha256": "2a7578351f92e1e72e77494e007500f9aae7b1b8d2ace3970368ea1338d57929",
+        "size": 1249
+      },
+      "summary.json": {
+        "sha256": "fd960973245baa51081e12bdd6f1be6c5e6c24250f1413da1d12ba201b0bef60",
+        "size": 5864
+      }
+    }
+  },
+  {
+    "stem": "Stepanjants_Dianov1997",
+    "hash": "8419592108f2",
+    "source_sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "512b82d285c1d8850224a22736eccd1e3d900ba3d4eaa21c1e13660dbccfa31d",
+        "size": 115403
+      },
+      "docling_doc.json": {
+        "sha256": "d44b5d45c75c35ea629dc8ddc553d06398a6807353caff18688442755f99cdb8",
+        "size": 1781595
+      },
+      "text.json": {
+        "sha256": "c18fa12b848f08e1afdf6fc51c6cd6c01099ec49f5d8ce2609e6606bf4bba393",
+        "size": 23361
+      },
+      "chunks.json": {
+        "sha256": "cef06416395d3ff5eb9cae3acb382d7d06d79c3f075470316ba1f8f6b0ca15c0",
+        "size": 151481
+      },
+      "figures.json": {
+        "sha256": "508029fe48fd50516c8b6a6d7cb75a22e2fdbdb092bf585461657cbe18f59b0e",
+        "size": 84478
+      },
+      "metadata.json": {
+        "sha256": "d97f385a48a6ed6777af74347220696ebfa6c99a09af5b026da1c214fd6eff29",
+        "size": 1357
+      },
+      "scan_detection.json": {
+        "sha256": "bb0b62536669319244ed6ab6de937a2aa4214afb4b0ea0c6f3a0a5433f7b3e13",
+        "size": 1370
+      },
+      "summary.json": {
+        "sha256": "a8d3e73e0583f8d6251256822d14a834a69faf3b2c106046a40e67646f4adc17",
+        "size": 6431
+      }
+    }
+  },
+  {
+    "stem": "Beklemishev1969",
+    "hash": "355362e39e58",
+    "source_sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "48edeb83f1df1653b1eabf44c44ca8a9b1dbac7b6d5ebf027ffdc050439b1a42",
+        "size": 115372
+      },
+      "docling_doc.json": {
+        "sha256": "d30b330127b6e6ca0f2e5d35e00d07d18b079544775891bb2cb9e08725f8405e",
+        "size": 6171825
+      },
+      "text.json": {
+        "sha256": "40f07a1fbe1c138a3169160be52792acd5837efc296ac800dd912aa96b548961",
+        "size": 121798
+      },
+      "chunks.json": {
+        "sha256": "362d0d690a209dd8967c90ec745dae4c84ba2c69ccf71c5bb5c67261415faf6f",
+        "size": 281712
+      },
+      "figures.json": {
+        "sha256": "9849ac2f5cc092a217f016b16b9986a8a397fae108c3493393ee75c51fb7429e",
+        "size": 74336
+      },
+      "metadata.json": {
+        "sha256": "3e1983ce4414c8b54a63fe14ed5cd10c32c85db8bb1724ff1d36f9461d4c0974",
+        "size": 1116
+      },
+      "scan_detection.json": {
+        "sha256": "fa86b8737a6447db4a65884ac1e372489a8954a212615aee0c895f8c3009a379",
+        "size": 1575
+      },
+      "summary.json": {
+        "sha256": "abb980ced244b18a504127260e0f4279abc99e23d8bdbcd3eab56c1955067f78",
+        "size": 6215
+      }
+    }
+  },
+  {
+    "stem": "Carre1969_Nanomia_tr",
+    "hash": "e26feaa4013f",
+    "source_sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "ee2476f23e386fb8743fb87ded54fd3f7aa826a87786d626713b262240cc6072",
+        "size": 115441
+      },
+      "docling_doc.json": {
+        "sha256": "1a246a173207e89f7a40d48fe1d2a0bcfe72e4e9e95de9816b4b382d5a4d1665",
+        "size": 13900457
+      },
+      "text.json": {
+        "sha256": "890a632250a7c73283673aa79395c4ad737b0fc9e7a958763d89dd7df42814ad",
+        "size": 52338
+      },
+      "chunks.json": {
+        "sha256": "f7d995694e966d53f50259eff6d1fef5dc1bf9a3c1b54f9d1a70e4e87bd4c483",
+        "size": 135914
+      },
+      "figures.json": {
+        "sha256": "1fc56f11cfd2b90730cc94b50aacffcf1906d67daf5b2398571ae6fb62349646",
+        "size": 47152
+      },
+      "metadata.json": {
+        "sha256": "a4e679e816e9a83b5bdc03cd4e30db06d35aa2487a4f4f1cd83a9897ef329c94",
+        "size": 1110
+      },
+      "scan_detection.json": {
+        "sha256": "0bd8b19455dc7a823799ade779117b89a93001d53f9516e0d451745278c70430",
+        "size": 1425
+      },
+      "summary.json": {
+        "sha256": "23b9e2d13c94bb5647fba4fe43c8ccb6508ed7950ab3566f18b3ba5ba1e082d5",
+        "size": 6255
+      }
+    }
+  },
+  {
+    "stem": "Quoy_Gaimard1834Plates",
+    "hash": "79e8dac842f6",
+    "source_sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "133068ce838cfd224233751b40a071587f5ba4bd0411d458535c54725505484c",
+        "size": 115403
+      },
+      "docling_doc.json": {
+        "sha256": "03c145dea3ca19b9868e8d9faa12082c89c239b519ae9ee1ce9d3b78d5b1e1f9",
+        "size": 3824019
+      },
+      "text.json": {
+        "sha256": "5852c1ed9f9b7bc135183072e7904c7a262456e392d475c80da210de7d2deb71",
+        "size": 5340
+      },
+      "chunks.json": {
+        "sha256": "6d7abe9c61e5089d1a672f7ea7b2c79303826155f90287fa45a5272a0f449fb8",
+        "size": 24784
+      },
+      "figures.json": {
+        "sha256": "b0a5ad6ba253273e9a66e0513e2742959456e9ab89f64303ea477028e37dbf22",
+        "size": 19662
+      },
+      "metadata.json": {
+        "sha256": "6c281151ead4e0bced0afdd2d573eae7d8f2bf44fea7f7bf4cdd468de1acf7cf",
+        "size": 1409
+      },
+      "scan_detection.json": {
+        "sha256": "83c0ee6ed780a090959593abf7bc4c29c4dbb224efc106e5e87895bb42632f16",
+        "size": 1402
+      },
+      "summary.json": {
+        "sha256": "cea9601d3eca034ce9e37014314bdb5fa8d01adf49a56cf7d64a980a57963432",
+        "size": 6392
+      }
+    }
+  },
+  {
+    "stem": "DeHaan1827",
+    "hash": "af5655bdeaae",
+    "source_sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "b52120eaba8416757568d84384529b0872a8382647a6a5843534bac840ee99fa",
+        "size": 115399
+      },
+      "docling_doc.json": {
+        "sha256": "b853ee5a034176cd018a8659b0d84750916bb22691a72a91e34ec7378b81c52a",
+        "size": 207794
+      },
+      "text.json": {
+        "sha256": "2988f0eea416f7d80f10913066e1aab34a4599b3d29ecd1dbe9182c244e03275",
+        "size": 25641
+      },
+      "chunks.json": {
+        "sha256": "4160bd00bf3be1810f61ccffdcaa0f9b971d1f59efae09dc4f6267c432b0f1fa",
+        "size": 125028
+      },
+      "figures.json": {
+        "sha256": "c873292d9b1a396672defb6cd6fd7d2502328aaeb8406e7304d03b08370eb8a4",
+        "size": 8917
+      },
+      "metadata.json": {
+        "sha256": "046d9e2ab85bf3188bc758527054d95afc1727909efa386bbd7eda23510577fd",
+        "size": 1147
+      },
+      "scan_detection.json": {
+        "sha256": "b2479df995844e231b54799bb514b69372d874be07d8b611761d1c3b0d63b0ac",
+        "size": 1352
+      },
+      "summary.json": {
+        "sha256": "1f8b5c7c9649a413a60f6287d5c632dc909453e7c58e1b239d967bcab42f9853",
+        "size": 6208
+      }
+    }
+  },
+  {
+    "stem": "Yamamori2014",
+    "hash": "cb1834694c26",
+    "source_sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+    "state_stable_during_read": true,
+    "files": {
+      "pipeline_state.json": {
+        "sha256": "12ba7eb859135f53e9749f55631dd31a042670bf7b788fe986acd866692cf508",
+        "size": 114862
+      },
+      "docling_doc.json": {
+        "sha256": "a49440db847fd06fb82d01f91632e0e79e21f372fad50eba809fe60921569425",
+        "size": 1312258
+      },
+      "text.json": {
+        "sha256": "9f13f44f5312be9acb300fccd1466e6f54518954b8bc13760994d22e1f7d7969",
+        "size": 27316
+      },
+      "chunks.json": {
+        "sha256": "c835617572eebb24adb1be06495598389b8fd089e003075e48fe31733629a971",
+        "size": 244982
+      },
+      "figures.json": {
+        "sha256": "2f855365923ee5d6a728b15acd7e23225563560cad45b524e4152f11a8b70d21",
+        "size": 4829
+      },
+      "metadata.json": {
+        "sha256": "73c8aec4fd7d2010328863a726ca4cdc5c5ae06fbac878f4482940636a2a4bf4",
+        "size": 1196
+      },
+      "scan_detection.json": {
+        "sha256": "947a4640bb83f37a2f80f30504e946b01a8be5214b74ac4df40478f65bf1e5e9",
+        "size": 1251
+      },
+      "summary.json": {
+        "sha256": "a5150a8e6d0ad2cacb03cc5cd7682b52657e6a5690c24d4346c46b665bee9b98",
+        "size": 5860
+      }
+    }
+  }
+]
