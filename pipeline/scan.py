@@ -3145,4 +3145,8 @@ def prepare_pdf(
     outcome = _report_ocr_page_loss(output_pdf, input_pdf.name, result.stderr)
     outcome["ocr_jobs"] = ocr_jobs
     outcome.update(native_outcome)
+    from .source_spacing_recovery import inspect_source_spacing
+    spacing = inspect_source_spacing(input_pdf, output_pdf, detection_result.get("keeppages_selected"))
+    if spacing["candidate_count"] or spacing["unresolved"]:
+        outcome["source_spacing_recovery"] = spacing
     return outcome

@@ -182,6 +182,7 @@ def extract_docling_content(
         from .table_structure import prepare_table_structure, export_source_markdown
         from .treatment_context import recover_section_headings
         from .native_text_recovery import apply_native_text_recovery
+        from .source_spacing_recovery import apply_source_spacing
         # Full extraction publishes through a scratch directory; preparation
         # receipts belong to the input PDF, never that temporary output path.
         detection_file = pdf_path.parent / "scan_detection.json"
@@ -190,6 +191,8 @@ def extract_docling_content(
         source_text_integrity = {
             "original_native_layer": apply_native_text_recovery(
                 document, pdf_path, detection.get("native_text_recovery")),
+            "original_source_spaces": apply_source_spacing(
+                document, pdf_path, detection.get("source_spacing_recovery")),
             "pdf_cmap": recover_pdf_cmaps(document, pdf_path),
             "encoding": recover_text_encoding(document, pdf_path),
             "scientific_notation": prepare_scientific_text(document, pdf_path),
