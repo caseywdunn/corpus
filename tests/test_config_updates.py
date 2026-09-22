@@ -482,10 +482,12 @@ def test_ocr_producer_identity_invalidates_source_consumers_only(monkeypatch):
     before=config_fingerprints({},panel_mode='ocr')
     monkeypatch.setattr(source_spaces,'source_spacing_producer',lambda:{'available':True,'traineddata_sha256':'changed'})
     after=config_fingerprints({},panel_mode='ocr')
-    for stage in ('docling_extraction','text_chunking','taxa_and_lexicon_extraction','figure_materialization','figure_crossref'):
+    # The same English OCR installation now verifies original source digits
+    # before preparation (#303), as well as extraction-time source spacing.
+    for stage in ('pdf_preparation','metadata_extraction','docling_extraction','text_chunking',
+                  'taxa_and_lexicon_extraction','figure_materialization','figure_crossref'):
         assert before[stage]!=after[stage]
-    for stage in ('scan_detection','pdf_preparation','metadata_extraction'):
-        assert before[stage]==after[stage]
+    assert before['scan_detection']==after['scan_detection']
 
 
 def test_spacing_subrun_policy_invalidates_extraction_and_consumers(monkeypatch):

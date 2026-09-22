@@ -2970,7 +2970,8 @@ def prepare_pdf(
     # before replacing that layer; extraction consumes this build receipt.
     from .native_text_recovery import inspect_native_text_regions
     recovery = inspect_native_text_regions(input_pdf, detection_result.get("tesseract_packs"))
-    native_outcome = {"native_text_recovery": recovery} if recovery["candidate_count"] else {}
+    native_outcome = {"native_text_recovery": recovery} if (
+        recovery["candidate_count"] or recovery.get("source_exponents", {}).get("candidate_count")) else {}
 
     if not detection_result.get("needs_ocr"):
         logger.info("Copying %s (detected as %s)",

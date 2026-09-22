@@ -55,7 +55,9 @@ def native_text_recovery_producer(languages=None):
     With no language argument this identifies all installed models: the actual
     per-document language is resolved later by scan detection and BibTeX pins.
     """
-    result = {"policy": NATIVE_TEXT_RECOVERY_POLICY, "dpi": list(_DPIS), "psm": 6,
+    from .source_exponents import source_exponent_producer
+    result = {"policy": NATIVE_TEXT_RECOVERY_POLICY, "source_exponents": source_exponent_producer(),
+              "dpi": list(_DPIS), "psm": 6,
               "max_regions_per_page": _MAX_REGIONS_PER_PAGE, "timeout_seconds": _TIMEOUT,
               "max_regions_per_document": _MAX_REGIONS_PER_DOCUMENT,
               "available": False, "models": {},
@@ -191,7 +193,9 @@ def inspect_native_text_regions(pdf_path, languages):
                         report['unresolved'].append({'page':page_no,'bbox':candidate['bbox'],
                             'original':candidate['original'],'reason':'regional_ocr_did_not_agree_with_decoded_accent'})
                 report['regions'].append(entry)
-    if report['candidate_count']:
+        from .source_exponents import inspect_source_exponents
+        report['source_exponents'] = inspect_source_exponents(pdf)
+    if report['candidate_count'] or report['source_exponents']['candidate_count']:
         report['producer'] = native_text_recovery_producer(languages)
         with Path(pdf_path).open('rb') as stream:
             report['source_pdf_sha256'] = hashlib.file_digest(stream,'sha256').hexdigest()
@@ -227,6 +231,10 @@ def apply_native_text_recovery(document, pdf_path, recovery):
     report['producer'] = recovery.get('producer')
     report['source_pdf_sha256'] = recovery.get('source_pdf_sha256')
     report['unresolved'].extend(recovery.get('unresolved',[]))
+    from .source_exponents import apply_source_exponents
+    exponents = apply_source_exponents(document, pdf_path, recovery)
+    report['repairs'].extend(exponents['repairs'])
+    report['unresolved'].extend(exponents['unresolved'])
     with fitz.open(pdf_path) as pdf:
         for region in recovery.get('regions',[]):
             page_no = region['page']
