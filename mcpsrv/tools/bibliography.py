@@ -196,6 +196,7 @@ def _excerpts_citing(idx, work_id: str):
                 "para_index": pi,
                 **{key: citation[key] for key in (
                     "citation_year", "author_span", "year_span", "validation_status", "text_source",
+                    "source_span_evidence",
                 ) if key in citation},
             }
 

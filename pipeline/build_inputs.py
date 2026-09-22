@@ -92,7 +92,9 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
             figures["figures.producer"] = resolved_vision_producer or vision_producer(panel_mode, vision_model)
         figures["figures.model"] = vision_model
         figures["figures.producer_id"] = cfg.get("figures", {}).get("producer_id")
+    from .citation_spans import CITATION_SPAN_POLICY
     metadata = {**prep,
+                "metadata.citation_span_policy": CITATION_SPAN_POLICY,
                 "grobid.disable": bool(cfg.get("grobid", {}).get("disable", False)),
                 "grobid.producer_id": cfg.get("grobid", {}).get("producer_id"),
                 "stage_timeouts.grobid": cfg["stage_timeouts"]["grobid"],

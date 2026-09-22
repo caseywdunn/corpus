@@ -649,3 +649,18 @@ def test_surname_runtime_path_is_not_a_cross_machine_rebuild_input():
     moved["models"] = {"spa": "updated-model"}
     assert before["docling_extraction"] != config_fingerprints(
         {}, panel_mode="ocr", surname_producer=moved)["docling_extraction"]
+
+
+def test_citation_span_policy_refreshes_metadata_without_repeating_extraction(corpus, monkeypatch):
+    from pipeline import citation_spans
+    corpus.run()
+    before = stages._load_pipeline_state(corpus.hd())['stages']
+    monkeypatch.setattr(citation_spans, 'CITATION_SPAN_POLICY', 'changed-source-span-policy')
+    corpus.run()
+    after = stages._load_pipeline_state(corpus.hd())['stages']
+    assert before['metadata_extraction'] != after['metadata_extraction']
+    for stage in ('scan_detection', 'pdf_preparation', 'docling_extraction', 'text_chunking'):
+        assert before[stage] == after[stage]
+    unchanged = stages._load_pipeline_state(corpus.hd())
+    corpus.run()
+    assert stages._load_pipeline_state(corpus.hd()) == unchanged

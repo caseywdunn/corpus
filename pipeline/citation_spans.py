@@ -15,6 +15,88 @@ NS = {"tei": "http://www.tei-c.org/ns/1.0"}
 _YEAR = re.compile(r"(?<!\d)((?:1[5-9]|20)\d{2})([a-z]?)(?!\d)")
 _SEPARATOR = re.compile(r"^(?:[\s,;:()\[\]&–—-]|\b(?:and|or|[a-z])\b)*$")
 _SUFFIXES = re.compile(r"\s*(?:([-–])\s*([a-z])\b|(?:,|and|&)\s*([a-z])\b)")
+CITATION_SPAN_POLICY = "source-contiguous-groups-bounded-marker-v2"
+
+
+def _ref_boxes(ref):
+    boxes = []
+    for value in (ref.get("coords") or "").split(";"):
+        page, x, y, w, h = map(float, value.split(","))
+        if page != int(page) or page < 1 or w <= 0 or h <= 0:
+            raise ValueError("Invalid citation coordinates")
+        boxes.append((int(page), x, y, w, h))
+    return boxes
+
+
+def _source_neighbors(left, right):
+    """Refuse to recover distant source regions as one citation group.
+
+    Grobid can omit intervening prose while joining paragraphs. Whitespace in
+    TEI then connects refs several lines or pages apart (#317). Missing/bad
+    coordinates keep the old TEI grouping; source recovery will refuse them.
+    Adjacent pages remain supported for genuinely continued citation groups.
+    """
+    try:
+        a, b = _ref_boxes(left)[-1], _ref_boxes(right)[0]
+    except (ValueError, IndexError):
+        return True
+    if a[0] != b[0]:
+        return b[0] == a[0] + 1
+    vertical_gap = max(a[2] - b[2] - b[4], b[2] - a[2] - a[4], 0)
+    return vertical_gap <= 3 * max(a[4], b[4])
+
+
+def _marker_signature(text):
+    records = resolve_group(text, [])
+    return [(_author_key(text[slice(*r["author_span"])]), r["citation_year"])
+            for r in records] if records else None
+
+
+def _bounded_marker(source, raw, first, last, boxes):
+    """Find one complete marker inside slightly over-wide source boxes.
+
+    A PDF glyph crossing an outer box edge can belong to surrounding prose.
+    This only excludes at most one such glyph at either edge, never removes
+    a leading letter, and requires a unique complete parenthesized source
+    marker with exactly the TEI's ordered author/year signature. In particular,
+    an apparent author spelling or year disagreement cannot be trimmed away.
+    """
+    signature = _marker_signature(raw)
+    if not signature:
+        return None
+    candidates = {}
+    for left in (0, 1):
+        if left and (source[0] != first[0] or not first[1]
+                     or not unicodedata.category(source[0]).startswith("P")
+                     or not first[1][0] < boxes[0][0] < first[1][2]
+                     or not boxes[0][1] - .1 <= (first[1][1] + first[1][3]) / 2 <= boxes[0][3] + .1):
+            continue
+        for right in (0, 1):
+            if not left and not right:
+                continue
+            if right and (source[-1] != last[0] or not last[1]
+                          # Do not discard a possible suffix, initial or
+                          # number, even outside the closing parenthesis.
+                          or unicodedata.category(source[-1]) not in {"Lo", "Po", "Ps", "Pe", "Pi", "Pf", "Pd", "Pc"}
+                          or not last[1][0] < boxes[-1][2] < last[1][2]
+                          or not boxes[-1][1] - .1 <= (last[1][1] + last[1][3]) / 2 <= boxes[-1][3] + .1):
+                continue
+            candidate = source[left:len(source) - right].strip()
+            # A complete closing parenthesis establishes the right boundary;
+            # arbitrary substrings of a longer surname/year are never used.
+            marker = re.fullmatch(
+                r"([^\W\d_](?:[^\W\d_]|[\s.'’&,-])*)\s*[（(]"
+                r"\s*\d{4}[a-z]?(?:\s*(?:,|;|and|&|[-–])\s*"
+                r"(?:\d{4}[a-z]?|[a-z]))*\s*[）)]", candidate,
+            )
+            if marker and _marker_signature(candidate) == signature:
+                candidates[candidate] = {
+                    "method": "unique_parenthesized_marker_at_box_edges",
+                    "source_interval": source,
+                    "discarded_prefix": source[:left],
+                    "discarded_suffix": source[len(source) - right:] if right else "",
+                }
+    return next(iter(candidates.items())) if len(candidates) == 1 else None
 
 
 def _norm(text):
@@ -56,6 +138,7 @@ class PdfCitationSource:
         line end which Grobid omits from both refs). Per-page intervals avoid
         introducing running headers when a group straddles a page boundary.
         """
+        self.last_recovery = None
         page_boxes = {}
         try:
             for ref in refs:
@@ -68,6 +151,7 @@ class PdfCitationSource:
                         return None
                     page_boxes.setdefault(int(page), []).append((x, y, x + w, y + h))
             parts = []
+            boundaries = []
             for page, boxes in page_boxes.items():
                 chars = self.page_chars(page)
                 hits = []
@@ -82,6 +166,7 @@ class PdfCitationSource:
                 if not hits:
                     return None
                 parts.append("".join(c for c, _ in chars[min(hits):max(hits) + 1]))
+                boundaries.append((chars[min(hits)], chars[max(hits)], boxes))
             source = " ".join(" ".join(parts).split())
         except (ValueError, IndexError, RuntimeError):
             return None
@@ -96,6 +181,11 @@ class PdfCitationSource:
         source_key, raw_key = _norm(source), _norm(raw)
         cursor = iter(raw_key)
         if not all(any(c == candidate for candidate in cursor) for c in source_key):
+            if len(boundaries) == 1:
+                marker = _bounded_marker(source, raw, *boundaries[0])
+                if marker:
+                    recovered, self.last_recovery = marker
+                    return recovered
             return None
         return source
 
@@ -171,8 +261,8 @@ def resolve_group(text, references):
     author_start = author_end = None
     for start, end, year, suffixes in _year_items(text):
         between = text[previous_end:start]
-        left = len(between) - len(between.lstrip(" \t\n,;:()[]&–—-"))
-        right = len(between.rstrip(" \t\n,;:()[]&–—-"))
+        left = len(between) - len(between.lstrip(" \t\n,;:()[]（），；&–—-"))
+        right = len(between.rstrip(" \t\n,;:()[]（），；&–—-"))
         explicit = between[left:right]
         if explicit:
             author_start, author_end = previous_end + left, previous_end + right
@@ -228,8 +318,12 @@ def paragraph_citations(para, references, source=None):
                 if (not _SEPARATOR.fullmatch(pieces[j]) or j + 1 >= len(pieces)
                         or isinstance(pieces[j + 1], str)):
                     break
+                if source is not None and not _source_neighbors(refs[-1], pieces[j + 1]):
+                    break
                 raw_parts.append(pieces[j])
                 j += 1
+            elif source is not None and not _source_neighbors(refs[-1], pieces[j]):
+                break
             refs.append(pieces[j])
             raw_parts.append("".join(pieces[j].itertext()))
             j += 1
@@ -238,6 +332,7 @@ def paragraph_citations(para, references, source=None):
                      "target_xml_id": r.get("target") or None,
                      "coords": r.get("coords")} for r in refs]
         recovered = source.group_text(refs, raw) if source is not None else None
+        source_proof = getattr(source, "last_recovery", None) if recovered is not None else None
         group = recovered if recovered is not None else raw
         # The whitespace boundary before a marker belongs to surrounding
         # prose; preserve it while normalizing the eventual stored paragraph.
@@ -250,6 +345,8 @@ def paragraph_citations(para, references, source=None):
             for rec in resolved:
                 rec["tei_observations"] = observed
                 rec["text_source"] = "pdf_coordinates" if recovered is not None else "tei"
+                if source_proof:
+                    rec["source_span_evidence"] = source_proof
                 for key in ("author_span", "year_span"):
                     rec[key] = [n + group_start for n in rec[key]]
                 records.append(rec)

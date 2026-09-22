@@ -1,0 +1,117 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body><p><ref type="bibr" coords="17,331.55,659.07,94.14,13.97" target="#b26">Margulis(1980</ref><ref type="bibr" coords="17,436.37,660.71,49.34,12.58" target="#b28">Margulis( , 1984))</ref>  <ref type="bibr" coords="19,89.88,155.08,102.68,14.22" target="#b1">(Alvariño, 1971;</ref><ref type="bibr" coords="19,196.03,156.71,89.19,12.58" target="#b25">Margulis, 1976;</ref><ref type="bibr" coords="19,288.71,156.71,67.64,12.58" target="#b41">Pugh, 1975;</ref><ref type="bibr" coords="19,363.36,155.08,81.03,13.97">張和許，1980;</ref><ref type="bibr" coords="19,447.87,156.71,61.05,12.58;19,89.88,192.71,42.60,12.58" target="#b23">Longhurst, 1985)</ref></p></body><back><listBibl><biblStruct xml:id="b1">
+	<analytic>
+		<title level="a" type="main">Siphonophores of the Pacific with a review of the world distribution</title>
+		<author>
+			<persName><forename type="first">A</forename><surname>Alvariño</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Bulletin of the Scripps Institution of Oceanography</title>
+		<imprint>
+			<biblScope unit="volume">16</biblScope>
+			<biblScope unit="page" from="1" to="432"/>
+			<date type="published" when="1971">1971</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Alvariño, A. 1971. Siphonophores of the Pacific with a review of the world distribution. Bulletin of the Scripps Institution of Oceanography. 16: 1-432.</note>
+</biblStruct>
+
+<biblStruct xml:id="b23">
+	<analytic>
+		<title level="a" type="main">The structure and evolution of plankton communities</title>
+		<author>
+			<persName><forename type="first">A</forename><forename type="middle">R</forename><surname>Longhurst</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Progress in Oceanography</title>
+		<imprint>
+			<biblScope unit="volume">15</biblScope>
+			<biblScope unit="page" from="1" to="35"/>
+			<date type="published" when="1985">1985</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Longhurst, A. R. 1985. The structure and evolution of plankton communities. Progress in Oceanography. 15: 1-35.</note>
+</biblStruct>
+
+<biblStruct xml:id="b25">
+	<monogr>
+		<title level="m" type="main">On regularities of the distribution of siphonophores in the Atlantic. Trudy Vsesoyuznogo nauchno-issledovatel'skogo instituta rybnogo khozyaistva i oceanografii</title>
+		<author>
+			<persName><forename type="first">R</forename><surname>Margulis</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Ya</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1976">1976</date>
+			<biblScope unit="volume">110</biblScope>
+			<biblScope unit="page" from="70" to="76"/>
+		</imprint>
+	</monogr>
+	<note>in Russian</note>
+	<note type="raw_reference">Margulis, R. Ya. 1976. On regularities of the distribution of siphonophores in the Atlantic. Trudy Vsesoyuznogo nauchno-issledovatel'skogo instituta rybnogo khozyaistva i oceanografii, 110: 70-76 (in Russian).</note>
+</biblStruct>
+
+<biblStruct xml:id="b26">
+	<analytic>
+		<title level="a" type="main">On the vertiacal distribution of siphonophores in the World's Oceans</title>
+		<author>
+			<persName><forename type="first">R</forename><surname>Margulis</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Ya</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">The Theoretical and Practical Importance of the Coelenterates</title>
+		<imprint>
+			<date type="published" when="1980">1980</date>
+			<biblScope unit="page" from="66" to="65"/>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Margulis, R. Ya. 1980. On the vertiacal distribution of siphonophores in the World's Oceans. In "The Theoretical and Practical Importance of the Coelenterates" Zoological Institute ANSSSR. pp 66-65. (in</note>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">The dependence of vertiacal distribution of the siphonophores of the World Oceans on the boundaries of water layers</title>
+		<author>
+			<persName><forename type="first">R</forename><surname>Margulis</surname></persName>
+		</author>
+		<author>
+			<persName><surname>Ya</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Zhurnal Obshschei Biologii</title>
+		<imprint>
+			<biblScope unit="volume">45</biblScope>
+			<biblScope unit="page" from="472" to="479"/>
+			<date type="published" when="1984">1984</date>
+		</imprint>
+	</monogr>
+	<note>in Russian</note>
+	<note type="raw_reference">Margulis, R. Ya. 1984. The dependence of vertiacal distribution of the siphonophores of the World Oceans on the boundaries of water layers. Zhurnal Obshschei Biologii. 45: 472-479 (in Russian).</note>
+</biblStruct>
+
+<biblStruct xml:id="b41">
+	<analytic>
+		<title level="a" type="main">The distribution of the siphonophores in a transect across the North Atlantic Ocean at 32°N</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Journal of Experimental Marine Biology and Ecology</title>
+		<imprint>
+			<biblScope unit="volume">20</biblScope>
+			<biblScope unit="page" from="77" to="97"/>
+			<date type="published" when="1975">1975</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P. R. 1975. The distribution of the siphonophores in a transect across the North Atlantic Ocean at 32°N. Journal of Experimental Marine Biology and Ecology. 20: 77-97.</note>
+</biblStruct>
+
+</listBibl></back></text></TEI>
