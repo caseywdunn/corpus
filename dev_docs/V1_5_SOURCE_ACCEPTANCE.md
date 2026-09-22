@@ -79,6 +79,18 @@ Rows are an inventory, not completion claims.
 
 ## Integrated source pilots
 
+The [September 22 normal-pipeline receipt](examples/source_pages_2026_09_22/README.md)
+adds fresh OCR/extraction, real BGE-M3 embeddings, annotation and stdio MCP
+acceptance for nine documents/13 selected physical pages. Chinese and German
+figure captions and image bytes pass; surname evidence and the named spacing
+relations survive materialization and serving. Unchanged extraction preserves
+99 artifact hashes and all nine documents skip re-embedding. Original Russian
+exponent evidence survives full-page OCR, with the second exponent still refused.
+The separate authority replay distinguishes a repaired real retained edge from
+three unresolved title-conflicted observations. This supersedes the older
+pilots' missing real-embedding/German-caption checks, without turning selected
+pages into a full-paper, full-corpus or fresh citation-graph claim.
+
 A CPU extraction/chunking pilot on 2026-09-18 used copies of Tung2003 physical
 pages 30 and 84 (mapped to pilot pages 1 and 2), preserving their source
 geometry. It passed source assertions for the Chinese heading and figure-1

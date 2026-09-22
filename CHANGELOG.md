@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Original whitespace lost during full-page OCR can be restored using exact
+  native letters, aligned page anchors and two agreeing source-crop readings;
+  uncertain geometry and structured owners remain explicit (#334). Verified
+  raised source digits also survive OCR that turns them into punctuation (#303).
+  Both producers invalidate preparation and dependent artifacts.
+
+- Citation groups separated by distant source regions no longer lose author/year
+  context, and uniquely bounded fullwidth markers retain their original source
+  evidence (#317). Recovered caption labels retire stale panel-completion status;
+  inline taxon initials no longer erase explicit panel inventories (#324).
+
+- Taxonomy scope warnings distinguish replacement, unrestricted snapshots,
+  ancestor inclusion, dry runs and legacy receipts accurately (#298).
+
 - Concurrent orphan retirement serializes directory and vector cleanup and
   tolerates an already-moved source without hiding storage errors (#339).
   Extract-only runs defer unavailable vision instead of running the OCR panel

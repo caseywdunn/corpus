@@ -57,6 +57,10 @@ priority over finishing within the current week's usage allowance.
 - [x] Preserve the enhancement branch and create the correctness branch from
   v1.4.0. Bring forward the existing root-replacement warning and honest help
   text for **#298** — `[plane:build]`; this does not add multi-root ingestion.
+  Follow-up warning tests now cover unrestricted/root scope replacement,
+  ancestor semantics, dry runs and legacy receipts (41 focused checks). This
+  release component is complete; the broader tracker issue stays open for
+  intentionally deferred multi-root ingestion.
 - [x] **#285** — remove the unused Chrome repository from the affected CI
   runners before apt update; verify the actual runner path. Both workflow
   steps now identify/remove existing Chrome `.list` or `.sources` files and
@@ -169,7 +173,7 @@ decision provenance; document how old bundles obtain repaired mappings.
 
 ### 3. Restore source text and citation evidence
 
-- [ ] **#306**, **#312**, **#315** — reproduce and distinguish Big5-like
+- [x] **#306**, **#312**, **#315** — reproduce and distinguish Big5-like
   text-layer corruption, other mojibake and surname substitutions. Use source
   images and correct negative controls; no global replacement or guessed
   correction is sufficient. #306 now has same-region byte corroboration,
@@ -187,8 +191,12 @@ decision provenance; document how old bundles obtain repaired mappings.
   agreement, at least one complete expected OCR year and no conflicting valid
   year, preserving malformed date tokens without interpreting them. Its producer
   change requires re-extraction; prior-policy pilots are not a v3 build gate.
-  Fresh full-corpus citation mapping and
-  broader rebuilt-source acceptance remain pending. `[plane:build]`
+  [Fresh selected-page acceptance](examples/source_pages_2026_09_22/README.md)
+  now covers normal OCR/extraction, real embeddings, Chinese/German captions,
+  stdio MCP delivery and unchanged resume. Actual retained b166 authority
+  matching succeeds with fresh v3 evidence; three title-conflicted full-source
+  references remain unresolved, with no broader edge-repair claim. Full-corpus
+  mapping and final gold acceptance remain release gates. `[plane:build]`
 - [x] **#316** — recover geometrically supported spacing accents and surface
   incomplete author identities without guessed aliases. Source Fernández and
   Niño/Niña controls pass; explicit author adjudication rematerializes the
@@ -205,9 +213,10 @@ decision provenance; document how old bundles obtain repaired mappings.
   findings require separate candidate revalidation. Exact regional Type1 font
   decoding now recovers the three tested Chen `mg/m³` occurrences and statistical
   values through saved chunks, embedding input and bounded serving, with original
-  PDF/raster proof. Unconfirmed hyphens remain explicit; Russian recovery is
-  still pending. Broader
-  source-graded precision/recall and integrated release replay remain.
+  PDF/raster proof. Original Russian glyph/ink evidence now survives fresh
+  OCR, extraction, real embeddings and serving: the first exponent is repaired,
+  the second remains an explicit unhinted-OCR disagreement. Unconfirmed hyphens
+  remain explicit. Broader source-graded precision/recall and release replay remain.
   `[plane:build]`
 - [x] **#304**, then **#319** — preserve multi-column reading order and enclosing
   species context, and expose diagnosis passages through a documented route.
@@ -232,13 +241,21 @@ decision provenance; document how old bundles obtain repaired mappings.
   spelling-unverified in its separate source fixture; layout acceptance does
   not claim spelling recovery. Broader rebuilt retrieval remains a release gate.
   `[plane:build]`
-- [ ] **#334** — recover source-supported word boundaries without splitting
+- [x] **#334** — recover source-supported word boundaries without splitting
   legitimate compounds. Hissmann/DuClos source-supported spacing is implemented;
   the source-printed Mapstone p200 typography is preserved. Spacing v2 now
   considers uniform-font portions without inferring a boundary at a
   font change; the newly examined DuClos phrase remains unchanged because
   actual OCR modes disagree. Long-run review warnings retain that uncertainty.
-  Broader rebuilt retrieval and source-graded spacing acceptance remain.
+  Fresh normal preparation exposed an additional missing space in the named
+  Mapstone key lead. Exact original letters/spaces, page anchors and two
+  unhinted crop readings now recover it; whole-word anatomy annotation, real
+  embeddings, served Hissmann/DuClos relations and unchanged resume pass.
+  Rotated/changed geometry, unknown owners and extra OCR splits are refused.
+  The saved replay admits three source-confirmed proposals; the fresh build
+  admits two and refuses one ambiguous structured owner. Frozen spacing grades
+  remain 2 correct, 0 incorrect, 1 unresolved among three historical accepted
+  decisions; no corpus-wide precision claim. Final corpus acceptance remains.
   `[plane:build]`
 - [x] **#309**, **#317** — validate complete citation spans and preserve the
   source paragraph across grouped citations; trace original TEI as well as
@@ -250,9 +267,13 @@ decision provenance; document how old bundles obtain repaired mappings.
   in-text citations into all three citation/graph routes: the wrong Oderberg
   paragraph link is absent, both Fraser years and the unambiguous Pugh groups
   retain their source spans, and unchanged refresh preserves observations.
-  #309 is closed on this source-span/materialization acceptance; #317 remains
-  open for broader paragraph-repair acceptance. Production/gold replay remains
-  a release gate. `[plane:build]`
+  Complete saved-source replay for #317 now covers 39 documents/886 citation
+  paragraphs: all 22 exact detector hits are repaired, with 22 in-text and
+  16 eligible excerpt replays, 918 raw observations retained and unchanged
+  refresh. Distant source boxes no longer join unrelated citations; uniquely
+  bounded fullwidth markers preserve crossing-glyph evidence. See the
+  [source receipt](../tests/fixtures/citation_spans/group_boundaries/README.md).
+  Fresh production/gold replay remains a release gate. `[plane:build]`
 
 Corrected text must invalidate downstream chunks, annotations, references and
 embeddings as appropriate. Source-grounded assertions must cover relationships
@@ -290,7 +311,13 @@ before claiming an old OCR-routing defect persists.
   now also passes production rendering, real bundling and MCP
   image conversion with identical PNG bytes: the complete edge label, all five
   source panels and scale bars remain visible. Fourteen edge/rotation/margin
-  controls pass. Integrated rebuilt-corpus validation remains the release gate.
+  controls pass. Saved Sutherland source binding and direct/dossier agreement
+  now pass; full Siebert A–U/A–N inventories and species-specific/shared
+  descriptions pass actual image fallback checks. Recovered labels retire a
+  stale completed ROI status; inline taxon initials no longer erase panels.
+  [Dated receipts](../tests/fixtures/figure_integrity/original_closure_2026_09_22/README.md)
+  distinguish saved-source replay from fresh extraction. Integrated
+  rebuilt-corpus validation remains the release gate.
   `[plane:build]`
 - [x] **#302** — materialize figure-specific rights exclusions and provenance;
   apply them before inherited publication clearance at every strict delivery
@@ -323,9 +350,12 @@ before claiming an old OCR-routing defect persists.
   Hosia bundle supplies live refusal and permitted-image evidence. Combined
   ranking, licensing, profile and refusal checks pass (64 focused tests).
   `[plane:serve]`
-- [ ] **#332** — recompute record totals after expansion/removal and validate
-  them before bundling; consistently read legacy artifacts. Implemented and
-  integration-tested; full rebuilt count concordance remains. `[plane:build]`
+- [x] **#332** — recompute record totals after expansion/removal and validate
+  them before bundling; consistently read legacy artifacts. Complete retained
+  and gold censuses (1,810 saved documents) have zero stored-total discrepancies.
+  Production rematerialization, count-only packaging and all three APIs agree;
+  source files remain unchanged. Append/remove/shared-image/furniture controls
+  pass. This is count acceptance, not a fresh deployed corpus. `[plane:build]`
 
 Acceptance uses source-reviewed complete panels, labels and scale context,
 permitted/restricted/unknown rights controls, mixed-panel inheritance, and
@@ -383,7 +413,11 @@ new licensing evidence and no cache writes into the bundle.
   label. Both cases pass saved-document/chunk/serve checks and current full
   source-document context replay; 100 focused regressions pass (seven optional
   external-source checks skipped). Policy v3 rechunks without redoing extraction.
-  Rebuilt retrieval acceptance remains pending; the frozen sample is unchanged.
+  Replaying v3 context across all 35 saved documents still cannot supply five
+  papers. Additional source-first candidates have been identified, but a
+  separately frozen/graded protocol is not yet complete. Do not replace or
+  relabel the insufficient original sample. Rebuilt retrieval acceptance remains
+  pending; the frozen sample is unchanged.
   Broader independently reviewed source coverage and actual reference/candidate
   captures remain; no retrieval improvement is claimed from evaluator tests.
 
@@ -392,14 +426,14 @@ new licensing evidence and no cache writes into the bundle.
 - [ ] Relevant regressions, contract tests and established CI lanes pass on the
   integrated candidate. Additions follow the minor API policy, with #338's
   specific transport-safety restriction documented explicitly.
-  At `db31217`, local T0 passes 2,677 tests (26 optional checks skipped,
-  90 corpus/resume tests deselected), and Ruff passes. The first invocation's
-  sole failure was the test launcher omitting installed Ruff from PATH; the
-  corrected full run passes. Both retained-demo and reference-bundle live SSE
-  checks pass with real query embedding. Hosted T0/T1/T2 passed at `b30d02b`,
-  and T0/T1/T2/T3 previously passed at `c2d1378`; the new integrated batch
-  still needs current-head CI. Source-specific checks recorded elsewhere are
-  separate from this unit gate's optional-source skips.
+  At `bfbf90c`, local T0 passes 2,767 tests (26 optional checks skipped,
+  90 corpus/resume tests deselected), and required Ruff checks pass. The first
+  run exposed two invalid-PDF argument-test stubs; valid blank PDFs fix them
+  and the complete repeated gate passes. Both retained-demo and reference-bundle
+  live SSE checks pass with real query embedding. All five hosted lanes passed
+  at prior `4d0ecfd`; current-head CI is required after this batch is pushed.
+  The nine-document source-page build passes normal extraction, embedding,
+  post-processing, bundling, unchanged resume and live stdio MCP acceptance.
   An adapted operator tour passes 39 public CLI calls, including exact-field
   BibTeX round trips and a controlled edit/restore, on a copied completed build.
   It does not replace fresh install/build/resume/serve or final-candidate gates.
