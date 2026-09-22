@@ -55,6 +55,53 @@ def expected_calls(query):
     return {"original": original, "at5": dict(original, k=5), "at10": dict(original, k=10)}
 
 
+def required_papers(manifest):
+    """Include all labelled source papers and original paper-scoped requests."""
+    papers = {t["paper_hash"] for q in manifest["queries"] for t in q.get("targets", [])
+              if t.get("paper_hash")}
+    papers.update(q["call"]["paper_hash"] for q in manifest["queries"] if q["call"].get("paper_hash"))
+    return sorted(papers)
+
+
+def check_population(identity, required):
+    """Require inventory evidence; a digest alone cannot prove target presence."""
+    identity = identity if isinstance(identity, dict) else {}
+    reasons = []
+    population_digest = identity.get("paper_hashes_sha256")
+    count = identity.get("paper_count")
+    inventory = identity.get("paper_hashes")
+    if (not isinstance(population_digest, str) or len(population_digest) != 64
+            or any(c not in "0123456789abcdef" for c in population_digest)):
+        reasons.append("missing_or_invalid_population_digest")
+    if type(count) is not int or count <= 0:
+        reasons.append("missing_or_invalid_population_count")
+    inventory_known = (isinstance(inventory, list)
+                       and all(isinstance(p, str) and p.strip() for p in inventory))
+    if not inventory_known:
+        reasons.append("missing_or_invalid_paper_inventory")
+    else:
+        if len(set(inventory)) != len(inventory):
+            reasons.append("duplicate_paper_inventory_entries")
+        if len(inventory) != count:
+            reasons.append("paper_inventory_count_mismatch")
+        if digest(sorted(inventory)) != population_digest:
+            reasons.append("paper_inventory_digest_mismatch")
+    identity_complete = not reasons
+    required_known = (isinstance(required, list)
+                      and all(isinstance(p, str) and p.strip() for p in required))
+    missing = None
+    if not required_known:
+        reasons.append("missing_required_paper_evidence")
+    elif inventory_known:
+        missing = sorted(set(required)-set(inventory))
+        if missing:
+            reasons.append("required_papers_absent")
+    return {"status": "blocked" if reasons else "pass", "reasons": reasons,
+            "identity_complete": identity_complete,
+            "required_paper_hashes": sorted(set(required)) if required_known else None,
+            "missing_required_paper_hashes": missing}
+
+
 def target_match(target, row):
     if target.get("review_status") != "source_verified":
         return False
@@ -115,6 +162,7 @@ def evaluate(manifest, capture):
     validate_manifest(manifest)
     if capture.get("manifest_sha256") != digest(manifest):
         raise ValueError("capture was made with a different manifest; freeze/review labels before capture")
+    population = check_population(capture.get("identity"), required_papers(manifest))
     queries = {q["id"]: q for q in manifest["queries"]}
     reports, grouped = [], defaultdict(list)
     seen = set()
@@ -162,10 +210,12 @@ def evaluate(manifest, capture):
                if (qid, "unassisted", variant) not in seen]
     errors = [{"query_id": r["query_id"], "variant": r["variant"]} for r in reports
               if r["mode"] == "unassisted" and r["execution_error"]]
-    return {"manifest_sha256": digest(manifest), "run_identity": capture["identity"],
+    return {"manifest_sha256": digest(manifest), "run_identity": capture.get("identity", {}),
+            "population_check": population,
             "missing_unassisted_runs": missing,
             "failed_unassisted_runs": errors,
-            "status": "blocked" if missing or errors or any(g["status"] == "blocked" for g in gates)
+            "status": "blocked" if (population["status"] == "blocked" or missing or errors
+                                    or any(g["status"] == "blocked" for g in gates))
             else "fail" if any(g["status"] == "fail" for g in gates) else "pass",
             "gates": gates, "queries": reports,
             "interpretation": "Selected workflow benchmark; hit rates are not a deployment-wide failure rate. "
@@ -185,11 +235,26 @@ def compare_reports(reference, candidate):
                         "delta": delta})
     independent = [c for c in changes if c["group"] == "independent"]
     controls = [c for c in changes if c["group"] in {"prose_control", "historical_control"}]
-    complete = reference["status"] != "blocked" and candidate["status"] != "blocked"
+    checks = {}
+    for name, report in (("reference", reference), ("candidate", candidate)):
+        evidence = report.get("population_check")
+        required = evidence.get("required_paper_hashes") if isinstance(evidence, dict) else None
+        checks[name] = check_population(report.get("run_identity"), required)
+    blockers = [f"{name}_population_incomplete" for name, check in checks.items() if check["status"] != "pass"]
+    if all(check["identity_complete"] for check in checks.values()):
+        if any(reference["run_identity"][key] != candidate["run_identity"][key]
+               for key in ("paper_hashes_sha256", "paper_count")):
+            blockers.append("different_paper_populations")
+    if checks["reference"]["required_paper_hashes"] != checks["candidate"]["required_paper_hashes"]:
+        blockers.append("different_required_paper_evidence")
+    complete = (not blockers and reference["status"] in {"pass", "fail"}
+                and candidate["status"] in {"pass", "fail"})
     improved = (complete and bool(independent) and all(c["delta"] is not None and c["delta"] >= 0 for c in independent + controls)
                 and any(c["delta"] > 0 for c in independent) and candidate["status"] == "pass")
     return {"manifest_sha256": candidate["manifest_sha256"],
-            "reference_identity": reference["run_identity"], "candidate_identity": candidate["run_identity"],
+            "reference_identity": reference.get("run_identity", {}), "candidate_identity": candidate.get("run_identity", {}),
+            "population_comparison": {"status": "blocked" if blockers else "pass",
+                                      "reasons": blockers, **checks},
             "candidate_release_gates": candidate["status"], "independent_improvement_demonstrated": improved,
             "status": "blocked" if not complete else "pass" if improved else "fail", "changes": changes}
 
@@ -238,11 +303,12 @@ def capture_local(manifest, output_dir, label, role):
                              "call": call, "rows": enrich_rows(rows, output_dir, cache)})
     finally:
         app.set_index(previous)
+    papers = sorted(index.papers)
     return {"manifest_sha256": digest(manifest), "identity": {
         "label": label, "role": role, "output_dir": str(output_dir.resolve()),
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "bundle_manifest": index.bundle_manifest, "embedding_identity": index._embedding_identity,
-        "paper_hashes_sha256": digest(sorted(index.papers)), "paper_count": len(index.papers),
+        "paper_hashes_sha256": digest(papers), "paper_count": len(papers), "paper_hashes": papers,
         "historical_audit_equivalence": "not_asserted; compare the recorded bundle identity explicitly",
     }, "runs": runs}
 

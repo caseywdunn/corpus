@@ -113,7 +113,7 @@ Capture runs the original call with its exact arguments and separate calls at
 restrictions remain intact. The local route uses the bundle's query embedder
 and the same MCP retrieval function, and may load its model. Use the normal
 offline model cache for controlled runs. Retain raw results, bundle manifest,
-embedding identity, paper-population digest and run label. Query failures are
+embedding identity, sorted paper inventory, population digest/count and run label. Query failures are
 recorded as operational errors and block acceptance.
 
 Record the reference and candidate retrieval populations independently of the
@@ -124,6 +124,16 @@ papers must be present in both intended retrieval populations. A gold-only
 capture can diagnose local behavior, but its hit rates do not establish
 deployment retrieval quality or satisfy full-corpus release acceptance: removing
 competing documents changes the task, even with identical query strings.
+
+The scorer validates the inventory against its recorded digest/count and requires
+every manifest target paper (including negative or pending labels) and explicit
+query paper filter to be present. Missing inventory evidence or required papers
+blocks acceptance while retaining per-query metrics. Older digest-only captures
+do not prove target membership; their scores remain diagnostic. Do not infer
+membership from returned hits or silently add missing identities to old captures.
+Comparison rechecks this evidence and requires equal population digests and
+counts. A membership change needs a separately identified experiment; it cannot
+pass the same-population improvement comparison, even if both hit-rate scores pass.
 
 Do not identify a retained older output as the audited deployment. In the
 worked example, `output1.2.1` is a separate reference; the issue audited

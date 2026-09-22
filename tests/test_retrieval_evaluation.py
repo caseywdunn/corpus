@@ -26,8 +26,10 @@ def manifest():
             "acceptance": {"groups": {"independent": {"hit5": 1, "hit10": 1}}}}
 
 
-def capture(m, rows):
-    return {"manifest_sha256": digest(m), "identity": {"label": "synthetic test; no ranking claim"},
+def capture(m, rows, papers=("abc", "competitor")):
+    papers = sorted(papers)
+    return {"manifest_sha256": digest(m), "identity": {"label": "synthetic test; no ranking claim",
+            "paper_hashes": papers, "paper_hashes_sha256": digest(papers), "paper_count": len(papers)},
             "runs": [{"query_id": "q", "mode": "unassisted", "variant": variant,
                       "call": call, "rows": rows} for variant, call in expected_calls(m["queries"][0]).items()]}
 
@@ -155,6 +157,104 @@ def test_candidate_gates_and_independent_improvement_are_separate():
         compare_reports(passing, changed)
 
 
+@pytest.mark.parametrize("candidate_papers", [("abc", "different-competitor"), ("abc",)])
+def test_equal_counts_different_membership_and_reduced_competition_block_improvement(candidate_papers):
+    m = manifest()
+    reference = evaluate(m, capture(m, []))
+    candidate = evaluate(m, capture(m, [hit()], papers=candidate_papers))
+    assert reference["status"] == "fail" and candidate["status"] == "pass"
+    result = compare_reports(reference, candidate)
+    assert result["status"] == "blocked"
+    assert not result["independent_improvement_demonstrated"]
+    assert result["population_comparison"]["reasons"] == ["different_paper_populations"]
+    assert all(change["delta"] == 1 for change in result["changes"])
+
+
+@pytest.mark.parametrize("field", ["paper_hashes", "paper_count", "paper_hashes_sha256"])
+def test_missing_population_identity_keeps_diagnostics_but_blocks_acceptance(field):
+    m = manifest()
+    c = capture(m, [hit()])
+    del c["identity"][field]
+    report = evaluate(m, c)
+    assert report["status"] == "blocked"
+    assert report["population_check"]["status"] == "blocked"
+    assert all(q["hit"] for q in report["queries"])
+    assert all(g["status"] == "pass" for g in report["gates"])
+    comparison = compare_reports(evaluate(m, capture(m, [])), report)
+    assert comparison["status"] == "blocked" and not comparison["independent_improvement_demonstrated"]
+
+
+@pytest.mark.parametrize("identity", [None, {}, {"paper_hashes": [], "paper_count": 0,
+                                                "paper_hashes_sha256": digest([])}])
+def test_unknown_and_empty_populations_cannot_establish_acceptance(identity):
+    m = manifest()
+    c = capture(m, [hit()])
+    c["identity"] = identity
+    result = evaluate(m, c)
+    assert result["status"] == "blocked" and result["queries"][0]["hit"]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("paper_count", True), ("paper_count", 3), ("paper_hashes_sha256", "incorrect"),
+    ("paper_hashes", ["abc", "abc"]), ("paper_hashes", ["abc", None]),
+])
+def test_inconsistent_inventory_evidence_is_blocked(field, value):
+    m = manifest()
+    c = capture(m, [hit()])
+    c["identity"][field] = value
+    assert evaluate(m, c)["status"] == "blocked"
+
+
+@pytest.mark.parametrize("kind", ["positive", "negative", "pending", "paper_filter"])
+def test_all_required_source_and_query_filter_papers_must_be_present(kind):
+    m = manifest()
+    if kind == "paper_filter":
+        m["queries"][0]["call"]["paper_hash"] = "absent"
+    else:
+        t = dict(target(paper="absent"), id="additional-source")
+        if kind == "negative":
+            t["grade"] = 0
+        if kind == "pending":
+            t["review_status"] = "pending"
+        m["queries"][0]["targets"].append(t)
+    report = evaluate(m, capture(m, [hit()]))
+    assert all(g["status"] == "pass" for g in report["gates"])
+    assert report["status"] == "blocked"
+    assert report["population_check"]["required_paper_hashes"] == ["abc", "absent"]
+    assert report["population_check"]["missing_required_paper_hashes"] == ["absent"]
+    assert "required_papers_absent" in report["population_check"]["reasons"]
+
+
+def test_comparison_rechecks_inventory_and_does_not_trust_legacy_pass_status():
+    m = manifest()
+    reference = evaluate(m, capture(m, []))
+    candidate = evaluate(m, capture(m, [hit()]))
+    assert compare_reports(reference, candidate)["status"] == "pass"
+    candidate["run_identity"].pop("paper_hashes")
+    result = compare_reports(reference, candidate)
+    assert candidate["status"] == "pass"  # Stored legacy status cannot override the check.
+    assert result["status"] == "blocked" and not result["independent_improvement_demonstrated"]
+    assert not result["population_comparison"]["candidate"]["identity_complete"]
+    candidate = evaluate(m, capture(m, [hit()]))
+    candidate.pop("population_check")
+    result = compare_reports(reference, candidate)
+    assert "missing_required_paper_evidence" in result["population_comparison"]["candidate"]["reasons"]
+    assert result["status"] == "blocked"
+
+
+def test_comparison_rechecks_required_paper_presence_and_matching_requirements():
+    m = manifest()
+    reference = evaluate(m, capture(m, []))
+    candidate = evaluate(m, capture(m, [hit()]))
+    for report in (reference, candidate):
+        report["population_check"]["required_paper_hashes"].append("missing-source")
+    result = compare_reports(reference, candidate)
+    assert result["status"] == "blocked"
+    assert result["population_comparison"]["candidate"]["missing_required_paper_hashes"] == ["missing-source"]
+    candidate["population_check"]["required_paper_hashes"] = ["abc"]
+    assert "different_required_paper_evidence" in compare_reports(reference, candidate)["population_comparison"]["reasons"]
+
+
 def test_independent_source_sampling_is_reproducible_deduplicated_and_ungraded(tmp_path):
     m = manifest()
     m["queries"][0]["group"] = "audit"
@@ -265,6 +365,10 @@ def test_local_capture_uses_exact_tool_calls_and_records_identity(tmp_path, monk
     result = capture_local(m, tmp_path, "older-reference", "reference")
     assert calls == list(expected_calls(m["queries"][0]).values())
     assert result["identity"]["bundle_manifest"]["bundle_version"] == "1.2.1"
+    assert result["identity"]["paper_hashes"] == ["abc"]
+    assert result["identity"]["paper_count"] == 1
+    assert result["identity"]["paper_hashes_sha256"] == digest(["abc"])
+    assert evaluate(m, result)["population_check"]["status"] == "pass"
     assert result["identity"]["historical_audit_equivalence"].startswith("not_asserted")
     assert result["manifest_sha256"] == digest(m)
     assert app._INDEX is original_index
