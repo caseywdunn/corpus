@@ -1,0 +1,21 @@
+{
+  "reviewer": "Codex team agent /root/fix_figures",
+  "scope": "Independent agent arithmetic/current-row22 boundary check; source crops were reviewed previously, no new model/extraction/source rendering. Does not independently regrade every expression.",
+  "reviewed_files": {
+    "results.json": "f99a3d716efdd1135f5c0c6cb1a743b66d90b2e48fe849d617de7104f35c2c0a",
+    "graded-summary.json": "0622d70805600aa85a2c69c974dc7fb0014d53674e0a9429c84b0e91a2ad25f5",
+    "selected-current-operations.json": "cedc8952a66a608301dff66efc636c4cb218026a3279021c641cb96d4ef1f77d"
+  },
+  "conclusion": "No blocker found.24 selected=23 source-verified+1 unscorable;23=19 consumed+4 exclusions. Docling16 faithful+1 corrupted=17 emitted;2 omissions remain in recall19. Markdown/chunks14 faithful+1 corrupted+1 indeterminate=16 emitted;3 omissions remain in recall19. Thus16/17 and16/19;14/15 adjudicated,14–15/16 emitted,14–15/19 consumed-page recall are arithmetically consistent.",
+  "row22": {
+    "item_ref": "#/texts/121",
+    "text": "750-500 m.",
+    "parent": {
+      "$ref": "#/pictures/3"
+    },
+    "markdown_matching_regions": 0,
+    "chunk_matching_regions": 0,
+    "classification": "Docling faithful; markdown/chunks omitted. Source-region table cell is not replaced by unrelated matching text."
+  },
+  "atomic_operations": "Previously reviewed2/2 signed exponent operations+1/1 CMap raised-digit formatting; heterogeneous strata and selected-only scope retained. Whole CMap paragraphs excluded."
+}

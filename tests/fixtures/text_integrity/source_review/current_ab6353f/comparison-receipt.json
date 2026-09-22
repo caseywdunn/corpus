@@ -1,0 +1,339 @@
+{
+  "packaged_utc": "2026-09-22T17:12:27.401397+00:00",
+  "issue": 303,
+  "source_label_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+  "frozen_labels_unchanged": true,
+  "candidate_capture": "/tmp/corpus-v15-notation-current-final",
+  "current_completed_state_count": 35,
+  "sampled_document_count": 14,
+  "code_revision": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+  "scratch_artifacts": {
+    "region-candidates.json": {
+      "path": "/tmp/corpus-v15-notation-current-final/region-candidates.json",
+      "sha256": "9f2d1dfdd0a7489210f0296f1f944931041158f37b0eb8338b97ac164f28d87d"
+    },
+    "initial-state-receipt.json": {
+      "path": "/tmp/corpus-v15-notation-current-final/initial-state-receipt.json",
+      "sha256": "99d6f0079dfee6808bee54cee3be4ff9e30c92ed9e601f8f832cff292e7b66c4"
+    },
+    "summary.json": {
+      "path": "/tmp/corpus-v15-notation-current-final/summary.json",
+      "sha256": "224fd109032cf4141a6f7b447da55add54e5d452873d845134d75803a35acb31"
+    }
+  },
+  "scripts": {
+    "replay.py": {
+      "original_path": "/tmp/corpus-v15-notation-current-replay/replay.py",
+      "sha256": "a065b9bae8fc2b880e89b50af386e0a3a491339d42bbbe481d2089b42b102b37"
+    },
+    "align.py": {
+      "original_path": "/tmp/corpus-v15-notation-current-replay/align.py",
+      "sha256": "8a34eb9d0a391b942b4122c99d99a77d08b5ef4551bcc618f0a165ed5eb206c7"
+    },
+    "summarize_final.py": {
+      "original_path": "/tmp/corpus-v15-notation-current-replay/summarize_final.py",
+      "sha256": "3ce18a5286ca4650168157908e67d9f41c7f4ae34ceb6f271f2aba57848a8303"
+    },
+    "package_final.py": {
+      "original_path": "/tmp/corpus-v15-notation-current-replay/package_final.py",
+      "sha256": "50ae91457a71db6e56a07084c9e0825628f311ae155ab44a9692e57605cd4954"
+    }
+  },
+  "stage_completion": [
+    {
+      "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "stem": "Mańko_et al2020",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T16:25:11Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T16:25:13Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T16:25:14Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+      "stem": "Chenetal2015",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T15:59:48Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T15:59:49Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T15:59:49Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "stem": "Totton1965a",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T17:02:06Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T17:02:29Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T17:02:33Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "stem": "Vanhoeffen1906",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T17:07:54Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T17:07:57Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T17:07:58Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+      "stem": "Carre1968_Hippopodius_tr",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T15:56:18Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T15:56:20Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T15:56:20Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "stem": "Totton1965b",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T17:03:10Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T17:03:11Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T17:03:11Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+      "stem": "Gasca_Suarez1993tr",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T16:09:23Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T16:09:24Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T16:09:24Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+      "stem": "Stepanjants2014",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T16:28:48Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T16:28:51Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T16:28:51Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+      "stem": "Stepanjants_Dianov1997",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T16:29:41Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T16:29:43Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T16:29:43Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+      "stem": "Beklemishev1969",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T15:50:08Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T15:50:12Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T15:50:12Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+      "stem": "Carre1969_Nanomia_tr",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T15:59:22Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T15:59:24Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T15:59:24Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+      "stem": "Quoy_Gaimard1834Plates",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T16:26:52Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T16:26:53Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T16:26:53Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+      "stem": "DeHaan1827",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T16:05:15Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T16:05:17Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T16:05:17Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    },
+    {
+      "source_sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+      "stem": "Yamamori2014",
+      "current_completed": true,
+      "stages": {
+        "docling_extraction": {
+          "completed_at": "2026-09-22T17:09:15Z",
+          "config_sha256": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9"
+        },
+        "text_chunking": {
+          "completed_at": "2026-09-22T17:09:16Z",
+          "config_sha256": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96"
+        },
+        "quality_gates": {
+          "completed_at": "2026-09-22T17:09:16Z",
+          "config_sha256": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+        }
+      }
+    }
+  ],
+  "checks": [
+    "All35 source PDFs have completed current-producer extraction, chunking and quality gates before final capture.",
+    "All14 sampled documents captured with stable state before/after file reads.",
+    "24 source rows; no pending or unreviewed regions.",
+    "Source judgments pinned to current artifact keys; unchanged surfaces match earlier source-reviewed evidence exactly.",
+    "Three current selected atomic operations read directly from current reports, not inherited historical counts.",
+    "No live gold, frozen label/crop, library or config mutation by comparison."
+  ],
+  "embedding_and_serving_scope": "No inference from CPUchunks; separate actual-vector/live-tool verifier owns those results.",
+  "independent_reviews": {
+    "independent-selected-operations.json": "b0818c71e3e9724150fd9c1e89facd262d7e6d4a163b3791d275c7d8ab98c4e6",
+    "independent-final-denominator.json": "ca9b5042ccc0ce39705f14ad2d4e3660056e6a9682eb9be1d1536a946f0703aa"
+  },
+  "validation": {
+    "json_documents_parsed": 14,
+    "python_scripts_parsed": 3,
+    "graded_rows": 24,
+    "surface_counts_recomputed": 3,
+    "captured_file_hashes_verified": 112,
+    "source_label_sha256_unchanged": true,
+    "producer_guard_controls": [
+      "current_completed_accepts",
+      "missing_chunk_completion_rejects",
+      "changed_producer_rejects",
+      "complete_6fb_baseline_rejects"
+    ],
+    "full_product_tests_rerun": false,
+    "reason": "Receipt/docs-only change; no product code changed and no model/OCR run."
+  }
+}
