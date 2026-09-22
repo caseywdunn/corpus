@@ -1,0 +1,794 @@
+{
+  "population": {
+    "documents": 35,
+    "gold_pages_total": 761,
+    "gold_pages_scored": 675,
+    "excluded_by_configured_keeppages": 86,
+    "documents_with_keeppages": 20,
+    "same_document_and_page_keys": true,
+    "unmatched_documents": []
+  },
+  "fidelity": {
+    "baseline": {
+      "pages": 675,
+      "scored": 675,
+      "median_coverage": 0.9008,
+      "median_prose_coverage": 0.9448,
+      "mean_taxon_coverage": 0.8902,
+      "p10_taxon_coverage": 0.6667,
+      "taxon_scored_pages": 229,
+      "taxon_trails_prose": 16,
+      "median_figure_coverage": 0.7507,
+      "prose_pages": 647,
+      "figure_pages": 336,
+      "median_recall": 0.9329,
+      "median_similarity": 0.874,
+      "pages_below_0.5_coverage": 87,
+      "status_counts": {
+        "extraction_empty": 48,
+        "ok": 626,
+        "script_missing": 1
+      },
+      "gold_words": 267870,
+      "taxon_tokens": 6529,
+      "extracted_words": 264976,
+      "uncertain": 333,
+      "illegible": 189,
+      "unterminated_brackets": 2
+    },
+    "current": {
+      "pages": 675,
+      "scored": 675,
+      "median_coverage": 0.9015,
+      "median_prose_coverage": 0.9482,
+      "mean_taxon_coverage": 0.9035,
+      "p10_taxon_coverage": 0.7436,
+      "taxon_scored_pages": 229,
+      "taxon_trails_prose": 13,
+      "median_figure_coverage": 0.7507,
+      "prose_pages": 647,
+      "figure_pages": 336,
+      "median_recall": 0.9376,
+      "median_similarity": 0.8758,
+      "pages_below_0.5_coverage": 86,
+      "status_counts": {
+        "extraction_empty": 48,
+        "ok": 626,
+        "script_missing": 1
+      },
+      "gold_words": 267870,
+      "taxon_tokens": 6529,
+      "extracted_words": 264655,
+      "uncertain": 333,
+      "illegible": 189,
+      "unterminated_brackets": 2
+    },
+    "changed_document_aggregates": {
+      "Chenetal2015": {
+        "baseline": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.6673,
+          "median_prose_coverage": 0.8118,
+          "mean_taxon_coverage": 0.0,
+          "p10_taxon_coverage": 0.0,
+          "taxon_scored_pages": 4,
+          "taxon_trails_prose": 4,
+          "median_figure_coverage": 0.2748,
+          "prose_pages": 12,
+          "figure_pages": 7,
+          "median_recall": 0.7992,
+          "median_similarity": 0.7159,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "ok": 12
+          },
+          "gold_words": 10241,
+          "taxon_tokens": 137,
+          "extracted_words": 9289,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 2015,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "needs_ocr": false,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "cjk": 5,
+            "latin": 7
+          },
+          "docling_pages_seen": 12
+        },
+        "current": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.8135,
+          "median_prose_coverage": 0.9637,
+          "mean_taxon_coverage": 0.7625,
+          "p10_taxon_coverage": 0.05,
+          "taxon_scored_pages": 4,
+          "taxon_trails_prose": 1,
+          "median_figure_coverage": 0.4297,
+          "prose_pages": 12,
+          "figure_pages": 7,
+          "median_recall": 0.9763,
+          "median_similarity": 0.8679,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 12
+          },
+          "gold_words": 10241,
+          "taxon_tokens": 137,
+          "extracted_words": 8967,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 2015,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "needs_ocr": false,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "cjk": 5,
+            "latin": 7
+          },
+          "docling_pages_seen": 12
+        }
+      },
+      "Tilesius1814": {
+        "baseline": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.8377,
+          "median_prose_coverage": 0.8397,
+          "mean_taxon_coverage": 0.9167,
+          "p10_taxon_coverage": 0.9167,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.0,
+          "prose_pages": 11,
+          "figure_pages": 1,
+          "median_recall": 0.8116,
+          "median_similarity": 0.7934,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "extraction_empty": 1,
+            "ok": 11
+          },
+          "gold_words": 2507,
+          "taxon_tokens": 51,
+          "extracted_words": 2557,
+          "uncertain": 1,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1814,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "swe",
+            "lat",
+            "eng"
+          ],
+          "detected_language": "ca",
+          "scripts": {
+            "latin": 12
+          },
+          "docling_pages_seen": 12,
+          "keeppages": "2--13",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 12
+        },
+        "current": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.8421,
+          "median_prose_coverage": 0.8446,
+          "mean_taxon_coverage": 0.9167,
+          "p10_taxon_coverage": 0.9167,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.0,
+          "prose_pages": 11,
+          "figure_pages": 1,
+          "median_recall": 0.8173,
+          "median_similarity": 0.7974,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "extraction_empty": 1,
+            "ok": 11
+          },
+          "gold_words": 2507,
+          "taxon_tokens": 51,
+          "extracted_words": 2558,
+          "uncertain": 1,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1814,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "swe",
+            "lat",
+            "eng"
+          ],
+          "detected_language": "ca",
+          "scripts": {
+            "latin": 12
+          },
+          "docling_pages_seen": 12,
+          "keeppages": "2--13",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 12
+        }
+      }
+    },
+    "changed_page_metrics": [
+      {
+        "document": "Chenetal2015",
+        "page": 1,
+        "changes": {
+          "coverage": {
+            "before": 0.6509,
+            "current": 0.973,
+            "delta": 0.3221
+          },
+          "prose_coverage": {
+            "before": 0.6509,
+            "current": 0.973,
+            "delta": 0.3221
+          },
+          "recall": {
+            "before": 0.6076,
+            "current": 0.9854,
+            "delta": 0.3778
+          },
+          "similarity": {
+            "before": 0.5996,
+            "current": 0.9694,
+            "delta": 0.3698
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 2,
+        "changes": {
+          "coverage": {
+            "before": 0.6744,
+            "current": 0.9769,
+            "delta": 0.3025
+          },
+          "prose_coverage": {
+            "before": 0.6744,
+            "current": 0.9769,
+            "delta": 0.3025
+          },
+          "taxon_coverage": {
+            "before": 0.0,
+            "current": 1.0,
+            "delta": 1.0
+          },
+          "recall": {
+            "before": 0.5969,
+            "current": 0.9691,
+            "delta": 0.3722
+          },
+          "similarity": {
+            "before": 0.614,
+            "current": 0.9712,
+            "delta": 0.3572
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 3,
+        "changes": {
+          "coverage": {
+            "before": 0.7477,
+            "current": 0.8296,
+            "delta": 0.0819
+          },
+          "prose_coverage": {
+            "before": 0.8924,
+            "current": 0.9696,
+            "delta": 0.0772
+          },
+          "figure_coverage": {
+            "before": 0.4064,
+            "current": 0.5388,
+            "delta": 0.1324
+          },
+          "recall": {
+            "before": 0.8883,
+            "current": 0.9856,
+            "delta": 0.0973
+          },
+          "similarity": {
+            "before": 0.7674,
+            "current": 0.8686,
+            "delta": 0.1012
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 4,
+        "changes": {
+          "coverage": {
+            "before": 0.7148,
+            "current": 0.7695,
+            "delta": 0.0547
+          },
+          "prose_coverage": {
+            "before": 0.8935,
+            "current": 0.9467,
+            "delta": 0.0532
+          },
+          "figure_coverage": {
+            "before": 0.2525,
+            "current": 0.3564,
+            "delta": 0.1039
+          },
+          "recall": {
+            "before": 0.8899,
+            "current": 0.9566,
+            "delta": 0.0667
+          },
+          "similarity": {
+            "before": 0.7695,
+            "current": 0.8503,
+            "delta": 0.0808
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 5,
+        "changes": {
+          "coverage": {
+            "before": 0.58,
+            "current": 0.6786,
+            "delta": 0.0986
+          },
+          "prose_coverage": {
+            "before": 0.8078,
+            "current": 0.9085,
+            "delta": 0.1007
+          },
+          "figure_coverage": {
+            "before": 0.2928,
+            "current": 0.4297,
+            "delta": 0.1369
+          },
+          "recall": {
+            "before": 0.804,
+            "current": 0.9277,
+            "delta": 0.1237
+          },
+          "similarity": {
+            "before": 0.5959,
+            "current": 0.7195,
+            "delta": 0.1236
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 6,
+        "changes": {
+          "coverage": {
+            "before": 0.1769,
+            "current": 0.231,
+            "delta": 0.0541
+          },
+          "prose_coverage": {
+            "before": 0.5116,
+            "current": 0.6047,
+            "delta": 0.0931
+          },
+          "figure_coverage": {
+            "before": 0.1374,
+            "current": 0.1868,
+            "delta": 0.0494
+          },
+          "recall": {
+            "before": 0.6729,
+            "current": 0.9691,
+            "delta": 0.2962
+          },
+          "similarity": {
+            "before": 0.2568,
+            "current": 0.3571,
+            "delta": 0.1003
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 7,
+        "changes": {
+          "coverage": {
+            "before": 0.3237,
+            "current": 0.5867,
+            "delta": 0.263
+          },
+          "prose_coverage": {
+            "before": 0.3,
+            "current": 0.8842,
+            "delta": 0.5842
+          },
+          "figure_coverage": {
+            "before": 0.3014,
+            "current": 0.5674,
+            "delta": 0.266
+          },
+          "taxon_coverage": {
+            "before": 0.0,
+            "current": 1.0,
+            "delta": 1.0
+          },
+          "recall": {
+            "before": 0.4029,
+            "current": 0.976,
+            "delta": 0.5731
+          },
+          "similarity": {
+            "before": 0.2532,
+            "current": 0.5884,
+            "delta": 0.3352
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 8,
+        "changes": {
+          "coverage": {
+            "before": 0.66,
+            "current": 0.7975,
+            "delta": 0.1375
+          },
+          "prose_coverage": {
+            "before": 0.8068,
+            "current": 0.9577,
+            "delta": 0.1509
+          },
+          "figure_coverage": {
+            "before": 0.2748,
+            "current": 0.5811,
+            "delta": 0.3063
+          },
+          "taxon_coverage": {
+            "before": 0.0,
+            "current": 1.0,
+            "delta": 1.0
+          },
+          "recall": {
+            "before": 0.7722,
+            "current": 0.9923,
+            "delta": 0.2201
+          },
+          "similarity": {
+            "before": 0.7,
+            "current": 0.8672,
+            "delta": 0.1672
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 9,
+        "changes": {
+          "coverage": {
+            "before": 0.6603,
+            "current": 0.7411,
+            "delta": 0.0808
+          },
+          "prose_coverage": {
+            "before": 0.866,
+            "current": 0.9534,
+            "delta": 0.0874
+          },
+          "figure_coverage": {
+            "before": 0.186,
+            "current": 0.3256,
+            "delta": 0.1396
+          },
+          "taxon_coverage": {
+            "before": 0.0,
+            "current": 0.05,
+            "delta": 0.05
+          },
+          "recall": {
+            "before": 0.8959,
+            "current": 0.9765,
+            "delta": 0.0806
+          },
+          "similarity": {
+            "before": 0.7319,
+            "current": 0.838,
+            "delta": 0.1061
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 10,
+        "changes": {
+          "coverage": {
+            "before": 0.9476,
+            "current": 0.9844,
+            "delta": 0.0368
+          },
+          "prose_coverage": {
+            "before": 0.9476,
+            "current": 0.9844,
+            "delta": 0.0368
+          },
+          "recall": {
+            "before": 0.9653,
+            "current": 0.9886,
+            "delta": 0.0233
+          },
+          "similarity": {
+            "before": 0.9492,
+            "current": 0.9858,
+            "delta": 0.0366
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 11,
+        "changes": {
+          "coverage": {
+            "before": 0.8159,
+            "current": 0.9865,
+            "delta": 0.1706
+          },
+          "prose_coverage": {
+            "before": 0.8159,
+            "current": 0.9865,
+            "delta": 0.1706
+          },
+          "recall": {
+            "before": 0.7944,
+            "current": 0.9772,
+            "delta": 0.1828
+          },
+          "similarity": {
+            "before": 0.7862,
+            "current": 0.981,
+            "delta": 0.1948
+          }
+        }
+      },
+      {
+        "document": "Chenetal2015",
+        "page": 12,
+        "changes": {
+          "coverage": {
+            "before": 0.856,
+            "current": 0.9706,
+            "delta": 0.1146
+          },
+          "prose_coverage": {
+            "before": 0.856,
+            "current": 0.9706,
+            "delta": 0.1146
+          },
+          "recall": {
+            "before": 0.8456,
+            "current": 0.9691,
+            "delta": 0.1235
+          },
+          "similarity": {
+            "before": 0.8477,
+            "current": 0.9698,
+            "delta": 0.1221
+          }
+        }
+      },
+      {
+        "document": "Stepanjants2014",
+        "page": 8,
+        "changes": {
+          "coverage": {
+            "before": 0.8887,
+            "current": 0.8907,
+            "delta": 0.002
+          },
+          "prose_coverage": {
+            "before": 0.95,
+            "current": 0.9528,
+            "delta": 0.0028
+          },
+          "recall": {
+            "before": 0.9349,
+            "current": 0.9371,
+            "delta": 0.0022
+          },
+          "similarity": {
+            "before": 0.9091,
+            "current": 0.9112,
+            "delta": 0.0021
+          }
+        }
+      },
+      {
+        "document": "Tilesius1814",
+        "page": 10,
+        "changes": {
+          "coverage": {
+            "before": 0.8358,
+            "current": 0.8458,
+            "delta": 0.01
+          },
+          "prose_coverage": {
+            "before": 0.8358,
+            "current": 0.8458,
+            "delta": 0.01
+          },
+          "recall": {
+            "before": 0.8116,
+            "current": 0.8173,
+            "delta": 0.0057
+          },
+          "similarity": {
+            "before": 0.8039,
+            "current": 0.8117,
+            "delta": 0.0078
+          }
+        }
+      }
+    ],
+    "regressions_in_reported_page_metrics": [],
+    "unchanged_page_metric_count": 661
+  },
+  "figure_detection": {
+    "reports_identical": true,
+    "filters": {
+      "all entries": {
+        "gold": 376,
+        "found": 383,
+        "matched": 331,
+        "missed": 45,
+        "surplus": 52,
+        "pages": 675,
+        "pages_exact": 609,
+        "recall": 0.8803,
+        "precision": 0.8642,
+        "f1": 0.8722
+      },
+      "drop graphical_element": {
+        "gold": 376,
+        "found": 330,
+        "matched": 325,
+        "missed": 51,
+        "surplus": 5,
+        "pages": 675,
+        "pages_exact": 640,
+        "recall": 0.8644,
+        "precision": 0.9848,
+        "f1": 0.9207
+      },
+      "drop uncaptioned graphical_element": {
+        "gold": 376,
+        "found": 334,
+        "matched": 325,
+        "missed": 51,
+        "surplus": 9,
+        "pages": 675,
+        "pages_exact": 636,
+        "recall": 0.8644,
+        "precision": 0.9731,
+        "f1": 0.9155
+      },
+      "served MCP types": {
+        "gold": 376,
+        "found": 310,
+        "matched": 310,
+        "missed": 66,
+        "surplus": 0,
+        "pages": 675,
+        "pages_exact": 630,
+        "recall": 0.8245,
+        "precision": 1.0,
+        "f1": 0.9038
+      },
+      "captioned only": {
+        "gold": 376,
+        "found": 314,
+        "matched": 310,
+        "missed": 66,
+        "surplus": 4,
+        "pages": 675,
+        "pages_exact": 626,
+        "recall": 0.8245,
+        "precision": 0.9873,
+        "f1": 0.8986
+      }
+    },
+    "gold_block_kinds": {
+      "FIGURE": 316,
+      "PLATE": 60
+    }
+  },
+  "caption_binding": {
+    "totals_identical": true,
+    "totals": {
+      "gold_numbers": 839,
+      "found_numbers": 492,
+      "matched_numbers": 483,
+      "reported_pair_capacity": 490,
+      "captions_compared": 89,
+      "gold_panel_figures": 98,
+      "reported_panel_figures": 84,
+      "exact_panel_figures": 66,
+      "gold_panel_labels": 332,
+      "reported_panel_labels": 300,
+      "matched_panel_labels": 285,
+      "gold_unpanelled_figures": 202,
+      "number_matched_unpanelled_figures": 171,
+      "unexpected_panel_figures": 0,
+      "number_recall": 0.5757,
+      "number_precision": 0.9817,
+      "reported_pair_capacity_rate": 0.584,
+      "f1": 0.7258,
+      "panel_figure_recall": 0.8571,
+      "panel_figure_precision": 1.0,
+      "panel_exact_rate": 0.6735,
+      "panel_label_recall": 0.8584,
+      "panel_label_precision": 0.95
+    },
+    "changed_details": [
+      [
+        "/documents/Chenetal2015/pages/9/reported_figures/0/caption_preview",
+        "图 23 北部湾北部⽔母类的主要种类 K 重要环境因⼦ /DDF 排序( 累计贡献率取 W$X )",
+        "图 10 北部湾北部⽔母类的主要种类 K 重要环境因⼦ DCCA 排序( 累计贡献率取 90% )"
+      ],
+      [
+        "/documents/Chenetal2015/pages/7/reported_figures/0/caption_preview",
+        "图 5 四叶⼩⾆⽔母丰度的四季平⾯分布( ⽰表层盐度) ( 个 Y H !",
+        "图 8 四叶⼩⾆⽔母丰度的四季平⾯分布( ⽰表层盐度) ( 个 / m 3"
+      ],
+      [
+        "/documents/Chenetal2015/pages/5/reported_figures/0/caption_preview",
+        "图 6 北部湾北部⽔母类丰度的四季平⾯分布( 个 Y H ! ) ( ⽰表层盐度) J,+& 6 O'-8).-* !)?,L).\"-* B,8\"?,:@\",).8 )A -:@.B-.(' )A U'**HA,8! ,. .)?\"!'?. S',:@ [@*A ( ?E=S5L> ?52CACF6",
+        "图 4 北部湾北部⽔母类丰度的四季平⾯分布( 个 / m 3 ) ( ⽰表层盐度) Fig． 4 Seasonal horizontal distributions of abundance of jellyfish in northern Beibu Gulf ( surface salinity"
+      ],
+      [
+        "/documents/Chenetal2015/pages/5/reported_figures/1/caption_preview",
+        "图 4 北部湾北部⽔母类主要优势种数量的四季变化 J,+& 4 O'-8).-* (!-.+'8 )A -:@.B-.(' )A B)C,.-.\" 8#'(,'8 )A U'**HA,8! ,. .)?\"!'?. S',:@ [@*A",
+        "图 5 北部湾北部⽔母类主要优势种数量的四季变化 Fig． 5 Seasonal changes of abundance of dominant species of jellyfish in northern Beibu Gulf"
+      ],
+      [
+        "/documents/Chenetal2015/pages/6/reported_figures/0/caption_preview",
+        "GFF@ : Y Y \\\\\\3 >L121DCL53 LA",
+        "http : / / www． ecologica． cn"
+      ]
+    ],
+    "scope": "Five Chen caption previews change; no scored identity or panel-label metric changes. These records remain unnumbered; p6 docling6 retains an inherited URL-as-caption association."
+  },
+  "limits": [
+    "Gold token coverage normalizes punctuation/case/diacritics and does not establish exact scientific notation fidelity or detect invented content.",
+    "Figure detection uses per-page counts, not source boxes; precision1.0 on the served-type count surface is not verified correctness of every crop.",
+    "Panel stage differs: prior CLI forced OCR panel handling, current vision-local is deliberately deferred. Identical panel scores are not fresh model acceptance.",
+    "Scoring uses saved build artifacts. Embedding/serving propagation is a separate receipt owned by root.",
+    "48 extraction-empty pages and1 script-missing page remain scored; no blanket acceptance or issue closure."
+  ]
+}
