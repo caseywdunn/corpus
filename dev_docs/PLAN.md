@@ -1,5 +1,8 @@
 # PLAN.md — v1.5 correctness; v1.6 skills
 
+For the September 24 session handoff, active build location, remaining issues,
+and cross-machine continuation instructions, see [V1_5_HANDOFF.md](V1_5_HANDOFF.md).
+
 ## Release decision and preserved work
 
 The September interface audit exposed errors in bibliographic identity,
