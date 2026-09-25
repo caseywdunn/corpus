@@ -5,6 +5,32 @@ a fresh build here, using SLURM for intensive work, and identified
 `../siphonophores` as the source library. This is a new candidate; the erenna
 run's state has not been established and its outputs have not been moved.
 
+## September 25 recovery after the first status check
+
+The `27479902` extraction chain was stopped after repeated runtime failures:
+PyMuPDF `1.24.1` lacks `Pixmap.pil_image`, used during PDF preparation and
+extraction. One batch also failed to start Grobid because its administrative
+port was occupied. The original wrapper selected ports in Linux's ephemeral
+range. The replacement uses the existing `slurm/bouchet_paths.sh` formula,
+`8100 + 2 * (job_id % 400)`, and checks both ports on all interfaces.
+
+All jobs in that chain were stopped before changing its wrapper. Its artifacts
+remain in `output-attempt2/`, and its scripts and ledger are preserved with
+`attempt2` names. A fresh `output/` contains the verified taxonomy copy. Frozen
+PDFs and supporting inputs are unchanged.
+
+Recovery job `27480182` installs **PyMuPDF 1.28.0**, matching erenna, into the
+candidate's isolated `runtime/` directory and tests the required raster API.
+It does not modify the shared conda environment. Two normal-pipeline source
+pilots, array `27480190` (indices 65 and 261, batch size 1), replay the observed
+extraction failure in AshaDevi_etal2010 and PDF-preparation failure in Hissmann2005.
+Their completion requires clean summaries and an extraction completion record.
+Launcher `27480191` submits the complete build chain only after both pass.
+These recovery jobs were queued at this update; inspect their logs before
+claiming recovery succeeded. `runtime-receipt.json` records the installed overlay;
+the original `preparation.json` remains evidence of the initial environment.
+The next `slurm-jobs.json` supersedes the cancelled job IDs below.
+
 ## Build identity and location
 
 - Source library: `/nfs/roberts/project/pi_cwd7/cwd7/siphonophores`, revision
