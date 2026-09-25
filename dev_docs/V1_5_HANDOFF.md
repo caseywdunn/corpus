@@ -1,5 +1,9 @@
 # v1.5 correctness release: session handoff
 
+For the separately authorized September 25 rebuild on Bouchet and newly
+available local acceptance assets, see [V1_5_BOUCHET_BUILD.md](V1_5_BOUCHET_BUILD.md).
+The dated erenna observations below remain historical.
+
 Recorded **2026-09-24, 09:22 EDT / 13:22 UTC**. This is a dated handoff,
 not a live build dashboard. Recheck the tracker and build before acting.
 The siphonophore paths below describe this validation run, not requirements
