@@ -437,28 +437,29 @@ def _build_orchestrator_argv(
         panel_mode = "ocr"
     else:
         panel_mode = cfg.figures.panel_detection
-    # Capability detection (#65) downgrades an unusable vision backend to
-    # the OCR floor with a one-line nudge rather than hard-failing Pass 3b
-    # deep into the run.
-    #
-    # Only for phases that consume --figure-panels, which is `extract` and
-    # `vision` (#263). `post`, `embed` and `bundle` never run the vision
-    # pass, so on those the check can neither help nor harm — and in the
-    # standard HPC chain finalize always runs `--only post` on a CPU node,
-    # so the warning fired on *every* build. That trains an operator to
-    # skim past the one case where the same sentence is serious: on an
-    # `--only extract` re-run, accepting the OCR floor silently reverts
-    # vision ROIs Pass 3b already produced.
+    # Probe only phases that consume the mode (#263). In a split extract
+    # phase, defer unavailable vision instead of paying for OCR panels that
+    # the later vision pass replaces (#341). Standalone runs keep the floor.
+    # The capability probe is backend-specific: cloud vision requires
+    # credentials, not a local accelerator.
     only_phase = getattr(args, "only", None)
     phase_uses_panels = only_phase in (None, "extract", "vision")
     if phase_uses_panels and panel_mode in ("vision-local", "vision-claude"):
         skip_reason = _vision_skip_reason(panel_mode)
         if skip_reason is not None:
-            print_status(
-                f"vision panel pass downgraded to the OCR floor: {skip_reason}",
-                status="warn",
-            )
-            panel_mode = "ocr"
+            if only_phase == "extract":
+                print_status(
+                    f"vision panel pass deferred for extract-only run: {skip_reason} "
+                    "Run `corpus run --only vision` when the backend is available.",
+                    status="warn",
+                )
+                panel_mode = "off"
+            else:
+                print_status(
+                    f"vision panel pass downgraded to the OCR floor: {skip_reason}",
+                    status="warn",
+                )
+                panel_mode = "ocr"
     sub_argv += ["--figure-panels", panel_mode]
     if panel_mode in ("vision-local", "vision-claude") and cfg.figures.model:
         sub_argv += ["--vision-model", cfg.figures.model]
@@ -1605,8 +1606,8 @@ def _vision_skip_reason(mode: str) -> Optional[str]:
 
     Gracefully avoids loading a multi-GB open-weights model on a CPU-only
     host or hitting the Anthropic API without credentials, both of which
-    hard-fail Pass 3b deep into the pipeline. The caller downgrades to
-    the OCR panel floor (``ocr``) when this returns a reason.
+    hard-fail Pass 3b deep into the pipeline. The caller defers unavailable
+    vision in extract-only runs and otherwise uses the OCR panel floor.
     """
     if mode == "vision-local":
         if _detect_accelerator() is None:

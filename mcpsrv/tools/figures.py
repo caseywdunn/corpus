@@ -27,10 +27,13 @@ rightsholder refused".
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
+import json
 from typing import Any, Dict, List, Optional, Union
 
 from mcp.server.mcpserver import Image
+from mcp.types import CallToolResult, TextContent
 from pipeline.figures import EVIDENCE_FIGURE_TYPES, caption_evidence_summary
 
 from ..app import _load_json, _need_index, _validated_limit, error, mcp
@@ -68,6 +71,11 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
                 "age-based public domain; this is an ABSENCE of evidence, "
                 "not a refusal by the rightsholder",
         }.get(state, "clearance could not be established")
+        if (lic.get("figure_rights") or {}).get("status") == "excluded_from_publication_license":
+            because = (
+                "the figure is explicitly excluded from the publication's license; "
+                "separate figure permission has not been established"
+            )
         return (
             f"figure withheld under profile {active.name!r} — "
             f"publication_clearance={state!r}: {because}. "
@@ -76,6 +84,15 @@ def _figure_licensing_refusal(active, lic: Dict) -> Optional[str]:
             "For in-chat display request profile='report'."
         )
     return None
+
+
+def _image_error(payload: Dict) -> CallToolResult:
+    """Keep image-tool transport errors structured as well as readable (#327)."""
+    return CallToolResult(
+        is_error=True,
+        structured_content=payload,
+        content=[TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))],
+    )
 
 
 # Restricted to the figure types that get returned by get_figures_for_*.
@@ -201,6 +218,57 @@ def _license_metadata_for_paper(paper_hash: str) -> Dict:
     }
 
 
+def _license_metadata_for_figure(paper_hash: str, figure: Dict) -> Dict:
+    """Resolve persisted figure exclusions before publication inheritance.
+
+    This is policy over build facts, never interpretation of caption text.
+    Legacy bundles retain their existing inheritance until rebuilt (#302).
+    """
+    lic = _license_metadata_for_paper(paper_hash)
+    rights = figure.get("figure_rights") or {}
+    if rights.get("status") == "excluded_from_publication_license":
+        lic.update({
+            "license": None,
+            "license_url": None,
+            "license_source": "figure_caption_exclusion",
+            "publishable": False,
+            # Exclusion from one license does not prove all reuse forbidden.
+            "publication_clearance": "undetermined",
+            "figure_rights": rights,
+        })
+    return lic
+
+
+def _caption_taxon_fields(idx, paper_hash: str, figure: Dict) -> Dict:
+    database = getattr(idx, "taxon_mention_db", None)
+    reader = getattr(database, "caption_evidence", None)
+    evidence = reader(paper_hash, figure.get("figure_id")) if reader else None
+    return {"caption_taxa": evidence or {
+        "availability": "legacy_unavailable", "matches": [], "unresolved": [],
+    }}
+
+
+def _caption_taxon_match(idx, paper_hash: str, figure: Dict, hit: Dict):
+    fields = _caption_taxon_fields(idx, paper_hash, figure)
+    evidence = fields["caption_taxa"]
+    if evidence["availability"] == "materialized":
+        return any(str(m["accepted_taxon_id"]) == str(hit["accepted_taxon_id"])
+                   for m in evidence["matches"]), fields
+    # Legacy bundles remain readable. Only explicit full-name matching is
+    # supported without materialized links; never infer abbreviations here.
+    caption = figure.get("caption_text") or figure.get("caption") or ""
+    names = (hit.get("accepted_name"), hit.get("matched_name"))
+    matched = any(name and re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", caption, re.IGNORECASE)
+                  for name in names)
+    return bool(matched), fields
+
+
+def _caption_taxon_papers(idx, taxon_id):
+    database = getattr(idx, "taxon_mention_db", None)
+    reader = getattr(database, "caption_papers", None)
+    return reader(taxon_id) if reader else []
+
+
 def _license_fields_for_wire(
     lic: Dict, active, include_licensing: bool = False,
 ) -> Dict:
@@ -234,6 +302,8 @@ def _license_fields_for_wire(
     if include_licensing or active.figure_licensing == "strict":
         out["publication_clearance"] = lic.get("publication_clearance")
         out["license_source"] = lic.get("license_source")
+        if lic.get("figure_rights"):
+            out["figure_rights"] = lic["figure_rights"]
     return out
 
 
@@ -286,15 +356,16 @@ def get_figures_for_taxon(
     """Figures from papers that mention the taxon, ranked by caption
     relevance.
 
-    A figure whose caption names the taxon directly scores higher than
+    A figure whose caption names the taxon ranks before
     a figure from a paper that merely mentions it elsewhere. **This means
     the list also includes figures whose caption does *not* name the
     taxon** — returned from any paper that mentions the taxon anywhere,
-    with ``caption_has_taxon: false`` and a low ``score`` (the caption
-    match contributes 100 to the score; a bare mention contributes only
-    the mention count). For a precise "figures of this taxon" answer,
-    filter on ``caption_has_taxon`` (or ``score``), or pass
-    ``caption_only=True`` to return only caption-matched figures.
+    with ``caption_has_taxon: false``. Caption matches always sort first;
+    paper mention counts rank figures within each group. The legacy ``score``
+    still adds 100 for a caption match, but is not the primary sort key.
+    Filter on ``caption_has_taxon``, or pass ``caption_only=True``, to
+    return only caption matches. A caption match is textual evidence;
+    neither it nor a paper association verifies what the image depicts.
 
     By default only returns items classified as ``figure`` or ``plate``
     (skipping journal furniture, subpanels of already-returned figures,
@@ -302,7 +373,9 @@ def get_figures_for_taxon(
     see every extracted item including the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    pass ``full_caption=True`` for the entire stored caption. This removes
+    response truncation; ``caption_completeness`` separately reports whether
+    source completeness was verified. Caption ownership is
     qualified by ``caption_status``, ``caption_confidence``,
     ``caption_page_distance``, and ``caption_kind``; do not treat an
     ``uncertain`` association as ordinary bound evidence.
@@ -318,10 +391,8 @@ def get_figures_for_taxon(
     if not hit:
         return []
     aid = hit["accepted_taxon_id"]
-    accepted_name_low = (hit["accepted_name"] or "").lower()
-    matched_name_low = (hit["matched_name"] or "").lower()
     target_hashes = (
-        [paper_hash] if paper_hash else idx.taxon_to_papers.get(aid, [])
+        [paper_hash] if paper_hash else sorted(set(idx.taxon_to_papers.get(aid, [])) | set(_caption_taxon_papers(idx, aid)))
     )
 
     rows: List[Dict] = []
@@ -335,10 +406,7 @@ def get_figures_for_taxon(
             if not include_all and ftype not in _REAL_FIGURE_TYPES:
                 continue
             cap_full = f.get("caption_text") or f.get("caption") or ""
-            caption = cap_full.lower()
-            caption_hit = accepted_name_low in caption or (
-                matched_name_low and matched_name_low in caption
-            )
+            caption_hit, taxon_fields = _caption_taxon_match(idx, h, f, hit)
             if caption_only and not caption_hit:
                 continue
             rows.append({
@@ -354,9 +422,13 @@ def get_figures_for_taxon(
                 "image_path": f"{h}/figures/{f.get('filename') or ''}",
                 "caption_has_taxon": caption_hit,
                 **_caption_evidence_fields(f),
+                **taxon_fields,
                 "score": (100 if caption_hit else 0) + idx.taxon_mention_counts.get(aid, {}).get(h, 0),
             })
-    rows.sort(key=lambda r: -r["score"])
+    # A popular paper is not stronger figure evidence than a named caption
+    # (#321). Keep the legacy score, but make relevance precedence explicit.
+    rows.sort(key=lambda r: (not r["caption_has_taxon"], -r["score"],
+                             r["paper_hash"], str(r["figure_id"])))
     return rows[:n]
 
 
@@ -393,7 +465,9 @@ def get_figures_for_lexicon_term(
     the review bucket.
 
     ``caption_text`` is a preview (first ~200 chars) by default (#85);
-    pass ``full_caption=True`` for the verbatim caption. Caption ownership is
+    pass ``full_caption=True`` for the entire stored caption. This removes
+    response truncation; ``caption_completeness`` separately reports whether
+    source completeness was verified. Caption ownership is
     qualified by ``caption_status``, ``caption_confidence``,
     ``caption_page_distance``, and ``caption_kind``.
     """
@@ -537,6 +611,7 @@ def _figure_dossier_entry(
             figure_record.get("caption_text") or figure_record.get("caption") or "",
         ),
         **_caption_evidence_fields(figure_record),
+        **_caption_taxon_fields(idx, paper_hash, figure_record),
         "image_path": f"{paper_hash}/figures/{figure_record.get('filename') or ''}",
         "linked_chunks": _linked_chunks_for_figure(
             figure_id, chunks_by_id, max_linked_chunks,
@@ -573,7 +648,9 @@ def get_figure_dossier_for_taxon(
     explanatory passages.
 
     Real figures + plates only (graphical_element / plate_label
-    skipped). Ranked by caption-name match > mere paper-mention.
+    skipped). Caption-name matches rank first, then paper mention count
+    within each group; paper hash and figure ID break ties. A caption
+    match is textual evidence, not verification of what the image depicts.
 
     Returns ``{taxon, n_papers_with_figures, n_figures, figures:
     [{paper_hash, paper_title, paper_year, figure_id, figure_type,
@@ -591,9 +668,7 @@ def get_figure_dossier_for_taxon(
         return {"not_found": True, "queried": taxon_name}
 
     aid = hit["accepted_taxon_id"]
-    accepted_low = (hit.get("accepted_name") or "").lower()
-    matched_low = (hit.get("matched_name") or "").lower()
-    paper_hashes = list(idx.taxon_to_papers.get(aid, []))
+    paper_hashes = sorted(set(idx.taxon_to_papers.get(aid, [])) | set(_caption_taxon_papers(idx, aid)))
 
     taxon_block: Dict[str, Any] = {
         "taxon_id": aid,
@@ -622,11 +697,7 @@ def get_figure_dossier_for_taxon(
             if f.get("figure_type") not in _REAL_FIGURE_TYPES:
                 continue
             had_a_figure = True
-            caption = (f.get("caption_text") or f.get("caption") or "").lower()
-            caption_hit = (
-                bool(accepted_low and accepted_low in caption)
-                or bool(matched_low and matched_low in caption)
-            )
+            caption_hit, _ = _caption_taxon_match(idx, h, f, hit)
             score = (100 if caption_hit else 0) + idx.taxon_mention_counts.get(
                 aid, {},
             ).get(h, 0)
@@ -640,7 +711,8 @@ def get_figure_dossier_for_taxon(
         if had_a_figure:
             n_papers_with_figures += 1
 
-    scored.sort(key=lambda pair: -pair[0])
+    scored.sort(key=lambda pair: (not pair[1]["caption_has_taxon"], -pair[0],
+                                 pair[1]["paper_hash"], str(pair[1]["figure_id"])))
     figures_out = [entry for _, entry in scored[: max_figures]]
     return {
         "taxon": taxon_block,
@@ -777,10 +849,11 @@ def get_figure(
     figs = _load_json(Path(p["hash_dir"]) / "figures.json", default={}) or {}
     for f in figs.get("figures", []) or []:
         if f.get("figure_id") == figure_id:
-            lic = _license_metadata_for_paper(paper_hash)
+            lic = _license_metadata_for_figure(paper_hash, f)
             return {
-                **f,
+                **{k: v for k, v in f.items() if k != "figure_rights"},
                 **_caption_evidence_fields(f),
+                **_caption_taxon_fields(idx, paper_hash, f),
                 "paper_hash": paper_hash,
                 "paper_title": p.get("title"),
                 # Relative to the corpuscle's documents/ dir.
@@ -875,14 +948,7 @@ def get_figure_roi_image(
     p = idx.papers.get(paper_hash)
     if not p:
         return error(f"no such paper_hash: {paper_hash}", "not_found")
-    # Gate before touching disk, matching the other enforcement points —
-    # and before the `roi_entry is None` fallback, which returns the whole
-    # figure and was the widest part of the bypass.
     active = _active_figure_profile(idx, profile)
-    lic = _license_metadata_for_paper(paper_hash)
-    refusal = _figure_licensing_refusal(active, lic)
-    if refusal:
-        return error(refusal, "forbidden")
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
     fig = next(
@@ -891,6 +957,11 @@ def get_figure_roi_image(
     )
     if fig is None:
         return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
+
+    lic = _license_metadata_for_figure(paper_hash, fig)
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        return error(refusal, "forbidden", profile=active.name, **lic)
 
     from ..figure_cache import figure_path
     try:
@@ -958,7 +1029,7 @@ def get_figure_image(
     figure_id: str,
     label: Optional[str] = None,
     profile: Optional[str] = None,
-) -> Image:
+) -> Any:
     """Return a figure (or panel crop) as inline PNG bytes.
 
     Use this when you need the image content itself; ``get_figure`` and
@@ -980,31 +1051,19 @@ def get_figure_image(
     ``report``, display them — a clearance determination is not included
     there precisely because it is not being enforced. ``get_figure(...,
     include_licensing=True)`` gives you the determination explicitly if
-    you need to reason about it. Unknown
-    profile names raise.
+    you need to reason about it. Refusals retain MCP ``isError: true`` and
+    carry structured ``error`` / ``code`` fields. Licensing refusals also
+    identify ``profile``, ``publication_clearance`` and ``license_source``,
+    matching URL delivery. Successful responses remain inline images.
     """
     idx = _need_index()
     p = idx.papers.get(paper_hash)
     if not p:
-        raise ValueError(f"no such paper_hash: {paper_hash}")
+        return _image_error(error(f"no such paper_hash: {paper_hash}", "not_found"))
 
     if profile is not None and get_profile(profile) is None:
-        raise ValueError(
-            f"unknown profile {profile!r}; use list_output_profiles()"
-        )
+        return _image_error(unknown_profile_error(profile))
     active = _active_figure_profile(idx, profile)
-
-    # #101 — figure-licensing gate, keyed to the active profile. Refuses
-    # with a structured ValueError so clients can branch on the message.
-    lic = _license_metadata_for_paper(paper_hash)
-    refusal = _figure_licensing_refusal(active, lic)
-    if refusal:
-        raise ValueError(
-            f"{refusal}. The image is not returned to avoid downstream "
-            f"copyright issues. Read get_figure({paper_hash!r}, "
-            f"{figure_id!r}) for the raw license fields, or pass "
-            f"profile='report' for in-chat display."
-        )
 
     hash_dir = Path(p["hash_dir"])
     figs = _load_json(hash_dir / "figures.json", default={}) or {}
@@ -1013,7 +1072,13 @@ def get_figure_image(
         None,
     )
     if fig is None:
-        raise ValueError(f"no such figure_id {figure_id!r} in paper {paper_hash}")
+        return _image_error(error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found"))
+
+    # Use the same policy and machine-readable fields as URL delivery (#327).
+    lic = _license_metadata_for_figure(paper_hash, fig)
+    refusal = _figure_licensing_refusal(active, lic)
+    if refusal:
+        return _image_error(error(refusal, "forbidden", profile=active.name, **lic))
 
     from ..figure_cache import figure_path
     whole_image = figure_path(hash_dir, fig)
@@ -1096,7 +1161,7 @@ def get_figure_url(
     if fig is None:
         return error(f"no such figure_id {figure_id!r} in paper {paper_hash}", "not_found")
 
-    lic = _license_metadata_for_paper(paper_hash)
+    lic = _license_metadata_for_figure(paper_hash, fig)
     refusal = _figure_licensing_refusal(active, lic)
     if refusal:
         return error(

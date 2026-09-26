@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "declared_utc": "2026-09-18T20:04:51.534844+00:00",
+  "source_labels_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+  "source_freeze_receipt_sha256": "5762303df796f3b84cf3f553348b0903e7a70853b81cb25da64eae1154914952",
+  "candidate_scope": "Read-only interim comparison of completed artifacts from running frozen6fb gold build. Record exact available identity; never call it current/v3 acceptance.",
+  "inputs": "Frozen source labels, original source images, completed candidate Docling/document/text/chunk artifacts, scientific repair receipts, stage receipts. No full builds or model loads.",
+  "alignment": [
+    "Match source PDF full hash and physical page. Resolve prepared-page mapping from saved artifact provenance or keeppages; do not assume physical and prepared indices coincide.",
+    "Locate the exact selected source expression using its crop geometry and local context, including specific caption/axis/table cell or prose occurrence. A matching token elsewhere is not evidence.",
+    "Record candidate item self_ref, provenance page/bbox, text and chunk identifiers when available; retain enough surrounding text to audit alignment.",
+    "If source region cannot be aligned confidently, report alignment_ambiguous rather than selecting a convenient match.",
+    "Use candidate geometry/provenance plus source context to distinguish source omission, output surface exclusion and incorrect text."
+  ],
+  "unit": "One frozen selected source expression, not every repeated token or feature. Multiple variants of the same source expression are graded together; contradictory duplicates prevent a faithful result.",
+  "candidate_surface_denominators": {
+    "docling_or_saved_text": "All 23 source-verified expressions for which document extraction has finished and saved output is readable. Figure axis/footer stay in extraction denominator, but separately report class/surface rather than silently excluding.",
+    "chunks": "All 23 verified expressions in documents with completed chunking. Distinguish explicit documented surface exclusion, missing source passage, ambiguous alignment, and fidelity; do not silently exclude hard cases.",
+    "embedding_and_serve": "Only actual saved evidence can establish these surfaces. Do not infer actual embedding/served contents from chunks. Mark unavailable where no bounded replay is performed."
+  },
+  "statuses": {
+    "faithful": "Exact aligned expression preserves required numeric values, sign/exponent attachment, unit, and semantic role; harmless encoding/spacing equivalent allowed; no contradictory copy.",
+    "corrupted": "Aligned source expression is present but at least one required meaning feature is changed/lost or contradictory rendered copies coexist.",
+    "omitted": "Extraction/chunking finished, relevant source passage/region is absent from expected surface after geometry/context inspection.",
+    "excluded_by_surface_policy": "Evidence explicitly identifies intended exclusion (e.g. furniture/figure-interior text from chunkable prose); report separately and state whether operational recall denominator includes it.",
+    "alignment_ambiguous": "Available output cannot be linked confidently to the frozen source region/context; no fidelity success counted.",
+    "pending": "Required document/stage has not completed or stable artifact absent in live build.",
+    "unavailable": "Surface not materialized or no direct bounded inspection available; no inference.",
+    "unscorable_source": "The frozen transcriber-note-only range remains unscorable and is never replaced."
+  },
+  "metrics": {
+    "source_expression_fidelity": "faithful / (faithful + corrupted) among confidently aligned emitted selected expressions; always display omitted, ambiguous, excluded, pending and unscorable counts separately. This is expression fidelity, not repair precision.",
+    "bounded_source_expression_recall": "faithful / completed source-verified expressions, counting omissions/corruption/exclusions as not recovered; give surface and exact exclusions explicitly. Also report lower/upper bounds when alignment ambiguity prevents a point estimate.",
+    "expression_output_precision": "Only defined if all candidate renderings aligned to the frozen selected regions are enumerated, including contradictory/spurious versions. Correct emitted expression renderings / all such renderings, separate from source recall; otherwise unavailable.",
+    "admitted_repair_precision": "Only among source-aligned admitted scientific repair operations in these selected regions: source-correct operations / all admitted operations reviewed. Zero admitted operations yields undefined, not 100%. This selected-source operation subset is not representative of all repair proposals.",
+    "noop_correctness": "For aligned expressions with adequate evidence that no scientific repair was admitted, faithful no-op expressions / confidently aligned no-op expressions; record missing receipt/noop uncertainty.",
+    "proposal_precision": "Not measured without a separately frozen proposal population including rejected and admitted proposals."
+  },
+  "source_scope_limits": [
+    "No ±/∓ selected.",
+    "No µm selected.",
+    "No subtraction equation selected.",
+    "Three inverse-volume exponents belong to one paper.",
+    "Four footnote controls are negative scientific-repair controls.",
+    "One retained source-note-only case is unscorable.",
+    "Stratified capped sample is not corpus-representative."
+  ],
+  "immutability": "No writes to live gold artifacts or frozen labels/crops. This directory contains separate receipts, read-only captured excerpts and comparison results."
+}

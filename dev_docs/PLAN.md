@@ -1,545 +1,686 @@
-# PLAN.md — Corpus pipeline (v1.4)
+# PLAN.md — v1.5 correctness; v1.6 skills
 
-**Prior cycles are recorded elsewhere, not here.** A minor or major
-release entry in [CHANGELOG.md](../CHANGELOG.md) opens with the cycle's
-organizing theme — required going forward by
-[CONTRIBUTING.md](../CONTRIBUTING.md)'s release ritual, step 2, and
-present on every entry back to 0.4.0 — and each cycle's punch list is
-preserved in its own tag's copy of this file
-([v0.6.0](https://github.com/caseywdunn/corpus/blob/v0.6.0/dev_docs/PLAN.md),
-[v1.0.0](https://github.com/caseywdunn/corpus/blob/v1.0.0/dev_docs/PLAN.md),
-[v1.2.0](https://github.com/caseywdunn/corpus/blob/v1.2.0/dev_docs/PLAN.md)).
-In one line each: v0.1 shipped the extraction → annotation → indexing →
-MCP-serving stack; v0.2 hardened internals; v0.3 collapsed the user
-surface into one CLI plus a per-corpuscle `config.yaml`; v0.4 closed
-silent-failure modes and gated the next cycle on tiered CI; v0.5 was the
-served-bundle quality cycle; **v0.6** froze the MCP surface at **38
-tools**, which every cycle since has held; **v1.0** made a green CI badge
-mean a fresh install works, validated on the full Bouchet corpus with 0
-stage failures; **v1.1.1** made `CITATION.cff` schema-valid,
-which is what had been silently blocking Zenodo archival since v0.3.0; and
-**v1.2** built the gold transcription set and scored the extractor against
-it — the first signal this project has had that measures the pipeline
-against something other than itself; and **v1.3** made evidence auditable —
-captions carry provenance, references are separated from canonical works, a
-re-run cannot leave stale evidence, and an operator can inspect a parse
-against the original page ([v1.3.0](https://github.com/caseywdunn/corpus/blob/v1.3.0/dev_docs/PLAN.md),
-Zenodo [10.5281/zenodo.22647843](https://doi.org/10.5281/zenodo.22647843)).
+For the September 24 session handoff, active build location, remaining issues,
+and cross-machine continuation instructions, see [V1_5_HANDOFF.md](V1_5_HANDOFF.md).
 
-**v1.3 (2026-09-07) is the one v1.4 grows directly out of.** Its theme
-paragraph is in the CHANGELOG; what matters here is the inheritance. Evidence
-is now auditable — captions carry provenance, references are separated from
-canonical works, and a re-run cannot leave stale evidence behind. Two
-instruments came with it and should keep being used: the gold set from v1.2,
-against which any extraction change can be scored before and after, and the
-build-comparison harness (`tools/qc/build_reference.py`) that made the update
-contract checkable at all.
+## Release decision and preserved work
 
-What v1.3 did *not* do is fix the defects that are wrong without saying so,
-which is why v1.4 exists. It also demonstrated the lesson v1.2 left, and which
-has now recurred in every cycle that looked for it: **a measurement is not a
-result until you have looked at what it is measuring.** The
-plate-legend fix shipped on a recall gain and quietly cost precision;
-#254's OCR page-blanking was invisible to every quality gate the pipeline
-had, because each one measured the document rather than the machine that
-built it; and a stray file sat in the repo root through four green CI runs
-and two release PRs because nothing looks there.
+The September interface audit exposed errors in bibliographic identity,
+scientific text, figures and bounded retrieval. Repairing that evidence takes
+priority over the skills that consume it. **v1.5.0 is the correctness release;
+the skills release moves to v1.6.0.** Additional response metadata and optional
+pagination require a minor release under [API_STABILITY.md](API_STABILITY.md).
+Existing result fields remain compatible; fixes must not silently redesign the
+frozen MCP surface. #338 adds one documented transport-safety restriction:
+oversized legacy species lists require explicit pagination rather than
+terminating the client's session.
 
-**v1.4 is the cleanup cycle.** v1.3 proved the pipeline can show where
-evidence came from. What survives behind that is the subject here: results that
-are wrong without saying so, build hazards that cost hours per run, and a
-tracker that no longer describes the product. It is deliberately broad rather
-than deep — the aim is that the open tracker afterwards holds only new
-capability and direction questions.
+The enhancement work through `44977fea1657985f075f7e3bafc7833d2ab914cd` is
+preserved on **`enhancements/v1.6`**, and `dev` remains at that history.
+**`release/v1.5-correctness` starts from the published `v1.4.0` tag.** Work in
+isolated issue branches/worktrees, integrate reviewed fixes into the correctness
+branch, and carry them forward to the enhancement branch before v1.6 resumes.
+No reset or force-push of `dev` is part of this plan. The release proposal will
+be a PR from the correctness branch to `main`, subject to the usual gates.
 
-The ordering against v1.5 is deliberate and was argued from v1.3's own
-evidence: a skill that generates a monograph from a corpuscle with silent gaps
-produces a document that reads authoritative and is wrong, which is the exact
-failure class v1.3 spent itself on.
+The release branch is the temporary integration target for this cycle. Apply
+CONTRIBUTING's issue-branch, evidence and closure rules to that target; distinguish
+implemented fixes from remaining source/corpus acceptance in both the tracker
+and the checklist. Do not close an issue on a partial fix. GitHub is the
+issue-status authority; this file records sequence and acceptance, not a claim
+that every checked code change has shipped.
 
-**Standing gates** — the rules that outlive any one cycle, including what
-"an update is correct" means and how a release is validated — are at the
-end of this document, with the other durable reference material.
+### Execution planes
 
-Doc map unchanged: architectural background in
-[OVERVIEW.md](OVERVIEW.md); per-feature history in
-[CHANGELOG.md](../CHANGELOG.md); the API contract in
-[API_STABILITY.md](API_STABILITY.md); HPC operations in
-[BOUCHET.md](BOUCHET.md); deployment in [DEPLOY.md](../DEPLOY.md);
-platform-portability criteria in
-[PLATFORM_SMOKE.md](PLATFORM_SMOKE.md). Open work is tracked in
-[GitHub issues](https://github.com/caseywdunn/corpus/issues).
+Each item names the plane whose data it writes: **build** for extraction,
+annotation, reconciliation and bundled evidence; **serve** for bounded,
+read-only response formatting/filtering; **library-curation** for input edits;
+**client** for synthesis. Infrastructure and documentation have no plane.
+Serve corrections below must not introduce OCR, reconciliation, general LLM
+calls, external enrichment or writes to the immutable bundle. Curator changes
+belong in source inputs and flow through a rebuild, never artifact patches.
 
-## v1.4 — silent wrongs, operational hazards, and a clean tracker
+## v1.5 — ordered correctness work
 
-v1.3 proved the pipeline can show where evidence came from. This cycle is
-about the defects that survive *behind* that: results that are wrong without
-saying so, build hazards that cost hours per run, and a tracker that no longer
-describes the product. It is deliberately broad rather than deep — the goal is
-to close as much of the backlog as is reasonable, so v1.5's client layer is
-built on evidence it can trust instead of workarounds for known gaps.
+The ordering is by dependency and consequence, not issue number. Independent
+tracks can run concurrently. Read each issue's full acceptance criteria before
+implementation. The audited bundle was built from `1.4.0.dev0`, so a historical
+symptom is not by itself a fresh reproduction on this release baseline.
+Separate source-verified failures, current-code reproductions and unproven
+mechanisms. Detector hits are review populations, not error counts.
 
-The ordering is not arbitrary. A skill that generates a monograph from a
-corpuscle with silent gaps produces a document that reads authoritative and is
-wrong, which is the exact failure class v1.3 spent itself on. Shipping a
-generator over it would undo the cycle's point.
+On September 21 the release scope expanded to include **#336–#339, #341 and
+#342**. #342 shares #305's coordinate-frame implementation and GPU acceptance;
+it is not a second model rewrite. **#340 is explicitly deferred to a later
+release**, with no version assigned. Correctness and adequate acceptance take
+priority over finishing within the current week's usage allowance.
 
-### 1. Silent wrongs — results that are wrong without saying so
+### 1. Establish the release baseline and regression cases
 
-Highest priority, because nothing surfaces them. An operator cannot act on a
-gap they cannot see.
+- [x] Preserve the enhancement branch and create the correctness branch from
+  v1.4.0. Bring forward the existing root-replacement warning and honest help
+  text for **#298** — `[plane:build]`; this does not add multi-root ingestion.
+  Follow-up warning tests now cover unrestricted/root scope replacement,
+  ancestor semantics, dry runs and legacy receipts (41 focused checks). This
+  release component is complete; the broader tracker issue stays open for
+  intentionally deferred multi-root ingestion.
+- [x] **#285** — remove the unused Chrome repository from the affected CI
+  runners before apt update; verify the actual runner path. Both workflow
+  steps now identify/remove existing Chrome `.list` or `.sources` files and
+  retry transient downloads. Hosted integration run `35375772899` passed and
+  confirms removal of `/etc/apt/sources.list.d/google-chrome.sources`;
+  clean-room run `35375772962` and T0 run `35375772896` also passed. The issue
+  is closed with the actual runner-path evidence. *No plane.*
+- [x] **#339** — make orphan retirement safe across concurrent build tasks,
+  including marker moves and vector pruning. Preserve real I/O failures and
+  recoverable evidence; a task that loses a legitimate cleanup race must not
+  cancel the downstream build. A persistent advisory lock serializes the
+  current directory inventory, vector pruning and recoverable retirement;
+  missing-source races are handled narrowly. Eighteen retirement tests pass,
+  including three independent processes against real LanceDB with surviving
+  documents and with every document retired. This verifies local POSIX
+  concurrency; live SLURM/shared-filesystem operation was not replayed.
+  `[plane:build]`
+- [x] **#341** — when extract-only work cannot use the configured vision
+  backend, skip the OCR panel pass that a later vision stage would replace.
+  Explicit/configured OCR and standalone fallback remain intact; cloud vision
+  checks credentials rather than local accelerators. Forty-nine panel/HPC
+  routing tests pass, including the later vision phase using unchanged config.
+  `[plane:build]`
+- [x] **#337** — adapt the contributed corpus-agnostic SSE smoke-test patch,
+  discover paper/taxon/author/figure values from the active bundle, and accept
+  valid empty-list encodings without hiding transport or tool errors. Validate
+  the demo and a non-reference production bundle using the same script.
+  The contributed patch and follow-up discovery/error checks are integrated;
+  bounded chunk discovery avoids fetching a whole book's chunk index. Live
+  SSE passes against the retained four-paper demo and v1.2.1 reference bundles,
+  including query embedding; 26 focused smoke regressions pass. September 25
+  job `27478218` passes the same script against the separate Hydrozoa production
+  bundle, including real query embedding; absent lexicon categories are explicitly
+  skipped. The contributor also reports all layers passing on the Sponge bundle.
+  Hosted demo build/resume lanes pass. See the
+  [non-reference receipt](examples/non_reference_sse_2026_09_25.json). These are
+  transport and serving checks, not scientific source-fidelity acceptance.
+  *No plane; validation tooling.*
+- [ ] Inventory the audit cases against the existing gold source manifest and
+  add explicit expectations for the failure mechanisms. *No plane; validation.*
+  Reuse the existing 35-document siphonophore gold corpuscle and independent
+  transcriptions. Chun1898b and Hosia2024 are already present. A document's
+  presence does not establish that its citation identity or clearance is tested.
+  The hash-to-manifest inventory and remaining source gates are recorded in
+  [V1_5_SOURCE_ACCEPTANCE.md](V1_5_SOURCE_ACCEPTANCE.md); the remaining extraction
+  families still need their issue-specific expectations.
 
-- [x] **Route mojibake non-Latin scans to OCR without a pin**
-  ([#266](https://github.com/caseywdunn/corpus/issues/266)), and populate
-  `visual_script` on every detection path
-  ([#172](https://github.com/caseywdunn/corpus/issues/172)). The unpinned
-  Chinese paper is now OCR'd under `chi_sim` and recovers 451 Han characters
-  where the old pack choice recovered none. Two findings reshaped the fix.
-  First, the raster check had already stopped the `born_digital`
-  misclassification the issue describes — what survived was *pack* selection,
-  read off the mojibake layer, so the document was OCR'd with `eng`. Second,
-  a whole population the issue does not name: a text layer of **unmappable
-  glyph indices**, invisible to the gibberish score because glyph indices are
-  not letters. Hunt et al. 2001 held 896 usable letters in 59,056 characters
-  and was classified `clean_text_layer`; re-OCR recovers 42,398. Six such
-  documents. New `ocr.unmappable_char_max`.
-- [x] **Make lexicon translations match inflected forms**
-  ([#165](https://github.com/caseywdunn/corpus/issues/165)). +14,111 anatomy
-  mentions (+9.7%) corpus-wide, 515 documents gaining, none losing, 59
-  rescued from zero. Of the two documents the issue names, though, one gains
-  a single mention and the other correctly stays at zero — its text is about
-  electric organs of fish. The value is on documents with partial coverage.
-- [x] **Expand abbreviated genus binomials**
-  ([#164](https://github.com/caseywdunn/corpus/issues/164)). +31,041 mentions
-  (+15.6%), +2,237 unique taxa, 838 documents gaining, none losing, and 449
-  ambiguities reported rather than guessed.
-- [x] **Decide the botanical authority policy**
-  ([#175](https://github.com/caseywdunn/corpus/issues/175)). Decided:
-  the capability is reported unsupported, ICN authorship parses, and the
-  author-only matching path is **declined on measurement** — it yields 3
-  candidates from 889 Viburnum taxa and 2 of the 3 are wrong. Reasoning lives
-  in `_record_authority_convention`, not here.
-- [x] **Stop the CLI lying by omission**
-  ([#169](https://github.com/caseywdunn/corpus/issues/169),
-  [#168](https://github.com/caseywdunn/corpus/issues/168)). A filter now
-  implies the listing the report's own hint promises, and a filter that
-  cannot apply is named in a warning instead of dropped. The naive-chunker
-  fallback is a `naive_chunker_fallback` quality gate.
+### 2. Restore bibliographic identity and authoritative fields
 
-**Acceptance:** for each, a document that previously produced a silent gap now
-either produces the right answer or reports the gap at error or warning
-severity. No fix here is complete while its failure mode is still quiet.
+- [ ] **#296** — preserve build-time BibTeX origin, ordered authors and canonical
+  field precedence through materialization, reconciliation and import/export.
+  Implementation and source-derived bibliography regressions landed. September
+  25 review of the audited v1.4 authority confirms the missing BibTeX provenance
+  and its repair; ordered Mańko/Pugh authors were already correct in that
+  snapshot and remain unchanged. No stored reconciliation decision establishes
+  the reported wrong-author merge mechanism. Fresh-candidate corpus validation
+  remains pending; see the [historical review](examples/bibliography_review_2026_09_25/review.json).
+  `[plane:build]`
+- [x] **#299** — reject incompatible reconciliation of a curated document onto
+  another same-author/year work; repair identity and graph membership, not just
+  the displayed title. Depends on retaining #296's evidence. Implemented with
+  source-derived Chun controls and actual bundle/live formatter acceptance;
+  full-corpus mappings remain a release gate.
+  `[plane:build]`
+- [x] **#300** — distinguish publication parts from shared book DOIs and short
+  key collisions while preserving genuine duplicate scans. Define deterministic
+  identity and rebuild/migration behavior before changing matching. `[plane:build]`
+  Implemented with all seven source Delle Chiaje entries, Moore records,
+  duplicate controls, clean/incremental checks and live bundled formatting;
+  full-corpus replay remains a release gate.
+- [x] **#301** — preserve volume, issue, pages and article locators through the
+  complete parser → authority → bundle → formatter round trip. The actual
+  bundler and a separate MCP formatter process preserve all 15 pinned source
+  records through source precedence, export/import and unchanged refresh.
+  Bundle hashes remain unchanged after queries; full-corpus release validation
+  remains pending. `[plane:build]`
+- [x] **#310** — share citation-query author parsing so additional correct
+  author text cannot turn a match into false absence. Title-only search is
+  outside this fix. Named examples, ambiguity/absence controls and twelve
+  additional real-work queries pass against the retained v1.2.1 authority;
+  the rebuilt candidate's audit replay remains a release gate. `[plane:serve]`
+- [x] **#311** — parse comma-separated taxonomic authors and expose supported
+  original-description candidates without asserting an ambiguous match.
+  Implemented with the source-supported Apolemia example and ambiguous
+  Physalia/Nectopyramis controls. Candidate evidence stays separate from
+  curator-reviewed originals; policy refresh and curator-link preservation
+  pass. Full rebuilt taxonomy-link validation remains a release gate.
+  `[plane:build]` (bounded candidate presentation: `[plane:serve]`)
+- [x] **#313** — preserve raw reference observations while distinguishing parse
+  debris with auditable quarantine or visible uncertainty across bibliography,
+  resolution, formatting, author lookup and acquisition routes. Sparse historical
+  controls and unchanged/changed refresh pass. `[plane:build]`
+- [ ] **#314** — resolve source-supported publication-year conflicts before
+  ranking missing works. Depends on trustworthy identities; do not use broad
+  title-only merges. Implemented with source-supported per-observation year
+  adjudication and shared-edge deduplication. All four named observations
+  now have fresh source-page Grobid captures: two narrow title-comparison fixes
+  repair line wrapping and a single omitted article corroborated by publication
+  locators. Compact clean/incremental authority replays agree on edges and
+  missing-reference counts while retaining historical raw observations.
+  Full Tung preparation now preserves all 121 pages and fresh Grobid parsing
+  materializes all 68 references; its named observation resolves to 1974 while
+  retaining parsed 1965 and raw publication-year evidence. The three complete
+  scanned documents now also pass normal preparation and full Grobid replay:
+  [558 pages and 178 references](examples/siphonophore_citation_year_2026_09_21.json),
+  with each named observation mapped to 1974, raw observations preserved and
+  unchanged refresh verified. Reporting-harness failures and a separate
+  unresolved Kinzer year conflict remain explicit in the receipt. Full-corpus
+  citation-overlap and acquisition-ranking acceptance remain pending. The
+  [retained v1.2.1 census](examples/siphonophore_pugh_split_v1_2_1_2026_09_22.json)
+  reproduces the 59/23 citing-paper split with zero overlap, but every relevant
+  raw citation is empty. Those counts cannot justify remapping observations or
+  substitute for the audited v1.4 authority database. The subsequently recovered
+  audited v1.4 artifacts now have a [historical review](examples/bibliography_review_2026_09_25/README.md):
+  38 raw-supported repairs change the split to 21/61, but the remaining 1965
+  ghost is still ranked 13th in missing-work leads. Fresh-candidate acceptance
+  remains pending.
+  `[plane:build]`
 
-**Met, and the section left a method behind.** Every item here was sized
-against the reference library before being built, and in four of the five the
-measurement contradicted the issue's own framing — a wrong threshold, a
-document whose zero was correct, a heuristic that would have written wrong
-protologues, and a corroboration rule of my own that turned out circular
-(OCRing a Latin page under `rus` transcribes its letters as Cyrillic
-lookalikes, so the characters meant to confirm the verdict were manufactured
-by the check). Bare Tesseract OSD calls **424 of 1,580** Latin-text-layer
-documents non-Latin; only CJK verdicts may now override a text layer, and
-only corroborated. Measure the population before writing the fix.
+Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
+Unicode and ordered authors, duplicate-scan controls, distinct parts sharing an
+identifier, fresh builds and unchanged refreshes. All bibliography and graph
+routes must agree on the requested document's identity. Keep observations and
+decision provenance; document how old bundles obtain repaired mappings.
 
-### 2. Operational hazards — each has already cost hours
+### 3. Restore source text and citation evidence
 
-- [x] **Make a GPU allocation fail instead of degrading to CPU**
-  ([#270](https://github.com/caseywdunn/corpus/issues/270)).
-  `compute.accelerator: require` and `corpus run --require-gpu`, resolved
-  before any step starts. The SLURM GPU scripts pass it; the card-type pin
-  stays, because this makes the failure loud rather than making an
-  unsupported card work. Tested against real unusable hardware — this
-  workstation's GTX 1080 is a card the pinned torch ships no kernels for.
-- [x] **Let concurrent builds share a cluster**
-  ([#279](https://github.com/caseywdunn/corpus/issues/279)). Per-job port
-  pair derived from the job ID by one shared function, so client and server
-  cannot drift. **Both Dropwizard connectors have to move** — there is an
-  admin connector at 8071 as well, and overriding only the application port
-  still dies, which is the trap the issue's own suggested fix would have hit.
-  Verified against the real Grobid image: three instances side by side,
-  byte-identical TEI from the alternate port.
-- [x] **Bound build memory**
-  ([#182](https://github.com/caseywdunn/corpus/issues/182)). A `docling`
-  block plus `compute.num_threads` bound extraction, which is where the
-  memory actually goes; `embeddings.batch_size` is reachable at last; and
-  INSTALL.md documents the cgroup cap, which is the outer bound. Turned up a
-  separate silent wrong on the way: `pipeline.embed` took no `--config` at
-  all, so `compute.accelerator` was honoured by Stage 1 and ignored by
-  Stage 2.
-- [x] **Load the local VLM in half precision on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)) — **measured on an
-  M2 Max; the default stays float32.** The issue's own premise was the memory
-  gap (~30.4 GB against ~15.2 GB, which shuts a 32 GB Mac out), and that gap is
-  real — float32 measured 37.69 GB of Metal allocation, *worse* than the
-  weights alone predict. But half precision buys it by moving the boxes:
-  against float32, bfloat16 scored mean IoU 0.65–0.75 per plate and float16
-  0.69–0.93, each with a worst panel at 0.0. ROI *counts* were identical
-  everywhere, so this is not a lost panel, it is a wrong one.
+- [x] **#306**, **#312**, **#315** — reproduce and distinguish Big5-like
+  text-layer corruption, other mojibake and surname substitutions. Use source
+  images and correct negative controls; no global replacement or guessed
+  correction is sufficient. #306 now has same-region byte corroboration,
+  source replay, idempotence and conflicting-number controls.
+  #312 now retains original damaged-layer evidence before OCR and requires
+  agreeing regional raster readings plus prepared-word geometry. A real
+  extraction/materialization/chunk/query replay recovers the German example;
+  eight other suspect tokens remain unresolved. Producer changes reprepare
+  dependent artifacts and retire obsolete receipts. #315 uses curated
+  author/year candidates and unhinted regional OCR agreement; a source sample
+  admits ten correct repairs and leaves four unresolved. The complete current
+  catalog reaches extraction and figure resets, with both resume gates and
+  audits tracking consumed evidence. Actual Mapstone extraction/chunk/query
+  replay recovers both tested names. The v3 policy requires dual surname
+  agreement, at least one complete expected OCR year and no conflicting valid
+  year, preserving malformed date tokens without interpreting them. Its producer
+  change requires re-extraction; prior-policy pilots are not a v3 build gate.
+  [Fresh selected-page acceptance](examples/source_pages_2026_09_22/README.md)
+  now covers normal OCR/extraction, real embeddings, Chinese/German captions,
+  stdio MCP delivery and unchanged resume. Actual retained b166 authority
+  matching succeeds with fresh v3 evidence; three title-conflicted full-source
+  references remain unresolved, with no broader edge-repair claim. Full-corpus
+  mapping and final gold acceptance remain release gates. `[plane:build]`
+- [x] **#316** — recover geometrically supported spacing accents and surface
+  incomplete author identities without guessed aliases. Source Fernández and
+  Niño/Niña controls pass; explicit author adjudication rematerializes the
+  correct link while retaining raw observations and complete identity.
+  Detector-positive totals are not a graded error denominator. `[plane:build]`
+- [x] **#303** — preserve scientific signs, units and exponents through stored
+  text, chunks and embedding input. Word coverage alone cannot validate these
+  semantics because its normalization removes punctuation. Source-glyph and
+  raster-supported repairs are implemented, with the falsely encoded Kidwai
+  dash retained as a negative control. Saved source cases now preserve signs,
+  units and exponents through real chunking, the production embedding callback,
+  vector-row text and bounded serving. An independent source-first sample
+  exposed remaining Chen quantity and Russian exponent corruption; those
+  findings require separate candidate revalidation. Exact regional Type1 font
+  decoding now recovers the three tested Chen `mg/m³` occurrences and statistical
+  values through saved chunks, embedding input and bounded serving, with original
+  PDF/raster proof. Original Russian glyph/ink evidence now survives fresh
+  OCR, extraction, real embeddings and serving: the first exponent is repaired,
+  the second remains an explicit unhinted-OCR disagreement. Unconfirmed hyphens
+  remain explicit. The [completed broader baseline review](../tests/fixtures/text_integrity/source_review/complete_6fb/README.md)
+  grades all 24 frozen selections: four pages were excluded by curator directives
+  and one lead is not printed. Among the 19 consumed expressions, chunks retain
+  12–13 faithfully (one footnote role is indeterminate); selected admitted repair
+  precision is 2/2, both in one paper. Missing-text recall and repair precision
+  remain separate. The [completed current comparison](../tests/fixtures/text_integrity/source_review/current_ab6353f/README.md)
+  grades the same 24 selections after all 35 documents pass current-producer
+  checks. Chunks now preserve 14–15/19 consumed expressions; the two selected
+  Chen expressions improve, while the Russian unit and table/axis/footer
+  omissions remain explicit. Current selected atomic repair precision is 2/2
+  Mańko exponents and 1/1 Chen exponent formatting, without treating an entire
+  decoded paragraph as verified. All grades are complete. The normal gold build
+  embeds all 35 documents; all 3,336 vector rows and served chunks agree with
+  materialized text, and all 14 faithful source-sample expressions survive live
+  MCP calls. The broader sample's unresolved outcomes remain in its denominator.
+  `[plane:build]`
+- [x] **#304**, then **#319** — preserve multi-column reading order and enclosing
+  species context, and expose diagnosis passages through a documented route.
+  Wrong element order and missing headings need separate checks. Source order,
+  treatment propagation and context-preserving chunk boundaries are integrated.
+  Ordinary dated headings cannot create species treatments; global Results
+  headings clear the prior context. Served provenance has explicit per-row and
+  shared optional-evidence limits. Named Church and Haddock fragments now pass
+  actual serialization, split/merge and bounded retrieval, with adjacent-species,
+  missing-heading and unrepaired-order controls. Named Siebert and Mapstone
+  diagnoses retain source-supported context through the documented bounded
+  discovery/fetch workflow. Complete rebuilt acceptance remains a release gate.
+  `[plane:build]`
+- [x] **#307**, **#308** — preserve table/key cells and branch destinations and
+  remove artificial repeated cell text. Four named Erenna semantic relations
+  and source-cell mention counts pass; the Daniel merged heading contributes
+  one logical occurrence. All four named Daniel key associations survive
+  serialization and bounded retrieval across chunk splits. Build metadata now
+  states complete/partial/unknown coverage and links adjacent fragments;
+  rechunking leaves extraction and unchanged vector payloads alone. The final
+  endpoint's captured `hargmannae` versus printed `bargmannae` remains explicitly
+  spelling-unverified in its separate source fixture; layout acceptance does
+  not claim spelling recovery. Broader rebuilt retrieval remains a release gate.
+  `[plane:build]`
+- [x] **#334** — recover source-supported word boundaries without splitting
+  legitimate compounds. Hissmann/DuClos source-supported spacing is implemented;
+  the source-printed Mapstone p200 typography is preserved. Spacing v2 now
+  considers uniform-font portions without inferring a boundary at a
+  font change; the newly examined DuClos phrase remains unchanged because
+  actual OCR modes disagree. Long-run review warnings retain that uncertainty.
+  Fresh normal preparation exposed an additional missing space in the named
+  Mapstone key lead. Exact original letters/spaces, page anchors and two
+  unhinted crop readings now recover it; whole-word anatomy annotation, real
+  embeddings, served Hissmann/DuClos relations and unchanged resume pass.
+  Rotated/changed geometry, unknown owners and extra OCR splits are refused.
+  The saved replay admits three source-confirmed proposals; the fresh build
+  admits two and refuses one ambiguous structured owner. Frozen spacing grades
+  remain 2 correct, 0 incorrect, 1 unresolved among three historical accepted
+  decisions; no corpus-wide precision claim. Final corpus acceptance remains.
+  `[plane:build]`
+- [x] **#309**, **#317** — validate complete citation spans and preserve the
+  source paragraph across grouped citations; trace original TEI as well as
+  extracted artifacts. Link validation and text preservation are separate
+  acceptance boundaries. Fresh source TEI reproduces the named defects;
+  coordinate-backed repair and complete-span regression checks pass while
+  ambiguous/unmatched targets retain explicit status and raw observations.
+  Actual captured TEI now passes through authority materialization and rebuilt
+  in-text citations into all three citation/graph routes: the wrong Oderberg
+  paragraph link is absent, both Fraser years and the unambiguous Pugh groups
+  retain their source spans, and unchanged refresh preserves observations.
+  Complete saved-source replay for #317 now covers 39 documents/886 citation
+  paragraphs: all 22 exact detector hits are repaired, with 22 in-text and
+  16 eligible excerpt replays, 918 raw observations retained and unchanged
+  refresh. Distant source boxes no longer join unrelated citations; uniquely
+  bounded fullwidth markers preserve crossing-glyph evidence. See the
+  [source receipt](../tests/fixtures/citation_spans/group_boundaries/README.md).
+  Fresh production/gold replay remains a release gate. `[plane:build]`
 
-  The control is what makes that conclusive, and I had to be told to run it:
-  the first report compared every dtype against every other and against the
-  shipped H200 ROIs, and everything disagreed with everything — including
-  float32 against the reference at 1/4 — which is uninterpretable without
-  knowing how much the model disagrees with *itself*. Two float32 runs agreed
-  at IoU 1.0 on every panel. Only then could the spread be attributed to dtype.
-  **A comparison matrix with no self-comparison in it measures nothing**, and
-  that is now the ninth item this cycle whose shape changed on contact with a
-  measurement.
+Corrected text must invalidate downstream chunks, annotations, references and
+embeddings as appropriate. Source-grounded assertions must cover relationships
+and scientific meaning, not only token presence. Run targeted current builds
+before claiming an old OCR-routing defect persists.
 
-  Mechanism, so nobody re-litigates: generation is greedy and Qwen emits
-  coordinates as digit tokens, so a logit difference flips a digit and a
-  coordinate jumps hundreds of pixels — heavy-tailed by construction. The knob
-  stays as the fallback for machines where float32 cannot load at all, marked
-  as worse geometry rather than a better default. Recorded in
-  `resolve_vlm_dtype`'s docstring, which is where someone will look.
+### 4. Restore figure content, captions and clearance
 
-  Two findings fell out on the way. Geometry is not portable across
-  accelerators at a fixed dtype: bfloat16 on MPS disagreed with the
-  bfloat16-on-H200 ROIs this corpuscle shipped on all four plates — Pass 3b
-  output is hardware-bound, which nothing in the docs had claimed either way.
-  And the local VLM backend reported a missing `torch` as "transformers >= 4.45
-  is required", because it imports transformers first and named the package it
-  asked for rather than the one that failed. Fixed: `ImportError.name` carries
-  the module that actually broke, and it separates the cases cleanly — an
-  absent package and a missing symbol both report the module we asked for, a
-  broken dependency chain reports the link. `pipeline/optional_deps.py`, wired
-  into all three ML backends (`transformers`, `sentence_transformers`,
-  `anthropic`), which had the same latent bug. A confident wrong instruction
-  costs more than a vague one.
-- [x] **Surface why a re-run is doing more work than expected**
-  ([#80](https://github.com/caseywdunn/corpus/issues/80)). Reassessed as this
-  document asked, and v1.3 had already built the computation — what remained
-  was reading it. The renderer printed one line per affected document, so 699
-  lines on the Viburnum corpuscle. Rolled up by reason, the case that matters
-  is one line: `docling_extraction: pipeline_version — all of 699 documents`,
-  which is the sentence #281 needed. Also attached to `corpus run --dry-run`.
+- [ ] **#305**, **#342** — record and transform ROI coordinate frames correctly. Fix the
+  deterministic Claude resize bug, investigate the deployed Qwen failures
+  separately, and validate actual panel content after rebuild. Bounds checks
+  and the Claude fix alone do not close the issue. Both backend frame fixes
+  and provenance are implemented; cached Qwen processor dimensions corroborate
+  the double-resize mechanism. The source-pilot capture tool now preserves actual
+  processor frames, raw responses and production crops for review. Fresh
+  source-pilot inference and scientific panel review completed on September 25:
+  [one of nine selected target crops passes; eight fail](examples/vision_review_2026_09_25/README.md).
+  All nine have valid bounds and matching frame conversion; residual model
+  boxes clip scientific content, labels or context. These issues remain open
+  for correction and repeat acceptance. The original six-control manifest is
+  still unavailable, so the additional sample cannot establish its preservation.
+  `[plane:build]`
+- [x] **#336** — distinguish captions preceding the next page's ordinary image
+  from legends describing a shared historical plate. Never create a confident
+  numbered clone of the preceding image without supporting evidence. Bind to
+  the following image only when justified; otherwise retain explicit unbound
+  evidence. Preserve true grouped plates and running-text precision controls,
+  and ensure vision receives no false shared-image target. The conservative
+  competing-image guard is implemented with extraction-policy invalidation;
+  124 focused tests pass, including production vision-target exclusion.
+  Three saved gold captures preserve all 75 records, including 37 shared-image
+  records. The negative fixture is explicitly synthetic issue-derived geometry;
+  the original extraction artifacts remain unavailable. On September 25 the
+  user supplied a new download whose full SHA-256 matches the reported Porifera
+  PDF exactly. Targeted normal extraction of physical pages 176–181 and direct
+  visual review now pass: Figure 3 retains its plots, the phylogeny remains
+  separately unbound, and the Figure 4 clone is refused with explicit evidence.
+  Production vision routing on a copy sends no false Figure 4 target; all
+  eight caption regression cases pass, including shared-plate controls.
+  This is a six-page source replay, not a full-book or fresh-VLM claim.
+  See [source acceptance](V1_5_SOURCE_ACCEPTANCE.md#porifera-caption-source-recovered--september-25).
+  `[plane:build]`
+- [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
+  descriptions, preserve caption fragments and incomplete-binding evidence,
+  and retain the edge species label in the source-verified figure. Source
+  geometry replay passes for Hosia, Sutherland and the clipped Erenna figure;
+  [Erenna Figure 51](../tests/fixtures/figure_integrity/erenna_fig51_delivery_2026_09_21/README.md)
+  now also passes production rendering, real bundling and MCP
+  image conversion with identical PNG bytes: the complete edge label, all five
+  source panels and scale bars remain visible. Fourteen edge/rotation/margin
+  controls pass. Saved Sutherland source binding and direct/dossier agreement
+  now pass; full Siebert A–U/A–N inventories and species-specific/shared
+  descriptions pass actual image fallback checks. Recovered labels retire a
+  stale completed ROI status; inline taxon initials no longer erase panels.
+  [Dated receipts](../tests/fixtures/figure_integrity/original_closure_2026_09_22/README.md)
+  distinguish saved-source replay from fresh extraction. Integrated
+  rebuilt-corpus validation remains the release gate.
+  `[plane:build]`
+- [x] **#302** — materialize figure-specific rights exclusions and provenance;
+  apply them before inherited publication clearance at every strict delivery
+  boundary. Whole figures, panels, fallbacks, URLs and HTTP must agree.
+  Implemented; #322 now recovers the actual Hosia exclusion from source
+  caption fragments. Fresh Hosia gold evidence survives real bundling and
+  strict/report live MCP and HTTP delivery, including fallback and permitted
+  controls. Full-corpus release validation remains pending.
+  `[plane:build]` (enforcement: `[plane:serve]`)
+- [x] **#321** — caption matches precede paper-only mentions in both taxon
+  figure routes, with deterministic ties and preserved legacy scores.
+  [Retained-bundle replay](examples/siphonophore_caption_ranking_2026_09_21.json)
+  returns 12/12 caption matches for Nanomia and Lensia and all three controls
+  through both routes, with repeatable order and unchanged bundle files.
+  Extreme-count, tie and no-caption controls pass (22 focused tests). Rank and
+  evidence definitions are documented without claiming verified depiction.
+  This v1.2.1 replay does not replace final rebuilt-corpus acceptance.
+  `[plane:serve]`
+- [x] **#323** — match unambiguous caption abbreviations without inventing
+  associations. Post-build caption links and evidence are now materialized from
+  final figures, chunks and taxonomy with content receipts. Both figure routes
+  use those links; legacy bundles expose unavailable provenance. Source Hosia
+  gold-to-bundle replay now preserves exact caption spans and matching
+  discovery/dossier evidence through live MCP. Full-corpus release validation
+  remains pending. `[plane:build]`
+- [x] **#327** — expose consistent structured refusal reasons while preserving
+  successful MCP image responses. Actual MCP conversion and structured profile
+  discovery now cover a client choosing permitted in-chat delivery without
+  parsing refusal prose; strict/default policy remains unchanged. The real
+  Hosia bundle supplies live refusal and permitted-image evidence. Combined
+  ranking, licensing, profile and refusal checks pass (64 focused tests).
+  `[plane:serve]`
+- [x] **#332** — recompute record totals after expansion/removal and validate
+  them before bundling; consistently read legacy artifacts. Complete retained
+  and gold censuses (1,810 saved documents) have zero stored-total discrepancies.
+  Production rematerialization, count-only packaging and all three APIs agree;
+  source files remain unchanged. Append/remove/shared-image/furniture controls
+  pass. This is count acceptance, not a fresh deployed corpus. `[plane:build]`
 
-**Section status:** four of five done. #258 is hardware-blocked, not
-deferred — see its note. Two of the four fixes turned up a defect the issue
-did not name, which is now the expected outcome rather than a surprise.
+Acceptance uses source-reviewed complete panels, labels and scale context,
+permitted/restricted/unknown rights controls, mixed-panel inheritance, and
+append/remove/count consistency. No query-time interpretation of captions as
+new licensing evidence and no cache writes into the bundle.
 
-### 3. Cheap, and better done at a version boundary
+### 5. Make bounded query results interpretable
 
-- [x] **Rename `_serve/`** ([#273](https://github.com/caseywdunn/corpus/issues/273)).
-  Now `corpus_bundle/`. An existing `_serve/` is read and updated in place, so
-  no corpuscle needs rebuilding and no client breaks; the migration is one
-  `mv`, on the operator's schedule. The redundant basename check is removed
-  rather than renamed — the manifest was always the robust signal.
-- [ ] **Stop warning about a vision downgrade on phases that never run vision**
-  ([#263](https://github.com/caseywdunn/corpus/issues/263)).
-- [ ] **Fix served-bundle absolute-path audit false positives**
-  ([#183](https://github.com/caseywdunn/corpus/issues/183)) — noise inside a
-  release gate teaches operators to ignore the gate.
-- [ ] **Bound the depth-1 `get_citation_graph` payload**
-  ([#166](https://github.com/caseywdunn/corpus/issues/166)) so `truncated`
-  actually covers it.
-- [ ] **Emit a progress heartbeat during long per-document stages**
-  ([#170](https://github.com/caseywdunn/corpus/issues/170)).
-- [x] **Retire `siphonophores_sample` for the 35 transcribed documents**
-  ([#192](https://github.com/caseywdunn/corpus/issues/192)). Already done in
-  this repo, and verified rather than assumed: `siphonophores_sample` has no
-  references left, BOUCHET.md documents the gold corpuscle as the smoke test,
-  and #187 already targets it (see Standing gates). BOUCHET.md's
-  checksum-verified materialisation recipe was run — 35 PDFs, all sha256s
-  matched — and every figure it and the issue cite re-measures exactly: 761
-  pages, ~644 needing OCR, 127 MB, one document over 100pp, Totton1965a at
-  314 pages carrying 49% of the OCR load.
-- [x] **Column-store shape for `lexicon_matrix`**
-  ([#83](https://github.com/caseywdunn/corpus/issues/83)). **Declined on
-  measurement**, and the grid bounded instead. The saving is real (16.4-20.0%)
-  but applies only to the opt-in `detail=True` grid, which runs 382 kB over
-  1,775 rows — 19% off an undeliverable payload is not a fix. The default view
-  callers use is 469-1,606 bytes. What the measurement did find is that #88
-  made the grid opt-in without ever bounding it, so it now has a ceiling and
-  honest counts.
-- [x] **Cap figure resolution** ([#184](https://github.com/caseywdunn/corpus/issues/184)).
-  Decided and shipped: a flat `figures.max_pixels_long_side`, default 3000,
-  applied at build time on both write paths and available as a backfill flag.
-  Re-measured on the current tree (21,521 figures / 11.88 GiB): the cap
-  recovers 2.74 GiB (23%) and costs the median panel-detected figure **0%**,
-  because 95% of them are already under it. Two things the measurement
-  corrected. `max_dpi` cannot substitute — the byte mass is full plate pages
-  at an ordinary 400 dpi, so a density cap leaves a 16,000 px figure at
-  12,000. And the selective rule's advantage evaporates: capping only
-  no-panel figures recovers 0.03 GiB more, while `rois == 0` turns out to mean
-  "detection never ran" for 95% of figures, not "no panels" — weaker than the
-  gate here assumed.
-  Analyses (A), (C) and (D) from the issue are done: pngquant was present, so
-  that lever is spent; the OCR path is 58% of the corpus, not a minority.
-  (B) is still worth running; (E) is stale archaeology and should be dropped;
-  (F) colour depth stacks on top of a cap.
+- [x] **#338** — bound valid-species enumeration by rows and transport bytes,
+  with deterministic pagination and explicit continuation metadata. Preserve
+  synonym/rank behavior and the existing successful response contract; prove
+  a large taxonomy query leaves the MCP session usable. Sixty-six focused
+  taxonomy/contract tests pass. The actual MCP client/server regression uses a
+  synthetic response that previously exceeded 1 MiB, checks bounded refusal
+  and successive pages, then successfully searches and pings on the same
+  session. Unicode byte accounting, complete rows, ties, cycles, missing
+  snapshots and unreturnably large single rows are covered. The complete
+  serialized MCP result is capped at 256 KiB; continuation lives only in
+  `_meta.pagination`. The explicit oversized-unpaged restriction is documented
+  in API_STABILITY.md and MCP_TOOLS.md. `[plane:serve]`
+- [x] **#318** — expose aggregate scope and selected/available paper counts
+  without silently changing existing aggregate meanings. `[plane:serve]`
+- [x] **#325** — add deterministic excerpt pagination, available/returned counts,
+  truthful truncation and response-byte bounds; distinguish markers from unique
+  paragraphs and retrieve every eligible row without gaps. `[plane:serve]`
+- [x] **#326** — share one total graph-edge budget across both directions and
+  return a structured invalid-argument error for an unsupported direction.
+  `[plane:serve]`
+- [x] **#328** — select default top lexicon terms after paper/year filtering;
+  retain caller-specified term order and deterministic ties. `[plane:serve]`
+- [x] **#331** — correct unavailable tool names, parameters and stale examples.
+  *No plane; documentation.*
+- [ ] **#320** — after text/context corrections, add a bounded independent
+  diagnostic/key retrieval evaluation and measure repetitive-table crowding.
+  Fix supported crowding mechanisms against that evaluation; broader ranking
+  experiments require explicit follow-up scope. `[plane:build]` for stored
+  retrieval units; bounded ranking, if warranted: `[plane:serve]`.
+  The [source-graded evaluator](RETRIEVAL_EVALUATION.md), fixed audit calls,
+  controls, deterministic independent sampler and pre-tuning acceptance targets
+  are implemented. Prose controls now have independently reviewed source labels.
+  The rebuilt independent population
+  has now been frozen from the completed intermediate gold build. The documented
+  count-20, seed-3202026 sampler finds only five eligible units from two papers,
+  below the required ten queries/five papers. Source review finds three usable
+  units from one paper, two false keys and two incorrect stored treatment names.
+  Preserve this insufficient sample and its findings.
+  The classifier now requires corroborated couplet destinations and rejects both
+  source-reviewed false keys while retaining the four source key controls and
+  short two-couplet/separate-column forms. Save/reload, chunk metadata and resume
+  checks pass (55 focused tests); the producer change invalidates extraction and
+  downstream consumers. The two wrong treatment assignments now have a separate
+  source-backed correction: structural tables cannot inherit prose treatments,
+  higher-rank/key headings reset species context, and explicit ranked
+  author/year headings can establish genus context despite a missed layout
+  label. Both cases pass saved-document/chunk/serve checks and current full
+  source-document context replay; 100 focused regressions pass (seven optional
+  external-source checks skipped). Policy v3 rechunks without redoing extraction.
+  Replaying v3 context across all 35 saved documents still cannot supply five
+  papers. A separately frozen [source-first supplement](examples/siphonophore_retrieval_review_2026_09_22/README.md)
+  now provides ten distinct questions/five papers and sixteen source-reviewed
+  answer-bearing anchors, with all twelve fixed audit/control requests unchanged.
+  Selection is purposive and retrieval-rank-unseen, not representative. All
+  candidates and the insufficient original draw remain recorded. The
+  [retained v1.2.1 diagnostic baseline](examples/siphonophore_retrieval_baseline_2026_09_22/README.md)
+  reproduces abundance-table crowding and paper-filtered misses. Fixed audit
+  targets score 1/7 at five results and 2/7 at ten; these are selected known-target
+  hits, not a deployment-wide error rate. All fixed questions have indexed
+  source-supported positives; alternative passages remain unjudged. Independent
+  outcomes remain withheld until the candidate behavior is fixed. Actual
+  candidate improvement is unmeasured; matching-population candidate capture
+  remains, with no improvement claim from evaluator tests.
+  All 1,775 source PDFs for the dated retained baseline are locally available.
+  A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
+  has now started from independently copied, SHA-verified sources and frozen
+  supporting inputs, at `7b4343f` (production modules identical to `ab6353f`).
+  Taxonomy ingestion passes; extraction is running at the recorded launch.
+  Normal complete embedding/post/bundle phases follow only successful checks.
+  The gold fixture stays unchanged. Launch is not retrieval acceptance; a
+  recovered formerly empty paper must be disclosed as an indexed-population
+  difference, and the older reference's embedding producer remains unknown.
 
-**Section complete.** Two of the eight turned out to be decisions rather than
-builds, and both went against the issue's proposal once measured: #83's column
-store saves 19% of a payload that is undeliverable either way, and #184's
-selective rule is *worse* than the flat cap it was meant to improve on. Two
-others were already done and needed verifying rather than doing (#192) or
-argued for deleting code rather than adding it (#273's basename check). The
-recurring shape: the cheap items were cheap because the previous cycle had
-already done the hard part — what was left was reading it.
+### 6. Release acceptance and return to enhancements
 
-### 4. Decisions to record rather than defer again
+- [ ] Relevant regressions, contract tests and established CI lanes pass on the
+  integrated candidate. Additions follow the minor API policy, with #338's
+  specific transport-safety restriction documented explicitly.
+  At `bfbf90c`, local T0 passes 2,767 tests (26 optional checks skipped,
+  90 corpus/resume tests deselected), and required Ruff checks pass. The first
+  run exposed two invalid-PDF argument-test stubs; valid blank PDFs fix them
+  and the complete repeated gate passes. Both retained-demo and reference-bundle
+  live SSE checks pass with real query embedding. All five required hosted PR
+  lanes pass at `25fed1d`, including T3 clean-room installation. Subsequent
+  production changes require their own integrated checks.
+  The nine-document source-page build passes normal extraction, embedding,
+  post-processing, bundling, unchanged resume and live stdio MCP acceptance.
+  An adapted operator tour passes 39 public CLI calls, including exact-field
+  BibTeX round trips and a controlled edit/restore, on a copied completed build.
+  It does not replace fresh install/build/resume/serve or final-candidate gates.
+- [x] Rebuild and score the existing CPU gold corpuscle; review build-reference
+  differences and source-based expectations. Use small synthetic cases for
+  logic/boundaries and add source material only for a demonstrated coverage gap.
+  **Hydractinia is not a second fixture corpus.**
+  The intermediate `6fbf4e0` CPU/OCR extraction completed all 35 documents and
+  all three source scorers ran successfully. Its [baseline receipt](examples/siphonophore_gold_baseline_2026_09_18/README.md)
+  preserves included/excluded pages, weak strata and the terminal wrapper-code
+  discrepancy. The [September 22 current-producer refresh](examples/siphonophore_gold_refresh_2026_09_22/README.md)
+  completes all 35 documents with a clean exit and no stage failures. All three
+  scorers pass over the same 675 included pages: median prose coverage rises
+  from 0.9448 to 0.9482; figure and caption aggregate scores are unchanged.
+  Fourteen pages improve, with no decreases in the six compared fidelity
+  measures. Scientific notation has separate source-reviewed denominators.
+  Normal embedding, post-processing and bundling pass. Unchanged extraction and
+  embedding skip all 35 papers; actual rows remain identical. A no-row orphan
+  check creates LanceDB transaction bookkeeping, so physical index-file equality
+  is explicitly not claimed. Live stdio MCP verifies all 3,336 chunks, 14 faithful
+  source expressions and six figure deliveries without changing the bundle.
+  Fresh Qwen acceptance remains separately pending under #305/#342.
+- [ ] Demonstrate clean/incremental semantic equivalence with the standing
+  exclusions, artifact invalidation and unchanged-document checks below.
+  Historical-artifact clean-cycle job `27537172` reproduces one citation edge
+  lost on the first full unchanged authority/reconciliation refresh (citing
+  document `188c66a35702`, Edwards 2000 ghost). Raw observations remain intact;
+  later refreshes stabilize. The [review](examples/bibliography_review_2026_09_25/README.md)
+  records the exact edge; the first-refresh discrepancy remains unresolved.
+- [ ] Run the full reference-corpus release validation, then replay the audit
+  calls through the served candidate. Gold-only checks cannot prove corpus-scale
+  citation degree, concurrency or reconciliation behavior.
+- [ ] Record repaired cases and remaining investigations accurately, publish
+  rebuild/migration instructions, and prepare the release PR. The
+  [candidate upgrade procedure](V1_5_MIGRATION.md) and draft PR #335 are ready
+  for review; release acceptance remains pending. Production
+  replacement requires the rebuilt bundle; server-only updates cannot repair
+  already stored evidence.
+- [ ] Bring correctness commits into the preserved enhancement history before
+  resuming v1.6. The goal is the accepted fixes and verified gates, not an empty
+  tracker or an indefinite extractor redesign.
 
-Each of these is a judgment that keeps being re-derived. Write the answer down
-and close the issue, or scope the work — either is progress; leaving them open
-is not.
+The current candidate qualifies for the standing **T3-bare waiver**: compared
+with v1.4.0, the installed apt packages, miniforge bootstrap and runtime pins
+are unchanged. #285 changes only unused Chrome-source cleanup and apt retry
+behavior on hosted CI runners, where that path is exercised directly. This
+does not waive T3, the operator walkthrough, source fidelity or full-corpus
+acceptance. Reassess the waiver if platform inputs change before release.
 
-- [x] **OCR reproducibility** ([#280](https://github.com/caseywdunn/corpus/issues/280)).
-  Decided: normalize CJK whitespace **in the comparison**, keep the criterion
-  exclusion, and do *not* pin `--jobs 1` — that hypothesis was tested and
-  fails. See Standing gates for the measurements.
-- [x] **`get_missing_references` scope**
-  ([#155](https://github.com/caseywdunn/corpus/issues/155)). Both, since they
-  are complementary. The cheap slice: rows with neither title nor year are
-  withheld — 477 of 6,953 at the default threshold, and they outranked real
-  gaps (`corpus:|unknown|`, empty-titled with 30 citations, sat 11th, above
-  the genuinely-missing Bigelow 1906). And the docstring — the MCP tool
-  description a client actually reads — now says the tool is best-effort, names
-  the residual 96 title/year-only leads, and points at `resolve_reference` and
-  the QC tool. The remaining cases need a per-block LLM pass or a similarity
-  threshold loose enough to merge distinct works; neither is a cheap slice.
+## v1.6 — preserved skills and usage
 
-**Cycle acceptance:** every issue above is closed or has a recorded decision,
-and the open tracker contains only new capability and direction questions —
-nothing that describes the product being wrong. Issues close when their fix
-lands on `dev` (CONTRIBUTING.md, "Closing issues"), so the tracker should
-shrink continuously through the cycle rather than in a bulk close at release.
+The implementation through `44977fe` remains on `enhancements/v1.6`. It contains
+assemble-library and its helper scripts, plugin scaffolding, configuration path
+expansion and associated documentation/tests. Other workflows below remain
+unfinished. Resume them after correctness acceptance; validate plugin installation
+as well as workflow output. **#297** (the plugin's accidental development MCP
+configuration) stays here, because the plugin is not in the correctness release.
+*No plane; packaging.*
 
-**Met.** All four sections are closed: 22 issues, 34 open → 13, with the
-tracker holding only v1.5 skills work (#178, #179, #180, #217), direction
-questions (#88, #89, #93, #123), deferred layers (#13, #14, #38, #39), and one
-item blocked on hardware rather than on a decision (#258 — Apple Silicon).
+- [ ] **A `skills/` plugin directory and library-assembly skill** — *library
+  curation* ([#178](https://github.com/caseywdunn/corpus/issues/178)). Skills may
+  import public functions from `pipeline/`; the product never imports a skill.
+  The plugin scaffolding itself has no plane; `assemble-library` produces a
+  library, which is what the tag tracks.
 
-Two things this cycle established, worth carrying into v1.5:
-
-**Measure the population before writing the fix.** Nine of the twenty-two
-items had their shape changed by measurement, and in six the measurement
-contradicted the issue's own proposal — #83's column store saves 19% of a
-payload undeliverable either way; #184's selective rule is *worse* than the
-flat cap it was meant to improve; #280's `--jobs 1` remedy addresses a
-mechanism that does not reproduce; #175's author-only matcher would write
-wrong protologues at a 67% error rate; #266's headline symptom was already
-fixed while a worse one went unnamed; and #165's two named documents are not
-where its value is. A proposal in an issue is a hypothesis, including a
-convincing one.
-
-**Reassess before building.** #80, #192 and half of #155 turned out to be
-already done, or already built by the previous cycle with only the reading of
-it left. #273 argued for deleting a check rather than renaming it. Cheap items
-were cheap because someone had already done the hard part.
-
-Explicitly **not** in v1.4: the skills and client layer (v1.5), new extraction
-layers (#13, #14), bulk export (#93), `verify_claim` (#123), embedding-model
-migration (#38), MCP scaling (#39), and the direction questions (#88, #89,
-#124).
-
-## v1.5 — skills and usage
-
-Deferred from v1.4 so it can consume a clean tracker and trustworthy
-evidence rather than design around known gaps. v1.5 is the
-small client/workflow layer that turns the frozen retrieval surface into a
-repeatable answer. Its scope is deliberately limited to one library-building
-workflow, one corpus-consuming workflow, and the shortest public path through
-them:
-
-- [ ] **A `skills/` plugin directory and library-assembly skill**
-  ([#178](https://github.com/caseywdunn/corpus/issues/178)). Skills may import
-  public functions from `pipeline/`; the product never imports a skill.
-- [ ] **`corpus bib inspect-pages`**
+  **Keep the plugin installable on its own.** A plugin install needs neither the
+  `corpus` package nor an MCP server, and that independence is what lets #286 and
+  #179 reach someone who has access to a served corpuscle and has never installed
+  Python. It is easy to break by accident — one shared helper that imports
+  `pipeline` and the plugin needs a conda environment. The three runtime profiles
+  are tabulated in the issue; document the matrix, not a single install sequence.
+- [ ] **`corpus bib inspect-pages`** — *library curation*
   ([#217](https://github.com/caseywdunn/corpus/issues/217)), the read-only
   pre-build evidence used by the library-assembly workflow to curate
   `keeppages`, `doclang` and related judgments. It inspects the library; it does
   not duplicate the post-build page report from #274.
-- [ ] **A clade-monograph skill**
+- [ ] **A corpuscle-summary skill** — *client/agent*
+  ([#286](https://github.com/caseywdunn/corpus/issues/286)). Markdown by default,
+  a LaTeX fragment on request. Broken out of #179, where it was Appendix A of the
+  monograph. It is two MCP calls, a plot script and a template — `corpus_summary`
+  and `bundle_info` already return every field it needs, so it adds no MCP
+  surface.
+- [ ] **A build-and-triage skill** — *build/materialization*
+  ([#287](https://github.com/caseywdunn/corpus/issues/287)). The judgment layer
+  over `corpus check` / `run` / `status`: what a `timeout` versus a `corrupted`
+  versus a `quality_gate` failure means for this collection. It must not
+  re-implement `corpus status`; if it ends up only printing that output, cut it.
+  It also emits the `.mcp.json` entry for the corpuscle it just built — the path
+  is known here and nowhere else, the plugin cannot ship one, and it is the join
+  that lets #288 chain a build into a summary.
+- [ ] **A clade-monograph skill** — *client/agent*
   ([#179](https://github.com/caseywdunn/corpus/issues/179)) that consumes the
   caption/reference provenance shipped by v1.3 and writes deliverables on the
-  client, never on the MCP host.
-- [ ] **A README quick start**
+  client, never on the MCP host. Appendix A now comes from #286 rather than being
+  written here.
+- [ ] **A quickstart orchestrator skill** — *client/agent*
+  ([#288](https://github.com/caseywdunn/corpus/issues/288)), sequencing the three
+  skills above with a gate per step. Its value over a README prompt is that a
+  gate becomes an exit code instead of a sentence a model can rationalize past.
+- [ ] **A README quick start** — *no plane; documentation*
   ([#180](https://github.com/caseywdunn/corpus/issues/180)) covering that path
-  from a library to a served answer.
+  from a library to a served answer. **It now ends at the corpuscle summary, not
+  a monograph** — a quick start should not build a book, and stopping at the
+  summary takes LaTeX out of a first-time reader's path entirely.
 
-Bulk export ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2 and
-[#93](https://github.com/caseywdunn/corpus/issues/93)), reconciliation changes,
-new MCP tools, unrelated housekeeping and new scientific extraction layers are
-not part of v1.5. If the clade-monograph acceptance run exposes another
-evidence-integrity defect, fix it as a defect; do not expand the skills cycle
-into another pipeline redesign.
+## Unscheduled — closing the improvement loop
 
-## Unscheduled
+Not scheduled; recorded together because they are one body of work and the
+ordering inside it matters. The skills cycle builds the forward path — library to build to
+bundle to answer. This is the **return edge**: reading a built corpuscle to
+find what its inputs got wrong, and proposing the reviewed edit that makes the
+next build better. See [OVERVIEW.md](OVERVIEW.md#execution-planes-and-data-ownership),
+which now documents the loop, its iterative nature, and the fact that its ends
+usually sit on different machines.
 
-This is a selected orientation list, not a second issue tracker; GitHub issues
-are authoritative. Dependencies that matter are stated inline. Split because
-the two halves get picked up for different reasons: a known defect is picked up
-when it bites someone, an unbuilt feature when something makes it worth
-building.
+**The finding that shapes this cycle: the return edge is missing its
+instruments, not its skills.** Two of the three workflows below are blocked on
+measurement that does not exist, and building the measurement is `pipeline/`
+work, not skill work, under the AGENTS.md tiering. Once it exists each skill is
+thin — read the report, propose the edit, re-run. Only the bibliography lap is
+ready today, because `get_missing_references` is the one instrument already
+built.
 
-**v1.4 now owns these, and the section above is where their scheduling lives:**
-#80, #83, #155, #164, #165, #166, #168, #169, #170, #172, #175, #182, #183,
-#184, #192, #258, #263, #266, #270, #273, #279, #280. Their notes are kept
-below because the rationale is still worth reading — but v1.4's list is the
-one to work from, not this one. Anything here *not* in that list is genuinely
-unscheduled: new extraction layers, bulk export, `verify_claim`,
-embedding-model migration, MCP scaling, and the direction questions.
+Instruments first:
 
-### Open defects
+- [ ] **Record taxon-name candidates the snapshot does not have** — *build*
+  ([#289](https://github.com/caseywdunn/corpus/issues/289)). `pipeline/taxa.py`
+  drops every unresolved candidate silently, so the corpus cannot answer "which
+  names does the literature use that my taxonomy lacks" — it computes the answer
+  on every run and discards it. Measure the noise floor before choosing what to
+  keep.
+- [ ] **Lexicon coverage and content validation** — *build*
+  ([#290](https://github.com/caseywdunn/corpus/issues/290)). A declared term
+  that matched nothing is invisible: `n_terms_hit` has no denominator, and the
+  bundle does not ship `lexicon.yaml` for the server to diff against. Deferred
+  once already at [QC.md](QC.md) "What's missing in v0.3"; this is that pass.
+  Dead terms only — gap detection is a different problem.
 
-Issue-backed, in dependency-free groups.
+Then the laps:
 
-**Served-surface correctness**
+- [ ] **Find papers to add** — *library curation*
+  ([#293](https://github.com/caseywdunn/corpus/issues/293)). The ready one.
+  Its trap is that `in_corpus = 0` depends on ghost reconciliation, so an
+  unreconciled variant of a work already held appears as a lead — verification
+  is the skill, not garnish.
+- [ ] **DwC-A audit** — *library curation*
+  ([#294](https://github.com/caseywdunn/corpus/issues/294)), blocked on #289.
+  Reports discrepancies; never asserts a synonymy. The snapshot cannot even
+  justify its own, having dropped `nomenclaturalStatus` at ingest.
+- [ ] **Build and revise a lexicon** — *library curation*
+  ([#295](https://github.com/caseywdunn/corpus/issues/295)), blocked on #290.
+  The cheapest lap available, which makes it the best place to show the loop is
+  worth taking.
 
-- [ ] **Taxonomic authority linking assumes zoological authorship**
-  ([#175](https://github.com/caseywdunn/corpus/issues/175)), so
-  `get_original_description` is structurally dead for any botanical
-  corpus — 889 of 913 viburnum taxa had authorship, 0 with a year.
-  Overlaps PR #144 below, from the opposite end.
-- [ ] **Lexicon translations match only uninflected forms**
-  ([#165](https://github.com/caseywdunn/corpus/issues/165)), zeroing
-  anatomy coverage on German papers: Eschscholtz prints `Luftblasen`,
-  the lexicon has `Luftblase`.
-- [ ] **A hub work's depth-1 `get_citation_graph` payload can exceed MCP
-  transport limits** ([#166](https://github.com/caseywdunn/corpus/issues/166))
-  while `truncated: false` stays accurate.
+Adjacent, found while scoping the above:
 
-**Extraction quality**
+- [ ] **Vernacular names are exported but never ingested** — *build*
+  ([#291](https://github.com/caseywdunn/corpus/issues/291)). The export selects
+  a `name_type` no ingest path writes, so the extension is always empty. Fixing
+  it properly widens `name_set()` and would make vernaculars match as taxon
+  mentions — a behavior change, and #178's "kalina" homonym trap is the reason
+  to think hard about it.
+- [ ] **Gate lexicon annotation per category** — *build*
+  ([#292](https://github.com/caseywdunn/corpus/issues/292)). Editing one
+  category re-runs all of them plus `taxa.json`; the docs claimed otherwise and
+  were corrected. Per-lap cost is what decides whether users keep going round,
+  and #178 generates multi-category lexicons by default.
 
-- [ ] **Abbreviated genus binomials**
-  ([#164](https://github.com/caseywdunn/corpus/issues/164)) —
-  `Ph. pelagica` resolves to nothing.
-- [ ] **Move the docling pin forward**
-  ([#283](https://github.com/caseywdunn/corpus/issues/283), superseding the
-  [#98](https://github.com/caseywdunn/corpus/issues/98) follow-up). Still
-  `docling==2.94.0`; current is **2.126.0**, so the pin is 32 minor versions
-  behind. #98 asked whether 2.95 or 2.96 broke MPS extraction — **that box is
-  dropped, not carried.** Thirty versions on it is archaeology: whatever broke
-  has almost certainly been rewritten, and the answer would not say whether
-  2.126 works. The question with a consumer is "does current docling extract
-  correctly on arm64?", which is one test rather than a bisect. Needs
-  Apple-Silicon hardware; budget for API churn rather than a version bump,
-  since nobody has read docling's changelog across that range.
+## Other deferred work
 
-  Two things make this a smaller bet than when #98 was written. #99's guard
-  now treats a corpus-wide zero-chunk result as a hard error, so the silent
-  empty-bundle failure that made 2.96 dangerous fails loudly. And **v1.2's
-  fidelity harness ([#193](https://github.com/caseywdunn/corpus/issues/193))
-  gives this a criterion it never had** — "better or worse" against the gold
-  set rather than against impressions.
-
-**Operator surface**
-
-- [ ] **Progress heartbeat during long per-document stages**
-  ([#170](https://github.com/caseywdunn/corpus/issues/170)).
-- [ ] **`--filter-gate` is silently ignored without `--list-hashes`**
-  ([#169](https://github.com/caseywdunn/corpus/issues/169)) — the hint
-  was fixed in 1.0, the underlying flag was not.
-- [ ] **Surface the naive-chunker fallback in `corpus status`**
-  ([#168](https://github.com/caseywdunn/corpus/issues/168)).
-- [ ] **Do not warn about a downgraded vision pass on phases that never run
-  it** ([#263](https://github.com/caseywdunn/corpus/issues/263)).
-- [ ] **Bound build memory explicitly**
-  ([#182](https://github.com/caseywdunn/corpus/issues/182)); embedding batch
-  size and docling resource controls should be reachable from configuration.
-- [ ] **Make accelerator requirements explicit**
-  ([#270](https://github.com/caseywdunn/corpus/issues/270)). A GPU phase should
-  fail before expensive setup when no usable accelerator is present; keep
-  scheduler-specific constraints in deployment configuration.
-
-**Housekeeping**
-
-- [x] **The local VLM loads in float32 on MPS**
-  ([#258](https://github.com/caseywdunn/corpus/issues/258)). Closed in v1.4:
-  measured on an M2 Max and the default stays float32. Half precision keeps
-  every panel but moves the boxes (mean IoU 0.65–0.75 against float32, worst
-  panel 0.0), while two float32 runs agree at 1.0 — greedy decoding over digit
-  tokens, so a flipped digit moves a coordinate hundreds of pixels. The memory
-  premise stands unfixed: float32 measured 37.69 GB on Metal, so a 32 GB Mac
-  still cannot run the default, and `figures.vision_dtype` is the fallback
-  there with documented worse geometry.
-- [x] **CI now looks at the repo root.** Shipped in v1.2.1 as
-  `tests/test_repo_root_is_clean.py`, an allowlist over `git ls-files`.
-  A stray 9-byte `%PDF-1.4` fragment named `6` sat next to `README.md`
-  through four green CI runs and a full release PR, caught by eye at the
-  v1.2.0 tag boundary — one merge from a citable Zenodo archive. T0 lints
-  `pipeline/`, `mcpsrv/`, `bib/` and `tools/` for undefined names; nothing
-  had an opinion about the top level. Note the file was *not* a shell typo
-  as first assumed: the test suite regenerated it on every run
-  ([#257](https://github.com/caseywdunn/corpus/issues/257)), which is why
-  deleting it once did not hold. Same shape as the `tools/` pyflakes gap
-  below — the check that would have caught it did not exist because nobody
-  had been bitten yet.
-- [x] **`tools/` is in the pyflakes gate.** Done alongside
-  [#193](https://github.com/caseywdunn/corpus/issues/193), which added
-  another script there. `tests/test_no_undefined_names.py` had linted
-  `pipeline/`, `mcpsrv/` and `bib/` only, so operator scripts never got
-  the NameError check [#75](https://github.com/caseywdunn/corpus/issues/75)
-  built it for — and those are run by hand at release time, where a
-  NameError costs a whole manual run rather than a fast test failure.
-
-**External contribution**
-
-- [ ] **[PR #144](https://github.com/caseywdunn/corpus/pull/144)** from
-  @beroe — original-description linking against in-corpus works
-  (423 → 505 of 598 ctenophore taxa). Mergeable and substantive, but it
-  is a 4-commit external change that has never run CI, and it touches
-  `bib/authority.py`, which #154 rewrote during the 1.0 cycle. It wants
-  a review and a CI run, not a fast merge. Note it overlaps #175: both
-  are `parse_authority`, from opposite ends.
-
-### Features awaiting motivation
-
-Net-new, safe to add after 1.0 without breaking the frozen surface —
-held because nothing has yet made them worth the cost.
-
-- **Container distribution image.** The only channel that can ship the
-  full native toolchain in one artifact: Docker is already a
-  prerequisite for Grobid, `docker-compose.yml` could bring up grobid +
-  corpus together, and #153's HPC user already runs Apptainer, which
-  pulls straight from a Docker registry. Costs: bind-mounting the PDF
-  directory, GPU passthrough for the local VLM, and a large image with
-  torch in it. 1.0's install path is verified continuously now, which was
-  the precondition — worth its own issue.
-- **`verify_claim`** ([#123](https://github.com/caseywdunn/corpus/issues/123)).
-  Per-claim ledger anchoring as a thin similarity-only wrapper over
-  `get_chunks_for_topic`. New tool — post-freeze by construction.
-- **Drift detection** ([#80](https://github.com/caseywdunn/corpus/issues/80)).
-  Pre-run explanation of why a run will invalidate each stage. v1.3 implements
-  #174 and #187; reassess afterward whether #80 still names distinct work.
-- **Bulk export outside the MCP response channel**
-  ([#88](https://github.com/caseywdunn/corpus/issues/88) Part 2 and
-  [#93](https://github.com/caseywdunn/corpus/issues/93)). A local `corpus
-  export` or client-side download workflow fits the execution-plane contract;
-  an MCP tool that writes the server's filesystem does not.
-- **Rename `_serve/`**
-  ([#273](https://github.com/caseywdunn/corpus/issues/273)). Naming cleanup,
-  not evidence integrity; provide a deprecation/compatibility path because the
-  directory appears in operator scripts and documentation.
-- **Column-store shape for `lexicon_matrix`**
-  ([#83](https://github.com/caseywdunn/corpus/issues/83)). Token saving
-  at large-matrix scale; held pending a prompt-suite analysis showing it
-  matters.
-- **Figure-number extraction: the non-caption cases.**
-  [#16](https://github.com/caseywdunn/corpus/issues/16) is **closed** —
-  it landed the parsing half (`Taf. III.`, `Tab. XII.`, `Plate IV.`,
-  Roman→Arabic normalization and fixture-backed tests) of the corpus-wide gap.
-  What remains is papers with no caption at all, or a caption not near
-  its image, which needs vision OCR or a body-text-mention fallback.
-  **Untracked** — file an issue if picked up. v1.2's figure-fidelity
-  scoring ([#194](https://github.com/caseywdunn/corpus/issues/194)) is what
-  would size it.
-- **Vision pass corpus-scale validation.**
-  [#11](https://github.com/caseywdunn/corpus/issues/11) is **closed** as
-  carried-out-in-code: `corpus run` invokes the vision pass whenever
-  `figures.panel_detection` selects a vision backend and the host
-  capability check passes. A corpus-scale run happened in v1.0 with every
-  eligible figure reaching the vision pass. What remains
-  is the **figure-coverage audit**: count figures with `pass3c_status`
-  set, sum `missing_figures[]` lengths, and establish what "eligible"
-  excluded. v1.2's figure-detection scoring
-  ([#194](https://github.com/caseywdunn/corpus/issues/194)) subsumes the
-  accuracy half of this on 35 documents; the
-  corpus-scale count is still untracked release-validation work.
-- **Evaluate Cloud Run vs the EC2+ALB stack**
-  ([#89](https://github.com/caseywdunn/corpus/issues/89)). Deployment
-  decision, not part of the MCP API contract.
+- **#340** — enforce configurable timeouts for scan detection and OCR panel
+  detection through safely terminable execution, structured document failure
+  and retryable artifacts. Explicitly deferred on September 21; version
+  unassigned. The current heartbeat does not stop hung native work.
+  `[plane:build]`
+- **#330** — optional lexicon surface-form dossier support. `[plane:serve]`
+- **#333** — optional taxonomy miss diagnostics and matched-name presentation;
+  preserve truthful snapshot scope. `[plane:serve]`
+- **#283** — dependency upgrade, held unless a confirmed defect requires it and
+  the platform/fidelity checks justify it. *No plane; dependencies.*
+- **#88 / #93**, **#123** — bulk export and new claim-verification capability;
+  keep separate from repairing existing behavior. `[plane:client]`
+- **PR #144** — review any applicable original-description fixes against #311
+  and the new identity controls; do not merge an old unvalidated reconciliation
+  policy as a shortcut. `[plane:build]`
 
 ## Out of scope (longer horizon)
 
@@ -637,7 +778,7 @@ Two method notes that cost real time to learn, and will again:
 
 ### Validate a release against the full corpus, not only the gold set
 
-v1.3's release validation rebuilt all 1775 siphonophore documents, and that run
+v1.3's release validation rebuilt the full siphonophore corpus, and that run
 found four defects no unit test could reach: #278 (the taxonomy fingerprint
 hashed a file containing timestamps), #279 (concurrent Grobid jobs collide on a
 fixed port), #280 (CJK OCR whitespace is not reproducible), and #281 (the GPU
@@ -709,7 +850,7 @@ Generic shapes; concrete instantiations live in the corpuscle's
 | # | Pattern | Status entering v1.3 |
 | --- | --- | --- |
 | Q1 | "List all collection locations of `<species>`." | Partial — needs geographic mention layer ([#13](https://github.com/caseywdunn/corpus/issues/13), deferred to v2.0+) |
-| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; v1.3 repairs caption/reference evidence and makes uncertainty inspectable before v1.4 adds the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
+| Q2 | "Compose a monographic review of `<genus>`." | Indices in place; v1.3 repairs caption/reference evidence and makes uncertainty inspectable before v1.6 adds the clade-monograph skill ([#179](https://github.com/caseywdunn/corpus/issues/179)) |
 | Q3 | "Make a key to identify species in `<genus>`." | Trait extraction deferred ([#14](https://github.com/caseywdunn/corpus/issues/14)) |
 | Q4 | "List all valid species + one-paragraph summary + diagnostic figures." | Indices in place; a corpus-scale vision run landed in v1.0 and figure detection became measurable against truth in v1.2. On the clean gold corpuscle, physical detection is 0.883 recall / 0.865 precision raw and 0.827 / 1.000 on the default MCP type surface. Caption identity binding is 0.641 / 0.987 against the corrected 839-identity yardstick; the remaining recall gap is predominantly absent upstream number evidence rather than selector error |
 | Q5 | "Summarize `<author X>`'s comments about `<author Y>`." | Indices in place |

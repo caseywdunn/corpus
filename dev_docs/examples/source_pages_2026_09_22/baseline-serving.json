@@ -1,0 +1,363 @@
+{
+  "input_receipt": {
+    "code_revision": "4d0ecfd06f654b5d4ab2fc783ce4e0d32a927866",
+    "library_revision": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+    "scope": "Normal pipeline with explicit source-page selection; not full-paper/full-corpus or citation-graph acceptance. No source inputs modified.",
+    "grobid": "disabled for text/figure acceptance; no reference completeness claim",
+    "sources": [
+      {
+        "source": "library/T/Tung2003.pdf",
+        "source_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+        "physical_pages": "30,84",
+        "bib_key": "Tung2003",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/H_J/Hung2002.pdf",
+        "source_sha256": "146fce7eee0232e7873c0ccd5f7ebc49256470447f73e9e4ee29af66447e387a",
+        "physical_pages": "3",
+        "bib_key": "Hung2002",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/U_Z/Yu2006.pdf",
+        "source_sha256": "28d1eb27e929223effbf36f6a1cf6161bbc02cd6430f01056a230e15aca81d18",
+        "physical_pages": "2",
+        "bib_key": "Yu2006",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/L/Liu_etal2012.pdf",
+        "source_sha256": "ada699a8ee18bce9af3905aa018a68918e7be04c4c5574438000c349edffd43e",
+        "physical_pages": "2",
+        "bib_key": "Liuetal2012",
+        "doclang": "zh-Hans, en",
+        "ocrmode": null
+      },
+      {
+        "source": "library/B/Boysen-Ennen1987.pdf",
+        "source_sha256": "88f1c8dfbd5ca3058449c02027fa8219eb53b426324cb2694a8d502a40682fb5",
+        "physical_pages": "12,16",
+        "bib_key": "BoysenEnnen1987",
+        "doclang": "de, en",
+        "ocrmode": null
+      },
+      {
+        "source": "library/M/Mapstone2009.pdf",
+        "source_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+        "physical_pages": "47,68,200",
+        "bib_key": "Mapstone2009",
+        "doclang": "en",
+        "ocrmode": null
+      },
+      {
+        "source": "library/H_J/Hissmann2005.pdf",
+        "source_sha256": "25eb8dd8d21d3004299b3ae5a26714720ad1702cc53b22cc4a81180c55492210",
+        "physical_pages": "7",
+        "bib_key": "Hissmann2005",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/D_E/DuClos_etal2022.pdf",
+        "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+        "physical_pages": "6",
+        "bib_key": "RenEtal2022",
+        "doclang": null,
+        "ocrmode": null
+      }
+    ],
+    "bib_sha256": "cfe7a7d7e2744bdb4dbe075d3d505268dec67ec57fd4b120c1457f13fd3d01ca"
+  },
+  "bundle_manifest_sha256": "ad0ca85b6a4f6902729291771a22e80b836da88bca38b45bead1163e647d3a56",
+  "bundle_inventory_sha256": "35ca71d23537c878d7c5dde24fa3d75cb26af587e476ad50eaadc7c734f3c652",
+  "embedding_producer": {
+    "schema_version": 1,
+    "model": "BAAI/bge-m3",
+    "dimension": 1024,
+    "producer": {
+      "model": "BAAI/bge-m3",
+      "recipe": "sentence-transformers-unit-l2-v1",
+      "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+      "verification": "repository-revision"
+    }
+  },
+  "vector_rows": 62,
+  "vector_dimensions": 1024,
+  "all_materialized_texts_equal_vector_texts": true,
+  "all_vectors_nonzero": true,
+  "bundle_unchanged_after_queries": true,
+  "server_code": "651426e",
+  "source_files": {
+    "db7338ea1867": {
+      "text.json": "b8536785244ea1eb78f890785480f30afd2d4e94b69136653583e9bfb2a905e8",
+      "chunks.json": "1491715bc7caa4ee030581f11942d1dbddf6b4b27c7d04caf3af945c03b9022b",
+      "docling_doc.json": "591f3b0be64abe35c48284daff3a0490a88ca0caae6ce19adb91fed12ebdc6c8",
+      "figures.json": "50bbcbc97619a832c7936d9fb4095ed9809c595618ab19887734cfbc0e5f4ef8",
+      "processed.pdf": "2a1de7d5afa74f3819fa51c99baf35903278bab47269ba1c6e4e6d091f4183f5",
+      "pipeline_state.json": "33ee028f6bf71acb5cb43b446ee135668e80355a0f606b1ee0eaa6bb342f5505",
+      "scan_detection.json": "bb65f6932be18404d6f1d0b4079824d102b461d2d863e235d8d4684d6feff3e1"
+    },
+    "88f1c8dfbd5c": {
+      "text.json": "088e6b03925d20a6825489b48ed58d54352ef9ff30569bf9020f910061fb6c80",
+      "chunks.json": "4090613e050b35082a6c066c4dd42d0992b30fafcd87f5e2c75bdd2800ce5db8",
+      "docling_doc.json": "2e70fced4c907441465ee2c17739b96e71eded7617693772156b1c8a34bd0e16",
+      "figures.json": "c005a2082ac6add731c019cfa1193653ec9c5b96282ad473722b937c9d766071",
+      "processed.pdf": "5cdbf153ae16ae52345eb0348f916e52cc45f259ca3ffc4010554d8d515e84e4",
+      "pipeline_state.json": "fcc777415c282fa2970d65b04a3b0dd7c07519deb47c7848d7aecb27672415d0",
+      "scan_detection.json": "5775f62b23a7f44b6041316c426e63327f4b0a0e9d6dbd0110ab1312af8efcff"
+    },
+    "4efbb4af134b": {
+      "text.json": "11291b2d7b661dc0bb96f2b6604e91b5adb68cc0abe0ed4ac82ccc7529ca5aab",
+      "chunks.json": "28c2a832010dd9483f32e406cf1d17c43ec4aa290db7d773ac7e1519fde7ec7b",
+      "docling_doc.json": "507ad48101af5216dc64f46d967cf3f928f43c280dad4b5c366035e2626255be",
+      "figures.json": "ace3dec00ae07bab426fc54b00116f6fc0b28fad1ef3c9737647d0430b042d12",
+      "processed.pdf": "c9885295b65db235b21f07a2e2e296d1aa0d90506528d8a711e7fb8696bbef75",
+      "pipeline_state.json": "179a9784f1a1617c186dd57937dac62af9aeb9713b522784bacf4c5da2617daa",
+      "scan_detection.json": "dcd92e8ccad03e1c35b2cfa8df92ee033fdacb5e3918bd4676f1d3682acf399a"
+    }
+  },
+  "checks": {
+    "db7338ea1867": {
+      "chunk_count": 5,
+      "literal_checks": [
+        {
+          "literal": "5301±8525 ind./100m³",
+          "chunk_ids": [
+            "chunk_0"
+          ]
+        },
+        {
+          "literal": "Chelophyes contorta",
+          "chunk_ids": [
+            "chunk_0",
+            "chunk_2"
+          ]
+        },
+        {
+          "literal": "Nanomia bijuga",
+          "chunk_ids": [
+            "chunk_2"
+          ]
+        },
+        {
+          "literal": "圖1.台灣西南海域採樣測站之位置圖。",
+          "chunk_ids": [
+            "chunk_4"
+          ]
+        }
+      ],
+      "heading_checks": [
+        "管水母種類組成及豐度"
+      ],
+      "served_chunks_sha256": "dbbb11803d7f57b8174dbb891ab0520c873e5dca907b500640086788f2b5fc00",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "figure": {
+        "id": "docling_1",
+        "caption": "圖1.台灣西南海域採樣測站之位置圖。",
+        "status": "bound",
+        "delivered_image_sha256": "a92dd4f6562361f5780ca5540cfe472575d08bbd1842b9e0b753a7d79961f556",
+        "image_size": [
+          377,
+          427
+        ],
+        "image_bytes_equal_bundle": true,
+        "profile": "report"
+      },
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 3,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 7,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        }
+      }
+    },
+    "88f1c8dfbd5c": {
+      "chunk_count": 6,
+      "literal_checks": [
+        {
+          "literal": "RMT-8-Fänge",
+          "chunk_ids": [
+            "chunk_2"
+          ]
+        },
+        {
+          "literal": "RMT 1+8m-Fänge",
+          "chunk_ids": [
+            "chunk_3"
+          ]
+        }
+      ],
+      "heading_checks": [],
+      "served_chunks_sha256": "9e71a7cfd0bd71f18d4df5155cc3d83e61852822d3ffe476c86067cebb0a9aeb",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "figure": {
+        "id": "docling_1",
+        "caption": "Abb.l:  Die  Positionen  der  RMT 1+8m-Fänge  der  Expedition  ANTI/2 1983  mit der  \"Polarstern\"",
+        "status": "bound",
+        "delivered_image_sha256": "adde2f27f1ea61b48bc71fcb80334c75551d9a6feae9ca2d7b6b2ae44b92d4a2",
+        "image_size": [
+          2090,
+          1559
+        ],
+        "image_bytes_equal_bundle": true,
+        "profile": "report"
+      },
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 1,
+          "unresolved": 15,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        }
+      }
+    },
+    "4efbb4af134b": {
+      "chunk_count": 19,
+      "literal_checks": [
+        {
+          "pattern": "Alvariño\\s+1971",
+          "chunk_ids": [
+            "chunk_3"
+          ]
+        },
+        {
+          "pattern": "Alvariño\\s+1991",
+          "chunk_ids": [
+            "chunk_5"
+          ]
+        },
+        {
+          "pattern": "Alvariño,\\s+1981",
+          "chunk_ids": [
+            "chunk_12"
+          ]
+        }
+      ],
+      "heading_checks": [],
+      "served_chunks_sha256": "36a9602708166ef2948995dad3621ad8fca9a40a466d6466919af8ee039b1a7f",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 1,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 1,
+          "method": null
+        }
+      }
+    }
+  },
+  "scope": "Normal selected-page build, real BGE-M3 vector text and stdio MCP acceptance; not full-paper or full-corpus coverage. Original uncompressed receipt retained separately.",
+  "limitations": [
+    "Grobid disabled; no fresh reference edges",
+    "Selected pages before scan classification; no whole-paper OCR routing claim",
+    "Legacy bibliography replay is separate from this build",
+    "Final release/gold acceptance remains"
+  ]
+}

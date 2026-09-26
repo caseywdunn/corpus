@@ -1,0 +1,393 @@
+{
+  "date": "2026-09-21",
+  "issue": 314,
+  "producer_commit": "a3e638dc2003ffd7ebc0a32cefbc359d97c8461a",
+  "versions": {
+    "pipeline": "1.5.0.dev0",
+    "ocrmypdf": "17.8.1",
+    "tesseract": "5.5.2",
+    "pymupdf": "1.28.0",
+    "grobid": "0.8.1"
+  },
+  "preparation": {
+    "mode": "normal scan detection then force_ocr",
+    "ocrlang": "eng",
+    "jobs": 2,
+    "keeppages": null,
+    "all_source_pages": true,
+    "ocr_exit_codes": [
+      0,
+      0,
+      0
+    ]
+  },
+  "pages": 558,
+  "references": 178,
+  "acceptance_status": "all_three_named_cases_passed",
+  "reporting_failures": [
+    {
+      "phase": "original orchestration",
+      "exit_code": 1,
+      "reason": "report SQL used citing_paper_hash rather than citing_corpus_hash; OCR, Grobid and source artifacts completed and were retained"
+    },
+    {
+      "phase": "saved-artifact report replay",
+      "exit_code": 1,
+      "reason": "overbroad title selector included an unrelated Kinzer observation; original result retained"
+    },
+    {
+      "phase": "named Pugh/SOND assessment",
+      "exit_code": 0,
+      "reason": "acceptance subjects selected by Pugh author and SOND source text; existing mappings inspected, not altered"
+    }
+  ],
+  "cases": [
+    {
+      "source_relative_path": "P/Pugh1990.pdf",
+      "source_sha256": "a16337443af781b9c8ee65431c55cf61e3ecc36dc28378bebd95da614aa1432f",
+      "source_pages": 76,
+      "steps": [
+        {
+          "function": "pipeline.scan.detect_scan_type",
+          "seconds": 19.968081626982894,
+          "needs_ocr": true,
+          "ocr_mode": "force_ocr"
+        },
+        {
+          "function": "pipeline.scan.prepare_pdf",
+          "seconds": 148.0344843469793,
+          "outcome": {
+            "pages_blanked": [],
+            "pages_ocr_timed_out": [],
+            "pages_without_text": [],
+            "page_count": 76,
+            "ocr_no_text_recovered": false,
+            "ocr_jobs": 2
+          },
+          "prepared_sha256": "efb7b16dda937846831fcda37d34d9a6f3ec51f946dc6aa611e074619f7d6b7c",
+          "input_sha256": "a16337443af781b9c8ee65431c55cf61e3ecc36dc28378bebd95da614aa1432f",
+          "byte_preserving": false
+        },
+        {
+          "function": "pipeline.metadata.extract_metadata",
+          "seconds": 3.9730480419821106,
+          "outcome": {
+            "outcome": "extracted",
+            "producer_id": null,
+            "fingerprint": {
+              "status": "complete",
+              "service_version": "0.8.1"
+            }
+          }
+        }
+      ],
+      "reference_count": 28,
+      "raw_observations_and_parsed_fields_preserved": true,
+      "named_observations": [
+        {
+          "observation_id": "refobs:17c05a5a9333f056c9592a42b3198edf32bffc43cc49bf9f89d27855ad929161",
+          "citing_corpus_hash": "a16337443af7",
+          "ordinal": 15,
+          "grobid_xml_id": "b15",
+          "raw_citation": "PUGH, P.R. 1974 The vertical distribution of siphonophores collected during the SOND Cruise, 1965. Journal of the Marine Biological Association of the United Kingdom, 54, 25-90.",
+          "title": "The vertical distribution of siphonophores collected during the SOND Cruise",
+          "year": 1965,
+          "journal": "Journal of the Marine Biological Association of the United Kingdom",
+          "doi": "",
+          "authors_json": "[\"P Pugh\"]",
+          "first_seen_at": 1790023432.4088387,
+          "work_id": "10.1017/s0025315400022086",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        }
+      ],
+      "other_reviewed_observations": [],
+      "target_work_id": "10.1017/s0025315400022086",
+      "target_edges": [
+        {
+          "citing_work_id": "corpus:pugh|1990|biological collections made during disco",
+          "cited_work_id": "10.1017/s0025315400022086",
+          "citing_corpus_hash": "a16337443af7",
+          "grobid_xml_id": "b15",
+          "raw_citation": "PUGH, P.R. 1974 The vertical distribution of siphonophores collected during the SOND Cruise, 1965. Journal of the Marine Biological Association of the United Kingdom, 54, 25-90.",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        }
+      ],
+      "target_is_not_missing": true,
+      "wrong_1965_missing_candidates": [],
+      "unchanged_refresh_noop": true,
+      "scope_note": "Only #314 named Pugh/SOND observation is assessed; other vertical-distribution/cruise citations remain separate and retain their unresolved parsed-year observations.",
+      "source_artifact_sha256": {
+        "build/documents/a16337443af7/metadata.json": "30f988cacb9d8e5d16382665be3cd92d7002dc531ba9321af0d98f519a9582fa",
+        "build/documents/a16337443af7/scan_detection.json": "17ef505ae2af7751a8a8060042f28221ffb75dbc53dc3d976e69c0980855f214",
+        "build/documents/a16337443af7/references.json": "c1bdce0da13be1fbc1602a6f3c224a62c4d853390fea3e40fab11fb3447ef564",
+        "build/documents/a16337443af7/processed.pdf": "efb7b16dda937846831fcda37d34d9a6f3ec51f946dc6aa611e074619f7d6b7c",
+        "build/documents/a16337443af7/grobid.tei.xml": "fd05bd35d5fd950b0a7821d9af3ea6588158f59aaf10be3654db9a30f2d24b5b",
+        "build/documents/a16337443af7/intext_citations.json": "82d86b1e2fec437c42edb925f129f7e22332a618f3a33a76ae0383e34d5d1ab8",
+        "build/documents/a16337443af7/grobid.tei.xml.provenance.json": "2fc89d38376e51ed14f5d7ddbfb4097672fb4354b1d97a02babb44d113a35071"
+      },
+      "report_file_sha256": {
+        "complete_quality_decisions.json": "6f387448f00891237346a7efc787873dd482f633d2d009df268d4f0f55c49ccf",
+        "complete_reference_observations.json": "5abcd028d3c6c9cd5066e7d168e5051fe5ba60168f03069b7c118c6e6e31813d",
+        "named-case-acceptance.json": "50268ef455710d89c773c795f4c3b43a5f5a2b09c2e7f1db7324ffa18fa0be74",
+        "receipt.json": "12990708667869573b8db2e72c7f542dcfd1cb8205c97bcc114b89554cc76ba3",
+        "served_bibliography.json": "3fbf3ab83270052047148d83100612ea9657d9b852c4c3a2c9fbb61a7b326baf",
+        "served_graph.json": "9d1691204e24f1e9e79576d5d0154b304c78599bb667463ac49ce82f0d8a2a9a",
+        "served_missing_references.json": "8c97d96574facbd1bf762534a1e8890c3c3d34f17951eb6a9594a93da96ceacc"
+      },
+      "ocr_commands_sha256": "58059a2813ed01bb1f7ce9607ace7c8a7148600320fc8b1fafa8ceb642b22f5c"
+    },
+    {
+      "source_relative_path": "P/Pugh1992a_Nectopyramidinae.pdf",
+      "source_sha256": "d0894c24715f2a058ba4e89af1c1d775eb2b171aeea2f61bd1134b037e771f78",
+      "source_pages": 42,
+      "steps": [
+        {
+          "function": "pipeline.scan.detect_scan_type",
+          "seconds": 44.75619213201571,
+          "needs_ocr": true,
+          "ocr_mode": "force_ocr"
+        },
+        {
+          "function": "pipeline.scan.prepare_pdf",
+          "seconds": 169.46096761303488,
+          "outcome": {
+            "pages_blanked": [],
+            "pages_ocr_timed_out": [],
+            "pages_without_text": [],
+            "page_count": 42,
+            "ocr_no_text_recovered": false,
+            "ocr_jobs": 2
+          },
+          "prepared_sha256": "ec9ef2aa999c1044288eea2387cbe7948f6d980eebe679fa8c9ae847f6e47773",
+          "input_sha256": "d0894c24715f2a058ba4e89af1c1d775eb2b171aeea2f61bd1134b037e771f78",
+          "byte_preserving": false
+        },
+        {
+          "function": "pipeline.metadata.extract_metadata",
+          "seconds": 4.977138309972361,
+          "outcome": {
+            "outcome": "extracted",
+            "producer_id": null,
+            "fingerprint": {
+              "status": "complete",
+              "service_version": "0.8.1"
+            }
+          }
+        }
+      ],
+      "reference_count": 40,
+      "raw_observations_and_parsed_fields_preserved": true,
+      "named_observations": [
+        {
+          "observation_id": "refobs:423180898ebc9375bb765540edaebbec7294275335490921320ef1dc8f9d4a39",
+          "citing_corpus_hash": "d0894c24715f",
+          "ordinal": 26,
+          "grobid_xml_id": "b26",
+          "raw_citation": "Pugh, P.R. 1974 The vertical distribution of the siphono- phores collected during the SOND Cruise, 1965. J. mar. biol. Ass. U.K. 54, 25-90.",
+          "title": "The vertical distribution of the siphonophores collected during the SOND Cruise",
+          "year": 1965,
+          "journal": "J. mar. biol. Ass. U.K",
+          "doi": "",
+          "authors_json": "[\"P Pugh\"]",
+          "first_seen_at": 1790023462.4530509,
+          "work_id": "10.1017/s0025315400022086",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        }
+      ],
+      "other_reviewed_observations": [
+        {
+          "observation_id": "refobs:e37531b1d0ef6b0f3697b91932d4eb62b651d2577ee84f59cfad1bfdbc560153",
+          "citing_corpus_hash": "d0894c24715f",
+          "ordinal": 15,
+          "grobid_xml_id": "b15",
+          "raw_citation": "Kinzer, J. 1977 On the vertical distribution of siphono- phores in the upwelling arca off NW Africa (Auftrichs- Expedition RV. 'Meteor', cruise 26, 1972). Meteor Forsch- Ergebn. Reithe D, 26, 21-27.",
+          "title": "On the vertical distribution of siphonophores in the upwelling arca off NW Africa (Auftrichs-Expedition RV",
+          "year": 1972,
+          "journal": "Meteor Forsch-Ergebn. Reithe D",
+          "doi": "",
+          "authors_json": "[\"J Kinzer\"]",
+          "first_seen_at": 1790023462.4530509,
+          "work_id": "corpus:kinzer|1972|on the vertical distribution of siphonop",
+          "match_method": "new_work",
+          "match_score": 1.0
+        }
+      ],
+      "target_work_id": "10.1017/s0025315400022086",
+      "target_edges": [
+        {
+          "citing_work_id": "10.1098/rstb.1992.0023",
+          "cited_work_id": "10.1017/s0025315400022086",
+          "citing_corpus_hash": "d0894c24715f",
+          "grobid_xml_id": "b26",
+          "raw_citation": "Pugh, P.R. 1974 The vertical distribution of the siphono- phores collected during the SOND Cruise, 1965. J. mar. biol. Ass. U.K. 54, 25-90.",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        },
+        {
+          "citing_work_id": "corpus:pugh|1990|biological collections made during disco",
+          "cited_work_id": "10.1017/s0025315400022086",
+          "citing_corpus_hash": "a16337443af7",
+          "grobid_xml_id": "b15",
+          "raw_citation": "PUGH, P.R. 1974 The vertical distribution of siphonophores collected during the SOND Cruise, 1965. Journal of the Marine Biological Association of the United Kingdom, 54, 25-90.",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        }
+      ],
+      "target_is_not_missing": true,
+      "wrong_1965_missing_candidates": [],
+      "unchanged_refresh_noop": true,
+      "scope_note": "Only #314 named Pugh/SOND observation is assessed; other vertical-distribution/cruise citations remain separate and retain their unresolved parsed-year observations.",
+      "source_artifact_sha256": {
+        "build/documents/d0894c24715f/metadata.json": "577ad7cb89858dba63980e0189e5427ce41eea01d300563cbc78385d422bd86d",
+        "build/documents/d0894c24715f/scan_detection.json": "f812dda4639fbfa1741f26b9af8451e4c06e81a344b3d18e924a62f99f59a8de",
+        "build/documents/d0894c24715f/references.json": "eee7b96ec37370a7d7d2d3fd1fdeffb82967c3c32c99cb71b3a23eecc4218398",
+        "build/documents/d0894c24715f/processed.pdf": "ec9ef2aa999c1044288eea2387cbe7948f6d980eebe679fa8c9ae847f6e47773",
+        "build/documents/d0894c24715f/grobid.tei.xml": "413ddebd60bd38655b00cd4df40353846b6884fbacb4c0608458a4d4d200e012",
+        "build/documents/d0894c24715f/intext_citations.json": "a9963759a1a6471161f647f3cc2e505ccaed338559dc6e352cd5a2c611fd87b8",
+        "build/documents/d0894c24715f/grobid.tei.xml.provenance.json": "0b31461e4690b8f9e7e1749e47820345766ca9079d0f925681dfcb31a2660cbb"
+      },
+      "report_file_sha256": {
+        "complete_quality_decisions.json": "4e5bb8a131b6ee0384df315d3d4d9cb20dbfb633c42565b71d5a62479cbafbbd",
+        "complete_reference_observations.json": "d75f4bcb8ce0ebf7e9d494a9066c5182a9bd29212f4b2406d49c1a7c056cb51f",
+        "named-case-acceptance.json": "9c7a28229898d03246647cc3ab1bc6104909642fc909376cc57faa7e67782f92",
+        "receipt.json": "82a6380f4287ed93e01d4e6e1ffe2887f03b97049eed1a15faf40193abbc0585",
+        "served_bibliography.json": "8b6e2adb99a444ec263ef9dd9ada4c2c58f6ffa26b522b2131b70a804731e3c3",
+        "served_graph.json": "5475f55911ab27a12b18c9fef59a8be85cb36f6a00687bf18beb9be65c225de3",
+        "served_missing_references.json": "aa26a9e3123e93cbaf408a6bd4ddfc1e5ea6a4d1188e09b623c7c4c5a384c78c"
+      },
+      "ocr_commands_sha256": "a47c02ca624ce217f7b4f3d90429dc79c1a65abc4e26159a9361fd0d81019901"
+    },
+    {
+      "source_relative_path": "A/Alvarinoetal1990.pdf",
+      "source_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+      "source_pages": 440,
+      "steps": [
+        {
+          "function": "pipeline.scan.detect_scan_type",
+          "seconds": 17.53048633999424,
+          "needs_ocr": true,
+          "ocr_mode": "force_ocr"
+        },
+        {
+          "function": "pipeline.scan.prepare_pdf",
+          "seconds": 540.9661437479663,
+          "outcome": {
+            "pages_blanked": [],
+            "pages_ocr_timed_out": [],
+            "pages_without_text": [],
+            "page_count": 440,
+            "ocr_no_text_recovered": false,
+            "ocr_jobs": 2
+          },
+          "prepared_sha256": "f36f142a2899281af1a8dd90dd01084f9d728f555135409e54f7348510c51cda",
+          "input_sha256": "b8ae22a47c6a75e75e8f6f7371b2c01ca3273bd0562aed4d43ae34bdffc5c07d",
+          "byte_preserving": false
+        },
+        {
+          "function": "pipeline.metadata.extract_metadata",
+          "seconds": 13.0273187639541,
+          "outcome": {
+            "outcome": "extracted",
+            "producer_id": null,
+            "fingerprint": {
+              "status": "complete",
+              "service_version": "0.8.1"
+            }
+          }
+        }
+      ],
+      "reference_count": 110,
+      "raw_observations_and_parsed_fields_preserved": true,
+      "named_observations": [
+        {
+          "observation_id": "refobs:2de2b125c478cf2de508604e6d22284cee8dc7a50e50a21f1fa375f4f65e2a28",
+          "citing_corpus_hash": "b8ae22a47c6a",
+          "ordinal": 83,
+          "grobid_xml_id": "b83",
+          "raw_citation": "Pugh, P. R. 1974 The vertical distribution of the siphonophores collected during the Sond Cruise, 1965.",
+          "title": "The vertical distribution of the siphonophores collected during the Sond Cruise",
+          "year": 1965,
+          "journal": "",
+          "doi": "",
+          "authors_json": "[\"P Pugh\"]",
+          "first_seen_at": 1790024032.5219033,
+          "work_id": "10.1017/s0025315400022086",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        }
+      ],
+      "other_reviewed_observations": [],
+      "target_work_id": "10.1017/s0025315400022086",
+      "target_edges": [
+        {
+          "citing_work_id": "10.1098/rstb.1992.0023",
+          "cited_work_id": "10.1017/s0025315400022086",
+          "citing_corpus_hash": "d0894c24715f",
+          "grobid_xml_id": "b26",
+          "raw_citation": "Pugh, P.R. 1974 The vertical distribution of the siphono- phores collected during the SOND Cruise, 1965. J. mar. biol. Ass. U.K. 54, 25-90.",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        },
+        {
+          "citing_work_id": "corpus:alvarino|1990|antarctic siphonophores from plankton sa",
+          "cited_work_id": "10.1017/s0025315400022086",
+          "citing_corpus_hash": "b8ae22a47c6a",
+          "grobid_xml_id": "b83",
+          "raw_citation": "Pugh, P. R. 1974 The vertical distribution of the siphonophores collected during the Sond Cruise, 1965.",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        },
+        {
+          "citing_work_id": "corpus:pugh|1990|biological collections made during disco",
+          "cited_work_id": "10.1017/s0025315400022086",
+          "citing_corpus_hash": "a16337443af7",
+          "grobid_xml_id": "b15",
+          "raw_citation": "PUGH, P.R. 1974 The vertical distribution of siphonophores collected during the SOND Cruise, 1965. Journal of the Marine Biological Association of the United Kingdom, 54, 25-90.",
+          "match_method": "raw_publication_year_title_authors",
+          "match_score": 0.95
+        }
+      ],
+      "target_is_not_missing": true,
+      "wrong_1965_missing_candidates": [],
+      "unchanged_refresh_noop": true,
+      "scope_note": "Only #314 named Pugh/SOND observation is assessed; other vertical-distribution/cruise citations remain separate and retain their unresolved parsed-year observations.",
+      "source_artifact_sha256": {
+        "build/documents/b8ae22a47c6a/metadata.json": "a0c0ec60747a868e1f6f900607e054f18d915442d001a71a4a20ba6de68165f9",
+        "build/documents/b8ae22a47c6a/scan_detection.json": "2d9d2d3560415590e68d7a2284de7e3b6e2f8f9e021b8cc08d78a76f003f94ad",
+        "build/documents/b8ae22a47c6a/references.json": "fcacc501e46d11bc6057b21402cea8bf808b145d6e2d62234c961f9a4e88814b",
+        "build/documents/b8ae22a47c6a/processed.pdf": "f36f142a2899281af1a8dd90dd01084f9d728f555135409e54f7348510c51cda",
+        "build/documents/b8ae22a47c6a/grobid.tei.xml": "2cd4cde722e81b1c19495cf815baa3fc04d5b6e951044bbd4f96f915ac0e6ca2",
+        "build/documents/b8ae22a47c6a/intext_citations.json": "b8007c7405a939a2f8f7857d2ae704c8dbb503e579861ea053c567044251225f",
+        "build/documents/b8ae22a47c6a/grobid.tei.xml.provenance.json": "045c90f9fce7834ea391594d6d4e0174385f2c4db8669c660208063edfe67bd4"
+      },
+      "report_file_sha256": {
+        "complete_quality_decisions.json": "7956fd9ee8b33fbedff15506041ef327d2a7b7eca8e8dd00716e95cfb9241a5b",
+        "complete_reference_observations.json": "e22ccec4bdc250052f06664e9b4817fb887bd6120e295818acdfb2f5480ec4f7",
+        "named-case-acceptance.json": "33b9d5d0a6d1e760e76ccbd60892ff433c66acd229014c474b8b638603e20dc4",
+        "receipt.json": "af717787792d0d6d01c52532dc99a997c45b243b49dcf6853a1a14f876203620",
+        "served_bibliography.json": "e28e20dc676ff1b37a122fb84a3632938822b28b2787fa62520f838ceee4d53b",
+        "served_graph.json": "ed57675bc43bf78adab5d5bfc56822d3a10ddd3168e50efb0657757cdce31e97",
+        "served_missing_references.json": "5fd3af22b824836e6830a064b0f25d421857548e60b484c95244310ff75deae2"
+      },
+      "ocr_commands_sha256": "96a5b51c78d42f03cb028045985e0fa714652144db5012702c0c6f6936dd32c0"
+    }
+  ],
+  "final_compact_target_edge_count": 3,
+  "unresolved_side_observations": [
+    "Kinzer raw1977/parsed1972 remains separate and unresolved; no full-library availability claim.",
+    "13 untitled/undated work rows withheld by final missing-reference query; observations retained.",
+    "Other non-target references are preserved but not independently adjudicated."
+  ],
+  "limits": [
+    "Tung121-page/68-reference full replay is recorded separately in the2026-09-18 fixture.",
+    "No full-corpus missing-work ranking or historical59/23 citing-set overlap estimate.",
+    "No Docling/chunk/embedding, live MCP or complete bundle acceptance claim.",
+    "Full PDFs/TEI/observations remain in scratch; this compact receipt records identities and measurements, not a portable input fixture."
+  ],
+  "scratch_root": "/tmp/corpus-issue314-scanned-preparation",
+  "launch_receipt_sha256": "f516bc24eb7a51fde5781297fbd300306cfaba7e9ceb9be88ef5f3363c26e3cb",
+  "resolved_config_sha256": "531e214b8fe1796581057d69781f571e7c22e6077d66548b5ad0b4370c049252"
+}

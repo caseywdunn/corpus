@@ -1,0 +1,429 @@
+{
+  "source_manifest_sha256": "6efcf5b9f2a5c537e1bebcedcbab7bc730854912a128c14af99f4c59f303e378",
+  "source_transcription_files": 761,
+  "source_transcription_inventory_sha256": "dca9f2cbb23b7e299a5b330f2b64c37e04af0577567fe47886624ab78f21aee9",
+  "note": "Inventory hash is over the full per-page path/hash map in the scratch launch receipt; actual gold transcriptions are not vendored.",
+  "current_artifacts": [
+    {
+      "paper_hash": "02049c8322a1",
+      "files": {
+        "docling_doc.json": "613ec9f09b842a9ea9fe492caf91c0bf47d0c5f70db9e1f1f7d64eede737dcae",
+        "figures.json": "348b8d8a1b1fb69c5002962bf6cae53bbb4ac86e98b37bf05ceb06a43d52440a",
+        "scan_detection.json": "3f956ac544ba118a9f62bdcf92efcde1f71fd928756ca84141cd2396c533714b",
+        "metadata.json": "10a6cafdc193e5fcb190bbec67492fea4d4dd8315ba2d50d492b90448b779d10",
+        "summary.json": "bbbfeb9fab14fdd22dc3f41f3ef2ef6da57512b8f88ac38a838aca657f8d1c51",
+        "chunks.json": "0645d502fdf48c66ac36f5e89c3c137df1c93c40c9135508067679d61a668fa3",
+        "text.json": "8a607eca79521cdf2aa93ab32b00bda5bfb138d921c7153740936b6173f2e767"
+      }
+    },
+    {
+      "paper_hash": "0cf9f253f75b",
+      "files": {
+        "docling_doc.json": "3f9c08d05fb585ea754b5651993aa9993b9c7d829f02a2c3593d83fcd05ef120",
+        "figures.json": "7d552646fa1f7f4d9b22c10046f94f27b05cb5697c825e0ac9aab51a164030f6",
+        "scan_detection.json": "e148529c4c4cf3695194026bee053acfdf6059765dcdfbc1ed7da0ea92369310",
+        "metadata.json": "32e50dca0fa86bedc863bce2b00da4a16c4f3a1274c9eb14490a7880fcb0fd5c",
+        "summary.json": "9b4ba071362155939d1cf62b465bc8badcf567a6f947012b0dc22b7fb4fdd267",
+        "chunks.json": "eacdbb53b070a7d4f227caa3c959c297b6469117b2e257364609029445acb153",
+        "text.json": "82b31c67805f02878e14fc716640e626d2d6d3649fa35b0a3e9a83d3bed70afe"
+      }
+    },
+    {
+      "paper_hash": "1254e10f0c93",
+      "files": {
+        "docling_doc.json": "886f085e2804b926af319aa718efcc070c135dec962645649a80d6a593be30b5",
+        "figures.json": "e83c67f4f4a869cd2738b9473270e483d687087f1b2cee5fbc79689070949345",
+        "scan_detection.json": "19b1d6b8f4868f81b67e6391a5d2f9b3193d2e56aa3b6ac0a40cc2e8ad3bef91",
+        "metadata.json": "80b862216ffd12a1bf16e49f6c837005bf5088281af3a177509e600d92ee79a8",
+        "summary.json": "6e45776e419386377a20a9663927920d73b1ba4c09a30f692b2160d54113d576",
+        "chunks.json": "3b96f90287eb557df840001a5f3e0807be5d257594a1c55740f687ef1c8e7dfd",
+        "text.json": "5070c32d5329ed88f5ab1cc2a1450973902261c044c9c62be589edf19c898dd3"
+      }
+    },
+    {
+      "paper_hash": "1648cd91e973",
+      "files": {
+        "docling_doc.json": "1d2802708d0bd5cf861d8c5bd26c0675003fb44e7ce829645b16aa795a001abc",
+        "figures.json": "720d93c8d78cf6453907b0b35c19c57d61e7428a5b3b9647f1b021df90409c9b",
+        "scan_detection.json": "540d0bfd1db2058fc205d5313728dfa875a7beaf8738f0c6aeae0c7c55e2dfc4",
+        "metadata.json": "ff6353f6c48cc2b04b515ff8a033161ce737eff37e5837f754c31672b9162af5",
+        "summary.json": "067b549cc1763ddcd5d8ae19214a61e38c7bb5837b07f58c2465ae53f4c1ecc9",
+        "chunks.json": "cff08f8d57cf6fab5b43939ddd46c015a6c49082db4e709eb8515acc90f7633e",
+        "text.json": "3b6665ad2ee870960e556a6e08150f167f056ace7b518f6984b2717c9afd0f70"
+      }
+    },
+    {
+      "paper_hash": "2da3e5f7da3c",
+      "files": {
+        "docling_doc.json": "f9381047e84ae2f5a814682b7e68badf4e108d551bb9cfce76c2dc8befb43f7e",
+        "figures.json": "f08b27ebd43a4b172409b432202d2dff9780f51cb849ab6ada8aefd427d6a4f1",
+        "scan_detection.json": "7919db2a6509bc1317489bf3d2786186f29e4d648fafa249ec0ddb30d4a07079",
+        "metadata.json": "5e5c57670e7d99e6f5fac4e542758320cc814fa2de6c33166562bedd075d774a",
+        "summary.json": "69e3664e50b9a5be9515fdff7b8c511ad712adca2ab7e9ea805f8b675a0aa320",
+        "chunks.json": "bfe722cb1fd78a9ffef6064a242e35153db27ff87c188f5c95947cb9737cab43",
+        "text.json": "f5f4042454178417f37c5b45458b5476682e8f41e1f21ed6060fbdcc3873b2e6"
+      }
+    },
+    {
+      "paper_hash": "31cedc91d73a",
+      "files": {
+        "docling_doc.json": "eccd4efacfa0464ecdd6613cefde2d710c4566ed71ce3490434e8fde9a09e0f7",
+        "figures.json": "8bba1884b6ac0e102a2493840c2283160fad8d8f83acb4ec462e112963e1a465",
+        "scan_detection.json": "1cb23c7303db5bf7d02815733b66b74dd60d57fd95e40cb5b94c8efd6c6a893e",
+        "metadata.json": "f9533a96075c550910645702c962fd5b28b7f4441c6dd5874ae84f4008bd3d41",
+        "summary.json": "3319706dc62200942ad0e0581bdd9456fcbf38d80da22659e83d8208c454f801",
+        "chunks.json": "a09917649b633805579b049379bcce4237a03d794b1b19d1494f8d58fa886c5b",
+        "text.json": "4a282976a1726b403b7b0e75c1e6269ee6b5156bae2187b592ad32f0fb6e45cb"
+      }
+    },
+    {
+      "paper_hash": "3461e68936b6",
+      "files": {
+        "docling_doc.json": "ed1efc4703032559bae84b798936b16dd146f308317b92bf492d5a3e3bf05239",
+        "figures.json": "1bf22ab6eca015e4f2783c03226b378bfea2ca080ed644a5a1378f9528a62d67",
+        "scan_detection.json": "7e978894b03beaecc411434ce45f5b841426435ce90f897a35065d8a6dacde46",
+        "metadata.json": "9b921e7b6f0b7c1a277246baac65758649cd92c5cc789912b17029130b5b9993",
+        "summary.json": "7d7dfa5a059b348c889797709de9bfeb2e844a69c66a5f3ccad549355b711c8f",
+        "chunks.json": "dc97a74355a138dbd70e00927d56df46dbea2bd1fae7f7232842bda8014f7294",
+        "text.json": "393680c336ae926481958f3f8e34b1c2543bdb2c306235fe306e86e603535164"
+      }
+    },
+    {
+      "paper_hash": "34712b25bc52",
+      "files": {
+        "docling_doc.json": "5e36bb9ee008337f97f614326a8333790d8d53e8828f411b4e6b03bbc97e6b35",
+        "figures.json": "ebd1fffbfe0a5d431be9797e3b4f36380ae23168d5f94ecf89411fe3bfcecf92",
+        "scan_detection.json": "703dc019fddbf5509001f7b17f0539598d7983318b19676c2838a5c1449a6e1d",
+        "metadata.json": "43d98681f4274bb420dbc65961d11a7dcc48b23f6ecf86e97fe017bb76258964",
+        "summary.json": "8a33a1bb2ee0cbdfbe838eaccc7a02880f53d9e18b352e44e6e784924c24d061",
+        "chunks.json": "2b2ab84d96fddde3a3c0d66e673290419cb74c4a5d3a2d005e8667c01940713f",
+        "text.json": "2e40f8158e39d48f46b76350973b78d24b4ae7a74eb2b33aa36638ae46efe048"
+      }
+    },
+    {
+      "paper_hash": "355362e39e58",
+      "files": {
+        "docling_doc.json": "39d3fa2626658bb35a3f596949042b188ffa46de5dc084ea9accfd22e0493807",
+        "figures.json": "9849ac2f5cc092a217f016b16b9986a8a397fae108c3493393ee75c51fb7429e",
+        "scan_detection.json": "36ae7d344adf5c34be5578558130b1ad88b360a51f52b7f8da246b8de81d1747",
+        "metadata.json": "3e1983ce4414c8b54a63fe14ed5cd10c32c85db8bb1724ff1d36f9461d4c0974",
+        "summary.json": "8b2da2a29be92a3f519f41de6785763365c2f9b9703b6494f7a1ab0f17403e85",
+        "chunks.json": "ba84b0d6520bf99b11761e1944f585b6fa81061c411fbe760a4a2ef872934d7f",
+        "text.json": "a727263a7e2587b6988a29a4a30294f5efd5c076d62b7498fd6edebf88fb7cbf"
+      }
+    },
+    {
+      "paper_hash": "39b9c2f978dd",
+      "files": {
+        "docling_doc.json": "343ce34cab21fae6e2aca4cc47c08a08088fbb62cf5e4e7c13d35f29f2ebdd70",
+        "figures.json": "c432ae57c8b8e4381691f2325cdb510dacfbfd2fa86fa3778e016215c853589c",
+        "scan_detection.json": "c20955f9c8117f93c72579fa76a4eb94c1e16f89592b7f22b90b5568f34dae51",
+        "metadata.json": "c5247dcc365cc3206767aab69a4372ec0a90c86d94a355eed7e8ee8f81748346",
+        "summary.json": "4dd38869469babaca7ca89e2d4a1c4355f17702700779f6fc8d3043159a34108",
+        "chunks.json": "8489ae34d14419cd0c63030120f9e4e96831044826b57a3de9ec89cd7012c97c",
+        "text.json": "02ae73a2be97c00b6db48fc722349dd338d51d28339cc2519b6a7d8c42805082"
+      }
+    },
+    {
+      "paper_hash": "6050b5c6f575",
+      "files": {
+        "docling_doc.json": "af4afacb4ae4fd29acdd4e6050c1ac13b730b2caa9ed60e5c921e12660859ef9",
+        "figures.json": "1706c546e59efb775a63210e1c74ab5116221354c9a9da7ddd43a7846c453f67",
+        "scan_detection.json": "db29a5f3906b7a317b873a13d57b290ad3bffc65a5765b8d538a1d7538a02214",
+        "metadata.json": "f01f2663eebed34fe49b0d554634485b67ec0bcb235878cf05cc148df01dac26",
+        "summary.json": "38d92afa5708ae4f50afa22aedf11c9531a0fcac300addbf3776344e21466df4",
+        "chunks.json": "4d4a10fece16b5a0d61ce6812df1d73b3165dc591bd35b6a3f8ae68546ef3243",
+        "text.json": "b6abfba4e64e0aa877aad7176dbd9590eeb6dbbe9424b61e9df7a6d5a6ee5fd7"
+      }
+    },
+    {
+      "paper_hash": "6307a3c5f85a",
+      "files": {
+        "docling_doc.json": "e533535aeec63f4e6cc38b8e1bf83de2dcacb3eddf79446510150b049464c83c",
+        "figures.json": "baa4e744c0020e60c341beb6acfca297490a182cde5820769b6285f7168c1f3e",
+        "scan_detection.json": "d98333f778a101566b03a81fa54ab4dcf8254cea05a56e9e75e870302bc47a46",
+        "metadata.json": "6d3c07b9be7769968ceec8f62297c01adc4990246c09b1ec323f1b814bb2f8cf",
+        "summary.json": "41a8d8127457ba561882b092b564859f7c104c20692255e6db489d0859198460",
+        "chunks.json": "ed478b882e34b4afa0139228d2f8122862a58667347bd7d0b811058785477813",
+        "text.json": "5b88c3d32d0835a22902a988faa89fbc055f0375237b1c142ec3ae9c44e5f6b0"
+      }
+    },
+    {
+      "paper_hash": "68e78d6c90e2",
+      "files": {
+        "docling_doc.json": "45ca6d328a8006a486273cc0e923fd7a6f0d97b3b561078bf1ca87a3b2e52be8",
+        "figures.json": "859d766b928069836464211afb0d909f5a3024a72acd7d37aee40209dddf11e9",
+        "scan_detection.json": "f65135f799f7ec987196e5f1b02d239e23cce6f3ce3a91e0fe06ee1fcc334128",
+        "metadata.json": "366fabbf1465d166fbfdd96002dd94b40190929420c50946bc77a4831d0be27f",
+        "summary.json": "58d6a7848979c2ef94660ece54d5cd3566b4028beeab940e9bc555c4d4d47c42",
+        "chunks.json": "1a7d9b7d4cabffc70360eea44ccbf3151ffc42f188699d41ce69c07dd54eb4bd",
+        "text.json": "2460ba13d9b0a98cd131a06e54f6ba95ea9cedbf0cdec7bb9506b6ad0b5fce60"
+      }
+    },
+    {
+      "paper_hash": "6f3a3ae4dd89",
+      "files": {
+        "docling_doc.json": "e17b7dd402dd5246c206f11b1d536c40fa3b9df1240e01f886c2cbdfb3d4e181",
+        "figures.json": "d87c8367f7a8d9992de2f6334c878205ce13170391db2499b985e798259fb476",
+        "scan_detection.json": "cbd9f25f60ec31ef7c0285a7880ff3dabc00b171f55773ac224085388997725d",
+        "metadata.json": "775e27fcc239cc07ca08c302d9c7f7e94f568ab0bafda9b3463d4988390ad3a2",
+        "summary.json": "5a262bdd109c7fc6baf79e512550801b707d3b0c410766ba17439adbaa64ff50",
+        "chunks.json": "7ff77f4e3358564093a84c813753f9272e3eca599d588d06c5430d2d734c97f8",
+        "text.json": "d3d87ba25d4adb0b05c22431cd01d6ecd962d71dcac4193a6b9fed333f6dc4de"
+      }
+    },
+    {
+      "paper_hash": "726d507fcca4",
+      "files": {
+        "docling_doc.json": "a2db1f6c5fd62102a77e8400320cd4e76ce80ee229de4b1d7af5d3062ef1b1e3",
+        "figures.json": "5bf5b278107701a3dfbca7480087091715ffc17a8e51d538c54c255989382f45",
+        "scan_detection.json": "b89c70bcec6e5aaf474acf0569a0d12bba2d8de9613a096e676858f6cee01dfd",
+        "metadata.json": "ab92f9c1195ff44c397bd47af9096fac4cff39ddace18895aa2e74db8952d14c",
+        "summary.json": "df2ffbd6caeebb0443e351fea3295dc0ce9283a94523cd0fbdeb85312b1cdb74",
+        "chunks.json": "77a9003cbd951f40a789f68efdbfe7fb37b58c952ff963e04930478d86f8dc63",
+        "text.json": "c2aa987c9091d68875165968c2ade3892ef3036189c9062ba3b12d40c629f92a"
+      }
+    },
+    {
+      "paper_hash": "79bcb551c1f1",
+      "files": {
+        "docling_doc.json": "5b331c32daecbd57db9d70019a7d1063c685edeb889864af1112da52e92627ce",
+        "figures.json": "45ea5d2662635df98a645e37d287644e0ae8426e762c321e668fe4a54b20e372",
+        "scan_detection.json": "53dc4e39c87cc35930ea5ff263992bd5347cd6d1c05b51bfcc3b7895b9a0a2fd",
+        "metadata.json": "0214866b7068b6eeb01d6740897083e6a9dacfab6cb95a63f31d9b660e878bbe",
+        "summary.json": "934bb0cc62338614f2cec5f4e2b44232c5bd5637158ad7bfaa1011f11df77036",
+        "chunks.json": "3b0b689b1dbbcb00e810baca78f9e948bebab5b6ff3f1d970752a4e31b7d588e",
+        "text.json": "98e8b7438d8e1945249bc99854c56555757dd2dbc1794eded7f823f8992c5dac"
+      }
+    },
+    {
+      "paper_hash": "79e8dac842f6",
+      "files": {
+        "docling_doc.json": "5d0c63ae7b3fcf5ff0b29c89fa8875b364cb32861b2a65aca26ca71f8842cad5",
+        "figures.json": "b0a5ad6ba253273e9a66e0513e2742959456e9ab89f64303ea477028e37dbf22",
+        "scan_detection.json": "7d8d6a2ee6d8981e80beb3f7c313cfeae9655d33158e5eaebfc49052cd3ef9c3",
+        "metadata.json": "6c281151ead4e0bced0afdd2d573eae7d8f2bf44fea7f7bf4cdd468de1acf7cf",
+        "summary.json": "9e291102b7ce37100975b59ec4097facb07a8d991aeee544e8b506377b2a16cc",
+        "chunks.json": "039e0baa8bd82681105b59a09b907dba1b6e3519c073fd699a017a316a5a8db3",
+        "text.json": "5aab610afef12f2977be5baaaf361eca8aabb81520df45d2bc048356a65040c4"
+      }
+    },
+    {
+      "paper_hash": "830c73a89f82",
+      "files": {
+        "docling_doc.json": "9a52c4009cabe705921da338c84d39fb8afb7fb1aabaf09ed0075f2a6d1977fb",
+        "figures.json": "a94ede9677268d66ec391dca0dab692e1a6aca124cd3ff159a021eb901adff1c",
+        "scan_detection.json": "e236e2398cdc5f37663ccd692fa86a18c22053d466b88a0e8a39eae31338347c",
+        "metadata.json": "186ea8d518d464dc3e5cece17658bca019ff2b24236d2a106fed7f80d97196da",
+        "summary.json": "a200a48a4a7e98c19481b87b41daf28aed9134cf3b70db0ecd2a3f0a64da7852",
+        "chunks.json": "fe91064ac0881e65ce7135b68d34d3350579a5d7755d5dab53a6f7039b185705",
+        "text.json": "b07ccc68468eb05c8a78e08d014d919d0a8338527fe3ba88f1630e4d794317fd"
+      }
+    },
+    {
+      "paper_hash": "8419592108f2",
+      "files": {
+        "docling_doc.json": "f245dc9c0e06d817eafbe85679a292fbec8cc37477cc5e48c975be44c2d0cbce",
+        "figures.json": "508029fe48fd50516c8b6a6d7cb75a22e2fdbdb092bf585461657cbe18f59b0e",
+        "scan_detection.json": "bb0b62536669319244ed6ab6de937a2aa4214afb4b0ea0c6f3a0a5433f7b3e13",
+        "metadata.json": "d97f385a48a6ed6777af74347220696ebfa6c99a09af5b026da1c214fd6eff29",
+        "summary.json": "2473ec4a65438b22c07d0035d2409631acf787124bec74d9a375b0031ace0532",
+        "chunks.json": "1e88704259c4328103ae0d6b1fb52adb372fb181e2f5887e85dedc51ef813ec6",
+        "text.json": "2cfc289cc1265517513e809173d284588e33eb681df18938d01cb75968845939"
+      }
+    },
+    {
+      "paper_hash": "8a1321ca549d",
+      "files": {
+        "docling_doc.json": "557e9536ead589b30e4f82ddd92ab6022d3ff9ca579da91d4d2a9b0870b30144",
+        "figures.json": "03ddc228b29e6aee280ff5498273a64f37beddc65357e290c27708e57bf030be",
+        "scan_detection.json": "785daa03b3fa5bc05efe8bb9b0cd2ac4f68dae78589582a0b03e9ca46422ffbb",
+        "metadata.json": "3330a1866ac423cee5a607127b05f2f4a81d3ce517fa84140d13d201a2bb4378",
+        "summary.json": "45ffc7ef79b29f25a88432edf0dbb923ec03c2369e41b667312aa27d2003b7cf",
+        "chunks.json": "5f982f9e29bf366aaf8787ca39359800f08a76227ed26a64a0149c92577d8b57",
+        "text.json": "b36f100f0b87ae5ed0ab08d9f39221b998159f05ebe0c31f42e0687d16b559d1"
+      }
+    },
+    {
+      "paper_hash": "8a4548d8d5d7",
+      "files": {
+        "docling_doc.json": "306d3a2d5d80a37ef6e6f39abbe9d7a1e11787df0cd55cad390ad55fcb8b2563",
+        "figures.json": "eb4b5f565bf74965da4e94484b63d5833a772c961fdeaaa6a906e902626e86f0",
+        "scan_detection.json": "71d9a4859dcf29ac33c223811908ef1aa0d241b6caa5196d825c84d498106387",
+        "metadata.json": "6b1cdce66cde7b28355ce3f7038ec11b92172bb37f8fd7ba620620f7d7a8f982",
+        "summary.json": "a0d050ea504c5f9d22c7c4d83460d0386fae9fb9b7fc98cc484f115fb33b74d6",
+        "chunks.json": "75d0d33d157bae92b8b460ddb70f7c78e6cfef0fb1e3db46b0e9b4c2563d8734",
+        "text.json": "dfa077d421b27c0a5a626d1d97fa32758876b10378af97032af02f3143ec8a31"
+      }
+    },
+    {
+      "paper_hash": "93e29178db12",
+      "files": {
+        "docling_doc.json": "c57399e1a25788835f0171c630193f0152ef4bb31b132e745a72b06f30022a5f",
+        "figures.json": "63359986611234872c5d42ef6f395cd9be1463a8af23662a43e6c8269fa51323",
+        "scan_detection.json": "06c7c7ffa10a47fde89da181f95c3696c5c57a02f45ca79982f7c6815ee8f9b4",
+        "metadata.json": "c35e2eb3f33793f48238d8092dc4de0beee3e0667e7f421b0940e7390ebd1910",
+        "summary.json": "534ca1f8f96d945aa33eecd14b9c3cb43a9d28caf0dccba9469b3e6eeeb61199",
+        "chunks.json": "ada1c1f07bb2105e664fa7b10464b95be7ae12e2e2f40e79cd8b6d6823462db9",
+        "text.json": "d88f2767ccfedae6845e742ff6cd43a86bf0be978ca5aaaa695bb5231559a8d4"
+      }
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "files": {
+        "docling_doc.json": "131cbaf5a00737f3481dc3cd270636db1e6624e130e540af169251834c81bbe4",
+        "figures.json": "fd9cec00cc9cb20c58e4a9001313c3cf0ce909207405235a6be8715757869ffe",
+        "scan_detection.json": "b71b7f966e5027a7c7688b6d26e1dbd4bb2f4fc641ce7fef2a0dde97349c91ab",
+        "metadata.json": "83364985f8826753dcce5252a7b44edb71794ed9937e4894af59c3ed956380c6",
+        "summary.json": "7e4717a6dcb5a4baad86ec5e8ebcc38e1af6392e39653a9af69df8fa87f699ca",
+        "chunks.json": "5c3d5cdc39c9276225c0f007b7360bf443b136fb4079a06b09bb0d405063f460",
+        "text.json": "10880a93ff4fa6ecd0df81bec0b0be95cb2a92ed52a9bad4b6c2d308f2251238"
+      }
+    },
+    {
+      "paper_hash": "a53f93badacc",
+      "files": {
+        "docling_doc.json": "c6028fd1af032d22a22c876271b880c5e10546eef5837732f78a1793bf8f48be",
+        "figures.json": "a49a0c58c8096012c07c0570c34b3e362fc5c0b22b47d857abe94edbfd472541",
+        "scan_detection.json": "2f713f3387b303187bdd084469925497d5391e6cef861ca4f7f60367e3da8bd0",
+        "metadata.json": "1e751c1b8a8a2f8d027c5c239762cc801f8dcd17e65858f40a496dcbdd6af038",
+        "summary.json": "093cc9f958a80bfb8ef1c0240f03f43f8a94d0489eeb66c28349f1cda4355e8c",
+        "chunks.json": "6db9769e1b443c96260f58c45d1f2f66b1c95ab97f322fe9a7bdfc6487e675aa",
+        "text.json": "1d868a3bf8037c9494f3ab8d0e0a530a79e1a8c8cc5ab45dc3029ec8a1b00cbd"
+      }
+    },
+    {
+      "paper_hash": "af5655bdeaae",
+      "files": {
+        "docling_doc.json": "18b2f0997771a927e4a6490088fa3a0a1ac0b0a106516df64f4c09a842c43417",
+        "figures.json": "c873292d9b1a396672defb6cd6fd7d2502328aaeb8406e7304d03b08370eb8a4",
+        "scan_detection.json": "b2479df995844e231b54799bb514b69372d874be07d8b611761d1c3b0d63b0ac",
+        "metadata.json": "046d9e2ab85bf3188bc758527054d95afc1727909efa386bbd7eda23510577fd",
+        "summary.json": "f2799669b14cafa7c88f5061b777a9fbd47a7cfa9aab6e343dc08276ab44ba4a",
+        "chunks.json": "fa1db792506ab36eb7be4160fd16a96abcc04609b2247738073ca3cce0508d23",
+        "text.json": "a9b0edbb1cd64f6c75f0966d40d26dbdb7159ee5f9bc410e637dfced44c543b7"
+      }
+    },
+    {
+      "paper_hash": "c5c34c1bb104",
+      "files": {
+        "docling_doc.json": "ea96b8da500b358d7b947532aa30b0b6fe704723234a316acf90e5ebb9583119",
+        "figures.json": "fda9838ac5ccaa8cb2a1fa72db0b73854112bf83f4931ce1c7b8fb742ac83ffc",
+        "scan_detection.json": "d79743050198ed0ed016e3cc920202fbdf8aeb7ef07c13df5211b5da8f4107a7",
+        "metadata.json": "969da59a8170f17a40945af3a206e80bfc99b62bccd005e8cf690f9e6b54c4dd",
+        "summary.json": "8b1bc9d01633c6274224a6760aca676ff8ac21a43ccf803fda52ad674a1681f5",
+        "chunks.json": "f51fd34b9ab0de4be5cca0f68500e16bd53cd439e1d2c65da23849f178b230fc",
+        "text.json": "defa94930ba23eb09d565df3e9e915f4c845ca0034c960c5b5c1d82aefbdbf15"
+      }
+    },
+    {
+      "paper_hash": "c806191c35c4",
+      "files": {
+        "docling_doc.json": "e6d720f40986293e106df81130193b1f88b0807e694a3f0889de38ab6631973a",
+        "figures.json": "9e696541558e0066755aa05cdde4ed3563b0ab9670c34279c78028141d6e84e6",
+        "scan_detection.json": "42491eb6a591851ef2dd387518f45deec4046a0577f02bb975f7bb16b82eeb7f",
+        "metadata.json": "4a782a69f561672ede6eee562eee8b5d48a9ca6b58ad3253c4d505959d0aaf4c",
+        "summary.json": "e350a54eedb4f24ad2498103bae442cbc2f90f31161d81734f6979ab774c29b4",
+        "chunks.json": "e6eed0bcfcc6d97d5ddc48a34acbeccb3150d11903de52f381f13c0a72345ad1",
+        "text.json": "671c4ef039cfb74e29200b3391b01829622ce5e27928a42d422e0ba102fd2d21"
+      }
+    },
+    {
+      "paper_hash": "cb1834694c26",
+      "files": {
+        "docling_doc.json": "e6d0ea78f6ecda717f5852ebc24ee5d7e6b82f3d3316adb5e13461bbeb9d047c",
+        "figures.json": "2f855365923ee5d6a728b15acd7e23225563560cad45b524e4152f11a8b70d21",
+        "scan_detection.json": "174908ea1b7ea033c3149604a3ca5d2ebfc82e347d94f30a4693ecdc60863e85",
+        "metadata.json": "73c8aec4fd7d2010328863a726ca4cdc5c5ae06fbac878f4482940636a2a4bf4",
+        "summary.json": "921ed30cdfc3ff46d2c7f2505b9ac3de2de6259cfab4142345a17bbf3ae1a6ce",
+        "chunks.json": "b73f08741f2a662f0d72b83ca7202e70adaf9676a5d50a65d264855a621eb8b4",
+        "text.json": "7d33bfe48cf7c8f2efc17b99aee49abe8b3b96d3282c9810b619aee13dfc8214"
+      }
+    },
+    {
+      "paper_hash": "cc2908a7a170",
+      "files": {
+        "docling_doc.json": "3ba565bf85e4795b44f92e3f2971cd4247e380474c85edcef7da62a518a570b5",
+        "figures.json": "56d3789c64da458f171bba2f40abf65685e77ac406d285392522059e82af1088",
+        "scan_detection.json": "33125ecbb6cdaa61cf7cde10cd2e75247980414ac1fac07746fc1fe53da14949",
+        "metadata.json": "ba8f1afabdd5585fd8980baff4afb909b8592d471f7c8a1e6d7592afdb77f7fd",
+        "summary.json": "ac59867e0ce6745e118052fead91e22244a7c07f9333b0c7192426990a39b5b6",
+        "chunks.json": "619361b2e7b4573d7de80c7d123a23b43871a71e4d021b3bae2d7151db220f73",
+        "text.json": "12520e2cd2995cdad131b879ef834079f50d1cbbfe03e67a5bf49e51f3655942"
+      }
+    },
+    {
+      "paper_hash": "d183f5012c54",
+      "files": {
+        "docling_doc.json": "6c26dfeb5c02e83271bd89d9e18cf00c76ad26cfa6390a00443bf03f7ee2dff5",
+        "figures.json": "655495349b2ce707fbe65ce1dc9892752d600276b0f1e0771e106ae82fd20949",
+        "scan_detection.json": "b9c27b2e7578d52076092dca986d8a45792dfc552f868d77ac4eae4478748b94",
+        "metadata.json": "9cfb1c7cd33f8747e90e99c2233a8d35fef4eb138ed5fd967123ebe6b21f410e",
+        "summary.json": "06e897a68ca107025f3c9f3767a989ba7888fa8568dcec277b02ac7a79d2e446",
+        "chunks.json": "972b30a7b21a91fe405852b0521c0a264e2570d97ec326378feb848bb501753a",
+        "text.json": "f93933d9562504181ad11562838129ee30808d66cc523393715ff650347f113a"
+      }
+    },
+    {
+      "paper_hash": "d64d1b9da678",
+      "files": {
+        "docling_doc.json": "3a7945ebe65384006029cbbb8aa2227d6003746a89673ed3f4e72823b488831f",
+        "figures.json": "615503e30695a4d03e6b86c45a292d64d8613077cb41dfe9f9847d30616a1d8b",
+        "scan_detection.json": "b640c0b2fecbedf5edceb1189d0e8bc928f0179087667707eafb6d9a2a544c14",
+        "metadata.json": "1a10e7bfdd492163adc205afa3fba803e60768ec0912f4e206179d1d878cbaf9",
+        "summary.json": "af3f26559b5ed69cf7358e0b55b3a9f66fbf56ca458b628315320a44026c2c4b",
+        "chunks.json": "3bac8207f6566e169e90650320088576220d1012139022083d08e477c9a5ae54",
+        "text.json": "ad0a196ec53763c775fdbcde3d81b5d70b74c95e991cacc4c9bcc39d0de27c3b"
+      }
+    },
+    {
+      "paper_hash": "d7210cd94ae2",
+      "files": {
+        "docling_doc.json": "49df28cb7bf419ff08a084362c3d5464311bf5c06d24ca4b41841ace0262536c",
+        "figures.json": "76c4c29c54ed740de9d5e0ec6d51e811eaffab3a0aacaf68ed91bab0906fdaa8",
+        "scan_detection.json": "8ba110f3b665b2cdd60e318511519f703ca53c9609c65773d61cb1d72873d97a",
+        "metadata.json": "7eb08a878ae9b46ac952ff3d5481ac97c0cb0ff7343365c09eb69bef75fa997d",
+        "summary.json": "d835ec0492971b856dd55c12e1ed2f2c3e9f1c76aed9d7bd533225ce72847d2b",
+        "chunks.json": "6c22dd668206fe0d054bfcd1180d56c1756dd0b2d11875fe6cebee9c1bc2e194",
+        "text.json": "677fadc621c6198443271c192763b4a91f40dfcd2e3f6bb946f355ea9e1b24b5"
+      }
+    },
+    {
+      "paper_hash": "d7c1193c06fa",
+      "files": {
+        "docling_doc.json": "84432a0f3eaad7806de6b66694ad669fd334d00ed4f499d60fad4323b986cb42",
+        "figures.json": "95fc32b4572eb6058a63c3ac7b917ea28aee1c215ffc14516d4697f96ac09b36",
+        "scan_detection.json": "f63919ef5e4dd908e819e0455b9fa275a2f5920627b5dddad193fed136a8e5c7",
+        "metadata.json": "2994ae8d4c6124f61225c72f109da1d892c185a2bccf188a472e76aa40d4ae9b",
+        "summary.json": "207e52200968fadd66b307b9adc9ecad32719efa9d786873e48e5e4fc80ecb75",
+        "chunks.json": "b7998773f76d7a87981b898cb21aed0a1a2132e2821410ec14f8259b1a960dd8",
+        "text.json": "5d7c00cce8cd55321b49ac3efa7e3cbe5e8c796c48141b0f0f9a09cf28d09642"
+      }
+    },
+    {
+      "paper_hash": "d9623d970b33",
+      "files": {
+        "docling_doc.json": "066d96d51af397fb77d7a7cf19f775b241a2590534d9fe68079e06652cbe94f3",
+        "figures.json": "22dbe507bc011efeebe14a343853b5ff261a6445325a2f2cee377e30afe5c4a5",
+        "scan_detection.json": "7e2c9848d188ac59732304df43c6cb729bd1ab8ed83d1e2d551dc2565768250c",
+        "metadata.json": "4b00d38bd4c687e36467658e447ec4edec09ea0d32c89779a91bdc1838873245",
+        "summary.json": "5834de15ba22b2e722a13676e3c6953506caf8df49afdb415a0635426388fcdc",
+        "chunks.json": "20863f8b5aadf996f540b8399c978e9f30c6a36c88538d9caedf48703c602feb",
+        "text.json": "80d6ff27d44f77a4e98a0717d985a83bac3b4fd377299ce2475eb5ef3dd7aa95"
+      }
+    },
+    {
+      "paper_hash": "e26feaa4013f",
+      "files": {
+        "docling_doc.json": "bdffed9edab71c5c28a15a209a24b60be9026babe43b8bf1a5eda5b3cbf448e0",
+        "figures.json": "7e1adce145a2ba2a9221761ea941af79b78691373d28bc8e7571210cab28537a",
+        "scan_detection.json": "0bd8b19455dc7a823799ade779117b89a93001d53f9516e0d451745278c70430",
+        "metadata.json": "a4e679e816e9a83b5bdc03cd4e30db06d35aa2487a4f4f1cd83a9897ef329c94",
+        "summary.json": "a492f4428c03a419632afa138c694f3b03734b5538f2be14c8568cc5ec68951c",
+        "chunks.json": "108b1a075c975407c0c9563318a05675eea046c9d3b56c6669504f32e4cf578a",
+        "text.json": "2fce7764c31c093e23aa66838143cce32c57faa1b5bda2340ba05a421f6a81fd"
+      }
+    }
+  ],
+  "all_artifacts_and_gold_pages_unchanged_after_scoring": true
+}

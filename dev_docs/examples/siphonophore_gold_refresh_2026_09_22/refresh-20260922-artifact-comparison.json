@@ -1,0 +1,1232 @@
+{
+  "scope": "Descriptive artifact counts and quality warnings; counts do not establish scientific fidelity or figure identity. Figure panel configurations differ.",
+  "baseline_revision": "6fbf4e0",
+  "current_production_code_revision": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+  "extraction_completion_sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab",
+  "documents": [
+    {
+      "pdf_hash": "02049c8322a1",
+      "baseline": {
+        "status": "success",
+        "page_count": 5,
+        "text_characters": 10113,
+        "chunks": 19,
+        "references": 0,
+        "figures": 2,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "5 pages but references.json is empty",
+            "metric": 5
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 5,
+        "text_characters": 10113,
+        "chunks": 19,
+        "references": 0,
+        "figures": 2,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "5 pages but references.json is empty",
+            "metric": 5
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "0cf9f253f75b",
+      "baseline": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 17320,
+        "chunks": 29,
+        "references": 0,
+        "figures": 7,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 17320,
+        "chunks": 29,
+        "references": 0,
+        "figures": 7,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 3 source-text candidates need review; see text.json provenance",
+            "metric": 3
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "1254e10f0c93",
+      "baseline": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 18847,
+        "chunks": 38,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "12 pages but references.json is empty",
+            "metric": 12
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 18848,
+        "chunks": 38,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "12 pages but references.json is empty",
+            "metric": 12
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "1648cd91e973",
+      "baseline": {
+        "status": "success",
+        "page_count": 21,
+        "text_characters": 90179,
+        "chunks": 148,
+        "references": 67,
+        "figures": 15,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "section_headings: 2 source-text candidates need review; see text.json provenance",
+            "metric": 2
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 21,
+        "text_characters": 90179,
+        "chunks": 148,
+        "references": 67,
+        "figures": 15,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "section_headings: 2 source-text candidates need review; see text.json provenance",
+            "metric": 2
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "2da3e5f7da3c",
+      "baseline": {
+        "status": "success",
+        "page_count": 17,
+        "text_characters": 115582,
+        "chunks": 186,
+        "references": 132,
+        "figures": 10,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "scientific_notation: 5 source-text candidates need review; see text.json provenance",
+            "metric": 5
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 17,
+        "text_characters": 115582,
+        "chunks": 186,
+        "references": 132,
+        "figures": 10,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "scientific_notation: 3 source-text candidates need review; see text.json provenance",
+            "metric": 3
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "31cedc91d73a",
+      "baseline": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 19294,
+        "chunks": 68,
+        "references": 0,
+        "figures": 3,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "12 pages but references.json is empty",
+            "metric": 12
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 19294,
+        "chunks": 68,
+        "references": 0,
+        "figures": 3,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "12 pages but references.json is empty",
+            "metric": 12
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "3461e68936b6",
+      "baseline": {
+        "status": "success",
+        "page_count": 5,
+        "text_characters": 14219,
+        "chunks": 27,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "5 pages but references.json is empty",
+            "metric": 5
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 5,
+        "text_characters": 14219,
+        "chunks": 27,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 7 source-text candidates need review; see text.json provenance",
+            "metric": 7
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "5 pages but references.json is empty",
+            "metric": 5
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "34712b25bc52",
+      "baseline": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 10002,
+        "chunks": 36,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 10002,
+        "chunks": 36,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "355362e39e58",
+      "baseline": {
+        "status": "success",
+        "page_count": 44,
+        "text_characters": 116816,
+        "chunks": 152,
+        "references": 0,
+        "figures": 21,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "44 pages but references.json is empty",
+            "metric": 44
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 44,
+        "text_characters": 116816,
+        "chunks": 152,
+        "references": 0,
+        "figures": 21,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 24 source-text candidates need review; see text.json provenance",
+            "metric": 24
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "44 pages but references.json is empty",
+            "metric": 44
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "39b9c2f978dd",
+      "baseline": {
+        "status": "success",
+        "page_count": 2,
+        "text_characters": 10138,
+        "chunks": 16,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 2,
+        "text_characters": 10138,
+        "chunks": 16,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "6050b5c6f575",
+      "baseline": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 1509,
+        "chunks": 4,
+        "references": 0,
+        "figures": 3,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 1509,
+        "chunks": 4,
+        "references": 0,
+        "figures": 3,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "6307a3c5f85a",
+      "baseline": {
+        "status": "success",
+        "page_count": 10,
+        "text_characters": 14166,
+        "chunks": 27,
+        "references": 0,
+        "figures": 2,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "10 pages but references.json is empty",
+            "metric": 10
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 10,
+        "text_characters": 14166,
+        "chunks": 27,
+        "references": 0,
+        "figures": 2,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "10 pages but references.json is empty",
+            "metric": 10
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "68e78d6c90e2",
+      "baseline": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 4248,
+        "chunks": 8,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 4248,
+        "chunks": 8,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "6f3a3ae4dd89",
+      "baseline": {
+        "status": "success",
+        "page_count": 7,
+        "text_characters": 14336,
+        "chunks": 60,
+        "references": 5,
+        "figures": 3,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 7,
+        "text_characters": 14336,
+        "chunks": 60,
+        "references": 5,
+        "figures": 3,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 6 source-text candidates need review; see text.json provenance",
+            "metric": 6
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "726d507fcca4",
+      "baseline": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 23756,
+        "chunks": 103,
+        "references": 16,
+        "figures": 9,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 21258,
+        "chunks": 81,
+        "references": 16,
+        "figures": 9,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "pdf_cmap: 71 source-text candidates need review; see text.json provenance",
+            "metric": 71
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 2 source-text candidates need review; see text.json provenance",
+            "metric": 2
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "79bcb551c1f1",
+      "baseline": {
+        "status": "success",
+        "page_count": 6,
+        "text_characters": 7260,
+        "chunks": 16,
+        "references": 5,
+        "figures": 5,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 6,
+        "text_characters": 7260,
+        "chunks": 16,
+        "references": 5,
+        "figures": 5,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "79e8dac842f6",
+      "baseline": {
+        "status": "success",
+        "page_count": 6,
+        "text_characters": 1094,
+        "chunks": 2,
+        "references": 0,
+        "figures": 12,
+        "quality_flags": [
+          {
+            "gate": "low_text_density",
+            "severity": "warn",
+            "detail": "154 chars/page over 6 pages (min: 200)",
+            "metric": 153.7
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "6 pages but references.json is empty",
+            "metric": 6
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 6,
+        "text_characters": 1094,
+        "chunks": 2,
+        "references": 0,
+        "figures": 12,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 4 source-text candidates need review; see text.json provenance",
+            "metric": 4
+          },
+          {
+            "gate": "low_text_density",
+            "severity": "warn",
+            "detail": "154 chars/page over 6 pages (min: 200)",
+            "metric": 153.7
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "6 pages but references.json is empty",
+            "metric": 6
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "830c73a89f82",
+      "baseline": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 4507,
+        "chunks": 8,
+        "references": 0,
+        "figures": 4,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 4507,
+        "chunks": 8,
+        "references": 0,
+        "figures": 4,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "8419592108f2",
+      "baseline": {
+        "status": "success",
+        "page_count": 8,
+        "text_characters": 11817,
+        "chunks": 68,
+        "references": 0,
+        "figures": 9,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "8 pages but references.json is empty",
+            "metric": 8
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 8,
+        "text_characters": 11817,
+        "chunks": 68,
+        "references": 0,
+        "figures": 9,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "8 pages but references.json is empty",
+            "metric": 8
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "8a1321ca549d",
+      "baseline": {
+        "status": "success",
+        "page_count": 9,
+        "text_characters": 15072,
+        "chunks": 25,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "9 pages but references.json is empty",
+            "metric": 9
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 9,
+        "text_characters": 15072,
+        "chunks": 25,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "9 pages but references.json is empty",
+            "metric": 9
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "8a4548d8d5d7",
+      "baseline": {
+        "status": "success",
+        "page_count": 314,
+        "text_characters": 661600,
+        "chunks": 1211,
+        "references": 213,
+        "figures": 374,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "surnames: 13 source-text candidates need review; see text.json provenance",
+            "metric": 13
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 314,
+        "text_characters": 661787,
+        "chunks": 1223,
+        "references": 213,
+        "figures": 374,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 9 source-text candidates need review; see text.json provenance",
+            "metric": 9
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "surnames: 13 source-text candidates need review; see text.json provenance",
+            "metric": 13
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "93e29178db12",
+      "baseline": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 15043,
+        "chunks": 17,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 15043,
+        "chunks": 17,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "9c0af2a4e494",
+      "baseline": {
+        "status": "success",
+        "page_count": 31,
+        "text_characters": 53092,
+        "chunks": 137,
+        "references": 0,
+        "figures": 62,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "31 pages but references.json is empty",
+            "metric": 31
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 31,
+        "text_characters": 53092,
+        "chunks": 137,
+        "references": 0,
+        "figures": 62,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 3 source-text candidates need review; see text.json provenance",
+            "metric": 3
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 8 source-text candidates need review; see text.json provenance",
+            "metric": 8
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "31 pages but references.json is empty",
+            "metric": 31
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "a53f93badacc",
+      "baseline": {
+        "status": "success",
+        "page_count": 25,
+        "text_characters": 96752,
+        "chunks": 148,
+        "references": 107,
+        "figures": 31,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 25,
+        "text_characters": 96899,
+        "chunks": 148,
+        "references": 107,
+        "figures": 31,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "af5655bdeaae",
+      "baseline": {
+        "status": "success",
+        "page_count": 15,
+        "text_characters": 21033,
+        "chunks": 39,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "15 pages but references.json is empty",
+            "metric": 15
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 15,
+        "text_characters": 21033,
+        "chunks": 39,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "15 pages but references.json is empty",
+            "metric": 15
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "c5c34c1bb104",
+      "baseline": {
+        "status": "success",
+        "page_count": 9,
+        "text_characters": 49682,
+        "chunks": 94,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 2 source-text candidates need review; see text.json provenance",
+            "metric": 2
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "9 pages but references.json is empty",
+            "metric": 9
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 9,
+        "text_characters": 49682,
+        "chunks": 94,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 2 source-text candidates need review; see text.json provenance",
+            "metric": 2
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 5 source-text candidates need review; see text.json provenance",
+            "metric": 5
+          },
+          {
+            "gate": "zero_references_unexpected",
+            "severity": "warn",
+            "detail": "9 pages but references.json is empty",
+            "metric": 9
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "c806191c35c4",
+      "baseline": {
+        "status": "success",
+        "page_count": 1,
+        "text_characters": 4683,
+        "chunks": 9,
+        "references": 6,
+        "figures": 1,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 1,
+        "text_characters": 4683,
+        "chunks": 9,
+        "references": 6,
+        "figures": 1,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "cb1834694c26",
+      "baseline": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 15942,
+        "chunks": 36,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 15942,
+        "chunks": 36,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "cc2908a7a170",
+      "baseline": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 4125,
+        "chunks": 8,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 3,
+        "text_characters": 4125,
+        "chunks": 8,
+        "references": 0,
+        "figures": 1,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "d183f5012c54",
+      "baseline": {
+        "status": "success",
+        "page_count": 14,
+        "text_characters": 47752,
+        "chunks": 177,
+        "references": 30,
+        "figures": 8,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 14,
+        "text_characters": 47752,
+        "chunks": 177,
+        "references": 30,
+        "figures": 8,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_native_layer: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "d64d1b9da678",
+      "baseline": {
+        "status": "success",
+        "page_count": 13,
+        "text_characters": 31743,
+        "chunks": 51,
+        "references": 31,
+        "figures": 6,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 13,
+        "text_characters": 31743,
+        "chunks": 51,
+        "references": 31,
+        "figures": 6,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "d7210cd94ae2",
+      "baseline": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 10165,
+        "chunks": 18,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 4,
+        "text_characters": 10165,
+        "chunks": 18,
+        "references": 0,
+        "figures": 0,
+        "quality_flags": []
+      }
+    },
+    {
+      "pdf_hash": "d7c1193c06fa",
+      "baseline": {
+        "status": "success",
+        "page_count": 13,
+        "text_characters": 107172,
+        "chunks": 200,
+        "references": 17,
+        "figures": 1,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 13,
+        "text_characters": 107172,
+        "chunks": 200,
+        "references": 17,
+        "figures": 1,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 6 source-text candidates need review; see text.json provenance",
+            "metric": 6
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "d9623d970b33",
+      "baseline": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 34429,
+        "chunks": 78,
+        "references": 22,
+        "figures": 1,
+        "quality_flags": []
+      },
+      "current": {
+        "status": "success",
+        "page_count": 12,
+        "text_characters": 34429,
+        "chunks": 78,
+        "references": 22,
+        "figures": 1,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    },
+    {
+      "pdf_hash": "e26feaa4013f",
+      "baseline": {
+        "status": "success",
+        "page_count": 21,
+        "text_characters": 40244,
+        "chunks": 83,
+        "references": 21,
+        "figures": 11,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "surnames: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      },
+      "current": {
+        "status": "success",
+        "page_count": 21,
+        "text_characters": 40244,
+        "chunks": 83,
+        "references": 21,
+        "figures": 11,
+        "quality_flags": [
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "table_structure: 2 source-text candidates need review; see text.json provenance",
+            "metric": 2
+          },
+          {
+            "gate": "source_text_integrity",
+            "severity": "warning",
+            "detail": "surnames: 1 source-text candidates need review; see text.json provenance",
+            "metric": 1
+          }
+        ]
+      }
+    }
+  ]
+}

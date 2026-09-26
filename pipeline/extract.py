@@ -63,6 +63,9 @@ def extract_docling_content(
     figures_dir: Path,
     docling_doc_output: Optional[Path] = None,
     scan_file_type: Optional[str] = None,
+    scan_detection: Optional[Dict] = None,
+    surname_catalog: Optional[Dict] = None,
+    surname_producer: Optional[Dict] = None,
 ):
     """Extract text and figures using docling, with PyMuPDF fallback for figures.
 
@@ -172,6 +175,37 @@ def extract_docling_content(
         result = converter.convert(str(pdf_path))
         document = result.document
 
+        from .source_layout import recover_panel_caption_roles, repair_reading_order
+        from .text_encoding import recover_text_encoding
+        from .pdf_cmap_recovery import recover_pdf_cmaps
+        from .scientific_text import prepare_scientific_text
+        from .table_structure import prepare_table_structure, export_source_markdown
+        from .treatment_context import recover_section_headings
+        from .native_text_recovery import apply_native_text_recovery
+        from .source_spacing_recovery import apply_source_spacing
+        # Full extraction publishes through a scratch directory; preparation
+        # receipts belong to the input PDF, never that temporary output path.
+        detection_file = pdf_path.parent / "scan_detection.json"
+        detection = scan_detection if scan_detection is not None else (
+            json.loads(detection_file.read_text()) if detection_file.is_file() else {})
+        source_text_integrity = {
+            "original_native_layer": apply_native_text_recovery(
+                document, pdf_path, detection.get("native_text_recovery")),
+            "original_source_spaces": apply_source_spacing(
+                document, pdf_path, detection.get("source_spacing_recovery")),
+            "pdf_cmap": recover_pdf_cmaps(document, pdf_path),
+            "encoding": recover_text_encoding(document, pdf_path),
+            "scientific_notation": prepare_scientific_text(document, pdf_path),
+            "section_headings": recover_section_headings(document, pdf_path),
+            "caption_roles": recover_panel_caption_roles(document),
+            "reading_order": repair_reading_order(document),
+            "table_structure": prepare_table_structure(document, pdf_path),
+        }
+        if surname_catalog is not None:
+            from .surname_recovery import recover_citation_surnames
+            source_text_integrity["surnames"] = recover_citation_surnames(
+                document, pdf_path, surname_catalog, producer=surname_producer)
+
         # Extract text from docling if available
         text_content = {
             # #198 — record which device produced this. Two corpuscles that
@@ -180,8 +214,9 @@ def extract_docling_content(
             # comparison the #98 version pins exist to make possible.
             "accelerator": device,
             "title": document.name,
-            "text": document.export_to_markdown(),
+            "text": export_source_markdown(document),
             "pages": len(document.pages) if hasattr(document, "pages") else None,
+            "source_text_integrity": source_text_integrity,
         }
     except ImportError as e:
         logger.error("Docling not available (%s); cannot extract text", e)
@@ -311,6 +346,8 @@ def extract_docling_content(
                 "caption_confidence": caption_info.get("caption_confidence"),
                 "caption_page_distance": caption_info.get("caption_page_distance"),
                 "caption_candidates": caption_info.get("caption_candidates", []),
+                "caption_fragments": caption_info.get("caption_fragments", []),
+                "caption_completeness": caption_info.get("caption_completeness", "unverified"),
                 "figure_number": figure_number,
                 "figure_number_source": caption_info.get("figure_number_source"),
                 "bbox": bbox_meta.get("bbox"),
@@ -388,6 +425,8 @@ def extract_docling_content(
                         "caption_confidence": it.get("caption_confidence"),
                         "caption_page_distance": it.get("caption_page_distance"),
                         "caption_candidates": it.get("caption_candidates", []),
+                        "caption_fragments": it.get("caption_fragments", []),
+                        "caption_completeness": it.get("caption_completeness", "unverified"),
                         "shares_image_with": shares,
                     },
                 )
@@ -438,6 +477,8 @@ def extract_docling_content(
                 "caption_confidence": it.get("caption_confidence"),
                 "caption_page_distance": it.get("caption_page_distance"),
                 "caption_candidates": it.get("caption_candidates", []),
+                "caption_fragments": it.get("caption_fragments", []),
+                "caption_completeness": it.get("caption_completeness", "unverified"),
             }
             if it.get("figure_type") == FIGURE_TYPE_SUBPANEL:
                 meta["primary_figure_docling_idx"] = it.get("primary_figure_docling_idx")
@@ -580,6 +621,16 @@ def extract_docling_content(
             stats["skipped_no_bbox"], stats["errors"],
         )
 
+    elif figures_data:
+        # Fixed mode retains Docling's render except when independent PDF
+        # image bounds establish that layout detection clipped an edge (#329).
+        render_figures(
+            pdf_path, figures_data, figures_dir, native=False,
+            fixed_scale=float(fig_cfg.get("images_scale", 2.0)),
+            pixel_cap=fig_cfg.get("max_pixels_long_side"),
+            repair_bounds_only=True,
+        )
+
     # #184 — lossless size pass, after every producer has written its final
     # bytes. Figures are ~97% of the served bundle and roughly half of them
     # are greyscale stored as RGB.
@@ -590,6 +641,11 @@ def extract_docling_content(
                 "lossless PNG pass: %d/%d figures re-encoded, %.1f MB saved",
                 shrunk_n, len(figures_data), shrunk_bytes / (1024 * 1024),
             )
+
+    # Materialize source rights evidence before publication; serving only
+    # consumes this record and cannot infer licensing from captions (#302).
+    from .figure_rights import materialize_figure_rights
+    materialize_figure_rights(figures_data)
 
     # Write figures.json
     figures_info = {

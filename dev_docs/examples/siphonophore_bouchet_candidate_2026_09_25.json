@@ -1,0 +1,66 @@
+{
+  "recorded_at": "2026-09-25T13:29:18.182797+00:00",
+  "scope": "Fresh Bouchet candidate launch after user instruction to redo the build. Extraction started; completion and scientific/retrieval acceptance remain pending.",
+  "candidate_root": "/nfs/roberts/scratch/pi_cwd7/cwd7/siphonophore_v15_candidate_20260925",
+  "code_revision": "302bfac4d5e917424e607388fde3a04c0f3c1f00",
+  "source_library": "/nfs/roberts/project/pi_cwd7/cwd7/siphonophores",
+  "source_library_revision": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+  "unique_pdf_count": 1775,
+  "source_bytes": 6878588072,
+  "preparation_receipt_sha256": "ee1c51bc473133b3e17bededcc3978d7d57d849d22573672db39ec333fae257b",
+  "config_sha256": "8c3e50da580f48afc93d0a60235e312235bf8898e6754f4df39c57d1114f9902",
+  "support_sha256": {
+    "siphonophores.bib": "e3678544aa0de925aa86c6d3ef198271a02aefb7a7ce2cafd5f23c9c71c4c165",
+    "lexicon.yaml": "44ad404c2cbca7f9e4811f1397564ad29d273ae572ffc8db00ee8748ca612a0b",
+    "taxonomy.dwca.zip": "84742790a1b6836e9615ae59d10b9620eb00979665f1fe2d4cd457d43fb4921c",
+    "instructions.md": "727f7f69d7e7824f6fe48298f2e815307a85d6bc9d10ea61f223c3bc658cd04b"
+  },
+  "packages": {
+    "docling": "2.94.0",
+    "torch": "2.12.0",
+    "transformers": "5.8.1",
+    "sentence-transformers": "5.5.0",
+    "lancedb": "0.36.0",
+    "pyarrow": "25.0.0",
+    "PyMuPDF": "1.24.1"
+  },
+  "model_refs": {
+    "hub/models--BAAI--bge-m3/refs/main": "5617a9f61b028005a4858fdac845db406aefb181",
+    "hub/models--Qwen--Qwen2.5-VL-7B-Instruct/refs/main": "cc594898137f460bfe9f0759e9844b3ce807cfb5",
+    "hub/models--docling-project--DocumentFigureClassifier-v2.5/refs/main": "f859dfbff5c9916cd996942d4b0db7fa25808220",
+    "hub/models--docling-project--docling-layout-heron/refs/main": "8f39ad3c0b4c58e9c2d2c84a38465abf757272d8",
+    "hub/models--sentence-transformers--all-MiniLM-L6-v2/refs/main": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+  },
+  "batch_size": 64,
+  "num_batches": 28,
+  "max_concurrent_batches": 8,
+  "slurm_jobs": {
+    "prepare": "27479572",
+    "extract": "27479902",
+    "extract-audit": "27479904",
+    "embed": "27479905",
+    "finalize": "27479906"
+  },
+  "control_sha256": {
+    "env.sh": "be785f4746d9a9972917e0cdc45ffa1a95f8b3af79cada25cd8cc2192d082b1e",
+    "phase-attempt1.py": "89b6b8142f1cf6d9775d15039dd8528c55d46f0a6b003886009c14ae905d0a27",
+    "phase.py": "23fcb39a88bcd783ecce6c4a561b1274d7b4ca20cd0b2704b5d373fd1fdc5789",
+    "phase.sh": "31aa66697c92b1f26caafde16a1039ccac7006ff5590eb08b3275c7848f0013d",
+    "prepare.py": "035d6e895a987362aaf1fbb8c8c8ca4b8e0df503c360603381572d461b226afe",
+    "prepare.sh": "2355978ad87347a898b5b7c7f549d52b3134cb940751b07320260c42b4bfb345",
+    "submit.py": "c65a28fc07050e642273952d06fb9a8207553d57d79cf066a84ef84b3a2ac3e3"
+  },
+  "superseded_chain": {
+    "extract": "27479864",
+    "audit": "27479865",
+    "embed": "27479866",
+    "finalize": "27479867",
+    "reason": "CLI rejected unsupported --strict-network before extraction; corrected to use supported CORPUS_STRICT_NETWORK environment setting; original records retained."
+  },
+  "limits": [
+    "CPU extraction with deferred Qwen, followed by GPU embedding; not a full vision build.",
+    "PyMuPDF 1.24.1 differs from erenna 1.28.0; source equivalence remains to be evaluated.",
+    "No independent retrieval outcomes inspected; no improvements or release acceptance claimed.",
+    "Erenna build not contacted, stopped or transferred."
+  ]
+}

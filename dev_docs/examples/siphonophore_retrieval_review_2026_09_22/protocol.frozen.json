@@ -1,0 +1,174 @@
+{
+  "protocol_version": "source_first_rank_blind_diagnostic_review_v1",
+  "frozen_at_utc": "2026-09-22T15:44:22.486809+00:00",
+  "review_agent": "Codex /root/fix_figures",
+  "baseline_path": "/tmp/corpus-v15-acceptance/gold/baseline-before-sep22-refresh",
+  "code_reference": "94e1e31153c39e252c3efd374fda9a878559d8f4",
+  "source_library": "/home/claude/repos/siphonophores/library",
+  "original_sample": "/tmp/corpus-issue320-independent-consolidated/sample.frozen.json",
+  "original_sample_sha256": "525460d716c6b88cdae8f84e542d7e213ad61469e5b54bb67852bcdb7fcfc602",
+  "selection": {
+    "type": "purposive source-first supplement; not random, blind, or representative",
+    "paper_count": 5,
+    "candidate_unit_count": 10,
+    "basis": "Saved source text inspection found diagnostic comparisons outside the materialized-unit tags. Five papers selected for usable source material; unit boundaries fixed here before visual grading/query formulation or any retrieval capture. Totton species keys are not the prior reviewed genus keys. Four Vanhoeffen units are the first four numbered species treatments, in source order.",
+    "prior_inspection": "Agent read saved Docling text for several candidate passages and saw headings. Prior source reviews/fixes included other Totton pages. No retrieval ranks/results have been inspected for these units.",
+    "no_replacement": "Every frozen candidate is retained with its final status. Unscorable/duplicate candidates are not replaced to fill a quota. Different questions about one treatment do not make extra units.",
+    "excluded": "Fixed audit/control target pages; original five frozen materialized-sample source units/pages; references, contents, incidental mentions, and numeric measurement tables without diagnostic structure."
+  },
+  "review_rules": {
+    "eligible": "One source taxonomic treatment, diagnostic comparison, or identification key with explicit distinguishing morphology; a taxon mention/heading alone is insufficient. Historical concepts are assessed as stated by their original author, not asserted to be current taxonomy.",
+    "visual_verification": "Read original PDF page renders; preserve source hash, physical page, exact source region, crop hash, and reviewer record. Saved OCR is a locator and possible machine anchor, never source truth.",
+    "queries": "One natural unassisted corpus-wide query per eligible unit, with source-faithful historical attribution where needed; no paper filter, source quote stuffing, or rank-guided wording.",
+    "targets": "Grade2 answer-bearing diagnostic content, grade1 contextual content, grade0 source-reviewed irrelevant content. Distinctive all_text anchors; missing/unmatched content remains unjudged, not irrelevant. Preserve uncertainty/qualifications in source notes.",
+    "freeze": "Freeze final source-reviewed manifest and its SHA256 before capture/ranking. No later label changes without new manifest identity and recapture of both workflows."
+  },
+  "acceptance": {
+    "independent_minimum_queries": 10,
+    "independent_minimum_papers": 5,
+    "hit_at_5": 0.8,
+    "hit_at_10": 0.9,
+    "improvement": "Follow existing evaluator: improved independent hit rate at one depth without decrease at other depth or controls; all existing exact audit/control queries retained.",
+    "population_limit": "This selected supplement addresses held-out diagnostic comparisons, not prevalence/recall across the deployment. It does not retroactively repair the insufficient original materialized-unit sample.",
+    "retrieval_population": "Full intended reference and candidate corpora with all fixed and sampled papers. Gold-only captures are pilot evidence, not deployment acceptance."
+  },
+  "sources": [
+    {
+      "paper_hash": "8a4548d8d5d7",
+      "source_relative_path": "T/Totton1965a.pdf",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "saved_docling_sha256": "d4434d25d1e01d6e200f9a3aa29322687c5501225dd942eb11a669c03b907389",
+      "saved_chunks_sha256": "e13708bf006d307c0191548fdfcda87ab4249688e08dc93afc3ef0362204ad9a"
+    },
+    {
+      "paper_hash": "79bcb551c1f1",
+      "source_relative_path": "T/Totton1965b.pdf",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "saved_docling_sha256": "fa16751c54d9a6ad1db4b0267511e59f63089fc927814b86af9ef572a9c171fd",
+      "saved_chunks_sha256": "f373848af3b920f44cd8ca2cba41de093ff7c1e507e017df1ea3009cbaa5dcee"
+    },
+    {
+      "paper_hash": "34712b25bc52",
+      "source_relative_path": "M/Margulis1984b_Lcamptr.pdf",
+      "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "saved_docling_sha256": "bdcfe2ea5f12444bced92a1fe9fd8d7f8b60b68d522aa1f7d509d7b5b8ab78ca",
+      "saved_chunks_sha256": "1589341da4341be72f54962a9e9f8833fc1a77aadcc510548b0fc7f97b207387"
+    },
+    {
+      "paper_hash": "c806191c35c4",
+      "source_relative_path": "G/Gasca_Suarez1993tr.pdf",
+      "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+      "saved_docling_sha256": "6ba5854cfcee32574fd467c7bd34b11a20abcc3b2498a64f76152c62d99d0e7f",
+      "saved_chunks_sha256": "6252492a2e1e1fa4b02778a00c57a25ec9c0db42248ff02ef2179bba293d4077"
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "source_relative_path": "U_Z/Vanhoeffen1906.pdf",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "saved_docling_sha256": "43acb4da1de115a583cd33e981a9e997cd0db464c39d6818bbc1398d2fef332d",
+      "saved_chunks_sha256": "4b29fd2ce6602581821b2eddfab16d89971178acb9cc6f54a284dfbb08cf086b"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "source_first_01",
+      "paper_hash": "8a4548d8d5d7",
+      "physical_pages": [
+        58
+      ],
+      "candidate_subject": "Agalma species key",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_02",
+      "paper_hash": "8a4548d8d5d7",
+      "physical_pages": [
+        164,
+        165
+      ],
+      "candidate_subject": "Lensia species key",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_03",
+      "paper_hash": "79bcb551c1f1",
+      "physical_pages": [
+        3,
+        4
+      ],
+      "candidate_subject": "Lensia baryi treatment/comparison",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_04",
+      "paper_hash": "79bcb551c1f1",
+      "physical_pages": [
+        4,
+        5
+      ],
+      "candidate_subject": "Lensia cordata treatment/comparison",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_05",
+      "paper_hash": "34712b25bc52",
+      "physical_pages": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "candidate_subject": "Lensia campanella elongata treatment/comparison",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_06",
+      "paper_hash": "c806191c35c4",
+      "physical_pages": [
+        1
+      ],
+      "candidate_subject": "Lensia canopusi diagnostic comparison",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_07",
+      "paper_hash": "9c0af2a4e494",
+      "physical_pages": [
+        4,
+        5
+      ],
+      "candidate_subject": "Sphaeronectes gracilis treatment/comparison",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_08",
+      "paper_hash": "9c0af2a4e494",
+      "physical_pages": [
+        5,
+        6
+      ],
+      "candidate_subject": "Muggiaea atlantica treatment",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_09",
+      "paper_hash": "9c0af2a4e494",
+      "physical_pages": [
+        7,
+        8
+      ],
+      "candidate_subject": "Galeolaria truncata treatment",
+      "status": "pending_visual_source_review"
+    },
+    {
+      "id": "source_first_10",
+      "paper_hash": "9c0af2a4e494",
+      "physical_pages": [
+        8,
+        9
+      ],
+      "candidate_subject": "Galeolaria biloba treatment",
+      "status": "pending_visual_source_review"
+    }
+  ]
+}

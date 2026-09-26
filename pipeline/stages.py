@@ -383,7 +383,8 @@ def _metadata_fingerprint_for_pdf(bib_index, filename: str, *,
     entry = bib_index.lookup(filename) if bib_index is not None else None
     canonical = json.dumps(entry, sort_keys=True, ensure_ascii=False,
                            separators=(",", ":"))
-    result = {"bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    result = {"metadata_producer": "bibliographic-metadata-v2",
+              "bib_entry_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
               "filename": filename}
     if grobid_context is not None:
         from .grobid_state import REFERENCE_EVIDENCE_VERSION, grobid_input
@@ -506,6 +507,9 @@ def _meaningful_extracted_text(raw: str) -> str:
     return _DOCLING_IMAGE_PLACEHOLDER_RE.sub("", raw or "").strip()
 
 
+SOURCE_INTEGRITY_WARNING_POLICY = "source-integrity-unresolved-union-v1"
+
+
 def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     """Cheap silent-failure detectors against the produced artifacts (#36).
 
@@ -540,6 +544,24 @@ def _run_quality_gates(hash_dir: Path) -> List[Dict[str, Any]]:
     fig_list = figures.get("figures") or [] if isinstance(figures, dict) else []
     ref_count = int(refs.get("total_references") or 0) if isinstance(refs, dict) else 0
     needs_ocr = bool(scan.get("needs_ocr")) if isinstance(scan, dict) else False
+
+    # Build-time source checks leave uncertain evidence intact. Make those
+    # receipts visible in status even when the words look superficially clean.
+    integrity = text.get("source_text_integrity", {}) if isinstance(text, dict) else {}
+    for producer, receipt in integrity.items():
+        if not isinstance(receipt, dict):
+            continue
+        # Long runs include legitimate compounds: these are review candidates,
+        # not an error census. A producer may expose the same observation under
+        # both receipt fields; count it once without losing distinct evidence.
+        unresolved = {json.dumps(item, sort_keys=True, ensure_ascii=False)
+                      for field in ("unresolved", "unresolved_long_runs")
+                      for item in receipt.get(field) or []}
+        if unresolved:
+            count = len(unresolved)
+            flags.append({"gate": "source_text_integrity", "severity": "warning",
+                          "detail": f"{producer}: {count} source-text candidates need review; see text.json provenance",
+                          "metric": count})
 
     # empty_text — extracted text is implausibly short
     min_chars = int(cfg.get("empty_text_min_chars", 500))

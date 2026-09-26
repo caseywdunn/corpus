@@ -1,0 +1,13 @@
+{
+  "code_revision": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+  "fingerprint_basis_document": "726d507fcca4",
+  "stage_config_sha256": {
+    "docling_extraction": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9",
+    "text_chunking": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96",
+    "quality_gates": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+  },
+  "refresh_input_sha256": "694d5f5c508b4399236b2db522ab7eafd949cba255a1b78791d961a55aaeef58",
+  "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+  "gold_input_receipt_sha256": "059b15bf1a681c14b655e21d97463f7df43fa108b9e868ee295771e5f34837f0",
+  "labels_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62"
+}

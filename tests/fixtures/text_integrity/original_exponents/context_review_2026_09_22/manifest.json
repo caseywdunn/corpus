@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "purpose": "Durable failed fixed-context source experiment; no repair authorized",
+  "source_capture": "../capture.json",
+  "baseline_capture_sha256": "27f3e7fe101fdc5bc73882aae6ce90736494918d95b0f97615c576921c438906",
+  "files": {
+    "report.json": {
+      "sha256": "fed1b5081d76b124d1bbfb693fd90b4e15954bc67b51679464cb6d75b7806f32",
+      "bytes": 7467
+    },
+    "case1-300dpi.png": {
+      "sha256": "e9757ed5bde196b50723f53b66bfa61fb7ea5fcb067812f9064ee012394ab8f1",
+      "bytes": 289
+    },
+    "case1-600dpi.png": {
+      "sha256": "1f5638e9b4de4573be20f786f7d17ac03183a5b59ef250c53f5da7b4dc86a99d",
+      "bytes": 889
+    },
+    "case2-300dpi.png": {
+      "sha256": "a6444014271e6fcaa45047b55868fb30f8e136a0a3952db886894fd043074e03",
+      "bytes": 388
+    },
+    "case2-600dpi.png": {
+      "sha256": "1bc61cc377afbc45fc0b82592bbbec2c3c0dd953a1a67ef81c25dc497e50c226",
+      "bytes": 1277
+    },
+    "README.md": {
+      "sha256": "ddf71b396102b5916f15619cb88fcb325eb7574fd9f47e742c58bed943e263c4",
+      "bytes": 3454
+    }
+  }
+}

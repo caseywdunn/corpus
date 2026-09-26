@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 
+from .fields import BIBLIOGRAPHIC_FIELDS
+
 DOCUMENT_FIELDS = ("license", "license_url", "license_source", "publishable",
                    "serve", "serve_reason", "ocrlang", "ocrmode", "doclang",
                    "pagemap", "keeppages")
@@ -15,7 +17,7 @@ DOCUMENT_FIELDS = ("license", "license_url", "license_source", "publishable",
 
 def consumed_metadata(meta):
     """Retain only fields consumed here, not build paths or service receipts."""
-    keys = ("title", "year", "journal", "doi", "filename", "authors", *DOCUMENT_FIELDS)
+    keys = (*BIBLIOGRAPHIC_FIELDS, "filename", "authors", "extraction_method", "bib_key", *DOCUMENT_FIELDS)
     result = {key: meta[key] for key in keys if key in meta}
     if "authors" in result:
         result["authors"] = [{key: author.get(key, "") for key in ("surname", "forename")}
@@ -87,11 +89,16 @@ def refresh_representative(conn, work_id, *, refresh_header=False):
     fields = document_fields(meta)
     conn.execute(f"UPDATE works SET corpus_hash=?, in_corpus=1, {', '.join(k+'=?' for k in fields)} WHERE work_id=?",
                  (sha, *fields.values(), work_id))
+    from .fields import materialize
+    materialize(conn, work_id)
     curated = conn.execute("SELECT bib_imported_at FROM works WHERE work_id=?", (work_id,)).fetchone()
     if refresh_header and not (curated and curated[0] is not None):
         from .authority import insert_authors, normalize_doi
         conn.execute("UPDATE works SET title=?, year=?, journal=?, doi=?, source='corpus_paper' WHERE work_id=?",
                      (meta.get("title") or "", meta.get("year"), meta.get("journal") or "", normalize_doi(meta.get("doi") or "") or None, work_id))
+        from .fields import LOCATOR_FIELDS
+        conn.execute(f"UPDATE works SET {', '.join(key+'= ?' for key in LOCATOR_FIELDS)} WHERE work_id=?",
+                     (*(meta.get(key) for key in LOCATOR_FIELDS), work_id))
         conn.execute("DELETE FROM work_authors WHERE work_id=?", (work_id,))
         insert_authors(conn, work_id, [(a.get("surname", ""), a.get("forename", ""))
                                      for a in meta.get("authors", []) if a.get("surname")])

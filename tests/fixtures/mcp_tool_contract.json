@@ -146,6 +146,30 @@
           "title": "Paper Hash",
           "type": "string"
         },
+        "section_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Type"
+        },
+        "treatment_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Treatment Name"
+        },
         "with_text": {
           "default": true,
           "title": "With Text",
@@ -158,7 +182,7 @@
       "title": "get_chunksArguments",
       "type": "object"
     },
-    "signature": "(paper_hash: 'str', chunk_ids: 'Optional[List[str]]' = None, with_text: 'bool' = True) -> 'List[Dict]'"
+    "signature": "(paper_hash: 'str', chunk_ids: 'Optional[List[str]]' = None, with_text: 'bool' = True, treatment_name: 'Optional[str]' = None, section_type: 'Optional[str]' = None) -> 'List[Dict]'"
   },
   "get_chunks_by_section": {
     "input_schema": {
@@ -184,6 +208,30 @@
           "default": null,
           "title": "Section Class"
         },
+        "section_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Type"
+        },
+        "treatment_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Treatment Name"
+        },
         "with_text": {
           "default": true,
           "title": "With Text",
@@ -196,7 +244,7 @@
       "title": "get_chunks_by_sectionArguments",
       "type": "object"
     },
-    "signature": "(paper_hash: 'str', section_class: 'Optional[str]' = None, limit: 'int' = 50, with_text: 'bool' = True) -> 'List[Dict]'"
+    "signature": "(paper_hash: 'str', section_class: 'Optional[str]' = None, limit: 'int' = 50, with_text: 'bool' = True, treatment_name: 'Optional[str]' = None, section_type: 'Optional[str]' = None) -> 'List[Dict]'"
   },
   "get_chunks_for_taxon": {
     "input_schema": {
@@ -352,6 +400,11 @@
           "title": "Limit",
           "type": "integer"
         },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
         "work_id": {
           "title": "Work Id",
           "type": "string"
@@ -363,7 +416,7 @@
       "title": "get_excerpts_citingArguments",
       "type": "object"
     },
-    "signature": "(work_id: 'str', limit: 'int' = 50) -> 'Dict'"
+    "signature": "(work_id: 'str', limit: 'int' = 50, offset: 'int' = 0) -> 'Dict'"
   },
   "get_figure": {
     "input_schema": {
@@ -513,7 +566,7 @@
       "title": "get_figure_imageArguments",
       "type": "object"
     },
-    "signature": "(paper_hash: 'str', figure_id: 'str', label: 'Optional[str]' = None, profile: 'Optional[str]' = None) -> 'Image'"
+    "signature": "(paper_hash: 'str', figure_id: 'str', label: 'Optional[str]' = None, profile: 'Optional[str]' = None) -> 'Any'"
   },
   "get_figure_roi_image": {
     "input_schema": {
@@ -1225,6 +1278,23 @@
   "list_valid_species_under": {
     "input_schema": {
       "properties": {
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limit"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
         "parent_taxon_name": {
           "title": "Parent Taxon Name",
           "type": "string"
@@ -1236,7 +1306,7 @@
       "title": "list_valid_species_underArguments",
       "type": "object"
     },
-    "signature": "(parent_taxon_name: 'str') -> 'List[Dict]'"
+    "signature": "(parent_taxon_name: 'str', limit: 'Optional[int]' = None, offset: 'int' = 0) -> 'List[Dict]'"
   },
   "resolve_reference": {
     "input_schema": {

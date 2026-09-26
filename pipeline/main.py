@@ -24,7 +24,7 @@ from bib import BibIndex, keeppages_for_pdf, ocrlang_for_pdf, ocrmode_for_pdf
 from . import config as _pipeline_config
 from . import external
 from .config import load_config
-from .build_inputs import config_fingerprints as _config_fingerprints
+from .build_inputs import config_fingerprints as _config_fingerprints, surname_recovery_inputs
 from .figure_passes import _crossref_chunks_and_figures, _pass25_annotate_figures, _pass3b_annotate_rois
 from .figure_materialization import has_split_figure_state, rebuild_figure_base
 from .extract import extract_docling_content
@@ -63,6 +63,8 @@ def _refresh_vision_artifacts(
     vision_backend,
     *,
     reset_base=False,
+    surname_catalog=None,
+    surname_producer=None,
 ) -> None:
     """Refresh the complete vision-derived figure layer for one document.
 
@@ -73,7 +75,10 @@ def _refresh_vision_artifacts(
     refresh from writing ROIs that the served bundle cannot actually reach.
     """
     if reset_base:
-        rebuild_figure_base(figures_file.parent, extract_docling_content)
+        from functools import partial
+        extract_with_sources = partial(extract_docling_content, surname_catalog=surname_catalog,
+                                       surname_producer=surname_producer)
+        rebuild_figure_base(figures_file.parent, extract_with_sources)
         _pass25_annotate_figures(figures_file.parent / "text.json", figures_file)
     _pass3b_annotate_rois(figures_file, vision_backend)
     summary_3c = resolve_compound_figures(figures_file)
@@ -450,9 +455,6 @@ def main():
     args.content_aware_figures, args.vision_backend = _panels_to_legacy(args.figure_panels)
     if args.refresh_vision and not args.vision_backend:
         parser.error("--refresh-vision requires --figure-panels vision-local|vision-claude")
-    run_config_fingerprints = _config_fingerprints(
-        loaded, panel_mode=args.figure_panels, vision_model=args.vision_model)
-
     input_dir = args.input_dir.resolve()
     output_dir = args.output_dir.resolve()
 
@@ -496,6 +498,9 @@ def main():
 
     # Optional BibTeX-driven metadata override. Loaded once and shared
     # across workers — entries are looked up by PDF basename.
+    if args.bib is None and loaded.get("bib"):
+        config_base = args.config.resolve().parent if args.config is not None else Path.cwd()
+        args.bib = (config_base / loaded["bib"]).resolve()
     bib_index: Optional[BibIndex] = None
     if args.bib is not None:
         if not args.bib.exists():
@@ -506,6 +511,11 @@ def main():
         except Exception as e:
             logger.error("Could not parse %s: %s", args.bib, e)
             sys.exit(1)
+
+    surname_catalog, surname_producer = surname_recovery_inputs(bib_index)
+    run_config_fingerprints = _config_fingerprints(
+        loaded, panel_mode=args.figure_panels, vision_model=args.vision_model,
+        surname_producer=surname_producer)
 
     # Open taxonomy snapshot and (if supplied) the multi-category
     # lexicon. Both are optional, but a configured unreadable source is
@@ -632,7 +642,8 @@ def main():
             # could see. Stamp the producer actually loaded, not the old cache.
             run_config_fingerprints = _config_fingerprints(
                 loaded, panel_mode=args.figure_panels, vision_model=args.vision_model,
-                resolved_vision_producer=getattr(vision_backend, "producer", None))
+                resolved_vision_producer=getattr(vision_backend, "producer", None),
+                surname_producer=surname_producer)
             logger.info("Vision backend loaded: %s", vision_backend.name)
         except Exception as e:
             logger.error(
@@ -854,6 +865,8 @@ def main():
                                 _refresh_vision_artifacts(
                                     figures_file, hash_dir / "chunks.json", vision_backend,
                                     reset_base=reset_base,
+                                    surname_catalog=surname_catalog,
+                                    surname_producer=surname_producer,
                                 )
                                 with _stage(processing, "quality_gates", hash_dir=hash_dir,
                                             input_fingerprint={"config": run_config_fingerprints["quality_gates"]}):
@@ -973,6 +986,8 @@ def main():
                         run_config_fingerprints=run_config_fingerprints,
                         vision_backend=vision_backend,
                         bib_index=bib_index,
+                        surname_catalog=surname_catalog,
+                        surname_producer=surname_producer,
                         resume=args.resume,
                         taxonomy_fingerprint=taxonomy_fingerprint,
                         lexicon_fingerprints=lex_fingerprints,

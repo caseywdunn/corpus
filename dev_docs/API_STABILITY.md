@@ -94,6 +94,25 @@ The same change proposed against 1.4 waits for 2.0, or ships as an
 additive field alongside the old one with `publishable` deprecated. That
 is the whole practical content of the freeze.
 
+### Specific transport safety restriction in 1.5
+
+Issue #338 exposed a valid, unbounded `list_valid_species_under` request
+that exceeded the client's 1 MiB SSE event limit and closed the entire
+session. The 1.5 fix preserves the existing successful species-list shape
+and adds optional `limit`/`offset` plus MCP `_meta.pagination` metadata.
+Calls omitting `limit` still return the complete list when it fits the
+256 KiB MCP result budget. Larger unpaged calls return an explicit error
+requiring pagination; they never return a silently incomplete list.
+
+That guard is a **deliberate restriction of legacy behavior**, including
+some large calls that might previously have succeeded with a more tolerant
+client. It is a specific transport-safety exception for this release, not
+a claim that the old unlimited default is unchanged or permission to
+change unrelated defaults. Clients enumerating broad clades should pass
+a positive `limit` and follow `_meta.pagination.next_offset`. See
+[Species-list pagination](MCP_TOOLS.md#species-list-pagination) for byte
+accounting, failure behavior and the unchanged list payload.
+
 ## Deprecation path
 
 Nothing in the covered surface disappears without going through this:

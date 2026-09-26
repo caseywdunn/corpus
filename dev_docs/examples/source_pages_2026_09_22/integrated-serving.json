@@ -1,0 +1,654 @@
+{
+  "input_receipt": {
+    "code_revision": "b260406716cb39cff4454d02a78fc8a85d59d314",
+    "library_revision": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+    "scope": "Normal pipeline with explicit source-page selection; not full-paper/full-corpus or citation-graph acceptance. No source inputs modified.",
+    "grobid": "disabled for text/figure acceptance; no reference completeness claim",
+    "sources": [
+      {
+        "source": "library/S/Stepanjants2014.pdf",
+        "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+        "physical_pages": "8",
+        "bib_key": "Stepanjants2014",
+        "doclang": "ru, en",
+        "ocrmode": null
+      },
+      {
+        "source": "library/T/Tung2003.pdf",
+        "source_sha256": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+        "physical_pages": "30,84",
+        "bib_key": "Tung2003",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/H_J/Hung2002.pdf",
+        "source_sha256": "146fce7eee0232e7873c0ccd5f7ebc49256470447f73e9e4ee29af66447e387a",
+        "physical_pages": "3",
+        "bib_key": "Hung2002",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/U_Z/Yu2006.pdf",
+        "source_sha256": "28d1eb27e929223effbf36f6a1cf6161bbc02cd6430f01056a230e15aca81d18",
+        "physical_pages": "2",
+        "bib_key": "Yu2006",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/L/Liu_etal2012.pdf",
+        "source_sha256": "ada699a8ee18bce9af3905aa018a68918e7be04c4c5574438000c349edffd43e",
+        "physical_pages": "2",
+        "bib_key": "Liuetal2012",
+        "doclang": "zh-Hans, en",
+        "ocrmode": null
+      },
+      {
+        "source": "library/B/Boysen-Ennen1987.pdf",
+        "source_sha256": "88f1c8dfbd5ca3058449c02027fa8219eb53b426324cb2694a8d502a40682fb5",
+        "physical_pages": "12,16",
+        "bib_key": "BoysenEnnen1987",
+        "doclang": "de, en",
+        "ocrmode": null
+      },
+      {
+        "source": "library/M/Mapstone2009.pdf",
+        "source_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+        "physical_pages": "47,68,200",
+        "bib_key": "Mapstone2009",
+        "doclang": "en",
+        "ocrmode": null
+      },
+      {
+        "source": "library/H_J/Hissmann2005.pdf",
+        "source_sha256": "25eb8dd8d21d3004299b3ae5a26714720ad1702cc53b22cc4a81180c55492210",
+        "physical_pages": "7",
+        "bib_key": "Hissmann2005",
+        "doclang": null,
+        "ocrmode": null
+      },
+      {
+        "source": "library/D_E/DuClos_etal2022.pdf",
+        "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+        "physical_pages": "6",
+        "bib_key": "RenEtal2022",
+        "doclang": null,
+        "ocrmode": null
+      }
+    ],
+    "bib_sha256": "5441d666e8143afe4fab2555630e869cd7be5cc2771abcca721300c2ca8f5509"
+  },
+  "bundle_manifest_sha256": "78520f2687f138d31bac144c12667ca747ae83300ce165e450b20106dd26bc70",
+  "bundle_inventory_sha256": "11ed61c970d8190516af54576fceba8b870671e2376828cb6daf4a2dec154586",
+  "embedding_producer": {
+    "schema_version": 1,
+    "model": "BAAI/bge-m3",
+    "dimension": 1024,
+    "producer": {
+      "model": "BAAI/bge-m3",
+      "recipe": "sentence-transformers-unit-l2-v1",
+      "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+      "verification": "repository-revision"
+    }
+  },
+  "vector_rows": 75,
+  "vector_dimensions": 1024,
+  "all_materialized_texts_equal_vector_texts": true,
+  "all_vectors_nonzero": true,
+  "bundle_unchanged_after_queries": true,
+  "server_code": "bfbf90cb5793961aa1bb07db794877eb7f3cb889",
+  "source_files": {
+    "25eb8dd8d21d": {
+      "text.json": "b6c7509fe4e85665857fb7ce63bcef5e0a6272fd275a00fd8318b59c3ed3e04d",
+      "chunks.json": "df26d56d37e7feea0a0e123a57f22c971ff8dd692f82dfc0f6f629cbd46eded9",
+      "docling_doc.json": "df8ab292ba19c650138ef8b14670c1fcef8ffe4e93a803968ee0e30f6041ad3b",
+      "figures.json": "d8b765d564cd2bdae01ea18c1ea6e934293dce1b6eede39b5c971b9630405b86",
+      "processed.pdf": "54a4a8829fe7ecb75b5d94340dde25e90ec0eefa53d2c7c6527862cd33e7bf30",
+      "pipeline_state.json": "633bdf3009dfc707c14b9788c1a0fb3a9f60a6d82c335aa489de01726651fe59",
+      "scan_detection.json": "58549ce88c9e46127ba8a964365a2e14a5c854591658e4d3533b4373dd04f3d8"
+    },
+    "5408f4a1fb6f": {
+      "text.json": "3353a20c28c13550f63e3c88cfe836c8b35c7a67c18e1046f536c1103490b14e",
+      "chunks.json": "b29d2d5043a4455e005ccc1d489e55e289cf4693ef8ec556cf788991758dd793",
+      "docling_doc.json": "6e3d674e04e82d89448729fa4fc0ecfe229b024b9562a3d231569f56e204c626",
+      "figures.json": "3b6d05abebaa37ceca701010a185fb7c1b0d407be787cb969eddfb2af6158a54",
+      "processed.pdf": "607d0db40dea0c35c05fea1fd5226e32ebea568811dc29ea0300de0e28112a2c",
+      "pipeline_state.json": "ff7896078b78312c8d6432d64011c964f47fde2293573fb085460740f46bee8a",
+      "scan_detection.json": "449542ac61ebf0d101d05971824495d88c83ad50e27e6e3b2f4eb63ae980d2d2"
+    },
+    "d183f5012c54": {
+      "text.json": "ea83967527f6a43f2177d861522d45cee3e50776b2eb62e85b51d31c0daaae43",
+      "chunks.json": "58b75a73dd96b3bb45c7b2e433ca5882efb415a2ea00e10c68f286d6c791cd99",
+      "docling_doc.json": "0845978fd333d9c5c99239be8408194d4bf98c272bc0424d1d66b7aebc3618f6",
+      "figures.json": "8b61f81236eef44249fff40272f772ea4bba1d94c8b93ef1e901c8aea96b44ff",
+      "processed.pdf": "316032ca12c105e7a85eace9679bdd277ea9d7163d8f450485703976dd8f0554",
+      "pipeline_state.json": "67e9384f3a16496be4ac0700b2fd47d06e671eb3df59d9aa4c6b3368f7c72b33",
+      "scan_detection.json": "5c62b1d5746f268826c85d162865335924a0220e332fe7fea10cbae5cb8ff5bc"
+    },
+    "db7338ea1867": {
+      "text.json": "8df98e1d6f4206aa925c0dd08cc92cf367de90a1bc5c68ece9a3f85b92160b7a",
+      "chunks.json": "18177690fb1c931d86ec75ca2c3ac274f54fe2c43a1077757def66a913ad0636",
+      "docling_doc.json": "54df6af5f51fecdc1eb3063bb9c20e45b8a44bfc23571c48e15433bd79fccbaf",
+      "figures.json": "50bbcbc97619a832c7936d9fb4095ed9809c595618ab19887734cfbc0e5f4ef8",
+      "processed.pdf": "fbdbaa51ceca11e76e1cf8de343190361e050c497d35f79ace0de2b806928fec",
+      "pipeline_state.json": "1f8db0053185d6ca21cf15a33f1d3bc98e6c138fdf88299cad5cdf54b016fe3e",
+      "scan_detection.json": "a7021f91ff2cfe4810d57f0c7274871602eec77c45af381ef54bc607c665058f"
+    },
+    "88f1c8dfbd5c": {
+      "text.json": "4c96c02ebe5b03d9fa460aeaeb635abef7161b713705bcff58a6035b3be8951a",
+      "chunks.json": "e5790ee9a2872d955030c0989cf80da803baf9240cb798f4c1daa4c0d9c99035",
+      "docling_doc.json": "1a0c5b355a601275ac11386660d650f5962d31a12a2fedcd20b4c9d55cd297ed",
+      "figures.json": "c005a2082ac6add731c019cfa1193653ec9c5b96282ad473722b937c9d766071",
+      "processed.pdf": "f86f7ac8f127aa031fad2dc8ad6d1d1d2f29ec912e2c88bc07c7974562d87765",
+      "pipeline_state.json": "e4ce8c907042985e770d5007d74f8d0a4c70e93b95dbdc8404c9d3ac3e0c071b",
+      "scan_detection.json": "994f915372c5ba6c1fd7f5f9458882975216b2658d0a4f06d89ad0aca77abed7"
+    },
+    "4efbb4af134b": {
+      "text.json": "d0509ff2ef61c1f9f2cb84a3216615f236e9458dea136e5d39adf70d72f2309a",
+      "chunks.json": "b7da49b96ed90312648516d3681fdaa933ba872cbf462940d3fab3ceed3dd244",
+      "docling_doc.json": "efd54c3400676db6d5d5d4b6e202fabece46ef6e852d65f2a2c84ceedb003801",
+      "figures.json": "ace3dec00ae07bab426fc54b00116f6fc0b28fad1ef3c9737647d0430b042d12",
+      "processed.pdf": "d9fd2ebffa89420b1383299d812d058e8ede9c75feabbe197f7af81f8338092d",
+      "pipeline_state.json": "f4c9eb1abc06099eda5e3fe0f80a3529eb1f4e4d41942e964875866094fb1fa0",
+      "scan_detection.json": "8a896137adcc37b1fcdc894133941648487a674be905455c9f2cb28a018a83d9"
+    }
+  },
+  "checks": {
+    "25eb8dd8d21d": {
+      "chunk_count": 9,
+      "literal_checks": [
+        {
+          "literal": "The holotype possessed nine nectophores and about nine",
+          "chunk_ids": [
+            "chunk_1"
+          ]
+        }
+      ],
+      "heading_checks": [],
+      "served_chunks_sha256": "11f347d3646a89b87304b3d77d2e58ec9c24d4e2c5f1600817e0d903ef7d159c",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "original_source_spaces": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-prepared-exact-spaces-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        }
+      }
+    },
+    "5408f4a1fb6f": {
+      "chunk_count": 10,
+      "literal_checks": [
+        {
+          "literal": "Siphosome length scaled approximately linearly with the nectophore count",
+          "chunk_ids": [
+            "chunk_5"
+          ]
+        }
+      ],
+      "heading_checks": [],
+      "served_chunks_sha256": "2c902530b5f9e9fd248de77de8dfcbf747e014cf07b019cb412acaf08a919c59",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "original_source_spaces": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-prepared-exact-spaces-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 2,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        }
+      }
+    },
+    "d183f5012c54": {
+      "chunk_count": 13,
+      "literal_checks": [
+        {
+          "pattern": "2000\\s*мм³",
+          "chunk_ids": [
+            "chunk_4"
+          ]
+        }
+      ],
+      "heading_checks": [],
+      "served_chunks_sha256": "1cf91a738ba2be7b9e07f079f64fa9fc0e2c905497af26604be284f84c7a2439",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 1,
+          "unresolved": 1,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "original_source_spaces": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-prepared-exact-spaces-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        }
+      }
+    },
+    "db7338ea1867": {
+      "chunk_count": 5,
+      "literal_checks": [
+        {
+          "literal": "5301±8525 ind./100m³",
+          "chunk_ids": [
+            "chunk_0"
+          ]
+        },
+        {
+          "literal": "Chelophyes contorta",
+          "chunk_ids": [
+            "chunk_0",
+            "chunk_2"
+          ]
+        },
+        {
+          "literal": "Nanomia bijuga",
+          "chunk_ids": [
+            "chunk_2"
+          ]
+        },
+        {
+          "literal": "圖1.台灣西南海域採樣測站之位置圖。",
+          "chunk_ids": [
+            "chunk_4"
+          ]
+        }
+      ],
+      "heading_checks": [
+        "管水母種類組成及豐度"
+      ],
+      "served_chunks_sha256": "54e3784a9b3f1172746be4dde6ccacb8b0b3baf52589b2bae6c477159d1ec62e",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "figure": {
+        "id": "docling_1",
+        "caption": "圖1.台灣西南海域採樣測站之位置圖。",
+        "status": "bound",
+        "delivered_image_sha256": "a92dd4f6562361f5780ca5540cfe472575d08bbd1842b9e0b753a7d79961f556",
+        "image_size": [
+          377,
+          427
+        ],
+        "image_bytes_equal_bundle": true,
+        "profile": "report"
+      },
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 0,
+          "unresolved": 7,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "original_source_spaces": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-prepared-exact-spaces-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 3,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 7,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        }
+      }
+    },
+    "88f1c8dfbd5c": {
+      "chunk_count": 6,
+      "literal_checks": [
+        {
+          "literal": "RMT-8-Fänge",
+          "chunk_ids": [
+            "chunk_2"
+          ]
+        },
+        {
+          "literal": "RMT 1+8m-Fänge",
+          "chunk_ids": [
+            "chunk_3"
+          ]
+        }
+      ],
+      "heading_checks": [],
+      "served_chunks_sha256": "32db9d22dc0ed067b5d89d2ec91a75a2915c15e9fc557752136e2ac5d131d6d7",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "figure": {
+        "id": "docling_1",
+        "caption": "Abb.l:  Die  Positionen  der  RMT 1+8m-Fänge  der  Expedition  ANTI/2 1983  mit der  \"Polarstern\"",
+        "status": "bound",
+        "delivered_image_sha256": "adde2f27f1ea61b48bc71fcb80334c75551d9a6feae9ca2d7b6b2ae44b92d4a2",
+        "image_size": [
+          2090,
+          1559
+        ],
+        "image_bytes_equal_bundle": true,
+        "profile": "report"
+      },
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 1,
+          "unresolved": 15,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "original_source_spaces": {
+          "repairs": 0,
+          "unresolved": 2,
+          "method": "original-prepared-exact-spaces-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        }
+      }
+    },
+    "4efbb4af134b": {
+      "chunk_count": 19,
+      "literal_checks": [
+        {
+          "literal": "Anterior nectophore alone developed",
+          "chunk_ids": [
+            "chunk_7"
+          ]
+        },
+        {
+          "literal": "nectophores listed",
+          "chunk_ids": [
+            "chunk_2"
+          ]
+        },
+        {
+          "pattern": "Alvariño\\s+1971",
+          "chunk_ids": [
+            "chunk_3"
+          ]
+        },
+        {
+          "pattern": "Alvariño\\s+1991",
+          "chunk_ids": [
+            "chunk_5"
+          ]
+        },
+        {
+          "pattern": "Alvariño,\\s+1981",
+          "chunk_ids": [
+            "chunk_12"
+          ]
+        }
+      ],
+      "heading_checks": [],
+      "served_chunks_sha256": "e8c8d6795435bd8a62536305996530736fab42d327c2cabde8a33967d02a27b2",
+      "all_text_equal_to_materialized_and_vector_rows": true,
+      "source_integrity_counts": {
+        "original_native_layer": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "original-mojibake-regions-dual-raster-ocr-v1"
+        },
+        "original_source_spaces": {
+          "repairs": 2,
+          "unresolved": 1,
+          "method": "original-prepared-exact-spaces-v1"
+        },
+        "pdf_cmap": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "exact-regional-type1-scalar-cmap-v1"
+        },
+        "encoding": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source-region-encoding-and-accent-geometry-v1"
+        },
+        "scientific_notation": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_glyph_alignment_v1"
+        },
+        "section_headings": {
+          "repairs": 0,
+          "unresolved": 1,
+          "method": "rendered_section_heading_v1"
+        },
+        "reading_order": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": "source_columns_v1"
+        },
+        "table_structure": {
+          "repairs": 0,
+          "unresolved": 0,
+          "method": null
+        },
+        "surnames": {
+          "repairs": 0,
+          "unresolved": 1,
+          "method": null
+        }
+      }
+    }
+  },
+  "scope": "Normal nine-document/13-page build, refreshed embeddings, unchanged resume, real stdio MCP; selected pages precede scan classification. Not full-corpus or fresh citation-edge acceptance.",
+  "unchanged_resume": {
+    "scope": "Unchanged normal extract/embed then final packaging",
+    "files_compared": 99,
+    "unchanged_materialized_artifacts": true,
+    "artifact_inventory_sha256": "1906b6a9807ab50bfca4a96664c3da3349a68ec3c2b5b21bd6751b5999314de0",
+    "steps": [
+      {
+        "step": "extract",
+        "returncode": 0,
+        "log_sha256": "e1a1259891b6485f7e2718831baec57af2f94b2f017149d9b8fedb3df3f907ee"
+      },
+      {
+        "step": "embed",
+        "returncode": 0,
+        "log_sha256": "9475e679a2301be44c457c90ea3b4602f077a0660c1807a55163ab496b6d0455"
+      },
+      {
+        "step": "bundle",
+        "returncode": 0,
+        "log_sha256": "e979842cc270d7762b97123ef051814b01b7a421d1c21bdf649bea90fb66d294"
+      }
+    ]
+  },
+  "embedding_refresh": {
+    "embedded": 2,
+    "skipped": 7,
+    "failed": 0,
+    "unchanged_followup_skipped": 9
+  },
+  "spacing_annotation": {
+    "paper_hash": "4efbb4af134b",
+    "physical_page": 68,
+    "chunk_id": "chunk_7",
+    "source_phrase": "Anterior nectophore alone developed",
+    "mention": {
+      "canonical": "nectophore",
+      "text_span": [
+        635,
+        645
+      ],
+      "matched_text": "nectophore"
+    },
+    "printed_page_200_closed_run_preserved": true
+  },
+  "new_refusals": {
+    "mapstone_nectophoreonly": "structured_owner_ambiguous_or_missing",
+    "second_russian_exponent": "digit_ocr_disagreement"
+  },
+  "launch_history": [
+    "Initial sandboxed refresh stalled opening existing LanceDB before extraction; interrupted and retried with required local access.",
+    "Full T0 first run: 2765 passed, two malformed-PDF argument stubs failed; valid blank PDFs fixed them. Full repeat: 2767 passed,26 optional skipped,90 deselected."
+  ]
+}

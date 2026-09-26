@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "current producer accepted",
+    "prior baseline completed stages rejected",
+    "missing chunk completion rejected",
+    "different scientific producer rejected",
+    "final mode rejects incomplete35-document population",
+    "frozen label SHA unchanged"
+  ],
+  "script_sha256": "a065b9bae8fc2b880e89b50af386e0a3a491339d42bbbe481d2089b42b102b37",
+  "aligner_sha256": "8a34eb9d0a391b942b4122c99d99a77d08b5ef4551bcc618f0a165ed5eb206c7",
+  "models_or_pipeline_run": false
+}

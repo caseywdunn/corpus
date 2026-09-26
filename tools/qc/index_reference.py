@@ -74,12 +74,17 @@ def index_snapshot(build):
         "bibliography": sqlite_snapshot(build / "biblio_authority.sqlite", {
             "works": ("created_at", "updated_at"),
             "work_documents": ("source_sha256",),
+            "work_bib_sources": (),
+            "taxon_authority_candidates": (),
             "work_authors": (), "work_aliases": (), "citations": (),
             "reference_current_sets": ("selected_at",),
+            "reference_observation_quality": (),
             "observation_work": ("mapped_at",), "taxon_work_links": (),
         }),
         "taxon_mentions": sqlite_snapshot(build / "taxon_mentions.sqlite", {
             "taxon_mentions": ("mention_id",),
+            "caption_taxon_evidence": (),
+            "caption_taxon_links": (),
         }),
         "taxonomy": sqlite_snapshot(build / "taxonomy.sqlite", {"taxa": ("fetched_at",), "names": ()}),
         "vectors": vector_snapshot(build / "vector_db/lancedb"),

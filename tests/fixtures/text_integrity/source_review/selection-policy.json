@@ -1,0 +1,44 @@
+{
+  "seed": "20260918-issue303-source-only-v1",
+  "source_manifest": "/home/claude/repos/siphonophores/transcriptions/sources.json",
+  "source_manifest_sha256": "6efcf5b9f2a5c537e1bebcedcbab7bc730854912a128c14af99f4c59f303e378",
+  "allowed_inputs": [
+    "sources.json",
+    "TRANSCRIPTION_PROTOCOL.md",
+    "CROSSCHECK_REPORT.md",
+    "eligible page_NNN.txt independent transcriptions",
+    "original source PDF raster only"
+  ],
+  "forbidden_inputs": [
+    "candidate build/extraction/chunk/embedding/repair outputs",
+    "native PDF text or OCR during label verification"
+  ],
+  "excluded_papers": [
+    "Ahuja_etal2026",
+    "Bernstein1934",
+    "Haddock_etal2005",
+    "Hauss_et2016",
+    "Hosiaetal2024",
+    "Kidwai_Amjad2000",
+    "Pakhomov_etal2000",
+    "Sutherland_etal2019b"
+  ],
+  "exclusion_reason": "Named #303 regressions and gold papers whose candidate outputs were already discussed or inspected in this thread.",
+  "max_expressions": 24,
+  "initial_stratum_quota": 4,
+  "max_per_document": 3,
+  "max_per_page": 1,
+  "patterns": {
+    "uncertainty": "\\d[\\d.,]*\\s*[±∓]\\s*\\d[\\d.,]*",
+    "exponent_or_inverse_unit": "(?:\\b(?:[cmknsug]+|sec|min|kg|mol|10)\\s*(?:\\^\\s*[-−]?\\d+|[⁻⁺][⁰¹²³⁴⁵⁶⁷⁸⁹]+|[−-][1-9])(?!\\d)|\\b(?:m|cm|mm)[²³])",
+    "arithmetic_or_relation": "(?:\\d[\\d.,]*\\s*[+×=<>≤≥−]\\s*\\d[\\d.,]*|[A-Za-zα-ω]\\s*[=<>≤≥]\\s*[-−]?\\d[\\d.,]*)",
+    "measurement_unit": "\\d[\\d.,]*\\s*(?:[µμ]m|mm|cm|nm|°\\s*C|sec|m)(?![\\w²³])",
+    "ordinary_range": "(?<!\\w)\\d[\\d.,]*\\s*[–—-]\\s*\\d[\\d.,]*(?!\\w)",
+    "superscript_or_footnote_control": "(?:[A-Za-zÀ-ö][¹²³⁴⁵⁶⁷⁸⁹⁰*†‡]+|(?<!\\w)[¹²³⁴⁵⁶⁷⁸⁹⁰]+(?!\\w)|\\[FOOTNOTE\\]\\s*[*†‡¹²³⁴⁵⁶⁷⁸⁹⁰0-9]+)"
+  },
+  "ranking": "ascending SHA256(seed|stratum|stem|physical_page|transcription_char_start); one pass per stratum in listed order; then remaining candidates by rank subject to caps until24",
+  "deduplication": "Each pattern match is an occurrence. Discard matches whose start falls within40 characters of an earlier-priority pattern match on same page. Select at most one occurrence per page.",
+  "verification": "Render selected physical pages from hashed originals. Classify actual scientific meaning or negative; retain all selected unknowns/rejections without swapping after visual review. Transcription guidance is not final source truth.",
+  "scope": "Broader source-selected bounded evaluation population; intentionally stratified and capped, not representative of the corpus; final recall/precision require later candidate comparison.",
+  "predeclared_utc": "2026-09-18T19:53:52.019827+00:00"
+}

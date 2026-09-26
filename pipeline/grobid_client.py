@@ -162,6 +162,7 @@ class GrobidClient:
         params = {
             "consolidateHeader": str(consolidate_header),
             "consolidateCitations": str(consolidate_citations),
+            "teiCoordinates": ["ref"],
         }
         if include_raw_citations:
             params["includeRawCitations"] = "1"
@@ -480,78 +481,52 @@ def parse_tei_references(tei_xml: str) -> List[dict]:
     return refs
 
 
-def parse_tei_intext_citations(tei_xml: str) -> dict:
-    """Extract the in-text citation graph (body → bibliography) from TEI.
+def parse_tei_intext_citations(tei_xml: str, *, pdf_path: Optional[Path] = None) -> dict:
+    """Build paragraph excerpts with complete author/year citation spans.
 
-    Walks every ``<ref type="bibr">`` in ``<text><body>`` and emits one
-    record per citation, with the surface text, the enclosing section
-    heading, and a pointer into a deduplicated paragraph list.
+    With the prepared PDF and ref coordinates, recover citation-group text
+    from the source; Grobid can insert author expansions into its TEI refs
+    (#317). Keep literal TEI surfaces/targets in ``tei_observations`` for
+    review, and resolve complete author/year groups against this document's
+    bibliography before attaching a confident target (#309). Ambiguous or
+    unmatched groups retain text and an explicit validation status.
 
-    The returned dict has two top-level fields:
-
-    * ``"paragraphs"`` — list of paragraph text strings.  Multiple
-      citations in the same paragraph share an entry rather than
-      duplicating the (often long) text.
-    * ``"citations"`` — list of dicts:
-
-      * ``target_xml_id`` — ``"#b5"``-style ID into ``references.json``'s
-        ``xml_id`` field.  ``None`` when Grobid couldn't resolve the
-        surface text to a bibliography entry (~40% of cases in our
-        sample); the surface is preserved for later fuzzy resolution.
-      * ``surface`` — original text from the TEI ref element
-        (e.g. ``"Furnestin, 1960"``).
-      * ``section`` — text of the nearest ancestor ``<div>``'s heading,
-        empty if none.
-      * ``para_index`` — index into ``paragraphs``.
-
-    The data is already on disk in ``grobid.tei.xml``; this is pure
-    post-processing.  See issue #7.
+    ``paragraphs`` and ``citations`` retain their existing meanings. Citation
+    ``author_span`` and ``year_span`` are half-open character offsets into the
+    stored paragraph (separate spans support shared-author year groups).
+    Letter ranges may map the same printed span to several citation years.
+    Without source coordinates, text remains TEI-derived and says so.
     """
-    root = _parse_tei(tei_xml)
+    from .citation_spans import PdfCitationSource, paragraph_citations, reference_evidence
 
-    para_text_to_index: dict = {}
+    root = _parse_tei(tei_xml)
+    references = reference_evidence(root)
     paragraphs: List[str] = []
     citations: List[dict] = []
-
-    # Restrict to body refs — header / listBibl have their own ref
-    # elements that aren't in-text citations.
-    for r in root.findall(".//tei:text/tei:body//tei:ref[@type='bibr']", NSMAP):
-        target = r.get("target") or None
-        surface = "".join(r.itertext()).strip()
-        if not surface:
-            continue
-
-        # Section heading: nearest enclosing <div>'s <head>.  Grobid
-        # nests divs (subsection within section); take the deepest div
-        # whose head has text, otherwise the outermost.
-        section = ""
-        for div in r.iterancestors("{%s}div" % TEI_NS):
-            head = div.find("tei:head", NSMAP)
-            head_text = "".join(head.itertext()).strip() if head is not None else ""
-            if head_text:
-                section = head_text
-                break
-
-        # Enclosing paragraph text — the "excerpt" the user actually
-        # wants when asking "show me passages citing paper X".
-        para_el = next(r.iterancestors("{%s}p" % TEI_NS), None)
-        if para_el is None:
-            continue
-        para_text = " ".join("".join(para_el.itertext()).split())
-        if not para_text:
-            continue
-
-        para_index = para_text_to_index.get(para_text)
-        if para_index is None:
+    source = None
+    if pdf_path is not None:
+        try:
+            source = PdfCitationSource(pdf_path)
+        except (OSError, RuntimeError, ValueError) as exc:
+            logger.warning("Citation source PDF unavailable: %s", exc)
+    try:
+        for para in root.findall(".//tei:text/tei:body//tei:p", NSMAP):
+            if not para.findall(".//tei:ref[@type='bibr']", NSMAP):
+                continue
+            text, records = paragraph_citations(para, references, source)
+            if not text or not records:
+                continue
+            section = ""
+            for div in para.iterancestors("{%s}div" % TEI_NS):
+                head = div.find("tei:head", NSMAP)
+                head_text = "".join(head.itertext()).strip() if head is not None else ""
+                if head_text:
+                    section = head_text
+                    break
             para_index = len(paragraphs)
-            paragraphs.append(para_text)
-            para_text_to_index[para_text] = para_index
-
-        citations.append({
-            "target_xml_id": target,
-            "surface": surface,
-            "section": section,
-            "para_index": para_index,
-        })
-
+            paragraphs.append(text)
+            citations.extend({**r, "section": section, "para_index": para_index} for r in records)
+    finally:
+        if source is not None:
+            source.close()
     return {"paragraphs": paragraphs, "citations": citations}

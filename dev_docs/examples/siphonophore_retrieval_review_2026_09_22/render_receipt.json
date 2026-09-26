@@ -1,0 +1,363 @@
+{
+  "pymupdf": "1.28.0",
+  "protocol_sha256": "1998dab01a2ccb0cf8df72ab876e7a3ec5cbbabb2ed0825a8c0c4775d7b87769",
+  "renders": [
+    {
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 58,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        610.5599975585938,
+        847.9199829101562
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        610.5599975585938,
+        847.9199829101562
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/8a4548d8d5d7-p058.png",
+      "crop_sha256": "1f9ba3d12f3d362c8887e57b8fc5ecf3aad8be500dd507c3f56598607d605f25"
+    },
+    {
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 164,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        606.0,
+        842.1599731445312
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        606.0,
+        842.1599731445312
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/8a4548d8d5d7-p164.png",
+      "crop_sha256": "6bad227f696e460a023e9eb23a50ec2e7a2f8276ddabcf45103bd214ccd17e46"
+    },
+    {
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 165,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        610.5599975585938,
+        845.0399780273438
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        610.5599975585938,
+        845.0399780273438
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/8a4548d8d5d7-p165.png",
+      "crop_sha256": "d53ecc30cc357dd9c00d35d1eb09fd0c6c093491826a0598b42f62f7312c1edc"
+    },
+    {
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 3,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        424.799560546875,
+        648.7196044921875
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        424.799560546875,
+        648.7196044921875
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/79bcb551c1f1-p003.png",
+      "crop_sha256": "c5a6a13090a9df4e489488d5a014ccaff62f3bfcdc299b1f6e98963d7149f12a"
+    },
+    {
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 4,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        419.2789306640625,
+        645.119384765625
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        419.2789306640625,
+        645.119384765625
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/79bcb551c1f1-p004.png",
+      "crop_sha256": "884383747fe55ba877686ca590174015c69f731216e3d15fcbfed6c57e09f4a0"
+    },
+    {
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 5,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        423.599853515625,
+        648.239501953125
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        423.599853515625,
+        648.239501953125
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/79bcb551c1f1-p005.png",
+      "crop_sha256": "6fa9b674f37f69e98359ce0a1d5ffc920b4c03620e10be451eb5916b151cba95"
+    },
+    {
+      "paper_hash": "34712b25bc52",
+      "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "physical_page": 1,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        427.67999267578125,
+        653.760009765625
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        427.67999267578125,
+        653.760009765625
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/34712b25bc52-p001.png",
+      "crop_sha256": "23a1892446d30058975646d157fd8a791b27f5392f70a97ddc9ef4b7c97ddd1d"
+    },
+    {
+      "paper_hash": "34712b25bc52",
+      "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "physical_page": 2,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        426.239990234375,
+        653.0399780273438
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        426.239990234375,
+        653.0399780273438
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/34712b25bc52-p002.png",
+      "crop_sha256": "4d25c401b0e13a8fd133a7b68ea7fcd06329c9a1a7dbf7fde012182564f537c1"
+    },
+    {
+      "paper_hash": "34712b25bc52",
+      "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "physical_page": 3,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        434.1600036621094,
+        663.3599853515625
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        434.1600036621094,
+        663.3599853515625
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/34712b25bc52-p003.png",
+      "crop_sha256": "f5fdb8a4d40eaf1054232faf22540eb71e6008ee74cbfa1d471b7b57e192e9df"
+    },
+    {
+      "paper_hash": "34712b25bc52",
+      "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "physical_page": 4,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        430.55999755859375,
+        655.2000122070312
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        430.55999755859375,
+        655.2000122070312
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/34712b25bc52-p004.png",
+      "crop_sha256": "5f9383e7ae7ac13f552a956691db50a86cd2d95b5fa30efe9685af9178b6b145"
+    },
+    {
+      "paper_hash": "c806191c35c4",
+      "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+      "physical_page": 1,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        586.7999877929688,
+        720.719970703125
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        586.7999877929688,
+        720.719970703125
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/c806191c35c4-p001.png",
+      "crop_sha256": "bd5d4e0f9c13fc20080f2ca00045edd3046fce2de112758ec13ca496137192e1"
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 4,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        614.638916015625,
+        794.0390625
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        614.638916015625,
+        794.0390625
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/9c0af2a4e494-p004.png",
+      "crop_sha256": "72c3721c761408a4bee5ef00d9750f169095087730ac49feeb8d2b52d5b2941b"
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 5,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        613.0799560546875,
+        792.7196044921875
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        613.0799560546875,
+        792.7196044921875
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/9c0af2a4e494-p005.png",
+      "crop_sha256": "a5542d65129cb59524cf96a8c61c9a37b318941c293dd454f120902f09647f04"
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 6,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        612.3592529296875,
+        792.239501953125
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        612.3592529296875,
+        792.239501953125
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/9c0af2a4e494-p006.png",
+      "crop_sha256": "d6ae6e08eef14a2975a46faf457550c32a694ae238619c25e36e64d1821c8417"
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 7,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        613.0799560546875,
+        792.7196044921875
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        613.0799560546875,
+        792.7196044921875
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/9c0af2a4e494-p007.png",
+      "crop_sha256": "0df71fe58bc6db2d520f960ecfb3f60bf483e57cc62c835bdeed1d0269cf4d0f"
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 8,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        613.9193115234375,
+        793.19970703125
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        613.9193115234375,
+        793.19970703125
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/9c0af2a4e494-p008.png",
+      "crop_sha256": "fa3018cfa820539bec2aa0cff39ac34e799103c0bc514574d29c3d5b8d50543a"
+    },
+    {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 9,
+      "pdf_page_size_points": [
+        0.0,
+        0.0,
+        613.9193115234375,
+        793.19970703125
+      ],
+      "render_bbox_points": [
+        0.0,
+        0.0,
+        613.9193115234375,
+        793.19970703125
+      ],
+      "dpi": 144,
+      "rotation": 0,
+      "crop_path": "/tmp/corpus-issue320-source-first-20260922/source-review/9c0af2a4e494-p009.png",
+      "crop_sha256": "2e9b6cb26931d82612abe24ebc64624e97409c557ce1d4c66ce8ae5bca9c60b8"
+    }
+  ]
+}

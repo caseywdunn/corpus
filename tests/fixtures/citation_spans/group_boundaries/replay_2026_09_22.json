@@ -1,0 +1,1170 @@
+{
+  "scope": "Complete saved TEI/prepared PDF replay with matching producer receipt; current paragraph parser and actual authority materialization/tool functions. Not fresh extraction, all-library validation, or live MCP transport.",
+  "detector": "\\(\\d{4}[A-Za-z][A-Za-z.\\- ]{1,30}\\(",
+  "policy": "source-contiguous-groups-bounded-marker-v2",
+  "code_base": "4d0ecfd06f654b5d4ab2fc783ce4e0d32a927866",
+  "consumed_code_sha256": {
+    "pipeline/citation_spans.py": "8f9c1c8726f2f36b65d0d7786fc53c5d14d04b09516c27fb58dea9147bded3aa",
+    "pipeline/grobid_client.py": "4388e0d6bf659fb4badd2e2b654e4ed1270bf9f5467edf1db037cb370d82cc72",
+    "pipeline/intext_citations.py": "abc4515b9c93e3c08ea4c553f539c80012bd8eafb561f29d77d0ed75a30d002d",
+    "bib/authority.py": "dc58a56efdcbd7726c9b1d2b46552f9dfb89ee3cf4901c92a81a94829174c59d",
+    "mcpsrv/tools/bibliography.py": "06c7aac30c58341ae94a16b22b8e26e3381dc5e6a33af556915885b99f2e6bf8",
+    "tools/qc/citation_paragraphs.py": "14457c91959177cb75550d087cfab93f7df043e2caff41dde18db1576074260b"
+  },
+  "input_roots": [
+    "/tmp/corpus-v15-acceptance/gold/output",
+    "/tmp/corpus-issue314-scanned-preparation/build",
+    "/tmp/corpus-issue314-full-preparation/build"
+  ],
+  "phase1": 39,
+  "phase2": [
+    913,
+    847
+  ],
+  "unchanged_refresh": "exact SQLite dump unchanged; zero phase1/phase2 work",
+  "summary": {
+    "documents": 39,
+    "paragraphs": 886,
+    "reference_observations": 918,
+    "before_hits": 22,
+    "after_hits": 0,
+    "intext_replays": 22,
+    "excerpt_replays": 16
+  },
+  "cases": [
+    {
+      "document": "02049c8322a1",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Sphaeronectes bougisi sp. n., nouveau Siphonophore Calycophore Sphaeronectidae du plancton méditerranéen",
+      "input_sha256": {
+        "grobid.tei.xml": "d7de4b90f41b5cb6d2a562503aa6eb0b09493a584c78e369d47987984d6b9e21",
+        "grobid.tei.xml.provenance.json": "d04545af8c64a0fcd721f33e5600efffbf981eaafb01d981293372d456071de3",
+        "processed.pdf": "ec6b4fced2271fef133bdbfa0f034e00fe878dabc7b0662acbf1ac34c32ef484",
+        "metadata.json": "10a6cafdc193e5fcb190bbec67492fea4d4dd8315ba2d50d492b90448b779d10",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 1,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {
+        "pdf_coordinates": 3
+      },
+      "link_statuses": {
+        "unverified_tei": 3
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "0cf9f253f75b",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Die microscopischen Waffen der Cöleneraten",
+      "input_sha256": {
+        "grobid.tei.xml": "8cb5d07ffef91ae923ab03b641fb4124739b77d0c0b3a51930963fdd4a0b0528",
+        "grobid.tei.xml.provenance.json": "fed58d0f1c6e5828ddb06cb601e72915de096655c6b2c24248125a61c6534637",
+        "processed.pdf": "1dc8764692b3cf65aeb3a5fc648779c015317c1842e063e0ac3e0a5067472298",
+        "metadata.json": "32e50dca0fa86bedc863bce2b00da4a16c4f3a1274c9eb14490a7880fcb0fd5c",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "1254e10f0c93",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Af Djurslågtet Physsophora och af dess hittills kånde Arter, samt Beskrifning på en ny Art af samma Slågte",
+      "input_sha256": {
+        "grobid.tei.xml": "eb5a9e2d013f842eede87649f349fee766d096d75f07ff573ecb10ca5bbab3fc",
+        "grobid.tei.xml.provenance.json": "257da3aa89069f86e7c03b020ecf07184cb992133a5825460a6b1b56c79192e1",
+        "processed.pdf": "20a6942fb854fa51e9c029f8c8820a35a5d2ce74445e5ae26e557ac07359c6ff",
+        "metadata.json": "80b862216ffd12a1bf16e49f6c837005bf5088281af3a177509e600d92ee79a8",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "1648cd91e973",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Unexpected diversity and novel lineages in the cosmopolitan genus Nanomia (Cnidaria: Siphonophorae: Physonectae)",
+      "input_sha256": {
+        "grobid.tei.xml": "629c6c859fa2e7644eb99a6e80ab1edd02a11342e6b7056ed7195cce41c973e3",
+        "grobid.tei.xml.provenance.json": "71fd09230d598e519bdd848ad5b82cb2adc0b61e858975c089a8b3e45ed71150",
+        "processed.pdf": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+        "metadata.json": "c7801b1c724331f3b030e576bc8ede9d75bd90c9636d2a1e82bfe1b0cfbdf09f",
+        "references.json": "d8638ac9c0b48d464bbcdc21a23d392bdf4bdde1ab66817629bd8cecf0f07e46"
+      },
+      "paragraphs": 38,
+      "reference_observations": 67,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 20,
+      "text_sources": {
+        "pdf_coordinates": 162
+      },
+      "link_statuses": {
+        "validated_author_year": 120,
+        "unresolved_author_year": 35,
+        "unverified_tei": 7
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "2da3e5f7da3c",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Footprints of Atlantification in the vertical distribution and diversity of gelatinous zooplankton in the Fram Strait (Arctic Ocean)",
+      "input_sha256": {
+        "grobid.tei.xml": "baa1530506a83ec85efc94be7051cde4453c7acbd9c6677dd9b4626a710e040d",
+        "grobid.tei.xml.provenance.json": "266e7369178512d00708eee38fee574d738b82aee07fb43e3f0f0f08410edf47",
+        "processed.pdf": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+        "metadata.json": "8263672003dcd8e545cbc3e82f2c161b76ee3036e82a268e8fcf38507966c958",
+        "references.json": "0817be6a12d869ce0ca7646b1188adf013c62dddd86cae111ccf54cc35aea27e"
+      },
+      "paragraphs": 37,
+      "reference_observations": 132,
+      "before_hit_indices": [
+        4
+      ],
+      "after_hit_indices": [],
+      "changed_paragraphs": 24,
+      "text_sources": {
+        "pdf_coordinates": 250
+      },
+      "link_statuses": {
+        "validated_author_year": 231,
+        "ambiguous_author_year": 5,
+        "unresolved_author_year": 10,
+        "unverified_tei": 4
+      },
+      "detector_cases": [
+        {
+          "index": 4,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "10.1007/s00300-004-0677-2",
+          "excerpt_citation_index": 41,
+          "before_sha256": "e9631dfb8277d7c9906e7f9171ddf04266ce9db4766a5a88c7acb651b49f41cd",
+          "after_sha256": "084a7bd3f4264a4538cac49d9c170cb39a47c7ab1af25ca8113373364a10a878"
+        }
+      ]
+    },
+    {
+      "document": "31cedc91d73a",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Genus Agalma and Crystallomia Debut, Z",
+      "input_sha256": {
+        "grobid.tei.xml": "19a511d7db26b0f7a5e68047c9c4a8f8a68be46af5bcd3f7ea920175263fd4e1",
+        "grobid.tei.xml.provenance.json": "67b17d10d5e23cee4e85b7f3a6ed8f32d374728457999c8f142e2ad4db70d26e",
+        "processed.pdf": "f88912c4aa2220525c5fb5d3af8e279827fb5f45a1be7ea4879eb98131611ade",
+        "metadata.json": "f9533a96075c550910645702c962fd5b28b7f4441c6dd5874ae84f4008bd3d41",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "3461e68936b6",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Über den Excretionsporus an der Pneumatophore von Physophora",
+      "input_sha256": {
+        "grobid.tei.xml": "6a4e123c5f2691e76b93c2215277fd75b59528c27c69d1075f9d6f30d2a35354",
+        "grobid.tei.xml.provenance.json": "f43bcd5ee7f9bd2879c6863f8576cebb1fd6f805daead7a1731f0ebfdbed65bc",
+        "processed.pdf": "808d20ceaa1aaa1a74fb5a99d70643c6cdb16c5ced7a65a24fe9b33993f35e67",
+        "metadata.json": "9b921e7b6f0b7c1a277246baac65758649cd92c5cc789912b17029130b5b9993",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "34712b25bc52",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "A new subspecies of Siphonophora Lensia campanella elongata subsp. n. (Hydrozoa, Siphonophora)",
+      "input_sha256": {
+        "grobid.tei.xml": "9fbc5ff1d306ef6ca0a4e0f352aa4576957fb44a29f76b05d6344b56c906a063",
+        "grobid.tei.xml.provenance.json": "ebf10c9c73b35ca199c8da9b63820963f0ae188a27ab15ac2642efa5307bbd70",
+        "processed.pdf": "da8e16af1e7660a8ddb7c308d9dc4ca1b199020d45f5e0852765c01bc6550566",
+        "metadata.json": "43d98681f4274bb420dbc65961d11a7dcc48b23f6ecf86e97fe017bb76258964",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 1,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 1,
+      "text_sources": {
+        "pdf_coordinates": 6
+      },
+      "link_statuses": {
+        "unverified_tei": 6
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "355362e39e58",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Principles of Comparative Anatomy of Invertebrates",
+      "input_sha256": {
+        "grobid.tei.xml": "96d20d4090a3b11deb79c646a0305e7aa9dab91b8b104e59db9e9b4287a0f738",
+        "grobid.tei.xml.provenance.json": "6026336060a319b89f260de7bf191ae59935271fff5950fa7bd1b929e8aa3779",
+        "processed.pdf": "c99243e19a8471005726fce1af1c3d17d0a6663bfb873efa973a0a174dab53e5",
+        "metadata.json": "3e1983ce4414c8b54a63fe14ed5cd10c32c85db8bb1724ff1d36f9461d4c0974",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 21,
+      "reference_observations": 0,
+      "before_hit_indices": [
+        13
+      ],
+      "after_hit_indices": [],
+      "changed_paragraphs": 4,
+      "text_sources": {
+        "pdf_coordinates": 29
+      },
+      "link_statuses": {
+        "unverified_tei": 29
+      },
+      "detector_cases": [
+        {
+          "index": 13,
+          "intext_replayed": true,
+          "excerpt_replayed": false,
+          "before_sha256": "9cecc4f344f95e29fa270a4012c4867dc0f45c9c7e8e91b8e4c619c7e438c56b",
+          "after_sha256": "9e3eb94e13076451e4a69bcc50e9733f32eced1ca6c8f9ef1db152c07b89e6a5"
+        }
+      ]
+    },
+    {
+      "document": "39b9c2f978dd",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Ueber eine neue Art Seeblasse, Physalia product",
+      "input_sha256": {
+        "grobid.tei.xml": "888b0a8a936de9042ccf9b5dbc93e048927d6fe451cd73c625db9a9f336ee83f",
+        "grobid.tei.xml.provenance.json": "309c644e352a9f51118fb652d48798b1bbb4ba5f3e967b77dd75ada3e3646f2e",
+        "processed.pdf": "14564ecf696e7f9922b3c795506e6baa70aa32c37f882755dbe1847ed38e1d4c",
+        "metadata.json": "c5247dcc365cc3206767aab69a4372ec0a90c86d94a355eed7e8ee8f81748346",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "6050b5c6f575",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Essai sur l'Histoire Naturelle de la France Equinoxiale",
+      "input_sha256": {
+        "grobid.tei.xml": "a7ce6ff257fb90c83379a724552274fa29ef9dd02a2d4b6c9f6c4b15952344f2",
+        "grobid.tei.xml.provenance.json": "769e226c3ab0f7cc640ff83a7bebcf20fd039918eaff286459ccad26dcdc79cd",
+        "processed.pdf": "269179e7a48b684fb362fb2143dc73a94fa871db5eae4de78203a00d5bd16ec5",
+        "metadata.json": "f01f2663eebed34fe49b0d554634485b67ec0bcb235878cf05cc148df01dac26",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "6307a3c5f85a",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Contribuçiáo parà o conhecimento das Coelenterados planctónicos das Costa Portuguesas",
+      "input_sha256": {
+        "grobid.tei.xml": "6c103e3446eb7f7486e5ebbf884ff1af4f9521e6959bbbc2919316ad2d7b4c5f",
+        "grobid.tei.xml.provenance.json": "3ccb810d0c050a1a14f1448659dc1b8a4d79f07cd9c32dae19ffbe3f3ed8a570",
+        "processed.pdf": "b1a61068ae986d5af55c660a0493a786aa44ddf55e3eab1253f85f0ca724e629",
+        "metadata.json": "6d3c07b9be7769968ceec8f62297c01adc4990246c09b1ec323f1b814bb2f8cf",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 2,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 2,
+      "text_sources": {
+        "pdf_coordinates": 8
+      },
+      "link_statuses": {
+        "unverified_tei": 8
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "68e78d6c90e2",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Histoire naturelle du Sénégal",
+      "input_sha256": {
+        "grobid.tei.xml": "864ddf70b8cea83fe6d60c602c763aa67d37e63b2bfc36929924d04ed550171f",
+        "grobid.tei.xml.provenance.json": "5477fe13068b14f694f6e1a6c99b6cc390025482edc6a835389e310409434a5b",
+        "processed.pdf": "b7595ff86329a4adcd4156fd11c8ba40d3e195fedc306d02feb85fdf1a52a29d",
+        "metadata.json": "366fabbf1465d166fbfdd96002dd94b40190929420c50946bc77a4831d0be27f",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "6f3a3ae4dd89",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "On regularities of the distribution of siphonophores in the Atlantic",
+      "input_sha256": {
+        "grobid.tei.xml": "0865114d6d8c802c865b4fc9f6ef285ef70e2cb9b3d8199144c8475791e047c5",
+        "grobid.tei.xml.provenance.json": "51fa353fd1ac0499db7cec1f55139e9e77256465a33076f1ee6f638bf18c4322",
+        "processed.pdf": "598eba4686b1bfe0b5f1b5f52e34d2a18a1a9664e150054a4106d737f8c78193",
+        "metadata.json": "775e27fcc239cc07ca08c302d9c7f7e94f568ab0bafda9b3463d4988390ad3a2",
+        "references.json": "4147f70b0c3d72a95f9e81b5b945f78587951b1cfe912e9b55a4abdb8a45fff6"
+      },
+      "paragraphs": 3,
+      "reference_observations": 5,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 2,
+      "text_sources": {
+        "pdf_coordinates": 10
+      },
+      "link_statuses": {
+        "unresolved_author_year": 10
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "726d507fcca4",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "The assemblage and abundance of jellyfish in northern Beibu Gulf.Acta Ecologica Sinica 35(10), 3382-3393. [In Chinese, but presumably an English version will appear]",
+      "input_sha256": {
+        "grobid.tei.xml": "6d59126b384cec3b78a74538d5e922d7701876d6e7efc0c5cb98b4d00df20fd3",
+        "grobid.tei.xml.provenance.json": "644d8370654784232c699f81b5537844d1231fe48d75e2fdd76a0c9012fbef22",
+        "processed.pdf": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+        "metadata.json": "0f70f1517c93e6a57dd5b42251bca3bc16e831792a0ad9d0dc354e3400453ce1",
+        "references.json": "8e6e47c94c03da2fc267315009f6c1ee9d6fff977497b91dc526342313977a4d"
+      },
+      "paragraphs": 0,
+      "reference_observations": 16,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "79bcb551c1f1",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "A new species of Lensia (Siphonophora: Diphyidae) from the coastal waters of Vancouver, B.C.; and its comparison with Lensia achilles Totton and another new species Lensia cordata",
+      "input_sha256": {
+        "grobid.tei.xml": "c186c1e70da6a993931a875da3c8bf41e0875d4588d5699f532b8d42512b96ed",
+        "grobid.tei.xml.provenance.json": "33796b70dd77f4103fd0cd8b84284bf26da96252b2fefc05f6dbb1f630d9af46",
+        "processed.pdf": "2ad9643a722657ac0614138841a3d322195d7681fbf8d98cbf61f5062fb93865",
+        "metadata.json": "0214866b7068b6eeb01d6740897083e6a9dacfab6cb95a63f31d9b660e878bbe",
+        "references.json": "3bd2feb1006733d0ed1a084c0e4c41dfc419553f87103d349b46e787c9376b11"
+      },
+      "paragraphs": 2,
+      "reference_observations": 5,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 1,
+      "text_sources": {
+        "pdf_coordinates": 3
+      },
+      "link_statuses": {
+        "unresolved_author_year": 3
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "79e8dac842f6",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Voyage de découvertes de l'Astrolabe exécuté par order du Roi, pendant les années 1826-1827-1828-1829, sous le commandement de M.J",
+      "input_sha256": {
+        "grobid.tei.xml": "230553012e9504ca386f31004c539bf1bf30a91f2f198ffccca22239141d53ef",
+        "grobid.tei.xml.provenance.json": "45250b87e1edb4138c00ac9688d1213fa90853d39a38efc4d3e4f5c8a560f805",
+        "processed.pdf": "082d501325e54e1c81b79dbf0a1efb0901c8abc203a2dc0ffdfec7ec13621206",
+        "metadata.json": "6c281151ead4e0bced0afdd2d573eae7d8f2bf44fea7f7bf4cdd468de1acf7cf",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "830c73a89f82",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Histoire d'un Voyage fait en la terre du Bresil",
+      "input_sha256": {
+        "grobid.tei.xml": "c5f0a6355605fc5bc076ff0d1c4d639efb34125b30da9eae981723f27963e667",
+        "grobid.tei.xml.provenance.json": "8ee7a34cfb16c194872f1eb0550b5e140b00790d20c73123a4933872c263219d",
+        "processed.pdf": "f7864b309d859b599dd623f419d746d92dbb5cfb64d5fbe1d7c55f86c730ed30",
+        "metadata.json": "186ea8d518d464dc3e5cece17658bca019ff2b24236d2a106fed7f80d97196da",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "8419592108f2",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "The computer approach to the study of the morphological and biological peculiarities of siphonophora Dimophyes arctica (Chun,1897)",
+      "input_sha256": {
+        "grobid.tei.xml": "a084a1ed5f234c912ac2428a4501a8bc87ea2a32eec3701da87924dd60fceb4e",
+        "grobid.tei.xml.provenance.json": "f365b2e0dba6dc0ddedfe684da34191ec67de9104d00abb286b3da2279bc096c",
+        "processed.pdf": "3d96ce1d343692df2fbb907b3986e91812f31931d57e20687c9a09d27a65b644",
+        "metadata.json": "d97f385a48a6ed6777af74347220696ebfa6c99a09af5b026da1c214fd6eff29",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 1,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {
+        "pdf_coordinates": 1
+      },
+      "link_statuses": {
+        "unverified_tei": 1
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "8a1321ca549d",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Auszug aus den Beobachtungen über die Siphonophoren von Neapel und Messina angestellt im Winter 1859/60",
+      "input_sha256": {
+        "grobid.tei.xml": "547833cb7a2640023acfe2fc5dff3a9ec6c8c89a5e69ca588bdfce80fcf9787d",
+        "grobid.tei.xml.provenance.json": "04e55587c2dc76e16511a20747c545f4d06a308dbcadc5ae7ac50daa89bb67b3",
+        "processed.pdf": "03fe3aa75124cbc7917d5751a3d0f2e1fc9e192f186dce1d31c0e00d458bf341",
+        "metadata.json": "3330a1866ac423cee5a607127b05f2f4a81d3ce517fa84140d13d201a2bb4378",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "8a4548d8d5d7",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "A Synopsis of the Siphonophora",
+      "input_sha256": {
+        "grobid.tei.xml": "a41e35744c96ff89052833d0fdc3549378f18fd2e711f326ce881431b0c35694",
+        "grobid.tei.xml.provenance.json": "0c048670cde983a903cfb042459ec2321e1e14f13989ca294cf2a8f8304d4291",
+        "processed.pdf": "3db7088cb7b979adbeedd1656845c0f16a157b6c47d450de93905d71973dcb99",
+        "metadata.json": "6b1cdce66cde7b28355ce3f7038ec11b92172bb37f8fd7ba620620f7d7a8f982",
+        "references.json": "58e02fc599945411e0eabbabb18db304dca7ae8bed45eb38876d3f85e142dc38"
+      },
+      "paragraphs": 405,
+      "reference_observations": 213,
+      "before_hit_indices": [
+        50,
+        82,
+        92,
+        93,
+        153,
+        154,
+        165,
+        189,
+        206,
+        297,
+        299
+      ],
+      "after_hit_indices": [],
+      "changed_paragraphs": 117,
+      "text_sources": {
+        "pdf_coordinates": 935,
+        "tei": 18
+      },
+      "link_statuses": {
+        "validated_author_year": 128,
+        "unresolved_author_year": 676,
+        "unverified_tei": 149
+      },
+      "detector_cases": [
+        {
+          "index": 50,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:goette|1907|vergleichende entwicklungsgeschichte der",
+          "excerpt_citation_index": 105,
+          "before_sha256": "cc35bf4edbcd00cad48731932467049a5bb833f00bd00565a084ae8be8cc3376",
+          "after_sha256": "ec2f94b0644f7d6e89e0e30c37bae42e38965b00faef16e2c714e1064dd0b556"
+        },
+        {
+          "index": 82,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:kolliker|1853|d sieboldii kolliker 1853 kefferstein eh",
+          "excerpt_citation_index": 169,
+          "before_sha256": "ae74f999e2ba7d9c9851163199f53661794d808b81f7308352d512f490040d8b",
+          "after_sha256": "6c089e5ed1f8396db94f86bb01ff4507682c7de3bcbb3a225d7d922384480dda"
+        },
+        {
+          "index": 92,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:kawamura|1910|bozunira and katsuwo no eboshi",
+          "excerpt_citation_index": 198,
+          "before_sha256": "b91f48f47101f2e7730cb496b14002b4e163406a9ca9c71ad9bd7ae58234bfc1",
+          "after_sha256": "09ef36f096b17ee68ef81d01faffc0ae3ed3155ed5ab9bd6642d08accf123e2b"
+        },
+        {
+          "index": 93,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:kawamura|1910|bozunira and katsuwo no eboshi",
+          "excerpt_citation_index": 201,
+          "before_sha256": "59148c18b2d1e8e9ed856e69465341ff72567d0148b6e157159b60af89e456cb",
+          "after_sha256": "c5c15ec79ac60bc5f79faef1b7e404cdb761747bb06aff835e3e8183971f88b7"
+        },
+        {
+          "index": 153,
+          "intext_replayed": true,
+          "excerpt_replayed": false,
+          "before_sha256": "67c5ecd125a20874551f95edcfcf700ceaef40784aada52d24138ae9692be7e2",
+          "after_sha256": "e6304a61fa701ae325d233e04b414f657dccbcbd99e7c770d3a863d484b475c3"
+        },
+        {
+          "index": 154,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:brooks|1891|on the structure and development of the ",
+          "excerpt_citation_index": 355,
+          "before_sha256": "36bc2c527db491ff24c9ac4737978c7787d18cc1acd2a82797e4269ffc771fbf",
+          "after_sha256": "58187e1dc6a306e1380fdc996cc6b689badb6d2de6b76f4303a3ba4a19c0e662"
+        },
+        {
+          "index": 165,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:kolliker|1853|d sieboldii kolliker 1853 kefferstein eh",
+          "excerpt_citation_index": 375,
+          "before_sha256": "c344e4cbd76974569911a7cb5830dbfe7e2aaffc2919aa397183717b10e93476",
+          "after_sha256": "c5b22c6a2e3475a69d9e9c46d0260d20244754541df9eec56bb5a30711405336"
+        },
+        {
+          "index": 189,
+          "intext_replayed": true,
+          "excerpt_replayed": false,
+          "before_sha256": "a78c3b052b3d5864caab39f144067abdf2f61d91a5480d6d465e24a8cce7dd68",
+          "after_sha256": "126e5f3fb7c43e2e8e944247ef249eefed4184ebb1b052f86f554d5b330729e2"
+        },
+        {
+          "index": 206,
+          "intext_replayed": true,
+          "excerpt_replayed": false,
+          "before_sha256": "0310b0aa2d96d01fbdc25d1729da65c8ebb348219c57ee13530d782233d0e9c1",
+          "after_sha256": "642202c96cbec0f06b964a1c1181e3427aec00d6e6f65ee36d28b0e6dcab717e"
+        },
+        {
+          "index": 297,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:chun|1882|ueber die cyclische entwickelung und die",
+          "excerpt_citation_index": 670,
+          "before_sha256": "19aa14af24c2f7a0ad1dfd73e96d610d8b40690b1789977d98f03c76b5822af4",
+          "after_sha256": "4adad3eb3e1f29db6f40b945ab6516751ae7882fc296575b3bdd46a44c037037"
+        },
+        {
+          "index": 299,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:will|1844|horat ergestinae der im herbste 1843 bei",
+          "excerpt_citation_index": 676,
+          "before_sha256": "2db1401fe80130922f556f377ca65c46b7d37cca356d1f62031b34848384accc",
+          "after_sha256": "277501a571e94b0efcd90dc31a2d23c00a8744c44ed00f46a6c0d6b5fb8e1b56"
+        }
+      ]
+    },
+    {
+      "document": "93e29178db12",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Treatise on the Siphonophora: <i>Synopsis of the Siphonophora</i>. A. K. Totton, assisted by H. E. Bargmann. British Museum (Natural History), London, 1965. 320 pp., &#xa3;11.",
+      "input_sha256": {
+        "grobid.tei.xml": "5f5faf03027c793c4cc45dce70d77da546d5a086270726011b478b036f8f5327",
+        "grobid.tei.xml.provenance.json": "d012330048aafd3c72e031b6f4e3bc2d376d87d3b79547bc9a071109265fc0ae",
+        "processed.pdf": "755e5c6d34834458a661b1126ca87fcdc42f865bc018ccd5622b3c1317cf3842",
+        "metadata.json": "c35e2eb3f33793f48238d8092dc4de0beee3e0667e7f421b0940e7390ebd1910",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 1,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {
+        "pdf_coordinates": 1
+      },
+      "link_statuses": {
+        "unverified_tei": 1
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "9c0af2a4e494",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Siphonophoren",
+      "input_sha256": {
+        "grobid.tei.xml": "421181c1ec79f833b815c9f2f033f93e8e7991f831dcc543810b85336a0a5670",
+        "grobid.tei.xml.provenance.json": "ac141408316d2d82f926e17d5fef8138a840f95bd37e6d11338d991fdbfaa943",
+        "processed.pdf": "818f2b3f2e0c60f26f9482fabcd934123e0cb2846abf7c2024d38bf44ae41149",
+        "metadata.json": "83364985f8826753dcce5252a7b44edb71794ed9937e4894af59c3ed956380c6",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "a53f93badacc",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Siphonophore genome structure and the evolution of functional specialization",
+      "input_sha256": {
+        "grobid.tei.xml": "622416cf74dee940bd6fecef2b462d3d676a048749db577c2ad4885d3b488ce0",
+        "grobid.tei.xml.provenance.json": "3aeb8c5f6018c8f73d64cb5edd715909fef4b58c43c6eb9a7763fdb938f6917f",
+        "processed.pdf": "a53f93badacc4fbbc0aa027d21644a9bd1eb330468237db6dfd78e3aa6a75ebb",
+        "metadata.json": "c790a3b8bcca7e723b16880f237fb63bd5b78cd91245dd02248158bf10061bc5",
+        "references.json": "fa9e9d1b56aafa7a073cf58ea596d4749dc526c00fe852c4a9256e5300dabb86"
+      },
+      "paragraphs": 43,
+      "reference_observations": 107,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 14,
+      "text_sources": {
+        "pdf_coordinates": 194
+      },
+      "link_statuses": {
+        "unverified_tei": 194
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "af5655bdeaae",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Verhandeling over de Rangschikking der Vellelen, Porpiten en Physaliën",
+      "input_sha256": {
+        "grobid.tei.xml": "4eddfb178605a41f9e59537a208d4ff429d7bc71742a9f87b99709949413ace0",
+        "grobid.tei.xml.provenance.json": "4320968d45bd2b27dad89532f1ef433e659081a0ad034c02e9f6cab2d0f573e8",
+        "processed.pdf": "8121f1da7b6b15f874ae7b055e35e69c616d05c1c6a48db4f2c7b66a97bba98f",
+        "metadata.json": "046d9e2ab85bf3188bc758527054d95afc1727909efa386bbd7eda23510577fd",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 1,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 1,
+      "text_sources": {
+        "pdf_coordinates": 9
+      },
+      "link_statuses": {
+        "unverified_tei": 9
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "c5c34c1bb104",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Bericht über die zoologische Ausbeute während der Reise con Kronstadt bis St",
+      "input_sha256": {
+        "grobid.tei.xml": "556eb09fc8b611e54a523bc19c43f9f0c4e452d434ed4a2fb15d382ad965f39c",
+        "grobid.tei.xml.provenance.json": "56b3a1d8064977243483c7577ade5017258c3af76c9d00f3979915654fe5cfb2",
+        "processed.pdf": "00d20970ef38ca72c8f62f853df2973a78f632a1fa4294eaa8c3083a1d07d88b",
+        "metadata.json": "969da59a8170f17a40945af3a206e80bfc99b62bccd005e8cf690f9e6b54c4dd",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "c806191c35c4",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Primer registro de Lensia canopusi Stepanjants (Cnidaria: Siphonophora) en el Océano Atlántico",
+      "input_sha256": {
+        "grobid.tei.xml": "4bcb82be40a62a873dcd4ba9710469343c20506f73168a9628efd73b5d3f3fef",
+        "grobid.tei.xml.provenance.json": "f76696fb55530b5c7d57c1c479ea46f0139b6f782c29cc6a834aa2de1911cbe8",
+        "processed.pdf": "aafe4844c8f34976954d15ca50fe0d1da2262925375db44199439d45d43c426a",
+        "metadata.json": "4a782a69f561672ede6eee562eee8b5d48a9ca6b58ad3253c4d505959d0aaf4c",
+        "references.json": "bfcf282d4af57d5f5ebcc79ab98b240de30efe1c7c564a6170bc95fa5b7c72c4"
+      },
+      "paragraphs": 2,
+      "reference_observations": 6,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 1,
+      "text_sources": {
+        "pdf_coordinates": 7
+      },
+      "link_statuses": {
+        "validated_author_year": 5,
+        "unverified_tei": 1,
+        "unresolved_author_year": 1
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "cb1834694c26",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Monthly variations of medusa fauna by surface horizontal tow of plankton net at shore in Tanabe Bay, Wakayama, Japan",
+      "input_sha256": {
+        "grobid.tei.xml": "34e9fb0e2b8e56754035281866dc68ffca328058b7932857c9e16e6541d275bf",
+        "grobid.tei.xml.provenance.json": "d57fed61d6bc240685882be0188e6e38a29aa689ae5dd6e2780d11c62cc2361d",
+        "processed.pdf": "53443b3d54babc8869a56913682ef93da0e26bc7145dd5d999828c40ae436c5a",
+        "metadata.json": "73c8aec4fd7d2010328863a726ca4cdc5c5ae06fbac878f4482940636a2a4bf4",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "cc2908a7a170",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Holothuria Physalis",
+      "input_sha256": {
+        "grobid.tei.xml": "57f31a9ed3d51954d94828b1974e8758f7a11925cf75b92beeaae15889f2a8fc",
+        "grobid.tei.xml.provenance.json": "232e355f1222fd984d5f152474bf33e4c9102f6619bb2170590b2621401dfc72",
+        "processed.pdf": "0711c93bc0d2ad3e6d786231f094da994afc542bd62cc6fc25919f7463c5f376",
+        "metadata.json": "ba8f1afabdd5585fd8980baff4afb909b8592d471f7c8a1e6d7592afdb77f7fd",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "d183f5012c54",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Morphology and classification of siphonophores (based on traditional and advanced concepts)",
+      "input_sha256": {
+        "grobid.tei.xml": "2774108ada3d74a43c07fa77985682dd65d4f759904acf2530d651d447697aac",
+        "grobid.tei.xml.provenance.json": "722c071ddec13a8325102a8edda637795ffb152312443c693c6edbef16a66006",
+        "processed.pdf": "cdb8a55ca1853e0646417c65c04a920a8d3a901c1b926bd06d4150bb6f836f2c",
+        "metadata.json": "9cfb1c7cd33f8747e90e99c2233a8d35fef4eb138ed5fd967123ebe6b21f410e",
+        "references.json": "cd1eb6c0a74f13d1806740ffc5f124026f7371a3e59ef3d74371bcf2b1cf3a1f"
+      },
+      "paragraphs": 6,
+      "reference_observations": 30,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 6,
+      "text_sources": {
+        "pdf_coordinates": 55
+      },
+      "link_statuses": {
+        "unresolved_author_year": 34,
+        "validated_author_year": 21
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "d64d1b9da678",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Osservazioni sullo sviluppo dei gonofori fi Muggiaea kochi Will",
+      "input_sha256": {
+        "grobid.tei.xml": "4e4079a7db1ed9c576de23f582ea882b1e009df0d964b8dcd74645fb70d267bf",
+        "grobid.tei.xml.provenance.json": "fb6d27538ae32e5d8be001a6a6139c45735b1540a3dc3568f05c425874b01c05",
+        "processed.pdf": "a03446cbed4c0183eb9d627fce2b4e75c704b60a5fa505050e4142f7d640277e",
+        "metadata.json": "1a10e7bfdd492163adc205afa3fba803e60768ec0912f4e206179d1d878cbaf9",
+        "references.json": "f4b20c42763ed4f7abb61717472241815057bb1572fb67e0b1b1baa2029ac0ef"
+      },
+      "paragraphs": 7,
+      "reference_observations": 31,
+      "before_hit_indices": [
+        3
+      ],
+      "after_hit_indices": [],
+      "changed_paragraphs": 5,
+      "text_sources": {
+        "pdf_coordinates": 14,
+        "tei": 3
+      },
+      "link_statuses": {
+        "unresolved_author_year": 5,
+        "unverified_tei": 11,
+        "validated_author_year": 1
+      },
+      "detector_cases": [
+        {
+          "index": 3,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:brien|1942|etudes sur deux hydroides gymnoblastique",
+          "excerpt_citation_index": 8,
+          "before_sha256": "7af39258b179239e935c383fc133332e5103bd4fa4109ef9a7434979b83c89b9",
+          "after_sha256": "c97914fcebdde8d3fbbc9b752a61fffa82252d6a94f7d6807fd324960d298cc9"
+        }
+      ]
+    },
+    {
+      "document": "d7210cd94ae2",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Notizie biologiche riguardanti specialmente il period di maturità sessuale degli animali del Golgo di Napoli",
+      "input_sha256": {
+        "grobid.tei.xml": "dee73f469f631a54692f13a749fb1abd68853316d6062f2f732bd1e258b23325",
+        "grobid.tei.xml.provenance.json": "be8632eb801dfa5489ed2b67adc623d9ce84ae5b4712246ca0fd0a93faaaf49c",
+        "processed.pdf": "48c7f34672b93eda5aede2cb28c690fb0a852aa607746d4bac332d3a10dc6624",
+        "metadata.json": "7eb08a878ae9b46ac952ff3d5481ac97c0cb0ff7343365c09eb69bef75fa997d",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "paragraphs": 0,
+      "reference_observations": 0,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "d7c1193c06fa",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Systema Naturae, sive regna tria naturae systemative proposita per Classes, Ordines, Genera, & Species",
+      "input_sha256": {
+        "grobid.tei.xml": "3b121bbf78db336d77308280fb316eb895d585835c7d4e7a60f89cd60b03ca99",
+        "grobid.tei.xml.provenance.json": "082e1a4454328342b7e4ef6d7fc192221084cb8f2a3861a0d12caf4d06b7a9bd",
+        "processed.pdf": "cc7dc93b6d95b308d63e01713fc7b82d2c440479d03510d92d974f15b76e1b58",
+        "metadata.json": "2994ae8d4c6124f61225c72f109da1d892c185a2bccf188a472e76aa40d4ae9b",
+        "references.json": "75e0326e16c34dac4842f08944ad9219cd338485a58446eac178673f9729881a"
+      },
+      "paragraphs": 0,
+      "reference_observations": 17,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {},
+      "link_statuses": {},
+      "detector_cases": []
+    },
+    {
+      "document": "d9623d970b33",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Zooplankton des nordlichen Teiles des karischen Meeres",
+      "input_sha256": {
+        "grobid.tei.xml": "2d0bb4706e4fd5cca5c5e93390eb006fd0ece3de46f7af563fd3a8c5603e0eff",
+        "grobid.tei.xml.provenance.json": "fb1bcde171ef5bad0d2c79804394ea0c05d7995267f054a42b4d101eab4d5184",
+        "processed.pdf": "b965a5d3480e0a85ebf7647df51bfc37cc717ab7d262650ef983a5b3cb71d00a",
+        "metadata.json": "4b00d38bd4c687e36467658e447ec4edec09ea0d32c89779a91bdc1838873245",
+        "references.json": "ef74fea7f3e3ee9ec42238d3d408f11dcbfbc82020ca6c61f6cdef8d1a069920"
+      },
+      "paragraphs": 2,
+      "reference_observations": 22,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 0,
+      "text_sources": {
+        "pdf_coordinates": 5
+      },
+      "link_statuses": {
+        "validated_author_year": 4,
+        "unresolved_author_year": 1
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "e26feaa4013f",
+      "input_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "title": "Rosacea villafrancae sp. n., un nouveau siphonophore calycophore Prayinae de la mer Méditerranée",
+      "input_sha256": {
+        "grobid.tei.xml": "b431fad4f52b7734f8385f92d4883b58b232bf3b9fe3c6f18047cc2a731f9207",
+        "grobid.tei.xml.provenance.json": "c6d6822bed2558d21acadb0e092a8349cc44b91d2df10ef59988e9806100e430",
+        "processed.pdf": "0627e44d3c5187f30221696f30d93b5a252c619f90c99d96c65ef7f451063b5f",
+        "metadata.json": "a4e679e816e9a83b5bdc03cd4e30db06d35aa2487a4f4f1cd83a9897ef329c94",
+        "references.json": "4080aae21fa93e697fdef09a535e6465d1720d4455285dc95db86fec54cc1b63"
+      },
+      "paragraphs": 8,
+      "reference_observations": 21,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 3,
+      "text_sources": {
+        "pdf_coordinates": 16
+      },
+      "link_statuses": {
+        "unresolved_author_year": 4,
+        "validated_author_year": 2,
+        "unverified_tei": 9,
+        "ambiguous_author_year": 1
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "a16337443af7",
+      "input_root": "/tmp/corpus-issue314-scanned-preparation/build",
+      "title": "Biological collections made during Discovery CR 175 to BIOTRANS site (c.47°N,20°W)",
+      "input_sha256": {
+        "grobid.tei.xml": "fd05bd35d5fd950b0a7821d9af3ea6588158f59aaf10be3654db9a30f2d24b5b",
+        "grobid.tei.xml.provenance.json": "2fc89d38376e51ed14f5d7ddbfb4097672fb4354b1d97a02babb44d113a35071",
+        "processed.pdf": "efb7b16dda937846831fcda37d34d9a6f3ec51f946dc6aa611e074619f7d6b7c",
+        "metadata.json": "30f988cacb9d8e5d16382665be3cd92d7002dc531ba9321af0d98f519a9582fa",
+        "references.json": "c1bdce0da13be1fbc1602a6f3c224a62c4d853390fea3e40fab11fb3447ef564"
+      },
+      "paragraphs": 46,
+      "reference_observations": 28,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 3,
+      "text_sources": {
+        "pdf_coordinates": 64
+      },
+      "link_statuses": {
+        "unresolved_author_year": 6,
+        "validated_author_year": 45,
+        "unverified_tei": 13
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "b8ae22a47c6a",
+      "input_root": "/tmp/corpus-issue314-scanned-preparation/build",
+      "title": "Antarctic siphonophores from plankton samples of the United States Antarctic Research Program",
+      "input_sha256": {
+        "grobid.tei.xml": "2cd4cde722e81b1c19495cf815baa3fc04d5b6e951044bbd4f96f915ac0e6ca2",
+        "grobid.tei.xml.provenance.json": "045c90f9fce7834ea391594d6d4e0174385f2c4db8669c660208063edfe67bd4",
+        "processed.pdf": "f36f142a2899281af1a8dd90dd01084f9d728f555135409e54f7348510c51cda",
+        "metadata.json": "a0c0ec60747a868e1f6f900607e054f18d915442d001a71a4a20ba6de68165f9",
+        "references.json": "fcacc501e46d11bc6057b21402cea8bf808b145d6e2d62234c961f9a4e88814b"
+      },
+      "paragraphs": 184,
+      "reference_observations": 110,
+      "before_hit_indices": [],
+      "after_hit_indices": [],
+      "changed_paragraphs": 52,
+      "text_sources": {
+        "pdf_coordinates": 601,
+        "tei": 1
+      },
+      "link_statuses": {
+        "unresolved_author_year": 445,
+        "validated_author_year": 100,
+        "unverified_tei": 52,
+        "ambiguous_author_year": 5
+      },
+      "detector_cases": []
+    },
+    {
+      "document": "d0894c24715f",
+      "input_root": "/tmp/corpus-issue314-scanned-preparation/build",
+      "title": "A revision of the sub-family Nectopyramidinae (Siphonophora, Prayidae)",
+      "input_sha256": {
+        "grobid.tei.xml": "413ddebd60bd38655b00cd4df40353846b6884fbacb4c0608458a4d4d200e012",
+        "grobid.tei.xml.provenance.json": "0b31461e4690b8f9e7e1749e47820345766ca9079d0f925681dfcb31a2660cbb",
+        "processed.pdf": "ec9ef2aa999c1044288eea2387cbe7948f6d980eebe679fa8c9ae847f6e47773",
+        "metadata.json": "577ad7cb89858dba63980e0189e5427ce41eea01d300563cbc78385d422bd86d",
+        "references.json": "eee7b96ec37370a7d7d2d3fd1fdeffb82967c3c32c99cb71b3a23eecc4218398"
+      },
+      "paragraphs": 71,
+      "reference_observations": 40,
+      "before_hit_indices": [
+        5,
+        15,
+        24,
+        29,
+        40,
+        52,
+        61
+      ],
+      "after_hit_indices": [],
+      "changed_paragraphs": 26,
+      "text_sources": {
+        "pdf_coordinates": 161,
+        "tei": 1
+      },
+      "link_statuses": {
+        "unresolved_author_year": 93,
+        "validated_author_year": 46,
+        "unverified_tei": 23
+      },
+      "detector_cases": [
+        {
+          "index": 5,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:bigelow|1911|the siphonophorae memoirs of the museum ",
+          "excerpt_citation_index": 10,
+          "before_sha256": "861cdf885fe75612239b3a2edc8e2d4c51157aaf813d91b42e31bb6c72640166",
+          "after_sha256": "17058b1cc266602a60eb3214b9f762ecf3f143a05de22846e2984f343cfa716f"
+        },
+        {
+          "index": 15,
+          "intext_replayed": true,
+          "excerpt_replayed": false,
+          "before_sha256": "08a44038e7d4e7057091aa3e786e85afd3045b41b34a7cebb86c40342e665278",
+          "after_sha256": "166494ebb7ba8eb77f7a758c829fc36c4155a7beaee68a7a3d0c32bce73be9da"
+        },
+        {
+          "index": 24,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:leloup|1932|eudoxie dun siphonophore calycophoride r",
+          "excerpt_citation_index": 55,
+          "before_sha256": "ee4a1196c08199b656e2afbe5a68f4e5621a503981a89fcc93c575e828eecf0a",
+          "after_sha256": "9b8b2a44e6a20c5c72a1692b7c9c74823eec8c9de8bcaa9aa0b9317f9afa05d3"
+        },
+        {
+          "index": 29,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:leloup|1932|eudoxie dun siphonophore calycophoride r",
+          "excerpt_citation_index": 66,
+          "before_sha256": "4a363f631135a47f25919a6104c6f19cfffe3b4f3b49882e408f95904afbcf1d",
+          "after_sha256": "4316eb3955e97631052310c6e72585258e244c9b5eab14235ef0a5f0c7ba1239"
+        },
+        {
+          "index": 40,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:moser|1925|dic siphonophoren der deutschen sidpolar",
+          "excerpt_citation_index": 103,
+          "before_sha256": "7fd38159cce2a828cfcf5319282c93a4102cce408e62293770cbac611884352f",
+          "after_sha256": "17f8739520ebe9bc6531994f7fe22f0fcd352ceeebd99f58d4776bbc756abed5"
+        },
+        {
+          "index": 52,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:stepanjants|1967|siphonophores of the seas of the ussr an",
+          "excerpt_citation_index": 123,
+          "before_sha256": "4d5c28fdff37e688cdcf2638f36c0ac103a8f9e489489d7e941a40ce111fe9dc",
+          "after_sha256": "c9fe35b2969210617713d15a76a3c31d46944966ce938123c40d6f4e6c2690cc"
+        },
+        {
+          "index": 61,
+          "intext_replayed": true,
+          "excerpt_replayed": false,
+          "before_sha256": "28bf5b20c7e01eecf687993e612fa02956cdceae8dc38cbd9dfe1d989a4ccf58",
+          "after_sha256": "7bc99226697bc11c82073942f03c3095744e9eb5acc4f9c912088615757b9024"
+        }
+      ]
+    },
+    {
+      "document": "db7338ea1867",
+      "input_root": "/tmp/corpus-issue314-full-preparation/build",
+      "title": "Species composition and seasonal distribution of siphonophores in the coastal water, southwestern Taiwan",
+      "input_sha256": {
+        "grobid.tei.xml": "2ff750a015e1ee0c9f7e43554124d6d88c8bb53862942baff488b7c15e2b6f93",
+        "grobid.tei.xml.provenance.json": "2182a1ab46211cd846a0d9181dd50b35604e72ce68db618fd2490736efe03f70",
+        "processed.pdf": "db7338ea18673a705c43f71c1833e980e3c7ee8de14879c81fc9a49a3955cf1f",
+        "metadata.json": "6bccdfa703e07cbe09f80a105543eace7b872457bbb9b1e67fb20ce2636f8115",
+        "references.json": "a51f940a328ac61543aaf2664d2be1a03a06be252bb99c720612614f75a2d450"
+      },
+      "paragraphs": 4,
+      "reference_observations": 68,
+      "before_hit_indices": [
+        1
+      ],
+      "after_hit_indices": [],
+      "changed_paragraphs": 2,
+      "text_sources": {
+        "pdf_coordinates": 16,
+        "tei": 38
+      },
+      "link_statuses": {
+        "validated_author_year": 30,
+        "unresolved_author_year": 23,
+        "unverified_tei": 1
+      },
+      "detector_cases": [
+        {
+          "index": 1,
+          "intext_replayed": true,
+          "excerpt_replayed": true,
+          "excerpt_work_id": "corpus:wiebe|1976|a mutiple openingclosing net and environ",
+          "excerpt_citation_index": 15,
+          "before_sha256": "4054dbcad1965efd8cc1c01f857e43430a64109c6bd66945431335e2124dbccd",
+          "after_sha256": "b4f7797c885f28828c2e035d556908367320c77c995ea5be1f0a0576c7e1662c"
+        }
+      ]
+    }
+  ],
+  "full_receipt_sha256": "836aedda6f61d2d1c4cd38516ecc6e3b4ef95cbab067625a50eff94fc48adb8b",
+  "full_receipt_historical_path": "/tmp/corpus-original-biblio-evidence/complete-replay-v2/receipt.json",
+  "captured_at": "2026-09-22",
+  "upstream_producers": {
+    "/tmp/corpus-v15-acceptance/gold/output": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+    "/tmp/corpus-issue314-scanned-preparation/build": "a3e638dc2003ffd7ebc0a32cefbc359d97c8461a",
+    "/tmp/corpus-issue314-full-preparation/build": "a3e638dc2003ffd7ebc0a32cefbc359d97c8461a"
+  },
+  "counting_rules": [
+    "All complete saved TEIs under the three named input roots; one capture per document, no candidate filtering.",
+    "Count each citation paragraph at most once for the exact issue317 detector. Baseline is literal TEI text through the current no-source parser.",
+    "Source recovery requires matching TEI/prepared-PDF byte receipts. All original inputs remain read-only.",
+    "Signature counts are not repair precision/recall or proof that every paragraph/target is correct.",
+    "Each detector-positive paragraph is queried by intext; an excerpt is checked only when at least one actual materialized reference target resolves.",
+    "No full-library population, live transport or fresh-extraction claim. New source fixtures were selected after the broader replay exposed two remaining failures."
+  ]
+}

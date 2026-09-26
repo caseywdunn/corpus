@@ -1,0 +1,1368 @@
+{
+  "scope": "Saved small source-page artifacts for downstream text preservation, not a precision/recall sample or fresh whole-corpus extraction.",
+  "scientific_policy": "source_glyph_alignment_v1",
+  "documents": {
+    "Sutherland_etal2019b-1-1": {
+      "file": "Sutherland_etal2019b-1-1.json",
+      "artifact_sha256": "ce19d99b10983fd36999a71da4fd07d6e6f9dc7978401a6324cccb6dd93bb082",
+      "source": "S/Sutherland_etal2019b.pdf",
+      "source_sha256": "e893ef271e78a02a1af67f5bc468d3d49acae6c7ac602898aa148bdadf1ef038",
+      "physical_pages": [
+        1
+      ],
+      "capture": "Original saved Docling source-page extraction, no synthetic text substitutions.",
+      "report": {
+        "method": "source_glyph_alignment_v1",
+        "repairs": [
+          {
+            "item_ref": "#/texts/3",
+            "page": 1,
+            "before": "1",
+            "after": "¹",
+            "source_bbox": [
+              169.50599670410156,
+              168.83123779296875,
+              173.2917938232422,
+              176.40283203125
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              19,
+              21
+            ],
+            "original": " 1",
+            "replacement": "¹"
+          },
+          {
+            "item_ref": "#/texts/3",
+            "page": 1,
+            "before": "2",
+            "after": "²",
+            "source_bbox": [
+              272.6940002441406,
+              168.83123779296875,
+              276.47979736328125,
+              176.40283203125
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              42,
+              44
+            ],
+            "original": " 2",
+            "replacement": "²"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              453.8869934082031,
+              322.5348815917969,
+              462.73779296875,
+              332.2354736328125
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              282,
+              284
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              410.6449890136719,
+              350.7822265625,
+              417.3099670410156,
+              360.74481201171875
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              474,
+              474
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              196.98800659179688,
+              364.292236328125,
+              203.65298461914062,
+              374.25482177734375
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              524,
+              524
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              245.86399841308594,
+              363.0628967285156,
+              254.7147979736328,
+              372.76348876953125
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              533,
+              535
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              508.09600830078125,
+              363.0628967285156,
+              516.9468383789062,
+              372.76348876953125
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              593,
+              595
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              213.91700744628906,
+              404.8202209472656,
+              220.5819854736328,
+              414.7828063964844
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              819,
+              819
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              263.8320007324219,
+              403.59088134765625,
+              272.68280029296875,
+              413.2914733886719
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              827,
+              829
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              384.1390075683594,
+              403.59088134765625,
+              392.98980712890625,
+              413.2914733886719
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              856,
+              858
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              326.6759948730469,
+              418.3292236328125,
+              333.3409729003906,
+              428.29180908203125
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              940,
+              940
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              371.5790100097656,
+              417.10089111328125,
+              380.4298095703125,
+              426.8014831542969
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              947,
+              949
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/15",
+            "page": 1,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              486.84600830078125,
+              417.10089111328125,
+              495.6968078613281,
+              426.8014831542969
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              975,
+              977
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          }
+        ],
+        "unresolved": []
+      },
+      "serialization": "Compact JSON; redundant computed table grid omitted, authoritative cells and source structure retained.",
+      "original_docling_artifact_sha256": "3df96f956ebfaa49d4e8b175e6e51224f2a6ab88fca4422408564b4391db0384",
+      "source_capture": "Docling2.94.0 CPU, OCR disabled, TableFormer enabled; saved original page artifact."
+    },
+    "Sutherland_etal2019b-4-4": {
+      "file": "Sutherland_etal2019b-4-4.json",
+      "artifact_sha256": "d82483f33adea1ece0c2805bc85402d987793ed737748d4d98c4783c1120e95e",
+      "source": "S/Sutherland_etal2019b.pdf",
+      "source_sha256": "e893ef271e78a02a1af67f5bc468d3d49acae6c7ac602898aa148bdadf1ef038",
+      "physical_pages": [
+        4
+      ],
+      "capture": "Original saved Docling source-page extraction, no synthetic text substitutions.",
+      "report": {
+        "method": "source_glyph_alignment_v1",
+        "repairs": [
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              253.40499877929688,
+              204.1241912841797,
+              260.0699768066406,
+              214.0867919921875
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              335,
+              335
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              302.2229919433594,
+              202.89488220214844,
+              311.0747985839844,
+              212.595458984375
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              344,
+              346
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              419.1629943847656,
+              204.1241912841797,
+              425.8279724121094,
+              214.0867919921875
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              368,
+              368
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              467.98199462890625,
+              202.89488220214844,
+              476.8327941894531,
+              212.595458984375
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              377,
+              379
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              385.010986328125,
+              216.40489196777344,
+              393.8617858886719,
+              226.10546875
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              460,
+              462
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              118.79499816894531,
+              231.1432342529297,
+              125.45997619628906,
+              241.1058349609375
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              501,
+              501
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "2",
+            "after": "⁻²",
+            "source_bbox": [
+              173.75599670410156,
+              229.91392517089844,
+              182.6077880859375,
+              239.614501953125
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              511,
+              513
+            ],
+            "original": " 2",
+            "replacement": "⁻²"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              392.0320129394531,
+              244.65220642089844,
+              398.6969909667969,
+              254.61480712890625
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              664,
+              664
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "-1",
+            "after": "⁻¹",
+            "source_bbox": [
+              302.2229919433594,
+              202.89488220214844,
+              311.0747985839844,
+              212.595458984375
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              1088,
+              1091
+            ],
+            "original": " -1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "-1",
+            "after": "⁻¹",
+            "source_bbox": [
+              467.98199462890625,
+              202.89488220214844,
+              476.8327941894531,
+              212.595458984375
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              1125,
+              1128
+            ],
+            "original": " -1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "-1",
+            "after": "⁻¹",
+            "source_bbox": [
+              385.010986328125,
+              216.40489196777344,
+              393.8617858886719,
+              226.10546875
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              1210,
+              1213
+            ],
+            "original": " -1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 4,
+            "before": "-2",
+            "after": "⁻²",
+            "source_bbox": [
+              173.75599670410156,
+              229.91392517089844,
+              182.6077880859375,
+              239.614501953125
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              1265,
+              1268
+            ],
+            "original": " -2",
+            "replacement": "⁻²"
+          },
+          {
+            "item_ref": "#/texts/17",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              296.2569885253906,
+              310.22906494140625,
+              302.2555236816406,
+              319.1954650878906
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              157,
+              157
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/18",
+            "page": 4,
+            "before": "-",
+            "after": "−",
+            "source_bbox": [
+              462.4440002441406,
+              578.820068359375,
+              468.4425354003906,
+              587.7864379882812
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              93,
+              94
+            ],
+            "original": "-",
+            "replacement": "−"
+          },
+          {
+            "item_ref": "#/texts/18",
+            "page": 4,
+            "before": "",
+            "after": "−",
+            "source_bbox": [
+              462.4440002441406,
+              578.820068359375,
+              468.4425354003906,
+              587.7864379882812
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              225,
+              225
+            ],
+            "original": "",
+            "replacement": "−"
+          },
+          {
+            "item_ref": "#/texts/18",
+            "page": 4,
+            "before": "2",
+            "after": "²",
+            "source_bbox": [
+              103.78499603271484,
+              592.3377685546875,
+              107.27189636230469,
+              599.3115844726562
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              234,
+              236
+            ],
+            "original": " 2",
+            "replacement": "²"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "-1",
+            "after": "⁻¹",
+            "source_bbox": [
+              508.19000244140625,
+              657.0059204101562,
+              517.0418090820312,
+              666.7064819335938
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              305,
+              308
+            ],
+            "original": " -1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "-1",
+            "after": "⁻¹",
+            "source_bbox": [
+              241.78700256347656,
+              670.5159301757812,
+              250.6387939453125,
+              680.2164916992188
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              349,
+              352
+            ],
+            "original": " -1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "-1",
+            "after": "⁻¹",
+            "source_bbox": [
+              408.7430114746094,
+              670.5159301757812,
+              417.59381103515625,
+              680.2164916992188
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              387,
+              390
+            ],
+            "original": " -1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "-1",
+            "after": "⁻¹",
+            "source_bbox": [
+              182.6479949951172,
+              684.02490234375,
+              191.49879455566406,
+              693.7254638671875
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              440,
+              443
+            ],
+            "original": " -1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              508.19000244140625,
+              657.0059204101562,
+              517.0418090820312,
+              666.7064819335938
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              793,
+              795
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              241.78700256347656,
+              670.5159301757812,
+              250.6387939453125,
+              680.2164916992188
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              836,
+              838
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              408.7430114746094,
+              670.5159301757812,
+              417.59381103515625,
+              680.2164916992188
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              873,
+              875
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/42",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              182.6479949951172,
+              684.02490234375,
+              191.49879455566406,
+              693.7254638671875
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              924,
+              926
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/tables/0/cells/2",
+            "page": 4,
+            "before": "2",
+            "after": "⁻²",
+            "source_bbox": [
+              353.6940002441406,
+              344.1288757324219,
+              361.8459167480469,
+              352.99755859375
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              15,
+              17
+            ],
+            "original": " 2",
+            "replacement": "⁻²"
+          },
+          {
+            "item_ref": "#/tables/0/cells/2",
+            "page": 4,
+            "before": "-2",
+            "after": "⁻²",
+            "source_bbox": [
+              353.6940002441406,
+              344.1288757324219,
+              361.8459167480469,
+              352.99755859375
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              35,
+              39
+            ],
+            "original": " - 2",
+            "replacement": "⁻²"
+          },
+          {
+            "item_ref": "#/tables/0/cells/9",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              399.7889709472656,
+              360.4310302734375,
+              405.7875061035156,
+              369.3974304199219
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              5,
+              5
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/tables/0/cells/10",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              459.0909729003906,
+              360.4310302734375,
+              465.0895080566406,
+              369.3974304199219
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              5,
+              5
+            ],
+            "original": "",
+            "replacement": "±"
+          }
+        ],
+        "unresolved": []
+      },
+      "serialization": "Compact JSON; redundant computed table grid omitted, authoritative cells and source structure retained.",
+      "original_docling_artifact_sha256": "ae1fe7cd647a61f3a177b877388897211a7afedbe0b93a312a9178838e3aa1ef",
+      "source_capture": "Docling2.94.0 CPU, OCR disabled, TableFormer enabled; saved original page artifact."
+    },
+    "Hauss_et2016-4-4": {
+      "file": "Hauss_et2016-4-4.json",
+      "artifact_sha256": "0ee85ce94dc3704685c3195aa03c87cb14257ba32b8d326147839f1953687666",
+      "source": "H_J/Hauss_et2016.pdf",
+      "source_sha256": "71c01d252e97b0044d2022fd0a239817dee78c3cc3651ef2afedbf82d8456085",
+      "physical_pages": [
+        4
+      ],
+      "capture": "Original saved Docling source-page extraction, no synthetic text substitutions.",
+      "report": {
+        "method": "source_glyph_alignment_v1",
+        "repairs": [
+          {
+            "item_ref": "#/texts/2",
+            "page": 4,
+            "before": "",
+            "after": "±",
+            "source_bbox": [
+              69.78707885742188,
+              75.79363250732422,
+              77.55790710449219,
+              85.75623321533203
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "charspan": [
+              64,
+              64
+            ],
+            "original": "",
+            "replacement": "±"
+          },
+          {
+            "item_ref": "#/texts/2",
+            "page": 4,
+            "before": "3",
+            "after": "³",
+            "source_bbox": [
+              107.72207641601562,
+              75.21353149414062,
+              111.50787353515625,
+              82.78512573242188
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              71,
+              73
+            ],
+            "original": " 3",
+            "replacement": "³"
+          },
+          {
+            "item_ref": "#/texts/4",
+            "page": 4,
+            "before": "2",
+            "after": "²",
+            "source_bbox": [
+              115.44007873535156,
+              142.95950317382812,
+              119.22587585449219,
+              150.53109741210938
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              73,
+              75
+            ],
+            "original": " 2",
+            "replacement": "²"
+          },
+          {
+            "item_ref": "#/texts/4",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              179.7610626220703,
+              165.94033813476562,
+              189.45286560058594,
+              174.44113159179688
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              205,
+              207
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/9",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              467.2820739746094,
+              133.82516479492188,
+              476.973876953125,
+              142.32595825195312
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              147,
+              149
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/9",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              406.8540954589844,
+              169.69119262695312,
+              416.5458984375,
+              178.19198608398438
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              306,
+              308
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          },
+          {
+            "item_ref": "#/texts/12",
+            "page": 4,
+            "before": "1",
+            "after": "⁻¹",
+            "source_bbox": [
+              535.5401000976562,
+              600.3111572265625,
+              545.23193359375,
+              608.8119506835938
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              355,
+              357
+            ],
+            "original": " 1",
+            "replacement": "⁻¹"
+          }
+        ],
+        "unresolved": [
+          {
+            "item_ref": "#/texts/9",
+            "page": 4,
+            "before": "3µ",
+            "after": "µ",
+            "source_bbox": [
+              361.6110534667969,
+              172.42311096191406,
+              366.59234619140625,
+              182.38571166992188
+            ],
+            "evidence": [],
+            "reason": "native_glyph_not_confirmed_by_source_raster"
+          }
+        ]
+      },
+      "serialization": "Compact JSON; redundant computed table grid omitted, authoritative cells and source structure retained.",
+      "original_docling_artifact_sha256": "2faddce033e12ccfe74aaf20e59dec6334d8d7228d304f51ceaa74289d60dd92",
+      "source_capture": "Docling2.94.0 CPU, OCR disabled, TableFormer enabled; saved original page artifact."
+    },
+    "Haddock_etal2005-1-1": {
+      "file": "Haddock_etal2005-1-1.json",
+      "artifact_sha256": "655224840cc1150f92d00c3a7ec231c1a7cb3b929bb2c648fe44af68d1772b20",
+      "source": "H_J/Haddock_etal2005.pdf",
+      "source_sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+      "physical_pages": [
+        1
+      ],
+      "capture": "Original saved Docling source-page extraction, no synthetic text substitutions.",
+      "report": {
+        "method": "source_glyph_alignment_v1",
+        "repairs": [
+          {
+            "item_ref": "#/texts/1",
+            "page": 1,
+            "before": "1",
+            "after": "¹",
+            "source_bbox": [
+              176.76849365234375,
+              120.90988159179688,
+              180.9676513671875,
+              127.95404815673828
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              21,
+              23
+            ],
+            "original": " 1",
+            "replacement": "¹"
+          },
+          {
+            "item_ref": "#/texts/1",
+            "page": 1,
+            "before": "2",
+            "after": "²",
+            "source_bbox": [
+              260.67401123046875,
+              120.90988159179688,
+              264.8731689453125,
+              127.95404815673828
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              40,
+              42
+            ],
+            "original": " 2",
+            "replacement": "²"
+          },
+          {
+            "item_ref": "#/texts/1",
+            "page": 1,
+            "before": "3",
+            "after": "³",
+            "source_bbox": [
+              331.710205078125,
+              120.90988159179688,
+              335.90936279296875,
+              127.95404815673828
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              58,
+              60
+            ],
+            "original": " 3",
+            "replacement": "³"
+          },
+          {
+            "item_ref": "#/texts/8",
+            "page": 1,
+            "before": "2",
+            "after": "²",
+            "source_bbox": [
+              45.864601135253906,
+              575.0927734375,
+              49.21840286254883,
+              581.2562866210938
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              417,
+              419
+            ],
+            "original": " 2",
+            "replacement": "²"
+          },
+          {
+            "item_ref": "#/texts/10",
+            "page": 1,
+            "before": "m",
+            "after": "µ",
+            "source_bbox": [
+              255.57171630859375,
+              647.7263793945312,
+              259.9751892089844,
+              656.194580078125
+            ],
+            "evidence": [
+              "source_descender_font_and_rendered_ocr"
+            ],
+            "charspan": [
+              151,
+              153
+            ],
+            "original": "m ",
+            "replacement": "µ"
+          },
+          {
+            "item_ref": "#/texts/30",
+            "page": 1,
+            "before": "3",
+            "after": "³",
+            "source_bbox": [
+              485.63140869140625,
+              671.36376953125,
+              488.5453796386719,
+              676.646728515625
+            ],
+            "evidence": [
+              "raised_source_span"
+            ],
+            "charspan": [
+              172,
+              174
+            ],
+            "original": " 3",
+            "replacement": "³"
+          }
+        ],
+        "unresolved": []
+      },
+      "serialization": "Compact JSON; redundant computed table grid omitted, authoritative cells and source structure retained.",
+      "original_docling_artifact_sha256": "80bee176e9599520c153e1458cc7f4f2f07cfef6916eacb4102adb5c04cc4886",
+      "source_capture": "Docling2.94.0 CPU, OCR disabled, TableFormer enabled; saved original page artifact."
+    },
+    "Kidwai_Amjad2000-1-1": {
+      "file": "Kidwai_Amjad2000-1-1.json",
+      "artifact_sha256": "c781a1a2126173ad1f228bd1522dac3b17a862d3b6bb56e7efb1b972e021ee90",
+      "source": "K/Kidwai_Amjad2000.pdf",
+      "source_sha256": "392857a972b9bd0023b70c19b7528fa2f885d5742b4f812e7808037b93814071",
+      "physical_pages": [
+        1
+      ],
+      "capture": "Original saved Docling source-page extraction, no synthetic text substitutions.",
+      "report": {
+        "method": "source_glyph_alignment_v1",
+        "repairs": [],
+        "unresolved": [
+          {
+            "item_ref": "#/texts/0",
+            "page": 1,
+            "before": "-",
+            "after": "±",
+            "source_bbox": [
+              165.125,
+              49.78678512573242,
+              169.38949584960938,
+              58.3157844543457
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "reason": "native_glyph_not_confirmed_by_source_raster"
+          },
+          {
+            "item_ref": "#/texts/14",
+            "page": 1,
+            "before": "-",
+            "after": "±",
+            "source_bbox": [
+              335.7543029785156,
+              669.1756591796875,
+              340.8188171386719,
+              679.3046875
+            ],
+            "evidence": [
+              "aligned_native_and_rendered_sign"
+            ],
+            "reason": "native_glyph_not_confirmed_by_source_raster"
+          }
+        ]
+      },
+      "serialization": "Compact JSON; redundant computed table grid omitted, authoritative cells and source structure retained.",
+      "original_docling_artifact_sha256": "06dc3266eb8ac4893a18f53ea37ded844bd1eef84747df65718dd519e2c2c91a",
+      "source_capture": "Docling2.94.0 CPU, OCR disabled, TableFormer enabled; saved original page artifact."
+    },
+    "Pakhomov_etal2000-5-5": {
+      "file": "Pakhomov_etal2000-5-5.json",
+      "artifact_sha256": "eae76efdf789b8d6c3b77938d44c3d9f5545235071ff063fcf5707e93f42f308",
+      "source": "P/Pakhomov_etal2000.pdf",
+      "source_sha256": "8dd620bc32cee2434e90f143ac4b61202a4b69dc63e05063bf5ba04fc5e6cde6",
+      "physical_pages": [
+        5
+      ],
+      "capture": "Two original source-captured TableFormer cells already correctly contain ±; no historical corruption applied.",
+      "report": {
+        "method": "source_glyph_alignment_v1",
+        "repairs": [],
+        "unresolved": []
+      },
+      "serialization": "Compact JSON; redundant computed table grid omitted, authoritative cells and source structure retained."
+    },
+    "Boysen-Ennen1987-12": {
+      "file": "Boysen-Ennen1987-12.json",
+      "artifact_sha256": "f1dc7ecb2e776b3a1238503436505b6e3dde50efb289e7fd7f1e13b811fb1cd1",
+      "source": "B/Boysen-Ennen1987.pdf",
+      "source_sha256": "88f1c8dfbd5ca3058449c02027fa8219eb53b426324cb2694a8d502a40682fb5",
+      "physical_pages": [
+        12
+      ],
+      "capture": "Byte-exact Docling artifact from the prior actual rebuild_figure_base→extract_docling_content pilot; physical page12 is prepared page1. No figure/caption objects were captured.",
+      "report": {
+        "source": "Boysen-Ennen1987.pdf",
+        "physical_page": 12,
+        "path": "rebuild_figure_base -> extract_docling_content -> hybrid_chunker -> get_chunks",
+        "chunk_count": 3,
+        "repairs": [
+          {
+            "item_ref": "#/texts/4",
+            "page": 1,
+            "charspan": [
+              493,
+              504
+            ],
+            "original": "RMT-8-Finge",
+            "replacement": "RMT-8-Fänge",
+            "original_native_token": "RMT-8-FÃ¤ng",
+            "decoded_hint": "RMT-8-Fäng",
+            "source_bbox": [
+              291.5978698730469,
+              386.7012023925781,
+              343.33026123046875,
+              397.8734436035156
+            ],
+            "prepared_bbox": [
+              289.59100341796875,
+              388.30322265625,
+              342.325439453125,
+              398.109619140625
+            ],
+            "evidence": "two_regional_raster_readings_and_prepared_geometry",
+            "dpi": [
+              300,
+              600
+            ],
+            "languages": [
+              "deu",
+              "eng"
+            ],
+            "source_pdf_sha256": "9bcb2261d89798fa56c7e0696cc68876fe01a4a3bd4c7650465e146dfcf997bb",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "status": "repaired"
+          }
+        ],
+        "unresolved_count": 8,
+        "passed": true
+      },
+      "capture_pipeline_version": "1.5.0.dev0",
+      "prepared_pdf_sha256": "acc8a36feb58bf4314e859856b07dfa4b5f027db3933751edf2d1aa8adb6191c",
+      "source_pdf_slice_sha256": "9bcb2261d89798fa56c7e0696cc68876fe01a4a3bd4c7650465e146dfcf997bb"
+    }
+  },
+  "fixture_bytes": 139122,
+  "notation_replay_commit": "2a4abc5",
+  "scientific_ocr_runtime": {
+    "available": true,
+    "pymupdf_version": "1.28.0",
+    "version": "tesseract 5.5.2\n leptonica-1.87.0\n  libgif 5.2.2 : libjpeg 8d (libjpeg-turbo 3.1.2) : libpng 1.6.58 : libtiff 4.7.2 : zlib 1.3.2 : libwebp 1.6.0 : libopenjp2 2.5.4\n Found AVX2\n Found AVX\n Found FMA\n Found SSE4.1\n Found OpenMP 201511\n Found libarchive 3.8.9 zlib/1.3.2 liblzma/5.8.3 bz2lib/1.0.8 liblz4/1.10.0 libzstd/1.5.7 liblzo2/2.10 openssl/3.5.7 libb2/bundled",
+    "traineddata_sha256": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
+    "language": "eng",
+    "glyph_dpi": 600,
+    "micro_unit_segmentation_mode": 7
+  }
+}

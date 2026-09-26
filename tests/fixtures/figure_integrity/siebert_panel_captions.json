@@ -1,0 +1,75 @@
+{
+  "source_artifact_sha256": "8581ca75a0ee8d62972cf410acc6239d0d3f478573f1891b08956bec6c2708e0",
+  "provenance": "Original retained v1.2.1 stored captions, not a fresh conversion. Caption ranges/species descriptions checked visually against original PDF pages 5,7,16 on 2026-09-22. Caption whitespace and original spelling preserved.",
+  "figures": [
+    {
+      "figure_id": "docling_4",
+      "figure_number": "2",
+      "page": 5,
+      "caption_text": "FIGURE 2 .  (A-B) In situ photographs of holotype specimens. (A) Apolemia lanosa sp. nov . ,  approximate length 2 m. (B) Apolemia rubriversa sp. nov . , approximately 1.2 m in length. (C-D) Anterior regions of the collected, unfixed specimens of (C) A. lanosa ,  which had already lost most of its bracts (Scale bar 2 cm); and (D) A. rubriversa ,  whith most of its mature nectophores detached (Scale bar 2.5 mm).",
+      "caption_page": 5,
+      "caption_bbox": [
+        56.52,
+        101.59319303448274,
+        540.799164,
+        144.31824000000006
+      ],
+      "bbox": [
+        55.040374755859375,
+        151.827392578125,
+        539.2659301757812,
+        421.3369140625
+      ],
+      "bbox_coord_system": "pdf_pts_bottom_left",
+      "filename": "fig_2.png",
+      "source_pdf": "Siebert_etal2013.pdf",
+      "source_sha256": "c9e7e8ae50a2ef2a16a733b80d4670a7d2120b04139b9820f7da0d6214ccc1af"
+    },
+    {
+      "figure_id": "docling_6",
+      "figure_number": "4",
+      "page": 7,
+      "caption_text": "FIGURE 4 . Apolemia lanosa sp. nov . Medium sized nectophore from the holotype specimen (living, A-C). Photographs and drawings of upper (A, D), lower (B, E), and lateral (C, F) views. Scale bar (5 mm) in C applies to figures. (G-S) Photographs of 'upper' view of nectophores from the holotype and lateral view of the paratype specimen (T-U). All the nectophores had been fixed apart from those shown in Q, T and U. (G-P) Photographs showing change in nectophore morphology and proportions during growth. Axial wings were close to each other in young nectophores and widely apart in mature ones. The thrust block was well developed and the axial wings were proportionally shorter in older nectophores. (Q-S) Photographs of the same nectophore after relaxation while living (Q), and after fixation (R-S). Appearance of nectophore morphology in fixed state varied significantly with viewing angle and how the nectophore was presented in the dish. In S the nectophore was gently stretched in the longitudinal direction. T-U show the same nectophore, while living, of specimen D329-SS6 freshly detached from the stem in an uncontracted (T) and fully contracted (U) state. Scale bar (1 cm) in (S) applies to nectophores in G-S. Scale bar (1cm) in (U) applies to T-U.",
+      "caption_page": 7,
+      "caption_bbox": [
+        56.52,
+        83.35321303448279,
+        540.8408760000001,
+        206.47813999999994
+      ],
+      "bbox": [
+        120.14576721191406,
+        218.36822509765625,
+        471.4084167480469,
+        770.7172927856445
+      ],
+      "bbox_coord_system": "pdf_pts_bottom_left",
+      "filename": "fig_4.png",
+      "source_pdf": "Siebert_etal2013.pdf",
+      "source_sha256": "c9e7e8ae50a2ef2a16a733b80d4670a7d2120b04139b9820f7da0d6214ccc1af"
+    },
+    {
+      "figure_id": "docling_14",
+      "figure_number": "12",
+      "page": 16,
+      "caption_text": "FIGURE 12 . Apolemia rubriversa sp. nov . (A-F) Medium sized nectophore of the holotype (live). Canals were colored red by prey pigment. Photographs and drawings of upper (A, D), lower (B, E) and lateral (C, F) views. Lower view of type specimen (B) revealed red pigmentation within the ventral furrow and on the thrust block. Scale bar (5mm) in C applies to all figures AF. (G-N) Available fixed nectophores of sample D195 shown in upper view. Scale bar (1 cm) in J applies to G-N.",
+      "caption_page": 16,
+      "caption_bbox": [
+        56.52,
+        147.79348903448272,
+        540.7422839999992,
+        190.39814
+      ],
+      "bbox": [
+        75.4354476928711,
+        198.445068359375,
+        518.6307983398438,
+        770.780876159668
+      ],
+      "bbox_coord_system": "pdf_pts_bottom_left",
+      "filename": "fig_12.png",
+      "source_pdf": "Siebert_etal2013.pdf",
+      "source_sha256": "c9e7e8ae50a2ef2a16a733b80d4670a7d2120b04139b9820f7da0d6214ccc1af"
+    }
+  ]
+}

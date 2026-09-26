@@ -278,6 +278,13 @@ Unchanged inputs reuse the snapshot without writes. Changes—including removing
 a root restriction—build a fresh SQLite before replacing the old one; failed
 ingestion leaves the old database untouched, and superseded snapshots remain
 under `.retired/taxonomy-*.sqlite`. Legacy snapshots without proof rebuild once.
+The ingest warning names the old and requested root scopes before reading the
+source, including changes to or from an unrestricted snapshot. It does not
+assume the old root disappears: an ancestor selection can still include it.
+Dry runs describe a proposed replacement and leave the snapshot untouched.
+`--rebuild` forces an ingest despite an unchanged receipt; it is not needed to
+allow a root change. Each snapshot supports one root restriction. Sequential
+root ingests do not implement a multi-root union (#298).
 Full `corpus run` notices source drift; phase-split extraction requires a matching
 pre-built snapshot. WoRMS is deliberately pinned between explicit
 `corpus taxonomy ingest --rebuild` refreshes; no status request polls the API.
@@ -425,6 +432,36 @@ refresh, not an OCR/Docling rerun. TEI lacking the new provenance is archived;
 have Grobid available during migration to regenerate its reference evidence.
 
 ## Figure pipeline
+
+### Figure-specific rights evidence
+
+The build materializes `figure_rights` in each figure record (#302). Explicit
+caption statements that an image is excluded from the publication's license
+override article-level inheritance. Evidence includes the source figure, page,
+caption binding provenance and the notice text. The initial detector recognizes
+explicit English exclusions referring to Creative Commons or the publication's
+license; attribution or "reproduced with permission" alone is insufficient.
+This is a narrow source-evidence detector, not comprehensive rights analysis.
+
+Records sharing an image inherit all recorded exclusions, including children
+created by plate discovery or compound splitting. Whole images and all crops
+use the same conservative determination; cropping cannot grant a broader
+license. Later passes preserve source exclusions even when they split captions.
+A fresh extraction replaces derived evidence from the previous source state.
+
+The server reads this evidence and applies it before article-level clearance
+at metadata, inline-image, ROI, signed-URL and HTTP boundaries. An explicit
+exclusion returns `publication_clearance: undetermined` with
+`license_source: figure_caption_exclusion`; it establishes that the article's
+license does not clear this image, not that every reuse is forbidden. The
+recorded notice distinguishes this case from absent metadata. Strict profiles
+withhold delivery; permissive report behavior remains unchanged.
+
+Legacy bundles lacking these facts retain article-level inheritance. To repair
+them, rerun the build's figure stages and regenerate the bundle; a server-only
+upgrade cannot infer the missing fact. Figure-stage receipts include the rights
+producer so ordinary resume refreshes those artifacts. Never patch a served
+artifact or interpret caption prose at query time.
 
 A corpuscle can span centuries of literature — 19th-century engraved plates with facing-page captions, mid-century half-tone figures, and born-digital vector panels — so figure extraction is the part of the pipeline most exposed to layout variation. Quality, segmentation, classification, and caption association are an explicit long-term optimization target; new document layouts will keep surfacing new failure modes. This section documents the full lifecycle, the code that implements each step, where resolution is set (and where it is *not* lost), and what degrades when an optional pass is skipped. The two leaf modules are `pipeline/figures.py` (pure functions: classify, parse, dedupe, caption, ROIs, linking) and `pipeline/figure_passes.py` (the Pass 2.5 / 3a / 3b orchestration); both are driven per-paper from `pipeline/runner.py`, with extraction itself in `pipeline/extract.py`.
 

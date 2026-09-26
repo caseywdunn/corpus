@@ -1,0 +1,167 @@
+{
+  "4": {
+    "candidate_artifact_key": "e7aba119e2833f31513b96c180ec53ee41e738e61076559e6d2b23879c8256f7",
+    "surface_status": {
+      "docling": "faithful",
+      "markdown": "faithful",
+      "chunks": "faithful"
+    },
+    "candidate_item_refs": [
+      "#/texts/28"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_10"
+    ],
+    "candidate_expression_context": "surface chlorophll a ( Cha s ， mg/m³ )",
+    "assessment": "Fresh full-document extraction: physical source page2, English abstract first/surface chlorophyll unit retains mg/m³. The middle/bottom units do not substitute for this occurrence. Source crop04 was re-viewed; candidate item geometry and linked chunk agree. Current CMap receipt belongs to texts28 and retains local exponent raster proof. Other unresolved hyphens are outside the selected expression.",
+    "source_crop_sha256": "ae3f619b694f2dad17e62b3ce6ed071e5297abcf70d908dc445686c3e47dbe26",
+    "review_basis": "Frozen source label and original source crop; current source-region geometry/item identity, saved markdown and all linked chunk text. Current CMap receipt remains in captured text.json.",
+    "embedding_and_serving": "Not materialized in this CPUgold refresh; no inference."
+  },
+  "8": {
+    "candidate_artifact_key": "e7aba119e2833f31513b96c180ec53ee41e738e61076559e6d2b23879c8256f7",
+    "surface_status": {
+      "docling": "faithful",
+      "markdown": "faithful",
+      "chunks": "faithful"
+    },
+    "candidate_item_refs": [
+      "#/texts/112"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_51"
+    ],
+    "candidate_expression_context": "Ｒ =0． 596",
+    "assessment": "Fresh full-document extraction: physical source page8 Anosim sentence retains R=0.596. Fullwidth Latin R and decimal punctuation preserve the value. Source crop08 was re-viewed; the local paragraph, geometry and linked chunk agree. The adjacent P value is not substituted for R.",
+    "source_crop_sha256": "93b91cd015cc71a09ce2c6534c3bd94025117bb9d614f6df64e120c13fcb15f2",
+    "review_basis": "Frozen source label and original source crop; current source-region geometry/item identity, saved markdown and all linked chunk text. Current CMap receipt remains in captured text.json.",
+    "embedding_and_serving": "Not materialized in this CPUgold refresh; no inference."
+  },
+  "13": {
+    "candidate_artifact_key": "e7aba119e2833f31513b96c180ec53ee41e738e61076559e6d2b23879c8256f7",
+    "surface_status": {
+      "docling": "omitted",
+      "markdown": "omitted",
+      "chunks": "omitted"
+    },
+    "candidate_item_refs": [],
+    "candidate_chunk_ids": [],
+    "candidate_expression_context": null,
+    "assessment": "Fresh full-document extraction: original grey footer1994–2018 has no overlapping text/table/picture item, source-aligned chunk, or dash-tolerant markdown occurrence. Omitted footer text is not an incorrect admitted repair.",
+    "source_crop_sha256": "3099c54e61c359c01640bf8b278802bd8521c66009633022645383ae0b982069",
+    "review_basis": "Frozen source label and original source crop; current source-region geometry/item identity, saved markdown and all linked chunk text. Current CMap receipt remains in captured text.json.",
+    "embedding_and_serving": "Not materialized in this CPUgold refresh; no inference."
+  },
+  "14": {
+    "candidate_artifact_key": "d5e012fd9c4140af97a9f01a69a7797d7ecfa551e4f9ab7fad04063db9a72473",
+    "surface_status": {
+      "docling": "faithful",
+      "markdown": "faithful",
+      "chunks": "faithful"
+    },
+    "candidate_item_refs": [
+      "#/tables/0"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_45"
+    ],
+    "candidate_expression_context": "Tesserogastria musculosa | 0.14-0.24 (no: Tardent, 1978)? | 2?",
+    "assessment": "Original physical page4 table row Tesserogastria musculosa prints 0.14–0.24 under egg diameter in mm. The current logical table row18/column1, exported markdown and linked chunk45 retain the selected numeric range; the chunk table headers retain Диаметр яйца, мм. Table layout elsewhere changed, so this is a new source judgment rather than inherited artifact equality. No admitted repair is selected for this occurrence.",
+    "source_crop_sha256": "ed009ec187fe9d17b339318d3c82fe690e95e265b2c17d3e714c8c4b91be9ab8",
+    "review_basis": "Frozen source crop re-viewed against current source-region item, table cell or paragraph, all linked chunk text and saved artifact receipt. No label changes.",
+    "embedding_and_serving": "Not materialized in this CPU gold refresh; no inference."
+  },
+  "16": {
+    "candidate_artifact_key": "d5e012fd9c4140af97a9f01a69a7797d7ecfa551e4f9ab7fad04063db9a72473",
+    "surface_status": {
+      "docling": "corrupted",
+      "markdown": "corrupted",
+      "chunks": "corrupted"
+    },
+    "candidate_item_refs": [
+      "#/texts/125"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_97"
+    ],
+    "candidate_expression_context": "(0.3-10 мм') (Pugh, 1983, р. 27%))",
+    "assessment": "Original physical page8 clearly prints 0.3–10 мм³. The current aligned text125, saved markdown and linked chunk97 still contain 0.3-10 мм'. The original-source recovery explicitly leaves this occurrence unresolved with digit_ocr_disagreement; no exponent is guessed. Nearby 2000 мм³ is repaired, but is a different occurrence and earns no credit for this selected row. The retained wrong unit is a fidelity/recall failure, not an incorrect admitted repair.",
+    "source_crop_sha256": "f5ee7e018c9a08de49ca256d46f8d91e7c676ca57c969e8efdee1a96410b19c9",
+    "review_basis": "Frozen source crop re-viewed against current source-region item, table cell or paragraph, all linked chunk text and saved artifact receipt. No label changes.",
+    "embedding_and_serving": "Not materialized in this CPU gold refresh; no inference."
+  },
+  "5": {
+    "candidate_artifact_key": "6e08b164499c2b204e8b5bf63db1209d694d23b8c3d14306d330048b21605e91",
+    "surface_status": {
+      "docling": "faithful",
+      "markdown": "faithful",
+      "chunks": "faithful"
+    },
+    "candidate_item_refs": [
+      "#/texts/1763"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_541"
+    ],
+    "candidate_expression_context": "specimen  581,  X  21",
+    "assessment": "Original specimen581 caption magnification×21 is retained as X21; literal multiplication-glyph substitution is accepted only for this unambiguous source caption magnification. Frozen original crop was re-viewed; current source-region bbox/item identity, saved markdown and all linked chunks were inspected. Chunk boundaries differ from the baseline, so the current chunk identity is retained. No selected scientific repair was admitted.",
+    "source_crop_sha256": "3376322f8ca56a2eb1a285e77dfc7ff6befcfaa1055a1b4944b9f0898299bb1b",
+    "review_basis": "Original frozen source crop, exact current source-region item geometry, selected caption context and current linked chunks.",
+    "embedding_and_serving": "Not materialized in this CPUgold refresh; no inference."
+  },
+  "6": {
+    "candidate_artifact_key": "6e08b164499c2b204e8b5bf63db1209d694d23b8c3d14306d330048b21605e91",
+    "surface_status": {
+      "docling": "faithful",
+      "markdown": "faithful",
+      "chunks": "faithful"
+    },
+    "candidate_item_refs": [
+      "#/texts/2588"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_816"
+    ],
+    "candidate_expression_context": "St.  217, X  7.1",
+    "assessment": "Original station217 caption magnification×7·1 is retained as X7.1. Both literal glyph and decimal-point substitutions are recorded; nearby station36×5.2 is not the selected occurrence. Frozen original crop was re-viewed; current source-region bbox/item identity, saved markdown and all linked chunks were inspected. Chunk boundaries differ from the baseline, so the current chunk identity is retained. No selected scientific repair was admitted.",
+    "source_crop_sha256": "3a48872b2fe6b3ca2ba0f81226a0059e916fdc16234e141b48e55a46e075e6d0",
+    "review_basis": "Original frozen source crop, exact current source-region item geometry, selected caption context and current linked chunks.",
+    "embedding_and_serving": "Not materialized in this CPUgold refresh; no inference."
+  },
+  "7": {
+    "candidate_artifact_key": "6e08b164499c2b204e8b5bf63db1209d694d23b8c3d14306d330048b21605e91",
+    "surface_status": {
+      "docling": "faithful",
+      "markdown": "faithful",
+      "chunks": "faithful"
+    },
+    "candidate_item_refs": [
+      "#/texts/1370"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_406"
+    ],
+    "candidate_expression_context": "St.  681,  x  3.2",
+    "assessment": "Original station681 caption magnification×3·2 is retained as x3.2. Both literal substitutions are recorded; station699 and1769 values are not substituted for the selected occurrence. Frozen original crop was re-viewed; current source-region bbox/item identity, saved markdown and all linked chunks were inspected. Chunk boundaries differ from the baseline, so the current chunk identity is retained. No selected scientific repair was admitted.",
+    "source_crop_sha256": "84adf61a17b4a5d389f95e2f31d8e06fc36dd935fce46925e6a08e365ac2562e",
+    "review_basis": "Original frozen source crop, exact current source-region item geometry, selected caption context and current linked chunks.",
+    "embedding_and_serving": "Not materialized in this CPUgold refresh; no inference."
+  },
+  "22": {
+    "candidate_artifact_key": "73dc5c07cf55dab6bfe0963449d7387d0e4cc2314025a96b3b32aafc7401c74c",
+    "surface_status": {
+      "docling": "faithful",
+      "markdown": "omitted",
+      "chunks": "omitted"
+    },
+    "candidate_item_refs": [
+      "#/texts/121"
+    ],
+    "candidate_chunk_ids": [],
+    "candidate_expression_context": "station1772, netN70V, 750-500 m.",
+    "assessment": "The current refresh retains the correct selected750–500m depth in source-aligned Docling text121 beside station1772/text119 and netN70V/text120. It remains a child of picture3. There is no linked chunk and no dash-tolerant750–500m match in the whole saved markdown or chunks. This is a current table-to-picture text omission in the broader source-recall stratum, not a wrong admitted notation repair. Original crop22 was re-viewed; historical and current identities are separate.",
+    "source_crop_sha256": "257955ded3eddf424b11c385bbafff9a89f4d3f96188c724f1b7efbc3f3dcd51",
+    "review_basis": "Original frozen source crop, current page5 item bboxes/parent and exact station/depth context; full saved text and chunks searched.",
+    "embedding_and_serving": "No chunk exists for this source occurrence; do not count a matching depth elsewhere."
+  }
+}

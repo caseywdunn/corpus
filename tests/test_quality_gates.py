@@ -134,3 +134,53 @@ def test_missing_artifacts_do_not_crash(tmp_path):
     flags = _run_quality_gates(hd)
     # Empty body → "empty_text" still fires, which is correct
     assert "empty_text" in _gate_names(flags)
+
+
+def test_unresolved_source_text_evidence_is_visible_even_without_ocr(fake_hash_dir):
+    path=fake_hash_dir/'text.json'
+    text=json.loads(path.read_text())
+    text['source_text_integrity']={'encoding':{'method':'source-evidence','repairs':[],
+        'unresolved':[{'reason':'possible_utf8_mojibake_requires_source_review'}]}}
+    path.write_text(json.dumps(text))
+    flags=_run_quality_gates(fake_hash_dir)
+    assert any(f['gate']=='source_text_integrity' and f['metric']==1 for f in flags)
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_long_runs_are_reviewable_without_double_counting(fake_hash_dir, duplicate):
+    path = fake_hash_dir / "text.json"
+    text = json.loads(path.read_text())
+    observation = {"item_ref": "#/texts/1", "page": 1,
+                   "runs": ["pneumatophore"], "status": "no_source_space_evidence"}
+    other = {"item_ref": "#/texts/2", "reason": "ocr_disagreement"}
+    text["source_text_integrity"] = {"tables": {
+        "unresolved_long_runs": [observation],
+        "unresolved": [other, dict(reversed(list(observation.items())))] if duplicate else [other],
+    }}
+    path.write_text(json.dumps(text))
+    before = path.read_bytes()
+    flags = [f for f in _run_quality_gates(fake_hash_dir) if f["gate"] == "source_text_integrity"]
+    assert len(flags) == 1 and flags[0]["metric"] == 2
+    assert flags[0]["severity"] == "warning"
+    assert "candidates need review" in flags[0]["detail"]
+    assert path.read_bytes() == before
+
+
+def test_long_run_warning_without_generic_unresolved_receipt(fake_hash_dir):
+    path = fake_hash_dir / "text.json"
+    text = json.loads(path.read_text())
+    text["source_text_integrity"] = {"tables": {
+        "unresolved_long_runs": [{"item_ref": "#/texts/1", "runs": ["a long source compound"]}],
+    }}
+    path.write_text(json.dumps(text))
+    flags = [f for f in _run_quality_gates(fake_hash_dir) if f["gate"] == "source_text_integrity"]
+    assert len(flags) == 1 and flags[0]["metric"] == 1
+
+
+def test_warning_policy_invalidates_only_the_quality_stage(monkeypatch):
+    from pipeline.build_inputs import config_fingerprints
+
+    before = config_fingerprints({}, panel_mode="ocr")
+    monkeypatch.setattr(process_corpus, "SOURCE_INTEGRITY_WARNING_POLICY", "changed")
+    after = config_fingerprints({}, panel_mode="ocr")
+    assert {stage for stage in before if before[stage] != after[stage]} == {"quality_gates"}

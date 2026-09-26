@@ -1,0 +1,526 @@
+{
+  "schema_version": 1,
+  "issue": 320,
+  "review_date": "2026-09-18",
+  "serialization_only": true,
+  "original_sample_file_sha256": "525460d716c6b88cdae8f84e542d7e213ad61469e5b54bb67852bcdb7fcfc602",
+  "selection_sha256": "d939fda03d1505eefad058dc391ffa699e78bb6cc3cda7096f9e88c8281f2114",
+  "summary": {
+    "selected_units": 5,
+    "selected_papers": 2,
+    "scorable_queries": 3,
+    "scorable_papers": 1,
+    "false_identification_keys": 2,
+    "wrong_materialized_treatment_names": 2,
+    "required_minimum_queries": 10,
+    "required_minimum_papers": 5,
+    "gate": "insufficient_independent_source_sample",
+    "replacements": 0,
+    "retrieval_runs": 0
+  },
+  "records": [
+    {
+      "query_id": "independent_01",
+      "frozen_selection": {
+        "paper_hash": "a53f93badacc",
+        "kind": "key",
+        "subject": "References",
+        "pages": [
+          25
+        ],
+        "example_chunk_id": "chunk_146",
+        "source_items": [
+          {
+            "item_ref": "#/tables/2",
+            "page": 25,
+            "bbox": {
+              "l": 35.224510192871094,
+              "t": 696.5970077514648,
+              "r": 572.706787109375,
+              "b": 585.4168243408203,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "frozen_draft_call": {
+        "query": "References identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "reviewer": {
+        "id": "/root/fix_query_contracts",
+        "kind": "Codex team agent visual source review",
+        "human_or_domain_expert_review": false
+      },
+      "source": {
+        "source_sha256": "a53f93badacc4fbbc0aa027d21644a9bd1eb330468237db6dfd78e3aa6a75ebb",
+        "source_relative_path": "inputs/library/A/Ahuja_etal2026.pdf",
+        "source_basis": "Original source PDF copy, not processed PDF or chunk text; hash verified.",
+        "renderer": "PyMuPDF 1.28.0",
+        "render_scale": 2,
+        "pages": [
+          {
+            "physical_page": 25,
+            "page_size": [
+              612.0,
+              792.0
+            ],
+            "image_file": "a53f93badacc-p025.png",
+            "image_sha256": "f8c1cd11f16228f44cd062be890d92237730e8c863690f6e83ffe647b228e554",
+            "native_locator_file": "a53f93badacc-p025.txt",
+            "native_locator_sha256": "720a0c6ca14e6af5e740660bc9244ea0ed5d2208f0b852effb8415fa4d37d0b7"
+          }
+        ]
+      },
+      "review_basis": "Previously completed visual review of original source PDF renders; native PDF text used only as a locator. No retrieval results were inspected.",
+      "selected_unit_retained": true,
+      "replacement_selected": false,
+      "decision": "unscorable_false_identification_key",
+      "scorable": false,
+      "source_subject": null,
+      "source_observation": "Physical page 25 contains numbered bibliography entries 103–107 for PLINK, BWA short-read alignment, SNP calling, ANGSD and admixture estimation, with authors, years, journal locators, DOIs and PMIDs. The selected region contains no taxonomic diagnosis, morphological key branch, key transition or organism destination.",
+      "natural_query": null,
+      "positive_targets": [],
+      "independent_review": {
+        "reviewer": "/root/fix_figures",
+        "kind": "Codex team agent visual review; not human/domain review",
+        "decision": "unscorable_false_identification_key",
+        "physical_page": 25,
+        "printed_entries": [
+          103,
+          104,
+          105,
+          106,
+          107
+        ],
+        "image_file": "a53f93badacc-p025.png",
+        "image_sha256": "f8c1cd11f16228f44cd062be890d92237730e8c863690f6e83ffe647b228e554",
+        "query": null,
+        "positive_anchors": null
+      }
+    },
+    {
+      "query_id": "independent_02",
+      "frozen_selection": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Maresearsia praeclara",
+        "pages": [
+          120
+        ],
+        "example_chunk_id": "chunk_565",
+        "source_items": [
+          {
+            "item_ref": "#/tables/10",
+            "page": 120,
+            "bbox": {
+              "l": 51.113677978515625,
+              "t": 542.57763671875,
+              "r": 560.7642822265625,
+              "b": 431.93011474609375,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "frozen_draft_call": {
+        "query": "Maresearsia praeclara identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "reviewer": {
+        "id": "/root/fix_query_contracts",
+        "kind": "Codex team agent visual source review",
+        "human_or_domain_expert_review": false
+      },
+      "source": {
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "source_relative_path": "inputs/library/T/Totton1965a.pdf",
+        "source_basis": "Original source PDF copy, not processed PDF or chunk text; hash verified.",
+        "renderer": "PyMuPDF 1.28.0",
+        "render_scale": 2,
+        "pages": [
+          {
+            "physical_page": 120,
+            "page_size": [
+              610.5599975585938,
+              845.0399780273438
+            ],
+            "image_file": "8a4548d8d5d7-p120.png",
+            "image_sha256": "b5ce1d024623027b6f2ee99e7707c73f9ce663d3a078ef82a0dd9e4f3e09202c",
+            "native_locator_file": "8a4548d8d5d7-p120.txt",
+            "native_locator_sha256": "8269a396dd3ddd9cf14405d6aa556ea823a9c3b977cda633af4b6cb8d7eee0e5"
+          }
+        ]
+      },
+      "review_basis": "Previously completed visual review of original source PDF renders; native PDF text used only as a locator. No retrieval results were inspected.",
+      "selected_unit_retained": true,
+      "replacement_selected": false,
+      "decision": "source_verified_key_wrong_materialized_subject",
+      "scorable": true,
+      "source_subject": "Key to genera of Prayinae",
+      "printed_page": 115,
+      "source_observation": "The source heading identifies a key to genera of Prayinae. Within the branch for a simple somatocyst at the hydroecium surface, simple radial canals lead to Rosacea and branched radial canals lead to Prayoides.",
+      "materialized_subject_discrepancy": {
+        "stored": "Maresearsia praeclara",
+        "source": "Key to genera of Prayinae",
+        "status": "incorrect inherited treatment for this selected unit; mechanism not investigated"
+      },
+      "natural_query": "How do Rosacea and Prayoides differ in radial canals in Totton's key to the genera of Prayinae?",
+      "positive_targets": [
+        {
+          "id": "independent_02_rosacea_simple_canals",
+          "grade": 2,
+          "all_text": [
+            "radial canals simple",
+            "Rosacea"
+          ],
+          "review_status": "source_verified",
+          "paper_hash": "8a4548d8d5d7",
+          "pages": [
+            120
+          ],
+          "source": {
+            "sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+            "physical_pages": [
+              120
+            ],
+            "review_record": "reviewed_decisions.json#independent_02",
+            "review_basis": "Original source PDF render visually reviewed before retrieval; see record for image hash, selected region and context."
+          }
+        },
+        {
+          "id": "independent_02_prayoides_branched_canals",
+          "grade": 2,
+          "all_text": [
+            "radial canals branched",
+            "Prayoides"
+          ],
+          "review_status": "source_verified",
+          "paper_hash": "8a4548d8d5d7",
+          "pages": [
+            120
+          ],
+          "source": {
+            "sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+            "physical_pages": [
+              120
+            ],
+            "review_record": "reviewed_decisions.json#independent_02",
+            "review_basis": "Original source PDF render visually reviewed before retrieval; see record for image hash, selected region and context."
+          }
+        }
+      ]
+    },
+    {
+      "query_id": "independent_03",
+      "frozen_selection": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Key to  genera  or  AGALMIDAE",
+        "pages": [
+          57
+        ],
+        "example_chunk_id": "chunk_268",
+        "source_items": [
+          {
+            "item_ref": "#/tables/6",
+            "page": 57,
+            "bbox": {
+              "l": 48.91059875488281,
+              "t": 439.7445373535156,
+              "r": 557.84326171875,
+              "b": 286.76593017578125,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "frozen_draft_call": {
+        "query": "Key to  genera  or  AGALMIDAE identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "reviewer": {
+        "id": "/root/fix_query_contracts",
+        "kind": "Codex team agent visual source review",
+        "human_or_domain_expert_review": false
+      },
+      "source": {
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "source_relative_path": "inputs/library/T/Totton1965a.pdf",
+        "source_basis": "Original source PDF copy, not processed PDF or chunk text; hash verified.",
+        "renderer": "PyMuPDF 1.28.0",
+        "render_scale": 2,
+        "pages": [
+          {
+            "physical_page": 57,
+            "page_size": [
+              610.5599975585938,
+              847.6799926757812
+            ],
+            "image_file": "8a4548d8d5d7-p057.png",
+            "image_sha256": "82ab909908bc64719dfb67b12e42357a79485dc3412b4ab51c9deed723161486",
+            "native_locator_file": "8a4548d8d5d7-p057.txt",
+            "native_locator_sha256": "7bc8cb608aa1649f186bfb1db3732bad80f1ab9d72406fe7391815a64dd5ed4f"
+          }
+        ]
+      },
+      "review_basis": "Previously completed visual review of original source PDF renders; native PDF text used only as a locator. No retrieval results were inspected.",
+      "selected_unit_retained": true,
+      "replacement_selected": false,
+      "decision": "source_verified_key",
+      "scorable": true,
+      "source_subject": "Key to genera of Agalmidae",
+      "printed_page": 52,
+      "source_observation": "The key distinguishes Erenna by a very large cnidoband that is not spirally coiled, and Marrus by absence of a basal involucrum. A later Nanomia branch describes small mature specimens with gonodendra in pairs at the bases of a series of palpons and alternating sexes.",
+      "natural_query": "Which characters distinguish Erenna, Marrus and Nanomia in Totton's key to agalmid genera?",
+      "positive_targets": [
+        {
+          "id": "independent_03_erenna_cnidoband",
+          "grade": 2,
+          "all_text": [
+            "Cnidoband very large",
+            "not spirally coiled",
+            "Erenna"
+          ],
+          "review_status": "source_verified",
+          "paper_hash": "8a4548d8d5d7",
+          "pages": [
+            57
+          ],
+          "source": {
+            "sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+            "physical_pages": [
+              57
+            ],
+            "review_record": "reviewed_decisions.json#independent_03",
+            "review_basis": "Original source PDF render visually reviewed before retrieval; see record for image hash, selected region and context."
+          }
+        },
+        {
+          "id": "independent_03_marrus_involucrum",
+          "grade": 2,
+          "all_text": [
+            "Cnidoband without basal involucrum",
+            "Marrus"
+          ],
+          "review_status": "source_verified",
+          "paper_hash": "8a4548d8d5d7",
+          "pages": [
+            57
+          ],
+          "source": {
+            "sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+            "physical_pages": [
+              57
+            ],
+            "review_record": "reviewed_decisions.json#independent_03",
+            "review_basis": "Original source PDF render visually reviewed before retrieval; see record for image hash, selected region and context."
+          }
+        }
+      ],
+      "grading_limit": "Either labelled branch is useful answer-bearing evidence, not proof that the entire three-genus comparison or full key was recovered. Nanomia is not given a separate matching target in this compact record."
+    },
+    {
+      "query_id": "independent_04",
+      "frozen_selection": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Polygastric phase",
+        "pages": [
+          153
+        ],
+        "example_chunk_id": "chunk_735",
+        "source_items": [
+          {
+            "item_ref": "#/tables/14",
+            "page": 153,
+            "bbox": {
+              "l": 86.59595489501953,
+              "t": 616.3483123779297,
+              "r": 520.32861328125,
+              "b": 531.088623046875,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "frozen_draft_call": {
+        "query": "Polygastric phase identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "reviewer": {
+        "id": "/root/fix_query_contracts",
+        "kind": "Codex team agent visual source review",
+        "human_or_domain_expert_review": false
+      },
+      "source": {
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "source_relative_path": "inputs/library/T/Totton1965a.pdf",
+        "source_basis": "Original source PDF copy, not processed PDF or chunk text; hash verified.",
+        "renderer": "PyMuPDF 1.28.0",
+        "render_scale": 2,
+        "pages": [
+          {
+            "physical_page": 153,
+            "page_size": [
+              612.47998046875,
+              845.760009765625
+            ],
+            "image_file": "8a4548d8d5d7-p153.png",
+            "image_sha256": "2e3da4f62139f8146330b6c45f38f2454d04fc99c5ad8902b3135f37419042e1",
+            "native_locator_file": "8a4548d8d5d7-p153.txt",
+            "native_locator_sha256": "71419754d8369edd562f723a7af1c2fc12a9f0a02e4a821a0333a222b77d3c90"
+          }
+        ]
+      },
+      "review_basis": "Previously completed visual review of original source PDF renders; native PDF text used only as a locator. No retrieval results were inspected.",
+      "selected_unit_retained": true,
+      "replacement_selected": false,
+      "decision": "unscorable_false_identification_key",
+      "scorable": false,
+      "source_subject": "Nematocyst measurements; organism treatment not adjudicated",
+      "printed_page": 148,
+      "source_observation": "The selected numbered table lists three nematocyst groups with length and diameter columns: large ensiform, small paliform, and small pyriform forms. Its numbers identify measurement rows, not alternative character branches or taxonomic destinations.",
+      "natural_query": null,
+      "positive_targets": [],
+      "review_limit": "This descriptive scientific table could support a different prose question, but is retained as an unscorable false key in the frozen diagnostic/key sample. The organism is not inferred from nearby figure captions. Original page 152 was inspected only as adjacent context."
+    },
+    {
+      "query_id": "independent_05",
+      "frozen_selection": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "diagnosis",
+        "subject": "Rosacea cymbiformis",
+        "pages": [
+          130
+        ],
+        "example_chunk_id": "chunk_620",
+        "source_items": [
+          {
+            "item_ref": "#/texts/2047",
+            "page": 130,
+            "bbox": {
+              "l": 62.20194476099136,
+              "t": 731.0292246207413,
+              "r": 556.2948339336651,
+              "b": 706.896333916029,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              156
+            ]
+          }
+        ]
+      },
+      "frozen_draft_call": {
+        "query": "Rosacea cymbiformis diagnosis",
+        "k": 5,
+        "with_text": true
+      },
+      "reviewer": {
+        "id": "/root/fix_query_contracts",
+        "kind": "Codex team agent visual source review",
+        "human_or_domain_expert_review": false
+      },
+      "source": {
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "source_relative_path": "inputs/library/T/Totton1965a.pdf",
+        "source_basis": "Original source PDF copy, not processed PDF or chunk text; hash verified.",
+        "renderer": "PyMuPDF 1.28.0",
+        "render_scale": 2,
+        "pages": [
+          {
+            "physical_page": 130,
+            "page_size": [
+              605.280029296875,
+              841.6799926757812
+            ],
+            "image_file": "8a4548d8d5d7-p130.png",
+            "image_sha256": "ea36d2d81e95a51deaad19872f762b6de90ce6fc093b4bc6c97189519af1809d",
+            "native_locator_file": "8a4548d8d5d7-p130.txt",
+            "native_locator_sha256": "9c1a9a3bbe74a3832030dbe27fab27b091fcaf6341ff52a008a13bdd584ab7df"
+          }
+        ]
+      },
+      "review_basis": "Previously completed visual review of original source PDF renders; native PDF text used only as a locator. No retrieval results were inspected.",
+      "selected_unit_retained": true,
+      "replacement_selected": false,
+      "decision": "source_verified_diagnosis_wrong_materialized_subject",
+      "scorable": true,
+      "source_subject": "Prayoides",
+      "printed_page": 125,
+      "source_observation": "The diagnosis describes prayines with a simple, unbranched somatocyst and branched subumbral radial canals. Original physical page 129 ends with the genus heading PRAYOIDES; its treatment continues onto page 130, which then names the single species Prayoides intermedia.",
+      "materialized_subject_discrepancy": {
+        "stored": "Rosacea cymbiformis",
+        "source": "Prayoides",
+        "status": "incorrect inherited treatment for this selected unit; mechanism not investigated"
+      },
+      "natural_query": "What somatocyst and radial-canal characters diagnose Prayoides in Totton's treatment?",
+      "positive_targets": [
+        {
+          "id": "independent_05_prayoides_diagnosis",
+          "grade": 2,
+          "all_text": [
+            "simple, unbranched somatocyst",
+            "branched subumbral"
+          ],
+          "review_status": "source_verified",
+          "paper_hash": "8a4548d8d5d7",
+          "pages": [
+            130
+          ],
+          "source": {
+            "sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+            "physical_pages": [
+              130
+            ],
+            "review_record": "reviewed_decisions.json#independent_05",
+            "review_basis": "Original source PDF render visually reviewed before retrieval; see record for image hash, selected region and context."
+          }
+        }
+      ],
+      "context_source": {
+        "physical_page": 129,
+        "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+        "render_scale": 2,
+        "page_size": [
+          610.5599975585938,
+          844.7999877929688
+        ],
+        "image_file": "8a4548d8d5d7-p129-context.png",
+        "image_sha256": "b5215a9dfd9c94c02335acc58eb1dbd18e4bde19aa6e7730600ba08e8df7a77e",
+        "purpose": "Adjacent original source context only; not another selected unit or replacement"
+      },
+      "grading_limit": "The preceding page establishes genus context; only the selected physical page 130 supplies the answer-bearing diagnostic target."
+    }
+  ],
+  "limits": [
+    "These are five completed source review decisions, serialized without further source review or producer diagnosis.",
+    "The three usable queries all come from one paper. They do not satisfy the predefined ten-query/five-paper acceptance minimum.",
+    "Both false keys remain in the frozen selection with no query or positive target; no easier units were substituted.",
+    "Two wrong stored treatment names are preserved alongside source-correct subjects. Build artifacts and frozen selection were not repaired.",
+    "This file is a decision record, not a replacement capture manifest. The original sample remains byte-identical and contains draft queries.",
+    "No retrieval results, hit rates, ranking comparison, OCR, model execution or new tests are represented by this consolidation."
+  ]
+}

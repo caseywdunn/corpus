@@ -1,0 +1,478 @@
+{
+  "status": "pass",
+  "scope": "Complete35-document gold chunk/vector/MCP propagation and bounded figure delivery; not full deployment retrieval, overall source fidelity or output precision.",
+  "receipt": {
+    "path": "run-2/serving-receipt.json",
+    "sha256": "ca8a0f3d5626d22f22ac814b65a918467ad3ce4db8d51035595602df0ae6aeef"
+  },
+  "verifier": {
+    "path": "verify-served.py",
+    "sha256": "5dedabe27279a857404a053e47141897056856c4191d15a771576a725192df20",
+    "executed_byte_identical_copy": true,
+    "run_arguments": [
+      "--gold",
+      "/tmp/corpus-v15-acceptance/gold",
+      "--repo",
+      "/tmp/corpus-correctness-validation",
+      "--expectations",
+      "/tmp/corpus-gold-serving-verification-20260922/expectations.frozen.json",
+      "--out",
+      "/tmp/corpus-gold-serving-verification-20260922/run-2"
+    ]
+  },
+  "code_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+  "bundle_revision": "7b4343f7c466d091568132203db169e9126f14ee",
+  "completed_at": "2026-09-22T17:40:08.204705+00:00",
+  "inputs": {
+    "all_verified": 39,
+    "pdf_documents": 35,
+    "supporting_files": 4,
+    "input_receipt_sha256": "059b15bf1a681c14b655e21d97463f7df43fa108b9e868ee295771e5f34837f0"
+  },
+  "vectors": {
+    "rows": 3336,
+    "dimension": 1024,
+    "table_version_before": 36,
+    "table_version_after": 36,
+    "all_rows_unique": true,
+    "exact_build_payloads": true,
+    "all_finite_and_nonzero": true,
+    "all_current_generation_and_producer_markers_valid": true,
+    "row_checks_sha256": "fdbe2024e4f7dd0251e9bb59aed40d4b1bcd465d1fcd1326dea79d601b846a6a",
+    "embedding_markers_sha256": "1287611a6bb762fcee78730296d5aa59adbb4c1867d4a7e5c1ab421dab995abf"
+  },
+  "mcp": {
+    "transport": "stdio",
+    "papers": 35,
+    "chunk_calls": 152,
+    "rows": 3336,
+    "all_rows_exact": true,
+    "batch_size_cap": 25,
+    "response_max_bytes": 524288,
+    "largest_response_bytes": 257019
+  },
+  "scientific_expression_propagation": {
+    "expectations_sha256": "ceb32187823ec04d91aef2d220f381d2cf43e4b1f3582ce4113d4b704b416282",
+    "review_results_sha256": "f99a3d716efdd1135f5c0c6cb1a743b66d90b2e48fe849d617de7104f35c2c0a",
+    "source_labels_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+    "positive_cases_passed": 14,
+    "positive_papers": 8,
+    "source_review_total": 24,
+    "cases": [
+      {
+        "sample_number": 1,
+        "source_review_id": "1a75487cf77c",
+        "paper_hash": "2da3e5f7da3c",
+        "source_item_refs": [
+          "#/texts/126"
+        ],
+        "served_chunk_ids": [
+          "chunk_88"
+        ]
+      },
+      {
+        "sample_number": 2,
+        "source_review_id": "27e85acb1db6",
+        "paper_hash": "2da3e5f7da3c",
+        "source_item_refs": [
+          "#/texts/67"
+        ],
+        "served_chunk_ids": [
+          "chunk_37"
+        ]
+      },
+      {
+        "sample_number": 4,
+        "source_review_id": "55a1eb90fba6",
+        "paper_hash": "726d507fcca4",
+        "source_item_refs": [
+          "#/texts/28"
+        ],
+        "served_chunk_ids": [
+          "chunk_10"
+        ]
+      },
+      {
+        "sample_number": 5,
+        "source_review_id": "0278e9920e8f",
+        "paper_hash": "8a4548d8d5d7",
+        "source_item_refs": [
+          "#/texts/1763"
+        ],
+        "served_chunk_ids": [
+          "chunk_541"
+        ]
+      },
+      {
+        "sample_number": 6,
+        "source_review_id": "03a66f71be61",
+        "paper_hash": "8a4548d8d5d7",
+        "source_item_refs": [
+          "#/texts/2588"
+        ],
+        "served_chunk_ids": [
+          "chunk_816"
+        ]
+      },
+      {
+        "sample_number": 7,
+        "source_review_id": "097ce324791d",
+        "paper_hash": "8a4548d8d5d7",
+        "source_item_refs": [
+          "#/texts/1370"
+        ],
+        "served_chunk_ids": [
+          "chunk_406"
+        ]
+      },
+      {
+        "sample_number": 8,
+        "source_review_id": "2af9bc6e317b",
+        "paper_hash": "726d507fcca4",
+        "source_item_refs": [
+          "#/texts/112"
+        ],
+        "served_chunk_ids": [
+          "chunk_51"
+        ]
+      },
+      {
+        "sample_number": 9,
+        "source_review_id": "00c7b77f7882",
+        "paper_hash": "9c0af2a4e494",
+        "source_item_refs": [
+          "#/texts/489"
+        ],
+        "served_chunk_ids": [
+          "chunk_120"
+        ]
+      },
+      {
+        "sample_number": 11,
+        "source_review_id": "0402e706ecdd",
+        "paper_hash": "79bcb551c1f1",
+        "source_item_refs": [
+          "#/texts/33"
+        ],
+        "served_chunk_ids": [
+          "chunk_9"
+        ]
+      },
+      {
+        "sample_number": 14,
+        "source_review_id": "0199789c3c2a",
+        "paper_hash": "d183f5012c54",
+        "source_item_refs": [
+          "#/tables/0"
+        ],
+        "served_chunk_ids": [
+          "chunk_45"
+        ]
+      },
+      {
+        "sample_number": 18,
+        "source_review_id": "092a36f1b337",
+        "paper_hash": "9c0af2a4e494",
+        "source_item_refs": [
+          "#/texts/11"
+        ],
+        "served_chunk_ids": [
+          "chunk_10"
+        ]
+      },
+      {
+        "sample_number": 19,
+        "source_review_id": "0cd75bab08f6",
+        "paper_hash": "9c0af2a4e494",
+        "source_item_refs": [
+          "#/texts/61"
+        ],
+        "served_chunk_ids": [
+          "chunk_25"
+        ]
+      },
+      {
+        "sample_number": 23,
+        "source_review_id": "050303cabca3",
+        "paper_hash": "af5655bdeaae",
+        "source_item_refs": [
+          "#/texts/83"
+        ],
+        "served_chunk_ids": [
+          "chunk_18"
+        ]
+      },
+      {
+        "sample_number": 24,
+        "source_review_id": "067dcf253503",
+        "paper_hash": "cb1834694c26",
+        "source_item_refs": [
+          "#/texts/119"
+        ],
+        "served_chunk_ids": [
+          "chunk_23"
+        ]
+      }
+    ],
+    "outside_positive_checks": [
+      {
+        "sample_number": 3,
+        "chunk_status": "omitted"
+      },
+      {
+        "sample_number": 10,
+        "chunk_status": "excluded_by_source_page_selection"
+      },
+      {
+        "sample_number": 12,
+        "chunk_status": "excluded_by_source_page_selection"
+      },
+      {
+        "sample_number": 13,
+        "chunk_status": "omitted"
+      },
+      {
+        "sample_number": 15,
+        "chunk_status": "excluded_by_source_page_selection"
+      },
+      {
+        "sample_number": 16,
+        "chunk_status": "corrupted"
+      },
+      {
+        "sample_number": 17,
+        "chunk_status": "fidelity_indeterminate"
+      },
+      {
+        "sample_number": 20,
+        "chunk_status": "excluded_by_source_page_selection"
+      },
+      {
+        "sample_number": 21,
+        "chunk_status": "unscorable_source"
+      },
+      {
+        "sample_number": 22,
+        "chunk_status": "omitted"
+      }
+    ],
+    "claim_limit": "14/14 is propagation of selected already-approved current expressions, not source recall or scientific precision; source omissions/corruption/indeterminate/excluded/unscorable outcomes remain unchanged."
+  },
+  "figures": [
+    {
+      "paper_hash": "02049c8322a1",
+      "figure_id": "docling_1",
+      "publication_clearance": "no_record",
+      "profiles": {
+        "manuscript": {
+          "status": "refused",
+          "structured_denial": {
+            "code": "forbidden",
+            "profile": "manuscript",
+            "publication_clearance": "no_record",
+            "license_source": "unknown"
+          }
+        },
+        "report": {
+          "status": "delivered",
+          "sha256": "80f70b87d3af551a8122fbb8467d4c98c40a1fa5b6587bb7b3c2940e5d568db1",
+          "bytes": 57582,
+          "size": [
+            1157,
+            1218
+          ],
+          "equal_to_bundle": true
+        }
+      }
+    },
+    {
+      "paper_hash": "1648cd91e973",
+      "figure_id": "docling_10",
+      "publication_clearance": "licensed_open",
+      "profiles": {
+        "manuscript": {
+          "status": "delivered",
+          "sha256": "74f5ea687a0b217760cfb3e6f614ccbccba50fc53aeb56c50e50f1d79b4df16f",
+          "bytes": 901742,
+          "size": [
+            1783,
+            2113
+          ],
+          "equal_to_bundle": true
+        },
+        "report": {
+          "status": "delivered",
+          "sha256": "74f5ea687a0b217760cfb3e6f614ccbccba50fc53aeb56c50e50f1d79b4df16f",
+          "bytes": 901742,
+          "size": [
+            1783,
+            2113
+          ],
+          "equal_to_bundle": true
+        }
+      }
+    },
+    {
+      "paper_hash": "2da3e5f7da3c",
+      "figure_id": "docling_10",
+      "publication_clearance": "no_record",
+      "profiles": {
+        "manuscript": {
+          "status": "refused",
+          "structured_denial": {
+            "code": "forbidden",
+            "profile": "manuscript",
+            "publication_clearance": "no_record",
+            "license_source": "unknown"
+          }
+        },
+        "report": {
+          "status": "delivered",
+          "sha256": "9f7d252b7a1cb94d2ed63d351fdfb240a6a5bca40fd5eb8374db07c3df80d005",
+          "bytes": 98804,
+          "size": [
+            1489,
+            960
+          ],
+          "equal_to_bundle": true
+        }
+      }
+    },
+    {
+      "paper_hash": "34712b25bc52",
+      "figure_id": "docling_1",
+      "publication_clearance": "no_record",
+      "profiles": {
+        "manuscript": {
+          "status": "refused",
+          "structured_denial": {
+            "code": "forbidden",
+            "profile": "manuscript",
+            "publication_clearance": "no_record",
+            "license_source": "unknown"
+          }
+        },
+        "report": {
+          "status": "delivered",
+          "sha256": "04fbcd62aff050b42fca19e28fb15e21823f36586f3068851dd0367b61523afa",
+          "bytes": 785750,
+          "size": [
+            2052,
+            2128
+          ],
+          "equal_to_bundle": true
+        }
+      }
+    },
+    {
+      "paper_hash": "355362e39e58",
+      "figure_id": "docling_1",
+      "publication_clearance": "no_record",
+      "profiles": {
+        "manuscript": {
+          "status": "refused",
+          "structured_denial": {
+            "code": "forbidden",
+            "profile": "manuscript",
+            "publication_clearance": "no_record",
+            "license_source": "unknown"
+          }
+        },
+        "report": {
+          "status": "delivered",
+          "sha256": "5397dc5de5551c50168296c33d613417808755228114bb7ec619e989205cbc16",
+          "bytes": 410271,
+          "size": [
+            1402,
+            1581
+          ],
+          "equal_to_bundle": true
+        }
+      }
+    },
+    {
+      "paper_hash": "6307a3c5f85a",
+      "figure_id": "docling_2",
+      "publication_clearance": "no_record",
+      "profiles": {
+        "manuscript": {
+          "status": "refused",
+          "structured_denial": {
+            "code": "forbidden",
+            "profile": "manuscript",
+            "publication_clearance": "no_record",
+            "license_source": "unknown"
+          }
+        },
+        "report": {
+          "status": "delivered",
+          "sha256": "42432de2186d9b8827955ef85e6d2151b19538cb553c06d0ffc9949606a2c244",
+          "bytes": 344949,
+          "size": [
+            2303,
+            3382
+          ],
+          "equal_to_bundle": true
+        }
+      }
+    }
+  ],
+  "figure_counts": {
+    "metadata": 6,
+    "report_delivered": 6,
+    "manuscript_delivered": 1,
+    "manuscript_refused": 5
+  },
+  "unchanged_resume_semantic_comparison": {
+    "status": "pass",
+    "rows_directly_compared": 3336,
+    "all_keys_text_typed_metadata_vectors_and_generations_equal": true,
+    "bundle_table_version_before": 36,
+    "bundle_table_version_after": 36,
+    "resumed_build_table_version_before": 37,
+    "resumed_build_table_version_after": 37,
+    "strict_file_hash_resume_unchanged": false,
+    "strict_before_receipt_sha256": "df05244cfcd8869a251a4aabab3f5cf97fbb1ba8b09eacb7d226b94d9f5aeb8f",
+    "strict_after_receipt_sha256": "2da5abbcd6642463178916ac0a00b8764875110e0f54817cbd02101b1e73232e",
+    "strict_receipt_preserved_without_changes": true,
+    "changed_file_paths": [
+      "vector_db/lancedb/document_chunks.lance/_transactions/36-8c2868eb-c335-45df-a92b-a88bce32d745.txn",
+      "vector_db/lancedb/document_chunks.lance/_versions/18446744073709551578.manifest",
+      "vector_db/lancedb/document_chunks.lance/_versions/latest_version_hint.json"
+    ],
+    "changed_files_are_lance_transaction_bookkeeping_only": true,
+    "interpretation": "Semantic row equality is proved independently. Strict file-byte resume equality remains false when Lance commits bookkeeping; no document, marker or vector data-file difference is suppressed.",
+    "row_comparison_sha256": "3ff912ecd805a260261232a8bf0a6e7c19a3edc32b08e81ff3d44f7f92c9c302"
+  },
+  "bundle_read_only": {
+    "unchanged": true,
+    "before_inventory_sha256": "f84b9d91a01c3ef7be332b57a95dc52ef66c71e80b445e1911e9d1e29697fe81",
+    "after_inventory_sha256": "f84b9d91a01c3ef7be332b57a95dc52ef66c71e80b445e1911e9d1e29697fe81"
+  },
+  "preserved_initial_harness_failure": {
+    "receipt": "run-1/serving-receipt.json",
+    "sha256": "881fbdea0f61dfa9b5af25aabbdaf6259bee0043e867efc65877e40204dd9ac0",
+    "reason": "Old pilot text-block decoder collapsed a one-row get_chunks list into an object after135calls. Actual SDK structuredContent.result retained its list. Corrected only scratch decoder and repeated in fresh run-2; no product change or rewritten failure evidence.",
+    "script_sha256": "88bd04a53215bac8e04f98477f85bc1a86e585e36e55291bdadb233abc3f77c3",
+    "successful_mcp_tool_calls_before_decode_failure": 135
+  },
+  "limits": [
+    "No model inference or semantic query",
+    "Finite nonzero vectors plus producer receipts do not independently prove semantic quality",
+    "Only source-reviewed present scientific occurrences are checked; omitted/corrupted/unscorable review cases remain in their source review denominator",
+    "Figure selection is a bounded contract replay, not exhaustive caption/rights/source-image acceptance",
+    "Report-profile delivery does not establish republication permission"
+  ],
+  "raw_evidence_root": "/tmp/corpus-gold-serving-verification-20260922",
+  "raw_evidence_policy": "Complete3336-row checks, marker copies, logs, inventories and MCP raw responses remain in scratch; this committed summary is the compact measured acceptance record.",
+  "frozen_expectations": {
+    "path": "serving-expectations.frozen.json",
+    "sha256": "ceb32187823ec04d91aef2d220f381d2cf43e4b1f3582ce4113d4b704b416282",
+    "byte_identical_to_executed_input": true
+  },
+  "reproduction_notes": [
+    "The verifier and expectation manifest are byte-identical to the successful run, including original scratch paths. Their recorded code revision was7b4343f; use that code for exact reproduction.",
+    "For a new environment, supply its gold/repo/out CLI paths and prepare a new expectation manifest that points to byte-identical source-review files at the pinned origin_git_revision/origin_repo_path. Retain the original committed manifest unchanged; a rerun is a new capture with its own manifest hash.",
+    "The35PDF plus4support inputs are pinned by the companion gold phase/input receipts. Do not use an incomplete build or infer semantic ranking quality from this propagation check."
+  ]
+}

@@ -1,0 +1,1099 @@
+{
+  "scope": "Only frozen fixed audit/control positive targets; independent targets/outcomes untouched. Exact normalized anchor matching is a known-target availability check, not exhaustive semantic source grading.",
+  "manifest_file_sha256": "c56207d4335861e33ce90d5c599e0abe5a3e2379e9355ccb3e610b41b1259b07",
+  "evaluator_file_sha256": "f7e4da7f5751d7cc226fa3cd0b2e03a51a4ad1f3ef742ccf7dc7dd019bf6b4a1",
+  "method": "Each complete retained target-paper chunks.json scanned with production evaluation target_match after identical enrich_rows provenance projection. No model or query call.",
+  "artifacts": {
+    "1648cd91e973": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/1648cd91e973/chunks.json",
+      "sha256": "a4785f636498d1e1017b0dc0c5e469f17f2b4f6b8010147aaa28a179d430b39b",
+      "chunk_count": 133
+    },
+    "a0acf5935174": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/a0acf5935174/chunks.json",
+      "sha256": "b910aac6858f4db189c7227227e13cbade4ee9e4084b66df48e6dbc8bd9d892d",
+      "chunk_count": 174
+    },
+    "da370f1e0434": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/da370f1e0434/chunks.json",
+      "sha256": "5ecd8a133adb0bc4a136886688a45499c50a43ae43cab4a15efa25b36c9240a1",
+      "chunk_count": 168
+    },
+    "c9e7e8ae50a2": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/c9e7e8ae50a2/chunks.json",
+      "sha256": "3a157888374c60d94d81a855cea87c0c9a6ae3c27b96d0eb210a41b698586ac5",
+      "chunk_count": 168
+    },
+    "c887fb198ebc": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/c887fb198ebc/chunks.json",
+      "sha256": "95d8442e99252c365fb151bb96f8db32c1ab0da22b4ef8866102bbc04b988b63",
+      "chunk_count": 608
+    },
+    "5e74ac01e8ac": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/5e74ac01e8ac/chunks.json",
+      "sha256": "be1c2db0302692643dc682d548ae59bc0644fcf640566dcf436ef41d571f66c2",
+      "chunk_count": 38
+    },
+    "ffc7ebff40b4": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/ffc7ebff40b4/chunks.json",
+      "sha256": "2a2228aee3baad9dc03cb821a21b962fba09dd55a6b4afae1c1dde5e81503cc0",
+      "chunk_count": 9
+    },
+    "1409a2155981": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/1409a2155981/chunks.json",
+      "sha256": "0766960b58ef6ce9372f9800da76713ea4f30dc4698d1696ebcef87b511c5d6c",
+      "chunk_count": 62
+    },
+    "3507422334c6": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/3507422334c6/chunks.json",
+      "sha256": "863240cc2fcb3103f97ddb77766b8e51a4a3fcc8207ba8862bd28599a4469cbc",
+      "chunk_count": 129
+    },
+    "bc251c7a6346": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/bc251c7a6346/chunks.json",
+      "sha256": "a22e900e8334ff9aebeb6eb07a3497bfd6f1364539cf6f30ff72dfa58119bdb6",
+      "chunk_count": 103
+    },
+    "b4425fd6ae7a": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/b4425fd6ae7a/chunks.json",
+      "sha256": "e55198d808b5f106cb313525deb8aec8babbe99f42be57ede5c47ab31a0fd878",
+      "chunk_count": 1568
+    },
+    "b4146be29447": {
+      "path": "/home/claude/corpuscles/siphonophore_20260831/_serve/documents/b4146be29447/chunks.json",
+      "sha256": "882cc02a40cbfeca3c2a8f04c29457f5cd0a00407e83657fafc2126bcdab0220",
+      "chunk_count": 1106
+    }
+  },
+  "limitations": [
+    "An absent exact anchor can reflect extraction damage, different wording or splitting; this check alone does not distinguish those causes.",
+    "This does not grade unlabelled alternative answers or alter frozen labels.",
+    "Actual index consistency is separately proven in index-consistency.json."
+  ],
+  "queries": [
+    {
+      "query_id": "audit_01",
+      "group": "audit",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "target_keys": [
+        "1648cd91e973/nanomia_palpon_comparison",
+        "1648cd91e973/nanomia_nectophore_comparison"
+      ]
+    },
+    {
+      "query_id": "audit_02",
+      "group": "audit",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "target_keys": [
+        "1648cd91e973/nanomia_palpon_comparison",
+        "1648cd91e973/nanomia_nectophore_comparison"
+      ]
+    },
+    {
+      "query_id": "audit_03",
+      "group": "audit",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "target_keys": [
+        "1648cd91e973/nanomia_palpon_comparison",
+        "1648cd91e973/nanomia_nectophore_comparison"
+      ]
+    },
+    {
+      "query_id": "audit_04",
+      "group": "audit",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "target_keys": [
+        "a0acf5935174/physalia_minuta_diagnosis"
+      ]
+    },
+    {
+      "query_id": "audit_05",
+      "group": "audit",
+      "positive_targets": 10,
+      "available_targets": 9,
+      "target_keys": [
+        "da370f1e0434/erenna_nectophore_key_branch",
+        "da370f1e0434/erenna_nectophore_richardi_branch",
+        "da370f1e0434/erenna_nectophore_sirena_branch",
+        "da370f1e0434/erenna_nectophore_laciniata_branch",
+        "da370f1e0434/erenna_nectophore_insidiator_branch",
+        "da370f1e0434/erenna_bract_key_branch",
+        "da370f1e0434/erenna_bract_insidiator_branch",
+        "da370f1e0434/erenna_bract_laciniata_branch",
+        "da370f1e0434/erenna_bract_richardi_branch",
+        "da370f1e0434/erenna_bract_sirena_branch"
+      ]
+    },
+    {
+      "query_id": "audit_06",
+      "group": "audit",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "target_keys": [
+        "c9e7e8ae50a2/apolemia_lanosa_diagnosis"
+      ]
+    },
+    {
+      "query_id": "audit_07",
+      "group": "audit",
+      "positive_targets": 5,
+      "available_targets": 4,
+      "target_keys": [
+        "da370f1e0434/erenna_bract_key_branch",
+        "da370f1e0434/erenna_bract_insidiator_branch",
+        "da370f1e0434/erenna_bract_laciniata_branch",
+        "da370f1e0434/erenna_bract_richardi_branch",
+        "da370f1e0434/erenna_bract_sirena_branch"
+      ]
+    },
+    {
+      "query_id": "prose_01",
+      "group": "prose_control",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "target_keys": [
+        "c887fb198ebc/pugh1983_gas_gland",
+        "5e74ac01e8ac/wittenberg1960_gas_gland"
+      ]
+    },
+    {
+      "query_id": "prose_02",
+      "group": "prose_control",
+      "positive_targets": 3,
+      "available_targets": 3,
+      "target_keys": [
+        "ffc7ebff40b4/haddock2005_lure_inference",
+        "ffc7ebff40b4/haddock2005_fish_lures",
+        "1409a2155981/haddock2017_erenna_lures"
+      ]
+    },
+    {
+      "query_id": "prose_03",
+      "group": "prose_control",
+      "positive_targets": 3,
+      "available_targets": 3,
+      "target_keys": [
+        "3507422334c6/grossmann2014_somatocyst_storage",
+        "bc251c7a6346/pugh2018_somatocyst_hypotheses",
+        "bc251c7a6346/pugh2018_buoyancy_caveat"
+      ]
+    },
+    {
+      "query_id": "historical_01",
+      "group": "historical_control",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "target_keys": [
+        "b4425fd6ae7a/daniel1974_epibulia_names"
+      ]
+    },
+    {
+      "query_id": "historical_02",
+      "group": "historical_control",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "target_keys": [
+        "b4146be29447/daniel1985_kochi_branch"
+      ]
+    }
+  ],
+  "targets": {
+    "1648cd91e973/nanomia_palpon_comparison": {
+      "target_id": "nanomia_palpon_comparison",
+      "paper_hash": "1648cd91e973",
+      "target_pages": [
+        5
+      ],
+      "matching_chunk_ids": [
+        "chunk_33"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Without lipid droplet",
+          "chunk_ids": [
+            "chunk_33"
+          ]
+        },
+        {
+          "anchor": "With external proximal lipid droplet",
+          "chunk_ids": [
+            "chunk_33"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_33": "62af6d85a4c2de7703ce40db39052ee06e250473209fcd9c0a6343cd6027e5cd"
+      }
+    },
+    "1648cd91e973/nanomia_nectophore_comparison": {
+      "target_id": "nanomia_nectophore_comparison",
+      "paper_hash": "1648cd91e973",
+      "target_pages": [
+        5
+      ],
+      "matching_chunk_ids": [
+        "chunk_32"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Larger nectophores",
+          "chunk_ids": [
+            "chunk_32",
+            "chunk_56",
+            "chunk_60"
+          ]
+        },
+        {
+          "anchor": "along the upper-lower axis",
+          "chunk_ids": [
+            "chunk_12",
+            "chunk_32",
+            "chunk_58"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_32": "2a896d2ba0b36f76de2c90c1cb84ee775c5b66d098dfc2d92cfae3a54aeac5bc"
+      }
+    },
+    "a0acf5935174/physalia_minuta_diagnosis": {
+      "target_id": "physalia_minuta_diagnosis",
+      "paper_hash": "a0acf5935174",
+      "target_pages": [
+        7,
+        8
+      ],
+      "matching_chunk_ids": [
+        "chunk_53"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "small size at maturity",
+          "chunk_ids": [
+            "chunk_53"
+          ]
+        },
+        {
+          "anchor": "multiple principal tentacles",
+          "chunk_ids": [
+            "chunk_52",
+            "chunk_53"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_53": "c0bd35a40e6f033a7626f6ea946867b80646fa9f8802a886d3be39deba1aeb0c"
+      }
+    },
+    "da370f1e0434/erenna_nectophore_key_branch": {
+      "target_id": "erenna_nectophore_key_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        42
+      ],
+      "matching_chunk_ids": [
+        "chunk_151"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "canals arising from lateral radial canals",
+          "chunk_ids": [
+            "chunk_151"
+          ]
+        },
+        {
+          "anchor": "Erenna cornuta",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_9",
+            "chunk_54",
+            "chunk_56",
+            "chunk_58",
+            "chunk_59",
+            "chunk_61",
+            "chunk_64",
+            "chunk_65",
+            "chunk_66",
+            "chunk_67",
+            "chunk_69",
+            "chunk_72",
+            "chunk_74",
+            "chunk_77",
+            "chunk_78",
+            "chunk_89",
+            "chunk_146",
+            "chunk_151",
+            "chunk_155",
+            "chunk_157"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_151": "d671075ad1bbb085a16fc7b5d54487a53c9d4e864fe09ff0a3b7f664bb045714"
+      }
+    },
+    "da370f1e0434/erenna_nectophore_richardi_branch": {
+      "target_id": "erenna_nectophore_richardi_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        42
+      ],
+      "matching_chunk_ids": [
+        "chunk_152"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Incomplete lateral ridges present",
+          "chunk_ids": [
+            "chunk_152"
+          ]
+        },
+        {
+          "anchor": "Erenna richardi",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_12",
+            "chunk_14",
+            "chunk_15",
+            "chunk_18",
+            "chunk_19",
+            "chunk_20",
+            "chunk_24",
+            "chunk_27",
+            "chunk_29",
+            "chunk_31",
+            "chunk_32",
+            "chunk_39",
+            "chunk_60",
+            "chunk_130",
+            "chunk_148",
+            "chunk_152",
+            "chunk_156",
+            "chunk_161",
+            "chunk_165"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_152": "c6214e79c4b80ac812cbfc89ca83c190060f22703f6aa6ee9c2b7fcb3b771ad9"
+      }
+    },
+    "da370f1e0434/erenna_nectophore_sirena_branch": {
+      "target_id": "erenna_nectophore_sirena_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        42
+      ],
+      "matching_chunk_ids": [
+        "chunk_152"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "No lateral ridges",
+          "chunk_ids": [
+            "chunk_152"
+          ]
+        },
+        {
+          "anchor": "Erenna sirena",
+          "chunk_ids": [
+            "chunk_4",
+            "chunk_114",
+            "chunk_117",
+            "chunk_118",
+            "chunk_122",
+            "chunk_124",
+            "chunk_125",
+            "chunk_129",
+            "chunk_131",
+            "chunk_132",
+            "chunk_134",
+            "chunk_136",
+            "chunk_144",
+            "chunk_148",
+            "chunk_149",
+            "chunk_152",
+            "chunk_156"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_152": "c6214e79c4b80ac812cbfc89ca83c190060f22703f6aa6ee9c2b7fcb3b771ad9"
+      }
+    },
+    "da370f1e0434/erenna_nectophore_laciniata_branch": {
+      "target_id": "erenna_nectophore_laciniata_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        42
+      ],
+      "matching_chunk_ids": [
+        "chunk_152"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Thrust block consisting of one pair of",
+          "chunk_ids": [
+            "chunk_152"
+          ]
+        },
+        {
+          "anchor": "Erenna laciniata",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_34",
+            "chunk_35",
+            "chunk_36",
+            "chunk_40",
+            "chunk_51",
+            "chunk_52",
+            "chunk_57",
+            "chunk_147",
+            "chunk_148",
+            "chunk_150",
+            "chunk_152",
+            "chunk_155",
+            "chunk_157"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_152": "c6214e79c4b80ac812cbfc89ca83c190060f22703f6aa6ee9c2b7fcb3b771ad9"
+      }
+    },
+    "da370f1e0434/erenna_nectophore_insidiator_branch": {
+      "target_id": "erenna_nectophore_insidiator_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        42
+      ],
+      "matching_chunk_ids": [
+        "chunk_153"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Thrust block with two pairs of lobes",
+          "chunk_ids": [
+            "chunk_153"
+          ]
+        },
+        {
+          "anchor": "Erenna insidiator",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_91",
+            "chunk_92",
+            "chunk_93",
+            "chunk_98",
+            "chunk_100",
+            "chunk_102",
+            "chunk_103",
+            "chunk_105",
+            "chunk_109",
+            "chunk_131",
+            "chunk_146",
+            "chunk_147",
+            "chunk_153",
+            "chunk_155",
+            "chunk_160"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_153": "8f7672ffcffd203f52d8da54fa902002490af1b9ab2fb66c1501eee2790b9cbf"
+      }
+    },
+    "da370f1e0434/erenna_bract_key_branch": {
+      "target_id": "erenna_bract_key_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        44
+      ],
+      "matching_chunk_ids": [],
+      "anchor_occurrences": [
+        {
+          "anchor": "complete transverse ridge between proximal pair of cusps",
+          "chunk_ids": [
+            "chunk_154"
+          ]
+        },
+        {
+          "anchor": "Erenna cornuta",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_9",
+            "chunk_54",
+            "chunk_56",
+            "chunk_58",
+            "chunk_59",
+            "chunk_61",
+            "chunk_64",
+            "chunk_65",
+            "chunk_66",
+            "chunk_67",
+            "chunk_69",
+            "chunk_72",
+            "chunk_74",
+            "chunk_77",
+            "chunk_78",
+            "chunk_89",
+            "chunk_146",
+            "chunk_151",
+            "chunk_155",
+            "chunk_157"
+          ]
+        }
+      ],
+      "classification": "all_anchors_present_but_no_single_matching_chunk",
+      "matched_passage_sha256": {}
+    },
+    "da370f1e0434/erenna_bract_insidiator_branch": {
+      "target_id": "erenna_bract_insidiator_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        44
+      ],
+      "matching_chunk_ids": [
+        "chunk_155"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "without transverse ridge between proximal pair",
+          "chunk_ids": [
+            "chunk_155"
+          ]
+        },
+        {
+          "anchor": "Erenna insidiator",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_91",
+            "chunk_92",
+            "chunk_93",
+            "chunk_98",
+            "chunk_100",
+            "chunk_102",
+            "chunk_103",
+            "chunk_105",
+            "chunk_109",
+            "chunk_131",
+            "chunk_146",
+            "chunk_147",
+            "chunk_153",
+            "chunk_155",
+            "chunk_160"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_155": "4a6fea8f7eb98282c410a106dcc0b53cf9d2403746c46f925b975255b16b9203"
+      }
+    },
+    "da370f1e0434/erenna_bract_laciniata_branch": {
+      "target_id": "erenna_bract_laciniata_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        44
+      ],
+      "matching_chunk_ids": [
+        "chunk_155"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "forming a distinct flap",
+          "chunk_ids": [
+            "chunk_155"
+          ]
+        },
+        {
+          "anchor": "Erenna laciniata",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_34",
+            "chunk_35",
+            "chunk_36",
+            "chunk_40",
+            "chunk_51",
+            "chunk_52",
+            "chunk_57",
+            "chunk_147",
+            "chunk_148",
+            "chunk_150",
+            "chunk_152",
+            "chunk_155",
+            "chunk_157"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_155": "4a6fea8f7eb98282c410a106dcc0b53cf9d2403746c46f925b975255b16b9203"
+      }
+    },
+    "da370f1e0434/erenna_bract_richardi_branch": {
+      "target_id": "erenna_bract_richardi_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        44
+      ],
+      "matching_chunk_ids": [
+        "chunk_156"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Bracts relatively narrow",
+          "chunk_ids": [
+            "chunk_156"
+          ]
+        },
+        {
+          "anchor": "Erenna richardi",
+          "chunk_ids": [
+            "chunk_3",
+            "chunk_12",
+            "chunk_14",
+            "chunk_15",
+            "chunk_18",
+            "chunk_19",
+            "chunk_20",
+            "chunk_24",
+            "chunk_27",
+            "chunk_29",
+            "chunk_31",
+            "chunk_32",
+            "chunk_39",
+            "chunk_60",
+            "chunk_130",
+            "chunk_148",
+            "chunk_152",
+            "chunk_156",
+            "chunk_161",
+            "chunk_165"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_156": "906d656a0665ec92acd6c79288ccab0d50f7ba613b0224d188c3bd74c7139219"
+      }
+    },
+    "da370f1e0434/erenna_bract_sirena_branch": {
+      "target_id": "erenna_bract_sirena_branch",
+      "paper_hash": "da370f1e0434",
+      "target_pages": [
+        44
+      ],
+      "matching_chunk_ids": [
+        "chunk_156"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "pair of cusps distinctly asymmetrical",
+          "chunk_ids": [
+            "chunk_156"
+          ]
+        },
+        {
+          "anchor": "Erenna sirena",
+          "chunk_ids": [
+            "chunk_4",
+            "chunk_114",
+            "chunk_117",
+            "chunk_118",
+            "chunk_122",
+            "chunk_124",
+            "chunk_125",
+            "chunk_129",
+            "chunk_131",
+            "chunk_132",
+            "chunk_134",
+            "chunk_136",
+            "chunk_144",
+            "chunk_148",
+            "chunk_149",
+            "chunk_152",
+            "chunk_156"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_156": "906d656a0665ec92acd6c79288ccab0d50f7ba613b0224d188c3bd74c7139219"
+      }
+    },
+    "c9e7e8ae50a2/apolemia_lanosa_diagnosis": {
+      "target_id": "apolemia_lanosa_diagnosis",
+      "paper_hash": "c9e7e8ae50a2",
+      "target_pages": [
+        5
+      ],
+      "matching_chunk_ids": [
+        "chunk_25"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Large nectophores with patches of nematocysts",
+          "chunk_ids": [
+            "chunk_25"
+          ]
+        },
+        {
+          "anchor": "No distinct diverticula on lateral radial canals",
+          "chunk_ids": [
+            "chunk_25"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_25": "7c6b80f0ca95814ffe019d59886c4946a315dd75863ef48ceb91a32f9c36b33e"
+      }
+    },
+    "c887fb198ebc/pugh1983_gas_gland": {
+      "target_id": "pugh1983_gas_gland",
+      "paper_hash": "c887fb198ebc",
+      "target_pages": [
+        9
+      ],
+      "matching_chunk_ids": [
+        "chunk_23"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "pneumatosaccus called the pneumadenia or gas gland",
+          "chunk_ids": [
+            "chunk_23"
+          ]
+        },
+        {
+          "anchor": "secondary development of the ectodermal cells",
+          "chunk_ids": [
+            "chunk_23"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_23": "abd5e2c459c0f005e9550262365b652ac4d0ade797ce002800dbd590a85ba130"
+      }
+    },
+    "5e74ac01e8ac/wittenberg1960_gas_gland": {
+      "target_id": "wittenberg1960_gas_gland",
+      "paper_hash": "5e74ac01e8ac",
+      "target_pages": [
+        6
+      ],
+      "matching_chunk_ids": [
+        "chunk_27"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "pneumadena or gas gland",
+          "chunk_ids": [
+            "chunk_27"
+          ]
+        },
+        {
+          "anchor": "thin layer of ectodermal glandular cylindrical cells",
+          "chunk_ids": [
+            "chunk_27"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_27": "f1654d214aa5eb427a73d2ac1b0ae2d74f312e70e6b556c82fbfde5025c131d7"
+      }
+    },
+    "ffc7ebff40b4/haddock2005_lure_inference": {
+      "target_id": "haddock2005_lure_inference",
+      "paper_hash": "ffc7ebff40b4",
+      "target_pages": [
+        1
+      ],
+      "matching_chunk_ids": [
+        "chunk_4"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "siphonophore Erenna uses them as lures to attract fish",
+          "chunk_ids": [
+            "chunk_4"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_4": "d380c329b45f3eac42a5c5a926e29ee9a80d66c95da3e7aee43e62fb340fa147"
+      }
+    },
+    "ffc7ebff40b4/haddock2005_fish_lures": {
+      "target_id": "haddock2005_fish_lures",
+      "paper_hash": "ffc7ebff40b4",
+      "target_pages": [
+        1
+      ],
+      "matching_chunk_ids": [
+        "chunk_2"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "nonvisual Erenna",
+          "chunk_ids": [
+            "chunk_2"
+          ]
+        },
+        {
+          "anchor": "may act as lures for fish prey",
+          "chunk_ids": [
+            "chunk_2"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_2": "cd4c4e56c0be87a5d8e47e042182507df1bc7f394c70c5abc7c252a678b26b7c"
+      }
+    },
+    "1409a2155981/haddock2017_erenna_lures": {
+      "target_id": "haddock2017_erenna_lures",
+      "paper_hash": "1409a2155981",
+      "target_pages": [
+        8
+      ],
+      "matching_chunk_ids": [
+        "chunk_24"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "five species of the genus Erenna",
+          "chunk_ids": [
+            "chunk_24"
+          ]
+        },
+        {
+          "anchor": "lures on their tentacles to attract fish",
+          "chunk_ids": [
+            "chunk_24"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_24": "8337db9d078f10774f0f36f9461f9a33b7b917a1b61dc74fe7f81f68a1aa315a"
+      }
+    },
+    "3507422334c6/grossmann2014_somatocyst_storage": {
+      "target_id": "grossmann2014_somatocyst_storage",
+      "paper_hash": "3507422334c6",
+      "target_pages": [
+        16
+      ],
+      "matching_chunk_ids": [
+        "chunk_106"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "storage organs for lipid reserves",
+          "chunk_ids": [
+            "chunk_106"
+          ]
+        },
+        {
+          "anchor": "low food availability",
+          "chunk_ids": [
+            "chunk_106"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_106": "833065abf95f4fb3d619f4c6d1157541a617cea0d7065a3e47884c102829a43b"
+      }
+    },
+    "bc251c7a6346/pugh2018_somatocyst_hypotheses": {
+      "target_id": "pugh2018_somatocyst_hypotheses",
+      "paper_hash": "bc251c7a6346",
+      "target_pages": [
+        8
+      ],
+      "matching_chunk_ids": [
+        "chunk_41"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "nutritional storage",
+          "chunk_ids": [
+            "chunk_41"
+          ]
+        },
+        {
+          "anchor": "they may serve for buoyancy control",
+          "chunk_ids": [
+            "chunk_41"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_41": "be26f88288202c7d2c36acb21c784cf986379d090829f0d95e43c5d459def10f"
+      }
+    },
+    "bc251c7a6346/pugh2018_buoyancy_caveat": {
+      "target_id": "pugh2018_buoyancy_caveat",
+      "paper_hash": "bc251c7a6346",
+      "target_pages": [
+        9
+      ],
+      "matching_chunk_ids": [
+        "chunk_42"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "somatocyst is greatly reduced",
+          "chunk_ids": [
+            "chunk_42"
+          ]
+        },
+        {
+          "anchor": "difficult to ascribe a buoyancy function",
+          "chunk_ids": [
+            "chunk_42"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_42": "c3be3e03d52582a19609dfdfd04e8cc226b9d854da519fe11bd163e27cd67e0e"
+      }
+    },
+    "b4425fd6ae7a/daniel1974_epibulia_names": {
+      "target_id": "daniel1974_epibulia_names",
+      "paper_hash": "b4425fd6ae7a",
+      "target_pages": [
+        20
+      ],
+      "matching_chunk_ids": [
+        "chunk_130",
+        "chunk_232"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "Epibulia Eschscholtz, 1829",
+          "chunk_ids": [
+            "chunk_130",
+            "chunk_232"
+          ]
+        },
+        {
+          "anchor": "Haeckel, 1888",
+          "chunk_ids": [
+            "chunk_118",
+            "chunk_127",
+            "chunk_128",
+            "chunk_129",
+            "chunk_130",
+            "chunk_131",
+            "chunk_134",
+            "chunk_135",
+            "chunk_143",
+            "chunk_144",
+            "chunk_147",
+            "chunk_148",
+            "chunk_154",
+            "chunk_167",
+            "chunk_168",
+            "chunk_171",
+            "chunk_203",
+            "chunk_207",
+            "chunk_232",
+            "chunk_235",
+            "chunk_236",
+            "chunk_237",
+            "chunk_242",
+            "chunk_244",
+            "chunk_354",
+            "chunk_362",
+            "chunk_373",
+            "chunk_375",
+            "chunk_390",
+            "chunk_427",
+            "chunk_428",
+            "chunk_432",
+            "chunk_433",
+            "chunk_435",
+            "chunk_437",
+            "chunk_441",
+            "chunk_447",
+            "chunk_449",
+            "chunk_523",
+            "chunk_532",
+            "chunk_534",
+            "chunk_581",
+            "chunk_668",
+            "chunk_912",
+            "chunk_1075",
+            "chunk_1087",
+            "chunk_1090",
+            "chunk_1144"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_130": "e37f49eae7bba047990760637ccd31a883dd1f148cab5f78118839e645611606",
+        "chunk_232": "d24767f245e6de8c7ed0f7df8dd7bee09981f058de900af0ad22cfdc24a35eeb"
+      }
+    },
+    "b4146be29447/daniel1985_kochi_branch": {
+      "target_id": "daniel1985_kochi_branch",
+      "paper_hash": "b4146be29447",
+      "target_pages": [
+        271
+      ],
+      "matching_chunk_ids": [
+        "chunk_626"
+      ],
+      "anchor_occurrences": [
+        {
+          "anchor": "hydroecium sharply conical",
+          "chunk_ids": [
+            "chunk_626"
+          ]
+        },
+        {
+          "anchor": "kochi",
+          "chunk_ids": [
+            "chunk_101",
+            "chunk_109",
+            "chunk_170",
+            "chunk_625",
+            "chunk_626",
+            "chunk_627",
+            "chunk_966",
+            "chunk_992",
+            "chunk_1068",
+            "chunk_1102"
+          ]
+        }
+      ],
+      "classification": "available_in_complete_chunks",
+      "matched_passage_sha256": {
+        "chunk_626": "14749c8417297c4228026d346d5b0c3b0e5bbdcf33d3404658eace6fe70703ed"
+      }
+    }
+  }
+}

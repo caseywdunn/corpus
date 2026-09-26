@@ -80,8 +80,10 @@ def test_builtin_vocabulary_and_resolution():
 def test_strict_profile_refuses_unpublishable(tmp_path):
     idx, h = _make_index(tmp_path, publishable=False)
     mcp_app.set_index(idx)
-    with pytest.raises(ValueError, match="withheld under profile 'manuscript'"):
-        get_figure_image(h, "docling_1", profile="manuscript")
+    refused = get_figure_image(h, "docling_1", profile="manuscript")
+    assert refused.is_error
+    assert refused.structured_content["code"] == "forbidden"
+    assert refused.structured_content["profile"] == "manuscript"
 
 
 def test_permissive_profile_allows_unpublishable(tmp_path):
@@ -100,8 +102,9 @@ def test_default_fallback_is_permissive(tmp_path):
 def test_server_default_manuscript_gates_calls_without_profile(tmp_path):
     idx, h = _make_index(tmp_path, publishable=False, default_profile="manuscript")
     mcp_app.set_index(idx)
-    with pytest.raises(ValueError, match="withheld under profile"):
-        get_figure_image(h, "docling_1")  # falls back to strict default
+    refused = get_figure_image(h, "docling_1")  # falls back to strict default
+    assert refused.is_error
+    assert refused.structured_content["profile"] == "manuscript"
 
 
 def test_publishable_passes_strict(tmp_path):
@@ -110,11 +113,12 @@ def test_publishable_passes_strict(tmp_path):
     assert get_figure_image(h, "docling_1", profile="manuscript") is not None
 
 
-def test_unknown_profile_raises(tmp_path):
+def test_unknown_profile_returns_structured_refusal(tmp_path):
     idx, h = _make_index(tmp_path, publishable=True)
     mcp_app.set_index(idx)
-    with pytest.raises(ValueError, match="unknown profile"):
-        get_figure_image(h, "docling_1", profile="thesis")
+    refused = get_figure_image(h, "docling_1", profile="thesis")
+    assert refused.is_error
+    assert refused.structured_content["code"] == "invalid_argument"
 
 
 def test_per_call_profiles_are_independent_on_one_index(tmp_path):
@@ -123,8 +127,7 @@ def test_per_call_profiles_are_independent_on_one_index(tmp_path):
     idx, h = _make_index(tmp_path, publishable=False)
     mcp_app.set_index(idx)
     assert get_figure_image(h, "docling_1", profile="report") is not None
-    with pytest.raises(ValueError):
-        get_figure_image(h, "docling_1", profile="manuscript")
+    assert get_figure_image(h, "docling_1", profile="manuscript").is_error
 
 
 # --- get_figure_url --------------------------------------------------------

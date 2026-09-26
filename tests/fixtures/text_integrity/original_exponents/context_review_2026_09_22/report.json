@@ -1,0 +1,274 @@
+{
+  "purpose": "Experiment only: second source exponent plus first-exponent positive control; no production changes",
+  "source_pdf": "S/Stepanjants2014.pdf",
+  "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+  "physical_page": 8,
+  "baseline_capture_sha256": "27f3e7fe101fdc5bc73882aae6ce90736494918d95b0f97615c576921c438906",
+  "script_sha256": "f13cc838cef31847fc4fea64a22c27184f0b37a67a1ac57c134a8572ca0f6914",
+  "settings": {
+    "rule": "two adjacent printed unit letters plus encoded digit; include an immediately following closing parenthesis when present; union boxes plus 1.5 point padding",
+    "padding_points": 1.5,
+    "dpis": [
+      300,
+      600
+    ],
+    "colorspace": "grayscale",
+    "language": "eng",
+    "psm": 7,
+    "timeout_seconds_per_call": 3,
+    "OMP_THREAD_LIMIT": "1",
+    "max_calls": 4,
+    "max_crop_pixels": 40000,
+    "additional_preprocessing": null,
+    "candidate_text_or_whitelist": null,
+    "followup_tuning": false
+  },
+  "installed_producer": {
+    "policy": "original-unit-digit-geometry-dual-raster-v1",
+    "digit_ocr": {
+      "available": true,
+      "version": "tesseract 5.5.2\n leptonica-1.87.0\n  libgif 5.2.2 : libjpeg 8d (libjpeg-turbo 3.1.2) : libpng 1.6.58 : libtiff 4.7.2 : zlib 1.3.2 : libwebp 1.6.0 : libopenjp2 2.5.4\n Found AVX2\n Found AVX\n Found FMA\n Found SSE4.1\n Found OpenMP 201511\n Found libarchive 3.8.9 zlib/1.3.2 liblzma/5.8.3 bz2lib/1.0.8 liblz4/1.10.0 libzstd/1.5.7 liblzo2/2.10 openssl/3.5.7 libb2/bundled",
+      "traineddata_sha256": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
+      "pymupdf_version": "1.28.0",
+      "language": "eng",
+      "dpi": 600,
+      "modes": [
+        7,
+        10
+      ],
+      "max_page": 8,
+      "max_document": 32,
+      "max_crop_pixels": 40000,
+      "max_total_pixels": 1000000,
+      "document_seconds": 30,
+      "call_seconds": 3
+    },
+    "ink_dpi": 600,
+    "ink_threshold": 150,
+    "max_ink_pixels": 40000
+  },
+  "cases": [
+    {
+      "case": 1,
+      "role": "positive_control",
+      "original_encoded_digit": "3",
+      "selected_source_glyphs": [
+        {
+          "text": "м",
+          "bbox": [
+            175.7631072998047,
+            628.436767578125,
+            182.09930419921875,
+            638.397216796875
+          ],
+          "origin": [
+            175.84030151367188,
+            636.4172973632812
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 7.029980659484863,
+          "raised": false
+        },
+        {
+          "text": "м",
+          "bbox": [
+            182.0028076171875,
+            628.3758544921875,
+            188.33900451660156,
+            638.3363037109375
+          ],
+          "origin": [
+            182.0800018310547,
+            636.3563842773438
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 7.029980659484863,
+          "raised": false
+        },
+        {
+          "text": "3",
+          "bbox": [
+            189.68240356445312,
+            628.340576171875,
+            191.9008026123047,
+            634.3614501953125
+          ],
+          "origin": [
+            189.7292022705078,
+            633.1614990234375
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 3.21994948387146,
+          "raised": false
+        }
+      ],
+      "crop_bbox": [
+        174.2631072998047,
+        626.840576171875,
+        193.4008026123047,
+        639.897216796875
+      ],
+      "readings": [
+        {
+          "dpi": 300,
+          "raster": "case1-300dpi.png",
+          "width": 80,
+          "height": 56,
+          "crop_sha256": "e9757ed5bde196b50723f53b66bfa61fb7ea5fcb067812f9064ee012394ab8f1",
+          "command": [
+            "tesseract",
+            "stdin",
+            "stdout",
+            "-l",
+            "eng",
+            "--psm",
+            "7"
+          ],
+          "returncode": 0,
+          "stdout": "MM?\n",
+          "stderr": "",
+          "elapsed_seconds": 0.1064
+        },
+        {
+          "dpi": 600,
+          "raster": "case1-600dpi.png",
+          "width": 160,
+          "height": 110,
+          "crop_sha256": "1f5638e9b4de4573be20f786f7d17ac03183a5b59ef250c53f5da7b4dc86a99d",
+          "command": [
+            "tesseract",
+            "stdin",
+            "stdout",
+            "-l",
+            "eng",
+            "--psm",
+            "7"
+          ],
+          "returncode": 0,
+          "stdout": "MMS\n",
+          "stderr": "",
+          "elapsed_seconds": 0.1061
+        }
+      ]
+    },
+    {
+      "case": 2,
+      "role": "unresolved_target",
+      "original_encoded_digit": "3",
+      "selected_source_glyphs": [
+        {
+          "text": "м",
+          "bbox": [
+            88.36289978027344,
+            650.4136962890625,
+            94.47673034667969,
+            662.1718139648438
+          ],
+          "origin": [
+            88.4542007446289,
+            659.8319091796875
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 7.494007110595703,
+          "raised": false
+        },
+        {
+          "text": "м",
+          "bbox": [
+            94.36260223388672,
+            650.3551025390625,
+            100.47643280029297,
+            662.1132202148438
+          ],
+          "origin": [
+            94.45390319824219,
+            659.7733154296875
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 7.494007110595703,
+          "raised": false
+        },
+        {
+          "text": "3",
+          "bbox": [
+            101.80229949951172,
+            650.3076171875,
+            104.2781982421875,
+            658.130615234375
+          ],
+          "origin": [
+            101.86309814453125,
+            656.5706787109375
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 3.869893789291382,
+          "raised": false
+        },
+        {
+          "text": ")",
+          "bbox": [
+            105.64209747314453,
+            650.2823486328125,
+            107.91612243652344,
+            662.0029907226562
+          ],
+          "origin": [
+            105.7333984375,
+            659.6630859375
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 4.496412754058838,
+          "raised": false
+        }
+      ],
+      "crop_bbox": [
+        86.86289978027344,
+        648.7823486328125,
+        109.41612243652344,
+        663.6718139648438
+      ],
+      "readings": [
+        {
+          "dpi": 300,
+          "raster": "case2-300dpi.png",
+          "width": 95,
+          "height": 63,
+          "crop_sha256": "a6444014271e6fcaa45047b55868fb30f8e136a0a3952db886894fd043074e03",
+          "command": [
+            "tesseract",
+            "stdin",
+            "stdout",
+            "-l",
+            "eng",
+            "--psm",
+            "7"
+          ],
+          "returncode": 0,
+          "stdout": "VIVE )\n",
+          "stderr": "",
+          "elapsed_seconds": 0.1081
+        },
+        {
+          "dpi": 600,
+          "raster": "case2-600dpi.png",
+          "width": 189,
+          "height": 125,
+          "crop_sha256": "1bc61cc377afbc45fc0b82592bbbec2c3c0dd953a1a67ef81c25dc497e50c226",
+          "command": [
+            "tesseract",
+            "stdin",
+            "stdout",
+            "-l",
+            "eng",
+            "--psm",
+            "7"
+          ],
+          "returncode": 0,
+          "stdout": "MMS )\n",
+          "stderr": "",
+          "elapsed_seconds": 0.1105
+        }
+      ]
+    }
+  ]
+}
