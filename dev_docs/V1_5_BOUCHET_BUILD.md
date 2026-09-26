@@ -5,6 +5,41 @@ a fresh build here, using SLURM for intensive work, and identified
 `../siphonophores` as the source library. This is a new candidate; the erenna
 run's state has not been established and its outputs have not been moved.
 
+## September 26 status
+
+The replacement extraction array `27480528` finished with 26 successful tasks
+and two failed tasks (6 and 14). Each failed task has one PDF-preparation timeout:
+`Figuirer1868.pdf` (`41906350e70d`, 2,040 seconds) and `Greene1861A.pdf`
+(`82242a306d02`, 2,460 seconds). Dependent jobs `27480529` (audit), `27480530`
+(embedding), and `27480531` (finalization) were cancelled without running.
+No candidate job remains active at this check. Preserve successful output and
+resolve the two failures before resuming the normal downstream phases.
+
+- **#336 acceptance complete:** the exact Porifera source passes targeted normal
+  extraction, direct visual review, production vision routing with a capture
+  backend, and eight caption regression cases. The false Figure 4 clone is
+  absent; the actual phylogeny remains explicitly unbound. See the
+  [source receipt](examples/porifera_caption_source_2026_09_25.json).
+- **#337 acceptance complete:** the same SSE script passes all layers against
+  the separate Hydrozoa production bundle, including actual query embedding.
+  See the [receipt](examples/non_reference_sse_2026_09_25.json). The contributor
+  independently reports a passing Sponge run in
+  [the source-review comment](https://github.com/caseywdunn/corpus/issues/336#issuecomment-5846082365).
+  These results establish serving compatibility, not a fresh full-corpus build.
+- **#305/#342 acceptance fails:** direct source review passes one of nine
+  selected target crops. All coordinate/bounds checks pass, but eight crops
+  omit scientific content or context. See the
+  [vision review](examples/vision_review_2026_09_25/README.md).
+- **#296/#314 historical review complete, release acceptance incomplete:**
+  provenance is repaired and 38 supported Pugh observations move to the 1974
+  work, but the ghost remains in acquisition leads. Clean-cycle job `27537172`
+  confirms that the first unchanged complete refresh loses one Edwards citation
+  edge, despite preserving raw observations. See the
+  [bibliography review](examples/bibliography_review_2026_09_25/README.md).
+
+The sections below retain the original launch/recovery history. The dated
+status above supersedes their queued-job and incomplete-review statements.
+
 ## September 25 recovery after the first status check
 
 The `27479902` extraction chain was stopped after repeated runtime failures:

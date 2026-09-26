@@ -79,6 +79,62 @@ Rows are an inventory, not completion claims.
 
 ## Integrated source pilots
 
+### Completed vision and historical bibliography reviews — September 25–26
+
+The [fresh Qwen crop review](examples/vision_review_2026_09_25/README.md)
+passes one of nine selected target crops and fails eight. All boxes are bounded
+and the recorded coordinate conversion matches the actual generation frames;
+scientific content still gets clipped or mixed. #305/#342 remain open.
+
+The [audited v1.4 bibliography review](examples/bibliography_review_2026_09_25/README.md)
+confirms the Mańko BibTeX provenance repair with unchanged ordered authors,
+and 38 raw-supported Pugh year repairs. Twenty-one Pugh ghost citations remain.
+A complete clean-cycle replay also reproduces a single Edwards citation edge
+lost on first unchanged refresh. These results supersede earlier statements
+that the audited authority was unavailable; fresh-candidate acceptance and the
+first-refresh equivalence gate remain open.
+
+### Porifera caption source recovered — September 25
+
+The user supplied a fresh download of *Porifera Research: Biodiversity,
+Innovation and Sustainability* (2007). Its full SHA-256 is
+`21ff756cca596aa203a599b46c89a86a70cf68639ee045c884c2aa6a4cd4be0f`,
+an exact match to #336's reported source. The PDF has 694 physical pages;
+physical pages 178–179 (printed 168–169) contain the reported Figure 3/4
+layout. Historical extraction artifacts are not available.
+
+SLURM job `27503794` completed normal extraction with physical pages 176–181
+selected through a separate BibTeX `keeppages` record. It uses the pinned
+candidate code `302bfac` and isolated PyMuPDF 1.28.0 runtime, and preserves
+source-page mapping. Inputs, configuration, logs and review artifacts are in
+`scratch/v15-bouchet-20260925/issue336/`. This is a targeted source replay,
+not a full-book rebuild or a change to the siphonophore gold fixture.
+
+The [source acceptance receipt](examples/porifera_caption_source_2026_09_25.json)
+records the source match, artifact hashes, direct visual comparison, and
+production vision routing with a capture backend. Figure 3 (`docling_3`)
+retains all three plots on physical page 178. The phylogeny (`docling_4`) is
+retained separately on page 179, including its scale bar, with no assigned
+figure number and `caption_status=unbound`. Figure 3's candidate evidence
+explicitly rejects the Figure 4 caption with
+`separate_caption_with_following_picture`; no false Figure 4 clone is made.
+The vision pass on a copied record set requests only the true panel figures
+1, 2 and 3, with labels A/B/C for Figure 3 and no phylogeny caption attached.
+The original figure records remain unchanged. This routing check performs no
+model inference.
+
+Audit job `27504597` passed these source assertions and all eight existing
+caption regression cases, including true shared-plate controls. Direct visual
+review confirms the separate plot/phylogeny content. This resolves #336's
+missing-source acceptance gate; it does not establish full-book recall or
+historical-output reproduction. The phylogeny remains unclassified/unbound,
+so improved caption recall is not claimed. The extraction also retains a
+`source_text_integrity` warning for one table-structure candidate. The pilot's
+`ocrlang=en` was rejected as a Tesseract-pack name; automatic detection selected
+born-digital preparation and no OCR ran. The receipt preserves that limitation.
+
+### Earlier source pilots
+
 The [September 22 normal-pipeline receipt](examples/source_pages_2026_09_22/README.md)
 adds fresh OCR/extraction, real BGE-M3 embeddings, annotation and stdio MCP
 acceptance for nine documents/13 selected physical pages. Chinese and German

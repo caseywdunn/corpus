@@ -87,17 +87,20 @@ priority over finishing within the current week's usage allowance.
   checks credentials rather than local accelerators. Forty-nine panel/HPC
   routing tests pass, including the later vision phase using unchanged config.
   `[plane:build]`
-- [ ] **#337** — adapt the contributed corpus-agnostic SSE smoke-test patch,
+- [x] **#337** — adapt the contributed corpus-agnostic SSE smoke-test patch,
   discover paper/taxon/author/figure values from the active bundle, and accept
   valid empty-list encodings without hiding transport or tool errors. Validate
   the demo and a non-reference production bundle using the same script.
   The contributed patch and follow-up discovery/error checks are integrated;
   bounded chunk discovery avoids fetching a whole book's chunk index. Live
   SSE passes against the retained four-paper demo and v1.2.1 reference bundles,
-  including query embedding; 26 focused smoke regressions pass. This is server
-  compatibility, not a fresh demo build. The
-  non-reference production bundle remains unavailable locally, so its source
-  acceptance is still open.
+  including query embedding; 26 focused smoke regressions pass. September 25
+  job `27478218` passes the same script against the separate Hydrozoa production
+  bundle, including real query embedding; absent lexicon categories are explicitly
+  skipped. The contributor also reports all layers passing on the Sponge bundle.
+  Hosted demo build/resume lanes pass. See the
+  [non-reference receipt](examples/non_reference_sse_2026_09_25.json). These are
+  transport and serving checks, not scientific source-fidelity acceptance.
   *No plane; validation tooling.*
 - [ ] Inventory the audit cases against the existing gold source manifest and
   add explicit expectations for the failure mechanisms. *No plane; validation.*
@@ -112,8 +115,12 @@ priority over finishing within the current week's usage allowance.
 
 - [ ] **#296** — preserve build-time BibTeX origin, ordered authors and canonical
   field precedence through materialization, reconciliation and import/export.
-  Implementation and source-derived bibliography regressions landed; the
-  named production merge-history review remains pending.
+  Implementation and source-derived bibliography regressions landed. September
+  25 review of the audited v1.4 authority confirms the missing BibTeX provenance
+  and its repair; ordered Mańko/Pugh authors were already correct in that
+  snapshot and remain unchanged. No stored reconciliation decision establishes
+  the reported wrong-author merge mechanism. Fresh-candidate corpus validation
+  remains pending; see the [historical review](examples/bibliography_review_2026_09_25/review.json).
   `[plane:build]`
 - [x] **#299** — reject incompatible reconciliation of a curated document onto
   another same-author/year work; repair identity and graph membership, not just
@@ -169,7 +176,11 @@ priority over finishing within the current week's usage allowance.
   [retained v1.2.1 census](examples/siphonophore_pugh_split_v1_2_1_2026_09_22.json)
   reproduces the 59/23 citing-paper split with zero overlap, but every relevant
   raw citation is empty. Those counts cannot justify remapping observations or
-  substitute for the audited v1.4 authority database.
+  substitute for the audited v1.4 authority database. The subsequently recovered
+  audited v1.4 artifacts now have a [historical review](examples/bibliography_review_2026_09_25/README.md):
+  38 raw-supported repairs change the split to 21/61, but the remaining 1965
+  ghost is still ranked 13th in missing-work leads. Fresh-candidate acceptance
+  remains pending.
   `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
@@ -310,9 +321,14 @@ before claiming an old OCR-routing defect persists.
   and provenance are implemented; cached Qwen processor dimensions corroborate
   the double-resize mechanism. The source-pilot capture tool now preserves actual
   processor frames, raw responses and production crops for review. Fresh
-  source-pilot inference and scientific panel review remain.
+  source-pilot inference and scientific panel review completed on September 25:
+  [one of nine selected target crops passes; eight fail](examples/vision_review_2026_09_25/README.md).
+  All nine have valid bounds and matching frame conversion; residual model
+  boxes clip scientific content, labels or context. These issues remain open
+  for correction and repeat acceptance. The original six-control manifest is
+  still unavailable, so the additional sample cannot establish its preservation.
   `[plane:build]`
-- [ ] **#336** — distinguish captions preceding the next page's ordinary image
+- [x] **#336** — distinguish captions preceding the next page's ordinary image
   from legends describing a shared historical plate. Never create a confident
   numbered clone of the preceding image without supporting evidence. Bind to
   the following image only when justified; otherwise retain explicit unbound
@@ -322,8 +338,16 @@ before claiming an old OCR-routing defect persists.
   124 focused tests pass, including production vision-target exclusion.
   Three saved gold captures preserve all 75 records, including 37 shared-image
   records. The negative fixture is explicitly synthetic issue-derived geometry;
-  the Porifera source PDF/artifacts remain unavailable and source acceptance
-  stays open. `[plane:build]`
+  the original extraction artifacts remain unavailable. On September 25 the
+  user supplied a new download whose full SHA-256 matches the reported Porifera
+  PDF exactly. Targeted normal extraction of physical pages 176–181 and direct
+  visual review now pass: Figure 3 retains its plots, the phylogeny remains
+  separately unbound, and the Figure 4 clone is refused with explicit evidence.
+  Production vision routing on a copy sends no false Figure 4 target; all
+  eight caption regression cases pass, including shared-plate controls.
+  This is a six-page source replay, not a full-book or fresh-VLM claim.
+  See [source acceptance](V1_5_SOURCE_ACCEPTANCE.md#porifera-caption-source-recovered--september-25).
+  `[plane:build]`
 - [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
   descriptions, preserve caption fragments and incomplete-binding evidence,
   and retain the edge species label in the source-verified figure. Source
@@ -496,6 +520,11 @@ new licensing evidence and no cache writes into the bundle.
   Fresh Qwen acceptance remains separately pending under #305/#342.
 - [ ] Demonstrate clean/incremental semantic equivalence with the standing
   exclusions, artifact invalidation and unchanged-document checks below.
+  Historical-artifact clean-cycle job `27537172` reproduces one citation edge
+  lost on the first full unchanged authority/reconciliation refresh (citing
+  document `188c66a35702`, Edwards 2000 ghost). Raw observations remain intact;
+  later refreshes stabilize. The [review](examples/bibliography_review_2026_09_25/README.md)
+  records the exact edge; the first-refresh discrepancy remains unresolved.
 - [ ] Run the full reference-corpus release validation, then replay the audit
   calls through the served candidate. Gold-only checks cannot prove corpus-scale
   citation degree, concurrency or reconciliation behavior.

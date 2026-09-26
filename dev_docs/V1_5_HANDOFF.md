@@ -4,6 +4,10 @@ For the separately authorized September 25 rebuild on Bouchet and newly
 available local acceptance assets, see [V1_5_BOUCHET_BUILD.md](V1_5_BOUCHET_BUILD.md).
 The dated erenna observations below remain historical.
 
+September 26 continuation: #336 source acceptance and #337 non-reference SSE
+acceptance are complete; their older missing-asset entries below are historical.
+See [the current Bouchet status](V1_5_BOUCHET_BUILD.md#september-26-status).
+
 Recorded **2026-09-24, 09:22 EDT / 13:22 UTC**. This is a dated handoff,
 not a live build dashboard. Recheck the tracker and build before acting.
 The siphonophore paths below describe this validation run, not requirements
