@@ -72,7 +72,7 @@ logger = logging.getLogger("corpus.biblio")
 # Changes only when the deterministic observation -> work rules change. It is
 # persisted beside every verdict so an operator can explain why a mapping was
 # reconsidered independently of the package release number (#240).
-REFERENCE_MAPPING_PRODUCER = "reference-mapping-v8"
+REFERENCE_MAPPING_PRODUCER = "reference-mapping-v9"
 
 # Cross-block escape hatch measured by the #155 audit. Short/generic titles
 # are excluded; the threshold is public so the read-only QC tool uses the same
@@ -1211,12 +1211,25 @@ def fuzzy_match_with_score(conn: sqlite3.Connection, surname: str,
 
 def author_year_match(conn: sqlite3.Connection, surname: str,
                       year: Optional[int]) -> Optional[str]:
-    """Last-resort match: author surname + year only, if exactly one candidate."""
+    """Match a unique independently supported work by author and year.
+
+    A ghost created from another reference is not independent evidence for a
+    titleless observation. Its presence depends on reference processing order,
+    and reconciliation may replace its authors with curated metadata (#314).
+    Keep all candidates in the ambiguity check, but never select an uncurated
+    reference ghost on author/year alone.
+    """
     if not surname or not year:
         return None
     candidates = _first_author_candidates(conn, surname, year)
     if len(candidates) == 1:
-        return candidates[0][0]
+        work_id = candidates[0][0]
+        supported = conn.execute(
+            "SELECT in_corpus OR bib_imported_at IS NOT NULL OR guid_type='bhl' "
+            "FROM works WHERE work_id=?", (work_id,),
+        ).fetchone()
+        if supported and supported[0]:
+            return work_id
     return None
 
 

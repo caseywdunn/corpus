@@ -12,7 +12,6 @@ from __future__ import annotations
 import sqlite3
 import sys
 import time
-from pathlib import Path
 
 import pytest
 
@@ -106,6 +105,7 @@ def test_no_title_still_uses_author_year_fallback(conn):
     """
     _seed_work(conn, "corpus:only|1900|the one and only work by only",
                "The one and only work by Only", 1900, "Only")
+    conn.execute("UPDATE works SET in_corpus=1")
 
     ref = {
         "title": "",
@@ -126,6 +126,7 @@ def test_no_title_author_year_match_does_not_cache_alias(conn):
     """
     _seed_work(conn, "corpus:x|1950|first paper by x",
                "First paper by X", 1950, "X")
+    conn.execute("UPDATE works SET in_corpus=1")
 
     ref = {"title": "", "year": 1950, "authors": ["Q X"], "raw": ""}
     biblio._resolve_reference(conn, ref)
@@ -438,6 +439,42 @@ def test_match_restricted_to_first_author(conn):
                           [("Other", ""), ("Totton", "")])
     conn.commit()
 
-    ref = {"title": "", "year": 1965, "authors": ["A Totton"], "raw": ""}
     result = biblio.author_year_match(conn, "Totton", 1965)
     assert result is None  # no first-author (Totton, 1965) row exists
+
+
+@pytest.mark.parametrize("support", ["in_corpus=1", "bib_imported_at=1", "guid_type='bhl'"])
+def test_author_year_fallback_requires_independent_support(conn, support):
+    _seed_work(conn, "known", "A known publication", 2000, "Edwards")
+    assert biblio.author_year_match(conn, "Edwards", 2000) is None
+    conn.execute(f"UPDATE works SET {support} WHERE work_id='known'")
+    assert biblio.author_year_match(conn, "Edwards", 2000) == "known"
+    # An extracted competitor still makes the fallback ambiguous.
+    _seed_work(conn, "competitor", "A different publication", 2000, "Edwards")
+    assert biblio.author_year_match(conn, "Edwards", 2000) is None
+
+
+def test_titleless_reference_does_not_follow_reconciled_ghost_authors(conn):
+    # Source-derived failure: the two Toxicon 38 papers have different page
+    # ranges. Reconciliation preserves the curated malformed surname
+    # Edwards.L.; that must not send the titleless 1015-28 reference to the
+    # remaining 323-35 ghost on an unchanged refresh (#314).
+    from bib.reconcile import merge_phase1_into_ghost
+
+    title = "Portuguese Man-of-War (Physalia physalis) venom induces calcium influx into cells by permeabilizing plasma membranes"
+    _seed_work(conn, "curated", title, 2000, "Edwards.L.")
+    conn.execute("UPDATE works SET in_corpus=1,bib_imported_at=1,corpus_hash='paper' WHERE work_id='curated'")
+    _seed_work(conn, "matching-ghost", title, 2000, "Edwards")
+    _seed_work(conn, "other-ghost", "The effect of Portuguese man-of-war venom on calcium, sodium and potassium fluxes", 2000, "Edwards")
+    ref = {"title": "", "year": 2000, "authors": ["L Edwards", "D Hessinger", "Toxicon"],
+           "raw": "Edwards, L.; Hessinger, D. A. Toxicon, 2000, 38, 1015-28."}
+    before = biblio._resolve_reference(conn, ref)
+    assert before[1] == "new"
+    merge_phase1_into_ghost(conn, "curated", "matching-ghost", "paper")
+    # Replay the production clear/rederive step without retaining the first
+    # unresolved ghost as a convenient ambiguity candidate.
+    biblio._clear_derived_reference_materialization(conn)
+    _seed_work(conn, "other-ghost", "The effect of Portuguese man-of-war venom on calcium, sodium and potassium fluxes", 2000, "Edwards")
+    after = biblio._resolve_reference(conn, ref)
+    assert after == before
+    assert conn.execute("SELECT surname FROM work_authors WHERE work_id='matching-ghost' AND position=0").fetchone()[0] == "Edwards.L."
