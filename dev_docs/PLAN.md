@@ -113,14 +113,17 @@ priority over finishing within the current week's usage allowance.
 
 ### 2. Restore bibliographic identity and authoritative fields
 
-- [ ] **#296** — preserve build-time BibTeX origin, ordered authors and canonical
+- [x] **#296** — preserve build-time BibTeX origin, ordered authors and canonical
   field precedence through materialization, reconciliation and import/export.
   Implementation and source-derived bibliography regressions landed. September
   25 review of the audited v1.4 authority confirms the missing BibTeX provenance
   and its repair; ordered Mańko/Pugh authors were already correct in that
   snapshot and remain unchanged. No stored reconciliation decision establishes
-  the reported wrong-author merge mechanism. Fresh-candidate corpus validation
-  remains pending; see the [historical review](examples/bibliography_review_2026_09_25/review.json).
+  the reported wrong-author merge mechanism. Fresh candidate `b039067` now
+  preserves named canonical fields, full ordered Unicode authors and `bib`
+  provenance through clean/incremental replay and unchanged refresh, with raw
+  observations and original bundle unchanged. See the [fresh receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v9.json)
+  and [historical review](examples/bibliography_review_2026_09_25/review.json).
   `[plane:build]`
 - [x] **#299** — reject incompatible reconciliation of a curated document onto
   another same-author/year work; repair identity and graph membership, not just
@@ -532,7 +535,9 @@ new licensing evidence and no cache writes into the bundle.
   `27616893` now preserves all 89,024 edges and raw observations on the first
   unchanged authority/reconciliation refresh. See the
   [review](examples/bibliography_review_2026_09_25/README.md#september-27-first-refresh-discrepancy-corrected).
-  Fresh-candidate and the remaining invalidation matrix are still release gates.
+  Fresh-candidate bibliography job `27664816` also passes clean/incremental
+  equivalence and first refresh (91,080 edges, 92,227 raw observations retained).
+  Later producer changes and the remaining invalidation matrix still need checks.
 - [ ] Run the full reference-corpus release validation, then replay the audit
   calls through the served candidate. Gold-only checks cannot prove corpus-scale
   citation degree, concurrency or reconciliation behavior. The Bouchet candidate

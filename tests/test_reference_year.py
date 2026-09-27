@@ -114,7 +114,7 @@ def test_year_evidence_does_not_override_a_damaged_author(tmp_path):
     assert adjudicate(dict(REF,authors=['P R ¨Pugh']),candidate_index(conn))==(None,[])
 
 
-@pytest.mark.parametrize('prefix', ['Pugh,P.R. (1974)', 'Pugh,P.R.(1974)', 'Pugh,P.R.:1974'])
+@pytest.mark.parametrize('prefix', ['Pugh,P.R. (1974)', 'Pugh,P.R.(1974)', 'Pugh,P.R.:1974', 'Pugh PR(1974)'])
 def test_compact_author_punctuation_preserves_publication_year_evidence(tmp_path, prefix):
     # Andersen et al. 1992, physical p.15, prints the first spelling.
     # The others exercise punctuation boundaries without adding guessed names.

@@ -55,12 +55,7 @@
     "job": "27664718",
     "cause": "Inherited CORPUS_CONFIG and CORPUS_STRICT_NETWORK polluted unit fixtures; 9 failures, 2807 passes. Rerun unsets both."
   },
-  "active_jobs": {
-    "t0": "27671017",
-    "corpus_tests": "27671525",
-    "bibliography_acceptance": "27664816",
-    "retrieval_diagnosis": "27671533"
-  },
+  "active_jobs": {},
   "audits": {
     "extract-audit.json": {
       "passed": true,
@@ -120,5 +115,23 @@
       "source_acceptance": "pending",
       "sha256": "54b449d117e938160aad2d5b93d10a5b195b9786ee35125f3c2ca7967a29ff63"
     }
+  },
+  "t0_result": {
+    "job": "27671017",
+    "passed": 2816,
+    "skipped": 26,
+    "deselected": 90,
+    "status": "pass",
+    "ruff_F821": "pass"
+  },
+  "corpus_tests": {
+    "job": "27671525",
+    "status": "fail",
+    "receipt": "corpus_tests.json"
+  },
+  "bibliography_acceptance": {
+    "job": "27664816",
+    "consistency": "pass",
+    "receipt": "bibliography_v9.json"
   }
 }

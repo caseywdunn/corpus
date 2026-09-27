@@ -1,0 +1,657 @@
+{
+  "scope": "Clean and incremental authority replay over the fresh Bouchet candidate bundle; original bundle preserved.",
+  "source_authority_unchanged": true,
+  "source_artifacts_changed": [],
+  "clean_incremental_graph_equal": true,
+  "incremental_only_edges": [],
+  "clean_only_edges": [],
+  "before_counts": {
+    "pugh1974": 64,
+    "pugh1965": 17
+  },
+  "after_counts": {
+    "incremental": {
+      "pugh1974": 64,
+      "pugh1965": 17
+    },
+    "clean": {
+      "pugh1974": 64,
+      "pugh1965": 17
+    }
+  },
+  "job": "27664816",
+  "finalized_code": "b039067",
+  "mapping_producer": "reference-mapping-v9",
+  "acceptance": {
+    "296": "pass",
+    "314": "incomplete: residual publication-year observations remain; raw punctuation fix under validation"
+  },
+  "clean": {
+    "all_citations": 91080,
+    "observations_with_raw": 92227,
+    "graph_unchanged_after_refresh": true,
+    "refresh_reconciliation": {
+      "matched": 0,
+      "low_score": 2,
+      "ambiguous": 0,
+      "no_candidates": 365,
+      "no_filename": 6,
+      "missing_text": 0,
+      "identity_conflict": 140
+    },
+    "manko_citation": {
+      "style": "author-year",
+      "count": 1,
+      "citations": [
+        {
+          "work_id": "10.11646/zootaxa.4441.2.7",
+          "formatted": "Mańko, M. K., & Pugh, P. R. (2018). Agalma clausi (Bedot, 1888) (Siphonophora: Physonectae) – complementary description with notes on species distribution and ecology. *Zootaxa*, *4441*(2), 311–331. https://doi.org/10.11646/zootaxa.4441.2.7",
+          "inline": "(Mańko & Pugh, 2018)",
+          "provenance": "bib",
+          "warning": "",
+          "fields": {
+            "authors": [
+              {
+                "surname": "Mańko",
+                "forename": "M.K.",
+                "position": 0
+              },
+              {
+                "surname": "Pugh",
+                "forename": "P.R.",
+                "position": 1
+              }
+            ],
+            "year": 2018,
+            "title": "Agalma clausi (Bedot, 1888) (Siphonophora: Physonectae) – complementary description with notes on species distribution and ecology",
+            "journal": "Zootaxa",
+            "volume": "4441",
+            "number": "2",
+            "pages": "311--331",
+            "eid": null,
+            "articleno": null,
+            "chapter": null,
+            "booktitle": null,
+            "publisher": null,
+            "edition": null,
+            "series": null,
+            "doi": "10.11646/zootaxa.4441.2.7"
+          },
+          "bib_key": "MankoPugh2018",
+          "shared_identifier": null,
+          "corpus_hash": "cd108374456b",
+          "bibliographic_conflicts": [],
+          "reference_quality_warnings": []
+        }
+      ]
+    },
+    "overlap": [],
+    "missing_top12": [
+      {
+        "work_id": "corpus:hyman|1940|the invertebrates protozoa through cteno",
+        "title": "The Invertebrates: Protozoa through Ctenophora",
+        "year": 1940,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 51,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Hyman",
+            "forename": "L",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:kramp|1959|the hydromedusae of the atlantic ocean a",
+        "title": "The Hydromedusae of the Atlantic Ocean and adjacent waters",
+        "year": 1959,
+        "journal": "Dana Report",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 47,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Kramp",
+            "forename": "P",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:purcell|1997|pelagic chidarians and ctenophores as pr",
+        "title": "Pelagic chidarians and ctenophores as predators: Selective predation, feeding rates, and effects on prey populations",
+        "year": 1997,
+        "journal": "Ann. Inst. Océanogr",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 43,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Purcell",
+            "forename": "J",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "10.1017/s0025315400007347",
+        "title": "Synopsis of the medusae of the world",
+        "year": 1961,
+        "journal": "Journal of Marine Biological Association of UK",
+        "doi": "10.1017/s0025315400007347",
+        "guid_type": "doi",
+        "cited_by_count": 36,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Kramp",
+            "forename": "",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:clarke|2001|change in marine communities an approach",
+        "title": "Change in marine communities: an approach to statistical analysis and interpretation",
+        "year": 2001,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 35,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Clarke",
+            "forename": "K",
+            "position": 0
+          },
+          {
+            "surname": "Warwick",
+            "forename": "R",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:moore|1953|plankton of the florida current",
+        "title": "Plankton of the Florida Current",
+        "year": 1953,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 28,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Moore",
+            "forename": "H",
+            "position": 0
+          },
+          {
+            "surname": "Moore",
+            "forename": "H",
+            "position": 1
+          },
+          {
+            "surname": "Corwin",
+            "forename": "E",
+            "position": 2
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:mayer|1910|medusae of the world",
+        "title": "Medusae of the world",
+        "year": 1910,
+        "journal": "Publ. Carnegie Inst. Wash",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 27,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Mayer",
+            "forename": "D",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:weill|1934|contribution a letude des cnidaires et d",
+        "title": "Contribution à l'étude des Cnidaires et de leurs nématocystes",
+        "year": 1934,
+        "journal": "Trav. Sta. Zool. Wimereux",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 26,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Weill",
+            "forename": "R",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:bigelow|1904|the siphonophorae reports of the scienti",
+        "title": "The Siphonophorae. (Reports of the scientific results of the expedition to the eastern tropical Pacific, in the charge of Alexander Agassiz, by the U.S. Fish. Commission steamer \"Albatross",
+        "year": 1904,
+        "journal": "Mem. Mus. Comp. Zool. Harvard Coll",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 25,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Bigelow",
+            "forename": "H",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:tregouboff|1957|manuel de planctonologie mediterraneenne",
+        "title": "Manuel de Planctonologie Méditerranéenne. 2 _",
+        "year": 1957,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 24,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Trégouboff",
+            "forename": "G",
+            "position": 0
+          },
+          {
+            "surname": "Rose",
+            "forename": "M",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:pugh|1983|benthic siphonophores a review of the fa",
+        "title": "Benthic siphonophores. A review of the Family Rhodaliidae (Siphonophora, Physoncctae)",
+        "year": 1983,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 24,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Pugh",
+            "forename": "P",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:kramp|1961|synopsis of the medusae of the world",
+        "title": "Synopsis of the medusae of the world",
+        "year": 1961,
+        "journal": "J. mar. biol. Ass, U. K",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 24,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Kramp",
+            "forename": "P",
+            "position": 0
+          }
+        ]
+      }
+    ],
+    "manko_authors": [
+      {
+        "work_id": "10.11646/zootaxa.4441.2.7",
+        "position": 0,
+        "surname": "Mańko",
+        "surname_normalized": "manko",
+        "forename": "M.K."
+      },
+      {
+        "work_id": "10.11646/zootaxa.4441.2.7",
+        "position": 1,
+        "surname": "Pugh",
+        "surname_normalized": "pugh",
+        "forename": "P.R."
+      }
+    ],
+    "pugh_authors": [
+      {
+        "work_id": "10.1017/s0025315400022086",
+        "position": 0,
+        "surname": "Pugh",
+        "surname_normalized": "pugh",
+        "forename": "P.R."
+      }
+    ],
+    "raw_receipt_sha256": "e4e43885d787f1d887b5c61e4c62de249c1987ade5e5b116c690848e4b53cffb"
+  },
+  "incremental": {
+    "all_citations": 91080,
+    "observations_with_raw": 92227,
+    "graph_unchanged_after_refresh": true,
+    "refresh_reconciliation": {
+      "matched": 0,
+      "low_score": 2,
+      "ambiguous": 0,
+      "no_candidates": 365,
+      "no_filename": 6,
+      "missing_text": 0,
+      "identity_conflict": 140
+    },
+    "manko_citation": {
+      "style": "author-year",
+      "count": 1,
+      "citations": [
+        {
+          "work_id": "10.11646/zootaxa.4441.2.7",
+          "formatted": "Mańko, M. K., & Pugh, P. R. (2018). Agalma clausi (Bedot, 1888) (Siphonophora: Physonectae) – complementary description with notes on species distribution and ecology. *Zootaxa*, *4441*(2), 311–331. https://doi.org/10.11646/zootaxa.4441.2.7",
+          "inline": "(Mańko & Pugh, 2018)",
+          "provenance": "bib",
+          "warning": "",
+          "fields": {
+            "authors": [
+              {
+                "surname": "Mańko",
+                "forename": "M.K.",
+                "position": 0
+              },
+              {
+                "surname": "Pugh",
+                "forename": "P.R.",
+                "position": 1
+              }
+            ],
+            "year": 2018,
+            "title": "Agalma clausi (Bedot, 1888) (Siphonophora: Physonectae) – complementary description with notes on species distribution and ecology",
+            "journal": "Zootaxa",
+            "volume": "4441",
+            "number": "2",
+            "pages": "311--331",
+            "eid": null,
+            "articleno": null,
+            "chapter": null,
+            "booktitle": null,
+            "publisher": null,
+            "edition": null,
+            "series": null,
+            "doi": "10.11646/zootaxa.4441.2.7"
+          },
+          "bib_key": "MankoPugh2018",
+          "shared_identifier": null,
+          "corpus_hash": "cd108374456b",
+          "bibliographic_conflicts": [],
+          "reference_quality_warnings": []
+        }
+      ]
+    },
+    "overlap": [],
+    "missing_top12": [
+      {
+        "work_id": "corpus:hyman|1940|the invertebrates protozoa through cteno",
+        "title": "The Invertebrates: Protozoa through Ctenophora",
+        "year": 1940,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 51,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Hyman",
+            "forename": "L",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:kramp|1959|the hydromedusae of the atlantic ocean a",
+        "title": "The Hydromedusae of the Atlantic Ocean and adjacent waters",
+        "year": 1959,
+        "journal": "Dana Report",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 47,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Kramp",
+            "forename": "P",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:purcell|1997|pelagic chidarians and ctenophores as pr",
+        "title": "Pelagic chidarians and ctenophores as predators: Selective predation, feeding rates, and effects on prey populations",
+        "year": 1997,
+        "journal": "Ann. Inst. Océanogr",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 43,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Purcell",
+            "forename": "J",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "10.1017/s0025315400007347",
+        "title": "Synopsis of the medusae of the world",
+        "year": 1961,
+        "journal": "Journal of Marine Biological Association of UK",
+        "doi": "10.1017/s0025315400007347",
+        "guid_type": "doi",
+        "cited_by_count": 36,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Kramp",
+            "forename": "",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:clarke|2001|change in marine communities an approach",
+        "title": "Change in marine communities: an approach to statistical analysis and interpretation",
+        "year": 2001,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 35,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Clarke",
+            "forename": "K",
+            "position": 0
+          },
+          {
+            "surname": "Warwick",
+            "forename": "R",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:moore|1953|plankton of the florida current",
+        "title": "Plankton of the Florida Current",
+        "year": 1953,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 28,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Moore",
+            "forename": "H",
+            "position": 0
+          },
+          {
+            "surname": "Moore",
+            "forename": "H",
+            "position": 1
+          },
+          {
+            "surname": "Corwin",
+            "forename": "E",
+            "position": 2
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:mayer|1910|medusae of the world",
+        "title": "Medusae of the world",
+        "year": 1910,
+        "journal": "Publ. Carnegie Inst. Wash",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 27,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Mayer",
+            "forename": "D",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:weill|1934|contribution a letude des cnidaires et d",
+        "title": "Contribution à l'étude des Cnidaires et de leurs nématocystes",
+        "year": 1934,
+        "journal": "Trav. Sta. Zool. Wimereux",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 26,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Weill",
+            "forename": "R",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:bigelow|1904|the siphonophorae reports of the scienti",
+        "title": "The Siphonophorae. (Reports of the scientific results of the expedition to the eastern tropical Pacific, in the charge of Alexander Agassiz, by the U.S. Fish. Commission steamer \"Albatross",
+        "year": 1904,
+        "journal": "Mem. Mus. Comp. Zool. Harvard Coll",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 25,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Bigelow",
+            "forename": "H",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:tregouboff|1957|manuel de planctonologie mediterraneenne",
+        "title": "Manuel de Planctonologie Méditerranéenne. 2 _",
+        "year": 1957,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 24,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Trégouboff",
+            "forename": "G",
+            "position": 0
+          },
+          {
+            "surname": "Rose",
+            "forename": "M",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:pugh|1983|benthic siphonophores a review of the fa",
+        "title": "Benthic siphonophores. A review of the Family Rhodaliidae (Siphonophora, Physoncctae)",
+        "year": 1983,
+        "journal": "",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 24,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Pugh",
+            "forename": "P",
+            "position": 0
+          }
+        ]
+      },
+      {
+        "work_id": "corpus:kramp|1961|synopsis of the medusae of the world",
+        "title": "Synopsis of the medusae of the world",
+        "year": 1961,
+        "journal": "J. mar. biol. Ass, U. K",
+        "doi": null,
+        "guid_type": "corpus_key",
+        "cited_by_count": 24,
+        "reference_quality_warnings": [],
+        "authors": [
+          {
+            "surname": "Kramp",
+            "forename": "P",
+            "position": 0
+          }
+        ]
+      }
+    ],
+    "manko_authors": [
+      {
+        "work_id": "10.11646/zootaxa.4441.2.7",
+        "position": 0,
+        "surname": "Mańko",
+        "surname_normalized": "manko",
+        "forename": "M.K."
+      },
+      {
+        "work_id": "10.11646/zootaxa.4441.2.7",
+        "position": 1,
+        "surname": "Pugh",
+        "surname_normalized": "pugh",
+        "forename": "P.R."
+      }
+    ],
+    "pugh_authors": [
+      {
+        "work_id": "10.1017/s0025315400022086",
+        "position": 0,
+        "surname": "Pugh",
+        "surname_normalized": "pugh",
+        "forename": "P.R."
+      }
+    ],
+    "old_observations_missing": 0,
+    "old_observations_altered": 0,
+    "raw_receipt_sha256": "09614f1b0d19ff151ed75ac4c3c19ae1b5ab99e490edcd5af57ebb454577faa9"
+  }
+}

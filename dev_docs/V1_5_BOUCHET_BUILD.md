@@ -35,14 +35,22 @@ receipts were not rewritten to conceal this difference.
 
 - **#336 and #337 are closed** with their source and non-reference serving evidence.
 - **#296/#314:** historical first-refresh edge loss is fixed by mapping producer
-  v9; the complete historical replay passes. Fresh candidate clean/incremental
-  and first-refresh acceptance is running as `27664816`.
+  v9; the complete historical replay passes. Fresh candidate job
+  `27664816` also passes clean/incremental graph equivalence, first unchanged
+  refresh, and preservation of 92,227 raw observations and 91,080 edges.
+  Named Mańko/Pugh canonical fields, ordered Unicode authors and BibTeX
+  provenance pass; #296 acceptance is complete. #314 remains incomplete:
+  the 1965/1974 split is 17/64 with zero overlap. A punctuation-boundary fix
+  repairs three further source-reviewed decisions; full rematerialization remains.
+  See the [bibliography receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v9.json).
 - **#320:** the [fixed-query diagnostic](examples/bouchet_acceptance_2026_09_27/fixed_retrieval.json)
   compares equal artifact and indexed paper populations against the audited v1.4
   bundle. Candidate audit hits are 1/7 at both five and ten results; reference
   hits are 1/7 and 2/7. Prose controls are 2/3 for both; historical controls fall
   from 1/2 and 2/2 to 0/2 and 1/2. All fixed positive passage anchors survive in
-  candidate chunks. Index/rank diagnosis is running; independent outcomes stay
+  candidate chunks. Index diagnosis confirms identical indexed target text; some diagnosis/key
+  headings are stored but excluded from embeddings. Target-only contextual
+  scores are diagnostic, not proof of full-population improvement. Independent outcomes stay
   sealed. This is a failed diagnostic, not completed independent acceptance.
 - **#305/#342:** two prompt experiments remain unpromoted. Whole-panel prompting
   passes 2/9 selected targets; separate per-label calls pass 1/9, lose the
@@ -50,8 +58,13 @@ receipts were not rewritten to conceal this difference.
   and direct visual reviews are linked from the vision review.
 - Full T0 first ran with production configuration environment variables leaking
   into test fixtures (nine failures, 2,807 passes). Rerun `27671017` unsets those
-  variables. Candidate corpus checks are `27671525`. Inspect their final results
-  before claiming these gates pass.
+  variables and passes all 2,816 tests (26 skipped, 90 deselected) and Ruff F821.
+  Candidate corpus checks `27671525` report 58,046 passes and 35 failures:
+  one missing demo fixture, five metadata-completeness failures, five pre-1700
+  cutoff failures, seven filename/year disagreements, four sparse plate volumes,
+  ten empty-chunk checks, two short-chunk checks and the title/text soft rate.
+  The [triage receipt](examples/bouchet_acceptance_2026_09_27/corpus_tests.json)
+  retains every failure. No threshold was relaxed and no artifact was patched.
 
 This dated section supersedes the earlier stopped/queued states below; their
 failure and recovery history remains evidence.
