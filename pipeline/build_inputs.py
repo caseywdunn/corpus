@@ -79,7 +79,9 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
             _surname_producer_identity(surname_producer if surname_producer is not None
                                        else surname_recovery_inputs(None)[1])),
     })
+    from .chunking import CHUNK_CONTENT_POLICY
     chunks = {**extract, **select("chunking", ("max_tokens",)),
+              "chunking.content_policy": CHUNK_CONTENT_POLICY,
               "chunking.treatment_context_policy": TREATMENT_CONTEXT_POLICY,
               "chunking.key_branch_context_policy": KEY_BRANCH_CONTEXT_POLICY}
     from .figure_rights import FIGURE_RIGHTS_VERSION

@@ -13,6 +13,7 @@ corpus = test_metadata_resume.corpus
 @pytest.mark.parametrize("module,constant,field", [
     (key_context, "KEY_BRANCH_CONTEXT_POLICY", "key_branch_context_policy"),
     (treatment_context, "TREATMENT_CONTEXT_POLICY", "treatment_context_policy"),
+    (chunking, "CHUNK_CONTENT_POLICY", "content_policy"),
 ])
 def test_context_policy_rechunks_through_discovery_and_stage_resume(corpus, monkeypatch, module, constant, field):
     current = getattr(module, constant)
