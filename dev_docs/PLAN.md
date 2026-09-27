@@ -520,11 +520,13 @@ new licensing evidence and no cache writes into the bundle.
   Fresh Qwen acceptance remains separately pending under #305/#342.
 - [ ] Demonstrate clean/incremental semantic equivalence with the standing
   exclusions, artifact invalidation and unchanged-document checks below.
-  Historical-artifact clean-cycle job `27537172` reproduces one citation edge
-  lost on the first full unchanged authority/reconciliation refresh (citing
-  document `188c66a35702`, Edwards 2000 ghost). Raw observations remain intact;
-  later refreshes stabilize. The [review](examples/bibliography_review_2026_09_25/README.md)
-  records the exact edge; the first-refresh discrepancy remains unresolved.
+  Historical-artifact clean-cycle job `27537172` exposed an Edwards edge lost
+  on first refresh through an unsupported author/year-only ghost match.
+  Mapping producer v9 (`a6bc0bb`) rejects that fallback; complete replay job
+  `27616893` now preserves all 89,024 edges and raw observations on the first
+  unchanged authority/reconciliation refresh. See the
+  [review](examples/bibliography_review_2026_09_25/README.md#september-27-first-refresh-discrepancy-corrected).
+  Fresh-candidate and the remaining invalidation matrix are still release gates.
 - [ ] Run the full reference-corpus release validation, then replay the audit
   calls through the served candidate. Gold-only checks cannot prove corpus-scale
   citation degree, concurrency or reconciliation behavior.

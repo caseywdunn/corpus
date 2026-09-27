@@ -60,3 +60,27 @@ stable. No graph rows were manually repaired to produce these results.
 
 Raw scripts, databases and logs are retained under
 [`scratch/v15-bouchet-20260925`](../../../scratch/v15-bouchet-20260925).
+
+
+## September 27: first-refresh discrepancy corrected
+
+Commit `a6bc0bb` restricts author/year-only fallback to independently supported
+corpus, curated or BHL works. Reference-derived competitors still count when
+checking ambiguity, but an unsupported ghost cannot be selected merely because
+it is currently the only author/year candidate. Mapping producer v9 forces
+normal rematerialization of earlier guesses.
+
+The failing Edwards 2000 observation has no parsed title. Reconciliation carries
+forward the curated surname `Edwards.L.` onto one ghost; the next refresh then
+previously chose the other Edwards ghost by author/year alone. The fix preserves
+the titleless observation as a separate unresolved work, without changing raw
+citations or silently correcting the curated author.
+
+[Full historical replay](refresh_v9.json), job `27616893`, passes clean authority,
+reconciliation, and the first complete unchanged refresh: all 89,024 edges are
+identical and all raw observations remain unchanged. The higher edge count
+reflects fewer unsupported titleless-reference collapses; it is not additional
+source evidence or a claim of improved acquisition ranking. Seven initial
+reconciliation merges remain seven, with no further merges on refresh.
+The old failed receipts above remain historical evidence. Fresh-candidate
+bibliography and acquisition-ranking acceptance remain outstanding.
