@@ -112,3 +112,25 @@ def test_curated_metadata_change_rederives_year_decision(tmp_path):
 def test_year_evidence_does_not_override_a_damaged_author(tmp_path):
     conn,_=build(tmp_path,{'article':ENTRY})
     assert adjudicate(dict(REF,authors=['P R ¨Pugh']),candidate_index(conn))==(None,[])
+
+
+@pytest.mark.parametrize('prefix', ['Pugh,P.R. (1974)', 'Pugh,P.R.(1974)', 'Pugh,P.R.:1974'])
+def test_compact_author_punctuation_preserves_publication_year_evidence(tmp_path, prefix):
+    # Andersen et al. 1992, physical p.15, prints the first spelling.
+    # The others exercise punctuation boundaries without adding guessed names.
+    conn, _ = build(tmp_path, {'article': ENTRY})
+    raw = prefix + ' The vertical distribution of the siphonophores collected during the SOND cruise, 1965, J. Mar. Biol. Assoc. UK, 54, 25-90.'
+    ref = dict(REF, raw=raw)
+    target, reasons = adjudicate(ref, candidate_index(conn))
+    assert target == find_work(conn, 'article')
+    assert reasons[0]['raw_evidence_tokenization'] == 'punctuation_boundaries'
+    assert ref['raw'] == raw
+
+
+@pytest.mark.parametrize('prefix', ['Pughman,P.R.(1974)', 'Pugh,P.R.(19745)',
+    'Pugh,P.R.(1974/1975)', 'Pugh,P.R.(1965)', 'PughPR1974'])
+def test_compact_punctuation_cannot_invent_surname_or_year_boundaries(tmp_path, prefix):
+    conn, _ = build(tmp_path, {'article': ENTRY})
+    target, reasons = adjudicate(dict(REF, raw=prefix+' '+ENTRY['title']), candidate_index(conn))
+    assert target is None
+    assert reasons[0]['code'] == 'possible_publication_year_conflict'

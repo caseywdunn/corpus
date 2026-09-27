@@ -37,6 +37,21 @@ def _title_forms(title):
             yield " ".join(words[:i] + words[i + 1:]), "single_article_omission"
 
 
+def _raw_forms(raw, title):
+    """Retain punctuation boundaries in compact author/date evidence.
+
+    Identity keys deliberately remove punctuation. Applying that rule alone
+    to ``Surname,I.J.(1974)`` joins the author and year into one token. Keep
+    the existing title comparison as well, since punctuation inside a title
+    or hyphenated surname may already have been normalized by the parser.
+    """
+    from .authority import normalize_for_key
+    yield normalize_for_key(raw), normalize_for_key(title), "identity_normalization"
+    def boundaries(value):
+        return normalize_for_key(re.sub(r"[^\w\s]", " ", value))
+    yield boundaries(raw), boundaries(title), "punctuation_boundaries"
+
+
 def _locator_supported(raw_tail, candidate, ref):
     """Require a contiguous volume/page pair, never numbers anywhere in text."""
     volume = str(candidate.get("volume") or "").strip()
@@ -90,33 +105,37 @@ def adjudicate(ref, index):
         joined = match[1] + match[2]
         return joined if normalize_for_key(joined) in title_words else match[0]
     raw_joined = re.sub(r"\b([^\W\d_]+)-\s+([^\W\d_]+)\b", join_title_word, raw_source)
-    raw = normalize_for_key(raw_joined)
     supported = []
     for candidate in candidates:
-        for form, alignment in _title_forms(candidate["normalized_title"]):
-            match = re.search(rf"(?<!\w){re.escape(form)}(?!\w)", raw)
-            if match is None or match.start() > 500:
-                continue
-            prefix = raw[:match.start()]
-            years = {int(y) for y in re.findall(r"\b(?:1[5-9]\d{2}|20\d{2})\b", prefix)}
-            if years != {candidate["year"]}:
-                continue
-            if not all(re.search(rf"\b{re.escape(surname)}\b", prefix) for surname in authors):
-                continue
-            if alignment != "exact":
-                # The prefix has already excluded this date, so its first
-                # occurrence ends the matched title. Preserve locator dashes.
-                title_date_end = re.search(rf"\b{parsed_year}\b", raw_joined)
-                if title_date_end is None or not _locator_supported(raw_joined[title_date_end.end():], candidate, ref):
+        for raw, raw_title, tokenization in _raw_forms(raw_joined, candidate["title"]):
+            for form, alignment in _title_forms(raw_title):
+                match = re.search(rf"(?<!\w){re.escape(form)}(?!\w)", raw)
+                if match is None or match.start() > 500:
                     continue
-            supported.append((candidate, alignment))
+                prefix = raw[:match.start()]
+                years = {int(y) for y in re.findall(r"\b(?:1[5-9]\d{2}|20\d{2})\b", prefix)}
+                if years != {candidate["year"]}:
+                    continue
+                if not all(re.search(rf"\b{re.escape(surname)}\b", prefix) for surname in authors):
+                    continue
+                if alignment != "exact":
+                    # The prefix has already excluded this date, so its first
+                    # occurrence ends the matched title. Preserve locator dashes.
+                    title_date_end = re.search(rf"\b{parsed_year}\b", raw_joined)
+                    if title_date_end is None or not _locator_supported(raw_joined[title_date_end.end():], candidate, ref):
+                        continue
+                supported.append((candidate, alignment, tokenization))
+                break
+            else:
+                continue
             break
     if len(supported) == 1 and "#part:" not in supported[0][0]["work_id"]:
-        candidate, alignment = supported[0]
+        candidate, alignment, tokenization = supported[0]
         return candidate["work_id"], [{"code": "raw_publication_year_supported",
             "parsed_year": parsed_year, "publication_year": candidate["year"],
             "candidate_work_id": candidate["work_id"],
             "raw_title_alignment": alignment,
+            "raw_evidence_tokenization": tokenization,
             "line_hyphen_joined_for_comparison": raw_joined != raw_source,
             "basis": ("complete_authors_and_full_canonical_title_with_publication_year_in_raw_author_prefix"
                       if alignment == "exact" else

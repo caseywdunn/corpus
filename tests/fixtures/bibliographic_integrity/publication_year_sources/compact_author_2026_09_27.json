@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-27",
+  "source_pdf_sha256": "3e23415c5067d98c0488c867a2ac74f5176a72db03578307268f9aeac479de1d",
+  "physical_page": 15,
+  "printed_page": "1169",
+  "source_review": "Direct visual inspection of original PDF page rendered at 108 dpi confirms Pugh,P.R. (1974), full SOND cruise title containing 1965, and volume 54 pages 25–90. Compact author punctuation is printed in the source.",
+  "render_sha256": "8285179b770da12ae0d9d5d9dd9860518cca016438631fa59d7e2819ed7d0da2",
+  "fresh_reference": {
+    "xml_id": "b17",
+    "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+    "authors": [
+      "P Pugh"
+    ],
+    "year": 1965,
+    "journal": "J. Mar. Biol. Assoc. UK",
+    "doi": "",
+    "raw": "Pugh,P.R. (1974) The vertical distribution of the siphonophores collected during the SOND cruise, 1965, J. Mar. Biol. Assoc. UK, 54, 25-90."
+  },
+  "failure": "Identity-key normalization concatenates surname and initials, so raw author-prefix matching rejects otherwise complete publication-year evidence.",
+  "correction": "Try punctuation-preserving token boundaries only for raw evidence comparison; raw observations, identity keys and exact title requirements remain unchanged."
+}
