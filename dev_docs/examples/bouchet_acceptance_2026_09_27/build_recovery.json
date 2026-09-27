@@ -1,0 +1,124 @@
+{
+  "reason": "Retry two OCR preparation timeouts with a bounded 120 seconds/page document budget; inputs and science-affecting settings unchanged.",
+  "original_config_sha256": "8c3e50da580f48afc93d0a60235e312235bf8898e6754f4df39c57d1114f9902",
+  "recovery_config_sha256": "7aaa682c5d30d851b49a882634151e833c46f9d526435ce6a0adb6c87aeb76bd",
+  "failed_batches": [
+    6,
+    14
+  ],
+  "failed_papers": [
+    "41906350e70d",
+    "82242a306d02"
+  ],
+  "original_array": "27480528",
+  "code_revision": "302bfac4d5e917424e607388fde3a04c0f3c1f00",
+  "failed_startup_job": "27588340",
+  "failed_startup_reason": "Relative configuration paths resolved under relocated recovery config; rejected before extraction. Paths now absolute and checked against original config.",
+  "cancelled_batch_retry": {
+    "job": "27590706",
+    "reason": "OCR timeout participates in the preparation fingerprint; narrowed to singleton tasks to avoid reprocessing completed batches.",
+    "interrupted_papers": [
+      "3c44317f10fa",
+      "81c3d9a2724c"
+    ],
+    "cancelled_downstream": [
+      "27590944",
+      "27590947"
+    ]
+  },
+  "targeted_indices": [
+    389,
+    425,
+    897,
+    901
+  ],
+  "targeted_recovery_completed": {
+    "job": "27603661",
+    "all_four_tasks_completed": true,
+    "audit": "27609007",
+    "audit_passed": false,
+    "remaining_failures": [
+      "3b98d06a98d2",
+      "3ba94b0c969a",
+      "3c35d7e38bf0"
+    ],
+    "remaining_cause": "Earlier full-batch retry invalidated preparation; copy2 cannot overwrite generated files inheriting read-only source mode."
+  },
+  "copy_fix_revision": "b039067",
+  "completed_jobs": {
+    "copy_recovery": "27664617",
+    "audit": "27664713",
+    "embedding": "27664717",
+    "finalize": "27664719"
+  },
+  "t0_harness_failure": {
+    "job": "27664718",
+    "cause": "Inherited CORPUS_CONFIG and CORPUS_STRICT_NETWORK polluted unit fixtures; 9 failures, 2807 passes. Rerun unsets both."
+  },
+  "active_jobs": {
+    "t0": "27671017",
+    "corpus_tests": "27671525",
+    "bibliography_acceptance": "27664816",
+    "retrieval_diagnosis": "27671533"
+  },
+  "audits": {
+    "extract-audit.json": {
+      "passed": true,
+      "problems": [],
+      "expected_documents": 1775,
+      "quality_flag_entries": 1357,
+      "sha256": "d6df53918ffce59fd09ef92284fb6b593073a1ec2d8df9196a6096482658e711"
+    },
+    "embed-audit.json": {
+      "passed": true,
+      "problems": [],
+      "sha256": "fb230741c698e7331a06d1fccf636d868f7447dda8b9a27c9490e19490f8aa81"
+    },
+    "bundle-audit.json": {
+      "passed": true,
+      "manifest": {
+        "bundle_version": "1.5.0.dev0",
+        "created_at": "2026-09-27T17:07:31Z",
+        "pipeline_git_sha": "b03906729160199e796d3261e4501a5a34ec1603",
+        "embedding_model": "BAAI/bge-m3",
+        "embedding_dim": 1024,
+        "taxonomy_snapshot_date": "2026-09-25",
+        "paper_count": 1775,
+        "figure_count": 23035,
+        "chunk_count": 247819,
+        "includes_pdfs": false,
+        "citation": {
+          "title": "Extracting AI agent-accessible data from biodiversity literature with corpus",
+          "year": null,
+          "doi": "10.5281/zenodo.19964909",
+          "url": "https://doi.org/10.5281/zenodo.19964909",
+          "authors": [
+            {
+              "family-names": "Church",
+              "given-names": "Samuel H."
+            },
+            {
+              "family-names": "Ma\u0144ko",
+              "given-names": "Maciej K."
+            },
+            {
+              "family-names": "Zapata",
+              "given-names": "Felipe"
+            },
+            {
+              "family-names": "Dunn",
+              "given-names": "Casey W."
+            }
+          ]
+        }
+      },
+      "source_acceptance": "pending",
+      "sha256": "b0b3bd0dfa8e3c9f67629e1df6af97a6ef85c6ee4e637af27bfd0c52719c142b"
+    },
+    "smoke-audit.json": {
+      "passed": true,
+      "source_acceptance": "pending",
+      "sha256": "54b449d117e938160aad2d5b93d10a5b195b9786ee35125f3c2ca7967a29ff63"
+    }
+  }
+}

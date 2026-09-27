@@ -1,0 +1,102 @@
+{
+  "date": "2026-09-27",
+  "job_id": "27650001",
+  "experiment": "Explicit whole-panel pixel-coordinate prompt; unchanged frozen selection and model. No production behavior changed.",
+  "review_basis": "Direct inspection of fresh ROI overlays against the retained source-reviewed raster content.",
+  "prompt_sha256": "94fb4c52c68b9459c01bbf9af7e4e8b51412a2cc760f15bfb0b3fec6684b6bf8",
+  "target_passes": 2,
+  "target_failures": 7,
+  "acceptance": "failed; do not promote prompt",
+  "checks": [
+    {
+      "case": "c9e7e8ae50a2-docling_4-B",
+      "target_visual_pass": true,
+      "notes": "Complete B colony and label preserved; same passing control.",
+      "evidence_sha256": {
+        "fresh-rois.png": "b56ae4653c6a4d554754d85abd1d9eed582389f12a8c804735c37b61ccca45fc",
+        "production-result.json": "e50b73d66b85b0d2cedfc3a109de285f8c3e06af4d9fb7b83b4aa258d4f2712b",
+        "raw-responses.json": "f8441beff3934489a0cb665903b85d3bac2d8cc47ca9365c7b693f5c914f1b99"
+      }
+    },
+    {
+      "case": "225ea525a91f-docling_12-A",
+      "target_visual_pass": false,
+      "notes": "More of the plot is retained than baseline, but rightmost data, left axis values and units remain outside A.",
+      "evidence_sha256": {
+        "fresh-rois.png": "7496da9a28786508e92f0f2bb97790203ea678358fae0a13e7b319738c9fc305",
+        "production-result.json": "5909c44bb65197b6794e96470b9abb3122f3bb62c2887fc78237231c4971beba",
+        "raw-responses.json": "fa6cc4aa306cf3a1a7f50881a3649369790c6c448ab96aa6aef3e2a01ae65fbe"
+      }
+    },
+    {
+      "case": "d67cb07d2f0b-docling_8-A",
+      "target_visual_pass": true,
+      "notes": "A includes complete map and surrounding animals. Boundary includes the top of B; B itself loses top context, so no whole-figure ROI-set acceptance is claimed.",
+      "evidence_sha256": {
+        "fresh-rois.png": "b4a6adaf3e9093fab948eb953ab2a7825357e23afcc6395556066a0f49d7d1aa",
+        "production-result.json": "038326d48a9afcd885a476ff5e6e54a1c77d4228abd8f1161aee4f1a6bcdc8c4",
+        "raw-responses.json": "1f47c5d518be82c6f0bd25cbb9648c44fa4ae359d4bb19b52c1407022cb3fe36"
+      }
+    },
+    {
+      "case": "b65d13c36c5e-docling_4-A",
+      "target_visual_pass": false,
+      "notes": "A still clips the adult, arrow/context and letter; D ROI is missing.",
+      "evidence_sha256": {
+        "fresh-rois.png": "bf4728652d1565fca85166b640df1cfe746adfd8cc1227612b0eeefc691d1703",
+        "production-result.json": "4d031469ea771067fd65abf22c63a26c88b682853398e1af7a0d6d4daac8b01a",
+        "raw-responses.json": "2b25b505be312d39fe54ac35b1d840e518aee3824d450496b2bb5e98970a8a80"
+      }
+    },
+    {
+      "case": "225ea525a91f-docling_6-A",
+      "target_visual_pass": false,
+      "notes": "A plot width improves but left axis values/units remain clipped; later panel boxes also cross true boundaries.",
+      "evidence_sha256": {
+        "fresh-rois.png": "48660c2626106381f4f27cb10c068934937df4cd6da910989736b97debe725bc",
+        "production-result.json": "90ad0849b7174aad3c3a513d9fa1976e75b69721c4be6d730396b50feb3245fc",
+        "raw-responses.json": "1321a80d7e54ba02929969880527e94d0fcb65875e7998d8feb1c2ed9f47b07f"
+      }
+    },
+    {
+      "case": "b9bdaa5351e7-docling_5-A",
+      "target_visual_pass": false,
+      "notes": "A left scale-bar edge and letter margin are clipped; other panels have boundary/label defects.",
+      "evidence_sha256": {
+        "fresh-rois.png": "e897fa7b603dce2f497b38d9c2fbcf1e9c1190652f87eb3b1b89a4514f8ff18c",
+        "production-result.json": "98957f6a424dfd4cd7825204ae7cc92d0987cc55231316fa62b42e0de2c3d31c",
+        "raw-responses.json": "9a7872f8071ef24b131d155660f29375b2db51c29bf1de6b16a5232bd83739ae"
+      }
+    },
+    {
+      "case": "d60222c63fea-docling_5-C",
+      "target_visual_pass": false,
+      "notes": "Only the right tentacles remain; the float and ruler are omitted despite the input containing the whole C image.",
+      "evidence_sha256": {
+        "fresh-rois.png": "d6bdf545f428bfaa2881527da86b0453ddaebb38dfa689eb91d0667802eb675a",
+        "production-result.json": "b0a27f4a9537e581184675ff188e34f2cdfd99269bd33137c67d2e380235af4f",
+        "raw-responses.json": "2971ad72311aa4d6c573efc50bcfb808d9f691ebcd8dd42e068cf8b5e4a5c254"
+      }
+    },
+    {
+      "case": "f1b4f011ed24-docling_7-A",
+      "target_visual_pass": false,
+      "notes": "A embryo is clipped and its letter is excluded.",
+      "evidence_sha256": {
+        "fresh-rois.png": "55b07c75eddbc26d26b643ceff09959e559aa36c3fc164f49a0e0efba2e0390c",
+        "production-result.json": "50fd58e135d74076cb019901f590a9a82b0cf28bf8f567680be201cfa180bf56",
+        "raw-responses.json": "9abd3aaf3259d445e3ad03fb74da8d5fed7e9e36024e1994afe09b8d32fab396"
+      }
+    },
+    {
+      "case": "56e9e844b02d-docling_4-A",
+      "target_visual_pass": false,
+      "notes": "A clips upper sampling symbols and omits shared coordinates/scale context.",
+      "evidence_sha256": {
+        "fresh-rois.png": "d5854358319e3d8d0475ef6d7150b7587b11a10aa8283c5a294dfcbcfc319197",
+        "production-result.json": "f2e75a43b75074842ceae60d73a44a12d411474c7d8a19a49d235caae4176e02",
+        "raw-responses.json": "8ce2c4bffb7b0b211e3bdb4affd3f26ef70d2a1624fa531d0ae7cf13661229db"
+      }
+    }
+  ]
+}

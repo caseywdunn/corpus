@@ -5,6 +5,57 @@ a fresh build here, using SLURM for intensive work, and identified
 `../siphonophores` as the source library. This is a new candidate; the erenna
 run's state has not been established and its outputs have not been moved.
 
+## September 27 status
+
+**The full candidate completed extraction, embedding, post-processing, bundling
+and live SSE smoke testing. Scientific release acceptance is still failing.**
+The bundle is at the candidate root's `output/corpus_bundle`, created
+`2026-09-27T17:07:31Z`, with finalization code `b039067`. It contains the frozen
+1,775-paper population, 247,819 chunks and 23,035 figure records. The extraction
+audit retains 1,357 quality-flag entries; operational success does not adjudicate
+them. See the [recovery receipt](examples/bouchet_acceptance_2026_09_27/build_recovery.json).
+
+Recovery preserved the original inputs and artifacts. A relocated retry config
+first failed path validation (`27588340`); corrected absolute paths then exposed
+that changing the OCR timeout invalidates preparation for whole batches.
+That batch retry (`27590706`) was stopped. Four singleton retries (`27603661`)
+completed the two long books and two interrupted scans. The next audit found
+three born-digital preparation failures: `copy2` had inherited read-only source
+permissions on generated PDFs, preventing overwrite during resume. The fix
+`b039067` copies to a temporary sibling and atomically replaces the generated
+file, retaining the previous complete file on copy failure. Three source retries
+(`27664617`) now pass. Full extraction audit `27664713`, GPU embedding
+`27664717`, and post/bundle/SSE `27664719` all pass.
+
+The two long books use a bounded 120-second/page preparation timeout instead of
+30 seconds; the original config remains untouched. Because timeout participates
+in the preparation fingerprint, a full unchanged resume under the original
+config has **not** been demonstrated for those recovered documents. Completion
+receipts were not rewritten to conceal this difference.
+
+- **#336 and #337 are closed** with their source and non-reference serving evidence.
+- **#296/#314:** historical first-refresh edge loss is fixed by mapping producer
+  v9; the complete historical replay passes. Fresh candidate clean/incremental
+  and first-refresh acceptance is running as `27664816`.
+- **#320:** the [fixed-query diagnostic](examples/bouchet_acceptance_2026_09_27/fixed_retrieval.json)
+  compares equal artifact and indexed paper populations against the audited v1.4
+  bundle. Candidate audit hits are 1/7 at both five and ten results; reference
+  hits are 1/7 and 2/7. Prose controls are 2/3 for both; historical controls fall
+  from 1/2 and 2/2 to 0/2 and 1/2. All fixed positive passage anchors survive in
+  candidate chunks. Index/rank diagnosis is running; independent outcomes stay
+  sealed. This is a failed diagnostic, not completed independent acceptance.
+- **#305/#342:** two prompt experiments remain unpromoted. Whole-panel prompting
+  passes 2/9 selected targets; separate per-label calls pass 1/9, lose the
+  previously passing control and produce schema errors. Retained raw outputs
+  and direct visual reviews are linked from the vision review.
+- Full T0 first ran with production configuration environment variables leaking
+  into test fixtures (nine failures, 2,807 passes). Rerun `27671017` unsets those
+  variables. Candidate corpus checks are `27671525`. Inspect their final results
+  before claiming these gates pass.
+
+This dated section supersedes the earlier stopped/queued states below; their
+failure and recovery history remains evidence.
+
 ## September 26 status
 
 The replacement extraction array `27480528` finished with 26 successful tasks

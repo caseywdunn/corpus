@@ -325,7 +325,10 @@ before claiming an old OCR-routing defect persists.
   [one of nine selected target crops passes; eight fail](examples/vision_review_2026_09_25/README.md).
   All nine have valid bounds and matching frame conversion; residual model
   boxes clip scientific content, labels or context. These issues remain open
-  for correction and repeat acceptance. The original six-control manifest is
+  for correction and repeat acceptance. September 27 whole-panel and per-label
+  prompt experiments also fail (2/9 and 1/9 target passes); neither is promoted.
+  The second loses the previously passing control and produces schema errors.
+  The original six-control manifest is
   still unavailable, so the additional sample cannot establish its preservation.
   `[plane:build]`
 - [x] **#336** — distinguish captions preceding the next page's ordinary image
@@ -470,8 +473,11 @@ new licensing evidence and no cache writes into the bundle.
   hits, not a deployment-wide error rate. All fixed questions have indexed
   source-supported positives; alternative passages remain unjudged. Independent
   outcomes remain withheld until the candidate behavior is fixed. Actual
-  candidate improvement is unmeasured; matching-population candidate capture
-  remains, with no improvement claim from evaluator tests.
+  candidate fixed-query comparison now fails on equal full artifact/indexed
+  populations: audit hit@10 falls from 2/7 to 1/7 against the audited v1.4
+  bundle. All fixed positive passage anchors survive in candidate chunks;
+  index/rank diagnosis remains. Independent outcomes remain sealed. See the
+  [September 27 diagnostic](examples/bouchet_acceptance_2026_09_27/fixed_retrieval.json).
   All 1,775 source PDFs for the dated retained baseline are locally available.
   A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
   has now started from independently copied, SHA-verified sources and frozen
@@ -529,7 +535,9 @@ new licensing evidence and no cache writes into the bundle.
   Fresh-candidate and the remaining invalidation matrix are still release gates.
 - [ ] Run the full reference-corpus release validation, then replay the audit
   calls through the served candidate. Gold-only checks cannot prove corpus-scale
-  citation degree, concurrency or reconciliation behavior.
+  citation degree, concurrency or reconciliation behavior. The Bouchet candidate
+  now passes complete extraction, embedding, bundle and live SSE audits at
+  `b039067`; [scientific acceptance remains incomplete](V1_5_BOUCHET_BUILD.md#september-27-status).
 - [ ] Record repaired cases and remaining investigations accurately, publish
   rebuild/migration instructions, and prepare the release PR. The
   [candidate upgrade procedure](V1_5_MIGRATION.md) and draft PR #335 are ready

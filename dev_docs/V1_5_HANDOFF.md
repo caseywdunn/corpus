@@ -8,6 +8,14 @@ September 26 continuation: #336 source acceptance and #337 non-reference SSE
 acceptance are complete; their older missing-asset entries below are historical.
 See [the current Bouchet status](V1_5_BOUCHET_BUILD.md#september-26-status).
 
+September 27 continuation: the Bouchet candidate has completed all build phases
+and live SSE. Five actionable release issues remain (#296, #305, #314, #320,
+#342), plus final release-wide gates. Historical bibliography refresh is fixed;
+fresh bibliography acceptance is running. Fixed retrieval and vision acceptance
+still fail. The [September 27 status](V1_5_BOUCHET_BUILD.md#september-27-status)
+supersedes the older active-run and missing-asset descriptions below. The erenna
+run was not inspected or changed from Bouchet.
+
 Recorded **2026-09-24, 09:22 EDT / 13:22 UTC**. This is a dated handoff,
 not a live build dashboard. Recheck the tracker and build before acting.
 The siphonophore paths below describe this validation run, not requirements

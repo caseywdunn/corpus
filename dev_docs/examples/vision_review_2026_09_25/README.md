@@ -53,3 +53,13 @@ same frozen selection, including the passing Siebert control. Keep upstream
 raster/caption mismatches explicit, especially Castriota. Recovered original
 controls are needed before claiming reproduction or preservation of the earlier
 pilot. Broader inference or a full-library vision run is not established here.
+
+## September 27 prompt experiments
+
+Two isolated experiments retain the same nine cases, model revision and source
+rasters. Production prompting is unchanged. The [whole-panel experiment](prompt_experiment_2026_09_27.json)
+passes 2/9 selected targets. The [per-label experiment](single_panel_experiment_2026_09_27.json)
+passes 1/9 and loses the previously passing Siebert B control; four figures
+produce invalid schema/JSON and Castriota invents absent A/B panels. Complete
+panel content, labels and scientific context still fail acceptance. These
+experiments do not recover the missing original six-control manifest.

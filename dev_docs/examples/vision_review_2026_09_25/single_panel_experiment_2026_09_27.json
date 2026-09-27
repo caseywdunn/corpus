@@ -1,0 +1,124 @@
+{
+  "date": "2026-09-27",
+  "job": "27664712",
+  "experiment": "One inference per expected panel label; minimal pixel-coordinate prompt. Production unchanged.",
+  "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+  "model_revision": "cc594898137f460bfe9f0759e9844b3ce807cfb5",
+  "review_basis": "Direct inspection of all nine fresh ROI overlays on the retained source-reviewed rasters, plus production results. Source PDFs were not re-rendered for this experiment.",
+  "accepted_targets": 1,
+  "failed_targets": 8,
+  "acceptance": "fail",
+  "previous_passing_control_preserved": false,
+  "promoted": false,
+  "cases": [
+    {
+      "case": "225ea525a91f-docling_12-A",
+      "target_pass": false,
+      "reason": "A excludes left tick labels and units; its box also spans all four graphs.",
+      "production_status": "completed",
+      "production_error": null,
+      "artifacts_sha256": {
+        "fresh-rois.png": "3b4493a6181d3f1c62508b6f18648292ed336f856f080ac3c8872c608a75e9b8",
+        "raw-responses.json": "0eb4e03fcf0abb9d88fba3cffa5cddc16a89ef9228bb35d5d6c3865beec1f131",
+        "production-result.json": "a82e4453931d3f6bca05ddcaee236590987f01a9f9172c0c713960564b7e67f7"
+      }
+    },
+    {
+      "case": "225ea525a91f-docling_6-A",
+      "target_pass": false,
+      "reason": "A excludes left tick labels and units and includes the top of B.",
+      "production_status": "completed",
+      "production_error": null,
+      "artifacts_sha256": {
+        "fresh-rois.png": "6aa07112a8c26d5c01a61dac6dc06702d74f78448cbf9900d4e8ceecf94eab66",
+        "raw-responses.json": "805cc16fc3a19a69d787a5cee9cf6b4710e6db47b469c6795f6750ab6f4b8193",
+        "production-result.json": "8ec2e213216c677aa5beccdb47a1ec3bea93df786d2577e33cea72c0acc34c7f"
+      }
+    },
+    {
+      "case": "56e9e844b02d-docling_4-A",
+      "target_pass": false,
+      "reason": "No production ROI: response violates the required JSON schema.",
+      "production_status": "vision_backend_failed",
+      "production_error": "Local VLM returned an incomplete schema: 'panels' must be a list",
+      "artifacts_sha256": {
+        "fresh-rois.png": "c37d3fc6dd33e5c37820e4314ddb0e80a71ff2f1d39e5183e8ccb8e68f2bd76a",
+        "raw-responses.json": "c19287fc94edee7c4501db829cecae99d669ea0ff6d03bcf9a7f7d9b732557b1",
+        "production-result.json": "6fc692af058a3219bd51b496d267ce32128312229e2d94d0631b829b526253d9"
+      }
+    },
+    {
+      "case": "b65d13c36c5e-docling_4-A",
+      "target_pass": false,
+      "reason": "No production ROI: response violates the required JSON schema.",
+      "production_status": "vision_backend_failed",
+      "production_error": "Local VLM returned an incomplete schema: 'panels' must be a list",
+      "artifacts_sha256": {
+        "fresh-rois.png": "67b32f161ae2fa0815a8a08f34c71f1bfddc6926e97c3f4208e5d1cc5aea0013",
+        "raw-responses.json": "c3d59525a3b048995f4ba1101c624fba8c2ca6fdd2292d2705400654c059c32d",
+        "production-result.json": "6fc692af058a3219bd51b496d267ce32128312229e2d94d0631b829b526253d9"
+      }
+    },
+    {
+      "case": "b9bdaa5351e7-docling_5-A",
+      "target_pass": false,
+      "reason": "No production ROI: response is a list rather than the required panels object.",
+      "production_status": "vision_backend_failed",
+      "production_error": "Local VLM returned an incomplete schema: 'panels' must be a list",
+      "artifacts_sha256": {
+        "fresh-rois.png": "ab39d8550179958dac2e54c152b2bf083fd0ce627b73c5564e21f854175a0bca",
+        "raw-responses.json": "2fae79e5f775e5177838f4e2205f9693813baee5b003d6f967e950ec5c774f9c",
+        "production-result.json": "6fc692af058a3219bd51b496d267ce32128312229e2d94d0631b829b526253d9"
+      }
+    },
+    {
+      "case": "c9e7e8ae50a2-docling_4-B",
+      "target_pass": false,
+      "reason": "Previously passing B is absent; only A, C and D retained.",
+      "production_status": "partial_vision",
+      "production_error": null,
+      "artifacts_sha256": {
+        "fresh-rois.png": "dc34ff148db2d112698a44f9a6c5382eb547c811fa3a046dc489bf249595d42e",
+        "raw-responses.json": "f88f0c6b83c362eca1b24e781aa0307baa36febc4ece461ff184e5199cf7b9f1",
+        "production-result.json": "f052a7ffa209eca11cd9f49cd2e52604278dbe17e5e68d5c747867a8d8e88ffc"
+      }
+    },
+    {
+      "case": "d60222c63fea-docling_5-C",
+      "target_pass": false,
+      "reason": "C box clips the top of the float and ruler; absent A and B are hallucinated over the same image.",
+      "production_status": "completed",
+      "production_error": null,
+      "artifacts_sha256": {
+        "fresh-rois.png": "269e427a112f912f1091cd0349d737df63ed5e3db286dbd4e3a48eab44ab5c96",
+        "raw-responses.json": "08fb8476f6de9855ed64dd5c7a097fd24c13e679dca50b0246a9d18059bfaa0f",
+        "production-result.json": "a7d2930704189c001d6524fde1ef275c1611485b4fb9188d16ef7f7d4438d99e"
+      }
+    },
+    {
+      "case": "d67cb07d2f0b-docling_8-A",
+      "target_pass": true,
+      "reason": "A retains the complete map, animals and label, with a small strip of B. B loses part of its label; this is a target-A pass only.",
+      "production_status": "completed",
+      "production_error": null,
+      "artifacts_sha256": {
+        "fresh-rois.png": "141fe940540acfebd67b328ee7733b4bc165daf74ee2c3b251af573250f43e53",
+        "raw-responses.json": "a77f2f9e8ca3a67a13ae1ba9a1047fdd66310d00e02f65071dba4320c1183367",
+        "production-result.json": "f582dd326e1a137dd6aecf02663a7cf6269f610e9726036883b6253e356204aa"
+      }
+    },
+    {
+      "case": "f1b4f011ed24-docling_7-A",
+      "target_pass": false,
+      "reason": "No production ROI: malformed JSON/coordinate schema.",
+      "production_status": "vision_backend_failed",
+      "production_error": "Local VLM returned no complete JSON object; response head: '```json\\n{\"panels\":[{\"label\":\"A\",\"panel_bbox_norm\":[[12,75,105,135],[12,75,105,135],\"A\"},{\"label\":\"A\",\"panel_bbox_norm\":[[12,178,84,222],[12,178,84,222],\"A\"}],\"embedded_figures\":[]}]\\n```'",
+      "artifacts_sha256": {
+        "fresh-rois.png": "e901648d77a323866328ae2d65187f2df9f663b03e795d0365982374ac361b2f",
+        "raw-responses.json": "4c600ce043b9e3c7cd8be5a7965a8e04095f2224841637a41ab0dec2b9ba52bc",
+        "production-result.json": "eee04257868422931a67a149ae46321bbbe3e6d4cfc3002a10b74a7e0be3fbea"
+      }
+    }
+  ],
+  "prompt_sha256": "4a50846d953e13877ab32483e72bf2ede6b03734fedcbaa439a9ea474564be2f"
+}
