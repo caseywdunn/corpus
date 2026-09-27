@@ -24,6 +24,7 @@ import re
 import signal
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from collections import Counter
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
@@ -2932,6 +2933,25 @@ def _report_ocr_page_loss(
     }
 
 
+def _copy_prepared_pdf(input_pdf: Path, output_pdf: Path) -> None:
+    """Replace a generated copy without writing through its existing inode.
+
+    Frozen source PDFs can be read-only; copy2 carries that mode into the
+    prepared PDF. A later preparation must still be able to replace it.
+    Staging beside the destination also preserves the prior PDF if copying
+    fails, and avoids following an old destination symlink into a source.
+    """
+    if output_pdf.exists() and os.path.samefile(input_pdf, output_pdf):
+        raise shutil.SameFileError(input_pdf, output_pdf, "source and output are the same file")
+    with tempfile.NamedTemporaryFile(dir=output_pdf.parent, prefix=".prepared-", suffix=".pdf", delete=False) as staged:
+        temporary = Path(staged.name)
+    try:
+        shutil.copy2(input_pdf, temporary)
+        os.replace(temporary, output_pdf)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def prepare_pdf(
     input_pdf: Path, detection_result: Dict, output_pdf: Path,
 ) -> Dict[str, Any]:
@@ -2976,12 +2996,12 @@ def prepare_pdf(
     if not detection_result.get("needs_ocr"):
         logger.info("Copying %s (detected as %s)",
                     input_pdf.name, detection_result.get("file_type"))
-        shutil.copy2(input_pdf, output_pdf)
+        _copy_prepared_pdf(input_pdf, output_pdf)
         return native_outcome
 
     if shutil.which("ocrmypdf") is None:
         logger.warning("ocrmypdf not found on PATH, copying original PDF")
-        shutil.copy2(input_pdf, output_pdf)
+        _copy_prepared_pdf(input_pdf, output_pdf)
         return native_outcome
 
     ocr_mode = detection_result.get("ocr_mode", "skip_text")
@@ -3023,7 +3043,7 @@ def prepare_pdf(
         logger.warning(
             "No Tesseract languages available; copying original PDF (OCR skipped)"
         )
-        shutil.copy2(input_pdf, output_pdf)
+        _copy_prepared_pdf(input_pdf, output_pdf)
         return native_outcome
     lang_arg = "+".join(langs)
 
@@ -3136,7 +3156,7 @@ def prepare_pdf(
         # version so one bad doc doesn't flood the pipeline log.
         if result.stderr:
             logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
-        shutil.copy2(input_pdf, output_pdf)
+        _copy_prepared_pdf(input_pdf, output_pdf)
         return native_outcome
 
     logger.info(
