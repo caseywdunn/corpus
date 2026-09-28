@@ -184,6 +184,12 @@ priority over finishing within the current week's usage allowance.
   38 raw-supported repairs change the split to 21/61, but the remaining 1965
   ghost is still ranked 13th in missing-work leads. Fresh-candidate acceptance
   remains pending.
+  September 27 punctuation-boundary fix `6d5e19a` passes source review of all
+  three changed references and full clean/incremental/first-refresh replay
+  `27704859`: the 1965/1974 split becomes 14/67, with no citing-paper overlap,
+  raw-observation loss or refresh merges. Fresh Alvarino's `Sond Crise` remains
+  unresolved under the strict title rule. See the
+  [v10 receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v10.json).
   `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
@@ -481,6 +487,14 @@ new licensing evidence and no cache writes into the bundle.
   bundle. All fixed positive passage anchors survive in candidate chunks;
   index/rank diagnosis remains. Independent outcomes remain sealed. See the
   [September 27 diagnostic](examples/bouchet_acceptance_2026_09_27/fixed_retrieval.json).
+  A source replay now removes 315 empty serialized caption placeholders from
+  all ten papers flagged by full-candidate chunk checks, preserving every
+  nonempty passage and structural metadata. Fifty-one focused tests and 69
+  source-layout/resume tests pass; the policy invalidates chunks and consumers
+  without repeating extraction. See the [receipt](examples/bouchet_acceptance_2026_09_27/nonempty_chunks.json).
+  The full candidate still needs this normal refresh; this is not a retrieval
+  improvement claim. A separate full-population stored-context embedding
+  experiment is running with independent outcomes sealed.
   All 1,775 source PDFs for the dated retained baseline are locally available.
   A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
   has now started from independently copied, SHA-verified sources and frozen

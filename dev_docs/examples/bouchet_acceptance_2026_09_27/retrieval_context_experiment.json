@@ -1,0 +1,14 @@
+{
+  "scope": "Isolated full-population context embedding experiment; no production change, independent outcomes sealed.",
+  "active_job": "27713378",
+  "partition": "gpu_h200",
+  "code_base": "46657d5",
+  "script_sha256": "803bb64e1e13fec17fb1b0d424da0a4ab47f08f3041100a35c4ea5adf9407fba",
+  "source_bundle": "/nfs/roberts/scratch/pi_cwd7/cwd7/siphonophore_v15_candidate_20260925/output/corpus_bundle",
+  "attempt1": {
+    "job": "27704867",
+    "status": "cancelled",
+    "reason": "Allocated RTX 5000 Ada unsupported by environment accelerator guard; backend fell back to CPU. Partial index retained separately."
+  },
+  "rejected_submission": "H200 requested in generic gpu partition; rejected without a job. Corrected to gpu_h200 using successful historical allocation evidence."
+}

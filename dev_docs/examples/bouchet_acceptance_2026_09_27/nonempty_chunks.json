@@ -1,0 +1,156 @@
+{
+  "code": "4cda74e",
+  "status": "pass",
+  "scope": "Normal chunking of all ten failed source-artifact cases on separate copies; no PDF re-extraction or full-candidate rebuild.",
+  "cases": [
+    {
+      "paper_hash": "1546ae6dbd01",
+      "old_chunks": 46,
+      "new_chunks": 41,
+      "blank_chunks_removed": 5,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "1a4a67e79bba47429f9bced88a0eef2df7ea9038f732e3ab23383fae12fb5e62",
+        "text.json": "85e6b48e0ed6509fc816292c9100e2027d3f3c7f73e7672406c679f93153d279",
+        "chunks.json": "5a446dfd1f46706f7887f657c3560e7db8e61e1a46841d3f0812d5330a408312"
+      },
+      "new_chunks_sha256": "6b6d1e38af3628468415b5dfee01788f2f9670a78d3e8514a03718638686069f"
+    },
+    {
+      "paper_hash": "1f5084a926b6",
+      "old_chunks": 323,
+      "new_chunks": 286,
+      "blank_chunks_removed": 37,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "a30d5b99b533c20974b4b6f6e7ad35731bccd32c72cd35308f1bd0d8746c2cb6",
+        "text.json": "b68d41f26a93b31a62f1a25df239f123baba73748bb75bac6942cb51c3d19e2b",
+        "chunks.json": "36298f54e279a739490b6112106e12e607c5c4715caee331d259c4f66d74cb56"
+      },
+      "new_chunks_sha256": "1d5cefff12bd01e87e8fdd8181157475c5122cf0d7b8ceb1b7c6d8f3626fba46"
+    },
+    {
+      "paper_hash": "4644da77f448",
+      "old_chunks": 71,
+      "new_chunks": 57,
+      "blank_chunks_removed": 14,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "c1b9f24aa33a2d11405dbfed908bfff05be16f0dd945863bc3247fa17d26be6a",
+        "text.json": "80b0adb2a4b6f4d4dc2ea40382e9abbe92da426bad608d3ad8d8d30044335eb6",
+        "chunks.json": "11f776159ea2eccf748667b764c57a522bad788239713e0aea87b4a694b7778b"
+      },
+      "new_chunks_sha256": "ff4a8e032fe51d4d0d2211572c5c826cab2b30cf7624db49eb0da7ca3524643f"
+    },
+    {
+      "paper_hash": "5ac2e9d0e9fe",
+      "old_chunks": 47,
+      "new_chunks": 42,
+      "blank_chunks_removed": 5,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "f0b71ca2878c394135c7e1c95da25e9116722a1401aba258deb9ca22419a9da7",
+        "text.json": "b2aa293a4d8b7737afafb0c4d4bcd50f05d37d1d08315ac4405061e24bf1466d",
+        "chunks.json": "dc9d2ffbee784ecb981f2461d4ad401acdb7c8c029841444b377aaf841c431f3"
+      },
+      "new_chunks_sha256": "f2fa91d0d6cd7a8eb98d8dcd855657f877bbe7d2651b71188768ccf6e0350891"
+    },
+    {
+      "paper_hash": "94df0f70846e",
+      "old_chunks": 1062,
+      "new_chunks": 856,
+      "blank_chunks_removed": 206,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "608f7f691abefdd7ba71c2424ab73d9d98dd879ace08050ac952ed58640151c4",
+        "text.json": "2b6ca1b0fdeedea5a8495b16d8fc6614ff07ce13597d6cb167904234f56842ec",
+        "chunks.json": "1f0367f8a207d30d9cef4a02f1ba00f34806b34afb278a603393c56d6f90dfbb"
+      },
+      "new_chunks_sha256": "b12df7f4026f0d0b2567185913f2f087c423248fa91fb2e95c52df5c98c10d59"
+    },
+    {
+      "paper_hash": "9668b7813b87",
+      "old_chunks": 19,
+      "new_chunks": 17,
+      "blank_chunks_removed": 2,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "4686a270c1da7af02a7b13f2f93e7e45f333b1cfea9741c1c6384acb112fbe74",
+        "text.json": "f7e252fa1dbf2fdaa436b69c80b37d193b5f62e0aac1b0cb135c7b47af79577f",
+        "chunks.json": "ec563670fcebceb3edc03519557eefe57fe7b17f11f774ccd7006c5a3210bf13"
+      },
+      "new_chunks_sha256": "e4b042f2707343bfd7680e46626c493279d5f319995b4712fad254f8c879bf3a"
+    },
+    {
+      "paper_hash": "9d70c09f3fd3",
+      "old_chunks": 54,
+      "new_chunks": 47,
+      "blank_chunks_removed": 7,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "a649ab28e45ddcec3e6bb45e4eb5c47adb7488f6419a144c9dc9678f6cb28478",
+        "text.json": "f3d55b4559dc09b457f8fd7338d4617c06fe8aadb2c670819cb88d136d8f77e8",
+        "chunks.json": "ca58a2602990548ee4d1740bccd37849685b906c634d09f1431c5eec141419cd"
+      },
+      "new_chunks_sha256": "2f58934cf59f64c1504098ddbaeb276d5657016a8be7f9fc2654967bd0e1b1dd"
+    },
+    {
+      "paper_hash": "b790a8f7a6fb",
+      "old_chunks": 150,
+      "new_chunks": 126,
+      "blank_chunks_removed": 24,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "fc86249fcc3fc667f5c526ae60a8d416568f8673ab96dbf073dedd1df58d5b1c",
+        "text.json": "97d36428586fee7914e6bbae2340f9c492c68387c3a3593c1cd72bb96dba1afc",
+        "chunks.json": "15e237755183b08e5237a0b1df27330cf930502c18f5845ea3a013bc7a60d791"
+      },
+      "new_chunks_sha256": "f1d1c3b9ddf0255ea13081c7194bd6ad5f351262d0168f5bccfd86aabfd3a268"
+    },
+    {
+      "paper_hash": "c8b2c36d1eb9",
+      "old_chunks": 35,
+      "new_chunks": 31,
+      "blank_chunks_removed": 4,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "5bfcd67985156a708d66230645c21084b818119477368436e876e2c7d1e86a26",
+        "text.json": "4338633d257e82ae5abb7c976afa008c25755c22137f4dff49974bc042da892d",
+        "chunks.json": "3125175d74469ff5778557349e96b9990c4f8291d21538462818b02b83c96b58"
+      },
+      "new_chunks_sha256": "1daf4b7341b793ee9cf813ef62b7403cd50ccf7f63e9ba25305ca538b544ca53"
+    },
+    {
+      "paper_hash": "fe91092405e5",
+      "old_chunks": 83,
+      "new_chunks": 72,
+      "blank_chunks_removed": 11,
+      "nonempty_text_and_structural_metadata_identical": true,
+      "source_artifacts_unchanged": true,
+      "source_sha256": {
+        "docling_doc.json": "a33f58369df8c069575d6f0fae873ed4950ca44889c465709da5258cf956a1ac",
+        "text.json": "87b8e53ded9349cdaec9d5fc8b375f54eb730b449df75d3204d3a048db8c82fe",
+        "chunks.json": "8c4564fda4b48c872f2b588beac44de4040b93d9b7aba53c94783e56391461c4"
+      },
+      "new_chunks_sha256": "81a1d8babfeaf3a0e7d7458a99242bc0d6fea8efd6a653a00892202b6cad451b"
+    }
+  ],
+  "job": "27708700",
+  "focused_tests_passed": 51,
+  "additional_source_layout_resume_tests_passed": 69,
+  "blank_chunks_removed": 315,
+  "first_harness_attempt": {
+    "job": "27708492",
+    "result": "failed",
+    "reason": "Harness omitted normal source-page mapping after chunking; text comparison passed. Both attempts preserved."
+  }
+}

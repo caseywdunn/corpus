@@ -41,7 +41,10 @@ receipts were not rewritten to conceal this difference.
   Named Mańko/Pugh canonical fields, ordered Unicode authors and BibTeX
   provenance pass; #296 acceptance is complete. #314 remains incomplete:
   the 1965/1974 split is 17/64 with zero overlap. A punctuation-boundary fix
-  repairs three further source-reviewed decisions; full rematerialization remains.
+  repairs three further source-reviewed decisions. Full replay `27704859`
+  passes clean/incremental/first-refresh checks, with the split now 14/67 and
+  zero overlap. Fresh Alvarino's title OCR error remains unresolved; the original
+  candidate bundle remains unchanged.
   See the [bibliography receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v9.json).
 - **#320:** the [fixed-query diagnostic](examples/bouchet_acceptance_2026_09_27/fixed_retrieval.json)
   compares equal artifact and indexed paper populations against the audited v1.4
@@ -63,6 +66,11 @@ receipts were not rewritten to conceal this difference.
   one missing demo fixture, five metadata-completeness failures, five pre-1700
   cutoff failures, seven filename/year disagreements, four sparse plate volumes,
   ten empty-chunk checks, two short-chunk checks and the title/text soft rate.
+  A subsequent normal chunking replay removes all 315 blank caption
+  placeholders in the ten flagged papers, preserving every nonempty passage,
+  heading, source span and table/key relation. Both resume gates pass (51 focused checks and 69 source-layout/resume
+  checks). [Evidence](examples/bouchet_acceptance_2026_09_27/nonempty_chunks.json)
+  is from copied artifacts; the full candidate still needs normal rematerialization.
   The [triage receipt](examples/bouchet_acceptance_2026_09_27/corpus_tests.json)
   retains every failure. No threshold was relaxed and no artifact was patched.
 
