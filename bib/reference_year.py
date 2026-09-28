@@ -3,8 +3,9 @@
 A date embedded in a title is not a publication year. Cross-year candidates
 require a complete author-set match and title evidence after removing that
 specific title date. Reassignment needs the publication year in the raw
-reference's author prefix. A single omitted article additionally requires the
-canonical volume and page range in that same raw citation.
+reference's author prefix. A single omitted article or internal letter in a
+long title word additionally requires the canonical volume and page range in
+that same raw citation. These are comparison rules, not edits to observations.
 """
 from __future__ import annotations
 
@@ -29,12 +30,16 @@ def candidate_index(conn):
 
 
 def _title_forms(title):
-    """Exact title, then one omitted 'the'; no substantive-word fuzziness."""
+    """Exact title or one bounded omission; never combine relaxed forms."""
     yield title, "exact"
     words = title.split()
     for i, word in enumerate(words):
         if word == "the":
             yield " ".join(words[:i] + words[i + 1:]), "single_article_omission"
+        if word.isalpha() and len(word) >= 6:
+            for pos in range(1, len(word) - 1):
+                shortened = word[:pos] + word[pos + 1:]
+                yield " ".join(words[:i] + [shortened] + words[i + 1:]), "single_internal_letter_omission"
 
 
 def _raw_forms(raw, title):
@@ -89,24 +94,26 @@ def adjudicate(ref, index):
         if candidate["year"] == parsed_year or not title_date.search(candidate["normalized_title"]):
             continue
         stripped_candidate = " ".join(title_date.sub("", candidate["normalized_title"]).split())
-        if stripped_title not in {form for form, _ in _title_forms(stripped_candidate)}:
+        parsed_alignment = next((alignment for form, alignment in _title_forms(stripped_candidate)
+                                 if form == stripped_title), None)
+        if parsed_alignment is None:
             continue
         if ref.get("doi") and normalize_doi(ref["doi"]) != normalize_doi(candidate["doi"] or ""):
             continue
-        candidates.append(candidate)
+        candidates.append((candidate, parsed_alignment))
     if not candidates:
         return None, []
     raw_source = ref.get("raw") or ""
     # Grobid flattens a printed line break to a space: ``siphono- phores``.
     # This comparison-only join still has to reproduce the entire curated
     # title; neither the immutable observation nor the source prose is edited.
-    title_words = {word for candidate in candidates for word in candidate["normalized_title"].split()}
+    title_words = {word for candidate, _ in candidates for word in candidate["normalized_title"].split()}
     def join_title_word(match):
         joined = match[1] + match[2]
         return joined if normalize_for_key(joined) in title_words else match[0]
     raw_joined = re.sub(r"\b([^\W\d_]+)-\s+([^\W\d_]+)\b", join_title_word, raw_source)
     supported = []
-    for candidate in candidates:
+    for candidate, parsed_alignment in candidates:
         for raw, raw_title, tokenization in _raw_forms(raw_joined, candidate["title"]):
             for form, alignment in _title_forms(raw_title):
                 match = re.search(rf"(?<!\w){re.escape(form)}(?!\w)", raw)
@@ -118,29 +125,36 @@ def adjudicate(ref, index):
                     continue
                 if not all(re.search(rf"\b{re.escape(surname)}\b", prefix) for surname in authors):
                     continue
-                if alignment != "exact":
+                if alignment != "exact" and parsed_alignment != "exact":
+                    # Independently damaged parsed/raw titles must still
+                    # identify the same omission, not two different guesses.
+                    if " ".join(title_date.sub("", form).split()) != stripped_title:
+                        continue
+                if alignment != "exact" or parsed_alignment != "exact":
                     # The prefix has already excluded this date, so its first
                     # occurrence ends the matched title. Preserve locator dashes.
                     title_date_end = re.search(rf"\b{parsed_year}\b", raw_joined)
                     if title_date_end is None or not _locator_supported(raw_joined[title_date_end.end():], candidate, ref):
                         continue
-                supported.append((candidate, alignment, tokenization))
+                supported.append((candidate, alignment, parsed_alignment, tokenization))
                 break
             else:
                 continue
             break
     if len(supported) == 1 and "#part:" not in supported[0][0]["work_id"]:
-        candidate, alignment, tokenization = supported[0]
+        candidate, alignment, parsed_alignment, tokenization = supported[0]
+        relaxed = alignment if alignment != "exact" else parsed_alignment
         return candidate["work_id"], [{"code": "raw_publication_year_supported",
             "parsed_year": parsed_year, "publication_year": candidate["year"],
             "candidate_work_id": candidate["work_id"],
             "raw_title_alignment": alignment,
+            "parsed_title_alignment": parsed_alignment,
             "raw_evidence_tokenization": tokenization,
             "line_hyphen_joined_for_comparison": raw_joined != raw_source,
             "basis": ("complete_authors_and_full_canonical_title_with_publication_year_in_raw_author_prefix"
-                      if alignment == "exact" else
-                      "complete_authors_and_single_article_omission_with_publication_year_and_volume_pages_in_raw")}]
+                      if relaxed == "exact" else
+                      f"complete_authors_and_{relaxed}_with_publication_year_and_volume_pages_in_raw")}]
     return None, [{"code": "possible_publication_year_conflict", "parsed_year": parsed_year,
-        "candidate_work_ids": [c["work_id"] for c in candidates[:5]],
+        "candidate_work_ids": [c["work_id"] for c, _ in candidates[:5]],
         "candidate_count": len(candidates), "requires_source_review": True,
         "basis": "parsed_year_occurs_in_a_curated_same_author_title_but_raw_publication_evidence_is_insufficient_or_ambiguous"}]

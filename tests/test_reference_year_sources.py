@@ -133,7 +133,7 @@ def test_no_substantive_fuzzy_title_repair_or_multiple_article_omissions(tmp_pat
     conn, _ = make_authority(tmp_path)
     index = candidate_index(conn)
     ref = CASES[0]['fresh_reference']
-    assert adjudicate(dict(ref, title=ref['title'].replace('cruise', 'crise')), index) == (None, [])
+    assert adjudicate(dict(ref, title=ref['title'].replace('cruise', 'crase')), index) == (None, [])
     omitted = CASES[3]['fresh_reference']
     assert adjudicate(dict(omitted, title=omitted['title'].removeprefix('The ')), index) == (None, [])
 
@@ -165,3 +165,84 @@ def test_article_omission_and_wrapping_do_not_disambiguate_editions(tmp_path, sa
         work, reasons = adjudicate(case['fresh_reference'], candidate_index(conn))
         assert work is None
         assert reasons[0]['candidate_count'] == 2
+
+
+FULL_DOCUMENT = json.loads((FIXTURE / 'full_document_2026_09_27.json').read_text())['reference']
+
+
+def test_full_document_letter_omission_maps_with_independent_source_locators(tmp_path, monkeypatch):
+    conn, db = make_authority(tmp_path)
+    source = json.dumps(FULL_DOCUMENT, sort_keys=True)
+    path = tmp_path / 'documents/b8ae22a47c6a/references.json'
+    path.write_text(json.dumps({'references': [FULL_DOCUMENT]}))
+    phase2_references(conn, tmp_path)
+    target = find_work(conn, TARGET['paper_hash'])
+    assert conn.execute('SELECT work_id FROM observation_work').fetchone()[0] == target
+    assert missing(db, monkeypatch) == []
+    reason = json.loads(conn.execute('SELECT reasons_json FROM reference_observation_quality').fetchone()[0])[0]
+    assert reason['parsed_title_alignment'] == 'single_internal_letter_omission'
+    assert reason['raw_title_alignment'] == 'single_internal_letter_omission'
+    assert reason['publication_year'] == 1974
+    assert 'volume_pages_in_raw' in reason['basis']
+    assert conn.execute('SELECT raw_citation,year FROM reference_observations').fetchone() == (FULL_DOCUMENT['raw'], 1965)
+    assert json.dumps(FULL_DOCUMENT, sort_keys=True) == source
+    changes = conn.total_changes
+    assert phase2_references(conn, tmp_path) == (0, 0)
+    assert conn.total_changes == changes
+
+
+@pytest.mark.parametrize('change', [
+    {'raw': ''},
+    {'raw_replace': ('54:25-90', '')},
+    {'raw_replace': ('54:25-90', '55:25-90')},
+    {'raw_replace': ('54:25-90', '54:25-91')},
+    {'raw_replace': ('54:25-90', '54:25 90')},
+    {'raw_replace': ('54:25-90', '54:25-90-105')},
+    {'raw_replace': ('1974', '1975')},
+    {'raw_replace': ('1974', '1974, 1975')},
+    {'raw_replace': ('Pugh', 'Another')},
+    {'raw_replace': ('Crise', 'Cruse')},  # two different omissions, not corroboration
+    {'authors': ['P Pugh', 'A Another']},
+    {'doi': '10.9999/conflicting'},
+    {'volume': '55'},
+    {'pages': '25-91'},
+])
+def test_letter_omission_requires_all_independent_evidence(tmp_path, change):
+    conn, _ = make_authority(tmp_path)
+    ref = dict(FULL_DOCUMENT)
+    change = dict(change)
+    if pair := change.pop('raw_replace', None):
+        assert pair[0] in ref['raw']
+        ref['raw'] = ref['raw'].replace(*pair)
+    ref.update(change)
+    assert adjudicate(ref, candidate_index(conn))[0] is None
+
+
+@pytest.mark.parametrize('damaged', ['Cruis', 'ruise', 'Crse', 'Crase', 'Cruises', 'collection', ''])
+def test_letter_rule_rejects_boundary_letters_multiple_edits_and_word_replacement(tmp_path, damaged):
+    conn, _ = make_authority(tmp_path)
+    ref = dict(FULL_DOCUMENT, title=FULL_DOCUMENT['title'].replace('Crise', damaged),
+               raw=FULL_DOCUMENT['raw'].replace('Crise', damaged))
+    assert adjudicate(ref, candidate_index(conn))[0] is None
+
+
+@pytest.mark.parametrize('damaged_field', ['raw', 'title'])
+def test_exact_other_field_cannot_bypass_letter_omission_locator_requirement(tmp_path, damaged_field):
+    conn, _ = make_authority(tmp_path)
+    ref = dict(FULL_DOCUMENT)
+    exact_field = 'title' if damaged_field == 'raw' else 'raw'
+    ref[exact_field] = ref[exact_field].replace('Crise', 'Cruise')
+    assert adjudicate(ref, candidate_index(conn))[0] == find_work(conn, TARGET['paper_hash'])
+    ref['raw'] = ref['raw'].replace('54:25-90', '')
+    assert adjudicate(ref, candidate_index(conn))[0] is None
+
+
+@pytest.mark.parametrize('same_doi', [False, True])
+def test_letter_omission_does_not_disambiguate_editions(tmp_path, same_doi):
+    entry = TARGET['curated_entry']
+    second = dict(entry, _key='OtherEdition', edition='2',
+                  doi=entry['doi'] if same_doi else '10.9999/other-edition')
+    conn, _ = build(tmp_path, {'first': dict(entry, edition='1'), 'second': second})
+    target, reasons = adjudicate(FULL_DOCUMENT, candidate_index(conn))
+    assert target is None
+    assert reasons[0]['candidate_count'] == 2

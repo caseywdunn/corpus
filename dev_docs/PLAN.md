@@ -190,6 +190,12 @@ priority over finishing within the current week's usage allowance.
   raw-observation loss or refresh merges. Fresh Alvarino's `Sond Crise` remains
   unresolved under the strict title rule. See the
   [v10 receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v10.json).
+  The subsequent locator-corroborated rule admits a single internal omitted
+  letter only with exact independent author/year/volume/page evidence. A
+  [read-only comparison](examples/bouchet_acceptance_2026_09_27/bibliography_locator_comparison.json)
+  across every fresh reference changes only the source-reviewed Alvarino
+  observation. The focused regressions pass; full authority refresh and
+  acquisition-ranking acceptance of this producer remain pending.
   `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,

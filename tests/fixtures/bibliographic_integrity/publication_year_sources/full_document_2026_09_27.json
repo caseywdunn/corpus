@@ -1,0 +1,19 @@
+{
+  "paper_hash": "b8ae22a47c6a",
+  "source_pdf": "A/Alvarinoetal1990.pdf",
+  "physical_page": 439,
+  "source_crop": "b8ae22a47c6a-b80.png",
+  "references_sha256": "a563fbd0e00f8bb345c9ffa61d9e6bf33a5d07aee410ca18f5f7f32cbfeeabd4",
+  "capture": "Unchanged reference from the full prepared-document extraction in the September 27 candidate; distinct from the earlier selected-page capture.",
+  "reference": {
+    "xml_id": "b80",
+    "title": "The vertical distribution of the siphonophores collected during the Sond Crise",
+    "authors": [
+      "P Pugh"
+    ],
+    "year": 1965,
+    "journal": "J. Mar. Biol. Ass. U. K",
+    "doi": "",
+    "raw": "Pugh, P. R. 1974 The vertical distribution of the siphonophores collected during the Sond Crise, 1965. J. Mar. Biol. Ass. U. K., 54:25-90."
+  }
+}

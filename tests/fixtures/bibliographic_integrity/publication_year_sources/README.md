@@ -81,3 +81,27 @@ and citation rebuild; actual citing-document sets and overlap for the reported
 1965/1974 nodes; the complete missing-reference ranking; and those counts and
 provenance through the candidate served bundle. These page pilots do not show
 that the deployed historical bundle has changed, or recover its missing TEI.
+
+## Full-document follow-up, September 27
+
+`full_document_2026_09_27.json` preserves the new candidate's unchanged
+Alvarino `b80` row and the hash of its complete `references.json`. Unlike the
+earlier page-only capture, full-document extraction again emits `Sond Crise`
+and parsed year 1965. The source crop above explicitly prints *Sond Cruise*,
+publication year 1974, volume 54 and pages 25–90.
+
+The new comparison rule admits one internal omitted letter in one alphabetic
+title word of at least six letters, only with the complete normalized surname
+set, a unique supported curated candidate, its publication year in the raw
+author prefix, and its exact contiguous volume/page pair in the raw citation.
+Explicit contradictory DOI or parsed locators reject the match. All other title
+tokens must agree; substitutions, boundary-letter loss, whole-word loss and
+combined omissions remain unsupported. If both parsed and raw titles have an
+omission, they must have the same omission. Neither stored title nor raw
+observation is rewritten. This extends the earlier policy on the strength of
+independent locators; it is not an unrestricted approximate-title merge.
+
+The source-backed regression verifies the materialized citation, decision
+provenance, missing-reference result and unchanged refresh. Full-population
+decision comparison and clean/incremental replay are recorded separately in
+the release acceptance receipts.

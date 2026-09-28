@@ -1,0 +1,54 @@
+{
+  "examined": 92227,
+  "changed_count": 1,
+  "changes": [
+    {
+      "paper_hash": "b8ae22a47c6a",
+      "reference": {
+        "xml_id": "b80",
+        "title": "The vertical distribution of the siphonophores collected during the Sond Crise",
+        "authors": [
+          "P Pugh"
+        ],
+        "year": 1965,
+        "journal": "J. Mar. Biol. Ass. U. K",
+        "doi": "",
+        "raw": "Pugh, P. R. 1974 The vertical distribution of the siphonophores collected during the Sond Crise, 1965. J. Mar. Biol. Ass. U. K., 54:25-90."
+      },
+      "before": [
+        null,
+        []
+      ],
+      "after": [
+        "10.1017/s0025315400022086",
+        [
+          {
+            "code": "raw_publication_year_supported",
+            "parsed_year": 1965,
+            "publication_year": 1974,
+            "candidate_work_id": "10.1017/s0025315400022086",
+            "raw_title_alignment": "single_internal_letter_omission",
+            "parsed_title_alignment": "single_internal_letter_omission",
+            "raw_evidence_tokenization": "identity_normalization",
+            "line_hyphen_joined_for_comparison": false,
+            "basis": "complete_authors_and_single_internal_letter_omission_with_publication_year_and_volume_pages_in_raw"
+          }
+        ]
+      ]
+    }
+  ],
+  "policy_sha256": "1697b54ef4cbada08a70b55c2912b1fcbbe4d487e66defeeab92634d78818c6c",
+  "job": "27713792",
+  "scope": "Read-only publication-year adjudication comparison against v10 across every fresh reference; source artifacts unchanged.",
+  "source_review": {
+    "paper_hash": "b8ae22a47c6a",
+    "physical_page": 439,
+    "crop": "tests/fixtures/bibliographic_integrity/publication_year_sources/b8ae22a47c6a-b80.png",
+    "finding": "Printed citation explicitly has Pugh 1974, Sond Cruise 1965, volume 54 pages 25–90; fresh full-document parsed/raw title drops the internal u."
+  },
+  "tests": {
+    "focused_passed": 150,
+    "ruff_F": "pass"
+  },
+  "full_authority_replay": "pending"
+}
