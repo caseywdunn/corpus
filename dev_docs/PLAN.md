@@ -159,7 +159,7 @@ priority over finishing within the current week's usage allowance.
   debris with auditable quarantine or visible uncertainty across bibliography,
   resolution, formatting, author lookup and acquisition routes. Sparse historical
   controls and unchanged/changed refresh pass. `[plane:build]`
-- [ ] **#314** — resolve source-supported publication-year conflicts before
+- [x] **#314** — resolve source-supported publication-year conflicts before
   ranking missing works. Depends on trustworthy identities; do not use broad
   title-only merges. Implemented with source-supported per-observation year
   adjudication and shared-edge deduplication. All four named observations
@@ -174,28 +174,33 @@ priority over finishing within the current week's usage allowance.
   [558 pages and 178 references](examples/siphonophore_citation_year_2026_09_21.json),
   with each named observation mapped to 1974, raw observations preserved and
   unchanged refresh verified. Reporting-harness failures and a separate
-  unresolved Kinzer year conflict remain explicit in the receipt. Full-corpus
-  citation-overlap and acquisition-ranking acceptance remain pending. The
+  unresolved Kinzer year conflict remain explicit in the receipt. The
   [retained v1.2.1 census](examples/siphonophore_pugh_split_v1_2_1_2026_09_22.json)
   reproduces the 59/23 citing-paper split with zero overlap, but every relevant
   raw citation is empty. Those counts cannot justify remapping observations or
   substitute for the audited v1.4 authority database. The subsequently recovered
   audited v1.4 artifacts now have a [historical review](examples/bibliography_review_2026_09_25/README.md):
   38 raw-supported repairs change the split to 21/61, but the remaining 1965
-  ghost is still ranked 13th in missing-work leads. Fresh-candidate acceptance
-  remains pending.
+  ghost was still ranked 13th in missing-work leads in that historical replay.
   September 27 punctuation-boundary fix `6d5e19a` passes source review of all
   three changed references and full clean/incremental/first-refresh replay
   `27704859`: the 1965/1974 split becomes 14/67, with no citing-paper overlap,
-  raw-observation loss or refresh merges. Fresh Alvarino's `Sond Crise` remains
-  unresolved under the strict title rule. See the
+  raw-observation loss or refresh merges. Fresh Alvarino's `Sond Crise` remained
+  unresolved under that strict title rule. See the
   [v10 receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v10.json).
   The subsequent locator-corroborated rule admits a single internal omitted
   letter only with exact independent author/year/volume/page evidence. A
   [read-only comparison](examples/bouchet_acceptance_2026_09_27/bibliography_locator_comparison.json)
   across every fresh reference changes only the source-reviewed Alvarino
-  observation. The focused regressions pass; full authority refresh and
-  acquisition-ranking acceptance of this producer remain pending.
+  observation. All 150 focused checks and full authority replay `27722793`
+  pass: all four named observations map to 1974, clean/incremental graphs and
+  complete missing-work counts agree, raw observations survive unchanged, and
+  first refresh makes no graph changes or reconciliation merges. The residual
+  1965 node has 13 citing papers, versus 68 at 1974 with zero overlap; it is
+  ranked 56th with an explicit publication-year warning. See the
+  [v11 receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v11.json).
+  Original bundle hashes are unchanged; final candidate materialization and
+  served release-wide acceptance still follow the integrated code.
   `[plane:build]`
 
 Acceptance includes reversed ingestion/merge order, curated/extracted conflicts,
@@ -499,8 +504,11 @@ new licensing evidence and no cache writes into the bundle.
   source-layout/resume tests pass; the policy invalidates chunks and consumers
   without repeating extraction. See the [receipt](examples/bouchet_acceptance_2026_09_27/nonempty_chunks.json).
   The full candidate still needs this normal refresh; this is not a retrieval
-  improvement claim. A separate full-population stored-context embedding
-  experiment is running with independent outcomes sealed.
+  improvement claim. The separate full-population stored-context embedding
+  [experiment](examples/bouchet_acceptance_2026_09_27/retrieval_context_experiment.json)
+  completed but fails: audit hits rise to 2/7 while losing an existing audit
+  hit, and historical hits at ten fall from 1/2 to 0/2. It is not promoted;
+  production embeddings are unchanged and independent outcomes remain sealed.
   All 1,775 source PDFs for the dated retained baseline are locally available.
   A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
   has now started from independently copied, SHA-verified sources and frozen

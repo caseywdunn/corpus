@@ -50,5 +50,9 @@
     "focused_passed": 150,
     "ruff_F": "pass"
   },
-  "full_authority_replay": "pending"
+  "full_authority_replay": {
+    "status": "pass",
+    "job": "27722793",
+    "receipt": "bibliography_v11.json"
+  }
 }

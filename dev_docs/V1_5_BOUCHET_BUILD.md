@@ -39,13 +39,20 @@ receipts were not rewritten to conceal this difference.
   `27664816` also passes clean/incremental graph equivalence, first unchanged
   refresh, and preservation of 92,227 raw observations and 91,080 edges.
   Named Mańko/Pugh canonical fields, ordered Unicode authors and BibTeX
-  provenance pass; #296 acceptance is complete. #314 remains incomplete:
-  the 1965/1974 split is 17/64 with zero overlap. A punctuation-boundary fix
+  provenance pass; #296 acceptance is complete. Initially the #314
+  1965/1974 split was 17/64 with zero overlap. A punctuation-boundary fix
   repairs three further source-reviewed decisions. Full replay `27704859`
   passes clean/incremental/first-refresh checks, with the split now 14/67 and
-  zero overlap. Fresh Alvarino's title OCR error remains unresolved; the original
-  candidate bundle remains unchanged.
-  See the [bibliography receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v9.json).
+  zero overlap. Locator-corroborated fix `ff3d731` now maps the source-reviewed
+  Alvarino observation; read-only comparison of all fresh references changes
+  only that decision and 150 focused tests pass. Full v11 replay `27722793`
+  completed in 54m40s and passes clean/incremental/first-refresh and complete
+  missing-ranking checks. All four named citations map to 1974; the split is
+  13/68 with zero overlap. The residual 1965 node is ranked 56th and explicitly
+  warns of a possible publication-year conflict. #314 acceptance is complete.
+  The original candidate bundle remains unchanged; final normal materialization
+  is still a release gate. See the
+  [v11 receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v11.json).
 - **#320:** the [fixed-query diagnostic](examples/bouchet_acceptance_2026_09_27/fixed_retrieval.json)
   compares equal artifact and indexed paper populations against the audited v1.4
   bundle. Candidate audit hits are 1/7 at both five and ten results; reference
@@ -55,6 +62,11 @@ receipts were not rewritten to conceal this difference.
   headings are stored but excluded from embeddings. Target-only contextual
   scores are diagnostic, not proof of full-population improvement. Independent outcomes stay
   sealed. This is a failed diagnostic, not completed independent acceptance.
+  The isolated stored-context embedding experiment `27713378` completed on
+  H200 in 14m28s. Audit hits rise to 2/7 at both cutoffs, but an existing audit
+  hit is lost and historical hits at ten fall to 0/2. The policy is rejected;
+  no production embedding change or independent evaluation followed. See the
+  [experiment receipt](examples/bouchet_acceptance_2026_09_27/retrieval_context_experiment.json).
 - **#305/#342:** two prompt experiments remain unpromoted. Whole-panel prompting
   passes 2/9 selected targets; separate per-label calls pass 1/9, lose the
   previously passing control and produce schema errors. Retained raw outputs

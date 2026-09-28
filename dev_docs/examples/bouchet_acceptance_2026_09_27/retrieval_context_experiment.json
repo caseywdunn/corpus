@@ -1,6 +1,5 @@
 {
   "scope": "Isolated full-population context embedding experiment; no production change, independent outcomes sealed.",
-  "active_job": "27713378",
   "partition": "gpu_h200",
   "code_base": "46657d5",
   "script_sha256": "803bb64e1e13fec17fb1b0d424da0a4ab47f08f3041100a35c4ea5adf9407fba",
@@ -10,5 +9,269 @@
     "status": "cancelled",
     "reason": "Allocated RTX 5000 Ada unsupported by environment accelerator guard; backend fell back to CPU. Partial index retained separately."
   },
-  "rejected_submission": "H200 requested in generic gpu partition; rejected without a job. Corrected to gpu_h200 using successful historical allocation evidence."
+  "rejected_submission": "H200 requested in generic gpu partition; rejected without a job. Corrected to gpu_h200 using successful historical allocation evidence.",
+  "job": "27713378",
+  "status": "completed",
+  "elapsed": "00:14:28",
+  "acceptance": "fail",
+  "promoted": false,
+  "production_embedding_policy_changed": false,
+  "independent_outcomes": "sealed; not captured or scored",
+  "recipe": {
+    "scope": "Experimental stored-context embedding input; no production change; no independent outcomes.",
+    "context_order": [
+      "document title",
+      "stored headings",
+      "resolved treatment name",
+      "stored captions",
+      "table column headers"
+    ],
+    "context_character_budget": 768,
+    "original_chunk_text": "Preserved verbatim in indexed payload; context appears only in embedding input.",
+    "code_sha256": "803bb64e1e13fec17fb1b0d424da0a4ab47f08f3041100a35c4ea5adf9407fba",
+    "rows": 247819,
+    "documents": 1775,
+    "input_stream_sha256": "97715d7b6da2067f2fa21b169667f91835294ae36c4f7cccdf9143d5b6a65b09",
+    "payload_stream_sha256": "eca29afd3b639b948df4a80f2b0a52210b35b2d72f2bb6917a12efe57e4e7dfa",
+    "source_artifacts_changed": []
+  },
+  "gates": [
+    {
+      "group": "audit",
+      "variant": "at5",
+      "queries": 7,
+      "judged_queries": 7,
+      "hits": 2,
+      "hit_rate": 0.2857142857142857,
+      "required_rate": 0.8571428571428571,
+      "status": "fail"
+    },
+    {
+      "group": "audit",
+      "variant": "at10",
+      "queries": 7,
+      "judged_queries": 7,
+      "hits": 2,
+      "hit_rate": 0.2857142857142857,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at5",
+      "queries": 3,
+      "judged_queries": 3,
+      "hits": 2,
+      "hit_rate": 0.6666666666666666,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at10",
+      "queries": 3,
+      "judged_queries": 3,
+      "hits": 2,
+      "hit_rate": 0.6666666666666666,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at5",
+      "queries": 2,
+      "judged_queries": 2,
+      "hits": 0,
+      "hit_rate": 0.0,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at10",
+      "queries": 2,
+      "judged_queries": 2,
+      "hits": 0,
+      "hit_rate": 0.0,
+      "required_rate": 1.0,
+      "status": "fail"
+    }
+  ],
+  "per_query": [
+    {
+      "query_id": "audit_01",
+      "group": "audit",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_01",
+      "group": "audit",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_02",
+      "group": "audit",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_02",
+      "group": "audit",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_03",
+      "group": "audit",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_03",
+      "group": "audit",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_04",
+      "group": "audit",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_04",
+      "group": "audit",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_05",
+      "group": "audit",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_05",
+      "group": "audit",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "audit_06",
+      "group": "audit",
+      "variant": "at5",
+      "hit": true,
+      "known_target_coverage": 1.0
+    },
+    {
+      "query_id": "audit_06",
+      "group": "audit",
+      "variant": "at10",
+      "hit": true,
+      "known_target_coverage": 1.0
+    },
+    {
+      "query_id": "audit_07",
+      "group": "audit",
+      "variant": "at5",
+      "hit": true,
+      "known_target_coverage": 1.0
+    },
+    {
+      "query_id": "audit_07",
+      "group": "audit",
+      "variant": "at10",
+      "hit": true,
+      "known_target_coverage": 1.0
+    },
+    {
+      "query_id": "prose_01",
+      "group": "prose_control",
+      "variant": "at5",
+      "hit": true,
+      "known_target_coverage": 0.5
+    },
+    {
+      "query_id": "prose_01",
+      "group": "prose_control",
+      "variant": "at10",
+      "hit": true,
+      "known_target_coverage": 0.5
+    },
+    {
+      "query_id": "prose_02",
+      "group": "prose_control",
+      "variant": "at5",
+      "hit": true,
+      "known_target_coverage": 0.6666666666666666
+    },
+    {
+      "query_id": "prose_02",
+      "group": "prose_control",
+      "variant": "at10",
+      "hit": true,
+      "known_target_coverage": 1.0
+    },
+    {
+      "query_id": "prose_03",
+      "group": "prose_control",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "prose_03",
+      "group": "prose_control",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "historical_01",
+      "group": "historical_control",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "historical_01",
+      "group": "historical_control",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "historical_02",
+      "group": "historical_control",
+      "variant": "at5",
+      "hit": false,
+      "known_target_coverage": 0.0
+    },
+    {
+      "query_id": "historical_02",
+      "group": "historical_control",
+      "variant": "at10",
+      "hit": false,
+      "known_target_coverage": 0.0
+    }
+  ],
+  "interpretation": "Known diagnostic hits move from 1/7 to 2/7, but audit_05 is lost and historical control at10 falls from 1/2 to 0/2. Retain experiment as failed; do not promote this embedding input policy.",
+  "hashes": {
+    "run.py": "803bb64e1e13fec17fb1b0d424da0a4ab47f08f3041100a35c4ea5adf9407fba",
+    "fixed-capture.json": "d1c7f2b33d27d38d83cfcead85ae2f49ce057b3414da369a2fc68cede5a96211",
+    "fixed-score.json": "d4352b9ba92d9c35a39618301c5cc31f2275b7577a285fdc11bf306e4afb37c7",
+    "recipe-receipt.json": "2334748586b62c8cd26c2429b64d9d10c63262921a8f714fe045225f7d41e535"
+  }
 }

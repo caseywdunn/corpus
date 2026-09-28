@@ -9,8 +9,8 @@ acceptance are complete; their older missing-asset entries below are historical.
 See [the current Bouchet status](V1_5_BOUCHET_BUILD.md#september-26-status).
 
 September 27 continuation: the Bouchet candidate has completed all build phases
-and live SSE. Four actionable release issues remain (#305, #314, #320, #342), plus final release-wide gates. Historical and fresh bibliography refresh consistency pass; #296 acceptance
-is complete. Source-year/acquisition findings under #314 remain. Fixed retrieval and vision acceptance
+and live SSE. Three actionable release issues remain (#305, #320, #342), plus final release-wide gates. Historical and fresh bibliography refresh consistency pass; #296 and #314 acceptance
+are complete, including all named publication-year cases and the complete acquisition ranking. Fixed retrieval and vision acceptance
 still fail. The [September 27 status](V1_5_BOUCHET_BUILD.md#september-27-status)
 supersedes the older active-run and missing-asset descriptions below. The erenna
 run was not inspected or changed from Bouchet.
