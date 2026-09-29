@@ -306,12 +306,20 @@ paths are not extraction inputs.
 | Setting family | First consumer; downstream invalidation |
 |---|---|
 | OCR detection defaults, thresholds and language-probe controls | Scan detection; prepared PDF and everything derived from it |
-| OCR optimization, workers and timeouts | PDF preparation; extraction, metadata, chunks, figures and annotations |
+| OCR optimization, workers and Tesseract page timeout | PDF preparation; extraction, metadata, chunks, figures and annotations |
 | Figure raster settings and extraction accelerator | Docling extraction; chunks, figures and annotations, not Grobid metadata |
 | `chunking.max_tokens` | Fallback chunker; annotation and chunk/figure links. Docling's HybridChunker still uses its own default tokenizer/limit; this setting does not configure it |
 | Grobid disablement, header/citation consolidation, request timeout and producer identity | Metadata and its quality checks; not OCR or figure detection |
 | Panel mode, resolved vision model and producer identity | Figure materialization and links; not OCR, stored text/chunks or metadata |
 | Huge-document and quality-gate thresholds | Their respective checks |
+
+`stage_timeouts.ocr` and `stage_timeouts.ocr_per_page` control the outer
+document deadline. Expiry kills the OCR call and fails preparation; changing
+this retry budget does not invalidate successful artifacts. Resume ignores
+these two fields in older completion fingerprints without rewriting the
+receipts. Missing or failed completion evidence still requires a retry.
+`ocr.tesseract_page_timeout` remains fingerprinted because Tesseract can omit
+a page's text while the enclosing OCR command exits successfully.
 
 Producer and dependent completion receipts are cleared **before** producer
 writes, including forced reruns. Failed or interrupted work cannot retain an

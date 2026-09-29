@@ -33,6 +33,15 @@ in the preparation fingerprint, a full unchanged resume under the original
 config has **not** been demonstrated for those recovered documents. Completion
 receipts were not rewritten to conceal this difference.
 
+September 28 follow-up: outer document deadlines now have no effect on
+successful-artifact reuse; Tesseract's content-affecting page timeout remains
+an input. All 104 focused checks pass, including legacy receipts, clean-build
+equivalence and retry of incomplete preparation. Read-only full-population
+plan `27747362` now requires only chunking, annotation and figure cross-reference
+refresh; the two long books retain their original preparation receipts.
+This clears the plan for a normal refresh, not proof that it has run. See the
+[resume receipt](examples/bouchet_acceptance_2026_09_27/ocr_budget_resume.json).
+
 - **#336 and #337 are closed** with their source and non-reference serving evidence.
 - **#296/#314:** historical first-refresh edge loss is fixed by mapping producer
   v9; the complete historical replay passes. Fresh candidate job

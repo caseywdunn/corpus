@@ -39,6 +39,71 @@ def test_defaults_and_explicit_defaults_have_identical_fingerprints():
         copy.deepcopy(_DEFAULT_CONFIG), panel_mode="ocr")
 
 
+@pytest.mark.parametrize('legacy_receipts', [False, True])
+def test_ocr_deadline_change_reuses_successful_artifacts_through_both_resume_gates(corpus, monkeypatch, legacy_receipts):
+    corpus.run()
+    paths = [corpus.hd(), corpus.hd('Second2002.pdf')]
+    if legacy_receipts:
+        for hd in paths:
+            path = hd / 'pipeline_state.json'
+            state = json.loads(path.read_text())
+            for record in state['stages'].values():
+                config = record.get('input_fingerprint', {}).get('config', {})
+                if 'ocr.tesseract_page_timeout' in config:
+                    config.update({'stage_timeouts.ocr': 1800, 'stage_timeouts.ocr_per_page': 120})
+            path.write_text(json.dumps(state))
+    before = {hd: (hd / 'pipeline_state.json').read_bytes() for hd in paths}
+    corpus.config.write_text('stage_timeouts:\n  ocr: 60\n  ocr_per_page: 30\n')
+    with monkeypatch.context() as patch:
+        for name in ('detect_scan_type', 'prepare_pdf', 'extract_docling_content', 'extract_metadata'):
+            patch.setattr(runner, name, lambda *a, **kw: pytest.fail('completed work reran for an outer deadline'))
+        corpus.run()
+    for hd in paths:
+        assert (hd / 'pipeline_state.json').read_bytes() == before[hd]
+    clean = corpus.run(destination=corpus.output.parent / 'clean')
+    for name in ('First2001.pdf', 'Second2002.pdf'):
+        for filename in ('metadata.json', 'chunks.json', 'references.json'):
+            assert json.loads((corpus.hd(name) / filename).read_text()) == json.loads((corpus.hd(name, destination=clean) / filename).read_text())
+
+
+def test_page_timeout_still_invalidates_preparation_and_consumers(corpus, monkeypatch):
+    corpus.run()
+    before = stages._load_pipeline_state(corpus.hd())['stages']
+    corpus.config.write_text('ocr:\n  tesseract_page_timeout: 1200\n')
+    prepared = []
+    prepare = runner.prepare_pdf
+    def record_prepare(src, detection, destination):
+        prepared.append(src.name)
+        return prepare(src, detection, destination)
+    monkeypatch.setattr(runner, 'prepare_pdf', record_prepare)
+    corpus.run()
+    assert sorted(prepared) == ['First2001.pdf', 'Second2002.pdf']
+    after = stages._load_pipeline_state(corpus.hd())['stages']
+    assert before['scan_detection'] == after['scan_detection']
+    for stage in ('pdf_preparation', 'docling_extraction', 'metadata_extraction', 'text_chunking'):
+        assert before[stage] != after[stage]
+
+
+def test_outer_deadline_change_does_not_accept_interrupted_preparation(corpus, monkeypatch):
+    corpus.run()
+    hd = corpus.hd()
+    state = stages._load_pipeline_state(hd)
+    del state['stages']['pdf_preparation']
+    stages._save_pipeline_state(hd, state)
+    # A partial file alone must never become success when the deadline changes.
+    (hd / 'processed.pdf').write_bytes(b'interrupted OCR output')
+    corpus.config.write_text('stage_timeouts:\n  ocr: 3600\n  ocr_per_page: 120\n')
+    prepared = []
+    prepare = runner.prepare_pdf
+    def record_prepare(src, detection, destination):
+        prepared.append(src.name)
+        return prepare(src, detection, destination)
+    monkeypatch.setattr(runner, 'prepare_pdf', record_prepare)
+    corpus.run()
+    assert prepared == ['First2001.pdf']
+    assert (hd / 'processed.pdf').read_bytes() == (corpus.source / 'First2001.pdf').read_bytes()
+
+
 def test_chunk_setting_rechunks_without_ocr_metadata_or_figure_detection(corpus, monkeypatch):
     corpus.run()
     hd = corpus.hd()

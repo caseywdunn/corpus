@@ -45,8 +45,11 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
         "probe_language_min_confidence", "probe_max_languages", "probe_max_gibberish",
         "probe_dpi", "probe_sample_pages",
     ))
-    prep = {**scan, **select("ocr", ("optimize_level", "tesseract_page_timeout", "jobs")),
-            **select("stage_timeouts", ("ocr", "ocr_per_page"))}
+    # The outer OCR deadline aborts the document; it cannot change a completed
+    # output. Tesseract's page timeout can omit page text on a successful exit
+    # and must remain an input. See OVERVIEW.md, "Stage 1 configuration and
+    # cache ownership".
+    prep = {**scan, **select("ocr", ("optimize_level", "tesseract_page_timeout", "jobs"))}
     from .native_text_recovery import native_text_recovery_producer
     # Original-layer recovery runs before OCR replaces that evidence. Its
     # policy and installed models must invalidate preparation and consumers.

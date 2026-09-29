@@ -229,6 +229,21 @@ def _record_stage_completion(
     _save_pipeline_state(hash_dir, state)
 
 
+def _materialization_fingerprint(fingerprint):
+    """Compare legacy successful receipts without operational OCR deadlines.
+
+    Those deadlines kill the entire OCR call and raise on expiry. They do not
+    govern page content, unlike ocr.tesseract_page_timeout. Keep old receipts
+    intact while allowing changes to retry budgets to reuse successful work.
+    """
+    if not isinstance(fingerprint, dict) or not isinstance(fingerprint.get("config"), dict):
+        return fingerprint
+    return {**fingerprint, "config": {
+        key: value for key, value in fingerprint["config"].items()
+        if key not in {"stage_timeouts.ocr", "stage_timeouts.ocr_per_page"}
+    }}
+
+
 def _stage_recorded_complete(
     hash_dir: Path,
     stage_name: str,
@@ -247,7 +262,7 @@ def _stage_recorded_complete(
     if rec.get("pipeline_version") != PIPELINE_VERSION:
         return False
     if expected_fingerprint is not None:
-        if rec.get("input_fingerprint") != expected_fingerprint:
+        if _materialization_fingerprint(rec.get("input_fingerprint")) != _materialization_fingerprint(expected_fingerprint):
             return False
     if stage_name == "taxa_and_lexicon_extraction":
         from .annotate import annotation_outputs_problem
@@ -303,8 +318,8 @@ def _stage_input_changes(hash_dir, stage_name, expected_fingerprint):
                 out[name] = item
         return out
 
-    old = flatten(record.get("input_fingerprint") or {})
-    new = flatten(expected_fingerprint or {})
+    old = flatten(_materialization_fingerprint(record.get("input_fingerprint") or {}))
+    new = flatten(_materialization_fingerprint(expected_fingerprint or {}))
     changes = sorted(key for key in old.keys() | new.keys()
                      if key not in old or key not in new or old[key] != new[key])
     if not changes and stage_name == "taxa_and_lexicon_extraction":
