@@ -1,0 +1,508 @@
+{
+  "job": "27747173",
+  "elapsed": "00:00:44",
+  "acceptance": "fail",
+  "promoted": false,
+  "independent_outcomes": "sealed; not captured or scored",
+  "recipe": {
+    "scope": "Fixed queries only; independent outcomes sealed; production unchanged",
+    "lexical_fields": [
+      "original text",
+      "stored headings",
+      "resolved treatment/table column header/caption context",
+      "document citation metadata"
+    ],
+    "bm25_weights": [
+      1,
+      2,
+      1,
+      0.5
+    ],
+    "pool_per_route": 100,
+    "rrf_constant": 60,
+    "query_tokens": "distinct Unicode word tokens of length at least 3, OR; at most 32",
+    "deduplication": "one chunk per same-paper table in the selected prefix; remaining chunks backfill if needed",
+    "policies": [
+      "bm25-only diagnostic",
+      "equal reciprocal rank fusion of original semantic and BM25"
+    ]
+  },
+  "materialization": {
+    "rows": 245689,
+    "documents": 1775,
+    "source_artifacts_changed": [],
+    "script_sha256": "c0dfc5bf3ca100a2d250b9e0ab403d1ce01c27b9dfe8d396774ce84689ab135c"
+  },
+  "semantic_pool": "Prior unchanged candidate read-only top-100 diagnostic capture; exact query arguments asserted equal. This is an offline selection experiment, not a changed production MCP route.",
+  "bm25": {
+    "gates": [
+      {
+        "group": "audit",
+        "variant": "at5",
+        "queries": 7,
+        "judged_queries": 7,
+        "hits": 2,
+        "hit_rate": 0.2857142857142857,
+        "required_rate": 0.8571428571428571,
+        "status": "fail"
+      },
+      {
+        "group": "audit",
+        "variant": "at10",
+        "queries": 7,
+        "judged_queries": 7,
+        "hits": 2,
+        "hit_rate": 0.2857142857142857,
+        "required_rate": 1.0,
+        "status": "fail"
+      },
+      {
+        "group": "prose_control",
+        "variant": "at5",
+        "queries": 3,
+        "judged_queries": 3,
+        "hits": 1,
+        "hit_rate": 0.3333333333333333,
+        "required_rate": 1.0,
+        "status": "fail"
+      },
+      {
+        "group": "prose_control",
+        "variant": "at10",
+        "queries": 3,
+        "judged_queries": 3,
+        "hits": 1,
+        "hit_rate": 0.3333333333333333,
+        "required_rate": 1.0,
+        "status": "fail"
+      },
+      {
+        "group": "historical_control",
+        "variant": "at5",
+        "queries": 2,
+        "judged_queries": 2,
+        "hits": 2,
+        "hit_rate": 1.0,
+        "required_rate": 1.0,
+        "status": "pass"
+      },
+      {
+        "group": "historical_control",
+        "variant": "at10",
+        "queries": 2,
+        "judged_queries": 2,
+        "hits": 2,
+        "hit_rate": 1.0,
+        "required_rate": 1.0,
+        "status": "pass"
+      }
+    ],
+    "queries": [
+      {
+        "query_id": "audit_01",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_01",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_02",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_02",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_03",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_03",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_04",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_04",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_05",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_05",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_06",
+        "group": "audit",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "audit_06",
+        "group": "audit",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "audit_07",
+        "group": "audit",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "audit_07",
+        "group": "audit",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "prose_01",
+        "group": "prose_control",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "prose_01",
+        "group": "prose_control",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "prose_02",
+        "group": "prose_control",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 0.6666666666666666
+      },
+      {
+        "query_id": "prose_02",
+        "group": "prose_control",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 0.6666666666666666
+      },
+      {
+        "query_id": "prose_03",
+        "group": "prose_control",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "prose_03",
+        "group": "prose_control",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "historical_01",
+        "group": "historical_control",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "historical_01",
+        "group": "historical_control",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "historical_02",
+        "group": "historical_control",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "historical_02",
+        "group": "historical_control",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 1.0
+      }
+    ],
+    "score_sha256": "5e767de02a8c36c93813dba1ede1ce4c15c0ac043f885a0b95191af8245f5377"
+  },
+  "fusion": {
+    "gates": [
+      {
+        "group": "audit",
+        "variant": "at5",
+        "queries": 7,
+        "judged_queries": 7,
+        "hits": 1,
+        "hit_rate": 0.14285714285714285,
+        "required_rate": 0.8571428571428571,
+        "status": "fail"
+      },
+      {
+        "group": "audit",
+        "variant": "at10",
+        "queries": 7,
+        "judged_queries": 7,
+        "hits": 1,
+        "hit_rate": 0.14285714285714285,
+        "required_rate": 1.0,
+        "status": "fail"
+      },
+      {
+        "group": "prose_control",
+        "variant": "at5",
+        "queries": 3,
+        "judged_queries": 3,
+        "hits": 1,
+        "hit_rate": 0.3333333333333333,
+        "required_rate": 1.0,
+        "status": "fail"
+      },
+      {
+        "group": "prose_control",
+        "variant": "at10",
+        "queries": 3,
+        "judged_queries": 3,
+        "hits": 2,
+        "hit_rate": 0.6666666666666666,
+        "required_rate": 1.0,
+        "status": "fail"
+      },
+      {
+        "group": "historical_control",
+        "variant": "at5",
+        "queries": 2,
+        "judged_queries": 2,
+        "hits": 2,
+        "hit_rate": 1.0,
+        "required_rate": 1.0,
+        "status": "pass"
+      },
+      {
+        "group": "historical_control",
+        "variant": "at10",
+        "queries": 2,
+        "judged_queries": 2,
+        "hits": 2,
+        "hit_rate": 1.0,
+        "required_rate": 1.0,
+        "status": "pass"
+      }
+    ],
+    "queries": [
+      {
+        "query_id": "audit_01",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_01",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_02",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_02",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_03",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_03",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_04",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_04",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_05",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_05",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_06",
+        "group": "audit",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "audit_06",
+        "group": "audit",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "audit_07",
+        "group": "audit",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "audit_07",
+        "group": "audit",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "prose_01",
+        "group": "prose_control",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "prose_01",
+        "group": "prose_control",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 0.5
+      },
+      {
+        "query_id": "prose_02",
+        "group": "prose_control",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 0.6666666666666666
+      },
+      {
+        "query_id": "prose_02",
+        "group": "prose_control",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 0.6666666666666666
+      },
+      {
+        "query_id": "prose_03",
+        "group": "prose_control",
+        "variant": "at5",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "prose_03",
+        "group": "prose_control",
+        "variant": "at10",
+        "hit": false,
+        "known_target_coverage": 0.0
+      },
+      {
+        "query_id": "historical_01",
+        "group": "historical_control",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "historical_01",
+        "group": "historical_control",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "historical_02",
+        "group": "historical_control",
+        "variant": "at5",
+        "hit": true,
+        "known_target_coverage": 1.0
+      },
+      {
+        "query_id": "historical_02",
+        "group": "historical_control",
+        "variant": "at10",
+        "hit": true,
+        "known_target_coverage": 1.0
+      }
+    ],
+    "score_sha256": "058b520d4042abb16e8301070df4dae30afe01d242ba773a60212e98104ac211"
+  },
+  "interpretation": "Historical controls recover, but diagnostic targets and prose budgets fail. Alternative returned passages remain unjudged; no frozen grades were expanded after observing outcomes."
+}

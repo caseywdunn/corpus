@@ -7,6 +7,42 @@ run's state has not been established and its outputs have not been moved.
 
 ## September 27 status
 
+September 29 continuation: the normal refresh started at integrated code
+`7eebfbf`: extraction/chunk refresh `27849185`, dependent embedding `27849186`,
+and post-processing/separate bundle/SSE `27849187`. It runs against the existing
+build, preserves the original `output/corpus_bundle`, and writes the new bundle
+to `output/corpus_bundle_refresh_20260929`. The driver retains prior chunk/stage
+receipts and verifies unchanged upstream artifacts, complete nonempty text and
+structural metadata. Submission is not acceptance. Logs and submission records
+are in `scratch/v15-bouchet-20260925/refresh-20260929`.
+
+The scheduler refused extending the initial six-hour allocation. Job `27849185`
+timed out; its original dependent jobs were cancelled without running. Guarded
+continuation `27882583` (23 hours) is running, with embedding `27883653` and
+finalization `27886418` pending. It runs only after the verified timeout, reuses
+the original verification snapshot and normal resume, and refuses automatic
+retry after any other failure. Its separate logs are under `timeout-continuation/`.
+
+The [full-build gold comparison](examples/bouchet_acceptance_2026_09_27/gold_comparison_2026_09_29.json)
+completed in `27871424`: the same 35 documents and 675 selected pages, with
+unchanged scoring inputs. Median prose coverage rises from 0.9449 to 0.9482,
+but pages below 0.5 coverage rise from 86 to 88. Both builds retain 48 empty
+pages and one script-missing page. Of 115 changed page metric records, 62
+decrease on at least one measure; this is not a blanket fidelity pass.
+Yamamori's median prose coverage falls from 0.8819 to 0.7595; Ahuja,
+Beklemishev and Quoy–Gaimard plates also have lower document aggregates.
+Physical figure counts are unchanged, while matched caption identities fall
+from 544 to 534 and exact panel sets from 89 to 85. Review these source-level
+differences before release. The first scoring job `27849628` incorrectly used
+bundles lacking `docling_doc.json`; its all-empty fidelity results are invalid
+and retained separately. Figure/caption scoring does not establish crop safety.
+
+The float32 vision comparison still fails (2/9 target passes). The isolated
+[text/semantic selection pilot](examples/bouchet_acceptance_2026_09_27/retrieval_lexical_experiment.json)
+recovers both historical controls but still fails diagnostic and prose budgets.
+Both remain unpromoted; independent retrieval outcomes remain sealed. Hosted
+T0, Linux/macOS integration and clean-room CI all pass at `7eebfbf`.
+
 **The full candidate completed extraction, embedding, post-processing, bundling
 and live SSE smoke testing. Scientific release acceptance is still failing.**
 The bundle is at the candidate root's `output/corpus_bundle`, created

@@ -348,6 +348,8 @@ before claiming an old OCR-routing defect persists.
   for correction and repeat acceptance. September 27 whole-panel and per-label
   prompt experiments also fail (2/9 and 1/9 target passes); neither is promoted.
   The second loses the previously passing control and produces schema errors.
+  The unchanged-prompt float32 comparison also fails (2/9 passes); seven
+  targets still clip scientific content or labels. It remains unpromoted.
   The original six-control manifest is
   still unavailable, so the additional sample cannot establish its preservation.
   `[plane:build]`
@@ -509,6 +511,10 @@ new licensing evidence and no cache writes into the bundle.
   completed but fails: audit hits rise to 2/7 while losing an existing audit
   hit, and historical hits at ten fall from 1/2 to 0/2. It is not promoted;
   production embeddings are unchanged and independent outcomes remain sealed.
+  The isolated lexical/semantic experiment also fails: historical controls
+  recover, but diagnostic and prose budgets do not pass. Neither BM25 alone
+  nor equal-weight reciprocal-rank fusion is promoted. See its
+  [receipt](examples/bouchet_acceptance_2026_09_27/retrieval_lexical_experiment.json).
   All 1,775 source PDFs for the dated retained baseline are locally available.
   A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
   has now started from independently copied, SHA-verified sources and frozen
@@ -571,6 +577,11 @@ new licensing evidence and no cache writes into the bundle.
   citation degree, concurrency or reconciliation behavior. The Bouchet candidate
   now passes complete extraction, embedding, bundle and live SSE audits at
   `b039067`; [scientific acceptance remains incomplete](V1_5_BOUCHET_BUILD.md#september-27-status).
+  The later full-build gold comparison completes on the same selected pages,
+  with improved aggregate prose coverage but unresolved document-level declines
+  and fewer matched caption identities/panel sets. Its
+  [receipt](examples/bouchet_acceptance_2026_09_27/gold_comparison_2026_09_29.json)
+  preserves every changed page metric and the invalid first scoring invocation.
 - [ ] Record repaired cases and remaining investigations accurately, publish
   rebuild/migration instructions, and prepare the release PR. The
   [candidate upgrade procedure](V1_5_MIGRATION.md) and draft PR #335 are ready

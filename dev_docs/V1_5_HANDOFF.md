@@ -15,6 +15,14 @@ still fail. The [September 27 status](V1_5_BOUCHET_BUILD.md#september-27-status)
 supersedes the older active-run and missing-asset descriptions below. The erenna
 run was not inspected or changed from Bouchet.
 
+September 29 continuation: integrated code is `7eebfbf`. Normal chunk refresh,
+dependent embedding and a separate final bundle are underway; see the current
+Bouchet status for original and timeout-continuation job IDs. Gold comparison
+has completed and exposed document-level text/caption differences that still
+need adjudication. Float32 vision and lexical/semantic retrieval experiments
+both fail acceptance and remain unpromoted. Independent retrieval outcomes
+remain sealed. #336, #337, #296 and #314 remain complete.
+
 Recorded **2026-09-24, 09:22 EDT / 13:22 UTC**. This is a dated handoff,
 not a live build dashboard. Recheck the tracker and build before acting.
 The siphonophore paths below describe this validation run, not requirements

@@ -63,3 +63,13 @@ passes 1/9 and loses the previously passing Siebert B control; four figures
 produce invalid schema/JSON and Castriota invents absent A/B panels. Complete
 panel content, labels and scientific context still fail acceptance. These
 experiments do not recover the missing original six-control manifest.
+
+## September 28 precision comparison
+
+The existing float32 option was tested with the unchanged production prompt,
+same model revision and the same nine source rasters on H200. Direct review
+passes Siebert B and Hays A; seven targets still clip scientific content or
+labels. The [receipt](float32_experiment_2026_09_28.json) records all judgments
+and artifact hashes. This option preserves the previously passing target but
+does not satisfy acceptance and is not promoted. The job's nonzero exit comes
+from failed numeric/status checks; all nine cases produced reviewable outputs.

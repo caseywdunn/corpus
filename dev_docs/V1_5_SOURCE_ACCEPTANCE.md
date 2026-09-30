@@ -79,6 +79,30 @@ Rows are an inventory, not completion claims.
 
 ## Integrated source pilots
 
+### Fresh full bibliography acceptance — September 27–28
+
+September 29 full-build scoring is complete, but acceptance remains unresolved:
+the [same-gold comparison](examples/bouchet_acceptance_2026_09_27/gold_comparison_2026_09_29.json)
+records 115 changed page metric records, including 62 with a decrease on at
+least one measure. Aggregate prose/taxon coverage improves, while Yamamori,
+Beklemishev, Ahuja and Quoy–Gaimard plates have lower document aggregates.
+Caption identities and panel-set recall also decline. These require source
+adjudication; the earlier completed gold refresh is not a substitute for this
+fresh full-library comparison. The first bundle-based fidelity invocation was
+invalid because bundles omit raw Docling extraction, and remains preserved.
+
+Mapping producer v11 passes full-candidate clean/incremental/first-refresh
+replay. All four named Pugh observations resolve to 1974; raw observations are
+preserved and the complete missing-work counts agree. The remaining 1965 lead
+is ranked 56th with an explicit publication-year warning. #296 and #314 are
+closed on their completed evidence; final refreshed-bundle acceptance remains
+release-wide. See the [v11 receipt](examples/bouchet_acceptance_2026_09_27/bibliography_v11.json).
+
+The later [float32 vision review](examples/vision_review_2026_09_25/float32_experiment_2026_09_28.json)
+passes two of nine targets and fails seven with the unchanged prompt and model.
+It is not promoted; #305/#342 remain open. These subsequent results do not
+erase the historical failures below.
+
 ### Completed vision and historical bibliography reviews — September 25–26
 
 The [fresh Qwen crop review](examples/vision_review_2026_09_25/README.md)
