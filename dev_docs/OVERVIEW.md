@@ -536,6 +536,14 @@ The saved figure's resolution is fixed **entirely at extraction time**; nothing 
 
 ### Caption association
 
+Before text export, source-layout recovery can move an explicit numbered table
+caption mistakenly attached to a distant picture onto the unique uncaptioned
+table immediately below it. This requires aligned source geometry, no
+intervening text and no competing caption. It preserves text, cells and boxes,
+records both owners, and leaves ambiguous or existing table bindings untouched
+(#320). The source-layout producer invalidates extraction and downstream
+materialization when this policy changes.
+
 Captions are the highest-value annotation per figure and the hardest in
 historical layouts. `extract_caption_info` records the result as evidence,
 not just as a string:

@@ -1,0 +1,1187 @@
+{
+  "source_document_sha256": "62bddcf59997c695f742d43a8cda0a027acae3b13ee5d17a0b9793121a612e58",
+  "paper_hash": "1648cd91e973",
+  "physical_page": 5,
+  "source_refs": {
+    "table": "#/tables/0",
+    "picture": "#/pictures/3",
+    "texts": [
+      "#/texts/64",
+      "#/texts/65",
+      "#/texts/66"
+    ]
+  },
+  "scope": "Exact extracted table cells, caption text, labels and page geometry; image bytes and unrelated page items omitted. Source page directly reviewed. References renumbered in the reduced document.",
+  "document": {
+    "schema_name": "DoclingDocument",
+    "version": "1.10.0",
+    "name": "Hosia-table-caption-source-page-5",
+    "origin": null,
+    "furniture": {
+      "self_ref": "#/furniture",
+      "parent": null,
+      "children": [],
+      "content_layer": "furniture",
+      "meta": null,
+      "name": "_root_",
+      "label": "unspecified"
+    },
+    "body": {
+      "self_ref": "#/body",
+      "parent": null,
+      "children": [
+        {
+          "cref": "#/tables/0"
+        },
+        {
+          "cref": "#/pictures/0"
+        }
+      ],
+      "content_layer": "body",
+      "meta": null,
+      "name": "_root_",
+      "label": "unspecified"
+    },
+    "groups": [],
+    "texts": [
+      {
+        "self_ref": "#/texts/0",
+        "parent": {
+          "cref": "#/pictures/0"
+        },
+        "children": [],
+        "content_layer": "body",
+        "meta": null,
+        "label": "caption",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 49.6063,
+              "t": 536.6270354023438,
+              "r": 269.24706223000004,
+              "b": 528.8921459023438,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              62
+            ]
+          }
+        ],
+        "orig": "TABLE 1 Summary of diagnostic features separating Nanomia spp.",
+        "text": "TABLE 1 Summary of diagnostic features separating Nanomia spp.",
+        "formatting": null,
+        "hyperlink": null
+      },
+      {
+        "self_ref": "#/texts/1",
+        "parent": {
+          "cref": "#/pictures/0"
+        },
+        "children": [],
+        "content_layer": "body",
+        "meta": null,
+        "label": "caption",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 60.8315,
+              "t": 97.7318959023437,
+              "r": 113.94254126000001,
+              "b": 83.34264590234375,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              23
+            ]
+          }
+        ],
+        "orig": "FIGURE 2 Map of Nanomia",
+        "text": "FIGURE 2 Map of Nanomia",
+        "formatting": null,
+        "hyperlink": null
+      },
+      {
+        "self_ref": "#/texts/2",
+        "parent": {
+          "cref": "#/pictures/0"
+        },
+        "children": [],
+        "content_layer": "body",
+        "meta": null,
+        "label": "text",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 116.10691034,
+              "t": 89.7335546023437,
+              "r": 262.51681874,
+              "b": 83.34264590234375,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              46
+            ]
+          }
+        ],
+        "orig": "observations listed in Supplementary Table S1.",
+        "text": "observations listed in Supplementary Table S1.",
+        "formatting": null,
+        "hyperlink": null
+      }
+    ],
+    "pictures": [
+      {
+        "self_ref": "#/pictures/0",
+        "parent": {
+          "cref": "#/body"
+        },
+        "children": [
+          {
+            "cref": "#/texts/0"
+          },
+          {
+            "cref": "#/texts/1"
+          },
+          {
+            "cref": "#/texts/2"
+          }
+        ],
+        "content_layer": "body",
+        "meta": null,
+        "label": "picture",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 49.12885665893555,
+              "t": 321.97784423828125,
+              "r": 545.710693359375,
+              "b": 72.33209228515625,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ],
+        "captions": [
+          {
+            "cref": "#/texts/0"
+          }
+        ],
+        "references": [],
+        "footnotes": [],
+        "image": null,
+        "annotations": []
+      }
+    ],
+    "tables": [
+      {
+        "self_ref": "#/tables/0",
+        "parent": {
+          "cref": "#/body"
+        },
+        "children": [],
+        "content_layer": "body",
+        "meta": null,
+        "label": "table",
+        "prov": [
+          {
+            "page_no": 5,
+            "bbox": {
+              "l": 48.47139358520508,
+              "t": 520.4927978515625,
+              "r": 545.9555053710938,
+              "b": 342.9994201660156,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ],
+        "captions": [],
+        "references": [],
+        "footnotes": [],
+        "image": null,
+        "data": {
+          "table_cells": [
+            {
+              "bbox": {
+                "l": 178.9228,
+                "t": 327.0571,
+                "r": 244.96029999999996,
+                "b": 335.3011,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 0,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "N. septata sp. n.",
+              "column_header": true,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 302.9104,
+                "t": 333.41110000000003,
+                "r": 339.4918,
+                "b": 335.3011,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 0,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "N. bijuga",
+              "column_header": true,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 426.8971,
+                "t": 333.41110000000003,
+                "r": 456.13720000000006,
+                "b": 335.3011,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 0,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "N. cara",
+              "column_header": true,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 54.6519,
+                "t": 344.8177703,
+                "r": 101.56522980000001,
+                "b": 351.4466756,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Pneumatophore",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 178.92322467,
+                "t": 345.0137675,
+                "r": 285.51350192999996,
+                "b": 370.43701694598315,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "Red apex, conspicuous longitudinal septa lines in fi xed specimens. Length up to 5 mm.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 302.91105339,
+                "t": 345.01446748999996,
+                "r": 414.56575829999997,
+                "b": 360.96965219598314,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Red apex, no conspicuous longitudinal septa lines. Length up to at least 2 mm.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 426.89888211000005,
+                "t": 345.01446748999996,
+                "r": 538.55358702,
+                "b": 360.96965219598314,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 1,
+              "end_row_offset_idx": 2,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "Red apex, no conspicuous longitudinal septa lines. Length up to at least 2 mm.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 54.65190000000007,
+                "t": 380.42206166,
+                "r": 107.21694906000009,
+                "b": 387.05096696,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Nectophore shape",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 178.92322467000008,
+                "t": 380.38706215999997,
+                "r": 288.84335436000015,
+                "b": 396.57324356598315,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "Shape cuboid/ fl attened parallel to stem along proximal-distal axis.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 302.9110533900001,
+                "t": 380.61805885999996,
+                "r": 391.9154818800001,
+                "b": 396.57324356598315,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Flattened parallel to stem along proximal-distal axis.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 426.8981821200002,
+                "t": 380.38706215999997,
+                "r": 539.25917694,
+                "b": 415.56607223598314,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 2,
+              "end_row_offset_idx": 3,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "Small nectophores cuboid/ fl attened parallel to stem along proximal-distal axis. Larger nectophores fl attened along the upper-lower axis.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 54.651200010000196,
+                "t": 425.55041696,
+                "r": 102.53471595000019,
+                "b": 432.17932226,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Auriculate ridge",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 178.9225246800002,
+                "t": 425.74641416,
+                "r": 187.59540078000023,
+                "b": 432.17683493598315,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "No",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 302.91035340000025,
+                "t": 425.74641416,
+                "r": 312.74521290000024,
+                "b": 432.17683493598315,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Yes",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 426.89818212000023,
+                "t": 425.74641416,
+                "r": 435.5710582200002,
+                "b": 432.17683493598315,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 3,
+              "end_row_offset_idx": 4,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "No",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 54.65120001000021,
+                "t": 442.10448047,
+                "r": 140.6134719600002,
+                "b": 458.2581497,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Junction of lateral and upper lateral ridges",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 178.9225246800002,
+                "t": 442.30047766999996,
+                "r": 274.25206281000027,
+                "b": 467.78042630598316,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "Junction more distal, with a short incomplete continuation of upper lateral ridge.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 302.9103534000002,
+                "t": 442.30117765999995,
+                "r": 406.4311745100002,
+                "b": 467.78112629598314,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Junction more proximal, with a long incomplete continuation of upper lateral ridge.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 426.89818212000023,
+                "t": 442.30187764999994,
+                "r": 536.2310202000001,
+                "b": 467.78182628598313,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 4,
+              "end_row_offset_idx": 5,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "Junction more distal, with a very short incomplete continuation of upper lateral ridge.",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 54.65120001000025,
+                "t": 477.71017180999996,
+                "r": 77.88386811000025,
+                "b": 484.33907710999995,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 0,
+              "end_col_offset_idx": 1,
+              "text": "Palpons",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 178.92252468000027,
+                "t": 477.9061690099999,
+                "r": 260.04296580000033,
+                "b": 493.8613537159831,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 1,
+              "end_col_offset_idx": 2,
+              "text": "Some with internal proximal lipid droplet",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 302.9103534000003,
+                "t": 477.9061690099999,
+                "r": 363.60718629000036,
+                "b": 484.3365897859831,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 2,
+              "end_col_offset_idx": 3,
+              "text": "Without lipid droplet",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            },
+            {
+              "bbox": {
+                "l": 426.8995821000004,
+                "t": 477.9061690099999,
+                "r": 530.2307059200003,
+                "b": 484.3365897859831,
+                "coord_origin": "TOPLEFT"
+              },
+              "row_span": 1,
+              "col_span": 1,
+              "start_row_offset_idx": 5,
+              "end_row_offset_idx": 6,
+              "start_col_offset_idx": 3,
+              "end_col_offset_idx": 4,
+              "text": "With external proximal lipid droplet",
+              "column_header": false,
+              "row_header": false,
+              "row_section": false,
+              "fillable": false
+            }
+          ],
+          "num_rows": 6,
+          "num_cols": 4,
+          "orientation": "rot_0",
+          "grid": [
+            [
+              {
+                "bbox": null,
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 0,
+                "end_row_offset_idx": 1,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 1,
+                "text": "",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 178.9228,
+                  "t": 327.0571,
+                  "r": 244.96029999999996,
+                  "b": 335.3011,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 0,
+                "end_row_offset_idx": 1,
+                "start_col_offset_idx": 1,
+                "end_col_offset_idx": 2,
+                "text": "N. septata sp. n.",
+                "column_header": true,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 302.9104,
+                  "t": 333.41110000000003,
+                  "r": 339.4918,
+                  "b": 335.3011,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 0,
+                "end_row_offset_idx": 1,
+                "start_col_offset_idx": 2,
+                "end_col_offset_idx": 3,
+                "text": "N. bijuga",
+                "column_header": true,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 426.8971,
+                  "t": 333.41110000000003,
+                  "r": 456.13720000000006,
+                  "b": 335.3011,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 0,
+                "end_row_offset_idx": 1,
+                "start_col_offset_idx": 3,
+                "end_col_offset_idx": 4,
+                "text": "N. cara",
+                "column_header": true,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              }
+            ],
+            [
+              {
+                "bbox": {
+                  "l": 54.6519,
+                  "t": 344.8177703,
+                  "r": 101.56522980000001,
+                  "b": 351.4466756,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 1,
+                "end_row_offset_idx": 2,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 1,
+                "text": "Pneumatophore",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 178.92322467,
+                  "t": 345.0137675,
+                  "r": 285.51350192999996,
+                  "b": 370.43701694598315,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 1,
+                "end_row_offset_idx": 2,
+                "start_col_offset_idx": 1,
+                "end_col_offset_idx": 2,
+                "text": "Red apex, conspicuous longitudinal septa lines in fi xed specimens. Length up to 5 mm.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 302.91105339,
+                  "t": 345.01446748999996,
+                  "r": 414.56575829999997,
+                  "b": 360.96965219598314,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 1,
+                "end_row_offset_idx": 2,
+                "start_col_offset_idx": 2,
+                "end_col_offset_idx": 3,
+                "text": "Red apex, no conspicuous longitudinal septa lines. Length up to at least 2 mm.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 426.89888211000005,
+                  "t": 345.01446748999996,
+                  "r": 538.55358702,
+                  "b": 360.96965219598314,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 1,
+                "end_row_offset_idx": 2,
+                "start_col_offset_idx": 3,
+                "end_col_offset_idx": 4,
+                "text": "Red apex, no conspicuous longitudinal septa lines. Length up to at least 2 mm.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              }
+            ],
+            [
+              {
+                "bbox": {
+                  "l": 54.65190000000007,
+                  "t": 380.42206166,
+                  "r": 107.21694906000009,
+                  "b": 387.05096696,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 2,
+                "end_row_offset_idx": 3,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 1,
+                "text": "Nectophore shape",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 178.92322467000008,
+                  "t": 380.38706215999997,
+                  "r": 288.84335436000015,
+                  "b": 396.57324356598315,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 2,
+                "end_row_offset_idx": 3,
+                "start_col_offset_idx": 1,
+                "end_col_offset_idx": 2,
+                "text": "Shape cuboid/ fl attened parallel to stem along proximal-distal axis.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 302.9110533900001,
+                  "t": 380.61805885999996,
+                  "r": 391.9154818800001,
+                  "b": 396.57324356598315,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 2,
+                "end_row_offset_idx": 3,
+                "start_col_offset_idx": 2,
+                "end_col_offset_idx": 3,
+                "text": "Flattened parallel to stem along proximal-distal axis.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 426.8981821200002,
+                  "t": 380.38706215999997,
+                  "r": 539.25917694,
+                  "b": 415.56607223598314,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 2,
+                "end_row_offset_idx": 3,
+                "start_col_offset_idx": 3,
+                "end_col_offset_idx": 4,
+                "text": "Small nectophores cuboid/ fl attened parallel to stem along proximal-distal axis. Larger nectophores fl attened along the upper-lower axis.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              }
+            ],
+            [
+              {
+                "bbox": {
+                  "l": 54.651200010000196,
+                  "t": 425.55041696,
+                  "r": 102.53471595000019,
+                  "b": 432.17932226,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 3,
+                "end_row_offset_idx": 4,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 1,
+                "text": "Auriculate ridge",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 178.9225246800002,
+                  "t": 425.74641416,
+                  "r": 187.59540078000023,
+                  "b": 432.17683493598315,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 3,
+                "end_row_offset_idx": 4,
+                "start_col_offset_idx": 1,
+                "end_col_offset_idx": 2,
+                "text": "No",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 302.91035340000025,
+                  "t": 425.74641416,
+                  "r": 312.74521290000024,
+                  "b": 432.17683493598315,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 3,
+                "end_row_offset_idx": 4,
+                "start_col_offset_idx": 2,
+                "end_col_offset_idx": 3,
+                "text": "Yes",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 426.89818212000023,
+                  "t": 425.74641416,
+                  "r": 435.5710582200002,
+                  "b": 432.17683493598315,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 3,
+                "end_row_offset_idx": 4,
+                "start_col_offset_idx": 3,
+                "end_col_offset_idx": 4,
+                "text": "No",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              }
+            ],
+            [
+              {
+                "bbox": {
+                  "l": 54.65120001000021,
+                  "t": 442.10448047,
+                  "r": 140.6134719600002,
+                  "b": 458.2581497,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 4,
+                "end_row_offset_idx": 5,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 1,
+                "text": "Junction of lateral and upper lateral ridges",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 178.9225246800002,
+                  "t": 442.30047766999996,
+                  "r": 274.25206281000027,
+                  "b": 467.78042630598316,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 4,
+                "end_row_offset_idx": 5,
+                "start_col_offset_idx": 1,
+                "end_col_offset_idx": 2,
+                "text": "Junction more distal, with a short incomplete continuation of upper lateral ridge.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 302.9103534000002,
+                  "t": 442.30117765999995,
+                  "r": 406.4311745100002,
+                  "b": 467.78112629598314,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 4,
+                "end_row_offset_idx": 5,
+                "start_col_offset_idx": 2,
+                "end_col_offset_idx": 3,
+                "text": "Junction more proximal, with a long incomplete continuation of upper lateral ridge.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 426.89818212000023,
+                  "t": 442.30187764999994,
+                  "r": 536.2310202000001,
+                  "b": 467.78182628598313,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 4,
+                "end_row_offset_idx": 5,
+                "start_col_offset_idx": 3,
+                "end_col_offset_idx": 4,
+                "text": "Junction more distal, with a very short incomplete continuation of upper lateral ridge.",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              }
+            ],
+            [
+              {
+                "bbox": {
+                  "l": 54.65120001000025,
+                  "t": 477.71017180999996,
+                  "r": 77.88386811000025,
+                  "b": 484.33907710999995,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 5,
+                "end_row_offset_idx": 6,
+                "start_col_offset_idx": 0,
+                "end_col_offset_idx": 1,
+                "text": "Palpons",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 178.92252468000027,
+                  "t": 477.9061690099999,
+                  "r": 260.04296580000033,
+                  "b": 493.8613537159831,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 5,
+                "end_row_offset_idx": 6,
+                "start_col_offset_idx": 1,
+                "end_col_offset_idx": 2,
+                "text": "Some with internal proximal lipid droplet",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 302.9103534000003,
+                  "t": 477.9061690099999,
+                  "r": 363.60718629000036,
+                  "b": 484.3365897859831,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 5,
+                "end_row_offset_idx": 6,
+                "start_col_offset_idx": 2,
+                "end_col_offset_idx": 3,
+                "text": "Without lipid droplet",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              },
+              {
+                "bbox": {
+                  "l": 426.8995821000004,
+                  "t": 477.9061690099999,
+                  "r": 530.2307059200003,
+                  "b": 484.3365897859831,
+                  "coord_origin": "TOPLEFT"
+                },
+                "row_span": 1,
+                "col_span": 1,
+                "start_row_offset_idx": 5,
+                "end_row_offset_idx": 6,
+                "start_col_offset_idx": 3,
+                "end_col_offset_idx": 4,
+                "text": "With external proximal lipid droplet",
+                "column_header": false,
+                "row_header": false,
+                "row_section": false,
+                "fillable": false
+              }
+            ]
+          ]
+        },
+        "annotations": []
+      }
+    ],
+    "key_value_items": [],
+    "form_items": [],
+    "pages": {
+      "5": {
+        "size": {
+          "width": 595.3889770507812,
+          "height": 841.6630249023438
+        },
+        "image": null,
+        "page_no": 5
+      }
+    }
+  },
+  "docling_origin_binary_hash": 9380857135820481555
+}

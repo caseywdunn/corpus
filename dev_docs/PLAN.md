@@ -515,6 +515,14 @@ new licensing evidence and no cache writes into the bundle.
   recover, but diagnostic and prose budgets do not pass. Neither BM25 alone
   nor equal-weight reciprocal-rank fusion is promoted. See its
   [receipt](examples/bouchet_acceptance_2026_09_27/retrieval_lexical_experiment.json).
+  A source-confirmed table-caption ownership repair now passes saved-document
+  replay across the frozen full population: exactly two associations change,
+  both directly reviewed against their pages. Hosia's comparison-table caption
+  moves from the map to the table; Adachi's moves from the publisher logo.
+  Serialization/chunking, ambiguity refusal and producer invalidation pass.
+  [Evidence](examples/bouchet_acceptance_2026_09_27/table_caption_review_2026_09_29.json)
+  does not establish fresh materialization or improved retrieval. This changes
+  the extraction producer; the running `7eebfbf` refresh does not include it.
   All 1,775 source PDFs for the dated retained baseline are locally available.
   A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
   has now started from independently copied, SHA-verified sources and frozen

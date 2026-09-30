@@ -175,7 +175,8 @@ def extract_docling_content(
         result = converter.convert(str(pdf_path))
         document = result.document
 
-        from .source_layout import recover_panel_caption_roles, repair_reading_order
+        from .source_layout import (recover_panel_caption_roles, repair_reading_order,
+                                    recover_table_caption_owners)
         from .text_encoding import recover_text_encoding
         from .pdf_cmap_recovery import recover_pdf_cmaps
         from .scientific_text import prepare_scientific_text
@@ -198,6 +199,7 @@ def extract_docling_content(
             "scientific_notation": prepare_scientific_text(document, pdf_path),
             "section_headings": recover_section_headings(document, pdf_path),
             "caption_roles": recover_panel_caption_roles(document),
+            "table_caption_owners": recover_table_caption_owners(document),
             "reading_order": repair_reading_order(document),
             "table_structure": prepare_table_structure(document, pdf_path),
         }
