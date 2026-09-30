@@ -7,6 +7,17 @@ run's state has not been established and its outputs have not been moved.
 
 ## September 27 status
 
+September 30 continuation: source-caption fix `05a5e8d` is integrated and
+passes hosted T0, Linux/macOS integration and clean-room CI. Read-only replay
+over the frozen population changes exactly two table-caption owners; both
+source pages were directly reviewed. Fresh normal extraction `27937183`
+reproduces both repairs, and verification/resume `27938902` passes with
+unchanged extraction/chunk hashes. The [source receipt](examples/bouchet_acceptance_2026_09_27/table_caption_materialization_2026_09_30.json)
+retains the isolated harness's missing-taxonomy, continuation-caption and
+Grobid-preflight failures. No retrieval improvement is claimed. This new
+extraction policy is **not** included in the running refresh below; latest-code
+full materialization remains necessary before release acceptance.
+
 September 29 continuation: the normal refresh started at integrated code
 `7eebfbf`: extraction/chunk refresh `27849185`, dependent embedding `27849186`,
 and post-processing/separate bundle/SSE `27849187`. It runs against the existing

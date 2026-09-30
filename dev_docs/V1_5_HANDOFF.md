@@ -23,6 +23,15 @@ need adjudication. Float32 vision and lexical/semantic retrieval experiments
 both fail acceptance and remain unpromoted. Independent retrieval outcomes
 remain sealed. #336, #337, #296 and #314 remain complete.
 
+September 30 continuation: integrated implementation is `05a5e8d`. The
+table-caption repair changes exactly two saved-document associations, both
+source-reviewed; fresh extraction and unchanged resume pass for both papers,
+and hosted CI is green. See the current Bouchet status and linked source
+receipt. Full refresh `27882583` is still running at older `7eebfbf`, with
+embedding `27883653` and finalization `27886418` pending. Do not mistake that
+bundle for a latest-producer release candidate. Retrieval, scientific crops,
+gold differences and final materialization/equivalence remain unresolved.
+
 Recorded **2026-09-24, 09:22 EDT / 13:22 UTC**. This is a dated handoff,
 not a live build dashboard. Recheck the tracker and build before acting.
 The siphonophore paths below describe this validation run, not requirements

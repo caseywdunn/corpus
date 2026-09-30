@@ -521,7 +521,11 @@ new licensing evidence and no cache writes into the bundle.
   moves from the map to the table; Adachi's moves from the publisher logo.
   Serialization/chunking, ambiguity refusal and producer invalidation pass.
   [Evidence](examples/bouchet_acceptance_2026_09_27/table_caption_review_2026_09_29.json)
-  does not establish fresh materialization or improved retrieval. This changes
+  initially covered saved-document replay. Fresh normal extraction now repairs
+  both source papers; unchanged resume skips both and preserves exact text,
+  Docling and chunk hashes. See the [source receipt](examples/bouchet_acceptance_2026_09_27/table_caption_materialization_2026_09_30.json),
+  including retained harness failures. Hosted T0, Linux/macOS and clean-room
+  CI pass at `05a5e8d`. Retrieval improvement is still unmeasured. This changes
   the extraction producer; the running `7eebfbf` refresh does not include it.
   All 1,775 source PDFs for the dated retained baseline are locally available.
   A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
