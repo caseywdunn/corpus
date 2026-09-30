@@ -32,6 +32,14 @@ embedding `27883653` and finalization `27886418` pending. Do not mistake that
 bundle for a latest-producer release candidate. Retrieval, scientific crops,
 gold differences and final materialization/equivalence remain unresolved.
 
+Later September 30: the pinned `7eebfbf` full refresh, embedding and bundle
+completed; live SSE passed. The
+[receipt](examples/bouchet_acceptance_2026_09_27/full_refresh_2026_09_30.json)
+records 2,130 empty chunks removed, unchanged source evidence and original
+bundle, zero stage failures, and retained quality flags. A fixed-query
+retrieval replay is queued. This is an operational pass at the older producer,
+not scientific acceptance at the latest extraction code.
+
 Recorded **2026-09-24, 09:22 EDT / 13:22 UTC**. This is a dated handoff,
 not a live build dashboard. Recheck the tracker and build before acting.
 The siphonophore paths below describe this validation run, not requirements

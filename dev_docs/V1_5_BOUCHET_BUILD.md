@@ -7,6 +7,21 @@ run's state has not been established and its outputs have not been moved.
 
 ## September 27 status
 
+September 30 full refresh completed at pinned `7eebfbf`. Initial extraction
+job `27849185` timed out; guarded continuation `27882583` completed in 21h05m,
+so its second timeout backup was cancelled. The normal refresh removed 2,130
+empty chunks from 655 papers while preserving every populated passage and
+structural field checked, upstream extraction artifacts/receipts, and the
+original bundle. Full extraction audit passes with zero stage failures and
+1,357 retained quality flags. Embedding `27883653` re-embedded 655 papers,
+skipped 1,120, and had zero failures. Finalization `27886418` completed a
+separate 1,775-paper/245,689-chunk/23,035-figure bundle and all live SSE
+layers pass. The bundle has 91,080 citation edges and 92,227 raw reference
+observations. See the [full refresh receipt](examples/bouchet_acceptance_2026_09_27/full_refresh_2026_09_30.json).
+Fixed-query retrieval audit `27985007` is queued. The independent ten remain
+sealed. The source-caption repair at `05a5e8d` remains outside this bundle,
+and the gold-score and panel-crop failures still block release acceptance.
+
 September 30 continuation: source-caption fix `05a5e8d` is integrated and
 passes hosted T0, Linux/macOS integration and clean-room CI. Read-only replay
 over the frozen population changes exactly two table-caption owners; both
