@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Theme — v1.5 evidence correctness
+
+This release repairs source evidence before it reaches search and figure tools:
+bibliographic identity, scientific text and context, figure associations, and
+bounded query responses. It also makes build decisions and uncertain evidence
+auditable. The remaining vision crop-content and diagnostic-ranking failures are
+tracked below; their unsuccessful experiments are not release behavior.
+
 ### Fixed
 
 - Original whitespace lost during full-page OCR can be restored using exact
@@ -34,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remains inspectable; explicit plates, jointly captioned groups and structural
   caption links remain supported. The extraction policy change invalidates
   dependent materialized figures and chunks.
+
+- Fully spelled chapter-scoped captions such as `Figure 1-2` retain one printed
+  figure identifier and link abbreviated body references to that identity;
+  ordinary plural numerical ranges still expand (#343). Changing the saved
+  figure pixel cap now invalidates extraction and dependent evidence (#344).
 
 - The SSE smoke test discovers paper, author, taxon and lexicon values from
   the active bundle (#337). Empty and singleton list encodings are accepted;
@@ -144,6 +157,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Taxonomy ingestion warns when replacing a snapshot with a different root,
   and its help describes whole-snapshot replacement (#298; carried forward
   from the preserved skills branch).
+
+### Known limitations
+
+- Vision panel crops can still omit source content, labels or scale context even
+  when coordinate-frame conversion is correct. Inspect the full figure and
+  source page for scientific use; crop-content acceptance remains open under
+  #305 and #342.
+- Top-k semantic search can miss available diagnosis and key passages. Use
+  directed paper and section retrieval when completeness matters; measured
+  ranking improvement remains open under #320. Experimental context embeddings,
+  BM25 and fusion policies were not promoted.
 
 ## [1.4.0] - 2026-09-09
 

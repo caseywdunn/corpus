@@ -56,6 +56,12 @@ release**, with no version assigned. Correctness and adequate acceptance take
 priority over finishing within the current week's usage allowance.
 On October 1, source-based **#343** and configuration-invalidation **#344**
 were added to the v1.5 correctness work; both affect persisted build evidence.
+The October 1 release-scope decision retains the implemented coordinate-frame
+correction from **#305/#342** and the evaluation/source repairs from **#320**,
+but defers those issues' unpassed crop-content and diagnostic-ranking acceptance
+to a later release. They remain open and their failed measurements are published
+as known limitations. Deferral does not waive the latest-code full build,
+source-fidelity review, gold-score adjudication or release CI.
 
 ### 1. Establish the release baseline and regression cases
 
@@ -341,11 +347,9 @@ before claiming an old OCR-routing defect persists.
 
 ### 4. Restore figure content, captions and clearance
 
-- [ ] **#305**, **#342** — record and transform ROI coordinate frames correctly. Fix the
-  deterministic Claude resize bug, investigate the deployed Qwen failures
-  separately, and validate actual panel content after rebuild. Bounds checks
-  and the Claude fix alone do not close the issue. Both backend frame fixes
-  and provenance are implemented; cached Qwen processor dimensions corroborate
+- [x] The v1.5 coordinate-frame component of **#305**, **#342** — record and
+  transform ROI frames correctly. The Claude resize bug and Qwen processor
+  projection are fixed with provenance; cached Qwen dimensions corroborate
   the double-resize mechanism. The source-pilot capture tool now preserves actual
   processor frames, raw responses and production crops for review. Fresh
   source-pilot inference and scientific panel review completed on September 25:
@@ -359,7 +363,8 @@ before claiming an old OCR-routing defect persists.
   targets still clip scientific content or labels. It remains unpromoted.
   The original six-control manifest is
   still unavailable, so the additional sample cannot establish its preservation.
-  `[plane:build]`
+  The coordinate correction remains in v1.5; both broader issues stay open for
+  the deferred source-content gate. `[plane:build]`
 - [x] **#336** — distinguish captions preceding the next page's ordinary image
   from legends describing a shared historical plate. Never create a confident
   numbered clone of the preceding image without supporting evidence. Bind to
@@ -474,11 +479,12 @@ new licensing evidence and no cache writes into the bundle.
   retain caller-specified term order and deterministic ties. `[plane:serve]`
 - [x] **#331** — correct unavailable tool names, parameters and stale examples.
   *No plane; documentation.*
-- [ ] **#320** — after text/context corrections, add a bounded independent
-  diagnostic/key retrieval evaluation and measure repetitive-table crowding.
-  Fix supported crowding mechanisms against that evaluation; broader ranking
-  experiments require explicit follow-up scope. `[plane:build]` for stored
-  retrieval units; bounded ranking, if warranted: `[plane:serve]`.
+- [x] The v1.5 evaluation and source-repair component of **#320** — add a
+  bounded independent diagnostic/key retrieval evaluation, measure
+  repetitive-table crowding, and repair source-backed extraction errors.
+  Ranking improvement is deferred; broader experiments require separate scope.
+  `[plane:build]` for stored retrieval units; bounded ranking, if warranted:
+  `[plane:serve]`.
   The [source-graded evaluator](RETRIEVAL_EVALUATION.md), fixed audit calls,
   controls, deterministic independent sampler and pre-tuning acceptance targets
   are implemented. Prose controls now have independently reviewed source labels.
@@ -548,6 +554,10 @@ new licensing evidence and no cache writes into the bundle.
   including retained harness failures. Hosted T0, Linux/macOS and clean-room
   CI pass at `05a5e8d`. Retrieval improvement is still unmeasured. This changes
   the extraction producer; the running `7eebfbf` refresh does not include it.
+  The diagnostic/key ranking issue stays open for later work. The fixed-query
+  failures and sealed independent set are reported, not accepted as a v1.5
+  ranking improvement. No context-embedding, BM25 or fusion experiment was
+  promoted into production ranking.
   All 1,775 source PDFs for the dated retained baseline are locally available.
   A [separate full CPU candidate](examples/siphonophore_full_candidate_2026_09_22.json)
   has now started from independently copied, SHA-verified sources and frozen
@@ -593,7 +603,8 @@ new licensing evidence and no cache writes into the bundle.
   check creates LanceDB transaction bookkeeping, so physical index-file equality
   is explicitly not claimed. Live stdio MCP verifies all 3,336 chunks, 14 faithful
   source expressions and six figure deliveries without changing the bundle.
-  Fresh Qwen acceptance remains separately pending under #305/#342.
+  Source-crop content acceptance under #305/#342 is deferred, not claimed by
+  the CPU gold result or by the coordinate-frame correction.
 - [ ] Demonstrate clean/incremental semantic equivalence with the standing
   exclusions, artifact invalidation and unchanged-document checks below.
   Historical-artifact clean-cycle job `27537172` exposed an Edwards edge lost
@@ -615,6 +626,8 @@ new licensing evidence and no cache writes into the bundle.
   and fewer matched caption identities/panel sets. Its
   [receipt](examples/bouchet_acceptance_2026_09_27/gold_comparison_2026_09_29.json)
   preserves every changed page metric and the invalid first scoring invocation.
+  Retrieval replay remains a disclosure/diagnostic; #320 ranking acceptance is
+  deferred. Source and materialization regressions are still release gates.
 - [ ] Record repaired cases and remaining investigations accurately, publish
   rebuild/migration instructions, and prepare the release PR. The
   [candidate upgrade procedure](V1_5_MIGRATION.md) and draft PR #335 are ready
@@ -753,6 +766,15 @@ Adjacent, found while scoping the above:
 
 ## Other deferred work
 
+- **#305/#342** — finish source-content acceptance for vision panel crops,
+  including the failed frozen targets, the missing original control manifest,
+  and safe handling of upstream raster/caption mismatches. The v1.5 coordinate
+  transform remains; in-bounds boxes and matching processor frames do not
+  certify complete panels. Version unassigned. `[plane:build]`
+- **#320** — improve diagnostic/key retrieval against the frozen source labels
+  and a separate independent set, without losing historical or prose controls.
+  The v1.5 evaluator and source repairs remain; ranking trials failed and were
+  not promoted. Version unassigned. `[plane:build/serve]`
 - **#340** — enforce configurable timeouts for scan detection and OCR panel
   detection through safely terminable execution, structured document failure
   and retryable artifacts. Explicitly deferred on September 21; version

@@ -74,6 +74,15 @@ source-review cases from the established fixture, then run the frozen queries
 against the full reference and candidate corpora as described in
 [retrieval evaluation](RETRIEVAL_EVALUATION.md).
 
+The v1.5 coordinate-frame repair does not certify that a vision model selected
+the entire intended panel. Compare a panel crop with its full figure and source
+page when labels, scale context or boundaries matter; #305/#342 track remaining
+content failures. Likewise, top-k semantic results are not an exhaustive
+diagnosis/key inventory (#320). Use paper-scoped section or treatment routes and
+inspect source chunks when completeness matters. Those quality investigations
+remain open beyond this release; the failed experimental policies were not
+promoted into the candidate.
+
 Once the build and its acceptance checks pass:
 
 ```bash

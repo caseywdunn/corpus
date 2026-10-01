@@ -5,6 +5,23 @@ a fresh build here, using SLURM for intensive work, and identified
 `../siphonophores` as the source library. This is a new candidate; the erenna
 run's state has not been established and its outputs have not been moved.
 
+## October 1 release preparation
+
+The user elected to retain the deterministic coordinate and retrieval-source
+repairs while deferring #305/#342 crop-content and #320 ranking acceptance to a
+later release. Their failed measurements remain visible; this changes the
+release scope, not the measured outcome. The gold-score declines and latest-code
+materialization are still release gates.
+
+The pinned `792f478` latest-code validation has started as extraction array
+`28046971`, with dependent audit `28046972`, embedding `28046973` and separate
+bundle/SSE finalization `28046974`. Submission is not acceptance. The earlier
+bundles are preserved, and finalization refuses to overwrite its destination.
+Hosted T0, Linux/macOS integration and clean-room CI pass at `792f478`.
+The separate target bundle will be
+`output/corpus_bundle_latest_20261001`; source and served behavior must be
+reviewed after the job chain completes.
+
 ## September 27 status
 
 September 30 full refresh completed at pinned `7eebfbf`. Initial extraction
@@ -25,7 +42,9 @@ candidate. Prose controls remain 2/3 and historical controls 0/2 at five,
 1/2 at ten. The [receipt](examples/bouchet_acceptance_2026_09_27/retrieval_refresh_2026_09_30.json)
 records complete indexed-population checks and exact query outcomes. The
 independent ten remain sealed. The source-caption repair at `05a5e8d` remains outside this bundle,
-and the gold-score and panel-crop failures still block release acceptance.
+At that review point, the gold-score and panel-crop failures still blocked
+release acceptance; the October 1 scope decision above defers crop-content
+acceptance while retaining gold-score adjudication as a gate.
 
 September 30 continuation: source-caption fix `05a5e8d` is integrated and
 passes hosted T0, Linux/macOS integration and clean-room CI. Read-only replay
