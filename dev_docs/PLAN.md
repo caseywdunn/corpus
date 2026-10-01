@@ -511,6 +511,11 @@ new licensing evidence and no cache writes into the bundle.
   completed but fails: audit hits rise to 2/7 while losing an existing audit
   hit, and historical hits at ten fall from 1/2 to 0/2. It is not promoted;
   production embeddings are unchanged and independent outcomes remain sealed.
+  Normal full refresh at `7eebfbf` now passes extraction, embedding, bundling
+  and live serving. Its [fixed-query replay](examples/bouchet_acceptance_2026_09_27/retrieval_refresh_2026_09_30.json)
+  still fails: audit hits remain 1/7 at five and ten, prose 2/3, historical
+  0/2 and 1/2. Indexed-population checks pass and the independent ten remain
+  sealed. The newer source-caption repair is not in this bundle.
   The isolated lexical/semantic experiment also fails: historical controls
   recover, but diagnostic and prose budgets do not pass. Neither BM25 alone
   nor equal-weight reciprocal-rank fusion is promoted. See its

@@ -18,8 +18,13 @@ skipped 1,120, and had zero failures. Finalization `27886418` completed a
 separate 1,775-paper/245,689-chunk/23,035-figure bundle and all live SSE
 layers pass. The bundle has 91,080 citation edges and 92,227 raw reference
 observations. See the [full refresh receipt](examples/bouchet_acceptance_2026_09_27/full_refresh_2026_09_30.json).
-Fixed-query retrieval audit `27985007` is queued. The independent ten remain
-sealed. The source-caption repair at `05a5e8d` remains outside this bundle,
+Fixed-query retrieval audit `27985007` completed without execution errors,
+but scientific acceptance fails. The same frozen seven audit queries hit a
+known answer in 1/7 at both five and ten results, unchanged from the original
+candidate. Prose controls remain 2/3 and historical controls 0/2 at five,
+1/2 at ten. The [receipt](examples/bouchet_acceptance_2026_09_27/retrieval_refresh_2026_09_30.json)
+records complete indexed-population checks and exact query outcomes. The
+independent ten remain sealed. The source-caption repair at `05a5e8d` remains outside this bundle,
 and the gold-score and panel-crop failures still block release acceptance.
 
 September 30 continuation: source-caption fix `05a5e8d` is integrated and

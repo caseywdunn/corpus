@@ -1,0 +1,118 @@
+{
+  "status": "fail",
+  "job": "27985007",
+  "scope": "Only frozen fixed seven audit and five controls; independent ten sealed.",
+  "bundle_git_sha": "7eebfbf98d317103af3a390237f2ffc8ecd8f415",
+  "bundle_chunk_count": 245689,
+  "paper_population_check": "pass",
+  "missing_unassisted_runs": [],
+  "failed_unassisted_runs": [],
+  "previous_candidate_gates": [
+    {
+      "group": "audit",
+      "variant": "at5",
+      "hits": 1,
+      "queries": 7,
+      "required_rate": 0.8571428571428571,
+      "status": "fail"
+    },
+    {
+      "group": "audit",
+      "variant": "at10",
+      "hits": 1,
+      "queries": 7,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at5",
+      "hits": 2,
+      "queries": 3,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at10",
+      "hits": 2,
+      "queries": 3,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at5",
+      "hits": 0,
+      "queries": 2,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at10",
+      "hits": 1,
+      "queries": 2,
+      "required_rate": 1.0,
+      "status": "fail"
+    }
+  ],
+  "refreshed_candidate_gates": [
+    {
+      "group": "audit",
+      "variant": "at5",
+      "hits": 1,
+      "queries": 7,
+      "required_rate": 0.8571428571428571,
+      "status": "fail"
+    },
+    {
+      "group": "audit",
+      "variant": "at10",
+      "hits": 1,
+      "queries": 7,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at5",
+      "hits": 2,
+      "queries": 3,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "prose_control",
+      "variant": "at10",
+      "hits": 2,
+      "queries": 3,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at5",
+      "hits": 0,
+      "queries": 2,
+      "required_rate": 1.0,
+      "status": "fail"
+    },
+    {
+      "group": "historical_control",
+      "variant": "at10",
+      "hits": 1,
+      "queries": 2,
+      "required_rate": 1.0,
+      "status": "fail"
+    }
+  ],
+  "fixed_query_hit_changes": [],
+  "raw_capture": "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/retrieval-refresh-20260930/capture.json",
+  "raw_score": "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/retrieval-refresh-20260930/score.json",
+  "raw_sha256": {
+    "capture.json": "7a44181ee16f375be640374622d986f09439575f9e61da365c15956083e4079a",
+    "score.json": "4c392c108780c27bea1469e14117893150e92079245cbfbe79facf8a2c5c84cd"
+  },
+  "interpretation": "Removing empty caption placeholders preserves materialized passages and improves the index hygiene, but does not meet any failed fixed retrieval budget. It does not establish latest-code retrieval or independent improvement."
+}
