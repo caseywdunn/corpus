@@ -133,6 +133,22 @@ def test_table_cell_text_is_recovered_from_the_docling_artifact(report):
     assert text.index("Species") < text.index("Nanomia")
 
 
+def test_cross_page_docling_item_scores_each_page_from_its_charspan():
+    """A stray glyph on one page must not steal the next page's prose."""
+    doc = {
+        "body": {"children": [{"$ref": "#/texts/0"}]},
+        "texts": [{
+            "text": "x Text on the following page",
+            "prov": [
+                {"page_no": 1, "charspan": [0, 1]},
+                {"page_no": 2, "charspan": [2, 28]},
+            ],
+        }],
+    }
+    pages = fid.page_texts_from_docling(doc)
+    assert pages == {1: "x", 2: "Text on the following page"}
+
+
 def test_empty_extraction_is_scored_as_failure_not_excluded(report):
     """Which side is on trial, in one assertion.
 

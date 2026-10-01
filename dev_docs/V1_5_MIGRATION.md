@@ -83,6 +83,11 @@ inspect source chunks when completeness matters. Those quality investigations
 remain open beyond this release; the failed experimental policies were not
 promoted into the candidate.
 
+The reference-corpus gold review also found that re-OCR can turn text on a
+rotated landscape plate upside down (#346). For a plate with unexpectedly poor
+extracted text, inspect the source PDF rather than treating the index as a
+complete transcription. This is a page-level OCR issue, not a server-only fix.
+
 Once the build and its acceptance checks pass:
 
 ```bash

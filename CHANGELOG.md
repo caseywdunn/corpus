@@ -52,6 +52,10 @@ tracked below; their unsuccessful experiments are not release behavior.
   the active bundle (#337). Empty and singleton list encodings are accepted;
   transport failures and malformed/error payloads still fail validation.
 
+- Gold fidelity scoring attributes cross-page Docling text to its recorded
+  provenance spans, so a stray character on one page cannot make the next
+  page look empty.
+
 - Species enumeration supports optional `limit`/`offset` and continuation in
   MCP `_meta.pagination`, preserving existing list fields (#338). Results
   have a 256 KiB serialized budget. **Compatibility restriction:** oversized
@@ -168,6 +172,9 @@ tracked below; their unsuccessful experiments are not release behavior.
   directed paper and section retrieval when completeness matters; measured
   ranking improvement remains open under #320. Experimental context embeddings,
   BM25 and fusion policies were not promoted.
+- Re-OCR of rotated landscape plates can read their captions upside down even
+  when the source PDF has a usable text layer (#346). Compare plate text with
+  the source page for completeness; page-level preservation is unresolved.
 
 ## [1.4.0] - 2026-09-09
 

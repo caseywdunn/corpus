@@ -621,11 +621,14 @@ new licensing evidence and no cache writes into the bundle.
   citation degree, concurrency or reconciliation behavior. The Bouchet candidate
   now passes complete extraction, embedding, bundle and live SSE audits at
   `b039067`; [scientific acceptance remains incomplete](V1_5_BOUCHET_BUILD.md#september-27-status).
-  The later full-build gold comparison completes on the same selected pages,
-  with improved aggregate prose coverage but unresolved document-level declines
-  and fewer matched caption identities/panel sets. Its
+  The later full-build gold comparison completes on the same selected pages.
+  Its [October 1 fidelity adjudication](examples/bouchet_acceptance_2026_09_27/gold_fidelity_adjudication_2026_10_01.md)
+  corrects cross-page attribution in the scorer: aggregate prose coverage
+  improves, but two rotated Beklemishev plates remain severe losses (#346),
+  Yamamori Japanese prose declines while taxon and figure text improve, and
+  caption identity/panel-set counts decline. The original
   [receipt](examples/bouchet_acceptance_2026_09_27/gold_comparison_2026_09_29.json)
-  preserves every changed page metric and the invalid first scoring invocation.
+  remains preserved; the latest-code build needs its own score and audit.
   Retrieval replay remains a disclosure/diagnostic; #320 ranking acceptance is
   deferred. Source and materialization regressions are still release gates.
 - [ ] Record repaired cases and remaining investigations accurately, publish

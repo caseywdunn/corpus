@@ -74,18 +74,19 @@ the original verification snapshot and normal resume, and refuses automatic
 retry after any other failure. Its separate logs are under `timeout-continuation/`.
 
 The [full-build gold comparison](examples/bouchet_acceptance_2026_09_27/gold_comparison_2026_09_29.json)
-completed in `27871424`: the same 35 documents and 675 selected pages, with
-unchanged scoring inputs. Median prose coverage rises from 0.9449 to 0.9482,
-but pages below 0.5 coverage rise from 86 to 88. Both builds retain 48 empty
-pages and one script-missing page. Of 115 changed page metric records, 62
-decrease on at least one measure; this is not a blanket fidelity pass.
-Yamamori's median prose coverage falls from 0.8819 to 0.7595; Ahuja,
-Beklemishev and Quoy–Gaimard plates also have lower document aggregates.
-Physical figure counts are unchanged, while matched caption identities fall
-from 544 to 534 and exact panel sets from 89 to 85. Review these source-level
-differences before release. The first scoring job `27849628` incorrectly used
-bundles lacking `docling_doc.json`; its all-empty fidelity results are invalid
-and retained separately. Figure/caption scoring does not establish crop safety.
+completed in `27871424` on the same 35 documents and 675 selected pages.
+Its fidelity scorer incorrectly assigned cross-page text to only the first
+provenance page. The [October 1 adjudication](examples/bouchet_acceptance_2026_09_27/gold_fidelity_adjudication_2026_10_01.md)
+rescored unchanged Docling inputs using provenance character spans: median
+prose coverage rises 0.9789 → 0.9806, while pages below 0.5 coverage rise
+73 → 74. The remaining large declines are two upside-down landscape plates
+in Beklemishev (#346), and Yamamori's Japanese prose loses coverage while
+taxon and figure text improve. This is not a blanket fidelity pass. Physical
+figure counts are unchanged, while matched caption identities fall from 544
+to 534 and exact panel sets from 89 to 85; source review remains pending.
+The first scoring job `27849628` incorrectly used bundles lacking
+`docling_doc.json`; its all-empty fidelity results are invalid and retained
+separately. Figure/caption scoring does not establish crop safety.
 
 The float32 vision comparison still fails (2/9 target passes). The isolated
 [text/semantic selection pilot](examples/bouchet_acceptance_2026_09_27/retrieval_lexical_experiment.json)
