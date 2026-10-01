@@ -56,7 +56,9 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     prep["ocr.native_text_recovery_producer"] = native_text_recovery_producer()
     from .source_spacing_recovery import source_spacing_recovery_producer
     prep["ocr.source_spacing_recovery_producer"] = source_spacing_recovery_producer()
-    extract = {**prep, **select("figures", ("resolution_mode", "images_scale", "vector_dpi", "max_dpi")),
+    extract = {**prep, **select("figures", (
+        "resolution_mode", "images_scale", "vector_dpi", "max_dpi", "max_pixels_long_side",
+    )),
                "compute.accelerator": cfg.get("compute", {}).get("accelerator", "auto")}
     from .source_layout import SOURCE_LAYOUT_POLICY
     from .scientific_text import SCIENTIFIC_TEXT_POLICY

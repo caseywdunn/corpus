@@ -39,6 +39,22 @@ def test_defaults_and_explicit_defaults_have_identical_fingerprints():
         copy.deepcopy(_DEFAULT_CONFIG), panel_mode="ocr")
 
 
+def test_figure_pixel_cap_invalidates_extraction_and_consumers():
+    base_config = {"figures": {"max_pixels_long_side": 3000}}
+    default = config_fingerprints(base_config, panel_mode="ocr")
+    same = config_fingerprints(copy.deepcopy(base_config), panel_mode="ocr")
+    smaller = config_fingerprints(
+        {"figures": {"max_pixels_long_side": 1500}}, panel_mode="ocr")
+    assert same == default
+    assert default["docling_extraction"]["figures.max_pixels_long_side"] == 3000
+    for stage in ("docling_extraction", "text_chunking", "taxa_and_lexicon_extraction",
+                  "figure_materialization", "figure_crossref"):
+        assert smaller[stage] != default[stage]
+        assert smaller[stage]["figures.max_pixels_long_side"] == 1500
+    for stage in ("scan_detection", "pdf_preparation", "metadata_extraction"):
+        assert smaller[stage] == default[stage]
+
+
 @pytest.mark.parametrize('legacy_receipts', [False, True])
 def test_ocr_deadline_change_reuses_successful_artifacts_through_both_resume_gates(corpus, monkeypatch, legacy_receipts):
     corpus.run()

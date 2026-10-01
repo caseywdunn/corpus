@@ -89,9 +89,11 @@ were added to the v1.5 correctness work; both affect persisted build evidence.
   checks credentials rather than local accelerators. Forty-nine panel/HPC
   routing tests pass, including the later vision phase using unchanged config.
   `[plane:build]`
-- [ ] **#344** — include the effective figure long-side pixel cap in extraction
-  inputs so changing it rebuilds figure images and their consumers. Verify both
-  a changed cap and unchanged-config reuse. `[plane:build]`
+- [x] **#344** — include the effective figure long-side pixel cap in extraction
+  inputs so changing it rebuilds figure images and their consumers. A focused
+  fingerprint regression passes for 3,000 → 1,500 pixels, unchanged-config
+  reuse and unaffected upstream stages. Fresh rematerialization remains part of
+  the release-wide build gate. `[plane:build]`
 - [x] **#337** — adapt the contributed corpus-agnostic SSE smoke-test patch,
   discover paper/taxon/author/figure values from the active bundle, and accept
   valid empty-list encodings without hiding transport or tool errors. Validate
@@ -381,8 +383,12 @@ before claiming an old OCR-routing defect persists.
 - [ ] **#343** — preserve a source-supported chapter-scoped figure number as
   one printed identifier and one caption entry. Link abbreviated body mentions
   against that identity, including missing-figure diagnostics, while keeping
-  ordinary numerical ranges and shared plates intact. Targeted regression and
-  saved-caption replay do not replace a fresh source build. `[plane:build]`
+  ordinary numerical ranges and shared plates intact. Code and focused tests
+  are integrated on the temporary release branch. A saved-caption replay changes
+  six entries across two retained reference documents, all with singular
+  chapter-style openers; the source-confirmed Sponge example passes a regression.
+  Fresh source extraction and downstream acceptance remain pending.
+  `[plane:build]`
 - [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
   descriptions, preserve caption fragments and incomplete-binding evidence,
   and retain the edge species label in the source-verified figure. Source
