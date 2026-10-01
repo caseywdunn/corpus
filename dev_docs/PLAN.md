@@ -54,6 +54,8 @@ On September 21 the release scope expanded to include **#336–#339, #341 and
 it is not a second model rewrite. **#340 is explicitly deferred to a later
 release**, with no version assigned. Correctness and adequate acceptance take
 priority over finishing within the current week's usage allowance.
+On October 1, source-based **#343** and configuration-invalidation **#344**
+were added to the v1.5 correctness work; both affect persisted build evidence.
 
 ### 1. Establish the release baseline and regression cases
 
@@ -87,6 +89,9 @@ priority over finishing within the current week's usage allowance.
   checks credentials rather than local accelerators. Forty-nine panel/HPC
   routing tests pass, including the later vision phase using unchanged config.
   `[plane:build]`
+- [ ] **#344** — include the effective figure long-side pixel cap in extraction
+  inputs so changing it rebuilds figure images and their consumers. Verify both
+  a changed cap and unchanged-config reuse. `[plane:build]`
 - [x] **#337** — adapt the contributed corpus-agnostic SSE smoke-test patch,
   discover paper/taxon/author/figure values from the active bundle, and accept
   valid empty-list encodings without hiding transport or tool errors. Validate
@@ -373,6 +378,11 @@ before claiming an old OCR-routing defect persists.
   This is a six-page source replay, not a full-book or fresh-VLM claim.
   See [source acceptance](V1_5_SOURCE_ACCEPTANCE.md#porifera-caption-source-recovered--september-25).
   `[plane:build]`
+- [ ] **#343** — preserve a source-supported chapter-scoped figure number as
+  one printed identifier and one caption entry. Link abbreviated body mentions
+  against that identity, including missing-figure diagnostics, while keeping
+  ordinary numerical ranges and shared plates intact. Targeted regression and
+  saved-caption replay do not replace a fresh source build. `[plane:build]`
 - [x] **#324**, **#322**, **#329** — parse panels beyond L with specific
   descriptions, preserve caption fragments and incomplete-binding evidence,
   and retain the edge species label in the source-verified figure. Source

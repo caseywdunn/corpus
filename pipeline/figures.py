@@ -46,7 +46,7 @@ _PLATE_CAPTION_RE = re.compile(
 # archaic German "Tafel" (Taf.) and Latin "Tabula" (Tab.) used as plate
 # labels in 19th-c. monographs (#16).
 _FIGURE_PREFIX = (
-    r"fig(?:ure|\.?)|abb(?:ildung|\.?)|pl(?:ate|\.?)|plate|рис(?:унок|\.?)"
+    r"fig(?:ures?|s\.?|\.?)|abb(?:ildung|\.?)|pl(?:ate|\.?)|plate|рис(?:унок|\.?)"
     r"|image|illustration|lám(?:ina|\.?)|tav(?:ola|\.?)|bild"
     r"|text[\-\s]?fig(?:ure|\.?)"
     r"|taf(?:el|\.?)|tab(?:ula|\.?)"
@@ -59,7 +59,7 @@ _FIGURE_REF_RE = re.compile(
     + _FIGURE_PREFIX
     + r""")   # prefix
     \s*
-    (\d+)                                                                        # number
+    (\d+(?:\s*[-\u2013\u2014]\s*\d+)?) # number or compound/range
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -116,6 +116,14 @@ _FIGURE_NUMBER_IN_CAPTION_RE = re.compile(
     r")"
     r"(" + _FIGURE_NUMBER_TOKEN + r")",
     re.IGNORECASE,
+)
+
+# A singular, fully spelled chapter label is one source identifier, not an
+# enumerated range. Abbreviated/plural openers retain ordinary range behavior
+# (e.g. "Figs. 58-63"). See #343 for the source-checked sponge book.
+_CHAPTER_FIGURE_CAPTION_RE = re.compile(
+    r"^[\s._\-\u2013\u2014\u00b7\u2022]*Figure\s*\.?\s*"
+    r"(\d+)\s*[-\u2013\u2014]\s*(\d+)(?=\s|[.])", re.IGNORECASE,
 )
 
 # Numbered entries inside a caption block. Unlike
@@ -429,9 +437,11 @@ def parse_panels_from_caption(caption_text: str) -> List[Dict]:
 # figures the running text cites that docling didn't extract. Trailing
 # lookahead excludes "Fig. 4.1" (subsection) and "Figure N,000" (numerics).
 _FIGURE_MENTION_RE = re.compile(
-    r"\b(?:" + _FIGURE_PREFIX + r")\s*(\d+)(?![\w.,]\d)",
+    r"\b(?:" + _FIGURE_PREFIX + r")\s*(\d+(?:\s*[-\u2013\u2014]\s*\d+)?)(?![\w.,]\d)",
     re.IGNORECASE,
 )
+
+_PLURAL_FIGURE_REF_RE = re.compile(r"^fig(?:ures|s)\.?(?=\s)", re.IGNORECASE)
 
 
 def _extract_caption_candidate_for_number(text: str, figure_number: str) -> str:
@@ -498,8 +508,17 @@ def detect_missing_figures(text: str, extracted_numbers) -> List[Dict]:
     # Collect all mentions with their character positions so filters can
     # inspect context.
     mentions_by_num: Dict[str, List[int]] = {}
+    chapter_labels = {
+        f"{m.group(1)}-{m.group(2)}"
+        for line in text.splitlines()
+        if (m := _CHAPTER_FIGURE_CAPTION_RE.match(line))
+    }
     for m in _FIGURE_MENTION_RE.finditer(text):
-        mentions_by_num.setdefault(m.group(1), []).append(m.end())
+        for number in _reference_figure_numbers(
+            m.group(1), extracted | chapter_labels,
+            plural=bool(_PLURAL_FIGURE_REF_RE.match(m.group(0))),
+        ):
+            mentions_by_num.setdefault(number, []).append(m.end())
 
     missing = set(mentions_by_num) - extracted
     if not missing:
@@ -553,6 +572,8 @@ def parse_figure_number(caption_text: str) -> Optional[str]:
     """
     if not caption_text:
         return None
+    if chapter := _CHAPTER_FIGURE_CAPTION_RE.match(caption_text):
+        return f"{chapter.group(1)}-{chapter.group(2)}"
     m = _FIGURE_NUMBER_IN_CAPTION_RE.match(caption_text)
     if not m:
         return None
@@ -648,6 +669,13 @@ def caption_figure_entries(caption_text: str) -> List[Dict]:
     for i, match in enumerate(matches):
         stop = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         segment = text[match.start():stop].strip()
+        chapter = _CHAPTER_FIGURE_CAPTION_RE.match(segment)
+        if chapter:
+            number = f"{chapter.group(1)}-{chapter.group(2)}"
+            if number not in seen:
+                seen.add(number)
+                entries.append({"figure_number": number, "caption_text": segment})
+            continue
         numbers = [_canonical_figure_number(match.group("first"))]
         previous = numbers[0]
         for term in _FIGURE_ENUM_TAIL_TERM_RE.finditer(match.group("tail") or ""):
@@ -672,6 +700,27 @@ def caption_figure_entries(caption_text: str) -> List[Dict]:
                 "caption_text": segment,
             })
     return entries
+
+
+def _reference_figure_numbers(
+    token: str, known: set[str], *, plural: bool = False,
+) -> List[str]:
+    """Prefer a document's chapter namespace; expand an ordinary short range."""
+    token = re.sub(r"\s*[-\u2013\u2014]\s*", "-", token)
+    if "-" not in token:
+        return [token]
+    left, right = token.split("-", 1)
+    if not plural and (
+        token in known or any(
+            number.startswith(f"{left}-") and number.partition("-")[2].isdigit()
+            for number in known
+        )
+    ):
+        return [token]
+    start, end = int(left), int(right)
+    if 0 < end - start <= 100:
+        return [str(n) for n in range(start, end + 1)]
+    return [left]
 
 
 def _caption_entry_for_number(text: str, figure_number: Optional[str]) -> str:
@@ -755,7 +804,8 @@ def _horizontal_overlap(a: List[float], b: List[float]) -> float:
 
 def _is_bare_figure_label(text: str) -> bool:
     """True for ``FIGURE 8`` / ``Plate IV.`` with no descriptive prose."""
-    match = _FIGURE_NUMBER_IN_CAPTION_RE.match(text or "")
+    match = (_CHAPTER_FIGURE_CAPTION_RE.match(text or "")
+             or _FIGURE_NUMBER_IN_CAPTION_RE.match(text or ""))
     if not match:
         return False
     return not (text[match.end():].strip(" \t\r\n.:;,-\u2013\u2014"))
@@ -1222,7 +1272,7 @@ def _position_key(bbox):
 # This is only the minimum for collecting candidate legend entries. Caption
 # count alone cannot establish that the figures share one image (#336).
 _MIN_PLATE_LEGEND_ENTRIES = 2
-PLATE_ASSOCIATION_POLICY = "caption-source-groups-following-image-conflict-v1"
+PLATE_ASSOCIATION_POLICY = "caption-source-groups-chapter-figure-ids-v2"
 
 # A legend line *opens* with the label of the figure it describes. A line that
 # merely mentions a figure number somewhere in its middle is a cross-reference,
@@ -3444,11 +3494,14 @@ def link_chunks_to_figures(
         text = ch.get("text", "") or ""
         seen_here: set = set()
         for m in _FIGURE_REF_RE.finditer(text):
-            num = m.group(1)
-            for fid in number_to_figure_ids.get(num, []):
-                if fid in seen_here:
-                    continue
-                seen_here.add(fid)
+            for num in _reference_figure_numbers(
+                m.group(1), set(number_to_figure_ids),
+                plural=bool(_PLURAL_FIGURE_REF_RE.match(m.group(0))),
+            ):
+                for fid in number_to_figure_ids.get(num, []):
+                    if fid in seen_here:
+                        continue
+                    seen_here.add(fid)
         refs = sorted(seen_here)
         ch["figure_refs"] = refs
         for fid in refs:
