@@ -1,5 +1,38 @@
 # v1.5 candidate rebuild on Bouchet — September 25, 2026
 
+## October 3 release record
+
+The pinned `792f478` full-library build completed extraction, audit, embedding,
+post-processing, separate bundling and live authenticated SSE checks. Its served
+artifact is `output/corpus_bundle_latest_20261001` under the September 25
+candidate root. The manifest records `1.5.0.dev0`, code `792f478` and the
+snapshot's paper, figure and chunk counts; source PDFs are not included. The
+October 2 finalization receipt is
+`scratch/v15-bouchet-20260925/latest-release-20261001/finalize-receipt.json`.
+The live smoke test passed authentication, tool discovery and representative
+paper, taxonomy, chunk, bibliography, lexicon and figure calls. Manual
+*Nanomia bijuga* figure and image queries also succeeded.
+
+The same 35-document, 675-page gold inputs were rescored against this bundle on
+October 2. Median prose coverage was 0.9806 versus 0.9789 in the retained
+reference; 74 versus 73 pages scored below 0.5 total coverage. Figure detection
+counts were unchanged. Caption identities were 536/839 versus 544/839 and exact
+panel sets 85/98 versus 89/98. Source review located two rotated Beklemishev
+plate numbers (#346) and selected Totton child-figure/panel records (#348).
+Hosia Figure 7's counted extra D is present in its source caption and is a
+gold-panel scoring follow-up, not a false panel in the bundle. The gold reports
+and input-hash receipt are in
+`scratch/v15-bouchet-20260925/latest-release-20261001/gold-score-20261002/`.
+
+The October 2 `e69a11c` isolated-plate preservation change landed after this
+bundle was built. A whole-library rebuild for that change was stopped by
+release-scope decision; this existing bundle remains the tested reference
+artifact. The v1.5 code release includes the later change, while the bundle's
+manifest continues to identify exactly which code produced it. The user is
+exercising a local copy. Further source-quality work is tracked by #305,
+#320, #342, #346, #347 and #348; those issues do not change the completed
+bundle's provenance or the release decision.
+
 This continues the [September 24 handoff](V1_5_HANDOFF.md). The user requested
 a fresh build here, using SLURM for intensive work, and identified
 `../siphonophores` as the source library. This is a new candidate; the erenna

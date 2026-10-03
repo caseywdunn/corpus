@@ -1,5 +1,9 @@
 # v1.5 correctness release: session handoff
 
+This is a dated work handoff. The [October 3 release record](V1_5_BOUCHET_BUILD.md#october-3-release-record)
+supersedes its older job and authorization status; the sections below preserve
+the evidence and decisions available at the times stated.
+
 For the separately authorized September 25 rebuild on Bouchet and newly
 available local acceptance assets, see [V1_5_BOUCHET_BUILD.md](V1_5_BOUCHET_BUILD.md).
 The dated erenna observations below remain historical.

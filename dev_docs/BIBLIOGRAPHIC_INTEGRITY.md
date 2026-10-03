@@ -23,11 +23,15 @@ the library. Extracted fields cannot win over a supplied curated value.
 
 ## Publication locators
 
-`volume`, `number` (issue), `pages`, `eid`, `articleno`, `chapter`, `booktitle`,
-`publisher`, `edition`, and `series` pass through metadata, authority storage,
-BibTeX export/import, and the citation's structured `fields`. Absent values
-remain null; the source's spelling and ranges are retained. Physical PDF
-selection is `keeppages` and never substitutes for publication `pages`.
+For curated corpus-paper records, `volume`, `number` (issue), `pages`, `eid`,
+`articleno`, `chapter`, `booktitle`, `publisher`, `edition`, and `series` pass
+through metadata, authority storage, BibTeX export/import, and the citation's
+structured `fields`. Absent values remain null; the source's spelling and
+ranges are retained. Grobid-parsed cited works outside the corpus retain their
+raw citation, but their structured publication locators are not yet carried
+through the reference-observation path
+([#347](https://github.com/caseywdunn/corpus/issues/347)). Physical PDF selection
+is `keeppages` and never substitutes for publication `pages`.
 
 The current `author-year` style renders the journal or book title, volume and
 issue, chapter, page range, article identifier, and publisher when supplied.

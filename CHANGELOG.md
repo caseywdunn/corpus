@@ -5,15 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-10-03
 
 ### Theme — v1.5 evidence correctness
 
 This release repairs source evidence before it reaches search and figure tools:
 bibliographic identity, scientific text and context, figure associations, and
 bounded query responses. It also makes build decisions and uncertain evidence
-auditable. The remaining vision crop-content and diagnostic-ranking failures are
-tracked below; their unsuccessful experiments are not release behavior.
+auditable. Further work on vision crop content and diagnostic/key ranking is
+tracked below; experimental policies were not added to this release.
 
 ### Fixed
 
@@ -172,9 +172,15 @@ tracked below; their unsuccessful experiments are not release behavior.
   directed paper and section retrieval when completeness matters; measured
   ranking improvement remains open under #320. Experimental context embeddings,
   BM25 and fusion policies were not promoted.
-- Re-OCR of rotated landscape plates can read their captions upside down even
-  when the source PDF has a usable text layer (#346). Compare plate text with
-  the source page for completeness; page-level preservation is unresolved.
+- The October 2 reference bundle was built before the isolated-plate text
+  preservation fix in this code release. For two rotated Beklemishev plates,
+  compare indexed text with the source PDF (#346).
+- The current reference bundle retains physical Totton plates but has fewer
+  numbered child records and panel labels on selected pages than the earlier
+  bundle. Source cases and follow-up are recorded in #348.
+- Curated corpus-paper citations carry publication locators, but Grobid-parsed
+  cited works outside the corpus do not yet carry structured volume, issue and
+  page fields. Their raw citation strings remain available (#347).
 
 ## [1.4.0] - 2026-09-09
 

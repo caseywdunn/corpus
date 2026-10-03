@@ -1,12 +1,13 @@
 # Updating a corpuscle for v1.5
 
-This is the candidate upgrade procedure. Release acceptance, including the
-full-corpus replay, remains pending in [PLAN.md](PLAN.md). The examples describe
-the existing CLI; they do not declare an unverified migration complete.
+This is the v1.5 upgrade procedure. The released code and the resulting
+corpuscle are separate artifacts: install the release on the build machine,
+then materialize its evidence from the library inputs before replacing an older
+served bundle.
 
 v1.5 repairs stored bibliographic identities, extracted text and context, figure
 geometry/captions/clearance, and the indexes built from that evidence. Install
-the candidate on the build machine and rebuild from the library inputs before
+the release on the build machine and rebuild from the library inputs before
 replacing the served bundle. A server-only update can expose the new response
 contracts but cannot supply evidence absent from an old bundle.
 
@@ -26,7 +27,7 @@ receipt-driven update below.
 
 ## Rebuild on the build machine
 
-After installing the candidate with the normal [installation procedure](../INSTALL.md),
+After installing v1.5 with the normal [installation procedure](../INSTALL.md),
 run from the corpuscle directory:
 
 ```bash
@@ -77,16 +78,22 @@ against the full reference and candidate corpora as described in
 The v1.5 coordinate-frame repair does not certify that a vision model selected
 the entire intended panel. Compare a panel crop with its full figure and source
 page when labels, scale context or boundaries matter; #305/#342 track remaining
-content failures. Likewise, top-k semantic results are not an exhaustive
+content cases. Likewise, top-k semantic results are not an exhaustive
 diagnosis/key inventory (#320). Use paper-scoped section or treatment routes and
-inspect source chunks when completeness matters. Those quality investigations
-remain open beyond this release; the failed experimental policies were not
-promoted into the candidate.
+inspect source chunks when completeness matters. Follow-up work on these cases
+continues in the linked issues; experimental policies are outside v1.5.
 
-The reference-corpus gold review also found that re-OCR can turn text on a
-rotated landscape plate upside down (#346). For a plate with unexpectedly poor
-extracted text, inspect the source PDF rather than treating the index as a
-complete transcription. This is a page-level OCR issue, not a server-only fix.
+The v1.5 code includes an isolated-plate text-preservation rule (#346). A bundle
+built before that rule retains its earlier plate text until the affected
+documents are rebuilt. For scientific use, inspect the source page when a plate
+caption or figure number is important.
+
+The reference bundle used for this release also provides two concrete later
+follow-ups: numbered child figures and panel labels on selected Totton pages
+([#348](https://github.com/caseywdunn/corpus/issues/348)), and structured
+volume/issue/page fields for works found only in Grobid-parsed references
+([#347](https://github.com/caseywdunn/corpus/issues/347)). Raw reference
+strings remain available for checking publication locators.
 
 Once the build and its acceptance checks pass:
 
