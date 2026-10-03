@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body><div><head>Family Apolemiidae</head><p coords="5,96.20,569.31,415.90,11.61;5,85.00,584.22,296.76,10.80;5,460.00,584.22,52.42,10.80;5,85.00,598.32,427.07,10.80;5,84.90,612.52,357.14,10.80;5,114.79,626.82,396.65,10.80;5,85.20,640.92,426.90,10.80;5,85.40,655.42,47.37,10.80">Apolemia uvaria is not well documented in the literature and it was not taken during any of the major oceanographic expeditions of this century. <ref type="bibr" coords="5,386.20,584.22,68.33,10.80" target="#b39">Leloup (1955)</ref> considered the species to be common in both the Atlantic and Indian Oceans, as well as in the Mediterranean, and to have a wide depth distribution. The findings of <ref type="bibr" coords="5,446.80,612.52,59.93,10.80" target="#b27">Fraser (1961</ref><ref type="bibr" coords="5,85.90,626.82,27.75,10.80" target="#b28">Fraser ( , 1967) )</ref> showed that the species was not only present in the oceanic warm-water fauna, but also in the colder waters of the North Sea, thus indicating a fairly wide temperature tolerance.</p></div></body><back><listBibl><biblStruct xml:id="b27">
+	<analytic>
+		<title level="a" type="main">The oceanic and bathypelagic plankton of the north east Atlantic and its possible significance to fisheries</title>
+		<author>
+			<persName><forename type="first">J</forename><forename type="middle">H</forename><surname>Fraser</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Marine Research</title>
+		<imprint>
+			<biblScope unit="volume">4</biblScope>
+			<biblScope unit="page" from="1" to="48"/>
+			<date type="published" when="1961">1961</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">FRASER, J. H., 1961. The oceanic and bathypelagic plankton of the north east Atlantic and its possible significance to fisheries. Marine Research, 4, 1-48.</note>
+</biblStruct>
+
+<biblStruct xml:id="b28">
+	<analytic>
+		<title level="a" type="main">Siphonophora in the plankton to the North and West of the British Isles</title>
+		<author>
+			<persName><forename type="first">J</forename><forename type="middle">H</forename><surname>Fraser</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Proceedings of the Royal Society of Edinburgh, Section B (Biology)</title>
+		<imprint>
+			<biblScope unit="volume">70</biblScope>
+			<biblScope unit="page" from="1" to="30"/>
+			<date type="published" when="1967">1967</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">FRASER, J. H., 1967. Siphonophora in the plankton to the North and West of the British Isles. Proceedings of the Royal Society of Edinburgh, Section B (Biology), 70, (I), 1-30.</note>
+</biblStruct>
+
+<biblStruct xml:id="b39">
+	<monogr>
+		<title level="m" type="main">Report on the Scientific Results of the 'Michael San' North Atlantic Deep-sea Expedition</title>
+		<author>
+			<persName><forename type="first">E</forename><surname>Leloup</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1910">1955. 1910</date>
+			<biblScope unit="volume">5</biblScope>
+			<biblScope unit="page" from="1" to="24"/>
+		</imprint>
+	</monogr>
+	<note>Siphonophores</note>
+	<note type="raw_reference">LELOUP, E., 1955. Siphonophores. Report on the Scientific Results of the 'Michael San' North Atlantic Deep-sea Expedition, 1910, 5, (ii), 1-24.</note>
+</biblStruct>
+
+</listBibl></back></text></TEI>

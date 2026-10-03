@@ -1,0 +1,1878 @@
+{
+  "recorded_at": "2026-09-22T17:09:29.939002+00:00",
+  "scope": "Existing gold CPU/OCR refresh; configured unavailable vision deferred. No Qwen, embeddings, post-build, full-corpus or deployment acceptance is inferred.",
+  "code_revision": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+  "launch": {
+    "code_revision": "ab6353f",
+    "baseline_path": "/tmp/corpus-v15-acceptance/gold/baseline-before-sep22-refresh",
+    "scope": "Normal CPU/OCR final-producer refresh of existing 35-document gold set; unavailable vision explicitly deferred. Not fresh Qwen acceptance.",
+    "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c"
+  },
+  "session_terminal_exit_code": 0,
+  "application_completion": [
+    "2026-09-22 13:09:17,009 INFO corpus.run: ═══ All 1 step(s) succeeded in 5203.7s ═══"
+  ],
+  "complete_cpu_refresh": true,
+  "log_sha256": "86572d8dffe8fbe898c40400a5ee1a59c0412e028acc5779c98d70e976c54228",
+  "script_sha256": "3c00f70b73750517534cfc5d3c351ae68e22b59602d58450584ce355686e70e8",
+  "producer_requirements": {
+    "code_revision": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+    "fingerprint_basis_document": "726d507fcca4",
+    "stage_config_sha256": {
+      "docling_extraction": "98a1d96c96f295a44fdf6a1bdac536e3f5cf910145bfac9d4d1a104147ec99c9",
+      "text_chunking": "b9c9bf3c54fb1906cba3937a8b7e2a2f2ca6470aa335ae7a86e4e2cd1933eb96",
+      "quality_gates": "3885206cd3f12664a8b801aaa7629a24d3fb5572d5537f961107510a15612ce3"
+    },
+    "refresh_input_sha256": "694d5f5c508b4399236b2db522ab7eafd949cba255a1b78791d961a55aaeef58",
+    "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+    "gold_input_receipt_sha256": "059b15bf1a681c14b655e21d97463f7df43fa108b9e868ee295771e5f34837f0",
+    "labels_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62"
+  },
+  "gold_manifest_sha256": "6efcf5b9f2a5c537e1bebcedcbab7bc730854912a128c14af99f4c59f303e378",
+  "documents": [
+    {
+      "pdf_hash": "68e78d6c90e2",
+      "pdf_hash_full": "68e78d6c90e23830856da6bffc78f48118966f3c909091e84afc9f3b6d22802a",
+      "status": "success",
+      "started_at": "2026-09-22T15:42:36Z",
+      "ended_at": "2026-09-22T15:42:57Z",
+      "page_count": 3,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:42:45Z",
+        "docling_extraction": "2026-09-22T15:42:56Z",
+        "metadata_extraction": "2026-09-22T15:42:57Z",
+        "text_chunking": "2026-09-22T15:42:57Z",
+        "figure_materialization": "2026-09-22T15:42:57Z",
+        "figure_crossref": "2026-09-22T15:42:57Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:42:57Z",
+        "quality_gates": "2026-09-22T15:42:57Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "58d6a7848979c2ef94660ece54d5cd3566b4028beeab940e9bc555c4d4d47c42",
+        "pipeline_state.json": "2e7594ba9028adcef92a1317ef570cb43e488726bce0028539bb1c683c4b16ed",
+        "docling_doc.json": "45ca6d328a8006a486273cc0e923fd7a6f0d97b3b561078bf1ca87a3b2e52be8",
+        "text.json": "2460ba13d9b0a98cd131a06e54f6ba95ea9cedbf0cdec7bb9506b6ad0b5fce60",
+        "chunks.json": "1a7d9b7d4cabffc70360eea44ccbf3151ffc42f188699d41ce69c07dd54eb4bd",
+        "figures.json": "859d766b928069836464211afb0d909f5a3024a72acd7d37aee40209dddf11e9",
+        "metadata.json": "366fabbf1465d166fbfdd96002dd94b40190929420c50946bc77a4831d0be27f",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "a53f93badacc",
+      "pdf_hash_full": "a53f93badacc4fbbc0aa027d21644a9bd1eb330468237db6dfd78e3aa6a75ebb",
+      "status": "success",
+      "started_at": "2026-09-22T15:42:57Z",
+      "ended_at": "2026-09-22T15:43:53Z",
+      "page_count": 25,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:43:01Z",
+        "docling_extraction": "2026-09-22T15:43:51Z",
+        "metadata_extraction": "2026-09-22T15:43:51Z",
+        "text_chunking": "2026-09-22T15:43:52Z",
+        "figure_materialization": "2026-09-22T15:43:52Z",
+        "figure_crossref": "2026-09-22T15:43:52Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:43:52Z",
+        "quality_gates": "2026-09-22T15:43:53Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "093cc9f958a80bfb8ef1c0240f03f43f8a94d0489eeb66c28349f1cda4355e8c",
+        "pipeline_state.json": "3f42689ebd1dfb0cdeca6fd4f5d4692983141756f6a8481f6499d11819628ed6",
+        "docling_doc.json": "c6028fd1af032d22a22c876271b880c5e10546eef5837732f78a1793bf8f48be",
+        "text.json": "1d868a3bf8037c9494f3ab8d0e0a530a79e1a8c8cc5ab45dc3029ec8a1b00cbd",
+        "chunks.json": "6db9769e1b443c96260f58c45d1f2f66b1c95ab97f322fe9a7bdfc6487e675aa",
+        "figures.json": "a49a0c58c8096012c07c0570c34b3e362fc5c0b22b47d857abe94edbfd472541",
+        "metadata.json": "1e751c1b8a8a2f8d027c5c239762cc801f8dcd17e65858f40a496dcbdd6af038",
+        "references.json": "fa9e9d1b56aafa7a073cf58ea596d4749dc526c00fe852c4a9256e5300dabb86"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "text.json",
+        "chunks.json",
+        "figures.json",
+        "metadata.json"
+      ]
+    },
+    {
+      "pdf_hash": "6050b5c6f575",
+      "pdf_hash_full": "6050b5c6f57506aef6110bc93161660d0d90c7bac7e0c9c7f04576344a8341bb",
+      "status": "success",
+      "started_at": "2026-09-22T15:43:53Z",
+      "ended_at": "2026-09-22T15:44:44Z",
+      "page_count": 3,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:44:14Z",
+        "docling_extraction": "2026-09-22T15:44:43Z",
+        "metadata_extraction": "2026-09-22T15:44:44Z",
+        "text_chunking": "2026-09-22T15:44:44Z",
+        "figure_materialization": "2026-09-22T15:44:44Z",
+        "figure_crossref": "2026-09-22T15:44:44Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:44:44Z",
+        "quality_gates": "2026-09-22T15:44:44Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "38d92afa5708ae4f50afa22aedf11c9531a0fcac300addbf3776344e21466df4",
+        "pipeline_state.json": "7d605dbd334bc896dad5ed7318f3983b4698fbd237add6c6121e0958829a18d0",
+        "docling_doc.json": "af4afacb4ae4fd29acdd4e6050c1ac13b730b2caa9ed60e5c921e12660859ef9",
+        "text.json": "b6abfba4e64e0aa877aad7176dbd9590eeb6dbbe9424b61e9df7a6d5a6ee5fd7",
+        "chunks.json": "4d4a10fece16b5a0d61ce6812df1d73b3165dc591bd35b6a3f8ae68546ef3243",
+        "figures.json": "1706c546e59efb775a63210e1c74ab5116221354c9a9da7ddd43a7846c453f67",
+        "metadata.json": "f01f2663eebed34fe49b0d554634485b67ec0bcb235878cf05cc148df01dac26",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "355362e39e58",
+      "pdf_hash_full": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+      "status": "success",
+      "started_at": "2026-09-22T15:44:45Z",
+      "ended_at": "2026-09-22T15:50:12Z",
+      "page_count": 44,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 24 source-text candidates need review; see text.json provenance",
+          "metric": 24
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "44 pages but references.json is empty",
+          "metric": 44
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:48:11Z",
+        "docling_extraction": "2026-09-22T15:50:08Z",
+        "metadata_extraction": "2026-09-22T15:50:11Z",
+        "text_chunking": "2026-09-22T15:50:12Z",
+        "figure_materialization": "2026-09-22T15:50:12Z",
+        "figure_crossref": "2026-09-22T15:50:12Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:50:12Z",
+        "quality_gates": "2026-09-22T15:50:12Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "8b2da2a29be92a3f519f41de6785763365c2f9b9703b6494f7a1ab0f17403e85",
+        "pipeline_state.json": "123e100072bac5bea96ad157780589d636a1f1c69029f7e2eba65f5d6682fc4b",
+        "docling_doc.json": "39d3fa2626658bb35a3f596949042b188ffa46de5dc084ea9accfd22e0493807",
+        "text.json": "a727263a7e2587b6988a29a4a30294f5efd5c076d62b7498fd6edebf88fb7cbf",
+        "chunks.json": "ba84b0d6520bf99b11761e1944f585b6fa81061c411fbe760a4a2ef872934d7f",
+        "figures.json": "9849ac2f5cc092a217f016b16b9986a8a397fae108c3493393ee75c51fb7429e",
+        "metadata.json": "3e1983ce4414c8b54a63fe14ed5cd10c32c85db8bb1724ff1d36f9461d4c0974",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "d64d1b9da678",
+      "pdf_hash_full": "d64d1b9da678ea1ed329f347b0e84cbe2d3c777398456e35ee8037a046e0b7c0",
+      "status": "success",
+      "started_at": "2026-09-22T15:50:13Z",
+      "ended_at": "2026-09-22T15:51:19Z",
+      "page_count": 13,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:50:48Z",
+        "docling_extraction": "2026-09-22T15:51:17Z",
+        "metadata_extraction": "2026-09-22T15:51:19Z",
+        "text_chunking": "2026-09-22T15:51:19Z",
+        "figure_materialization": "2026-09-22T15:51:19Z",
+        "figure_crossref": "2026-09-22T15:51:19Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:51:19Z",
+        "quality_gates": "2026-09-22T15:51:19Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "af3f26559b5ed69cf7358e0b55b3a9f66fbf56ca458b628315320a44026c2c4b",
+        "pipeline_state.json": "86e650b0e8d9d2b4d953692d189e8f003ab232f6bb1e280d25b6507ed26fcf80",
+        "docling_doc.json": "3a7945ebe65384006029cbbb8aa2227d6003746a89673ed3f4e72823b488831f",
+        "text.json": "ad0a196ec53763c775fdbcde3d81b5d70b74c95e991cacc4c9bcc39d0de27c3b",
+        "chunks.json": "3bac8207f6566e169e90650320088576220d1012139022083d08e477c9a5ae54",
+        "figures.json": "615503e30695a4d03e6b86c45a292d64d8613077cb41dfe9f9847d30616a1d8b",
+        "metadata.json": "1a10e7bfdd492163adc205afa3fba803e60768ec0912f4e206179d1d878cbaf9",
+        "references.json": "f4b20c42763ed4f7abb61717472241815057bb1572fb67e0b1b1baa2029ac0ef"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "d9623d970b33",
+      "pdf_hash_full": "d9623d970b33843a16864d4338c8235772b0c614b3ece23709bac7128678be37",
+      "status": "success",
+      "started_at": "2026-09-22T15:51:19Z",
+      "ended_at": "2026-09-22T15:54:51Z",
+      "page_count": 12,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:52:47Z",
+        "docling_extraction": "2026-09-22T15:54:49Z",
+        "metadata_extraction": "2026-09-22T15:54:50Z",
+        "text_chunking": "2026-09-22T15:54:51Z",
+        "figure_materialization": "2026-09-22T15:54:51Z",
+        "figure_crossref": "2026-09-22T15:54:51Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:54:51Z",
+        "quality_gates": "2026-09-22T15:54:51Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "5834de15ba22b2e722a13676e3c6953506caf8df49afdb415a0635426388fcdc",
+        "pipeline_state.json": "d64f71b90e2905a882765939be363db8519295f24f336a0a47ce18802bd41e97",
+        "docling_doc.json": "066d96d51af397fb77d7a7cf19f775b241a2590534d9fe68079e06652cbe94f3",
+        "text.json": "80d6ff27d44f77a4e98a0717d985a83bac3b4fd377299ce2475eb5ef3dd7aa95",
+        "chunks.json": "20863f8b5aadf996f540b8399c978e9f30c6a36c88538d9caedf48703c602feb",
+        "figures.json": "22dbe507bc011efeebe14a343853b5ff261a6445325a2f2cee377e30afe5c4a5",
+        "metadata.json": "4b00d38bd4c687e36467658e447ec4edec09ea0d32c89779a91bdc1838873245",
+        "references.json": "ef74fea7f3e3ee9ec42238d3d408f11dcbfbc82020ca6c61f6cdef8d1a069920"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "6307a3c5f85a",
+      "pdf_hash_full": "6307a3c5f85ade76ee10b4312ce2bd804e0654d111aee91aae79a06efdde4419",
+      "status": "success",
+      "started_at": "2026-09-22T15:54:51Z",
+      "ended_at": "2026-09-22T15:55:41Z",
+      "page_count": 10,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "10 pages but references.json is empty",
+          "metric": 10
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:55:18Z",
+        "docling_extraction": "2026-09-22T15:55:40Z",
+        "metadata_extraction": "2026-09-22T15:55:41Z",
+        "text_chunking": "2026-09-22T15:55:41Z",
+        "figure_materialization": "2026-09-22T15:55:41Z",
+        "figure_crossref": "2026-09-22T15:55:41Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:55:41Z",
+        "quality_gates": "2026-09-22T15:55:41Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "41a8d8127457ba561882b092b564859f7c104c20692255e6db489d0859198460",
+        "pipeline_state.json": "6a2d5fcad436f2c7751d236c58481a49af03cc9e9cc3388de7bbbc3dfe850f8a",
+        "docling_doc.json": "e533535aeec63f4e6cc38b8e1bf83de2dcacb3eddf79446510150b049464c83c",
+        "text.json": "5b88c3d32d0835a22902a988faa89fbc055f0375237b1c142ec3ae9c44e5f6b0",
+        "chunks.json": "ed478b882e34b4afa0139228d2f8122862a58667347bd7d0b811058785477813",
+        "figures.json": "baa4e744c0020e60c341beb6acfca297490a182cde5820769b6285f7168c1f3e",
+        "metadata.json": "6d3c07b9be7769968ceec8f62297c01adc4990246c09b1ec323f1b814bb2f8cf",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "02049c8322a1",
+      "pdf_hash_full": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+      "status": "success",
+      "started_at": "2026-09-22T15:55:42Z",
+      "ended_at": "2026-09-22T15:56:20Z",
+      "page_count": 5,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "5 pages but references.json is empty",
+          "metric": 5
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:56:01Z",
+        "docling_extraction": "2026-09-22T15:56:18Z",
+        "metadata_extraction": "2026-09-22T15:56:20Z",
+        "text_chunking": "2026-09-22T15:56:20Z",
+        "figure_materialization": "2026-09-22T15:56:20Z",
+        "figure_crossref": "2026-09-22T15:56:20Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:56:20Z",
+        "quality_gates": "2026-09-22T15:56:20Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "bbbfeb9fab14fdd22dc3f41f3ef2ef6da57512b8f88ac38a838aca657f8d1c51",
+        "pipeline_state.json": "140b205cffdaa9d596eac4182aa770b2aff873a5fa65e3536122738e4c953d92",
+        "docling_doc.json": "613ec9f09b842a9ea9fe492caf91c0bf47d0c5f70db9e1f1f7d64eede737dcae",
+        "text.json": "8a607eca79521cdf2aa93ab32b00bda5bfb138d921c7153740936b6173f2e767",
+        "chunks.json": "0645d502fdf48c66ac36f5e89c3c137df1c93c40c9135508067679d61a668fa3",
+        "figures.json": "348b8d8a1b1fb69c5002962bf6cae53bbb4ac86e98b37bf05ceb06a43d52440a",
+        "metadata.json": "10a6cafdc193e5fcb190bbec67492fea4d4dd8315ba2d50d492b90448b779d10",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "e26feaa4013f",
+      "pdf_hash_full": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+      "status": "success",
+      "started_at": "2026-09-22T15:56:20Z",
+      "ended_at": "2026-09-22T15:59:24Z",
+      "page_count": 21,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 2 source-text candidates need review; see text.json provenance",
+          "metric": 2
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "surnames: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:58:08Z",
+        "docling_extraction": "2026-09-22T15:59:22Z",
+        "metadata_extraction": "2026-09-22T15:59:23Z",
+        "text_chunking": "2026-09-22T15:59:24Z",
+        "figure_materialization": "2026-09-22T15:59:24Z",
+        "figure_crossref": "2026-09-22T15:59:24Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:59:24Z",
+        "quality_gates": "2026-09-22T15:59:24Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "a492f4428c03a419632afa138c694f3b03734b5538f2be14c8568cc5ec68951c",
+        "pipeline_state.json": "93cfb9369007b36492f9c9c89e7bbc4c4b8b38019600001d72f90d6004e668f8",
+        "docling_doc.json": "bdffed9edab71c5c28a15a209a24b60be9026babe43b8bf1a5eda5b3cbf448e0",
+        "text.json": "2fce7764c31c093e23aa66838143cce32c57faa1b5bda2340ba05a421f6a81fd",
+        "chunks.json": "108b1a075c975407c0c9563318a05675eea046c9d3b56c6669504f32e4cf578a",
+        "figures.json": "7e1adce145a2ba2a9221761ea941af79b78691373d28bc8e7571210cab28537a",
+        "metadata.json": "a4e679e816e9a83b5bdc03cd4e30db06d35aa2487a4f4f1cd83a9897ef329c94",
+        "references.json": "4080aae21fa93e697fdef09a535e6465d1720d4455285dc95db86fec54cc1b63"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "726d507fcca4",
+      "pdf_hash_full": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+      "status": "success",
+      "started_at": "2026-09-22T15:59:24Z",
+      "ended_at": "2026-09-22T15:59:49Z",
+      "page_count": 12,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "pdf_cmap: 71 source-text candidates need review; see text.json provenance",
+          "metric": 71
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 2 source-text candidates need review; see text.json provenance",
+          "metric": 2
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T15:59:25Z",
+        "docling_extraction": "2026-09-22T15:59:48Z",
+        "metadata_extraction": "2026-09-22T15:59:48Z",
+        "text_chunking": "2026-09-22T15:59:49Z",
+        "figure_materialization": "2026-09-22T15:59:49Z",
+        "figure_crossref": "2026-09-22T15:59:49Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T15:59:49Z",
+        "quality_gates": "2026-09-22T15:59:49Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "df2ffbd6caeebb0443e351fea3295dc0ce9283a94523cd0fbdeb85312b1cdb74",
+        "pipeline_state.json": "e89fc55cbec5eda253625cb4d7867a4104e618aecfe223ef5e88c3e100b3ce55",
+        "docling_doc.json": "a2db1f6c5fd62102a77e8400320cd4e76ce80ee229de4b1d7af5d3062ef1b1e3",
+        "text.json": "c2aa987c9091d68875165968c2ade3892ef3036189c9062ba3b12d40c629f92a",
+        "chunks.json": "77a9003cbd951f40a789f68efdbfe7fb37b58c952ff963e04930478d86f8dc63",
+        "figures.json": "5bf5b278107701a3dfbca7480087091715ffc17a8e51d538c54c255989382f45",
+        "metadata.json": "ab92f9c1195ff44c397bd47af9096fac4cff39ddace18895aa2e74db8952d14c",
+        "references.json": "8e6e47c94c03da2fc267315009f6c1ee9d6fff977497b91dc526342313977a4d"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json",
+        "metadata.json"
+      ]
+    },
+    {
+      "pdf_hash": "0cf9f253f75b",
+      "pdf_hash_full": "0cf9f253f75b6ab2ef2377d7a9082e6613c0e0d76d41066aa8aa55848df4bc4c",
+      "status": "success",
+      "started_at": "2026-09-22T15:59:49Z",
+      "ended_at": "2026-09-22T16:01:33Z",
+      "page_count": 4,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 3 source-text candidates need review; see text.json provenance",
+          "metric": 3
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:00:42Z",
+        "docling_extraction": "2026-09-22T16:01:28Z",
+        "metadata_extraction": "2026-09-22T16:01:29Z",
+        "text_chunking": "2026-09-22T16:01:29Z",
+        "figure_materialization": "2026-09-22T16:01:29Z",
+        "figure_crossref": "2026-09-22T16:01:29Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:01:29Z",
+        "quality_gates": "2026-09-22T16:01:33Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "9b4ba071362155939d1cf62b465bc8badcf567a6f947012b0dc22b7fb4fdd267",
+        "pipeline_state.json": "f92b846b12c1e43eefb60421e02b9612259be262177fe2ec880525f4cabb81df",
+        "docling_doc.json": "3f9c08d05fb585ea754b5651993aa9993b9c7d829f02a2c3593d83fcd05ef120",
+        "text.json": "82b31c67805f02878e14fc716640e626d2d6d3649fa35b0a3e9a83d3bed70afe",
+        "chunks.json": "eacdbb53b070a7d4f227caa3c959c297b6469117b2e257364609029445acb153",
+        "figures.json": "7d552646fa1f7f4d9b22c10046f94f27b05cb5697c825e0ac9aab51a164030f6",
+        "metadata.json": "32e50dca0fa86bedc863bce2b00da4a16c4f3a1274c9eb14490a7880fcb0fd5c",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "3461e68936b6",
+      "pdf_hash_full": "3461e68936b6a9e99648a11f8422023a08d673b07e81e71e0eeb88689d15407f",
+      "status": "success",
+      "started_at": "2026-09-22T16:01:33Z",
+      "ended_at": "2026-09-22T16:02:29Z",
+      "page_count": 5,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 7 source-text candidates need review; see text.json provenance",
+          "metric": 7
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "5 pages but references.json is empty",
+          "metric": 5
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:02:10Z",
+        "docling_extraction": "2026-09-22T16:02:27Z",
+        "metadata_extraction": "2026-09-22T16:02:28Z",
+        "text_chunking": "2026-09-22T16:02:29Z",
+        "figure_materialization": "2026-09-22T16:02:29Z",
+        "figure_crossref": "2026-09-22T16:02:29Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:02:29Z",
+        "quality_gates": "2026-09-22T16:02:29Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "7d7dfa5a059b348c889797709de9bfeb2e844a69c66a5f3ccad549355b711c8f",
+        "pipeline_state.json": "945d5e7da5dd674d6731d6ea9a8949e82a15a5ca11a58e0fdc92bb0a5e8412b8",
+        "docling_doc.json": "ed1efc4703032559bae84b798936b16dd146f308317b92bf492d5a3e3bf05239",
+        "text.json": "393680c336ae926481958f3f8e34b1c2543bdb2c306235fe306e86e603535164",
+        "chunks.json": "dc97a74355a138dbd70e00927d56df46dbea2bd1fae7f7232842bda8014f7294",
+        "figures.json": "1bf22ab6eca015e4f2783c03226b378bfea2ca080ed644a5a1378f9528a62d67",
+        "metadata.json": "9b921e7b6f0b7c1a277246baac65758649cd92c5cc789912b17029130b5b9993",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "af5655bdeaae",
+      "pdf_hash_full": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+      "status": "success",
+      "started_at": "2026-09-22T16:02:29Z",
+      "ended_at": "2026-09-22T16:05:17Z",
+      "page_count": 15,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "15 pages but references.json is empty",
+          "metric": 15
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:04:28Z",
+        "docling_extraction": "2026-09-22T16:05:15Z",
+        "metadata_extraction": "2026-09-22T16:05:17Z",
+        "text_chunking": "2026-09-22T16:05:17Z",
+        "figure_materialization": "2026-09-22T16:05:17Z",
+        "figure_crossref": "2026-09-22T16:05:17Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:05:17Z",
+        "quality_gates": "2026-09-22T16:05:17Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "f2799669b14cafa7c88f5061b777a9fbd47a7cfa9aab6e343dc08276ab44ba4a",
+        "pipeline_state.json": "df0d93c2a736795c117708c22ca00a59afa8966a4144fab5b3b66df90cea1df3",
+        "docling_doc.json": "18b2f0997771a927e4a6490088fa3a0a1ac0b0a106516df64f4c09a842c43417",
+        "text.json": "a9b0edbb1cd64f6c75f0966d40d26dbdb7159ee5f9bc410e637dfced44c543b7",
+        "chunks.json": "fa1db792506ab36eb7be4160fd16a96abcc04609b2247738073ca3cce0508d23",
+        "figures.json": "c873292d9b1a396672defb6cd6fd7d2502328aaeb8406e7304d03b08370eb8a4",
+        "metadata.json": "046d9e2ab85bf3188bc758527054d95afc1727909efa386bbd7eda23510577fd",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "c5c34c1bb104",
+      "pdf_hash_full": "c5c34c1bb1048b290a8357c4b27a2d4779fe815c3d77a6f2935da1434d004cdf",
+      "status": "success",
+      "started_at": "2026-09-22T16:05:18Z",
+      "ended_at": "2026-09-22T16:09:03Z",
+      "page_count": 9,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 2 source-text candidates need review; see text.json provenance",
+          "metric": 2
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 5 source-text candidates need review; see text.json provenance",
+          "metric": 5
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "9 pages but references.json is empty",
+          "metric": 9
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:08:17Z",
+        "docling_extraction": "2026-09-22T16:09:00Z",
+        "metadata_extraction": "2026-09-22T16:09:02Z",
+        "text_chunking": "2026-09-22T16:09:03Z",
+        "figure_materialization": "2026-09-22T16:09:03Z",
+        "figure_crossref": "2026-09-22T16:09:03Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:09:03Z",
+        "quality_gates": "2026-09-22T16:09:03Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "8b1bc9d01633c6274224a6760aca676ff8ac21a43ccf803fda52ad674a1681f5",
+        "pipeline_state.json": "79b3f17b83c824f325f8e6a043fbc2b92c21f90e8e518aa7a46ac7e36fffb2a8",
+        "docling_doc.json": "ea96b8da500b358d7b947532aa30b0b6fe704723234a316acf90e5ebb9583119",
+        "text.json": "defa94930ba23eb09d565df3e9e915f4c845ca0034c960c5b5c1d82aefbdbf15",
+        "chunks.json": "f51fd34b9ab0de4be5cca0f68500e16bd53cd439e1d2c65da23849f178b230fc",
+        "figures.json": "fda9838ac5ccaa8cb2a1fa72db0b73854112bf83f4931ce1c7b8fb742ac83ffc",
+        "metadata.json": "969da59a8170f17a40945af3a206e80bfc99b62bccd005e8cf690f9e6b54c4dd",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "c806191c35c4",
+      "pdf_hash_full": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+      "status": "success",
+      "started_at": "2026-09-22T16:09:03Z",
+      "ended_at": "2026-09-22T16:09:24Z",
+      "page_count": 1,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:09:14Z",
+        "docling_extraction": "2026-09-22T16:09:23Z",
+        "metadata_extraction": "2026-09-22T16:09:24Z",
+        "text_chunking": "2026-09-22T16:09:24Z",
+        "figure_materialization": "2026-09-22T16:09:24Z",
+        "figure_crossref": "2026-09-22T16:09:24Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:09:24Z",
+        "quality_gates": "2026-09-22T16:09:24Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "e350a54eedb4f24ad2498103bae442cbc2f90f31161d81734f6979ab774c29b4",
+        "pipeline_state.json": "3095d8e1e2723a511a6d51c02218402f087e3715308242486a86252625a52610",
+        "docling_doc.json": "e6d720f40986293e106df81130193b1f88b0807e694a3f0889de38ab6631973a",
+        "text.json": "671c4ef039cfb74e29200b3391b01829622ce5e27928a42d422e0ba102fd2d21",
+        "chunks.json": "e6eed0bcfcc6d97d5ddc48a34acbeccb3150d11903de52f381f13c0a72345ad1",
+        "figures.json": "9e696541558e0066755aa05cdde4ed3563b0ab9670c34279c78028141d6e84e6",
+        "metadata.json": "4a782a69f561672ede6eee562eee8b5d48a9ca6b58ad3253c4d505959d0aaf4c",
+        "references.json": "bfcf282d4af57d5f5ebcc79ab98b240de30efe1c7c564a6170bc95fa5b7c72c4"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "cc2908a7a170",
+      "pdf_hash_full": "cc2908a7a17078772a56372548f7a69fc03754c131599e93e9dd139c032762f2",
+      "status": "success",
+      "started_at": "2026-09-22T16:09:24Z",
+      "ended_at": "2026-09-22T16:09:45Z",
+      "page_count": 3,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:09:34Z",
+        "docling_extraction": "2026-09-22T16:09:44Z",
+        "metadata_extraction": "2026-09-22T16:09:45Z",
+        "text_chunking": "2026-09-22T16:09:45Z",
+        "figure_materialization": "2026-09-22T16:09:45Z",
+        "figure_crossref": "2026-09-22T16:09:45Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:09:45Z",
+        "quality_gates": "2026-09-22T16:09:45Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "ac59867e0ce6745e118052fead91e22244a7c07f9333b0c7192426990a39b5b6",
+        "pipeline_state.json": "b23a254b2f2655a65b27c13e9fce12351c41f70736697058e6dd05ec3ede4945",
+        "docling_doc.json": "3ba565bf85e4795b44f92e3f2971cd4247e380474c85edcef7da62a518a570b5",
+        "text.json": "12520e2cd2995cdad131b879ef834079f50d1cbbfe03e67a5bf49e51f3655942",
+        "chunks.json": "619361b2e7b4573d7de80c7d123a23b43871a71e4d021b3bae2d7151db220f73",
+        "figures.json": "56d3789c64da458f171bba2f40abf65685e77ac406d285392522059e82af1088",
+        "metadata.json": "ba8f1afabdd5585fd8980baff4afb909b8592d471f7c8a1e6d7592afdb77f7fd",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "1648cd91e973",
+      "pdf_hash_full": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+      "status": "success",
+      "started_at": "2026-09-22T16:09:45Z",
+      "ended_at": "2026-09-22T16:11:01Z",
+      "page_count": 21,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "section_headings: 2 source-text candidates need review; see text.json provenance",
+          "metric": 2
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:09:53Z",
+        "docling_extraction": "2026-09-22T16:10:59Z",
+        "metadata_extraction": "2026-09-22T16:11:00Z",
+        "text_chunking": "2026-09-22T16:11:00Z",
+        "figure_materialization": "2026-09-22T16:11:00Z",
+        "figure_crossref": "2026-09-22T16:11:00Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:11:01Z",
+        "quality_gates": "2026-09-22T16:11:01Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "067b549cc1763ddcd5d8ae19214a61e38c7bb5837b07f58c2465ae53f4c1ecc9",
+        "pipeline_state.json": "7c032e50119ffd4d970411145fe1dd4c220d1d3633e766f703023a3114cf1791",
+        "docling_doc.json": "1d2802708d0bd5cf861d8c5bd26c0675003fb44e7ce829645b16aa795a001abc",
+        "text.json": "3b6665ad2ee870960e556a6e08150f167f056ace7b518f6984b2717c9afd0f70",
+        "chunks.json": "cff08f8d57cf6fab5b43939ddd46c015a6c49082db4e709eb8515acc90f7633e",
+        "figures.json": "720d93c8d78cf6453907b0b35c19c57d61e7428a5b3b9647f1b021df90409c9b",
+        "metadata.json": "ff6353f6c48cc2b04b515ff8a033161ce737eff37e5837f754c31672b9162af5",
+        "references.json": "d8638ac9c0b48d464bbcdc21a23d392bdf4bdde1ab66817629bd8cecf0f07e46"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "text.json",
+        "chunks.json",
+        "figures.json",
+        "metadata.json"
+      ]
+    },
+    {
+      "pdf_hash": "31cedc91d73a",
+      "pdf_hash_full": "31cedc91d73a08cefce01007e99de460e4d65714e5e932e1c47371e91787f162",
+      "status": "success",
+      "started_at": "2026-09-22T16:11:01Z",
+      "ended_at": "2026-09-22T16:12:55Z",
+      "page_count": 12,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "12 pages but references.json is empty",
+          "metric": 12
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:12:07Z",
+        "docling_extraction": "2026-09-22T16:12:53Z",
+        "metadata_extraction": "2026-09-22T16:12:54Z",
+        "text_chunking": "2026-09-22T16:12:55Z",
+        "figure_materialization": "2026-09-22T16:12:55Z",
+        "figure_crossref": "2026-09-22T16:12:55Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:12:55Z",
+        "quality_gates": "2026-09-22T16:12:55Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "3319706dc62200942ad0e0581bdd9456fcbf38d80da22659e83d8208c454f801",
+        "pipeline_state.json": "0068b90ba82366dbb5aa0ffbafb3ef1c09a5f2c7744aea8afc252d6254ae5ed3",
+        "docling_doc.json": "eccd4efacfa0464ecdd6613cefde2d710c4566ed71ce3490434e8fde9a09e0f7",
+        "text.json": "4a282976a1726b403b7b0e75c1e6269ee6b5156bae2187b592ad32f0fb6e45cb",
+        "chunks.json": "a09917649b633805579b049379bcce4237a03d794b1b19d1494f8d58fa886c5b",
+        "figures.json": "8bba1884b6ac0e102a2493840c2283160fad8d8f83acb4ec462e112963e1a465",
+        "metadata.json": "f9533a96075c550910645702c962fd5b28b7f4441c6dd5874ae84f4008bd3d41",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "8a1321ca549d",
+      "pdf_hash_full": "8a1321ca549db560f0a4392a4d2ec41bf2864db35f15fc72ad0690e77becc375",
+      "status": "success",
+      "started_at": "2026-09-22T16:12:55Z",
+      "ended_at": "2026-09-22T16:13:55Z",
+      "page_count": 9,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "9 pages but references.json is empty",
+          "metric": 9
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:13:35Z",
+        "docling_extraction": "2026-09-22T16:13:54Z",
+        "metadata_extraction": "2026-09-22T16:13:55Z",
+        "text_chunking": "2026-09-22T16:13:55Z",
+        "figure_materialization": "2026-09-22T16:13:55Z",
+        "figure_crossref": "2026-09-22T16:13:55Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:13:55Z",
+        "quality_gates": "2026-09-22T16:13:55Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "45ffc7ef79b29f25a88432edf0dbb923ec03c2369e41b667312aa27d2003b7cf",
+        "pipeline_state.json": "ea864681d2972d009923a8fa6f5956682421f57c4695c5986747f5ead76a9194",
+        "docling_doc.json": "557e9536ead589b30e4f82ddd92ab6022d3ff9ca579da91d4d2a9b0870b30144",
+        "text.json": "b36f100f0b87ae5ed0ab08d9f39221b998159f05ebe0c31f42e0687d16b559d1",
+        "chunks.json": "5f982f9e29bf366aaf8787ca39359800f08a76227ed26a64a0149c92577d8b57",
+        "figures.json": "03ddc228b29e6aee280ff5498273a64f37beddc65357e290c27708e57bf030be",
+        "metadata.json": "3330a1866ac423cee5a607127b05f2f4a81d3ce517fa84140d13d201a2bb4378",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "830c73a89f82",
+      "pdf_hash_full": "830c73a89f829ef2c27601131826c038c67b9eae9746b68f6c588e831bffd031",
+      "status": "success",
+      "started_at": "2026-09-22T16:13:55Z",
+      "ended_at": "2026-09-22T16:14:28Z",
+      "page_count": 3,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:14:12Z",
+        "docling_extraction": "2026-09-22T16:14:27Z",
+        "metadata_extraction": "2026-09-22T16:14:28Z",
+        "text_chunking": "2026-09-22T16:14:28Z",
+        "figure_materialization": "2026-09-22T16:14:28Z",
+        "figure_crossref": "2026-09-22T16:14:28Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:14:28Z",
+        "quality_gates": "2026-09-22T16:14:28Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "a200a48a4a7e98c19481b87b41daf28aed9134cf3b70db0ecd2a3f0a64da7852",
+        "pipeline_state.json": "0bce2dcf104bec87ff6ad0cd7b585520ef0b77c8fe79ce34f7dfd72fd7bac3a0",
+        "docling_doc.json": "9a52c4009cabe705921da338c84d39fb8afb7fb1aabaf09ed0075f2a6d1977fb",
+        "text.json": "b07ccc68468eb05c8a78e08d014d919d0a8338527fe3ba88f1630e4d794317fd",
+        "chunks.json": "fe91064ac0881e65ce7135b68d34d3350579a5d7755d5dab53a6f7039b185705",
+        "figures.json": "a94ede9677268d66ec391dca0dab692e1a6aca124cd3ff159a021eb901adff1c",
+        "metadata.json": "186ea8d518d464dc3e5cece17658bca019ff2b24236d2a106fed7f80d97196da",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "d7c1193c06fa",
+      "pdf_hash_full": "d7c1193c06faa82b340668b2c92f14f6637a1bda0047ec3a111c0f0aec27190d",
+      "status": "success",
+      "started_at": "2026-09-22T16:14:28Z",
+      "ended_at": "2026-09-22T16:20:57Z",
+      "page_count": 13,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 6 source-text candidates need review; see text.json provenance",
+          "metric": 6
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:18:30Z",
+        "docling_extraction": "2026-09-22T16:20:50Z",
+        "metadata_extraction": "2026-09-22T16:20:53Z",
+        "text_chunking": "2026-09-22T16:20:56Z",
+        "figure_materialization": "2026-09-22T16:20:56Z",
+        "figure_crossref": "2026-09-22T16:20:56Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:20:57Z",
+        "quality_gates": "2026-09-22T16:20:57Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "207e52200968fadd66b307b9adc9ecad32719efa9d786873e48e5e4fc80ecb75",
+        "pipeline_state.json": "15fdda094a78b3d0978beda7e2b20c8e1a2b69397448ec253111f4dfded88d98",
+        "docling_doc.json": "84432a0f3eaad7806de6b66694ad669fd334d00ed4f499d60fad4323b986cb42",
+        "text.json": "5d7c00cce8cd55321b49ac3efa7e3cbe5e8c796c48141b0f0f9a09cf28d09642",
+        "chunks.json": "b7998773f76d7a87981b898cb21aed0a1a2132e2821410ec14f8259b1a960dd8",
+        "figures.json": "95fc32b4572eb6058a63c3ac7b917ea28aee1c215ffc14516d4697f96ac09b36",
+        "metadata.json": "2994ae8d4c6124f61225c72f109da1d892c185a2bccf188a472e76aa40d4ae9b",
+        "references.json": "75e0326e16c34dac4842f08944ad9219cd338485a58446eac178673f9729881a"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "d7210cd94ae2",
+      "pdf_hash_full": "d7210cd94ae23c3bc07931f395ebc7f795390eb967f5207dc35aa78b43861fed",
+      "status": "success",
+      "started_at": "2026-09-22T16:20:57Z",
+      "ended_at": "2026-09-22T16:21:20Z",
+      "page_count": 4,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:21:07Z",
+        "docling_extraction": "2026-09-22T16:21:18Z",
+        "metadata_extraction": "2026-09-22T16:21:20Z",
+        "text_chunking": "2026-09-22T16:21:20Z",
+        "figure_materialization": "2026-09-22T16:21:20Z",
+        "figure_crossref": "2026-09-22T16:21:20Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:21:20Z",
+        "quality_gates": "2026-09-22T16:21:20Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "d835ec0492971b856dd55c12e1ed2f2c3e9f1c76aed9d7bd533225ce72847d2b",
+        "pipeline_state.json": "ee197951984cbd5983bd84012b65c30927f05425f2242670b6e3f4768012e229",
+        "docling_doc.json": "49df28cb7bf419ff08a084362c3d5464311bf5c06d24ca4b41841ace0262536c",
+        "text.json": "677fadc621c6198443271c192763b4a91f40dfcd2e3f6bb946f355ea9e1b24b5",
+        "chunks.json": "6c22dd668206fe0d054bfcd1180d56c1756dd0b2d11875fe6cebee9c1bc2e194",
+        "figures.json": "76c4c29c54ed740de9d5e0ec6d51e811eaffab3a0aacaf68ed91bab0906fdaa8",
+        "metadata.json": "7eb08a878ae9b46ac952ff3d5481ac97c0cb0ff7343365c09eb69bef75fa997d",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "93e29178db12",
+      "pdf_hash_full": "93e29178db12b19d7f6a8ab0ec3b5dbe3c1b44d92b1bda3ed3a2cd31ece82fde",
+      "status": "success",
+      "started_at": "2026-09-22T16:21:20Z",
+      "ended_at": "2026-09-22T16:22:24Z",
+      "page_count": 3,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:22:10Z",
+        "docling_extraction": "2026-09-22T16:22:23Z",
+        "metadata_extraction": "2026-09-22T16:22:24Z",
+        "text_chunking": "2026-09-22T16:22:24Z",
+        "figure_materialization": "2026-09-22T16:22:24Z",
+        "figure_crossref": "2026-09-22T16:22:24Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:22:24Z",
+        "quality_gates": "2026-09-22T16:22:24Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "534ca1f8f96d945aa33eecd14b9c3cb43a9d28caf0dccba9469b3e6eeeb61199",
+        "pipeline_state.json": "dfc5ba9aa1f9572a0e7128acc30b9b8b9266b205fadd808fac86850d25ec3cf8",
+        "docling_doc.json": "c57399e1a25788835f0171c630193f0152ef4bb31b132e745a72b06f30022a5f",
+        "text.json": "d88f2767ccfedae6845e742ff6cd43a86bf0be978ca5aaaa695bb5231559a8d4",
+        "chunks.json": "ada1c1f07bb2105e664fa7b10464b95be7ae12e2e2f40e79cd8b6d6823462db9",
+        "figures.json": "63359986611234872c5d42ef6f395cd9be1463a8af23662a43e6c8269fa51323",
+        "metadata.json": "c35e2eb3f33793f48238d8092dc4de0beee3e0667e7f421b0940e7390ebd1910",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "6f3a3ae4dd89",
+      "pdf_hash_full": "6f3a3ae4dd898f91696dc97be4f849dd8b1ab0fc2cc03858771ec5b983c89d14",
+      "status": "success",
+      "started_at": "2026-09-22T16:22:24Z",
+      "ended_at": "2026-09-22T16:23:31Z",
+      "page_count": 7,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 6 source-text candidates need review; see text.json provenance",
+          "metric": 6
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:23:03Z",
+        "docling_extraction": "2026-09-22T16:23:29Z",
+        "metadata_extraction": "2026-09-22T16:23:30Z",
+        "text_chunking": "2026-09-22T16:23:31Z",
+        "figure_materialization": "2026-09-22T16:23:31Z",
+        "figure_crossref": "2026-09-22T16:23:31Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:23:31Z",
+        "quality_gates": "2026-09-22T16:23:31Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "5a262bdd109c7fc6baf79e512550801b707d3b0c410766ba17439adbaa64ff50",
+        "pipeline_state.json": "b227cb17280fff892c64b7d332d361b3e1e92662df988ac8513e7fcb634baf0b",
+        "docling_doc.json": "e17b7dd402dd5246c206f11b1d536c40fa3b9df1240e01f886c2cbdfb3d4e181",
+        "text.json": "d3d87ba25d4adb0b05c22431cd01d6ecd962d71dcac4193a6b9fed333f6dc4de",
+        "chunks.json": "7ff77f4e3358564093a84c813753f9272e3eca599d588d06c5430d2d734c97f8",
+        "figures.json": "d87c8367f7a8d9992de2f6334c878205ce13170391db2499b985e798259fb476",
+        "metadata.json": "775e27fcc239cc07ca08c302d9c7f7e94f568ab0bafda9b3463d4988390ad3a2",
+        "references.json": "4147f70b0c3d72a95f9e81b5b945f78587951b1cfe912e9b55a4abdb8a45fff6"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "34712b25bc52",
+      "pdf_hash_full": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "status": "success",
+      "started_at": "2026-09-22T16:23:31Z",
+      "ended_at": "2026-09-22T16:24:08Z",
+      "page_count": 4,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:23:52Z",
+        "docling_extraction": "2026-09-22T16:24:06Z",
+        "metadata_extraction": "2026-09-22T16:24:07Z",
+        "text_chunking": "2026-09-22T16:24:08Z",
+        "figure_materialization": "2026-09-22T16:24:08Z",
+        "figure_crossref": "2026-09-22T16:24:08Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:24:08Z",
+        "quality_gates": "2026-09-22T16:24:08Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "8a33a1bb2ee0cbdfbe838eaccc7a02880f53d9e18b352e44e6e784924c24d061",
+        "pipeline_state.json": "2b22a01da087767b16a0f8c3edeec7f191462dd141f2e9345bda324fc9e8d56e",
+        "docling_doc.json": "5e36bb9ee008337f97f614326a8333790d8d53e8828f411b4e6b03bbc97e6b35",
+        "text.json": "2e40f8158e39d48f46b76350973b78d24b4ae7a74eb2b33aa36638ae46efe048",
+        "chunks.json": "2b2ab84d96fddde3a3c0d66e673290419cb74c4a5d3a2d005e8667c01940713f",
+        "figures.json": "ebd1fffbfe0a5d431be9797e3b4f36380ae23168d5f94ecf89411fe3bfcecf92",
+        "metadata.json": "43d98681f4274bb420dbc65961d11a7dcc48b23f6ecf86e97fe017bb76258964",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "2da3e5f7da3c",
+      "pdf_hash_full": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "status": "success",
+      "started_at": "2026-09-22T16:24:08Z",
+      "ended_at": "2026-09-22T16:25:14Z",
+      "page_count": 17,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "scientific_notation: 3 source-text candidates need review; see text.json provenance",
+          "metric": 3
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:24:13Z",
+        "docling_extraction": "2026-09-22T16:25:11Z",
+        "metadata_extraction": "2026-09-22T16:25:12Z",
+        "text_chunking": "2026-09-22T16:25:13Z",
+        "figure_materialization": "2026-09-22T16:25:13Z",
+        "figure_crossref": "2026-09-22T16:25:13Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:25:13Z",
+        "quality_gates": "2026-09-22T16:25:14Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "69e3664e50b9a5be9515fdff7b8c511ad712adca2ab7e9ea805f8b675a0aa320",
+        "pipeline_state.json": "89dafb3b78cf9508cd3b52d7aba77b4d28725188e9a717621b8e5fd465952fc7",
+        "docling_doc.json": "f9381047e84ae2f5a814682b7e68badf4e108d551bb9cfce76c2dc8befb43f7e",
+        "text.json": "f5f4042454178417f37c5b45458b5476682e8f41e1f21ed6060fbdcc3873b2e6",
+        "chunks.json": "bfe722cb1fd78a9ffef6064a242e35153db27ff87c188f5c95947cb9737cab43",
+        "figures.json": "f08b27ebd43a4b172409b432202d2dff9780f51cb849ab6ada8aefd427d6a4f1",
+        "metadata.json": "5e5c57670e7d99e6f5fac4e542758320cc814fa2de6c33166562bedd075d774a",
+        "references.json": "0817be6a12d869ce0ca7646b1188adf013c62dddd86cae111ccf54cc35aea27e"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "metadata.json"
+      ]
+    },
+    {
+      "pdf_hash": "39b9c2f978dd",
+      "pdf_hash_full": "39b9c2f978dd2d0be04a6e724cf4056c8b12c87ed1d04a589253b76af837def0",
+      "status": "success",
+      "started_at": "2026-09-22T16:25:14Z",
+      "ended_at": "2026-09-22T16:26:10Z",
+      "page_count": 2,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:25:56Z",
+        "docling_extraction": "2026-09-22T16:26:08Z",
+        "metadata_extraction": "2026-09-22T16:26:10Z",
+        "text_chunking": "2026-09-22T16:26:10Z",
+        "figure_materialization": "2026-09-22T16:26:10Z",
+        "figure_crossref": "2026-09-22T16:26:10Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:26:10Z",
+        "quality_gates": "2026-09-22T16:26:10Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "4dd38869469babaca7ca89e2d4a1c4355f17702700779f6fc8d3043159a34108",
+        "pipeline_state.json": "751da7181c9d3f4763ee558af939b98236aa7de86b8adb8125e5f4f8287cf7b5",
+        "docling_doc.json": "343ce34cab21fae6e2aca4cc47c08a08088fbb62cf5e4e7c13d35f29f2ebdd70",
+        "text.json": "02ae73a2be97c00b6db48fc722349dd338d51d28339cc2519b6a7d8c42805082",
+        "chunks.json": "8489ae34d14419cd0c63030120f9e4e96831044826b57a3de9ec89cd7012c97c",
+        "figures.json": "c432ae57c8b8e4381691f2325cdb510dacfbfd2fa86fa3778e016215c853589c",
+        "metadata.json": "c5247dcc365cc3206767aab69a4372ec0a90c86d94a355eed7e8ee8f81748346",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "79e8dac842f6",
+      "pdf_hash_full": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+      "status": "success",
+      "started_at": "2026-09-22T16:26:10Z",
+      "ended_at": "2026-09-22T16:26:53Z",
+      "page_count": 6,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 4 source-text candidates need review; see text.json provenance",
+          "metric": 4
+        },
+        {
+          "gate": "low_text_density",
+          "severity": "warn",
+          "detail": "154 chars/page over 6 pages (min: 200)",
+          "metric": 153.7
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "6 pages but references.json is empty",
+          "metric": 6
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:26:28Z",
+        "docling_extraction": "2026-09-22T16:26:52Z",
+        "metadata_extraction": "2026-09-22T16:26:53Z",
+        "text_chunking": "2026-09-22T16:26:53Z",
+        "figure_materialization": "2026-09-22T16:26:53Z",
+        "figure_crossref": "2026-09-22T16:26:53Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:26:53Z",
+        "quality_gates": "2026-09-22T16:26:53Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "9e291102b7ce37100975b59ec4097facb07a8d991aeee544e8b506377b2a16cc",
+        "pipeline_state.json": "2bec23ae99b685ed426d102e882cf526f70fd0f64fce573b3db7e7c67a21be4c",
+        "docling_doc.json": "5d0c63ae7b3fcf5ff0b29c89fa8875b364cb32861b2a65aca26ca71f8842cad5",
+        "text.json": "5aab610afef12f2977be5baaaf361eca8aabb81520df45d2bc048356a65040c4",
+        "chunks.json": "039e0baa8bd82681105b59a09b907dba1b6e3519c073fd699a017a316a5a8db3",
+        "figures.json": "b0a5ad6ba253273e9a66e0513e2742959456e9ab89f64303ea477028e37dbf22",
+        "metadata.json": "6c281151ead4e0bced0afdd2d573eae7d8f2bf44fea7f7bf4cdd468de1acf7cf",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "d183f5012c54",
+      "pdf_hash_full": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+      "status": "success",
+      "started_at": "2026-09-22T16:26:53Z",
+      "ended_at": "2026-09-22T16:28:51Z",
+      "page_count": 14,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_native_layer: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:28:11Z",
+        "docling_extraction": "2026-09-22T16:28:48Z",
+        "metadata_extraction": "2026-09-22T16:28:50Z",
+        "text_chunking": "2026-09-22T16:28:51Z",
+        "figure_materialization": "2026-09-22T16:28:51Z",
+        "figure_crossref": "2026-09-22T16:28:51Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:28:51Z",
+        "quality_gates": "2026-09-22T16:28:51Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "06e897a68ca107025f3c9f3767a989ba7888fa8568dcec277b02ac7a79d2e446",
+        "pipeline_state.json": "4c1673c86a76d6071471cbe1674a15876f59ced3c84a80132b615eafbeb7ae6e",
+        "docling_doc.json": "6c26dfeb5c02e83271bd89d9e18cf00c76ad26cfa6390a00443bf03f7ee2dff5",
+        "text.json": "f93933d9562504181ad11562838129ee30808d66cc523393715ff650347f113a",
+        "chunks.json": "972b30a7b21a91fe405852b0521c0a264e2570d97ec326378feb848bb501753a",
+        "figures.json": "655495349b2ce707fbe65ce1dc9892752d600276b0f1e0771e106ae82fd20949",
+        "metadata.json": "9cfb1c7cd33f8747e90e99c2233a8d35fef4eb138ed5fd967123ebe6b21f410e",
+        "references.json": "cd1eb6c0a74f13d1806740ffc5f124026f7371a3e59ef3d74371bcf2b1cf3a1f"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "8419592108f2",
+      "pdf_hash_full": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+      "status": "success",
+      "started_at": "2026-09-22T16:28:52Z",
+      "ended_at": "2026-09-22T16:29:43Z",
+      "page_count": 8,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "8 pages but references.json is empty",
+          "metric": 8
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:29:18Z",
+        "docling_extraction": "2026-09-22T16:29:41Z",
+        "metadata_extraction": "2026-09-22T16:29:42Z",
+        "text_chunking": "2026-09-22T16:29:43Z",
+        "figure_materialization": "2026-09-22T16:29:43Z",
+        "figure_crossref": "2026-09-22T16:29:43Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:29:43Z",
+        "quality_gates": "2026-09-22T16:29:43Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "2473ec4a65438b22c07d0035d2409631acf787124bec74d9a375b0031ace0532",
+        "pipeline_state.json": "2d7528d944314b52787f7d0a7d8e2ba463b2871e95234f8447a5ce7c1a825fa3",
+        "docling_doc.json": "f245dc9c0e06d817eafbe85679a292fbec8cc37477cc5e48c975be44c2d0cbce",
+        "text.json": "2cfc289cc1265517513e809173d284588e33eb681df18938d01cb75968845939",
+        "chunks.json": "1e88704259c4328103ae0d6b1fb52adb372fb181e2f5887e85dedc51ef813ec6",
+        "figures.json": "508029fe48fd50516c8b6a6d7cb75a22e2fdbdb092bf585461657cbe18f59b0e",
+        "metadata.json": "d97f385a48a6ed6777af74347220696ebfa6c99a09af5b026da1c214fd6eff29",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "1254e10f0c93",
+      "pdf_hash_full": "1254e10f0c932e702432daa58582cdb2502123668369ba5f0ff7fc2193b715d0",
+      "status": "success",
+      "started_at": "2026-09-22T16:29:43Z",
+      "ended_at": "2026-09-22T16:31:20Z",
+      "page_count": 12,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "12 pages but references.json is empty",
+          "metric": 12
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:30:49Z",
+        "docling_extraction": "2026-09-22T16:31:18Z",
+        "metadata_extraction": "2026-09-22T16:31:20Z",
+        "text_chunking": "2026-09-22T16:31:20Z",
+        "figure_materialization": "2026-09-22T16:31:20Z",
+        "figure_crossref": "2026-09-22T16:31:20Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T16:31:20Z",
+        "quality_gates": "2026-09-22T16:31:20Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "6e45776e419386377a20a9663927920d73b1ba4c09a30f692b2160d54113d576",
+        "pipeline_state.json": "6ff5a9ae10d874246ad7e8a611b410a7ffa66efa5e1453e0e91d7a3dababb4d7",
+        "docling_doc.json": "886f085e2804b926af319aa718efcc070c135dec962645649a80d6a593be30b5",
+        "text.json": "5070c32d5329ed88f5ab1cc2a1450973902261c044c9c62be589edf19c898dd3",
+        "chunks.json": "3b96f90287eb557df840001a5f3e0807be5d257594a1c55740f687ef1c8e7dfd",
+        "figures.json": "e83c67f4f4a869cd2738b9473270e483d687087f1b2cee5fbc79689070949345",
+        "metadata.json": "80b862216ffd12a1bf16e49f6c837005bf5088281af3a177509e600d92ee79a8",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    },
+    {
+      "pdf_hash": "8a4548d8d5d7",
+      "pdf_hash_full": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "status": "success",
+      "started_at": "2026-09-22T16:31:20Z",
+      "ended_at": "2026-09-22T17:02:33Z",
+      "page_count": 314,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 9 source-text candidates need review; see text.json provenance",
+          "metric": 9
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "surnames: 13 source-text candidates need review; see text.json provenance",
+          "metric": 13
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T16:43:09Z",
+        "docling_extraction": "2026-09-22T17:02:06Z",
+        "metadata_extraction": "2026-09-22T17:02:23Z",
+        "text_chunking": "2026-09-22T17:02:29Z",
+        "figure_materialization": "2026-09-22T17:02:31Z",
+        "figure_crossref": "2026-09-22T17:02:31Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T17:02:32Z",
+        "quality_gates": "2026-09-22T17:02:33Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "a0d050ea504c5f9d22c7c4d83460d0386fae9fb9b7fc98cc484f115fb33b74d6",
+        "pipeline_state.json": "cac3e60243d4b86131f8896f42b9655257f02fc048e137510c5a1b3212335924",
+        "docling_doc.json": "306d3a2d5d80a37ef6e6f39abbe9d7a1e11787df0cd55cad390ad55fcb8b2563",
+        "text.json": "dfa077d421b27c0a5a626d1d97fa32758876b10378af97032af02f3143ec8a31",
+        "chunks.json": "75d0d33d157bae92b8b460ddb70f7c78e6cfef0fb1e3db46b0e9b4c2563d8734",
+        "figures.json": "eb4b5f565bf74965da4e94484b63d5833a772c961fdeaaa6a906e902626e86f0",
+        "metadata.json": "6b1cdce66cde7b28355ce3f7038ec11b92172bb37f8fd7ba620620f7d7a8f982",
+        "references.json": "58e02fc599945411e0eabbabb18db304dca7ae8bed45eb38876d3f85e142dc38"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "79bcb551c1f1",
+      "pdf_hash_full": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "status": "success",
+      "started_at": "2026-09-22T17:02:33Z",
+      "ended_at": "2026-09-22T17:03:11Z",
+      "page_count": 6,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T17:02:51Z",
+        "docling_extraction": "2026-09-22T17:03:10Z",
+        "metadata_extraction": "2026-09-22T17:03:11Z",
+        "text_chunking": "2026-09-22T17:03:11Z",
+        "figure_materialization": "2026-09-22T17:03:11Z",
+        "figure_crossref": "2026-09-22T17:03:11Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T17:03:11Z",
+        "quality_gates": "2026-09-22T17:03:11Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "934bb0cc62338614f2cec5f4e2b44232c5bd5637158ad7bfaa1011f11df77036",
+        "pipeline_state.json": "4c5766cfab5caf332252a0c84eb6d8feebd1f9339a612cc115bc372c90f1350c",
+        "docling_doc.json": "5b331c32daecbd57db9d70019a7d1063c685edeb889864af1112da52e92627ce",
+        "text.json": "98e8b7438d8e1945249bc99854c56555757dd2dbc1794eded7f823f8992c5dac",
+        "chunks.json": "3b0b689b1dbbcb00e810baca78f9e948bebab5b6ff3f1d970752a4e31b7d588e",
+        "figures.json": "45ea5d2662635df98a645e37d287644e0ae8426e762c321e668fe4a54b20e372",
+        "metadata.json": "0214866b7068b6eeb01d6740897083e6a9dacfab6cb95a63f31d9b660e878bbe",
+        "references.json": "3bd2feb1006733d0ed1a084c0e4c41dfc419553f87103d349b46e787c9376b11"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "9c0af2a4e494",
+      "pdf_hash_full": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "status": "success",
+      "started_at": "2026-09-22T17:03:11Z",
+      "ended_at": "2026-09-22T17:07:58Z",
+      "page_count": 31,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 3 source-text candidates need review; see text.json provenance",
+          "metric": 3
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "table_structure: 8 source-text candidates need review; see text.json provenance",
+          "metric": 8
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "31 pages but references.json is empty",
+          "metric": 31
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T17:05:57Z",
+        "docling_extraction": "2026-09-22T17:07:54Z",
+        "metadata_extraction": "2026-09-22T17:07:56Z",
+        "text_chunking": "2026-09-22T17:07:57Z",
+        "figure_materialization": "2026-09-22T17:07:57Z",
+        "figure_crossref": "2026-09-22T17:07:57Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T17:07:57Z",
+        "quality_gates": "2026-09-22T17:07:58Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "7e4717a6dcb5a4baad86ec5e8ebcc38e1af6392e39653a9af69df8fa87f699ca",
+        "pipeline_state.json": "2c80c456bb3f069cd7bc8d57fe93ac487f425ff1b6083b9a37bc5fdca0815fd1",
+        "docling_doc.json": "131cbaf5a00737f3481dc3cd270636db1e6624e130e540af169251834c81bbe4",
+        "text.json": "10880a93ff4fa6ecd0df81bec0b0be95cb2a92ed52a9bad4b6c2d308f2251238",
+        "chunks.json": "5c3d5cdc39c9276225c0f007b7360bf443b136fb4079a06b09bb0d405063f460",
+        "figures.json": "fd9cec00cc9cb20c58e4a9001313c3cf0ce909207405235a6be8715757869ffe",
+        "metadata.json": "83364985f8826753dcce5252a7b44edb71794ed9937e4894af59c3ed956380c6",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json",
+        "figures.json"
+      ]
+    },
+    {
+      "pdf_hash": "cb1834694c26",
+      "pdf_hash_full": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+      "status": "success",
+      "started_at": "2026-09-22T17:07:58Z",
+      "ended_at": "2026-09-22T17:09:16Z",
+      "page_count": 4,
+      "errors": [],
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "original_source_spaces: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "pdf_preparation": "2026-09-22T17:08:39Z",
+        "docling_extraction": "2026-09-22T17:09:15Z",
+        "metadata_extraction": "2026-09-22T17:09:16Z",
+        "text_chunking": "2026-09-22T17:09:16Z",
+        "figure_materialization": "2026-09-22T17:09:16Z",
+        "figure_crossref": "2026-09-22T17:09:16Z",
+        "taxa_and_lexicon_extraction": "2026-09-22T17:09:16Z",
+        "quality_gates": "2026-09-22T17:09:16Z"
+      },
+      "current_producer_checks": {
+        "docling_extraction": true,
+        "text_chunking": true,
+        "quality_gates": true
+      },
+      "artifact_sha256": {
+        "summary.json": "921ed30cdfc3ff46d2c7f2505b9ac3de2de6259cfab4142345a17bbf3ae1a6ce",
+        "pipeline_state.json": "48075904af67d5e3239fabf74897d1f1979b2d275cec012725d1af8e22dfbdf7",
+        "docling_doc.json": "e6d0ea78f6ecda717f5852ebc24ee5d7e6b82f3d3316adb5e13461bbeb9d047c",
+        "text.json": "7d33bfe48cf7c8f2efc17b99aee49abe8b3b96d3282c9810b619aee13dfc8214",
+        "chunks.json": "b73f08741f2a662f0d72b83ca7202e70adaf9676a5d50a65d264855a621eb8b4",
+        "figures.json": "2f855365923ee5d6a728b15acd7e23225563560cad45b524e4152f11a8b70d21",
+        "metadata.json": "73c8aec4fd7d2010328863a726ca4cdc5c5ae06fbac878f4482940636a2a4bf4",
+        "references.json": "b0c9cce5c689ef1317de23b07356af3e17dc9bbcfabf4b3ede99c437f5c747d8"
+      },
+      "changed_since_complete_baseline": [
+        "summary.json",
+        "pipeline_state.json",
+        "docling_doc.json",
+        "text.json",
+        "chunks.json"
+      ]
+    }
+  ]
+}

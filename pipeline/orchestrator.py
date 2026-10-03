@@ -126,6 +126,10 @@ class Step:
             # vision backend here. No Grobid / taxa work — figures only.
             cmd += [str(args.input_dir), str(args.output_dir), "--resume",
                     "--refresh-vision", "--no-grobid", "--no-taxa"]
+            if args.bib:
+                # A compound-figure reset re-extracts captions and must use
+                # the same source-backed surname catalog as the CPU build.
+                cmd += ["--bib", str(args.bib)]
             if args.dry_run:
                 cmd.append("--dry-run")
             if args.config:

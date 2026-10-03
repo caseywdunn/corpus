@@ -59,14 +59,15 @@ def _category_or_error(idx, category: str) -> Optional[Dict[str, Any]]:
 
 
 def _top_terms_by_mention_count(
-    idx, category: str, top_n: int,
+    idx, category: str, top_n: int, paper_hashes: List[str],
 ) -> List[str]:
     """Pick the most-mentioned terms in the category, summed across
-    all papers. Used by lexicon_matrix when the caller doesn't pass
+    the selected papers. Used by lexicon_matrix when the caller doesn't pass
     an explicit ``terms`` list."""
     mention_counts = idx.lexicon_mention_counts.get(category, {})
+    selected = set(paper_hashes)
     totals = [
-        (term, sum(per_paper.values()))
+        (term, sum(count or 0 for h, count in per_paper.items() if h in selected))
         for term, per_paper in mention_counts.items()
     ]
     totals.sort(key=lambda t: (-t[1], t[0]))
@@ -121,7 +122,8 @@ def lexicon_matrix(
     was a multi-MB runaway, so it is now opt-in (#88).
 
     Columns/terms: ``terms=[...]`` for a specific set, else top_n by
-    total mention count. Paper set: ``paper_hashes=[...]`` else all
+    total mention count within the selected paper set (ties by term).
+    Explicit terms preserve caller order. Paper set: ``paper_hashes=[...]`` else all
     papers, optionally year-filtered (inclusive). Counts come from the
     in-memory mention index; grid cells fall back to each paper's
     ``<category>.json``.
@@ -179,8 +181,9 @@ def lexicon_matrix(
     if err is not None:
         return err
 
+    row_hashes = _paper_filter(idx, paper_hashes, year_from, year_to)
     if terms is None:
-        columns = _top_terms_by_mention_count(idx, category, top_n)
+        columns = _top_terms_by_mention_count(idx, category, top_n, row_hashes)
     else:
         # Caller-provided columns: preserve their order, dedup,
         # silently drop unknowns. Drift between cached prompts and
@@ -192,8 +195,6 @@ def lexicon_matrix(
             if t in known and t not in seen:
                 columns.append(t)
                 seen.add(t)
-
-    row_hashes = _paper_filter(idx, paper_hashes, year_from, year_to)
 
     # Default (detail=False): compact per-term totals over the selected
     # papers. Summing across the in-memory lexicon_mention_counts (term →

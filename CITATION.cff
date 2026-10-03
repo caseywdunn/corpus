@@ -11,7 +11,7 @@ authors:
     given-names: Felipe
   - family-names: Dunn
     given-names: Casey W.
-date-released: "2026-08-08"
+date-released: "2026-10-03"
 identifiers:
   - type: doi
     value: 10.5281/zenodo.19964909
@@ -30,6 +30,6 @@ preferred-citation:
       given-names: Felipe
     - family-names: Dunn
       given-names: Casey W.
-  date-released: "2026-08-08"
+  date-released: "2026-10-03"
   doi: 10.5281/zenodo.19964909
   url: "https://doi.org/10.5281/zenodo.19964909"

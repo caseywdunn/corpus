@@ -1,0 +1,13 @@
+{
+  "provenance": {
+    "source_repository": "https://github.com/dunnlab/siphonophores",
+    "source_commit": "5ad0164e6840ea16adb6e54a3a5712e20b234feb",
+    "source_path": "library/H_J/Hosiaetal2024.pdf",
+    "pdf_sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+    "pdf_page": 3,
+    "figure_number": 1,
+    "extraction": "PyMuPDF page text; caption newlines retained; this fixture does not confer image rights",
+    "retained_bundle_note": "Older v1.2.1 docling_3 caption was only FIGURE 1; full caption fixture is newly read source evidence, not a claim that bundle contained it"
+  },
+  "caption": "Range of Nanomia nectophore shapes. Upper, lateral, distal and proximal views (left to right). From top to bottom: NE Atlantic N. cara (Totton, 1954),\nNE Paciﬁc N. septata sp. n (Mapstone, 2009, as N. bijuga), and NW Paciﬁc N. bijuga (Kawamura, 1911). Reproduced with permission of The Trustees\nof the Natural History Museum, London; Canadian Science Publishing; and the Zoological Society of Japan, respectively. These images are not\ncovered by the terms of the Creative Commons license of this publication. For permission to reuse, please contact the relevant rights holder."
+}

@@ -1,0 +1,775 @@
+{
+  "recorded_utc": "2026-09-22T16:50:31.161260+00:00",
+  "scope": "Read-only retained v1.2.1 feasibility check, not audited v1.4 history and not current materialization. No source/authority mutations or replay performed.",
+  "authority_path": "/home/claude/corpuscles/siphonophore_20260831/_serve/biblio_authority.sqlite",
+  "authority_sha256": "b2b4416b934d37eb604cb7a03873efdcdb8490e44a328ba5fd085bce809bb019",
+  "authority_unchanged": true,
+  "duplicate_retained_authority_path": "/home/claude/corpora/siphonophore_20260831/_serve/biblio_authority.sqlite",
+  "duplicate_retained_authority_sha256": "b2b4416b934d37eb604cb7a03873efdcdb8490e44a328ba5fd085bce809bb019",
+  "manifest": {
+    "bundle_version": "1.2.1",
+    "created_at": "2026-09-01T10:23:34Z",
+    "pipeline_git_sha": "31784560ceaed157192ba2e4fa35a5f5c4b6feca",
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_dim": 1024,
+    "taxonomy_snapshot_date": "2026-08-31",
+    "paper_count": 1775,
+    "figure_count": 22171,
+    "chunk_count": 259952,
+    "includes_pdfs": false,
+    "citation": {
+      "title": "Extracting AI agent-accessible data from biodiversity literature with corpus",
+      "year": null,
+      "doi": "10.5281/zenodo.19964909",
+      "url": "https://doi.org/10.5281/zenodo.19964909",
+      "authors": [
+        {
+          "family-names": "Church",
+          "given-names": "Samuel H."
+        },
+        {
+          "family-names": "Mańko",
+          "given-names": "Maciej K."
+        },
+        {
+          "family-names": "Zapata",
+          "given-names": "Felipe"
+        },
+        {
+          "family-names": "Dunn",
+          "given-names": "Casey W."
+        }
+      ]
+    }
+  },
+  "manifest_sha256": "bb43b3de558db9c457afd33fe66e28d702ff190d125e2f34e1a66cf524239a10",
+  "schema_tables": [
+    "works",
+    "work_authors",
+    "citations",
+    "work_aliases",
+    "taxon_work_links",
+    "bhl_lookups",
+    "build_meta",
+    "paper_artifacts_processed"
+  ],
+  "all_citation_edges": 84950,
+  "all_citation_edges_with_nonempty_raw": 0,
+  "reported_v14_canonical_key_present": false,
+  "legacy_alias_for_reported_of_title": [
+    {
+      "alias_key": "pugh|1965|the vertical distribution of the siphono",
+      "work_id": "corpus:pugh|1965|the vertical distribution on the siphono"
+    }
+  ],
+  "overlap": [],
+  "union_count": 82,
+  "missing_query_parameters": {
+    "min_citations": 5,
+    "limit": 12
+  },
+  "missing_query_basis": "Exact v1.2.1 query shape at pipeline 31784560: in_corpus=0 grouped citation counts descending; no current query code mutation/migration.",
+  "missing_top12": [
+    {
+      "work_id": "corpus:pugh|1965|the vertical distribution on the siphono",
+      "title": "The vertical distribution on the Siphonophores collected during tbe Sond Cruise",
+      "year": 1965,
+      "cited_by_count": 59
+    },
+    {
+      "work_id": "10.1371/journal.pone.0087737",
+      "title": "Global diversity and review of Siphonophorae (Cnidaria: Hydrozoa)",
+      "year": 2014,
+      "cited_by_count": 54
+    },
+    {
+      "work_id": "10.1016/s0065-2881(08",
+      "title": "Siphonophore biology",
+      "year": 1987,
+      "cited_by_count": 52
+    },
+    {
+      "work_id": "corpus:kramp|1959|the hydromedusae of the atlantic ocean a",
+      "title": "The Hydromedusae of the Atlantic Ocean and adjacent waters",
+      "year": 1959,
+      "cited_by_count": 47
+    },
+    {
+      "work_id": "10.1017/s0025315400007347",
+      "title": "Synopsis of the medusae of the world",
+      "year": 1961,
+      "cited_by_count": 43
+    },
+    {
+      "work_id": "corpus:purcell|1997|pelagic cnidarians and ctenophores as pr",
+      "title": "Pelagic cnidarians and ctenophores as predators: selective predation, feeding rates and effects on prey populations",
+      "year": 1997,
+      "cited_by_count": 41
+    },
+    {
+      "work_id": "corpus:hyman|1940|the invertebrates i protozoa through cte",
+      "title": "The Invertebrates. I. Protozoa through Ctenophora",
+      "year": 1940,
+      "cited_by_count": 41
+    },
+    {
+      "work_id": "10.1016/s0065-2881%2808%2960074-7",
+      "title": "Siphonophore Biology",
+      "year": 1987,
+      "cited_by_count": 36
+    },
+    {
+      "work_id": "corpus:clarke|2001|an approach to statistical analysis and ",
+      "title": "An approach to statistical analysis and interpretation. Change Mar",
+      "year": 2001,
+      "cited_by_count": 35
+    },
+    {
+      "work_id": "corpus:moser|1925|die siphonophoren der deutschen siidpola",
+      "title": "Die Siphonophoren der deutschen Siidpolar -Expedition, 1901-1902",
+      "year": 1925,
+      "cited_by_count": 34
+    },
+    {
+      "work_id": "corpus:|unknown|",
+      "title": "",
+      "year": null,
+      "cited_by_count": 30
+    },
+    {
+      "work_id": "10.1007/978-1-4020-2762-8_62",
+      "title": "A golden age of gelata: past and future research on planktonic ctenophores and cnidarians",
+      "year": 2004,
+      "cited_by_count": 28
+    }
+  ],
+  "feasibility": "A new isolated current-materializer build from preserved metadata/references could measure legacy-data graph/ranking and explicit ambiguity warnings. Every retained citation raw field is empty; all 82 relevant reference artifacts also lack raw citation text. The conservative publication-year rule requires independent raw author-prefix/year/title support, so parsed-only replay cannot establish source-supported reassignment of these 59 citations. Additional genuine saved fresh TEI observations may be a separately provenanced refresh; they must not be patched into or misrepresented as v1.2.1 observations.",
+  "full_readonly_capture": {
+    "path": "/tmp/corpus-issue314-retained-v121-feasibility-20260922.json",
+    "sha256": "8b0a871a35d2d5aba02a612af98fd0ad480574838e90e098db1d16548487e26d",
+    "scope": "All 82 citation edges and corresponding parsed reference rows, including source-artifact hashes, remain external."
+  },
+  "nodes": {
+    "legacy_1965": {
+      "work": {
+        "work_id": "corpus:pugh|1965|the vertical distribution on the siphono",
+        "title": "The vertical distribution on the Siphonophores collected during tbe Sond Cruise",
+        "year": 1965,
+        "in_corpus": 0,
+        "corpus_hash": null
+      },
+      "edge_count": 59,
+      "distinct_citing_paper_count": 59,
+      "citing_papers": [
+        "03239575449b",
+        "03cf3b64d6b0",
+        "12af7b995ca2",
+        "13d21f729eba",
+        "146fce7eee02",
+        "15065a63a2a8",
+        "18bc4a4f7383",
+        "1e6e04289a47",
+        "28d1eb27e929",
+        "2e97d39a09e7",
+        "309b30fcfb62",
+        "3507422334c6",
+        "3e23415c5067",
+        "3e2c9fc0aa87",
+        "3e590c7d4f73",
+        "4279de526477",
+        "45012eab1146",
+        "48c40aecd974",
+        "4efbb4af134b",
+        "543929c939c6",
+        "6199d6c9584a",
+        "620d75c23e72",
+        "674e93c848b3",
+        "6bc2adb40b8f",
+        "6fddeaa4d0d9",
+        "724ff05cda67",
+        "735bf4cb2b84",
+        "767ee16313bc",
+        "76c53955fb80",
+        "7d8af9ae0ddc",
+        "7e466f530492",
+        "82041a70be68",
+        "840e0ec54787",
+        "881488717332",
+        "8e0152c3dc6c",
+        "8e39471b3053",
+        "973fff7fb2e3",
+        "a16337443af7",
+        "a81206ab611f",
+        "aad1780017a4",
+        "aeb7d33c59cd",
+        "aecd724f0923",
+        "b3e783727a6e",
+        "b8ae22a47c6a",
+        "b9bdaa5351e7",
+        "c994b732b3d5",
+        "cc4d03e3f08e",
+        "d0894c24715f",
+        "db7338ea1867",
+        "df73e7fcaedc",
+        "e7778b2280d4",
+        "ed40b850888f",
+        "ee58e826ae42",
+        "f22bfacd33dc",
+        "f4e0b2eaeabe",
+        "f6415c2b1160",
+        "fa31c5f72c2c",
+        "fce0f45cb495",
+        "fe4a5bc096fc"
+      ],
+      "nonempty_edge_raw": 0,
+      "nonempty_artifact_raw": 0,
+      "observation_match_counts": {
+        "1": 59
+      },
+      "reference_artifacts": [
+        {
+          "citing_corpus_hash": "03239575449b",
+          "xml_id": "b21",
+          "references_sha256": "0557c4924da20b96651e11159aede6e8eca23291d3544e343c47ef64b3555dc5"
+        },
+        {
+          "citing_corpus_hash": "03cf3b64d6b0",
+          "xml_id": "b396",
+          "references_sha256": "cffdea44ccdfcbccc28720204b60d12598e67bff6955d8026ff7d8ff1f82b513"
+        },
+        {
+          "citing_corpus_hash": "12af7b995ca2",
+          "xml_id": "b79",
+          "references_sha256": "c7a2eb55a5b8e14f37334a046806b434647517b1b0336fe7879d93b9f288f695"
+        },
+        {
+          "citing_corpus_hash": "13d21f729eba",
+          "xml_id": "b49",
+          "references_sha256": "a622972e6590fb0fc3c37dea38fbeebf0c7ba3f682b57936195582d2699309a1"
+        },
+        {
+          "citing_corpus_hash": "146fce7eee02",
+          "xml_id": "b32",
+          "references_sha256": "a3244e09e40d8dd8bd532f0540c1c83a96ca7072104642af46a010bf65f6f1b1"
+        },
+        {
+          "citing_corpus_hash": "15065a63a2a8",
+          "xml_id": "b16",
+          "references_sha256": "f33dbd7b375dcf1568390ac672cea008e414d757c3209cca80af1f79cd501fe3"
+        },
+        {
+          "citing_corpus_hash": "18bc4a4f7383",
+          "xml_id": "b71",
+          "references_sha256": "6450132f99d50f6f994e7d64399a57c488f2854fe107cc5ae0cf56cb4e26537f"
+        },
+        {
+          "citing_corpus_hash": "1e6e04289a47",
+          "xml_id": "b8",
+          "references_sha256": "f102a3735860b45057c7cc51a201307920b207794e059b2b405302bcc779fcd7"
+        },
+        {
+          "citing_corpus_hash": "28d1eb27e929",
+          "xml_id": "b43",
+          "references_sha256": "871b4d5212d0a7b6c29b29cf8ecae14258002ff29f099cae7c8743dea1bfd53a"
+        },
+        {
+          "citing_corpus_hash": "2e97d39a09e7",
+          "xml_id": "b252",
+          "references_sha256": "9730014cf08c0a0be90e63835318844fc622646177d1c528540b8093a6735a6a"
+        },
+        {
+          "citing_corpus_hash": "309b30fcfb62",
+          "xml_id": "b32",
+          "references_sha256": "d64c4028e0eb931a2ff5b58074377d2f7497a97b6928209547539225e3be15bd"
+        },
+        {
+          "citing_corpus_hash": "3507422334c6",
+          "xml_id": "b42",
+          "references_sha256": "6c456ec28809e39e8802fa7049b4e6e7ea1bde241ec035c8bb2b5b4667b99bcd"
+        },
+        {
+          "citing_corpus_hash": "3e23415c5067",
+          "xml_id": "b17",
+          "references_sha256": "ef6e2ab43eab4a57a74b47fccca0a16b4b64facfa89c945bdd1f01449a84fa42"
+        },
+        {
+          "citing_corpus_hash": "3e2c9fc0aa87",
+          "xml_id": "b58",
+          "references_sha256": "98792bf53380c9f11ff2fec34ff206ab7581b4fa70a0e9bcb039c47444437894"
+        },
+        {
+          "citing_corpus_hash": "3e590c7d4f73",
+          "xml_id": "b25",
+          "references_sha256": "71b8fb2af9abfc80e192b7c215c88766865d00d11001602b6e344156f7e1bd4e"
+        },
+        {
+          "citing_corpus_hash": "4279de526477",
+          "xml_id": "b41",
+          "references_sha256": "7a903faf08448c7eb0bc8fd6f472e35f6e67dc2bd5593380496b46c62b1cf553"
+        },
+        {
+          "citing_corpus_hash": "45012eab1146",
+          "xml_id": "b8",
+          "references_sha256": "47a06617aa307abec15795653af899993b7fc47f93a4767892e6a7134dd3219f"
+        },
+        {
+          "citing_corpus_hash": "48c40aecd974",
+          "xml_id": "b32",
+          "references_sha256": "d9a0cdec3b48bc52e1e1b65c1e8f8aee9978078828cc55f34794cb4ee146987d"
+        },
+        {
+          "citing_corpus_hash": "4efbb4af134b",
+          "xml_id": "b618",
+          "references_sha256": "a50fb2860fdad637d8b154848ad5a131aecb9591c48bedf1fa1a1b30f2b3c548"
+        },
+        {
+          "citing_corpus_hash": "543929c939c6",
+          "xml_id": "b43",
+          "references_sha256": "697fdac60ea491a61095eca3e3d41d015660bfda7e1007b47f3f5572cd9307ae"
+        },
+        {
+          "citing_corpus_hash": "6199d6c9584a",
+          "xml_id": "b40",
+          "references_sha256": "62ecc9bdb910504527e68820160970472a6c18391a2cf1e26401f7eb99e5e3cc"
+        },
+        {
+          "citing_corpus_hash": "620d75c23e72",
+          "xml_id": "b30",
+          "references_sha256": "5df8b42d765bcaa4bf90ff28e0392e71176b9830702029e8f517bd8a5fea5ad6"
+        },
+        {
+          "citing_corpus_hash": "674e93c848b3",
+          "xml_id": "b22",
+          "references_sha256": "bcb7f01c7c9ce0a3be772649c67a40ebf3a75c5b8cc8bd3708477589c43e7483"
+        },
+        {
+          "citing_corpus_hash": "6bc2adb40b8f",
+          "xml_id": "b116",
+          "references_sha256": "23e2f065124836263331ad4b9674ce9a5748f87d62b084e20e2114781fe7a9a1"
+        },
+        {
+          "citing_corpus_hash": "6fddeaa4d0d9",
+          "xml_id": "b23",
+          "references_sha256": "2c4d9ca2a0e55058b11b6feec470bc893146b5e9ad9ba457cc1039b5b305531f"
+        },
+        {
+          "citing_corpus_hash": "724ff05cda67",
+          "xml_id": "b24",
+          "references_sha256": "b3552f82e34d1ff77ac54bfae013cef6d3b59e97a2ce5f7d74a8f9aad0637a56"
+        },
+        {
+          "citing_corpus_hash": "735bf4cb2b84",
+          "xml_id": "b12",
+          "references_sha256": "214786cea69f2d77522df0ecda4655b87f9f26c930eadf3411e3c4944651ea36"
+        },
+        {
+          "citing_corpus_hash": "767ee16313bc",
+          "xml_id": "b13",
+          "references_sha256": "426dbec4f6fb93c6eae517ab98207180e67076b6eb026f247225740f46780e50"
+        },
+        {
+          "citing_corpus_hash": "76c53955fb80",
+          "xml_id": "b34",
+          "references_sha256": "3e58a62193f7db82bc9f63130dce6e5b70507471efbb252d19de7e3fe3cf1251"
+        },
+        {
+          "citing_corpus_hash": "7d8af9ae0ddc",
+          "xml_id": "b84",
+          "references_sha256": "078d0b0be3b767b9ebea9f5ae868282fec394434cbf823113648280d81981aae"
+        },
+        {
+          "citing_corpus_hash": "7e466f530492",
+          "xml_id": "b183",
+          "references_sha256": "baf281c6797e4a490fd233ea69edb1bf9be6cf8d2d195bb60a09167f777af1a0"
+        },
+        {
+          "citing_corpus_hash": "82041a70be68",
+          "xml_id": "b59",
+          "references_sha256": "2df83bce02c885c54bcae2b94c1b018bdc116738d6a80e6ae131eb4ad965e3ef"
+        },
+        {
+          "citing_corpus_hash": "840e0ec54787",
+          "xml_id": "b25",
+          "references_sha256": "e3d51ec1ceac99c763b9b8c605528ebd8a81a64bef8a478f492537683c27cda7"
+        },
+        {
+          "citing_corpus_hash": "881488717332",
+          "xml_id": "b32",
+          "references_sha256": "475c2a9d379adb9b233348408dc4df55038237345585ecd314ce95ebbfc1eb7d"
+        },
+        {
+          "citing_corpus_hash": "8e0152c3dc6c",
+          "xml_id": "b64",
+          "references_sha256": "36962cbbff24b10c01eaa0f5e87f03c09c7d3111da535bbbe78ab697ef65c0f6"
+        },
+        {
+          "citing_corpus_hash": "8e39471b3053",
+          "xml_id": "b31",
+          "references_sha256": "8c23a14edacdd7e6d915c71897ee802d2e2f08687fa51316ca2e14af097cabfa"
+        },
+        {
+          "citing_corpus_hash": "973fff7fb2e3",
+          "xml_id": "b15",
+          "references_sha256": "744f0bb2daa65cee8beaa471e3b672acbaff158c34674a5d7e96709ab0dae12e"
+        },
+        {
+          "citing_corpus_hash": "a16337443af7",
+          "xml_id": "b15",
+          "references_sha256": "e36e3bec0acd924ae4e714d5c6a2c959820534e7e0d29915eb820ce93019a529"
+        },
+        {
+          "citing_corpus_hash": "a81206ab611f",
+          "xml_id": "b25",
+          "references_sha256": "3b0162f7de47a56831b63d1707d5e7214a1b04fef9e0e5d721e9298fc3da051c"
+        },
+        {
+          "citing_corpus_hash": "aad1780017a4",
+          "xml_id": "b32",
+          "references_sha256": "d64dfee3d144535ab75a8660748719a07d83ac8613362af551881e3a3bf11357"
+        },
+        {
+          "citing_corpus_hash": "aeb7d33c59cd",
+          "xml_id": "b38",
+          "references_sha256": "81b066bbfcce1c3218b3715932edf0907fe5c68ebd33966adbf46babbaa8ff19"
+        },
+        {
+          "citing_corpus_hash": "aecd724f0923",
+          "xml_id": "b18",
+          "references_sha256": "17a92a27209debd2b02605d8d6a7e15489caa73d97e111a23c7c90afcf790ec9"
+        },
+        {
+          "citing_corpus_hash": "b3e783727a6e",
+          "xml_id": "b40",
+          "references_sha256": "de1037e64da5f89fe4306e601dcd865179f401690c867b40c721518850a7ffa5"
+        },
+        {
+          "citing_corpus_hash": "b8ae22a47c6a",
+          "xml_id": "b80",
+          "references_sha256": "35674d7bcbfb4ef03d52f11a0b5c7c9dc6df6e85d4cb2a1e58e8f3dd575d1d12"
+        },
+        {
+          "citing_corpus_hash": "b9bdaa5351e7",
+          "xml_id": "b4",
+          "references_sha256": "05a176994480d4442cd49f06fde3897c5d3916c2a8dec994ee8f79aff32d92c5"
+        },
+        {
+          "citing_corpus_hash": "c994b732b3d5",
+          "xml_id": "b0",
+          "references_sha256": "81835ab8f97cda7d38ea6bb794a24a24e341fe6ded080628e1dc2aab48a16006"
+        },
+        {
+          "citing_corpus_hash": "cc4d03e3f08e",
+          "xml_id": "b19",
+          "references_sha256": "9e5502e17c65365e87740125dcad2d43b0f9c352468695b8c8a96e1cbd2c564d"
+        },
+        {
+          "citing_corpus_hash": "d0894c24715f",
+          "xml_id": "b26",
+          "references_sha256": "24011e770b1d7743eebaa182f5b85d3cdfcaef09365e9180c8ef6668df7adb7f"
+        },
+        {
+          "citing_corpus_hash": "db7338ea1867",
+          "xml_id": "b40",
+          "references_sha256": "e685e5eefcdf189ba8f88d9c816a2f00063bacfc6c6d25d53780f12172db9965"
+        },
+        {
+          "citing_corpus_hash": "df73e7fcaedc",
+          "xml_id": "b49",
+          "references_sha256": "4aac4fb3173da6b13b9c1174f3be84690dc14a98d77bb7b8e9348e2ed14f316f"
+        },
+        {
+          "citing_corpus_hash": "e7778b2280d4",
+          "xml_id": "b8",
+          "references_sha256": "bdbdda446ae6ec0348f06532025710be4c86c1764a3cc926efae421e2c402f4b"
+        },
+        {
+          "citing_corpus_hash": "ed40b850888f",
+          "xml_id": "b22",
+          "references_sha256": "0b516cefe8ece5a0663725080fc860ae6fced90ca3df0f47307fc982a7399161"
+        },
+        {
+          "citing_corpus_hash": "ee58e826ae42",
+          "xml_id": "b15",
+          "references_sha256": "b35b1022368ef1a7b274563faf70b287b495195f1b626ca487eefa544acfff69"
+        },
+        {
+          "citing_corpus_hash": "f22bfacd33dc",
+          "xml_id": "b27",
+          "references_sha256": "f62d8f503d993a468064c6b5bf7345dea363820a6ec9db2ddcad21b16fb9ed86"
+        },
+        {
+          "citing_corpus_hash": "f4e0b2eaeabe",
+          "xml_id": "b21",
+          "references_sha256": "1ad43402b8e0cd662f7de81d8ad72a2b459942aa006550d7016b1ffdf2c50c9b"
+        },
+        {
+          "citing_corpus_hash": "f6415c2b1160",
+          "xml_id": "b7",
+          "references_sha256": "4a6cea94f71dcfe25650089136ad80845311b1ea69c79b61804d49f4027c710a"
+        },
+        {
+          "citing_corpus_hash": "fa31c5f72c2c",
+          "xml_id": "b18",
+          "references_sha256": "518b32fbd6f063af8ba236745b59a1f5561e88b15f7a33f340552cae0f0efda2"
+        },
+        {
+          "citing_corpus_hash": "fce0f45cb495",
+          "xml_id": "b20",
+          "references_sha256": "49bba196d468cd2f41a1142553033d1bdeee49756d7c19499732e729d1460f1e"
+        },
+        {
+          "citing_corpus_hash": "fe4a5bc096fc",
+          "xml_id": "b23",
+          "references_sha256": "a6c5720702eef25fe4732502f9fd3f4dd6beb87fd7700747f0e65d81b9b3ac19"
+        }
+      ],
+      "observations_sha256": "bb4d21c0d92378cf271627a6c9ec47825d9fe78d41d0beefb9546b16cd35ab39",
+      "named_issue_cases": [
+        {
+          "citing_corpus_hash": "a16337443af7",
+          "xml_id": "b15",
+          "references_sha256": "e36e3bec0acd924ae4e714d5c6a2c959820534e7e0d29915eb820ce93019a529",
+          "reference_matches": [
+            {
+              "xml_id": "b15",
+              "title": "The vertical distribution of siphonophores collected during the SOND Cruise",
+              "authors": [
+                "P Pugh"
+              ],
+              "year": 1965,
+              "journal": "Journal of the Marine Biological Association of the United Kingdom",
+              "doi": "",
+              "raw": ""
+            }
+          ]
+        },
+        {
+          "citing_corpus_hash": "b8ae22a47c6a",
+          "xml_id": "b80",
+          "references_sha256": "35674d7bcbfb4ef03d52f11a0b5c7c9dc6df6e85d4cb2a1e58e8f3dd575d1d12",
+          "reference_matches": [
+            {
+              "xml_id": "b80",
+              "title": "The vertical distribution of the siphonophores collected during the Sond Crise",
+              "authors": [
+                "P Pugh"
+              ],
+              "year": 1965,
+              "journal": "J. Mar. Biol. Ass. U. K",
+              "doi": "",
+              "raw": ""
+            }
+          ]
+        },
+        {
+          "citing_corpus_hash": "d0894c24715f",
+          "xml_id": "b26",
+          "references_sha256": "24011e770b1d7743eebaa182f5b85d3cdfcaef09365e9180c8ef6668df7adb7f",
+          "reference_matches": [
+            {
+              "xml_id": "b26",
+              "title": "The vertical distribution of the siphonophores collected during the SOND Cruise",
+              "authors": [
+                "P Pugh"
+              ],
+              "year": 1965,
+              "journal": "J. mar. biol. Ass. U.K",
+              "doi": "",
+              "raw": ""
+            }
+          ]
+        },
+        {
+          "citing_corpus_hash": "db7338ea1867",
+          "xml_id": "b40",
+          "references_sha256": "e685e5eefcdf189ba8f88d9c816a2f00063bacfc6c6d25d53780f12172db9965",
+          "reference_matches": [
+            {
+              "xml_id": "b40",
+              "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+              "authors": [
+                "P Pugh"
+              ],
+              "year": 1965,
+              "journal": "Journal of Marine Biological Association of the United Kingdom",
+              "doi": "",
+              "raw": ""
+            }
+          ]
+        }
+      ]
+    },
+    "canonical_1974": {
+      "work": {
+        "work_id": "10.1017/s0025315400022086",
+        "title": "The vertical distribution of the siphonophores collected during the SOND Cruise, 1965",
+        "year": 1974,
+        "in_corpus": 1,
+        "corpus_hash": "b5a7af6140ca"
+      },
+      "edge_count": 23,
+      "distinct_citing_paper_count": 23,
+      "citing_papers": [
+        "2907f2f82e43",
+        "2da3e5f7da3c",
+        "3f2cb522f75f",
+        "4b6cde518f51",
+        "553401c72016",
+        "5560d656c25f",
+        "55918cccb0cd",
+        "65505c6ed590",
+        "6ab1b1b54495",
+        "6f68bb710822",
+        "86887dc2869f",
+        "88f1c8dfbd5c",
+        "96f7045642bc",
+        "9d7b86e44469",
+        "b177e755bf55",
+        "c136657c5b3e",
+        "c62701a4d566",
+        "c66797680843",
+        "c806191c35c4",
+        "ca6b0cc006db",
+        "ccf2832ccfec",
+        "f484de48a89b",
+        "fef95d150cf6"
+      ],
+      "nonempty_edge_raw": 0,
+      "nonempty_artifact_raw": 0,
+      "observation_match_counts": {
+        "1": 23
+      },
+      "reference_artifacts": [
+        {
+          "citing_corpus_hash": "2907f2f82e43",
+          "xml_id": "b34",
+          "references_sha256": "bc690bb93d7bb06764b3528aade0eb5b226fd82c2af7b5cfb492ef72ae6a60b7"
+        },
+        {
+          "citing_corpus_hash": "2da3e5f7da3c",
+          "xml_id": "b84",
+          "references_sha256": "0ef846c4bb2055825650b01399622d7510dab8e93df89c2b36595ee8f389783a"
+        },
+        {
+          "citing_corpus_hash": "3f2cb522f75f",
+          "xml_id": "b2",
+          "references_sha256": "2f89bc844f4a0a924821596e2377c839bd4d0cfbb74930b10d95a7d292d5b420"
+        },
+        {
+          "citing_corpus_hash": "4b6cde518f51",
+          "xml_id": "b606",
+          "references_sha256": "5b9da5a53a25f4a94b71def6ee7ffb8e637d150dd2c184455cf72d73d0d97db5"
+        },
+        {
+          "citing_corpus_hash": "553401c72016",
+          "xml_id": "b3",
+          "references_sha256": "837ce8df6b3d387ca1793212fe42914eca7a4c51d567b0886375978ea6db8b82"
+        },
+        {
+          "citing_corpus_hash": "5560d656c25f",
+          "xml_id": "b34",
+          "references_sha256": "6cc80a4b4b2079072e01efc14ce9b61a1720241b0222cf9a95f949c95d15aada"
+        },
+        {
+          "citing_corpus_hash": "55918cccb0cd",
+          "xml_id": "b33",
+          "references_sha256": "69c09b1d82ea270e19050f86783fa325a589fd2c9cc28baa86e6b18bb7f3fe8a"
+        },
+        {
+          "citing_corpus_hash": "65505c6ed590",
+          "xml_id": "b12",
+          "references_sha256": "699cfd553f9c9a6c8173e255d387913cc7e32f381025ad9d38206189c5af19d8"
+        },
+        {
+          "citing_corpus_hash": "6ab1b1b54495",
+          "xml_id": "b14",
+          "references_sha256": "2cd82a04570698f991ae7da47b716d95741db514fd1906c7dbc78b76df5ead3f"
+        },
+        {
+          "citing_corpus_hash": "6f68bb710822",
+          "xml_id": "b111",
+          "references_sha256": "2f0c56df0158ff322778ea7da5e0ffab06baa71b86b8859e769ef7e7aa1ddb6f"
+        },
+        {
+          "citing_corpus_hash": "86887dc2869f",
+          "xml_id": "b40",
+          "references_sha256": "31f97aa3f8d76cd3775ec409fd64f2dd6c48674b6de8f8a0da1c52c2d4fff93a"
+        },
+        {
+          "citing_corpus_hash": "88f1c8dfbd5c",
+          "xml_id": "b131",
+          "references_sha256": "32e39c26e9e367b8dd3d80c01e5026fcee36a34f053a3eee6fe7ad20552d9f8a"
+        },
+        {
+          "citing_corpus_hash": "96f7045642bc",
+          "xml_id": "b27",
+          "references_sha256": "d63de2dfc977b49f3f877a01310c458c2c62f6d81fb3ba3e4ce91a3c9f208a47"
+        },
+        {
+          "citing_corpus_hash": "9d7b86e44469",
+          "xml_id": "b87",
+          "references_sha256": "873a2e34aaf673f624503a5fd1d61984d38d830585b33fb205ba4e31962ba30f"
+        },
+        {
+          "citing_corpus_hash": "b177e755bf55",
+          "xml_id": "b104",
+          "references_sha256": "7e7eaf6e9e0b2ceb4529d7d924d28f174f374883b6b6fe964269b57d3513bd2d"
+        },
+        {
+          "citing_corpus_hash": "c136657c5b3e",
+          "xml_id": "b20",
+          "references_sha256": "6c982866b4348474ffc14783dc2f00e9f510105987e56695048c7c7eb70a696c"
+        },
+        {
+          "citing_corpus_hash": "c62701a4d566",
+          "xml_id": "b5",
+          "references_sha256": "999b162d55ea7a89df41a5d00f53a6e33eea3ddc90a656f9658c65135da8e1a3"
+        },
+        {
+          "citing_corpus_hash": "c66797680843",
+          "xml_id": "b2274",
+          "references_sha256": "42c0293ee8ba99b1a3279b3dfe35b56d05e4311d57c098cfbb295b85e91f0b54"
+        },
+        {
+          "citing_corpus_hash": "c806191c35c4",
+          "xml_id": "b4",
+          "references_sha256": "62e38cd2687d957e1d0c03b7796d5e3bbf9bad4025b6de13c52f412b7051f207"
+        },
+        {
+          "citing_corpus_hash": "ca6b0cc006db",
+          "xml_id": "b23",
+          "references_sha256": "d8d8c5a6b26164eac895df9fde8398e3c595907135bec128ec1481ceac9f757a"
+        },
+        {
+          "citing_corpus_hash": "ccf2832ccfec",
+          "xml_id": "b140",
+          "references_sha256": "34f0d4ee8b907de9ddb71990a4269771eb1a06cdcfedfc8ca3c5ee1671e07622"
+        },
+        {
+          "citing_corpus_hash": "f484de48a89b",
+          "xml_id": "b57",
+          "references_sha256": "bc298b3df23b90b429a806803ad98f2e8970ad9164a3f53e1f298a4ba1851d55"
+        },
+        {
+          "citing_corpus_hash": "fef95d150cf6",
+          "xml_id": "b60",
+          "references_sha256": "a006db2a52a38ef589b7b10db7686ff1ab39eacf493e3ae42399f455b156f90a"
+        }
+      ],
+      "observations_sha256": "3bbb85f0b30b7d3cd8e1a0edb48afb2ccd6daddafaf705c8a54866ae43456ec4",
+      "named_issue_cases": []
+    }
+  },
+  "limitations": [
+    "These observations describe only the retained v1.2.1 bundle; identical 59/23 counts do not establish equality with the unavailable September 9 v1.4 snapshot.",
+    "The cited-paper union is 82 only after measuring zero overlap. It is not an error rate, and membership in the 1965 node does not independently validate each reference as the 1974 publication.",
+    "Neither retained authority nor reference JSON contains the raw publication-year evidence needed for bulk source-supported correction. No titles, years, raw strings or links were patched.",
+    "No current-materializer replay, acquisition refresh, OCR, extraction, models or deployment actions were performed."
+  ],
+  "reproduction_sql": {
+    "citation_sets": "SELECT * FROM citations WHERE cited_work_id = ? ORDER BY citing_corpus_hash, grobid_xml_id",
+    "missing_ranking": "SELECT w.work_id,w.title,w.year,COUNT(*) AS cited_by_count FROM citations c JOIN works w ON c.cited_work_id=w.work_id WHERE w.in_corpus=0 GROUP BY c.cited_work_id HAVING COUNT(*)>=5 ORDER BY cited_by_count DESC LIMIT 12",
+    "global_raw_presence": "SELECT COUNT(*), SUM(LENGTH(TRIM(COALESCE(raw_citation,'')))>0) FROM citations",
+    "file_check": "Each edge matched exactly one documents/<citing_corpus_hash>/references.json reference with xml_id=grobid_xml_id. All 82 corresponding raw fields are empty."
+  }
+}

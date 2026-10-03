@@ -1,0 +1,83 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body><div><head n="2.5">Structure and function: the zooid</head><p coords="9,73.78,401.12,314.57,9.33;9,63.78,413.12,324.56,9.28;9,63.78,425.12,324.58,9.28;9,63.78,437.12,324.57,9.33;9,63.78,449.12,324.58,9.28;9,63.78,461.12,33.90,9.28;9,324.70,461.12,63.65,9.28;9,63.78,473.12,324.55,9.33;9,63.78,485.12,324.59,9.28;9,63.78,497.12,324.53,9.28;9,63.78,509.12,324.57,9.28;9,63.78,521.12,324.59,9.28;9,63.78,533.12,324.54,9.28;9,63.78,545.12,324.55,9.28;9,63.78,557.12,324.56,9.28;9,63.78,569.12,324.53,9.28;9,63.78,581.12,324.54,9.28;10,53.86,53.12,102.18,9.28;10,284.78,53.12,93.65,9.28;10,53.86,65.12,324.52,9.28;10,53.86,77.12,222.07,9.28">Note that the free-living eudoxid stages of calycophorans are not independent zooids that have detached from the polygastric siphonophore. The siphosome on all siphonophores is a repeating column of sections called cormidia, consisting of zooids in similar arrangements. In P. physalis, each cormidium contains a gastrozooid, gonodendron, and dactylozooid with tentacle <ref type="bibr" coords="9,100.48,461.12,51.71,9.28" target="#b30">(Totton and</ref><ref type="bibr" coords="9,154.99,461.12,103.72,9.28">Mackie 1960, Bardi and</ref><ref type="bibr" coords="9,261.51,461.12,63.19,9.28" target="#b0">Marques 2007)</ref>. Most calycophorans release a cormidium that develops into a free-living sexual unit -the eudoxid stage -that releases gametes via its gonophores, with the gametes fertilising to form the larval stage of a new polygastric calycophoran. This gives us no reason to think the cormidium that is shed was an individual organism while belonging to the polygastric siphonophore. In its free-living state, it is plausible to consider it an organism whose sole purpose, like that of a locomotive gamete such as a spermatozoon, is reproductive. (The same can be said of the released sexual medusoids of other siphonophores such as the physonect agalmids.) It has a gastrozooid and tentacle for feeding, a bract for protection, and the gonophore also serves for locomotion due to the lack of nectophores <ref type="bibr" coords="10,159.11,53.12,125.68,9.28">(Carré and Carré 1991, p. 30)</ref>. As part of the polygastric calycophoran, however, it is no different to any of the undetached cormidia, and as such should be regarded as a part.</p></div></body><back><listBibl><biblStruct xml:id="b0">
+	<analytic>
+		<title level="a" type="main">Taxonomic Redescription of the Portuguese Man-of-War, Physalia physalis (Cnidaria, Hydrozoa, Siphonophorae, Cystonectae) from Brazil</title>
+		<author>
+			<persName><forename type="first">J</forename><surname>Bardi</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">A</forename><forename type="middle">C</forename><surname>Marques</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Iheringia, Série Zoologia</title>
+		<imprint>
+			<biblScope unit="volume">97</biblScope>
+			<biblScope unit="page" from="425" to="433"/>
+			<date type="published" when="2007">2007</date>
+			<pubPlace>Porto Alegre</pubPlace>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Bardi, J. and Marques A. C. (2007) 'Taxonomic Redescription of the Portuguese Man-of-War, Physalia physalis (Cnidaria, Hydrozoa, Siphonophorae, Cystonec- tae) from Brazil', Iheringia, Série Zoologia, Porto Alegre 97, pp. 425-433.</note>
+</biblStruct>
+
+<biblStruct xml:id="b3">
+	<analytic>
+		<title level="a" type="main">A Complete Life Cycle of the Calycophoran Siphonophore Muggiaea kochi (Will) in the Laboratory, under Temperature Conditions: Ecological Implications</title>
+		<author>
+			<persName><forename type="first">C</forename><surname>Carré</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">D</forename><surname>Carré</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Philosophical Transactions of the Royal Society London B</title>
+		<imprint>
+			<biblScope unit="volume">334</biblScope>
+			<biblScope unit="page" from="27" to="32"/>
+			<date type="published" when="1991">1991</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Carré, C. and Carré, D. (1991) 'A Complete Life Cycle of the Calycophoran Sipho- nophore Muggiaea kochi (Will) in the Laboratory, under Temperature Conditions: Ecological Implications', Philosophical Transactions of the Royal So- ciety London B 334, pp. 27-32.</note>
+</biblStruct>
+
+<biblStruct xml:id="b30">
+	<monogr>
+		<title level="m" type="main">A Synopsis of the Siphonophora</title>
+		<author>
+			<persName><forename type="first">A</forename><forename type="middle">K</forename><surname>Totton</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1965">1965</date>
+			<publisher>Trustees of the British Museum of Natural History</publisher>
+			<pubPlace>London</pubPlace>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Totton, A. K. (1965) A Synopsis of the Siphonophora, London: Trustees of the British Museum of Natural History.</note>
+</biblStruct>
+
+<biblStruct xml:id="b31">
+	<analytic>
+		<title level="a" type="main">Studies on Physalia Physalis</title>
+		<author>
+			<persName><forename type="first">A</forename><forename type="middle">K</forename><surname>Totton</surname></persName>
+		</author>
+		<author>
+			<persName><forename type="first">G</forename><forename type="middle">O</forename><surname>Mackie</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">Discovery Reports</title>
+		<imprint>
+			<biblScope unit="volume">XXX</biblScope>
+			<biblScope unit="page" from="301" to="408"/>
+			<date type="published" when="1960">1960</date>
+			<publisher>Cambridge University Press</publisher>
+			<pubPlace>Cambridge</pubPlace>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Totton, A. K. and Mackie, G. O. (1960) 'Studies on Physalia Physalis', Discovery Reports, Vol. XXX, Cambridge: Cambridge University Press, pp. 301-408.</note>
+</biblStruct>
+
+</listBibl></back></text></TEI>

@@ -1,0 +1,52 @@
+{
+  "label_version": 1,
+  "frozen_utc": "2026-09-18T20:02:12.416288+00:00",
+  "candidate_outputs_read_before_label_freeze": false,
+  "source_pdf_text_or_ocr_read_for_review": false,
+  "source_review_count": 24,
+  "verified_printed_expressions": 23,
+  "unscorable_retained": 1,
+  "papers": 14,
+  "selection_seed": "20260918-issue303-source-only-v1",
+  "role_counts": {
+    "inverse_volume": 3,
+    "denominator_volume": 1,
+    "magnification": 3,
+    "equality": 1,
+    "measurement": 3,
+    "measurement_with_range": 2,
+    "temperature": 1,
+    "date_range_control": 2,
+    "measurement_range_control": 1,
+    "salinity_range_control": 1,
+    "volume_range_control": 1,
+    "footnote_control": 4,
+    "transcription_note_only": 1
+  },
+  "hashes": {
+    "select.py": "fe14f2d7372378a220a52712f060c9435a1229a560aa8a2e61a9e0eda1410b5d",
+    "selection-policy.json": "2809bd295a3f45bee1be73d1103f2f066e4b02f9abc210aac4fa0272feba49b3",
+    "selection-receipt.json": "977a2f58539ef2c929c05a80478d59424d5a5d439ee7141917656902d6d1e1bb",
+    "selected.json": "be4c66115502d9b7604e776fcf62c875fede22d3d1e5b39fa5e509e6806a9bb5",
+    "transcription-inputs.json": "51e59730495d9b9d61b965e33208d8efd3a50806baa749cc413da90eb9f982b6",
+    "population.json": "2f8bdf232553aaef84f1f714fd4a59a004bae5aa780fcf8a16d21c78aa194b7a",
+    "render.py": "97cdbd0d5e192818be95c964972526007e75d619c8536684825d368f93ca0d4d",
+    "raster-receipt.json": "ac00ab4fc4df7cb4edf62e7666c303f314c9cbddcb88c438f4780f96c32fc15a",
+    "crop.py": "e9819d87e9d2f2a0de57e7141ed496b1645618ad23e306a7e109a744e7ddd6cb",
+    "crop-receipt.json": "300689e5b7e6b274f3e3d762bfd23ee2ae7e7d97d4d26d1bbcf59514ddd46fb9",
+    "write_labels.py": "a203747327fe6ce649d3be324f7c08393b94762b7a1be201963081cabb316ad8",
+    "labels.json": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62"
+  },
+  "limits": [
+    "No candidate comparison or performance metric yet.",
+    "Source-selected, stratified, capped sample, not a representative corpus estimate.",
+    "No numeric ±/∓ candidates in the eligible regex population; none selected.",
+    "No µm example selected; micro-unit coverage is not established.",
+    "Three inverse-volume labels come from the same paper, so do not claim independent cross-paper inverse-exponent coverage.",
+    "No selected subtraction equation; magnification signs and equality were selected in the arithmetic stratum.",
+    "One transcriber-note-only range retained as unscorable.",
+    "One selected inverse unit is figure-interior axis text; one date range is a publisher footer. Missing output must be distinguished from intended surface exclusion.",
+    "Review performed by one agent from raster evidence; no independent second-reviewer agreement measured.",
+    "Exact codepoint/style normalization may vary; compare required meaning, exponent sign/attachment, unit, numeric values, and expression role, without accepting contradictory versions."
+  ]
+}

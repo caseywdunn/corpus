@@ -1,0 +1,4031 @@
+{
+  "recorded_at": "2026-09-18T20:58:35.035320+00:00",
+  "code_revision": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+  "session_id": 56569,
+  "session_terminal_exit_code": 143,
+  "application_log_result": "All 1 step(s) succeeded in 7056.6s",
+  "application_log_completed_local": "2026-09-18 16:48:04",
+  "session_discrepancy": "Wrapper reports SIGTERM-style exit143 after application and all35 document stages completed; cause unknown. Do not assert shell exit0. No restart performed.",
+  "log_sha256": "cc734ffb9a55e9fb2de00c32755a84e4d9aa4c3be29c374a57b18263cc81e9fb",
+  "scope": "Intermediate CPU/OCR extraction baseline; not latest-producer, Qwen, embedding, post-build or release acceptance.",
+  "documents": [
+    {
+      "pdf_hash": "02049c8322a1",
+      "pdf_hash_full": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+      "status": "success",
+      "ended_at": "2026-09-18T19:08:15Z",
+      "page_count": 5,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "5 pages but references.json is empty",
+          "metric": 5
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:08:13Z",
+        "figure_crossref": "2026-09-18T19:08:15Z",
+        "figure_materialization": "2026-09-18T19:08:15Z",
+        "metadata_extraction": "2026-09-18T19:08:14Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:08:15Z",
+        "text_chunking": "2026-09-18T19:08:15Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "7d53acbf8b8fcd57e08788086adb1f9703a2eac01d938d87b746db07db9fcc01",
+        "pipeline_state.json": "003142fcf3993be79d587346d983893cd2edf331bbf420339f747a3f8c7da971",
+        "docling_doc.json": "1295250d6ee851c9b357b3f5c4bb4b1af70e400e0b1302e1c78b4122f563bd8f",
+        "text.json": "11687ff67dba8896862393ac62cc2e32a53bbad7ec80d33bd3b36f61ad694c41",
+        "chunks.json": "284671718836d72014a62dbb925f7fc1695579394e6ca1a0d97e58d01ecbb218",
+        "figures.json": "348b8d8a1b1fb69c5002962bf6cae53bbb4ac86e98b37bf05ceb06a43d52440a"
+      }
+    },
+    {
+      "pdf_hash": "0cf9f253f75b",
+      "pdf_hash_full": "0cf9f253f75b6ab2ef2377d7a9082e6613c0e0d76d41066aa8aa55848df4bc4c",
+      "status": "success",
+      "ended_at": "2026-09-18T19:15:52Z",
+      "page_count": 4,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:15:03Z",
+        "figure_crossref": "2026-09-18T19:15:49Z",
+        "figure_materialization": "2026-09-18T19:15:49Z",
+        "metadata_extraction": "2026-09-18T19:15:04Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:15:49Z",
+        "text_chunking": "2026-09-18T19:15:05Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "c391b8d183aef483e36c1fbcac2276f147387697d6805841293b07a412bbd2ff",
+        "pipeline_state.json": "50a9138389baa2b82bef3caf31c9f5b4f66b350661baf5d90652fd2b4819030e",
+        "docling_doc.json": "a16d8883c10d1b0885c7cc88425890d22e2f18ab75ca7468c743bb732641fafe",
+        "text.json": "6df6a6df05c176bf7a062b1e266b6049b10ecef712558b98d5b4d16626175108",
+        "chunks.json": "7bff23bb97733423b37850ae28299217470f95c2f8c3363729c7fa985e401798",
+        "figures.json": "d87ac4eb7ec1ac5d75a3fa67e488046dc08787aa1695e60d61ec2a4722acf053"
+      }
+    },
+    {
+      "pdf_hash": "1254e10f0c93",
+      "pdf_hash_full": "1254e10f0c932e702432daa58582cdb2502123668369ba5f0ff7fc2193b715d0",
+      "status": "success",
+      "ended_at": "2026-09-18T20:00:04Z",
+      "page_count": 12,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "12 pages but references.json is empty",
+          "metric": 12
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T20:00:02Z",
+        "figure_crossref": "2026-09-18T20:00:04Z",
+        "figure_materialization": "2026-09-18T20:00:04Z",
+        "metadata_extraction": "2026-09-18T20:00:03Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T20:00:04Z",
+        "text_chunking": "2026-09-18T20:00:04Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "22aa01d7f96f20e8f850b035fc0d6e8c4399ee8d97ffb6305a09a0e1c2f2c389",
+        "pipeline_state.json": "bb29097317716380edf0d4d616cf0a64984930575b24a8b08627e5accf4f7def",
+        "docling_doc.json": "5fcdc1331fce8dfa7de578255e347a23b48fd71361161a8606c26a09ae22ace6",
+        "text.json": "002f20bfe30a83fdfae3a4850d8b1df19f6a3dd1d05e667ea6c931711660544b",
+        "chunks.json": "bc581011b2fa4bc1b9747179eb659ff484726330c62e4dd16fd96c38641cfd23",
+        "figures.json": "e83c67f4f4a869cd2738b9473270e483d687087f1b2cee5fbc79689070949345"
+      }
+    },
+    {
+      "pdf_hash": "1648cd91e973",
+      "pdf_hash_full": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+      "status": "success",
+      "ended_at": "2026-09-18T19:30:01Z",
+      "page_count": 21,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "section_headings: 2 source-text candidates need review; see text.json provenance",
+          "metric": 2
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:29:44Z",
+        "figure_crossref": "2026-09-18T19:30:00Z",
+        "figure_materialization": "2026-09-18T19:30:00Z",
+        "metadata_extraction": "2026-09-18T19:29:47Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:30:01Z",
+        "text_chunking": "2026-09-18T19:29:48Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "f0eac0d7e1f2eaf50e5dd72b92c674efeb20e9d83f017d9c5827190b2122c1a1",
+        "pipeline_state.json": "005f6436f9a01d6a835e322411aa1c086994bd61b665b7359dc0fb0178fb4c40",
+        "docling_doc.json": "1d2802708d0bd5cf861d8c5bd26c0675003fb44e7ce829645b16aa795a001abc",
+        "text.json": "9c6e79a110f343e879b9e4e6d231c802a7194533d87e01c853ba40bb32202b5b",
+        "chunks.json": "7dc3f8ce32f88ba26d831d2a5f06d6f0d48234ee8ae49de1d724313fe2bf1192",
+        "figures.json": "8b40e88826a8ee23787daf6d2d3848328b0c88577da9489b42326bcbc55c83f9"
+      }
+    },
+    {
+      "pdf_hash": "2da3e5f7da3c",
+      "pdf_hash_full": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "status": "success",
+      "ended_at": "2026-09-18T19:51:41Z",
+      "page_count": 17,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "scientific_notation: 5 source-text candidates need review; see text.json provenance",
+          "metric": 5
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:51:35Z",
+        "figure_crossref": "2026-09-18T19:51:41Z",
+        "figure_materialization": "2026-09-18T19:51:41Z",
+        "metadata_extraction": "2026-09-18T19:51:40Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:51:41Z",
+        "text_chunking": "2026-09-18T19:51:41Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "a9f300a7014178d5d4cabc15ab015c82aff50167b1cd2aef7f1160210a8deee9",
+        "pipeline_state.json": "74a5d5639de320cbb4ebfaa5ad95af157468c2c126ed1ec94b2871e94fc616df",
+        "docling_doc.json": "0ac55bef2fa3a4ddc852a7d705b5efd6553b7543a2bd0d68c8eb6f4b2746ff5f",
+        "text.json": "a3de7889342c571722d86c490e0cae383a4cfd5deebeaff78a230f80f02fbd9e",
+        "chunks.json": "d464c8bfbd19d062fb494ad4b80a27ea0d7377113c1b0eafcc21a9363467f82b",
+        "figures.json": "f08b27ebd43a4b172409b432202d2dff9780f51cb849ab6ada8aefd427d6a4f1"
+      }
+    },
+    {
+      "pdf_hash": "31cedc91d73a",
+      "pdf_hash_full": "31cedc91d73a08cefce01007e99de460e4d65714e5e932e1c47371e91787f162",
+      "status": "success",
+      "ended_at": "2026-09-18T19:32:54Z",
+      "page_count": 12,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "12 pages but references.json is empty",
+          "metric": 12
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:32:51Z",
+        "figure_crossref": "2026-09-18T19:32:54Z",
+        "figure_materialization": "2026-09-18T19:32:54Z",
+        "metadata_extraction": "2026-09-18T19:32:53Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:32:54Z",
+        "text_chunking": "2026-09-18T19:32:54Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "b328f723ebb7da6ef3cd6839282d0f34264008c4bbda4c9e48ea8df7a02e92b9",
+        "pipeline_state.json": "95f4adcb9075940015dc3ca8c75cd9a19de4314ddae557c3cf2e9d7b2c6f8a44",
+        "docling_doc.json": "5490c8a57df842c0efbc5a99e6aaa169c2e009d1b4d6246f45e560bebe2b229c",
+        "text.json": "14f2796b0c33b23fb4c8120757e65da36f628072bce9f27675b5bbf25bfbfa3c",
+        "chunks.json": "3c25a4d39b0d4c790d44e800f5347d3022b89024efc9b25f1c16133ddd9c0f89",
+        "figures.json": "8bba1884b6ac0e102a2493840c2283160fad8d8f83acb4ec462e112963e1a465"
+      }
+    },
+    {
+      "pdf_hash": "3461e68936b6",
+      "pdf_hash_full": "3461e68936b6a9e99648a11f8422023a08d673b07e81e71e0eeb88689d15407f",
+      "status": "success",
+      "ended_at": "2026-09-18T19:17:18Z",
+      "page_count": 5,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "5 pages but references.json is empty",
+          "metric": 5
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:17:16Z",
+        "figure_crossref": "2026-09-18T19:17:18Z",
+        "figure_materialization": "2026-09-18T19:17:18Z",
+        "metadata_extraction": "2026-09-18T19:17:18Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:17:18Z",
+        "text_chunking": "2026-09-18T19:17:18Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "e98fe2a094f4b75985da02df10739ca09aa476b67589187e1c057562348ffb0c",
+        "pipeline_state.json": "f1859d3742d0e9da371a945cff6d76061837c0d3518a24f5cc9c5d012fb69e8e",
+        "docling_doc.json": "87eb399360a0d4de769aed0176047322cfcde7c86718810ff7fcf9cbdd656a39",
+        "text.json": "91fb60317a0ed12723616d7bfd615620295c51f59b8828b9732f00836413821d",
+        "chunks.json": "c8e631a01570b4e19ea179583f4badddb5d5b53a8c844ca68338ca72826153cb",
+        "figures.json": "1bf22ab6eca015e4f2783c03226b378bfea2ca080ed644a5a1378f9528a62d67"
+      }
+    },
+    {
+      "pdf_hash": "34712b25bc52",
+      "pdf_hash_full": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "status": "success",
+      "ended_at": "2026-09-18T19:50:36Z",
+      "page_count": 4,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:50:34Z",
+        "figure_crossref": "2026-09-18T19:50:36Z",
+        "figure_materialization": "2026-09-18T19:50:36Z",
+        "metadata_extraction": "2026-09-18T19:50:35Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:50:36Z",
+        "text_chunking": "2026-09-18T19:50:36Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "b12506b37359170176a703c6653f288541b69458a70fddb9dd01aae423177f64",
+        "pipeline_state.json": "2e150cbf8fa6c11585eb6c04ee414bd34a07eca1949d3f6bdb37dc6dfd38ff26",
+        "docling_doc.json": "bdcfe2ea5f12444bced92a1fe9fd8d7f8b60b68d522aa1f7d509d7b5b8ab78ca",
+        "text.json": "0fca0e4fcec06f36156a38b6bacc23c0b666c98cbd23ba7f1b470c92c817da7b",
+        "chunks.json": "1589341da4341be72f54962a9e9f8833fc1a77aadcc510548b0fc7f97b207387",
+        "figures.json": "ebd1fffbfe0a5d431be9797e3b4f36380ae23168d5f94ecf89411fe3bfcecf92"
+      }
+    },
+    {
+      "pdf_hash": "355362e39e58",
+      "pdf_hash_full": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+      "status": "success",
+      "ended_at": "2026-09-18T19:00:15Z",
+      "page_count": 44,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "44 pages but references.json is empty",
+          "metric": 44
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:00:11Z",
+        "figure_crossref": "2026-09-18T19:00:15Z",
+        "figure_materialization": "2026-09-18T19:00:15Z",
+        "metadata_extraction": "2026-09-18T19:00:14Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:00:15Z",
+        "text_chunking": "2026-09-18T19:00:15Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "abb980ced244b18a504127260e0f4279abc99e23d8bdbcd3eab56c1955067f78",
+        "pipeline_state.json": "48edeb83f1df1653b1eabf44c44ca8a9b1dbac7b6d5ebf027ffdc050439b1a42",
+        "docling_doc.json": "d30b330127b6e6ca0f2e5d35e00d07d18b079544775891bb2cb9e08725f8405e",
+        "text.json": "40f07a1fbe1c138a3169160be52792acd5837efc296ac800dd912aa96b548961",
+        "chunks.json": "362d0d690a209dd8967c90ec745dae4c84ba2c69ccf71c5bb5c67261415faf6f",
+        "figures.json": "9849ac2f5cc092a217f016b16b9986a8a397fae108c3493393ee75c51fb7429e"
+      }
+    },
+    {
+      "pdf_hash": "39b9c2f978dd",
+      "pdf_hash_full": "39b9c2f978dd2d0be04a6e724cf4056c8b12c87ed1d04a589253b76af837def0",
+      "status": "success",
+      "ended_at": "2026-09-18T19:53:33Z",
+      "page_count": 2,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:53:31Z",
+        "figure_crossref": "2026-09-18T19:53:33Z",
+        "figure_materialization": "2026-09-18T19:53:33Z",
+        "metadata_extraction": "2026-09-18T19:53:33Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:53:33Z",
+        "text_chunking": "2026-09-18T19:53:33Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "c1093c2a81fc1cb0e7e539814b78dfe12f902d69fb16393b31967e9628adea60",
+        "pipeline_state.json": "f553a20df33a45f0d484034d34d12261c2ddd7666dc8ff0ca1ea43293bd63a75",
+        "docling_doc.json": "ba611660d5dd40eb25b804ad1e83a2408bf77490e55ded57092671cc107c871e",
+        "text.json": "9d8e8417f89d3b7023a89d190ccad1d88a1bd97bbfc2f4f9b7c6a059915eec93",
+        "chunks.json": "eb696b3ba12880d255fc4c9b6347540387eb1c9d0e1aeafed919588497c2e532",
+        "figures.json": "c432ae57c8b8e4381691f2325cdb510dacfbfd2fa86fa3778e016215c853589c"
+      }
+    },
+    {
+      "pdf_hash": "6050b5c6f575",
+      "pdf_hash_full": "6050b5c6f57506aef6110bc93161660d0d90c7bac7e0c9c7f04576344a8341bb",
+      "status": "success",
+      "ended_at": "2026-09-18T18:54:53Z",
+      "page_count": 3,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T18:54:51Z",
+        "figure_crossref": "2026-09-18T18:54:53Z",
+        "figure_materialization": "2026-09-18T18:54:53Z",
+        "metadata_extraction": "2026-09-18T18:54:53Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T18:54:53Z",
+        "text_chunking": "2026-09-18T18:54:53Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "6e339095bb901bfa5ef2fd74d8c40702f04909663d4fbb24ab2094b91ff3a3ed",
+        "pipeline_state.json": "3aab7766472c6895b7581e77e3436b6d61d7b06589ff45894e9e2280f49dad71",
+        "docling_doc.json": "ab5bc005cf04308f36838d7c434f81fd474c6814b44d510af3cf9ffc5a9a52a5",
+        "text.json": "a58155118a344a0b273936fc3bed99a47951880f4c63de34e55a97ad7624f774",
+        "chunks.json": "13744e98d7b7f91992d1b103384268c50aaea78baab39ae3f388186b2c359050",
+        "figures.json": "1706c546e59efb775a63210e1c74ab5116221354c9a9da7ddd43a7846c453f67"
+      }
+    },
+    {
+      "pdf_hash": "6307a3c5f85a",
+      "pdf_hash_full": "6307a3c5f85ade76ee10b4312ce2bd804e0654d111aee91aae79a06efdde4419",
+      "status": "success",
+      "ended_at": "2026-09-18T19:07:15Z",
+      "page_count": 10,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "10 pages but references.json is empty",
+          "metric": 10
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:07:13Z",
+        "figure_crossref": "2026-09-18T19:07:15Z",
+        "figure_materialization": "2026-09-18T19:07:15Z",
+        "metadata_extraction": "2026-09-18T19:07:15Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:07:15Z",
+        "text_chunking": "2026-09-18T19:07:15Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "b7f6137965c3e52aa307cf077586d5ffb592182454a58f3a8c1d26944348cb40",
+        "pipeline_state.json": "7134ca378177c7085e9bef08c16e98201076131cf6293496635d45872cab2dcd",
+        "docling_doc.json": "7b141525c51b8f6d7531f4f2579bba7373f4af48041d203f7a1135a4eaf40ca8",
+        "text.json": "f8e13bfbb59a8ada828abb2e9ce422e22e5b65f1ee39987897ce2c5f2666e595",
+        "chunks.json": "08646e045725140ae5ffb54ca4eb2ed38c34fa343d75ed84ec0f735c6c6defa4",
+        "figures.json": "bcbf28e5200edf1253737d10cfa6e5e39fd345241594d10f14de642a2a3abdfa"
+      }
+    },
+    {
+      "pdf_hash": "68e78d6c90e2",
+      "pdf_hash_full": "68e78d6c90e23830856da6bffc78f48118966f3c909091e84afc9f3b6d22802a",
+      "status": "success",
+      "ended_at": "2026-09-18T18:52:08Z",
+      "page_count": 3,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T18:52:07Z",
+        "figure_crossref": "2026-09-18T18:52:08Z",
+        "figure_materialization": "2026-09-18T18:52:08Z",
+        "metadata_extraction": "2026-09-18T18:52:08Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T18:52:08Z",
+        "text_chunking": "2026-09-18T18:52:08Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "d66051d31e4430837fe91ce771721eaf60568ecbd13d0141a94f4800fbadf4ff",
+        "pipeline_state.json": "6748a2c5a2ab6d1cdce943b35bf25cbfc03757b35c64a55dcf254782ecf311b1",
+        "docling_doc.json": "0ad99f53b6398fc6176ae303b3fb5df20937f553c509fc2b793ea19a1e80fe4e",
+        "text.json": "ef573a4575bfffa4ca0b60f177082a44d2dda820c6b1bc25a03ed8a112afdd00",
+        "chunks.json": "6365983859d7cdbf991e88ad000a3a0eb67473c9993ee33e0294bc3160297d6e",
+        "figures.json": "859d766b928069836464211afb0d909f5a3024a72acd7d37aee40209dddf11e9"
+      }
+    },
+    {
+      "pdf_hash": "6f3a3ae4dd89",
+      "pdf_hash_full": "6f3a3ae4dd898f91696dc97be4f849dd8b1ab0fc2cc03858771ec5b983c89d14",
+      "status": "success",
+      "ended_at": "2026-09-18T19:49:45Z",
+      "page_count": 7,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:49:43Z",
+        "figure_crossref": "2026-09-18T19:49:45Z",
+        "figure_materialization": "2026-09-18T19:49:45Z",
+        "metadata_extraction": "2026-09-18T19:49:45Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:49:45Z",
+        "text_chunking": "2026-09-18T19:49:45Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "97cb84f9f363196df1bb86fc61019f3bd076299e6501144cabbd8e1ed1f050d4",
+        "pipeline_state.json": "56d601d52cb0dffb5536f45e9cd3fe9b6f5cde9094885d9c518f67c9a78ef942",
+        "docling_doc.json": "281a8d9e0ba68d5d1eb85a4bef18d8d35b5b5008bd22acf94d597a62c50f6a9e",
+        "text.json": "578a4d3d17f9218c051aa0dd52a093a9163cef0021813ae97b59c89589d7f075",
+        "chunks.json": "68b4720d29b1755757b69f6074e6015e65229c133de7765af74f36650b37ce33",
+        "figures.json": "d87c8367f7a8d9992de2f6334c878205ce13170391db2499b985e798259fb476"
+      }
+    },
+    {
+      "pdf_hash": "726d507fcca4",
+      "pdf_hash_full": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+      "status": "success",
+      "ended_at": "2026-09-18T19:11:59Z",
+      "page_count": 12,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:11:57Z",
+        "figure_crossref": "2026-09-18T19:11:59Z",
+        "figure_materialization": "2026-09-18T19:11:59Z",
+        "metadata_extraction": "2026-09-18T19:11:59Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:11:59Z",
+        "text_chunking": "2026-09-18T19:11:59Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "f4afd81e7deb95486031041aadc0e731c0d9f4e51fd801ea86789cf402b2875c",
+        "pipeline_state.json": "59ed8ad0458b65f34ad3ad5cd74d7a1de9342a974e0db609150ce100c5ef5653",
+        "docling_doc.json": "bb64292e0431fe33b518313b18a4e45b310ff772485de486908db5195741f24a",
+        "text.json": "5e731124266a935ab20696dfdaacd42f9a7211c35b3b4dc50a4af597bf289e04",
+        "chunks.json": "8f2e2927f49607ad7c15e41433d1b2e647ec2fbefb0e2f9542be0ba5711537e5",
+        "figures.json": "64acf502678c8912663c723ec363714dbc6a272c58bcab905ea14d4cb58a8918"
+      }
+    },
+    {
+      "pdf_hash": "79bcb551c1f1",
+      "pdf_hash_full": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "status": "success",
+      "ended_at": "2026-09-18T20:40:02Z",
+      "page_count": 6,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T20:39:56Z",
+        "figure_crossref": "2026-09-18T20:40:02Z",
+        "figure_materialization": "2026-09-18T20:40:02Z",
+        "metadata_extraction": "2026-09-18T20:39:57Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T20:40:02Z",
+        "text_chunking": "2026-09-18T20:39:57Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "e7847e684a7a40a3cd4869e4ed977c0d8908f65ad0e37db3e0b939f1fb9b2ada",
+        "pipeline_state.json": "221463758c72ed924784762018704a2321feee71084dca90a7908a43d5db540b",
+        "docling_doc.json": "fa16751c54d9a6ad1db4b0267511e59f63089fc927814b86af9ef572a9c171fd",
+        "text.json": "3c0b8b59855b6a78fca6f91cc51e8c2087ec9293cc68082a3494ed43554b0127",
+        "chunks.json": "f373848af3b920f44cd8ca2cba41de093ff7c1e507e017df1ea3009cbaa5dcee",
+        "figures.json": "956965bbb90453480a000cc90b71c62c889882998018dd3209412b06aedf6319"
+      }
+    },
+    {
+      "pdf_hash": "79e8dac842f6",
+      "pdf_hash_full": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+      "status": "success",
+      "ended_at": "2026-09-18T19:54:38Z",
+      "page_count": 6,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "low_text_density",
+          "severity": "warn",
+          "detail": "154 chars/page over 6 pages (min: 200)",
+          "metric": 153.7
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "6 pages but references.json is empty",
+          "metric": 6
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:54:37Z",
+        "figure_crossref": "2026-09-18T19:54:38Z",
+        "figure_materialization": "2026-09-18T19:54:38Z",
+        "metadata_extraction": "2026-09-18T19:54:38Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:54:38Z",
+        "text_chunking": "2026-09-18T19:54:38Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "cea9601d3eca034ce9e37014314bdb5fa8d01adf49a56cf7d64a980a57963432",
+        "pipeline_state.json": "133068ce838cfd224233751b40a071587f5ba4bd0411d458535c54725505484c",
+        "docling_doc.json": "03c145dea3ca19b9868e8d9faa12082c89c239b519ae9ee1ce9d3b78d5b1e1f9",
+        "text.json": "5852c1ed9f9b7bc135183072e7904c7a262456e392d475c80da210de7d2deb71",
+        "chunks.json": "6d7abe9c61e5089d1a672f7ea7b2c79303826155f90287fa45a5272a0f449fb8",
+        "figures.json": "b0a5ad6ba253273e9a66e0513e2742959456e9ab89f64303ea477028e37dbf22"
+      }
+    },
+    {
+      "pdf_hash": "830c73a89f82",
+      "pdf_hash_full": "830c73a89f829ef2c27601131826c038c67b9eae9746b68f6c588e831bffd031",
+      "status": "success",
+      "ended_at": "2026-09-18T19:35:24Z",
+      "page_count": 3,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:35:23Z",
+        "figure_crossref": "2026-09-18T19:35:24Z",
+        "figure_materialization": "2026-09-18T19:35:24Z",
+        "metadata_extraction": "2026-09-18T19:35:24Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:35:24Z",
+        "text_chunking": "2026-09-18T19:35:24Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "5520b93674291f5510a986cd3b0cb2d7f9f20f285a6456ce2d841235cd6c2afd",
+        "pipeline_state.json": "2567a175792cbe058f6c3ca5bf11e0b2fb1c879170562c2fd9ffa8d21adeb743",
+        "docling_doc.json": "c81f1b450bbf3ea6e9dfc836e424b2ef23b72d28d71c9571bd6e796ef00ae1a2",
+        "text.json": "15f6b762ce7fbcd85a11b20aba6de9b2cd32c6b8a13e17d26a5ec0718c9b04a8",
+        "chunks.json": "dc549507cfdc535f135f545a6b0ada859fd4297a28778fe007af9d0eb6225101",
+        "figures.json": "a94ede9677268d66ec391dca0dab692e1a6aca124cd3ff159a021eb901adff1c"
+      }
+    },
+    {
+      "pdf_hash": "8419592108f2",
+      "pdf_hash_full": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+      "status": "success",
+      "ended_at": "2026-09-18T19:57:50Z",
+      "page_count": 8,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "8 pages but references.json is empty",
+          "metric": 8
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:57:48Z",
+        "figure_crossref": "2026-09-18T19:57:50Z",
+        "figure_materialization": "2026-09-18T19:57:50Z",
+        "metadata_extraction": "2026-09-18T19:57:49Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:57:50Z",
+        "text_chunking": "2026-09-18T19:57:50Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "a8d3e73e0583f8d6251256822d14a834a69faf3b2c106046a40e67646f4adc17",
+        "pipeline_state.json": "512b82d285c1d8850224a22736eccd1e3d900ba3d4eaa21c1e13660dbccfa31d",
+        "docling_doc.json": "d44b5d45c75c35ea629dc8ddc553d06398a6807353caff18688442755f99cdb8",
+        "text.json": "c18fa12b848f08e1afdf6fc51c6cd6c01099ec49f5d8ce2609e6606bf4bba393",
+        "chunks.json": "cef06416395d3ff5eb9cae3acb382d7d06d79c3f075470316ba1f8f6b0ca15c0",
+        "figures.json": "508029fe48fd50516c8b6a6d7cb75a22e2fdbdb092bf585461657cbe18f59b0e"
+      }
+    },
+    {
+      "pdf_hash": "8a1321ca549d",
+      "pdf_hash_full": "8a1321ca549db560f0a4392a4d2ec41bf2864db35f15fc72ad0690e77becc375",
+      "status": "success",
+      "ended_at": "2026-09-18T19:34:29Z",
+      "page_count": 9,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "9 pages but references.json is empty",
+          "metric": 9
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:34:27Z",
+        "figure_crossref": "2026-09-18T19:34:29Z",
+        "figure_materialization": "2026-09-18T19:34:29Z",
+        "metadata_extraction": "2026-09-18T19:34:29Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:34:29Z",
+        "text_chunking": "2026-09-18T19:34:29Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "22a527a6ae5b0f49ee33f2b661666f7a3be21a423ee0c7e918a0a4d75578c34f",
+        "pipeline_state.json": "13e311a7dd94dc510d6341f202f0a40a11ecfad373ea6271bccfc56123366604",
+        "docling_doc.json": "0dd3eec1c1aab1e2cdeeb38547c6192476e6f7cf36613cc2312b8b73e2c482b9",
+        "text.json": "128a7124aeb2f69658bd10038ea624afb2634d87182aae8accaa042a11ac3de3",
+        "chunks.json": "0d244ea1906a3cc19506d48d9fc33c9d937d81f4e1b626e3de6d950b2f81e74d",
+        "figures.json": "03ddc228b29e6aee280ff5498273a64f37beddc65357e290c27708e57bf030be"
+      }
+    },
+    {
+      "pdf_hash": "8a4548d8d5d7",
+      "pdf_hash_full": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "status": "success",
+      "ended_at": "2026-09-18T20:39:00Z",
+      "page_count": 314,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        },
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "surnames: 13 source-text candidates need review; see text.json provenance",
+          "metric": 13
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T20:29:31Z",
+        "figure_crossref": "2026-09-18T20:38:58Z",
+        "figure_materialization": "2026-09-18T20:38:57Z",
+        "metadata_extraction": "2026-09-18T20:29:48Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T20:38:59Z",
+        "text_chunking": "2026-09-18T20:29:54Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "d27b0fbad72279a78ba4ec3d91722f85624c98e2b5b5828536f275e312c667d8",
+        "pipeline_state.json": "f539ed103f777db04b94dff965d1e629fdd070a53732fa06511718175ed87559",
+        "docling_doc.json": "d4434d25d1e01d6e200f9a3aa29322687c5501225dd942eb11a669c03b907389",
+        "text.json": "e9352c16f9626c45a36299a0997fd737d2c75d83302dff9d9672a0fbf9b64e78",
+        "chunks.json": "e13708bf006d307c0191548fdfcda87ab4249688e08dc93afc3ef0362204ad9a",
+        "figures.json": "79b2891588392decc02fc4c517283f69cdafe45992e5f559e994a7fc3942155a"
+      }
+    },
+    {
+      "pdf_hash": "93e29178db12",
+      "pdf_hash_full": "93e29178db12b19d7f6a8ab0ec3b5dbe3c1b44d92b1bda3ed3a2cd31ece82fde",
+      "status": "success",
+      "ended_at": "2026-09-18T19:48:22Z",
+      "page_count": 3,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:48:21Z",
+        "figure_crossref": "2026-09-18T19:48:22Z",
+        "figure_materialization": "2026-09-18T19:48:22Z",
+        "metadata_extraction": "2026-09-18T19:48:22Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:48:22Z",
+        "text_chunking": "2026-09-18T19:48:22Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "63b68ca269027947da77c80460a3690f96a3334e62924fa2badb44d037c60e85",
+        "pipeline_state.json": "89367017611a4c0ed9a7bd2c57320ac9990ec1e9409f739abf7e272cb42b20f5",
+        "docling_doc.json": "ab5e0747b2745800353ea98f760d8ba1f8184e8638ebbecd3fbe587ba405b6ec",
+        "text.json": "ede29aa5c030b726b1cd9dcd2bb02a5c6cecc45d785ce30ed48c7aee5815dd71",
+        "chunks.json": "6c352ac1bb8a63c464cea78eb368ccba663788ab1889aa83e10f5d576973f8b5",
+        "figures.json": "63359986611234872c5d42ef6f395cd9be1463a8af23662a43e6c8269fa51323"
+      }
+    },
+    {
+      "pdf_hash": "9c0af2a4e494",
+      "pdf_hash_full": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "status": "success",
+      "ended_at": "2026-09-18T20:45:50Z",
+      "page_count": 31,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "31 pages but references.json is empty",
+          "metric": 31
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T20:45:03Z",
+        "figure_crossref": "2026-09-18T20:45:49Z",
+        "figure_materialization": "2026-09-18T20:45:49Z",
+        "metadata_extraction": "2026-09-18T20:45:05Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T20:45:50Z",
+        "text_chunking": "2026-09-18T20:45:06Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "e194aaa7885932d76f1ba6e627342b6d2447ad5c23b850f5f078230c1131c655",
+        "pipeline_state.json": "949a746149599aef62419fee1bfef7d891968bd948c641db86315d2e11cbbff2",
+        "docling_doc.json": "43acb4da1de115a583cd33e981a9e997cd0db464c39d6818bbc1398d2fef332d",
+        "text.json": "fe1abd6183fb8dbc929550f20d5b7ea09922b5d4ce8a67ac89214dc1014692a2",
+        "chunks.json": "4b29fd2ce6602581821b2eddfab16d89971178acb9cc6f54a284dfbb08cf086b",
+        "figures.json": "75785f2bff9740a63610a9f0fb7f17a7c3c058a6f0df8fb4eaaaa861fc658c71"
+      }
+    },
+    {
+      "pdf_hash": "a53f93badacc",
+      "pdf_hash_full": "a53f93badacc4fbbc0aa027d21644a9bd1eb330468237db6dfd78e3aa6a75ebb",
+      "status": "success",
+      "ended_at": "2026-09-18T18:53:35Z",
+      "page_count": 25,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T18:52:53Z",
+        "figure_crossref": "2026-09-18T18:53:35Z",
+        "figure_materialization": "2026-09-18T18:53:35Z",
+        "metadata_extraction": "2026-09-18T18:52:57Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T18:53:35Z",
+        "text_chunking": "2026-09-18T18:52:58Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "f086ae5a2a654d23aa12085a0d8b733a28371f9d288f5b2a76e816fb3aa80093",
+        "pipeline_state.json": "d7a654a0a5ad5d2d3e943cfbd545bac94f22be8aaaa3b7fa0516f56d3f20b35c",
+        "docling_doc.json": "c6028fd1af032d22a22c876271b880c5e10546eef5837732f78a1793bf8f48be",
+        "text.json": "56accb3c2d1057d5399b3b7e2d2343fc05c7e1cc9bf48f193b04f1a8fea75750",
+        "chunks.json": "c0b601ed39efa7f790aaf0f19d7c0bd642aacb290cfef421c07e882b26e3a0c4",
+        "figures.json": "f5f5f4b2a05996040ff0b279ea14f0f01fd011dfd908f20ecef0389bed388e5f"
+      }
+    },
+    {
+      "pdf_hash": "af5655bdeaae",
+      "pdf_hash_full": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+      "status": "success",
+      "ended_at": "2026-09-18T19:20:46Z",
+      "page_count": 15,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "15 pages but references.json is empty",
+          "metric": 15
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:20:44Z",
+        "figure_crossref": "2026-09-18T19:20:46Z",
+        "figure_materialization": "2026-09-18T19:20:46Z",
+        "metadata_extraction": "2026-09-18T19:20:46Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:20:46Z",
+        "text_chunking": "2026-09-18T19:20:46Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "1f8b5c7c9649a413a60f6287d5c632dc909453e7c58e1b239d967bcab42f9853",
+        "pipeline_state.json": "b52120eaba8416757568d84384529b0872a8382647a6a5843534bac840ee99fa",
+        "docling_doc.json": "b853ee5a034176cd018a8659b0d84750916bb22691a72a91e34ec7378b81c52a",
+        "text.json": "2988f0eea416f7d80f10913066e1aab34a4599b3d29ecd1dbe9182c244e03275",
+        "chunks.json": "4160bd00bf3be1810f61ccffdcaa0f9b971d1f59efae09dc4f6267c432b0f1fa",
+        "figures.json": "c873292d9b1a396672defb6cd6fd7d2502328aaeb8406e7304d03b08370eb8a4"
+      }
+    },
+    {
+      "pdf_hash": "c5c34c1bb104",
+      "pdf_hash_full": "c5c34c1bb1048b290a8357c4b27a2d4779fe815c3d77a6f2935da1434d004cdf",
+      "status": "success",
+      "ended_at": "2026-09-18T19:26:35Z",
+      "page_count": 9,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 2 source-text candidates need review; see text.json provenance",
+          "metric": 2
+        },
+        {
+          "gate": "zero_references_unexpected",
+          "severity": "warn",
+          "detail": "9 pages but references.json is empty",
+          "metric": 9
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:26:32Z",
+        "figure_crossref": "2026-09-18T19:26:35Z",
+        "figure_materialization": "2026-09-18T19:26:35Z",
+        "metadata_extraction": "2026-09-18T19:26:35Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:26:35Z",
+        "text_chunking": "2026-09-18T19:26:35Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "1fb50ca39f9b218ce2f33f0f8eb95d0ce571055ed6a34b4c6f42e9cb947dd43a",
+        "pipeline_state.json": "f7ebe3655b99591fb1197a2e823e4b9871bbbaf232ac21588f73b6ba5e194b68",
+        "docling_doc.json": "06cda4eb826d6f78bdc5b210d9f83fb4e2a3bb4dbc1bb856a739a7396960b128",
+        "text.json": "27a762d9958df251871ba608f3292180da83c1c55aa7b7fa1726a871ac23336a",
+        "chunks.json": "966e22ff8910aa2c58e18836d6b782446ea9406d2941dcff4ff1365c8616dbf4",
+        "figures.json": "fda9838ac5ccaa8cb2a1fa72db0b73854112bf83f4931ce1c7b8fb742ac83ffc"
+      }
+    },
+    {
+      "pdf_hash": "c806191c35c4",
+      "pdf_hash_full": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+      "status": "success",
+      "ended_at": "2026-09-18T19:27:05Z",
+      "page_count": 1,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:27:04Z",
+        "figure_crossref": "2026-09-18T19:27:05Z",
+        "figure_materialization": "2026-09-18T19:27:05Z",
+        "metadata_extraction": "2026-09-18T19:27:05Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:27:05Z",
+        "text_chunking": "2026-09-18T19:27:05Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "3df62bc377b5810d7491e61aabf9dccf004851eadd76dd6b3f1d60989ce31b1a",
+        "pipeline_state.json": "3a7e5e28de4da9b9076258feab9f3916263b0c931f162a869ab5d46f59a8e1aa",
+        "docling_doc.json": "6ba5854cfcee32574fd467c7bd34b11a20abcc3b2498a64f76152c62d99d0e7f",
+        "text.json": "bc1546ad3915c238a6593d666b29a46f182e98a64f70eb1bf500517c636ca0f7",
+        "chunks.json": "6252492a2e1e1fa4b02778a00c57a25ec9c0db42248ff02ef2179bba293d4077",
+        "figures.json": "9e696541558e0066755aa05cdde4ed3563b0ab9670c34279c78028141d6e84e6"
+      }
+    },
+    {
+      "pdf_hash": "cb1834694c26",
+      "pdf_hash_full": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+      "status": "success",
+      "ended_at": "2026-09-18T20:48:03Z",
+      "page_count": 4,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T20:48:02Z",
+        "figure_crossref": "2026-09-18T20:48:03Z",
+        "figure_materialization": "2026-09-18T20:48:03Z",
+        "metadata_extraction": "2026-09-18T20:48:03Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T20:48:03Z",
+        "text_chunking": "2026-09-18T20:48:03Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "a5150a8e6d0ad2cacb03cc5cd7682b52657e6a5690c24d4346c46b665bee9b98",
+        "pipeline_state.json": "12ba7eb859135f53e9749f55631dd31a042670bf7b788fe986acd866692cf508",
+        "docling_doc.json": "a49440db847fd06fb82d01f91632e0e79e21f372fad50eba809fe60921569425",
+        "text.json": "9f13f44f5312be9acb300fccd1466e6f54518954b8bc13760994d22e1f7d7969",
+        "chunks.json": "c835617572eebb24adb1be06495598389b8fd089e003075e48fe31733629a971",
+        "figures.json": "2f855365923ee5d6a728b15acd7e23225563560cad45b524e4152f11a8b70d21"
+      }
+    },
+    {
+      "pdf_hash": "cc2908a7a170",
+      "pdf_hash_full": "cc2908a7a17078772a56372548f7a69fc03754c131599e93e9dd139c032762f2",
+      "status": "success",
+      "ended_at": "2026-09-18T19:28:36Z",
+      "page_count": 3,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:28:35Z",
+        "figure_crossref": "2026-09-18T19:28:36Z",
+        "figure_materialization": "2026-09-18T19:28:36Z",
+        "metadata_extraction": "2026-09-18T19:28:36Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:28:36Z",
+        "text_chunking": "2026-09-18T19:28:36Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "656f7b24a3bae9c92db5b0340a64698920db1d0662cd0a8569995c4565cbdd5a",
+        "pipeline_state.json": "a447b26e1a415efaab1364b48077aa4d871f2da7f70cc9ba83f8d9dd21a1f332",
+        "docling_doc.json": "fd545b74bb38623d3fcc335c334096f1295dc9c0614cddadd33b29972d9b7976",
+        "text.json": "d06bd734716c0f7a9ff5e78c29e927f57a7c6f007b78f81e5b119fb28c7b5549",
+        "chunks.json": "eca8076346c1fd86de47fcb3e231c8924b05162d366f26ca4de1e9c4b329cc2c",
+        "figures.json": "56d3789c64da458f171bba2f40abf65685e77ac406d285392522059e82af1088"
+      }
+    },
+    {
+      "pdf_hash": "d183f5012c54",
+      "pdf_hash_full": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+      "status": "success",
+      "ended_at": "2026-09-18T19:56:51Z",
+      "page_count": 14,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "reading_order: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:56:48Z",
+        "figure_crossref": "2026-09-18T19:56:51Z",
+        "figure_materialization": "2026-09-18T19:56:51Z",
+        "metadata_extraction": "2026-09-18T19:56:50Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:56:51Z",
+        "text_chunking": "2026-09-18T19:56:51Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "fd960973245baa51081e12bdd6f1be6c5e6c24250f1413da1d12ba201b0bef60",
+        "pipeline_state.json": "1e7e8eb3c8f96e7ed85aa742f2007e4fa25194f79362a81496032392922be1c2",
+        "docling_doc.json": "c7badd6f0750e0b1c2d425e4f7e6f7f6f7c6f3dc3c4a882c95d541f8d54a4c0e",
+        "text.json": "d94c7840c0b2301c002734993ae49ea4d61158e21de4ccb3a572dddeb29e3082",
+        "chunks.json": "8633cde6160ba9c8b63f61dfb5993a33e3eb6c4c0e3a8c59395092a64ff182d4",
+        "figures.json": "655495349b2ce707fbe65ce1dc9892752d600276b0f1e0771e106ae82fd20949"
+      }
+    },
+    {
+      "pdf_hash": "d64d1b9da678",
+      "pdf_hash_full": "d64d1b9da678ea1ed329f347b0e84cbe2d3c777398456e35ee8037a046e0b7c0",
+      "status": "success",
+      "ended_at": "2026-09-18T19:01:51Z",
+      "page_count": 13,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:01:45Z",
+        "figure_crossref": "2026-09-18T19:01:51Z",
+        "figure_materialization": "2026-09-18T19:01:51Z",
+        "metadata_extraction": "2026-09-18T19:01:47Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:01:51Z",
+        "text_chunking": "2026-09-18T19:01:47Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "94c982fb189e74c86e485008ba190f2ad16475ae5ff4bcf6f6ebf78b1724a590",
+        "pipeline_state.json": "6f67f361dd1ee0cfbc5c18832a9e6ab9e3903ecec7e2cc2913e709fb35dc9933",
+        "docling_doc.json": "0c66f6fe9de6fdfcce72dae12fdff58fe3afcd9d568bdd6256f4890f4f1ae0c0",
+        "text.json": "dce78eb7ba94b67cd7e921e58ff65e09340b8cdb91aae8f1eadab05a1a05d300",
+        "chunks.json": "adc4d2d7f54cff08dd7d447b67153873a9f31f6ff281be8a2d795ed74a840045",
+        "figures.json": "7fcab06e0c4d2b4ae2287044487dcd3384780a580a29f78a1db9e5af6a20bcaa"
+      }
+    },
+    {
+      "pdf_hash": "d7210cd94ae2",
+      "pdf_hash_full": "d7210cd94ae23c3bc07931f395ebc7f795390eb967f5207dc35aa78b43861fed",
+      "status": "success",
+      "ended_at": "2026-09-18T19:46:57Z",
+      "page_count": 4,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:46:56Z",
+        "figure_crossref": "2026-09-18T19:46:57Z",
+        "figure_materialization": "2026-09-18T19:46:57Z",
+        "metadata_extraction": "2026-09-18T19:46:57Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:46:57Z",
+        "text_chunking": "2026-09-18T19:46:57Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "5d14e7707c6d3fabb705c18ff543c6627e9d8bebbc12b79aab3cac0e3f69cc49",
+        "pipeline_state.json": "98b7ffbce5a835839ab453fd8f36ad912f5432bb396208a799394de1c99198c2",
+        "docling_doc.json": "aca9797a7ec590d6ee9abcdc72c28d51571e7554caded31ad1a0aed927c15225",
+        "text.json": "dc9538bf892ffdef30574a7a384051aa49b840b70f11114ea574628a5e5b2138",
+        "chunks.json": "b854d29882853434d47adcba971a22a911eb1bc5e00333ccfac2e1d9b07efe15",
+        "figures.json": "76c4c29c54ed740de9d5e0ec6d51e811eaffab3a0aacaf68ed91bab0906fdaa8"
+      }
+    },
+    {
+      "pdf_hash": "d7c1193c06fa",
+      "pdf_hash_full": "d7c1193c06faa82b340668b2c92f14f6637a1bda0047ec3a111c0f0aec27190d",
+      "status": "success",
+      "ended_at": "2026-09-18T19:45:13Z",
+      "page_count": 13,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:45:06Z",
+        "figure_crossref": "2026-09-18T19:45:12Z",
+        "figure_materialization": "2026-09-18T19:45:12Z",
+        "metadata_extraction": "2026-09-18T19:45:09Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:45:13Z",
+        "text_chunking": "2026-09-18T19:45:12Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "da963ffec28140b2ded2b3a0bbd7dcac9a5bdcee7ee8a45ba8485078a11638d6",
+        "pipeline_state.json": "212d48f88afde047d22b0a5a6f57c6694ffaece4b552fe648c140dda8c8aa596",
+        "docling_doc.json": "c0c8d3cb58c2c12a414b3a5801086adc567eb729a444b3a00955e00443f0ddaf",
+        "text.json": "201f29519597fcc655b1426b17822ef57e3381a8fad183051b9fd93ec2876bc1",
+        "chunks.json": "35cd2501e01d337f7894e07838f3da043c89c355be0f7a867b5f1a615778fad2",
+        "figures.json": "95fc32b4572eb6058a63c3ac7b917ea28aee1c215ffc14516d4697f96ac09b36"
+      }
+    },
+    {
+      "pdf_hash": "d9623d970b33",
+      "pdf_hash_full": "d9623d970b33843a16864d4338c8235772b0c614b3ece23709bac7128678be37",
+      "status": "success",
+      "ended_at": "2026-09-18T19:05:56Z",
+      "page_count": 12,
+      "stage_failures": [],
+      "quality_flags": [],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:05:54Z",
+        "figure_crossref": "2026-09-18T19:05:56Z",
+        "figure_materialization": "2026-09-18T19:05:56Z",
+        "metadata_extraction": "2026-09-18T19:05:55Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:05:56Z",
+        "text_chunking": "2026-09-18T19:05:56Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "231e9aa5d37c6250efac02fc83152ac839c8e6e6c2ce26b4709be10ff3c2ecc9",
+        "pipeline_state.json": "043b5fc0784e5a16f742dcea1ccce50d5e4b7c60faf98e69b94e9026c673b74f",
+        "docling_doc.json": "fb7468640c3d4cc64b1ad7a1d221dde48cab975f2713e5e3e734ee7e9069ac62",
+        "text.json": "7910a3a5de5adcec15e33b5ee0fc44f34a0a8d45b648497af3edd757bcd839fb",
+        "chunks.json": "cce2297b1396df5e1c14597e5fccb3fcf73eb77a783e1be5dd57da813286c8b2",
+        "figures.json": "14e5619e5b7ddefbb91613b6aaea6722a841a6a7cb6ebb25caf5c9f79ae724c8"
+      }
+    },
+    {
+      "pdf_hash": "e26feaa4013f",
+      "pdf_hash_full": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+      "status": "success",
+      "ended_at": "2026-09-18T19:11:37Z",
+      "page_count": 21,
+      "stage_failures": [],
+      "quality_flags": [
+        {
+          "gate": "source_text_integrity",
+          "severity": "warning",
+          "detail": "surnames: 1 source-text candidates need review; see text.json provenance",
+          "metric": 1
+        }
+      ],
+      "required_stages": {
+        "docling_extraction": "2026-09-18T19:11:24Z",
+        "figure_crossref": "2026-09-18T19:11:36Z",
+        "figure_materialization": "2026-09-18T19:11:36Z",
+        "metadata_extraction": "2026-09-18T19:11:26Z",
+        "taxa_and_lexicon_extraction": "2026-09-18T19:11:36Z",
+        "text_chunking": "2026-09-18T19:11:27Z"
+      },
+      "artifact_sha256": {
+        "summary.json": "23b9e2d13c94bb5647fba4fe43c8ccb6508ed7950ab3566f18b3ba5ba1e082d5",
+        "pipeline_state.json": "ee2476f23e386fb8743fb87ded54fd3f7aa826a87786d626713b262240cc6072",
+        "docling_doc.json": "1a246a173207e89f7a40d48fe1d2a0bcfe72e4e9e95de9816b4b382d5a4d1665",
+        "text.json": "890a632250a7c73283673aa79395c4ad737b0fc9e7a958763d89dd7df42814ad",
+        "chunks.json": "f7d995694e966d53f50259eff6d1fef5dc1bf9a3c1b54f9d1a70e4e87bd4c483",
+        "figures.json": "1fc56f11cfd2b90730cc94b50aacffcf1906d67daf5b2398571ae6fb62349646"
+      }
+    }
+  ],
+  "scorer_revision": "a3e638dc2003ffd7ebc0a32cefbc359d97c8461a",
+  "launch_receipt_sha256": "c02691560d38e59b4d0b70a7df25d23fe91247c57ca7f72d1f6e16022a125716",
+  "gold_manifest_sha256": "6efcf5b9f2a5c537e1bebcedcbab7bc730854912a128c14af99f4c59f303e378",
+  "config_sha256": "5ab2ccded5d936e118bf0f6a1d829dd597ae28c72f04ee4b4c5404b4302d2295",
+  "figure_panels_override": "ocr",
+  "gold_pages_total": 761,
+  "gold_pages_excluded_by_keeppages": 86,
+  "gold_pages_scored": 675,
+  "scorers": {
+    "fidelity": {
+      "schema_version": 1,
+      "report_sha256": "61dd08e6028c0bdb7decd399c2f619fedbaaf4f7b1355fca97abe8098523c3ad",
+      "command": [
+        "python",
+        "tools/qc/fidelity.py",
+        "--gold",
+        "<gold>/transcriptions",
+        "--corpuscle",
+        "<gold>/output",
+        "--bib",
+        "<gold>/inputs/siphonophores.bib",
+        "--out",
+        "<scores>/fidelity.json"
+      ],
+      "exit_code": 0,
+      "method": "token-level SequenceMatcher plus order-insensitive coverage and recall; gold markup stripped, case/diacritic/punctuation normalised, CJK compared per character",
+      "caveat": "Cannot detect invention, and a low volume ratio is not evidence of loss. Read the gold set's CROSSCHECK_REPORT.md before acting on any number, noting that it puts the transcription on trial rather than the extractor: same arithmetic, different subject, so several of its false positives are findings here.",
+      "documents_bound": 35,
+      "documents_unmatched": [],
+      "corpus_wide": {
+        "pages": 675,
+        "scored": 675,
+        "median_coverage": 0.9008,
+        "median_prose_coverage": 0.9448,
+        "mean_taxon_coverage": 0.8902,
+        "p10_taxon_coverage": 0.6667,
+        "taxon_scored_pages": 229,
+        "taxon_trails_prose": 16,
+        "median_figure_coverage": 0.7507,
+        "prose_pages": 647,
+        "figure_pages": 336,
+        "median_recall": 0.9329,
+        "median_similarity": 0.874,
+        "pages_below_0.5_coverage": 87,
+        "status_counts": {
+          "extraction_empty": 48,
+          "ok": 626,
+          "script_missing": 1
+        },
+        "gold_words": 267870,
+        "taxon_tokens": 6529,
+        "extracted_words": 264976,
+        "uncertain": 333,
+        "illegible": 189,
+        "unterminated_brackets": 2
+      },
+      "segments": {
+        "script": {
+          "cjk": {
+            "pages": 19,
+            "scored": 19,
+            "median_coverage": 0.6114,
+            "median_prose_coverage": 0.6462,
+            "mean_taxon_coverage": 0.0,
+            "p10_taxon_coverage": 0.0,
+            "taxon_scored_pages": 2,
+            "taxon_trails_prose": 2,
+            "median_figure_coverage": 0.4064,
+            "prose_pages": 18,
+            "figure_pages": 5,
+            "median_recall": 0.5632,
+            "median_similarity": 0.2014,
+            "pages_below_0.5_coverage": 5,
+            "status_counts": {
+              "extraction_empty": 1,
+              "ok": 18
+            },
+            "gold_words": 17995,
+            "taxon_tokens": 52,
+            "extracted_words": 19694,
+            "uncertain": 2,
+            "illegible": 0,
+            "unterminated_brackets": 0
+          },
+          "cyrillic": {
+            "pages": 32,
+            "scored": 32,
+            "median_coverage": 0.9251,
+            "median_prose_coverage": 0.9645,
+            "mean_taxon_coverage": 0.9182,
+            "p10_taxon_coverage": 0.8421,
+            "taxon_scored_pages": 9,
+            "taxon_trails_prose": 0,
+            "median_figure_coverage": 0.757,
+            "prose_pages": 30,
+            "figure_pages": 18,
+            "median_recall": 0.936,
+            "median_similarity": 0.927,
+            "pages_below_0.5_coverage": 3,
+            "status_counts": {
+              "ok": 32
+            },
+            "gold_words": 10700,
+            "taxon_tokens": 209,
+            "extracted_words": 10444,
+            "uncertain": 8,
+            "illegible": 41,
+            "unterminated_brackets": 0
+          },
+          "latin": {
+            "pages": 624,
+            "scored": 624,
+            "median_coverage": 0.9022,
+            "median_prose_coverage": 0.9463,
+            "mean_taxon_coverage": 0.8972,
+            "p10_taxon_coverage": 0.6667,
+            "taxon_scored_pages": 218,
+            "taxon_trails_prose": 14,
+            "median_figure_coverage": 0.75,
+            "prose_pages": 599,
+            "figure_pages": 313,
+            "median_recall": 0.9375,
+            "median_similarity": 0.8754,
+            "pages_below_0.5_coverage": 79,
+            "status_counts": {
+              "extraction_empty": 47,
+              "ok": 576,
+              "script_missing": 1
+            },
+            "gold_words": 239175,
+            "taxon_tokens": 6268,
+            "extracted_words": 234838,
+            "uncertain": 323,
+            "illegible": 148,
+            "unterminated_brackets": 2
+          }
+        },
+        "era": {
+          "1800-1899": {
+            "pages": 62,
+            "scored": 62,
+            "median_coverage": 0.8361,
+            "median_prose_coverage": 0.838,
+            "mean_taxon_coverage": 0.7227,
+            "p10_taxon_coverage": 0.5,
+            "taxon_scored_pages": 11,
+            "taxon_trails_prose": 2,
+            "median_figure_coverage": 0.2415,
+            "prose_pages": 60,
+            "figure_pages": 10,
+            "median_recall": 0.8147,
+            "median_similarity": 0.7748,
+            "pages_below_0.5_coverage": 12,
+            "status_counts": {
+              "extraction_empty": 3,
+              "ok": 59
+            },
+            "gold_words": 20552,
+            "taxon_tokens": 289,
+            "extracted_words": 20500,
+            "uncertain": 80,
+            "illegible": 10,
+            "unterminated_brackets": 0
+          },
+          "1900-1949": {
+            "pages": 69,
+            "scored": 69,
+            "median_coverage": 0.8203,
+            "median_prose_coverage": 0.8832,
+            "mean_taxon_coverage": 0.7456,
+            "p10_taxon_coverage": 0.0,
+            "taxon_scored_pages": 14,
+            "taxon_trails_prose": 3,
+            "median_figure_coverage": 0.9865,
+            "prose_pages": 68,
+            "figure_pages": 34,
+            "median_recall": 0.8603,
+            "median_similarity": 0.7754,
+            "pages_below_0.5_coverage": 8,
+            "status_counts": {
+              "extraction_empty": 2,
+              "ok": 67
+            },
+            "gold_words": 24412,
+            "taxon_tokens": 329,
+            "extracted_words": 26233,
+            "uncertain": 12,
+            "illegible": 4,
+            "unterminated_brackets": 0
+          },
+          "1950-1999": {
+            "pages": 426,
+            "scored": 426,
+            "median_coverage": 0.9194,
+            "median_prose_coverage": 0.9729,
+            "mean_taxon_coverage": 0.9565,
+            "p10_taxon_coverage": 0.9,
+            "taxon_scored_pages": 149,
+            "taxon_trails_prose": 0,
+            "median_figure_coverage": 0.7581,
+            "prose_pages": 401,
+            "figure_pages": 237,
+            "median_recall": 0.9539,
+            "median_similarity": 0.9038,
+            "pages_below_0.5_coverage": 55,
+            "status_counts": {
+              "extraction_empty": 42,
+              "ok": 383,
+              "script_missing": 1
+            },
+            "gold_words": 139293,
+            "taxon_tokens": 4452,
+            "extracted_words": 135669,
+            "uncertain": 177,
+            "illegible": 163,
+            "unterminated_brackets": 2
+          },
+          "2000-": {
+            "pages": 93,
+            "scored": 93,
+            "median_coverage": 0.9139,
+            "median_prose_coverage": 0.964,
+            "mean_taxon_coverage": 0.7864,
+            "p10_taxon_coverage": 0.1398,
+            "taxon_scored_pages": 52,
+            "taxon_trails_prose": 11,
+            "median_figure_coverage": 0.6902,
+            "prose_pages": 93,
+            "figure_pages": 48,
+            "median_recall": 0.9548,
+            "median_similarity": 0.8859,
+            "pages_below_0.5_coverage": 7,
+            "status_counts": {
+              "ok": 93
+            },
+            "gold_words": 69924,
+            "taxon_tokens": 1399,
+            "extracted_words": 66796,
+            "uncertain": 4,
+            "illegible": 5,
+            "unterminated_brackets": 0
+          },
+          "pre-1800": {
+            "pages": 25,
+            "scored": 25,
+            "median_coverage": 0.6308,
+            "median_prose_coverage": 0.6308,
+            "mean_taxon_coverage": 0.6833,
+            "p10_taxon_coverage": 0.5,
+            "taxon_scored_pages": 3,
+            "taxon_trails_prose": 0,
+            "median_figure_coverage": 0.5765,
+            "prose_pages": 25,
+            "figure_pages": 7,
+            "median_recall": 0.6144,
+            "median_similarity": 0.5729,
+            "pages_below_0.5_coverage": 5,
+            "status_counts": {
+              "extraction_empty": 1,
+              "ok": 24
+            },
+            "gold_words": 13689,
+            "taxon_tokens": 60,
+            "extracted_words": 15778,
+            "uncertain": 60,
+            "illegible": 7,
+            "unterminated_brackets": 0
+          }
+        },
+        "file_type": {
+          "born_digital": {
+            "pages": 75,
+            "scored": 75,
+            "median_coverage": 0.919,
+            "median_prose_coverage": 0.964,
+            "mean_taxon_coverage": 0.7693,
+            "p10_taxon_coverage": 0.0714,
+            "taxon_scored_pages": 44,
+            "taxon_trails_prose": 11,
+            "median_figure_coverage": 0.6098,
+            "prose_pages": 75,
+            "figure_pages": 37,
+            "median_recall": 0.9551,
+            "median_similarity": 0.8807,
+            "pages_below_0.5_coverage": 6,
+            "status_counts": {
+              "ok": 75
+            },
+            "gold_words": 59982,
+            "taxon_tokens": 1232,
+            "extracted_words": 56837,
+            "uncertain": 3,
+            "illegible": 5,
+            "unterminated_brackets": 0
+          },
+          "scanned": {
+            "pages": 600,
+            "scored": 600,
+            "median_coverage": 0.8969,
+            "median_prose_coverage": 0.9387,
+            "mean_taxon_coverage": 0.9189,
+            "p10_taxon_coverage": 0.7857,
+            "taxon_scored_pages": 185,
+            "taxon_trails_prose": 5,
+            "median_figure_coverage": 0.7619,
+            "prose_pages": 572,
+            "figure_pages": 299,
+            "median_recall": 0.9299,
+            "median_similarity": 0.8726,
+            "pages_below_0.5_coverage": 81,
+            "status_counts": {
+              "extraction_empty": 48,
+              "ok": 551,
+              "script_missing": 1
+            },
+            "gold_words": 207888,
+            "taxon_tokens": 5297,
+            "extracted_words": 208139,
+            "uncertain": 330,
+            "illegible": 184,
+            "unterminated_brackets": 2
+          }
+        }
+      },
+      "documents": {
+        "Adanson1757": {
+          "pages": 3,
+          "scored": 3,
+          "median_coverage": 0.7792,
+          "median_prose_coverage": 0.7792,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": null,
+          "prose_pages": 3,
+          "figure_pages": 0,
+          "median_recall": 0.7561,
+          "median_similarity": 0.6691,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 3
+          },
+          "gold_words": 699,
+          "taxon_tokens": 0,
+          "extracted_words": 689,
+          "uncertain": 2,
+          "illegible": 2,
+          "unterminated_brackets": 0,
+          "year": 1757,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "fra",
+            "eng"
+          ],
+          "detected_language": "fr",
+          "scripts": {
+            "latin": 3
+          },
+          "docling_pages_seen": 3
+        },
+        "Ahuja_etal2026": {
+          "pages": 25,
+          "scored": 25,
+          "median_coverage": 0.9599,
+          "median_prose_coverage": 0.972,
+          "mean_taxon_coverage": 0.9066,
+          "p10_taxon_coverage": 0.76,
+          "taxon_scored_pages": 18,
+          "taxon_trails_prose": 2,
+          "median_figure_coverage": 0.5728,
+          "prose_pages": 25,
+          "figure_pages": 7,
+          "median_recall": 0.9692,
+          "median_similarity": 0.9415,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "ok": 25
+          },
+          "gold_words": 16142,
+          "taxon_tokens": 473,
+          "extracted_words": 15309,
+          "uncertain": 1,
+          "illegible": 4,
+          "unterminated_brackets": 0,
+          "year": 2026,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "needs_ocr": false,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "latin": 25
+          },
+          "docling_pages_seen": 25
+        },
+        "Barrere1741": {
+          "pages": 3,
+          "scored": 3,
+          "median_coverage": 0.6441,
+          "median_prose_coverage": 0.6441,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": null,
+          "prose_pages": 3,
+          "figure_pages": 0,
+          "median_recall": 0.6104,
+          "median_similarity": 0.6245,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 3
+          },
+          "gold_words": 193,
+          "taxon_tokens": 0,
+          "extracted_words": 227,
+          "uncertain": 0,
+          "illegible": 1,
+          "unterminated_brackets": 0,
+          "year": 1741,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "fra",
+            "eng"
+          ],
+          "detected_language": "fr",
+          "scripts": {
+            "latin": 3
+          },
+          "docling_pages_seen": 3
+        },
+        "Beklemishev1969": {
+          "pages": 44,
+          "scored": 44,
+          "median_coverage": 0.9504,
+          "median_prose_coverage": 0.9814,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.961,
+          "prose_pages": 42,
+          "figure_pages": 14,
+          "median_recall": 0.9608,
+          "median_similarity": 0.936,
+          "pages_below_0.5_coverage": 4,
+          "status_counts": {
+            "ok": 43,
+            "script_missing": 1
+          },
+          "gold_words": 17300,
+          "taxon_tokens": 16,
+          "extracted_words": 17262,
+          "uncertain": 20,
+          "illegible": 60,
+          "unterminated_brackets": 1,
+          "year": 1969,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "latin": 44
+          },
+          "docling_pages_seen": 44,
+          "keeppages": "2--45",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 44
+        },
+        "Benasso_Stroiazzo1976": {
+          "pages": 13,
+          "scored": 13,
+          "median_coverage": 0.9143,
+          "median_prose_coverage": 0.9378,
+          "mean_taxon_coverage": 0.9167,
+          "p10_taxon_coverage": 0.9167,
+          "taxon_scored_pages": 1,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.75,
+          "prose_pages": 13,
+          "figure_pages": 3,
+          "median_recall": 0.9179,
+          "median_similarity": 0.9111,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 13
+          },
+          "gold_words": 4264,
+          "taxon_tokens": 44,
+          "extracted_words": 4260,
+          "uncertain": 13,
+          "illegible": 16,
+          "unterminated_brackets": 0,
+          "year": 1976,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "ita",
+            "eng"
+          ],
+          "detected_language": "it",
+          "scripts": {
+            "latin": 13
+          },
+          "docling_pages_seen": 13
+        },
+        "Bernstein1934": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.7112,
+          "median_prose_coverage": 0.8134,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.4858,
+          "prose_pages": 12,
+          "figure_pages": 6,
+          "median_recall": 0.8133,
+          "median_similarity": 0.6806,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "ok": 12
+          },
+          "gold_words": 3538,
+          "taxon_tokens": 30,
+          "extracted_words": 3301,
+          "uncertain": 8,
+          "illegible": 4,
+          "unterminated_brackets": 0,
+          "year": 1934,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "rus",
+            "eng"
+          ],
+          "detected_language": "ru",
+          "scripts": {
+            "cyrillic": 4,
+            "latin": 8
+          },
+          "docling_pages_seen": 12,
+          "keeppages": "2--13",
+          "pages_excluded_by_selection": [
+            1,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27
+          ],
+          "gold_pages_scored": 12
+        },
+        "Candeias1932": {
+          "pages": 10,
+          "scored": 10,
+          "median_coverage": 0.8122,
+          "median_prose_coverage": 0.8317,
+          "mean_taxon_coverage": 0.8708,
+          "p10_taxon_coverage": 0.8462,
+          "taxon_scored_pages": 3,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.2,
+          "prose_pages": 10,
+          "figure_pages": 3,
+          "median_recall": 0.8968,
+          "median_similarity": 0.794,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 10
+          },
+          "gold_words": 2134,
+          "taxon_tokens": 49,
+          "extracted_words": 2238,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1932,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "por",
+            "eng"
+          ],
+          "detected_language": "pt",
+          "scripts": {
+            "latin": 10
+          },
+          "docling_pages_seen": 10,
+          "keeppages": "2--11",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 10
+        },
+        "Carre1968_Hippopodius_tr": {
+          "pages": 5,
+          "scored": 5,
+          "median_coverage": 0.9846,
+          "median_prose_coverage": 0.9863,
+          "mean_taxon_coverage": 1.0,
+          "p10_taxon_coverage": 1.0,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.7458,
+          "prose_pages": 4,
+          "figure_pages": 2,
+          "median_recall": 0.9876,
+          "median_similarity": 0.9861,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 5
+          },
+          "gold_words": 1447,
+          "taxon_tokens": 47,
+          "extracted_words": 1409,
+          "uncertain": 2,
+          "illegible": 5,
+          "unterminated_brackets": 0,
+          "year": 1968,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "fra",
+            "deu",
+            "eng"
+          ],
+          "detected_language": "fr",
+          "scripts": {
+            "latin": 5
+          },
+          "docling_pages_seen": 5,
+          "keeppages": "1--5",
+          "pages_excluded_by_selection": [
+            6,
+            7,
+            8,
+            9
+          ],
+          "gold_pages_scored": 5
+        },
+        "Carre1969_Nanomia_tr": {
+          "pages": 21,
+          "scored": 21,
+          "median_coverage": 0.8777,
+          "median_prose_coverage": 0.9723,
+          "mean_taxon_coverage": 1.0,
+          "p10_taxon_coverage": 1.0,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.625,
+          "prose_pages": 16,
+          "figure_pages": 11,
+          "median_recall": 0.9643,
+          "median_similarity": 0.8341,
+          "pages_below_0.5_coverage": 4,
+          "status_counts": {
+            "extraction_empty": 2,
+            "ok": 19
+          },
+          "gold_words": 5889,
+          "taxon_tokens": 86,
+          "extracted_words": 5740,
+          "uncertain": 2,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1969,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "fra",
+            "deu",
+            "eng"
+          ],
+          "detected_language": "fr",
+          "scripts": {
+            "latin": 21
+          },
+          "docling_pages_seen": 21,
+          "keeppages": "1--21",
+          "pages_excluded_by_selection": [
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39
+          ],
+          "gold_pages_scored": 21
+        },
+        "Chenetal2015": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.6673,
+          "median_prose_coverage": 0.8118,
+          "mean_taxon_coverage": 0.0,
+          "p10_taxon_coverage": 0.0,
+          "taxon_scored_pages": 4,
+          "taxon_trails_prose": 4,
+          "median_figure_coverage": 0.2748,
+          "prose_pages": 12,
+          "figure_pages": 7,
+          "median_recall": 0.7992,
+          "median_similarity": 0.7159,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "ok": 12
+          },
+          "gold_words": 10241,
+          "taxon_tokens": 137,
+          "extracted_words": 9289,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 2015,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "needs_ocr": false,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "cjk": 5,
+            "latin": 7
+          },
+          "docling_pages_seen": 12
+        },
+        "Chun1882c": {
+          "pages": 4,
+          "scored": 4,
+          "median_coverage": 0.9031,
+          "median_prose_coverage": 0.9031,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.2812,
+          "prose_pages": 4,
+          "figure_pages": 1,
+          "median_recall": 0.8972,
+          "median_similarity": 0.6448,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 4
+          },
+          "gold_words": 2416,
+          "taxon_tokens": 11,
+          "extracted_words": 2365,
+          "uncertain": 1,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1882,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "deu_latf",
+            "deu",
+            "eng"
+          ],
+          "detected_language": "de",
+          "scripts": {
+            "latin": 4
+          },
+          "docling_pages_seen": 4,
+          "keeppages": "2--5",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 4
+        },
+        "Chun1898b": {
+          "pages": 5,
+          "scored": 5,
+          "median_coverage": 0.9466,
+          "median_prose_coverage": 0.9466,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": null,
+          "prose_pages": 5,
+          "figure_pages": 0,
+          "median_recall": 0.9433,
+          "median_similarity": 0.9197,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 5
+          },
+          "gold_words": 1810,
+          "taxon_tokens": 12,
+          "extracted_words": 1817,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1898,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "deu",
+            "eng"
+          ],
+          "detected_language": "de",
+          "scripts": {
+            "latin": 5
+          },
+          "docling_pages_seen": 5,
+          "keeppages": "2--6",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 5
+        },
+        "DeHaan1827": {
+          "pages": 15,
+          "scored": 15,
+          "median_coverage": 0.8228,
+          "median_prose_coverage": 0.8228,
+          "mean_taxon_coverage": 0.471,
+          "p10_taxon_coverage": 0.3,
+          "taxon_scored_pages": 4,
+          "taxon_trails_prose": 2,
+          "median_figure_coverage": null,
+          "prose_pages": 15,
+          "figure_pages": 0,
+          "median_recall": 0.798,
+          "median_similarity": 0.7738,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 15
+          },
+          "gold_words": 3078,
+          "taxon_tokens": 95,
+          "extracted_words": 3059,
+          "uncertain": 1,
+          "illegible": 1,
+          "unterminated_brackets": 0,
+          "year": 1827,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "nld",
+            "eng"
+          ],
+          "detected_language": "nl",
+          "scripts": {
+            "latin": 15
+          },
+          "docling_pages_seen": 15,
+          "keeppages": "2--16",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 15
+        },
+        "Eschscholtz1825": {
+          "pages": 9,
+          "scored": 9,
+          "median_coverage": 0.8551,
+          "median_prose_coverage": 0.8594,
+          "mean_taxon_coverage": 0.6667,
+          "p10_taxon_coverage": 0.6667,
+          "taxon_scored_pages": 1,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.3781,
+          "prose_pages": 8,
+          "figure_pages": 2,
+          "median_recall": 0.8219,
+          "median_similarity": 0.8282,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "extraction_empty": 1,
+            "ok": 8
+          },
+          "gold_words": 6770,
+          "taxon_tokens": 25,
+          "extracted_words": 6910,
+          "uncertain": 24,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1825,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "deu_latf",
+            "deu",
+            "lat",
+            "eng"
+          ],
+          "detected_language": "de",
+          "scripts": {
+            "latin": 9
+          },
+          "docling_pages_seen": 8,
+          "keeppages": "2--9,11",
+          "pages_excluded_by_selection": [
+            1,
+            10
+          ],
+          "gold_pages_scored": 9
+        },
+        "Gasca_Suarez1993tr": {
+          "pages": 1,
+          "scored": 1,
+          "median_coverage": 0.9772,
+          "median_prose_coverage": 0.9808,
+          "mean_taxon_coverage": 0.9412,
+          "p10_taxon_coverage": 0.9412,
+          "taxon_scored_pages": 1,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.9615,
+          "prose_pages": 1,
+          "figure_pages": 1,
+          "median_recall": 0.9758,
+          "median_similarity": 0.9409,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 1
+          },
+          "gold_words": 702,
+          "taxon_tokens": 34,
+          "extracted_words": 703,
+          "uncertain": 1,
+          "illegible": 13,
+          "unterminated_brackets": 0,
+          "year": 1993,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "spa",
+            "eng"
+          ],
+          "detected_language": "es",
+          "scripts": {
+            "latin": 1
+          },
+          "docling_pages_seen": 1,
+          "keeppages": "1",
+          "pages_excluded_by_selection": [
+            2
+          ],
+          "gold_pages_scored": 1
+        },
+        "Hjortberg1769": {
+          "pages": 3,
+          "scored": 3,
+          "median_coverage": 0.6308,
+          "median_prose_coverage": 0.6308,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": null,
+          "prose_pages": 3,
+          "figure_pages": 0,
+          "median_recall": 0.6121,
+          "median_similarity": 0.5501,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 3
+          },
+          "gold_words": 628,
+          "taxon_tokens": 2,
+          "extracted_words": 656,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1769,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "swe",
+            "eng"
+          ],
+          "detected_language": "sv",
+          "scripts": {
+            "latin": 3
+          },
+          "docling_pages_seen": 3,
+          "keeppages": "2--4",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 3
+        },
+        "Hosiaetal2024": {
+          "pages": 21,
+          "scored": 21,
+          "median_coverage": 0.963,
+          "median_prose_coverage": 0.9762,
+          "mean_taxon_coverage": 0.8889,
+          "p10_taxon_coverage": 0.5185,
+          "taxon_scored_pages": 14,
+          "taxon_trails_prose": 1,
+          "median_figure_coverage": 0.8615,
+          "prose_pages": 21,
+          "figure_pages": 13,
+          "median_recall": 0.9461,
+          "median_similarity": 0.8073,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 21
+          },
+          "gold_words": 14758,
+          "taxon_tokens": 460,
+          "extracted_words": 14588,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 2024,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "needs_ocr": false,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "latin": 21
+          },
+          "docling_pages_seen": 21
+        },
+        "Kawamura1911a": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.5235,
+          "median_prose_coverage": 0.554,
+          "mean_taxon_coverage": 0.0,
+          "p10_taxon_coverage": 0.0,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 2,
+          "median_figure_coverage": 0.0,
+          "prose_pages": 11,
+          "figure_pages": 2,
+          "median_recall": 0.4426,
+          "median_similarity": 0.1149,
+          "pages_below_0.5_coverage": 6,
+          "status_counts": {
+            "extraction_empty": 2,
+            "ok": 10
+          },
+          "gold_words": 10042,
+          "taxon_tokens": 39,
+          "extracted_words": 11832,
+          "uncertain": 2,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1911,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "jpn_vert"
+          ],
+          "detected_language": "ja",
+          "scripts": {
+            "cjk": 11,
+            "latin": 1
+          },
+          "docling_pages_seen": 10,
+          "keeppages": "14--25",
+          "pages_excluded_by_selection": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "gold_pages_scored": 12
+        },
+        "Keferstein_Ehlers1860": {
+          "pages": 9,
+          "scored": 9,
+          "median_coverage": 0.7932,
+          "median_prose_coverage": 0.7932,
+          "mean_taxon_coverage": 0.9268,
+          "p10_taxon_coverage": 0.8636,
+          "taxon_scored_pages": 3,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": null,
+          "prose_pages": 9,
+          "figure_pages": 0,
+          "median_recall": 0.7752,
+          "median_similarity": 0.6216,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "extraction_empty": 1,
+            "ok": 8
+          },
+          "gold_words": 2023,
+          "taxon_tokens": 73,
+          "extracted_words": 2104,
+          "uncertain": 8,
+          "illegible": 3,
+          "unterminated_brackets": 0,
+          "year": 1860,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "deu_latf",
+            "deu",
+            "eng"
+          ],
+          "detected_language": "de",
+          "scripts": {
+            "latin": 9
+          },
+          "docling_pages_seen": 9,
+          "keeppages": "2--10",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 9
+        },
+        "Lery1594": {
+          "pages": 3,
+          "scored": 3,
+          "median_coverage": 0.7508,
+          "median_prose_coverage": 0.7508,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": null,
+          "prose_pages": 3,
+          "figure_pages": 0,
+          "median_recall": 0.75,
+          "median_similarity": 0.6978,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 3
+          },
+          "gold_words": 736,
+          "taxon_tokens": 0,
+          "extracted_words": 742,
+          "uncertain": 2,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1594,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "fra",
+            "eng"
+          ],
+          "detected_language": "fr",
+          "scripts": {
+            "latin": 3
+          },
+          "docling_pages_seen": 3
+        },
+        "Linnaeus1735": {
+          "pages": 13,
+          "scored": 13,
+          "median_coverage": 0.5709,
+          "median_prose_coverage": 0.5709,
+          "mean_taxon_coverage": 0.6833,
+          "p10_taxon_coverage": 0.5,
+          "taxon_scored_pages": 3,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.5765,
+          "prose_pages": 13,
+          "figure_pages": 7,
+          "median_recall": 0.5733,
+          "median_similarity": 0.4086,
+          "pages_below_0.5_coverage": 3,
+          "status_counts": {
+            "extraction_empty": 1,
+            "ok": 12
+          },
+          "gold_words": 11433,
+          "taxon_tokens": 58,
+          "extracted_words": 13464,
+          "uncertain": 56,
+          "illegible": 4,
+          "unterminated_brackets": 0,
+          "year": 1735,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "lat",
+            "eng"
+          ],
+          "detected_language": "ca",
+          "scripts": {
+            "latin": 13
+          },
+          "docling_pages_seen": 13
+        },
+        "LoBianco1909": {
+          "pages": 4,
+          "scored": 4,
+          "median_coverage": 0.9876,
+          "median_prose_coverage": 0.9876,
+          "mean_taxon_coverage": 1.0,
+          "p10_taxon_coverage": 1.0,
+          "taxon_scored_pages": 1,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": null,
+          "prose_pages": 4,
+          "figure_pages": 0,
+          "median_recall": 0.9836,
+          "median_similarity": 0.9856,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 4
+          },
+          "gold_words": 1487,
+          "taxon_tokens": 33,
+          "extracted_words": 1490,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1909,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "ita",
+            "eng"
+          ],
+          "detected_language": "it",
+          "scripts": {
+            "latin": 4
+          },
+          "docling_pages_seen": 4,
+          "keeppages": "2--5",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 4
+        },
+        "Mackie1966": {
+          "pages": 3,
+          "scored": 3,
+          "median_coverage": 0.9742,
+          "median_prose_coverage": 0.9742,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 1.0,
+          "prose_pages": 3,
+          "figure_pages": 1,
+          "median_recall": 0.9621,
+          "median_similarity": 0.9439,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 3
+          },
+          "gold_words": 2245,
+          "taxon_tokens": 9,
+          "extracted_words": 2275,
+          "uncertain": 3,
+          "illegible": 0,
+          "unterminated_brackets": 1,
+          "year": 1966,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "latin": 3
+          },
+          "docling_pages_seen": 3
+        },
+        "Margulis1976a_Atlantictr": {
+          "pages": 7,
+          "scored": 7,
+          "median_coverage": 0.872,
+          "median_prose_coverage": 0.9273,
+          "mean_taxon_coverage": 0.9546,
+          "p10_taxon_coverage": 0.9091,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.8689,
+          "prose_pages": 5,
+          "figure_pages": 3,
+          "median_recall": 0.8468,
+          "median_similarity": 0.8592,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 7
+          },
+          "gold_words": 1768,
+          "taxon_tokens": 42,
+          "extracted_words": 1836,
+          "uncertain": 2,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1976,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "rus",
+            "eng"
+          ],
+          "detected_language": "ru",
+          "scripts": {
+            "cyrillic": 6,
+            "latin": 1
+          },
+          "docling_pages_seen": 7,
+          "keeppages": "1--7",
+          "pages_excluded_by_selection": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "gold_pages_scored": 7
+        },
+        "Margulis1984b_Lcamptr": {
+          "pages": 4,
+          "scored": 4,
+          "median_coverage": 0.9417,
+          "median_prose_coverage": 0.9417,
+          "mean_taxon_coverage": 0.8834,
+          "p10_taxon_coverage": 0.8667,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.8511,
+          "prose_pages": 4,
+          "figure_pages": 1,
+          "median_recall": 0.9327,
+          "median_similarity": 0.9273,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 4
+          },
+          "gold_words": 1285,
+          "taxon_tokens": 38,
+          "extracted_words": 1294,
+          "uncertain": 0,
+          "illegible": 1,
+          "unterminated_brackets": 0,
+          "year": 1984,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "rus",
+            "eng"
+          ],
+          "detected_language": "ru",
+          "scripts": {
+            "cyrillic": 3,
+            "latin": 1
+          },
+          "docling_pages_seen": 4,
+          "keeppages": "1--4",
+          "pages_excluded_by_selection": [
+            5,
+            6,
+            7
+          ],
+          "gold_pages_scored": 4
+        },
+        "Mańko_et al2020": {
+          "pages": 17,
+          "scored": 17,
+          "median_coverage": 0.9271,
+          "median_prose_coverage": 0.9797,
+          "mean_taxon_coverage": 0.6356,
+          "p10_taxon_coverage": 0.0714,
+          "taxon_scored_pages": 8,
+          "taxon_trails_prose": 4,
+          "median_figure_coverage": 0.6717,
+          "prose_pages": 17,
+          "figure_pages": 10,
+          "median_recall": 0.9931,
+          "median_similarity": 0.9093,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 17
+          },
+          "gold_words": 18841,
+          "taxon_tokens": 162,
+          "extracted_words": 17651,
+          "uncertain": 2,
+          "illegible": 1,
+          "unterminated_brackets": 0,
+          "year": 2020,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "needs_ocr": false,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "latin": 17
+          },
+          "docling_pages_seen": 17
+        },
+        "Olfers1824": {
+          "pages": 2,
+          "scored": 2,
+          "median_coverage": 0.8589,
+          "median_prose_coverage": 0.8589,
+          "mean_taxon_coverage": 0.7857,
+          "p10_taxon_coverage": 0.7857,
+          "taxon_scored_pages": 1,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.9412,
+          "prose_pages": 2,
+          "figure_pages": 1,
+          "median_recall": 0.8485,
+          "median_similarity": 0.8477,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 2
+          },
+          "gold_words": 1403,
+          "taxon_tokens": 18,
+          "extracted_words": 1425,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1824,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "deu_latf",
+            "deu",
+            "eng"
+          ],
+          "detected_language": "de",
+          "scripts": {
+            "latin": 2
+          },
+          "docling_pages_seen": 2,
+          "keeppages": "2--3",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 2
+        },
+        "Quoy_Gaimard1834Plates": {
+          "pages": 6,
+          "scored": 6,
+          "median_coverage": 0.2299,
+          "median_prose_coverage": 0.4375,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.2297,
+          "prose_pages": 6,
+          "figure_pages": 5,
+          "median_recall": 0.5247,
+          "median_similarity": 0.2478,
+          "pages_below_0.5_coverage": 6,
+          "status_counts": {
+            "ok": 6
+          },
+          "gold_words": 545,
+          "taxon_tokens": 4,
+          "extracted_words": 263,
+          "uncertain": 45,
+          "illegible": 6,
+          "unterminated_brackets": 0,
+          "year": 1834,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "fra",
+            "eng"
+          ],
+          "detected_language": "ja",
+          "scripts": {
+            "latin": 6
+          },
+          "docling_pages_seen": 6,
+          "keeppages": "1--6",
+          "pages_excluded_by_selection": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "gold_pages_scored": 6
+        },
+        "Stepanjants2014": {
+          "pages": 14,
+          "scored": 14,
+          "median_coverage": 0.9218,
+          "median_prose_coverage": 0.9669,
+          "mean_taxon_coverage": 0.9111,
+          "p10_taxon_coverage": 0.8421,
+          "taxon_scored_pages": 7,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.7623,
+          "prose_pages": 14,
+          "figure_pages": 8,
+          "median_recall": 0.9573,
+          "median_similarity": 0.9327,
+          "pages_below_0.5_coverage": 1,
+          "status_counts": {
+            "ok": 14
+          },
+          "gold_words": 6394,
+          "taxon_tokens": 146,
+          "extracted_words": 6044,
+          "uncertain": 1,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 2014,
+          "era": "2000-",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "rus",
+            "eng"
+          ],
+          "detected_language": "ru",
+          "scripts": {
+            "cyrillic": 12,
+            "latin": 2
+          },
+          "docling_pages_seen": 14
+        },
+        "Stepanjants_Dianov1997": {
+          "pages": 8,
+          "scored": 8,
+          "median_coverage": 0.8397,
+          "median_prose_coverage": 0.9899,
+          "mean_taxon_coverage": null,
+          "p10_taxon_coverage": null,
+          "taxon_scored_pages": 0,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.5057,
+          "prose_pages": 8,
+          "figure_pages": 6,
+          "median_recall": 0.8977,
+          "median_similarity": 0.8272,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 8
+          },
+          "gold_words": 1662,
+          "taxon_tokens": 37,
+          "extracted_words": 1767,
+          "uncertain": 4,
+          "illegible": 40,
+          "unterminated_brackets": 0,
+          "year": 1997,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "rus",
+            "eng"
+          ],
+          "detected_language": "ru",
+          "scripts": {
+            "cyrillic": 7,
+            "latin": 1
+          },
+          "docling_pages_seen": 8,
+          "keeppages": "1--8",
+          "pages_excluded_by_selection": [
+            9,
+            10,
+            11,
+            12
+          ],
+          "gold_pages_scored": 8
+        },
+        "Tilesius1814": {
+          "pages": 12,
+          "scored": 12,
+          "median_coverage": 0.8377,
+          "median_prose_coverage": 0.8397,
+          "mean_taxon_coverage": 0.9167,
+          "p10_taxon_coverage": 0.9167,
+          "taxon_scored_pages": 2,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.0,
+          "prose_pages": 11,
+          "figure_pages": 1,
+          "median_recall": 0.8116,
+          "median_similarity": 0.7934,
+          "pages_below_0.5_coverage": 2,
+          "status_counts": {
+            "extraction_empty": 1,
+            "ok": 11
+          },
+          "gold_words": 2507,
+          "taxon_tokens": 51,
+          "extracted_words": 2557,
+          "uncertain": 1,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1814,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "swe",
+            "lat",
+            "eng"
+          ],
+          "detected_language": "ca",
+          "scripts": {
+            "latin": 12
+          },
+          "docling_pages_seen": 12,
+          "keeppages": "2--13",
+          "pages_excluded_by_selection": [
+            1
+          ],
+          "gold_pages_scored": 12
+        },
+        "Totton1965a": {
+          "pages": 314,
+          "scored": 314,
+          "median_coverage": 0.9131,
+          "median_prose_coverage": 0.9736,
+          "mean_taxon_coverage": 0.9588,
+          "p10_taxon_coverage": 0.9,
+          "taxon_scored_pages": 136,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.7539,
+          "prose_pages": 299,
+          "figure_pages": 190,
+          "median_recall": 0.9566,
+          "median_similarity": 0.8952,
+          "pages_below_0.5_coverage": 46,
+          "status_counts": {
+            "extraction_empty": 40,
+            "ok": 274
+          },
+          "gold_words": 101336,
+          "taxon_tokens": 4023,
+          "extracted_words": 97692,
+          "uncertain": 130,
+          "illegible": 28,
+          "unterminated_brackets": 0,
+          "year": 1965,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "latin": 314
+          },
+          "docling_pages_seen": 313
+        },
+        "Totton1965b": {
+          "pages": 6,
+          "scored": 6,
+          "median_coverage": 0.9514,
+          "median_prose_coverage": 0.9783,
+          "mean_taxon_coverage": 0.8627,
+          "p10_taxon_coverage": 0.7857,
+          "taxon_scored_pages": 3,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.9024,
+          "prose_pages": 6,
+          "figure_pages": 5,
+          "median_recall": 0.9552,
+          "median_similarity": 0.9448,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 6
+          },
+          "gold_words": 1395,
+          "taxon_tokens": 76,
+          "extracted_words": 1431,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1965,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "eng"
+          ],
+          "detected_language": "en",
+          "scripts": {
+            "latin": 6
+          },
+          "docling_pages_seen": 6
+        },
+        "Vanhoeffen1906": {
+          "pages": 31,
+          "scored": 31,
+          "median_coverage": 0.9275,
+          "median_prose_coverage": 0.9491,
+          "mean_taxon_coverage": 0.8532,
+          "p10_taxon_coverage": 0.4167,
+          "taxon_scored_pages": 8,
+          "taxon_trails_prose": 1,
+          "median_figure_coverage": 1.0,
+          "prose_pages": 31,
+          "figure_pages": 23,
+          "median_recall": 0.8794,
+          "median_similarity": 0.8517,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 31
+          },
+          "gold_words": 7211,
+          "taxon_tokens": 178,
+          "extracted_words": 7372,
+          "uncertain": 2,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 1906,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "deu",
+            "eng"
+          ],
+          "detected_language": "de",
+          "scripts": {
+            "latin": 31
+          },
+          "docling_pages_seen": 31
+        },
+        "Yamamori2014": {
+          "pages": 4,
+          "scored": 4,
+          "median_coverage": 0.7282,
+          "median_prose_coverage": 0.7282,
+          "mean_taxon_coverage": 0.6667,
+          "p10_taxon_coverage": 0.6667,
+          "taxon_scored_pages": 1,
+          "taxon_trails_prose": 0,
+          "median_figure_coverage": 0.8106,
+          "prose_pages": 4,
+          "figure_pages": 3,
+          "median_recall": 0.6803,
+          "median_similarity": 0.6166,
+          "pages_below_0.5_coverage": 0,
+          "status_counts": {
+            "ok": 4
+          },
+          "gold_words": 3548,
+          "taxon_tokens": 21,
+          "extracted_words": 3915,
+          "uncertain": 0,
+          "illegible": 0,
+          "unterminated_brackets": 0,
+          "year": 2014,
+          "era": "2000-",
+          "file_type": "scanned",
+          "needs_ocr": true,
+          "tesseract_packs": [
+            "jpn",
+            "eng"
+          ],
+          "detected_language": "ja",
+          "scripts": {
+            "cjk": 3,
+            "latin": 1
+          },
+          "docling_pages_seen": 4
+        }
+      },
+      "keeppages_declared_but_not_applied": []
+    },
+    "figure_detection": {
+      "schema_version": 2,
+      "report_sha256": "77efe91c8715b8f9a006224427fe919e38351d4769e477fdb4fded2941a3881b",
+      "command": [
+        "python",
+        "tools/qc/figure_detection.py",
+        "--gold",
+        "<gold>/transcriptions",
+        "--corpuscle",
+        "<gold>/output",
+        "--out",
+        "<scores>/figure_detection.json"
+      ],
+      "exit_code": 0,
+      "method": "per-page counts of gold [FIGURE]/[PLATE] blocks against physical figures.json detections; image-sharing logical plate children are excluded, typed panel siblings collapse to one figure, and matched = min(gold, found) per page",
+      "caveat": "A page-level count cannot tell a page that found the right two figures from one that found two wrong ones. The gold set records no bounding boxes, so nothing finer is available.",
+      "documents_bound": 35,
+      "documents_unmatched": [],
+      "gold_block_kinds": {
+        "FIGURE": 316,
+        "PLATE": 60
+      },
+      "filters": {
+        "all entries": {
+          "gold": 376,
+          "found": 383,
+          "matched": 331,
+          "missed": 45,
+          "surplus": 52,
+          "pages": 675,
+          "pages_exact": 609,
+          "recall": 0.8803,
+          "precision": 0.8642,
+          "f1": 0.8722
+        },
+        "drop graphical_element": {
+          "gold": 376,
+          "found": 330,
+          "matched": 325,
+          "missed": 51,
+          "surplus": 5,
+          "pages": 675,
+          "pages_exact": 640,
+          "recall": 0.8644,
+          "precision": 0.9848,
+          "f1": 0.9207
+        },
+        "drop uncaptioned graphical_element": {
+          "gold": 376,
+          "found": 334,
+          "matched": 325,
+          "missed": 51,
+          "surplus": 9,
+          "pages": 675,
+          "pages_exact": 636,
+          "recall": 0.8644,
+          "precision": 0.9731,
+          "f1": 0.9155
+        },
+        "served MCP types": {
+          "gold": 376,
+          "found": 310,
+          "matched": 310,
+          "missed": 66,
+          "surplus": 0,
+          "pages": 675,
+          "pages_exact": 630,
+          "recall": 0.8245,
+          "precision": 1.0,
+          "f1": 0.9038
+        },
+        "captioned only": {
+          "gold": 376,
+          "found": 314,
+          "matched": 310,
+          "missed": 66,
+          "surplus": 4,
+          "pages": 675,
+          "pages_exact": 626,
+          "recall": 0.8245,
+          "precision": 0.9873,
+          "f1": 0.8986
+        }
+      },
+      "segments": {
+        "era": {
+          "1800-1899": {
+            "gold": 9,
+            "found": 13,
+            "matched": 7,
+            "missed": 2,
+            "surplus": 6,
+            "pages": 62,
+            "pages_exact": 59,
+            "recall": 0.7778,
+            "precision": 0.5385,
+            "f1": 0.6364
+          },
+          "1900-1949": {
+            "gold": 72,
+            "found": 39,
+            "matched": 37,
+            "missed": 35,
+            "surplus": 2,
+            "pages": 69,
+            "pages_exact": 52,
+            "recall": 0.5139,
+            "precision": 0.9487,
+            "f1": 0.6667
+          },
+          "1950-1999": {
+            "gold": 244,
+            "found": 247,
+            "matched": 237,
+            "missed": 7,
+            "surplus": 10,
+            "pages": 426,
+            "pages_exact": 411,
+            "recall": 0.9713,
+            "precision": 0.9595,
+            "f1": 0.9654
+          },
+          "2000-": {
+            "gold": 47,
+            "found": 74,
+            "matched": 46,
+            "missed": 1,
+            "surplus": 28,
+            "pages": 93,
+            "pages_exact": 67,
+            "recall": 0.9787,
+            "precision": 0.6216,
+            "f1": 0.7603
+          },
+          "pre-1800": {
+            "gold": 4,
+            "found": 10,
+            "matched": 4,
+            "missed": 0,
+            "surplus": 6,
+            "pages": 25,
+            "pages_exact": 20,
+            "recall": 1.0,
+            "precision": 0.4,
+            "f1": 0.5714
+          }
+        },
+        "file_type": {
+          "born_digital": {
+            "gold": 38,
+            "found": 65,
+            "matched": 37,
+            "missed": 1,
+            "surplus": 28,
+            "pages": 75,
+            "pages_exact": 49,
+            "recall": 0.9737,
+            "precision": 0.5692,
+            "f1": 0.7184
+          },
+          "scanned": {
+            "gold": 338,
+            "found": 318,
+            "matched": 294,
+            "missed": 44,
+            "surplus": 24,
+            "pages": 600,
+            "pages_exact": 560,
+            "recall": 0.8698,
+            "precision": 0.9245,
+            "f1": 0.8963
+          }
+        }
+      },
+      "documents": {
+        "Adanson1757": {
+          "year": 1757,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 1,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 3,
+          "pages": 3,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Ahuja_etal2026": {
+          "year": 2026,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "gold_figures": 6,
+          "found": 31,
+          "missed": 0,
+          "surplus": 25,
+          "recall": 1.0,
+          "precision": 0.1935,
+          "pages_exact": 2,
+          "pages": 25,
+          "entries": 31,
+          "shared_image_records": 0,
+          "physical_figures": 31,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Barrere1741": {
+          "year": 1741,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "gold_figures": 2,
+          "found": 3,
+          "missed": 0,
+          "surplus": 1,
+          "recall": 1.0,
+          "precision": 0.6667,
+          "pages_exact": 2,
+          "pages": 3,
+          "entries": 3,
+          "shared_image_records": 0,
+          "physical_figures": 3,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Beklemishev1969": {
+          "year": 1969,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 14,
+          "found": 21,
+          "missed": 1,
+          "surplus": 8,
+          "recall": 0.9286,
+          "precision": 0.619,
+          "pages_exact": 37,
+          "pages": 44,
+          "entries": 21,
+          "shared_image_records": 0,
+          "physical_figures": 21,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Benasso_Stroiazzo1976": {
+          "year": 1976,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 3,
+          "found": 3,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 13,
+          "pages": 13,
+          "entries": 6,
+          "shared_image_records": 3,
+          "physical_figures": 3,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Bernstein1934": {
+          "year": 1934,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 1,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 12,
+          "pages": 12,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Candeias1932": {
+          "year": 1932,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "gold_figures": 2,
+          "found": 2,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 10,
+          "pages": 10,
+          "entries": 2,
+          "shared_image_records": 0,
+          "physical_figures": 2,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Carre1968_Hippopodius_tr": {
+          "year": 1968,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 2,
+          "found": 2,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 5,
+          "pages": 5,
+          "entries": 2,
+          "shared_image_records": 0,
+          "physical_figures": 2,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Carre1969_Nanomia_tr": {
+          "year": 1969,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 11,
+          "found": 11,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 21,
+          "pages": 21,
+          "entries": 11,
+          "shared_image_records": 0,
+          "physical_figures": 11,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Chenetal2015": {
+          "year": 2015,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "gold_figures": 10,
+          "found": 9,
+          "missed": 1,
+          "surplus": 0,
+          "recall": 0.9,
+          "precision": 1.0,
+          "pages_exact": 11,
+          "pages": 12,
+          "entries": 9,
+          "shared_image_records": 0,
+          "physical_figures": 9,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Chun1882c": {
+          "year": 1882,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 1,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 4,
+          "pages": 4,
+          "entries": 7,
+          "shared_image_records": 6,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Chun1898b": {
+          "year": 1898,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 0,
+          "found": 0,
+          "missed": 0,
+          "surplus": 0,
+          "recall": null,
+          "precision": null,
+          "pages_exact": 5,
+          "pages": 5,
+          "entries": 0,
+          "shared_image_records": 0,
+          "physical_figures": 0,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "DeHaan1827": {
+          "year": 1827,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 0,
+          "found": 0,
+          "missed": 0,
+          "surplus": 0,
+          "recall": null,
+          "precision": null,
+          "pages_exact": 15,
+          "pages": 15,
+          "entries": 0,
+          "shared_image_records": 0,
+          "physical_figures": 0,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Eschscholtz1825": {
+          "year": 1825,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 0,
+          "missed": 1,
+          "surplus": 0,
+          "recall": 0.0,
+          "precision": null,
+          "pages_exact": 8,
+          "pages": 9,
+          "entries": 0,
+          "shared_image_records": 0,
+          "physical_figures": 0,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Gasca_Suarez1993tr": {
+          "year": 1993,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 1,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 1,
+          "pages": 1,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Hjortberg1769": {
+          "year": 1769,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "gold_figures": 0,
+          "found": 1,
+          "missed": 0,
+          "surplus": 1,
+          "recall": null,
+          "precision": 0.0,
+          "pages_exact": 2,
+          "pages": 3,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Hosiaetal2024": {
+          "year": 2024,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "gold_figures": 13,
+          "found": 15,
+          "missed": 0,
+          "surplus": 2,
+          "recall": 1.0,
+          "precision": 0.8667,
+          "pages_exact": 20,
+          "pages": 21,
+          "entries": 15,
+          "shared_image_records": 0,
+          "physical_figures": 15,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Kawamura1911a": {
+          "year": 1911,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "gold_figures": 2,
+          "found": 3,
+          "missed": 1,
+          "surplus": 2,
+          "recall": 0.5,
+          "precision": 0.3333,
+          "pages_exact": 9,
+          "pages": 12,
+          "entries": 3,
+          "shared_image_records": 0,
+          "physical_figures": 3,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Keferstein_Ehlers1860": {
+          "year": 1860,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 0,
+          "found": 0,
+          "missed": 0,
+          "surplus": 0,
+          "recall": null,
+          "precision": null,
+          "pages_exact": 9,
+          "pages": 9,
+          "entries": 0,
+          "shared_image_records": 0,
+          "physical_figures": 0,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Lery1594": {
+          "year": 1594,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 4,
+          "missed": 0,
+          "surplus": 3,
+          "recall": 1.0,
+          "precision": 0.25,
+          "pages_exact": 1,
+          "pages": 3,
+          "entries": 4,
+          "shared_image_records": 0,
+          "physical_figures": 4,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Linnaeus1735": {
+          "year": 1735,
+          "era": "pre-1800",
+          "file_type": "scanned",
+          "gold_figures": 0,
+          "found": 1,
+          "missed": 0,
+          "surplus": 1,
+          "recall": null,
+          "precision": 0.0,
+          "pages_exact": 12,
+          "pages": 13,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "LoBianco1909": {
+          "year": 1909,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "gold_figures": 0,
+          "found": 0,
+          "missed": 0,
+          "surplus": 0,
+          "recall": null,
+          "precision": null,
+          "pages_exact": 4,
+          "pages": 4,
+          "entries": 0,
+          "shared_image_records": 0,
+          "physical_figures": 0,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Mackie1966": {
+          "year": 1966,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 1,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 3,
+          "pages": 3,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Margulis1976a_Atlantictr": {
+          "year": 1976,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 3,
+          "found": 3,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 7,
+          "pages": 7,
+          "entries": 3,
+          "shared_image_records": 0,
+          "physical_figures": 3,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Margulis1984b_Lcamptr": {
+          "year": 1984,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 1,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 4,
+          "pages": 4,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Mańko_et al2020": {
+          "year": 2020,
+          "era": "2000-",
+          "file_type": "born_digital",
+          "gold_figures": 9,
+          "found": 10,
+          "missed": 0,
+          "surplus": 1,
+          "recall": 1.0,
+          "precision": 0.9,
+          "pages_exact": 16,
+          "pages": 17,
+          "entries": 10,
+          "shared_image_records": 0,
+          "physical_figures": 10,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Olfers1824": {
+          "year": 1824,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 0,
+          "found": 0,
+          "missed": 0,
+          "surplus": 0,
+          "recall": null,
+          "precision": null,
+          "pages_exact": 2,
+          "pages": 2,
+          "entries": 0,
+          "shared_image_records": 0,
+          "physical_figures": 0,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Quoy_Gaimard1834Plates": {
+          "year": 1834,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 6,
+          "found": 12,
+          "missed": 0,
+          "surplus": 6,
+          "recall": 1.0,
+          "precision": 0.5,
+          "pages_exact": 5,
+          "pages": 6,
+          "entries": 12,
+          "shared_image_records": 0,
+          "physical_figures": 12,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Stepanjants2014": {
+          "year": 2014,
+          "era": "2000-",
+          "file_type": "scanned",
+          "gold_figures": 8,
+          "found": 8,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 14,
+          "pages": 14,
+          "entries": 8,
+          "shared_image_records": 0,
+          "physical_figures": 8,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Stepanjants_Dianov1997": {
+          "year": 1997,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 9,
+          "found": 9,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 8,
+          "pages": 8,
+          "entries": 9,
+          "shared_image_records": 0,
+          "physical_figures": 9,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Tilesius1814": {
+          "year": 1814,
+          "era": "1800-1899",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 0,
+          "missed": 1,
+          "surplus": 0,
+          "recall": 0.0,
+          "precision": null,
+          "pages_exact": 11,
+          "pages": 12,
+          "entries": 0,
+          "shared_image_records": 0,
+          "physical_figures": 0,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Totton1965a": {
+          "year": 1965,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 195,
+          "found": 190,
+          "missed": 6,
+          "surplus": 1,
+          "recall": 0.9692,
+          "precision": 0.9947,
+          "pages_exact": 307,
+          "pages": 314,
+          "entries": 374,
+          "shared_image_records": 176,
+          "physical_figures": 190,
+          "panel_groups": 8,
+          "panel_images": 16
+        },
+        "Totton1965b": {
+          "year": 1965,
+          "era": "1950-1999",
+          "file_type": "scanned",
+          "gold_figures": 4,
+          "found": 5,
+          "missed": 0,
+          "surplus": 1,
+          "recall": 1.0,
+          "precision": 0.8,
+          "pages_exact": 5,
+          "pages": 6,
+          "entries": 5,
+          "shared_image_records": 0,
+          "physical_figures": 5,
+          "panel_groups": 0,
+          "panel_images": 0
+        },
+        "Vanhoeffen1906": {
+          "year": 1906,
+          "era": "1900-1949",
+          "file_type": "scanned",
+          "gold_figures": 67,
+          "found": 33,
+          "missed": 34,
+          "surplus": 0,
+          "recall": 0.4925,
+          "precision": 1.0,
+          "pages_exact": 17,
+          "pages": 31,
+          "entries": 62,
+          "shared_image_records": 28,
+          "physical_figures": 33,
+          "panel_groups": 1,
+          "panel_images": 2
+        },
+        "Yamamori2014": {
+          "year": 2014,
+          "era": "2000-",
+          "file_type": "scanned",
+          "gold_figures": 1,
+          "found": 1,
+          "missed": 0,
+          "surplus": 0,
+          "recall": 1.0,
+          "precision": 1.0,
+          "pages_exact": 4,
+          "pages": 4,
+          "entries": 1,
+          "shared_image_records": 0,
+          "physical_figures": 1,
+          "panel_groups": 0,
+          "panel_images": 0
+        }
+      }
+    },
+    "caption_binding": {
+      "schema_version": 7,
+      "report_sha256": "090c0e86e8097bbea9d33574ec03fce54ce5e5cf11dd480ffab9d8679af2d60f",
+      "command": [
+        "python",
+        "tools/qc/caption_binding.py",
+        "--gold",
+        "<gold>/transcriptions",
+        "--corpuscle",
+        "<gold>/output",
+        "--out",
+        "<scores>/caption_binding.json"
+      ],
+      "exit_code": 0,
+      "method": "figure numbers parsed independently from labels printed inside a gold [FIGURE]/[PLATE] block, including controlled plate inventories and standalone engraved-number lines; an immediately adjacent plate heading is included as plate identity evidence. Compared per page against typed figures.json identities (plate:N is distinct from figure:N); caption text is scored only within number-matched pairs",
+      "caveat": "Naive caption-text similarity reports 44% and is mostly artifact — bilingual captions, bare labels, and documents that are their own translation. Numbers are the language-independent signal. Reported-pair capacity is the maximum same-page typed-identity recall possible if the current number of distinct reported identities on each page is held fixed; it diagnoses missing evidence, not a ceiling on a rebuild that discovers more labels.",
+      "documents_bound": 35,
+      "documents_unmatched": [],
+      "gold_block_kinds": {
+        "nothing_printed": 5,
+        "prose_caption": 105,
+        "lettering_only": 12,
+        "bare_label": 254
+      },
+      "totals": {
+        "gold_numbers": 839,
+        "found_numbers": 492,
+        "matched_numbers": 483,
+        "reported_pair_capacity": 490,
+        "captions_compared": 89,
+        "gold_panel_figures": 98,
+        "reported_panel_figures": 84,
+        "exact_panel_figures": 66,
+        "gold_panel_labels": 332,
+        "reported_panel_labels": 300,
+        "matched_panel_labels": 285,
+        "gold_unpanelled_figures": 202,
+        "number_matched_unpanelled_figures": 171,
+        "unexpected_panel_figures": 0,
+        "number_recall": 0.5757,
+        "number_precision": 0.9817,
+        "reported_pair_capacity_rate": 0.584,
+        "f1": 0.7258,
+        "panel_figure_recall": 0.8571,
+        "panel_figure_precision": 1.0,
+        "panel_exact_rate": 0.6735,
+        "panel_label_recall": 0.8584,
+        "panel_label_precision": 0.95
+      },
+      "segments": {
+        "era": {
+          "1800-1899": {
+            "gold_numbers": 169,
+            "found_numbers": 8,
+            "matched_numbers": 7,
+            "reported_pair_capacity": 8,
+            "captions_compared": 0,
+            "gold_panel_figures": 0,
+            "reported_panel_figures": 0,
+            "exact_panel_figures": 0,
+            "gold_panel_labels": 0,
+            "reported_panel_labels": 0,
+            "matched_panel_labels": 0,
+            "gold_unpanelled_figures": 0,
+            "number_matched_unpanelled_figures": 0,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.0414,
+            "number_precision": 0.875,
+            "reported_pair_capacity_rate": 0.0473,
+            "f1": 0.0791,
+            "panel_figure_recall": null,
+            "panel_figure_precision": null,
+            "panel_exact_rate": null,
+            "panel_label_recall": null,
+            "panel_label_precision": null
+          },
+          "1900-1949": {
+            "gold_numbers": 77,
+            "found_numbers": 61,
+            "matched_numbers": 58,
+            "reported_pair_capacity": 59,
+            "captions_compared": 10,
+            "gold_panel_figures": 0,
+            "reported_panel_figures": 0,
+            "exact_panel_figures": 0,
+            "gold_panel_labels": 0,
+            "reported_panel_labels": 0,
+            "matched_panel_labels": 0,
+            "gold_unpanelled_figures": 64,
+            "number_matched_unpanelled_figures": 56,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.7532,
+            "number_precision": 0.9508,
+            "reported_pair_capacity_rate": 0.7662,
+            "f1": 0.8406,
+            "panel_figure_recall": null,
+            "panel_figure_precision": null,
+            "panel_exact_rate": null,
+            "panel_label_recall": null,
+            "panel_label_precision": null
+          },
+          "1950-1999": {
+            "gold_numbers": 551,
+            "found_numbers": 392,
+            "matched_numbers": 387,
+            "reported_pair_capacity": 392,
+            "captions_compared": 60,
+            "gold_panel_figures": 91,
+            "reported_panel_figures": 77,
+            "exact_panel_figures": 60,
+            "gold_panel_labels": 305,
+            "reported_panel_labels": 272,
+            "matched_panel_labels": 258,
+            "gold_unpanelled_figures": 103,
+            "number_matched_unpanelled_figures": 91,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.7024,
+            "number_precision": 0.9872,
+            "reported_pair_capacity_rate": 0.7114,
+            "f1": 0.8208,
+            "panel_figure_recall": 0.8462,
+            "panel_figure_precision": 1.0,
+            "panel_exact_rate": 0.6593,
+            "panel_label_recall": 0.8459,
+            "panel_label_precision": 0.9485
+          },
+          "2000-": {
+            "gold_numbers": 42,
+            "found_numbers": 31,
+            "matched_numbers": 31,
+            "reported_pair_capacity": 31,
+            "captions_compared": 19,
+            "gold_panel_figures": 7,
+            "reported_panel_figures": 7,
+            "exact_panel_figures": 6,
+            "gold_panel_labels": 27,
+            "reported_panel_labels": 28,
+            "matched_panel_labels": 27,
+            "gold_unpanelled_figures": 35,
+            "number_matched_unpanelled_figures": 24,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.7381,
+            "number_precision": 1.0,
+            "reported_pair_capacity_rate": 0.7381,
+            "f1": 0.8493,
+            "panel_figure_recall": 1.0,
+            "panel_figure_precision": 1.0,
+            "panel_exact_rate": 0.8571,
+            "panel_label_recall": 1.0,
+            "panel_label_precision": 0.9643
+          },
+          "pre-1800": {
+            "gold_numbers": 0,
+            "found_numbers": 0,
+            "matched_numbers": 0,
+            "reported_pair_capacity": 0,
+            "captions_compared": 0,
+            "gold_panel_figures": 0,
+            "reported_panel_figures": 0,
+            "exact_panel_figures": 0,
+            "gold_panel_labels": 0,
+            "reported_panel_labels": 0,
+            "matched_panel_labels": 0,
+            "gold_unpanelled_figures": 0,
+            "number_matched_unpanelled_figures": 0,
+            "unexpected_panel_figures": 0,
+            "number_recall": null,
+            "number_precision": null,
+            "reported_pair_capacity_rate": null,
+            "f1": null,
+            "panel_figure_recall": null,
+            "panel_figure_precision": null,
+            "panel_exact_rate": null,
+            "panel_label_recall": null,
+            "panel_label_precision": null
+          }
+        },
+        "file_type": {
+          "born_digital": {
+            "gold_numbers": 34,
+            "found_numbers": 23,
+            "matched_numbers": 23,
+            "reported_pair_capacity": 23,
+            "captions_compared": 11,
+            "gold_panel_figures": 7,
+            "reported_panel_figures": 7,
+            "exact_panel_figures": 6,
+            "gold_panel_labels": 27,
+            "reported_panel_labels": 28,
+            "matched_panel_labels": 27,
+            "gold_unpanelled_figures": 27,
+            "number_matched_unpanelled_figures": 16,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.6765,
+            "number_precision": 1.0,
+            "reported_pair_capacity_rate": 0.6765,
+            "f1": 0.807,
+            "panel_figure_recall": 1.0,
+            "panel_figure_precision": 1.0,
+            "panel_exact_rate": 0.8571,
+            "panel_label_recall": 1.0,
+            "panel_label_precision": 0.9643
+          },
+          "scanned": {
+            "gold_numbers": 805,
+            "found_numbers": 469,
+            "matched_numbers": 460,
+            "reported_pair_capacity": 467,
+            "captions_compared": 78,
+            "gold_panel_figures": 91,
+            "reported_panel_figures": 77,
+            "exact_panel_figures": 60,
+            "gold_panel_labels": 305,
+            "reported_panel_labels": 272,
+            "matched_panel_labels": 258,
+            "gold_unpanelled_figures": 175,
+            "number_matched_unpanelled_figures": 155,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.5714,
+            "number_precision": 0.9808,
+            "reported_pair_capacity_rate": 0.5801,
+            "f1": 0.7221,
+            "panel_figure_recall": 0.8462,
+            "panel_figure_precision": 1.0,
+            "panel_exact_rate": 0.6593,
+            "panel_label_recall": 0.8459,
+            "panel_label_precision": 0.9485
+          }
+        },
+        "layout": {
+          "figure_blocks": {
+            "gold_numbers": 124,
+            "found_numbers": 104,
+            "matched_numbers": 101,
+            "reported_pair_capacity": 102,
+            "captions_compared": 37,
+            "gold_panel_figures": 10,
+            "reported_panel_figures": 7,
+            "exact_panel_figures": 6,
+            "gold_panel_labels": 36,
+            "reported_panel_labels": 28,
+            "matched_panel_labels": 27,
+            "gold_unpanelled_figures": 112,
+            "number_matched_unpanelled_figures": 92,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.8145,
+            "number_precision": 0.9712,
+            "reported_pair_capacity_rate": 0.8226,
+            "f1": 0.886,
+            "panel_figure_recall": 0.7,
+            "panel_figure_precision": 1.0,
+            "panel_exact_rate": 0.6,
+            "panel_label_recall": 0.75,
+            "panel_label_precision": 0.9643
+          },
+          "mixed_figure_plate": {
+            "gold_numbers": 670,
+            "found_numbers": 381,
+            "matched_numbers": 376,
+            "reported_pair_capacity": 381,
+            "captions_compared": 52,
+            "gold_panel_figures": 88,
+            "reported_panel_figures": 77,
+            "exact_panel_figures": 60,
+            "gold_panel_labels": 296,
+            "reported_panel_labels": 272,
+            "matched_panel_labels": 258,
+            "gold_unpanelled_figures": 89,
+            "number_matched_unpanelled_figures": 79,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.5612,
+            "number_precision": 0.9869,
+            "reported_pair_capacity_rate": 0.5687,
+            "f1": 0.7155,
+            "panel_figure_recall": 0.875,
+            "panel_figure_precision": 1.0,
+            "panel_exact_rate": 0.6818,
+            "panel_label_recall": 0.8716,
+            "panel_label_precision": 0.9485
+          },
+          "no_figure_blocks": {
+            "gold_numbers": 0,
+            "found_numbers": 0,
+            "matched_numbers": 0,
+            "reported_pair_capacity": 0,
+            "captions_compared": 0,
+            "gold_panel_figures": 0,
+            "reported_panel_figures": 0,
+            "exact_panel_figures": 0,
+            "gold_panel_labels": 0,
+            "reported_panel_labels": 0,
+            "matched_panel_labels": 0,
+            "gold_unpanelled_figures": 0,
+            "number_matched_unpanelled_figures": 0,
+            "unexpected_panel_figures": 0,
+            "number_recall": null,
+            "number_precision": null,
+            "reported_pair_capacity_rate": null,
+            "f1": null,
+            "panel_figure_recall": null,
+            "panel_figure_precision": null,
+            "panel_exact_rate": null,
+            "panel_label_recall": null,
+            "panel_label_precision": null
+          },
+          "plate_blocks": {
+            "gold_numbers": 45,
+            "found_numbers": 7,
+            "matched_numbers": 6,
+            "reported_pair_capacity": 7,
+            "captions_compared": 0,
+            "gold_panel_figures": 0,
+            "reported_panel_figures": 0,
+            "exact_panel_figures": 0,
+            "gold_panel_labels": 0,
+            "reported_panel_labels": 0,
+            "matched_panel_labels": 0,
+            "gold_unpanelled_figures": 1,
+            "number_matched_unpanelled_figures": 0,
+            "unexpected_panel_figures": 0,
+            "number_recall": 0.1333,
+            "number_precision": 0.8571,
+            "reported_pair_capacity_rate": 0.1556,
+            "f1": 0.2308,
+            "panel_figure_recall": null,
+            "panel_figure_precision": null,
+            "panel_exact_rate": null,
+            "panel_label_recall": null,
+            "panel_label_precision": null
+          }
+        }
+      }
+    }
+  }
+}

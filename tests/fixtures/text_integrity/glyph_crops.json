@@ -1,0 +1,63 @@
+[
+  {
+    "file": "sutherland_plusminus.png",
+    "source_pdf": "S/Sutherland_etal2019b.pdf",
+    "sha256": "e893ef271e78a02a1af67f5bc468d3d49acae6c7ac602898aa148bdadf1ef038",
+    "physical_page": 1,
+    "bbox_top_left_points": [
+      410.644989,
+      350.782227,
+      417.309967,
+      360.744812
+    ],
+    "dpi": 600,
+    "native_unicode": "±",
+    "printed_glyph": "±"
+  },
+  {
+    "file": "hauss_plusminus.png",
+    "source_pdf": "H_J/Hauss_et2016.pdf",
+    "sha256": "71c01d252e97b0044d2022fd0a239817dee78c3cc3651ef2afedbf82d8456085",
+    "physical_page": 4,
+    "bbox_top_left_points": [
+      69.787079,
+      75.793633,
+      77.557907,
+      85.756233
+    ],
+    "dpi": 600,
+    "native_unicode": "±",
+    "printed_glyph": "±"
+  },
+  {
+    "file": "kidwai_encoded_plusminus_dash.png",
+    "source_pdf": "K/Kidwai_Amjad2000.pdf",
+    "sha256": "392857a972b9bd0023b70c19b7528fa2f885d5742b4f812e7808037b93814071",
+    "physical_page": 1,
+    "bbox_top_left_points": [
+      335.754303,
+      669.175659,
+      340.818817,
+      679.304688
+    ],
+    "dpi": 600,
+    "native_unicode": "±",
+    "printed_glyph": "–"
+  },
+  {
+    "file": "pakhomov_plusminus.png",
+    "source_pdf": "P/Pakhomov_etal2000.pdf",
+    "sha256": "8dd620bc32cee2434e90f143ac4b61202a4b69dc63e05063bf5ba04fc5e6cde6",
+    "physical_page": 5,
+    "bbox_top_left_points": [
+      205.7073974609375,
+      129.052490234375,
+      210.43780517578125,
+      140.18190002441406
+    ],
+    "page_rotation": 90,
+    "dpi": 600,
+    "native_unicode": "±",
+    "printed_glyph": "±"
+  }
+]

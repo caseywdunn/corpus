@@ -1,0 +1,817 @@
+{
+  "server_commit": "75f7564307e2a2973be7bc680708346fc7125b2d",
+  "bundle_manifest": {
+    "bundle_version": "1.2.1",
+    "created_at": "2026-09-01T10:23:34Z",
+    "pipeline_git_sha": "31784560ceaed157192ba2e4fa35a5f5c4b6feca",
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_dim": 1024,
+    "taxonomy_snapshot_date": "2026-08-31",
+    "paper_count": 1775,
+    "figure_count": 22171,
+    "chunk_count": 259952,
+    "includes_pdfs": false,
+    "citation": {
+      "title": "Extracting AI agent-accessible data from biodiversity literature with corpus",
+      "year": null,
+      "doi": "10.5281/zenodo.19964909",
+      "url": "https://doi.org/10.5281/zenodo.19964909",
+      "authors": [
+        {
+          "family-names": "Church",
+          "given-names": "Samuel H."
+        },
+        {
+          "family-names": "Ma\u0144ko",
+          "given-names": "Maciej K."
+        },
+        {
+          "family-names": "Zapata",
+          "given-names": "Felipe"
+        },
+        {
+          "family-names": "Dunn",
+          "given-names": "Casey W."
+        }
+      ]
+    }
+  },
+  "bundle_manifest_sha256": "bb43b3de558db9c457afd33fe66e28d702ff190d125e2f34e1a66cf524239a10",
+  "database_sha256": {
+    "taxonomy.sqlite": "31da01e013195373f000a6280fa5cf94f0f362ba494830f7dd5d492b3866ab82",
+    "taxon_mentions.sqlite": "b0045e60fde9ca7374fb89e9cb4f08f9aefaa187040ee53d16a4f0d4566cd966",
+    "biblio_authority.sqlite": "b2b4416b934d37eb604cb7a03873efdcdb8490e44a328ba5fd085bce809bb019"
+  },
+  "papers_indexed": 1775,
+  "cases": [
+    {
+      "taxon": "Nanomia bijuga",
+      "caption_only_returned": 12,
+      "dossier": [
+        {
+          "paper_hash": "e3ed85ca53bb",
+          "figure_id": "docling_25",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_11",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_12",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_24",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_9",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "ed5cce423965",
+          "figure_id": "docling_19",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "a53f93badacc",
+          "figure_id": "docling_16",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "d177a7927854",
+          "figure_id": "docling_22",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_36",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_37",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_38",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_39",
+          "caption_has_taxon": true,
+          "score": null
+        }
+      ],
+      "discovery": [
+        {
+          "paper_hash": "e3ed85ca53bb",
+          "figure_id": "docling_25",
+          "caption_has_taxon": true,
+          "score": 180
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_11",
+          "caption_has_taxon": true,
+          "score": 172
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_12",
+          "caption_has_taxon": true,
+          "score": 172
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_24",
+          "caption_has_taxon": true,
+          "score": 172
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_9",
+          "caption_has_taxon": true,
+          "score": 172
+        },
+        {
+          "paper_hash": "ed5cce423965",
+          "figure_id": "docling_19",
+          "caption_has_taxon": true,
+          "score": 142
+        },
+        {
+          "paper_hash": "a53f93badacc",
+          "figure_id": "docling_16",
+          "caption_has_taxon": true,
+          "score": 135
+        },
+        {
+          "paper_hash": "d177a7927854",
+          "figure_id": "docling_22",
+          "caption_has_taxon": true,
+          "score": 129
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_36",
+          "caption_has_taxon": true,
+          "score": 127
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_37",
+          "caption_has_taxon": true,
+          "score": 127
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_38",
+          "caption_has_taxon": true,
+          "score": 127
+        },
+        {
+          "paper_hash": "8a4548d8d5d7",
+          "figure_id": "docling_39",
+          "caption_has_taxon": true,
+          "score": 127
+        }
+      ],
+      "repeat_equal": true
+    },
+    {
+      "taxon": "Lensia subtilis",
+      "caption_only_returned": 12,
+      "dossier": [
+        {
+          "paper_hash": "b4d61264fcbc",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "309b30fcfb62",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "ccf2832ccfec",
+          "figure_id": "docling_42",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "ccf2832ccfec",
+          "figure_id": "docling_44",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "113d4bd98bce",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "113d4bd98bce",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "113d4bd98bce",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_428",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_72",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "cd6ba33e91ee",
+          "figure_id": "docling_25",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "09a011a3328a",
+          "figure_id": "docling_10",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "b9bdaa5351e7",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": null
+        }
+      ],
+      "discovery": [
+        {
+          "paper_hash": "b4d61264fcbc",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": 124
+        },
+        {
+          "paper_hash": "309b30fcfb62",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": 122
+        },
+        {
+          "paper_hash": "ccf2832ccfec",
+          "figure_id": "docling_42",
+          "caption_has_taxon": true,
+          "score": 120
+        },
+        {
+          "paper_hash": "ccf2832ccfec",
+          "figure_id": "docling_44",
+          "caption_has_taxon": true,
+          "score": 120
+        },
+        {
+          "paper_hash": "113d4bd98bce",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": 119
+        },
+        {
+          "paper_hash": "113d4bd98bce",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": 119
+        },
+        {
+          "paper_hash": "113d4bd98bce",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": 119
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_428",
+          "caption_has_taxon": true,
+          "score": 115
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_72",
+          "caption_has_taxon": true,
+          "score": 115
+        },
+        {
+          "paper_hash": "cd6ba33e91ee",
+          "figure_id": "docling_25",
+          "caption_has_taxon": true,
+          "score": 115
+        },
+        {
+          "paper_hash": "09a011a3328a",
+          "figure_id": "docling_10",
+          "caption_has_taxon": true,
+          "score": 112
+        },
+        {
+          "paper_hash": "b9bdaa5351e7",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": 109
+        }
+      ],
+      "repeat_equal": true
+    },
+    {
+      "taxon": "Apolemia uvaria",
+      "caption_only_returned": 12,
+      "dossier": [
+        {
+          "paper_hash": "6ed38d74c185",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "6ed38d74c185",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "6ed38d74c185",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_117",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "c9e7e8ae50a2",
+          "figure_id": "docling_20",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_13",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "b177e755bf55",
+          "figure_id": "docling_11",
+          "caption_has_taxon": true,
+          "score": null
+        }
+      ],
+      "discovery": [
+        {
+          "paper_hash": "6ed38d74c185",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": 136
+        },
+        {
+          "paper_hash": "6ed38d74c185",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": 136
+        },
+        {
+          "paper_hash": "6ed38d74c185",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": 136
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_117",
+          "caption_has_taxon": true,
+          "score": 136
+        },
+        {
+          "paper_hash": "b8ae22a47c6a",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": 136
+        },
+        {
+          "paper_hash": "c9e7e8ae50a2",
+          "figure_id": "docling_20",
+          "caption_has_taxon": true,
+          "score": 127
+        },
+        {
+          "paper_hash": "4efbb4af134b",
+          "figure_id": "docling_13",
+          "caption_has_taxon": true,
+          "score": 119
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": 116
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": 116
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": 116
+        },
+        {
+          "paper_hash": "65505c6ed590",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": 116
+        },
+        {
+          "paper_hash": "b177e755bf55",
+          "figure_id": "docling_11",
+          "caption_has_taxon": true,
+          "score": 112
+        }
+      ],
+      "repeat_equal": true
+    },
+    {
+      "taxon": "Erenna richardi",
+      "caption_only_returned": 12,
+      "dossier": [
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_7",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_8",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_9",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_3_fig4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": null
+        }
+      ],
+      "discovery": [
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": 128
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": 128
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": 128
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": 128
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_7",
+          "caption_has_taxon": true,
+          "score": 128
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_8",
+          "caption_has_taxon": true,
+          "score": 128
+        },
+        {
+          "paper_hash": "da370f1e0434",
+          "figure_id": "docling_9",
+          "caption_has_taxon": true,
+          "score": 128
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": 121
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": 121
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_3_fig4",
+          "caption_has_taxon": true,
+          "score": 121
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": 121
+        },
+        {
+          "paper_hash": "4fe914163f59",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": 121
+        }
+      ],
+      "repeat_equal": true
+    },
+    {
+      "taxon": "Physalia physalis",
+      "caption_only_returned": 12,
+      "dossier": [
+        {
+          "paper_hash": "d999dc36fed5",
+          "figure_id": "docling_19",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "d999dc36fed5",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_7",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_9",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "a901ae013ced",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": null
+        },
+        {
+          "paper_hash": "a901ae013ced",
+          "figure_id": "docling_10",
+          "caption_has_taxon": true,
+          "score": null
+        }
+      ],
+      "discovery": [
+        {
+          "paper_hash": "d999dc36fed5",
+          "figure_id": "docling_19",
+          "caption_has_taxon": true,
+          "score": 158
+        },
+        {
+          "paper_hash": "d999dc36fed5",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": 158
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_2",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_3",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_4",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_5",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_6",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_7",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "291a5d1de112",
+          "figure_id": "docling_9",
+          "caption_has_taxon": true,
+          "score": 145
+        },
+        {
+          "paper_hash": "a901ae013ced",
+          "figure_id": "docling_1",
+          "caption_has_taxon": true,
+          "score": 132
+        },
+        {
+          "paper_hash": "a901ae013ced",
+          "figure_id": "docling_10",
+          "caption_has_taxon": true,
+          "score": 132
+        }
+      ],
+      "repeat_equal": true
+    }
+  ],
+  "no_caption_control": null,
+  "bundle_file_inventory_unchanged": true,
+  "database_bytes_unchanged": true,
+  "limits": "Retained v1.2.1 bundle; not the audited v1.4 deployment or a rebuilt v1.5 corpus. Caption evidence ranking, not independent organism depiction accuracy."
+}

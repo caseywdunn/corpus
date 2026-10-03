@@ -29,6 +29,7 @@ from mcpsrv.bundle import (
     _ABS_PATH_RE,
     _CONTENT_KEYS,
     _audit_no_absolute_paths,
+    _scrub_text_producer_path,
     _walk_keyed_strings,
 )
 
@@ -92,6 +93,35 @@ def test_a_path_field_no_scrubber_knows_about_still_fails(tmp_path):
         "some_field_added_next_year": "/scratch/user/out/",
     })
     assert len(_audit_no_absolute_paths(root, build_roots=[tmp_path])) == 1
+
+
+def test_known_ocr_executable_scrub_does_not_hide_unknown_producer_paths(tmp_path):
+    root = _bundle(tmp_path, "producer", text={
+        "source_text_integrity": {"surnames": {"producer": {
+            "executable": "/home/runner/miniconda3/envs/corpus/bin/tesseract",
+            "future_runtime_file": "/Users/runner/secret/build/input.json",
+        }}},
+    })
+    path = root / "documents" / "aaaaaaaaaaaa" / "text.json"
+    assert _scrub_text_producer_path(path)
+    assert not _scrub_text_producer_path(path)  # Already portable, no rewrite.
+    offenders = _audit_no_absolute_paths(root)
+    assert len(offenders) == 1
+    assert offenders[0][0].endswith("source_text_integrity.surnames.producer.future_runtime_file")
+    assert "executable" not in _CONTENT_KEYS
+
+
+def test_unrelated_executable_field_remains_audited(tmp_path):
+    root = _bundle(tmp_path, "unknown-producer", text={
+        "source_text_integrity": {"new_unreviewed_helper": {"producer": {
+            "executable": "/home/runner/other/program",
+        }}},
+    })
+    path = root / "documents" / "aaaaaaaaaaaa" / "text.json"
+    before = path.read_bytes()
+    assert not _scrub_text_producer_path(path)
+    assert path.read_bytes() == before
+    assert len(_audit_no_absolute_paths(root)) == 1
 
 
 def test_the_report_names_the_field_not_just_the_file(tmp_path):

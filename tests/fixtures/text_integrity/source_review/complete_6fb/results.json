@@ -1,0 +1,932 @@
+[
+  {
+    "sample_number": 1,
+    "source_id": "1a75487cf77c",
+    "stem": "Mańko_et al2020",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "physical_page": 11,
+    "prepared_page": 11,
+    "source_literal": "ind. · 10 m⁻³",
+    "role": "inverse_volume",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "candidate_item_refs": [
+      "#/texts/126"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_88"
+    ],
+    "candidate_expression_context": "Fig. 7. Abundance [ind. · 10 m⁻³ ]",
+    "assessment": "Exact selected Fig. 7 caption retains scale 10 and raised negative 3. Selected caption, both caption-candidate copies and caption fragments in figures.json agree.",
+    "scientific_repair_status": "admitted_correct",
+    "admitted_selected_operations": 1,
+    "correct_admitted_selected_operations": 1,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "selected_scientific_receipts": [
+      {
+        "item_ref": "#/texts/126",
+        "page": 11,
+        "before": "-3",
+        "after": "⁻³",
+        "source_bbox": [
+          154.03500366210938,
+          289.0284118652344,
+          162.4431610107422,
+          296.84600830078125
+        ],
+        "evidence": [
+          "raised_source_span"
+        ],
+        "charspan": [
+          30,
+          33
+        ],
+        "original": " -3",
+        "replacement": "⁻³"
+      }
+    ],
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 2,
+    "source_id": "27e85acb1db6",
+    "stem": "Mańko_et al2020",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "physical_page": 5,
+    "prepared_page": 5,
+    "source_literal": "265 ind.·1000 m⁻³",
+    "role": "inverse_volume",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "candidate_item_refs": [
+      "#/texts/67"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_37"
+    ],
+    "candidate_expression_context": "transect EB (265  ind.·1000  m⁻³ )",
+    "assessment": "Selected EB occurrence, not the earlier N occurrence: repair charspan [347,350], source bbox [545.3289794921875,505.01611328125,554.6716918945312,513.7022094726562]. Exactly one of the six exponent repairs in this paragraph is the selected expression.",
+    "scientific_repair_status": "admitted_correct",
+    "admitted_selected_operations": 1,
+    "correct_admitted_selected_operations": 1,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "selected_scientific_receipts": [
+      {
+        "item_ref": "#/texts/67",
+        "page": 5,
+        "before": "-3",
+        "after": "⁻³",
+        "source_bbox": [
+          545.3289794921875,
+          505.01611328125,
+          554.6716918945312,
+          513.7022094726562
+        ],
+        "evidence": [
+          "raised_source_span"
+        ],
+        "charspan": [
+          347,
+          350
+        ],
+        "original": " -3",
+        "replacement": "⁻³"
+      }
+    ],
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 3,
+    "source_id": "2f14b09546d6",
+    "stem": "Mańko_et al2020",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "physical_page": 6,
+    "prepared_page": 6,
+    "source_literal": "Total abundance [ind.·1000 m⁻³]",
+    "role": "inverse_volume",
+    "docling_status": "omitted",
+    "saved_markdown_status": "omitted",
+    "chunks_status": "omitted",
+    "candidate_item_refs": [
+      "#/pictures/5"
+    ],
+    "candidate_chunk_ids": [],
+    "candidate_expression_context": null,
+    "assessment": "Source Fig. 3 right axis occupies the selected region; candidate region is picture #/pictures/5 with no text item for the axis. Fig. 3 caption #/texts/79 contains another inverse-volume unit, but that is a different source occurrence and is not counted. Figure pixels retained does not establish machine-readable axis text.",
+    "scientific_repair_status": "no_admitted_repair_in_selected_region",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 4,
+    "source_id": "55a1eb90fba6",
+    "stem": "Chenetal2015",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "physical_page": 2,
+    "prepared_page": 2,
+    "source_literal": "mg/m³",
+    "role": "denominator_volume",
+    "docling_status": "corrupted",
+    "saved_markdown_status": "corrupted",
+    "chunks_status": "corrupted",
+    "candidate_item_refs": [
+      "#/texts/28"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_18"
+    ],
+    "candidate_expression_context": "?E=S5L> LG21=1@G22 5 ( 'G5 ? ， HDYH ! )",
+    "assessment": "Source geometry intersects the English abstract item; this is its first (surface chlorophyll) unit before the subsequent middle/bottom units. Printed mg/m³ is garbled as HDYH !; no scientific repair or unresolved receipt records it.",
+    "scientific_repair_status": "no_admitted_repair",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "fix_informed"
+  },
+  {
+    "sample_number": 5,
+    "source_id": "0278e9920e8f",
+    "stem": "Totton1965a",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "physical_page": 113,
+    "prepared_page": 113,
+    "source_literal": "specimen 581, × 21",
+    "role": "magnification",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Fig60 gonodendron caption, specimen581. X is the unambiguous caption magnification marker; numeric factor21 survives. Literal ×→X retained as an encoding discrepancy, not generalized to variables/operators.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/1763"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_532"
+    ],
+    "candidate_expression_context": "specimen  581,  X  21",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        207.699228,
+        708.61068,
+        413.0587896380353,
+        726.519482806361
+      ],
+      "provenance": {
+        "page_no": 113,
+        "bbox": {
+          "l": 207.699228,
+          "t": 133.06931267578125,
+          "r": 413.0587896380353,
+          "b": 115.16050986942025,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          85
+        ]
+      },
+      "matched_character_span": [
+        64,
+        85
+      ],
+      "source_crop_sha256": "3376322f8ca56a2eb1a285e77dfc7ff6befcfaa1055a1b4944b9f0898299bb1b"
+    },
+    "literal_encoding_substitution": "×→X"
+  },
+  {
+    "sample_number": 6,
+    "source_id": "03a66f71be61",
+    "stem": "Totton1965a",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "physical_page": 168,
+    "prepared_page": 168,
+    "source_literal": "St. 217, × 7·1",
+    "role": "magnification",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Fig99 second/B caption, Thor station217 (not first/A station36). Literal ×→X and decimal middle dot→period preserve the caption magnification factor7.1.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/2588"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_805"
+    ],
+    "candidate_expression_context": "St.  217, X  7.1",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        135.34646400000003,
+        707.9421600000001,
+        473.34445282080003,
+        747.2938054630496
+      ],
+      "provenance": {
+        "page_no": 168,
+        "bbox": {
+          "l": 135.34646400000003,
+          "t": 138.77781070312494,
+          "r": 473.34445282080003,
+          "b": 99.42616524007542,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          317
+        ]
+      },
+      "matched_character_span": [
+        255,
+        271
+      ],
+      "source_crop_sha256": "3a48872b2fe6b3ca2ba0f81226a0059e916fdc16234e141b48e55a46e075e6d0"
+    },
+    "literal_encoding_substitution": "×→X; decimal·→."
+  },
+  {
+    "sample_number": 7,
+    "source_id": "097ce324791d",
+    "stem": "Totton1965a",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "physical_page": 87,
+    "prepared_page": 87,
+    "source_literal": "St. 681, × 3·2",
+    "role": "magnification",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Fig45 first/A–B caption continuation, station681 (not neighboring699/1769). Literal ×→x and decimal middle dot→period preserve the magnification factor3.2.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/1370"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_400"
+    ],
+    "candidate_expression_context": "St.  681,  x  3.2",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        107.9892,
+        475.5366,
+        528.2468634546575,
+        504.79470858746487
+      ],
+      "provenance": {
+        "page_no": 87,
+        "bbox": {
+          "l": 107.9892,
+          "t": 372.62337314453123,
+          "r": 528.2468634546575,
+          "b": 343.3652645570664,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          314
+        ]
+      },
+      "matched_character_span": [
+        48,
+        65
+      ],
+      "source_crop_sha256": "84adf61a17b4a5d389f95e2f31d8e06fc36dd935fce46925e6a08e365ac2562e"
+    },
+    "literal_encoding_substitution": "×→x; decimal·→."
+  },
+  {
+    "sample_number": 8,
+    "source_id": "2af9bc6e317b",
+    "stem": "Chenetal2015",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "physical_page": 8,
+    "prepared_page": 8,
+    "source_literal": "R = 0.596",
+    "role": "equality",
+    "docling_status": "corrupted",
+    "saved_markdown_status": "corrupted",
+    "chunks_status": "corrupted",
+    "candidate_item_refs": [
+      "#/texts/112"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_66"
+    ],
+    "candidate_expression_context": "差异极显著( ! i$3 \"W; ， ; i$3 $$# )",
+    "assessment": "Chinese Anosim paragraph and source bbox align exactly; source R = 0.596 is corrupted. No scientific repair or unresolved receipt.",
+    "scientific_repair_status": "no_admitted_repair",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "fix_informed"
+  },
+  {
+    "sample_number": 9,
+    "source_id": "00c7b77f7882",
+    "stem": "Vanhoeffen1906",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "physical_page": 28,
+    "prepared_page": 28,
+    "source_literal": "30 m",
+    "role": "measurement",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Physalia tentacle-depth sentence on physical28:30metres. Other neighboring cm and mm values are not substituted for this occurrence; surrounding German OCR spelling remains outside the frozen expression grade.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/489"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_120"
+    ],
+    "candidate_expression_context": "bis  zu  30  m  Tiefe",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        112.14,
+        224.91367756479997,
+        506.880211932,
+        330.6829643616509
+      ],
+      "provenance": {
+        "page_no": 28,
+        "bbox": {
+          "l": 112.14,
+          "t": 567.325824388325,
+          "r": 506.880211932,
+          "b": 461.5565375914741,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          622
+        ]
+      },
+      "matched_character_span": [
+        586,
+        607
+      ],
+      "source_crop_sha256": "5fd47af46d13b151e6cc759e9376af85f999b8f67c04686e370054b48e58d6bc"
+    },
+    "literal_encoding_substitution": null
+  },
+  {
+    "sample_number": 10,
+    "source_id": "0139dd6d0694",
+    "stem": "Carre1968_Hippopodius_tr",
+    "source_sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+    "physical_page": 6,
+    "prepared_page": null,
+    "source_literal": "50 m",
+    "role": "measurement",
+    "docling_status": "excluded_by_source_page_selection",
+    "saved_markdown_status": "excluded_by_source_page_selection",
+    "chunks_status": "excluded_by_source_page_selection",
+    "keeppages": "1--5",
+    "assessment": "The source expression lies on a page excluded by the recorded library keeppages consumed by this build. No same expression from another page is substituted.",
+    "scientific_repair_status": "not_applicable",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 11,
+    "source_id": "0402e706ecdd",
+    "stem": "Totton1965b",
+    "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+    "physical_page": 4,
+    "prepared_page": 4,
+    "source_literal": "1250 m.–800 m.",
+    "role": "measurement_with_range",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Physical4 station1587 prose haul interval1250–800m. Table repetition is a distinct source occurrence and does not establish this selected occurrence.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/33"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_9"
+    ],
+    "candidate_expression_context": "1250 m.-800 m.",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        45.5463756,
+        515.3674599999999,
+        385.07478132297604,
+        588.9988628063611
+      ],
+      "provenance": {
+        "page_no": 4,
+        "bbox": {
+          "l": 45.5463756,
+          "t": 129.75192476562506,
+          "r": 385.07478132297604,
+          "b": 56.1205219592639,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          514
+        ]
+      },
+      "matched_character_span": [
+        444,
+        458
+      ],
+      "source_crop_sha256": "95cfac59851cae4458595e25bb7ac7dfd550e424fa0eb12ed9eca592fcd376a8"
+    },
+    "literal_encoding_substitution": null
+  },
+  {
+    "sample_number": 12,
+    "source_id": "04e0937cdf57",
+    "stem": "Gasca_Suarez1993tr",
+    "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+    "physical_page": 2,
+    "prepared_page": null,
+    "source_literal": "23.4 ° C",
+    "role": "temperature",
+    "docling_status": "excluded_by_source_page_selection",
+    "saved_markdown_status": "excluded_by_source_page_selection",
+    "chunks_status": "excluded_by_source_page_selection",
+    "keeppages": "1",
+    "assessment": "The source expression lies on a page excluded by the recorded library keeppages consumed by this build. No same expression from another page is substituted.",
+    "scientific_repair_status": "not_applicable",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 13,
+    "source_id": "00a85f3043cb",
+    "stem": "Chenetal2015",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "physical_page": 3,
+    "prepared_page": 3,
+    "source_literal": "1994-2018",
+    "role": "date_range_control",
+    "docling_status": "omitted",
+    "saved_markdown_status": "omitted",
+    "chunks_status": "omitted",
+    "candidate_item_refs": [],
+    "candidate_chunk_ids": [],
+    "candidate_expression_context": null,
+    "assessment": "Selected grey publisher footer has no overlapping Docling text/table/picture item, no saved markdown occurrence and no linked chunk. Report as omitted footer text, not as a failed attempted scientific repair; no evidence of a recorded explicit exclusion decision.",
+    "scientific_repair_status": "no_admitted_repair_in_selected_region",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 14,
+    "source_id": "0199789c3c2a",
+    "stem": "Stepanjants2014",
+    "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+    "physical_page": 4,
+    "prepared_page": 4,
+    "source_literal": "0.14–0.24",
+    "role": "measurement_range_control",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "candidate_item_refs": [
+      "#/tables/0"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_45"
+    ],
+    "candidate_expression_context": "| Tesserogastria musculosa | 0.14-0.24 (no: Tardent, 1978)? |",
+    "assessment": "Table row 18, column 1, cell_index 40 carries the selected interval. Header cell 1 (Диаметр яйца, мм) is retained in table structure and chunk tables.column_headers. Range endpoints and millimetre meaning survive. Other OCR defects in the row are outside this selected expression.",
+    "scientific_repair_status": "no_admitted_repair",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 15,
+    "source_id": "029478ab50d3",
+    "stem": "Stepanjants_Dianov1997",
+    "source_sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+    "physical_page": 9,
+    "prepared_page": null,
+    "source_literal": "33.5-35 ‰",
+    "role": "salinity_range_control",
+    "docling_status": "excluded_by_source_page_selection",
+    "saved_markdown_status": "excluded_by_source_page_selection",
+    "chunks_status": "excluded_by_source_page_selection",
+    "keeppages": "1--8",
+    "assessment": "The source expression lies on a page excluded by the recorded library keeppages consumed by this build. No same expression from another page is substituted.",
+    "scientific_repair_status": "not_applicable",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 16,
+    "source_id": "04003de47a1a",
+    "stem": "Stepanjants2014",
+    "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+    "physical_page": 8,
+    "prepared_page": 8,
+    "source_literal": "0.3–10 мм³",
+    "role": "volume_range_control",
+    "docling_status": "corrupted",
+    "saved_markdown_status": "corrupted",
+    "chunks_status": "corrupted",
+    "candidate_item_refs": [
+      "#/texts/125"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_97"
+    ],
+    "candidate_expression_context": "(0.3-10 мм')",
+    "assessment": "Source body paragraph, physical page 8, unambiguously prints мм³. Candidate retains endpoints/range but turns the positive cubic exponent into an apostrophe. No scientific repair or unresolved receipt.",
+    "scientific_repair_status": "no_admitted_repair",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "fix_informed"
+  },
+  {
+    "sample_number": 17,
+    "source_id": "0890f50333fd",
+    "stem": "Beklemishev1969",
+    "source_sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+    "physical_page": 13,
+    "prepared_page": 12,
+    "source_literal": "¹ In some species of Membranipora",
+    "role": "footnote_control",
+    "docling_status": "faithful",
+    "saved_markdown_status": "fidelity_indeterminate",
+    "chunks_status": "fidelity_indeterminate",
+    "candidate_item_refs": [
+      "#/texts/101"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_35"
+    ],
+    "candidate_expression_context": "1  In some species of Membranipora",
+    "assessment": "Docling explicitly labels the aligned node footnote, preserving semantic marker role, but its plain text has baseline 1. Markdown/chunk merge it into prose with baseline 1 and no explicit footnote role field. This does not invent a scientific exponent; whether the text-only output adequately preserves the required footnote marker role is left indeterminate rather than forced to success. See assessment clarification.",
+    "scientific_repair_status": "no_admitted_repair",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 18,
+    "source_id": "092a36f1b337",
+    "stem": "Vanhoeffen1906",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "physical_page": 2,
+    "prepared_page": 2,
+    "source_literal": "*) Beiträge zur näheren Kenntnis",
+    "role": "footnote_control",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Physical2 bottom bibliographic footnote. Asterisk and closing parenthesis survive, with explicit Docling footnote label. The asterisk is not converted to multiplication/power.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/11"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_10"
+    ],
+    "candidate_expression_context": "*) Beiträge  zur  näheren  Kenntnis",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        108.19081800000001,
+        703.106154464,
+        503.68601044468795,
+        721.1040941955712
+      ],
+      "provenance": {
+        "page_no": 2,
+        "bbox": {
+          "l": 108.19081800000001,
+          "t": 91.17350862193746,
+          "r": 503.68601044468795,
+          "b": 73.17556889036632,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          119
+        ]
+      },
+      "matched_character_span": [
+        0,
+        35
+      ],
+      "source_crop_sha256": "15ac1075485ac97f7b218ba3c733ec4ba9c8cc42c32770cec935a2e47313dce1"
+    },
+    "literal_encoding_substitution": null
+  },
+  {
+    "sample_number": 19,
+    "source_id": "0cd75bab08f6",
+    "stem": "Vanhoeffen1906",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "physical_page": 5,
+    "prepared_page": 5,
+    "source_literal": "Cunningham**)",
+    "role": "footnote_control",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Physical5 body phrase nach Cunningham**) bei Plymouth: both footnote asterisks survive attached to the surname; terminalm is not misinterpreted as metre.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/61"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_25"
+    ],
+    "candidate_expression_context": "Cunningham**)",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        105.34908438821651,
+        557.1272864768,
+        497.1257031804243,
+        637.0463105457718
+      ],
+      "provenance": {
+        "page_no": 5,
+        "bbox": {
+          "l": 105.34908438821651,
+          "t": 235.5923180153875,
+          "r": 497.1257031804243,
+          "b": 155.6732939464157,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          481
+        ]
+      },
+      "matched_character_span": [
+        324,
+        337
+      ],
+      "source_crop_sha256": "6a7dc56372765e232068e18be34696d7f475d14d3bc171df0cb148e6ea9b4e2d"
+    },
+    "literal_encoding_substitution": null
+  },
+  {
+    "sample_number": 20,
+    "source_id": "247946d7ee26",
+    "stem": "Carre1969_Nanomia_tr",
+    "source_sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+    "physical_page": 23,
+    "prepared_page": null,
+    "source_literal": "¹ It is almost impossible",
+    "role": "footnote_control",
+    "docling_status": "excluded_by_source_page_selection",
+    "saved_markdown_status": "excluded_by_source_page_selection",
+    "chunks_status": "excluded_by_source_page_selection",
+    "keeppages": "1--21",
+    "assessment": "The source expression lies on a page excluded by the recorded library keeppages consumed by this build. No same expression from another page is substituted.",
+    "scientific_repair_status": "not_applicable",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 21,
+    "source_id": "046bfd15bb1c",
+    "stem": "Quoy_Gaimard1834Plates",
+    "source_sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+    "physical_page": 5,
+    "prepared_page": null,
+    "source_literal": null,
+    "role": "transcription_note_only",
+    "docling_status": "unscorable_source",
+    "saved_markdown_status": "unscorable_source",
+    "chunks_status": "unscorable_source",
+    "embedding_input_status": "unscorable_source",
+    "served_text_status": "unscorable_source",
+    "assessment": "Frozen source lead was not a printed expression; retained without replacement.",
+    "scientific_repair_status": "not_assessable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 22,
+    "source_id": "0500907a5f18",
+    "stem": "Totton1965b",
+    "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+    "physical_page": 5,
+    "prepared_page": 5,
+    "source_literal": "750–500 m.",
+    "role": "measurement_with_range",
+    "docling_status": "faithful",
+    "saved_markdown_status": "omitted",
+    "chunks_status": "omitted",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Physical5 TableI(A), station1772/netN7OV row. Exact value/units survive Docling child text121, but its parent is picture3 (table classified as a picture). No corresponding text remains in markdown/chunks; this is surface omission, not successful text recovery from image pixels.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/121"
+    ],
+    "candidate_chunk_ids": [],
+    "candidate_expression_context": "750-500 m.",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        176.2446708,
+        330.5382694624,
+        219.31372912813057,
+        335.7786060455723
+      ],
+      "provenance": {
+        "page_no": 5,
+        "bbox": {
+          "l": 176.2446708,
+          "t": 317.701232490725,
+          "r": 219.31372912813057,
+          "b": 312.4608959075527,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          10
+        ]
+      },
+      "matched_character_span": [
+        0,
+        10
+      ],
+      "source_crop_sha256": "257955ded3eddf424b11c385bbafff9a89f4d3f96188c724f1b7efbc3f3dcd51"
+    },
+    "literal_encoding_substitution": null
+  },
+  {
+    "sample_number": 23,
+    "source_id": "050303cabca3",
+    "stem": "DeHaan1827",
+    "source_sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+    "physical_page": 8,
+    "prepared_page": 7,
+    "source_literal": "1820—1821",
+    "role": "date_range_control",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "candidate_item_refs": [
+      "#/texts/83"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_18"
+    ],
+    "candidate_expression_context": "su  Berlin  1820-1821. S.  347.",
+    "assessment": "Source physical page 8 maps to prepared page 7 (keeppages 2--16). Local bibliography context and provenance identify the selected year range; endpoints and range role survive. Unrelated surrounding OCR spelling errors are not included in this expression grade.",
+    "scientific_repair_status": "no_admitted_repair",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes"
+  },
+  {
+    "sample_number": 24,
+    "source_id": "067dcf253503",
+    "stem": "Yamamori2014",
+    "source_sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+    "physical_page": 3,
+    "prepared_page": 3,
+    "source_literal": "31.5 m",
+    "role": "measurement",
+    "docling_status": "faithful",
+    "saved_markdown_status": "faithful",
+    "chunks_status": "faithful",
+    "embedding_input_status": "unavailable",
+    "served_text_status": "unavailable",
+    "assessment": "Physical3 Japanese prose below the table, first of three net-towing distances. Value31.5 and metre survive. The extensive corruption of surrounding Japanese prose is not a notation-success claim.",
+    "scientific_repair_status": "no_admitted_repair",
+    "candidate_artifact_set": "complete_baseline_6fb",
+    "later_candidate_contamination": "not_a_driver_of_the_Chen_or_original_exponent_fixes",
+    "candidate_item_refs": [
+      "#/texts/119"
+    ],
+    "candidate_chunk_ids": [
+      "chunk_23"
+    ],
+    "candidate_expression_context": "31.5 m",
+    "admitted_selected_operations": 0,
+    "correct_admitted_selected_operations": 0,
+    "source_review_repeated_20260922": true,
+    "candidate_region_evidence": {
+      "bbox_top_left": [
+        30.2129523,
+        352.79045999999994,
+        281.3435580927624,
+        475.02812811973797
+      ],
+      "provenance": {
+        "page_no": 3,
+        "bbox": {
+          "l": 30.2129523,
+          "t": 347.0495668554688,
+          "r": 281.3435580927624,
+          "b": 224.81189873573078,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          472
+        ]
+      },
+      "matched_character_span": [
+        4,
+        10
+      ],
+      "source_crop_sha256": "7d96ef8cef5c8b83767854b8d88c0d19eb60610c8e0274834b17c8789cce1732"
+    },
+    "literal_encoding_substitution": null
+  }
+]

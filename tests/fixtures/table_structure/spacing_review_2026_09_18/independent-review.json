@@ -1,0 +1,8 @@
+{
+  "reviewer": "fix_query_contracts",
+  "reviewed": "P4-source.png",
+  "boundary": "pellucidum | O.F.M.",
+  "grade": "unresolved",
+  "review": "Italic-to-roman transition separates name and authority semantically, but gap too narrow to establish explicit printed whitespace confidently; not an incorrect-repair finding.",
+  "reviewed_at_utc": "2026-09-18T20:03:15.724604+00:00"
+}

@@ -1,0 +1,14 @@
+{
+  "issue": 336,
+  "source_sha256": "21ff756cca596aa203a599b46c89a86a70cf68639ee045c884c2aa6a4cd4be0f",
+  "source_title": "Porifera Research: Biodiversity, Innovation and Sustainability (2007)",
+  "provenance": "Issue-derived regression, not a captured source extraction. Page numbers, Docling indices, Fig. 3/Fig. 4 caption openers and structural-link relationship are reported in issue #336. Geometry, panel wording and shortened caption prose below are synthetic. Original PDF and extraction artifacts were unavailable locally on 2026-09-21; source acceptance remains outstanding.",
+  "texts": [
+    {"text": "Fig. 3: Ammonia and nitrate plots. A, ammonia; B, nitrate; C, comparison.", "page": 178, "bbox": [50, 160, 550, 205]},
+    {"text": "Fig. 4: Phylogeny of the sampled organisms.", "page": 178, "bbox": [50, 60, 550, 110]}
+  ],
+  "pictures": [
+    {"docling_idx": 95, "page": 178, "bbox": [50, 220, 550, 700], "caption_index": 0},
+    {"docling_idx": 96, "page": 179, "bbox": [50, 200, 550, 700], "caption_index": null}
+  ]
+}

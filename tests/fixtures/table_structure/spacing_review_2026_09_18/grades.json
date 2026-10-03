@@ -1,0 +1,420 @@
+{
+  "population_sha256": "5e179cd3a822f317cc86e6a5e4c467557ab4b75f523a1641bc878b08e26d7c4b",
+  "graded_at_utc": "2026-09-18T20:02:01.836988+00:00",
+  "method": "Visual review of the original-library PDF line rasters at 400 dpi, after population freeze; native strings and recorded OCR are corroborating evidence only. Prior Bernstein preliminary-review conclusion disclosed in population. One reviewer; selected known cases, not blinded or random.",
+  "rows": [
+    {
+      "id": "P1",
+      "kind": "accepted_repair",
+      "grade": "correct",
+      "notes": "All eight proposed word boundaries are visible. The word count has no internal space.",
+      "boundary_grades": [
+        {
+          "offset": 9,
+          "grade": "correct"
+        },
+        {
+          "offset": 15,
+          "grade": "correct"
+        },
+        {
+          "offset": 21,
+          "grade": "correct"
+        },
+        {
+          "offset": 34,
+          "grade": "correct"
+        },
+        {
+          "offset": 42,
+          "grade": "correct"
+        },
+        {
+          "offset": 46,
+          "grade": "correct"
+        },
+        {
+          "offset": 49,
+          "grade": "correct"
+        },
+        {
+          "offset": 59,
+          "grade": "correct"
+        }
+      ],
+      "source_crop": "P1-source.png",
+      "source_crop_sha256": "18e75d03ca1be35513d66bd35908002d30640e5156508313fa3fce0f55b6c818"
+    },
+    {
+      "id": "P2",
+      "kind": "accepted_repair",
+      "grade": "correct",
+      "notes": "All seven proposed word boundaries are visible in the printed holotype sentence.",
+      "boundary_grades": [
+        {
+          "offset": 3,
+          "grade": "correct"
+        },
+        {
+          "offset": 11,
+          "grade": "correct"
+        },
+        {
+          "offset": 20,
+          "grade": "correct"
+        },
+        {
+          "offset": 24,
+          "grade": "correct"
+        },
+        {
+          "offset": 35,
+          "grade": "correct"
+        },
+        {
+          "offset": 38,
+          "grade": "correct"
+        },
+        {
+          "offset": 43,
+          "grade": "correct"
+        }
+      ],
+      "source_crop": "P2-source.png",
+      "source_crop_sha256": "4a19fbd8a87619f46d1d340f898746587e80c9d974c381f266ea0ebea3f432c8"
+    },
+    {
+      "id": "P3",
+      "kind": "accepted_repair",
+      "grade": "correct",
+      "notes": "All three proposed boundaries are visible in key lead 10. This input is an explicit historical-collapse reconstruction, not a new observed defect.",
+      "boundary_grades": [
+        {
+          "offset": 8,
+          "grade": "correct"
+        },
+        {
+          "offset": 18,
+          "grade": "correct"
+        },
+        {
+          "offset": 23,
+          "grade": "correct"
+        }
+      ],
+      "source_crop": "P3-source.png",
+      "source_crop_sha256": "4ca786bcebe5f972f3f72202b408e89442b4c38ac6449254b30767b83725b0bb"
+    },
+    {
+      "id": "P4",
+      "kind": "accepted_repair",
+      "grade": "unresolved",
+      "notes": "The genus/species boundary is visibly separated. The italic species epithet ends immediately beside the upright O; the raster does not establish the extra authority space confidently. Retain whole repair as unresolved rather than count it correct.",
+      "boundary_grades": [
+        {
+          "offset": 13,
+          "grade": "correct"
+        },
+        {
+          "offset": 23,
+          "grade": "unresolved"
+        }
+      ],
+      "source_crop": "P4-source.png",
+      "source_crop_sha256": "879e164531f4f137b5d25736ef889c90bd338f667eceb1d7b117c163623f8ffa"
+    },
+    {
+      "id": "G1",
+      "kind": "screened_run_no_geometric_proposal",
+      "grade": "unresolved",
+      "notes": "Source visibly separates were collected at Friday Harbor Laboratories between; the current geometric route proposes nothing. No produced repair is available to grade. This named remaining recovery gap is not a recall estimate.",
+      "boundary_grades": [],
+      "source_crop": "G1-source.png",
+      "source_crop_sha256": "9015a0266219af247cfe5ce52dd3dfa8dcad257846f83152e72c96b3147ab228"
+    },
+    {
+      "id": "G2",
+      "kind": "native_geometric_proposal",
+      "grade": "correct",
+      "notes": "All six geometric candidate boundaries agree with visible source word separations. Historical OCR decision is unavailable.",
+      "boundary_grades": [
+        {
+          "offset": 3,
+          "grade": "correct"
+        },
+        {
+          "offset": 11,
+          "grade": "correct"
+        },
+        {
+          "offset": 13,
+          "grade": "correct"
+        },
+        {
+          "offset": 21,
+          "grade": "correct"
+        },
+        {
+          "offset": 24,
+          "grade": "correct"
+        },
+        {
+          "offset": 38,
+          "grade": "correct"
+        }
+      ],
+      "source_crop": "G2-source.png",
+      "source_crop_sha256": "f168ebcb9550a2c2f2d7fcfbf33983546c23aaf18b9efcc359a14b3d0e712eb4"
+    },
+    {
+      "id": "G3",
+      "kind": "native_geometric_proposal",
+      "grade": "correct",
+      "notes": "All ten geometric candidate boundaries agree with visible source word separations. Historical OCR decision is unavailable.",
+      "boundary_grades": [
+        {
+          "offset": 2,
+          "grade": "correct"
+        },
+        {
+          "offset": 12,
+          "grade": "correct"
+        },
+        {
+          "offset": 19,
+          "grade": "correct"
+        },
+        {
+          "offset": 25,
+          "grade": "correct"
+        },
+        {
+          "offset": 28,
+          "grade": "correct"
+        },
+        {
+          "offset": 32,
+          "grade": "correct"
+        },
+        {
+          "offset": 43,
+          "grade": "correct"
+        },
+        {
+          "offset": 48,
+          "grade": "correct"
+        },
+        {
+          "offset": 52,
+          "grade": "correct"
+        },
+        {
+          "offset": 56,
+          "grade": "correct"
+        }
+      ],
+      "source_crop": "G3-source.png",
+      "source_crop_sha256": "9207d0382cda3464ee6948315a6d9db02272acdbadf715b978ec331f9b7f17f2"
+    },
+    {
+      "id": "G4",
+      "kind": "native_geometric_proposal",
+      "grade": "correct",
+      "notes": "All nine geometric candidate boundaries agree with visible source word separations. Historical OCR decision is unavailable.",
+      "boundary_grades": [
+        {
+          "offset": 3,
+          "grade": "correct"
+        },
+        {
+          "offset": 5,
+          "grade": "correct"
+        },
+        {
+          "offset": 9,
+          "grade": "correct"
+        },
+        {
+          "offset": 12,
+          "grade": "correct"
+        },
+        {
+          "offset": 16,
+          "grade": "correct"
+        },
+        {
+          "offset": 22,
+          "grade": "correct"
+        },
+        {
+          "offset": 25,
+          "grade": "correct"
+        },
+        {
+          "offset": 35,
+          "grade": "correct"
+        },
+        {
+          "offset": 38,
+          "grade": "correct"
+        }
+      ],
+      "source_crop": "G4-source.png",
+      "source_crop_sha256": "416c0d5357b4ce0adb480142c64a24cac97bbaf986155a77fb9b553427bd5eff"
+    },
+    {
+      "id": "N1",
+      "kind": "unchanged_clean_source",
+      "grade": "correct",
+      "notes": "Already-spaced source key phrase stays unchanged; this shares a source region with the controlled reconstruction and is not an independent positive.",
+      "boundary_grades": [],
+      "source_crop": "N1-source.png",
+      "source_crop_sha256": "4ca786bcebe5f972f3f72202b408e89442b4c38ac6449254b30767b83725b0bb"
+    },
+    {
+      "id": "N2",
+      "kind": "unchanged_source_printed_closed_run",
+      "grade": "correct",
+      "notes": "Source prints the full closed phrase without word spaces. Preserving that typography is correct, even though a detector flags a long run.",
+      "boundary_grades": [],
+      "source_crop": "N2-source.png",
+      "source_crop_sha256": "4ae2e20cd78cc02b72f7770ccd817189a4efaf8e9bb03458016305474bcfab5f"
+    },
+    {
+      "id": "N3",
+      "kind": "unchanged_morphological_word",
+      "grade": "correct",
+      "notes": "Nectophoral is one uninterrupted printed morphological word and remains intact.",
+      "boundary_grades": [],
+      "source_crop": "N3-source.png",
+      "source_crop_sha256": "5fc06bf6a291440625b60e147b3ca6c807c6cedf59e329924658e3c70e80c8a4"
+    },
+    {
+      "id": "N4",
+      "kind": "unchanged_german_long_word_native_reconstruction",
+      "grade": "correct",
+      "notes": "Einzelinformationen is one uninterrupted printed German word. It has 19 letters and only controls the issue’s 18-letter screening heuristic; it does not exercise the 20-letter repair threshold.",
+      "boundary_grades": [],
+      "source_crop": "N4-source.png",
+      "source_crop_sha256": "f38dfe57e3d5d54722a8048ede8312abd99d099adc15a0bff5649b47a03f1de3"
+    },
+    {
+      "id": "N5",
+      "kind": "rejected_ocr_only_split",
+      "grade": "correct",
+      "notes": "Source prints count as one word. The saved mode-6 cou nt hypothesis is rejected because native glyph geometry supplies no such boundary; no fresh OCR is claimed.",
+      "boundary_grades": [],
+      "source_crop": "P1-source.png",
+      "source_crop_sha256": "18e75d03ca1be35513d66bd35908002d30640e5156508313fa3fce0f55b6c818"
+    }
+  ],
+  "denominators": {
+    "actual_produced_repairs": {
+      "row_ids": [
+        "P1",
+        "P2",
+        "P4"
+      ],
+      "records": 3,
+      "correct": 2,
+      "incorrect": 0,
+      "unresolved": 1,
+      "boundaries": {
+        "total": 17,
+        "correct": 16,
+        "incorrect": 0,
+        "unresolved": 1
+      },
+      "strata": {
+        "captured_named_docling_proposals_replayed_with_recorded_evidence": {
+          "row_ids": [
+            "P1",
+            "P2"
+          ],
+          "correct": 2,
+          "total": 2
+        },
+        "actual_frozen_6fb_gold_output": {
+          "row_ids": [
+            "P4"
+          ],
+          "correct": 0,
+          "unresolved": 1,
+          "total": 1
+        }
+      },
+      "interpretation": "2 of 3 complete produced repairs independently confirmed; 1 unresolved. This is not a claim of 100% precision based on excluding unresolved cases."
+    },
+    "controlled_reported_legacy_reconstruction": {
+      "row_ids": [
+        "P3"
+      ],
+      "correct": 1,
+      "incorrect": 0,
+      "unresolved": 0,
+      "total": 1,
+      "correct_boundaries": 3
+    },
+    "additional_native_geometric_candidates": {
+      "row_ids": [
+        "G2",
+        "G3",
+        "G4"
+      ],
+      "correct": 3,
+      "incorrect": 0,
+      "unresolved": 0,
+      "total": 3,
+      "correct_boundaries": 25,
+      "historical_accepted_repair_denominator": null,
+      "limitation": "All three visible source-boundary proposals graded. Exact historical OCR outputs and accept/reject identities were not retained; the earlier two accepted/one disagreement aggregate cannot establish accepted-repair precision."
+    },
+    "captured_run_without_proposal": {
+      "row_ids": [
+        "G1"
+      ],
+      "total": 1,
+      "visible_missing_boundaries": true,
+      "produced_repair_precision_denominator": 0
+    },
+    "unchanged_or_rejected_controls": {
+      "row_ids": [
+        "N1",
+        "N2",
+        "N3",
+        "N4",
+        "N5"
+      ],
+      "correct": 5,
+      "incorrect": 0,
+      "unresolved": 0,
+      "total": 5,
+      "limitation": "Includes a shared source region, a below-repair-threshold native German reconstruction, and an OCR-only hypothesis. Not a false-positive-rate population."
+    }
+  },
+  "missing_receipts": {
+    "searched": [
+      "/tmp/table-integrity-source",
+      "/tmp/corpus-v15-independent-text-review",
+      "/tmp/corpus-*.log",
+      "/tmp/corpus-* JSON receipts outside repository fixture trees"
+    ],
+    "confirmed_by_original_capture_agent": "Only primary DuClos saved crop and two OCR strings retained; full raw Docling page remains available. Two additional accepted and one disagreement were aggregate operational observations, with no retained all-proposal OCR receipt.",
+    "no_new_ocr_run": true
+  },
+  "source_hashes_verified_after_grading": {
+    "/home/claude/repos/siphonophores/library/D_E/DuClos_etal2022.pdf": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+    "/home/claude/repos/siphonophores/library/H_J/Hissmann2005.pdf": "25eb8dd8d21d3004299b3ae5a26714720ad1702cc53b22cc4a81180c55492210",
+    "/home/claude/repos/siphonophores/library/M/Mapstone2009.pdf": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+    "/home/claude/repos/siphonophores/library/B/Bernstein1934.pdf": "d9623d970b33843a16864d4338c8235772b0c614b3ece23709bac7128678be37",
+    "/home/claude/repos/siphonophores/library/B/Boysen-Ennen1987.pdf": "88f1c8dfbd5ca3058449c02027fa8219eb53b426324cb2694a8d502a40682fb5"
+  },
+  "production_changes": false,
+  "remaining": [
+    "Resolve or explicitly retain Bernstein authority-boundary uncertainty.",
+    "Recover missing DuClos decision receipts or run and retain a separately authorized future fresh OCR capture; it cannot retrospectively prove historical decisions.",
+    "No demonstrated source-space recovery for G1 under this bounded route.",
+    "Named downstream annotation/embedding regeneration and final-candidate whole-corpus source acceptance remain separate gates.",
+    "No corpus-wide precision, recall, detector-error total, or release/issue closure claim."
+  ]
+}

@@ -10,6 +10,7 @@ import asyncio
 import base64
 import io
 import json
+import math
 import os
 from pathlib import Path
 import secrets
@@ -35,6 +36,67 @@ def _inventory(root):
             for p in root.rglob("*") if p.is_file()}
 
 
+def _discover_panel(root):
+    """Choose a real strict crop that the server can decode within its limits.
+
+    Legacy records can describe enormous source images or have stale width/
+    height metadata. Inspect the actual file header and use the same integer
+    coordinates as the server; a tiny ROI does not exempt its source from the
+    source-image limits. Image acceptance still requires a nonblank crop.
+    """
+    from mcpsrv.figure_cache import MAX_IMAGE_PIXELS, MAX_SOURCE_BYTES, figure_path
+    candidates = []
+    for hd in sorted((root / "documents").iterdir()):
+        path = hd / "figures.json"
+        if not path.is_file():
+            continue
+        for figure in json.loads(path.read_text()).get("figures", []):
+            if not figure.get("rois"):
+                continue
+            try:
+                source = figure_path(hd, figure)
+                if source.stat().st_size > MAX_SOURCE_BYTES:
+                    continue
+                with Image.open(source) as image:
+                    width, height = image.size
+                if not (width > 0 and height > 0 and width * height <= MAX_IMAGE_PIXELS):
+                    continue
+            except (OSError, ValueError, Image.DecompressionBombError):
+                continue
+            labels = set()
+            for roi in figure["rois"]:
+                label, box = roi.get("label"), roi.get("roi_px")
+                if not isinstance(label, str) or not label or not box or label in labels:
+                    continue
+                # The serving path selects the first pixel ROI for a label.
+                labels.add(label)
+                if not isinstance(box, (list, tuple)) or len(box) != 4 or not all(
+                    isinstance(v, (int, float)) and math.isfinite(v) for v in box
+                ):
+                    continue
+                x0, y0, x1, y1 = (int(v) for v in box)
+                if not (0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height):
+                    continue
+                area_ratio = ((x1 - x0) * (y1 - y0)) / (width * height)
+                if area_ratio >= 1:
+                    continue
+                candidates.append((area_ratio, source, (x0,y0,x1,y1), {
+                    "paper_hash": hd.name, "figure_id": figure["figure_id"], "label": label,
+                }))
+    for _, source, box, panel in sorted(candidates, key=lambda item: item[0]):
+        try:
+            with Image.open(source) as image:
+                extrema = image.crop(box).convert("RGB").getextrema()
+            if any(low != high for low, high in extrema):
+                return panel
+        except (OSError, ValueError, Image.DecompressionBombError):
+            continue
+    raise AssertionError(
+        "Acceptance requires a nonblank strict pixel crop within the actual source dimensions, "
+        f"{MAX_IMAGE_PIXELS}-pixel and {MAX_SOURCE_BYTES}-byte server source limits"
+    )
+
+
 def _discover(root):
     from mcpsrv.indexes import BiblioAuthority, CorpusIndex, TaxonMentionDB
     from pipeline.taxa import TaxonomyDB
@@ -51,32 +113,7 @@ def _discover(root):
     term = next(iter(idx.lexicon_to_papers[category]))
     work = idx.biblio_db.get_work_by_corpus_hash(sha)
     assert work, "Selected paper must have a bibliographic work"
-    panel_candidates = []
-    for hd in sorted((root / "documents").iterdir()):
-        path = hd / "figures.json"
-        if not path.is_file():
-            continue
-        for figure in json.loads(path.read_text()).get("figures", []):
-            for roi in figure.get("rois", []):
-                box = roi.get("roi_px")
-                width, height = figure.get("width"), figure.get("height")
-                if not (box and roi.get("label") and width and height):
-                    continue
-                x0, y0, x1, y1 = box
-                if not (0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height):
-                    continue
-                area_ratio = ((x1 - x0) * (y1 - y0)) / (width * height)
-                if area_ratio >= 1:
-                    continue
-                panel_candidates.append((area_ratio, {
-                    "paper_hash": hd.name,
-                    "figure_id": figure["figure_id"],
-                    "label": roi["label"],
-                }))
-    assert panel_candidates, (
-        "Acceptance requires an actual strict pixel crop, not a full-image ROI"
-    )
-    panel = min(panel_candidates, key=lambda item: item[0])[1]
+    panel = _discover_panel(root)
     for db in (idx.biblio_db, idx.taxonomy_db, idx.taxon_mention_db):
         db.conn.close()
     return paper, chunks[0], taxon, category, term, work, panel
@@ -186,6 +223,33 @@ def test_live_recipes_cover_the_frozen_tool_inventory():
         schema = contracts[name]["input_schema"]
         assert set(schema.get("required", [])) <= set(args), name
         assert set(args) <= set(schema.get("properties", {})), name
+
+
+def test_panel_discovery_uses_actual_source_limits_and_nonblank_integer_crop(tmp_path,monkeypatch):
+    from mcpsrv import figure_cache
+    monkeypatch.setattr(figure_cache, "MAX_IMAGE_PIXELS", 5000)
+    directory = tmp_path / "documents" / "abc"
+    (directory / "figures").mkdir(parents=True)
+    records = []
+    for name, size, rois in (
+        ("oversized",(100,100),[{"label":"A","roi_px":[0,0,2,2]}]),
+        ("empty",(40,40),[{"label":"A","roi_px":[0,0,2,2]}]),
+        ("valid",(40,40),[{"label":"A","roi_px":[0,0,40,40]},
+                          {"label":"B","roi_px":[0,0,0.9,0.9]},
+                          {"label":"C","roi_px":[0,0,41,30]},
+                          {"label":"D","roi_px":[0,0,20,20]}]),
+    ):
+        image = Image.new("RGB",size,"white")
+        image.paste("black",(8,8,16,16))
+        image.save(directory / "figures" / (name+".png"))
+        records.append({"figure_id":name,"filename":name+".png", "rois":rois,
+                        "width":1000,"height":1000})  # Stale metadata cannot admit a full-image crop.
+    (directory / "figures.json").write_text(json.dumps({"figures":records}))
+    assert _discover_panel(tmp_path)=={"paper_hash":"abc","figure_id":"valid","label":"D"}
+    # Acceptance must fail, not silently skip, when all source files exceed a limit.
+    monkeypatch.setattr(figure_cache,"MAX_SOURCE_BYTES",1)
+    with pytest.raises(AssertionError,match="server source limits"):
+        _discover_panel(tmp_path)
 
 
 @pytest.mark.skipif(not os.environ.get("CORPUS_TEST_BUNDLE"), reason="opt-in real read-only bundle acceptance")

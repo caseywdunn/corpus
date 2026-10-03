@@ -1,0 +1,41 @@
+{
+  "prepared_at_utc": "2026-09-22T16:14:13.889739+00:00",
+  "working_directory": "/tmp/corpus-correctness-validation",
+  "git_revision": "d0014a34d48e45ff3fedb6f2f77ce09eec8e92ad",
+  "args": [
+    "/home/claude/miniforge3/envs/corpus/bin/python",
+    "tools/qc/retrieval.py",
+    "capture",
+    "--manifest",
+    "/tmp/corpus-correctness-validation/dev_docs/examples/siphonophore_retrieval_review_2026_09_22/manifest.frozen.json",
+    "--output-dir",
+    "/home/claude/corpuscles/siphonophore_20260831/_serve",
+    "--label",
+    "retained-v1.2.1-full-diagnostic-20260922",
+    "--role",
+    "reference",
+    "--out",
+    "/tmp/corpus-issue320-retained-capture-20260922/capture.json"
+  ],
+  "explicit_environment": {
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "CORPUS_DEVICE": "cpu",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "RAYON_NUM_THREADS": "1",
+    "TOKENIZERS_PARALLELISM": "false"
+  },
+  "manifest_file_sha256": "c56207d4335861e33ce90d5c599e0abe5a3e2379e9355ccb3e610b41b1259b07",
+  "evaluator_sha256": "f7e4da7f5751d7cc226fa3cd0b2e03a51a4ad1f3ef742ccf7dc7dd019bf6b4a1",
+  "packages": {
+    "torch": "2.12.0",
+    "sentence-transformers": "5.5.0",
+    "lancedb": "0.36.0",
+    "pyarrow": "25.0.0",
+    "transformers": "5.8.1"
+  },
+  "display_policy": "Only fixed audit/prose/historical outcomes may be displayed before candidate policy freeze; retain but do not inspect independent ranks/scores/aggregate gates.",
+  "scope": "Read-only retained1.2.1 full-population diagnostic baseline; not audited1.4 or candidate improvement."
+}

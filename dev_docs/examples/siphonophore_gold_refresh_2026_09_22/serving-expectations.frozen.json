@@ -1,0 +1,528 @@
+{
+  "status": "frozen",
+  "freeze_kind": "before_vector_and_MCP_verification",
+  "source_grade_revision": "b26763f21408f3257e40e5c6136a9bae9c07cb28",
+  "review_results": {
+    "path": "/tmp/corpus-gold-serving-verification-20260922/frozen-review/results.json",
+    "sha256": "f99a3d716efdd1135f5c0c6cb1a743b66d90b2e48fe849d617de7104f35c2c0a",
+    "origin_repo_path": "tests/fixtures/text_integrity/source_review/current_ab6353f/results.json",
+    "origin_git_revision": "b26763f21408f3257e40e5c6136a9bae9c07cb28"
+  },
+  "source_labels": {
+    "path": "/tmp/corpus-gold-serving-verification-20260922/frozen-review/labels.json",
+    "sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+    "origin_repo_path": "tests/fixtures/text_integrity/source_review/labels.json",
+    "origin_git_revision": "b26763f21408f3257e40e5c6136a9bae9c07cb28"
+  },
+  "review_summary": {
+    "path": "/tmp/corpus-gold-serving-verification-20260922/frozen-review/graded-summary.json",
+    "sha256": "0622d70805600aa85a2c69c974dc7fb0014d53674e0a9429c84b0e91a2ad25f5",
+    "origin_repo_path": "tests/fixtures/text_integrity/source_review/current_ab6353f/graded-summary.json",
+    "origin_git_revision": "b26763f21408f3257e40e5c6136a9bae9c07cb28"
+  },
+  "captured_region_context": {
+    "path": "/tmp/corpus-v15-notation-current-final/region-candidates.json",
+    "sha256": "9f2d1dfdd0a7489210f0296f1f944931041158f37b0eb8338b97ac164f28d87d"
+  },
+  "selection_policy": "All current committed source-review rows with surface_status.chunks=faithful; no difficult-case replacement and no new source grading.",
+  "pattern_policy": "Whitespace tolerance only except exact already-adjudicated current glyph variants retained literally. Surrounding context identifies the selected occurrence; it does not grade the rest of its paragraph. Matching additionally requires its exact materialized source item reference.",
+  "counts": {
+    "source_review_rows": 24,
+    "positive_checks": 14,
+    "positive_papers": 8,
+    "outside_positive_checks": 10
+  },
+  "expectations": [
+    {
+      "sample_number": 1,
+      "source_review_id": "1a75487cf77c",
+      "paper_hash": "2da3e5f7da3c",
+      "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "physical_page": 11,
+      "prepared_page": 11,
+      "source_literal": "ind. · 10 m⁻³",
+      "source_item_refs": [
+        "#/texts/126"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_88"
+      ],
+      "pattern": "ind\\.\\s*·\\s*10\\s+m⁻³",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_88",
+          "expression": "ind. · 10 m⁻³"
+        }
+      ],
+      "source_assessment": "Exact selected Fig. 7 caption retains scale 10 and raised negative 3. Selected caption, both caption-candidate copies and caption fragments in figures.json agree.",
+      "current_artifact_key": "cac744e279e07ae61f942ec2dc25f18ad27ff4fc8310d6e4945500d8a944c605",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 2,
+      "source_review_id": "27e85acb1db6",
+      "paper_hash": "2da3e5f7da3c",
+      "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "physical_page": 5,
+      "prepared_page": 5,
+      "source_literal": "265 ind.·1000 m⁻³",
+      "source_item_refs": [
+        "#/texts/67"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_37"
+      ],
+      "pattern": "transect\\s+EB\\s+\\(265\\s+ind\\.·1000\\s+m⁻³",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_37",
+          "expression": "transect  EB  (265  ind.·1000  m⁻³"
+        }
+      ],
+      "source_assessment": "Selected EB occurrence, not the earlier N occurrence: repair charspan [347,350], source bbox [545.3289794921875,505.01611328125,554.6716918945312,513.7022094726562]. Exactly one of the six exponent repairs in this paragraph is the selected expression.",
+      "current_artifact_key": "cac744e279e07ae61f942ec2dc25f18ad27ff4fc8310d6e4945500d8a944c605",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 4,
+      "source_review_id": "55a1eb90fba6",
+      "paper_hash": "726d507fcca4",
+      "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+      "physical_page": 2,
+      "prepared_page": 2,
+      "source_literal": "mg/m³",
+      "source_item_refs": [
+        "#/texts/28"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_10"
+      ],
+      "pattern": "surface\\s+chlorophll\\s+a\\s*\\(\\s*Cha\\s+s\\s*，\\s*mg/m³\\s*\\)",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_10",
+          "expression": "surface chlorophll a ( Cha s ， mg/m³ )"
+        }
+      ],
+      "source_assessment": "Fresh full-document extraction: physical source page2, English abstract first/surface chlorophyll unit retains mg/m³. The middle/bottom units do not substitute for this occurrence. Source crop04 was re-viewed; candidate item geometry and linked chunk agree. Current CMap receipt belongs to texts28 and retains local exponent raster proof. Other unresolved hyphens are outside the selected expression.",
+      "current_artifact_key": "e7aba119e2833f31513b96c180ec53ee41e738e61076559e6d2b23879c8256f7",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 5,
+      "source_review_id": "0278e9920e8f",
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 113,
+      "prepared_page": 113,
+      "source_literal": "specimen 581, × 21",
+      "source_item_refs": [
+        "#/texts/1763"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_541"
+      ],
+      "pattern": "specimen\\s+581,\\s+X\\s+21\\b",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_541",
+          "expression": "specimen  581,  X  21"
+        }
+      ],
+      "source_assessment": "Original specimen581 caption magnification×21 is retained as X21; literal multiplication-glyph substitution is accepted only for this unambiguous source caption magnification. Frozen original crop was re-viewed; current source-region bbox/item identity, saved markdown and all linked chunks were inspected. Chunk boundaries differ from the baseline, so the current chunk identity is retained. No selected scientific repair was admitted.",
+      "current_artifact_key": "6e08b164499c2b204e8b5bf63db1209d694d23b8c3d14306d330048b21605e91",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 6,
+      "source_review_id": "03a66f71be61",
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 168,
+      "prepared_page": 168,
+      "source_literal": "St. 217, × 7·1",
+      "source_item_refs": [
+        "#/texts/2588"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_816"
+      ],
+      "pattern": "St\\.\\s+217,\\s+X\\s+7\\.1\\b",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_816",
+          "expression": "St.  217, X  7.1"
+        }
+      ],
+      "source_assessment": "Original station217 caption magnification×7·1 is retained as X7.1. Both literal glyph and decimal-point substitutions are recorded; nearby station36×5.2 is not the selected occurrence. Frozen original crop was re-viewed; current source-region bbox/item identity, saved markdown and all linked chunks were inspected. Chunk boundaries differ from the baseline, so the current chunk identity is retained. No selected scientific repair was admitted.",
+      "current_artifact_key": "6e08b164499c2b204e8b5bf63db1209d694d23b8c3d14306d330048b21605e91",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 7,
+      "source_review_id": "097ce324791d",
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 87,
+      "prepared_page": 87,
+      "source_literal": "St. 681, × 3·2",
+      "source_item_refs": [
+        "#/texts/1370"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_406"
+      ],
+      "pattern": "St\\.\\s+681,\\s+x\\s+3\\.2\\b",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_406",
+          "expression": "St.  681,  x  3.2"
+        }
+      ],
+      "source_assessment": "Original station681 caption magnification×3·2 is retained as x3.2. Both literal substitutions are recorded; station699 and1769 values are not substituted for the selected occurrence. Frozen original crop was re-viewed; current source-region bbox/item identity, saved markdown and all linked chunks were inspected. Chunk boundaries differ from the baseline, so the current chunk identity is retained. No selected scientific repair was admitted.",
+      "current_artifact_key": "6e08b164499c2b204e8b5bf63db1209d694d23b8c3d14306d330048b21605e91",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 8,
+      "source_review_id": "2af9bc6e317b",
+      "paper_hash": "726d507fcca4",
+      "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+      "physical_page": 8,
+      "prepared_page": 8,
+      "source_literal": "R = 0.596",
+      "source_item_refs": [
+        "#/texts/112"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_51"
+      ],
+      "pattern": "Ｒ\\s*=0．\\s*596\\b",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_51",
+          "expression": "Ｒ =0． 596"
+        }
+      ],
+      "source_assessment": "Fresh full-document extraction: physical source page8 Anosim sentence retains R=0.596. Fullwidth Latin R and decimal punctuation preserve the value. Source crop08 was re-viewed; the local paragraph, geometry and linked chunk agree. The adjacent P value is not substituted for R.",
+      "current_artifact_key": "e7aba119e2833f31513b96c180ec53ee41e738e61076559e6d2b23879c8256f7",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 9,
+      "source_review_id": "00c7b77f7882",
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 28,
+      "prepared_page": 28,
+      "source_literal": "30 m",
+      "source_item_refs": [
+        "#/texts/489"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_120"
+      ],
+      "pattern": "bis\\s+zu\\s+30\\s+m\\s+Tiefe",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_120",
+          "expression": "bis  zu  30  m  Tiefe"
+        }
+      ],
+      "source_assessment": "Physalia tentacle-depth sentence on physical28:30metres. Other neighboring cm and mm values are not substituted for this occurrence; surrounding German OCR spelling remains outside the frozen expression grade.",
+      "current_artifact_key": "4feead124bace13fab16f042cd5a548dbfccb34750859b58ab99ebd951ec27ab",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 11,
+      "source_review_id": "0402e706ecdd",
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 4,
+      "prepared_page": 4,
+      "source_literal": "1250 m.–800 m.",
+      "source_item_refs": [
+        "#/texts/33"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_9"
+      ],
+      "pattern": "1250\\s+m\\.-800\\s+m\\.",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_9",
+          "expression": "1250 m.-800 m."
+        }
+      ],
+      "source_assessment": "Physical4 station1587 prose haul interval1250–800m. Table repetition is a distinct source occurrence and does not establish this selected occurrence.",
+      "current_artifact_key": "73dc5c07cf55dab6bfe0963449d7387d0e4cc2314025a96b3b32aafc7401c74c",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 14,
+      "source_review_id": "0199789c3c2a",
+      "paper_hash": "d183f5012c54",
+      "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+      "physical_page": 4,
+      "prepared_page": 4,
+      "source_literal": "0.14–0.24",
+      "source_item_refs": [
+        "#/tables/0"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_45"
+      ],
+      "pattern": "Tesserogastria\\s+musculosa\\s*\\|\\s*0\\.14-0\\.24\\b",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_45",
+          "expression": "Tesserogastria musculosa | 0.14-0.24"
+        }
+      ],
+      "source_assessment": "Original physical page4 table row Tesserogastria musculosa prints 0.14–0.24 under egg diameter in mm. The current logical table row18/column1, exported markdown and linked chunk45 retain the selected numeric range; the chunk table headers retain Диаметр яйца, мм. Table layout elsewhere changed, so this is a new source judgment rather than inherited artifact equality. No admitted repair is selected for this occurrence.",
+      "current_artifact_key": "d5e012fd9c4140af97a9f01a69a7797d7ecfa551e4f9ab7fad04063db9a72473",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 18,
+      "source_review_id": "092a36f1b337",
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 2,
+      "prepared_page": 2,
+      "source_literal": "*) Beiträge zur näheren Kenntnis",
+      "source_item_refs": [
+        "#/texts/11"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_10"
+      ],
+      "pattern": "\\*\\)\\s+Beiträge\\s+zur\\s+näheren\\s+Kenntnis",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_10",
+          "expression": "*) Beiträge  zur  näheren  Kenntnis"
+        }
+      ],
+      "source_assessment": "Physical2 bottom bibliographic footnote. Asterisk and closing parenthesis survive, with explicit Docling footnote label. The asterisk is not converted to multiplication/power.",
+      "current_artifact_key": "4feead124bace13fab16f042cd5a548dbfccb34750859b58ab99ebd951ec27ab",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 19,
+      "source_review_id": "0cd75bab08f6",
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 5,
+      "prepared_page": 5,
+      "source_literal": "Cunningham**)",
+      "source_item_refs": [
+        "#/texts/61"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_25"
+      ],
+      "pattern": "Cunningham\\*\\*\\)",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_25",
+          "expression": "Cunningham**)"
+        }
+      ],
+      "source_assessment": "Physical5 body phrase nach Cunningham**) bei Plymouth: both footnote asterisks survive attached to the surname; terminalm is not misinterpreted as metre.",
+      "current_artifact_key": "4feead124bace13fab16f042cd5a548dbfccb34750859b58ab99ebd951ec27ab",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 23,
+      "source_review_id": "050303cabca3",
+      "paper_hash": "af5655bdeaae",
+      "source_sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+      "physical_page": 8,
+      "prepared_page": 7,
+      "source_literal": "1820—1821",
+      "source_item_refs": [
+        "#/texts/83"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_18"
+      ],
+      "pattern": "1820-1821",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_18",
+          "expression": "1820-1821"
+        }
+      ],
+      "source_assessment": "Source physical page 8 maps to prepared page 7 (keeppages 2--16). Local bibliography context and provenance identify the selected year range; endpoints and range role survive. Unrelated surrounding OCR spelling errors are not included in this expression grade.",
+      "current_artifact_key": "14104b35cdda671027a4fb0c549250ada2f3447ffc5f0a8312b667a0e33cdca7",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    },
+    {
+      "sample_number": 24,
+      "source_review_id": "067dcf253503",
+      "paper_hash": "cb1834694c26",
+      "source_sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+      "physical_page": 3,
+      "prepared_page": 3,
+      "source_literal": "31.5 m",
+      "source_item_refs": [
+        "#/texts/119"
+      ],
+      "reviewed_chunk_ids": [
+        "chunk_23"
+      ],
+      "pattern": "\\b31\\.5\\s+m\\b",
+      "frozen_current_surface_matches": [
+        {
+          "chunk_id": "chunk_23",
+          "expression": "31.5 m"
+        }
+      ],
+      "source_assessment": "Physical3 Japanese prose below the table, first of three net-towing distances. Value31.5 and metre survive. The extensive corruption of surrounding Japanese prose is not a notation-success claim.",
+      "current_artifact_key": "aca813ad59b02352dca3ec298f676b1df1472157c22de052164ce552cc131e4f",
+      "claim": "Propagation of this already source-graded current occurrence only; exact text/headings are separately checked for all vector and served rows."
+    }
+  ],
+  "outside_positive_checks": [
+    {
+      "sample_number": 3,
+      "source_review_id": "2f14b09546d6",
+      "paper_hash": "2da3e5f7da3c",
+      "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "physical_page": 6,
+      "source_literal": "Total abundance [ind.·1000 m⁻³]",
+      "chunk_status": "omitted",
+      "assessment": "Source Fig. 3 right axis occupies the selected region; candidate region is picture #/pictures/5 with no text item for the axis. Fig. 3 caption #/texts/79 contains another inverse-volume unit, but that is a different source occurrence and is not counted. Figure pixels retained does not establish machine-readable axis text.",
+      "candidate_item_refs": [
+        "#/pictures/5"
+      ],
+      "candidate_chunk_ids": []
+    },
+    {
+      "sample_number": 10,
+      "source_review_id": "0139dd6d0694",
+      "paper_hash": "02049c8322a1",
+      "source_sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+      "physical_page": 6,
+      "source_literal": "50 m",
+      "chunk_status": "excluded_by_source_page_selection",
+      "assessment": "excluded_by_source_page_selection",
+      "candidate_item_refs": [],
+      "candidate_chunk_ids": []
+    },
+    {
+      "sample_number": 12,
+      "source_review_id": "04e0937cdf57",
+      "paper_hash": "c806191c35c4",
+      "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+      "physical_page": 2,
+      "source_literal": "23.4 ° C",
+      "chunk_status": "excluded_by_source_page_selection",
+      "assessment": "excluded_by_source_page_selection",
+      "candidate_item_refs": [],
+      "candidate_chunk_ids": []
+    },
+    {
+      "sample_number": 13,
+      "source_review_id": "00a85f3043cb",
+      "paper_hash": "726d507fcca4",
+      "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+      "physical_page": 3,
+      "source_literal": "1994-2018",
+      "chunk_status": "omitted",
+      "assessment": "Fresh full-document extraction: original grey footer1994–2018 has no overlapping text/table/picture item, source-aligned chunk, or dash-tolerant markdown occurrence. Omitted footer text is not an incorrect admitted repair.",
+      "candidate_item_refs": [],
+      "candidate_chunk_ids": []
+    },
+    {
+      "sample_number": 15,
+      "source_review_id": "029478ab50d3",
+      "paper_hash": "8419592108f2",
+      "source_sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+      "physical_page": 9,
+      "source_literal": "33.5-35 ‰",
+      "chunk_status": "excluded_by_source_page_selection",
+      "assessment": "excluded_by_source_page_selection",
+      "candidate_item_refs": [],
+      "candidate_chunk_ids": []
+    },
+    {
+      "sample_number": 16,
+      "source_review_id": "04003de47a1a",
+      "paper_hash": "d183f5012c54",
+      "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+      "physical_page": 8,
+      "source_literal": "0.3–10 мм³",
+      "chunk_status": "corrupted",
+      "assessment": "Original physical page8 clearly prints 0.3–10 мм³. The current aligned text125, saved markdown and linked chunk97 still contain 0.3-10 мм'. The original-source recovery explicitly leaves this occurrence unresolved with digit_ocr_disagreement; no exponent is guessed. Nearby 2000 мм³ is repaired, but is a different occurrence and earns no credit for this selected row. The retained wrong unit is a fidelity/recall failure, not an incorrect admitted repair.",
+      "candidate_item_refs": [
+        "#/texts/125"
+      ],
+      "candidate_chunk_ids": [
+        "chunk_97"
+      ]
+    },
+    {
+      "sample_number": 17,
+      "source_review_id": "0890f50333fd",
+      "paper_hash": "355362e39e58",
+      "source_sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+      "physical_page": 13,
+      "source_literal": "¹ In some species of Membranipora",
+      "chunk_status": "fidelity_indeterminate",
+      "assessment": "Docling explicitly labels the aligned node footnote, preserving semantic marker role, but its plain text has baseline 1. Markdown/chunk merge it into prose with baseline 1 and no explicit footnote role field. This does not invent a scientific exponent; whether the text-only output adequately preserves the required footnote marker role is left indeterminate rather than forced to success. See assessment clarification.",
+      "candidate_item_refs": [
+        "#/texts/101"
+      ],
+      "candidate_chunk_ids": [
+        "chunk_35"
+      ]
+    },
+    {
+      "sample_number": 20,
+      "source_review_id": "247946d7ee26",
+      "paper_hash": "e26feaa4013f",
+      "source_sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+      "physical_page": 23,
+      "source_literal": "¹ It is almost impossible",
+      "chunk_status": "excluded_by_source_page_selection",
+      "assessment": "excluded_by_source_page_selection",
+      "candidate_item_refs": [],
+      "candidate_chunk_ids": []
+    },
+    {
+      "sample_number": 21,
+      "source_review_id": "046bfd15bb1c",
+      "paper_hash": "79e8dac842f6",
+      "source_sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+      "physical_page": 5,
+      "source_literal": null,
+      "chunk_status": "unscorable_source",
+      "assessment": "unscorable_source",
+      "candidate_item_refs": [],
+      "candidate_chunk_ids": []
+    },
+    {
+      "sample_number": 22,
+      "source_review_id": "0500907a5f18",
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 5,
+      "source_literal": "750–500 m.",
+      "chunk_status": "omitted",
+      "assessment": "The current refresh retains the correct selected750–500m depth in source-aligned Docling text121 beside station1772/text119 and netN70V/text120. It remains a child of picture3. There is no linked chunk and no dash-tolerant750–500m match in the whole saved markdown or chunks. This is a current table-to-picture text omission in the broader source-recall stratum, not a wrong admitted notation repair. Original crop22 was re-viewed; historical and current identities are separate.",
+      "candidate_item_refs": [
+        "#/texts/121"
+      ],
+      "candidate_chunk_ids": []
+    }
+  ],
+  "limits": [
+    "The 14 positive propagation checks are not a new 14/14 source-fidelity or scientific precision/recall score.",
+    "Rows3/13/22 remain omissions; row16 remains corrupted and explicitly unresolved; row17 remains role-indeterminate; rows10/12/15/20 remain excluded by source page selection; row21 was not printed.",
+    "Source glyph differences in caption magnifications, fullwidth Chinese punctuation and dash substitutions are disclosed by the existing source assessments, not silently relabeled lossless.",
+    "Source rows4/8 do not establish complete Chinese paragraph accuracy; row24 does not establish surrounding Japanese prose accuracy.",
+    "Frozen source labels remain unchanged. Vector/MCP verification has not run and is pending coordinator authorization."
+  ]
+}

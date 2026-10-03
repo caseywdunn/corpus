@@ -217,3 +217,133 @@ def test_bundle_copy_failure_preserves_previous_generation(tmp_path, monkeypatch
     with pytest.raises(OSError, match="disk full"):
         package(root, served, "test", False, False)
     assert {p.relative_to(served): p.read_bytes() for p in served.rglob("*") if p.is_file()} == before
+
+
+def _concurrent_pruner(library, root, ready, results):
+    """Separate process with its own real LanceDB handle, like an array task."""
+    inventory = io.find_all_pdfs
+    def together(*args, **kwargs):
+        found = inventory(*args, **kwargs)
+        ready.wait(timeout=30)
+        return found
+    io.find_all_pdfs = together
+    try:
+        results.put(io.prune_orphans(library, root, force=True))
+    except Exception as exc:
+        results.put({'error': repr(exc)})
+
+
+@pytest.mark.parametrize('keep_active', [True, False])
+def test_concurrent_pruners_retire_each_document_marker_and_vector_once(tmp_path, keep_active):
+    import multiprocessing
+    library, root = tmp_path / 'library', tmp_path / 'build'
+    keep, live = source(library, 'live.pdf', b'live')
+    gone, retired = source(library, 'retired.pdf', b'retired')
+    docs = [artifact(root, live), artifact(root, retired)]
+    model = embed.make_chunk_model(2)
+    backend = SimpleNamespace(model_name='test', dim=2, embed=lambda texts: [[1.,2.] for _ in texts])
+    db = lancedb.connect(str(root / 'vector_db/lancedb'))
+    table = db.create_table('document_chunks', schema=model.to_arrow_schema())
+    for doc in docs:
+        embed.embed_document(doc, table, model, backend)
+    before = (docs[0] / 'references.json').read_bytes()
+    gone.unlink()
+    if not keep_active:
+        keep.unlink()
+    ctx = multiprocessing.get_context('spawn')
+    ready, results = ctx.Barrier(3), ctx.Queue()
+    workers = [ctx.Process(target=_concurrent_pruner, args=(library, root, ready, results)) for _ in range(3)]
+    for worker in workers:
+        worker.start()
+    try:
+        outcomes = [results.get(timeout=60) for _ in workers]
+        for worker in workers:
+            worker.join(timeout=10)
+        assert all(worker.exitcode == 0 for worker in workers)
+    finally:
+        for worker in workers:
+            if worker.is_alive():
+                worker.terminate()
+                worker.join(timeout=10)
+    assert not any('error' in outcome for outcome in outcomes), outcomes
+    expected = 1 if keep_active else 2
+    assert sum(r['doc_pruned'] for r in outcomes) == expected
+    assert sum(r['vec_pruned'] for r in outcomes) == expected
+    assert sum(r['doc_pruned'] > 0 for r in outcomes) == 1
+    for h in ([retired] if keep_active else [live, retired]):
+        assert not (root/'documents'/h).exists()
+        assert len(list((root/'.retired').glob(f'documents-*/{h}/references.json'))) == 1
+        assert len(list((root/'.retired').glob(f'documents-*/{h}_embedded.done'))) == 1
+        assert not (root/'vector_db'/f'{h}_embedded.done').exists()
+    assert len(list((root/'.retired').glob('documents-*'))) == 1
+    from pipeline.embeddings import lancedb_table_names
+    latest = lancedb.connect(str(root/'vector_db/lancedb'))
+    if keep_active:
+        rows = latest.open_table('document_chunks').to_arrow().to_pylist()
+        assert [r['metadata']['pdf_hash'] for r in rows] == [live]
+        assert (docs[0]/'references.json').read_bytes() == before
+        assert (root/'vector_db'/f'{live}_embedded.done').exists()
+    else:
+        assert 'document_chunks' not in lancedb_table_names(latest)
+    # The lock inode remains stable across later calls; no stale file removal
+    # can split existing waiters from a new lock owner.
+    inode = (root/'.prune.lock').stat().st_ino
+    assert io.prune_orphans(library, root, force=True)['doc_pruned'] == 0
+    assert (root/'.prune.lock').stat().st_ino == inode
+
+
+@pytest.mark.parametrize('race', ['document', 'marker'])
+def test_retirement_source_lost_to_an_older_pruner_is_idempotent(tmp_path, monkeypatch, race):
+    from pathlib import Path
+    library, root = tmp_path/'library', tmp_path/'build'
+    library.mkdir()
+    doc = artifact(root, 'orphan')
+    marker = root/'vector_db/orphan_embedded.done'
+    marker.parent.mkdir();marker.write_text('original marker')
+    other = root/'.retired/older-task'
+    other.mkdir(parents=True)
+    rename = Path.rename
+    victim = doc if race == 'document' else marker
+    def lost(source_path, target):
+        if source_path == victim:
+            rename(source_path, other/source_path.name)
+        return rename(source_path, target)
+    monkeypatch.setattr(Path, 'rename', lost)
+    result = io.prune_orphans(library, root, force=True)
+    assert result['doc_pruned'] == (0 if race == 'document' else 1)
+    assert not doc.exists() and not marker.exists()
+    assert len(list((root/'.retired').glob('*/orphan/references.json'))) == 1
+    assert len(list((root/'.retired').glob('*/orphan_embedded.done'))) == 1
+
+
+@pytest.mark.parametrize('failure', ['permission', 'missing_archive', 'storage'])
+def test_real_retirement_failures_propagate_and_release_the_lock(tmp_path, monkeypatch, failure):
+    import fcntl
+    from pathlib import Path
+    library, root = tmp_path/'library', tmp_path/'build'
+    library.mkdir();doc=artifact(root, 'orphan')
+    rename = Path.rename
+    def fail(source_path, target):
+        if source_path == doc:
+            if failure == 'permission': raise PermissionError('retirement denied')
+            if failure == 'storage': raise OSError('storage failed')
+            target.parent.rmdir()
+        return rename(source_path, target)
+    monkeypatch.setattr(Path, 'rename', fail)
+    with pytest.raises(OSError):
+        io.prune_orphans(library, root, force=True)
+    assert doc.is_dir()
+    with (root/'.prune.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def test_unavailable_advisory_lock_aborts_before_mutation(tmp_path, monkeypatch):
+    import fcntl
+    library, root = tmp_path/'library', tmp_path/'build'
+    library.mkdir();doc=artifact(root, 'orphan')
+    def unsupported(*args): raise OSError('filesystem does not support locks')
+    monkeypatch.setattr(fcntl, 'flock', unsupported)
+    with pytest.raises(RuntimeError, match='Could not lock orphan pruning'):
+        io.prune_orphans(library, root, force=True)
+    assert doc.is_dir() and not (root/'.retired').exists()

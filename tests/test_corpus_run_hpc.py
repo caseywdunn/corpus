@@ -160,11 +160,13 @@ def test_vision_step_requires_explicit_backend():
 
 def test_vision_step_carries_flags_with_explicit_backend():
     argv = orch.VISION_STEP.argv(_argv_args(figure_panels="vision-local",
-                                            batch_index=1, batch_size=8))
+                                            batch_index=1, batch_size=8,
+                                            bib=Path("/library/reviewed.bib")))
     assert "--refresh-vision" in argv
     assert argv[argv.index("--figure-panels") + 1] == "vision-local"
     assert "--no-grobid" in argv and "--no-taxa" in argv
     assert "--batch-index" in argv
+    assert argv[argv.index("--bib") + 1] == "/library/reviewed.bib"
 
 
 def test_vision_step_honors_configured_vision_backend():

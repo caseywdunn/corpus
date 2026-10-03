@@ -471,8 +471,10 @@ def page_texts_from_docling(doc):
     """Reconstruct per-page extracted text from a persisted ``docling_doc.json``.
 
     Walks ``body.children`` so the text is assembled in the same reading order
-    ``export_to_markdown()`` uses for ``text.json``. Items without a ``prov``
-    entry carry no page attribution and are dropped rather than guessed at.
+    ``export_to_markdown()`` uses for ``text.json``. Docling may join text from
+    adjacent pages into one item; provenance charspans assign each fragment to
+    its actual page. Items without a ``prov`` entry carry no page attribution
+    and are dropped rather than guessed at.
     """
     resolvable = {
         "texts": doc.get("texts") or [],
@@ -511,10 +513,31 @@ def page_texts_from_docling(doc):
                 walk(item, depth + 1)
                 continue
             text = _item_text(item, kind)
-            prov = item.get("prov") or []
-            if text and prov and isinstance(prov[0], dict) and prov[0].get("page_no"):
-                pages[int(prov[0]["page_no"])].append(text)
+            add_item_text(item, text)
             walk(item, depth + 1)
+
+    def add_item_text(item, text):
+        prov = item.get("prov") or []
+        if not text or not prov:
+            return
+        fragments = []
+        for source in prov:
+            if not isinstance(source, dict) or not source.get("page_no"):
+                continue
+            span = source.get("charspan")
+            if not isinstance(span, (list, tuple)) or len(span) != 2:
+                continue
+            try:
+                start, end = map(int, span)
+            except (TypeError, ValueError):
+                continue
+            if 0 <= start < end <= len(text):
+                fragments.append((int(source["page_no"]), start, end))
+        if fragments:
+            for page, start, end in fragments:
+                pages[page].append(text[start:end])
+        elif isinstance(prov[0], dict) and prov[0].get("page_no"):
+            pages[int(prov[0]["page_no"])].append(text)
 
     walk(doc.get("body") or {})
 
@@ -526,9 +549,7 @@ def page_texts_from_docling(doc):
         for kind in ("texts", "tables"):
             for item in resolvable[kind]:
                 text = _item_text(item, kind)
-                prov = item.get("prov") or []
-                if text and prov and isinstance(prov[0], dict) and prov[0].get("page_no"):
-                    pages[int(prov[0]["page_no"])].append(text)
+                add_item_text(item, text)
 
     return {n: "\n".join(chunks) for n, chunks in pages.items()}
 

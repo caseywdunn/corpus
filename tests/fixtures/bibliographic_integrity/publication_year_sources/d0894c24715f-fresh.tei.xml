@@ -1,0 +1,19 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><back><listBibl><biblStruct xmlns="http://www.tei-c.org/ns/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="b5">
+	<analytic>
+		<title level="a" type="main">The vertical distribution of the siphonophores collected during the SOND Cruise</title>
+		<author>
+			<persName><forename type="first">P</forename><forename type="middle">R</forename><surname>Pugh</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="j">J. mar. bioi. Ass. U.K</title>
+		<imprint>
+			<biblScope unit="volume">54</biblScope>
+			<biblScope unit="page" from="25" to="90"/>
+			<date type="published" when="1965">1974. 1965</date>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">Pugh, P.R. 1974 The vertical distribution of the siphono- phores collected during the SOND Cruise, 1965. J. mar. bioi. Ass. U.K. 54, 25-90.</note>
+</biblStruct>
+
+</listBibl></back></text></TEI>

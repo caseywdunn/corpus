@@ -1,0 +1,174 @@
+{
+  "population_sha256": "5e179cd3a822f317cc86e6a5e4c467557ab4b75f523a1641bc878b08e26d7c4b",
+  "crops": {
+    "P1": {
+      "path": "P1-source.png",
+      "sha256": "18e75d03ca1be35513d66bd35908002d30640e5156508313fa3fce0f55b6c818",
+      "physical_page": 6,
+      "bbox_top_left": [
+        298.14404296875,
+        77.93626403808594,
+        548.2181396484375,
+        91.10871124267578
+      ],
+      "dpi": 400,
+      "native_line": "Siphosomelengthscaledapproximatelylinearlywiththenectophorecount(L ="
+    },
+    "P2": {
+      "path": "P2-source.png",
+      "sha256": "4a19fbd8a87619f46d1d340f898746587e80c9d974c381f266ea0ebea3f432c8",
+      "physical_page": 7,
+      "bbox_top_left": [
+        56.22683334350586,
+        364.5621337890625,
+        293.38665771484375,
+        378.026611328125
+      ],
+      "dpi": 400,
+      "native_line": "4 mm. The holotype possessed nine nectophores and about nine"
+    },
+    "P3": {
+      "path": "P3-source.png",
+      "sha256": "4ca786bcebe5f972f3f72202b408e89442b4c38ac6449254b30767b83725b0bb",
+      "physical_page": 68,
+      "bbox_top_left": [
+        108.8534927368164,
+        171.43008422851562,
+        288.9234619140625,
+        188.77008056640625
+      ],
+      "dpi": 400,
+      "native_line": "Anterior nectophore alone developed. . . . ."
+    },
+    "P4": {
+      "path": "P4-source.png",
+      "sha256": "879e164531f4f137b5d25736ef889c90bd338f667eceb1d7b117c163623f8ffa",
+      "physical_page": 5,
+      "bbox_top_left": [
+        68.7302017211914,
+        296.1802062988281,
+        226.7693328857422,
+        315.6546325683594
+      ],
+      "dpi": 400,
+      "native_line": "r1canthometron pellucidumO.F.М."
+    },
+    "G1": {
+      "path": "G1-source.png",
+      "sha256": "9015a0266219af247cfe5ce52dd3dfa8dcad257846f83152e72c96b3147ab228",
+      "physical_page": 6,
+      "bbox_top_left": [
+        34.133995056152344,
+        598.0738525390625,
+        284.21319580078125,
+        611.0467529296875
+      ],
+      "dpi": 400,
+      "native_line": "offree-swimmingN.bijugawerecollectedatFridayHarborLaboratoriesbetween"
+    },
+    "G2": {
+      "path": "G2-source.png",
+      "sha256": "f168ebcb9550a2c2f2d7fcfbf33983546c23aaf18b9efcc359a14b3d0e712eb4",
+      "physical_page": 6,
+      "bbox_top_left": [
+        298.14385986328125,
+        275.39556884765625,
+        548.2176513671875,
+        288.3619689941406
+      ],
+      "dpi": 400,
+      "native_line": "gas-ﬁlledpneumatophore(14,19)andpossiblybyalteringtheconcentrationsof"
+    },
+    "G3": {
+      "path": "G3-source.png",
+      "sha256": "9207d0382cda3464ee6948315a6d9db02272acdbadf715b978ec331f9b7f17f2",
+      "physical_page": 6,
+      "bbox_top_left": [
+        308.10687255859375,
+        319.23150634765625,
+        548.218994140625,
+        332.1979064941406
+      ],
+      "dpi": 400,
+      "native_line": "WecalculatedmaximumthrustforninenectophoresusingdatafromCostello"
+    },
+    "G4": {
+      "path": "G4-source.png",
+      "sha256": "416c0d5357b4ce0adb480142c64a24cac97bbaf986155a77fb9b553427bd5eff",
+      "physical_page": 6,
+      "bbox_top_left": [
+        298.14385986328125,
+        352.10845947265625,
+        548.2177124023438,
+        365.0748596191406
+      ],
+      "dpi": 400,
+      "native_line": "pneumatophore(13),butweusedthemeanthrustpernectophoreforsimplicity."
+    },
+    "N1": {
+      "path": "N1-source.png",
+      "sha256": "4ca786bcebe5f972f3f72202b408e89442b4c38ac6449254b30767b83725b0bb",
+      "physical_page": 68,
+      "bbox_top_left": [
+        108.8534927368164,
+        171.43008422851562,
+        288.9234619140625,
+        188.77008056640625
+      ],
+      "dpi": 400,
+      "native_line": "Anterior nectophore alone developed. . . . ."
+    },
+    "N2": {
+      "path": "N2-source.png",
+      "sha256": "4ae2e20cd78cc02b72f7770ccd817189a4efaf8e9bb03458016305474bcfab5f",
+      "physical_page": 200,
+      "bbox_top_left": [
+        37.814701080322266,
+        334.027587890625,
+        270.1310119628906,
+        352.4347839355469
+      ],
+      "dpi": 400,
+      "native_line": "Anteriornectophorewithsevencompletelongitudinal"
+    },
+    "N3": {
+      "path": "N3-source.png",
+      "sha256": "5fc06bf6a291440625b60e147b3ca6c807c6cedf59e329924658e3c70e80c8a4",
+      "physical_page": 7,
+      "bbox_top_left": [
+        56.22683334350586,
+        376.513916015625,
+        293.348876953125,
+        389.9783935546875
+      ],
+      "dpi": 400,
+      "native_line": "nectophoral lamellae without nectophores when brought to the"
+    },
+    "N4": {
+      "path": "N4-source.png",
+      "sha256": "f38dfe57e3d5d54722a8048ede8312abd99d099adc15a0bff5649b47a03f1de3",
+      "physical_page": 12,
+      "bbox_top_left": [
+        69.5186538696289,
+        269.7374572753906,
+        395.9041748046875,
+        284.9131164550781
+      ],
+      "dpi": 400,
+      "native_line": "Aus a l l diesen Einzelinformationen s o l l e n Gemeinschaften m i t ihren "
+    },
+    "N5": {
+      "path": "P1-source.png",
+      "sha256": "18e75d03ca1be35513d66bd35908002d30640e5156508313fa3fce0f55b6c818",
+      "physical_page": 6,
+      "bbox_top_left": [
+        298.14404296875,
+        77.93626403808594,
+        548.2181396484375,
+        91.10871124267578
+      ],
+      "dpi": 400,
+      "native_line": "Siphosomelengthscaledapproximatelylinearlywiththenectophorecount(L ="
+    }
+  }
+}

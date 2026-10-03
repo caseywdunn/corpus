@@ -1,0 +1,43 @@
+{
+  "ocr": {
+    "optimize_level": 2,
+    "ocr_languages_default": [
+      "eng",
+      "deu",
+      "deu_latf",
+      "fra",
+      "rus",
+      "lat",
+      "spa",
+      "por",
+      "chi_sim",
+      "chi_tra",
+      "jpn",
+      "ell",
+      "kor"
+    ],
+    "gibberish_threshold": 0.65,
+    "visual_script_gibberish_min": 0.4,
+    "unmappable_char_max": 0.05,
+    "tesseract_page_timeout": 900,
+    "reocr_scanned_text_layers": true,
+    "scan_page_fraction_min": 0.4,
+    "probe_language_by_ocr": true,
+    "probe_language_min_confidence": 0.85,
+    "probe_max_languages": 3,
+    "probe_max_gibberish": 0.5,
+    "probe_dpi": 300,
+    "probe_sample_pages": 5,
+    "jobs": 2
+  },
+  "grobid": {
+    "url": "http://localhost:8070"
+  },
+  "stage_timeouts": {
+    "ocr": 1800,
+    "ocr_per_page": 30,
+    "grobid": 300,
+    "docling": 600,
+    "vision_pass": 600
+  }
+}

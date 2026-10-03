@@ -1,0 +1,410 @@
+[
+  {
+    "observation_id": "refobs:0175ab7008f0ea58e8cbdfa0a5fc6539d4af7d241660500e3347aaf8e5878866",
+    "disposition": "usable",
+    "reasons_json": "[{\"basis\": \"complete_authors_and_full_canonical_title_with_publication_year_in_raw_author_prefix\", \"candidate_work_id\": \"10.1017/s0025315400022086\", \"code\": \"raw_publication_year_supported\", \"line_hyphen_joined_for_comparison\": false, \"parsed_year\": 1965, \"publication_year\": 1974, \"raw_title_alignment\": \"exact\"}]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:04641df5544ecc155cfcd3076f1e9c1313b36ee1625b352ddc3bed37700927c0",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:075ccd168d2db5559c1e6db4498c51fb768ebc4bd3884f1ff63fb7f254dd0a95",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:0b435a7d4392fcbe70d0854e19451b67a638d44942e637f13752bb871a9c3113",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:0fd23c7346ab485169eb466bb57a69a383e96d3843a16fa056044f6486db8d19",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:105477713f01967f09004064a90d42c854c0f92baa0e545e54be36be75fdbb31",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:11e76f07842f6b4b98d3028dab2c39d3e47c60ee4b6d593623f43a4ff646fd32",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:123d6fb5894810ba4a6692f60052fab21992d4e8ec3e1afd1cc19eb742e02a30",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:1836498e090f7cd7d1ccf4960fa00663a694ba8acaf2af0c740292d560a4db4e",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:1f3a3c3facc4c7b7cfdc0bbc417bdb4cfe86fa94e88053360efe3af1861fce52",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:22b841ac6bd83c8ac72ad59f332a024b8e5e191c2d08357fc4cd54120628c242",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:237ec183509cc66045077ae5dbbeba9f80a22f2c269ebdda5b77ef412284775d",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:28aa67e8b513556eb857d1a6eed2b45bb24de0b8114e2db879ca3ea00a130b30",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:2d71bb34008182968ec493863e342b9def9b4d34ff6270bd7270f6b587f6ac83",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:2eb7c8f378b31e3d7116cfd5dfaa3bd7935be33a52972451120364a648367f3c",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:315122286be8ea2d33f7d293366db20ddd36758bb2a99309f9221c0fe0a8332e",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:346cb1ae6ab86f39a491cb9ea72b31d1680d535791faea41be6994fccb0c6b70",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:3dc3fd5c9d51778b6f3acc1b38f373fc52a68010559402a1801e24a95360dd88",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:405e62226119fecd00a5f59b5c7efed87a2f0d2d1784615df3bcc4cc09d059bf",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:43329dfd73c5927badd959037edd6364a09dfcf5e74506fc1aa87b639e4c679b",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:43d18a26e2792460722dd79e14fe2721fe8ba5b8d0e04688b8b1d4e415c4f973",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:464a4b780508266cfcf44a2b026dbb5e8d44b2d420d52e6a5c8744cda32feb88",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:47edc01881cfec01e26fade58db0df7e0d42ebfa6e3926ee85f7cf50418115ea",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:4a49bf4d6167b3871b8d3f68a03c004bfaebcfd681204c151bbd21037a91ac0c",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:4b73427b14b7e19df1644c4575a9f5cdaeaee2ef7bf2616b10ccdacfb05b3443",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:4f0dfd18fd4b49c6a860e09869f49617fb02c52466db4124184f261db76ea6a7",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:5174cdd3922c1d1c095594596674f1d152f7def0e87992af3addcb4e9d1e517b",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:5d05b5f73386167368f2beb9d026bb5795ec68c85f82adf71ab9a5b7e4bb20a4",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:5edae29458ea7cc25b2010d682f87862195165adb61c539516ba34d9f8b8964e",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:61367b8d3321ae4865cfca4d83db15ff01f8d507285f30f97b95d7ea56f9f06f",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:618279e27afdae34e3bfc4fd03bf227d3da821c3e95db12b22adb2f33b2a9e14",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:6281b716a76a2e10259641f96f64059d58235e0985bd2073bec9e82ce6dc59ee",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:6d2e25e259e8c1bf274160c788c2d36a7ec209b3220dcf4ed59db86b6ce2cdb4",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:70fac10bb3583c5df0475ac7decb07a51a88e582c6368ea8a376c5f97b876375",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:7463fda9636b52d07f0f0103ec8d94dd34d10108521e5a39c0fdc3b4bbbfae9a",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:74b4f5d3a1c3d348b5f5db9d58e9f1cbb04a3ce81980c4664f83cb1eb50223bb",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:845b8709ae43b19d68d77a40446b51add19a14f6ae663296276e839cd10f3069",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:869620daf227988e0e7223b2ac9973f7d7a0031cacb9f305a72628e9e399fcab",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:8943c7480bc31e606f1bddd4c453f9f7e5ddc12f3864b0f4ff7d21f51fcbc412",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:9939a5de791a2d3116dcbe6b2890d382a3ee8edfa573da246dc2685589a72f6f",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:9a9ba66c52959c923a7c8b5c44dd8cf1481cb499dcd7c1add281f5cd7910f3e6",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:9c045bbd9024ced90ed1c0264cc521ac692d115974115203159f8f9dc64afb78",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:9cde6cd686cb606b51110de921abfb4bc5c5f2cc648028a9e1b320555e452090",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:9f3b15bcb4fa26af3e19faf97f919d9a0d6585741fa7a8d0503e542c325fbf4e",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:9fec15be29728b963107015dcd55c01e107142a5d2a341585531592d92cb6617",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:a193a7a5851ccf33102f4c2dd336d6aac9b85670ac5000dbd878300e2fda0586",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:a855664bac3076cef66053944d8148a56a898d06e165516e7d672f2c8d2d64b6",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:ae359aa2a768f5f3323112ef11102989566510c2e7f8c5d8f5d8a44940b786af",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:ae9d6542723647c618516b4e737001a89e84510d414dd9dacf10a9911e83693a",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:b58d2571cc9d81383ab47a90e10c246a42bcd97258c680622f88fcd1ff112a48",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:b9166dbed62f7a064251b21b0080d80b60844e595b65284f2658b1fb57b649bf",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:ba396b2b10fab072df467a19087274a8a6fd9766fddac6054bd85d8e33c2baaf",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:bbe365bc265513dae05bdff501f76176ed152725d4cf4ddd321374d35d6b676f",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:c00f8d41dd276caa9e9453888ffa919d98fd9395fcdaf32e81abaf234519b350",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:c101f524e996c1385e4ec086170bdfd92cfe29f3adaab416a317082a39df6d73",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:c1a34fc8e469e92320b37be65b36e34e65cf5d87c6a067f59e019cfb031e4621",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:c4b7837ac1b644ee1db1cf4f4fdecc564c2042f12f383af3c790cfe48a32e4a9",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:cbc3279626d6900525b6d5973730beabdb17f9a47f1cd09d6e58dca0dce61ab9",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:d769159f42c941519ef3b0e613d91309e330783d5e03ceb5fbfd2e5801fa23d3",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:d98d30ce3c917d75175b03e5340e0e2d5a3439a5e5f1c84caa68a40ba59ae1b6",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:dacd81949d48e0c66c9b94220b6a9d471caa763e0bfcfc90f1b08f883cb1cf71",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:dc4036ffbb9879158809242e03a8039158e9cbea6c41325b2c822422941b3820",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:e3abe5eba49acfe45b19e6fcd79a79a8bda86a0cd85b4bb7f0237e8057428136",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:e92fc755cc6b1c55b947fc37ac00545402bb8e36ce4ff465c3c4959d155ab402",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:e9d17838d387addca9fb408ccda36c016902b1d381fd6e1633f55ea8efc22938",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:ebcf17b128f8cc48abd6505bf12c592d4044e8b82e71d57e95749f62ae2b6b09",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:f039c7a9af5383e38fb3d489311faecae38d37e2a5becda57e732cdb2b599b7e",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  },
+  {
+    "observation_id": "refobs:fb3276cdec83e12b6d28c8f81e8176e09a3a986112cd7cc4e1ba3753ba7d86bb",
+    "disposition": "usable",
+    "reasons_json": "[]",
+    "producer_version": "reference-quality-v3"
+  }
+]

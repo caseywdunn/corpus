@@ -1,0 +1,39 @@
+{
+  "date": "2026-09-27",
+  "source_pdf_sha256": "3e23415c5067d98c0488c867a2ac74f5176a72db03578307268f9aeac479de1d",
+  "physical_page": 15,
+  "printed_page": "1169",
+  "source_review": "Direct visual inspection of original PDF page rendered at 108 dpi confirms Pugh,P.R. (1974), full SOND cruise title containing 1965, and volume 54 pages 25–90. Compact author punctuation is printed in the source.",
+  "render_sha256": "8285179b770da12ae0d9d5d9dd9860518cca016438631fa59d7e2819ed7d0da2",
+  "fresh_reference": {
+    "xml_id": "b17",
+    "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+    "authors": [
+      "P Pugh"
+    ],
+    "year": 1965,
+    "journal": "J. Mar. Biol. Assoc. UK",
+    "doi": "",
+    "raw": "Pugh,P.R. (1974) The vertical distribution of the siphonophores collected during the SOND cruise, 1965, J. Mar. Biol. Assoc. UK, 54, 25-90."
+  },
+  "failure": "Identity-key normalization concatenates surname and initials, so raw author-prefix matching rejects otherwise complete publication-year evidence.",
+  "correction": "Try punctuation-preserving token boundaries only for raw evidence comparison; raw observations, identity keys and exact title requirements remain unchanged.",
+  "additional_changed_observations_source_review": [
+    {
+      "pdf": "Lo_Biggs1996.pdf",
+      "pdf_sha256": "ed40b850888f9bbafce9db8a51988e6a2e9eef79bb8083a9a7174b706d7f1bff",
+      "physical_page": 17,
+      "printed_page": "939",
+      "render_sha256": "c010fbe6ed4ebee6161a04350b2ea1975f31b3df7485f804997d4c4ddf7c7a57",
+      "review": "Source prints Pugh,P.R. (1974), the complete cruise-1965 title, and volume 45, pages 25–90. The printed volume discrepancy is retained; exact authors/title/publication date establish identity, without claiming locator repair."
+    },
+    {
+      "pdf": "Zhang_Lin2001c.pdf",
+      "pdf_sha256": "e7778b2280d49745e0ca32a30cfdfa21b02f60f2c321af819a4f71181db12f65",
+      "physical_page": 10,
+      "printed_page": "262",
+      "render_sha256": "030f1b092d17513a38131cf5b5affc1ab944596e2b227fe1160975394e0aff56",
+      "review": "Source prints Pugh PR(1974), the complete cruise-1965 title and volume 54, pages 25–90."
+    }
+  ]
+}

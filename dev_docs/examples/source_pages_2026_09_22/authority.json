@@ -1,0 +1,218 @@
+{
+  "prior_full_source_tei": {
+    "references": 805,
+    "targets": {
+      "Alvarino1971a": "corpus:alvarino|1971|siphonophores of the pacific with a revi",
+      "Alvarino1981": "corpus:alvarino|1981|siphonophorae",
+      "Alvarino1991": "corpus:alvarino|1991|abundancia y distribucion batimetrica di"
+    },
+    "named": [
+      {
+        "observation": {
+          "xml_id": "b63",
+          "title": "Siphonophores ofthe Pacific with a review of the world distribution",
+          "authors": [
+            "A Alvarifio"
+          ],
+          "year": 1971,
+          "journal": "Bull. Scripps lust. Oceanogr. Univ. Calif. Tech. Ser",
+          "doi": "",
+          "raw": "Alvarifio. A 1971. Siphonophores ofthe Pacific with a review of the world distribution. Bull. Scripps lust. Oceanogr. Univ. Calif. Tech. Ser. No. 16."
+        },
+        "derived": {
+          "xml_id": "b63",
+          "title": "Siphonophores ofthe Pacific with a review of the world distribution",
+          "authors": [
+            "A Alvarifio"
+          ],
+          "year": 1971,
+          "journal": "Bull. Scripps lust. Oceanogr. Univ. Calif. Tech. Ser",
+          "doi": "",
+          "raw": "Alvarifio. A 1971. Siphonophores ofthe Pacific with a review of the world distribution. Bull. Scripps lust. Oceanogr. Univ. Calif. Tech. Ser. No. 16."
+        },
+        "reasons": [
+          {
+            "code": "possible_ocr_surname_conflict",
+            "author_position": 0,
+            "observed_author": "A Alvarifio",
+            "requires_source_review": true,
+            "candidate_surnames": [
+              "Alvariño"
+            ],
+            "source_statuses": [
+              "verified"
+            ],
+            "basis": "source_or_complete_reference_identity_not_uniquely_confirmed"
+          }
+        ],
+        "work_before": "corpus:alvarifio|1971|siphonophores ofthe pacific with a revie",
+        "work_after": "corpus:alvarifio|1971|siphonophores ofthe pacific with a revie",
+        "matches_curated": false
+      },
+      {
+        "observation": {
+          "xml_id": "b71",
+          "title": "Siphonophorae",
+          "authors": [
+            "A Alvarifio"
+          ],
+          "year": 1981,
+          "journal": "",
+          "doi": "",
+          "raw": "Alvarifio, A 1981. Siphonophorae. In Atlas del zooplancton del Atlantico Sudoccidental y metodos de trabajo con zooplancton marino. Edited by D. Boltovskoy. Publicacion especial del Instituto Nacional de Investigacion y Desarollo Pesquero (INIDEP), Mar del Plata, Argentina. pp. 383-441."
+        },
+        "derived": {
+          "xml_id": "b71",
+          "title": "Siphonophorae",
+          "authors": [
+            "A Alvarifio"
+          ],
+          "year": 1981,
+          "journal": "",
+          "doi": "",
+          "raw": "Alvarifio, A 1981. Siphonophorae. In Atlas del zooplancton del Atlantico Sudoccidental y metodos de trabajo con zooplancton marino. Edited by D. Boltovskoy. Publicacion especial del Instituto Nacional de Investigacion y Desarollo Pesquero (INIDEP), Mar del Plata, Argentina. pp. 383-441."
+        },
+        "reasons": [
+          {
+            "code": "possible_ocr_surname_conflict",
+            "author_position": 0,
+            "observed_author": "A Alvarifio",
+            "requires_source_review": true,
+            "candidate_surnames": [
+              "Alvariño"
+            ],
+            "source_statuses": [
+              "verified"
+            ],
+            "basis": "source_or_complete_reference_identity_not_uniquely_confirmed"
+          }
+        ],
+        "work_before": "corpus:alvarifio|1981|siphonophorae",
+        "work_after": "corpus:alvarifio|1981|siphonophorae",
+        "matches_curated": false
+      },
+      {
+        "observation": {
+          "xml_id": "b74",
+          "title": "Abundancia y distribuci6n batimetrica diurna y noctuma de los sifon6foros durante las cuatro estaci6nes del afto 1969, en aguas de California y Baja California",
+          "authors": [
+            "A Alvarifio"
+          ],
+          "year": 1991,
+          "journal": "Invest. Mar. Cent. Interdiscip. Cienc. Mar",
+          "doi": "",
+          "raw": "Alvarifio, A. 1991. Abundancia y distribuci6n batimetrica diurna y noctuma de los sifon6foros durante las cuatro estaci6nes del afto 1969, en aguas de California y Baja California. Invest. Mar. Cent. Interdiscip. Cienc. Mar. 6(2): 1-37."
+        },
+        "derived": {
+          "xml_id": "b74",
+          "title": "Abundancia y distribuci6n batimetrica diurna y noctuma de los sifon6foros durante las cuatro estaci6nes del afto 1969, en aguas de California y Baja California",
+          "authors": [
+            "A Alvarifio"
+          ],
+          "year": 1991,
+          "journal": "Invest. Mar. Cent. Interdiscip. Cienc. Mar",
+          "doi": "",
+          "raw": "Alvarifio, A. 1991. Abundancia y distribuci6n batimetrica diurna y noctuma de los sifon6foros durante las cuatro estaci6nes del afto 1969, en aguas de California y Baja California. Invest. Mar. Cent. Interdiscip. Cienc. Mar. 6(2): 1-37."
+        },
+        "reasons": [
+          {
+            "code": "possible_ocr_surname_conflict",
+            "author_position": 0,
+            "observed_author": "A Alvarifio",
+            "requires_source_review": true,
+            "candidate_surnames": [
+              "Alvariño"
+            ],
+            "source_statuses": [
+              "verified"
+            ],
+            "basis": "source_or_complete_reference_identity_not_uniquely_confirmed"
+          }
+        ],
+        "work_before": "corpus:alvarifio|1991|abundancia y distribuci6n batimetrica di",
+        "work_after": "corpus:alvarifio|1991|abundancia y distribuci6n batimetrica di",
+        "matches_curated": false
+      }
+    ],
+    "raw_observations_unchanged": true,
+    "unchanged_refresh": true
+  },
+  "retained_v121_b166": {
+    "references": 1,
+    "targets": {
+      "Alvarino1971a": "corpus:alvarino|1971|siphonophores of the pacific with a revi",
+      "Alvarino1981": "corpus:alvarino|1981|siphonophorae",
+      "Alvarino1991": "corpus:alvarino|1991|abundancia y distribucion batimetrica di"
+    },
+    "named": [
+      {
+        "observation": {
+          "xml_id": "b166",
+          "title": "Siphonophores of the Pacific with a review of the world distribution",
+          "authors": [
+            "A Alvarifio"
+          ],
+          "year": 1971,
+          "journal": "Bull. Scripps Inst. Oceanogr. Univ. Calif. Tech. Ser",
+          "doi": "",
+          "raw": ""
+        },
+        "derived": {
+          "xml_id": "b166",
+          "title": "Siphonophores of the Pacific with a review of the world distribution",
+          "authors": [
+            "A Alvariño"
+          ],
+          "year": 1971,
+          "journal": "Bull. Scripps Inst. Oceanogr. Univ. Calif. Tech. Ser",
+          "doi": "",
+          "raw": ""
+        },
+        "reasons": [
+          {
+            "code": "source_ocr_surname_supported",
+            "author_position": 0,
+            "observed_author": "A Alvarifio",
+            "derived_author": "A Alvariño",
+            "year": 1971,
+            "curated_bib_keys": [
+              "Alvarino1971a"
+            ],
+            "basis": "source_image_ocr_consensus_and_exact_curated_title_year",
+            "source_pdf_sha256": "c9885295b65db235b21f07a2e2e296d1aa0d90506528d8a711e7fb8696bbef75",
+            "source_page": 1,
+            "item_ref": "#/texts/5",
+            "crop_sha256": "aea230e2bf9f8e309df315126cf9007333a2cbad198cb717dcf8f37ff5ea5b63",
+            "catalog_sha256": "5637dd158ed6fc26539e53f1e648a717dcfd038f5f38658ab6e33d1736cbeaf3",
+            "producer_policy": "curated-author-year-source-ocr-consensus-v3"
+          }
+        ],
+        "work_before": "corpus:alvarifio|1971|siphonophores of the pacific with a revi",
+        "work_after": "corpus:alvarino|1971|siphonophores of the pacific with a revi",
+        "matches_curated": true
+      }
+    ],
+    "raw_observations_unchanged": true,
+    "unchanged_refresh": true
+  },
+  "current_selected_page_build": {
+    "config_grobid_disabled": true,
+    "references": []
+  },
+  "fresh_report_sha256": "11291b2d7b661dc0bb96f2b6604e91b5adb68cc0abe0ed4ac82ccc7529ca5aab",
+  "prior_full_tei_provenance": {
+    "source": "/home/claude/repos/siphonophores/library/M/Mapstone2009.pdf",
+    "source_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+    "grobid_image": "lfoppiano/grobid:0.8.1",
+    "params": {
+      "consolidateHeader": 0,
+      "consolidateCitations": 0,
+      "includeRawCitations": 1,
+      "teiCoordinates": [
+        "p",
+        "ref"
+      ]
+    },
+    "tei_sha256": "b5931ec7b30b6f2fc04e3bcbdf9ce9380a5785d10cc0463c50c23f1401f168d4"
+  }
+}

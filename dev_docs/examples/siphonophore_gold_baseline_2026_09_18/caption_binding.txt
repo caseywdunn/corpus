@@ -1,0 +1,56 @@
+wrote <gold>/scores_6fb_2026_09_18/caption_binding.json
+
+35 documents bound on sha256
+gold figure blocks by what they print: {'nothing_printed': 5, 'prose_caption': 105, 'lettering_only': 12, 'bare_label': 254}
+
+typed identities in gold           : 839
+typed identities pipeline reports : 492
+  binding recall                   : 0.5757
+  binding precision                : 0.9817
+  fixed reported-pair capacity     : 0.584
+
+-- by retrieval surface ------------------------------
+surface                    gold  found   recall   precis
+all entries                 839    492    0.576    0.982
+default MCP types           839    492    0.576    0.982
+
+-- caption-enumerated panel splits ------------------------
+gold panelled figures             : 98
+panel declarations reported       : 84
+exact label sets                  : 66
+  panel figure recall             : 0.8571
+  panel figure precision          : 1.0
+  exact-set rate                  : 0.6735
+  label recall / precision        : 0.8584 / 0.95
+unexpected declarations on 171 same-page, same-number non-panel figure blocks: 0
+
+-- all entries by era ---------------------------------
+bucket                     gold  found   recall   precis
+1800-1899                   169      8    0.041    0.875
+1900-1949                    77     61    0.753    0.951
+1950-1999                   551    392    0.702    0.987
+2000-                        42     31    0.738    1.000
+pre-1800                      0      0        -        -
+
+-- all entries by layout ------------------------------
+bucket                     gold  found   recall   precis
+figure_blocks               124    104    0.815    0.971
+mixed_figure_plate          670    381    0.561    0.987
+no_figure_blocks              0      0        -        -
+plate_blocks                 45      7    0.133    0.857
+
+-- worst documents by binding recall ------------------------------
+                            gold  found  recall  precis  capsim
+Bernstein1934                  1      0   0.000       -       -
+Candeias1932                  11      0   0.000       -       -
+Chenetal2015                  10      0   0.000       -       -
+Eschscholtz1825               18      0   0.000       -       -
+Kawamura1911a                  1      0   0.000       -       -
+Tilesius1814                   7      0   0.000       -       -
+Quoy_Gaimard1834Plates       136      1   0.007   1.000       -
+Carre1968_Hippopodius_tr      10      1   0.100   1.000       -
+Carre1969_Nanomia_tr          30      6   0.200   1.000       -
+Totton1965b                    4      1   0.250   1.000       -
+Benasso_Stroiazzo1976          9      5   0.556   1.000   1.000
+Totton1965a                  472    357   0.746   0.986   0.453
+

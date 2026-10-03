@@ -260,8 +260,10 @@ def _count_figures_and_chunks(
     actually plan to serve. ``excluded_hashes`` is the set of hashes
     flagged ``works.serve = 0`` (#54) — they live in the build bundle
     but are filtered out of the distilled bundle, so the manifest must
-    not count them. Best-effort — missing/malformed JSONs are silently
-    skipped."""
+    not count them. Figure counts include every record, including furniture
+    and shared-image siblings; they do not count unique rasters. Missing or
+    malformed JSONs are skipped. A stale stored figure total fails validation
+    so a new bundle cannot preserve inconsistent build artifacts (#332)."""
     skip = set(excluded_hashes or ())
     fig_total = 0
     chunk_total = 0
@@ -273,9 +275,19 @@ def _count_figures_and_chunks(
         fig_path = hash_dir / "figures.json"
         if fig_path.exists():
             try:
-                fig_total += len(json.loads(fig_path.read_text()).get("figures", []))
-            except Exception:
+                figure_data = json.loads(fig_path.read_text())
+            except (OSError, ValueError):
                 pass
+            else:
+                count = len(figure_data.get("figures") or [])
+                stored = figure_data.get("total_figures", count)
+                if stored != count:
+                    raise ValueError(
+                        f"{hash_dir.name}/figures.json: total_figures={stored} "
+                        f"but figures contains {count} records; rerun figure "
+                        "materialization before bundling"
+                    )
+                fig_total += count
         chunks_path = hash_dir / "chunks.json"
         if chunks_path.exists():
             try:
@@ -537,6 +549,34 @@ def _scrub_input_fingerprint_path(serve_path: Path) -> bool:
     if not isinstance(p, str) or not Path(p).is_absolute():
         return False
     fp["path"] = Path(p).name
+    serve_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    return True
+
+
+def _scrub_text_producer_path(serve_path: Path) -> bool:
+    """Keep the surname OCR producer portable in copied text.json receipts.
+
+    The build needs the absolute executable to run OCR and fingerprint its
+    inputs. The served copy needs its program name, version and model hashes,
+    not a path on another machine. Touch only this known runtime-path field;
+    source prose, decisions and the original build receipt remain unchanged.
+    Unknown future path fields still reach the ordinary bundle audit.
+    """
+    try:
+        data = json.loads(serve_path.read_text())
+    except (OSError, ValueError):
+        return False
+    producer = data
+    for key in ("source_text_integrity", "surnames", "producer"):
+        if not isinstance(producer, dict):
+            return False
+        producer = producer.get(key)
+    if not isinstance(producer, dict):
+        return False
+    executable = producer.get("executable")
+    if not isinstance(executable, str) or not Path(executable).is_absolute():
+        return False
+    producer["executable"] = Path(executable).name
     serve_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
     return True
 
@@ -889,6 +929,8 @@ def _populate_bundle(output_dir, serve_dir, version, include_pdfs, dry_run, mode
             if _scrub_summary(hash_dir / "summary.json", output_dir):
                 n_scrubbed += 1
             if _scrub_figures(hash_dir / "figures.json", output_dir):
+                n_scrubbed += 1
+            if _scrub_text_producer_path(hash_dir / "text.json"):
                 n_scrubbed += 1
             # taxa.json + every lexicon <category>.json carry an
             # input_fingerprint.path → strip absolute prefix (#70).

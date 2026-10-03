@@ -1,0 +1,156 @@
+{
+  "recorded_at_utc": "2026-09-22T17:15:19.799892+00:00",
+  "started_at_utc": "2026-09-22T17:10:21.147776+00:00",
+  "execution_revision": "bb84b4b55f9f1611afd695c22cf7aaf4c6a5cd25",
+  "extraction_revision": "ab6353f",
+  "baseline_extraction_revision": "6fbf4e081620cde112c6bd0238f26a51c4f193be",
+  "commands": {
+    "fidelity": [
+      "/home/claude/miniforge3/envs/corpus/bin/python",
+      "/tmp/corpus-correctness-validation/tools/qc/fidelity.py",
+      "--gold",
+      "/tmp/corpus-v15-acceptance/gold/transcriptions",
+      "--corpuscle",
+      "/tmp/corpus-v15-acceptance/gold/output",
+      "--out",
+      "/tmp/corpus-v15-acceptance/gold/scores_ab6353f_20260922/fidelity.json",
+      "--bib",
+      "/tmp/corpus-v15-acceptance/gold/inputs/siphonophores.bib"
+    ],
+    "figure_detection": [
+      "/home/claude/miniforge3/envs/corpus/bin/python",
+      "/tmp/corpus-correctness-validation/tools/qc/figure_detection.py",
+      "--gold",
+      "/tmp/corpus-v15-acceptance/gold/transcriptions",
+      "--corpuscle",
+      "/tmp/corpus-v15-acceptance/gold/output",
+      "--out",
+      "/tmp/corpus-v15-acceptance/gold/scores_ab6353f_20260922/figure_detection.json"
+    ],
+    "caption_binding": [
+      "/home/claude/miniforge3/envs/corpus/bin/python",
+      "/tmp/corpus-correctness-validation/tools/qc/caption_binding.py",
+      "--gold",
+      "/tmp/corpus-v15-acceptance/gold/transcriptions",
+      "--corpuscle",
+      "/tmp/corpus-v15-acceptance/gold/output",
+      "--out",
+      "/tmp/corpus-v15-acceptance/gold/scores_ab6353f_20260922/caption_binding.json"
+    ]
+  },
+  "resources": {
+    "fidelity": {
+      "wall": "0:11.41",
+      "maximum_rss_kib": 334320,
+      "exit_status": 0
+    },
+    "figure_detection": {
+      "wall": "0:00.69",
+      "maximum_rss_kib": 26720,
+      "exit_status": 0
+    },
+    "caption_binding": {
+      "wall": "0:01.02",
+      "maximum_rss_kib": 32276,
+      "exit_status": 0
+    }
+  },
+  "scorer_revision_checks": {
+    "fidelity": {
+      "old_sha256": "73ca009f8035244337a94e079a90fe13ee7a114202010832c028f7bfa8553fbd",
+      "current_sha256": "73ca009f8035244337a94e079a90fe13ee7a114202010832c028f7bfa8553fbd",
+      "same": true
+    },
+    "figure_detection": {
+      "old_sha256": "db676b69c0aa43b5997c8a06c286696e2dbf5c8fdde62a86ca26ac1a75e1afbe",
+      "current_sha256": "db676b69c0aa43b5997c8a06c286696e2dbf5c8fdde62a86ca26ac1a75e1afbe",
+      "same": true
+    },
+    "caption_binding": {
+      "old_sha256": "85d5741263e9f6af47ef5dc2ed247ffa04fa139ab84d3d0b82fe79680ee65695",
+      "current_sha256": "85d5741263e9f6af47ef5dc2ed247ffa04fa139ab84d3d0b82fe79680ee65695",
+      "same": true
+    }
+  },
+  "direct_production_helpers": {
+    "6fbf4e081620cde112c6bd0238f26a51c4f193be": {
+      "caption_evidence_summary": "3dc889ae28fab765ef2a8ec2ad3e27c0b7cb32d91d5b4d37216f389a6d5f11e1",
+      "EVIDENCE_FIGURE_TYPES": "637149f8d70daabb4464879e1cdbbecdffb366c2bc3306f517730825de153fa8"
+    },
+    "bb84b4b55f9f1611afd695c22cf7aaf4c6a5cd25": {
+      "caption_evidence_summary": "3dc889ae28fab765ef2a8ec2ad3e27c0b7cb32d91d5b4d37216f389a6d5f11e1",
+      "EVIDENCE_FIGURE_TYPES": "637149f8d70daabb4464879e1cdbbecdffb366c2bc3306f517730825de153fa8"
+    }
+  },
+  "source_manifest_sha256": "6efcf5b9f2a5c537e1bebcedcbab7bc730854912a128c14af99f4c59f303e378",
+  "crosscheck_report_sha256": "b257daf04ee21d8f42f820790bf19d1994b714a25df56228bc865b30a4c68b7b",
+  "source_config": {
+    "bib_sha256": "e3678544aa0de925aa86c6d3ef198271a02aefb7a7ce2cafd5f23c9c71c4c165",
+    "config_sha256": "1d7aef56f9e135539d83bbf8522efa30e2cdbe4a0343065cfdf30df81d079b7c",
+    "prior_config_sha256": "5ab2ccded5d936e118bf0f6a1d829dd597ae28c72f04ee4b4c5404b4302d2295"
+  },
+  "input_configuration_differences": {
+    "baseline": {
+      "compute": "auto",
+      "panel_override": "--figure-panels ocr"
+    },
+    "current": {
+      "compute": "cpu",
+      "num_threads": 4,
+      "panel_detection": "vision-local; unavailable vision deferred"
+    },
+    "input_pdfs_bib_lexicon_taxonomy": "same configured paths/source manifest; no source mutation in scoring"
+  },
+  "raw_scorer_outputs": {
+    "fidelity": {
+      "current": {
+        "historical_path": "/tmp/corpus-v15-acceptance/gold/scores_ab6353f_20260922/fidelity.json",
+        "sha256": "b1a9af8b83cb1a0aa3d0a74d4cd93891900352655fc5246bd1d7ebf1085f84d3"
+      },
+      "baseline": {
+        "historical_path": "/tmp/corpus-v15-acceptance/gold/scores_6fb_2026_09_18/fidelity.json",
+        "sha256": "61dd08e6028c0bdb7decd399c2f619fedbaaf4f7b1355fca97abe8098523c3ad"
+      }
+    },
+    "figure_detection": {
+      "current": {
+        "historical_path": "/tmp/corpus-v15-acceptance/gold/scores_ab6353f_20260922/figure_detection.json",
+        "sha256": "77efe91c8715b8f9a006224427fe919e38351d4769e477fdb4fded2941a3881b"
+      },
+      "baseline": {
+        "historical_path": "/tmp/corpus-v15-acceptance/gold/scores_6fb_2026_09_18/figure_detection.json",
+        "sha256": "77efe91c8715b8f9a006224427fe919e38351d4769e477fdb4fded2941a3881b"
+      }
+    },
+    "caption_binding": {
+      "current": {
+        "historical_path": "/tmp/corpus-v15-acceptance/gold/scores_ab6353f_20260922/caption_binding.json",
+        "sha256": "693a7e4e2870e9d4f95707323f9b466054fb2bc0d1be4d0252fe2c03544ee952"
+      },
+      "baseline": {
+        "historical_path": "/tmp/corpus-v15-acceptance/gold/scores_6fb_2026_09_18/caption_binding.json",
+        "sha256": "090c0e86e8097bbea9d33574ec03fce54ce5e5cf11dd480ffab9d8679af2d60f"
+      }
+    }
+  },
+  "scratch_launch_receipt": {
+    "path": "/tmp/corpus-v15-acceptance/gold/scores_ab6353f_20260922/scoring-launch-receipt.json",
+    "sha256": "5211dcb711b0ab868370cbcc3ce93230ffaccd2e73dc5fb0d3fce69aab31181e"
+  },
+  "extraction_completion_receipt": {
+    "path": "/tmp/corpus-v15-acceptance/gold/refresh-20260922-completion.json",
+    "sha256": "19ca0428f62d0028bbf47a6272f9203a3ca3749a5fdc73aeba33a0840d6bceab"
+  },
+  "extraction_artifact_comparison": {
+    "path": "/tmp/corpus-v15-acceptance/gold/refresh-20260922-artifact-comparison.json",
+    "sha256": "67ad19b2626c2225a3734cecba2880fca5043f256e02b7156b5bf5806c283fc8"
+  },
+  "validation": {
+    "source_pages_hashed_before_after": 761,
+    "build_artifacts_hashed_before_after": 245,
+    "same_scored_page_keys": 675,
+    "all_three_scorer_exit_codes": 0,
+    "original_baseline_scores_unmodified": true
+  },
+  "scope": "Independent source gold scoring of completed CPU extraction. No re-extraction, OCR, model, ranking or sealed retrieval-result inspection. Root owns subsequent embedding/post/bundle/serve/implicit-resume receipts."
+}

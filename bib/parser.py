@@ -425,7 +425,9 @@ def bib_entry_to_metadata(entry: Dict, filename: str) -> Dict:
     # any of them, so it is fingerprinted across every OCR-dependent stage.
     keeppages = _strip_outer_braces(entry.get("keeppages", ""))
 
+    from .fields import LOCATOR_FIELDS
     return {
+        **{key: _strip_outer_braces(entry.get(key, "")) or None for key in LOCATOR_FIELDS},
         "filename": filename,
         "title": _strip_outer_braces(entry.get("title", "")),
         "authors": _split_authors(entry.get("author", "")),

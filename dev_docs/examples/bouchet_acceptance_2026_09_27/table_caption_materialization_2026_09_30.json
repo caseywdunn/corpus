@@ -1,0 +1,86 @@
+{
+  "status": "pass",
+  "code": "05a5e8de935848c710dcd52106af77fe8379fd08",
+  "fresh_source_materialization": [
+    {
+      "paper_hash": "1648cd91e973",
+      "caption": "TABLE 1 Summary of diagnostic features separating Nanomia spp.",
+      "table": "#/tables/0",
+      "table_caption_owners": [
+        {
+          "caption_ref": "#/texts/64",
+          "previous_owner": "#/pictures/3",
+          "table_ref": "#/tables/0",
+          "page": 5,
+          "reason": "explicit_table_caption_adjacent_unique_table"
+        }
+      ]
+    },
+    {
+      "paper_hash": "9ab2dc986b22",
+      "caption": "Table 1 Taxonomic positions, C values, and collection locality for Cnidaria",
+      "table": "#/tables/0",
+      "table_caption_owners": [
+        {
+          "caption_ref": "#/texts/29",
+          "previous_owner": "#/pictures/3",
+          "table_ref": "#/tables/0",
+          "page": 3,
+          "reason": "explicit_table_caption_adjacent_unique_table"
+        }
+      ]
+    }
+  ],
+  "unchanged_resume_preserves_extraction_and_chunks": true,
+  "hashes": {
+    "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-materialization-20260930/output/documents/1648cd91e973/docling_doc.json": "19b95003af4be262be8e0954c57fd0d5bfa2a1d50e0406ed01749c74d677c0aa",
+    "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-materialization-20260930/output/documents/1648cd91e973/chunks.json": "045aa79ed02cccf623a43505e65c367d4ba002e45668d572b8f1d46accca2576",
+    "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-materialization-20260930/output/documents/1648cd91e973/text.json": "2d96258b9048d89aebddfd172fee8648b7599e86901fd4bb78506bab3cce3411",
+    "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-materialization-20260930/output/documents/9ab2dc986b22/docling_doc.json": "5217f2b6ce8e1b5f3073b3755440023feef8175101e49b73c614cbbcfbd9e153",
+    "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-materialization-20260930/output/documents/9ab2dc986b22/chunks.json": "02c173922f7ced17a9fafbcaaac2e4a6fea08c35a35231dbdd57e9fb7fbff925",
+    "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-materialization-20260930/output/documents/9ab2dc986b22/text.json": "4b6707da1e87c419bd56e6b880e24b7bb45f4599c9102e4b3ee3717a31213778"
+  },
+  "fresh_extraction_job": "27937183",
+  "verification_and_resume_job": "27938902",
+  "raw_artifacts": "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-materialization-20260930",
+  "input_receipt_sha256": "1a67edd8ba54fb2031992e38ab2b03aac036d359476e12df6a30a4da0bb15c14",
+  "input_pdfs": [
+    {
+      "paper_hash": "1648cd91e973",
+      "relative_path": "H_J/Hosiaetal2024.pdf",
+      "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+      "bytes": 12654849
+    },
+    {
+      "paper_hash": "9ab2dc986b22",
+      "relative_path": "A/Adachi_etal2017.pdf",
+      "sha256": "9ab2dc986b22021d37ac0df676ac51282b409df7701fe7a6f480760a73164bb4",
+      "bytes": 353376
+    }
+  ],
+  "retained_harness_failures": [
+    {
+      "job": "27936344",
+      "reason": "Missing taxonomy prerequisite; stopped before extraction. Frozen candidate taxonomy copied with matching hash."
+    },
+    {
+      "job": "27937183",
+      "reason": "Fresh extraction passed. Verification incorrectly required one Table 1 caption across the whole paper; Adachi has a legitimate next-page continuation. Corrected to the reviewed source-page identities."
+    },
+    {
+      "job": "27937958",
+      "reason": "Source ownership/chunk assertions passed. Unchanged resume stopped at Grobid preflight because the service had exited. Final verifier kept the service alive; no product changes or artifact rewriting."
+    }
+  ],
+  "ci": {
+    "T0": 36689760488,
+    "T1_T2": 36689760643,
+    "T3": 36689760592,
+    "all": "success"
+  },
+  "limits": [
+    "Two-source extraction acceptance; not a full latest-producer rebuild or a retrieval improvement claim.",
+    "Full refresh 27882583 and its dependent jobs remain pinned to 7eebfbf.",
+    "Independent retrieval outcomes remain sealed."
+  ]
+}

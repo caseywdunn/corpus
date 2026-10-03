@@ -1,0 +1,41 @@
+{
+  "prepared_at_utc": "2026-09-22T16:40:27.301167+00:00",
+  "working_directory": "/tmp/corpus-correctness-validation",
+  "git_revision": "8e11fee63dee06fef2f0452668d89a0836757863",
+  "args": [
+    "/home/claude/miniforge3/envs/corpus/bin/python",
+    "tools/qc/retrieval.py",
+    "capture",
+    "--manifest",
+    "/tmp/corpus-correctness-validation/dev_docs/examples/siphonophore_retrieval_review_2026_09_22/manifest.frozen.json",
+    "--output-dir",
+    "/home/claude/corpuscles/siphonophore_20260831/_serve",
+    "--label",
+    "retained-v1.2.1-full-guarded-diagnostic-20260922",
+    "--role",
+    "reference",
+    "--out",
+    "/tmp/corpus-issue320-retained-guarded-capture-20260922/capture.json"
+  ],
+  "explicit_environment": {
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "CORPUS_DEVICE": "cpu",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "RAYON_NUM_THREADS": "1",
+    "TOKENIZERS_PARALLELISM": "false"
+  },
+  "manifest_file_sha256": "c56207d4335861e33ce90d5c599e0abe5a3e2379e9355ccb3e610b41b1259b07",
+  "evaluator_sha256": "666a4dd7c14c10e4c82300b4e75019645f3bb941de645c4f25f8fc4ee784e500",
+  "packages": {
+    "torch": "2.12.0",
+    "sentence-transformers": "5.5.0",
+    "lancedb": "0.36.0",
+    "pyarrow": "25.0.0",
+    "transformers": "5.8.1"
+  },
+  "display_policy": "Only fixed audit/prose/historical outcomes may be displayed; independent results and overall score status remain sealed.",
+  "scope": "Normal guarded recapture on unchanged retained1.2.1 bundle; pre-candidate evidence only."
+}

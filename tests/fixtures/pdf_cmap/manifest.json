@@ -1,0 +1,19 @@
+{
+  "note": "Compact original-source crops and actual pre-repair Docling regions, with separately recorded candidate result. Hashes written after fixture capture; not a frozen source-label receipt.",
+  "hashes": {
+    "README.md": "7fbe8f9131180f5879f674f35ba905599af3d2f211ae26e020b500f46f6ff4b6",
+    "chen_regions.json": "8bfac6cc32878e2f1459aafdafc5ad817cb8ce1f8032f3d722dbcb0605ebfa8b",
+    "item112-sign01.png": "66aeeacb8217eec9595ee3ca50df7adecc6f8fca51c8f22dfb3c71cc7cfb48d8",
+    "item112-sign02.png": "b97789768dc77c956aeefa783024b4917867b84d7a94ddc3345f26b65ec9cc54",
+    "item112-sign03.png": "b97789768dc77c956aeefa783024b4917867b84d7a94ddc3345f26b65ec9cc54",
+    "item28-digit01.png": "fcc883e3d76f17e444bfd98cbf288f01cc4ecc3853538fc5fe9b39f146e087c6",
+    "item28-digit02.png": "fcc883e3d76f17e444bfd98cbf288f01cc4ecc3853538fc5fe9b39f146e087c6",
+    "item28-digit03.png": "3301aa497c903c3a8365909f62be57b0db6817c757a872ef1fefd553b7d53756",
+    "item28-sign01.png": "d5b8cc8a92ab129f79fa5039a2a55cff5be8e90cd0322184a97bfc148b0a0a16",
+    "item28-sign02.png": "8c4696ee41ba67dde4229558757feb91ea28b84d63cfba826a7f11125749b53d",
+    "item28-sign03.png": "9fffec69d343ce389f78ae2f09110853613865a17d6032601c8f2898d2661106",
+    "item28-sign04.png": "0515aab9a7f6c8f1c0658c1844d4bc545d13253245b50c1cddf0590d70df8c27",
+    "item28-sign05.png": "c97d184ba3fa339de4f4e808594b66020aad4cbd4de0c97b486d511c1529d780",
+    "item28-sign06.png": "9fffec69d343ce389f78ae2f09110853613865a17d6032601c8f2898d2661106"
+  }
+}

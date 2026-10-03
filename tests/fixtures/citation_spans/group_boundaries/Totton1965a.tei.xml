@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body><p><ref type="bibr" coords="51,68.39,191.24,207.34,16.13">Kolliker, Vogt, Gegenbaur, Leuckart and</ref>   <ref type="bibr" coords="51,94.13,419.76,75.83,8.88" target="#b28">Leuckart (1853</ref><ref type="bibr" coords="51,181.78,419.76,24.30,8.88">Leuckart ( , 1854))</ref>, <ref type="bibr" coords="51,217.42,419.76,84.64,8.88" target="#b108">Gegenbaur (1853</ref><ref type="bibr" coords="51,302.06,419.76,76.80,8.88">), Vogt (1854)</ref></p></body><back><listBibl><biblStruct xml:id="b28">
+	<monogr>
+		<title/>
+		<author>
+			<persName><forename type="first">D</forename><surname>Leuckart</surname></persName>
+		</author>
+		<imprint>
+			<date type="published" when="1853">1853</date>
+			<publisher>Gegenbaur</publisher>
+			<biblScope unit="page">1859</biblScope>
+		</imprint>
+	</monogr>
+	<note type="raw_reference">D. acuminata Leuckart, 1853; Gegenbaur, 1859</note>
+</biblStruct>
+
+<biblStruct xml:id="b108">
+	<analytic>
+		<title level="a" type="main">Ueber einige niedrige Seethiere</title>
+		<author>
+			<persName><forename type="first">C</forename><surname>Gegenbaur</surname></persName>
+		</author>
+	</analytic>
+	<monogr>
+		<title level="m">Beitriige zur niheren Kenntniss der Schwimmpolypen</title>
+		<imprint>
+			<date type="published" when="1853">18532. 1853</date>
+			<biblScope unit="volume">5</biblScope>
+			<biblScope unit="page" from="285" to="344"/>
+		</imprint>
+	</monogr>
+	<note>Z. wiss. Zool.. 3 pls.</note>
+	<note type="raw_reference">GEGENBAUR, C. 18532. Ueber einige niedrige Seethiere. Z. wiss. Zool. 5: 103-17. 1853b. Beitriige zur niheren Kenntniss der Schwimmpolypen. (Siphonophoren.) Z. wiss. Zool. 5: 285-344, 3 pls..</note>
+</biblStruct>
+
+</listBibl></back></text></TEI>

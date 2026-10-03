@@ -1,0 +1,114 @@
+{
+  "job": "27747191",
+  "elapsed": "00:01:34",
+  "scheduler_status": "FAILED 1:0 because the pilot numeric status checks fail; all nine cases produced reviewable outputs",
+  "experiment": "Existing float32 option, unchanged production prompt and Qwen2.5-VL-7B-Instruct revision cc594898137f460bfe9f0759e9844b3ce807cfb5 on H200",
+  "review_basis": "Direct review of all nine fresh overlays against retained source-reviewed rasters; no source re-render or full vision build",
+  "accepted_targets": 2,
+  "failed_targets": 7,
+  "previous_passing_target_preserved": true,
+  "acceptance": "fail",
+  "promoted": false,
+  "original_six_control_manifest": "still unavailable; preservation not claimed",
+  "cases": [
+    {
+      "case": "c9e7e8ae50a2-docling_4-B",
+      "target_pass": true,
+      "reason": "Complete curved colony and B label preserved; previously passing target retained.",
+      "production_status": "completed",
+      "artifacts_sha256": {
+        "fresh-rois.png": "923620581d0bde6fb9720989a219a38655082740e1ea0477d984efc71fd02c89",
+        "production-result.json": "fac9d301aaa595f38da482a396c74864bb844c88f0088c109f7d46cd24663baf",
+        "raw-responses.json": "70109a23a45f7ab979848a528a9fbe89b387b50e619c9849ffab04f048aa7d1b"
+      }
+    },
+    {
+      "case": "225ea525a91f-docling_12-A",
+      "target_pass": false,
+      "reason": "A contains only the left portion of the graph; most plotted data, units and context are excluded.",
+      "production_status": "completed",
+      "artifacts_sha256": {
+        "fresh-rois.png": "d9d0c3b2f3e8c090aef9f47d11bf54ea94c1a60b113faf1c70aec44c9936a800",
+        "production-result.json": "d322312cbec9735fb1bbf37cadb0238d4475f8aedf683ed367685a598337888e",
+        "raw-responses.json": "08d8ad92a727966f40d2f25e9f24c79547bd2781f9d1cfd2dd211e9b9e1c7bc4"
+      }
+    },
+    {
+      "case": "d67cb07d2f0b-docling_8-A",
+      "target_pass": true,
+      "reason": "Complete map, surrounding animals and A label retained; includes a small strip of B.",
+      "production_status": "completed",
+      "artifacts_sha256": {
+        "fresh-rois.png": "bbf54d3f242bf223e3d1ff3801195cb6c2da700c5412c56c9c9c99b7c0e08d32",
+        "production-result.json": "4761ecd8e985b339c6b585e49da1a5f95c2cf3d5b1a0bd0449ccc563b147bc82",
+        "raw-responses.json": "bc349a149fd56fa95342ed208090fa162bea7af47d3c6bd84e060b44314633b2"
+      }
+    },
+    {
+      "case": "b65d13c36c5e-docling_4-A",
+      "target_pass": false,
+      "reason": "A clips the left half of the specimen and excludes its label, arrow and upper comparison drawing.",
+      "production_status": "partial_vision",
+      "artifacts_sha256": {
+        "fresh-rois.png": "a62a305cafae4a95cea9e9c5b4832165b88347d44579ed8f6d39dfe1d6dd73ad",
+        "production-result.json": "8dd51879493571b5e4f56df843aac80b60423470cdc43160787477a2a6b9ab75",
+        "raw-responses.json": "c3e78bcbd2e11e2f2f2fc34e4a9935373d7ff0a9f2c24b7cd2a46f5cb49cc02b"
+      }
+    },
+    {
+      "case": "225ea525a91f-docling_6-A",
+      "target_pass": false,
+      "reason": "A misses its label and most of the graph, and includes part of B.",
+      "production_status": "partial_vision",
+      "artifacts_sha256": {
+        "fresh-rois.png": "56746be1346c87a5725630a711e1eb22d0319b78696177b422a1f185839f6eb8",
+        "production-result.json": "f463270fd796d30c226d84973c01d4e767b806fa0a927c9c88ddfb525beba454",
+        "raw-responses.json": "4d6b10d799958c3efc554f5180cc1eb4a15df004d7f21fed19bbd5cc6c715f69"
+      }
+    },
+    {
+      "case": "b9bdaa5351e7-docling_5-A",
+      "target_pass": false,
+      "reason": "A clips its label and scale bar and the specimen at the right edge.",
+      "production_status": "completed_compound",
+      "artifacts_sha256": {
+        "fresh-rois.png": "41280fa44ba4323c5077ce7554683d4328e8d18d687d8c5abb9c26499c851197",
+        "production-result.json": "50e8d2abc96e79b75594d6b9d21afff60c4f80a923cbbba3aaa7beffbdbd0d7b",
+        "raw-responses.json": "653a2343d6f639b4915ad3795380292c92a5555645e58c3f561962407a8d86a2"
+      }
+    },
+    {
+      "case": "d60222c63fea-docling_5-C",
+      "target_pass": false,
+      "reason": "C includes only the rightmost tail region; the float, ruler and part of the label are excluded.",
+      "production_status": "partial_vision",
+      "artifacts_sha256": {
+        "fresh-rois.png": "d7bed4e02c698e35c84ecf05a4a5f868ab9c26c467126a404b953f811449fa8c",
+        "production-result.json": "3053cf6ff8ea01d22f1847727af59a06b06fba50ffec9c11f2801d1719d5f67f",
+        "raw-responses.json": "19b8c22577628b1e6beb9915ed53cab0b732ca9da49ef76740d132d8f238b8ac"
+      }
+    },
+    {
+      "case": "f1b4f011ed24-docling_7-A",
+      "target_pass": false,
+      "reason": "A clips the right side of the drawing and excludes the A label.",
+      "production_status": "completed",
+      "artifacts_sha256": {
+        "fresh-rois.png": "bf13479c157b152bff4a217409a0f9413eb45b5fdc124ac6815016e0329135a0",
+        "production-result.json": "8de4599afe13ade36f542c584022ab28759cf0d35b59bbb4a8219848e3588d9d",
+        "raw-responses.json": "9a4b1f019b2a262d4846bdc8a3e7b05a62de571020e773541dae364ae9bda702"
+      }
+    },
+    {
+      "case": "56e9e844b02d-docling_4-A",
+      "target_pass": false,
+      "reason": "A clips the upper row of mapped observation symbols; the shared scale/context is not retained.",
+      "production_status": "completed",
+      "artifacts_sha256": {
+        "fresh-rois.png": "d87ee2f3a8665e23e7cb96ac684def624f2bd323e307cf661c9a134e436374fc",
+        "production-result.json": "85d2253b1ddc4bc486ba0e7ce4ab68a46591f000049fdbc0ebf7e4e211ff2d6c",
+        "raw-responses.json": "c3bde543ffdf584eee788a9cdc825e2e91025d905d6f3c0a78b57c5938c263a4"
+      }
+    }
+  ]
+}

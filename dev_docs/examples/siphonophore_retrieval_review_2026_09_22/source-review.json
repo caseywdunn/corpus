@@ -1,0 +1,450 @@
+{
+  "review_date": "2026-09-22",
+  "protocol_sha256": "1998dab01a2ccb0cf8df72ab876e7a3ec5cbbabb2ed0825a8c0c4775d7b87769",
+  "reviewer": "Codex /root/fix_figures",
+  "review_type": "agent visual source review; not blind, random, human, or domain-expert labeling",
+  "candidate_units": 10,
+  "verified_units": 10,
+  "unscorable_units": 0,
+  "papers": 5,
+  "decisions": [
+    {
+      "id": "source_first_01",
+      "paper_hash": "8a4548d8d5d7",
+      "status": "source_verified",
+      "distinct_unit": "Agalma species key",
+      "reviewed_physical_pages": [
+        58
+      ],
+      "source_regions": [
+        "ag_key"
+      ],
+      "source_judgment": "True species key. The elegans branch has three unarmed longitudinal ridges; haeckeli has three to five armed ridges and red pigment spots. The surrounding account warns that haeckeli is poorly established; this query asks about the historical key, not accepted current species status.",
+      "target_ids": [
+        "ag_elegans_branch",
+        "ag_haeckeli_branch"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_02",
+      "paper_hash": "8a4548d8d5d7",
+      "status": "source_verified",
+      "distinct_unit": "Lensia species key",
+      "reviewed_physical_pages": [
+        164,
+        165
+      ],
+      "source_regions": [
+        "lensia_key"
+      ],
+      "source_judgment": "True anterior-nectophore species key, couplet 8. Both branches have five non-crested ridges; subtilis has a globular somatocyst on a long pedicle, whereas meteori has a somatocyst on a very short pedicle. Page165 begins the next treatment and supplies no additional key unit.",
+      "target_ids": [
+        "lensia_subtilis_branch",
+        "lensia_meteori_branch"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_03",
+      "paper_hash": "79bcb551c1f1",
+      "status": "source_verified",
+      "distinct_unit": "Lensia baryi treatment/comparison",
+      "reviewed_physical_pages": [
+        3,
+        4
+      ],
+      "source_regions": [
+        "baryi"
+      ],
+      "source_judgment": "Separate new-species treatment. Relative to achilles, the anterior nectophore of baryi is squat and sturdy, and its longitudinal ridges are less sharply crested. The specimen association and uncertain old synonymy are not promoted to certainty. This unit is distinct from the cordata treatment below.",
+      "target_ids": [
+        "baryi_anterior_comparison"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_04",
+      "paper_hash": "79bcb551c1f1",
+      "status": "source_verified",
+      "distinct_unit": "Lensia cordata treatment/comparison",
+      "reviewed_physical_pages": [
+        4,
+        5
+      ],
+      "source_regions": [
+        "cordata_context",
+        "cordata"
+      ],
+      "source_judgment": "Separate new-species treatment starts on p4 and continues on p5. The anterior nectophore has a squat heart-shaped somatocyst above the ostial level and marked ridge crests unlike baryi. Posterior nectophore and eudoxid are explicitly unknown. The nearby catch table is contextual sampling data, not a key.",
+      "target_ids": [
+        "cordata_anterior_diagnosis"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_05",
+      "paper_hash": "34712b25bc52",
+      "status": "source_verified",
+      "distinct_unit": "Lensia campanella elongata treatment/comparison",
+      "reviewed_physical_pages": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "source_regions": [
+        "elongata_diagnosis",
+        "elongata_summary"
+      ],
+      "source_judgment": "Explicit Russian subspecies diagnosis on physicalp3, corroborated by the original English summary on p4. The somatocyst is about half the nectophore length and vermiform or irregularly fusiform. Russian text adds its thin stalk and uneven surface. The proposed posterior-nectophore assignment is explicitly tentative and is outside this query. Page1 also includes unrelated preceding-article material; it is not a second unit.",
+      "target_ids": [
+        "elongata_russian_diagnosis",
+        "elongata_original_english_summary"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_06",
+      "paper_hash": "c806191c35c4",
+      "status": "source_verified",
+      "distinct_unit": "Lensia canopusi diagnostic comparison",
+      "reviewed_physical_pages": [
+        1
+      ],
+      "source_regions": [
+        "canopusi"
+      ],
+      "source_judgment": "Original Spanish diagnostic comparison: the anterior nectophore lacks a somatocyst, whereas hotspur and cossack have a conspicuous one. Poor visibility of the radial canals is a qualified observation, not substituted as the defining distinction. Query is English and source Spanish; no translation is inserted into corpus artifacts.",
+      "target_ids": [
+        "canopusi_absent_somatocyst"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_07",
+      "paper_hash": "9c0af2a4e494",
+      "status": "source_verified",
+      "distinct_unit": "Sphaeronectes gracilis treatment/comparison",
+      "reviewed_physical_pages": [
+        4,
+        5
+      ],
+      "source_regions": [
+        "gracilis",
+        "kollikeri"
+      ],
+      "source_judgment": "Species-level contrast crosses p4–5. In gracilis the reservoir bends upward from the horizontal stalk; in the compared Köllikeri form it points downward toward the bell margin. Historical names and author usage are retained rather than silently resolved to modern taxonomy.",
+      "target_ids": [
+        "gracilis_upward_bend",
+        "kollikeri_downward_bend"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_08",
+      "paper_hash": "9c0af2a4e494",
+      "status": "source_verified",
+      "distinct_unit": "Muggiaea atlantica treatment",
+      "reviewed_physical_pages": [
+        5,
+        6
+      ],
+      "source_regions": [
+        "atlantica",
+        "kochi"
+      ],
+      "source_judgment": "Explicit morphological comparison across p5–6. The atlantica hydroecium projects substantially beyond the bell margin and its reservoir reaches the bell apex; in kochi the hydroecium projects only slightly and the reservoir reaches only mid-bell. Speculative identity with an inadequately described Canary form and eudoxid speculation are not positive diagnostic evidence.",
+      "target_ids": [
+        "atlantica_reservoir_extent",
+        "kochi_reservoir_extent"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_09",
+      "paper_hash": "9c0af2a4e494",
+      "status": "source_verified",
+      "distinct_unit": "Galeolaria truncata treatment",
+      "reviewed_physical_pages": [
+        7,
+        8
+      ],
+      "source_regions": [
+        "truncata_size",
+        "truncata_somatocyst"
+      ],
+      "source_judgment": "Distinct illustrated species treatment, not a detached measurement table. Upper/lower bells are 13/10mm; the upper is a laterally compressed five-edged pyramid and the lower also five-edged and smaller. The cylindrical reservoir rises halfway up the bell. Heading says only possibly synonymous with Diphyes appendiculata, attributed to K.C. Schneider. That tentative synonymy is not asserted as established.",
+      "target_ids": [
+        "truncata_nectophore_sizes",
+        "truncata_reservoir_extent"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    },
+    {
+      "id": "source_first_10",
+      "paper_hash": "9c0af2a4e494",
+      "status": "source_verified",
+      "distinct_unit": "Galeolaria biloba treatment",
+      "reviewed_physical_pages": [
+        8,
+        9
+      ],
+      "source_regions": [
+        "biloba"
+      ],
+      "source_judgment": "Separate species treatment describes four hook-shaped outward-pointing teeth on the bract margin. Bell size and reservoir comparison with the preceding species are secondary context. This query tests a different taxonomic treatment and different anatomy from the truncata nectophore question; no extra unit is created from the associated pictures.",
+      "target_ids": [
+        "biloba_bract_teeth"
+      ],
+      "reviewer": "Codex /root/fix_figures",
+      "retrieval_ranks_inspected": false
+    }
+  ],
+  "regions": {
+    "ag_key": {
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 58,
+      "bbox_points": [
+        42.739199829101565,
+        72.07319854736329,
+        573.9263977050781,
+        176.36735644531248
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/ag_key.png",
+      "crop_sha256": "d564cfdd7e6f328d41960d87265e7213b319f0054c11200444477d8aa3b5670a"
+    },
+    "lensia_key": {
+      "paper_hash": "8a4548d8d5d7",
+      "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+      "physical_page": 164,
+      "bbox_points": [
+        42.42,
+        170.11631457519533,
+        569.64,
+        656.8847790527344
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/lensia_key.png",
+      "crop_sha256": "741715bee4f03c3f032657871c0b5fd4cf531ce4e87388e756654ca2bd966356"
+    },
+    "baryi": {
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 3,
+      "bbox_points": [
+        33.98396484375,
+        360.0393804931641,
+        399.3115869140625,
+        543.6270285644531
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/baryi.png",
+      "crop_sha256": "c625240df938fbfc83ecdba5521999db9c8d6d70753a3887922c79d0eaece6f8"
+    },
+    "cordata_context": {
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 4,
+      "bbox_points": [
+        37.73510375976562,
+        483.83953857421875,
+        394.12219482421875,
+        596.7354309082032
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/cordata_context.png",
+      "crop_sha256": "a8708eafc5c81dce2ed54760787cd0f74a65eea1ee4242015a38ca4e2a994257"
+    },
+    "cordata": {
+      "paper_hash": "79bcb551c1f1",
+      "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+      "physical_page": 5,
+      "bbox_points": [
+        33.88798828125,
+        58.341555175781245,
+        398.18386230468747,
+        137.4267744140625
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/cordata.png",
+      "crop_sha256": "043c97ffaca758629078fec3cfb460f39537dacb40e343fee0f5af46e6b97b38"
+    },
+    "elongata_diagnosis": {
+      "paper_hash": "34712b25bc52",
+      "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "physical_page": 3,
+      "bbox_points": [
+        32.5620002746582,
+        281.92799377441406,
+        408.1104034423828,
+        413.936630859375
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/elongata_diagnosis.png",
+      "crop_sha256": "781fe151e42f4ee374658993c1400c4a960772ce7f1442a44d4574394c9ffbba"
+    },
+    "elongata_summary": {
+      "paper_hash": "34712b25bc52",
+      "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+      "physical_page": 4,
+      "bbox_points": [
+        32.29199981689453,
+        134.3160025024414,
+        404.7263977050781,
+        213.5952039794922
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/elongata_summary.png",
+      "crop_sha256": "37fdbeb268db0bebf3a78a6597eff6192f4dcc9becbf229d511378a525901c3b"
+    },
+    "canopusi": {
+      "paper_hash": "c806191c35c4",
+      "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+      "physical_page": 1,
+      "bbox_points": [
+        66.30839862060547,
+        507.386859375,
+        279.9035941772461,
+        639.2786140136719
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/canopusi.png",
+      "crop_sha256": "22d8db3e8c15cd02b27d55e8cc46d4459d6230327f7a93e7a26b1d20f323b787"
+    },
+    "gracilis": {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 4,
+      "bbox_points": [
+        104.48861572265626,
+        409.72415625,
+        528.5894677734375,
+        461.33669531249996
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/gracilis.png",
+      "crop_sha256": "5036d1423be3fcb6abebd06c42de8fe43972c75e83875ec904a231fa6219dbc8"
+    },
+    "kollikeri": {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 5,
+      "bbox_points": [
+        95.02739318847657,
+        79.27196044921875,
+        524.1833624267578,
+        131.59145434570314
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/kollikeri.png",
+      "crop_sha256": "eacf6190ebef331a796b01b68c94c73145291efb9e1617a41d134d9ca83e8c5d"
+    },
+    "atlantica": {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 5,
+      "bbox_points": [
+        95.02739318847657,
+        531.1221350097657,
+        524.1833624267578,
+        642.8955992431642
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/atlantica.png",
+      "crop_sha256": "009562f4de111609579e0a0d1c2196f6947fea7fdf9a54316ed36d6a652036cf"
+    },
+    "kochi": {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 6,
+      "bbox_points": [
+        104.10107299804689,
+        85.5618662109375,
+        524.1795205078125,
+        123.5893623046875
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/kochi.png",
+      "crop_sha256": "b615a00b79bf22957b4dcecbba6e1727c7c0c6e5e01e613fff7de8cb361323bc"
+    },
+    "truncata_size": {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 7,
+      "bbox_points": [
+        97.47971301269531,
+        167.26383654785155,
+        524.1833624267578,
+        237.81588134765624
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/truncata_size.png",
+      "crop_sha256": "0238b81c552b7592be55530dc8c91558a0384d40a93bed7d676e6c5d06fcf17a"
+    },
+    "truncata_somatocyst": {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 7,
+      "bbox_points": [
+        316.34925732421874,
+        429.6540256347657,
+        522.3441225585938,
+        558.8673211669922
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/truncata_somatocyst.png",
+      "crop_sha256": "89dfe590ceec313b52f05a4500417644f3b97d283138b1e01e8847690ecd7baf"
+    },
+    "biloba": {
+      "paper_hash": "9c0af2a4e494",
+      "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+      "physical_page": 8,
+      "bbox_points": [
+        101.2966864013672,
+        158.63994140625002,
+        527.9706079101562,
+        249.85790771484375
+      ],
+      "coord_origin": "top-left; original displayed source page",
+      "dpi": 180,
+      "crop": "/tmp/corpus-issue320-source-first-20260922/source-review/biloba.png",
+      "crop_sha256": "d2334e720dbf4fc01e5cf9bbb7a1445fbf5154b0bda18281c4c97f8600488980"
+    }
+  },
+  "second_agent_review": {
+    "reviewer": "Codex /root/fix_bibliography",
+    "scope": "Only original full-page rasters for Vanhöffen physicalpages7–8; not second review of all ten units.",
+    "image_sha256": {
+      "7": "0df71fe58bc6db2d520f960ecfb3f60bf483e57cc62c835bdeed1d0269cf4d0f",
+      "8": "fa3018cfa820539bec2aa0cff39ac34e799103c0bc514574d29c3d5b8d50543a"
+    },
+    "finding": "Both distinct treatments supported. Truncata: upper13mm/lower10mm; five-edged compressed upper pyramid; cylindrical somatocyst halfway up bell. Tentative synonymy with Diphyes appendiculata attributed to K.C. Schneider. Biloba: four outward-pointing hooked bract teeth; bells about20mm; reservoir shorter than previous species. Agent inspection, not human/domain review."
+  },
+  "scope": "All 17 candidate full-page renders inspected. All ten frozen units retained; no replacements. Sixteen grade2 anchors describe useful source content; a single partial branch can be a hit and does not prove full comparison coverage. Unmatched retrieval content is unjudged."
+}

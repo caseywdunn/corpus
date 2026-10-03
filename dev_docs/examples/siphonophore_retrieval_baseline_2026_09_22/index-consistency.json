@@ -1,0 +1,408 @@
+{
+  "method": "Read-only scalar LanceDB filter of complete fixed target papers, no vector search/model call. Exact text equality against materialized chunks; frozen target_match over actual indexed text. No independent target paper selection/outcomes.",
+  "table_version": 1775,
+  "selected_paper_count": 12,
+  "selected_row_count": 4266,
+  "predicate": "metadata.pdf_hash IN ('1409a2155981','1648cd91e973','3507422334c6','5e74ac01e8ac','a0acf5935174','b4146be29447','b4425fd6ae7a','bc251c7a6346','c887fb198ebc','c9e7e8ae50a2','da370f1e0434','ffc7ebff40b4')",
+  "paper_checks": [
+    {
+      "paper_hash": "1648cd91e973",
+      "artifact_chunks": 133,
+      "indexed_rows": 133,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "a0acf5935174",
+      "artifact_chunks": 174,
+      "indexed_rows": 174,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "da370f1e0434",
+      "artifact_chunks": 168,
+      "indexed_rows": 168,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "c9e7e8ae50a2",
+      "artifact_chunks": 168,
+      "indexed_rows": 168,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "c887fb198ebc",
+      "artifact_chunks": 608,
+      "indexed_rows": 608,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "5e74ac01e8ac",
+      "artifact_chunks": 38,
+      "indexed_rows": 38,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "ffc7ebff40b4",
+      "artifact_chunks": 9,
+      "indexed_rows": 9,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "1409a2155981",
+      "artifact_chunks": 62,
+      "indexed_rows": 62,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "3507422334c6",
+      "artifact_chunks": 129,
+      "indexed_rows": 129,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "bc251c7a6346",
+      "artifact_chunks": 103,
+      "indexed_rows": 103,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "b4425fd6ae7a",
+      "artifact_chunks": 1568,
+      "indexed_rows": 1568,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    },
+    {
+      "paper_hash": "b4146be29447",
+      "artifact_chunks": 1106,
+      "indexed_rows": 1106,
+      "missing_chunk_ids": [],
+      "changed_text_chunk_ids": []
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "audit_01",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "targets": [
+        {
+          "target_id": "nanomia_palpon_comparison",
+          "paper_hash": "1648cd91e973",
+          "matching_index_chunk_ids": [
+            "chunk_33"
+          ]
+        },
+        {
+          "target_id": "nanomia_nectophore_comparison",
+          "paper_hash": "1648cd91e973",
+          "matching_index_chunk_ids": [
+            "chunk_32"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "audit_02",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "targets": [
+        {
+          "target_id": "nanomia_palpon_comparison",
+          "paper_hash": "1648cd91e973",
+          "matching_index_chunk_ids": [
+            "chunk_33"
+          ]
+        },
+        {
+          "target_id": "nanomia_nectophore_comparison",
+          "paper_hash": "1648cd91e973",
+          "matching_index_chunk_ids": [
+            "chunk_32"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "audit_03",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "targets": [
+        {
+          "target_id": "nanomia_palpon_comparison",
+          "paper_hash": "1648cd91e973",
+          "matching_index_chunk_ids": [
+            "chunk_33"
+          ]
+        },
+        {
+          "target_id": "nanomia_nectophore_comparison",
+          "paper_hash": "1648cd91e973",
+          "matching_index_chunk_ids": [
+            "chunk_32"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "audit_04",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "targets": [
+        {
+          "target_id": "physalia_minuta_diagnosis",
+          "paper_hash": "a0acf5935174",
+          "matching_index_chunk_ids": [
+            "chunk_53"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "audit_05",
+      "positive_targets": 10,
+      "available_targets": 9,
+      "targets": [
+        {
+          "target_id": "erenna_nectophore_key_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_151"
+          ]
+        },
+        {
+          "target_id": "erenna_nectophore_richardi_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_152"
+          ]
+        },
+        {
+          "target_id": "erenna_nectophore_sirena_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_152"
+          ]
+        },
+        {
+          "target_id": "erenna_nectophore_laciniata_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_152"
+          ]
+        },
+        {
+          "target_id": "erenna_nectophore_insidiator_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_153"
+          ]
+        },
+        {
+          "target_id": "erenna_bract_key_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": []
+        },
+        {
+          "target_id": "erenna_bract_insidiator_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_155"
+          ]
+        },
+        {
+          "target_id": "erenna_bract_laciniata_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_155"
+          ]
+        },
+        {
+          "target_id": "erenna_bract_richardi_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_156"
+          ]
+        },
+        {
+          "target_id": "erenna_bract_sirena_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_156"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "audit_06",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "targets": [
+        {
+          "target_id": "apolemia_lanosa_diagnosis",
+          "paper_hash": "c9e7e8ae50a2",
+          "matching_index_chunk_ids": [
+            "chunk_25"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "audit_07",
+      "positive_targets": 5,
+      "available_targets": 4,
+      "targets": [
+        {
+          "target_id": "erenna_bract_key_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": []
+        },
+        {
+          "target_id": "erenna_bract_insidiator_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_155"
+          ]
+        },
+        {
+          "target_id": "erenna_bract_laciniata_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_155"
+          ]
+        },
+        {
+          "target_id": "erenna_bract_richardi_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_156"
+          ]
+        },
+        {
+          "target_id": "erenna_bract_sirena_branch",
+          "paper_hash": "da370f1e0434",
+          "matching_index_chunk_ids": [
+            "chunk_156"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "prose_01",
+      "positive_targets": 2,
+      "available_targets": 2,
+      "targets": [
+        {
+          "target_id": "pugh1983_gas_gland",
+          "paper_hash": "c887fb198ebc",
+          "matching_index_chunk_ids": [
+            "chunk_23"
+          ]
+        },
+        {
+          "target_id": "wittenberg1960_gas_gland",
+          "paper_hash": "5e74ac01e8ac",
+          "matching_index_chunk_ids": [
+            "chunk_27"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "prose_02",
+      "positive_targets": 3,
+      "available_targets": 3,
+      "targets": [
+        {
+          "target_id": "haddock2005_lure_inference",
+          "paper_hash": "ffc7ebff40b4",
+          "matching_index_chunk_ids": [
+            "chunk_4"
+          ]
+        },
+        {
+          "target_id": "haddock2005_fish_lures",
+          "paper_hash": "ffc7ebff40b4",
+          "matching_index_chunk_ids": [
+            "chunk_2"
+          ]
+        },
+        {
+          "target_id": "haddock2017_erenna_lures",
+          "paper_hash": "1409a2155981",
+          "matching_index_chunk_ids": [
+            "chunk_24"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "prose_03",
+      "positive_targets": 3,
+      "available_targets": 3,
+      "targets": [
+        {
+          "target_id": "grossmann2014_somatocyst_storage",
+          "paper_hash": "3507422334c6",
+          "matching_index_chunk_ids": [
+            "chunk_106"
+          ]
+        },
+        {
+          "target_id": "pugh2018_somatocyst_hypotheses",
+          "paper_hash": "bc251c7a6346",
+          "matching_index_chunk_ids": [
+            "chunk_41"
+          ]
+        },
+        {
+          "target_id": "pugh2018_buoyancy_caveat",
+          "paper_hash": "bc251c7a6346",
+          "matching_index_chunk_ids": [
+            "chunk_42"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "historical_01",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "targets": [
+        {
+          "target_id": "daniel1974_epibulia_names",
+          "paper_hash": "b4425fd6ae7a",
+          "matching_index_chunk_ids": [
+            "chunk_130",
+            "chunk_232"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "historical_02",
+      "positive_targets": 1,
+      "available_targets": 1,
+      "targets": [
+        {
+          "target_id": "daniel1985_kochi_branch",
+          "paper_hash": "b4146be29447",
+          "matching_index_chunk_ids": [
+            "chunk_626"
+          ]
+        }
+      ]
+    }
+  ],
+  "index_rows_sha256": "18160c170a535eba2a5528314932ec255ba3b100e292b3a76a43307228d83751"
+}

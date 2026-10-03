@@ -1,0 +1,120 @@
+{
+  "status": "source_review_passed_materialization_pending",
+  "documents": 1775,
+  "changes": [
+    {
+      "caption_ref": "#/texts/64",
+      "previous_owner": "#/pictures/3",
+      "table_ref": "#/tables/0",
+      "page": 5,
+      "reason": "explicit_table_caption_adjacent_unique_table",
+      "paper_hash": "1648cd91e973",
+      "caption": "TABLE 1 Summary of diagnostic features separating Nanomia spp.",
+      "caption_provenance": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 49.6063,
+            "t": 536.6270354023438,
+            "r": 269.24706223000004,
+            "b": 528.8921459023438,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            62
+          ]
+        }
+      ],
+      "table_provenance": [
+        {
+          "page_no": 5,
+          "bbox": {
+            "l": 48.47139358520508,
+            "t": 520.4927978515625,
+            "r": 545.9555053710938,
+            "b": 342.9994201660156,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "caption_ref": "#/texts/29",
+      "previous_owner": "#/pictures/3",
+      "table_ref": "#/tables/0",
+      "page": 3,
+      "reason": "explicit_table_caption_adjacent_unique_table",
+      "paper_hash": "9ab2dc986b22",
+      "caption": "Table 1 Taxonomic positions, C values, and collection locality for Cnidaria",
+      "caption_provenance": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 51.02360153,
+            "t": 732.2007397420313,
+            "r": 310.35860084999996,
+            "b": 725.0887196974878,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            75
+          ]
+        }
+      ],
+      "table_provenance": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 49.4405403137207,
+            "t": 722.6573104858398,
+            "r": 544.6483764648438,
+            "b": 76.09161376953125,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "input_artifacts_unchanged": true,
+  "implementation_sha256": "5532a2bea46276a81c71a3080b6e6655201364ed55f1fe529e75646cd75a52bb",
+  "elapsed_seconds": 388.5010608069133,
+  "job": "27923381",
+  "review": [
+    {
+      "paper_hash": "1648cd91e973",
+      "filename": "Hosiaetal2024.pdf",
+      "page": 5,
+      "result": "pass",
+      "evidence": "Printed Table 1 immediately above comparison table; caption was wrongly owned by the map beneath the table. Caption and table cells retained exactly."
+    },
+    {
+      "paper_hash": "9ab2dc986b22",
+      "filename": "Adachi_etal2017.pdf",
+      "page": 3,
+      "result": "pass",
+      "evidence": "Printed Table 1 directly above taxonomic/genome-size table; caption was wrongly owned by distant publisher logo at page bottom."
+    }
+  ],
+  "input_hash_inventory_sha256": "0528676252e7b94cf2c45c168c20f8bcec6c5f5f64328f7e1fabc7ea2f88b053",
+  "raw_artifacts": "/nfs/roberts/project/pi_cwd7/cwd7/corpus/scratch/v15-bouchet-20260925/table-caption-review-20260929",
+  "validation": {
+    "focused_suite": "107 passed before adding coordinate-origin and producer-invalidation coverage",
+    "expanded_owner_tests": "14 passed",
+    "ruff_F": "pass"
+  },
+  "limitations": [
+    "Read-only saved-document replay, not fresh extraction or retrieval improvement.",
+    "Independent retrieval outcomes remain sealed.",
+    "Caption repair invalidates extraction and downstream artifacts; existing 7eebfbf refresh does not include it."
+  ]
+}

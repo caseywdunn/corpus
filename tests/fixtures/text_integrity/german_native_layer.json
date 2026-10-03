@@ -1,0 +1,105 @@
+{
+  "source": "Boysen-Ennen1987.pdf",
+  "physical_page": 12,
+  "source_pdf_sha256": "9bcb2261d89798fa56c7e0696cc68876fe01a4a3bd4c7650465e146dfcf997bb",
+  "note": "SHA256 identifies external one-page original slice; prepared text is current force-OCR deu+eng output. Source typography separately confirmed by agreeing 300/600dpi regional OCR. Full library PDF is not included.",
+  "native_region": {
+    "page": 1,
+    "page_size": [
+      600.9595947265625,
+      845.280029296875
+    ],
+    "bbox": [
+      288.5978698730469,
+      373.2945251464844,
+      418.3819885253906,
+      411.2801208496094
+    ],
+    "candidates": [
+      {
+        "original": "RMT-8-FÃ¤ng",
+        "decoded_hint": "RMT-8-Fäng",
+        "bbox": [
+          291.5978698730469,
+          386.7012023925781,
+          343.33026123046875,
+          397.8734436035156
+        ],
+        "confirmed_text": "RMT-8-Fänge",
+        "status": "confirmed"
+      },
+      {
+        "original": "NetzÃ¶ff",
+        "decoded_hint": "Netzöff",
+        "bbox": [
+          377.03753662109375,
+          386.7012023925781,
+          415.3819885253906,
+          397.8734436035156
+        ],
+        "confirmed_text": null,
+        "status": "unresolved"
+      }
+    ]
+  },
+  "prepared_item": {
+    "self_ref": "#/texts/4",
+    "parent": {
+      "$ref": "#/body"
+    },
+    "children": [],
+    "content_layer": "body",
+    "label": "text",
+    "prov": [
+      {
+        "page_no": 1,
+        "bbox": {
+          "l": 68.39316000000001,
+          "t": 511.660829296875,
+          "r": 412.15827374663047,
+          "b": 437.9709980527216,
+          "coord_origin": "BOTTOMLEFT"
+        },
+        "charspan": [
+          0,
+          579
+        ]
+      }
+    ],
+    "orig": "Die  vorliegende  Arbeit  behandelt  das Zooplankton,  das  mit  dem  RMT1 (lm? Netzdffnung) in  den  oberen  300  m der  Wassersidule  gefangen  wurde.  Annähernd quantitativ  werden Copepoden, Euphausiaceen-Larven,  kleine  Chaetognathen  und Siphonophoren,  Polychaeten,  Gastropoden  und  kleine  Amphipoden gefangen, Fir  die  Verbreitung  der größeren  Organismen  wie  adulte Euphausiaceen, Chaetognathen und Fischlarven verweise ich auf eine zweite Dissertation, die unter anderem die RMT-8-Finge (8m? Netzöffnung) der  gleichen  Expedition  behandelt (PIATKOWSKI  1987).",
+    "text": "Die  vorliegende  Arbeit  behandelt  das Zooplankton,  das  mit  dem  RMT1 (lm? Netzdffnung) in  den  oberen  300  m der  Wassersidule  gefangen  wurde.  Annähernd quantitativ  werden Copepoden, Euphausiaceen-Larven,  kleine  Chaetognathen  und Siphonophoren,  Polychaeten,  Gastropoden  und  kleine  Amphipoden gefangen, Fir  die  Verbreitung  der größeren  Organismen  wie  adulte Euphausiaceen, Chaetognathen und Fischlarven verweise ich auf eine zweite Dissertation, die unter anderem die RMT-8-Finge (8m? Netzöffnung) der  gleichen  Expedition  behandelt (PIATKOWSKI  1987)."
+  },
+  "repair": {
+    "item_ref": "#/texts/4",
+    "page": 1,
+    "charspan": [
+      493,
+      504
+    ],
+    "original": "RMT-8-Finge",
+    "replacement": "RMT-8-Fänge",
+    "original_native_token": "RMT-8-FÃ¤ng",
+    "decoded_hint": "RMT-8-Fäng",
+    "source_bbox": [
+      291.5978698730469,
+      386.7012023925781,
+      343.33026123046875,
+      397.8734436035156
+    ],
+    "prepared_bbox": [
+      289.59100341796875,
+      388.30322265625,
+      342.325439453125,
+      398.109619140625
+    ],
+    "evidence": "two_regional_raster_readings_and_prepared_geometry",
+    "dpi": [
+      300,
+      600
+    ],
+    "languages": [
+      "deu",
+      "eng"
+    ]
+  }
+}

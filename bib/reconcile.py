@@ -81,7 +81,7 @@ logger = logging.getLogger("corpus.reconcile")
 
 # Persisted with every accepted corpus-paper reconciliation. This version is
 # independent of the package version so old verdicts remain interpretable.
-CORPUS_RECONCILIATION_PRODUCER = "corpus-reconciliation-v1"
+CORPUS_RECONCILIATION_PRODUCER = "corpus-reconciliation-v2"
 
 # Default is derived per-corpus from the output_dir positional arg in
 # main(); see "corpuscle" layout in README.md.
@@ -178,7 +178,7 @@ def find_candidates(conn: sqlite3.Connection, surname: str,
              AND w.in_corpus = 0""",
         (norm, year),
     )
-    return list(cur)
+    return [row for row in cur if not row[0].startswith("corpus:unresolved-author|")]
 
 
 def score_candidates(candidates: List[sqlite3.Row],
@@ -302,32 +302,16 @@ def merge_phase1_into_ghost(conn: sqlite3.Connection,
         "DELETE FROM citations WHERE citing_work_id = ?", (phase1_work_id,),
     )
 
-    # 2. Copy authors the ghost doesn't already have, appending at the end.
-    cur = conn.execute(
-        "SELECT position, surname, surname_normalized, forename "
-        "FROM work_authors WHERE work_id = ? ORDER BY position",
-        (phase1_work_id,),
-    )
-    phase1_authors = list(cur)
-    cur = conn.execute(
-        "SELECT MAX(position) FROM work_authors WHERE work_id = ?", (ghost_work_id,),
-    )
-    row = cur.fetchone()
-    next_pos = (row[0] + 1) if row and row[0] is not None else 0
-    for _, surname, surname_norm, forename in phase1_authors:
-        dup = conn.execute(
-            "SELECT 1 FROM work_authors WHERE work_id = ? AND surname_normalized = ?",
-            (ghost_work_id, surname_norm),
-        ).fetchone()
-        if dup:
-            continue
-        conn.execute(
-            """INSERT OR IGNORE INTO work_authors
-               (work_id, position, surname, surname_normalized, forename)
-               VALUES (?, ?, ?, ?, ?)""",
-            (ghost_work_id, next_pos, surname, surname_norm, forename),
-        )
-        next_pos += 1
+    # Author order/spelling is a source fact, not a set to union by surname.
+    # Preserve complete authoritative lists even when the surviving ID belongs
+    # to an extracted ghost (#296).
+    from .fields import capture_legacy, move_sources
+    capture_legacy(conn, phase1_work_id)
+    capture_legacy(conn, ghost_work_id)
+    if not conn.execute("SELECT 1 FROM work_authors WHERE work_id=?", (ghost_work_id,)).fetchone():
+        conn.execute("""INSERT INTO work_authors
+            SELECT ?,position,surname,surname_normalized,forename FROM work_authors WHERE work_id=?""",
+            (ghost_work_id, phase1_work_id))
 
     # 3. Copy aliases that aren't already on the ghost.
     conn.execute(
@@ -375,9 +359,14 @@ def merge_phase1_into_ghost(conn: sqlite3.Connection,
             (corpus_hash, carried_bib, time.time(), ghost_work_id),
         )
 
+    move_sources(conn, phase1_work_id, ghost_work_id)
+
     # 5. Clean up the now-orphan Phase-1 row.
     from .documents import move_memberships
     move_memberships(conn, phase1_work_id, ghost_work_id)
+    conn.execute("UPDATE OR IGNORE taxon_authority_candidates SET work_id=? WHERE work_id=?",
+                 (ghost_work_id, phase1_work_id))
+    conn.execute("DELETE FROM taxon_authority_candidates WHERE work_id=?", (phase1_work_id,))
     conn.execute("UPDATE taxon_work_links SET work_id=? WHERE work_id=?",
                  (ghost_work_id, phase1_work_id))
     conn.execute("DELETE FROM work_aliases WHERE work_id = ?", (phase1_work_id,))
@@ -400,6 +389,38 @@ def _unreconciled_corpus_papers(conn: sqlite3.Connection) -> List[sqlite3.Row]:
     return list(cur)
 
 
+def _curated_candidate_conflict(conn, source_id, candidate_id):
+    """Reject a heuristic identity change contradicted by supplied bibliography."""
+    from .identity import work_metadata
+    from .authority import normalize_doi
+    source = work_metadata(conn, source_id)
+    if source.get("bib_imported_at") is None:
+        return None
+    target = work_metadata(conn, candidate_id)
+    reasons = []
+    source_title = normalize_for_key(source.get("title") or "")
+    target_title = normalize_for_key(target.get("title") or "")
+    # Title-page substrings and popularity are positive evidence only for an
+    # uncurated header. A supplied title needs strong title-to-title support.
+    if source_title and (not target_title or fuzz.ratio(source_title, target_title) < 90):
+        reasons.append("authoritative_title_disagrees")
+    part_pattern = r"\b(?:vol(?:ume)?|part|tome|teil|chapter)\s+(\d+|[ivxlcdm]+)\b"
+    source_parts = re.findall(part_pattern, source_title)
+    target_parts = re.findall(part_pattern, target_title)
+    if source_parts and target_parts and source_parts != target_parts:
+        reasons.append("authoritative_title_part_disagrees")
+    for key in ("year", "volume", "number", "pages", "chapter", "eid", "articleno", "edition"):
+        if source.get(key) and target.get(key) and str(source[key]) != str(target[key]):
+            reasons.append("authoritative_" + key + "_disagrees")
+    if source.get("doi") and target.get("doi") and normalize_doi(source["doi"]) != normalize_doi(target["doi"]):
+        reasons.append("authoritative_doi_disagrees")
+    if source.get("shared_identifier"):
+        # Separately identified parts cannot be recombined by a weaker
+        # first-page heuristic; their reference mappings use explicit parts.
+        reasons.append("distinct_citation_part")
+    return {"reasons": reasons, "source": source, "candidate": target} if reasons else None
+
+
 def reconcile(conn: sqlite3.Connection, output_dir: Path,
               min_score: int = 80, margin: int = 15,
               max_chars: int = 3000,
@@ -415,7 +436,7 @@ def reconcile(conn: sqlite3.Connection, output_dir: Path,
                 len(targets))
 
     counts = {"matched": 0, "low_score": 0, "ambiguous": 0,
-              "no_candidates": 0, "no_filename": 0, "missing_text": 0}
+              "no_candidates": 0, "no_filename": 0, "missing_text": 0, "identity_conflict": 0}
 
     for row in targets:
         phase1_id = row["work_id"]
@@ -447,6 +468,19 @@ def reconcile(conn: sqlite3.Connection, output_dir: Path,
                          corpus_hash, surname, year)
             continue
 
+        compatible_candidates = []
+        for candidate in candidates:
+            evidence = _curated_candidate_conflict(conn, phase1_id, candidate["work_id"])
+            if evidence is None:
+                compatible_candidates.append(candidate)
+            elif not dry_run:
+                from .identity import record_decision
+                record_decision(conn, corpus_hash, phase1_id, candidate["work_id"],
+                                "rejected_curated_identity_conflict", evidence)
+        if not compatible_candidates:
+            counts["identity_conflict"] += 1
+            continue
+        candidates = compatible_candidates
         first_pages = load_first_pages_text(doc_dir, max_chars=max_chars)
         scored = score_candidates(candidates, first_pages)
         status, winner_id, score = pick_winner(scored, min_score, margin)

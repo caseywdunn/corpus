@@ -1,0 +1,131 @@
+{
+  "issue": 336,
+  "source_sha256": "21ff756cca596aa203a599b46c89a86a70cf68639ee045c884c2aa6a4cd4be0f",
+  "exact_reported_source_match": true,
+  "code_commit": "302bfac4d5e917424e607388fde3a04c0f3c1f00",
+  "extraction_job": "27503794",
+  "audit_job": "27504597",
+  "physical_pages_selected": [
+    176,
+    177,
+    178,
+    179,
+    180,
+    181
+  ],
+  "normal_pipeline_extraction_passed": true,
+  "no_false_figure4_clone": true,
+  "figure3_id": "docling_3",
+  "phylogeny_id": "docling_4",
+  "phylogeny_caption_status": "unbound",
+  "rejected_caption": {
+    "caption_text": "Fig. 4: Distance 16S rRNA (1053 bp) gene phylogeny showing the relationships between ammonia-oxidizing Betaproteobacteria using the ARB program package. Sponge derived sequences are shown in bold. Neighbor-joining and maximum parsimony (100 pseudoreplicates) bootstrap values are indicated. Arrow to outgroup ( Nitrosococcus oceani Nc1 (AJ298727)). Designation of clusters is adapted from Freitag and Prosser (2003). Scale bar indicates 1% sequence divergence.",
+    "caption_fragments": [
+      {
+        "text": "Fig. 4: Distance 16S rRNA (1053 bp) gene phylogeny showing the relationships between ammonia-oxidizing Betaproteobacteria using the ARB program package. Sponge derived sequences are shown in bold. Neighbor-joining and maximum parsimony (100 pseudoreplicates) bootstrap values are indicated. Arrow to outgroup ( Nitrosococcus oceani Nc1 (AJ298727)). Designation of clusters is adapted from Freitag and Prosser (2003). Scale bar indicates 1% sequence divergence.",
+        "bbox": [
+          315.118,
+          69.0308771524135,
+          549.3620999999998,
+          146.8170122070312
+        ],
+        "page": 3,
+        "text_truncated": false,
+        "source_page": 178
+      }
+    ],
+    "caption_completeness": "unverified",
+    "caption_page": 3,
+    "caption_bbox": [
+      315.118,
+      69.0308771524135,
+      549.3620999999998,
+      146.8170122070312
+    ],
+    "caption_source": "plate_legend",
+    "caption_kind": "prose_caption",
+    "figure_number": "4",
+    "figure_number_source": "caption_start",
+    "page_distance": 0,
+    "distance_pts": null,
+    "confidence": "low",
+    "chosen": false,
+    "rejection_reason": "separate_caption_with_following_picture",
+    "competing_docling_indices": [
+      4
+    ],
+    "caption_source_page": 178
+  },
+  "vision_routing": {
+    "method": "production pass with capture backend on copied figures; no model inference",
+    "calls": [
+      {
+        "image": "fig_1.png",
+        "caption": "Fig. 1: A. Ammonia and nitrate excretion by A. aerophoba (n = 4 ± S.E.). B. Ammonia uptake and nitrate excretion (n = 2). Symbols represent ammonia ( ♦ ) and nitrate (▲) concentrations.",
+        "labels": [
+          "A",
+          "B"
+        ]
+      },
+      {
+        "image": "fig_2.png",
+        "caption": "Fig. 2: Ammonia and nitrate excretion by A. aerophoba over time of maintenance in flow-through holding tanks (n = 3 ± S.E.). The rates were measured after one day ( A ), six days ( B ) and 11 days ( C ) after collection. Symbols represent ammonia ( ♦ )  and nitrate (▲) concentrations.",
+        "labels": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      {
+        "image": "fig_3.png",
+        "caption": "Fig. 3: Ammonia and nitrate excretion by D. avara ( A ), Tethya sp. ( B ),  and C. reniformis ( C ),  (each species, n = 3 ± S.E.) . Symbols represent ammonia ( ♦ ) and nitrate (▲) concentrations.",
+        "labels": [
+          "A",
+          "B",
+          "C"
+        ]
+      }
+    ],
+    "no_false_figure4_target": true,
+    "original_figures_unchanged": true
+  },
+  "quality_flags": [
+    {
+      "gate": "source_text_integrity",
+      "severity": "warning",
+      "detail": "table_structure: 1 source-text candidates need review; see text.json provenance",
+      "metric": 1
+    }
+  ],
+  "visual_review": {
+    "reviewer": "Codex",
+    "method": "direct comparison of source-page-178.png and source-page-179.png with fig_3.png and _unclassified_4.png",
+    "figure3_three_complete_plots": true,
+    "phylogeny_retained_separately_with_scale_bar": true,
+    "neighboring_image_substitution_absent": true
+  },
+  "limitations": [
+    "Six-page source replay, not full-book rebuild.",
+    "No historical extraction artifacts; historical output was not reproduced.",
+    "Phylogeny remains unbound and unclassified; no improved caption-recall claim.",
+    "No fresh vision inference in this source acceptance.",
+    "The pilot bib used ocrlang=en, which was rejected as a Tesseract-pack name; automatic detection selected born_digital and no OCR ran."
+  ],
+  "artifact_sha256": {
+    "output/documents/21ff756cca59/figures.json": "4aace03479111b8054e0d1d9f8af54721e153061da99069e67768d7278278357",
+    "output/documents/21ff756cca59/docling_doc.json": "9e82bacd5221efa30090c0f7ba5d8a16d6b0bc8a2dff29b80d01e081df502bec",
+    "output/documents/21ff756cca59/summary.json": "7d98fa61b9a7e4a6c5b2c951ae2419a7200436982e4ef57c7ea7fcff2ee5cc09",
+    "config.yaml": "7ca615fdbbf03f8ab54fa15a3e2c77b46c9428173ef05438f9441be6c56ff45e",
+    "inputs/source.bib": "331291cf559cc4ef94ab5b36ad5e7065502e6917d13136a4b7e0e744358b542c",
+    "review/source-page-178.png": "284bf87137733aeed8da90d9d306a4d7b25c732138ebb690428480718773c921",
+    "review/source-page-179.png": "4f81d9e23311a5c9e4d6d4788071036fe962ba12bc4be376ed330b7392df2bd8",
+    "output/documents/21ff756cca59/figures/fig_3.png": "5460946ba7a79a770523111502db8a2d4aca8e667acfd7349ce34d015addcba4",
+    "output/documents/21ff756cca59/figures/_unclassified_4.png": "6c06f66f76cbf9322947e1d860692ca57cc8ce9893e8667b1edb46835a145961"
+  },
+  "caption_regressions": {
+    "job_id": "27504597",
+    "command": "python -m pytest -q tests/test_caption_before_next_image.py",
+    "passed": 8,
+    "failed": 0
+  }
+}

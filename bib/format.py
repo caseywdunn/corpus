@@ -68,7 +68,9 @@ def format_author_year(fields: Dict[str, Any]) -> Dict[str, str]:
     title = _str(fields.get("title"))
     journal = _str(fields.get("journal"))
     volume = _str(fields.get("volume"))
-    pages = _str(fields.get("pages"))
+    number = _str(fields.get("number"))
+    pages = _str(fields.get("pages")).replace("--", "–")
+    article = _str(fields.get("eid") or fields.get("articleno"))
     doi = _str(fields.get("doi"))
 
     year_str = f"({year})" if year else "(n.d.)"
@@ -83,13 +85,24 @@ def format_author_year(fields: Dict[str, Any]) -> Dict[str, str]:
     if title:
         parts.append(_ensure_terminal_period(title))
 
-    if journal:
-        journal_chunk = f"*{journal}*"
-        if volume:
-            journal_chunk += f", *{volume}*"
-        if pages:
-            journal_chunk += f", {pages}"
-        parts.append(journal_chunk + ".")
+    container = journal or _str(fields.get("booktitle"))
+    locator_parts = []
+    if container:
+        locator_parts.append(f"*{container}*")
+    if volume:
+        locator_parts.append(f"*{volume}*" + (f"({number})" if number else ""))
+    elif number:
+        locator_parts.append(f"({number})")
+    if fields.get("chapter"):
+        locator_parts.append(f"Chapter {fields['chapter']}")
+    if pages:
+        locator_parts.append(pages)
+    if article:
+        locator_parts.append(f"Article {article}")
+    if locator_parts:
+        parts.append(", ".join(locator_parts) + ".")
+    if fields.get("publisher"):
+        parts.append(_ensure_terminal_period(_str(fields["publisher"])))
 
     if doi:
         parts.append(f"https://doi.org/{doi}")

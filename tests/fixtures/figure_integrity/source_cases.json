@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "issue": 329,
+      "paper_hash": "da370f1e0434",
+      "library_path": "P/Pugh_Haddock2016.pdf",
+      "pdf_page": 44,
+      "figure_id": "docling_53",
+      "figure_number": "51",
+      "detected_bbox_bottom_left": [55.63226318359375, 177.7393798828125, 535.2636108398438, 365.4214782714844],
+      "source_image_bbox_top_left": [56.52000045776367, 476.27996826171875, 538.4400024414062, 666.719970703125],
+      "caption_top": 673.7591552734375,
+      "visual_acceptance": ["All five specimens retained", "Complete E. insidiator label", "All scale bars retained", "Caption and neighboring prose excluded"],
+      "review": "Source PDF and repaired native-resolution crop visually compared, 2026-09-18. PDF and derived raster are external artifacts, not vendored fixtures."
+    }
+  ]
+}

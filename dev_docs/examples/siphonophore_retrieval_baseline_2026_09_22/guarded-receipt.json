@@ -1,0 +1,192 @@
+{
+  "evidence_kind": "Normal retained-v1.2.1 baseline capture with projected index census and table versions bracketing all queries; pre-candidate only.",
+  "implementation": "8e11fee63dee06fef2f0452668d89a0836757863",
+  "manifest_file_sha256": "c56207d4335861e33ce90d5c599e0abe5a3e2379e9355ccb3e610b41b1259b07",
+  "manifest_canonical_sha256": "8b0ab86d8886169fd57ee1b5923ab3a6441a82558a69274aee14d8baacd3c015",
+  "capture_identity": {
+    "label": "retained-v1.2.1-full-guarded-diagnostic-20260922",
+    "role": "reference",
+    "output_dir": "/home/claude/corpuscles/siphonophore_20260831/_serve",
+    "captured_at": "2026-09-22T16:41:13.109720+00:00",
+    "bundle_manifest": {
+      "bundle_version": "1.2.1",
+      "created_at": "2026-09-01T10:23:34Z",
+      "pipeline_git_sha": "31784560ceaed157192ba2e4fa35a5f5c4b6feca",
+      "embedding_model": "BAAI/bge-m3",
+      "embedding_dim": 1024,
+      "taxonomy_snapshot_date": "2026-08-31",
+      "paper_count": 1775,
+      "figure_count": 22171,
+      "chunk_count": 259952,
+      "includes_pdfs": false,
+      "citation": {
+        "title": "Extracting AI agent-accessible data from biodiversity literature with corpus",
+        "year": null,
+        "doi": "10.5281/zenodo.19964909",
+        "url": "https://doi.org/10.5281/zenodo.19964909",
+        "authors": [
+          {
+            "family-names": "Church",
+            "given-names": "Samuel H."
+          },
+          {
+            "family-names": "Mańko",
+            "given-names": "Maciej K."
+          },
+          {
+            "family-names": "Zapata",
+            "given-names": "Felipe"
+          },
+          {
+            "family-names": "Dunn",
+            "given-names": "Casey W."
+          }
+        ]
+      }
+    },
+    "embedding_identity": {
+      "model": "BAAI/bge-m3",
+      "dimension": 1024,
+      "producer": null
+    },
+    "paper_hashes_sha256": "21e547692636fef6cca1cbfab9f44104691004fb9403078d950908e47ce03a0f",
+    "paper_count": 1775,
+    "historical_audit_equivalence": "not_asserted; compare the recorded bundle identity explicitly",
+    "indexed_population": {
+      "status": "recorded",
+      "method": "pipeline.embedding_state.row_census",
+      "table_name": "document_chunks",
+      "version_scope": "capture",
+      "table_version_before": 1775,
+      "row_count": 259952,
+      "paper_hashes_sha256": "bdebea69fa74346e2afa29b43817fefbfdaf3b3136f852dd8c03b668076953c4",
+      "paper_count": 1774,
+      "table_version_after": 1775,
+      "inventory_projection": {
+        "file": "indexed-population-census.json",
+        "sha256": "e194a0f50a0a29b30d78cc352bee4bc454261a964d390291b8ade65a4fe2ebff",
+        "paper_row_counts_field": "paper_row_counts",
+        "paper_hashes_rule": "Sorted keys of paper_row_counts",
+        "verified_equal_to_guarded_capture": true
+      }
+    },
+    "artifact_inventory_rule": "Union of actual indexed paper hashes with artifact-only62e07c061591; original complete inventory remains in raw capture."
+  },
+  "population_check": {
+    "status": "pass",
+    "reasons": [],
+    "identity_complete": true,
+    "required_paper_hashes": [
+      "1409a2155981",
+      "1648cd91e973",
+      "34712b25bc52",
+      "3507422334c6",
+      "5e74ac01e8ac",
+      "79bcb551c1f1",
+      "8a4548d8d5d7",
+      "9c0af2a4e494",
+      "a0acf5935174",
+      "b4146be29447",
+      "b4425fd6ae7a",
+      "bc251c7a6346",
+      "c806191c35c4",
+      "c887fb198ebc",
+      "c9e7e8ae50a2",
+      "da370f1e0434",
+      "ffc7ebff40b4"
+    ],
+    "missing_required_paper_hashes": [],
+    "indexed_population": {
+      "status": "pass",
+      "reasons": [],
+      "identity_complete": true,
+      "required_paper_hashes": [
+        "1409a2155981",
+        "1648cd91e973",
+        "34712b25bc52",
+        "3507422334c6",
+        "5e74ac01e8ac",
+        "79bcb551c1f1",
+        "8a4548d8d5d7",
+        "9c0af2a4e494",
+        "a0acf5935174",
+        "b4146be29447",
+        "b4425fd6ae7a",
+        "bc251c7a6346",
+        "c806191c35c4",
+        "c887fb198ebc",
+        "c9e7e8ae50a2",
+        "da370f1e0434",
+        "ffc7ebff40b4"
+      ],
+      "missing_required_paper_hashes": [],
+      "row_count": 259952,
+      "artifact_only_paper_hashes": [
+        "62e07c061591"
+      ],
+      "orphan_indexed_paper_hashes": []
+    }
+  },
+  "calls": 66,
+  "operational_error_rows": 0,
+  "fixed_outcome_comparison": {
+    "fixed_groups_identical": true,
+    "fixed_metric_rows_identical": true,
+    "fixed_returned_rows_and_distances_identical": true,
+    "fixed_queries": 12,
+    "fixed_calls": 36,
+    "independent_comparison": "Not performed; outcomes remain sealed.",
+    "indexed_census_counts_match_prior_diagnostic": true,
+    "original_capture_sha256": "62be6305b2cd9ad109eac789b1b977d1a597183233b43ada122bb37eb75137d9",
+    "original_score_sha256": "8f1b7f9c99f8e75e64720a1b152bc836748d67d056d4b58d00665cf6c25533f7",
+    "guarded_capture_sha256": "23cbc93ec6170f90789a69033e021751cd356d80f1433cafae198accbb36f09d",
+    "guarded_score_sha256": "06f11bd199e58a7325942d627eb3fbaadaddac386f9f8cbb999560579d4007b5"
+  },
+  "unchanged_fixed_results": {
+    "file": "fixed-results.json",
+    "sha256": "78382923dddc963bfef81a09787a5bfa74c5f836253d9be878cf440fcf3db1be",
+    "queries": 12,
+    "calls": 36,
+    "gates": 6
+  },
+  "resources": {
+    "wall_seconds": 47.06,
+    "maximum_rss_kib": 3647528,
+    "swaps": 0,
+    "aggregate_cpu_percent": 301,
+    "thread_environment_requested": 1
+  },
+  "raw_artifacts_retained_in_scratch": {
+    "capture.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-guarded-capture-20260922/capture.json",
+      "sha256": "23cbc93ec6170f90789a69033e021751cd356d80f1433cafae198accbb36f09d"
+    },
+    "score.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-guarded-capture-20260922/score.json",
+      "sha256": "06f11bd199e58a7325942d627eb3fbaadaddac386f9f8cbb999560579d4007b5"
+    },
+    "fixed-review.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-guarded-capture-20260922/fixed-review.json",
+      "sha256": "3088f8cf1e74ef43fad4b7ceb22e20a920d720eee8c782bf5c3a4e64ffdde1e5"
+    },
+    "fixed-drift-check.json": {
+      "historical_path": "/tmp/corpus-issue320-retained-guarded-capture-20260922/fixed-drift-check.json",
+      "sha256": "a61813807f2cb8b09685cfa7be6a9f20f444161c391285278a2ff9ca196c9e25"
+    },
+    "resources.txt": {
+      "historical_path": "/tmp/corpus-issue320-retained-guarded-capture-20260922/resources.txt",
+      "sha256": "e26ceb3ea1e77cb4224912c5b0811894ba217b508cfdfc8e9f877e1ffdcb1f30"
+    },
+    "capture.log": {
+      "historical_path": "/tmp/corpus-issue320-retained-guarded-capture-20260922/capture.log",
+      "sha256": "fb75032a50814e4bf66afa4146b1db8c184b2e102a0c1771598059668959131d"
+    }
+  },
+  "limitations": [
+    "No candidate ranking or source correction comparison; not audited v1.4.",
+    "Independent results, ranks, distances, aggregate metrics and overall score status remain sealed and unexamined.",
+    "Historical original capture/score/census bytes remain unchanged; original capture lacks query-bracketing index evidence.",
+    "This is a compact identity projection; use full raw capture for evaluation, not this receipt.",
+    "Legacy embedding producer identity and table-provenance coverage remain unavailable."
+  ]
+}

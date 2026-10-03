@@ -109,7 +109,7 @@ def test_both_backends_use_the_shared_converter():
     from pipeline import vision
     src = inspect.getsource(vision)
     assert src.count("def _bbox_to_px") == 1
-    assert src.count("_bbox_to_px(bbox_norm, w, h)") == 2, (
+    assert src.count("px, disposition, evidence = _bbox_in_raster(") == 2, (
         "each backend should delegate to the shared converter"
     )
 

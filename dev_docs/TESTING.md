@@ -32,6 +32,38 @@ python -m pytest tests/test_corpus_wide.py -v --tb=line
 
 ## What's tested
 
+### Bibliographic bundle round trips
+
+`tests/test_bibliographic_bundle_roundtrip.py` uses the compact pinned
+[bibliography fixture](../tests/fixtures/bibliographic_integrity/README.md)
+to run actual authority materialization, bundle packaging and live MCP stdio
+formatting, without models or external services. It checks publication
+locators, document selection directives, source precedence, ordered Unicode
+authors and BibTeX provenance, then repeats export/import, unchanged authority
+refresh and packaging. The server loads only the new bundle; file hashes
+must remain unchanged after queries. This runs in T0:
+
+```bash
+python -m pytest -q tests/test_bibliographic_bundle_roundtrip.py
+```
+
+Pytest's temporary directory retains `roundtrip-acceptance.json`, the compact
+build/bundles and server logs for inspection. The receipt records actual MCP
+responses and bundle identities. Its prepared input is parsed catalogue
+metadata, so passing establishes the metadata-to-served-formatter boundary;
+it does not establish PDF extraction accuracy, historical deployment repair
+or whole-corpus release acceptance.
+
+### Source-graded retrieval workflows
+
+The [retrieval evaluation workflow](RETRIEVAL_EVALUATION.md) freezes source
+labels, exact query calls and release targets before ranking experiments.
+`tools/qc/retrieval.py` captures the existing local MCP route, scores hit@5/10,
+reports document/table crowding, and keeps assisted recovery separate. Missing
+source review blocks acceptance. Its siphonophore example reuses the existing
+gold corpuscle and small source fragments; it does not require another large
+fixture corpuscle.
+
 ### Scoped figure downloads and reverse proxies
 
 `tests/test_signed_figure_urls.py` covers scope tampering, expiry, restart,

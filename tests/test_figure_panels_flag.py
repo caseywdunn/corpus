@@ -7,7 +7,8 @@ The v0.5 `--vision-backend` + `--content-aware-figures` pair (config key
 
 * `_build_orchestrator_argv` translates `figures.panel_detection` into a
   single `--figure-panels <mode>`, with `--no-vision` and capability
-  detection downgrading a vision mode to the OCR floor.
+  detection deferring unavailable vision during extract-only runs, with an
+  OCR fallback for standalone runs.
 * `pipeline.main`'s arg parser derives the legacy
   (content_aware_figures, vision_backend) pair the runner still threads.
 """
@@ -146,10 +147,7 @@ def test_main_derives_legacy_pair(mode, expect_caf, expect_backend):
 # GPU an hour earlier and its ROIs were intact (3,465 ROIs across 288
 # documents, 100% `source: vision:qwen2.5-vl-7b-instruct`, zero OCR-floor).
 #
-# The cost is not the noise. The same sentence is genuinely serious on an
-# `--only extract` re-run, where accepting the OCR floor silently reverts
-# vision ROIs that already exist. Printing it on a phase that cannot do
-# any harm trains the operator to skim past the one case that can.
+# These phases must not change a configured mode or probe unused hardware.
 
 
 @pytest.mark.parametrize("phase", ["post", "embed", "bundle"])
@@ -166,7 +164,7 @@ def test_no_vision_warning_on_a_phase_that_never_runs_vision(
     assert "vision-local" in argv
 
 
-@pytest.mark.parametrize("phase", ["extract", "vision", None])
+@pytest.mark.parametrize("phase", ["vision", None])
 def test_the_warning_survives_where_it_matters(
     tmp_path, monkeypatch, capsys, phase,
 ):
@@ -176,6 +174,56 @@ def test_the_warning_survives_where_it_matters(
     argv = _argv(tmp_path, "vision-local", only=phase)
     assert "downgraded to the OCR floor" in capsys.readouterr().out
     assert "ocr" in argv and "vision-local" not in argv
+
+
+@pytest.mark.parametrize('override', [None, 'vision-local'])
+def test_extract_defers_unavailable_local_vision_and_later_vision_runs(tmp_path, monkeypatch, capsys, override):
+    from pipeline.main import _panels_to_legacy
+    monkeypatch.setattr(cli, '_detect_accelerator', lambda: None)
+    argv = _argv(tmp_path, 'vision-local', only='extract', figure_panels=override)
+    mode = argv[argv.index('--figure-panels')+1]
+    assert mode == 'off' and _panels_to_legacy(mode) == (False, None)
+    warning = capsys.readouterr().out
+    assert 'deferred for extract-only run' in warning and 'downgraded to the OCR floor' not in warning
+    assert 'corpus run --only vision' in warning
+    # The same unchanged config on the later accelerator phase selects the
+    # actual vision backend; extraction did not persist an "off" override.
+    monkeypatch.setattr(cli, '_detect_accelerator', lambda: 'cuda')
+    later = _argv(tmp_path, 'vision-local', only='vision', figure_panels=override)
+    mode = later[later.index('--figure-panels')+1]
+    assert mode == 'vision-local' and _panels_to_legacy(mode) == (False, 'local')
+
+
+@pytest.mark.parametrize('arguments', [{'figure_panels': 'ocr'}, {'no_vision': True}, {}])
+def test_explicit_or_configured_ocr_still_runs_during_extract(tmp_path, monkeypatch, arguments):
+    from pipeline.main import _panels_to_legacy
+    def unused(_mode):
+        raise AssertionError('OCR requested; no vision capability probe is needed')
+    monkeypatch.setattr(cli, '_vision_skip_reason', unused)
+    config_mode = 'vision-local' if arguments else 'ocr'
+    argv = _argv(tmp_path, config_mode, only='extract', **arguments)
+    mode = argv[argv.index('--figure-panels')+1]
+    assert mode == 'ocr' and _panels_to_legacy(mode) == (True, None)
+
+
+@pytest.mark.parametrize('accelerator', ['cuda', 'mps'])
+def test_extract_keeps_available_local_vision(tmp_path, monkeypatch, accelerator):
+    monkeypatch.setattr(cli, '_detect_accelerator', lambda: accelerator)
+    argv = _argv(tmp_path, 'vision-local', only='extract')
+    assert argv[argv.index('--figure-panels')+1] == 'vision-local'
+
+
+@pytest.mark.parametrize('has_key,expected', [(True, 'vision-claude'), (False, 'off')])
+def test_extract_cloud_vision_uses_credentials_not_local_accelerator(tmp_path, monkeypatch, has_key, expected):
+    if has_key:
+        monkeypatch.setenv('ANTHROPIC_API_KEY', 'test-only-credential')
+    else:
+        monkeypatch.delenv('ANTHROPIC_API_KEY', raising=False)
+    def unused():
+        raise AssertionError('Cloud vision must not probe local accelerators')
+    monkeypatch.setattr(cli, '_detect_accelerator', unused)
+    argv = _argv(tmp_path, 'vision-claude', only='extract')
+    assert argv[argv.index('--figure-panels')+1] == expected
 
 
 @pytest.mark.parametrize("phase", ["post", "embed", "bundle"])

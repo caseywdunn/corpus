@@ -1,0 +1,35 @@
+{
+  "scope": "Clean authority build from audited legacy artifacts, followed immediately by complete unchanged authority + reconciliation replay; no fresh extraction.",
+  "before_edges": 89024,
+  "after_authority_edges": 89024,
+  "after_reconcile_edges": 89024,
+  "authority_only_graph_equal": true,
+  "complete_refresh_graph_equal": true,
+  "removed_edges": [],
+  "added_edges": [],
+  "raw_observations_unchanged": true,
+  "initial_reconciliation": {
+    "matched": 7,
+    "low_score": 2,
+    "ambiguous": 0,
+    "no_candidates": 360,
+    "no_filename": 6,
+    "missing_text": 0,
+    "identity_conflict": 138
+  },
+  "reconciliation": {
+    "matched": 0,
+    "low_score": 2,
+    "ambiguous": 0,
+    "no_candidates": 360,
+    "no_filename": 6,
+    "missing_text": 0,
+    "identity_conflict": 138
+  },
+  "authority_removed_edges": [],
+  "authority_added_edges": [],
+  "code_revision": "a6bc0bb",
+  "job_id": "27616893",
+  "mapping_producer": "reference-mapping-v9",
+  "validation": "80 core tests; 56 bibliography/source-year tests; 1 real bundle/stdio formatter test. The formatter test required execution outside the sandbox."
+}

@@ -22,7 +22,6 @@ import json
 import types
 from pathlib import Path
 
-import pytest
 from PIL import Image as PILImage
 
 from bib.authority import clearance_state, derive_publishable
@@ -224,8 +223,9 @@ def test_roi_image_whole_figure_fallback_is_also_gated(tmp_path):
 def test_roi_image_gate_matches_get_figure_image(tmp_path):
     """The three pixel paths must agree — disagreement *is* the bug."""
     _make_index(tmp_path, work=_UNCLEARED)
-    with pytest.raises(ValueError):
-        get_figure_image(HASH, "docling_1", profile="manuscript")
+    refused = get_figure_image(HASH, "docling_1", profile="manuscript")
+    assert refused.is_error
+    assert refused.structured_content["code"] == "forbidden"
     assert get_figure_roi_image(
         HASH, "docling_1", "A", profile="manuscript",
     ).get("code") == "forbidden"
@@ -242,9 +242,9 @@ def test_roi_image_rejects_an_unknown_profile(tmp_path):
 
 def test_refusal_names_the_state_and_says_it_is_not_a_prohibition(tmp_path):
     _make_index(tmp_path, work=_UNCLEARED)
-    with pytest.raises(ValueError) as exc:
-        get_figure_image(HASH, "docling_1", profile="manuscript")
-    msg = str(exc.value)
+    refused = get_figure_image(HASH, "docling_1", profile="manuscript")
+    assert refused.is_error
+    msg = refused.structured_content["error"]
     assert "no_record" in msg, msg
     assert "ABSENCE of evidence" in msg, msg
 
@@ -255,8 +255,8 @@ def test_refusal_for_a_real_restriction_says_so(tmp_path):
         "license_source": "bibtex", "title": "A paper", "year": 2010,
         "work_id": "w1",
     })
-    with pytest.raises(ValueError) as exc:
-        get_figure_image(HASH, "docling_1", profile="manuscript")
-    msg = str(exc.value)
+    refused = get_figure_image(HASH, "docling_1", profile="manuscript")
+    assert refused.is_error
+    msg = refused.structured_content["error"]
     assert "restricted" in msg, msg
     assert "forbids republication" in msg, msg

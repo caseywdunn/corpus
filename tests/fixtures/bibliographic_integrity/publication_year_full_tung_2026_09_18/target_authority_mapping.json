@@ -1,0 +1,39 @@
+{
+  "target_work_id": "10.1017/s0025315400022086",
+  "named_mapping": [
+    {
+      "observation_id": "refobs:0175ab7008f0ea58e8cbdfa0a5fc6539d4af7d241660500e3347aaf8e5878866",
+      "citing_corpus_hash": "db7338ea1867",
+      "ordinal": 40,
+      "grobid_xml_id": "b40",
+      "raw_citation": "Pugh, P. R. 1974. The vertical distribution of the siphonophores collected during the SOND cruise, 1965. Journal of Marine Biological Association of the United Kingdom. 54: 25-90.",
+      "title": "The vertical distribution of the siphonophores collected during the SOND cruise",
+      "year": 1965,
+      "journal": "Journal of Marine Biological Association of the United Kingdom",
+      "doi": "",
+      "authors_json": "[\"P Pugh\"]",
+      "first_seen_at": 1789763851.6681826,
+      "work_id": "10.1017/s0025315400022086",
+      "match_method": "raw_publication_year_title_authors",
+      "match_score": 0.95
+    }
+  ],
+  "edges": [
+    {
+      "citing_work_id": "corpus:tung|2003|species composition and seasonal distrib",
+      "cited_work_id": "10.1017/s0025315400022086",
+      "citing_corpus_hash": "db7338ea1867",
+      "grobid_xml_id": "b40",
+      "raw_citation": "Pugh, P. R. 1974. The vertical distribution of the siphonophores collected during the SOND cruise, 1965. Journal of Marine Biological Association of the United Kingdom. 54: 25-90.",
+      "match_method": "raw_publication_year_title_authors",
+      "match_score": 0.95
+    }
+  ],
+  "reference_count": 68,
+  "stored_observation_count": 68,
+  "unchanged_refresh_result": [
+    0,
+    0
+  ],
+  "unchanged_refresh_noop": true
+}

@@ -1,0 +1,199 @@
+{
+  "candidate_code_revision": "ab6353f8d4a8ef59b1be314458d32437913635ec",
+  "candidate_scope": "Completed normal current CPU extraction/chunking refresh; current stages checked for all35 gold PDFs, all14 sampled documents captured after matching completion. No model or OCR run by the scorer.",
+  "source_label_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+  "denominators": {
+    "selected": 24,
+    "source_verified": 23,
+    "unscorable_not_printed": 1,
+    "excluded_by_recorded_keeppages": 4,
+    "verified_on_consumed_pages": 19,
+    "pending": 0,
+    "review_required": 0
+  },
+  "counts": {
+    "docling": {
+      "faithful": 16,
+      "omitted": 2,
+      "excluded_by_source_page_selection": 4,
+      "corrupted": 1,
+      "unscorable_source": 1
+    },
+    "markdown": {
+      "faithful": 14,
+      "omitted": 3,
+      "excluded_by_source_page_selection": 4,
+      "corrupted": 1,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    },
+    "chunks": {
+      "faithful": 14,
+      "omitted": 3,
+      "excluded_by_source_page_selection": 4,
+      "corrupted": 1,
+      "fidelity_indeterminate": 1,
+      "unscorable_source": 1
+    }
+  },
+  "metrics": {
+    "docling": {
+      "expression_fidelity_adjudicated": "16/17",
+      "expression_fidelity_all_emitted_bounds": [
+        "16/17",
+        "16/17"
+      ],
+      "source_expression_recall_consumed_page_bounds": [
+        "16/19",
+        "16/19"
+      ],
+      "source_expression_recall_all_verified_source_bounds": [
+        "16/23",
+        "16/23"
+      ],
+      "no_selected_notation_repair_emitted_expression_correctness_bounds": [
+        "12/13",
+        "12/13"
+      ]
+    },
+    "markdown": {
+      "expression_fidelity_adjudicated": "14/15",
+      "expression_fidelity_all_emitted_bounds": [
+        "14/16",
+        "15/16"
+      ],
+      "source_expression_recall_consumed_page_bounds": [
+        "14/19",
+        "15/19"
+      ],
+      "source_expression_recall_all_verified_source_bounds": [
+        "14/23",
+        "15/23"
+      ],
+      "no_selected_notation_repair_emitted_expression_correctness_bounds": [
+        "10/12",
+        "11/12"
+      ]
+    },
+    "chunks": {
+      "expression_fidelity_adjudicated": "14/15",
+      "expression_fidelity_all_emitted_bounds": [
+        "14/16",
+        "15/16"
+      ],
+      "source_expression_recall_consumed_page_bounds": [
+        "14/19",
+        "15/19"
+      ],
+      "source_expression_recall_all_verified_source_bounds": [
+        "14/23",
+        "15/23"
+      ],
+      "no_selected_notation_repair_emitted_expression_correctness_bounds": [
+        "10/12",
+        "11/12"
+      ]
+    }
+  },
+  "selected_current_atomic_repair_precision": {
+    "source_glyph_signed_exponent": "2/2",
+    "cmap_first_unit_raised_digit": "1/1",
+    "combined_descriptive_count": "3/3",
+    "papers": 2,
+    "scope": "Current source-aligned reviewed atomic operations only; heterogeneous producer strata stay explicit. Whole-paragraph CMap correctness is not inferred."
+  },
+  "selected_damage_recovery": {
+    "samples": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "expression_recovery": "4/5",
+    "scope": "Five selected expressions with explicit repair-relevant damaged observations. This is not independently enumerated proposal/detector recall."
+  },
+  "source_strata": {
+    "fix_informed_regression": {
+      "sample_numbers": [
+        4,
+        8,
+        16
+      ],
+      "counts": {
+        "docling": {
+          "faithful": 2,
+          "corrupted": 1
+        },
+        "markdown": {
+          "faithful": 2,
+          "corrupted": 1
+        },
+        "chunks": {
+          "faithful": 2,
+          "corrupted": 1
+        }
+      }
+    },
+    "other_frozen_source_selections": {
+      "sample_numbers": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "counts": {
+        "docling": {
+          "faithful": 14,
+          "omitted": 2,
+          "excluded_by_source_page_selection": 4,
+          "unscorable_source": 1
+        },
+        "markdown": {
+          "faithful": 12,
+          "omitted": 3,
+          "excluded_by_source_page_selection": 4,
+          "fidelity_indeterminate": 1,
+          "unscorable_source": 1
+        },
+        "chunks": {
+          "faithful": 12,
+          "omitted": 3,
+          "excluded_by_source_page_selection": 4,
+          "fidelity_indeterminate": 1,
+          "unscorable_source": 1
+        }
+      }
+    }
+  },
+  "unmeasured": {
+    "expression_output_precision": "No independently exhaustive enumeration of all spurious/contradictory numerical outputs; expression fidelity is not relabeled precision.",
+    "proposal_precision": "No separately frozen proposal population, including rejections.",
+    "whole_sample_embedding_and_serving": "This receipt stops at saved CPU chunks; a separately authorized verifier owns vectors and live-tool propagation."
+  },
+  "limits": [
+    "Source-first selection is independent of the named regressions, but Chen4/8 and Russian16 subsequently informed fixes. Current results are regression-sample scores, not fresh unseen holdout accuracy.",
+    "No selected±/∓,µm,or subtraction equation; all inverse-unit selections come from one Mańko paper.",
+    "Four keeppages exclusions remain coverage limits. Figure-axis/footer and any table-to-picture omissions stay in consumed-page recall.",
+    "Caption magnification×→x/X and decimal middle-dot→point substitutions are explicit literal discrepancies accepted only in their source-proved caption roles.",
+    "Expression correctness does not establish correctness of surrounding Chinese/Japanese prose or whole CMap paragraphs.",
+    "Footnote role is not inferred from a baseline digit in markdown/chunks; explicit uncertainty is retained."
+  ]
+}

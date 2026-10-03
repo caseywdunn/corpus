@@ -1,0 +1,1208 @@
+[
+  {
+    "sample_number": 1,
+    "physical_page": 11,
+    "prepared_page": 11,
+    "candidate_region": [
+      47.622080078125,
+      277.7953460693359,
+      565.5122009277344,
+      317.48039550781255
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/126",
+        "category": "texts",
+        "label": "caption",
+        "bbox_top_left": [
+          54.085,
+          291.5386806,
+          545.4015122000002,
+          299.7446751145485
+        ],
+        "provenance": {
+          "page_no": 11,
+          "bbox": {
+            "l": 54.085,
+            "t": 502.16230816953123,
+            "r": 545.4015122000002,
+            "b": 493.95631365498275,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            156
+          ]
+        },
+        "text_sha256": "ed1b54ee599195204b460d2eb78188ac30848bf226cbba81ceaf06bef259f7d4",
+        "text": "Fig. 7. Abundance [ind. · 10 m⁻³ ] of different life cycle stages of Aglantha digitale and Dimophyes arctica in water masses detected in the present study."
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_88",
+        "text_sha256": "ed1b54ee599195204b460d2eb78188ac30848bf226cbba81ceaf06bef259f7d4",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/126",
+            "page": 11,
+            "bbox": {
+              "l": 54.085,
+              "t": 502.16230816953123,
+              "r": 545.4015122000002,
+              "b": 493.95631365498275,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              156
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 2,
+    "physical_page": 5,
+    "prepared_page": 5,
+    "candidate_region": [
+      297.63800048828125,
+      476.2205932617187,
+      571.4649609375,
+      547.6536822509765
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/67",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          306.59262,
+          467.75385168,
+          560.0149969,
+          590.0951184490134
+        ],
+        "provenance": {
+          "page_no": 5,
+          "bbox": {
+            "l": 306.59262,
+            "t": 325.9471370895312,
+            "r": 560.0149969,
+            "b": 203.60587032051785,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            803
+          ]
+        },
+        "text_sha256": "e9b82e156b4b01bb2a67926d7c329e447a11649a3910e531fa2c949ad678d44a"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_37",
+        "text_sha256": "e9b82e156b4b01bb2a67926d7c329e447a11649a3910e531fa2c949ad678d44a",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/67",
+            "page": 5,
+            "bbox": {
+              "l": 306.59262,
+              "t": 325.9471370895312,
+              "r": 560.0149969,
+              "b": 203.60587032051785,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              803
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 3,
+    "physical_page": 6,
+    "prepared_page": 6,
+    "candidate_region": [
+      375.02388061523436,
+      507.9686328125,
+      437.5278607177734,
+      682.5828503417969
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/pictures/5",
+        "category": "pictures",
+        "label": "picture",
+        "bbox_top_left": [
+          82.62531280517578,
+          477.6609191894531,
+          511.1512756347656,
+          709.7022705078125
+        ],
+        "provenance": {
+          "page_no": 6,
+          "bbox": {
+            "l": 82.62531280517578,
+            "t": 316.0400695800781,
+            "r": 511.1512756347656,
+            "b": 83.99871826171875,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      }
+    ],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 4,
+    "physical_page": 2,
+    "prepared_page": 2,
+    "candidate_region": [
+      47.6160009765625,
+      210.4499969482422,
+      547.5840112304687,
+      269.37599609375
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/28",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          53.85444304649502,
+          79.8710351274749,
+          546.1132516964949,
+          348.59120788746793
+        ],
+        "provenance": {
+          "page_no": 2,
+          "bbox": {
+            "l": 53.85444304649502,
+            "t": 761.9289526654939,
+            "r": 546.1132516964949,
+            "b": 493.2087799055008,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            2023
+          ]
+        },
+        "text_sha256": "e017c051314f8bd1199e6ceca20b8fbf5bf358c97f110a852e018d0f5a4d08e9"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_10",
+        "text_sha256": "ac61f71c6d84a956d6372719bca1fceaff76cf145219d010325b8053b3bbeb74",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/28",
+            "page": 2,
+            "bbox": {
+              "l": 53.85444304649502,
+              "t": 761.9289526654939,
+              "r": 546.1132516964949,
+              "b": 493.2087799055008,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              2023
+            ]
+          },
+          {
+            "item_ref": "#/texts/28",
+            "page": 2,
+            "bbox": {
+              "l": 53.85444304649502,
+              "t": 761.9289526654939,
+              "r": 546.1132516964949,
+              "b": 493.2087799055008,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              2023
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 5,
+    "physical_page": 113,
+    "prepared_page": 113,
+    "candidate_region": [
+      54.47520263671875,
+      690.1775939941406,
+      575.0160278320312,
+      757.5119934082031
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/1763",
+        "category": "texts",
+        "label": "caption",
+        "bbox_top_left": [
+          207.699228,
+          708.61068,
+          413.0587896380353,
+          726.519482806361
+        ],
+        "provenance": {
+          "page_no": 113,
+          "bbox": {
+            "l": 207.699228,
+            "t": 133.06931267578125,
+            "r": 413.0587896380353,
+            "b": 115.16050986942025,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            85
+          ]
+        },
+        "text_sha256": "d0bd1046762f4179335c657616e3ef8499a47f6ddaee226bd3b85d227e182270",
+        "text": "F1G.  60. Forskalia leuckarti Bedot Gonodendron of Villefranche specimen  581,  X  21"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_541",
+        "text_sha256": "d0bd1046762f4179335c657616e3ef8499a47f6ddaee226bd3b85d227e182270",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/1763",
+            "page": 113,
+            "bbox": {
+              "l": 207.699228,
+              "t": 133.06931267578125,
+              "r": 413.0587896380353,
+              "b": 115.16050986942025,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              85
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 6,
+    "physical_page": 168,
+    "prepared_page": 168,
+    "candidate_region": [
+      122.49599609375001,
+      694.3103759765625,
+      551.231982421875,
+      770.5151733398437
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/2588",
+        "category": "texts",
+        "label": "caption",
+        "bbox_top_left": [
+          135.34646400000003,
+          707.9421600000001,
+          473.34445282080003,
+          747.2938054630496
+        ],
+        "provenance": {
+          "page_no": 168,
+          "bbox": {
+            "l": 135.34646400000003,
+            "t": 138.77781070312494,
+            "r": 473.34445282080003,
+            "b": 99.42616524007542,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            317
+          ]
+        },
+        "text_sha256": "066d2b852ede211c6087fa6b2609921f07899fbe9382cff1b2213901a3aa325d",
+        "text": "F16.  99. A,  Lensia  conoidea  (Kefferstein  & Ehlers) lateral view  of  the  anterior  nectophore  from  Thor  St.  36, xX 5.2  (after  Bigelow & Sears,  1937,  fig.  27);  B, Lensia multicristata (Moser)-lateral view of the anterior nectophore,  Thor  St.  217, X  7.1  (after  Bigelow  &  Sears,  1937,  fig.  40)"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_816",
+        "text_sha256": "066d2b852ede211c6087fa6b2609921f07899fbe9382cff1b2213901a3aa325d",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/2588",
+            "page": 168,
+            "bbox": {
+              "l": 135.34646400000003,
+              "t": 138.77781070312494,
+              "r": 473.34445282080003,
+              "b": 99.42616524007542,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              317
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 7,
+    "physical_page": 87,
+    "prepared_page": 87,
+    "candidate_region": [
+      103.7544012451172,
+      449.5247857666016,
+      555.3912066650391,
+      517.3775836181641
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/1370",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          107.9892,
+          475.5366,
+          528.2468634546575,
+          504.79470858746487
+        ],
+        "provenance": {
+          "page_no": 87,
+          "bbox": {
+            "l": 107.9892,
+            "t": 372.62337314453123,
+            "r": 528.2468634546575,
+            "b": 343.3652645570664,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            314
+          ]
+        },
+        "text_sha256": "6007d07fb4a624882e280387002780102c4ad8ad3b1a903cd6f10456e11076d1",
+        "text": "A,  B,  upper  and  under  views,  'Discovery'  St.  681,  x  3.2;  C,  D, lateral  and  upper  views,  'Discovery' St. 699,  x  6.3; E, F, lateral and under views, 'Discovery'  St.  1769 (1,000~750 m),  X  3.5. The muscular lamella is attached along the pecked lines in figs.  E, F (from Totton, 1954), fig.  28)."
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_406",
+        "text_sha256": "6007d07fb4a624882e280387002780102c4ad8ad3b1a903cd6f10456e11076d1",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/1370",
+            "page": 87,
+            "bbox": {
+              "l": 107.9892,
+              "t": 372.62337314453123,
+              "r": 528.2468634546575,
+              "b": 343.3652645570664,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              314
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 8,
+    "physical_page": 8,
+    "prepared_page": 8,
+    "candidate_region": [
+      47.6160009765625,
+      614.5139910888672,
+      547.5840112304687,
+      673.439990234375
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/112",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          53.854450597035,
+          628.3186061391899,
+          541.1539404372747,
+          654.2977092658814
+        ],
+        "provenance": {
+          "page_no": 8,
+          "bbox": {
+            "l": 53.854450597035,
+            "t": 213.48138165377884,
+            "r": 541.1539404372747,
+            "b": 187.50227852708736,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            127
+          ]
+        },
+        "text_sha256": "5dd27b554f70d825000ee8e3406b236957fe09df4cb2d2bf044cf1c3e0770496",
+        "text": "夏季: 群集 Ⅰ 分布在雷州半岛 : ⼴西沿岸海域， 群集 Ⅱ 包括 B26 、 B30 和 J10 测站， 群集 Ⅲ 分布在远岸海域 ( 图 9 ) 。 Anosim 分析结果表明群集间的差异极显著( Ｒ =0． 596 ， P =0． 001 ) 。"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_51",
+        "text_sha256": "be40d14ab747affe8b56fab2574fad13820d711eeeb946033358273de0b277d9",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/112",
+            "page": 8,
+            "bbox": {
+              "l": 53.854450597035,
+              "t": 213.48138165377884,
+              "r": 541.1539404372747,
+              "b": 187.50227852708736,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              127
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 9,
+    "physical_page": 28,
+    "prepared_page": 28,
+    "candidate_region": [
+      104.10107299804689,
+      293.12861572265626,
+      520.5053649902344,
+      348.585380859375
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/489",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          112.14,
+          224.91367756479997,
+          506.880211932,
+          330.6829643616509
+        ],
+        "provenance": {
+          "page_no": 28,
+          "bbox": {
+            "l": 112.14,
+            "t": 567.325824388325,
+            "r": 506.880211932,
+            "b": 461.5565375914741,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            622
+          ]
+        },
+        "text_sha256": "228bb25d986d2aef37f88ee1ce4081bc3b9acdb8e44601a43e6e7ebe63de1a0f"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_120",
+        "text_sha256": "cc0c0fd708dea007deb8675307344180c536cd5738c1480d9963f4ee42b8452c",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/489",
+            "page": 28,
+            "bbox": {
+              "l": 112.14,
+              "t": 567.325824388325,
+              "r": 506.880211932,
+              "b": 461.5565375914741,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              622
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 10,
+    "physical_page": 6,
+    "prepared_page": null,
+    "candidate_region": null,
+    "item_evidence": [],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 11,
+    "physical_page": 4,
+    "prepared_page": 4,
+    "candidate_region": [
+      41.927893066406256,
+      548.3514770507812,
+      398.31498413085933,
+      599.9610278320313
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/33",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          45.5463756,
+          515.3674599999999,
+          385.07478132297604,
+          588.9988628063611
+        ],
+        "provenance": {
+          "page_no": 4,
+          "bbox": {
+            "l": 45.5463756,
+            "t": 129.75192476562506,
+            "r": 385.07478132297604,
+            "b": 56.1205219592639,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            514
+          ]
+        },
+        "text_sha256": "cf952ab5b61a19fb4c8bdc8921a63e29859850a9f9ec59e86dd9ac049c456d17"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_9",
+        "text_sha256": "0c5f1ac743d5eff95672a1ce9fd5d380f4ca2da3150913c537e755f4ec4dc402",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/33",
+            "page": 4,
+            "bbox": {
+              "l": 45.5463756,
+              "t": 129.75192476562506,
+              "r": 385.07478132297604,
+              "b": 56.1205219592639,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              514
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 12,
+    "physical_page": 2,
+    "prepared_page": null,
+    "candidate_region": null,
+    "item_evidence": [],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 13,
+    "physical_page": 3,
+    "prepared_page": 3,
+    "candidate_region": [
+      11.904000244140626,
+      799.7099884033203,
+      547.5840112304687,
+      833.3819879150391
+    ],
+    "item_evidence": [],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 14,
+    "physical_page": 4,
+    "prepared_page": 4,
+    "candidate_region": [
+      20.96639892578125,
+      369.0287976074219,
+      503.19357421875,
+      429.27839721679686
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/tables/0",
+        "category": "tables",
+        "label": "table",
+        "bbox_top_left": [
+          24.71204376220703,
+          86.03813934326172,
+          498.959716796875,
+          438.9561767578125
+        ],
+        "provenance": {
+          "page_no": 4,
+          "bbox": {
+            "l": 24.71204376220703,
+            "t": 667.0818557739258,
+            "r": 498.959716796875,
+            "b": 314.163818359375,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        },
+        "selected_table_cells": [
+          {
+            "bbox": {
+              "l": 26.411969241908327,
+              "t": 401.19608790768,
+              "r": 118.78756552536143,
+              "b": 407.97235513369543,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 18,
+            "end_row_offset_idx": 19,
+            "start_col_offset_idx": 0,
+            "end_col_offset_idx": 1,
+            "text": "Tesserogastria musculosa",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          },
+          {
+            "bbox": {
+              "l": 184.5,
+              "t": 402.35328000000004,
+              "r": 307.4401582560001,
+              "b": 408.2481281197381,
+              "coord_origin": "TOPLEFT"
+            },
+            "row_span": 1,
+            "col_span": 1,
+            "start_row_offset_idx": 18,
+            "end_row_offset_idx": 19,
+            "start_col_offset_idx": 1,
+            "end_col_offset_idx": 2,
+            "text": "0.14-0.24 (no: Tardent, 1978)?",
+            "column_header": false,
+            "row_header": false,
+            "row_section": false,
+            "fillable": false
+          }
+        ]
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_45",
+        "text_sha256": "161a35d6a5d113433f4acf9c1593a44ae4a4a18a9b2da24ffcfdc652529d9c7d",
+        "selected_source_items": [
+          {
+            "item_ref": "#/tables/0",
+            "page": 4,
+            "bbox": {
+              "l": 24.71204376220703,
+              "t": 667.0818557739258,
+              "r": 498.959716796875,
+              "b": 314.163818359375,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 15,
+    "physical_page": 9,
+    "prepared_page": null,
+    "candidate_region": null,
+    "item_evidence": [],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 16,
+    "physical_page": 8,
+    "prepared_page": 8,
+    "candidate_region": [
+      21.31199951171875,
+      614.0159899902343,
+      271.7279937744141,
+      685.1519888305664
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/125",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          28.22041584,
+          468.25353669110393,
+          259.40994271353065,
+          693.3956117118802
+        ],
+        "provenance": {
+          "page_no": 8,
+          "bbox": {
+            "l": 28.22041584,
+            "t": 280.5464511018648,
+            "r": 259.40994271353065,
+            "b": 55.40437608108857,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            994
+          ]
+        },
+        "text_sha256": "a4090e1c86ec7682378054d9e401b1ae24260c7464fb72483543eb85a488d550"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_97",
+        "text_sha256": "3742841ca919b70883fc2f90b5c26fc12f401444ccd1c6a866bdfd890894efa3",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/125",
+            "page": 8,
+            "bbox": {
+              "l": 28.22041584,
+              "t": 280.5464511018648,
+              "r": 259.40994271353065,
+              "b": 55.40437608108857,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              994
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 17,
+    "physical_page": 13,
+    "prepared_page": 12,
+    "candidate_region": [
+      46.335542907714846,
+      572.4362176513672,
+      391.7459536743164,
+      631.0592037963868
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/101",
+        "category": "texts",
+        "label": "footnote",
+        "bbox_top_left": [
+          54.54436320000001,
+          589.4609455507999,
+          378.57178358402103,
+          615.7889088381808
+        ],
+        "provenance": {
+          "page_no": 12,
+          "bbox": {
+            "l": 54.54436320000001,
+            "t": 100.22124439060633,
+            "r": 378.57178358402103,
+            "b": 73.89328110322549,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            216
+          ]
+        },
+        "text_sha256": "b2fab207781a156fa038b5a3887b38acd8f1ca568dbccdfc1e1db49d2ce8181e",
+        "text": "1  In some species of Membranipora, however, the larva produces two ancestrulae simultaneously during  metamorphosis  (D.  Atkins,  1955),  i.e.  here  too  coloniality extends to the very beginning of imaginal life."
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_35",
+        "text_sha256": "105935871cc25b3f083953cc0126a16fa96f8b42a0e7ee550233d4c224243725",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/101",
+            "page": 12,
+            "bbox": {
+              "l": 54.54436320000001,
+              "t": 100.22124439060633,
+              "r": 378.57178358402103,
+              "b": 73.89328110322549,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              216
+            ],
+            "source_page": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 18,
+    "physical_page": 2,
+    "prepared_page": 2,
+    "candidate_region": [
+      98.41904296875,
+      683.0805102539063,
+      522.8511657714844,
+      738.6800866699219
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/11",
+        "category": "texts",
+        "label": "footnote",
+        "bbox_top_left": [
+          108.19081800000001,
+          703.106154464,
+          503.68601044468795,
+          721.1040941955712
+        ],
+        "provenance": {
+          "page_no": 2,
+          "bbox": {
+            "l": 108.19081800000001,
+            "t": 91.17350862193746,
+            "r": 503.68601044468795,
+            "b": 73.17556889036632,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            119
+          ]
+        },
+        "text_sha256": "9eea4adc458d51a4d4543ee32da8033f4ddd0b8cd26a8c74438ce8900860012b",
+        "text": "*) Beiträge  zur  näheren  Kenntnis  der  Schwimmpolypen  (Siphonophoren) Zeitschr. für  wissensch.  Zool.  V,  1854. ;"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_10",
+        "text_sha256": "2ff1bf8828041fdf1dcc650b38b403f738ee21983a0ede367f0208ca281fd1b0",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/11",
+            "page": 2,
+            "bbox": {
+              "l": 108.19081800000001,
+              "t": 91.17350862193746,
+              "r": 503.68601044468795,
+              "b": 73.17556889036632,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              119
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 19,
+    "physical_page": 5,
+    "prepared_page": 5,
+    "candidate_region": [
+      98.09279296875,
+      586.6125073242188,
+      521.1179626464843,
+      650.0300756835937
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/61",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          105.34908438821651,
+          557.1272864768,
+          497.1257031804243,
+          637.0463105457718
+        ],
+        "provenance": {
+          "page_no": 5,
+          "bbox": {
+            "l": 105.34908438821651,
+            "t": 235.5923180153875,
+            "r": 497.1257031804243,
+            "b": 155.6732939464157,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            481
+          ]
+        },
+        "text_sha256": "83e29c154308a77ebecabd61f2c87b9801416bc69ed1aad93458757195994908"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_25",
+        "text_sha256": "4cb35921cb88763baec1b4fe87145e15177c0d0af23b118ccc7ae1155bfb674b",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/61",
+            "page": 5,
+            "bbox": {
+              "l": 105.34908438821651,
+              "t": 235.5923180153875,
+              "r": 497.1257031804243,
+              "b": 155.6732939464157,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              481
+            ]
+          },
+          {
+            "item_ref": "#/texts/61",
+            "page": 6,
+            "bbox": {
+              "l": 113.22,
+              "t": 700.8876926169875,
+              "r": 509.04133048799986,
+              "b": 622.284684729703,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              482,
+              952
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 20,
+    "physical_page": 23,
+    "prepared_page": null,
+    "candidate_region": null,
+    "item_evidence": [],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 21,
+    "physical_page": 5,
+    "prepared_page": null,
+    "candidate_region": null,
+    "item_evidence": [],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 22,
+    "physical_page": 5,
+    "prepared_page": 5,
+    "candidate_region": [
+      59.30397949218751,
+      304.6725659179687,
+      364.2958740234375,
+      382.46130615234375
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/121",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          176.2446708,
+          330.5382694624,
+          219.31372912813057,
+          335.7786060455723
+        ],
+        "provenance": {
+          "page_no": 5,
+          "bbox": {
+            "l": 176.2446708,
+            "t": 317.701232490725,
+            "r": 219.31372912813057,
+            "b": 312.4608959075527,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            10
+          ]
+        },
+        "text_sha256": "d82ad170cb0cd40511d244017f31c18ab4d150a356a170d869b21603623f2b74",
+        "text": "750-500 m."
+      }
+    ],
+    "linked_chunk_evidence": []
+  },
+  {
+    "sample_number": 23,
+    "physical_page": 8,
+    "prepared_page": 7,
+    "candidate_region": [
+      32.34,
+      718.9,
+      529.2,
+      851.62
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/83",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          37.7363167229268,
+          528.4988887752917,
+          511.2778969496723,
+          828.5651313068247
+        ],
+        "provenance": {
+          "page_no": 7,
+          "bbox": {
+            "l": 37.7363167229268,
+            "t": 577.5011112247083,
+            "r": 511.2778969496723,
+            "b": 277.4348686931753,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            641
+          ]
+        },
+        "text_sha256": "39f1f85504a1257f288b61bd478373c78316b4b8d0b1214fecae43c774e9530d"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_18",
+        "text_sha256": "c72b7fd960f6037d8f3d9607787ffee18b23e1beec3f273333eca1bfb1282e16",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/83",
+            "page": 7,
+            "bbox": {
+              "l": 37.7363167229268,
+              "t": 577.5011112247083,
+              "r": 511.2778969496723,
+              "b": 277.4348686931753,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              641
+            ],
+            "source_page": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sample_number": 24,
+    "physical_page": 3,
+    "prepared_page": 3,
+    "candidate_region": [
+      23.922000122070315,
+      335.923212890625,
+      244.00440124511718,
+      388.4112149047852
+    ],
+    "item_evidence": [
+      {
+        "item_ref": "#/texts/119",
+        "category": "texts",
+        "label": "text",
+        "bbox_top_left": [
+          30.2129523,
+          352.79045999999994,
+          281.3435580927624,
+          475.02812811973797
+        ],
+        "provenance": {
+          "page_no": 3,
+          "bbox": {
+            "l": 30.2129523,
+            "t": 347.0495668554688,
+            "r": 281.3435580927624,
+            "b": 224.81189873573078,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            472
+          ]
+        },
+        "text_sha256": "fe2db2c95ed11010bda66172db93897c40a0dd7bf44333f9b4fc3cbc6a923e3e",
+        "text": "ET  31.5 m,  127.2  m,  126.6  m (各地 点 で 一 定 南か南を を 5 南ッ 南ト ) ネッ ト を 南垂 いた。採集 し た プラ ンクトン は .,  TOK 南1南直過 海水 を南録量 入れ た 南淀南歌 南曳南行の中で 南わ南お 南(が 南よこ ら な い 様 にし , 生き た 南保南,で南河日 南村内 に クラ ゲ 類の 南・定 と 南奥数 を 行っ た ( 表  1南23)。 ZL, 南上すべり 南きク タラ ゲ 類 は クラ ゲ 南部 南詳 で の 南・定 が 南細南実 で 南人る た め和 南施数 種 が 南っ在 し て いる 南そ南こ 性 が 南人る が ,  1 種と し て南た南付 ント し た 。  また, 南*生 や南今体 は 種南辺 南線ル まで の 南・定 が で き なか っ た 。 南回 , 調 在 日 を 月 1 度 に南と定 し た た め ,  RH Tho Bai は クラ ゲ 類 が 多南口 採取 でき なか っ た (K1-3: 南時 南先  )。"
+      }
+    ],
+    "linked_chunk_evidence": [
+      {
+        "chunk_id": "chunk_23",
+        "text_sha256": "b90a3a4fcc04d00a46600e11121417e04b7bb8f9bba3ea593e9b9575cb29c791",
+        "selected_source_items": [
+          {
+            "item_ref": "#/texts/119",
+            "page": 3,
+            "bbox": {
+              "l": 30.2129523,
+              "t": 347.0495668554688,
+              "r": 281.3435580927624,
+              "b": 224.81189873573078,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              472
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

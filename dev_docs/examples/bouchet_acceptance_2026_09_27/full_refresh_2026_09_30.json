@@ -1,0 +1,67 @@
+{
+  "status": "operational_pass_scientific_acceptance_unresolved",
+  "code": "7eebfbf98d317103af3a390237f2ffc8ecd8f415",
+  "initial_extract_job": {
+    "job": "27849185",
+    "state": "TIMEOUT",
+    "action": "original dependent jobs cancelled; original logs retained"
+  },
+  "guarded_continuation": {
+    "job": "27882583",
+    "state": "COMPLETED",
+    "exit_code": 0,
+    "elapsed": "21:04:44"
+  },
+  "embedding": {
+    "job": "27883653",
+    "state": "COMPLETED",
+    "exit_code": 0,
+    "embedded": 655,
+    "skipped": 1120,
+    "failed": 0
+  },
+  "finalization": {
+    "job": "27886418",
+    "state": "COMPLETED",
+    "exit_code": 0,
+    "bundle_created_at": "2026-09-30T18:38:48Z",
+    "live_sse_all_layers": "pass"
+  },
+  "extract": {
+    "documents": 1775,
+    "removed_blank_chunks": 2130,
+    "all_nonempty_text_and_structure_preserved": true,
+    "upstream_receipts_and_artifacts_unchanged": true,
+    "original_bundle_unchanged": true
+  },
+  "changed_papers": 655,
+  "audit": {
+    "passed": true,
+    "problems": 0,
+    "quality_flags": 1357
+  },
+  "bundle": {
+    "path": "/nfs/roberts/scratch/pi_cwd7/cwd7/siphonophore_v15_candidate_20260925/output/corpus_bundle_refresh_20260929",
+    "paper_count": 1775,
+    "chunk_count": 245689,
+    "figure_count": 23035,
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_dim": 1024,
+    "git_sha": "7eebfbf98d317103af3a390237f2ffc8ecd8f415"
+  },
+  "bibliography": {
+    "citation_edges": 91080,
+    "raw_reference_observations": 92227,
+    "check": "read-only counts in final bundle; matches accepted full bibliography"
+  },
+  "source_receipts": {
+    "extract-receipt.json": "7933c484fb949edeb0fd3c0e893e1ad67d8bff117f2bf72d1211213f31078757",
+    "finalize-receipt.json": "8db4021e1570b2033a62fca88d03087542216a0b69c4b74e83d395392d6114cf"
+  },
+  "limits": [
+    "This bundle is pinned to 7eebfbf and predates the source-confirmed table-caption producer 05a5e8d.",
+    "Fixed retrieval audit 27985007 pending; independent ten queries remain sealed.",
+    "Gold-score declines and scientific panel crops remain unresolved.",
+    "Quality flags are inherited warnings, not adjudicated source truth."
+  ]
+}

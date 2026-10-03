@@ -1,0 +1,38 @@
+{
+  "corpus_hash": "8a4548d8d5d7",
+  "source_bundle_version": "1.2.1",
+  "source_file_sha256": "5f54b618be3165d364f5d54b2240c1072693cf6135a1577f5215453a20ea42fc",
+  "references": [
+    {
+      "xml_id": "b0",
+      "title": "Nanomia cara (A. Agassiz) Nectophores from an Irish specimen. A, B, C, upper, abaxial and lateral views",
+      "authors": [
+        "R Gp-Lat"
+      ],
+      "year": null,
+      "journal": "",
+      "doi": "",
+      "raw": ""
+    },
+    {
+      "xml_id": "b1",
+      "title": "lat = lateral radial canal; Nem.p.ect = ectodermal patch of nematocysts; R.ap.lat = apicolateral ridge; R.vert.lat == lateral vertical ridge (from Totton, 1954, fig. 19)",
+      "authors": [
+        "C Rad"
+      ],
+      "year": null,
+      "journal": "Nanomia cara A. Agassiz",
+      "doi": "",
+      "raw": ""
+    },
+    {
+      "xml_id": "b2",
+      "title": "Plate XIV",
+      "authors": [],
+      "year": null,
+      "journal": "Plate XIV",
+      "doi": "",
+      "raw": ""
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "recorded_utc": "2026-09-22T15:57:25.793398+00:00",
+  "scope": "Read-only completed baseline source grading; separate current replay/pilot overlays. No extraction/OCR/model/build run and no source-label mutations.",
+  "source_packet": "tests/fixtures/text_integrity/source_review",
+  "source_label_sha256": "b78a271c9506c320800fae28732737789e8e263a642e2250059990ff64021b62",
+  "baseline_root": "/tmp/corpus-v15-acceptance/gold/baseline-before-sep22-refresh",
+  "full_local_packet": "/tmp/corpus-v15-notation-comparison-complete-20260922",
+  "historical_grades_identical_artifacts": [
+    "docling_doc.json",
+    "text.json",
+    "chunks.json",
+    "figures.json"
+  ],
+  "newly_graded_sample_numbers": [
+    5,
+    6,
+    7,
+    9,
+    11,
+    18,
+    19,
+    22,
+    24
+  ],
+  "scripts": {
+    "capture.py": "6fab1d454da57e3091c05462f2e04b491d87a61ae6b2068fe53b740911b8cbf9",
+    "align.py": "43601a85f1444ce4389401c9291da0a23a55bc4d6c574e1045522455f83bb1de",
+    "grade.py": "49a4df29c977f9314b8453af51120991538188a627d565c653b9b25c32af0766",
+    "current_overlays.py": "76a56f4e0f6bb8c80a47089fb3e796e544b207bd260f81506b3f115daaf1ae6e"
+  },
+  "files": {
+    "README.md": "ee35964f79d63acf5ec7b3265b30f3dda1c5aea9dfe7c97b37811bd36dedfdc2",
+    "capture-receipt.json": "80fcd4496b5cb2677437847bc3faa488c2b935747bc251589db685ad43013a01",
+    "chen-current-helper-overlay.json": "1a68417224bffc2d48f2c485acc0d9987f56ad1e61028c2e49e6dd64e69c9336",
+    "comparison-addendum.json": "7628de5ba5df6ab1bab378d13f5855f6e1087fb38b6a819c85b665e0143c9713",
+    "independent-review-fix-figures.json": "a39fca5aad6572d99391fb45d66f7678d50cc1925b4d60c4b1d993b0815f0d40",
+    "results.json": "01bf47de9c3da4e4efd4d381e40318dfca22f5ed53cec11a016cd6dfe3a0c174",
+    "russian-fresh-overlay.json": "f3eb5bb07aa01a4343a57e4e9017b44da251948e75950ea9b8029cccd62ae901",
+    "summary.json": "9cd4090890da1add523b6cfa7c8b4a277e9e3e48ca6af4cf8c714f0625dfb8a4"
+  }
+}

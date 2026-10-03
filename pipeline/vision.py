@@ -258,7 +258,9 @@ def _vision_user_text(
     return (
         f"Caption of this figure: {caption_text!r}\n\n"
         f"{target_instruction}\n\n"
-        f"Image dimensions (px): {width} × {height}."
+        f"Model-input image dimensions (px): {width} × {height}. "
+        "Use normalized 0–1 coordinates. If emitting absolute pixels, they "
+        "must refer to this model-input frame."
     )
 
 
@@ -356,6 +358,37 @@ def _bbox_to_px(bbox, w: int, h: int):
     if x1 <= x0 or y1 <= y0:
         return None, _BBOX_DEGENERATE
     return [x0, y0, x1, y1], units
+
+
+def _bbox_in_raster(bbox, model_size, raster_size):
+    """Convert one model-frame box exactly once into served-raster pixels.
+
+    Normalized values describe the whole image at either resolution; absolute
+    values describe the explicitly declared model-input frame (#305). Keep the
+    model's raw box and frame sizes so a plausible in-bounds result is auditable.
+    """
+    w, h = model_size
+    px, disposition = _bbox_to_px(bbox, w, h)
+    evidence = {
+        "model_bbox": bbox,
+        "model_coordinate_units": disposition,
+        "model_input_size_px": list(model_size),
+        "raster_size_px": list(raster_size),
+        "output_coordinate_frame": "raster_pixels_top_left",
+        "scale_to_raster": [raster_size[0] / w, raster_size[1] / h],
+    }
+    if px is None:
+        return None, disposition, evidence
+    if disposition == _BBOX_NORMALIZED:
+        px, _ = _bbox_to_px(bbox, *raster_size)
+    else:
+        # Scale unrounded model values, not already-truncated source pixels.
+        px = [int(max(0, min(raster_size[i % 2], float(value)
+                            * raster_size[i % 2] / model_size[i % 2])))
+              for i, value in enumerate(bbox)]
+        if px[2] <= px[0] or px[3] <= px[1]:
+            return None, _BBOX_DEGENERATE, evidence
+    return px, disposition, evidence
 
 
 def _log_bbox_dispositions(counts, name: str, backend: str) -> None:
@@ -466,6 +499,9 @@ class ClaudeVisionBackend(VisionBackend):
         expected_labels: List[str],
     ) -> List[Dict]:
         try:
+            from PIL import Image
+            with Image.open(image_path) as source_image:
+                raster_size = source_image.size
             image_b64, w, h = self._encode_image(image_path)
         except Exception as e:
             raise VisionBackendError(f"could not read image {image_path}: {e}") from e
@@ -532,15 +568,17 @@ class ClaudeVisionBackend(VisionBackend):
         bbox_counts: Counter = Counter()
 
         def _norm_to_px(bbox_norm):
-            px, disposition = _bbox_to_px(bbox_norm, w, h)
+            px, disposition, evidence = _bbox_in_raster(
+                bbox_norm, (w, h), raster_size,
+            )
             if bbox_norm is not None:
                 bbox_counts[disposition] += 1
-            return px
+            return px, evidence
 
         out: List[Dict] = []
         src = self.name
         for p in parsed.get("panels") or []:
-            panel_px = _norm_to_px(p.get("panel_bbox_norm"))
+            panel_px, panel_frame = _norm_to_px(p.get("panel_bbox_norm"))
             if panel_px is None:
                 continue
             entry = {
@@ -548,16 +586,18 @@ class ClaudeVisionBackend(VisionBackend):
                 "label": p.get("label", ""),
                 "parent_figure_index": int(p.get("parent_figure_index", 0)),
                 "bbox_px": panel_px,
+                "coordinate_provenance": {"panel": panel_frame},
                 "confidence": float(p.get("confidence", 0.0)),
                 "description": (p.get("description") or "").strip(),
                 "source": src,
             }
-            label_px = _norm_to_px(p.get("label_bbox_norm"))
+            label_px, label_frame = _norm_to_px(p.get("label_bbox_norm"))
             if label_px is not None:
                 entry["label_bbox_px"] = label_px
+                entry["coordinate_provenance"]["label"] = label_frame
             out.append(entry)
         for f in parsed.get("embedded_figures") or []:
-            panel_px = _norm_to_px(f.get("panel_bbox_norm"))
+            panel_px, panel_frame = _norm_to_px(f.get("panel_bbox_norm"))
             if panel_px is None:
                 continue
             out.append({
@@ -565,6 +605,7 @@ class ClaudeVisionBackend(VisionBackend):
                 "parent_figure_index": int(f.get("parent_figure_index", 0)),
                 "figure_number": str(f.get("figure_number") or "").strip() or None,
                 "bbox_px": panel_px,
+                "coordinate_provenance": {"panel": panel_frame},
                 "confidence": float(f.get("confidence", 0.0)),
                 "source": src,
             })
@@ -863,6 +904,27 @@ class LocalVLMBackend(VisionBackend):
                 padding=True,
                 return_tensors="pt",
             ).to(self._model.device)
+            # process_vision_info and the image processor can both resize.
+            # The patch grid is authoritative for the frame the model sees;
+            # original image dimensions are not a safe pixel-box frame (#305).
+            grid = inputs.image_grid_thw[0].tolist()
+            patch_size = self._processor.image_processor.patch_size
+            model_w, model_h = int(grid[2] * patch_size), int(grid[1] * patch_size)
+            if model_w <= 0 or model_h <= 0:
+                raise ValueError("invalid model image grid")
+            raster_size = (w, h)
+            if (model_w, model_h) != (w, h):
+                messages[1]["content"][1]["text"] = _vision_user_text(
+                    caption_text, expected_labels, model_w, model_h,
+                )
+                text_prompt = self._processor.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True,
+                )
+                inputs = self._processor(
+                    text=[text_prompt], images=image_inputs, videos=video_inputs,
+                    padding=True, return_tensors="pt",
+                ).to(self._model.device)
+            w, h = model_w, model_h
 
         except Exception as e:
             raise VisionBackendError(
@@ -922,15 +984,17 @@ class LocalVLMBackend(VisionBackend):
         bbox_counts: Counter = Counter()
 
         def _norm_to_px(bbox_norm):
-            px, disposition = _bbox_to_px(bbox_norm, w, h)
+            px, disposition, evidence = _bbox_in_raster(
+                bbox_norm, (w, h), raster_size,
+            )
             if bbox_norm is not None:
                 bbox_counts[disposition] += 1
-            return px
+            return px, evidence
 
         out: List[Dict] = []
         src = self.name
         for p in parsed.get("panels") or []:
-            panel_px = _norm_to_px(p.get("panel_bbox_norm"))
+            panel_px, panel_frame = _norm_to_px(p.get("panel_bbox_norm"))
             if panel_px is None:
                 continue
             entry = {
@@ -938,16 +1002,18 @@ class LocalVLMBackend(VisionBackend):
                 "label": p.get("label", ""),
                 "parent_figure_index": int(p.get("parent_figure_index", 0)),
                 "bbox_px": panel_px,
+                "coordinate_provenance": {"panel": panel_frame},
                 "confidence": float(p.get("confidence", 0.0)),
                 "description": (p.get("description") or "").strip(),
                 "source": src,
             }
-            label_px = _norm_to_px(p.get("label_bbox_norm"))
+            label_px, label_frame = _norm_to_px(p.get("label_bbox_norm"))
             if label_px is not None:
                 entry["label_bbox_px"] = label_px
+                entry["coordinate_provenance"]["label"] = label_frame
             out.append(entry)
         for f in parsed.get("embedded_figures") or []:
-            panel_px = _norm_to_px(f.get("panel_bbox_norm"))
+            panel_px, panel_frame = _norm_to_px(f.get("panel_bbox_norm"))
             if panel_px is None:
                 continue
             out.append({
@@ -955,6 +1021,7 @@ class LocalVLMBackend(VisionBackend):
                 "parent_figure_index": int(f.get("parent_figure_index", 0)),
                 "figure_number": str(f.get("figure_number") or "").strip() or None,
                 "bbox_px": panel_px,
+                "coordinate_provenance": {"panel": panel_frame},
                 "confidence": float(f.get("confidence", 0.0)),
                 "source": src,
             })

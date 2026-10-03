@@ -29,7 +29,7 @@ from . import stamp_artifact
 from .annotate import _extract_taxa_and_lexicons
 from .chunking import chunk_text
 from .config import CONFIG
-from .build_inputs import config_fingerprints as _config_fingerprints
+from .build_inputs import config_fingerprints as _config_fingerprints, surname_recovery_inputs
 from .extract import extract_docling_content
 from .figure_materialization import rebuild_figure_base
 from .figure_passes import (
@@ -149,6 +149,8 @@ def run_pdf_processing_pipeline(
     lexicon_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
     run_config_fingerprints: Optional[Dict[str, Dict[str, Any]]] = None,
     grobid_context: Optional[Dict[str, Any]] = None,
+    surname_catalog: Optional[Dict] = None,
+    surname_producer: Optional[Dict] = None,
 ) -> Dict:
     """Run the per-PDF processing pipeline and return a summary dict.
 
@@ -168,13 +170,22 @@ def run_pdf_processing_pipeline(
     if grobid_context is None:
         grobid_context = {"enabled": grobid_client is not None,
                           "available": grobid_client is not None, "service_version": None}
+    if surname_catalog is None:
+        surname_catalog, surname_producer = surname_recovery_inputs(bib_index)
+    elif surname_producer is None:
+        from .surname_recovery import surname_recovery_producer
+        surname_producer = surname_recovery_producer(surname_catalog)
+    from functools import partial
+    extract_with_sources = partial(extract_docling_content, surname_catalog=surname_catalog,
+                                   surname_producer=surname_producer)
     if run_config_fingerprints is None:
         run_config_fingerprints = _config_fingerprints(
             {**CONFIG, "grobid": {**CONFIG.get("grobid", {}), "disable": not grobid_context["enabled"]}},
             panel_mode=getattr(vision_backend, "panel_mode", "vision-" + vision_backend.name) if vision_backend is not None
             else ("ocr" if content_aware_figures else "off"),
             vision_model=getattr(vision_backend, "_model_id", getattr(vision_backend, "model", None)),
-            resolved_vision_producer=getattr(vision_backend, "producer", None))
+            resolved_vision_producer=getattr(vision_backend, "producer", None),
+            surname_producer=surname_producer)
 
     processing_summary = {
         "original_pdf": str(pdf_path),
@@ -296,6 +307,9 @@ def run_pdf_processing_pipeline(
                         input_fingerprint=prep_fingerprint):
                 plog.info("Preparing PDF...")
                 ocr_outcome = prepare_pdf(temp_pdf, detection_result, processed_pdf)
+                # A new preparation can find no repair candidates. Retire its
+                # prior receipt instead of reusing evidence from an old policy.
+                retired_native_receipt = detection_result.pop("native_text_recovery", None)
                 # #254 — pages the per-page OCR timeout gave up on. ocrmypdf
                 # copies the un-OCR'd image through and exits 0, so without
                 # this the loss reaches summary.json as nothing at all: the
@@ -303,8 +317,8 @@ def run_pdf_processing_pipeline(
                 # the only trace is a warning in one array task's log.
                 # scan_detection.json is where OCR's account of the document
                 # already lives, and it is what _run_quality_gates reads.
-                if ocr_outcome:
-                    detection_result.update(ocr_outcome)
+                if ocr_outcome or retired_native_receipt is not None:
+                    detection_result.update(ocr_outcome or {})
                     with open(detection_file, "w") as f:
                         json.dump(stamp_artifact(detection_result), f, indent=2)
                 processing_summary["files_created"].append(str(processed_pdf))
@@ -322,7 +336,7 @@ def run_pdf_processing_pipeline(
                         input_fingerprint=ocr_fingerprints.get("docling_extraction", {})):
                 plog.info("Extracting text and figures...")
                 with _docling_log_context(pdf_name, hash_dir.name):
-                    rebuild_figure_base(hash_dir, extract_docling_content,
+                    rebuild_figure_base(hash_dir, extract_with_sources,
                                         figures_only=False)
                 processing_summary["files_created"].extend([str(text_file), str(figures_file)])
                 if docling_doc_file.exists():
@@ -383,7 +397,7 @@ def run_pdf_processing_pipeline(
             with _stage(processing_summary, "figure_materialization", logger_=plog, hash_dir=hash_dir,
                         input_fingerprint=figure_fp):
                 if "docling_extraction" in processing_summary["skipped_stages"]:
-                    rebuild_figure_base(hash_dir, extract_docling_content)
+                    rebuild_figure_base(hash_dir, extract_with_sources)
                 with _stage(processing_summary, "figure_pass25_annotation", logger_=plog, hash_dir=hash_dir):
                     _pass25_annotate_figures(text_file, figures_file)
                 if vision_backend is not None:

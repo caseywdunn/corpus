@@ -1,0 +1,26 @@
+{
+  "case": "Alvarinoetal1990-p14-Alvarifio-1981",
+  "image": "Alvarinoetal1990-p14-Alvarifio-1981.png",
+  "image_sha256": "f01e1120f82fb30d7a6583175e0a2e2346b53559ed4ddb013ad619858e67b089",
+  "source": "Hosted GitHub Actions T0 failure, e66dba1ada54460a10b62fb7c51f2d5bf47158f9, lint + unit (ubuntu-24.04), 2026-09-18T19:12:06Z",
+  "capture_policy": "curated-author-year-source-ocr-consensus-v2",
+  "capture_status": "ocr_disagreement",
+  "version": "tesseract 5.5.3; leptonica-1.87.0",
+  "selected_model_sha256": {
+    "spa": "6f2e04d02774a18f01bed44b1111f2cd7f3ba7ac9dc4373cd3f898a40ea6b464"
+  },
+  "ocr_outputs": [
+    {
+      "language": "spa",
+      "psm": 6,
+      "text": "[Alvariño, 19814]."
+    },
+    {
+      "language": "spa",
+      "psm": 13,
+      "text": "[Alvariño, 1981a]."
+    }
+  ],
+  "scope": "Actual hosted OCR strings; regression replays captured outputs without claiming a local Tesseract 5.5.3 run. Visual source label remains in sample.json.",
+  "run_url": "https://github.com/caseywdunn/corpus/actions/runs/35384172174/job/105727049278"
+}

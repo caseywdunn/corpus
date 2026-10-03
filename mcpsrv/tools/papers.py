@@ -60,6 +60,10 @@ def corpus_summary(
     can exceed ``n_papers``. ``n_papers_ocred`` says how many came
     through corpus's own OCR rather than a text layer.
 
+    ``n_figures_total`` counts stored figure records, including furniture
+    and records sharing an image. It is not a count of unique image files
+    or the type-filtered figures returned by figure discovery tools (#332).
+
     Returns ``{n_papers, year_range, by_decade, by_language,
     n_papers_ocred, lexicon_categories,
     lexicon_coverage: {category: {n_terms_hit, n_papers_with_hits,
@@ -200,7 +204,7 @@ def list_papers(
     English translation answers to both ``ru`` and ``en``.
 
     Defaults to 100 rows; paginate via ``offset``. Call
-    ``get_paper(hash)`` for full metadata (authors, abstract, DOI,
+    ``get_papers(hashes=[hash])`` for full metadata (authors, abstract, DOI,
     filename, top taxa, top lexicon terms).
     """
     idx = _need_index()

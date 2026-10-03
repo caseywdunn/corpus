@@ -1,0 +1,368 @@
+{
+  "schema_name": "DoclingDocument",
+  "version": "1.10.0",
+  "name": "processed",
+  "origin": {
+    "mimetype": "application/pdf",
+    "binary_hash": 16081539156181129500,
+    "filename": "processed.pdf"
+  },
+  "furniture": {
+    "self_ref": "#/furniture",
+    "children": [],
+    "content_layer": "furniture",
+    "name": "_root_",
+    "label": "unspecified"
+  },
+  "body": {
+    "self_ref": "#/body",
+    "children": [
+      {
+        "$ref": "#/texts/0"
+      },
+      {
+        "$ref": "#/texts/1"
+      },
+      {
+        "$ref": "#/groups/0"
+      },
+      {
+        "$ref": "#/texts/3"
+      },
+      {
+        "$ref": "#/texts/4"
+      }
+    ],
+    "content_layer": "body",
+    "name": "_root_",
+    "label": "unspecified"
+  },
+  "groups": [
+    {
+      "self_ref": "#/groups/0",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/2"
+        }
+      ],
+      "content_layer": "body",
+      "name": "list",
+      "label": "list"
+    }
+  ],
+  "texts": [
+    {
+      "self_ref": "#/texts/0",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "furniture",
+      "label": "page_header",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 224.42353984251008,
+            "t": 723.521925343035,
+            "r": 256.3786480033427,
+            "b": 720.2191702317433,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            7
+          ]
+        }
+      ],
+      "orig": "-  12 -",
+      "text": "-  12 -"
+    },
+    {
+      "self_ref": "#/texts/1",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 83.511648,
+            "t": 684.486749296875,
+            "r": 411.7795154502481,
+            "b": 649.3928043015522,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            221
+          ]
+        }
+      ],
+      "orig": "lationsstruktur  der  herbivoren  Zooplankter zu  einer  bestimmten Zeit haben  kann  und ob in  Folge  davon  das carnivore  Plankton  in  geringeren Abundanzen zu finden ist, sind Fragen, die beantwortet  werden sollen,",
+      "text": "lationsstruktur  der  herbivoren  Zooplankter zu  einer  bestimmten Zeit haben  kann  und ob in  Folge  davon  das carnivore  Plankton  in  geringeren Abundanzen zu finden ist, sind Fragen, die beantwortet  werden sollen,"
+    },
+    {
+      "self_ref": "#/texts/2",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "content_layer": "body",
+      "meta": {
+        "corpus__native_text_recovery": [
+          {
+            "item_ref": "#/texts/2",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              327.60076904296875,
+              233.57662963867188,
+              378.2876892089844,
+              244.74888610839844
+            ],
+            "original": "Diversit\u00c3\u00a4",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          }
+        ]
+      },
+      "label": "list_item",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 69.47305200000001,
+            "t": 636.0667492968751,
+            "r": 411.63374502274866,
+            "b": 582.0375785204485,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            368
+          ]
+        }
+      ],
+      "orig": "-Die  Artenvielfalt, die Diversit\u00e4t,  galt  in  der Beschreibung  von  Lebensgemeinschaften lange als Ma\u00df fiir die Stabilit\u00e4t eines Okosystems., Wenn auch  heute  umstritten,  kann sie  regional zum Vergleich  herangezogen  werden. Die  Annahme, da\u00df  die  Diversitdt  mit zur' nehmend extremen Lebensbedingungen von Norden nach S\u00fcden abnimmt, wird  zu  beweisen  sein.",
+      "text": "-Die  Artenvielfalt, die Diversit\u00e4t,  galt  in  der Beschreibung  von  Lebensgemeinschaften lange als Ma\u00df fiir die Stabilit\u00e4t eines Okosystems., Wenn auch  heute  umstritten,  kann sie  regional zum Vergleich  herangezogen  werden. Die  Annahme, da\u00df  die  Diversitdt  mit zur' nehmend extremen Lebensbedingungen von Norden nach S\u00fcden abnimmt, wird  zu  beweisen  sein.",
+      "enumerated": false,
+      "marker": ""
+    },
+    {
+      "self_ref": "#/texts/3",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "meta": {
+        "corpus__native_text_recovery": [
+          {
+            "item_ref": "#/texts/3",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              71.2757568359375,
+              310.3766784667969,
+              98.94978332519531,
+              321.5489196777344
+            ],
+            "original": "pr\u00c3\u00a4g",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          },
+          {
+            "item_ref": "#/texts/3",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              139.4268798828125,
+              310.3766784667969,
+              188.6316680908203,
+              321.5489196777344
+            ],
+            "original": "zuf\u00c3\u00a4llige",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          },
+          {
+            "item_ref": "#/texts/3",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              255.1036376953125,
+              310.3766784667969,
+              308.4885559082031,
+              321.5489196777344
+            ],
+            "original": "\u00c3\u00bcberlager",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          }
+        ]
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 69.113088,
+            "t": 569.0552692968749,
+            "r": 412.15873082891767,
+            "b": 524.7271269582408,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            358
+          ]
+        }
+      ],
+      "orig": "Aus  all  diesen  Einzelinformationen  sollen  Gemeinschaften  mit  ihren  Charakteristika erarbeitet und beschrieben werden, wobel man sich von vornherein  im Klaren sein mu\u00df, da\u00df es sich bel dieser Arbeit  um eine sommerliche  Momentaufnahme  handelt, die  von  saisonalen  Bedingungen  gepr\u00e4gt  und  von  zuf\u00e4lligen  Verteilungen  \u00fcberlagert  sein  kannn.",
+      "text": "Aus  all  diesen  Einzelinformationen  sollen  Gemeinschaften  mit  ihren  Charakteristika erarbeitet und beschrieben werden, wobel man sich von vornherein  im Klaren sein mu\u00df, da\u00df es sich bel dieser Arbeit  um eine sommerliche  Momentaufnahme  handelt, die  von  saisonalen  Bedingungen  gepr\u00e4gt  und  von  zuf\u00e4lligen  Verteilungen  \u00fcberlagert  sein  kannn."
+    },
+    {
+      "self_ref": "#/texts/4",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "content_layer": "body",
+      "meta": {
+        "corpus__native_text_recovery": [
+          {
+            "item_ref": "#/texts/4",
+            "page": 1,
+            "charspan": [
+              493,
+              504
+            ],
+            "original": "RMT-8-Finge",
+            "replacement": "RMT-8-F\u00e4nge",
+            "original_native_token": "RMT-8-F\u00c3\u00a4ng",
+            "decoded_hint": "RMT-8-F\u00e4ng",
+            "source_bbox": [
+              291.5978698730469,
+              386.7012023925781,
+              343.33026123046875,
+              397.8734436035156
+            ],
+            "prepared_bbox": [
+              289.59100341796875,
+              388.30322265625,
+              342.325439453125,
+              398.109619140625
+            ],
+            "evidence": "two_regional_raster_readings_and_prepared_geometry",
+            "dpi": [
+              300,
+              600
+            ],
+            "languages": [
+              "deu",
+              "eng"
+            ],
+            "source_pdf_sha256": "9bcb2261d89798fa56c7e0696cc68876fe01a4a3bd4c7650465e146dfcf997bb",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "status": "repaired"
+          },
+          {
+            "item_ref": "#/texts/4",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              252.95614624023438,
+              339.18145751953125,
+              309.0284118652344,
+              350.35369873046875
+            ],
+            "original": "Wassers\u00c3\u00a4ul",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          },
+          {
+            "item_ref": "#/texts/4",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              390.7227783203125,
+              339.18145751953125,
+              416.3502197265625,
+              350.35369873046875
+            ],
+            "original": "Ann\u00c3\u00a4",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          },
+          {
+            "item_ref": "#/texts/4",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              149.99725341796875,
+              367.7402038574219,
+              169.24534606933594,
+              378.9124450683594
+            ],
+            "original": "F\u00c3\u00bc",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          },
+          {
+            "item_ref": "#/texts/4",
+            "status": "unresolved",
+            "method": "original-mojibake-regions-dual-raster-ocr-v1",
+            "page": 1,
+            "bbox": [
+              377.03753662109375,
+              386.7012023925781,
+              415.3819885253906,
+              397.8734436035156
+            ],
+            "original": "Netz\u00c3\u00b6ff",
+            "reason": "regional_ocr_did_not_agree_with_decoded_accent"
+          }
+        ]
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 1,
+          "bbox": {
+            "l": 68.39316000000001,
+            "t": 511.660829296875,
+            "r": 412.15827374663047,
+            "b": 437.9709980527216,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            579
+          ]
+        }
+      ],
+      "orig": "Die  vorliegende  Arbeit  behandelt  das Zooplankton,  das  mit  dem  RMT1 (lm? Netzdffnung) in  den  oberen  300  m der  Wassersidule  gefangen  wurde.  Ann\u00e4hernd quantitativ  werden Copepoden, Euphausiaceen-Larven,  kleine  Chaetognathen  und Siphonophoren,  Polychaeten,  Gastropoden  und  kleine  Amphipoden gefangen, Fir  die  Verbreitung  der gr\u00f6\u00dferen  Organismen  wie  adulte Euphausiaceen, Chaetognathen und Fischlarven verweise ich auf eine zweite Dissertation, die unter anderem die RMT-8-Finge (8m? Netz\u00f6ffnung) der  gleichen  Expedition  behandelt (PIATKOWSKI  1987).",
+      "text": "Die  vorliegende  Arbeit  behandelt  das Zooplankton,  das  mit  dem  RMT1 (lm? Netzdffnung) in  den  oberen  300  m der  Wassersidule  gefangen  wurde.  Ann\u00e4hernd quantitativ  werden Copepoden, Euphausiaceen-Larven,  kleine  Chaetognathen  und Siphonophoren,  Polychaeten,  Gastropoden  und  kleine  Amphipoden gefangen, Fir  die  Verbreitung  der gr\u00f6\u00dferen  Organismen  wie  adulte Euphausiaceen, Chaetognathen und Fischlarven verweise ich auf eine zweite Dissertation, die unter anderem die RMT-8-F\u00e4nge (8m? Netz\u00f6ffnung) der  gleichen  Expedition  behandelt (PIATKOWSKI  1987)."
+    }
+  ],
+  "pictures": [],
+  "tables": [],
+  "key_value_items": [],
+  "form_items": [],
+  "pages": {
+    "1": {
+      "size": {
+        "width": 600.9595947265625,
+        "height": 845.280029296875
+      },
+      "page_no": 1
+    }
+  }
+}

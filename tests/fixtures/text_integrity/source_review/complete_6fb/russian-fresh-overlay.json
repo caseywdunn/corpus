@@ -1,0 +1,366 @@
+{
+  "sample_number": 16,
+  "candidate_scope": "Fresh normal page-selected CPU/OCR extraction, real BGE-M3 embedding and actual bounded MCP get_chunks output; existing immutable saved-artifact replay, no new models.",
+  "bundle_code_revision": "bfbf90cb5793961aa1bb07db794877eb7f3cb889",
+  "server_code_revision": "bfbf90cb5793961aa1bb07db794877eb7f3cb889",
+  "source": {
+    "source": "library/S/Stepanjants2014.pdf",
+    "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+    "physical_pages": "8",
+    "bib_key": "Stepanjants2014",
+    "doclang": "ru, en",
+    "ocrmode": null
+  },
+  "physical_page": 8,
+  "prepared_page": 1,
+  "keeppages": "8",
+  "chunk_stage_completed_at": "2026-09-22T15:32:19Z",
+  "item_ref": "#/texts/3",
+  "item_provenance": [
+    {
+      "page_no": 1,
+      "bbox": {
+        "l": 28.22041584,
+        "t": 280.5464511018648,
+        "r": 259.40994271353065,
+        "b": 55.40437608108857,
+        "coord_origin": "BOTTOMLEFT"
+      },
+      "charspan": [
+        0,
+        994
+      ]
+    }
+  ],
+  "chunk_id": "chunk_4",
+  "candidate_expression": "0.3-10 мм'",
+  "source_expression_status": "corrupted_with_explicit_uncertainty",
+  "surfaces_verified": [
+    "Docling",
+    "markdown",
+    "chunk",
+    "real vector row text via saved serving receipt",
+    "actual bounded MCP get_chunks output"
+  ],
+  "selected_expression_unresolved": [
+    {
+      "method": "original-unit-digit-geometry-dual-raster-v1",
+      "status": "unresolved",
+      "page": 1,
+      "source_bbox": [
+        101.80229949951172,
+        650.3076171875,
+        104.2781982421875,
+        658.130615234375
+      ],
+      "original_native_digit": "3",
+      "source_pdf_sha256": "b382f175a58581be07b23065c6928e10c04ad64246f2a10dabec92a2e0f902ec",
+      "prepared_pdf_sha256": "316032ca12c105e7a85eace9679bdd277ea9d7163d8f450485703976dd8f0554",
+      "producer": {
+        "policy": "original-unit-digit-geometry-dual-raster-v1",
+        "digit_ocr": {
+          "available": true,
+          "version": "tesseract 5.5.2\n leptonica-1.87.0\n  libgif 5.2.2 : libjpeg 8d (libjpeg-turbo 3.1.2) : libpng 1.6.58 : libtiff 4.7.2 : zlib 1.3.2 : libwebp 1.6.0 : libopenjp2 2.5.4\n Found AVX2\n Found AVX\n Found FMA\n Found SSE4.1\n Found OpenMP 201511\n Found libarchive 3.8.9 zlib/1.3.2 liblzma/5.8.3 bz2lib/1.0.8 liblz4/1.10.0 libzstd/1.5.7 liblzo2/2.10 openssl/3.5.7 libb2/bundled",
+          "traineddata_sha256": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
+          "pymupdf_version": "1.28.0",
+          "language": "eng",
+          "dpi": 600,
+          "modes": [
+            7,
+            10
+          ],
+          "max_page": 8,
+          "max_document": 32,
+          "max_crop_pixels": 40000,
+          "max_total_pixels": 1000000,
+          "document_seconds": 30,
+          "call_seconds": 3
+        },
+        "ink_dpi": 600,
+        "ink_threshold": 150,
+        "max_ink_pixels": 40000
+      },
+      "source_evidence": {
+        "page": 1,
+        "page_size": [
+          532.7999877929688,
+          748.7999877929688
+        ],
+        "glyph": {
+          "text": "3",
+          "bbox": [
+            101.80229949951172,
+            650.3076171875,
+            104.2781982421875,
+            658.130615234375
+          ],
+          "origin": [
+            101.86309814453125,
+            656.5706787109375
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 3.869893789291382,
+          "raised": false
+        },
+        "base": {
+          "text": "м",
+          "bbox": [
+            94.36260223388672,
+            650.3551025390625,
+            100.47643280029297,
+            662.1132202148438
+          ],
+          "origin": [
+            94.45390319824219,
+            659.7733154296875
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 7.494007110595703,
+          "raised": false
+        },
+        "prefix": "0.3-10мм",
+        "status": "unresolved",
+        "source_ink": {
+          "base": {
+            "crop_sha256": "e1a07a7fa1a6548cfc217c71d248a905fcc2690d1490983e416ba7055983b754",
+            "crop_bbox": [
+              94.36260223388672,
+              650.3551025390625,
+              100.47643280029297,
+              662.1132202148438
+            ],
+            "ink_bbox": [
+              95.04,
+              655.2,
+              100.32,
+              660.0
+            ]
+          },
+          "digit": {
+            "crop_sha256": "ca41456ad9171213e5a771b8d1d45e40ba1a5be4a3d5774daf360e03c4dae1a9",
+            "crop_bbox": [
+              101.80229949951172,
+              650.3076171875,
+              104.2781982421875,
+              658.130615234375
+            ],
+            "ink_bbox": [
+              101.76,
+              651.84,
+              104.16,
+              656.64
+            ]
+          }
+        },
+        "digit_ocr": {
+          "verified": false,
+          "dpi": 600,
+          "modes": [
+            7,
+            10
+          ],
+          "language": "eng",
+          "observations": [
+            {
+              "mode": 7,
+              "text": "",
+              "returncode": 0
+            }
+          ],
+          "crop_sha256": "38dc3cb84de7ad71150dd1178cf0f6804884e4ac9760a4e095d4c82289537443",
+          "crop_bbox": [
+            101.30229949951172,
+            649.8076171875,
+            104.7781982421875,
+            658.630615234375
+          ],
+          "reason": "digit_ocr_disagreement"
+        },
+        "reason": "digit_ocr_disagreement",
+        "source_page": 8
+      },
+      "reason": "digit_ocr_disagreement",
+      "item_ref": "#/texts/3",
+      "source_page": 8
+    }
+  ],
+  "nearby_2000_mm3_repair_outside_frozen_sample": [
+    {
+      "method": "original-unit-digit-geometry-dual-raster-v1",
+      "status": "repaired",
+      "page": 1,
+      "source_bbox": [
+        189.68240356445312,
+        628.340576171875,
+        191.9008026123047,
+        634.3614501953125
+      ],
+      "original_native_digit": "3",
+      "source_pdf_sha256": "b382f175a58581be07b23065c6928e10c04ad64246f2a10dabec92a2e0f902ec",
+      "prepared_pdf_sha256": "316032ca12c105e7a85eace9679bdd277ea9d7163d8f450485703976dd8f0554",
+      "producer": {
+        "policy": "original-unit-digit-geometry-dual-raster-v1",
+        "digit_ocr": {
+          "available": true,
+          "version": "tesseract 5.5.2\n leptonica-1.87.0\n  libgif 5.2.2 : libjpeg 8d (libjpeg-turbo 3.1.2) : libpng 1.6.58 : libtiff 4.7.2 : zlib 1.3.2 : libwebp 1.6.0 : libopenjp2 2.5.4\n Found AVX2\n Found AVX\n Found FMA\n Found SSE4.1\n Found OpenMP 201511\n Found libarchive 3.8.9 zlib/1.3.2 liblzma/5.8.3 bz2lib/1.0.8 liblz4/1.10.0 libzstd/1.5.7 liblzo2/2.10 openssl/3.5.7 libb2/bundled",
+          "traineddata_sha256": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
+          "pymupdf_version": "1.28.0",
+          "language": "eng",
+          "dpi": 600,
+          "modes": [
+            7,
+            10
+          ],
+          "max_page": 8,
+          "max_document": 32,
+          "max_crop_pixels": 40000,
+          "max_total_pixels": 1000000,
+          "document_seconds": 30,
+          "call_seconds": 3
+        },
+        "ink_dpi": 600,
+        "ink_threshold": 150,
+        "max_ink_pixels": 40000
+      },
+      "source_evidence": {
+        "page": 1,
+        "page_size": [
+          532.7999877929688,
+          748.7999877929688
+        ],
+        "glyph": {
+          "text": "3",
+          "bbox": [
+            189.68240356445312,
+            628.340576171875,
+            191.9008026123047,
+            634.3614501953125
+          ],
+          "origin": [
+            189.7292022705078,
+            633.1614990234375
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 3.21994948387146,
+          "raised": false
+        },
+        "base": {
+          "text": "м",
+          "bbox": [
+            182.0028076171875,
+            628.3758544921875,
+            188.33900451660156,
+            638.3363037109375
+          ],
+          "origin": [
+            182.0800018310547,
+            636.3563842773438
+          ],
+          "font": "HiddenHorzOCR",
+          "size": 7.029980659484863,
+          "raised": false
+        },
+        "prefix": "2000мм",
+        "status": "confirmed",
+        "source_ink": {
+          "base": {
+            "crop_sha256": "016562f015c300e6509b6af9f7feac789742c08b5b2d27eb55d326364579cf1e",
+            "crop_bbox": [
+              182.0028076171875,
+              628.3758544921875,
+              188.33900451660156,
+              638.3363037109375
+            ],
+            "ink_bbox": [
+              182.88,
+              632.16,
+              188.16,
+              636.96
+            ]
+          },
+          "digit": {
+            "crop_sha256": "31204918368710035cc1779450ca894d0510d5c327413799e1213af21e3eec42",
+            "crop_bbox": [
+              189.68240356445312,
+              628.340576171875,
+              191.9008026123047,
+              634.3614501953125
+            ],
+            "ink_bbox": [
+              189.6,
+              629.76,
+              191.76,
+              633.36
+            ]
+          }
+        },
+        "digit_ocr": {
+          "verified": true,
+          "dpi": 600,
+          "modes": [
+            7,
+            10
+          ],
+          "language": "eng",
+          "observations": [
+            {
+              "mode": 7,
+              "text": "3\n",
+              "returncode": 0
+            },
+            {
+              "mode": 10,
+              "text": "3\n",
+              "returncode": 0
+            }
+          ],
+          "crop_sha256": "b66aa95242af0826140b3c0fa85b6b77ec57399e669d2e44f28b5af460ea8035",
+          "crop_bbox": [
+            189.18240356445312,
+            627.840576171875,
+            192.4008026123047,
+            634.8614501953125
+          ]
+        },
+        "source_page": 8
+      },
+      "item_ref": "#/texts/3",
+      "charspan": [
+        734,
+        735
+      ],
+      "original": "?",
+      "replacement": "³",
+      "prepared_bbox": [
+        188.22927856445312,
+        629.1431884765625,
+        191.87966918945312,
+        638.9495849609375
+      ],
+      "source_page": 8
+    }
+  ],
+  "serving_receipt_sha256": "59c675eef1bfc25be86f26597ff670b2bd4b2c0560f710da3e0b786f9b5d99d5",
+  "served_chunks_sha256": "1cf91a738ba2be7b9e07f079f64fa9fc0e2c905497af26604be284f84c7a2439",
+  "artifact_sha256": {
+    "text.json": "ea83967527f6a43f2177d861522d45cee3e50776b2eb62e85b51d31c0daaae43",
+    "chunks.json": "58b75a73dd96b3bb45c7b2e433ca5882efb415a2ea00e10c68f286d6c791cd99",
+    "docling_doc.json": "0845978fd333d9c5c99239be8408194d4bf98c272bc0424d1d66b7aebc3618f6",
+    "figures.json": "8b61f81236eef44249fff40272f772ea4bba1d94c8b93ef1e901c8aea96b44ff",
+    "processed.pdf": "316032ca12c105e7a85eace9679bdd277ea9d7163d8f450485703976dd8f0554",
+    "pipeline_state.json": "67e9384f3a16496be4ac0700b2fd47d06e671eb3df59d9aa4c6b3368f7c72b33",
+    "scan_detection.json": "5c62b1d5746f268826c85d162865335924a0220e332fe7fea10cbae5cb8ff5bc"
+  },
+  "embedding_producer": {
+    "schema_version": 1,
+    "model": "BAAI/bge-m3",
+    "dimension": 1024,
+    "producer": {
+      "model": "BAAI/bge-m3",
+      "recipe": "sentence-transformers-unit-l2-v1",
+      "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+      "verification": "repository-revision"
+    }
+  },
+  "no_denominator_substitution": "The repaired nearby2000мм³ is not frozen row16 (0.3–10мм³). It proves producer behavior but does not turn row16 into a fidelity success or count toward selected-operation precision."
+}

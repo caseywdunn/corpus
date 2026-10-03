@@ -1,0 +1,402 @@
+{
+  "frozen_at_utc": "2026-09-18T19:59:24.793014+00:00",
+  "checkout": "/tmp/corpus-correctness-validation",
+  "observed_head": "9d1eac175c37f1fa0675d440663dec77aa847df5",
+  "replay_code_commit": "52defbc",
+  "replay_code_unchanged_at_observed_head": [
+    "pipeline/source_spaces.py",
+    "pipeline/table_structure.py",
+    "pipeline/taxa.py"
+  ],
+  "selection": "All five long runs in the retained full DuClos p6 Docling capture, all spacing repair records in captured Hissmann p7 and completed Bernstein frozen-gold output, one controlled Mapstone p68 historical-collapse replay, and five preselected unchanged/rejected controls. Selected before current visual grading; prior Bernstein partial review disclosed. No corpus screening or random sampling.",
+  "units": "One accepted replacement token or one preselected unchanged/rejected decision per row; accepted repair boundary offsets counted separately.",
+  "production_changes": false,
+  "new_ocr_or_model_runs": false,
+  "rows": [
+    {
+      "id": "P1",
+      "kind": "accepted_repair",
+      "capture_class": "actual_captured_proposal",
+      "replay": "DuClos_etal2022-6-6-replay.json",
+      "original": "Siphosomelengthscaledapproximatelylinearlywiththenectophorecount",
+      "replacement": "Siphosome length scaled approximately linearly with the nectophore count",
+      "inserted_boundaries": [
+        9,
+        15,
+        21,
+        34,
+        42,
+        46,
+        49,
+        59
+      ],
+      "route": "exact-letters-geometric-gaps-ocr-intersection-v1",
+      "source": "/home/claude/repos/siphonophores/library/D_E/DuClos_etal2022.pdf",
+      "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+      "page": 6,
+      "grade": "ungraded"
+    },
+    {
+      "id": "P2",
+      "kind": "accepted_repair",
+      "capture_class": "actual_captured_proposal",
+      "replay": "Hissmann2005-7-7-replay.json",
+      "original": "Theholotypepossessedninenectophoresandaboutnine",
+      "replacement": "The holotype possessed nine nectophores and about nine",
+      "inserted_boundaries": [
+        3,
+        11,
+        20,
+        24,
+        35,
+        38,
+        43
+      ],
+      "route": "pdf_line_exact_letters",
+      "source": "/home/claude/repos/siphonophores/library/H_J/Hissmann2005.pdf",
+      "source_sha256": "25eb8dd8d21d3004299b3ae5a26714720ad1702cc53b22cc4a81180c55492210",
+      "page": 7,
+      "grade": "ungraded"
+    },
+    {
+      "id": "P3",
+      "kind": "accepted_repair",
+      "capture_class": "reported_legacy_reconstruction",
+      "replay": "Mapstone2009-68-68-reported-collapse-replay.json",
+      "original": "Anteriornectophorealonedeveloped",
+      "replacement": "Anterior nectophore alone developed",
+      "inserted_boundaries": [
+        8,
+        18,
+        23
+      ],
+      "route": "pdf_line_exact_letters",
+      "source": "/home/claude/repos/siphonophores/library/M/Mapstone2009.pdf",
+      "source_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+      "page": 68,
+      "grade": "ungraded"
+    },
+    {
+      "id": "P4",
+      "kind": "accepted_repair",
+      "capture_class": "actual_frozen_6fb_gold_output",
+      "replay": "Bernstein-gold-receipt.json",
+      "source": "/home/claude/repos/siphonophores/library/B/Bernstein1934.pdf",
+      "source_sha256": "d9623d970b33843a16864d4338c8235772b0c614b3ece23709bac7128678be37",
+      "page": 5,
+      "prepared_page": 4,
+      "original": "AcanthometronpellucidumO",
+      "replacement": "Acanthometron pellucidum O",
+      "inserted_boundaries": [
+        13,
+        23
+      ],
+      "route": "pdf_line_exact_letters",
+      "grade": "ungraded",
+      "prior_review_disclosure": "Prior preliminary review reported genus/species boundary clear, authority boundary unresolved; retained for fresh whole-population accounting."
+    },
+    {
+      "id": "G1",
+      "kind": "screened_run_no_geometric_proposal",
+      "capture_class": "actual_full_page_capture_geometric_replay",
+      "original": "werecollectedatFridayHarborLaboratoriesbetween",
+      "candidate": null,
+      "replacement": null,
+      "inserted_boundaries": [],
+      "source": "/home/claude/repos/siphonophores/library/D_E/DuClos_etal2022.pdf",
+      "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+      "page": 6,
+      "item_ref": "#/texts/6",
+      "native_line": "offree-swimmingN.bijugawerecollectedatFridayHarborLaboratoriesbetween",
+      "native_bbox": [
+        36.133995056152344,
+        600.0738525390625,
+        282.21319580078125,
+        609.0467529296875
+      ],
+      "proposal": null,
+      "capture_path": "/tmp/table-integrity-source/DuClos_etal2022-6-6.json",
+      "capture_sha256": "6da29f963620f951d5a579e710bacba5be864a410725e38f9cae1b4ea7cf0ea4",
+      "historical_ocr_decision": "unavailable; only aggregate two accepted and one disagreement observation retained",
+      "grade": "ungraded"
+    },
+    {
+      "id": "G2",
+      "kind": "native_geometric_proposal",
+      "capture_class": "actual_full_page_capture_geometric_replay",
+      "original": "andpossiblybyalteringtheconcentrationsof",
+      "candidate": "and possibly by altering the concentrations of",
+      "replacement": null,
+      "inserted_boundaries": [
+        3,
+        11,
+        13,
+        21,
+        24,
+        38
+      ],
+      "source": "/home/claude/repos/siphonophores/library/D_E/DuClos_etal2022.pdf",
+      "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+      "page": 6,
+      "item_ref": "#/texts/10",
+      "native_line": "gas-ﬁlledpneumatophore(14,19)andpossiblybyalteringtheconcentrationsof",
+      "native_bbox": [
+        300.14385986328125,
+        277.39556884765625,
+        546.2176513671875,
+        286.3619689941406
+      ],
+      "proposal": {
+        "text": "gas-ﬁlledpneumatophore(14,19)andpossiblybyalteringtheconcentrationsof",
+        "bbox": [
+          300.14385986328125,
+          277.39556884765625,
+          546.2176513671875,
+          286.3619689941406
+        ],
+        "choices": [
+          {
+            "original": "andpossiblybyalteringtheconcentrationsof",
+            "candidate": "and possibly by altering the concentrations of",
+            "start": 29,
+            "end": 69,
+            "boundaries": [
+              3,
+              11,
+              13,
+              21,
+              24,
+              38
+            ],
+            "gaps": [
+              1.076,
+              1.0849,
+              1.076,
+              1.0849,
+              1.076,
+              1.076
+            ],
+            "median_character_width": 3.6224,
+            "median_intra_word_gap": 0.0
+          }
+        ]
+      },
+      "capture_path": "/tmp/table-integrity-source/DuClos_etal2022-6-6.json",
+      "capture_sha256": "6da29f963620f951d5a579e710bacba5be864a410725e38f9cae1b4ea7cf0ea4",
+      "historical_ocr_decision": "unavailable; only aggregate two accepted and one disagreement observation retained",
+      "grade": "ungraded"
+    },
+    {
+      "id": "G3",
+      "kind": "native_geometric_proposal",
+      "capture_class": "actual_full_page_capture_geometric_replay",
+      "original": "WecalculatedmaximumthrustforninenectophoresusingdatafromCostello",
+      "candidate": "We calculated maximum thrust for nine nectophores using data from Costello",
+      "replacement": null,
+      "inserted_boundaries": [
+        2,
+        12,
+        19,
+        25,
+        28,
+        32,
+        43,
+        48,
+        52,
+        56
+      ],
+      "source": "/home/claude/repos/siphonophores/library/D_E/DuClos_etal2022.pdf",
+      "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+      "page": 6,
+      "item_ref": "#/texts/11",
+      "native_line": "WecalculatedmaximumthrustforninenectophoresusingdatafromCostello",
+      "native_bbox": [
+        310.10687255859375,
+        321.23150634765625,
+        546.218994140625,
+        330.1979064941406
+      ],
+      "proposal": {
+        "text": "WecalculatedmaximumthrustforninenectophoresusingdatafromCostello",
+        "bbox": [
+          310.10687255859375,
+          321.23150634765625,
+          546.218994140625,
+          330.1979064941406
+        ],
+        "choices": [
+          {
+            "original": "WecalculatedmaximumthrustforninenectophoresusingdatafromCostello",
+            "candidate": "We calculated maximum thrust for nine nectophores using data from Costello",
+            "start": 0,
+            "end": 64,
+            "boundaries": [
+              2,
+              12,
+              19,
+              25,
+              28,
+              32,
+              43,
+              48,
+              52,
+              56
+            ],
+            "gaps": [
+              1.0401,
+              1.0401,
+              1.0491,
+              1.0401,
+              1.0401,
+              1.0401,
+              1.0491,
+              1.0401,
+              1.0401,
+              1.0401
+            ],
+            "median_character_width": 3.7076,
+            "median_intra_word_gap": 0.0
+          }
+        ]
+      },
+      "capture_path": "/tmp/table-integrity-source/DuClos_etal2022-6-6.json",
+      "capture_sha256": "6da29f963620f951d5a579e710bacba5be864a410725e38f9cae1b4ea7cf0ea4",
+      "historical_ocr_decision": "unavailable; only aggregate two accepted and one disagreement observation retained",
+      "grade": "ungraded"
+    },
+    {
+      "id": "G4",
+      "kind": "native_geometric_proposal",
+      "capture_class": "actual_full_page_capture_geometric_replay",
+      "original": "butweusedthemeanthrustpernectophoreforsimplicity",
+      "candidate": "but we used the mean thrust per nectophore for simplicity",
+      "replacement": null,
+      "inserted_boundaries": [
+        3,
+        5,
+        9,
+        12,
+        16,
+        22,
+        25,
+        35,
+        38
+      ],
+      "source": "/home/claude/repos/siphonophores/library/D_E/DuClos_etal2022.pdf",
+      "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+      "page": 6,
+      "item_ref": "#/texts/11",
+      "native_line": "pneumatophore(13),butweusedthemeanthrustpernectophoreforsimplicity.",
+      "native_bbox": [
+        300.14385986328125,
+        354.10845947265625,
+        546.2177124023438,
+        363.0748596191406
+      ],
+      "proposal": {
+        "text": "pneumatophore(13),butweusedthemeanthrustpernectophoreforsimplicity.",
+        "bbox": [
+          300.14385986328125,
+          354.10845947265625,
+          546.2177124023438,
+          363.0748596191406
+        ],
+        "choices": [
+          {
+            "original": "butweusedthemeanthrustpernectophoreforsimplicity",
+            "candidate": "but we used the mean thrust per nectophore for simplicity",
+            "start": 18,
+            "end": 66,
+            "boundaries": [
+              3,
+              5,
+              9,
+              12,
+              16,
+              22,
+              25,
+              35,
+              38
+            ],
+            "gaps": [
+              1.067,
+              1.076,
+              1.076,
+              1.076,
+              1.067,
+              1.076,
+              1.076,
+              1.076,
+              1.067
+            ],
+            "median_character_width": 3.7928,
+            "median_intra_word_gap": 0.0
+          }
+        ]
+      },
+      "capture_path": "/tmp/table-integrity-source/DuClos_etal2022-6-6.json",
+      "capture_sha256": "6da29f963620f951d5a579e710bacba5be864a410725e38f9cae1b4ea7cf0ea4",
+      "historical_ocr_decision": "unavailable; only aggregate two accepted and one disagreement observation retained",
+      "grade": "ungraded"
+    },
+    {
+      "id": "N1",
+      "kind": "unchanged_clean_source",
+      "original": "Anterior nectophore alone developed",
+      "replacement": "Anterior nectophore alone developed",
+      "replay": "Mapstone2009-68-68-replay.json",
+      "source": "/home/claude/repos/siphonophores/library/M/Mapstone2009.pdf",
+      "source_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+      "page": 68,
+      "grade": "ungraded"
+    },
+    {
+      "id": "N2",
+      "kind": "unchanged_source_printed_closed_run",
+      "original": "Anteriornectophorewithsevencompletelongitudinal",
+      "replacement": "Anteriornectophorewithsevencompletelongitudinal",
+      "replay": "Mapstone2009-200-200-replay.json",
+      "source": "/home/claude/repos/siphonophores/library/M/Mapstone2009.pdf",
+      "source_sha256": "4efbb4af134b375ad84e2abcee03da5e7e39bb8fddf7d0676b06ecb24bec147e",
+      "page": 200,
+      "grade": "ungraded"
+    },
+    {
+      "id": "N3",
+      "kind": "unchanged_morphological_word",
+      "original": "nectophoral",
+      "replacement": "nectophoral",
+      "replay": "Hissmann2005-7-7-replay.json",
+      "source": "/home/claude/repos/siphonophores/library/H_J/Hissmann2005.pdf",
+      "source_sha256": "25eb8dd8d21d3004299b3ae5a26714720ad1702cc53b22cc4a81180c55492210",
+      "page": 7,
+      "grade": "ungraded"
+    },
+    {
+      "id": "N4",
+      "kind": "unchanged_german_long_word_native_reconstruction",
+      "original": "Einzelinformationen",
+      "replacement": "Einzelinformationen",
+      "replay": "german-native-control.json",
+      "source": "/home/claude/repos/siphonophores/library/B/Boysen-Ennen1987.pdf",
+      "source_sha256": "88f1c8dfbd5ca3058449c02027fa8219eb53b426324cb2694a8d502a40682fb5",
+      "page": 12,
+      "note": "19-letter word; matches original issue 18-letter screening heuristic but below 20-letter repair threshold. Native source control, not captured Docling.",
+      "grade": "ungraded"
+    },
+    {
+      "id": "N5",
+      "kind": "rejected_ocr_only_split",
+      "original": "count",
+      "candidate": "cou nt",
+      "replacement": "count",
+      "replay": "DuClos_etal2022-6-6-replay.json",
+      "source": "/home/claude/repos/siphonophores/library/D_E/DuClos_etal2022.pdf",
+      "source_sha256": "5408f4a1fb6f58e1b9fba3b6a43a794df41cd80455335be6da7c25716aaec845",
+      "page": 6,
+      "note": "Recorded OCR mode 6 hypothesis; no native geometric boundary, never an accepted production repair.",
+      "grade": "ungraded"
+    }
+  ],
+  "limits": "Selected named cases only. Fresh captured and reconstructed proposal denominators must remain separate. No corpus-wide precision, recall, detector false-positive rate, or full-release acceptance claim."
+}

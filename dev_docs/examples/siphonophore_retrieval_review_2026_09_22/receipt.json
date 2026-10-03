@@ -1,0 +1,35 @@
+{
+  "completed_at_utc": "2026-09-22T15:51:05.637256+00:00",
+  "canonical_implementation": "ab6353f",
+  "working_review_reference": "94e1e31153c39e252c3efd374fda9a878559d8f4",
+  "helper_equivalence": "git diff ab6353f -- tools/qc/retrieval.py dev_docs/examples/siphonophore_retrieval_evaluation.json was empty in working review tree. No production code changed.",
+  "evaluator_module_sha256": "ba08ffd87d050fc726021d35e3665312e9ba0cbf2e9ce384f8c8c4402d73fde8",
+  "manifest_file_sha256": "c56207d4335861e33ce90d5c599e0abe5a3e2379e9355ccb3e610b41b1259b07",
+  "manifest_evaluator_canonical_digest": "8b0ab86d8886169fd57ee1b5923ab3a6441a82558a69274aee14d8baacd3c015",
+  "protocol_file_sha256": "1998dab01a2ccb0cf8df72ab876e7a3ec5cbbabb2ed0825a8c0c4775d7b87769",
+  "original_sample_sha256": "525460d716c6b88cdae8f84e542d7e213ad61469e5b54bb67852bcdb7fcfc602",
+  "source_review_file_sha256": "f7e20ca1f9ec13ea8601bf5631eaeee6b5745374159e1f1c34bc71310869a851",
+  "checks": {
+    "manifest_validation": "pass",
+    "fixed_audit_control_calls_and_targets_unchanged": 12,
+    "distinct_source_units": 10,
+    "source_papers": 5,
+    "grade2_targets": 16,
+    "frozen_prior_target_page_exclusions": "pass",
+    "original_sample_unchanged": true
+  },
+  "not_run": [
+    "semantic retrieval",
+    "query embeddings",
+    "OCR",
+    "Docling extraction",
+    "ranking experiments"
+  ],
+  "remaining_gates": [
+    "full intended reference/candidate population identity and membership checks",
+    "actual captures under this identical frozen manifest",
+    "all predefined fixed-query, independent, historical/prose-control hit-rate and improvement gates",
+    "table crowding/diversity and unjudged-alternative review"
+  ],
+  "source_and_population_limits": "Purposive selection from five gold papers based on source observations. No retrieval ranks examined. Not a probability sample, deployment prevalence, exhaustive relevance, or independently human-graded benchmark."
+}

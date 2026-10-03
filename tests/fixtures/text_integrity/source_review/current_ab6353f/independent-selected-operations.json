@@ -1,0 +1,25 @@
+{
+  "reviewer": "Codex team agent /root/fix_figures",
+  "review_scope": "Bounded read-only independent agent review of frozen source crops01/02/04 and current saved receipts in provisional-before-final; not human/domain review or full-population grading.",
+  "reviewed_crops": {
+    "01": {
+      "path": "/tmp/corpus-v15-notation-holdout/crops/01.png",
+      "sha256": "3f0513a972e839e5856fc96b260657612bd124389c3edca2af606771d286d3eb"
+    },
+    "02": {
+      "path": "/tmp/corpus-v15-notation-holdout/crops/02.png",
+      "sha256": "c0c04e825e2ccafc0d1dd4f165efdb53b104b82527cd3bfa04e2b7a4f00f423d"
+    },
+    "04": {
+      "path": "/tmp/corpus-v15-notation-holdout/crops/04.png",
+      "sha256": "ae3f619b694f2dad17e62b3ce6ed071e5297abcf70d908dc445686c3e47dbe26"
+    }
+  },
+  "findings": [
+    "Crop01 source prints ind. ·10 m⁻³; current texts126 operation [30,33] converts -3 to raised negative3 and chunk88 retains it.",
+    "Crop02 selected EB265 ind.·1000 m⁻³ is distinct from N305 and later units; current texts67 [347,350] is exactly that one selected operation, not all six paragraph operations.",
+    "Crop04 first/surface chlorophyll unit prints mg/m³; current texts28 formatting entry char_offset1249 with source bbox77.3369,240.5711–80.0054,245.9080 corresponds to that first unit, with both saved OCR observations3 and current chunk10 retention. Middle/bottom formatting entries are not counted for this selected occurrence."
+  ],
+  "counting_assessment": "No blocker to reporting selected current atomic exponent operations as2/2 Mańko signed-exponent operations plus1/1 Chen raised-digit formatting operation. Keep strata explicit. Exclude paragraph CMap scalar mappings from this atomic-operation denominator and grade source-selected full expressions separately. This is not corpus-wide precision, recall, complete CMap precision, or a homogeneous comparison of all repair routes.",
+  "saved_results_sha256": "1bc9baab0631b8fa019395e96d7ceb066b1a1a1bd747f70c3a4be14b034abb42"
+}

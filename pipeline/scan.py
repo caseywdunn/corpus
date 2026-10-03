@@ -24,6 +24,7 @@ import re
 import signal
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from collections import Counter
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
@@ -2932,6 +2933,88 @@ def _report_ocr_page_loss(
     }
 
 
+def _copy_prepared_pdf(input_pdf: Path, output_pdf: Path) -> None:
+    """Replace a generated copy without writing through its existing inode.
+
+    Frozen source PDFs can be read-only; copy2 carries that mode into the
+    prepared PDF. A later preparation must still be able to replace it.
+    Staging beside the destination also preserves the prior PDF if copying
+    fails, and avoids following an old destination symlink into a source.
+    """
+    if output_pdf.exists() and os.path.samefile(input_pdf, output_pdf):
+        raise shutil.SameFileError(input_pdf, output_pdf, "source and output are the same file")
+    with tempfile.NamedTemporaryFile(dir=output_pdf.parent, prefix=".prepared-", suffix=".pdf", delete=False) as staged:
+        temporary = Path(staged.name)
+    try:
+        shutil.copy2(input_pdf, temporary)
+        os.replace(temporary, output_pdf)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+ROTATED_NATIVE_TEXT_POLICY = "isolated-270-degree-figure-plate-v1"
+_ROTATED_TEXT_MIN_LETTERS = 100
+_ROTATED_FIGURE_LABEL = re.compile(r"\bfig(?:ure)?\.?\s*\d{1,4}\b", re.IGNORECASE)
+
+
+def _readable_rotated_pages(pdf_path: Path, detection_result: Dict) -> tuple[int, list[int]]:
+    """Keep readable isolated 270-degree figure plates during automatic re-OCR.
+
+    A document-level scan decision can correctly choose re-OCR for its prose
+    while ``--force-ocr`` reads an already-textual landscape plate upside down
+    (#346). The corpus audit found this failure on two isolated 270-degree
+    plates with numbered captions; other rotated pages did not justify a
+    blanket exception. Only automatic force OCR uses this rule; an explicit
+    ``ocrmode=force`` remains authoritative. The existing Latin gibberish
+    gate is uninformative for CJK-dominant pages, which are excluded here.
+    """
+    if (detection_result.get("ocr_mode") != "force_ocr"
+            or not detection_result.get("has_text")
+            or detection_result.get("ocrmode_honored")):
+        return 0, []
+    try:
+        import fitz
+        with fitz.open(pdf_path) as pdf:
+            preserved = []
+            for index, page in enumerate(pdf):
+                if (page.rotation != 270
+                        or page.rect.width <= page.rect.height
+                        or index == 0 or index == len(pdf) - 1
+                        or pdf[index - 1].rotation != 0
+                        or pdf[index + 1].rotation != 0):
+                    continue
+                source_text = page.get_text()
+                if not _ROTATED_FIGURE_LABEL.search(source_text):
+                    continue
+                letters = [char for char in source_text if char.isalpha()]
+                if len(letters) < _ROTATED_TEXT_MIN_LETTERS:
+                    continue
+                if sum(_is_cjk(char) for char in letters) / len(letters) > _CJK_SHARE_UNSCORABLE:
+                    continue
+                if _gibberish_score(source_text) >= float(
+                        CONFIG.get("ocr", {}).get("gibberish_threshold", 0.65)):
+                    continue
+                preserved.append(index + 1)
+            return len(pdf), preserved
+    except Exception as exc:
+        logger.warning("Could not inspect rotated source text in %s: %s", pdf_path.name, exc)
+        return 0, []
+
+
+def _page_ranges(pages: list[int]) -> str:
+    """Compact 1-based page positions for OCRmyPDF's ``--pages`` option."""
+    ranges = []
+    for page in pages:
+        if ranges and page == ranges[-1][-1] + 1:
+            ranges[-1].append(page)
+        else:
+            ranges.append([page])
+    return ",".join(
+        str(group[0]) if len(group) == 1 else f"{group[0]}-{group[-1]}"
+        for group in ranges
+    )
+
+
 def prepare_pdf(
     input_pdf: Path, detection_result: Dict, output_pdf: Path,
 ) -> Dict[str, Any]:
@@ -2962,18 +3045,27 @@ def prepare_pdf(
     Returns the OCR outcome — most importantly ``pages_blanked``, the pages
     the per-page timeout gave up on and left with no text (#254). The caller
     merges it into ``scan_detection.json``; ``_run_quality_gates`` reads it
-    back as the ``ocr_pages_blanked`` gate. Empty dict when no OCR ran.
+    back as the ``ocr_pages_blanked`` gate. Source-region evidence is retained
+    even when no full-page OCR ran; empty dict when neither produced a receipt.
     """
+    # Full-page OCR can erase a damaged-layer signature while introducing a
+    # different spelling error. Keep source-confirmed regional observations
+    # before replacing that layer; extraction consumes this build receipt.
+    from .native_text_recovery import inspect_native_text_regions
+    recovery = inspect_native_text_regions(input_pdf, detection_result.get("tesseract_packs"))
+    native_outcome = {"native_text_recovery": recovery} if (
+        recovery["candidate_count"] or recovery.get("source_exponents", {}).get("candidate_count")) else {}
+
     if not detection_result.get("needs_ocr"):
         logger.info("Copying %s (detected as %s)",
                     input_pdf.name, detection_result.get("file_type"))
-        shutil.copy2(input_pdf, output_pdf)
-        return {}
+        _copy_prepared_pdf(input_pdf, output_pdf)
+        return native_outcome
 
     if shutil.which("ocrmypdf") is None:
         logger.warning("ocrmypdf not found on PATH, copying original PDF")
-        shutil.copy2(input_pdf, output_pdf)
-        return {}
+        _copy_prepared_pdf(input_pdf, output_pdf)
+        return native_outcome
 
     ocr_mode = detection_result.get("ocr_mode", "skip_text")
     mode_flag = {
@@ -3014,9 +3106,22 @@ def prepare_pdf(
         logger.warning(
             "No Tesseract languages available; copying original PDF (OCR skipped)"
         )
-        shutil.copy2(input_pdf, output_pdf)
-        return {}
+        _copy_prepared_pdf(input_pdf, output_pdf)
+        return native_outcome
     lang_arg = "+".join(langs)
+
+    page_count, preserved_pages = _readable_rotated_pages(input_pdf, detection_result)
+    preservation = {}
+    if preserved_pages:
+        selected = detection_result.get("keeppages_selected") or []
+        preservation = {"rotated_native_text_preservation": {
+            "policy": ROTATED_NATIVE_TEXT_POLICY,
+            "pages": preserved_pages,
+            "original_pages": [selected[n - 1] for n in preserved_pages]
+            if len(selected) == page_count else None,
+        }}
+        logger.info("Preserving readable rotated source text on %s pages %s",
+                    input_pdf.name, _page_ranges(preserved_pages))
 
     # Auto-degrade --optimize when pngquant isn't installed. ocrmypdf
     # requires pngquant for levels 2 and 3 and will exit 3 without it. We
@@ -3080,6 +3185,11 @@ def prepare_pdf(
     if ocr_jobs:
         cmd += ["--jobs", str(ocr_jobs)]
 
+    if preserved_pages:
+        preserved_set = set(preserved_pages)
+        ocr_pages = [n for n in range(1, page_count + 1) if n not in preserved_set]
+        cmd += ["--pages", _page_ranges(ocr_pages)]
+
     cmd += [str(input_pdf), str(output_pdf)]
 
     ocr_timeout = _ocr_timeout_for(input_pdf, len(langs))
@@ -3127,8 +3237,8 @@ def prepare_pdf(
         # version so one bad doc doesn't flood the pipeline log.
         if result.stderr:
             logger.warning("ocrmypdf stderr (head): %s", result.stderr[:500])
-        shutil.copy2(input_pdf, output_pdf)
-        return {}
+        _copy_prepared_pdf(input_pdf, output_pdf)
+        return native_outcome
 
     logger.info(
         "OCR completed successfully (mode=%s langs=%s)", mode_flag, lang_arg
@@ -3136,4 +3246,10 @@ def prepare_pdf(
     _log_ocr_warnings(result.stderr, input_pdf.name)
     outcome = _report_ocr_page_loss(output_pdf, input_pdf.name, result.stderr)
     outcome["ocr_jobs"] = ocr_jobs
+    outcome.update(native_outcome)
+    outcome.update(preservation)
+    from .source_spacing_recovery import inspect_source_spacing
+    spacing = inspect_source_spacing(input_pdf, output_pdf, detection_result.get("keeppages_selected"))
+    if spacing["candidate_count"] or spacing["unresolved"]:
+        outcome["source_spacing_recovery"] = spacing
     return outcome

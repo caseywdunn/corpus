@@ -171,6 +171,53 @@ def test_taxon_dossier_ranks_caption_match_above_mere_paper_mention(corpus):
     assert out["figures"][0]["paper_hash"] == "aaaaaaaaaaaa"
 
 
+@pytest.mark.parametrize("mention_count", [100, 101, 10_000])
+def test_caption_match_precedes_popular_paper_before_limiting(corpus, mention_count):
+    from mcpsrv.tools.figures import get_figures_for_taxon
+
+    corpus.taxon_mention_counts["t:marrus"]["bbbbbbbbbbbb"] = mention_count
+    corpus.taxon_to_papers["t:marrus"].reverse()
+    dossier = get_figure_dossier_for_taxon("Marrus", max_figures=1)
+    legacy = get_figures_for_taxon("Marrus", limit=1)
+    for figures in (dossier["figures"], legacy):
+        assert len(figures) == 1
+        assert figures[0]["paper_hash"] == "aaaaaaaaaaaa"
+        assert figures[0]["caption_has_taxon"] is True
+
+
+def test_figure_caption_ranking_ties_are_independent_of_paper_order(corpus):
+    from mcpsrv.tools.figures import get_figures_for_taxon
+
+    hash_dir = Path(corpus.papers["bbbbbbbbbbbb"]["hash_dir"])
+    data = json.loads((hash_dir / "figures.json").read_text())
+    data["figures"][0]["caption_text"] = "Marrus. Another figure."
+    (hash_dir / "figures.json").write_text(json.dumps(data))
+    corpus.taxon_mention_counts["t:marrus"] = {"aaaaaaaaaaaa": 2, "bbbbbbbbbbbb": 2}
+    before = get_figures_for_taxon("Marrus")
+    dossier_before = get_figure_dossier_for_taxon("Marrus")
+    corpus.taxon_to_papers["t:marrus"].reverse()
+    assert get_figures_for_taxon("Marrus") == before
+    assert get_figure_dossier_for_taxon("Marrus") == dossier_before
+
+
+def test_no_caption_matches_retain_explicit_paper_associations(corpus):
+    from mcpsrv.tools.figures import get_figures_for_taxon
+
+    path = Path(corpus.papers["aaaaaaaaaaaa"]["hash_dir"]) / "figures.json"
+    data = json.loads(path.read_text())
+    data["figures"][0]["caption_text"] = "Unidentified colony, lateral view."
+    path.write_text(json.dumps(data))
+    corpus.taxon_mention_counts["t:marrus"]["bbbbbbbbbbbb"] = 1000
+
+    dossier = get_figure_dossier_for_taxon("Marrus", max_figures=12)
+    discovery = get_figures_for_taxon("Marrus", limit=12)
+    for rows in (dossier["figures"], discovery):
+        assert [row["paper_hash"] for row in rows] == ["bbbbbbbbbbbb", "aaaaaaaaaaaa"]
+        assert all(row["caption_has_taxon"] is False for row in rows)
+    assert dossier["figures"][0]["linked_chunks"][0]["chunk_id"] == "c0"
+    assert get_figures_for_taxon("Marrus", caption_only=True) == []
+
+
 def test_taxon_dossier_linked_chunks_collected(corpus):
     """fig1 of paper aaa is referenced by c0 + c2 (not c1).
     linked_chunks must list both, with section + headings."""

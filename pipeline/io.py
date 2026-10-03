@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -139,6 +140,54 @@ def prune_orphans(
 
     input_pdf_map = find_all_pdfs(input_dir, exclude_under=output_dir, strict=True)
     input_hashes = {short_hash(h) for h in input_pdf_map}
+    # Inventory can be expensive: independent callers hash outside the lock.
+    # Re-read active directories under the lock so vector deletion, retirement
+    # and marker moves share one current view across concurrent pruners (#339).
+    with _orphan_prune_lock(output_dir, dry_run=dry_run):
+        return _prune_orphan_snapshot(input_hashes, output_dir, dry_run=dry_run,
+                                      force=force, safety_pct=safety_pct)
+
+
+@contextmanager
+def _orphan_prune_lock(output_dir: Path, *, dry_run: bool):
+    if dry_run:
+        yield
+        return
+    try:
+        import fcntl
+    except ImportError as exc:
+        raise RuntimeError("Orphan pruning requires filesystem advisory locking on this platform") from exc
+    # Do not unlink this file: waiters must keep locking the same inode.
+    # Advisory locks are released by the OS if a worker exits unexpectedly.
+    with (output_dir / ".prune.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        except OSError as exc:
+            raise RuntimeError(f"Could not lock orphan pruning: {exc}") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _retire_if_present(source: Path, destination: Path) -> bool:
+    """Missing sources are idempotent; other rename failures remain errors."""
+    try:
+        source.rename(destination)
+    except FileNotFoundError:
+        # Another pruner/older worker can win after our inventory. A missing
+        # archive or inaccessible path is not evidence of successful pruning.
+        destination.parent.stat()
+        try:
+            source.lstat()
+        except FileNotFoundError:
+            return False
+        raise
+    return True
+
+
+def _prune_orphan_snapshot(input_hashes, output_dir, *, dry_run, force, safety_pct):
+    documents_dir = output_dir / "documents"
     doc_hashes = {p.name for p in sorted(documents_dir.iterdir()) if p.is_dir()}
     doc_orphans = sorted(doc_hashes - input_hashes)
     doc_total = len(doc_hashes)
@@ -191,12 +240,14 @@ def prune_orphans(
             retired_root.mkdir(exist_ok=True)
             archive = Path(tempfile.mkdtemp(prefix="documents-", dir=retired_root))
             for h in doc_orphans:
-                (documents_dir / h).rename(archive / h)
+                moved = _retire_if_present(documents_dir / h, archive / h)
                 marker = output_dir / "vector_db" / f"{h}_embedded.done"
-                if marker.exists():
-                    marker.rename(archive / f"{h}_embedded.done")
-                n_doc_pruned += 1
-            logger.warning("Retired %d documents to %s (recoverable)", n_doc_pruned, archive)
+                _retire_if_present(marker, archive / marker.name)
+                n_doc_pruned += int(moved)
+            if any(archive.iterdir()):
+                logger.warning("Retired %d documents to %s (recoverable)", n_doc_pruned, archive)
+            else:
+                archive.rmdir()
     else:
         n_doc_pruned = len(doc_orphans)
 

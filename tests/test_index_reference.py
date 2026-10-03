@@ -49,7 +49,7 @@ def test_mention_ids_are_not_evidence_but_spans_are(tmp_path):
     conn.close()
 
 
-def test_vector_order_generation_and_duplicate_or_pixel_drift(build):
+def test_vector_order_generation_and_duplicate_or_pixel_drift(build):  # noqa: F811 — pytest fixture
     hd = build.document()
     build.run(hd)
     path = build.root / "vector_db/lancedb"
@@ -68,7 +68,7 @@ def test_vector_order_generation_and_duplicate_or_pixel_drift(build):
     assert before != vector_snapshot(path)
 
 
-def test_missing_indexes_stay_missing_and_reads_do_not_write(build):
+def test_missing_indexes_stay_missing_and_reads_do_not_write(build):  # noqa: F811 — pytest fixture
     hd = build.document()
     build.run(hd)
     paths_before = {p.relative_to(build.root): (p.stat().st_size, p.stat().st_mtime_ns)
@@ -120,4 +120,21 @@ def test_taxonomy_reserved_column_names_and_fetch_timestamps(tmp_path):
     conn.execute('UPDATE taxa SET "order"=\'Revised\'')
     conn.commit()
     assert before != index_snapshot(tmp_path)
+    conn.close()
+
+
+def test_bibliographic_sources_are_semantic_even_when_canonical_fields_match(tmp_path):
+    from bib.authority import create_schema
+    from bib.fields import record_source
+    conn = sqlite3.connect(tmp_path / "biblio_authority.sqlite")
+    create_schema(conn)
+    conn.execute("INSERT INTO works(work_id,guid_type,source,title,created_at,updated_at) VALUES ('w','doi','corpus_paper','Title',1,1)")
+    record_source(conn, "w", "document:h", {"title": "Title", "bib_key": "First"}, origin="metadata")
+    conn.commit()
+    before = index_snapshot(tmp_path)
+    record_source(conn, "w", "document:h", {"title": "Title", "bib_key": "Second"}, origin="metadata")
+    conn.commit()
+    after = index_snapshot(tmp_path)
+    assert before["bibliography"]["works"] == after["bibliography"]["works"]
+    assert before["bibliography"]["work_bib_sources"] != after["bibliography"]["work_bib_sources"]
     conn.close()

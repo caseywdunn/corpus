@@ -1,0 +1,21 @@
+{
+  "validated_at_utc": "2026-09-22T15:54:36.010872+00:00",
+  "manifest_schema_and_canonical_digest": "pass",
+  "fixed_audit_and_control_queries_targets_unchanged": 12,
+  "pytest": {
+    "command": "python -m pytest -q tests/test_retrieval_evaluation.py",
+    "passed": 13,
+    "elapsed_seconds": 1.78
+  },
+  "lint": "ruff check render_review.py and git diff --check pass",
+  "render_reproduction": {
+    "command": "python dev_docs/examples/siphonophore_retrieval_review_2026_09_22/render_review.py --library /path/to/original/library --out /tmp/review-reproduction",
+    "pymupdf": "1.28.0",
+    "full_pages": 17,
+    "regions": 15,
+    "matched_hashes": 32,
+    "total_renders": 32,
+    "raw_receipt_sha256": "36b6fe86a5d0ba4ee8cf0eb648d54ba20353f3b464757e181c6f6972ebf5910c"
+  },
+  "no_models_or_retrieval_calls": true
+}

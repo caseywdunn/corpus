@@ -1,0 +1,13 @@
+{
+  "code_revision": "302bfac4d5e917424e607388fde3a04c0f3c1f00",
+  "job_id": "27478218",
+  "node": "a1130u07n01",
+  "exit_code": 0,
+  "elapsed": "00:06:17",
+  "bundle": "/nfs/roberts/project/pi_cwd7/cwd7/corpuscles/hydrozoa_20260920/corpus_bundle",
+  "all_layers_passed": true,
+  "lexicon_check": "explicitly skipped: no lexicon categories",
+  "scope": "Legacy production-bundle transport compatibility, with real query embedding; not scientific source fidelity or rebuild acceptance.",
+  "log_sha256": "9ba28373f74eeed4d46cdf13ecd28c2426a40cea4f8e5f952a8f35e87fcb8c60",
+  "contributor_sponge_confirmation": "https://github.com/caseywdunn/corpus/issues/336#issuecomment-5846082365"
+}

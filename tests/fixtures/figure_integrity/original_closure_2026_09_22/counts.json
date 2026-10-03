@@ -1,0 +1,293 @@
+{
+  "issue": 332,
+  "date": "2026-09-22",
+  "count_rule": "Every stored figure record counts once, including shared images, graphical elements and unclassified records. Unique filenames and type-filtered discovery are separate denominators.",
+  "base_commit": "4d0ecfd06f654b5d4ab2fc783ce4e0d32a927866",
+  "producer_identity": {
+    "panel_inventory_policy": "expected-labels-retire-incomplete-completion-v1",
+    "pipeline_figures_sha256": "e57f2629634b37bec97897b4cf043cc67fdf420b4d7dba663a8d3d45bbe28d8d",
+    "pipeline_figure_passes_sha256": "0691c30c17da2c95147244eb4f62dea03403e5d48a8e0a4f6651801c0526663e",
+    "mcpsrv_bundle_sha256": "fde4e18ae0bc9e010ebd81a47d22f1e8ffb1be8392746d62be63e897184a1c70",
+    "note": "Count replay loaded the completion-state patch before the supplemental Sutherland inline-abbreviation guard landed. Count writers, package validation and API counting are identical to the final change. Caption-specific final-producer replay is separately pinned in captions.json. These count results are not a claim that all captions are source-verified."
+  },
+  "census_sha256": "683d00bbe5add7f50dcfde6fb0bca7119991e8bdaf653b38147315bf500b687e",
+  "datasets": {
+    "retained": {
+      "source_root": "/home/claude/corpuscles/siphonophore_20260831/_serve",
+      "source_manifest": {
+        "bundle_version": "1.2.1",
+        "created_at": "2026-09-01T10:23:34Z",
+        "pipeline_git_sha": "31784560ceaed157192ba2e4fa35a5f5c4b6feca",
+        "embedding_model": "BAAI/bge-m3",
+        "embedding_dim": 1024,
+        "taxonomy_snapshot_date": "2026-08-31",
+        "paper_count": 1775,
+        "figure_count": 22171,
+        "chunk_count": 259952,
+        "includes_pdfs": false,
+        "citation": {
+          "title": "Extracting AI agent-accessible data from biodiversity literature with corpus",
+          "year": null,
+          "doi": "10.5281/zenodo.19964909",
+          "url": "https://doi.org/10.5281/zenodo.19964909",
+          "authors": [
+            {
+              "family-names": "Church",
+              "given-names": "Samuel H."
+            },
+            {
+              "family-names": "Mańko",
+              "given-names": "Maciej K."
+            },
+            {
+              "family-names": "Zapata",
+              "given-names": "Felipe"
+            },
+            {
+              "family-names": "Dunn",
+              "given-names": "Casey W."
+            }
+          ]
+        }
+      },
+      "source_documents": 1775,
+      "source_figure_records": 22171,
+      "source_stored_total_discrepancies": [],
+      "figure_type_counts": {
+        "graphical_element": 2974,
+        "figure": 15517,
+        "unclassified": 3543,
+        "plate": 137
+      },
+      "unique_named_image_references": 21521,
+      "named_cases": {
+        "117921bf43e4": {
+          "source_stored": 8,
+          "source_records": 8,
+          "rematerialized": 8
+        },
+        "9be678a89090": {
+          "source_stored": 9,
+          "source_records": 9,
+          "rematerialized": 9
+        },
+        "c9e7e8ae50a2": {
+          "source_stored": 23,
+          "source_records": 23,
+          "rematerialized": 23
+        },
+        "dc72b945a53f": {
+          "source_stored": 5,
+          "source_records": 5,
+          "rematerialized": 5
+        }
+      },
+      "post_rematerialization_discrepancies": [],
+      "api_counts": {
+        "bundle_info.figure_count": 22171,
+        "corpus_summary.n_figures_total": 22171,
+        "sum_paginated_list_papers.n_figures": 22171
+      },
+      "indexed_papers": 1775,
+      "input_figure_files_unchanged": true,
+      "incomplete_completions_reconciled": [
+        {
+          "paper_hash": "03cf3b64d6b0",
+          "figure_ids": [
+            "docling_16"
+          ]
+        },
+        {
+          "paper_hash": "0872ddf57b1c",
+          "figure_ids": [
+            "docling_4"
+          ]
+        },
+        {
+          "paper_hash": "0e59195dfe11",
+          "figure_ids": [
+            "docling_13",
+            "docling_14",
+            "docling_15",
+            "docling_18"
+          ]
+        },
+        {
+          "paper_hash": "1012f2da6f38",
+          "figure_ids": [
+            "docling_1"
+          ]
+        },
+        {
+          "paper_hash": "10ac0f14f354",
+          "figure_ids": [
+            "docling_9"
+          ]
+        },
+        {
+          "paper_hash": "222a4881f0fb",
+          "figure_ids": [
+            "docling_42"
+          ]
+        },
+        {
+          "paper_hash": "23059548fe19",
+          "figure_ids": [
+            "docling_1"
+          ]
+        },
+        {
+          "paper_hash": "367d3db83f5d",
+          "figure_ids": [
+            "docling_3"
+          ]
+        },
+        {
+          "paper_hash": "3e2c9fc0aa87",
+          "figure_ids": [
+            "docling_68"
+          ]
+        },
+        {
+          "paper_hash": "5f5230e79437",
+          "figure_ids": [
+            "docling_2"
+          ]
+        },
+        {
+          "paper_hash": "6688a471d8a2",
+          "figure_ids": [
+            "docling_37",
+            "docling_38",
+            "docling_39",
+            "docling_41"
+          ]
+        },
+        {
+          "paper_hash": "7247562445ba",
+          "figure_ids": [
+            "docling_4",
+            "docling_13"
+          ]
+        },
+        {
+          "paper_hash": "7d1dfb78365c",
+          "figure_ids": [
+            "docling_1"
+          ]
+        },
+        {
+          "paper_hash": "85fe243030c7",
+          "figure_ids": [
+            "docling_3"
+          ]
+        },
+        {
+          "paper_hash": "a84434429919",
+          "figure_ids": [
+            "docling_1",
+            "docling_2",
+            "docling_11",
+            "docling_14"
+          ]
+        },
+        {
+          "paper_hash": "a8aac037e528",
+          "figure_ids": [
+            "docling_5"
+          ]
+        },
+        {
+          "paper_hash": "b7cfb61114df",
+          "figure_ids": [
+            "docling_2"
+          ]
+        },
+        {
+          "paper_hash": "b8be868050a2",
+          "figure_ids": [
+            "docling_14"
+          ]
+        },
+        {
+          "paper_hash": "c34c46067052",
+          "figure_ids": [
+            "docling_24"
+          ]
+        },
+        {
+          "paper_hash": "d0ba1dc379a1",
+          "figure_ids": [
+            "docling_7"
+          ]
+        },
+        {
+          "paper_hash": "d999dc36fed5",
+          "figure_ids": [
+            "docling_20"
+          ]
+        },
+        {
+          "paper_hash": "e06de9aa54be",
+          "figure_ids": [
+            "docling_4",
+            "docling_5"
+          ]
+        },
+        {
+          "paper_hash": "e49ef2a997b8",
+          "figure_ids": [
+            "docling_6"
+          ]
+        },
+        {
+          "paper_hash": "e9315a46409d",
+          "figure_ids": [
+            "docling_3"
+          ]
+        },
+        {
+          "paper_hash": "f1982496b889",
+          "figure_ids": [
+            "docling_9"
+          ]
+        },
+        {
+          "paper_hash": "f2cd4900454c",
+          "figure_ids": [
+            "docling_2",
+            "docling_3",
+            "docling_6",
+            "docling_9"
+          ]
+        }
+      ],
+      "scope": "Complete available figure-artifact census and current production Pass2.5 metadata rematerialization. Count-only bundle has metadata/figures, no images/chunks/embeddings; not a fresh source extraction or final candidate rebuild."
+    },
+    "gold": {
+      "source_root": "/tmp/corpus-v15-acceptance/gold/output",
+      "source_manifest": null,
+      "source_documents": 35,
+      "source_figure_records": 605,
+      "source_stored_total_discrepancies": [],
+      "figure_type_counts": {
+        "unclassified": 20,
+        "figure": 495,
+        "graphical_element": 53,
+        "plate": 37
+      },
+      "unique_named_image_references": 392,
+      "named_cases": {},
+      "post_rematerialization_discrepancies": [],
+      "api_counts": {
+        "bundle_info.figure_count": 605,
+        "corpus_summary.n_figures_total": 605,
+        "sum_paginated_list_papers.n_figures": 605
+      },
+      "indexed_papers": 35,
+      "input_figure_files_unchanged": true,
+      "incomplete_completions_reconciled": [],
+      "scope": "Complete available figure-artifact census and current production Pass2.5 metadata rematerialization. Count-only bundle has metadata/figures, no images/chunks/embeddings; not a fresh source extraction or final candidate rebuild."
+    }
+  }
+}

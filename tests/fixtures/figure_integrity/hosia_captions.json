@@ -1,0 +1,461 @@
+{
+  "paper_hash": "1648cd91e973",
+  "source_pdf_pages": [
+    3,
+    8
+  ],
+  "texts": [
+    {
+      "self_ref": "#/texts/97",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 7,
+          "bbox": {
+            "l": 304.8913,
+            "t": 104.95872490234387,
+            "r": 545.9662,
+            "b": 71.68982293605177,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            202
+          ]
+        },
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 49.6063,
+            "t": 503.3420249023438,
+            "r": 290.6956,
+            "b": 407.30172293605165,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            203,
+            723
+          ]
+        },
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 304.8949,
+            "t": 503.04682490234376,
+            "r": 545.9607999999998,
+            "b": 432.30462293605166,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            724,
+            1064
+          ]
+        }
+      ],
+      "text": "Nectosac with radial canals issuing from the internal pedicular canal. Upper and lower radial canals following straight courses to ostial ring canal on distal surface; lateral radial canals each forming fi rst loop on proximal nectosac surface in mature nectophores, passing towards lower surface into second loop, also mostly on proximal surface, then forming third taller loop on latero-distal surface of nectosac, before inserting onto ostial ring canal at level of ostial process on distal nectosac surface (Figure 5). Both ascending and descending mantle canals present, with ascending mantle canal terminating on proximal side of thrust block, and descending mantle canal terminating at junction of proximal and lower surfaces of nectophore (Figure 5). Small bilobed mouthplate identi fi ed in all Peabody Atlantic nectophores, but absent from smaller Villefranche-sur-Mer nectophores. Red spot present on each side of ostium just below level of ostial processes on all Villefranche-sur-Mer nectophores, likely faded to white in Peabody Atlantic nectophores."
+    },
+    {
+      "self_ref": "#/texts/103",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "caption",
+      "prov": [
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 60.8315,
+            "t": 555.8104959023437,
+            "r": 92.76294383000001,
+            "b": 532.4067746823438,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            18
+          ]
+        }
+      ],
+      "text": "FIGURE 4 bar 1 mm."
+    },
+    {
+      "self_ref": "#/texts/104",
+      "parent": {
+        "$ref": "#/pictures/5"
+      },
+      "label": "caption",
+      "prov": [
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 60.8315,
+            "t": 547.8121546023438,
+            "r": 524.9318699000002,
+            "b": 541.4212459023438,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            137
+          ]
+        }
+      ],
+      "text": "Nanomia bijuga pneumatophore and upper nectosome of live specimen from Villefranche-sur-Mer. ngz, nectosomal growth zone; st, stem. Scale"
+    },
+    {
+      "self_ref": "#/texts/105",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 304.8949,
+            "t": 428.29552490234374,
+            "r": 545.9320000000001,
+            "b": 407.30352293605165,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            123
+          ]
+        },
+        {
+          "page_no": 9,
+          "bbox": {
+            "l": 49.6063,
+            "t": 764.9662249023438,
+            "r": 290.6632,
+            "b": 694.2240229360515,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            124,
+            482
+          ]
+        }
+      ],
+      "text": "Siphosome: Siphosomal stem of Peabody Atlantic specimen c. 10 mm in length, roughly 100 mm in the longest Villefranche-sur- Mer specimen measured. Siphosome straight and bearing a number of cormidia with gastrozooids spaced ~5-10 mm apart when pictured in living animals (Figure 6). In younger stem portions cormidia included a single gastrozooid and a palpon, with a number of bracts, whereas the oldest cormidia observed contained four palpons, each with gonodendra of both sexes."
+    },
+    {
+      "self_ref": "#/texts/106",
+      "parent": {
+        "$ref": "#/pictures/6"
+      },
+      "label": "section_header",
+      "prov": [
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 60.8315,
+            "t": 123.69719590234376,
+            "r": 85.01268965,
+            "b": 118.63710390234371,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            8
+          ]
+        }
+      ],
+      "text": "FIGURE 5"
+    },
+    {
+      "self_ref": "#/texts/107",
+      "parent": {
+        "$ref": "#/pictures/6"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 60.8315,
+            "t": 115.69895460234375,
+            "r": 523.00829738,
+            "b": 82.32133143234375,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            480
+          ]
+        }
+      ],
+      "text": "Composite illustration of mature Nanomia bijuga nectophore and bracts. Lateral, distal and proximal views. amc, ascending mantle canal; ar, auriculate ridge; aw, axial wing; dmc, descending mantle canal; loc, lower radial canal; lr, lateral ridge; l-lr, lower later ridge; lrc, lateral radial canal; op, ostial process; orc, ostial ring canal; tb, thrust block; u-lr, upper lateral ridge; urc, upper radial canal; v, velum; v-lr, vertical lateral ridge. 1 mm scale bar for bracts."
+    },
+    {
+      "self_ref": "#/texts/37",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "section_header",
+      "prov": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 60.8315,
+            "t": 464.42159590234377,
+            "r": 84.72668445000001,
+            "b": 459.36150390234377,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            8
+          ]
+        }
+      ],
+      "text": "FIGURE 1"
+    },
+    {
+      "self_ref": "#/texts/38",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "caption",
+      "prov": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 60.830800010000075,
+            "t": 456.4232546023437,
+            "r": 534.1171386799999,
+            "b": 423.04563143234367,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            583
+          ]
+        }
+      ],
+      "text": "Range of Nanomia nectophore shapes. Upper, lateral, distal and proximal views (left to right). From top to bottom: NE Atlantic N. cara (Totton, 1954), NE Paci fi c N. septata sp. n (Mapstone, 2009, as N. bijuga ), and NW Paci fi c N. bijuga (Kawamura, 1911). Reproduced with permission of The Trustees of the Natural History Museum, London; Canadian Science Publishing; and the Zoological Society of Japan, respectively. These images are not covered by the terms of the Creative Commons license of this publication. For permission to reuse, please contact the relevant rights holder."
+    },
+    {
+      "self_ref": "#/texts/39",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 49.605399999999946,
+            "t": 393.7411249023437,
+            "r": 290.7019,
+            "b": 272.9967229360516,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            642
+          ]
+        }
+      ],
+      "text": "Nanomia has recently been added by three investigations from Ireland, which have suggested that the species collected in Irish waters is N. bijuga , based on 18S molecular (Baxter et al., 2012) and morphological (Haberlin et al., 2016, 2019) characters. Baxter et al. (2012) go as far as to suggest that the species occurring in colder, temperate waters of the North Atlantic should generally be considered N. bijuga , rather than N. cara , as has been previously assumed. Similarly, Nanomia from the northeast Paci fi c have historically been referred to as both N. cara and, more recently, N. bijuga (see e.g. Mackie, 1964; Mapstone, 2009)."
+    },
+    {
+      "self_ref": "#/texts/40",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 49.604499999999945,
+            "t": 268.7923249023437,
+            "r": 290.7135999999997,
+            "b": 72.98792293605175,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            998
+          ]
+        },
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 304.89219999999995,
+            "t": 393.74742490234377,
+            "r": 545.9374000000003,
+            "b": 373.0074229360517,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            999,
+            1119
+          ]
+        }
+      ],
+      "text": "This study began with a need to assign Nanomia specimens occurring in NE Atlantic waters, and Norway in particular, to the correct species. To resolve this issue, we have applied integrated molecular and morphological methods to study the diversity in the genus Nanomia . Nanomia nectophores with varying size and morphology were collected for examination and genetic barcoding from several locations in the NE Atlantic, the Mediterranean, and the Paci fi c Ocean. Collected specimens were sequenced for cytochrome oxidase I (COI) and 16S ribosomal RNA mitochondrial markers, both known to be suited for DNA barcoding and species delimitation in hydrozoans (Ortman et al., 2010; Zheng et al., 2014; Lindsay et al., 2015). Specimens from various locations, as well as available material from natural history collections, were examined in detail to uncover hitherto overlooked morphological differences. Phylogenetic analyses were performed on the obtained 16S and COI sequences together with Nanomia sequences received from collaborators or mined from GenBank and BOLD repositories, as well as other agalmatid sequences."
+    },
+    {
+      "self_ref": "#/texts/43",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 304.8926999999999,
+            "t": 293.7915249023438,
+            "r": 546.0558,
+            "b": 160.51822293605164,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            718
+          ]
+        }
+      ],
+      "text": "Nanomia colonies and/or nectophores were sampled during several fi eld campaigns using various plankton nets, by snorkeling, blue-water scuba diving, or remotely operated vehicles at several locations in the North Atlantic, the Arctic, the Mediterranean, the North and Central Paci fi c, and the Gulf of California. Additional nectophores and colonies were contributed by collaborators (Supplementary Table S1). While the exact procedure varied between sampling events, specimens for morphological examination were generally fi xed in ~4% borax-buffered formalin in sea water, while nectophores for molecular work were photographically documented prior to being individually fl ash frozen or preserved in >96% ethanol."
+    },
+    {
+      "self_ref": "#/texts/45",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "label": "text",
+      "prov": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 304.8944999999999,
+            "t": 94.07592490234379,
+            "r": 546.0557999999999,
+            "b": 72.98222293605158,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            120
+          ]
+        },
+        {
+          "page_no": 4,
+          "bbox": {
+            "l": 49.60269999999997,
+            "t": 764.9662249023438,
+            "r": 290.7982000000002,
+            "b": 319.20752293605096,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            121,
+            2392
+          ]
+        }
+      ],
+      "text": "Tissue fragments were taken from frozen or ethanol fi xed specimens selected for molecular work. When dealing with loose nectophores, only one nectophore per net sample was chosen to avoid accidentally sequencing several nectophores from a single colony. DNAextraction and sequencing for both cytochrome oxidase I (COI) and 16S ribosomal RNA mitochondrial markers were performed either in-house at the University of Bergen or at the Monterey Bay Aquarium Research Institute (MBARI), or at the Canadian Centre for DNA Barcoding (CCDB) in Guelph. For the work at CCDB, we submitted tissue samples and data according to the routines in BOLD (www.boldsystems.org). CCDB used their tissue lysis protocol and applied the following primer pairs for PCR ampli fi cation and sequencing: SHA/SHB for 16S (Cunningham and Buss, 1993), and either C_LepFolF/C_LepFolR (Herna ́ ndez-Triana et al., 2014) or COF/CoR (Schuchert, unpublished, sequence available at www.boldsystems.org/index.php/Public_Primer_PrimerSearch) for COI. In Bergen, the Qiagen DNeasy Blood and Tissue Kit protocol was used for extraction. Partial sequences of COI (ca. 660 bp) and 16S (ca. 560 bp) were ampli fi ed using the primer-pairs LCO/HCO (Folmer et al., 1994) and SHA/SHB (Cunningham and Buss, 1993), respectively. PCR conditions for ampli fi cation of COI were initial denaturation at 94°C for 5 min, 5 cycles of 94°C for 45 s, annealing at 45°C for 30 s, and extension at 72°C for 1 min, 31 cycles of 94°C for 45 s, annealing at 50°C for 30 s, and extension at 72°C for 1 min, and fi nal extension at 72°C for 10 min. PCR conditions for ampli fi cation of 16S were initial denaturation at 94°C for 5 min, 40 cycles of 94°C for 30 s, annealing at 50°C for 30 s, and extension at 72°C for 1 min, and fi nal extension at 72°C for 10 min. Successful PCR products were puri fi ed with ExoSAP-IT (Thermo Fisher Scienti fi c). Sequence reactions using Big Dye 3.1 and the PCR primers were run on an ABI 3730XL DNA Analyser (Applied Biosystems). Assembly of forward and reverse sequences was performed with Geneious (version 11.1.5) (Kearse et al., 2012). All sequences of Nanomia spp. available at Barcode of Life Datasystems (BOLD) and GenBank were downloaded and included in further analyses, together with the sequences generated in this study, by Knutsen et al. (2018), or received from collaborators (Supplementary Table S1)."
+    }
+  ],
+  "pictures": [
+    {
+      "self_ref": "#/pictures/5",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/104"
+        }
+      ],
+      "captions": [
+        {
+          "$ref": "#/texts/104"
+        }
+      ],
+      "prov": [
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 154.56207275390625,
+            "t": 753.9088287353516,
+            "r": 439.7324523925781,
+            "b": 562.7874145507812,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "self_ref": "#/pictures/6",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/106"
+        },
+        {
+          "$ref": "#/texts/107"
+        }
+      ],
+      "captions": [],
+      "prov": [
+        {
+          "page_no": 8,
+          "bbox": {
+            "l": 48.810489654541016,
+            "t": 387.5528869628906,
+            "r": 545.9984741210938,
+            "b": 71.66046142578125,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "self_ref": "#/pictures/2",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [],
+      "captions": [],
+      "prov": [
+        {
+          "page_no": 3,
+          "bbox": {
+            "l": 56.05026626586914,
+            "t": 762.7235946655273,
+            "r": 536.8736572265625,
+            "b": 466.3583679199219,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "issue": 322,
+    "source": "stored 2026-08-31 Docling sidecar",
+    "contents": "Caption and adjacent prose text, ownership references and geometry only; images, axis lettering and page furniture omitted."
+  }
+}

@@ -1,0 +1,212 @@
+[
+  {
+    "stem": "Adanson1757",
+    "source_sha256": "68e78d6c90e23830856da6bffc78f48118966f3c909091e84afc9f3b6d22802a",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Ahuja_etal2026",
+    "source_sha256": "a53f93badacc4fbbc0aa027d21644a9bd1eb330468237db6dfd78e3aa6a75ebb",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Barrere1741",
+    "source_sha256": "6050b5c6f57506aef6110bc93161660d0d90c7bac7e0c9c7f04576344a8341bb",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Beklemishev1969",
+    "source_sha256": "355362e39e58f48063331eaef197f0d1477f6f850c62c89aa5f741ff3a8d750c",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Benasso_Stroiazzo1976",
+    "source_sha256": "d64d1b9da678ea1ed329f347b0e84cbe2d3c777398456e35ee8037a046e0b7c0",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Bernstein1934",
+    "source_sha256": "d9623d970b33843a16864d4338c8235772b0c614b3ece23709bac7128678be37",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Candeias1932",
+    "source_sha256": "6307a3c5f85ade76ee10b4312ce2bd804e0654d111aee91aae79a06efdde4419",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Carre1968_Hippopodius_tr",
+    "source_sha256": "02049c8322a1ce9b93ee4960af2efb75f41e28f7921f4e6a79279dd2a279e763",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Carre1969_Nanomia_tr",
+    "source_sha256": "e26feaa4013f4687a2d51d337a59f78b0ea38f5ba09633ddb000cc17777c5dd6",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Chenetal2015",
+    "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Chun1882c",
+    "source_sha256": "0cf9f253f75b6ab2ef2377d7a9082e6613c0e0d76d41066aa8aa55848df4bc4c",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Chun1898b",
+    "source_sha256": "3461e68936b6a9e99648a11f8422023a08d673b07e81e71e0eeb88689d15407f",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "DeHaan1827",
+    "source_sha256": "af5655bdeaaed620d085eaab775d185a4be3f00ae381b2b5361f66d22afc52a4",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Eschscholtz1825",
+    "source_sha256": "c5c34c1bb1048b290a8357c4b27a2d4779fe815c3d77a6f2935da1434d004cdf",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Gasca_Suarez1993tr",
+    "source_sha256": "c806191c35c4b57019ea4fe06ef07b1ca234098a2a0ea64166ee9418427e53c5",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Hjortberg1769",
+    "source_sha256": "cc2908a7a17078772a56372548f7a69fc03754c131599e93e9dd139c032762f2",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Hosiaetal2024",
+    "source_sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Kawamura1911a",
+    "source_sha256": "31cedc91d73a08cefce01007e99de460e4d65714e5e932e1c47371e91787f162",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Keferstein_Ehlers1860",
+    "source_sha256": "8a1321ca549db560f0a4392a4d2ec41bf2864db35f15fc72ad0690e77becc375",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Lery1594",
+    "source_sha256": "830c73a89f829ef2c27601131826c038c67b9eae9746b68f6c588e831bffd031",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Linnaeus1735",
+    "source_sha256": "d7c1193c06faa82b340668b2c92f14f6637a1bda0047ec3a111c0f0aec27190d",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "LoBianco1909",
+    "source_sha256": "d7210cd94ae23c3bc07931f395ebc7f795390eb967f5207dc35aa78b43861fed",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Mackie1966",
+    "source_sha256": "93e29178db12b19d7f6a8ab0ec3b5dbe3c1b44d92b1bda3ed3a2cd31ece82fde",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Margulis1976a_Atlantictr",
+    "source_sha256": "6f3a3ae4dd898f91696dc97be4f849dd8b1ab0fc2cc03858771ec5b983c89d14",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Margulis1984b_Lcamptr",
+    "source_sha256": "34712b25bc52260fc8f3e12ca82f383bd538f8a2667f7b8aa51a8bb22006fa9e",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Mańko_et al2020",
+    "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Olfers1824",
+    "source_sha256": "39b9c2f978dd2d0be04a6e724cf4056c8b12c87ed1d04a589253b76af837def0",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Quoy_Gaimard1834Plates",
+    "source_sha256": "79e8dac842f6eb78c7728c7295a2093800aafd35c37090695d4f1fdde48dea6c",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Stepanjants2014",
+    "source_sha256": "d183f5012c5438cd99f3016b1ade97241d9207bdcd7a0d92eb844ba5ff151b4a",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Stepanjants_Dianov1997",
+    "source_sha256": "8419592108f28dc8a2c03861903cbe9acaf559418554fd5eecfd06b8b527d121",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Tilesius1814",
+    "source_sha256": "1254e10f0c932e702432daa58582cdb2502123668369ba5f0ff7fc2193b715d0",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Totton1965a",
+    "source_sha256": "8a4548d8d5d78dcc970e6aa0670e906636b7093c48f33edcc3572c90a123721c",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Totton1965b",
+    "source_sha256": "79bcb551c1f104dbbf3bb3c09d19bb234acf49104e298c67d601ab81cbde0021",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Vanhoeffen1906",
+    "source_sha256": "9c0af2a4e4946efb8a9cdcb4271923121d0b40aaf068f8d8d9506518dee702af",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  },
+  {
+    "stem": "Yamamori2014",
+    "source_sha256": "cb1834694c26acff64f7ad5e05359fd70bf84f005dde84d6d2da096843ef9363",
+    "completed_current": true,
+    "reason": "completed_current_producers"
+  }
+]

@@ -169,7 +169,16 @@ jobs:
         # ocrmypdf needs ghostscript + tesseract on PATH; jq is used
         # by the bundle-manifest verification step below.
         run: |
-          sudo apt-get update -qq
+          # Hosted-runner Chrome sources are unused and can break apt (#285).
+          # Report the actual path; images may use either source-list format.
+          for source in /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources; do
+            if [[ -f "$source" ]]; then
+              echo "Removing unused Chrome apt source: $source"
+              sudo rm -- "$source"
+              test ! -e "$source"
+            fi
+          done
+          sudo apt-get -o Acquire::Retries=3 update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
             ghostscript tesseract-ocr jq
           bash tools/install_tessdata.sh

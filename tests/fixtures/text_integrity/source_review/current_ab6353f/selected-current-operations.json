@@ -1,0 +1,170 @@
+{
+  "operations": [
+    {
+      "sample_number": 1,
+      "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "physical_page": 11,
+      "method": "source_glyph_alignment_v1",
+      "receipt": {
+        "item_ref": "#/texts/126",
+        "page": 11,
+        "before": "-3",
+        "after": "⁻³",
+        "source_bbox": [
+          154.03500366210938,
+          289.0284118652344,
+          162.4431610107422,
+          296.84600830078125
+        ],
+        "evidence": [
+          "raised_source_span"
+        ],
+        "charspan": [
+          30,
+          33
+        ],
+        "original": " -3",
+        "replacement": "⁻³"
+      },
+      "text_artifact_sha256": "f5f4042454178417f37c5b45458b5476682e8f41e1f21ed6060fbdcc3873b2e6",
+      "source_review": "Current selected operation matches the frozen original source crop; independent selected-operation review supplied separately.",
+      "source_correct": true
+    },
+    {
+      "sample_number": 2,
+      "source_sha256": "2da3e5f7da3ce25610b4ab5b3200239b17f45ac90ceadb28173716aa4cedf9aa",
+      "physical_page": 5,
+      "method": "source_glyph_alignment_v1",
+      "receipt": {
+        "item_ref": "#/texts/67",
+        "page": 5,
+        "before": "-3",
+        "after": "⁻³",
+        "source_bbox": [
+          545.3289794921875,
+          505.01611328125,
+          554.6716918945312,
+          513.7022094726562
+        ],
+        "evidence": [
+          "raised_source_span"
+        ],
+        "charspan": [
+          347,
+          350
+        ],
+        "original": " -3",
+        "replacement": "⁻³"
+      },
+      "text_artifact_sha256": "f5f4042454178417f37c5b45458b5476682e8f41e1f21ed6060fbdcc3873b2e6",
+      "source_review": "Current selected operation matches the frozen original source crop; independent selected-operation review supplied separately.",
+      "source_correct": true
+    },
+    {
+      "sample_number": 4,
+      "source_sha256": "726d507fcca40013c82e7aed0c7a93433e6273a91fb3715a141d865a5383c9e3",
+      "physical_page": 2,
+      "method": "exact-regional-type1-scalar-cmap-v1",
+      "producer": {
+        "policy": "exact-regional-type1-scalar-cmap-v1",
+        "digit_ocr": {
+          "available": true,
+          "version": "tesseract 5.5.2\n leptonica-1.87.0\n  libgif 5.2.2 : libjpeg 8d (libjpeg-turbo 3.1.2) : libpng 1.6.58 : libtiff 4.7.2 : zlib 1.3.2 : libwebp 1.6.0 : libopenjp2 2.5.4\n Found AVX2\n Found AVX\n Found FMA\n Found SSE4.1\n Found OpenMP 201511\n Found libarchive 3.8.9 zlib/1.3.2 liblzma/5.8.3 bz2lib/1.0.8 liblz4/1.10.0 libzstd/1.5.7 liblzo2/2.10 openssl/3.5.7 libb2/bundled",
+          "traineddata_sha256": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
+          "pymupdf_version": "1.28.0",
+          "language": "eng",
+          "dpi": 600,
+          "modes": [
+            7,
+            10
+          ],
+          "max_page": 8,
+          "max_document": 32,
+          "max_crop_pixels": 40000,
+          "max_total_pixels": 1000000,
+          "document_seconds": 30,
+          "call_seconds": 3
+        }
+      },
+      "item_ref": "#/texts/28",
+      "receipt": {
+        "char_offset": 1249,
+        "scalar": "3",
+        "source_bbox": [
+          77.33692169189453,
+          240.57110595703125,
+          80.00538635253906,
+          245.9080352783203
+        ],
+        "source_origin": [
+          77.33692169189453,
+          244.55413818359375
+        ],
+        "source_size": 5.3369269371032715,
+        "base_glyph": {
+          "text": "m",
+          "bbox": [
+            70.25337219238281,
+            241.994140625,
+            77.24959564208984,
+            251.69764709472656
+          ],
+          "origin": [
+            70.25337219238281,
+            249.23602294921875
+          ],
+          "font": "E-BZ+ZGdCaS-1",
+          "size": 9.70350456237793,
+          "raised": false
+        },
+        "raster": {
+          "verified": true,
+          "dpi": 600,
+          "modes": [
+            7,
+            10
+          ],
+          "language": "eng",
+          "observations": [
+            {
+              "mode": 7,
+              "text": "3\n",
+              "returncode": 0
+            },
+            {
+              "mode": 10,
+              "text": "3\n",
+              "returncode": 0
+            }
+          ],
+          "crop_sha256": "fcc883e3d76f17e444bfd98cbf288f01cc4ecc3853538fc5fe9b39f146e087c6",
+          "crop_bbox": [
+            76.83692169189453,
+            240.07110595703125,
+            80.50538635253906,
+            246.4080352783203
+          ]
+        },
+        "replacement": "³",
+        "evidence": "raised_unit_geometry_and_dual_unhinted_digit_ocr"
+      },
+      "text_artifact_sha256": "c2aa987c9091d68875165968c2ade3892ef3036189c9062ba3b12d40c629f92a",
+      "scope": "Only the first/surface mg/m³ raised-digit formatting suboperation. Whole-paragraph CMap mappings and the middle/bottom unit formatting entries are excluded.",
+      "source_review": "Frozen source crop04 and exact current formatting position independently reviewed.",
+      "source_correct": true
+    }
+  ],
+  "strata": {
+    "source_glyph_alignment_v1": {
+      "correct": 2,
+      "reviewed": 2,
+      "papers": 1
+    },
+    "exact_regional_type1_scalar_cmap_raised_digit": {
+      "correct": 1,
+      "reviewed": 1,
+      "papers": 1
+    }
+  },
+  "aggregation": "Three source-correct selected atomic exponent operations across two different producers and two papers. Not complete paragraph/CMap precision, proposal precision, or corpus-wide precision. No historical operation counts inherited."
+}

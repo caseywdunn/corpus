@@ -1,0 +1,57 @@
+wrote <gold>/scores_6fb_2026_09_18/fidelity.json
+
+gold <gold>/transcriptions
+corpuscle <gold>/output
+35 documents bound on sha256
+
+keeppages active on 20 document(s); 86 gold page(s) excluded from scoring as not-the-paper.
+  Scores are therefore over a different, smaller page set than an untrimmed build's.
+
+675 gold pages, 675 scored, 0 not comparable
+median coverage: PROSE   0.945 over 647 pages | figure text   0.751 over 336 | combined   0.901
+prose is the measure that matters; figure text is reported, not optimised. Read the segments, not these.
+TAXON coverage: mean   0.890 p10   0.667 over 229 page(s) with >= 10 taxon tokens (6529 tokens corpus-wide)
+  mean and p10, not median: half these pages recover every taxon token, so a median
+  sits at 1.000 and cannot move. A separate question from coverage, not a component.
+  !! 16 page(s) score >0.2 better on prose than on taxa — the headline calls them fine
+     while the names they are retrieved by are being lost.
+status: {'extraction_empty': 48, 'ok': 626, 'script_missing': 1}
+gold integrity: 2 bracket(s) opening no marker, in Beklemishev1969, Mackie1966 — inspect before trusting those pages
+
+-- by script ----------------------------------------------------
+                        pages   PROSE  figure  recall     all
+cjk                        19   0.646   0.406   0.563   0.611
+cyrillic                   32   0.965   0.757   0.936   0.925
+latin                     624   0.946   0.750   0.938   0.902
+
+-- by era -------------------------------------------------------
+                        pages   PROSE  figure  recall     all
+1800-1899                  62   0.838   0.241   0.815   0.836
+1900-1949                  69   0.883   0.987   0.860   0.820
+1950-1999                 426   0.973   0.758   0.954   0.919
+2000-                      93   0.964   0.690   0.955   0.914
+pre-1800                   25   0.631   0.577   0.614   0.631
+
+-- by file_type -------------------------------------------------
+                        pages   PROSE  figure  recall     all
+born_digital               75   0.964   0.610   0.955   0.919
+scanned                   600   0.939   0.762   0.930   0.897
+
+-- worst documents by PROSE coverage -----------------------------------
+                            year  pages   PROSE  figure  recall
+Quoy_Gaimard1834Plates      1834      6   0.438   0.230   0.525
+Kawamura1911a               1911     12   0.554   0.000   0.443
+Linnaeus1735                1735     13   0.571   0.577   0.573
+Hjortberg1769               1769      3   0.631       -   0.612
+Barrere1741                 1741      3   0.644       -   0.610
+Yamamori2014                2014      4   0.728   0.811   0.680
+Lery1594                    1594      3   0.751       -   0.750
+Adanson1757                 1757      3   0.779       -   0.756
+Keferstein_Ehlers1860       1860      9   0.793       -   0.775
+Chenetal2015                2015     12   0.812   0.275   0.799
+Bernstein1934               1934     12   0.813   0.486   0.813
+DeHaan1827                  1827     15   0.823       -   0.798
+Candeias1932                1932     10   0.832   0.200   0.897
+Tilesius1814                1814     12   0.840   0.000   0.812
+Olfers1824                  1824      2   0.859   0.941   0.849
+

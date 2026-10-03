@@ -1,0 +1,1264 @@
+{
+  "schema_version": 1,
+  "benchmark": "siphonophore selected diagnostic/key workflows, issue #320",
+  "issue_url": "https://github.com/caseywdunn/corpus/issues/320",
+  "audit_identity": {
+    "version": "1.4.0.dev0",
+    "bundle_created_at": "2026-09-09T09:23:59Z",
+    "pipeline_sha": "734be4cfc301531bdcf90a1d23c2956bcbeed2fd",
+    "taxonomy_snapshot": "2026-09-08",
+    "reproduced": "2026-09-17",
+    "scope": "Selected failures and controls; not a random deployment sample or fresh-current-build baseline."
+  },
+  "baseline_warning": "An output1.2.1 build is a separate reference, not the audited 1.4.0.dev0 deployment. No captured run is supplied here.",
+  "grading": {
+    "0": "source-verified irrelevant (only if explicitly labeled)",
+    "1": "source-verified topical context, insufficient diagnostic/key content",
+    "2": "source-verified answer-bearing passage; hit does not imply a complete answer",
+    "unmatched": "unjudged; no precision/recall claim",
+    "source_matching": "Same PDF hash and all normalized passage anchors; require overlapping physical page when row provenance is available. Legacy anchor-only matches are counted explicitly. Table-of-contents or heading-only hits do not satisfy branch/diagnosis anchors."
+  },
+  "acceptance": {
+    "frozen_before_tuning": true,
+    "groups": {
+      "audit": {
+        "hit5": 0.8571428571428571,
+        "hit10": 1.0,
+        "minimum_queries": 7
+      },
+      "prose_control": {
+        "hit5": 1.0,
+        "hit10": 1.0,
+        "minimum_queries": 3
+      },
+      "historical_control": {
+        "hit5": 1.0,
+        "hit10": 1.0,
+        "minimum_queries": 2
+      },
+      "independent": {
+        "hit5": 0.8,
+        "hit10": 0.9,
+        "minimum_queries": 10,
+        "minimum_papers": 5
+      }
+    },
+    "control_policy": "All three known prose controls and both historical-intent controls must retain relevant hits; no universal recency boost. Additional source labels must be frozen before ranking changes.",
+    "crowding_policy": "Report unique/dominant document fractions and repeated same-source-table rates. Table continuity can be relevant: these diagnostics are not optimization targets alone. Unknown legacy table provenance is not a zero repetition rate.",
+    "improvement_policy": "Compare the same frozen manifest against a separately identified reference and candidate. Require improvement on the independent sampled set before claiming ranking improvement; run controls without regression. No ranking tuning is authorized by this manifest."
+  },
+  "independent_sampling": {
+    "seed": 3202026,
+    "population_sha256": "7f35c8d186e92296655b23b497e90e5f60d63b0633f00b3917fc5db0d23abe1b",
+    "eligible_units": 5,
+    "eligible_papers": 2,
+    "requested": 20,
+    "selected": 5,
+    "selected_papers": 2,
+    "rule": "Materialized diagnosis/key source units; exclude fixed-query target pages; seeded paper round-robin.",
+    "review_status": "pending_source_review; freeze source-graded targets before any ranking experiment",
+    "selection": [
+      {
+        "paper_hash": "a53f93badacc",
+        "kind": "key",
+        "subject": "References",
+        "pages": [
+          25
+        ],
+        "example_chunk_id": "chunk_146",
+        "source_items": [
+          {
+            "item_ref": "#/tables/2",
+            "page": 25,
+            "bbox": {
+              "l": 35.224510192871094,
+              "t": 696.5970077514648,
+              "r": 572.706787109375,
+              "b": 585.4168243408203,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Maresearsia praeclara",
+        "pages": [
+          120
+        ],
+        "example_chunk_id": "chunk_565",
+        "source_items": [
+          {
+            "item_ref": "#/tables/10",
+            "page": 120,
+            "bbox": {
+              "l": 51.113677978515625,
+              "t": 542.57763671875,
+              "r": 560.7642822265625,
+              "b": 431.93011474609375,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Key to  genera  or  AGALMIDAE",
+        "pages": [
+          57
+        ],
+        "example_chunk_id": "chunk_268",
+        "source_items": [
+          {
+            "item_ref": "#/tables/6",
+            "page": 57,
+            "bbox": {
+              "l": 48.91059875488281,
+              "t": 439.7445373535156,
+              "r": 557.84326171875,
+              "b": 286.76593017578125,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Polygastric phase",
+        "pages": [
+          153
+        ],
+        "example_chunk_id": "chunk_735",
+        "source_items": [
+          {
+            "item_ref": "#/tables/14",
+            "page": 153,
+            "bbox": {
+              "l": 86.59595489501953,
+              "t": 616.3483123779297,
+              "r": 520.32861328125,
+              "b": 531.088623046875,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "diagnosis",
+        "subject": "Rosacea cymbiformis",
+        "pages": [
+          130
+        ],
+        "example_chunk_id": "chunk_620",
+        "source_items": [
+          {
+            "item_ref": "#/texts/2047",
+            "page": 130,
+            "bbox": {
+              "l": 62.20194476099136,
+              "t": 731.0292246207413,
+              "r": 556.2948339336651,
+              "b": 706.896333916029,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              156
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "queries": [
+    {
+      "id": "audit_01",
+      "group": "audit",
+      "call": {
+        "query": "How can I distinguish Nanomia bijuga from Nanomia cara?",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "nanomia_palpon_comparison",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1648cd91e973",
+          "pages": [
+            5
+          ],
+          "all_text": [
+            "Without lipid droplet",
+            "With external proximal lipid droplet"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Hosiaetal2024-5-5.json",
+            "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+            "physical_pages": [
+              5
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "nanomia_nectophore_comparison",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1648cd91e973",
+          "pages": [
+            5
+          ],
+          "all_text": [
+            "Larger nectophores",
+            "along the upper-lower axis"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Hosiaetal2024-5-5.json",
+            "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+            "physical_pages": [
+              5
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "audit_02",
+      "group": "audit",
+      "call": {
+        "query": "Nanomia bijuga versus Nanomia cara diagnostic characters",
+        "k": 10,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "nanomia_palpon_comparison",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1648cd91e973",
+          "pages": [
+            5
+          ],
+          "all_text": [
+            "Without lipid droplet",
+            "With external proximal lipid droplet"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Hosiaetal2024-5-5.json",
+            "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+            "physical_pages": [
+              5
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "nanomia_nectophore_comparison",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1648cd91e973",
+          "pages": [
+            5
+          ],
+          "all_text": [
+            "Larger nectophores",
+            "along the upper-lower axis"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Hosiaetal2024-5-5.json",
+            "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+            "physical_pages": [
+              5
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "audit_03",
+      "group": "audit",
+      "call": {
+        "query": "Wie unterscheiden sich Nanomia cara und Nanomia bijuga?",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "nanomia_palpon_comparison",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1648cd91e973",
+          "pages": [
+            5
+          ],
+          "all_text": [
+            "Without lipid droplet",
+            "With external proximal lipid droplet"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Hosiaetal2024-5-5.json",
+            "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+            "physical_pages": [
+              5
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "nanomia_nectophore_comparison",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1648cd91e973",
+          "pages": [
+            5
+          ],
+          "all_text": [
+            "Larger nectophores",
+            "along the upper-lower axis"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Hosiaetal2024-5-5.json",
+            "sha256": "1648cd91e97350ebd146034f9ab00da07ebe6c0617d0fdeb822f7fdcf544a413",
+            "physical_pages": [
+              5
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "audit_04",
+      "group": "audit",
+      "call": {
+        "query": "How many species of Physalia are recognized and what distinguishes them?",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "physalia_minuta_diagnosis",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "a0acf5935174",
+          "pages": [
+            7,
+            8
+          ],
+          "all_text": [
+            "small size at maturity",
+            "multiple principal tentacles"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/text_integrity/source_fragments.json",
+            "case": "Church_etal2025-7-8",
+            "sha256": "a0acf593517406b75079637dd674ec8d0fbe58d1dd2de8b31e46cf86bfdc2e55",
+            "physical_pages": [
+              7,
+              8
+            ],
+            "review_basis": "Unshortened source diagnosis fragments; source provenance documented in text_integrity/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "audit_05",
+      "group": "audit",
+      "call": {
+        "query": "key to the species of Erenna distinguishing characters nectophore tentilla",
+        "k": 5,
+        "with_text": true,
+        "paper_hash": "da370f1e0434"
+      },
+      "targets": [
+        {
+          "id": "erenna_nectophore_key_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            42
+          ],
+          "all_text": [
+            "canals arising from lateral radial canals",
+            "Erenna cornuta"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-42-42.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              42
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_nectophore_richardi_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            42
+          ],
+          "all_text": [
+            "Incomplete lateral ridges present",
+            "Erenna richardi"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-42-42.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              42
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_nectophore_sirena_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            42
+          ],
+          "all_text": [
+            "No lateral ridges",
+            "Erenna sirena"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-42-42.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              42
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_nectophore_laciniata_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            42
+          ],
+          "all_text": [
+            "Thrust block consisting of one pair of",
+            "Erenna laciniata"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-42-42.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              42
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_nectophore_insidiator_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            42
+          ],
+          "all_text": [
+            "Thrust block with two pairs of lobes",
+            "Erenna insidiator"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-42-42.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              42
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_key_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "complete transverse ridge between proximal pair of cusps",
+            "Erenna cornuta"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_insidiator_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "without transverse ridge between proximal pair",
+            "Erenna insidiator"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_laciniata_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "forming a distinct flap",
+            "Erenna laciniata"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_richardi_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "Bracts relatively narrow",
+            "Erenna richardi"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_sirena_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "pair of cusps distinctly asymmetrical",
+            "Erenna sirena"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "audit_06",
+      "group": "audit",
+      "call": {
+        "query": "Apolemia lanosa diagnosis",
+        "k": 5,
+        "with_text": true,
+        "paper_hash": "c9e7e8ae50a2"
+      },
+      "targets": [
+        {
+          "id": "apolemia_lanosa_diagnosis",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "c9e7e8ae50a2",
+          "pages": [
+            5
+          ],
+          "all_text": [
+            "Large nectophores with patches of nematocysts",
+            "No distinct diverticula on lateral radial canals"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/text_integrity/source_fragments.json",
+            "case": "Siebert_etal2013-4-5",
+            "sha256": "c9e7e8ae50a2ef2a16a733b80d4670a7d2120b04139b9820f7da0d6214ccc1af",
+            "physical_pages": [
+              5
+            ],
+            "review_basis": "Unshortened source diagnosis fragments; source provenance documented in text_integrity/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "audit_07",
+      "group": "audit",
+      "call": {
+        "query": "Key to Erenna species based on their Type A bracts",
+        "k": 5,
+        "with_text": true,
+        "paper_hash": "da370f1e0434"
+      },
+      "targets": [
+        {
+          "id": "erenna_bract_key_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "complete transverse ridge between proximal pair of cusps",
+            "Erenna cornuta"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_insidiator_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "without transverse ridge between proximal pair",
+            "Erenna insidiator"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_laciniata_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "forming a distinct flap",
+            "Erenna laciniata"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_richardi_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "Bracts relatively narrow",
+            "Erenna richardi"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        },
+        {
+          "id": "erenna_bract_sirena_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "da370f1e0434",
+          "pages": [
+            44
+          ],
+          "all_text": [
+            "pair of cusps distinctly asymmetrical",
+            "Erenna sirena"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Pugh_Haddock2016-43-44.json",
+            "sha256": "da370f1e04340046f8d2288734bdcf93cb452009aacfd6b657c01363871f085d",
+            "physical_pages": [
+              44
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "prose_01",
+      "group": "prose_control",
+      "call": {
+        "query": "pneumatophore structure and gas gland function",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "pugh1983_gas_gland",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "c887fb198ebc",
+          "pages": [
+            9
+          ],
+          "all_text": [
+            "pneumatosaccus called the pneumadenia or gas gland",
+            "secondary development of the ectodermal cells"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "pugh1983_gas_gland",
+            "library_path": "P/Pugh1983Rhodaliids.pdf",
+            "sha256": "c887fb198ebc1d50ee129f12ea7f6129fd510c099cd685342fd865693507d7fb",
+            "physical_pages": [
+              9
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Describes the gland location, ectodermal structure and secretion of carbon-monoxide-rich gas."
+          }
+        },
+        {
+          "id": "wittenberg1960_gas_gland",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "5e74ac01e8ac",
+          "pages": [
+            6
+          ],
+          "all_text": [
+            "pneumadena or gas gland",
+            "thin layer of ectodermal glandular cylindrical cells"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "wittenberg1960_gas_gland",
+            "library_path": "U_Z/Wittenberg1960.pdf",
+            "sha256": "5e74ac01e8ac4ddd50d11b89bf856cec10833d5aead32f9e48f9ec1dba2e0849",
+            "physical_pages": [
+              6
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Carbon monoxide originates in the gland; the author separately qualifies the inference about elaboration of all float gases."
+          }
+        }
+      ]
+    },
+    {
+      "id": "prose_02",
+      "group": "prose_control",
+      "call": {
+        "query": "Erenna bioluminescent lures fish prey capture",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "haddock2005_lure_inference",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "ffc7ebff40b4",
+          "pages": [
+            1
+          ],
+          "all_text": [
+            "siphonophore Erenna uses them as lures to attract fish"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2005_lure_inference",
+            "library_path": "H_J/Haddock_etal2005.pdf",
+            "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+            "physical_pages": [
+              1
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source conclusion links flicking bioluminescent/fluorescent filaments to attraction of fish; red-light vision remains discussed as an open question."
+          }
+        },
+        {
+          "id": "haddock2005_fish_lures",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "ffc7ebff40b4",
+          "pages": [
+            1
+          ],
+          "all_text": [
+            "nonvisual Erenna",
+            "may act as lures for fish prey"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2005_fish_lures",
+            "library_path": "H_J/Haddock_etal2005.pdf",
+            "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+            "physical_pages": [
+              1
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source reports fish remnants and red-emitting appendages that may act as lures; the inference is retained as stated."
+          }
+        },
+        {
+          "id": "haddock2005_general_luminescence",
+          "grade": 1,
+          "review_status": "source_verified",
+          "paper_hash": "ffc7ebff40b4",
+          "pages": [
+            1
+          ],
+          "all_text": [
+            "Examples of bioluminescent lures in the sea are quite rare",
+            "defensive purposes"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2005_general_luminescence",
+            "library_path": "H_J/Haddock_etal2005.pdf",
+            "sha256": "ffc7ebff40b45e81bcd952c66a1b30ff40f90f52ef9b994f3ff65902d57cee80",
+            "physical_pages": [
+              1
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Topical introductory context alone does not establish the Erenna fish-lure mechanism; grade 1 does not count as a hit."
+          }
+        },
+        {
+          "id": "haddock2017_erenna_lures",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "1409a2155981",
+          "pages": [
+            8
+          ],
+          "all_text": [
+            "five species of the genus Erenna",
+            "lures on their tentacles to attract fish"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "haddock2017_erenna_lures",
+            "library_path": "H_J/Haddock_et2017.pdf",
+            "sha256": "1409a21559815928aca213a83d560e5620b133d718c42f0024e3e34921563617",
+            "physical_pages": [
+              8
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Body prose reports bioluminescent lures attracting fish across five Erenna species."
+          }
+        }
+      ]
+    },
+    {
+      "id": "prose_03",
+      "group": "prose_control",
+      "call": {
+        "query": "somatocyst function in calycophoran siphonophores",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "grossmann2014_somatocyst_storage",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "3507422334c6",
+          "pages": [
+            16
+          ],
+          "all_text": [
+            "storage organs for lipid reserves",
+            "low food availability"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "grossmann2014_somatocyst_storage",
+            "library_path": "G/Grossmann-Collins-Lindsay2014.pdf",
+            "sha256": "3507422334c6294e9d34ce929894f050ae3fc71f1fa99adc2ffd492567f6ef0a",
+            "physical_pages": [
+              16
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source links somatocyst/phyllocyst lipid reserves to survival during low food availability and warns that organ size varies with physiological condition."
+          }
+        },
+        {
+          "id": "pugh2018_somatocyst_hypotheses",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "bc251c7a6346",
+          "pages": [
+            8
+          ],
+          "all_text": [
+            "nutritional storage",
+            "they may serve for buoyancy control"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "pugh2018_somatocyst_hypotheses",
+            "library_path": "P/Pugh_etal2018.pdf",
+            "sha256": "bc251c7a63468494a78b07c4ea32c33c41e0c18bae8aa5f141da59f71abec5fb",
+            "physical_pages": [
+              8
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Storage and buoyancy/trim are proposed functions for diphyomorph somatocysts, not universal experimentally established roles. The preceding source paragraphs delimit the structure under discussion."
+          }
+        },
+        {
+          "id": "pugh2018_buoyancy_caveat",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "bc251c7a6346",
+          "pages": [
+            9
+          ],
+          "all_text": [
+            "somatocyst is greatly reduced",
+            "difficult to ascribe a buoyancy function"
+          ],
+          "source": {
+            "fixture": "dev_docs/examples/siphonophore_prose_source_review.json",
+            "case": "pugh2018_buoyancy_caveat",
+            "library_path": "P/Pugh_etal2018.pdf",
+            "sha256": "bc251c7a63468494a78b07c4ea32c33c41e0c18bae8aa5f141da59f71abec5fb",
+            "physical_pages": [
+              9
+            ],
+            "reviewed_on": "2026-09-18",
+            "review_basis": "Original source PDF paragraph and rendered region reviewed; native excerpt and exact region/crop hash retained in the cited source-review record.",
+            "interpretation": "Source counterexample: the organ is greatly reduced in several diphyids; this qualifies a universal buoyancy interpretation and is answer-bearing evidence."
+          }
+        }
+      ]
+    },
+    {
+      "id": "historical_01",
+      "group": "historical_control",
+      "call": {
+        "query": "Which names did Daniel (1974) list under the genus Epibulia?",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "daniel1974_epibulia_names",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "b4425fd6ae7a",
+          "pages": [
+            20
+          ],
+          "all_text": [
+            "Epibulia Eschscholtz, 1829",
+            "Haeckel, 1888"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Daniel1974-20-20.json",
+            "sha256": "b4425fd6ae7aab6c93e7fc0b0a7d71cda135f30837d7fa2a7f5e9f02d32a872c",
+            "physical_pages": [
+              20
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        }
+      ],
+      "scope_note": "Historical reported names, not an assertion of present taxonomy or corrected OCR spelling."
+    },
+    {
+      "id": "historical_02",
+      "group": "historical_control",
+      "call": {
+        "query": "According to Daniel (1985), how does the identification key distinguish Muggiaea kochi?",
+        "k": 5,
+        "with_text": true
+      },
+      "targets": [
+        {
+          "id": "daniel1985_kochi_branch",
+          "grade": 2,
+          "review_status": "source_verified",
+          "paper_hash": "b4146be29447",
+          "pages": [
+            271
+          ],
+          "all_text": [
+            "hydroecium sharply conical",
+            "kochi"
+          ],
+          "source": {
+            "fixture": "tests/fixtures/table_structure/Daniel1985-271-272.json",
+            "sha256": "b4146be29447313fb7ee3991d156ee95de81aab7a551aedc83c9f7fac1963905",
+            "physical_pages": [
+              271
+            ],
+            "review_basis": "Source-derived cell/line evidence and hand-checked source acceptance in table_structure/README.md."
+          }
+        }
+      ]
+    },
+    {
+      "id": "independent_01",
+      "group": "independent",
+      "call": {
+        "query": "References identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "source_review_candidate": {
+        "paper_hash": "a53f93badacc",
+        "kind": "key",
+        "subject": "References",
+        "pages": [
+          25
+        ],
+        "example_chunk_id": "chunk_146",
+        "source_items": [
+          {
+            "item_ref": "#/tables/2",
+            "page": 25,
+            "bbox": {
+              "l": 35.224510192871094,
+              "t": 696.5970077514648,
+              "r": 572.706787109375,
+              "b": 585.4168243408203,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "targets": []
+    },
+    {
+      "id": "independent_02",
+      "group": "independent",
+      "call": {
+        "query": "Maresearsia praeclara identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "source_review_candidate": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Maresearsia praeclara",
+        "pages": [
+          120
+        ],
+        "example_chunk_id": "chunk_565",
+        "source_items": [
+          {
+            "item_ref": "#/tables/10",
+            "page": 120,
+            "bbox": {
+              "l": 51.113677978515625,
+              "t": 542.57763671875,
+              "r": 560.7642822265625,
+              "b": 431.93011474609375,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "targets": []
+    },
+    {
+      "id": "independent_03",
+      "group": "independent",
+      "call": {
+        "query": "Key to  genera  or  AGALMIDAE identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "source_review_candidate": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Key to  genera  or  AGALMIDAE",
+        "pages": [
+          57
+        ],
+        "example_chunk_id": "chunk_268",
+        "source_items": [
+          {
+            "item_ref": "#/tables/6",
+            "page": 57,
+            "bbox": {
+              "l": 48.91059875488281,
+              "t": 439.7445373535156,
+              "r": 557.84326171875,
+              "b": 286.76593017578125,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "targets": []
+    },
+    {
+      "id": "independent_04",
+      "group": "independent",
+      "call": {
+        "query": "Polygastric phase identification key distinguishing characters",
+        "k": 5,
+        "with_text": true
+      },
+      "source_review_candidate": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "key",
+        "subject": "Polygastric phase",
+        "pages": [
+          153
+        ],
+        "example_chunk_id": "chunk_735",
+        "source_items": [
+          {
+            "item_ref": "#/tables/14",
+            "page": 153,
+            "bbox": {
+              "l": 86.59595489501953,
+              "t": 616.3483123779297,
+              "r": 520.32861328125,
+              "b": 531.088623046875,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "targets": []
+    },
+    {
+      "id": "independent_05",
+      "group": "independent",
+      "call": {
+        "query": "Rosacea cymbiformis diagnosis",
+        "k": 5,
+        "with_text": true
+      },
+      "source_review_candidate": {
+        "paper_hash": "8a4548d8d5d7",
+        "kind": "diagnosis",
+        "subject": "Rosacea cymbiformis",
+        "pages": [
+          130
+        ],
+        "example_chunk_id": "chunk_620",
+        "source_items": [
+          {
+            "item_ref": "#/texts/2047",
+            "page": 130,
+            "bbox": {
+              "l": 62.20194476099136,
+              "t": 731.0292246207413,
+              "r": 556.2948339336651,
+              "b": 706.896333916029,
+              "coord_origin": "BOTTOMLEFT"
+            },
+            "charspan": [
+              0,
+              156
+            ]
+          }
+        ]
+      },
+      "targets": []
+    }
+  ]
+}

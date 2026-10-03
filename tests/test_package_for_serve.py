@@ -342,6 +342,38 @@ def test_package_scrubs_input_fingerprint_path_in_lexicon_categories(tmp_path: P
     assert manifest["_stats"]["n_files_scrubbed"] == 4
 
 
+@pytest.mark.parametrize("executable", [
+    "/home/runner/miniconda3/envs/corpus/bin/tesseract",
+    "/Users/runner/miniconda3/envs/corpus/bin/tesseract",
+])
+def test_package_keeps_surname_producer_identity_without_build_executable_path(tmp_path, executable):
+    """Actual T1/T2/T3 failure shape: receipt present even with no repairs."""
+    from pipeline.surname_recovery import SURNAME_POLICY
+    src = _make_fake_output(tmp_path / "out", paper_hashes=("abc",))
+    text_path = src / "documents" / "abc" / "text.json"
+    producer = {"policy": SURNAME_POLICY, "executable": executable,
+                "available": True, "version": "tesseract 5.5.3\n leptonica-1.86.0",
+                "models": {"eng": "a" * 64}, "catalog_sha256": "b" * 64,
+                "dpi": 600, "ocr_modes": [6, 13], "dictionary_hints": False}
+    data = {"text": "/Summary/", "source_text_integrity": {
+        "surnames": {"producer": producer, "repairs": [], "unresolved": []},
+        "encoding": {"method": "source_alignment", "repairs": []}}}
+    text_path.write_text(json.dumps(data))
+    before = text_path.read_bytes()
+    dst = tmp_path / "serve"
+    pkg.package(src, dst, version="vtest", include_pdfs=False, dry_run=False)
+    served_path = dst / "documents" / "abc" / "text.json"
+    served = json.loads(served_path.read_text())
+    expected = json.loads(before)
+    expected["source_text_integrity"]["surnames"]["producer"]["executable"] = "tesseract"
+    assert served == expected  # No policy, models, prose or decisions removed.
+    assert text_path.read_bytes() == before  # Build provenance stays exact.
+    assert pkg._audit_no_absolute_paths(dst) == []
+    pkg.package(src, dst, version="vtest", include_pdfs=False, dry_run=False)
+    assert json.loads(served_path.read_text()) == expected
+    assert text_path.read_bytes() == before
+
+
 def test_to_corpus_relative_helper(tmp_path: Path):
     root = tmp_path / "out"
     root.mkdir()

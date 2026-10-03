@@ -189,6 +189,7 @@ def extract_metadata(
         "consolidate_header": int(_g.get("consolidate_header", 1)),
         "consolidate_citations": int(_g.get("consolidate_citations", 0)),
         "include_raw_citations": True,
+        "tei_coordinates": ["ref"],
         "pipeline_version": __version__,
         "service_version": grobid_input.get("service_version"),
         "producer_id": _g.get("producer_id"),
@@ -261,7 +262,7 @@ def extract_metadata(
         # In-text citation graph (issue #7).  Independent of refs parse —
         # we want partial recovery when one fails and the other doesn't.
         try:
-            intext = parse_tei_intext_citations(tei_xml)
+            intext = parse_tei_intext_citations(tei_xml, pdf_path=pdf_path)
         except Exception as e:
             parse_failed = True
             logger.warning("Failed to parse Grobid TEI in-text citations (%s)", e)

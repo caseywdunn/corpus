@@ -211,14 +211,8 @@ async def layer2_mcp_client(host: str, port: int, token: str) -> int:
                     result = await session.call_tool(
                         "list_papers", {"limit": 1}
                     )
-                    parsed = _parse_tool_result(result)
-                    if isinstance(parsed, list):
-                        _ok(f"list_papers(limit=1) → list of {len(parsed)}")
-                    else:
-                        _ok(
-                            f"list_papers(limit=1) returned "
-                            f"{type(parsed).__name__}"
-                        )
+                    rows = _result_items(_parse_tool_result(result), "hash")
+                    _ok(f"list_papers(limit=1) → {len(rows)} papers")
                 except Exception as e:
                     rc |= _fail(f"call_tool(list_papers) raised: {e}")
 
@@ -253,30 +247,51 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
         async with ClientSession(read, write) as session:
             await session.initialize()
 
-            # ── Discover a real paper hash for paper-keyed tests ────
-            # limit=1 returns one item → one content block → dict.
-            # Handle both dict (single item) and list (multi) cases.
+            # ── Discover real corpus values for keyed tests ──────────
+            # The smoke test must not assume a particular reference corpus.
             first_hash = None
+            author_surname = None
             try:
-                r = await session.call_tool("list_papers", {"limit": 1})
+                r = await session.call_tool("list_papers", {"limit": 25})
                 papers = _parse_tool_result(r)
-                if isinstance(papers, list) and papers:
-                    first_hash = papers[0].get("hash")
-                elif isinstance(papers, dict):
-                    first_hash = papers.get("hash")
-            except Exception:
-                pass
+                paper_rows = _result_items(papers)
+                if paper_rows:
+                    first_hash = paper_rows[0].get("hash")
+                authored = next(
+                    (row for row in paper_rows if row.get("first_author")), None
+                )
+                if authored:
+                    detail = await session.call_tool(
+                        "get_papers",
+                        {
+                            "hashes": [authored["hash"]],
+                            "fields": ["hash", "first_author"],
+                        },
+                    )
+                    detail_rows = _result_items(_parse_tool_result(detail))
+                    if detail_rows:
+                        author_surname = detail_rows[0].get("first_author")
+                if not first_hash:
+                    rc |= _fail("list_papers supplied no usable paper hash")
+            except Exception as e:
+                rc |= _fail(f"paper/author discovery raised: {e}")
 
             # ── Corpus summary ──────────────────────────────────────
             _section("Layer 3a: corpus-level tools")
+            taxon_name = None
+            lexicon_categories = []
             try:
-                r = await session.call_tool("corpus_summary", {})
+                r = await session.call_tool("corpus_summary", {"top_taxa": 25})
                 d = _parse_tool_result(r)
                 # key is n_papers (not paper_count)
                 if isinstance(d, dict) and d.get("n_papers", 0) > 0:
                     _ok(f"corpus_summary → {d['n_papers']} papers, "
                         f"{d.get('n_unique_taxa', '?')} taxa, "
                         f"{d.get('n_figures_total', '?')} figures")
+                    top_taxa = d.get("top_taxa") or []
+                    lexicon_categories = d.get("lexicon_categories") or []
+                    if top_taxa:
+                        taxon_name = top_taxa[0].get("name")
                 else:
                     rc |= _fail(f"corpus_summary unexpected: {d!r}")
             except Exception as e:
@@ -285,90 +300,76 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
             # ── Taxonomy tools ──────────────────────────────────────
             _section("Layer 3b: taxonomy tools")
 
-            # search_taxon — use a broadly-valid name present in any
-            # marine corpus; the important check is that the tool runs
-            # without error and returns a dict with a "found" key.
-            try:
-                r = await session.call_tool(
-                    "search_taxon", {"name": "Siphonophorae"}
-                )
-                d = _parse_tool_result(r)
-                # success: {matched_taxon_id, accepted_name, ...}
-                # not-found: {not_found: True, queried: name}
-                if isinstance(d, dict) and "matched_taxon_id" in d:
-                    _ok(f"search_taxon(Siphonophorae) → found, "
-                        f"accepted={d.get('accepted_name')!r}, "
-                        f"in_corpus={d.get('in_corpus')}")
-                elif isinstance(d, dict) and d.get("not_found"):
-                    _ok("search_taxon(Siphonophorae) → not found "
-                        "(expected on demo corpus)")
-                elif isinstance(d, dict) and "error" in d:
-                    _ok(f"search_taxon → error (no taxonomy? {d['error']!r})")
-                else:
-                    rc |= _fail(f"search_taxon unexpected: {d!r}")
-            except Exception as e:
-                rc |= _fail(f"search_taxon raised: {e}")
-
-            # list_valid_species_under
-            try:
-                r = await session.call_tool(
-                    "list_valid_species_under",
-                    {"parent_taxon_name": "Siphonophorae"},
-                )
-                d = _parse_tool_result(r)
-                if isinstance(d, list):
-                    _ok(f"list_valid_species_under(Siphonophorae) → "
-                        f"{len(d)} species")
-                elif isinstance(d, dict) and "error" in d:
-                    _ok(f"list_valid_species_under → error (expected on "
-                        f"demo: {d['error']!r})")
-                elif isinstance(d, dict) and "accepted_taxon_id" in d:
-                    # Single-item list serialised as one block → dict
-                    _ok("list_valid_species_under → 1 species (dict form)")
-                else:
-                    rc |= _fail(f"list_valid_species_under unexpected: {d!r}")
-            except Exception as e:
-                rc |= _fail(f"list_valid_species_under raised: {e}")
-
-            # get_papers_for_taxon
-            try:
-                r = await session.call_tool(
-                    "get_papers_for_taxon",
-                    {"taxon_name": "Physalia", "limit": 3},
-                )
-                d = _parse_tool_result(r)
-                if isinstance(d, list):
-                    _ok(f"get_papers_for_taxon(Physalia) → {len(d)} papers")
-                elif isinstance(d, dict):
-                    # wrapped response or error dict — acceptable
-                    _ok(f"get_papers_for_taxon → dict ({list(d)[:3]})")
-                else:
-                    rc |= _fail(f"get_papers_for_taxon unexpected: {type(d)}")
-            except Exception as e:
-                rc |= _fail(f"get_papers_for_taxon raised: {e}")
-
-            # get_taxon_dossier — the main workhorse dossier tool
-            try:
-                r = await session.call_tool(
-                    "get_taxon_dossier",
-                    {"taxon_name": "Physalia", "max_papers": 3},
-                )
-                d = _parse_tool_result(r)
-                if isinstance(d, dict):
-                    keys = set(d.keys())
-                    expected = {"taxon", "papers"}
-                    if keys & expected:
-                        _ok(f"get_taxon_dossier(Physalia) → keys: "
-                            f"{sorted(keys)[:6]}")
-                    elif "error" in keys:
-                        _ok(f"get_taxon_dossier → error dict (demo OK: "
-                            f"{d['error']!r})")
+            # Use a real indexed taxon from this bundle. A corpus without
+            # taxonomy still exercises all corpus- and paper-level checks.
+            if taxon_name:
+                try:
+                    r = await session.call_tool(
+                        "search_taxon", {"name": taxon_name}
+                    )
+                    d = _parse_tool_result(r)
+                    if isinstance(d, dict) and "matched_taxon_id" in d:
+                        _ok(f"search_taxon({taxon_name}) → found, "
+                            f"accepted={d.get('accepted_name')!r}, "
+                            f"in_corpus={d.get('in_corpus')}")
+                    elif isinstance(d, dict) and d.get("not_found"):
+                        rc |= _fail(
+                            f"search_taxon({taxon_name}) did not resolve"
+                        )
+                    elif isinstance(d, dict) and "error" in d:
+                        rc |= _fail(f"search_taxon error: {d['error']!r}")
                     else:
-                        rc |= _fail(f"get_taxon_dossier unexpected keys: {keys}")
-                else:
-                    rc |= _fail(f"get_taxon_dossier unexpected type: {type(d)}")
-            except Exception as e:
-                rc |= _fail(f"get_taxon_dossier raised: {e}")
+                        rc |= _fail(f"search_taxon unexpected: {d!r}")
+                except Exception as e:
+                    rc |= _fail(f"search_taxon raised: {e}")
+
+                # Explicit pagination also bounds roots of large snapshots.
+                try:
+                    r = await session.call_tool(
+                        "list_valid_species_under",
+                        {"parent_taxon_name": taxon_name, "limit": 3},
+                    )
+                    rows = _result_items(_parse_tool_result(r), "accepted_taxon_id")
+                    _ok(f"list_valid_species_under({taxon_name}) → {len(rows)} species")
+                except Exception as e:
+                    rc |= _fail(f"list_valid_species_under raised: {e}")
+
+                try:
+                    r = await session.call_tool(
+                        "get_papers_for_taxon", {"taxon_name": taxon_name}
+                    )
+                    rows = _result_items(_parse_tool_result(r), "hash")
+                    _ok(f"get_papers_for_taxon({taxon_name}) → {len(rows)} papers")
+                except Exception as e:
+                    rc |= _fail(f"get_papers_for_taxon raised: {e}")
+
+                try:
+                    r = await session.call_tool(
+                        "get_taxon_dossier",
+                        {"taxon_name": taxon_name, "max_papers": 3},
+                    )
+                    d = _parse_tool_result(r)
+                    if isinstance(d, dict):
+                        keys = set(d)
+                        if keys & {"taxon", "papers"}:
+                            _ok(f"get_taxon_dossier({taxon_name}) → keys: "
+                                f"{sorted(keys)[:6]}")
+                        elif "error" in keys:
+                            rc |= _fail(
+                                f"get_taxon_dossier error: {d['error']!r}"
+                            )
+                        else:
+                            rc |= _fail(
+                                f"get_taxon_dossier unexpected keys: {keys}"
+                            )
+                    else:
+                        rc |= _fail(
+                            f"get_taxon_dossier unexpected type: {type(d)}"
+                        )
+                except Exception as e:
+                    rc |= _fail(f"get_taxon_dossier raised: {e}")
+            else:
+                _info("skipping taxonomy-keyed tools (no indexed taxa)")
 
             # ── Chunks / semantic search ────────────────────────────
             _section("Layer 3c: chunk tools")
@@ -379,38 +380,34 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
             try:
                 r = await session.call_tool(
                     "get_chunks_for_topic",
-                    {"query": "nectophore morphology", "k": 3},
+                    {"query": f"{taxon_name or 'organism'} morphology", "k": 3},
                 )
                 d = _parse_tool_result(r)
-                if isinstance(d, list):
-                    _ok(f"get_chunks_for_topic → {len(d)} chunks")
-                    if d and isinstance(d[0], dict):
-                        has_text = "text" in d[0] or "chunk_id" in d[0]
-                        if not has_text:
-                            rc |= _fail(
-                                f"chunk missing text/chunk_id: {list(d[0])}"
-                            )
-                elif isinstance(d, dict) and "error" in d:
-                    _ok(f"get_chunks_for_topic → error (no embeddings? "
-                        f"{d['error']!r})")
+                if isinstance(d, dict) and d.get("code") == "not_configured":
+                    _info(f"skipping semantic search: {d['error']}")
                 else:
-                    rc |= _fail(f"get_chunks_for_topic unexpected: {d!r}")
+                    rows = _result_items(d, "chunk_id")
+                    _ok(f"get_chunks_for_topic → {len(rows)} chunks")
             except Exception as e:
                 rc |= _fail(f"get_chunks_for_topic raised: {e}")
 
             # get_chunks (paper-keyed, requires a real hash)
             if first_hash:
                 try:
+                    # Discover a bounded set before drilling down: a book can
+                    # have thousands of chunks even with text omitted.
+                    r = await session.call_tool(
+                        "get_chunks_by_section",
+                        {"paper_hash": first_hash, "limit": 3, "with_text": False},
+                    )
+                    rows = _result_items(_parse_tool_result(r), "chunk_id")
+                    chunk_ids = [row["chunk_id"] for row in rows]
                     r = await session.call_tool(
                         "get_chunks",
-                        {"paper_hash": first_hash, "with_text": False},
+                        {"paper_hash": first_hash, "chunk_ids": chunk_ids, "with_text": False},
                     )
-                    d = _parse_tool_result(r)
-                    if isinstance(d, list):
-                        _ok(f"get_chunks({first_hash[:8]}…) → "
-                            f"{len(d)} chunks")
-                    else:
-                        rc |= _fail(f"get_chunks unexpected: {type(d)}")
+                    rows = _result_items(_parse_tool_result(r), "chunk_id")
+                    _ok(f"get_chunks({first_hash[:8]}…) → {len(rows)} chunks")
                 except Exception as e:
                     rc |= _fail(f"get_chunks raised: {e}")
             else:
@@ -426,21 +423,8 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
                         "get_bibliography",
                         {"paper_hash": first_hash, "limit": 5},
                     )
-                    d = _parse_tool_result(r)
-                    if isinstance(d, list):
-                        _ok(f"get_bibliography({first_hash[:8]}…) → "
-                            f"{len(d)} refs")
-                    elif d is None:
-                        # get_bibliography returns a bare list; an empty
-                        # one (paper with no parsed references — common on
-                        # the demo corpus and on scanned/old papers) is
-                        # serialised as zero content blocks, so
-                        # _parse_tool_result yields None. That's a valid
-                        # empty result, not a failure.
-                        _ok(f"get_bibliography({first_hash[:8]}…) → 0 refs "
-                            f"(empty)")
-                    else:
-                        rc |= _fail(f"get_bibliography unexpected: {type(d)}")
+                    rows = _result_items(_parse_tool_result(r))
+                    _ok(f"get_bibliography({first_hash[:8]}…) → {len(rows)} refs")
                 except Exception as e:
                     rc |= _fail(f"get_bibliography raised: {e}")
             else:
@@ -452,85 +436,68 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
                     "get_missing_references", {"limit": 5}
                 )
                 d = _parse_tool_result(r)
-                if isinstance(d, list):
-                    _ok(f"get_missing_references → {len(d)} missing refs")
-                elif isinstance(d, dict) and "error" in d:
-                    _ok(f"get_missing_references → error (no biblio DB? "
-                        f"{d['error']!r})")
-                elif isinstance(d, dict) and "work_id" in d:
-                    # Single-item list → one block → dict
-                    _ok("get_missing_references → 1 ref (dict form)")
+                if isinstance(d, dict) and d.get("code") == "not_configured":
+                    _info(f"skipping missing references: {d['error']}")
                 else:
-                    rc |= _fail(f"get_missing_references unexpected: {type(d)}")
+                    rows = _result_items(d, "work_id")
+                    _ok(f"get_missing_references → {len(rows)} missing refs")
             except Exception as e:
                 rc |= _fail(f"get_missing_references raised: {e}")
 
-            # get_works_by_author — a well-known siphonophore author
-            try:
-                r = await session.call_tool(
-                    "get_works_by_author", {"surname": "Huxley"}
-                )
-                d = _parse_tool_result(r)
-                if isinstance(d, list):
-                    _ok(f"get_works_by_author(Huxley) → {len(d)} works")
-                elif isinstance(d, dict):
-                    _ok(f"get_works_by_author → dict ({list(d)[:3]})")
-                else:
-                    rc |= _fail(f"get_works_by_author unexpected: {type(d)}")
-            except Exception as e:
-                rc |= _fail(f"get_works_by_author raised: {e}")
+            # Use a structured surname from this bundle rather than a
+            # reference-corpus fixture.
+            if author_surname:
+                try:
+                    r = await session.call_tool(
+                        "get_works_by_author", {"surname": author_surname, "limit": 3}
+                    )
+                    d = _parse_tool_result(r)
+                    if isinstance(d, dict) and d.get("code") == "not_configured":
+                        _info(f"skipping author works: {d['error']}")
+                    else:
+                        rows = _result_items(d, "work_id")
+                        _ok(f"get_works_by_author({author_surname}) → {len(rows)} works")
+                except Exception as e:
+                    rc |= _fail(f"get_works_by_author raised: {e}")
+            else:
+                _info("skipping get_works_by_author (no paper author available)")
 
             # ── Lexicon tools ───────────────────────────────────────
             _section("Layer 3e: lexicon tools")
 
             try:
-                r = await session.call_tool(
-                    "lexicon_matrix",
-                    {"category": "anatomy"},
-                )
-                d = _parse_tool_result(r)
-                if isinstance(d, dict):
-                    if "error" in d:
-                        _ok(f"lexicon_matrix → error (no lexicon? "
-                            f"{d['error']!r})")
-                    elif "term_totals" in d or "terms" in d:
-                        # detail=False → {category, detail, paper_count, term_totals}
-                        # detail=True  → {category, detail, terms, rows}
-                        n = (len(d.get("term_totals") or d.get("terms") or []))
-                        _ok(f"lexicon_matrix(anatomy) → {n} terms, "
+                if not lexicon_categories:
+                    _info("skipping lexicon_matrix (no lexicon categories)")
+                else:
+                    category = lexicon_categories[0]
+                    r = await session.call_tool(
+                        "lexicon_matrix", {"category": category, "top_n": 3},
+                    )
+                    d = _parse_tool_result(r)
+                    if isinstance(d, dict) and ("term_totals" in d or "terms" in d):
+                        n = len(d.get("term_totals") or d.get("terms") or [])
+                        _ok(f"lexicon_matrix({category}) → {n} terms, "
                             f"paper_count={d.get('paper_count', '?')}")
                     else:
-                        rc |= _fail(
-                            f"lexicon_matrix unexpected keys: {sorted(d)}"
-                        )
-                else:
-                    rc |= _fail(f"lexicon_matrix unexpected: {type(d)}")
+                        rc |= _fail(f"lexicon_matrix unexpected: {d!r}")
             except Exception as e:
                 rc |= _fail(f"lexicon_matrix raised: {e}")
 
             # ── Figures tools ───────────────────────────────────────
             _section("Layer 3f: figure tools")
 
-            try:
-                r = await session.call_tool(
-                    "get_figures_for_taxon",
-                    {"taxon_name": "Physalia", "limit": 3},
-                )
-                d = _parse_tool_result(r)
-                if isinstance(d, list):
-                    _ok(f"get_figures_for_taxon(Physalia) → {len(d)} figures")
-                elif isinstance(d, dict) and "error" in d:
-                    _ok(f"get_figures_for_taxon → error (demo OK: "
-                        f"{d['error']!r})")
-                elif isinstance(d, dict) and "figure_id" in d:
-                    # Single figure serialised as one block → dict
-                    _ok("get_figures_for_taxon(Physalia) → 1 figure (dict form)")
-                else:
-                    rc |= _fail(
-                        f"get_figures_for_taxon unexpected: {type(d)}"
+            if taxon_name:
+                try:
+                    r = await session.call_tool(
+                        "get_figures_for_taxon",
+                        {"taxon_name": taxon_name, "limit": 3},
                     )
-            except Exception as e:
-                rc |= _fail(f"get_figures_for_taxon raised: {e}")
+                    rows = _result_items(_parse_tool_result(r), "figure_id")
+                    _ok(f"get_figures_for_taxon({taxon_name}) → {len(rows)} figures")
+                except Exception as e:
+                    rc |= _fail(f"get_figures_for_taxon raised: {e}")
+            else:
+                _info("skipping get_figures_for_taxon (no indexed taxa)")
 
             # ── Profiles tools ──────────────────────────────────────
             _section("Layer 3g: profile tools")
@@ -538,12 +505,10 @@ async def layer3_tool_coverage(host: str, port: int, token: str) -> int:
             try:
                 r = await session.call_tool("list_output_profiles", {})
                 d = _parse_tool_result(r)
-                if isinstance(d, dict) and "profiles" in d:
+                if isinstance(d, dict) and "error" not in d and isinstance(d.get("profiles"), list):
                     _ok(f"list_output_profiles → "
-                        f"{len(d['profiles'])} profiles: "
-                        f"{list(d['profiles'])}")
-                elif isinstance(d, dict):
-                    _ok(f"list_output_profiles → {sorted(d)[:5]}")
+                            f"{len(d['profiles'])} profiles: "
+                            f"{list(d['profiles'])}")
                 else:
                     rc |= _fail(f"list_output_profiles unexpected: {type(d)}")
             except Exception as e:
@@ -561,6 +526,8 @@ def _parse_tool_result(result):
     multiple parseable blocks we re-assemble them into a list so
     callers can do ``isinstance(d, list)`` normally.
     """
+    if getattr(result, "is_error", False) or getattr(result, "isError", False):
+        raise ValueError(f"MCP tool returned an error: {getattr(result, 'content', [])!r}")
     blocks = []
     for block in getattr(result, "content", []) or []:
         text = getattr(block, "text", None)
@@ -579,6 +546,24 @@ def _parse_tool_result(result):
     # Multiple blocks → the server serialised a list one item per
     # block; re-assemble.
     return blocks
+
+
+def _result_items(value, required_key=None):
+    """Normalize an MCP list result, including empty/singleton encodings."""
+    if value is None:
+        rows = []
+    elif isinstance(value, list):
+        rows = value
+    elif isinstance(value, dict):
+        rows = [value]
+    else:
+        raise ValueError(f"unexpected list result: {type(value).__name__}")
+    for row in rows:
+        if not isinstance(row, dict) or "error" in row:
+            raise ValueError(f"expected a list row, received {row!r}")
+        if required_key and required_key not in row:
+            raise ValueError(f"list row is missing {required_key}: {row!r}")
+    return rows
 
 
 # ── Orchestration ───────────────────────────────────────────────────

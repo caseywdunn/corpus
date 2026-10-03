@@ -1,0 +1,54 @@
+{
+  "scope": "Read-only stage configuration plan over the original candidate, using its CPU-floor panel mode off. Source inventory and non-config fingerprints are not re-audited here.",
+  "documents": 1775,
+  "records_unchanged": true,
+  "changed_stage_counts": {
+    "text_chunking": 1775,
+    "taxa_and_lexicon_extraction": 1775,
+    "figure_crossref": 1775
+  },
+  "recovered_books": {
+    "41906350e70d": {
+      "recorded_budget": {
+        "stage_timeouts.ocr": 1800,
+        "stage_timeouts.ocr_per_page": 120
+      },
+      "rerun_stages": {
+        "text_chunking": [
+          "config.chunking.content_policy"
+        ],
+        "taxa_and_lexicon_extraction": [
+          "config.chunking.content_policy"
+        ],
+        "figure_crossref": [
+          "config.chunking.content_policy"
+        ]
+      }
+    },
+    "82242a306d02": {
+      "recorded_budget": {
+        "stage_timeouts.ocr": 1800,
+        "stage_timeouts.ocr_per_page": 120
+      },
+      "rerun_stages": {
+        "text_chunking": [
+          "config.chunking.content_policy"
+        ],
+        "taxa_and_lexicon_extraction": [
+          "config.chunking.content_policy"
+        ],
+        "figure_crossref": [
+          "config.chunking.content_policy"
+        ]
+      }
+    }
+  },
+  "job": "27747362",
+  "acceptance": "read-only plan passes; normal full refresh still pending",
+  "full_audit_sha256": "38f8ff249ef8fc40976b84df3a4c0328291c772c9fc2dc08cbf6fe17612157ed",
+  "tests": {
+    "passed": 104,
+    "ruff_F": "pass",
+    "initial_harness_failure": "Four TEI-cache tests failed because the command omitted the candidate PyMuPDF runtime overlay. Corrected environment rerun passes; no test assertions were weakened."
+  }
+}
