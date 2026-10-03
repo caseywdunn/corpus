@@ -54,6 +54,8 @@ def config_fingerprints(config, *, panel_mode, vision_model=None, resolved_visio
     # Original-layer recovery runs before OCR replaces that evidence. Its
     # policy and installed models must invalidate preparation and consumers.
     prep["ocr.native_text_recovery_producer"] = native_text_recovery_producer()
+    from .scan import ROTATED_NATIVE_TEXT_POLICY
+    prep["ocr.rotated_native_text_policy"] = ROTATED_NATIVE_TEXT_POLICY
     from .source_spacing_recovery import source_spacing_recovery_producer
     prep["ocr.source_spacing_recovery_producer"] = source_spacing_recovery_producer()
     extract = {**prep, **select("figures", (
