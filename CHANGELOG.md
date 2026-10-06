@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The preferred citation is now the published paper: Church, Mańko, Zapata &
+  Dunn (2026), *Current Biology* 36(19): R1019–R1020,
+  [doi:10.1016/j.cub.2026.08.019](https://doi.org/10.1016/j.cub.2026.08.019).
+  `CITATION.cff` (and its packaged copy, which bundle manifests read) and the
+  README now cite the paper. The Zenodo DOI is still the way to cite a
+  specific software version.
+
 ## [1.5.0] - 2026-10-03
 
 ### Theme — v1.5 evidence correctness

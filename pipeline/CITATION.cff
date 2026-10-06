@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 title: "Extracting AI agent-accessible data from biodiversity literature with corpus"
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite the paper below."
 type: software
 authors:
   - family-names: Church
@@ -19,7 +19,7 @@ url: "https://github.com/caseywdunn/corpus"
 repository-code: "https://github.com/caseywdunn/corpus"
 license: MIT
 preferred-citation:
-  type: software
+  type: article
   title: "Extracting AI agent-accessible data from biodiversity literature with corpus"
   authors:
     - family-names: Church
@@ -30,6 +30,14 @@ preferred-citation:
       given-names: Felipe
     - family-names: Dunn
       given-names: Casey W.
-  date-released: "2026-10-03"
-  doi: 10.5281/zenodo.19964909
-  url: "https://doi.org/10.5281/zenodo.19964909"
+  journal: "Current Biology"
+  volume: 36
+  issue: 19
+  start: R1019
+  end: R1020
+  year: 2026
+  publisher:
+    name: Elsevier
+  issn: 0960-9822
+  doi: 10.1016/j.cub.2026.08.019
+  url: "https://doi.org/10.1016/j.cub.2026.08.019"

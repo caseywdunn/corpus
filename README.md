@@ -6,9 +6,11 @@
 
 ## Citing corpus
 
-We are preparing a manuscript that presents corpus. In the mean time, please cite corpus as:
+If you use corpus, please cite:
 
-> Church, S. H., Mańko, M. K., Zapata, F., & Dunn, C. W. (2026). Extracting AI agent-accessible data from biodiversity literature with corpus. <https://doi.org/10.5281/zenodo.19964909>
+> Church, S. H., Mańko, M. K., Zapata, F., & Dunn, C. W. (2026). Extracting AI agent-accessible data from biodiversity literature with corpus. *Current Biology*, 36(19), R1019–R1020. <https://doi.org/10.1016/j.cub.2026.08.019>
+
+To cite a specific software version, use the Zenodo DOI [10.5281/zenodo.19964909](https://doi.org/10.5281/zenodo.19964909).
 
 ## What corpus does
 

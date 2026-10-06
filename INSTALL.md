@@ -10,7 +10,7 @@ The one-command conda install in the [README](README.md) covers most setups. The
 
 conda-forge *could* carry the native toolchain, but a feedstock needs every dependency on conda-forge, and the pip-only block (`docling`, `lancedb`, `mcp`, `ocrmypdf`, …) is not. A container image is the better future channel — Docker is already a prerequisite for Grobid — and is tracked in [PLAN.md](dev_docs/PLAN.md) rather than promised here.
 
-**For citation, use the Zenodo DOI**, which is what a PyPI presence would have been standing in for: [10.5281/zenodo.19964909](https://doi.org/10.5281/zenodo.19964909). Each release gets its own DOI via the GitHub integration, and [CITATION.cff](CITATION.cff) carries the current form.
+**For citation, cite the paper** ([10.1016/j.cub.2026.08.019](https://doi.org/10.1016/j.cub.2026.08.019)). **To pin a specific software version, use the Zenodo DOI**, which is what a PyPI presence would have been standing in for: [10.5281/zenodo.19964909](https://doi.org/10.5281/zenodo.19964909). Each release gets its own DOI via the GitHub integration, and [CITATION.cff](CITATION.cff) carries the current form.
 
 ## Supported platforms
 
